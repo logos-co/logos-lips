@@ -660,7 +660,7 @@ Payload &= 4608 - 624 \\
 `$
 
 Implementations MUST account for payload extensions, such as SURBs, when determining the maximum message size that can be encapsulated in a single Sphinx packet.
-Details on SURBs are defined in [Section X.X].
+Details on SURBs are defined in [Section 8.7.1](#871-surb-component-sizes).
 
 The following subsection defines the padding and fragmentation requirements for ensuring this fixed-size constraint.
 
@@ -751,7 +751,7 @@ The construction MUST proceed as follows:
 
    - Apply any configured exit abuse prevention mechanism (_e.g.,_ PoW, VDF, RLN) to the serialized message.
    Exit abuse prevention mechanisms are pluggable as defined in [Section 6.3](#63-exit-abuse-prevention).
-   - Attach one or more SURBs, if required. Their format and processing are specified in [Section X.X].
+   - Attach one or more SURBs, if required, following the steps in [Section 8.7.2](#872-surb-creation).
    - Append the origin protocol codec in a format that enables the exit node to reliably extract it during parsing. A recommended encoding approach is to prefix the codec string with its length, encoded as a compact varint field limited to two bytes. Regardless of the scheme used, implementations MUST agree on the format within a deployment to ensure deterministic decoding.
    - Pad the result to the maximum application message length of $3968$ bytes using a deterministic padding scheme. This value is derived from the fixed payload size in [Section 8.3.2](#832-payload-size) ($3984$ bytes) minus the security parameter $κ = 16$ bytes defined in [Section 8.2](#82-cryptographic-primitives). The chosen scheme MUST yield a fixed-size padded output and MUST be consistent across all mix nodes to ensure correct interpretation during unpadding. For example, schemes that explicitly encode the padding length and prepend zero-valued padding bytes MAY be used.
    - Let the resulting message be $m$.
@@ -944,7 +944,7 @@ The construction MUST proceed as follows:
 
    f. **Transmit Packet**
 
-   - Sample a randomized delay from the same distribution family used for per-hop delays (in Step 3.c.) with an independently chosen mean.
+   - Sample a randomized delay from the same distribution family used for per-hop delays (in step 3.c.) with an independently chosen mean.
 
    This delay prevents timing correlation when multiple Sphinx packets are sent in quick succession.
    Such bursts may occur when an upstream protocol fragments a large message, or when several messages are sent close together.
@@ -1069,7 +1069,7 @@ As described in [Section 8.6.1](#861-shared-preprocessing), the mix node obtains
 
 At this stage, the node MUST determine whether it is an intermediary or the exit based on the prefix of $B$, in accordance with the construction of $β_i$ defined in [Section 8.5.2](#852-construction-steps) step 3.c.:
 
-- If the first $(tκ - 2)$ bytes of $B$ contain a nonzero-encoded address immediately followed by a two-byte zero delay, process the packet as an exit.
+- If $B_{[(tκ-2)\ldots tκ-1]}$ contains a two-byte zero delay, process the packet as an exit.
 - Otherwise, process the packet as an intermediary.
 
 The following subsections define the precise behavior for each case.
@@ -1090,7 +1090,7 @@ Once the node determines its role as an intermediary following the steps in [Sec
      \end{array}
      `$
 
-   - Extract next two bytes as the mean delay $\mathrm{delay}$
+   - Extract the next two bytes as the mean delay $\mathrm{delay}$
 
      $`
      \begin{array}{l}
@@ -1098,7 +1098,7 @@ Once the node determines its role as an intermediary following the steps in [Sec
      \end{array}
      `$
 
-   - Extract next $κ$ bytes as the next hop MAC $γ'$
+   - Extract the next $κ$ bytes as the next hop MAC $γ'$
 
      $`
      \begin{array}{l}
@@ -1106,7 +1106,7 @@ Once the node determines its role as an intermediary following the steps in [Sec
      \end{array}
      `$
 
-   - Extract next $(r(t+1)+1)κ$ bytes as the next hop routing information $β'$
+   - Extract the next $(r(t+1)+1)κ$ bytes as the next hop routing information $β'$
 
      $`
      \begin{array}{l}
@@ -1120,7 +1120,7 @@ Once the node determines its role as an intermediary following the steps in [Sec
 
    Update the header fields according to the construction steps defined in [Section 8.5.2](#852-construction-steps):
 
-   - Compute the next hop ephemeral public value $α'$, deriving the blinding factor $b$ from the shared secret $s$ computed in [Section 8.6.1](#861-shared-preprocessing) step 1.
+   - Compute the next hop ephemeral public value $α'$, deriving the blinding factor $b$ from the shared secret $s$ computed in [Section 8.6.1](#861-shared-preprocessing) Step 1.
 
      $`
      \begin{aligned}
@@ -1133,7 +1133,7 @@ Once the node determines its role as an intermediary following the steps in [Sec
 
 3. **Update Payload**
 
-   Use the decrypted payload $δ'$ computed in [Section 8.6.1](#861-shared-preprocessing) step 5. as the payload in the outgoing packet.
+   Use the decrypted payload $δ'$ computed in [Section 8.6.1](#861-shared-preprocessing) Step 5. as the payload in the outgoing packet.
 
 4. **Assemble Final Packet**
    The final Sphinx packet is structured as defined in [Section 8.3](#83-packet-component-sizes):
@@ -1150,7 +1150,7 @@ Once the node determines its role as an intermediary following the steps in [Sec
 
 5. **Transmit Packet**
 
-   - Interpret the $\mathrm{addr}$ and $\mathrm{delay}$ extracted in Step 1. according to the encoding format used during construction in [Section 8.5.2](#852-construction-steps) Step 3.c.
+   - Interpret the $\mathrm{addr}$ and $\mathrm{delay}$ extracted in Step 1. according to the encoding format used during construction in [Section 8.5.2](#852-construction-steps) step 3.c.
 
    - Sample the actual forwarding delay from the configured delay distribution, using the decoded mean delay value as the distribution parameter.
 
@@ -1166,13 +1166,19 @@ Once the node determines its role as an intermediary following the steps in [Sec
 
 #### 8.6.4 Exit Processing
 
-Once the node determines its role as an exit following the steps in [Section 8.6.2](#862-node-role-determination), it MUST perform the following steps to interpret routing block $B$ and decrypted payload $δ'$ obtained in [Section 8.6.1](#861-shared-preprocessing):
+Once the node determines its role as an exit following the steps in [Section 8.6.2](#862-node-role-determination), it MUST determine the exit message type from the routing block $B$ obtained in [Section 8.6.1](#861-shared-preprocessing):
+
+- If $B_{[0 \ldots tκ-3]}$ encodes zero address and $B_{[tκ \ldots tκ+κ-1]}$ is nonzero (_i.e.,_ contains a SURB identifier), the packet is a SURB reply.
+  Process per [Section 8.7.4](#874-surb-reply-processing).
+
+- Otherwise, the packet is a forward message.
+  The node MUST perform the following steps to interpret routing block $B$ and decrypted payload $δ'$ obtained in [Section 8.6.1](#861-shared-preprocessing):
 
 1. **Parse Routing Block**
 
    Parse the routing block $B$ according to the $β_i$, $i = L - 1$ construction defined in [Section 8.5.2](#852-construction-steps) step 3.c.:
 
-   - Extract first $(tκ - 2)$ bytes of $B$ as the destination address $Δ$
+   - Extract the first $(tκ - 2)$ bytes of $B$ as the destination address $Δ$
 
      $`
      \begin{array}{l}
@@ -1182,7 +1188,7 @@ Once the node determines its role as an exit following the steps in [Section 8.6
 
 2. **Recover Padded Application Message**
 
-   - Verify the decrypted payload $δ'$ computed in [Section 8.6.1](#861-shared-preprocessing) step 5.:
+   - Verify the decrypted payload $δ'$ computed in [Section 8.6.1](#861-shared-preprocessing) Step 5.:
 
      $`
      \begin{array}{l}
@@ -1204,7 +1210,7 @@ Once the node determines its role as an exit following the steps in [Section 8.6
 
 3. **Extract Application Message**
 
-   Interpret recovered $m$ according to the construction steps defined in [Section 8.5.2](#852-construction-steps) step 1.:
+   Interpret recovered $m$ according to the construction steps defined in [Section 8.5.2](#852-construction-steps) Step 1.:
 
    - First, unpad $m$ using the deterministic padding scheme defined during construction.
 
@@ -1232,9 +1238,212 @@ Once the node determines its role as an exit following the steps in [Section 8.6
 
 5. **Handoff to Exit Layer**
 
-   - Hand off the serialized application message, the origin protocol codec, and destination address $Δ$ (extracted in step 1.) to the local Exit layer for further processing and delivery.
+   - Hand off the serialized application message, the origin protocol codec, destination address $Δ$ (extracted in Step 1.), and any SURBs extracted in Step 3. to the local Exit Layer for further processing and delivery.
 
    - The Exit Layer is responsible for establishing a client-only connection and forwarding the message to the destination. Implementations MAY reuse an existing stream to the destination, if doing so does not introduce any observable linkability between forwarded messages.
+     It is also responsible for storing any received SURBs and routing responses from the destination using them (see [Section 8.7.3](#873-using-a-surb)).
+
+### 8.7 Single-Use Reply Blocks
+
+A Single-Use Reply Block (SURB) allows the recipient of a Sphinx packet to send a reply without learning the sender's identity, the return mix path, or any forwarding delays.
+
+A SURB MUST be used at most once. Reusing a SURB allows nodes on the return path to link multiple replies back to the original sender.
+
+A SURB encodes a complete Sphinx header for a return path, a symmetric reply key, and a unique reply identifier. The initiating node constructs one or more SURBs and embeds them in the outgoing Sphinx packet payload. The recipient uses a SURB to reply — only the original sender can decrypt the reply.
+
+This section defines how SURBs are created ([Section 8.7.2](#872-surb-creation)), used by the recipient ([Section 8.7.3](#873-using-a-surb)), processed by the exit node ([Section 8.7.4](#874-surb-reply-processing)), and recovered by the Exit Layer ([Section 8.7.5](#875-reply-recovery)).
+
+#### 8.7.1 SURB Component Sizes
+
+A SURB consists of the following components:
+
+- **$\mathrm{hop}_0$**: $tκ - 2$ bytes. The address of the first mix node on the return path, encoded as defined in [Section 8.4](#84-address-and-delay-encoding).
+- **$(α_0, β_0, γ_0)$**: A complete Sphinx header for the return path, with component sizes as defined in [Section 8.3.1](#831-header-field-sizes):
+  - $α_0$: $32$ bytes
+  - $β_0$: $(r(t + 1) + 1)κ$ bytes
+  - $γ_0$: $κ$ bytes
+- **$\tilde{k}$**: $κ$ bytes. The reply key.
+
+The total SURB size is:
+
+$`
+\begin{aligned}
+|SURB| &= (tκ - 2) + 32 + (r(t + 1) + 1)κ + κ + κ \\
+       &= 30 + (r(t + 1) + 3)κ + tκ
+\end{aligned}
+`$
+
+Using the recommended parameters ($r = 5$, $t = 6$, $κ = 16$ bytes):
+
+$`
+\begin{aligned}
+|SURB| &= 94 + 32 + 576 + 16 + 16 \\
+       &= 734\ \text{bytes}
+\end{aligned}
+`$
+
+Each SURB embedded in the message payload reduces the available application message space by $734$ bytes. With the allowable message size of $3968$ bytes derived in [Section 8.5.2](#852-construction-steps) step 3.d, attaching $n$ SURBs leaves $3968 - (n \times 734)$ bytes for the application message, protocol codec, and any exit abuse prevention proof.
+
+#### 8.7.2 SURB Creation
+
+Depending on whether an application message requires a reply, the initiating node may create and attach one or more SURBs during its preparation ([Section 8.5.2](#852-construction-steps) Step 1) for Sphinx packet construction.
+To construct each SURB, the initiating node MUST perform the following steps:
+
+1. **Select Return Path and Compute Ephemeral Secrets**
+
+   Select a return mix path of length $L \geq 3$ with the initiating node as the final hop. Compute the ephemeral public value $α_0$ and per-hop shared secrets $s_0, \ldots, s_{L-1}$ following the same procedure as [Section 8.5.2](#852-construction-steps) Step 2 and step 3.a.
+
+2. **Sample SURB Identifier and Reply Key**
+
+   Sample a unique SURB identifier $\mathrm{id}$ and a reply key $\tilde{k}$ of length $κ$ bytes uniformly at random.
+
+3. **Construct Return Path Header**
+
+   Compute per-hop filler strings and construct the routing header following the same procedure in [Section 8.5.2](#852-construction-steps) steps 3.b and 3.c, with just $β_{L-1}$ computed as follows:
+
+   $`
+   \begin{array}{l}
+   β_{L-1} = \mathrm{AES\text{-}CTR}\bigl(β_{\mathrm{aes\_key}_{L-1}},\;
+   β_{\mathrm{iv}_{L-1}},\;
+   0_{tκ} \mid \mathrm{id} \mid 0_{(((t+1)(r-L))+1)κ}
+   \bigr) \bigm| Φ_{L-1}
+   \end{array}
+   `$
+
+   That is, encode zero address and delay followed by the SURB identifier $\mathrm{id}$ in $β_{L-1}$. The SURB identifier is embedded so that the initiating node can match an incoming reply to the stored decryption keys in Step 4 below.
+
+   Use the same construction for the remaining routing blocks $β_i$, $0 \leq i < L-1$, and all per-hop MACs $γ_i$, $0 \leq i \leq L-1$.
+
+   Note: A SURB construction follows the same steps for Sphinx packet construction in [Section 8.5.2](#852-construction-steps) Steps 2 and 3, with a modified exit routing block that signals a SURB reply.
+
+4. **Assemble SURB**
+
+   Assemble the SURB tuple $\mathrm{hop}_0,\; (α_0, β_0, γ_0),\; \tilde{k}$ as defined in [Section 8.7.1](#871-surb-component-sizes). Here $\mathrm{hop}_0$ is the address of the first hop on the return path. Embed the SURB in the message payload.
+
+   The initiating node MUST store the tuple $(\tilde{k},\; s_0,\; \ldots,\; s_{L-1})$ in a local table indexed by $\mathrm{id}$, for reply recovery defined in [Section 8.7.5](#875-reply-recovery).
+
+#### 8.7.3 Using a SURB
+
+When the Exit Layer receives any SURBs as part of the handoff defined in [Section 8.6.4](#864-exit-processing) Step 4, it MUST retain them for routing the destination's responses back to the sender.
+
+Note: Each retained SURB consists of the hop address of the first node in the return path, a pre-computed Sphinx header, and a reply key, as defined in [Section 8.7.1](#871-surb-component-sizes).
+
+Once the destination responds with a reply message, the Exit Layer MUST perform the following steps to use a SURB $(\mathrm{hop}_0,\; (α, β, γ),\; \tilde{k})$:
+
+1. **Prepare Reply Message**
+
+   Pad the reply message to $3968$ bytes using a deterministic padding scheme, consistent with [Section 8.5.2](#852-construction-steps) Step 1. Let the resulting message be $m$.
+
+2. **Encrypt Reply Payload**
+
+   Derive the AES key, IV, and compute the encrypted payload $δ$ following the same procedure in [Section 8.5.2](#852-construction-steps) step 3.d for $i = L-1$, substituting $\tilde{k}$ for $s_{L-1}$.
+
+   Note: Unlike the forward path ([Section 8.5.2](#852-construction-steps) step 3.d), the reply payload is encrypted only once&mdash;using $\tilde{k}$ alone. Each mix node on the return path will apply one additional layer during Sphinx processing ([Section 8.6.1](#861-shared-preprocessing) Step 5), resulting in $L + 1$ layers total that the initiating node must remove during reply recovery (see [Section 8.7.5](#875-reply-recovery)).
+
+3. **Assemble and Transmit Reply Packet**
+
+   Assemble the Sphinx packet using the SURB header $(α, β, γ)$ and encrypted payload $δ$ from Step 2, following the packet format defined in [Section 8.5.2](#852-construction-steps) step 3.e. Serialize and transmit packet to $\mathrm{hop}_0$ (retrieved from the SURB) via a libp2p stream negotiated under the `"/mix/1.0.0"` protocol identifier.
+
+#### 8.7.4 SURB Reply Processing
+
+During Sphinx packet handling, once a node determines its role as an exit following the steps in [Section 8.6.2](#862-node-role-determination) and the message type as SURB reply from [Section 8.6.4](#864-exit-processing), it MUST perform the following steps to interpret the routing block $B$ and decrypted payload $δ'$ obtained in [Section 8.6.1](#861-shared-preprocessing):
+
+1. **Extract SURB Identifier**
+
+   Extract the SURB identifier $\mathrm{id}$ from $B$, at the position defined in [Section 8.7.2](#872-surb-creation) Step 3:
+
+   $`
+   \begin{array}{l}
+   \mathrm{id} = B_{[tκ\ldots tκ+κ-1]}
+   \end{array}
+   `$
+
+2. **Handoff to Exit Layer**
+
+   Hand off the decrypted payload $δ'$ and the extracted SURB identifier $\mathrm{id}$ to the local Exit Layer for reply recovery, as defined in [Section 8.7.5](#875-reply-recovery).
+
+#### 8.7.5 Reply Recovery
+
+When the Exit Layer receives decrypted payload $δ'$ and the SURB identifier $\mathrm{id}$, as part of the handoff defined in [Section 8.7.4](#874-surb-reply-processing) Step 2, it MUST perform the following steps to recover the reply message:
+
+1. **Retrieve Decryption Keys**
+
+   Retrieve the decryption keys tuple $(\tilde{k},\; s_0,\; \ldots,\; s_{L-1})$ indexed by $\mathrm{id}$ stored as defined in [Section 8.7.2](#872-surb-creation) Step 4.
+   
+   If no tuple is found, discard the reply and terminate processing.
+
+2. **Recover Padded Reply Message**
+
+   The encrypted payload $δ'$ contains the padded reply message $m$ defined in [Section 8.7.3](#873-using-a-surb) Step 1, prepended with a $κ$-byte string of zeros.
+   It is encrypted in $L + 1$ layers&mdash;first using the reply key $\tilde{k}$, then with each hop on the return path adding exactly one layer using the per-hop session key $s_0,\; \ldots,\; s_{L-1}$.
+   To recover the padded reply message, perform the following steps for each layer $i = 0$ to $L$, recursively:
+
+   - Derive per-hop AES key and IV:
+
+     - If $i = 0$ (_i.e.,_ first layer):
+
+       $`
+       \begin{array}{l}
+       δ_{\mathrm{aes\_key}_i} = \mathrm{KDF}(\text{"δ\_aes\_key"} \mid \tilde{k})\\
+       δ_{\mathrm{iv}_i} =
+       \mathrm{KDF}(\text{"δ\_iv"} \mid \tilde{k})
+       \end{array}
+       `$
+
+     - If $i = 1$ to $L$ (_i.e.,_ all other layers):
+
+       $`
+       \begin{array}{l}
+       δ_{\mathrm{aes\_key}_i} = \mathrm{KDF}(\text{"δ\_aes\_key"} \mid s_{i-1})\\
+       δ_{\mathrm{iv}_i} =
+       \mathrm{KDF}(\text{"δ\_iv"} \mid s_{i-1})
+       \end{array}
+       `$
+
+   - Using the derived keys, decrypt $δ'$:
+
+     - If $i = 0$ (_i.e.,_ first layer):
+
+       $`
+       \begin{array}{l}
+       δ_i = \mathrm{AES\text{-}CTR}\bigl(δ_{\mathrm{aes\_key}_i},
+       δ_{\mathrm{iv}_i}, δ'
+       \bigr)
+       \end{array}
+       `$
+
+     - If $i = 1$ to $L$ (_i.e.,_ all other layers):
+
+       $`
+       \begin{array}{l}
+       δ_i = \mathrm{AES\text{-}CTR}\bigl(δ_{\mathrm{aes\_key}_i},
+       δ_{\mathrm{iv}_i}, δ_{i-1} \bigr)
+       \end{array}
+       `$
+
+   - Verify the decrypted payload $δ_{L}$:
+
+     $`
+     \begin{array}{l}
+     δ_L{}_{[0\ldots{κ} - 1]} \stackrel{?}{=} 0_{κ}
+     \end{array}
+     `$
+
+     If the check fails, discard $δ_{L}$ and terminate processing.
+
+3. **Recover Reply Message**
+
+   - Extract rest of the bytes of $δ_{L}$ as the padded reply message $m$:
+
+     $`
+     \begin{array}{l}
+     m = δ_L{}_{[κ\ldots]}
+     \end{array}
+     `$
+
+   - Unpad $m$ using the deterministic padding scheme defined during construction in [Section 8.7.3](#873-using-a-surb) Step 1.
+  
+   - Erase all temporary values and the stored decryption keys $(\tilde{k},\; s_0,\; \ldots,\; s_{L-1})$ from memory.
 
 ## 9. Security Considerations
 
@@ -1361,7 +1570,7 @@ The Mix Protocol does not support retransmission, delivery acknowledgments, or a
 Each message is sent once and routed independently through the mixnet.
 If a message is lost or a node becomes unavailable, recovery is the responsibility of the top-level application.
 
-Single-Use Reply Blocks (SURBs) (defined in [Section X.X]) enable destinations to send responses back to the sender via a fresh mix path.
+Single-Use Reply Blocks (SURBs) (defined in [Section 8.7](#87-single-use-reply-blocks)) enable destinations to send responses back to the sender via a fresh mix path.
 However, SURBs are optional, and their usage for acknowledgments or retries must be coordinated by the application.
 
 Applications using the Mix Protocol MUST treat delivery as probabilistic.
