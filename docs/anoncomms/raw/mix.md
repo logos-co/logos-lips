@@ -1251,18 +1251,20 @@ A SURB MUST be used at most once. Reusing a SURB allows nodes on the return path
 
 A SURB encodes a complete Sphinx header for a return path, a symmetric reply key, and a unique reply identifier. The initiating node constructs one or more SURBs and embeds them in the outgoing Sphinx packet payload. The recipient uses a SURB to reply — only the original sender can decrypt the reply.
 
-This section defines how SURBs are created ([Section 8.7.2](#872-surb-creation)), used by the recipient ([Section 8.7.3](#873-using-a-surb)), processed by the exit node ([Section 8.7.4](#874-surb-reply-processing)), and recovered by the Exit Layer ([Section 8.7.5](#875-reply-recovery)).
+This section defines SURB component sizes and total size ([Section 8.7.1](#871-surb-component-sizes)), how SURBs are created ([Section 8.7.2](#872-surb-creation)), used by the recipient ([Section 8.7.3](#873-using-a-surb)), processed by the exit node ([Section 8.7.4](#874-surb-reply-processing)), and recovered by the Exit Layer ([Section 8.7.5](#875-reply-recovery)).
 
 #### 8.7.1 SURB Component Sizes
 
 A SURB consists of the following components:
 
-- **$\mathrm{hop}_0$**: $tκ - 2$ bytes. The address of the first mix node on the return path, encoded as defined in [Section 8.4](#84-address-and-delay-encoding).
+- **$\mathrm{hop}_0$**: $tκ - 2$ bytes. The address of the first mix node on the return path. Uses the same $tκ$ address block encoding defined in [Section 8.4](#84-address-and-delay-encoding), minus the 2-byte delay field, since no delay is encoded here.
+
 - **$(α_0, β_0, γ_0)$**: A complete Sphinx header for the return path, with component sizes as defined in [Section 8.3.1](#831-header-field-sizes):
-  - $α_0$: $32$ bytes
-  - $β_0$: $(r(t + 1) + 1)κ$ bytes
-  - $γ_0$: $κ$ bytes
-- **$\tilde{k}$**: $κ$ bytes. The reply key.
+  - $α_0$: $32$ bytes. The ephemeral public value for the first hop.
+  - $β_0$: $(r(t + 1) + 1)κ$ bytes.  The nested encrypted routing information for the return path.
+  - $γ_0$: $κ$ bytes. The message authentication code computed over $β_0$ using the session key derived from $α_0$.
+
+- **$\tilde{k}$**: $κ$ bytes. The reply key, sampled uniformly at random by the initiating node.
 
 The total SURB size is:
 
