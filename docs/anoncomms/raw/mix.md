@@ -1303,8 +1303,8 @@ To construct each SURB, the initiating node MUST perform the following steps:
 
    $`
    \begin{array}{l}
-   β_{L-1} = \mathrm{AES\text{-}CTR}\bigl(β_{\mathrm{aes\_key}_{L-1}},\;
-   β_{\mathrm{iv}_{L-1}},\;
+   β_{L-1} = \mathrm{AES\text{-}CTR}\bigl(β_{\mathrm{aes\_key}_{L-1}},
+   β_{\mathrm{iv}_{L-1}},
    0_{tκ} \mid \mathrm{id} \mid 0_{(((t+1)(r-L))+1)κ}
    \bigr) \bigm| Φ_{L-1}
    \end{array}
@@ -1318,9 +1318,9 @@ To construct each SURB, the initiating node MUST perform the following steps:
 
 4. **Assemble SURB**
 
-   Assemble the SURB tuple $\mathrm{hop}_0,\; (α_0, β_0, γ_0),\; \tilde{k}$ as defined in [Section 8.7.1](#871-surb-component-sizes). Here $\mathrm{hop}_0$ is the address of the first hop on the return path. Embed the SURB in the message payload.
+   Assemble the SURB tuple $\mathrm{hop}_0, (α_0, β_0, γ_0), \tilde{k}$ as defined in [Section 8.7.1](#871-surb-component-sizes). Here $\mathrm{hop}_0$ is the address of the first hop on the return path. Embed the SURB in the message payload.
 
-   The initiating node MUST store the tuple $(\tilde{k},\; s_0,\; \ldots,\; s_{L-1})$ in a local table indexed by $\mathrm{id}$, for reply recovery defined in [Section 8.7.5](#875-reply-recovery).
+   The initiating node MUST store the tuple $(\tilde{k}, s_0, \ldots, s_{L-1})$ in a local table indexed by $\mathrm{id}$, for reply recovery defined in [Section 8.7.5](#875-reply-recovery).
 
 #### 8.7.3 Using a SURB
 
@@ -1328,7 +1328,7 @@ When the Exit Layer receives any SURBs as part of the handoff defined in [Sectio
 
 Note: Each retained SURB consists of the hop address of the first node in the return path, a pre-computed Sphinx header, and a reply key, as defined in [Section 8.7.1](#871-surb-component-sizes).
 
-Once the destination responds with a reply message, the Exit Layer MUST perform the following steps to use a SURB $(\mathrm{hop}_0,\; (α, β, γ),\; \tilde{k})$:
+Once the destination responds with a reply message, the Exit Layer MUST perform the following steps to use a SURB $(\mathrm{hop}_0, (α, β, γ), \tilde{k})$:
 
 1. **Prepare Reply Message**
 
@@ -1368,14 +1368,14 @@ When the Exit Layer receives decrypted payload $δ'$ and the SURB identifier $\m
 
 1. **Retrieve Decryption Keys**
 
-   Retrieve the decryption keys tuple $(\tilde{k},\; s_0,\; \ldots,\; s_{L-1})$ indexed by $\mathrm{id}$ stored as defined in [Section 8.7.2](#872-surb-creation) Step 4.
+   Retrieve the decryption keys tuple $(\tilde{k}, s_0, \ldots, s_{L-1})$ indexed by $\mathrm{id}$ stored as defined in [Section 8.7.2](#872-surb-creation) Step 4.
    
    If no tuple is found, discard the reply and terminate processing.
 
 2. **Recover Padded Reply Message**
 
    The encrypted payload $δ'$ contains the padded reply message $m$ defined in [Section 8.7.3](#873-using-a-surb) Step 1, prepended with a $κ$-byte string of zeros.
-   It is encrypted in $L + 1$ layers&mdash;first using the reply key $\tilde{k}$, then with each hop on the return path adding exactly one layer using the per-hop session key $s_0,\; \ldots,\; s_{L-1}$.
+   It is encrypted in $L + 1$ layers&mdash;first using the reply key $\tilde{k}$, then with each hop on the return path adding exactly one layer using the per-hop session key $s_0, \ldots, s_{L-1}$.
    To recover the padded reply message, perform the following steps for each layer $i = 0$ to $L$, recursively:
 
    - Derive per-hop AES key and IV:
@@ -1443,7 +1443,7 @@ When the Exit Layer receives decrypted payload $δ'$ and the SURB identifier $\m
 
    - Unpad $m$ using the deterministic padding scheme defined during construction in [Section 8.7.3](#873-using-a-surb) Step 1.
   
-   - Erase all temporary values and the stored decryption keys $(\tilde{k},\; s_0,\; \ldots,\; s_{L-1})$ from memory.
+   - Erase all temporary values and the stored decryption keys $(\tilde{k}, s_0, \ldots, s_{L-1})$ from memory.
 
 ## 9. Security Considerations
 
