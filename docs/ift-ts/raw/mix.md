@@ -877,7 +877,7 @@ The construction MUST proceed as follows:
      Note that the length of $\gamma_i$ is $κ$, $0 \leq i \leq L-1$ as defined in [Section 8.3.1](#831-header-field-sizes).
 
    d. **Encrypt Payload**
-   The encrypted payload $δ$ contains the message $m$ defined in Step 1, prepended with a $κ$-byte string of zeros.
+   The encrypted payload $δ$ contains the message $m$ defined in step 1, prepended with a $κ$-byte string of zeros.
    It is encrypted in layers such that each hop in the mix path removes exactly one layer using the per-hop session key.
    This ensures that only the final hop (_i.e.,_ the exit node) can fully recover $m$, validate its integrity, and forward it to the destination.
    To compute the encrypted payload, perform the following steps for each hop $i = L-1$ down to $0$, recursively:
@@ -916,7 +916,7 @@ The construction MUST proceed as follows:
 
      Note that the length of $\delta_i$, $0 \leq i \leq L-1$ is $|m| + κ$ bytes.
 
-     Given that the derived size of $\delta_i$ is $3984$ bytes as defined in [Section 8.3.2](#832-payload-size), this allows $m$ to be of length $3984-16 = 3968$ bytes as defined in Step 1.
+     Given that the derived size of $\delta_i$ is $3984$ bytes as defined in [Section 8.3.2](#832-payload-size), this allows $m$ to be of length $3984-16 = 3968$ bytes as defined in step 1.
 
    e. **Assemble Final Packet**
    The final Sphinx packet is structured as defined in [Section 8.3](#83-packet-component-sizes):
@@ -958,7 +958,7 @@ This section defines the exact behavior for both roles.
 
 Upon receiving a stream payload over a libp2p stream, the mix node MUST first deserialize it into a Sphinx packet `(α, β, γ, δ)`.
 
-The deserialized fields MUST match the sizes defined in [Section 8.5.2](#852-construction-steps) step 3.e., and the total packet length MUST match the fixed packet size defined in [Section 8.3.2](#832-payload-size).
+The deserialized fields MUST match the sizes defined in [Section 8.5.2](#852-construction-steps) Step 3.e., and the total packet length MUST match the fixed packet size defined in [Section 8.3.2](#832-payload-size).
 
 If the stream payload does not match the expected length, it MUST be discarded and the processing MUST terminate.
 
@@ -1023,7 +1023,7 @@ After successful deserialization, the mix node performs the following steps:
      \end{array}
      `$
 
-     This step removes the filler string appended during header encryption in [Section 8.5.2](#852-construction-steps) step 3.c. and yields the plaintext routing information for this hop.
+     This step removes the filler string appended during header encryption in [Section 8.5.2](#852-construction-steps) Step 3.c. and yields the plaintext routing information for this hop.
 
    The routing block $B$ MUST be parsed according to the rules and field layout defined in [Section 8.6.2](#862-node-role-determination) to determine whether the current node is an intermediary or the exit.
 
@@ -1055,7 +1055,7 @@ After successful deserialization, the mix node performs the following steps:
 
 As described in [Section 8.6.1](#861-shared-preprocessing), the mix node obtains the routing block $B$ by decrypting one layer of the encrypted header $β$.
 
-At this stage, the node MUST determine whether it is an intermediary or the exit based on the prefix of $B$, in accordance with the construction of $β_i$ defined in [Section 8.5.2](#852-construction-steps) step 3.c.:
+At this stage, the node MUST determine whether it is an intermediary or the exit based on the prefix of $B$, in accordance with the construction of $β_i$ defined in [Section 8.5.2](#852-construction-steps) Step 3.c.:
 
 - If $B_{[(tκ-2)\ldots tκ-1]}$ contains a two-byte zero delay, process the packet as an exit.
 - Otherwise, process the packet as an intermediary.
@@ -1068,7 +1068,7 @@ Once the node determines its role as an intermediary following the steps in [Sec
 
 1. **Parse Routing Block**
 
-   Parse the routing block $B$ according to the $β_i$, $i \neq L - 1$ construction defined in [Section 8.5.2](#852-construction-steps) step 3.c.:
+   Parse the routing block $B$ according to the $β_i$, $i \neq L - 1$ construction defined in [Section 8.5.2](#852-construction-steps) Step 3.c.:
 
    - Extract the first $(tκ - 2)$ bytes of $B$ as the next hop address $\mathrm{addr}$
 
@@ -1117,7 +1117,7 @@ Once the node determines its role as an intermediary following the steps in [Sec
      \end{aligned}
      `$
 
-   - Use the $β'$ and $γ'$ extracted in Step 1. as the routing information and MAC respectively in the outgoing packet.
+   - Use the $β'$ and $γ'$ extracted in step 1. as the routing information and MAC respectively in the outgoing packet.
 
 3. **Update Payload**
 
@@ -1138,7 +1138,7 @@ Once the node determines its role as an intermediary following the steps in [Sec
 
 5. **Transmit Packet**
 
-   - Interpret the $\mathrm{addr}$ and $\mathrm{delay}$ extracted in Step 1. according to the encoding format used during construction in [Section 8.5.2](#852-construction-steps) step 3.c.
+   - Interpret the $\mathrm{addr}$ and $\mathrm{delay}$ extracted in step 1. according to the encoding format used during construction in [Section 8.5.2](#852-construction-steps) Step 3.c.
 
    - Sample the actual forwarding delay from the configured delay distribution, using the decoded mean delay value as the distribution parameter.
 
@@ -1164,7 +1164,7 @@ Once the node determines its role as an exit following the steps in [Section 8.6
 
 1. **Parse Routing Block**
 
-   Parse the routing block $B$ according to the $β_i$, $i = L - 1$ construction defined in [Section 8.5.2](#852-construction-steps) step 3.c.:
+   Parse the routing block $B$ according to the $β_i$, $i = L - 1$ construction defined in [Section 8.5.2](#852-construction-steps) Step 3.c.:
 
    - Extract the first $(tκ - 2)$ bytes of $B$ as the destination address $Δ$
 
@@ -1216,7 +1216,7 @@ Once the node determines its role as an exit following the steps in [Section 8.6
 
 4. **Handoff to Exit Layer**
 
-   - Hand off the serialized application message, the origin protocol codec, destination address $Δ$ (extracted in Step 1.), and any SURBs extracted in Step 3. to the local Exit Layer for further processing and delivery.
+   - Hand off the serialized application message, the origin protocol codec, destination address $Δ$ (extracted in step 1.), and any SURBs extracted in step 3. to the local Exit Layer for further processing and delivery.
 
    - The Exit Layer is responsible for establishing a client-only connection and forwarding the message to the destination. Implementations MAY reuse an existing stream to the destination, if doing so does not introduce any observable linkability between forwarded messages.
      It is also responsible for storing any received SURBs and routing responses from the destination using them (see [Section 8.7.3](#873-using-a-surb)).
@@ -1262,7 +1262,7 @@ $`
 \end{aligned}
 `$
 
-Each SURB embedded in the message payload reduces the available application message space by $734$ bytes. With the allowable message size of $3968$ bytes derived in [Section 8.5.2](#852-construction-steps) step 3.d, attaching $n$ SURBs leaves $3968 - (n \times 734)$ bytes for the application message, protocol codec, and any exit abuse prevention proof.
+Each SURB embedded in the message payload reduces the available application message space by $734$ bytes. With the allowable message size of $3968$ bytes derived in [Section 8.5.2](#852-construction-steps) Step 3.d, attaching $n$ SURBs leaves $3968 - (n \times 734)$ bytes for the application message, protocol codec, and any exit abuse prevention proof.
 
 #### 8.7.2 SURB Creation
 
@@ -1271,7 +1271,7 @@ To construct each SURB, the initiating node MUST perform the following steps:
 
 1. **Select Return Path and Compute Ephemeral Secrets**
 
-   Select a return mix path of length $L \geq 3$ with the initiating node as the final hop. Compute the ephemeral public value $α_0$ and per-hop shared secrets $s_0, \ldots, s_{L-1}$ following the same procedure as [Section 8.5.2](#852-construction-steps) Step 2 and step 3.a.
+   Select a return mix path of length $L \geq 3$ with the initiating node as the final hop. Compute the ephemeral public value $α_0$ and per-hop shared secrets $s_0, \ldots, s_{L-1}$ following the same procedure as [Section 8.5.2](#852-construction-steps) Steps 2 and 3.a.
 
 2. **Sample SURB Identifier and Reply Key**
 
@@ -1279,7 +1279,7 @@ To construct each SURB, the initiating node MUST perform the following steps:
 
 3. **Construct Return Path Header**
 
-   Compute per-hop filler strings and construct the routing header following the same procedure in [Section 8.5.2](#852-construction-steps) steps 3.b and 3.c, with just $β_{L-1}$ computed as follows:
+   Compute per-hop filler strings and construct the routing header following the same procedure in [Section 8.5.2](#852-construction-steps) Steps 3.b and 3.c, with just $β_{L-1}$ computed as follows:
 
    $`
    \begin{array}{l}
@@ -1290,7 +1290,7 @@ To construct each SURB, the initiating node MUST perform the following steps:
    \end{array}
    `$
 
-   That is, encode zero address and delay followed by the SURB identifier $\mathrm{id}$ in $β_{L-1}$. The SURB identifier is embedded so that the initiating node can match an incoming reply to the stored decryption keys in Step 4 below.
+   That is, encode zero address and delay followed by the SURB identifier $\mathrm{id}$ in $β_{L-1}$. The SURB identifier is embedded so that the initiating node can match an incoming reply to the stored decryption keys in step 4 below.
 
    Use the same construction for the remaining routing blocks $β_i$, $0 \leq i < L-1$, and all per-hop MACs $γ_i$, $0 \leq i \leq L-1$.
 
@@ -1316,13 +1316,13 @@ Once the destination responds with a reply message, the Exit Layer MUST perform 
 
 2. **Encrypt Reply Payload**
 
-   Derive the AES key, IV, and compute the encrypted payload $δ$ following the same procedure in [Section 8.5.2](#852-construction-steps) step 3.d for $i = L-1$, substituting $\tilde{k}$ for $s_{L-1}$.
+   Derive the AES key, IV, and compute the encrypted payload $δ$ following the same procedure in [Section 8.5.2](#852-construction-steps) Step 3.d for $i = L-1$, substituting $\tilde{k}$ for $s_{L-1}$.
 
-   Note: Unlike the forward path ([Section 8.5.2](#852-construction-steps) step 3.d), the reply payload is encrypted only once&mdash;using $\tilde{k}$ alone. Each mix node on the return path will apply one additional layer during Sphinx processing ([Section 8.6.1](#861-shared-preprocessing) Step 5), resulting in $L + 1$ layers total that the initiating node must remove during reply recovery (see [Section 8.7.5](#875-reply-recovery)).
+   Note: Unlike the forward path ([Section 8.5.2](#852-construction-steps) Step 3.d), the reply payload is encrypted only once&mdash;using $\tilde{k}$ alone. Each mix node on the return path will apply one additional layer during Sphinx processing ([Section 8.6.1](#861-shared-preprocessing) Step 5), resulting in $L + 1$ layers total that the initiating node must remove during reply recovery (see [Section 8.7.5](#875-reply-recovery)).
 
 3. **Assemble and Transmit Reply Packet**
 
-   Assemble the Sphinx packet using the SURB header $(α, β, γ)$ and encrypted payload $δ$ from Step 2, following the packet format defined in [Section 8.5.2](#852-construction-steps) step 3.e. Serialize and transmit packet to $\mathrm{hop}_0$ (retrieved from the SURB) via a libp2p stream negotiated under the `"/mix/1.0.0"` protocol identifier.
+   Assemble the Sphinx packet using the SURB header $(α, β, γ)$ and encrypted payload $δ$ from step 2, following the packet format defined in [Section 8.5.2](#852-construction-steps) Step 3.e. Serialize and transmit packet to $\mathrm{hop}_0$ (retrieved from the SURB) via a libp2p stream negotiated under the `"/mix/1.0.0"` protocol identifier.
 
 #### 8.7.4 SURB Reply Processing
 
