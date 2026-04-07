@@ -169,7 +169,7 @@ and advertising this node and its capabilities.
 In the case of Extended Kademlia Discovery,
 `stop()` will cancel the periodic task of [refreshing the propagated `XPR`](#record-propagation).
 
-### `start_advertising(const char* service_id, const byte* add)`
+### `start_advertising(const char* service_id, const byte* advertisement)`
 
 Start advertising this node against any capability
 encoded as an input `service_id` string
