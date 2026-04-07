@@ -60,15 +60,29 @@ and an `advertisement` raw bytes.
 Stop advertising this node against the service
 encoded in the input `service_id` string.
 
+### `start_discovering(const char* service_id)`
+
+Start discovering and maintaining search tables
+for the service encoded in the input `service_id` string.
+
+### `stop_discovering(const char* service_id)`
+
+Stop discovering and maintenance of search tables
+for the service encoded in the input `service_id` string.
+
 ### `ExtensiblePeerRecords* lookup(const char* service_id)`
 
 Lookup and return records for peers supporting
 the service encoded in the input `service_id` string,
 using the underlying discovery protocol.
 
+It is RECOMMENDED to use `start_discovering`
+in advance of any `lookup` for each `service_id`
+as a way to speed up search.
+
 ### `ExtensiblePeerRecords* lookup_random()`
 
-Reserved for future use.
+Unused, reserved for future use.
 
 ## Copyright
 
