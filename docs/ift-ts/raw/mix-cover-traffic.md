@@ -136,6 +136,10 @@ and are deferred to [§11.4](#114-budget-model-for-sender-generated-proofs).
 
 The cover traffic mechanism integrates with the Mix Protocol at four points in packet processing.
 
+Cover packets are identified by the reserved protocol codec `"/mix/cover/1.0.0"`.
+This codec is used as the origin protocol codec during Sphinx packet construction
+and is checked during exit processing to distinguish cover packets from application traffic.
+
 All mix nodes in a deployment SHOULD use the same strategy type and parameters
 to ensure uniform emission patterns across the anonymity set.
 The configured path length `L` for cover packets
@@ -152,7 +156,7 @@ following the same construction procedure as a locally originated message,
 with the following differences:
 
 - The mix path is a loop path — the final hop routes the packet back to the originating node.
-- The origin protocol codec MUST be set to the reserved cover traffic codec `"/mix/cover/1.0.0"`.
+- The origin protocol codec MUST be set to the cover traffic codec defined in [§5](#5-integration-with-the-mix-protocol).
   This codec is recognized by the Mix Protocol during exit processing
   to identify returning cover packets (see [§5.4](#54-cover-packet-reception)).
 - The application message content SHOULD be filled with cryptographically random bytes.
@@ -211,21 +215,21 @@ The DoS protection mechanism is responsible for accepting proofs within a config
 **Trigger:** The Mix Protocol completes [exit processing](./mix.md#864-exit-processing) on a received Sphinx packet
 and extracts the origin protocol codec from the decrypted payload.
 
-If the codec matches the reserved cover traffic codec `"/mix/cover/1.0.0"`,
+If the codec matches the cover traffic codec (see [§5](#5-integration-with-the-mix-protocol)),
 the Mix Protocol MUST handle the packet internally without handing off to the Mix Exit Layer.
 The packet SHOULD be silently discarded.
 Implementations MAY use this reception event for diagnostics such as path health monitoring
 (see [§11.2](#112-path-health-monitoring)).
 
-This is handled by the internal protocol codec check
+This is handled by the cover traffic codec check
 in [Mix Protocol §8.6.4](./mix.md#864-exit-processing) step 4,
-which intercepts reserved codecs before handing off to the Mix Exit Layer.
+which intercepts cover packets before handing off to the Mix Exit Layer.
 
 Since cover packets use loop paths (see the self-exit principle in [§3](#3-design-principles)),
 the exit node is always the originating node itself.
 The cover traffic codec is therefore never visible to any external party.
 If a cover packet were routed to a different exit node,
-that node would extract the cover traffic codec during exit processing
+that node would detect the cover traffic codec during exit processing
 and classify the packet as cover traffic.
 Although the Sphinx construction prevents the exit from identifying the sender,
 a malicious exit could accumulate cover-to-non-cover traffic ratios over time,
