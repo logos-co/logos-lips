@@ -75,7 +75,7 @@ for the service encoded in the input `service_id` string.
 
 ### `RawAdvertisement* lookup(const char* service_id)`
 
-Lookup and return records for peers supporting
+Lookup and return advertisements for peers supporting
 the service encoded in the input `service_id` string,
 using the underlying discovery protocol.
 
