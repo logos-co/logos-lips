@@ -83,7 +83,7 @@ It is RECOMMENDED to use `start_discovering`
 in advance of any `lookup` for each `service_id`
 as a way to speed up search.
 
-### `ExtensiblePeerRecords* lookup_random()`
+### `RawAdvertisement* lookup_random()`
 
 Unused, reserved for future use.
 
