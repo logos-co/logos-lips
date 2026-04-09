@@ -28,7 +28,8 @@ and [extensible peer records specification](https://github.com/vacp2p/rfc-index/
 
 ## API Specification
 
-The aim is to define an API that is compatible with most discovery protocols,
+The aim is to define an API that is compatible with most discovery protocols
+that supports service-specific discovery,
 maintaining similar function signatures even if the underlying protocol differs.
 
 The API is defined in the form of C-style bindings.
