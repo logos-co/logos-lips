@@ -47,8 +47,8 @@ of the underlying discovery protocol (such as initialising the routing table).
 ### `stop()`
 
 Stop the discovery protocol,
-including all tasks related to node maintenance
-and advertising of its services.
+including all tasks related to maintenance
+of the underlying discovery protocol (such as advertising or discovery loops).
 
 ### `start_advertising(const char* service_id, const byte* advertisement)`
 
