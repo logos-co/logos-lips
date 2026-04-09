@@ -73,7 +73,7 @@ for the service encoded in the input `service_id` string.
 Stop discovering and maintenance of search tables
 for the service encoded in the input `service_id` string.
 
-### `ExtensiblePeerRecords* lookup(const char* service_id)`
+### `RawAdvertisement* lookup(const char* service_id)`
 
 Lookup and return records for peers supporting
 the service encoded in the input `service_id` string,
