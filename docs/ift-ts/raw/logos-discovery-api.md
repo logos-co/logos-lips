@@ -41,8 +41,8 @@ all functions SHOULD return an error result type appropriate to the implementati
 ### `start()`
 
 Start the discovery protocol,
-including all tasks related to bootstrapping, maintenance
-and advertising of this node and its services.
+including all tasks related to bootstrapping and maintenance
+of the underlying discovery protocol (such as initialising the routing table).
 
 ### `stop()`
 
