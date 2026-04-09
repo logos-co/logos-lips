@@ -52,9 +52,11 @@ of the underlying discovery protocol (such as advertising or discovery loops).
 
 ### `start_advertising(const char* service_id, const byte* advertisement)`
 
-Start advertising this node against the service
-encoded as an input `service_id` string
-and an `advertisement` raw bytes.
+Start advertising the encoded raw `advertisement`
+against any service encoded as a `service_id` string.
+For peer discovery,
+the node MUST encode sufficient connection information in the `advertisement`
+for discoverers to connect to it.
 
 ### `stop_advertising(const char* service_id)`
 
