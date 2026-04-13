@@ -5,6 +5,7 @@
 | Name | Waku2 Peer Exchange |
 | Slug | 34 |
 | Status | draft |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Hanno Cornelius <hanno@status.im> |
 | Contributors | Daniel Kaiser <danielkaiser@status.im> |

@@ -5,6 +5,7 @@
 | Name | Remote log specification |
 | Slug | 3 |
 | Status | draft |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Oskar Thorén <oskarth@titanproxy.com> |
 | Contributors | Dean Eigenmann <dean@status.im> |

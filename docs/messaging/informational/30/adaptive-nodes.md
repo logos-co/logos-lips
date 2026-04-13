@@ -5,6 +5,7 @@
 | Name | Adaptive nodes |
 | Slug | 30 |
 | Status | draft |
+| Type | RFC |
 | Category | Informational |
 | Editor | Oskar Thorén <oskarth@titanproxy.com> |
 | Contributors | Filip Dimitrijevic <filip@status.im> |

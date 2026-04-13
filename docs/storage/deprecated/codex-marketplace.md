@@ -5,6 +5,7 @@
 | Name | Codex Storage Marketplace |
 | Slug | 77 |
 | Status | deprecated |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Codex Team and Dmitriy Ryajov <dryajov@status.im> |
 | Contributors | Mark Spanbroek <mark@codex.storage>, Adam Uhlíř <adam@codex.storage>, Eric Mastro <eric@codex.storage>, Jimmy Debe <jimmy@status.im>, Filip Dimitrijevic <filip@status.im> |

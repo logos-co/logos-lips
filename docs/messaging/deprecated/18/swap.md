@@ -5,6 +5,7 @@
 | Name | Waku SWAP Accounting |
 | Slug | 18 |
 | Status | deprecated |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Oskar Thorén <oskarth@titanproxy.com> |
 

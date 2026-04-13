@@ -5,6 +5,7 @@
 | Name | Waku v2 Network |
 | Slug | 64 |
 | Status | draft |
+| Type | RFC |
 | Category | Best Current Practice |
 | Editor | Hanno Cornelius <hanno@status.im> |
 

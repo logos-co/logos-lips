@@ -5,6 +5,7 @@
 | Name | Claro Consensus Protocol |
 | Slug | 140 |
 | Status | deprecated |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Corey Petty <corey@status.im> |
 | Contributors | Álvaro Castro-Castilla, Mark Evenson |

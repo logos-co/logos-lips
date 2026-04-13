@@ -5,6 +5,7 @@
 | Name | Waku v2 Fault-Tolerant Store |
 | Slug | 21 |
 | Status | deleted |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Sanaz Taheri <sanaz@status.im> |
 

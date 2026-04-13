@@ -5,6 +5,7 @@
 | Name | Nomos P2P Network Specification |
 | Slug | 135 |
 | Status | draft |
+| Type | RFC |
 | Category | networking |
 | Editor | Daniel Sanchez-Quiros <danielsq@status.im> |
 | Contributors | Filip Dimitrijevic <filip@status.im> |

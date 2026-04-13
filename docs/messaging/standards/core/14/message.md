@@ -5,6 +5,7 @@
 | Name | Waku v2 Message |
 | Slug | 14 |
 | Status | stable |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Hanno Cornelius <hanno@status.im> |
 | Contributors | Sanaz Taheri <sanaz@status.im>, Aaryamann Challani <p1ge0nh8er@proton.me>, Lorenzo Delgado <lorenzo@status.im>, Abhimanyu Rawat <abhi@status.im>, Oskar Thorén <oskarth@titanproxy.com> |

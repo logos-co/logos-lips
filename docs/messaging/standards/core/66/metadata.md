@@ -5,6 +5,7 @@
 | Name | Waku Metadata Protocol |
 | Slug | 66 |
 | Status | draft |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Franck Royer <franck@status.im> |
 | Contributors | Filip Dimitrijevic <filip@status.im>, Alvaro Revuelta <alrevuelta@status.im> |

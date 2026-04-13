@@ -5,6 +5,7 @@
 | Name | Waku v2 RLN Relay |
 | Slug | 17 |
 | Status | draft |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Alvaro Revuelta <alvaro@status.im> |
 | Contributors | Oskar Thorén <oskarth@titanproxy.com>, Aaryamann Challani <p1ge0nh8er@proton.me>, Sanaz Taheri <sanaz@status.im>, Hanno Cornelius <hanno@status.im> |

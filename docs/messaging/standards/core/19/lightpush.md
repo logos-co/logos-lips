@@ -5,6 +5,7 @@
 | Name | Waku v2 Light Push |
 | Slug | 19 |
 | Status | draft |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Hanno Cornelius <hanno@status.im> |
 | Contributors | Daniel Kaiser <danielkaiser@status.im>, Oskar Thorén <oskarth@titanproxy.com> |

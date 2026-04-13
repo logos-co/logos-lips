@@ -5,6 +5,7 @@
 | Name | Session management for Waku X3DH |
 | Slug | 54 |
 | Status | draft |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Aaryamann Challani <p1ge0nh8er@proton.me> |
 | Contributors | Andrea Piana <andreap@status.im>, Pedro Pombeiro <pedro@status.im>, Corey Petty <corey@status.im>, Oskar Thorén <oskarth@titanproxy.com>, Dean Eigenmann <dean@status.im>, Filip Dimitrijevic <filip@status.im> |
