@@ -19,7 +19,7 @@ DOCS = ROOT / "docs"
 
 EXCLUDE_FILES = {"README.md", "SUMMARY.md", "about.md", "template.md"}
 # Fields required for draft and above; raw specs only need name + status.
-REQUIRED_FIELDS_ALL = ("name", "slug", "status", "category", "editor")
+REQUIRED_FIELDS_ALL = ("name", "slug", "status", "type", "category", "editor")
 REQUIRED_FIELDS_RAW = ("name", "status")
 ALLOWED_STATUS = {"raw", "draft", "approved", "stable", "verified", "deprecated", "retired", "deleted"}
 ALLOWED_TYPES = {"rfc", "cfr"}

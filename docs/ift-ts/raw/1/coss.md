@@ -5,6 +5,7 @@
 | Name | Consensus-Oriented Specification System |
 | Slug | 1 |
 | Status | draft |
+| Type | RFC |
 | Category | Best Current Practice |
 | Editor | Daniel Kaiser <danielkaiser@status.im> |
 | Contributors | Oskar Thoren <oskarth@titanproxy.com>, Pieter Hintjens <ph@imatix.com>, André Rebentisch <andre@openstandards.de>, Alberto Barrionuevo <abarrio@opentia.es>, Chris Puttick <chris.puttick@thehumanjourney.net>, Yurii Rashkovskii <yrashk@gmail.com>, Jimmy Debe <jimmy@status.im> |
@@ -302,10 +303,10 @@ particularly in **raw** specifications that are still being developed.
 | **name**         | required   | full name            | string | Consensus-Oriented Specification System                                                                                                                                                                                             |
 | **slug**         | required   | number               | int    | 1                                                                                                                                                                                                                                   |
 | **status**       | required   | status               | string | draft                                                                                                                                                                                                                               |
+| **type**         | required   | document type        | string | RFC                                                                                                                                                                                                                                 |
 | **category**     | optional   | category             | string | Best Current Practice                                                                                                                                                                                                               |
 | **tags**         | optional   | 0 or several tags    | list   | waku-application, waku-core-protocol                                                                                                                                                                                                |
 | **editor**       | optional   | editor name/email    | string | Oskar Thoren <oskarth@titanproxy.com>                                                                                                                                                                                               |
-| **type**         | optional   | document type        | string | RFC or CFR (default: RFC)                                                                                                                                                                                          |
 | **contributors** | optional   | contributors         | list   | - Pieter Hintjens <ph@imatix.com> - André Rebentisch <andre@openstandards.de> - Alberto Barrionuevo <abarrio@opentia.es> - Chris Puttick <chris.puttick@thehumanjourney.net> - Yurii Rashkovskii <yrashk@gmail.com> |
 
 For **raw** specifications,
