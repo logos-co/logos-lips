@@ -151,7 +151,7 @@
                         <a href="../../../../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
-                        <a href="https://github.com/vacp2p/rfc-index" title="Git repository" aria-label="Git repository">
+                        <a href="https://github.com/logos-co/logos-lips" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
 
@@ -191,12 +191,13 @@
 </div><!-- timeline:start -->
 <h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
 <ul>
-<li><strong>2026-02-09</strong> — <a href="https://github.com/vacp2p/rfc-index/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/messaging/standards/core/31/enr.md"><code>afd94c8</code></a> — chore: add math support (#287)</li>
-<li><strong>2026-01-16</strong> — <a href="https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/core/31/enr.md"><code>89f2ea8</code></a> — Chore/mdbook updates (#258)</li>
-<li><strong>2025-12-22</strong> — <a href="https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/core/31/enr.md"><code>0f1855e</code></a> — Chore/fix headers (#239)</li>
-<li><strong>2025-12-22</strong> — <a href="https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/core/31/enr.md"><code>b1a5783</code></a> — Chore/mdbook updates (#237)</li>
-<li><strong>2025-12-18</strong> — <a href="https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/core/31/enr.md"><code>d03e699</code></a> — ci: add mdBook configuration (#233)</li>
-<li><strong>2025-10-16</strong> — <a href="https://github.com/vacp2p/rfc-index/blob/e4f5f28ea3d44ecf6fde2f59cd1d5e094073ec35/waku/standards/core/31/enr.md"><code>e4f5f28</code></a> — Update WAKU-ENR: Move to Draft (#180)</li>
+<li><strong>2026-04-15</strong> — <a href="https://github.com/logos-co/logos-lips/blob/5a3e844679a0ac60e6b4e945a64c2f7d8650cba5/docs/messaging/standards/core/31/enr.md"><code>5a3e844</code></a> — Chore/move repo into logos co (#312)</li>
+<li><strong>2026-02-09</strong> — <a href="https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/messaging/standards/core/31/enr.md"><code>afd94c8</code></a> — chore: add math support (#287)</li>
+<li><strong>2026-01-16</strong> — <a href="https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/core/31/enr.md"><code>89f2ea8</code></a> — Chore/mdbook updates (#258)</li>
+<li><strong>2025-12-22</strong> — <a href="https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/core/31/enr.md"><code>0f1855e</code></a> — Chore/fix headers (#239)</li>
+<li><strong>2025-12-22</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/core/31/enr.md"><code>b1a5783</code></a> — Chore/mdbook updates (#237)</li>
+<li><strong>2025-12-18</strong> — <a href="https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/core/31/enr.md"><code>d03e699</code></a> — ci: add mdBook configuration (#233)</li>
+<li><strong>2025-10-16</strong> — <a href="https://github.com/logos-co/logos-lips/blob/e4f5f28ea3d44ecf6fde2f59cd1d5e094073ec35/waku/standards/core/31/enr.md"><code>e4f5f28</code></a> — Update WAKU-ENR: Move to Draft (#180)</li>
 </ul>
 <!-- timeline:end -->
 <h2 id="abstract"><a class="header" href="#abstract">Abstract</a></h2>
@@ -337,7 +338,7 @@ These SHOULD be set to <code>false</code> by default.</li>
 <li>A Waku node MAY choose to populate the <code>waku2</code> field for enhanced discovery capabilities,
 such as indicating supported protocols.
 Such a node MAY indicate support for any specific protocol by setting the corresponding flag to <code>true</code>.</li>
-<li>Waku nodes that want to participate in <a href="https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/33/discv5.md">Node Discovery Protocol v5</a> <a href="#references">[4]</a>, however,
+<li>Waku nodes that want to participate in <a href="https://github.com/logos-co/logos-lips/blob/main/waku/standards/core/33/discv5.md">Node Discovery Protocol v5</a> <a href="#references">[4]</a>, however,
 MUST implement the <code>waku2</code> key with at least one flag set to <code>true</code>.</li>
 <li>Waku nodes that discovered other participants using Discovery v5,
 MUST filter out participant records that do not implement this field or
@@ -406,7 +407,7 @@ or further interpret the <code>waku2</code> field as required by the application
         <script src="../../../../theme/katex/katex.min.js"></script>
         <script src="../../../../theme/katex/auto-render.min.js"></script>
         <script src="../../../../scripts/katex-render.js"></script>
-        <script src="../../../../scripts/rfc-index.js"></script>
+        <script src="../../../../scripts/logos-lips.js"></script>
 
 
     </div>

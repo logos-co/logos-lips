@@ -151,7 +151,7 @@
                         <a href="../../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
-                        <a href="https://github.com/vacp2p/rfc-index" title="Git repository" aria-label="Git repository">
+                        <a href="https://github.com/logos-co/logos-lips" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
 
@@ -192,28 +192,29 @@
 </div><!-- timeline:start -->
 <h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
 <ul>
-<li><strong>2026-02-09</strong> — <a href="https://github.com/vacp2p/rfc-index/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/ift-ts/raw/mix-spam-protection-rln.md"><code>afd94c8</code></a> — chore: add math support (#287)</li>
-<li><strong>2026-01-29</strong> — <a href="https://github.com/vacp2p/rfc-index/blob/3cd2d090a4c8aa7a762dd9357d21cd73bb57cd15/docs/ift-ts/raw/mix-spam-protection-rln.md"><code>3cd2d09</code></a> — fix title of doc (#282)</li>
-<li><strong>2026-01-29</strong> — <a href="https://github.com/vacp2p/rfc-index/blob/0e53ebb1b0d090d1d2957a0164c85c38d81560f8/docs/ift-ts/raw/mix-spam-protection-rln.md"><code>0e53ebb</code></a> — change header to new format (#279)</li>
-<li><strong>2026-01-24</strong> — <a href="https://github.com/vacp2p/rfc-index/blob/ffca40abfa6b42f239439550cd2fc47fc802f22a/docs/ift-ts/raw/mix-spam-protection-rln.md"><code>ffca40a</code></a> — Mix spam and sybil protection protocol using RLN (#252)</li>
+<li><strong>2026-04-15</strong> — <a href="https://github.com/logos-co/logos-lips/blob/5a3e844679a0ac60e6b4e945a64c2f7d8650cba5/docs/ift-ts/raw/mix-spam-protection-rln.md"><code>5a3e844</code></a> — Chore/move repo into logos co (#312)</li>
+<li><strong>2026-02-09</strong> — <a href="https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/ift-ts/raw/mix-spam-protection-rln.md"><code>afd94c8</code></a> — chore: add math support (#287)</li>
+<li><strong>2026-01-29</strong> — <a href="https://github.com/logos-co/logos-lips/blob/3cd2d090a4c8aa7a762dd9357d21cd73bb57cd15/docs/ift-ts/raw/mix-spam-protection-rln.md"><code>3cd2d09</code></a> — fix title of doc (#282)</li>
+<li><strong>2026-01-29</strong> — <a href="https://github.com/logos-co/logos-lips/blob/0e53ebb1b0d090d1d2957a0164c85c38d81560f8/docs/ift-ts/raw/mix-spam-protection-rln.md"><code>0e53ebb</code></a> — change header to new format (#279)</li>
+<li><strong>2026-01-24</strong> — <a href="https://github.com/logos-co/logos-lips/blob/ffca40abfa6b42f239439550cd2fc47fc802f22a/docs/ift-ts/raw/mix-spam-protection-rln.md"><code>ffca40a</code></a> — Mix spam and sybil protection protocol using RLN (#252)</li>
 </ul>
 <!-- timeline:end -->
 <h2 id="abstract"><a class="header" href="#abstract">Abstract</a></h2>
-<p>This document defines a spam and sybil protection protocol for <a href="https://github.com/vacp2p/rfc-index/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md">libp2p mix</a> based mixnets.
+<p>This document defines a spam and sybil protection protocol for <a href="https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md">libp2p mix</a> based mixnets.
 The protocol specifies how <a href="https://vac.dev/rln">Rate Limiting Nullifiers (RLN)</a> can be integrated into libp2p mix.
 RLN allows mix nodes to detect and drop spam without identifying legitimate users, addressing spam attacks.
 RLN requires membership for mix nodes to send or forward messages, addressing the sybil attack vector.
-RLN satisfies the spam protection <a href="https://github.com/vacp2p/rfc-index/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md#91-spam-protection-mechanism-requirements">requirements</a> defined in the libp2p mix protocol.</p>
+RLN satisfies the spam protection <a href="https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md#91-spam-protection-mechanism-requirements">requirements</a> defined in the libp2p mix protocol.</p>
 <h2 id="background--rationale--motivation"><a class="header" href="#background--rationale--motivation">Background / Rationale / Motivation</a></h2>
-<p>Mixnets provide strong privacy guarantees by routing messages through multiple mix nodes using layered encryption and per-hop delays to obscure both routing paths and timing correlations. In order to have a production-ready mixnet using the <a href="https://github.com/vacp2p/rfc-index/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md">libp2p mix</a>, two critical vulnerabilities must be addressed:</p>
+<p>Mixnets provide strong privacy guarantees by routing messages through multiple mix nodes using layered encryption and per-hop delays to obscure both routing paths and timing correlations. In order to have a production-ready mixnet using the <a href="https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md">libp2p mix</a>, two critical vulnerabilities must be addressed:</p>
 <ol>
 <li><strong>Spam attacks</strong>: An attacker can generate well-formed sphinx packets targeting mix nodes and can exhaust their resources.
 In case of mixnets, it is easy to attack a later hop in the mix path by choosing different first hop nodes.
 An attacker with minimal resources can launch spam/DoS attacks against individual mix nodes. By targeting all mix nodes in this manner, the attacker can render the entire mixnet unusable.</li>
 <li><strong>Sybil attacks</strong>: Adversaries operating multiple node identities can increase the probability of path compromise, enabling deanonymization through traffic correlation or timing analysis.</li>
 </ol>
-<p>The <a href="https://github.com/vacp2p/rfc-index/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md">libp2p mix</a> protocol provides an extension for integrating spam protection mechanisms.
-This specification proposes to use <a href="https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/raw/rln-v2.md">Rate Limiting Nullifiers (RLN)</a> as the spam prevention and sybil protection mechanism.
+<p>The <a href="https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md">libp2p mix</a> protocol provides an extension for integrating spam protection mechanisms.
+This specification proposes to use <a href="https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/raw/rln-v2.md">Rate Limiting Nullifiers (RLN)</a> as the spam prevention and sybil protection mechanism.
 This approach introduces some trade-offs such as additional per-hop latency for proof generation which are discussed in the <a href="#tradeoffs">Tradeoffs</a> section.</p>
 <h2 id="terminology"><a class="header" href="#terminology">Terminology</a></h2>
 <p>The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”, “SHOULD”, “SHOULD NOT”, “RECOMMENDED”,
@@ -240,7 +241,7 @@ This means that no more messages than the registered rate limit can be sent per 
 <p>See section <a href="#system-parameters">System Parameters</a> for details on the <code>period</code> parameter.</p>
 <h2 id="approach"><a class="header" href="#approach">Approach</a></h2>
 <h3 id="overview"><a class="header" href="#overview">Overview</a></h3>
-<p>The protocol implements RLN using a <a href="https://github.com/vacp2p/rfc-index/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md#922-per-hop-generated-proofs">per-hop generated proof approach</a>, where each node in the mix path generates and verifies proofs.
+<p>The protocol implements RLN using a <a href="https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md#922-per-hop-generated-proofs">per-hop generated proof approach</a>, where each node in the mix path generates and verifies proofs.
 This enables network-wide spam protection while preserving user privacy.</p>
 <p>Each mix node MUST have an RLN group membership in order to send or forward messages in the mixnet.
 Each mix node in the path (except the sender) verifies the incoming RLN proof before processing the message.
@@ -277,9 +278,9 @@ This enables all participating mix nodes to detect double signalling across diff
 </li>
 </ul>
 <h3 id="setup"><a class="header" href="#setup">Setup</a></h3>
-<p>Each mix node has an RLN key pair consisting of a secret key <code>sk</code> and public key <code>pk</code> as defined in <a href="https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md">RLN</a>.
+<p>Each mix node has an RLN key pair consisting of a secret key <code>sk</code> and public key <code>pk</code> as defined in <a href="https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md">RLN</a>.
 The secret key <code>sk</code> MUST be persisted securely by the mix node.</p>
-<p>A mixnet that is spam-protected requires all mix nodes in it to form an <a href="https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#flow">RLN group</a>.</p>
+<p>A mixnet that is spam-protected requires all mix nodes in it to form an <a href="https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#flow">RLN group</a>.</p>
 <ul>
 <li>Mix nodes MUST be registered to the RLN group to be able to send or forward messages.</li>
 <li>Registration MAY be moderated through a smart contract deployed on a blockchain.</li>
@@ -290,13 +291,13 @@ See <a href="#group-synchronization">Group Synchronization</a> for details on ma
 <p>Intermediary and exit mix nodes SHOULD subscribe to the coordination layer (defined <a href="#coordination-layer">below</a>) in order to detect rate limit violations collaboratively.
 This ensures that mix nodes can detect spam and trigger slashing.</p>
 <h3 id="sending-and-forwarding-messages"><a class="header" href="#sending-and-forwarding-messages">Sending and forwarding messages</a></h3>
-<p>In order to send/forward messages via mixnet, a mix node MUST include the <a href="#ratelimitproof">RateLimitProof</a> in the sphinx packet as <a href="https://github.com/vacp2p/rfc-index/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md#922-per-hop-generated-proofs"><span class="math-inline" data-tex="\sigma"></span></a>.</p>
+<p>In order to send/forward messages via mixnet, a mix node MUST include the <a href="#ratelimitproof">RateLimitProof</a> in the sphinx packet as <a href="https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md#922-per-hop-generated-proofs"><span class="math-inline" data-tex="\sigma"></span></a>.</p>
 <h4 id="proof-generation"><a class="header" href="#proof-generation">Proof Generation</a></h4>
 <p>When generating an RLN proof, the node MUST:</p>
 <ol>
 <li>Use its secret key <code>sk</code> and the current <code>epoch</code></li>
-<li>Obtain the current Merkle root and <a href="https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#obtaining-merkle-proof"><code>path_elements</code></a> from the synchronized membership tree</li>
-<li>Generate a keccak256 hash of all components of the <strong>outgoing</strong> sphinx packet <a href="https://github.com/vacp2p/rfc-index/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md#81-packet-structure-overview">(α', β', γ', δ')</a> and set it as the proof signal. This prevents proof reuse across different messages.</li>
+<li>Obtain the current Merkle root and <a href="https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#obtaining-merkle-proof"><code>path_elements</code></a> from the synchronized membership tree</li>
+<li>Generate a keccak256 hash of all components of the <strong>outgoing</strong> sphinx packet <a href="https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md#81-packet-structure-overview">(α', β', γ', δ')</a> and set it as the proof signal. This prevents proof reuse across different messages.</li>
 </ol>
 <p><strong>Sender nodes</strong>:</p>
 <ul>
@@ -312,7 +313,7 @@ This ensures that mix nodes can detect spam and trigger slashing.</p>
 <li>attach the new proof before forwarding to the next hop</li>
 </ul>
 <h3 id="group-synchronization"><a class="header" href="#group-synchronization">Group Synchronization</a></h3>
-<p>Proof generation relies on the knowledge of Merkle tree root <code>merkle_root</code> and <code>path_elements</code> (the authentication path in the Merkle proof as defined in <a href="https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#obtaining-merkle-proof">RLN</a>) which both require access to the membership Merkle tree.
+<p>Proof generation relies on the knowledge of Merkle tree root <code>merkle_root</code> and <code>path_elements</code> (the authentication path in the Merkle proof as defined in <a href="https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#obtaining-merkle-proof">RLN</a>) which both require access to the membership Merkle tree.
 Proof verification also requires knowledge of the <code>merkle_root</code> to validate that the proof was generated against a valid membership tree state.
 The RLN membership group MUST be synchronized across all mix nodes to ensure the latest Merkle root is used for RLN proof generation and verification.
 Stale roots may cause legitimate proofs to be rejected.
@@ -326,15 +327,15 @@ When a node detects spam, it can reconstruct the spammer's secret key using the 
 <p>Intermediary and exit nodes that participate in the coordination layer MUST both subscribe to receive metadata and broadcast metadata from messages they process.
 Sender-only nodes need not participate in this coordination layer as they only originate messages and do not forward or validate messages from others.</p>
 <p>The coordination layer MUST have its own spam and sybil protection mechanism in order to prevent from these attacks.
-We recommend using <a href="https://github.com/vacp2p/rfc-index/blob/72196d89c1084d625c22b1d5cb775ad7729ad577/waku/standards/core/17/rln-relay.md">WAKU-RLN-RELAY</a>
+We recommend using <a href="https://github.com/logos-co/logos-lips/blob/72196d89c1084d625c22b1d5cb775ad7729ad577/waku/standards/core/17/rln-relay.md">WAKU-RLN-RELAY</a>
 In this case, the Messaging Metadata MUST be encoded as the Waku Message payload.
-We recommend using the <a href="https://github.com/vacp2p/rfc-index/blob/72196d89c1084d625c22b1d5cb775ad7729ad577/waku/standards/core/64/network.md">public Waku Network</a> with a content topic agreed by all mix nodes.</p>
+We recommend using the <a href="https://github.com/logos-co/logos-lips/blob/72196d89c1084d625c22b1d5cb775ad7729ad577/waku/standards/core/64/network.md">public Waku Network</a> with a content topic agreed by all mix nodes.</p>
 <h3 id="message-validation"><a class="header" href="#message-validation">Message validation</a></h3>
 <p>A mix node MUST validate a received message using the below checks, discard the message and stop further checks or processing on failure.</p>
 <ol>
 <li>If the <code>epoch</code> in the received message differs from the mix node's current <code>epoch</code> by more than <code>max_epoch_gap</code>.</li>
 <li>If the <code>merkle_root</code> is NOT in the <code>acceptable_root_window_size</code> past roots of the mix node.</li>
-<li>If the zero-knowledge proof <code>proof</code> is valid. It does so by running the zk verification algorithm as explained in <a href="https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#verification-and-slashing">RLN</a>.</li>
+<li>If the zero-knowledge proof <code>proof</code> is valid. It does so by running the zk verification algorithm as explained in <a href="https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#verification-and-slashing">RLN</a>.</li>
 </ol>
 <p>If all checks pass, the node proceeds to <a href="#spam-detection-and-slashing">spam detection</a> before processing the message.</p>
 <h4 id="spam-detection-and-slashing"><a class="header" href="#spam-detection-and-slashing">Spam detection and Slashing</a></h4>
@@ -375,12 +376,12 @@ message RateLimitProof {
 <tr><td style="text-align: right"><code>proof</code></td><td>array of 128 bytes compressed</td><td>the zkSNARK proof as explained in the <a href="#sending-and-forwarding-messages">Sending process</a></td></tr>
 <tr><td style="text-align: right"><code>merkle_root</code></td><td>array of 32 bytes in little-endian order</td><td>the root of membership group Merkle tree at the time of sending the message</td></tr>
 <tr><td style="text-align: right"><code>epoch</code></td><td>array of 32 bytes</td><td>the current epoch at time of sending the message</td></tr>
-<tr><td style="text-align: right"><code>share_x</code> and <code>share_y</code></td><td>array of 32 bytes each</td><td>Shamir secret shares of the user's secret identity key <code>sk</code> . <code>share_x</code> is the hash of the message. <code>share_y</code> is calculated using <a href="https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md">Shamir secret sharing scheme</a></td></tr>
-<tr><td style="text-align: right"><code>nullifier</code></td><td>array of 32 bytes</td><td>internal nullifier derived from <code>epoch</code> and node's <code>sk</code> as explained in <a href="https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md">RLN construct</a></td></tr>
+<tr><td style="text-align: right"><code>share_x</code> and <code>share_y</code></td><td>array of 32 bytes each</td><td>Shamir secret shares of the user's secret identity key <code>sk</code> . <code>share_x</code> is the hash of the message. <code>share_y</code> is calculated using <a href="https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md">Shamir secret sharing scheme</a></td></tr>
+<tr><td style="text-align: right"><code>nullifier</code></td><td>array of 32 bytes</td><td>internal nullifier derived from <code>epoch</code> and node's <code>sk</code> as explained in <a href="https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md">RLN construct</a></td></tr>
 </tbody></table>
 </div>
 <h3 id="messaging-metadata"><a class="header" href="#messaging-metadata">Messaging Metadata</a></h3>
-<p><a href="https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#notes-from-implementation">Messaging metadata</a> is metadata which is broadcasted via coordination layer and cached by mix nodes locally.
+<p><a href="https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#notes-from-implementation">Messaging metadata</a> is metadata which is broadcasted via coordination layer and cached by mix nodes locally.
 This helps identify duplicate signalling in order to detect spam.</p>
 <pre><code class="language-protobuf">syntax = "proto3";
 
@@ -470,10 +471,10 @@ message MessagingMetadata {
 <p>Copyright and related rights waived via <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>.</p>
 <h2 id="references"><a class="header" href="#references">References</a></h2>
 <ul>
-<li><a href="https://github.com/vacp2p/rfc-index/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md/">libp2p mix protocol</a></li>
+<li><a href="https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md/">libp2p mix protocol</a></li>
 <li><a href="https://vac.dev/rln">Rate Limiting Nullifiers (RLN)</a></li>
-<li><a href="https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/raw/rln-v2.md">Rate Limiting Nullifiers v2</a></li>
-<li><a href="https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md">RLN v1</a></li>
+<li><a href="https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/raw/rln-v2.md">Rate Limiting Nullifiers v2</a></li>
+<li><a href="https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md">RLN v1</a></li>
 <li><a href="https://rfc.vac.dev/spec/11/">Waku-Relay</a></li>
 <li><a href="https://forum.vac.dev/t/rln-with-pre-computed-proofs/606">RLN with precomputed proofs</a></li>
 <li><a href="https://eprint.iacr.org/2019/458.pdf">Poseidon hash implementation</a></li>
@@ -528,7 +529,7 @@ message MessagingMetadata {
         <script src="../../theme/katex/katex.min.js"></script>
         <script src="../../theme/katex/auto-render.min.js"></script>
         <script src="../../scripts/katex-render.js"></script>
-        <script src="../../scripts/rfc-index.js"></script>
+        <script src="../../scripts/logos-lips.js"></script>
 
 
     </div>
