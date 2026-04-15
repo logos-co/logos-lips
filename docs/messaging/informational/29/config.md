@@ -13,17 +13,18 @@
 
 ## Timeline
 
-- **2026-01-16** — [`f01d5b9`](https://github.com/vacp2p/rfc-index/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/informational/29/config.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/informational/29/config.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/informational/29/config.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/informational/29/config.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/informational/29/config.md) — ci: add mdBook configuration (#233)
-- **2025-04-22** — [`7408956`](https://github.com/vacp2p/rfc-index/blob/740895661662ac5f73a8bce726333d93acf5fa23/waku/informational/29/config.md) — update waku/informational/29/config.md (#146)
-- **2024-09-13** — [`3ab314d`](https://github.com/vacp2p/rfc-index/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/informational/29/config.md) — Fix Files for Linting (#94)
-- **2024-01-31** — [`c506eac`](https://github.com/vacp2p/rfc-index/blob/c506eac87d37bf264fa001e83b80477bd93ca727/waku/informational/29/config.md) — Update and rename CONFIG.md to config.md
-- **2024-01-31** — [`930f84d`](https://github.com/vacp2p/rfc-index/blob/930f84d4bfc5095db197d78dde2d4dcc36739794/waku/informational/29/CONFIG.md) — Update and rename README.md to CONFIG.md
-- **2024-01-27** — [`eef961b`](https://github.com/vacp2p/rfc-index/blob/eef961bfe3b1cf6aab66df5450555afd1d3543cb/waku/informational/29/README.md) — remove rfs folder
-- **2024-01-25** — [`e6396b9`](https://github.com/vacp2p/rfc-index/blob/e6396b9b8a0807d134caf8905e903731160fdcf0/waku/rfcs/informational/29/README.md) — Create README.md
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/messaging/informational/29/config.md) — chore: add math support (#287)
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/informational/29/config.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/informational/29/config.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/informational/29/config.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/informational/29/config.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/informational/29/config.md) — ci: add mdBook configuration (#233)
+- **2025-04-22** — [`7408956`](https://github.com/logos-co/logos-lips/blob/740895661662ac5f73a8bce726333d93acf5fa23/waku/informational/29/config.md) — update waku/informational/29/config.md (#146)
+- **2024-09-13** — [`3ab314d`](https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/informational/29/config.md) — Fix Files for Linting (#94)
+- **2024-01-31** — [`c506eac`](https://github.com/logos-co/logos-lips/blob/c506eac87d37bf264fa001e83b80477bd93ca727/waku/informational/29/config.md) — Update and rename CONFIG.md to config.md
+- **2024-01-31** — [`930f84d`](https://github.com/logos-co/logos-lips/blob/930f84d4bfc5095db197d78dde2d4dcc36739794/waku/informational/29/CONFIG.md) — Update and rename README.md to CONFIG.md
+- **2024-01-27** — [`eef961b`](https://github.com/logos-co/logos-lips/blob/eef961bfe3b1cf6aab66df5450555afd1d3543cb/waku/informational/29/README.md) — remove rfs folder
+- **2024-01-25** — [`e6396b9`](https://github.com/logos-co/logos-lips/blob/e6396b9b8a0807d134caf8905e903731160fdcf0/waku/rfcs/informational/29/README.md) — Create README.md
 
 <!-- timeline:end -->
 

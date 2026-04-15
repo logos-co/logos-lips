@@ -9,6 +9,15 @@
 | Editor | Sergei Tikhomirov <sergei@status.im> |
 | Contributors | Akhil Peddireddy <akhil@status.im> |
 
+<!-- timeline:start -->
+
+## Timeline
+
+- **2026-03-18** — [`e07c655`](https://github.com/logos-co/logos-lips/blob/e07c655a1fb86b46c99c3dd164a29438ab093b49/docs/ift-ts/raw/payment-streams.md) — Chore: move and fix header for payment streams spec (#295)
+- **2026-02-24** — [`14fd5c0`](https://github.com/logos-co/logos-lips/blob/14fd5c09ccb76cb36ebb6a4b6c8082850172d330/vac/raw/payment-streams.md) — docs: add payment streams raw spec (#224)
+
+<!-- timeline:end -->
+
 ## Abstract
 
 This document provides a functional specification

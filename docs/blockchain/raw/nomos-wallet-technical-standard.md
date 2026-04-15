@@ -10,6 +10,14 @@
 | Editor | Giacomo Pasini <giacomo@status.im> |
 | Contributors | Thomas Lavaur <thomas@status.im>, Mehmet Gonen <mehmet@status.im>, Daniel Sanchez Quiros <daniel@status.im>, Alvaro Castro-Castilla <alvaro@status.im>, Filip Dimitrijevic <filip@status.im> |
 
+<!-- timeline:start -->
+
+## Timeline
+
+- **2026-02-13** — [`b7813dc`](https://github.com/logos-co/logos-lips/blob/b7813dce5a7413f7d7c430d9f2c2bbee367fbeef/docs/blockchain/raw/nomos-wallet-technical-standard.md) — feat: add Nomos Wallet Technical Standard specification (#292)
+
+<!-- timeline:end -->
+
 ## Abstract
 
 This specification defines the wallet technical standard for Nomos,

@@ -8,6 +8,15 @@
 | Status   | raw                                  |
 | Editor   | Giuliano Mega <giuliano@status.im>   |
 
+<!-- timeline:start -->
+
+## Timeline
+
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/storage/raw/datasets.md) — chore: add math support (#287)
+- **2026-02-05** — [`e008949`](https://github.com/logos-co/logos-lips/blob/e0089499204b1cd2b35bae9ffe35471f3bd830ca/docs/storage/raw/datasets.md) — feat: Logos Storage datasets spec (#277)
+
+<!-- timeline:end -->
+
 ## Abstract
 
 This spec defines the basic structure, constraints, and representation for Logos Storage **Datasets** and their metadata. Datasets are the unit of data which Logos Storage manipulates: those can be published, downloaded, or deleted. They could be compared to objects in S3 or, somewhat more loosely, to blocks in IPFS.

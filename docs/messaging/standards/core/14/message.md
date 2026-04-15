@@ -13,20 +13,21 @@
 
 ## Timeline
 
-- **2026-01-16** — [`f01d5b9`](https://github.com/vacp2p/rfc-index/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/standards/core/14/message.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/core/14/message.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/core/14/message.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/core/14/message.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/core/14/message.md) — ci: add mdBook configuration (#233)
-- **2025-04-09** — [`8052808`](https://github.com/vacp2p/rfc-index/blob/805280880a1c68b002c23b0bfbcded86eabe68ba/waku/standards/core/14/message.md) — 14/WAKU2-MESSAGE: Move to Stable (#120)
-- **2024-11-20** — [`ff87c84`](https://github.com/vacp2p/rfc-index/blob/ff87c84dc71d4f933bab188993914069fea12baa/waku/standards/core/14/message.md) — Update Waku Links (#104)
-- **2024-09-13** — [`3ab314d`](https://github.com/vacp2p/rfc-index/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/standards/core/14/message.md) — Fix Files for Linting (#94)
-- **2024-08-05** — [`eb25cd0`](https://github.com/vacp2p/rfc-index/blob/eb25cd06d679e94409072a96841de16a6b3910d5/waku/standards/core/14/message.md) — chore: replace email addresses (#86)
-- **2024-03-21** — [`2eaa794`](https://github.com/vacp2p/rfc-index/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/standards/core/14/message.md) — Broken Links + Change Editors (#26)
-- **2024-02-01** — [`8e70159`](https://github.com/vacp2p/rfc-index/blob/8e70159669b48c37e6934a5d24dbbc600fafde87/waku/standards/core/14/message.md) — Update and rename MESSAGE.md to message.md
-- **2024-01-27** — [`88df5d8`](https://github.com/vacp2p/rfc-index/blob/88df5d8a40101301c529799fefee6949732766a4/waku/standards/core/14/MESSAGE.md) — Rename README.md to MESSAGE.md
-- **2024-01-27** — [`eef961b`](https://github.com/vacp2p/rfc-index/blob/eef961bfe3b1cf6aab66df5450555afd1d3543cb/waku/standards/core/14/README.md) — remove rfs folder
-- **2024-01-25** — [`9cd48a8`](https://github.com/vacp2p/rfc-index/blob/9cd48a881189dcba3a7681a618731e40a2d38bcc/waku/rfcs/standards/core/14/README.md) — Create README.md
+- **2026-01-30** — [`d5a9240`](https://github.com/logos-co/logos-lips/blob/d5a9240c6c6c859eddd30742b2251f8a13480cf9/docs/messaging/standards/core/14/message.md) — chore: removed archived (#283)
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/standards/core/14/message.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/core/14/message.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/core/14/message.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/core/14/message.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/core/14/message.md) — ci: add mdBook configuration (#233)
+- **2025-04-09** — [`8052808`](https://github.com/logos-co/logos-lips/blob/805280880a1c68b002c23b0bfbcded86eabe68ba/waku/standards/core/14/message.md) — 14/WAKU2-MESSAGE: Move to Stable (#120)
+- **2024-11-20** — [`ff87c84`](https://github.com/logos-co/logos-lips/blob/ff87c84dc71d4f933bab188993914069fea12baa/waku/standards/core/14/message.md) — Update Waku Links (#104)
+- **2024-09-13** — [`3ab314d`](https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/standards/core/14/message.md) — Fix Files for Linting (#94)
+- **2024-08-05** — [`eb25cd0`](https://github.com/logos-co/logos-lips/blob/eb25cd06d679e94409072a96841de16a6b3910d5/waku/standards/core/14/message.md) — chore: replace email addresses (#86)
+- **2024-03-21** — [`2eaa794`](https://github.com/logos-co/logos-lips/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/standards/core/14/message.md) — Broken Links + Change Editors (#26)
+- **2024-02-01** — [`8e70159`](https://github.com/logos-co/logos-lips/blob/8e70159669b48c37e6934a5d24dbbc600fafde87/waku/standards/core/14/message.md) — Update and rename MESSAGE.md to message.md
+- **2024-01-27** — [`88df5d8`](https://github.com/logos-co/logos-lips/blob/88df5d8a40101301c529799fefee6949732766a4/waku/standards/core/14/MESSAGE.md) — Rename README.md to MESSAGE.md
+- **2024-01-27** — [`eef961b`](https://github.com/logos-co/logos-lips/blob/eef961bfe3b1cf6aab66df5450555afd1d3543cb/waku/standards/core/14/README.md) — remove rfs folder
+- **2024-01-25** — [`9cd48a8`](https://github.com/logos-co/logos-lips/blob/9cd48a881189dcba3a7681a618731e40a2d38bcc/waku/rfcs/standards/core/14/README.md) — Create README.md
 
 <!-- timeline:end -->
 

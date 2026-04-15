@@ -12,15 +12,15 @@
 
 ## Timeline
 
-- **2026-01-16** — [`f01d5b9`](https://github.com/vacp2p/rfc-index/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/standards/core/64/network.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/core/64/network.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/core/64/network.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/core/64/network.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/core/64/network.md) — ci: add mdBook configuration (#233)
-- **2025-02-25** — [`0277fd0`](https://github.com/vacp2p/rfc-index/blob/0277fd0c4dbd907dfb2f0c28b6cde94a335e1fae/waku/standards/core/64/network.md) — docs: update dead links in 64/Network (#133)
-- **2024-09-13** — [`3ab314d`](https://github.com/vacp2p/rfc-index/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/standards/core/64/network.md) — Fix Files for Linting (#94)
-- **2024-07-09** — [`77029a2`](https://github.com/vacp2p/rfc-index/blob/77029a2e648317bff0f50623e7e03862115cee5c/waku/standards/core/64/network.md) — Add RLNv2 to TheWakuNetwork (#82)
-- **2024-05-10** — [`e5b859a`](https://github.com/vacp2p/rfc-index/blob/e5b859abfb3e42fde4336e5fc5b4e7250126f8ce/waku/standards/core/64/network.md) — Update WAKU2-NETWORK: Move to draft (#5)
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/standards/core/64/network.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/core/64/network.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/core/64/network.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/core/64/network.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/core/64/network.md) — ci: add mdBook configuration (#233)
+- **2025-02-25** — [`0277fd0`](https://github.com/logos-co/logos-lips/blob/0277fd0c4dbd907dfb2f0c28b6cde94a335e1fae/waku/standards/core/64/network.md) — docs: update dead links in 64/Network (#133)
+- **2024-09-13** — [`3ab314d`](https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/standards/core/64/network.md) — Fix Files for Linting (#94)
+- **2024-07-09** — [`77029a2`](https://github.com/logos-co/logos-lips/blob/77029a2e648317bff0f50623e7e03862115cee5c/waku/standards/core/64/network.md) — Add RLNv2 to TheWakuNetwork (#82)
+- **2024-05-10** — [`e5b859a`](https://github.com/logos-co/logos-lips/blob/e5b859abfb3e42fde4336e5fc5b4e7250126f8ce/waku/standards/core/64/network.md) — Update WAKU2-NETWORK: Move to draft (#5)
 
 <!-- timeline:end -->
 
@@ -198,7 +198,7 @@ See the section on [autosharding](#autosharding) for more.
 
 ## RLN rate-limiting
 
-The [17/WAKU2-RLN-RELAY](../17/rln-relay.md) protocol uses [RLN-V2](https://github.com/vacp2p/rfc-index/blob/a5b24ac0a27da361312260f9da372a0e6e812212/vac/raw/rln-v2.md)
+The [17/WAKU2-RLN-RELAY](../17/rln-relay.md) protocol uses [RLN-V2](https://github.com/logos-co/logos-lips/blob/a5b24ac0a27da361312260f9da372a0e6e812212/vac/raw/rln-v2.md)
 proofs to ensure that a pre-agreed rate limit
 of `x` messages every `y` seconds is not exceeded by any publisher.
 While the network is under capacity,
@@ -239,7 +239,7 @@ Publishers to the Waku Network SHOULD register an RLN membership.
 ### RLN Proofs
 
 Each RLN member MUST generate and attach an RLN proof to every published message
-as described in [17/WAKU2-RLN-RELAY](../17/rln-relay.md/#publishing) and [RLN-V2](https://github.com/vacp2p/rfc-index/blob/a5b24ac0a27da361312260f9da372a0e6e812212/vac/raw/rln-v2.md).
+as described in [17/WAKU2-RLN-RELAY](../17/rln-relay.md/#publishing) and [RLN-V2](https://github.com/logos-co/logos-lips/blob/a5b24ac0a27da361312260f9da372a0e6e812212/vac/raw/rln-v2.md).
 Slashing is not implemented for the Waku Network.
 Instead, validators will penalise peers forwarding messages exceeding the rate limit
 as specified for [the rate-limiting validation mechanism](#rate-limit-exceeded).
@@ -341,14 +341,14 @@ the relay node MUST _reject_ the message.
 
 If a message contains an RLN proof
 and the zero-knowledge proof is invalid
-according to the verification process described in [RLN-V2](https://github.com/vacp2p/rfc-index/blob/a5b24ac0a27da361312260f9da372a0e6e812212/vac/raw/rln-v2.md),
+according to the verification process described in [RLN-V2](https://github.com/logos-co/logos-lips/blob/a5b24ac0a27da361312260f9da372a0e6e812212/vac/raw/rln-v2.md),
 the relay node MUST _ignore_ the message.
 
 #### Rate limit exceeded
 
 If a message contains an RLN proof
 and the relay node detects double signaling
-according to the verification process described in [RLN-V2](https://github.com/vacp2p/rfc-index/blob/a5b24ac0a27da361312260f9da372a0e6e812212/vac/raw/rln-v2.md),
+according to the verification process described in [RLN-V2](https://github.com/logos-co/logos-lips/blob/a5b24ac0a27da361312260f9da372a0e6e812212/vac/raw/rln-v2.md),
 the relay node MUST _reject_ the message
 for violating the agreed rate limit of `rlnRelayUserMessageLimit` messages
 every `rlnEpochSizeSec` second.
@@ -393,7 +393,7 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 * [19/WAKU2-LIGHTPUSH](../19/lightpush.md)
 * [34/WAKU2-PEER-EXCHANGE](../34/peer-exchange.md)
 * [32/RLN-V1](../../../../ift-ts/raw/32/rln-v1.md)
-* [RLN-V2](https://github.com/vacp2p/rfc-index/blob/a5b24ac0a27da361312260f9da372a0e6e812212/vac/raw/rln-v2.md)
+* [RLN-V2](https://github.com/logos-co/logos-lips/blob/a5b24ac0a27da361312260f9da372a0e6e812212/vac/raw/rln-v2.md)
 * [14/WAKU2-MESSAGE](../14/message.md)
 * [gossipsub v1.1 validation](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#extended-validators)
 * [WAKU2-RELAY-SHARDING](https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md/)

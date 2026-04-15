@@ -14,7 +14,7 @@
 
 ## Timeline
 
-- **2026-01-30** — [`0ef87b1`](https://github.com/vacp2p/rfc-index/blob/0ef87b1ba9491c854e48c8dfd7574d34ec69c704/docs/storage/raw/manifest.md) — New RFC: CODEX-MANIFEST (#191)
+- **2026-01-30** — [`0ef87b1`](https://github.com/logos-co/logos-lips/blob/0ef87b1ba9491c854e48c8dfd7574d34ec69c704/docs/storage/raw/manifest.md) — New RFC: CODEX-MANIFEST (#191)
 
 <!-- timeline:end -->
 

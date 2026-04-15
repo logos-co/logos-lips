@@ -13,14 +13,14 @@
 
 ## Timeline
 
-- **2026-01-16** — [`f01d5b9`](https://github.com/vacp2p/rfc-index/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/standards/core/34/peer-exchange.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/core/34/peer-exchange.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/core/34/peer-exchange.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/core/34/peer-exchange.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/core/34/peer-exchange.md) — ci: add mdBook configuration (#233)
-- **2024-12-07** — [`2b297d5`](https://github.com/vacp2p/rfc-index/blob/2b297d597fc3ad0af145c3d53204432867709ea8/waku/standards/core/34/peer-exchange.md) — Update peer-exchange.md to fix a build error (#114)
-- **2024-11-20** — [`87d4ff7`](https://github.com/vacp2p/rfc-index/blob/87d4ff74d06e5ca72c79a1ada09083d3347adcca/waku/standards/core/34/peer-exchange.md) — Workflow Fix: markdown-lint (#111)
-- **2024-11-20** — [`dcc579c`](https://github.com/vacp2p/rfc-index/blob/dcc579c47ad5ade76f061ad7ff35cccd5f223653/waku/standards/core/34/peer-exchange.md) — Update WAKU2-PEER-EXCHANGE: Move to draft (#7)
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/standards/core/34/peer-exchange.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/core/34/peer-exchange.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/core/34/peer-exchange.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/core/34/peer-exchange.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/core/34/peer-exchange.md) — ci: add mdBook configuration (#233)
+- **2024-12-07** — [`2b297d5`](https://github.com/logos-co/logos-lips/blob/2b297d597fc3ad0af145c3d53204432867709ea8/waku/standards/core/34/peer-exchange.md) — Update peer-exchange.md to fix a build error (#114)
+- **2024-11-20** — [`87d4ff7`](https://github.com/logos-co/logos-lips/blob/87d4ff74d06e5ca72c79a1ada09083d3347adcca/waku/standards/core/34/peer-exchange.md) — Workflow Fix: markdown-lint (#111)
+- **2024-11-20** — [`dcc579c`](https://github.com/logos-co/logos-lips/blob/dcc579c47ad5ade76f061ad7ff35cccd5f223653/waku/standards/core/34/peer-exchange.md) — Update WAKU2-PEER-EXCHANGE: Move to draft (#7)
 
 <!-- timeline:end -->
 

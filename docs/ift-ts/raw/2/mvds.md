@@ -13,17 +13,18 @@
 
 ## Timeline
 
-- **2026-01-16** — [`f01d5b9`](https://github.com/vacp2p/rfc-index/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/ift-ts/raw/2/mvds.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/2/mvds.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/2/mvds.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/2/mvds.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/2/mvds.md) — ci: add mdBook configuration (#233)
-- **2024-09-13** — [`3ab314d`](https://github.com/vacp2p/rfc-index/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/vac/2/mvds.md) — Fix Files for Linting (#94)
-- **2024-06-28** — [`a5b24ac`](https://github.com/vacp2p/rfc-index/blob/a5b24ac0a27da361312260f9da372a0e6e812212/vac/2/mvds.md) — fix_: broken image links (#81)
-- **2024-02-01** — [`0253d53`](https://github.com/vacp2p/rfc-index/blob/0253d534ffa9b7994cf0c6c31a5591309dc336d3/vac/2/mvds.md) — Rename MVDS.md to mvds.md
-- **2024-01-30** — [`70326d1`](https://github.com/vacp2p/rfc-index/blob/70326d135bf660f2ec171aeba9eacd51eaadcd6b/vac/2/MVDS.md) — Rename MVDS.md to MVDS.md
-- **2024-01-27** — [`472a7fd`](https://github.com/vacp2p/rfc-index/blob/472a7fd440882c195898d025c14357d875db6ff3/vac/02/MVDS.md) — Rename vac/rfcs/02/README.md to vac/02/MVDS.md
-- **2024-01-25** — [`4362a7b`](https://github.com/vacp2p/rfc-index/blob/4362a7b221ceb4e1f1a82536f350c8e77d8f03d4/vac/rfcs/02/README.md) — Create README.md
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/ift-ts/raw/2/mvds.md) — chore: add math support (#287)
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/ift-ts/raw/2/mvds.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/2/mvds.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/2/mvds.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/2/mvds.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/2/mvds.md) — ci: add mdBook configuration (#233)
+- **2024-09-13** — [`3ab314d`](https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/vac/2/mvds.md) — Fix Files for Linting (#94)
+- **2024-06-28** — [`a5b24ac`](https://github.com/logos-co/logos-lips/blob/a5b24ac0a27da361312260f9da372a0e6e812212/vac/2/mvds.md) — fix_: broken image links (#81)
+- **2024-02-01** — [`0253d53`](https://github.com/logos-co/logos-lips/blob/0253d534ffa9b7994cf0c6c31a5591309dc336d3/vac/2/mvds.md) — Rename MVDS.md to mvds.md
+- **2024-01-30** — [`70326d1`](https://github.com/logos-co/logos-lips/blob/70326d135bf660f2ec171aeba9eacd51eaadcd6b/vac/2/MVDS.md) — Rename MVDS.md to MVDS.md
+- **2024-01-27** — [`472a7fd`](https://github.com/logos-co/logos-lips/blob/472a7fd440882c195898d025c14357d875db6ff3/vac/02/MVDS.md) — Rename vac/rfcs/02/README.md to vac/02/MVDS.md
+- **2024-01-25** — [`4362a7b`](https://github.com/logos-co/logos-lips/blob/4362a7b221ceb4e1f1a82536f350c8e77d8f03d4/vac/rfcs/02/README.md) — Create README.md
 
 <!-- timeline:end -->
 

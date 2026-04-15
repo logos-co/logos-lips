@@ -1,4 +1,4 @@
-# Logos LIP (RFC) Index
+# Logos LIP (Logos Improvement Proposals) Index
 
 NOTE: This repo is still evolving while the LIP process is refined.
 

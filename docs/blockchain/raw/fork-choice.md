@@ -13,8 +13,8 @@
 
 ## Timeline
 
-- **2026-01-30** — [`0ef87b1`](https://github.com/vacp2p/rfc-index/blob/0ef87b1ba9491c854e48c8dfd7574d34ec69c704/docs/blockchain/raw/fork-choice.md) — New RFC: CODEX-MANIFEST (#191)
-- **2026-01-29** — [`a428c03`](https://github.com/vacp2p/rfc-index/blob/a428c0370733bdeadc019952a49264443d27edd0/docs/blockchain/raw/fork-choice.md) — New RFC: NOMOS-FORK-CHOICE (#247)
+- **2026-01-30** — [`0ef87b1`](https://github.com/logos-co/logos-lips/blob/0ef87b1ba9491c854e48c8dfd7574d34ec69c704/docs/blockchain/raw/fork-choice.md) — New RFC: CODEX-MANIFEST (#191)
+- **2026-01-29** — [`a428c03`](https://github.com/logos-co/logos-lips/blob/a428c0370733bdeadc019952a49264443d27edd0/docs/blockchain/raw/fork-choice.md) — New RFC: NOMOS-FORK-CHOICE (#247)
 
 <!-- timeline:end -->
 

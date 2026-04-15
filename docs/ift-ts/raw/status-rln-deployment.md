@@ -9,6 +9,14 @@
 | Editor | Ugur Sen [ugur@status.im](mailto:ugur@status.im) |
 | Contributors | Sylvain [sylvain@status.im](mailto:sylvain@status.im) |
 
+<!-- timeline:start -->
+
+## Timeline
+
+- **2026-04-01** — [`b042c3e`](https://github.com/logos-co/logos-lips/blob/b042c3eb64faa0202b3c80d8726d57aacf8ec82c/docs/ift-ts/raw/status-rln-deployment.md) — docs: Initial PR for SN RLN deployment RFC (#286)
+
+<!-- timeline:end -->
+
 ## Abstract
 
 This document specifies the Status L2 RLN deployment
