@@ -1,0 +1,1715 @@
+<!DOCTYPE HTML>
+<html lang="en" class="ayu" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>LOGOS-SERVICE-DISCOVERY - Logos LIP</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../highlight.css">
+        <link rel="stylesheet" href="../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../../theme/katex/katex.min.css">
+        <link rel="stylesheet" href="../../theme/fonts/fonts.css">
+        <link rel="stylesheet" href="../../theme/FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../custom.css">
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "ayu";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('ayu')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../../index.html">Introduction</a></li><li class="chapter-item expanded affix "><a href="../../about.html">About</a></li><li class="chapter-item expanded "><a href="../../messaging/index.html"><strong aria-hidden="true">1.</strong> Messaging</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/index.html"><strong aria-hidden="true">1.1.</strong> Standards - Core</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/10/waku2.html"><strong aria-hidden="true">1.1.1.</strong> 10/WAKU2</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/11/relay.html"><strong aria-hidden="true">1.1.2.</strong> 11/WAKU2-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/12/filter.html"><strong aria-hidden="true">1.1.3.</strong> 12/WAKU2-FILTER</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/12/previous-versions/00/filter.html"><strong aria-hidden="true">1.1.3.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/13/store.html"><strong aria-hidden="true">1.1.4.</strong> 13/WAKU2-STORE</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/13/previous-versions/00/store.html"><strong aria-hidden="true">1.1.4.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/14/message.html"><strong aria-hidden="true">1.1.5.</strong> 14/WAKU2-MESSAGE</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/15/bridge.html"><strong aria-hidden="true">1.1.6.</strong> 15/WAKU-BRIDGE</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/17/rln-relay.html"><strong aria-hidden="true">1.1.7.</strong> 17/WAKU2-RLN-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/19/lightpush.html"><strong aria-hidden="true">1.1.8.</strong> 19/WAKU2-LIGHTPUSH</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/31/enr.html"><strong aria-hidden="true">1.1.9.</strong> 31/WAKU2-ENR</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/33/discv5.html"><strong aria-hidden="true">1.1.10.</strong> 33/WAKU2-DISCV5</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/34/peer-exchange.html"><strong aria-hidden="true">1.1.11.</strong> 34/WAKU2-PEER-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/36/bindings-api.html"><strong aria-hidden="true">1.1.12.</strong> 36/WAKU2-BINDINGS-API</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/64/network.html"><strong aria-hidden="true">1.1.13.</strong> 64/WAKU2-NETWORK</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/66/metadata.html"><strong aria-hidden="true">1.1.14.</strong> 66/WAKU2-METADATA</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/index.html"><strong aria-hidden="true">1.2.</strong> Standards - Application</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/application/20/toy-eth-pm.html"><strong aria-hidden="true">1.2.1.</strong> 20/TOY-ETH-PM</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/26/payload.html"><strong aria-hidden="true">1.2.2.</strong> 26/WAKU2-PAYLOAD</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/53/x3dh.html"><strong aria-hidden="true">1.2.3.</strong> 53/WAKU2-X3DH</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/54/x3dh-sessions.html"><strong aria-hidden="true">1.2.4.</strong> 54/WAKU2-X3DH-SESSIONS</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/index.html"><strong aria-hidden="true">1.3.</strong> Standards - Legacy</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/6/waku1.html"><strong aria-hidden="true">1.3.1.</strong> 6/WAKU1</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/7/data.html"><strong aria-hidden="true">1.3.2.</strong> 7/WAKU-DATA</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/8/mail.html"><strong aria-hidden="true">1.3.3.</strong> 8/WAKU-MAIL</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/9/rpc.html"><strong aria-hidden="true">1.3.4.</strong> 9/WAKU-RPC</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/informational/index.html"><strong aria-hidden="true">1.4.</strong> Informational</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/informational/22/toy-chat.html"><strong aria-hidden="true">1.4.1.</strong> 22/TOY-CHAT</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/23/topics.html"><strong aria-hidden="true">1.4.2.</strong> 23/WAKU2-TOPICS</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/27/peers.html"><strong aria-hidden="true">1.4.3.</strong> 27/WAKU2-PEERS</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/29/config.html"><strong aria-hidden="true">1.4.4.</strong> 29/WAKU2-CONFIG</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/30/adaptive-nodes.html"><strong aria-hidden="true">1.4.5.</strong> 30/ADAPTIVE-NODES</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/index.html"><strong aria-hidden="true">1.5.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/deprecated/5/waku0.html"><strong aria-hidden="true">1.5.1.</strong> 5/WAKU0</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/16/rpc.html"><strong aria-hidden="true">1.5.2.</strong> 16/WAKU2-RPC</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/18/swap.html"><strong aria-hidden="true">1.5.3.</strong> 18/WAKU2-SWAP</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/fault-tolerant-store.html"><strong aria-hidden="true">1.5.4.</strong> 21/WAKU2-FAULT-TOLERANT-STORE</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/index.html"><strong aria-hidden="true">2.</strong> Blockchain</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/index.html"><strong aria-hidden="true">2.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-anonymous-leaders-reward.html"><strong aria-hidden="true">2.1.1.</strong> BEDROCK-ANONYMOUS-LEADERS-REWARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-architecture-overview.html"><strong aria-hidden="true">2.1.2.</strong> BEDROCK-ARCHITECTURE-OVERVIEW</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-genesis-block.html"><strong aria-hidden="true">2.1.3.</strong> BEDROCK-GENESIS-BLOCK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-declaration-protocol.html"><strong aria-hidden="true">2.1.4.</strong> BEDROCK-SERVICE-DECLARATION-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-reward-distribution.html"><strong aria-hidden="true">2.1.5.</strong> BEDROCK-SERVICE-REWARD-DISTRIBUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-block-construction.html"><strong aria-hidden="true">2.1.6.</strong> BEDROCK-V1-1-BLOCK-CONSTRUCTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-mantle-specification.html"><strong aria-hidden="true">2.1.7.</strong> BEDROCK-V1.1-MANTLE-SPECIFICATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/fork-choice.html"><strong aria-hidden="true">2.1.8.</strong> CRYPTARCHIA-FORK-CHOICE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-proof-of-leadership.html"><strong aria-hidden="true">2.1.9.</strong> CRYPTARCHIA-PROOF-OF-LEADERSHIP</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-total-stake-inference.html"><strong aria-hidden="true">2.1.10.</strong> CRYPTARCHIA-TOTAL-STAKE-INFERENCE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-v1-bootstr-sync.html"><strong aria-hidden="true">2.1.11.</strong> CRYPTARCHIA-V1-BOOTSTRAPPING-SYNCHRONIZATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-blend-protocol.html"><strong aria-hidden="true">2.1.12.</strong> NOMOS-BLEND-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-cryptarchia-v1-protocol.html"><strong aria-hidden="true">2.1.13.</strong> NOMOS-CRYPTARCHIA-V1-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomosda-network.html"><strong aria-hidden="true">2.1.14.</strong> NOMOS-DA-NETWORK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/digital-signature.html"><strong aria-hidden="true">2.1.15.</strong> NOMOS-DIGITAL-SIGNATURE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-key-types-and-generation.html"><strong aria-hidden="true">2.1.16.</strong> NOMOS-KEY-TYPES-GENERATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-encapsulation.html"><strong aria-hidden="true">2.1.17.</strong> NOMOS-MESSAGE-ENCAPSULATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-formatting.html"><strong aria-hidden="true">2.1.18.</strong> NOMOS-MESSAGE-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-network.html"><strong aria-hidden="true">2.1.19.</strong> NOMOS-P2P-NETWORK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-payload-formatting.html"><strong aria-hidden="true">2.1.20.</strong> NOMOS-PAYLOAD-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-proof-of-quota.html"><strong aria-hidden="true">2.1.21.</strong> NOMOS-PROOF-OF-QUOTA</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-wallet-technical-standard.html"><strong aria-hidden="true">2.1.22.</strong> NOMOS-WALLET-TECHNICAL-STANDARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-cryptographic-protocol.html"><strong aria-hidden="true">2.1.23.</strong> NOMOSDA-CRYPTOGRAPHIC-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-rewarding.html"><strong aria-hidden="true">2.1.24.</strong> NOMOSDA-REWARDING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-hardware-requirements.html"><strong aria-hidden="true">2.1.25.</strong> P2P-HARDWARE-REQUIREMENTS</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-nat-solution.html"><strong aria-hidden="true">2.1.26.</strong> P2P-NAT-SOLUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-network-bootstrapping.html"><strong aria-hidden="true">2.1.27.</strong> P2P-NETWORK-BOOTSTRAPPING</a></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/deprecated/index.html"><strong aria-hidden="true">2.2.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/deprecated/claro.html"><strong aria-hidden="true">2.2.1.</strong> CONSENSUS-CLARO</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../storage/index.html"><strong aria-hidden="true">3.</strong> Storage</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/index.html"><strong aria-hidden="true">3.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/codex-block-exchange.html"><strong aria-hidden="true">3.1.1.</strong> CODEX-BLOCK-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/community-history.html"><strong aria-hidden="true">3.1.2.</strong> CODEX-COMMUNITY-HISTORY</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dht.html"><strong aria-hidden="true">3.1.3.</strong> CODEX-DHT</a></li><li class="chapter-item expanded "><a href="../../storage/raw/manifest.html"><strong aria-hidden="true">3.1.4.</strong> CODEX-MANIFEST</a></li><li class="chapter-item expanded "><a href="../../storage/raw/codex-store.html"><strong aria-hidden="true">3.1.5.</strong> CODEX-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dataset-store.html"><strong aria-hidden="true">3.1.6.</strong> DATASET-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/datasets.html"><strong aria-hidden="true">3.1.7.</strong> DATASETS</a></li><li class="chapter-item expanded "><a href="../../storage/raw/merkle-tree.html"><strong aria-hidden="true">3.1.8.</strong> MERKLE-TREE</a></li></ol></li><li class="chapter-item expanded "><a href="../../storage/deprecated/index.html"><strong aria-hidden="true">3.2.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/deprecated/erasure-coding.html"><strong aria-hidden="true">3.2.1.</strong> CODEX-ERASUE-CODING</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-marketplace.html"><strong aria-hidden="true">3.2.2.</strong> CODEX-MARKETPLACE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-merkle-tree.html"><strong aria-hidden="true">3.2.3.</strong> CODEX-MERKLE-TREE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-prover.html"><strong aria-hidden="true">3.2.4.</strong> CODEX-PROVER</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/slot-buIlder.html"><strong aria-hidden="true">3.2.5.</strong> CODEX-SLOT-BUILDER</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../ift-ts/index.html"><strong aria-hidden="true">4.</strong> IFT-TS</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../ift-ts/raw/index.html"><strong aria-hidden="true">4.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../ift-ts/raw/1/coss.html"><strong aria-hidden="true">4.1.1.</strong> 1/COSS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/2/mvds.html"><strong aria-hidden="true">4.1.2.</strong> 2/MVDS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/3/remote-log.html"><strong aria-hidden="true">4.1.3.</strong> 3/REMOTE-LOG</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/4/mvds-meta.html"><strong aria-hidden="true">4.1.4.</strong> 4/MVDS-META</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/25/libp2p-dns-discovery.html"><strong aria-hidden="true">4.1.5.</strong> 25/LIBP2P-DNS-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/32/rln-v1.html"><strong aria-hidden="true">4.1.6.</strong> 32/RLN-V1</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/decentralized-mls-offchain-consensus.html"><strong aria-hidden="true">4.1.7.</strong> DECENTRALIZED-MLS-OFFCHAIN-CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/decentralized-messaging-ethereum.html"><strong aria-hidden="true">4.1.8.</strong> ETH-DCGKA</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/eth-mls-onchain.html"><strong aria-hidden="true">4.1.9.</strong> ETH-MLS-ONCHAIN</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/deleted/eth-secpm.html"><strong aria-hidden="true">4.1.10.</strong> ETH-SECPM</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/extended-kad-disco.html"><strong aria-hidden="true">4.1.11.</strong> EXTENDED-KADEMLIA-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/extensible-peer-records.html"><strong aria-hidden="true">4.1.12.</strong> EXTENSIBLE-PEER-RECORDS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/gossipsub-tor-push.html"><strong aria-hidden="true">4.1.13.</strong> GOSSIPSUB-TOR-PUSH</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/consensus-hashgraphlike.html"><strong aria-hidden="true">4.1.14.</strong> HASHGRAPHLIKE CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/logos-service-discovery.html" class="active"><strong aria-hidden="true">4.1.15.</strong> LOGOS-SERVICE-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/mix.html"><strong aria-hidden="true">4.1.16.</strong> MIX</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/multi-message_id-burn-rln.html"><strong aria-hidden="true">4.1.17.</strong> Multi-message_id Burn RLN</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/noise-x3dh-double-ratchet.html"><strong aria-hidden="true">4.1.18.</strong> NOISE-X3DH-DOUBLE-RATCHET</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/payment-streams.html"><strong aria-hidden="true">4.1.19.</strong> PAYMENT-STREAMS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/mix-spam-protection-rln.html"><strong aria-hidden="true">4.1.20.</strong> RLN DoS Protection for Mixnet</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/rln-interep-spec.html"><strong aria-hidden="true">4.1.21.</strong> RLN-INTEREP-SPEC</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/rln-stealth-commitments.html"><strong aria-hidden="true">4.1.22.</strong> RLN-STEALTH-COMMITMENTS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/rln-v2.html"><strong aria-hidden="true">4.1.23.</strong> RLN-V2</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/sds.html"><strong aria-hidden="true">4.1.24.</strong> SDS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/status-rln-deployment.html"><strong aria-hidden="true">4.1.25.</strong> STATUS-RLN-DEPLOYMENT</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/zerokit-api.html"><strong aria-hidden="true">4.1.26.</strong> Zerokit API</a></li></ol></li><li class="chapter-item expanded "><a href="../../ift-ts/template.html"><strong aria-hidden="true">4.2.</strong> TEMPLATE</a></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Logos LIP</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/logos-co/logos-lips" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="logos-service-discovery"><a class="header" href="#logos-service-discovery">LOGOS-SERVICE-DISCOVERY</a></h1>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
+<tr><td>Name</td><td>Logos Service Discovery Protocol</td></tr>
+<tr><td>Slug</td><td>107</td></tr>
+<tr><td>Status</td><td>raw</td></tr>
+<tr><td>Category</td><td>Standards Track</td></tr>
+<tr><td>Editor</td><td>Arunima Chaudhuri <a href="mailto:arunima@status.im">arunima@status.im</a></td></tr>
+<tr><td>Contributors</td><td>Ugur Sen <a href="mailto:ugur@status.im">ugur@status.im</a>, Hanno Cornelius <a href="mailto:hanno@status.im">hanno@status.im</a></td></tr>
+</tbody></table>
+</div><!-- timeline:start -->
+<h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
+<ul>
+<li><strong>2026-04-15</strong> — <a href="https://github.com/logos-co/logos-lips/blob/5a3e844679a0ac60e6b4e945a64c2f7d8650cba5/docs/ift-ts/raw/logos-service-discovery.md"><code>5a3e844</code></a> — Chore/move repo into logos co (#312)</li>
+<li><strong>2026-03-24</strong> — <a href="https://github.com/logos-co/logos-lips/blob/513d8eae6be8b7b30bf427023ac686df2f2918c0/docs/ift-ts/raw/logos-service-discovery.md"><code>513d8ea</code></a> — feat: renaming capability to service discovery (#300)</li>
+<li><strong>2026-02-27</strong> — <a href="https://github.com/logos-co/logos-lips/blob/2ec272e57f6110106297d062098110a3549c5db6/docs/ift-ts/raw/logos-capability-discovery.md"><code>2ec272e</code></a> — docs: refactor and add algo explanation before pseudocode (#280)</li>
+<li><strong>2026-01-27</strong> — <a href="https://github.com/logos-co/logos-lips/blob/ab9337e58b5947a3b58d205fec7d52fb8d16c2eb/docs/ift-ts/raw/logos-capability-discovery.md"><code>ab9337e</code></a> — Add recipe for algorithms (#232)</li>
+<li><strong>2026-01-19</strong> — <a href="https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/ift-ts/raw/logos-capability-discovery.md"><code>f24e567</code></a> — Chore/updates mdbook (#262)</li>
+<li><strong>2026-01-16</strong> — <a href="https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/logos-capability-discovery.md"><code>89f2ea8</code></a> — Chore/mdbook updates (#258)</li>
+<li><strong>2025-12-22</strong> — <a href="https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/raw/logos-capability-discovery.md"><code>0f1855e</code></a> — Chore/fix headers (#239)</li>
+<li><strong>2025-12-22</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/raw/logos-capability-discovery.md"><code>b1a5783</code></a> — Chore/mdbook updates (#237)</li>
+<li><strong>2025-12-18</strong> — <a href="https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/raw/logos-capability-discovery.md"><code>d03e699</code></a> — ci: add mdBook configuration (#233)</li>
+<li><strong>2025-12-09</strong> — <a href="https://github.com/logos-co/logos-lips/blob/aaf158aa59edb2ce0841a345725d16355218c196/vac/raw/logos-capability-discovery.md"><code>aaf158a</code></a> — VAC/RAW/LOGOS-DISCOVERY-CAPABILITY RFC  (#212)</li>
+</ul>
+<!-- timeline:end -->
+<blockquote>
+<p><strong>Note:</strong> This specification is currently a WIP and undergoing a high rate of changes.</p>
+</blockquote>
+<h2 id="abstract"><a class="header" href="#abstract">Abstract</a></h2>
+<p>This RFC defines the Logos Service Discovery protocol,
+a discovery mechanism inspired by <a href="https://ieeexplore.ieee.org/document/10629017">DISC-NG service discovery</a>
+built on top of <a href="https://github.com/libp2p/specs/tree/7740c076350b6636b868a9e4a411280eea34d335/kad-dht">Kad-dht</a>.</p>
+<p>The protocol enables nodes to:</p>
+<ul>
+<li>Advertise their participation in specific services</li>
+<li>Efficiently discover other peers participating in those services</li>
+</ul>
+<p>In this RFC, the terms "capability" and "service" are used interchangeably.
+Within Logos, a node’s “capabilities” map directly to
+the “services” it participates in.
+Similarly, "peer" and "node" refer to the same entity:
+a participant in the Logos Discovery network.</p>
+<p>Logos discovery extends Kad-dht toward a multi-service, resilient discovery layer,
+enhancing reliability while maintaining compatibility with existing Kad-dht behavior.
+For everything else that isn't explicitly stated herein,
+it is safe to assume behaviour similar to Kad-dht.</p>
+<h2 id="motivation"><a class="header" href="#motivation">Motivation</a></h2>
+<p>In decentralized networks supporting multiple services,
+efficient peer discovery for specific services is critical.
+Traditional approaches face several challenges:</p>
+<ul>
+<li>Inefficiency: Random-walk–based discovery is inefficient for unpopular services.</li>
+<li>Load imbalance: A naive approach where nodes advertise their service at DHT peers
+whose IDs are closest to the service ID
+leads to hotspots and overload at popular services.</li>
+<li>Scalability: Discovery must scale logarithmically across many distinct services.</li>
+</ul>
+<p>Logos discovery addresses these through:</p>
+<ul>
+<li>Service-specific routing tables</li>
+<li>Adaptive advertisement placement with admission control</li>
+<li>Improved lookup operations balancing efficiency and resilience</li>
+</ul>
+<h2 id="format-specification"><a class="header" href="#format-specification">Format Specification</a></h2>
+<p>The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”,
+“SHOULD”, “SHOULD NOT”, “RECOMMENDED”, “MAY”, and “OPTIONAL” in this document
+are to be interpreted as described in <a href="https://www.ietf.org/rfc/rfc2119.txt">2119</a>.</p>
+<h2 id="protocol-roles"><a class="header" href="#protocol-roles">Protocol Roles</a></h2>
+<p>The Logos service discovery protocol defines three roles that nodes can perform:</p>
+<h3 id="advertiser"><a class="header" href="#advertiser">Advertiser</a></h3>
+<p><strong>Advertisers</strong> are nodes that participate in a service
+and want to be discovered by other peers.</p>
+<h3 id="discoverer"><a class="header" href="#discoverer">Discoverer</a></h3>
+<p><strong>Discoverers</strong> are nodes attempting to find peers that provide a specific service.</p>
+<h3 id="registrar"><a class="header" href="#registrar">Registrar</a></h3>
+<p><strong>Registrars</strong> are nodes that store and serve advertisements.</p>
+<p>Responsibilities:</p>
+<ul>
+<li>Registrars MUST use a waiting time based admission control mechanism
+to decide whether to store an advertisement coming from an advertiser or not.</li>
+<li>Registrars SHOULD respond to query requests for advertisements coming from discoverers.</li>
+</ul>
+<h2 id="definitions"><a class="header" href="#definitions">Definitions</a></h2>
+<h3 id="dht-routing-table"><a class="header" href="#dht-routing-table">DHT Routing Table</a></h3>
+<p>Every participant in the kad-dht peer discovery layer
+maintains the peer routing table <code>KadDHT(peerID)</code>.
+It is a distributed key-value store with
+<a href="https://github.com/libp2p/specs/blob/7740c076350b6636b868a9e4a411280eea34d335/peer-ids/peer-ids.md#peer-ids">peer IDs</a>
+as key against their matching
+<a href="https://github.com/libp2p/specs/blob/7740c076350b6636b868a9e4a411280eea34d335/RFC/0003-routing-records.md">signed peer records</a> values.
+It is centered on the node's own <code>peerID</code>.</p>
+<blockquote>
+<p>“Centered on” means the table is organized using that ID as the reference point
+for computing distances with other peers and assigning peers to buckets.</p>
+</blockquote>
+<h3 id="bucket"><a class="header" href="#bucket">Bucket</a></h3>
+<p>Each routing table is organized into buckets.
+A bucket is a logical container that stores information about peers
+at a particular distance range from a reference ID.</p>
+<p>Conceptually:</p>
+<ul>
+<li>Each bucket corresponds to a specific range in the XOR distance metric</li>
+<li>Peers are assigned to buckets based on their XOR distance from the table's center ID</li>
+<li>Buckets enable logarithmic routing by organizing the keyspace into manageable segments</li>
+</ul>
+<p>The number of buckets and their organization is described in the <a href="#distance">Distance</a> section.
+Implementation considerations for bucket management
+are detailed in <a href="#bucket-management">Bucket Management</a> section.</p>
+<h3 id="service"><a class="header" href="#service">Service</a></h3>
+<p>A service is a logical sub-network within the larger peer-to-peer network.
+It represents a specific capability a node supports
+— for example, a particular protocol or functionality it offers.
+A service MUST be identified by a libp2p protocol ID via the
+<a href="https://github.com/libp2p/specs/tree/7740c076350b6636b868a9e4a411280eea34d335/identify">identify protocol</a>.
+This service protocol ID (e.g., <code>/waku/store/1.0.0</code>)
+identifies the capability being discovered.</p>
+<h3 id="service-id"><a class="header" href="#service-id">Service ID</a></h3>
+<p>The service ID <code>service_id_hash</code> MUST be the SHA-256 hash of the protocol ID.</p>
+<p>For example:</p>
+<div class="table-wrapper"><table><thead><tr><th>Service Identifier</th><th>Service ID</th></tr></thead><tbody>
+<tr><td><code>/waku/store/1.0.0</code></td><td><code>313a14f48b3617b0ac87daabd61c1f1f1bf6a59126da455909b7b11155e0eb8e</code></td></tr>
+<tr><td><code>/libp2p/mix/1.2.0</code></td><td><code>9c55878d86e575916b267195b34125336c83056dffc9a184069bcb126a78115d</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="advertisement-cache"><a class="header" href="#advertisement-cache">Advertisement Cache</a></h3>
+<p>An advertisement cache <code>ad_cache</code> is a bounded storage structure
+maintained by registrars to store accepted advertisements.</p>
+<h3 id="advertise-table"><a class="header" href="#advertise-table">Advertise Table</a></h3>
+<p>For every service it participates in, an advertiser node MUST maintain an
+advertise table <code>AdvT(service_id_hash)</code> centered on <code>service_id_hash</code>.
+The table MAY be initialized using
+peers from the advertiser’s <code>KadDHT(peerID)</code> routing table.
+It SHOULD be updated opportunistically through interactions with
+registrars during the advertisement process.</p>
+<p>Each bucket in the advertise table contains a list of registrar peers at a
+particular XOR distance range from <code>service_id_hash</code>, which are candidates for placing
+advertisements.</p>
+<h3 id="search-table"><a class="header" href="#search-table">Search Table</a></h3>
+<p>For every service it attempts to discover, a discoverer node MUST maintain a
+search table <code>DiscT(service_id_hash)</code> centered on <code>service_id_hash</code>.
+The table MAY be initialized using
+peers from the discoverer’s<code>KadDHT(peerID)</code> routing table.
+It SHOULD be updated through interactions with
+registrars during lookup operations.</p>
+<p>Each bucket in the search table contains a list of registrar peers at a
+particular XOR distance range from <code>service_id_hash</code>, which discoverers can query to
+retrieve advertisements for that service.</p>
+<h3 id="registrar-table"><a class="header" href="#registrar-table">Registrar Table</a></h3>
+<p>For every service for which it stores and serves advertisements,
+a registrar node SHOULD maintain a registrar table <code>RegT(service_id_hash)</code>
+centered on <code>service_id_hash</code>.
+The table MAY be initialized using peers from the
+registrar’s <code>KadDHT(peerID)</code> routing table.
+It SHOULD be updated opportunistically
+through interactions with advertisers and discoverers.</p>
+<p>Each bucket in the registrar table contains a list of peer nodes
+at a particular XOR distance range from <code>service_id_hash</code>.
+Registrars use this table to return
+<code>closerPeers</code> in <code>REGISTER</code> and <code>GET_ADS</code> responses,
+enabling advertisers and discoverers to
+refine their service-specific routing tables.</p>
+<h3 id="address"><a class="header" href="#address">Address</a></h3>
+<p>A <a href="https://github.com/libp2p/specs/tree/7740c076350b6636b868a9e4a411280eea34d335/addressing">multiaddress</a>
+is a standardized way used in libp2p to represent network addresses.
+Implementations SHOULD use multiaddresses for peer connectivity.
+However, implementations MAY use alternative address representations if they:</p>
+<ul>
+<li>Remain interoperable</li>
+<li>Convey sufficient information (IP + port) to establish connections</li>
+</ul>
+<h3 id="signature"><a class="header" href="#signature">Signature</a></h3>
+<p>Refer to <a href="https://github.com/libp2p/specs/blob/7740c076350b6636b868a9e4a411280eea34d335/peer-ids/peer-ids.md">Peer Ids and Keys</a>
+to know about supported signatures.
+In the base Kad DHT specification, signatures are optional,
+typically implemented as a PKI signature over the tuple <code>(key || value || author)</code>.
+In this RFC digital signatures MUST be used to
+authenticate advertisements and tickets.</p>
+<h3 id="expiry-time-e"><a class="header" href="#expiry-time-e">Expiry Time <code>E</code></a></h3>
+<p><code>E</code> is advertisement expiry time in seconds.
+The expiry time <strong><code>E</code></strong> is a system wide parameter,
+not an individual advertisement field or parameter of an individual registrar.</p>
+<h2 id="data-structures"><a class="header" href="#data-structures">Data Structures</a></h2>
+<h3 id="advertisement"><a class="header" href="#advertisement">Advertisement</a></h3>
+<p>An <strong>advertisement</strong> indicates that a specific node participates in a service.
+In this RFC we refer to advertisement objects as <code>ads</code>.
+For a single advertisement object we use <code>ad</code>.</p>
+<p>An advertisement logically represents:</p>
+<ul>
+<li><strong>Service identification</strong>: Which service the node participates in (via <code>service_id_hash</code>)</li>
+<li><strong>Peer identification</strong>: The advertiser's unique peer ID</li>
+<li><strong>Network addresses</strong>: How to reach the advertiser (multiaddrs)</li>
+<li><strong>Authentication</strong>: Cryptographic proof that the advertiser controls the peer ID</li>
+</ul>
+<p>Implementations are RECOMMENDED to use ExtensiblePeerRecord (XPR) encoding for advertisements.
+See the <a href="#advertisement-encoding">Advertisement Encoding</a> section
+in the wire protocol specification for transmission format details.</p>
+<h3 id="ticket"><a class="header" href="#ticket">Ticket</a></h3>
+<p>Tickets are digitally signed objects issued by registrars to advertisers
+to track accumulated waiting time for admission into the advertisement cache.</p>
+<p>A ticket logically represents:</p>
+<ul>
+<li><strong>Advertisement reference</strong>: The advertisement this ticket is associated with</li>
+<li><strong>Time tracking</strong>: When the ticket was created (<code>t_init</code>) and last modified (<code>t_mod</code>)</li>
+<li><strong>Waiting time</strong>: How long the advertiser must wait before retrying (<code>t_wait_for</code>)</li>
+<li><strong>Authentication</strong>: Cryptographic proof that the registrar issued this ticket</li>
+</ul>
+<p>Tickets enable stateless admission control at registrars.
+Advertisers accumulate waiting time across registration attempts
+by presenting tickets from previous attempts.</p>
+<p>See the <a href="#rpc-messages">RPC Messages</a> section for the wire format specification of tickets.</p>
+<h2 id="protocol-specifications"><a class="header" href="#protocol-specifications">Protocol Specifications</a></h2>
+<h3 id="system-parameters"><a class="header" href="#system-parameters">System Parameters</a></h3>
+<p>The system parameters are derived directly from
+the <a href="https://ieeexplore.ieee.org/document/10629017">DISC-NG paper</a>.
+Implementations SHOULD modify them as needed based on specific requirements.</p>
+<div class="table-wrapper"><table><thead><tr><th>Parameter</th><th>Default Value</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>K_register</code></td><td>3</td><td>Max number of active (i.e. unexpired) registrations + ongoing registration attempts per bucket.</td></tr>
+<tr><td><code>K_lookup</code></td><td>5</td><td>For each bucket in the search table, number of random registrar nodes queried by discoverers</td></tr>
+<tr><td><code>F_lookup</code></td><td>30</td><td>number of advertisers to find in the lookup process. We stop lookup process when we have found these many advertisers</td></tr>
+<tr><td><code>F_return</code></td><td>10</td><td>max number of service-specific peers returned from a single registrar</td></tr>
+<tr><td><code>E</code></td><td>900 seconds</td><td>Advertisement expiry time (15 minutes)</td></tr>
+<tr><td><code>C</code></td><td>1,000</td><td>Advertisement cache capacity</td></tr>
+<tr><td><code>P_occ</code></td><td>10</td><td>Occupancy exponent for waiting time calculation</td></tr>
+<tr><td><code>G</code></td><td>10⁻⁷</td><td>Safety parameter for waiting time calculation</td></tr>
+<tr><td><code>δ</code></td><td>1 second</td><td>Registration window time</td></tr>
+<tr><td><code>m</code></td><td>16</td><td>Number of buckets for service-specific tables</td></tr>
+</tbody></table>
+</div>
+<h3 id="distance"><a class="header" href="#distance">Distance</a></h3>
+<p>The distance <code>d</code> between any two keys in Logos Service Discovery
+MUST be calculated using the bitwise XOR applied to their 256-bit SHA-256 representations.
+This provides a deterministic, uniform, and symmetric way to measure proximity in the keyspace.
+The keyspace is the entire numerical range of possible <code>peerID</code> and <code>service_id_hash</code>
+— the 256-bit space in which all SHA-256–derived IDs exist.
+XOR MUST be used to measure distances between them in the keyspace.</p>
+<p>For every node in the network, the <code>peerID</code> is unique.
+In this system, both <code>peerID</code> and the <code>service_id_hash</code> are 256-bit SHA-256 hashes.
+Thus both belong to the same keyspace.</p>
+<p><code>KadDHT(peerID)</code> table is centered on <code>peerID</code>.
+<code>AdvT(service_id_hash)</code>, <code>DiscT(service_id_hash)</code>
+and <code>RegT(service_id_hash)</code> are service-specific tables
+and MUST be centered on <code>service_id_hash</code>.
+Bootstrapping of service-specific tables
+MAY be done from the <code>KadDHT(peerID)</code> table.</p>
+<p>When inserting a peer into the service-specific tables,
+the bucket index into which the peer will be inserted MUST be determined by:</p>
+<ul>
+<li>x = reference ID which is the <code>service_id_hash</code></li>
+<li>y = target peer ID <code>peerID</code></li>
+<li>L = 256 = bit length of IDs</li>
+<li><code>m</code> = 16 = number of buckets in the advertise/search table</li>
+<li><code>d = x ⊕ y = service_id_hash ⊕ peerID</code> = bitwise XOR distance (interpreted as an unsigned integer)</li>
+</ul>
+<p>The bucket index <code>i</code> where <code>y</code> is placed in <code>x</code>'s table is calculated as:</p>
+<ul>
+<li>Let <code>lz = CLZ(d)</code> = number of leading zeros in the 256-bit representation of <code>d</code></li>
+<li><code>i = min( ⌊ (lz * m) / 256 ⌋ , m − 1 )</code></li>
+<li>Special case: For <code>d = 0</code> (same ID), <code>i = m - 1</code></li>
+</ul>
+<p>Lower-index buckets represent peers far away from <code>service_id_hash</code> in the keyspace,
+while higher-index buckets contain peers closer to <code>service_id_hash</code>.
+This property allows efficient logarithmic routing:
+each hop moves to a peer that shares a longer prefix of bits
+with the target <code>service_id_hash</code>.</p>
+<p>Service-specific tables may initially have low peer density,
+especially when <code>service_id_hash</code> and <code>peerID</code> are distant in the keyspace.
+Buckets SHOULD be filled opportunistically through <code>response.closerPeers</code>
+during interactions (see <a href="#peer-table-updates">Peer Table Updates</a>)
+using the same formula.</p>
+<h2 id="rpc-messages"><a class="header" href="#rpc-messages">RPC Messages</a></h2>
+<p>All RPC messages use the libp2p Kad-DHT message format
+with extensions for Logos discovery operations.</p>
+<h3 id="base-message-structure"><a class="header" href="#base-message-structure">Base Message Structure</a></h3>
+<pre><code class="language-protobuf">syntax = "proto2";
+
+message Register {
+    // Used in response to indicate the status of the registration
+    enum RegistrationStatus {
+        CONFIRMED = 0;
+        WAIT = 1;
+        REJECTED = 2;
+    }
+
+    // Ticket protobuf definition
+    message Ticket {
+        // Copy of the original advertisement
+        bytes advertisement = 1;
+
+        // Ticket creation timestamp (Unix time in seconds)
+        uint64 t_init = 2;
+
+        // Last modification timestamp (Unix time in seconds)
+        uint64 t_mod = 3;
+
+        // Remaining wait time in seconds
+        uint32 t_wait_for = 4;
+
+        // Ed25519 signature over (ad || t_init || t_mod || t_wait_for)
+        bytes signature = 5;
+    }
+
+    // Used to indicate the encoded advertisement against the key (service ID)
+    bytes advertisement = 1;
+
+    // Used in response to indicate the status of the registration
+    RegistrationStatus status = 2;
+
+    // Used in response to provide a ticket if status is WAIT
+    // Used in request to provide a ticket if previously received
+    optional Ticket ticket = 3;
+}
+
+message GetAds {
+    // Used in response to provide a list of encoded advertisements
+    repeated bytes advertisements = 1;
+}
+
+// Record represents a dht record that contains a value
+// for a key value pair
+message Record {
+    // The key that references this record
+    bytes key = 1;
+
+    // The actual value this record is storing
+    bytes value = 2;
+
+    // Note: These fields were removed from the Record message
+    //
+    // Hash of the authors public key
+    // optional string author = 3;
+    // A PKI signature for the key+value+author
+    // optional bytes signature = 4;
+
+    // Time the record was received, set by receiver
+    // Formatted according to https://datatracker.ietf.org/doc/html/rfc3339
+    string timeReceived = 5;
+};
+
+message Message {
+    enum MessageType {
+        PUT_VALUE = 0;
+        GET_VALUE = 1;
+        ADD_PROVIDER = 2;
+        GET_PROVIDERS = 3;
+        FIND_NODE = 4;
+        PING = 5;
+        REGISTER = 6; // New DISC-NG capability discovery type
+        GET_ADS = 7; // New DISC-NG capability discovery type
+    }
+
+    enum ConnectionType {
+        // sender does not have a connection to peer, and no extra information (default)
+        NOT_CONNECTED = 0;
+
+        // sender has a live connection to peer
+        CONNECTED = 1;
+
+        // sender recently connected to peer
+        CAN_CONNECT = 2;
+
+        // sender recently tried to connect to peer repeatedly but failed to connect
+        // ("try" here is loose, but this should signal "made strong effort, failed")
+        CANNOT_CONNECT = 3;
+    }
+
+    message Peer {
+        // ID of a given peer.
+        bytes id = 1;
+
+        // multiaddrs for a given peer
+        repeated bytes addrs = 2;
+
+        // used to signal the sender's connection capabilities to the peer
+        ConnectionType connection = 3;
+    }
+
+    // defines what type of message it is.
+    MessageType type = 1;
+
+    // defines what coral cluster level this query/response belongs to.
+    // in case we want to implement coral's cluster rings in the future.
+    int32 clusterLevelRaw = 10; // NOT USED
+
+    // Used to specify the key associated with this message.
+    // PUT_VALUE, GET_VALUE, ADD_PROVIDER, GET_PROVIDERS
+    // New DISC-NG capability discovery contains service ID hash for types REGISTER, GET_ADS
+    bytes key = 2;
+
+    // Used to return a value
+    // PUT_VALUE, GET_VALUE
+    Record record = 3;
+
+    // Used to return peers closer to a key in a query
+    // GET_VALUE, GET_PROVIDERS, FIND_NODE
+    repeated Peer closerPeers = 8;
+
+    // Used to return Providers
+    // GET_VALUE, ADD_PROVIDER, GET_PROVIDERS
+    repeated Peer providerPeers = 9;
+
+    // Used in REGISTER request and response
+    Register register = 21;
+
+    // Used in GET_ADS response
+    GetAds getAds = 22;
+}
+</code></pre>
+<p><strong>Key Design Principles:</strong></p>
+<ul>
+<li>Standard Kad-DHT message types (<code>PUT_VALUE</code>, <code>GET_VALUE</code>,
+<code>ADD_PROVIDER</code>, <code>GET_PROVIDERS</code>, <code>FIND_NODE</code>, <code>PING</code>) remain completely unchanged</li>
+<li>The <code>Record</code> message is preserved as-is for Kad-DHT routing table operations</li>
+<li>Logos adds two new message types (<code>REGISTER</code>, <code>GET_ADS</code>) without modifying existing types</li>
+<li>Advertisements are encoded as generic <code>bytes</code> (RECOMMENDED: ExtensiblePeerRecord/XPR)
+to avoid coupling the protocol to specific formats</li>
+<li>The existing <code>key</code> field is reused for <code>service_id_hash</code> in Logos operations</li>
+<li>Nodes without Logos Service Discovery support will ignore <code>REGISTER</code> and <code>GET_ADS</code> messages</li>
+</ul>
+<h3 id="advertisement-encoding"><a class="header" href="#advertisement-encoding">Advertisement Encoding</a></h3>
+<p>Advertisements in the <code>Register.advertisement</code> and <code>GetAds.advertisements</code> fields are encoded as <code>bytes</code>. Implementations are RECOMMENDED to use <a href="https://github.com/logos-co/logos-lips/blob/d59c44477fcdc3c3b61655bea63068d6d94c51f6/vac/raw/extensible-peer-records.md">ExtensiblePeerRecord (XPR)</a>:</p>
+<pre><code class="language-protobuf">ExtensiblePeerRecord {
+    peer_id: &lt;advertiser_peer_id&gt;
+    seq: &lt;monotonic_sequence&gt;
+    addresses: [
+        AddressInfo { multiaddr: &lt;addr1&gt; },
+        AddressInfo { multiaddr: &lt;addr2&gt; }
+    ]
+    services: [
+        ServiceInfo {
+            id: "/waku/store/1.0.0"  // service protocol identifier
+            data: &lt;optional_metadata&gt;
+        }
+    ]
+}
+</code></pre>
+<p><strong>Size constraints:</strong></p>
+<ul>
+<li>Each <code>ServiceInfo.data</code> field SHOULD be ≤ 33 bytes</li>
+<li>Total encoded XPR SHOULD be ≤ 1024 bytes</li>
+</ul>
+<p>The XPR MUST be wrapped in a signed envelope with:</p>
+<ul>
+<li>Domain: <code>libp2p-routing-state</code></li>
+<li>Payload type: <code>/libp2p/extensible-peer-record/</code></li>
+</ul>
+<p>Alternative encodings MAY be used if they provide equivalent functionality
+and can be verified by discoverers.</p>
+<h3 id="register-message"><a class="header" href="#register-message">REGISTER Message</a></h3>
+<p>Used by advertisers to register their advertisements with registrars.</p>
+<h4 id="register-request"><a class="header" href="#register-request">REGISTER Request</a></h4>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Usage</th><th>Value</th></tr></thead><tbody>
+<tr><td><code>type</code></td><td>REQUIRED</td><td><code>REGISTER</code> (6)</td></tr>
+<tr><td><code>key</code></td><td>REQUIRED</td><td><code>service_id_hash</code> (32 bytes)</td></tr>
+<tr><td><code>register.advertisement</code></td><td>REQUIRED</td><td>Encoded advertisement as <code>bytes</code> (RECOMMENDED: XPR)</td></tr>
+<tr><td><code>register.ticket</code></td><td>OPTIONAL</td><td>Ticket from previous registration attempt</td></tr>
+<tr><td>All other fields</td><td>UNUSED</td><td>Empty/not set</td></tr>
+</tbody></table>
+</div>
+<p><strong>Example (First attempt):</strong></p>
+<pre><code class="language-protobuf">Message {
+    type: REGISTER
+    key: &lt;service_id_hash&gt;
+    register: {
+        advertisement: &lt;encoded_xpr_bytes&gt;
+    }
+}
+</code></pre>
+<p><strong>Example (Retry with ticket):</strong></p>
+<pre><code class="language-protobuf">Message {
+    type: REGISTER
+    key: &lt;service_id_hash&gt;
+    register: {
+        advertisement: &lt;encoded_xpr_bytes&gt;
+        ticket: {
+            ad: &lt;encoded_xpr_bytes&gt;
+            t_init: 1234567890
+            t_mod: 1234567900
+            t_wait_for: 300
+            signature: &lt;registrar_signature&gt;
+        }
+    }
+}
+</code></pre>
+<h4 id="register-response"><a class="header" href="#register-response">REGISTER Response</a></h4>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Usage</th><th>Value</th></tr></thead><tbody>
+<tr><td><code>type</code></td><td>REQUIRED</td><td><code>REGISTER</code> (6)</td></tr>
+<tr><td><code>register.status</code></td><td>REQUIRED</td><td><code>CONFIRMED</code>, <code>WAIT</code>, or <code>REJECTED</code></td></tr>
+<tr><td><code>closerPeers</code></td><td>REQUIRED</td><td>List of peers for advertise table</td></tr>
+<tr><td><code>register.ticket</code></td><td>CONDITIONAL</td><td>Present if status = <code>WAIT</code></td></tr>
+<tr><td>All other fields</td><td>UNUSED</td><td>Empty/not set</td></tr>
+</tbody></table>
+</div>
+<p><strong>Status values:</strong></p>
+<ul>
+<li><code>CONFIRMED</code>: Advertisement stored in cache</li>
+<li><code>WAIT</code>: Not yet accepted, wait and retry with ticket</li>
+<li><code>REJECTED</code>: Invalid signature, duplicate, or error</li>
+</ul>
+<p><strong>Example (WAIT):</strong></p>
+<pre><code class="language-protobuf">Message {
+    type: REGISTER
+    register: {
+        status: WAIT
+        ticket: {
+            ad: &lt;encoded_xpr_bytes&gt;
+            t_init: 1234567890
+            t_mod: 1234567905
+            t_wait_for: 295
+            signature: &lt;registrar_signature&gt;
+        }
+    }
+    closerPeers: [
+        {id: &lt;peer1_id&gt;, addrs: [&lt;addr1&gt;]},
+        {id: &lt;peer2_id&gt;, addrs: [&lt;addr2&gt;]}
+    ]
+}
+</code></pre>
+<p><strong>Example (CONFIRMED):</strong></p>
+<pre><code class="language-protobuf">Message {
+    type: REGISTER
+    register: {
+        status: CONFIRMED
+    }
+    closerPeers: [
+        {id: &lt;peer1_id&gt;, addrs: [&lt;addr1&gt;]},
+        {id: &lt;peer2_id&gt;, addrs: [&lt;addr2&gt;]}
+    ]
+}
+</code></pre>
+<p><strong>Example (REJECTED):</strong></p>
+<pre><code class="language-protobuf">Message {
+    type: REGISTER
+    register: {
+        status: REJECTED
+    }
+}
+</code></pre>
+<h3 id="get_ads-message"><a class="header" href="#get_ads-message">GET_ADS Message</a></h3>
+<p>Used by discoverers to retrieve advertisements from registrars.</p>
+<h4 id="get_ads-request"><a class="header" href="#get_ads-request">GET_ADS Request</a></h4>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Usage</th><th>Value</th></tr></thead><tbody>
+<tr><td><code>type</code></td><td>REQUIRED</td><td><code>GET_ADS</code> (7)</td></tr>
+<tr><td><code>key</code></td><td>REQUIRED</td><td><code>service_id_hash</code> (32 bytes)</td></tr>
+<tr><td>All other fields</td><td>UNUSED</td><td>Empty/not set</td></tr>
+</tbody></table>
+</div>
+<p><strong>Example:</strong></p>
+<pre><code class="language-protobuf">Message {
+    type: GET_ADS
+    key: &lt;service_id_hash&gt;
+}
+</code></pre>
+<h4 id="get_ads-response"><a class="header" href="#get_ads-response">GET_ADS Response</a></h4>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Usage</th><th>Value</th></tr></thead><tbody>
+<tr><td><code>type</code></td><td>REQUIRED</td><td><code>GET_ADS</code> (7)</td></tr>
+<tr><td><code>getAds.advertisements</code></td><td>REQUIRED</td><td>List of encoded advertisements (up to <code>F_return</code> = 10)</td></tr>
+<tr><td><code>closerPeers</code></td><td>REQUIRED</td><td>List of peers for search table</td></tr>
+<tr><td>All other fields</td><td>UNUSED</td><td>Empty/not set</td></tr>
+</tbody></table>
+</div>
+<p>Each advertisement in <code>getAds.advertisements</code> is encoded as <code>bytes</code> (RECOMMENDED: XPR).
+Discoverers MUST verify signatures before accepting.</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-protobuf">Message {
+    type: GET_ADS
+    getAds: {
+        advertisements: [
+            &lt;encoded_xpr_bytes_1&gt;,
+            &lt;encoded_xpr_bytes_2&gt;,
+            ...  // up to F_return
+        ]
+    }
+    closerPeers: [
+        {id: &lt;peer1_id&gt;, addrs: [&lt;addr1&gt;]},
+        {id: &lt;peer2_id&gt;, addrs: [&lt;addr2&gt;]}
+    ]
+}
+</code></pre>
+<h3 id="message-validation"><a class="header" href="#message-validation">Message Validation</a></h3>
+<h4 id="register-request-validation"><a class="header" href="#register-request-validation">REGISTER Request Validation</a></h4>
+<p>Registrars MUST validate:</p>
+<ol>
+<li><code>type</code> = <code>REGISTER</code> (6)</li>
+<li><code>key</code> = 32 bytes (valid SHA-256)</li>
+<li><code>register.advertisement</code> is present and non-empty</li>
+<li>If <code>register.ticket</code> present:
+<ul>
+<li>Valid signature issued by this registrar</li>
+<li><code>ticket.ad</code> matches <code>register.advertisement</code></li>
+<li>Retry within window: <code>ticket.t_mod + ticket.t_wait_for ≤ NOW() ≤ ticket.t_mod + ticket.t_wait_for + δ</code></li>
+</ul>
+</li>
+<li>Advertisement signature is valid
+(see <a href="#advertisement-signature-verification">Advertisement Signature Verification</a>)</li>
+<li>Advertisement not already in <code>ad_cache</code></li>
+</ol>
+<p>Respond with <code>register.status = REJECTED</code> if validation fails.</p>
+<h4 id="get_ads-request-validation"><a class="header" href="#get_ads-request-validation">GET_ADS Request Validation</a></h4>
+<p>Registrars MUST validate:</p>
+<ol>
+<li><code>type</code> = <code>GET_ADS</code> (7)</li>
+<li><code>key</code> = 32 bytes (valid SHA-256)</li>
+</ol>
+<p>Return empty <code>getAds.advertisements</code> list or close stream if validation fails.</p>
+<h4 id="advertisement-signature-verification"><a class="header" href="#advertisement-signature-verification">Advertisement Signature Verification</a></h4>
+<p>Both registrars (on REGISTER) and discoverers (on GET_ADS response)
+MUST verify advertisement signatures.
+For XPR-encoded advertisements:</p>
+<pre><code class="language-text">VERIFY_ADVERTISEMENT(encoded_ad_bytes, service_id_hash):
+    envelope = DECODE_SIGNED_ENVELOPE(encoded_ad_bytes)
+    assert(envelope.domain == "libp2p-routing-state")
+    assert(envelope.payload_type == "/libp2p/extensible-peer-record/")
+
+    xpr = DECODE_XPR(envelope.payload)
+    public_key = DERIVE_PUBLIC_KEY(xpr.peer_id)
+    assert(VERIFY_ENVELOPE_SIGNATURE(envelope, public_key))
+
+    // Verify service advertised
+    service_found = false
+    for service in xpr.services:
+        if SHA256(service.id) == service_id_hash:
+            service_found = true
+    assert(service_found)
+</code></pre>
+<p>Discard advertisements with invalid signatures or that don't advertise the requested service.</p>
+<blockquote>
+<p><strong>Note:</strong> ExtensiblePeerRecord uses protocol strings (e.g., <code>/waku/store/1.0.0</code>) in <code>ServiceInfo.id</code>.
+Logos discovery uses <code>service_id_hash = SHA256(ServiceInfo.id)</code> for routing.
+When verifying, implementations MUST hash the protocol string
+and compare with the <code>key</code> field (<code>service_id_hash</code>).</p>
+</blockquote>
+<h3 id="stream-management"><a class="header" href="#stream-management">Stream Management</a></h3>
+<p>Following standard Kad-DHT behavior:</p>
+<ul>
+<li>Implementations MAY reuse streams for sequential requests</li>
+<li>Implementations MUST handle multiple requests per stream</li>
+<li>Reset stream on protocol errors or validation failures</li>
+<li>Prefix messages with length as unsigned varint per
+<a href="https://github.com/multiformats/unsigned-varint">multiformats spec</a></li>
+</ul>
+<h3 id="error-handling"><a class="header" href="#error-handling">Error Handling</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Error</th><th>Handling</th></tr></thead><tbody>
+<tr><td>Invalid message format</td><td>Close stream</td></tr>
+<tr><td>Signature verification failure</td><td><code>REJECTED</code> for REGISTER; discard invalid ads for GET_ADS</td></tr>
+<tr><td>Timeout</td><td>Close stream, retry with exponential backoff</td></tr>
+<tr><td>Cache full (registrar)</td><td>Issue ticket with waiting time</td></tr>
+<tr><td>Unknown service_id_hash</td><td>Empty <code>advertisements</code> list but include <code>closerPeers</code></td></tr>
+<tr><td>Missing required fields</td><td>Close stream</td></tr>
+</tbody></table>
+</div>
+<h2 id="sequence-diagram"><a class="header" href="#sequence-diagram">Sequence Diagram</a></h2>
+<p><img src="https://github.com/user-attachments/assets/d85fab17-c636-417a-afaf-c609aa53075d" alt="Sequence diagram" /></p>
+<h2 id="advertisers"><a class="header" href="#advertisers">Advertisers</a></h2>
+<p>Advertisers distribute advertisements for their service across registrars.</p>
+<h3 id="distributing-ads-across-registrars"><a class="header" href="#distributing-ads-across-registrars">Distributing ads across registrars</a></h3>
+<p>For each service, identified by <code>service_id_hash</code>,
+that an advertiser wants to advertise,
+the advertiser MUST instantiate a
+new advertise table, <code>AdvT(service_id_hash)</code>,
+centered on that <code>service_id_hash</code>.
+The advertiser MAY bootstrap <code>AdvT(service_id_hash)</code>
+from the <code>KadDHT(peerID)</code> routing table using the formula
+described in the <a href="#distance">Distance section</a>.</p>
+<p>The advertiser SHOULD try to maintain up to <code>K_register</code>
+active registrations per bucket.
+It does so by selecting random registrars
+from each bucket of <code>AdvT(service_id_hash)</code>.
+These ongoing registrations MAY be tracked in a separate data structure.
+Ongoing registrations include those registrars
+at which the advertiser has an active registration or
+for which there is an ongoing registration attempt.</p>
+<p>To maintain each registration, the advertiser:</p>
+<ul>
+<li>MUST send a <a href="#register-message">REGISTER message</a> to the registrar.
+If there is already a cached <code>ticket</code> from a previous registration attempt
+for the same <code>ad</code> in the same registrar,
+the <code>ticket</code> MUST also be included in the REGISTER message.</li>
+<li>on receipt of the <code>REGISTER</code> response:
+SHOULD add the closer peers indicated in the response to <code>AdvT(service_id_hash)</code>
+using the formula described in the <a href="#distance">Distance</a> section.</li>
+<li>MUST interpret the response <code>status</code> field and schedule actions accordingly:
+<ul>
+<li>If the <code>status</code> is <code>Confirmed</code>, the registration is maintained
+in the registrar's <code>ad_cache</code> for <code>E</code> seconds.
+After <code>E</code> seconds the advertiser MUST remove the registration
+from the ongoing registrations for that bucket.</li>
+<li>If the <code>status</code> is <code>Wait</code>,
+the advertiser MUST schedule a next registration attempt to the same registrar
+based on the <code>ticket.t_wait_for</code> value included in the response.
+The Response contains a <code>ticket</code>,
+which MUST be included in the next registration attempt to this registrar.</li>
+<li>If the <code>status</code> is <code>Rejected</code>,
+the advertiser MUST remove the registrar from the ongoing registrations for that bucket
+and SHOULD NOT attempt further registrations with this registrar for this advertisement.</li>
+</ul>
+</li>
+</ul>
+<h3 id="example-advertise-algorithm"><a class="header" href="#example-advertise-algorithm">Example ADVERTISE algorithm</a></h3>
+<p>The following pseudocode block shows one way of implementing the Advertising algorithm.
+Advertisers MAY follow this example.</p>
+<pre><code class="language-text">procedure ADVERTISE(service_id_hash):
+    ongoing ← MAP&lt;bucketIndex; LIST&lt;registrars&gt;&gt;
+    AdvT(service_id_hash) ← KadDHT(peerID)
+    for i in 0, 1, ..., m-1:
+        while ongoing[i].size &lt; K_register:
+            registrar ← AdvT(service_id_hash).getBucket(i).getRandomNode()
+            if registrar = None:
+                break
+            end if
+            ongoing[i].add(registrar)
+            ad.service_id_hash ← service_id_hash
+            ad.peerID ← peerID
+            ad.addrs ← node.addrs
+            SIGN(ad)
+            async(ADVERTISE_SINGLE(registrar, ad, i, service_id_hash))
+        end while
+    end for
+end procedure
+
+procedure ADVERTISE_SINGLE(registrar, ad, i, service_id_hash):
+    ticket ← None
+    while True:
+        response ← registrar.Register(ad, ticket)
+        AdvT(service_id_hash).add(response.closerPeers)
+        if response.status = Confirmed:
+            SLEEP(E)
+            break
+        else if response.status = Wait:
+            SLEEP(min(E, response.ticket.t_wait_for))
+            ticket ← response.ticket
+        else:
+            break
+        end if
+    end while
+    ongoing[i].remove(registrar)
+end procedure
+</code></pre>
+<p>Refer to the <a href="#advertiser-algorithms-explanation">Advertiser Algorithms Explanation section</a>
+for a detailed explanation.</p>
+<h2 id="discoverers"><a class="header" href="#discoverers">Discoverers</a></h2>
+<p>Discoverers look up advertisers for services by querying registrars.</p>
+<h3 id="looking-up-services"><a class="header" href="#looking-up-services">Looking up services</a></h3>
+<p>For each service, identified by <code>service_id_hash</code>,
+that a discoverer wants to find advertisers for,
+the discoverer MUST instantiate a
+new search table, <code>DiscT(service_id_hash)</code>,
+centered on that <code>service_id_hash</code>.
+The discoverer MAY bootstrap <code>DiscT(service_id_hash)</code>
+from the <code>KadDHT(peerID)</code> routing table using the formula
+described in the <a href="#distance">Distance section</a>.</p>
+<p>The discoverer MUST attempt to find up to <code>F_lookup</code> advertisers
+for this <code>service_id_hash</code>
+by following the lookup procedure below.
+It SHOULD perform the lookup procedure periodically,
+or whenever more peers are requested by the encapsulating application.</p>
+<p>To perform a lookup,
+the discoverer MUST iterate through every bucket of <code>DiscT(service_id_hash)</code>.
+It MUST start from the farthest bucket <code>(b_0)</code>,
+which has the registrar nodes with the fewest shared bits to the <code>service_id_hash</code>,
+gradually moving through buckets <code>(b_(m-1))</code>,
+containing registrar nodes with ever increasing number of shared bits to the <code>service_id_hash</code>.
+During the lookup procedure,
+the discoverer SHOULD keep track of unique <code>foundPeers</code>.
+terminating the procedure once <code>F_lookup</code> advertisers have been found,
+or if all buckets have been traversed.</p>
+<ol>
+<li>For each bucket, the discoverer MUST select
+up to <code>K_lookup</code> random registrar peers to query.</li>
+<li>For each selected registrar, the discoverer</li>
+</ol>
+<ul>
+<li>MUST send a <a href="#get_ads-message"><code>GET_ADS</code> message</a> to the registrar</li>
+<li>on receipt of a <code>GET_ADS</code> response,
+SHOULD add the closer peers indicated in the response to <code>DiscT(service_id_hash)</code>
+using the formula described in the <a href="#distance">Distance</a> section.</li>
+<li>SHOULD validate each <code>advertisement</code> included in the response,
+and add valid advertisers to <code>foundPeers</code>.
+Note that a valid response could also contain <code>0</code> <code>advertisements</code>.</li>
+</ul>
+<p>This iterative procedure continues until <code>F_lookup</code> advertisers have been found,
+or all buckets have been traversed.</p>
+<h3 id="example-lookup-algorithm"><a class="header" href="#example-lookup-algorithm">Example LOOKUP algorithm</a></h3>
+<p>The following pseudocode block shows one way of implementing the Lookup algorithm.
+Discoverers MAY follow this example.</p>
+<pre><code class="language-text">procedure LOOKUP(service_id_hash):
+    DiscT(service_id_hash) ← KadDHT(peerID)
+    foundPeers ← SET&lt;Peers&gt;
+    for i in 0, 1, ..., m-1:
+        for j in 0, ..., K_lookup - 1:
+            peer ← DiscT(service_id_hash).getBucket(i).getRandomNode()
+            if peer = None:
+                break
+            end if
+            response ← peer.GetAds(service_id_hash)
+            for ad in response.ads:
+                assert(ad.hasValidSignature())
+                foundPeers.add(ad.peerID)
+                if foundPeers.size ≥ F_lookup:
+                      break
+                  end if
+              end for
+            DiscT(service_id_hash).add(response.closerPeers)
+            if foundPeers.size ≥ F_lookup:
+                return foundPeers
+            end if
+        end for
+    end for
+    return foundPeers
+end procedure
+</code></pre>
+<p>Refer to the <a href="#lookupservice_id_hash-algorithm-explanation">Lookup Algorithm Explanation section</a>
+for the detailed explanation.</p>
+<h2 id="registrars"><a class="header" href="#registrars">Registrars</a></h2>
+<p>Registrars are nodes that store advertisements,
+by handling <code>REGISTER</code> requests,
+and serve cached advertisements,
+by handling <code>GET_ADS</code> requests.
+Registrars MUST maintain a cache of advertisements, <code>ad_cache</code>,
+that associates each <code>advertisement</code>
+to its <code>service_id</code>,
+and an expiry timestamp based on admission time plus configured expiry time, <code>E</code>.
+Once an <code>ad</code> has expired, it SHOULD be removed from the <code>ad_cache</code></p>
+<h3 id="handling-register-requests"><a class="header" href="#handling-register-requests">Handling REGISTER requests</a></h3>
+<p>When a registrar node receives a <code>REGISTER</code> request from an advertiser node
+to admit its <code>ad</code> for a service into the <code>ad_cache</code>,
+the registrar SHOULD process the request
+and respond with a <code>REGISTER</code> response according to the steps below.
+The registrar SHOULD include a list of closer peers (<code>response.closerPeers</code>) in the response
+using the algorithm described in <a href="#peer-table-updates">Peer Table Updates</a> section.</p>
+<p>To populate the rest of the response, the registrar MUST:</p>
+<ol>
+<li>
+<p>If an identical <code>ad</code> already exists in the <code>ad_cache</code>,
+reject the request and respond with status <code>Rejected</code>.</p>
+</li>
+<li>
+<p>Calculate (or recalculate, if this is a resubmission) a waiting time for the <code>ad</code>, <code>t_wait</code>,
+using the formula in <a href="#waiting-time-calculation">Waiting Time Calculation</a>.</p>
+</li>
+<li>
+<p>If no <code>ticket</code> is provided in the <code>REGISTER</code> request
+this is the advertiser's first registration attempt for the <code>ad</code>.
+Create a new signed <code>ticket</code> based on <code>t_wait</code>,
+and return the signed <code>ticket</code> in a response with status <code>Wait</code>.</p>
+</li>
+<li>
+<p>If a <code>ticket</code> is provided in the <code>REGISTER</code> request,
+validate the ticket and respond with the status <code>Rejected</code> if any of the following fails:</p>
+<ul>
+<li><code>ticket.signature</code> contains a valid signature, issued by this registrar</li>
+<li><code>ticket.ad</code> matches the current <code>ad</code></li>
+<li>calculate the expected time of ticket submission,
+<code>t_scheduled</code>, as <code>t_scheduled = ticket.t_mod + ticket.t_wait</code>
+and verify that the actual submission time, <code>current_time</code>,
+falls within a valid registration window, <code>δ</code>,
+where <code>t_scheduled &lt;= current_time &lt;= t_scheduled + δ</code>.
+The duration of <code>δ</code> is up to the application,
+but SHOULD be just enough to accommodate for
+the maximum delay between the advertiser and the registrar.</li>
+</ul>
+</li>
+<li>
+<p>Calculate remaining wait time
+<code>t_remaining = t_wait - (current_time - ticket.t_init)</code>.
+This ensures advertisers accumulate waiting time across retries</p>
+</li>
+<li>
+<p>If <code>t_remaining ≤ 0</code>, add the <code>ad</code> to the <code>ad_cache</code>,
+with an expiry timestamp set to <code>current_time + E</code>.
+The registrar SHOULD return a response with status <code>Confirmed</code>.</p>
+</li>
+<li>
+<p>If <code>t_remaining &gt; 0</code>, issue a new signed <code>ticket</code>
+with <code>ticket.t_mod</code> set to <code>current_time</code>
+and <code>ticket.t_wait_for = min(E, t_remaining)</code>.
+The registrar SHOULD return the signed <code>ticket</code> in a response with status <code>Wait</code>.</p>
+</li>
+</ol>
+<h3 id="example-register-algorithm"><a class="header" href="#example-register-algorithm">Example REGISTER algorithm</a></h3>
+<p>The following pseudocode block shows one way of implementing the algorithm to handle register requests.
+Registrars MAY follow this example.</p>
+<pre><code class="language-text">procedure REGISTER(ad, ticket):
+    assert(ad not in ad_cache)
+    response.ticket.ad ← ad
+    t_wait ← CALCULATE_WAITING_TIME(ad)
+
+    if ticket.empty():
+        t_remaining ← t_wait
+        response.ticket.t_init ← NOW()
+        response.ticket.t_mod ← NOW()
+    else:
+        assert(ticket.hasValidSignature())
+        assert(ticket.ad = ad)
+        assert(ad.notInAdCache())
+        t_scheduled ← ticket.t_mod + ticket.t_wait_for
+        assert(t_scheduled ≤ NOW() ≤ t_scheduled + δ)
+        t_remaining ← t_wait - (NOW() - ticket.t_init)
+    end if
+    if t_remaining ≤ 0:
+        ad_cache.add(ad)
+        response.status ← Confirmed
+    else:
+        response.status ← Wait
+        response.ticket.t_wait_for ← MIN(E, t_remaining)
+        response.ticket.t_mod ← NOW()
+        SIGN(response.ticket)
+    end if
+    response.closerPeers ← GETPEERS(ad.service_id_hash)
+    return response
+end procedure
+</code></pre>
+<p>Refer to the <a href="#register-algorithm-explanation">Register Algorithm Explanation section</a>
+for detailed explanation.</p>
+<h3 id="handling-get_ads-requests"><a class="header" href="#handling-get_ads-requests">Handling GET_ADS requests</a></h3>
+<p>Registrars SHOULD respond to <a href="#get_ads-message"><code>GET_ADS</code></a> requests from discoverers
+with a <code>GET_ADS</code> response:</p>
+<ol>
+<li>Include up to <code>F_return</code> advertisements
+from the <code>ad_cache</code> for the requested <code>service_id_hash</code>.</li>
+<li>Include a list of closer peers
+to help discoverers populate their search table using the algorithm described in
+<a href="#peer-table-updates">Peer Table Updates</a> section.</li>
+</ol>
+<h3 id="example-lookup_response-algorithm"><a class="header" href="#example-lookup_response-algorithm">Example LOOKUP_RESPONSE algorithm</a></h3>
+<p>The following pseudocode block shows one way of implementing the algorithm to handle <code>GET_ADS</code> requests.
+Registrars MAY follow this example.</p>
+<pre><code class="language-text">procedure LOOKUP_RESPONSE(service_id_hash):
+    response.ads ← ad_cache.getAdvertisements(service_id_hash)[:F_return]
+    response.closerPeers ← GETPEERS(service_id_hash)
+    return response
+end procedure
+</code></pre>
+<h2 id="peer-table-updates"><a class="header" href="#peer-table-updates">Peer Table Updates</a></h2>
+<h3 id="overview"><a class="header" href="#overview">Overview</a></h3>
+<p>While responding to both <code>REGISTER</code> requests by advertisers
+and <code>GET_ADS</code> request by discoverers,
+registrars play an important role in helping nodes discover the network topology.
+The registrar table <code>RegT(service_id_hash)</code> is a routing structure
+that SHOULD be maintained by registrars
+to provide better peer suggestions to advertisers and discoverers.</p>
+<p>Registrars SHOULD use the formula specified in the <a href="#distance">Distance</a> section
+to add peers to <code>RegT(service_id_hash)</code>.
+Peers are added under the following circumstances:</p>
+<ul>
+<li>Registrars MAY initialize their registrar table <code>RegT(service_id_hash)</code>
+from their <code>KadDHT(peerID)</code> using the formula described in the <a href="#distance">Distance Section</a>.</li>
+<li>When an advertiser sends a <code>REGISTER</code> request,
+the registrar SHOULD add the advertiser's <code>peerID</code> to <code>RegT(service_id_hash)</code>.</li>
+<li>When a discoverer sends a <code>GET_ADS</code> request,
+the registrar SHOULD add the discoverer's <code>peerID</code> to <code>RegT(service_id_hash)</code>.</li>
+<li>When registrars receive responses from other registrars
+(if acting as advertiser or discoverer themselves),
+they SHOULD add peers from <code>closerPeers</code> fields
+to relevant <code>RegT(service_id_hash)</code> tables.</li>
+</ul>
+<blockquote>
+<p><strong>Note:</strong> The <code>ad_cache</code> and <code>RegT(service_id_hash)</code>
+are completely different data structures
+that serve different purposes and are independent of each other.</p>
+</blockquote>
+<p>When responding to requests, registrars:</p>
+<ul>
+<li>SHOULD return a list of peers to help advertisers
+populate their <code>AdvT(service_id_hash)</code> tables and
+discoverers populate their <code>DiscT(service_id_hash)</code> tables.</li>
+<li>SHOULD return peers that are diverse and distributed across different buckets
+to prevent malicious registrars from polluting routing tables.</li>
+</ul>
+<h3 id="recommended-peer-selection-algorithm"><a class="header" href="#recommended-peer-selection-algorithm">Recommended Peer Selection Algorithm</a></h3>
+<p>We RECOMMEND that the following algorithm be used to select peers to return in responses.</p>
+<pre><code class="language-text">procedure GETPEERS(service_id_hash):
+    peers ← SET&lt;peers&gt;
+    RegT(service_id_hash) ← KadDHT(peerID)
+    for i in 0, 1, ..., m-1:
+        peer ← b_i(service_id_hash).getRandomNode()
+        if peer ≠ None:
+            peers.add(peer)
+        end if
+    end for
+    return peers
+end procedure
+</code></pre>
+<ol>
+<li><code>peers</code> is initialized as an empty set</li>
+<li><code>RegT(service_id_hash)</code> is initialized from the node’s <code>KadDHT(peerID)</code>.</li>
+<li>Go through all <code>m</code> buckets in the registrar’s table —
+<ol>
+<li>Pick one random peer from bucket <code>i</code>.
+<code>getRandomNode()</code> function remembers already returned nodes
+and never returns the same one twice.</li>
+<li>If <code>peer</code> returned is not null then we move on to next bucket.
+Else we try to get another peer in the same bucket</li>
+</ol>
+</li>
+<li>Return <code>peers</code> which contains one peer from every bucket of <code>RegT(service_id_hash)</code>.</li>
+</ol>
+<p>The algorithm returns one random peer per bucket to provide diverse suggestions
+and prevent malicious registrars from polluting routing tables.
+Contacting registrars in consecutive buckets divides the search space by a constant factor,
+and allows learning new peers from more densely-populated routing tables towards the destination.
+The procedure mitigates the risk of having malicious peers polluting the table
+while still learning rare peers in buckets close to <code>service_id_hash</code>.</p>
+<h2 id="waiting-time-calculation"><a class="header" href="#waiting-time-calculation">Waiting Time Calculation</a></h2>
+<h3 id="formula"><a class="header" href="#formula">Formula</a></h3>
+<p>The waiting time is the time advertisers have to
+wait before their <code>ad</code> is admitted to the <code>ad_cache</code>.
+The waiting time is given based on the <code>ad</code> itself
+and the current state of the registrar’s <code>ad_cache</code>.</p>
+<p>The waiting time for an advertisement MUST be calculated using:</p>
+<pre><code class="language-text">w(ad) = E × (1/(1 - c/C)^P_occ) × (c(ad.service_id_hash)/C + score(getIP(ad.addrs)) + G)
+</code></pre>
+<ul>
+<li><code>c</code>: Current cache occupancy</li>
+<li><code>c(ad.service_id_hash)</code>: Number of advertisements for <code>service_id_hash</code> in cache</li>
+<li><code>getIP(ad.addrs)</code> is a function to get the IP address
+from the multiaddress of the advertisement.</li>
+<li><code>score(getIP(ad.addrs))</code>: IP similarity score (0 to 1).
+Refer to the <a href="#ip-similarity-score">IP Similarity Score section</a></li>
+</ul>
+<p>Section <a href="#system-parameters">System Parameters</a> can be referred
+for the definitions of the remaining parameters in the formula.</p>
+<p>Issuing waiting times promote diversity in the <code>ad_cache</code>.
+It results in high waiting times and slower admission for malicious advertisers
+using Sybil identities from a limited number of IP addresses.
+It also promotes less popular services with fast admission
+ensuring fairness and robustness against failures of single registrars.</p>
+<h3 id="scaling"><a class="header" href="#scaling">Scaling</a></h3>
+<p>The waiting time is normalized by the ad’s expiry time <code>E</code>.
+It binds waiting time to <code>E</code> and allows us to reason about the number of incoming requests
+regardless of the time each <code>ad</code> spends in the <code>ad_cache</code>.</p>
+<h3 id="occupancy-score"><a class="header" href="#occupancy-score">Occupancy Score</a></h3>
+<pre><code class="language-text">occupancy_score = 1 / (1 - c/C)^P_occ
+</code></pre>
+<p>The occupancy score increases progressively as the cache fills:</p>
+<ul>
+<li>When <code>c &lt;&lt; C</code>: Score ≈ 1 (minimal impact)</li>
+<li>As the <code>ad_cache</code> fills up, the score will be amplified by the divisor of the equation.
+The higher the value of <code>P_occ</code>, the faster the increase.
+Implementations should consider this while setting the value for <code>P_occ</code></li>
+<li>As <code>c → C</code>: Score → ∞ (prevents overflow)</li>
+</ul>
+<h3 id="service-similarity"><a class="header" href="#service-similarity">Service Similarity</a></h3>
+<pre><code class="language-text">service_similarity = c(ad.service_id_hash) / C
+</code></pre>
+<p>The service similarity score promotes diversity:</p>
+<ul>
+<li>Low when <code>service_id_hash</code> has few advertisements in cache. Thus lower waiting time.</li>
+<li>High when <code>service_id_hash</code> dominates the cache. Thus higher waiting time.</li>
+</ul>
+<h3 id="ip-similarity-score"><a class="header" href="#ip-similarity-score">IP Similarity Score</a></h3>
+<p>The IP similarity score is used to detect and limit
+Sybil attacks where malicious actors create multiple advertisements
+from the same network or IP prefix.</p>
+<p>Registrars MUST use an IP similarity score to
+limit the number of <code>ads</code> coming from the same subnetwork
+by increasing their waiting time.
+The IP similarity mechanism MUST:</p>
+<ul>
+<li>Calculate a score (0-1): higher scores indicate similar IP prefixes (potential Sybil attacks)</li>
+<li>Track IP addresses of <code>ads</code> currently in the <code>ad_cache</code>.</li>
+<li>MUST update its tracking structure when:
+<ul>
+<li>A new <code>ad</code> is admitted to the <code>ad_cache</code>: MUST add the IP</li>
+<li>An <code>ad</code> expires after time <code>E</code>:
+MUST remove IP if there are no other active <code>ads</code> from the same IP</li>
+</ul>
+</li>
+<li>Recalculate score for each registration attempt</li>
+</ul>
+<h4 id="tree-structure"><a class="header" href="#tree-structure">Tree Structure</a></h4>
+<p>We RECOMMEND using an IP tree data structure
+to efficiently track and calculate IP similarity scores.
+An IP tree is a binary tree that stores
+IPs used by <code>ads</code> currently present in the <code>ad_cache</code>.
+This data structure provides logarithmic time complexity
+for insertion, deletion, and score calculation.
+Implementations MAY use alternative data structures
+as long as they satisfy the requirements specified above.
+Apart from root, the IP tree is a 32-level binary tree where:</p>
+<ul>
+<li>Each vertex stores <code>IP_counter</code> (number of IPs passing through).
+It is initially set to 0.</li>
+<li>Edges represent bits (0/1) in IPv4 binary representation</li>
+<li>When an <code>ad</code> is admitted to the <code>ad_cache</code>,
+its IPv4 address is added to the IP tracking structure
+using the <a href="#add_ip_to_tree-algorithm"><code>ADD_IP_TO_TREE()</code> algorithm</a>.</li>
+<li>Every time a waiting time is calculated for a registration attempt,
+the registrar calculates the IP similarity score for the advertiser's IP address.
+using <a href="#calculate_ip_score-algorithm"><code>CALCULATE_IP_SCORE()</code> algorithm</a>.</li>
+<li>When an <code>ad</code> is removed from the <code>ad_cache</code> after <code>E</code>,
+The registrar also removes the IP from IP tracking structure
+using the <a href="#remove_from_ip_tree-algorithm"><code>REMOVE_FROM_IP_TREE()</code> algorithm</a>
+if there are no other active <code>ad</code> in <code>ad_cache</code> from the same IP.</li>
+<li>All the algorithms work efficiently with O(32) time complexity.</li>
+<li>The root <code>IP_counter</code> tracks total IPs currently in <code>ad_cache</code></li>
+</ul>
+<h4 id="add_ip_to_tree-algorithm"><a class="header" href="#add_ip_to_tree-algorithm"><code>ADD_IP_TO_TREE()</code> algorithm</a></h4>
+<p>The algorithm traverses the tree following the IP's binary representation,
+incrementing counters at each visited node.</p>
+<pre><code class="language-text">procedure ADD_IP_TO_TREE(tree, IP):
+    v ← tree.root
+    bits ← IP.toBinary()
+    for i in 0, 1, ..., 31:
+        v.IP_counter ← v.IP_counter + 1
+        if bits[i] = 0:
+            v ← v.left
+        else:
+            v ← v.right
+        end if
+    end for
+end procedure
+</code></pre>
+<h4 id="calculate_ip_score-algorithm"><a class="header" href="#calculate_ip_score-algorithm"><code>CALCULATE_IP_SCORE()</code> algorithm</a></h4>
+<p>The algorithm traverses the tree following the IP's binary representation
+to detect how many IPs share common prefixes, providing a Sybil attack measure.
+At each node, if the <code>IP_counter</code> is larger than expected in a perfectly balanced tree,
+it indicates too many IPs share that prefix, incrementing the similarity score.</p>
+<pre><code class="language-text">procedure CALCULATE_IP_SCORE(tree, IP):
+    v ← tree.root
+    score ← 0
+    bits ← IP.toBinary()
+    for i in 0, 1, ..., 31:
+        if bits[i] = 0:
+            v ← v.left
+        else:
+            v ← v.right
+        end if
+        if v.IP_counter &gt; tree.root.IP_counter / 2^i:
+            score ← score + 1
+        end if
+    end for
+    return score / 32
+end procedure
+</code></pre>
+<h4 id="remove_from_ip_tree-algorithm"><a class="header" href="#remove_from_ip_tree-algorithm"><code>REMOVE_FROM_IP_TREE()</code> algorithm</a></h4>
+<p>This algorithm traverses the tree following the IP's binary representation,
+decrementing counters at each visited node.</p>
+<pre><code class="language-text">procedure REMOVE_FROM_IP_TREE(tree, IP):
+    v ← tree.root
+    bits ← IP.toBinary()
+    for i in 0, 1, ..., 31:
+        v.IP_counter ← v.IP_counter - 1
+        if bits[i] = 0:
+            v ← v.left
+        else:
+            v ← v.right
+        end if
+    end for
+end procedure
+</code></pre>
+<p>Implementations can extend the IP tree algorithms to IPv6
+by using a 128-level binary tree,
+corresponding to the 128-bit length of IPv6 addresses.</p>
+<h3 id="safety-parameter"><a class="header" href="#safety-parameter">Safety Parameter</a></h3>
+<p>The safety parameter <code>G</code> ensures waiting times never reach zero even when:</p>
+<ul>
+<li>Service similarity is zero (new service).</li>
+<li>IP similarity is zero (completely distinct IP)</li>
+</ul>
+<p>It prevents <code>ad_cache</code> overflow in cases when attackers try to
+send <code>ads</code> for random services or from diverse IPs.</p>
+<h3 id="lower-bound-enforcement"><a class="header" href="#lower-bound-enforcement">Lower Bound Enforcement</a></h3>
+<p>To prevent "ticket grinding" attacks where advertisers
+repeatedly request new tickets hoping for better waiting times,
+registrars MUST enforce lower bounds:</p>
+<p>Invariant: A new waiting time <code>w_2</code> at time <code>t_2</code>
+cannot be smaller than a previous waiting time <code>w_1</code> at time <code>t_1</code>
+(where <code>t_1 &lt; t_2</code>) by more than the elapsed time:</p>
+<pre><code class="language-text">w_2 ≥ w_1 - (t_2 - t_1)
+</code></pre>
+<p>Thus registrars MUST maintain lower bound state for:</p>
+<ul>
+<li>Each service in the cache: <code>bound(service_id_hash)</code> and <code>timestamp(service_id_hash)</code></li>
+<li>Each IP prefix in the IP tree: <code>bound(IP)</code> and <code>timestamp(IP)</code></li>
+</ul>
+<p>The total waiting time will respect the lower bound if lower bound is enforced on these.
+These two sets have a bounded size as number of <code>ads</code> present in the <code>ad_cache</code>
+at a time is bounded by the cache capacity <code>C</code>.</p>
+<p><strong>How SHOULD lower bound be calculated for service IDs:</strong></p>
+<p>When new <code>service_id_hash</code> enters the cache, <code>bound(service_id_hash)</code> is set to <code>0</code>,
+and a <code>timestamp(service_id_hash)</code> is set to the current time.
+When a new ticket request arrives for the same <code>service_id_hash</code>,
+the registrar calculates the service waiting time <code>w_s</code> and then applies the lower-bound rule:</p>
+<p><code>w_s = max(w_s, bound(service_id_hash) - timestamp(service_id_hash))</code></p>
+<p>The values <code>bound(service_id_hash)</code> and <code>timestamp(service_id_hash)</code>
+are updated whenever a new <code>ticket</code> is issued
+and the condition <code>w_s &gt; (bound(service_id_hash) - timestamp(service_id_hash))</code>is satisfied.</p>
+<p><strong>How SHOULD lower bound be calculated for IPs:</strong>
+Registrars enforce lower-bound state for the advertiser’s IP address using IP tree
+(refer to the <a href="#ip-similarity-score">IP Similarity Score section</a>).</p>
+<h2 id="implementation-notes"><a class="header" href="#implementation-notes">Implementation Notes</a></h2>
+<h3 id="client-and-server-mode"><a class="header" href="#client-and-server-mode">Client and Server Mode</a></h3>
+<p>Logos discovery respects the client/server mode distinction
+from the base Kad-dht specification:</p>
+<ul>
+<li><strong>Server mode nodes</strong>: MAY be Discoverer, Advertiser or Registrar</li>
+<li><strong>Client mode nodes</strong>: MUST be only Discoverer</li>
+</ul>
+<p>Implementations MAY include incentivization mechanisms
+to encourage peers to participate as advertisers or registrars,
+rather than operating solely in client mode.
+This helps prevent free-riding behavior,
+ensures a fair distribution of network load,
+and maintains the overall resilience and availability of the discovery layer.
+Incentivization mechanisms are beyond the scope of this RFC.</p>
+<h3 id="bucket-management"><a class="header" href="#bucket-management">Bucket Management</a></h3>
+<h4 id="bucket-representation"><a class="header" href="#bucket-representation">Bucket Representation</a></h4>
+<p>For simplicity in this RFC, we represent each bucket as a list of peer IDs.
+However, in a full implementation, each entry in the bucket
+MUST store complete peer information necessary to enable communication.</p>
+<h4 id="bucket-size"><a class="header" href="#bucket-size">Bucket Size</a></h4>
+<p>The number of entries a bucket can hold is implementation-dependent:</p>
+<ul>
+<li>Smaller buckets → lower memory usage but reduced resilience to churn</li>
+<li>Larger buckets → better redundancy but increased maintenance overhead</li>
+</ul>
+<p>Implementations SHOULD ensure that each bucket contains only unique peers.
+If the peer to be added is already present in the bucket,
+the implementation SHOULD NOT create a duplicate entry and
+SHOULD instead update the existing entry.</p>
+<h4 id="bucket-overflow-handling"><a class="header" href="#bucket-overflow-handling">Bucket Overflow Handling</a></h4>
+<p>When a bucket reaches its maximum capacity and a new peer needs to be added,
+implementations SHOULD decide how to handle the overflow.
+The specific strategy is implementation-dependent,
+but implementations MAY consider one of the following approaches:</p>
+<ul>
+<li>
+<p><strong>Least Recently Used (LRU) Eviction:</strong>
+Replace the peer that was least recently contacted or updated.
+This keeps more active and responsive peers in the routing table.</p>
+</li>
+<li>
+<p><strong>Least Recently Seen (LRS) Eviction:</strong>
+Replace the peer that was seen (added to the bucket) earliest.
+This provides a time-based rotation of peers.</p>
+</li>
+<li>
+<p><strong>Ping-based Eviction:</strong>
+When the bucket is full, ping the least recently contacted peer.
+If the ping fails, replace it with the new peer.
+If the ping succeeds, keep the existing peer and discard the new one.
+This prioritizes responsive, reachable peers.</p>
+</li>
+<li>
+<p><strong>Reject New Peer:</strong>
+Keep existing peers and reject the new peer.
+This strategy assumes existing peers are more stable or valuable.</p>
+</li>
+<li>
+<p><strong>Bucket Extension:</strong>
+Dynamically increase bucket capacity (within reasonable limits) when overflow occurs,
+especially for buckets closer to the center ID.</p>
+</li>
+</ul>
+<p>Implementations MAY combine these strategies or use alternative approaches
+based on their specific requirements for performance, security, and resilience.</p>
+<h2 id="references"><a class="header" href="#references">References</a></h2>
+<p>[0] <a href="https://pdos.csail.mit.edu/~petar/papers/maymounkov-kademlia-lncs.pdf">Kademlia: A Peer-to-Peer Information System Based on the XOR Metric</a></p>
+<p>[1] <a href="https://ieeexplore.ieee.org/document/10629017">DISC-NG: Robust Service Discovery in the Ethereum Global Network</a></p>
+<p>[2] <a href="https://github.com/libp2p/specs/blob/e87cb1c32a666c2229d3b9bb8f9ce1d9cfdaa8a9/kad-dht/README.md">libp2p Kademlia DHT specification</a></p>
+<p>[3] <a href="https://github.com/libp2p/go-libp2p-kad-dht">Go implementation</a></p>
+<h2 id="appendix"><a class="header" href="#appendix">Appendix</a></h2>
+<p>This appendix provides detailed explanations of some algorithms
+and helper procedures referenced throughout this RFC.
+To maintain clarity and readability in the main specification,
+the body contains only the concise pseudocode and high-level descriptions.</p>
+<h3 id="advertiser-algorithms-explanation"><a class="header" href="#advertiser-algorithms-explanation">Advertiser Algorithms Explanation</a></h3>
+<p>Refer to the <a href="#example-advertise-algorithm">Advertisement Algorithm section</a> for the pseudocode.</p>
+<h4 id="advertise-algorithm-explanation"><a class="header" href="#advertise-algorithm-explanation">ADVERTISE() algorithm explanation</a></h4>
+<ol>
+<li>Initialize a map <code>ongoing</code> for tracking which registrars are currently being advertised to.</li>
+<li>Initialize <code>AdvT(service_id_hash)</code> by bootstrapping peers
+from the advertiser’s <code>KadDHT(peerID)</code>
+using the formula described in the <a href="#distance">Distance section</a>.</li>
+<li>Iterate over all buckets (i = 0 through <code>m-1</code>),
+where <code>m</code> is the number of buckets in <code>AdvT(service_id_hash)</code> and <code>ongoing</code> map.
+Each bucket corresponds to a particular distance from the <code>service_id_hash</code>.
+<ol>
+<li><code>ongoing[i]</code> contains list of  registrars with active (unexpired) registrations
+or ongoing registration attempts at a distance <code>i</code>
+from the <code>service_id_hash</code> of the service that the advertiser is advertising for.</li>
+<li>Advertisers continuously maintain up to <code>K_register</code> active (unexpired) registrations
+or ongoing registration attempts in every bucket of the <code>ongoing</code> map for its service.
+Increasing <code>K_register</code> makes the advertiser easier to find
+at the cost of increased communication and storage costs.</li>
+<li>Pick a random registrar from bucket <code>i</code> of <code>AdvT(service_id_hash)</code> to advertise to.
+<ul>
+<li><code>AdvT(service_id_hash).getBucket(i)</code> → returns a list of registrars in bucket <code>i</code>
+from <code>AdvT(service_id_hash)</code></li>
+<li><code>.getRandomNode()</code> → function returns a random registrar node.
+The advertiser tries to place its advertisement into that registrar.
+The function remembers already returned nodes
+and never returns the same one twice during the same <code>ad</code> placement process.
+If there are no peers, it returns <code>None</code>.</li>
+</ul>
+</li>
+<li>if we get a peer then we add that to that bucket <code>ongoing[i]</code></li>
+<li>Build the advertisement object <code>ad</code> containing <code>service_id_hash</code>, <code>peerID</code>, and <code>addrs</code>
+(Refer to the <a href="#advertisement">Advertisement section</a>).
+Then it is signed by the advertiser using the node’s private key (Ed25519 signature)</li>
+<li>Then send this <code>ad</code> asynchronously to the selected registrar.
+The helper <code>ADVERTISE_SINGLE()</code> will handle registration to a single registrar.
+Asynchronous execution allows multiple <code>ads</code> (to multiple registrars) to proceed in parallel.</li>
+</ol>
+</li>
+</ol>
+<h4 id="advertise_single-algorithm-explanation"><a class="header" href="#advertise_single-algorithm-explanation">ADVERTISE_SINGLE() algorithm explanation</a></h4>
+<p><code>ADVERTISE_SINGLE()</code> algorithm handles registration to one registrar at a time</p>
+<ol>
+<li>Initialize <code>ticket</code> to <code>None</code> as we have not yet got any ticket from registrar</li>
+<li>Keep trying until the registrar confirms or rejects the <code>ad</code>.
+<ol>
+<li>Send the <code>ad</code> to the registrar using <code>Register</code> request.
+Request structure is described in section <a href="#register-message">Register Message Structure</a>.
+If we already have a ticket, include it in the request.</li>
+<li>The registrar replies with a <code>response</code>.
+Refer to the <a href="#register-message">Register Message Structure section</a> for the response structure</li>
+<li>Add the list of peers returned by the registrar <code>response.closerPeers</code> to <code>AdvT(service_id_hash)</code>.
+Refer to the [Distance](#distance section) on how to add.</li>
+<li>If the registrar accepted the advertisement successfully,
+wait for <code>E</code> seconds,
+then stop retrying because the <code>ad</code> is already registered.</li>
+<li>If the registrar says “wait” (its cache is full or overloaded),
+sleep for the time written in the ticket <code>ticket.t_wait_for</code>(but not more than <code>E</code>).
+Then update <code>ticket</code> with the new one from the registrar, and try again.</li>
+<li>If the registrar rejects the ad, stop trying with this registrar.</li>
+</ol>
+</li>
+<li>Remove this registrar from the <code>ongoing</code> map in bucket i (<code>ongoing[i]</code>),
+since we’ve finished trying with it.</li>
+</ol>
+<h3 id="discoverer-algorithms"><a class="header" href="#discoverer-algorithms">Discoverer Algorithms</a></h3>
+<h4 id="lookupservice_id_hash-algorithm-explanation"><a class="header" href="#lookupservice_id_hash-algorithm-explanation">LOOKUP(service_id_hash) algorithm explanation</a></h4>
+<p>Refer to the <a href="#example-lookup-algorithm">Lookup Algorithm section</a> for the pseudocode.</p>
+<ol>
+<li><code>DiscT(service_id_hash)</code> is initialized by
+bootstrapping peers from the discoverer’s <code>KadDHT(peerID)</code>
+using the formula described in the <a href="#distance">Distance section</a>.</li>
+<li>Create an empty set <code>foundPeers</code> to store unique advertisers peer IDs discovered during the lookup.</li>
+<li>Go through each bucket of <code>DiscT(service_id_hash)</code> —
+from farthest (<code>b₀</code>) to closest (<code>bₘ₋₁</code>) to the service ID <code>service_id_hash</code>.
+For each bucket, query up to <code>K_lookup</code> random peers.
+<ol>
+<li>Pick a random registrar node from bucket <code>i</code> of <code>DiscT(service_id_hash)</code> to query
+<ol>
+<li><code>DiscT(service_id_hash).getBucket(i)</code> → returns a list of registrars
+in bucket <code>i</code> from <code>DiscT(service_id_hash)</code></li>
+<li><code>.getRandomNode()</code> → function returns a random registrar node.
+The discover queries this node to get <code>ads</code> for a particular service ID <code>service_id_hash</code>.
+The function remembers already returned nodes and never returns the same one twice.
+If there are no peers, it returns <code>None</code>.</li>
+</ol>
+</li>
+<li>A <code>GET_ADS</code> request is sent to the selected registrar peer.
+Refer to the <a href="#get_ads-message">GET_ADS Message section</a>
+to see the request and response structure for <code>GET_ADS</code>.
+The response returned by the registrar node is stored in <code>response</code></li>
+<li>The <code>response</code> contains a list of advertisements <code>response.ads</code>.
+A queried registrar returns at most <code>F_return</code> advertisements.
+If it returns more we can just randomly keep <code>F_return</code> of them.
+For each advertisement returned:
+<ol>
+<li>Verify its digital signature for authenticity.</li>
+<li>Add the advertiser’s peer ID <code>ad.peerID</code> to the list <code>foundPeers</code>.</li>
+</ol>
+</li>
+<li>The <code>response</code> also contains a list of peers <code>response.closerPeers</code>
+that is inserted into <code>DiscT(service_id_hash)</code>
+using the formula described in the <a href="#distance">Distance section</a>.</li>
+<li>Stop early if enough advertiser peers (<code>F_lookup</code>) have been found.
+For popular services <code>F_lookup</code> advertisers are generally found in the initial phase
+from the farther buckets and the search terminates.
+But for unpopular ones it might take longer but not more than <code>O(log N)</code>
+where N is number of nodes participating in the network as registrars.</li>
+<li>If early stop doesn’t happen then the search stops
+when no unqueried registrars remain in any of the buckets.</li>
+</ol>
+</li>
+<li>Return <code>foundPeers</code> which is the final list of discovered advertisers
+that provide service <code>service_id_hash</code></li>
+</ol>
+<p>Making the advertisers and discoverers walk towards <code>service_id_hash</code> in a similar fashion
+guarantees that the two processes overlap and contact a similar set of registrars that relay the <code>ads</code>.
+At the same time, contacting random registrars in each encountered bucket using <code>getRandomNode()</code>
+makes it difficult for an attacker to strategically place malicious registrars in the network.
+The first bucket <code>b_0(service_id_hash)</code> covers the largest fraction of the key space
+as it corresponds to peers with no common prefix to <code>service_id_hash</code> (i.e. 50% of all the registrars).
+Placing malicious registrars in this fraction of the key space
+to impact service discovery process would require considerable resources.
+Subsequent buckets cover smaller fractions of the key space,
+making it easier for the attacker to place Sybils
+but also increasing the chance of advertisers already gathering enough <code>ads</code> in previous buckets.</p>
+<p>Parameters <code>F_return</code> and <code>F_lookup</code> play an important role
+in setting a compromise between security and efficiency.
+A small value of <code>F_return &lt;&lt; F_lookup</code> increases the diversity of the source of <code>ads</code>
+received by the discoverer but increases search time,
+and requires reaching buckets covering smaller key ranges where eclipse risks are higher.
+On the other hand, similar values for <code>F_lookup</code> and <code>F_return</code> reduce overheads
+but increase the danger of a discoverer receiving <code>ads</code> uniquely from malicious nodes.
+Finally, low values of <code>F_lookup</code> stop the search operation early,
+before reaching registrars close to the service hash,
+contributing to a more balanced load distribution.
+Implementations should consider these trade-offs carefully when selecting appropriate values.</p>
+<h3 id="registrar-algorithms"><a class="header" href="#registrar-algorithms">Registrar Algorithms</a></h3>
+<h4 id="register-algorithm-explanation"><a class="header" href="#register-algorithm-explanation"><code>REGISTER()</code> algorithm explanation</a></h4>
+<p>Refer to the <a href="#example-register-algorithm">Register Algorithm section</a> for the pseudocode</p>
+<ol>
+<li>Make sure this advertisement <code>ad</code> is not already in the registrar’s advertisement cache <code>ad_cache</code>.</li>
+<li>Prepare a response ticket <code>response.ticket</code> linked to this <code>ad</code>.</li>
+<li>Then calculate how long the advertiser should wait <code>t_wait</code> before being admitted.
+Refer to the <a href="#waiting-time-calculation">Waiting Time Calculation section</a> for details.</li>
+<li>Check if this is the first registration attempt (no ticket yet):
+<ol>
+<li>If yes then it’s the first try. The advertiser must wait for the full waiting time <code>t_wait</code>.
+The ticket’s creation time <code>t_init</code> and last-modified time <code>t_mod</code> are both set to <code>NOW()</code>.</li>
+<li>If no, then this is a retry, so a previous ticket exists.
+<ol>
+<li>Validate that the ticket is properly signed by the registrar,
+belongs to this same advertisement and that the <code>ad</code> is still not already in the <code>ad_cache</code>.</li>
+<li>Ensure the retry is happening within the allowed time window <code>δ</code> after the scheduled time.
+If the advertiser waits too long or too short, the ticket is invalid.</li>
+<li>Calculate how much waiting time is left <code>t_remaining</code>
+by subtracting how long the advertiser has already waited
+(<code>NOW() - ticket.t_init</code>) from <code>t_wait</code>.</li>
+</ol>
+</li>
+</ol>
+</li>
+<li>Check if the remaining waiting time <code>t_remaining</code> is less than or equal to 0.
+This means  the waiting time is over.
+<code>t_remaining</code> can be 0 also when the registrar decides that
+the advertiser doesn’t have to wait for admission to the <code>ad_cache</code>(waiting time <code>t_wait</code> is 0).
+<ol>
+<li>If yes, add the <code>ad</code> to <code>ad_cache</code> and confirm registration.
+The advertisement is now officially registered.</li>
+<li>If no, then there is still time to wait.
+In this case registrar does not store <code>ad</code> but instead issues a ticket.
+<ol>
+<li>set <code>reponse.status</code> to <code>wait</code></li>
+<li>Update the ticket with the new remaining waiting time <code>t_wait_for</code></li>
+<li>Update the ticket last modification time <code>t_mod</code></li>
+<li>Sign the ticket again. The advertiser will retry later using this new ticket.</li>
+</ol>
+</li>
+</ol>
+</li>
+<li>Add a list of peers closer to the <code>ad.service_id_hash</code> using the <code>GETPEERS()</code> function
+to the response (the advertiser uses this to update <code>AdvT(service_id_hash)</code>).</li>
+<li>Send the full response back to the advertiser</li>
+</ol>
+<p>Upon receiving a ticket, the advertiser waits for the specified <code>t_wait</code> time
+before trying to register again with the same registrar.</p>
+<p>Tickets can only be used within registration window <code>δ</code>,
+preventing attackers from accumulating and batch-submitting tickets.
+Clock synchronization is not required as advertisers only use <code>t_wait_for</code> values.</p>
+<p>Waiting times are recalculated on each retry based on current cache state,
+ensuring advertisers accumulate waiting time and are eventually admitted.
+This stateless design protects registrars from memory exhaustion and DoS attacks.</p>
+<p>The waiting time <code>t_wait</code> is not fixed.
+Each time an advertiser tries to register,
+the registrar recalculates a new waiting time.
+The remaining time <code>t_remaining</code> is then computed as the difference between
+the new waiting time and the time the advertiser has already waited,
+as recorded in the ticket.
+With every retry, the advertiser accumulates waiting time
+and will eventually be admitted.
+However, if the advertiser misses its registration window
+or fails to include the last ticket,
+it loses all accumulated waiting time and
+must restart the registration process from the beginning.
+Implementations must consider these factors
+while deciding the registration window <code>δ</code> time.</p>
+<p>This design lets registrars prioritize advertisers that have waited longer
+without keeping any per-request state before the <code>ad</code> is admitted to the cache.
+Because waiting times are recalculated
+and tickets are stored only on the advertiser’s side,
+the registrar is protected from memory exhaustion
+and DoS attacks caused by inactive or malicious advertisers.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../ift-ts/raw/consensus-hashgraphlike.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../ift-ts/raw/mix.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../ift-ts/raw/consensus-hashgraphlike.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../ift-ts/raw/mix.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../../theme/katex/katex.min.js"></script>
+        <script src="../../theme/katex/auto-render.min.js"></script>
+        <script src="../../scripts/katex-render.js"></script>
+        <script src="../../scripts/logos-lips.js"></script>
+
+
+    </div>
+    </body>
+</html>

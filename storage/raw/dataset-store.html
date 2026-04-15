@@ -1,0 +1,409 @@
+<!DOCTYPE HTML>
+<html lang="en" class="ayu" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>DATASET-STORE - Logos LIP</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../highlight.css">
+        <link rel="stylesheet" href="../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../../theme/katex/katex.min.css">
+        <link rel="stylesheet" href="../../theme/fonts/fonts.css">
+        <link rel="stylesheet" href="../../theme/FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../custom.css">
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "ayu";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('ayu')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../../index.html">Introduction</a></li><li class="chapter-item expanded affix "><a href="../../about.html">About</a></li><li class="chapter-item expanded "><a href="../../messaging/index.html"><strong aria-hidden="true">1.</strong> Messaging</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/index.html"><strong aria-hidden="true">1.1.</strong> Standards - Core</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/10/waku2.html"><strong aria-hidden="true">1.1.1.</strong> 10/WAKU2</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/11/relay.html"><strong aria-hidden="true">1.1.2.</strong> 11/WAKU2-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/12/filter.html"><strong aria-hidden="true">1.1.3.</strong> 12/WAKU2-FILTER</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/12/previous-versions/00/filter.html"><strong aria-hidden="true">1.1.3.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/13/store.html"><strong aria-hidden="true">1.1.4.</strong> 13/WAKU2-STORE</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/13/previous-versions/00/store.html"><strong aria-hidden="true">1.1.4.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/14/message.html"><strong aria-hidden="true">1.1.5.</strong> 14/WAKU2-MESSAGE</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/15/bridge.html"><strong aria-hidden="true">1.1.6.</strong> 15/WAKU-BRIDGE</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/17/rln-relay.html"><strong aria-hidden="true">1.1.7.</strong> 17/WAKU2-RLN-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/19/lightpush.html"><strong aria-hidden="true">1.1.8.</strong> 19/WAKU2-LIGHTPUSH</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/31/enr.html"><strong aria-hidden="true">1.1.9.</strong> 31/WAKU2-ENR</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/33/discv5.html"><strong aria-hidden="true">1.1.10.</strong> 33/WAKU2-DISCV5</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/34/peer-exchange.html"><strong aria-hidden="true">1.1.11.</strong> 34/WAKU2-PEER-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/36/bindings-api.html"><strong aria-hidden="true">1.1.12.</strong> 36/WAKU2-BINDINGS-API</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/64/network.html"><strong aria-hidden="true">1.1.13.</strong> 64/WAKU2-NETWORK</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/66/metadata.html"><strong aria-hidden="true">1.1.14.</strong> 66/WAKU2-METADATA</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/index.html"><strong aria-hidden="true">1.2.</strong> Standards - Application</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/application/20/toy-eth-pm.html"><strong aria-hidden="true">1.2.1.</strong> 20/TOY-ETH-PM</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/26/payload.html"><strong aria-hidden="true">1.2.2.</strong> 26/WAKU2-PAYLOAD</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/53/x3dh.html"><strong aria-hidden="true">1.2.3.</strong> 53/WAKU2-X3DH</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/54/x3dh-sessions.html"><strong aria-hidden="true">1.2.4.</strong> 54/WAKU2-X3DH-SESSIONS</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/index.html"><strong aria-hidden="true">1.3.</strong> Standards - Legacy</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/6/waku1.html"><strong aria-hidden="true">1.3.1.</strong> 6/WAKU1</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/7/data.html"><strong aria-hidden="true">1.3.2.</strong> 7/WAKU-DATA</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/8/mail.html"><strong aria-hidden="true">1.3.3.</strong> 8/WAKU-MAIL</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/9/rpc.html"><strong aria-hidden="true">1.3.4.</strong> 9/WAKU-RPC</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/informational/index.html"><strong aria-hidden="true">1.4.</strong> Informational</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/informational/22/toy-chat.html"><strong aria-hidden="true">1.4.1.</strong> 22/TOY-CHAT</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/23/topics.html"><strong aria-hidden="true">1.4.2.</strong> 23/WAKU2-TOPICS</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/27/peers.html"><strong aria-hidden="true">1.4.3.</strong> 27/WAKU2-PEERS</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/29/config.html"><strong aria-hidden="true">1.4.4.</strong> 29/WAKU2-CONFIG</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/30/adaptive-nodes.html"><strong aria-hidden="true">1.4.5.</strong> 30/ADAPTIVE-NODES</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/index.html"><strong aria-hidden="true">1.5.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/deprecated/5/waku0.html"><strong aria-hidden="true">1.5.1.</strong> 5/WAKU0</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/16/rpc.html"><strong aria-hidden="true">1.5.2.</strong> 16/WAKU2-RPC</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/18/swap.html"><strong aria-hidden="true">1.5.3.</strong> 18/WAKU2-SWAP</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/fault-tolerant-store.html"><strong aria-hidden="true">1.5.4.</strong> 21/WAKU2-FAULT-TOLERANT-STORE</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/index.html"><strong aria-hidden="true">2.</strong> Blockchain</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/index.html"><strong aria-hidden="true">2.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-anonymous-leaders-reward.html"><strong aria-hidden="true">2.1.1.</strong> BEDROCK-ANONYMOUS-LEADERS-REWARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-architecture-overview.html"><strong aria-hidden="true">2.1.2.</strong> BEDROCK-ARCHITECTURE-OVERVIEW</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-genesis-block.html"><strong aria-hidden="true">2.1.3.</strong> BEDROCK-GENESIS-BLOCK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-declaration-protocol.html"><strong aria-hidden="true">2.1.4.</strong> BEDROCK-SERVICE-DECLARATION-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-reward-distribution.html"><strong aria-hidden="true">2.1.5.</strong> BEDROCK-SERVICE-REWARD-DISTRIBUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-block-construction.html"><strong aria-hidden="true">2.1.6.</strong> BEDROCK-V1-1-BLOCK-CONSTRUCTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-mantle-specification.html"><strong aria-hidden="true">2.1.7.</strong> BEDROCK-V1.1-MANTLE-SPECIFICATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/fork-choice.html"><strong aria-hidden="true">2.1.8.</strong> CRYPTARCHIA-FORK-CHOICE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-proof-of-leadership.html"><strong aria-hidden="true">2.1.9.</strong> CRYPTARCHIA-PROOF-OF-LEADERSHIP</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-total-stake-inference.html"><strong aria-hidden="true">2.1.10.</strong> CRYPTARCHIA-TOTAL-STAKE-INFERENCE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-v1-bootstr-sync.html"><strong aria-hidden="true">2.1.11.</strong> CRYPTARCHIA-V1-BOOTSTRAPPING-SYNCHRONIZATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-blend-protocol.html"><strong aria-hidden="true">2.1.12.</strong> NOMOS-BLEND-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-cryptarchia-v1-protocol.html"><strong aria-hidden="true">2.1.13.</strong> NOMOS-CRYPTARCHIA-V1-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomosda-network.html"><strong aria-hidden="true">2.1.14.</strong> NOMOS-DA-NETWORK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/digital-signature.html"><strong aria-hidden="true">2.1.15.</strong> NOMOS-DIGITAL-SIGNATURE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-key-types-and-generation.html"><strong aria-hidden="true">2.1.16.</strong> NOMOS-KEY-TYPES-GENERATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-encapsulation.html"><strong aria-hidden="true">2.1.17.</strong> NOMOS-MESSAGE-ENCAPSULATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-formatting.html"><strong aria-hidden="true">2.1.18.</strong> NOMOS-MESSAGE-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-network.html"><strong aria-hidden="true">2.1.19.</strong> NOMOS-P2P-NETWORK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-payload-formatting.html"><strong aria-hidden="true">2.1.20.</strong> NOMOS-PAYLOAD-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-proof-of-quota.html"><strong aria-hidden="true">2.1.21.</strong> NOMOS-PROOF-OF-QUOTA</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-wallet-technical-standard.html"><strong aria-hidden="true">2.1.22.</strong> NOMOS-WALLET-TECHNICAL-STANDARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-cryptographic-protocol.html"><strong aria-hidden="true">2.1.23.</strong> NOMOSDA-CRYPTOGRAPHIC-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-rewarding.html"><strong aria-hidden="true">2.1.24.</strong> NOMOSDA-REWARDING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-hardware-requirements.html"><strong aria-hidden="true">2.1.25.</strong> P2P-HARDWARE-REQUIREMENTS</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-nat-solution.html"><strong aria-hidden="true">2.1.26.</strong> P2P-NAT-SOLUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-network-bootstrapping.html"><strong aria-hidden="true">2.1.27.</strong> P2P-NETWORK-BOOTSTRAPPING</a></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/deprecated/index.html"><strong aria-hidden="true">2.2.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/deprecated/claro.html"><strong aria-hidden="true">2.2.1.</strong> CONSENSUS-CLARO</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../storage/index.html"><strong aria-hidden="true">3.</strong> Storage</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/index.html"><strong aria-hidden="true">3.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/codex-block-exchange.html"><strong aria-hidden="true">3.1.1.</strong> CODEX-BLOCK-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/community-history.html"><strong aria-hidden="true">3.1.2.</strong> CODEX-COMMUNITY-HISTORY</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dht.html"><strong aria-hidden="true">3.1.3.</strong> CODEX-DHT</a></li><li class="chapter-item expanded "><a href="../../storage/raw/manifest.html"><strong aria-hidden="true">3.1.4.</strong> CODEX-MANIFEST</a></li><li class="chapter-item expanded "><a href="../../storage/raw/codex-store.html"><strong aria-hidden="true">3.1.5.</strong> CODEX-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dataset-store.html" class="active"><strong aria-hidden="true">3.1.6.</strong> DATASET-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/datasets.html"><strong aria-hidden="true">3.1.7.</strong> DATASETS</a></li><li class="chapter-item expanded "><a href="../../storage/raw/merkle-tree.html"><strong aria-hidden="true">3.1.8.</strong> MERKLE-TREE</a></li></ol></li><li class="chapter-item expanded "><a href="../../storage/deprecated/index.html"><strong aria-hidden="true">3.2.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/deprecated/erasure-coding.html"><strong aria-hidden="true">3.2.1.</strong> CODEX-ERASUE-CODING</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-marketplace.html"><strong aria-hidden="true">3.2.2.</strong> CODEX-MARKETPLACE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-merkle-tree.html"><strong aria-hidden="true">3.2.3.</strong> CODEX-MERKLE-TREE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-prover.html"><strong aria-hidden="true">3.2.4.</strong> CODEX-PROVER</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/slot-buIlder.html"><strong aria-hidden="true">3.2.5.</strong> CODEX-SLOT-BUILDER</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../ift-ts/index.html"><strong aria-hidden="true">4.</strong> IFT-TS</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../ift-ts/raw/index.html"><strong aria-hidden="true">4.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../ift-ts/raw/1/coss.html"><strong aria-hidden="true">4.1.1.</strong> 1/COSS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/2/mvds.html"><strong aria-hidden="true">4.1.2.</strong> 2/MVDS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/3/remote-log.html"><strong aria-hidden="true">4.1.3.</strong> 3/REMOTE-LOG</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/4/mvds-meta.html"><strong aria-hidden="true">4.1.4.</strong> 4/MVDS-META</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/25/libp2p-dns-discovery.html"><strong aria-hidden="true">4.1.5.</strong> 25/LIBP2P-DNS-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/32/rln-v1.html"><strong aria-hidden="true">4.1.6.</strong> 32/RLN-V1</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/decentralized-mls-offchain-consensus.html"><strong aria-hidden="true">4.1.7.</strong> DECENTRALIZED-MLS-OFFCHAIN-CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/decentralized-messaging-ethereum.html"><strong aria-hidden="true">4.1.8.</strong> ETH-DCGKA</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/eth-mls-onchain.html"><strong aria-hidden="true">4.1.9.</strong> ETH-MLS-ONCHAIN</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/deleted/eth-secpm.html"><strong aria-hidden="true">4.1.10.</strong> ETH-SECPM</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/extended-kad-disco.html"><strong aria-hidden="true">4.1.11.</strong> EXTENDED-KADEMLIA-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/extensible-peer-records.html"><strong aria-hidden="true">4.1.12.</strong> EXTENSIBLE-PEER-RECORDS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/gossipsub-tor-push.html"><strong aria-hidden="true">4.1.13.</strong> GOSSIPSUB-TOR-PUSH</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/consensus-hashgraphlike.html"><strong aria-hidden="true">4.1.14.</strong> HASHGRAPHLIKE CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/logos-service-discovery.html"><strong aria-hidden="true">4.1.15.</strong> LOGOS-SERVICE-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/mix.html"><strong aria-hidden="true">4.1.16.</strong> MIX</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/multi-message_id-burn-rln.html"><strong aria-hidden="true">4.1.17.</strong> Multi-message_id Burn RLN</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/noise-x3dh-double-ratchet.html"><strong aria-hidden="true">4.1.18.</strong> NOISE-X3DH-DOUBLE-RATCHET</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/payment-streams.html"><strong aria-hidden="true">4.1.19.</strong> PAYMENT-STREAMS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/mix-spam-protection-rln.html"><strong aria-hidden="true">4.1.20.</strong> RLN DoS Protection for Mixnet</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/rln-interep-spec.html"><strong aria-hidden="true">4.1.21.</strong> RLN-INTEREP-SPEC</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/rln-stealth-commitments.html"><strong aria-hidden="true">4.1.22.</strong> RLN-STEALTH-COMMITMENTS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/rln-v2.html"><strong aria-hidden="true">4.1.23.</strong> RLN-V2</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/sds.html"><strong aria-hidden="true">4.1.24.</strong> SDS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/status-rln-deployment.html"><strong aria-hidden="true">4.1.25.</strong> STATUS-RLN-DEPLOYMENT</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/zerokit-api.html"><strong aria-hidden="true">4.1.26.</strong> Zerokit API</a></li></ol></li><li class="chapter-item expanded "><a href="../../ift-ts/template.html"><strong aria-hidden="true">4.2.</strong> TEMPLATE</a></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Logos LIP</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/logos-co/logos-lips" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="dataset-store"><a class="header" href="#dataset-store">DATASET-STORE</a></h1>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
+<tr><td>Name</td><td>Dataset Store</td></tr>
+<tr><td>Slug</td><td>151</td></tr>
+<tr><td>Status</td><td>raw</td></tr>
+<tr><td>Category</td><td>Standards Track</td></tr>
+<tr><td>Editor</td><td>Giuliano Mega <a href="mailto:giuliano@status.im">giuliano@status.im</a></td></tr>
+</tbody></table>
+</div><!-- timeline:start -->
+<h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
+<ul>
+<li><strong>2026-02-09</strong> — <a href="https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/storage/raw/dataset-store.md"><code>afd94c8</code></a> — chore: add math support (#287)</li>
+<li><strong>2026-02-05</strong> — <a href="https://github.com/logos-co/logos-lips/blob/4d0ee4929bd2c5037f72e3ca544f116f4c6fe39d/docs/storage/raw/dataset-store.md"><code>4d0ee49</code></a> — feat: Logos Storage dataset store (#278)</li>
+</ul>
+<!-- timeline:end -->
+<h2 id="abstract"><a class="header" href="#abstract">Abstract</a></h2>
+<p>This specification contains the interface for a simple local storage component, named the Dataset Store, which supports Logos Storage nodes in storing and keeping track of partial and complete datasets along with their metadata on-disk, and provides basic support for dataset caching.</p>
+<p><strong>Keywords.</strong> dataset, block, dataset storage, caching, local storage, Logos Storage</p>
+<h2 id="specification"><a class="header" href="#specification">Specification</a></h2>
+<p>The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”, “SHOULD”, “SHOULD NOT”, “RECOMMENDED”, “MAY”, and “OPTIONAL” in this document are to be interpreted as described in <a href="https://www.ietf.org/rfc/rfc2119.txt">RFC 2119</a>.</p>
+<h3 id="interface"><a class="header" href="#interface">Interface</a></h3>
+<p>The interface is specified as pseudo-Python. The focus here is on primitive semantics, not code realism. In particular, we will ignore:</p>
+<ol>
+<li>whether the operations are run synchronously or asynchronously, in a single thread or in multiple threads;</li>
+<li>error conditions which are not domain specific; e.g. <code>IOError</code> does not belong here, whereas <code>QuotaExceededError</code> perhaps does. Errors are presented as exceptions, but these can be mapped into result types in languages that support or have a preference for them;</li>
+<li>methods which could be present for efficiency reasons. Those can be added at the discretion of the implementor.</li>
+</ol>
+<p>A DatasetStore is typically mounted on a local folder. Implementations will therefore typically provide, at its simplest:</p>
+<pre><code class="language-python">def new_dataset_store(path: Path, quota: uint): DatasetStore
+  """Creates a new `DatasetStore`, which can hold up to `quota`
+  bytes worth of `Datasets`."""
+  ...
+</code></pre>
+<p><strong>Listing 1.</strong> Creating a new DatasetStore.</p>
+<p>High-level <code>Dataset</code> creation/deletion operations, as well as quota management and caching operations, are provided at the <code>DatasetStore</code> interface, shown in Listing 2. Block-level operations are provided in the <code>Dataset</code> interface, shown in Listing 3.</p>
+<p>The <code>DatasetStore</code>/<code>Dataset</code> interfaces rely on a few external pseudotypes:</p>
+<ol>
+<li><code>BytesIO</code> represents a generic read or write byte stream;</li>
+<li><code>Bitset</code> is a fixed-size set - typically represented as a bit array - which encodes an integer set. Bit <span class="math-inline" data-tex="i"></span> in this array is set to <span class="math-inline" data-tex="1"></span> if <span class="math-inline" data-tex="i"></span> is in the set, or <span class="math-inline" data-tex="0"></span> otherwise;</li>
+<li><code>CID</code> represents a libp2p <a href="https://github.com/multiformats/cid">Content Identifier</a>;</li>
+<li><code>Manifest</code> represents a <a href="./datasets.html">Logos Storage Manifest</a>;</li>
+<li><code>Block</code> represents an arbitrary chunk of data;</li>
+<li><code>MerkleProof</code> represents a Merkle inclusion proof for a <code>Block</code>.</li>
+</ol>
+<p>We omit the <code>self</code> parameter from all method signatures for brevity.</p>
+<pre><code class="language-python">class DatasetStore:
+
+  def remaining() -&gt; uint:
+    """Returns the free available space in this DatasetStore, in bytes.
+    This MUST be equal to the quota minus the size of all Datasets
+    in this store. Partially completed Datasets MUST count with their
+    full size, even if not all of the Dataset blocks are available locally.
+    """
+    ...
+
+  def create_dataset(
+    stream: BytesIO,
+    block_size: uint,
+    file_name: Optional[string] = None,
+    mime_type: Optional[MimeType] = None,
+  ) -&gt; Dataset:
+    """Creates a new Dataset from a byte stream and stores
+    it on disk. Store quota SHOULD be deducted as the stream gets
+    processed. Errors in this method SHOULD cause the
+    `DatasetStore` to clean up the partially created `Dataset`,
+    and return the quota back to the pool.
+
+    :raises QuotaExceededError: if quota is exceeded.
+    """
+    ...
+
+  def create_empty(manifest: Manifest) -&gt; Dataset:
+    """Creates a `Dataset` with the size described in the
+    `Manifest`, but no completed blocks; i.e., an empty
+    `Dataset`.
+
+    :raises DatasetExistsError: if the dataset already exists.
+    :raises QuotaExceededError: if quota would be exceeded by creating this dataset.
+    """
+    ...
+
+  def get_dataset(cid: CID) -&gt; Optional[Dataset]:
+    """Returns a `Dataset` previously stored on-disk, or
+    None if the `Dataset` is not present.
+
+    :param cid: The Manifest's CID.
+    """
+    ...
+
+  def delete_dataset(cid: CID) -&gt; bool:
+    """Removes a `Dataset` from disk, along with all of its
+    associated metadata.
+
+    :return: `false` if no `Dataset` corresponding to the
+    provided CID is found on-disk; `true` otherwise.
+    """
+    ...
+
+  def lru() -&gt; Iterator[Dataset]:
+    """Returns datasets in Least-Recently Used order.
+    Nodes can use this to implement cache eviction; e.g.,
+    when the quota is about to run out.
+
+    LRU order is defined by the last time a dataset was accessed
+    (read or written, both at the dataset or block level).
+    """
+    ...
+</code></pre>
+<p><strong>Listing 2.</strong> DatasetStore interface.</p>
+<pre><code class="language-python">class Dataset:
+  def manifest() -&gt; Manifest:
+    """Returns the `Manifest` for this dataset.
+    """
+    ...
+
+  def blockmap() -&gt; Bitset:
+    """Returns a `Bitset` in which the indexes of
+    all completed blocks are set. Unset bits correspond
+    instead to missing blocks.
+    """
+    ...
+
+  def completion() -&gt; Tuple[uint, uint]:
+    """Returns a tuple (a, b) where:
+      * a = blockmap.cardinality(), and;
+      * b = manifest.block_count
+
+    If a == b, then we have all the blocks on disk;
+    i.e., the dataset is complete.
+    """
+    ...
+
+  def put_block(
+    block: Block,
+    index: uint,
+    proof: MerkleProof,
+  ) -&gt; None:
+    """Stores the given `Block` as the index-th block
+    of this `Dataset`, verifying and storing its Merkle
+    inclusion as part of that process. Calling this method
+    for a block that is already present is a no-op.
+
+    :raises InvalidProofError: if the Merkle proof provided
+      in `proof` fails to verify.
+    """
+    ...
+
+  def get_block(
+    index: uint,
+  ) -&gt; Optional[Tuple[Block, MerkleProof]]:
+    """Retrieves and returns the block at index `index`, together
+    with its Merkle proof, if present. Otherwise returns None.
+    """
+    ...
+
+  def data() -&gt; BytesIO:
+    """Allows one to stream the contents of a dataset.
+    The stream MUST block if it bumps into an incomplete
+    block, until the block is again available.
+    """
+    ...
+
+</code></pre>
+<p><strong>Listing 3.</strong> Dataset interface.</p>
+<h2 id="copyright"><a class="header" href="#copyright">Copyright</a></h2>
+<p>Copyright and related rights waived via <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>.</p>
+<h2 id="references"><a class="header" href="#references">References</a></h2>
+<ol>
+<li><a href="/storage/raw/datasets.html">DATASETS</a></li>
+<li><a href="https://github.com/multiformats/cid">Content Identifier Specification</a></li>
+</ol>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../storage/raw/codex-store.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../storage/raw/datasets.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../storage/raw/codex-store.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../storage/raw/datasets.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../../theme/katex/katex.min.js"></script>
+        <script src="../../theme/katex/auto-render.min.js"></script>
+        <script src="../../scripts/katex-render.js"></script>
+        <script src="../../scripts/logos-lips.js"></script>
+
+
+    </div>
+    </body>
+</html>

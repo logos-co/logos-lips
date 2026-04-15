@@ -1,0 +1,701 @@
+<!DOCTYPE HTML>
+<html lang="en" class="ayu" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>NOMOSDA-CRYPTOGRAPHIC-PROTOCOL - Logos LIP</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../highlight.css">
+        <link rel="stylesheet" href="../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../../theme/katex/katex.min.css">
+        <link rel="stylesheet" href="../../theme/fonts/fonts.css">
+        <link rel="stylesheet" href="../../theme/FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../custom.css">
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "ayu";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('ayu')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../../index.html">Introduction</a></li><li class="chapter-item expanded affix "><a href="../../about.html">About</a></li><li class="chapter-item expanded "><a href="../../messaging/index.html"><strong aria-hidden="true">1.</strong> Messaging</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/index.html"><strong aria-hidden="true">1.1.</strong> Standards - Core</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/10/waku2.html"><strong aria-hidden="true">1.1.1.</strong> 10/WAKU2</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/11/relay.html"><strong aria-hidden="true">1.1.2.</strong> 11/WAKU2-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/12/filter.html"><strong aria-hidden="true">1.1.3.</strong> 12/WAKU2-FILTER</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/12/previous-versions/00/filter.html"><strong aria-hidden="true">1.1.3.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/13/store.html"><strong aria-hidden="true">1.1.4.</strong> 13/WAKU2-STORE</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/13/previous-versions/00/store.html"><strong aria-hidden="true">1.1.4.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/14/message.html"><strong aria-hidden="true">1.1.5.</strong> 14/WAKU2-MESSAGE</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/15/bridge.html"><strong aria-hidden="true">1.1.6.</strong> 15/WAKU-BRIDGE</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/17/rln-relay.html"><strong aria-hidden="true">1.1.7.</strong> 17/WAKU2-RLN-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/19/lightpush.html"><strong aria-hidden="true">1.1.8.</strong> 19/WAKU2-LIGHTPUSH</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/31/enr.html"><strong aria-hidden="true">1.1.9.</strong> 31/WAKU2-ENR</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/33/discv5.html"><strong aria-hidden="true">1.1.10.</strong> 33/WAKU2-DISCV5</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/34/peer-exchange.html"><strong aria-hidden="true">1.1.11.</strong> 34/WAKU2-PEER-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/36/bindings-api.html"><strong aria-hidden="true">1.1.12.</strong> 36/WAKU2-BINDINGS-API</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/64/network.html"><strong aria-hidden="true">1.1.13.</strong> 64/WAKU2-NETWORK</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/66/metadata.html"><strong aria-hidden="true">1.1.14.</strong> 66/WAKU2-METADATA</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/index.html"><strong aria-hidden="true">1.2.</strong> Standards - Application</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/application/20/toy-eth-pm.html"><strong aria-hidden="true">1.2.1.</strong> 20/TOY-ETH-PM</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/26/payload.html"><strong aria-hidden="true">1.2.2.</strong> 26/WAKU2-PAYLOAD</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/53/x3dh.html"><strong aria-hidden="true">1.2.3.</strong> 53/WAKU2-X3DH</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/54/x3dh-sessions.html"><strong aria-hidden="true">1.2.4.</strong> 54/WAKU2-X3DH-SESSIONS</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/index.html"><strong aria-hidden="true">1.3.</strong> Standards - Legacy</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/6/waku1.html"><strong aria-hidden="true">1.3.1.</strong> 6/WAKU1</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/7/data.html"><strong aria-hidden="true">1.3.2.</strong> 7/WAKU-DATA</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/8/mail.html"><strong aria-hidden="true">1.3.3.</strong> 8/WAKU-MAIL</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/9/rpc.html"><strong aria-hidden="true">1.3.4.</strong> 9/WAKU-RPC</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/informational/index.html"><strong aria-hidden="true">1.4.</strong> Informational</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/informational/22/toy-chat.html"><strong aria-hidden="true">1.4.1.</strong> 22/TOY-CHAT</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/23/topics.html"><strong aria-hidden="true">1.4.2.</strong> 23/WAKU2-TOPICS</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/27/peers.html"><strong aria-hidden="true">1.4.3.</strong> 27/WAKU2-PEERS</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/29/config.html"><strong aria-hidden="true">1.4.4.</strong> 29/WAKU2-CONFIG</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/30/adaptive-nodes.html"><strong aria-hidden="true">1.4.5.</strong> 30/ADAPTIVE-NODES</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/index.html"><strong aria-hidden="true">1.5.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/deprecated/5/waku0.html"><strong aria-hidden="true">1.5.1.</strong> 5/WAKU0</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/16/rpc.html"><strong aria-hidden="true">1.5.2.</strong> 16/WAKU2-RPC</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/18/swap.html"><strong aria-hidden="true">1.5.3.</strong> 18/WAKU2-SWAP</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/fault-tolerant-store.html"><strong aria-hidden="true">1.5.4.</strong> 21/WAKU2-FAULT-TOLERANT-STORE</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/index.html"><strong aria-hidden="true">2.</strong> Blockchain</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/index.html"><strong aria-hidden="true">2.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-anonymous-leaders-reward.html"><strong aria-hidden="true">2.1.1.</strong> BEDROCK-ANONYMOUS-LEADERS-REWARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-architecture-overview.html"><strong aria-hidden="true">2.1.2.</strong> BEDROCK-ARCHITECTURE-OVERVIEW</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-genesis-block.html"><strong aria-hidden="true">2.1.3.</strong> BEDROCK-GENESIS-BLOCK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-declaration-protocol.html"><strong aria-hidden="true">2.1.4.</strong> BEDROCK-SERVICE-DECLARATION-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-reward-distribution.html"><strong aria-hidden="true">2.1.5.</strong> BEDROCK-SERVICE-REWARD-DISTRIBUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-block-construction.html"><strong aria-hidden="true">2.1.6.</strong> BEDROCK-V1-1-BLOCK-CONSTRUCTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-mantle-specification.html"><strong aria-hidden="true">2.1.7.</strong> BEDROCK-V1.1-MANTLE-SPECIFICATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/fork-choice.html"><strong aria-hidden="true">2.1.8.</strong> CRYPTARCHIA-FORK-CHOICE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-proof-of-leadership.html"><strong aria-hidden="true">2.1.9.</strong> CRYPTARCHIA-PROOF-OF-LEADERSHIP</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-total-stake-inference.html"><strong aria-hidden="true">2.1.10.</strong> CRYPTARCHIA-TOTAL-STAKE-INFERENCE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-v1-bootstr-sync.html"><strong aria-hidden="true">2.1.11.</strong> CRYPTARCHIA-V1-BOOTSTRAPPING-SYNCHRONIZATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-blend-protocol.html"><strong aria-hidden="true">2.1.12.</strong> NOMOS-BLEND-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-cryptarchia-v1-protocol.html"><strong aria-hidden="true">2.1.13.</strong> NOMOS-CRYPTARCHIA-V1-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomosda-network.html"><strong aria-hidden="true">2.1.14.</strong> NOMOS-DA-NETWORK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/digital-signature.html"><strong aria-hidden="true">2.1.15.</strong> NOMOS-DIGITAL-SIGNATURE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-key-types-and-generation.html"><strong aria-hidden="true">2.1.16.</strong> NOMOS-KEY-TYPES-GENERATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-encapsulation.html"><strong aria-hidden="true">2.1.17.</strong> NOMOS-MESSAGE-ENCAPSULATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-formatting.html"><strong aria-hidden="true">2.1.18.</strong> NOMOS-MESSAGE-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-network.html"><strong aria-hidden="true">2.1.19.</strong> NOMOS-P2P-NETWORK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-payload-formatting.html"><strong aria-hidden="true">2.1.20.</strong> NOMOS-PAYLOAD-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-proof-of-quota.html"><strong aria-hidden="true">2.1.21.</strong> NOMOS-PROOF-OF-QUOTA</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-wallet-technical-standard.html"><strong aria-hidden="true">2.1.22.</strong> NOMOS-WALLET-TECHNICAL-STANDARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-cryptographic-protocol.html" class="active"><strong aria-hidden="true">2.1.23.</strong> NOMOSDA-CRYPTOGRAPHIC-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-rewarding.html"><strong aria-hidden="true">2.1.24.</strong> NOMOSDA-REWARDING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-hardware-requirements.html"><strong aria-hidden="true">2.1.25.</strong> P2P-HARDWARE-REQUIREMENTS</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-nat-solution.html"><strong aria-hidden="true">2.1.26.</strong> P2P-NAT-SOLUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-network-bootstrapping.html"><strong aria-hidden="true">2.1.27.</strong> P2P-NETWORK-BOOTSTRAPPING</a></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/deprecated/index.html"><strong aria-hidden="true">2.2.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/deprecated/claro.html"><strong aria-hidden="true">2.2.1.</strong> CONSENSUS-CLARO</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../storage/index.html"><strong aria-hidden="true">3.</strong> Storage</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/index.html"><strong aria-hidden="true">3.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/codex-block-exchange.html"><strong aria-hidden="true">3.1.1.</strong> CODEX-BLOCK-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/community-history.html"><strong aria-hidden="true">3.1.2.</strong> CODEX-COMMUNITY-HISTORY</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dht.html"><strong aria-hidden="true">3.1.3.</strong> CODEX-DHT</a></li><li class="chapter-item expanded "><a href="../../storage/raw/manifest.html"><strong aria-hidden="true">3.1.4.</strong> CODEX-MANIFEST</a></li><li class="chapter-item expanded "><a href="../../storage/raw/codex-store.html"><strong aria-hidden="true">3.1.5.</strong> CODEX-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dataset-store.html"><strong aria-hidden="true">3.1.6.</strong> DATASET-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/datasets.html"><strong aria-hidden="true">3.1.7.</strong> DATASETS</a></li><li class="chapter-item expanded "><a href="../../storage/raw/merkle-tree.html"><strong aria-hidden="true">3.1.8.</strong> MERKLE-TREE</a></li></ol></li><li class="chapter-item expanded "><a href="../../storage/deprecated/index.html"><strong aria-hidden="true">3.2.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/deprecated/erasure-coding.html"><strong aria-hidden="true">3.2.1.</strong> CODEX-ERASUE-CODING</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-marketplace.html"><strong aria-hidden="true">3.2.2.</strong> CODEX-MARKETPLACE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-merkle-tree.html"><strong aria-hidden="true">3.2.3.</strong> CODEX-MERKLE-TREE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-prover.html"><strong aria-hidden="true">3.2.4.</strong> CODEX-PROVER</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/slot-buIlder.html"><strong aria-hidden="true">3.2.5.</strong> CODEX-SLOT-BUILDER</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../ift-ts/index.html"><strong aria-hidden="true">4.</strong> IFT-TS</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../ift-ts/raw/index.html"><strong aria-hidden="true">4.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../ift-ts/raw/1/coss.html"><strong aria-hidden="true">4.1.1.</strong> 1/COSS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/2/mvds.html"><strong aria-hidden="true">4.1.2.</strong> 2/MVDS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/3/remote-log.html"><strong aria-hidden="true">4.1.3.</strong> 3/REMOTE-LOG</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/4/mvds-meta.html"><strong aria-hidden="true">4.1.4.</strong> 4/MVDS-META</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/25/libp2p-dns-discovery.html"><strong aria-hidden="true">4.1.5.</strong> 25/LIBP2P-DNS-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/32/rln-v1.html"><strong aria-hidden="true">4.1.6.</strong> 32/RLN-V1</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/decentralized-mls-offchain-consensus.html"><strong aria-hidden="true">4.1.7.</strong> DECENTRALIZED-MLS-OFFCHAIN-CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/decentralized-messaging-ethereum.html"><strong aria-hidden="true">4.1.8.</strong> ETH-DCGKA</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/eth-mls-onchain.html"><strong aria-hidden="true">4.1.9.</strong> ETH-MLS-ONCHAIN</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/deleted/eth-secpm.html"><strong aria-hidden="true">4.1.10.</strong> ETH-SECPM</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/extended-kad-disco.html"><strong aria-hidden="true">4.1.11.</strong> EXTENDED-KADEMLIA-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/extensible-peer-records.html"><strong aria-hidden="true">4.1.12.</strong> EXTENSIBLE-PEER-RECORDS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/gossipsub-tor-push.html"><strong aria-hidden="true">4.1.13.</strong> GOSSIPSUB-TOR-PUSH</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/consensus-hashgraphlike.html"><strong aria-hidden="true">4.1.14.</strong> HASHGRAPHLIKE CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/logos-service-discovery.html"><strong aria-hidden="true">4.1.15.</strong> LOGOS-SERVICE-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/mix.html"><strong aria-hidden="true">4.1.16.</strong> MIX</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/multi-message_id-burn-rln.html"><strong aria-hidden="true">4.1.17.</strong> Multi-message_id Burn RLN</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/noise-x3dh-double-ratchet.html"><strong aria-hidden="true">4.1.18.</strong> NOISE-X3DH-DOUBLE-RATCHET</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/payment-streams.html"><strong aria-hidden="true">4.1.19.</strong> PAYMENT-STREAMS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/mix-spam-protection-rln.html"><strong aria-hidden="true">4.1.20.</strong> RLN DoS Protection for Mixnet</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/rln-interep-spec.html"><strong aria-hidden="true">4.1.21.</strong> RLN-INTEREP-SPEC</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/rln-stealth-commitments.html"><strong aria-hidden="true">4.1.22.</strong> RLN-STEALTH-COMMITMENTS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/rln-v2.html"><strong aria-hidden="true">4.1.23.</strong> RLN-V2</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/sds.html"><strong aria-hidden="true">4.1.24.</strong> SDS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/status-rln-deployment.html"><strong aria-hidden="true">4.1.25.</strong> STATUS-RLN-DEPLOYMENT</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/zerokit-api.html"><strong aria-hidden="true">4.1.26.</strong> Zerokit API</a></li></ol></li><li class="chapter-item expanded "><a href="../../ift-ts/template.html"><strong aria-hidden="true">4.2.</strong> TEMPLATE</a></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Logos LIP</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/logos-co/logos-lips" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="nomosda-cryptographic-protocol"><a class="header" href="#nomosda-cryptographic-protocol">NOMOSDA-CRYPTOGRAPHIC-PROTOCOL</a></h1>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
+<tr><td>Name</td><td>NomosDA Cryptographic Protocol</td></tr>
+<tr><td>Slug</td><td>148</td></tr>
+<tr><td>Status</td><td>raw</td></tr>
+<tr><td>Category</td><td>Standards Track</td></tr>
+<tr><td>Editor</td><td>Mehmet Gonen <a href="mailto:mehmet@status.im">mehmet@status.im</a></td></tr>
+<tr><td>Contributors</td><td>Álvaro Castro-Castilla <a href="mailto:alvaro@status.im">alvaro@status.im</a>, Thomas Lavaur <a href="mailto:thomaslavaur@status.im">thomaslavaur@status.im</a>, Daniel Kashepava <a href="mailto:danielkashepava@status.im">danielkashepava@status.im</a>, Marcin Pawlowski <a href="mailto:marcin@status.im">marcin@status.im</a>, Daniel Sanchez Quiros <a href="mailto:danielsq@status.im">danielsq@status.im</a>, Filip Dimitrijevic <a href="mailto:filip@status.im">filip@status.im</a></td></tr>
+</tbody></table>
+</div><!-- timeline:start -->
+<h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
+<ul>
+<li><strong>2026-01-30</strong> — <a href="https://github.com/logos-co/logos-lips/blob/0ef87b1ba9491c854e48c8dfd7574d34ec69c704/docs/blockchain/raw/da-cryptographic-protocol.md"><code>0ef87b1</code></a> — New RFC: CODEX-MANIFEST (#191)</li>
+<li><strong>2026-01-30</strong> — <a href="https://github.com/logos-co/logos-lips/blob/25ebb3ac05e44da058c15db438fa371f10f57003/docs/blockchain/raw/da-cryptographic-protocol.md"><code>25ebb3a</code></a> — Replace nomosda-encoding with da-cryptographic-protocol (#264)</li>
+</ul>
+<!-- timeline:end -->
+<h2 id="abstract"><a class="header" href="#abstract">Abstract</a></h2>
+<p>This document describes the cryptographic protocol underlying NomosDA,
+the data availability (DA) layer for the Nomos blockchain.
+NomosDA ensures that all blob data submitted is made available and verifiable
+by all network participants, including sampling clients and validators.
+The protocol uses Reed–Solomon erasure coding for data redundancy
+and KZG polynomial commitments for cryptographic verification,
+enabling efficient and scalable data availability sampling.</p>
+<p><strong>Keywords:</strong> NomosDA, data availability, KZG, polynomial commitment,
+erasure coding, Reed-Solomon, sampling, BLS12-381</p>
+<h2 id="semantics"><a class="header" href="#semantics">Semantics</a></h2>
+<p>The keywords "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+"SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL"
+in this document are to be interpreted as described in <a href="https://www.ietf.org/rfc/rfc2119.txt">RFC 2119</a>.</p>
+<h3 id="definitions"><a class="header" href="#definitions">Definitions</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Terminology</th><th>Description</th></tr></thead><tbody>
+<tr><td>Blob</td><td>A unit of data submitted to NomosDA for availability guarantees.</td></tr>
+<tr><td>Chunk</td><td>A 31-byte field element in the BLS12-381 scalar field.</td></tr>
+<tr><td>DA Node</td><td>A node responsible for storing and serving column data.</td></tr>
+<tr><td>Encoder</td><td>The entity that transforms blob data into encoded form with proofs.</td></tr>
+<tr><td>Sampling Client</td><td>A client (e.g., light node) that verifies availability by sampling columns.</td></tr>
+<tr><td>KZG Commitment</td><td>A polynomial commitment using the Kate-Zaverucha-Goldberg scheme.</td></tr>
+<tr><td>Reed-Solomon Coding</td><td>An erasure coding scheme used for data redundancy.</td></tr>
+<tr><td>Row Polynomial</td><td>A polynomial interpolated from chunks in a single row.</td></tr>
+<tr><td>Combined Polynomial</td><td>A random linear combination of all row polynomials.</td></tr>
+</tbody></table>
+</div>
+<h3 id="notations"><a class="header" href="#notations">Notations</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Symbol</th><th>Description</th></tr></thead><tbody>
+<tr><td><span class="math-inline" data-tex="f_i(x)"></span></td><td>Polynomial interpolated from the chunks in row <span class="math-inline" data-tex="i"></span>.</td></tr>
+<tr><td><span class="math-inline" data-tex="com_i"></span></td><td>KZG commitment of the row polynomial <span class="math-inline" data-tex="f_i(x)"></span>.</td></tr>
+<tr><td><span class="math-inline" data-tex="f_C(x)"></span></td><td>Combined polynomial formed as a random linear combination of all row polynomials.</td></tr>
+<tr><td><span class="math-inline" data-tex="com_C"></span></td><td>KZG commitment of the combined polynomial <span class="math-inline" data-tex="f_C(x)"></span>.</td></tr>
+<tr><td><span class="math-inline" data-tex="w"></span></td><td>Primitive <span class="math-inline" data-tex="n"></span>-th root of unity in the finite field. In this protocol, <span class="math-inline" data-tex="n = 2k"></span>.</td></tr>
+<tr><td><span class="math-inline" data-tex="h"></span></td><td>Random scalar generated using the Fiat–Shamir heuristic from row commitments.</td></tr>
+<tr><td><span class="math-inline" data-tex="\pi_j"></span></td><td>KZG evaluation proof for column <span class="math-inline" data-tex="j"></span> of the combined polynomial.</td></tr>
+<tr><td><span class="math-inline" data-tex="v_j"></span></td><td>Combined evaluation of column <span class="math-inline" data-tex="j"></span> (i.e., <span class="math-inline" data-tex="f_C(w^{j-1})"></span>).</td></tr>
+<tr><td><span class="math-inline" data-tex="k"></span></td><td>Number of columns in the original data matrix.</td></tr>
+<tr><td><span class="math-inline" data-tex="\ell"></span></td><td>Number of rows in the data matrix.</td></tr>
+</tbody></table>
+</div>
+<h2 id="background"><a class="header" href="#background">Background</a></h2>
+<p>To achieve data availability,
+the blob data is first encoded using Reed–Solomon erasure coding
+and arranged in a matrix format.
+Each row of the matrix is interpreted as a polynomial
+and then committed using a KZG polynomial commitment.
+The columns of this matrix are then distributed across a set of decentralized DA nodes.</p>
+<p>Rather than requiring individual proofs for each chunk,
+NomosDA uses a random linear combination of all row polynomials
+to construct a single combined polynomial.
+This allows for generating one proof per column,
+which enables efficient and scalable verification without sacrificing soundness.
+Sampling clients verify availability by selecting random columns
+and checking that the data and proof they receive
+are consistent with the committed structure.
+Because each column intersects all rows,
+even a small number of sampled columns provides strong confidence
+that the entire blob is available.</p>
+<h3 id="protocol-stages"><a class="header" href="#protocol-stages">Protocol Stages</a></h3>
+<p>The protocol is structured around three key stages:</p>
+<ol>
+<li><strong>Encoding</strong>: Transform blob data into a matrix with commitments and proofs.</li>
+<li><strong>Dispersal</strong>: Distribute columns to DA nodes for storage.</li>
+<li><strong>Sampling</strong>: Verify data availability by sampling random columns.</li>
+</ol>
+<h3 id="design-principles"><a class="header" href="#design-principles">Design Principles</a></h3>
+<p>The reason for expanding the original data row-wise
+is to ensure data availability by sending a column to each DA node
+and obtaining a sufficient number of responses from different DA nodes for sampling.
+Three core commitment types are used, and verification is done via column sampling:</p>
+<ul>
+<li>
+<p><strong>Row commitment</strong>: Ensures the integrity of the original and RS-encoded data
+and binds the order of chunks within each row.</p>
+</li>
+<li>
+<p><strong>Combined commitment</strong>: Constructed by the verifier
+using a random linear combination of the row commitments.
+Used to verify the encoder's single proof per column
+and ensures that the column data is consistent with the committed row structure.
+Even if a single chunk is invalid,
+the combined evaluation will likely fail
+due to the unpredictability of the random coefficients.</p>
+</li>
+<li>
+<p><strong>Column sampling</strong>: Allows sampling clients to verify data availability efficiently
+by checking a small number of columns.
+With the combined commitment and a single proof,
+the sampling client can validate that an entire column
+is consistent with the committed data.</p>
+</li>
+</ul>
+<h2 id="protocol-specification"><a class="header" href="#protocol-specification">Protocol Specification</a></h2>
+<h3 id="encoding"><a class="header" href="#encoding">Encoding</a></h3>
+<p>In the NomosDA protocol, encoders perform the encoding process
+by dividing the blob data into chunks.
+Each chunk represents a 31-byte element
+in the scalar finite field used for the BLS12-381 elliptic curve.
+31 bytes are chosen instead of 32 bytes
+because some 32-byte elements will exceed the BLS12-381 modulus,
+making it impossible to recover the data later.</p>
+<p>The matrix representation has <span class="math-inline" data-tex="k"></span> columns which include <span class="math-inline" data-tex="\ell"></span> chunks each.
+The row and column numbers used in the representation are decided
+based on the size of the block data and the number of DA nodes.</p>
+<p><img src="assets/da-data-matrix.png" alt="Data Matrix Structure" /></p>
+<p><em>Figure 1: Data matrix structure showing chunks and columns.
+Each chunk is a 31-byte element, and each column contains <span class="math-inline" data-tex="\ell"></span> chunks.</em></p>
+<p>The encoding process consists of three steps:</p>
+<ol>
+<li>Calculating row commitments.</li>
+<li>Expanding the original data using RS coding.</li>
+<li>Computing the combined row polynomial and the combined column proofs.</li>
+</ol>
+<h4 id="row-commitments"><a class="header" href="#row-commitments">Row Commitments</a></h4>
+<p>The original data chunks are considered in the evaluation form,
+and unique polynomials are interpolated for each row.
+For every row <span class="math-inline" data-tex="i"></span>, the encoder interpolates a unique degree <span class="math-inline" data-tex="k - 1"></span> polynomial <span class="math-inline" data-tex="f_i"></span>
+such that <span class="math-inline" data-tex="data^{j}_{i} = f_i(w^{j-1})"></span> for <span class="math-inline" data-tex="i = 1, ..., \ell"></span> row indices
+and <span class="math-inline" data-tex="j = 1, ..., k"></span> column indices.
+Recall that <span class="math-inline" data-tex="w"></span> is a primitive element of the field.</p>
+<p>Subsequently, 48-byte row commitment values <span class="math-inline" data-tex="com_i = com(f_i)"></span>
+for these polynomials are computed by the encoder.
+These commitments ensure the correct ordering of chunks within each row.</p>
+<blockquote>
+<p><strong>Note</strong>: In this protocol, elliptic curves are used as a group,
+thus the entries of <span class="math-inline" data-tex="com_i"></span>'s are also elliptic curve points.
+Let the <span class="math-inline" data-tex="x"></span>-coordinate of <span class="math-inline" data-tex="com_i"></span> be represented as <span class="math-inline" data-tex="com^{x}_{i}"></span>
+and the <span class="math-inline" data-tex="y"></span>-coordinate of <span class="math-inline" data-tex="com_i"></span> as <span class="math-inline" data-tex="com^{y}_{j}"></span>.
+If you have just <span class="math-inline" data-tex="com^{x}_{i}"></span> and one bit of <span class="math-inline" data-tex="com^{y}_{i}"></span>,
+then you can construct <span class="math-inline" data-tex="com_i"></span>.
+Therefore, there is no need to use both coordinates of <span class="math-inline" data-tex="com_i"></span>.
+However, for the sake of simplicity in this document, the value <span class="math-inline" data-tex="com_i"></span> is used.</p>
+</blockquote>
+<h4 id="reed-solomon-expansion"><a class="header" href="#reed-solomon-expansion">Reed-Solomon Expansion</a></h4>
+<p>Using RS coding, the encoder extends the original data row-wise
+to obtain the expanded data matrix.
+The expansion is calculated by evaluating the row polynomials <span class="math-inline" data-tex="f_i"></span>
+at the new points <span class="math-inline" data-tex="w^{j}"></span> where <span class="math-inline" data-tex="j = k + 1, k + 2, \ldots, 2k"></span>.
+The current design of NomosDA uses an expansion factor of 2,
+but it can also work with different factors.
+This expanded data matrix has rows of length <span class="math-inline" data-tex="2k"></span>.</p>
+<p><img src="assets/da-extended-matrix.png" alt="Extended Data Matrix" /></p>
+<p><em>Figure 2: Extended data matrix showing original data (<span class="math-inline" data-tex="k"></span> columns)
+and extended data (<span class="math-inline" data-tex="2k"></span> columns total) after Reed-Solomon expansion.</em></p>
+<p>Due to the homomorphic property of KZG,
+the row commitment values calculated in the previous step
+are also valid for the row polynomials of the extended data.</p>
+<h4 id="combined-row-commitment-and-column-proofs"><a class="header" href="#combined-row-commitment-and-column-proofs">Combined Row Commitment and Column Proofs</a></h4>
+<p>To eliminate the need for generating one proof per chunk,
+a more efficient technique using random linear combinations of row polynomials is used,
+allowing only one proof to be generated per column
+while still ensuring the validity of all underlying row data.</p>
+<p><img src="assets/da-encoding-pipeline.png" alt="Encoding Pipeline" /></p>
+<p><em>Figure 3: Complete encoding pipeline showing row commitments (step 1),
+RS-encoding (step 2), and combined row commitment with column data (step 3).</em></p>
+<p>This process consists of the following steps:</p>
+<h5 id="compute-the-random-linear-combination-polynomial"><a class="header" href="#compute-the-random-linear-combination-polynomial">Compute the Random Linear Combination Polynomial</a></h5>
+<p>Let each row <span class="math-inline" data-tex="i \in \{1, \ldots, \ell\}"></span> have an associated polynomial <span class="math-inline" data-tex="f_i(x)"></span>
+and commitment <span class="math-inline" data-tex="com_i = com(f_i)"></span>.</p>
+<p>The encoder computes random scalar <span class="math-inline" data-tex="h \in \mathbb{F}"></span> using the Fiat–Shamir heuristic,
+applying the BLAKE2b hash function with a 31-byte output,
+over the row commitments with a domain separation tag <code>DA_V1</code>
+to ensure uniqueness and prevent cross-protocol collisions:</p>
+<div class="math-block" data-tex="h = \text{Hash}(\text{&#x27;DA\_V1&#x27;} \| com_1 \| \ldots \| com_{\ell})"></div>
+<p>The resulting digest is interpreted as a field element
+in the scalar field of BLS12-381.</p>
+<p>Then, the encoder computes the combined polynomial <span class="math-inline" data-tex="f_C(x)"></span>, defined as:</p>
+<div class="math-block" data-tex="f_C(x) = f_1(x) + h \cdot f_2(x) + h^{2} \cdot f_3(x) + \cdots + h^{\ell-1} \cdot f_{\ell}(x)"></div>
+<p>The corresponding commitment to this polynomial is <span class="math-inline" data-tex="com(f_C)"></span>.
+This value does not need to be computed by the encoder,
+since the verifier can derive it directly from the row commitments
+using the same random scalar <span class="math-inline" data-tex="h"></span>.</p>
+<h5 id="compute-combined-evaluation-points-per-column"><a class="header" href="#compute-combined-evaluation-points-per-column">Compute Combined Evaluation Points per Column</a></h5>
+<p>For each column <span class="math-inline" data-tex="j \in \{1, \ldots, 2k\}"></span>, the encoder has the set of column values
+<span class="math-inline" data-tex="\{data^{j}_{1}, data^{j}_{2}, \ldots, data^{j}_{\ell}\}"></span>,
+where each value corresponds to <span class="math-inline" data-tex="f_i(w^{j-1})"></span>.</p>
+<p>The encoder computes the combined evaluation value at column position <span class="math-inline" data-tex="j"></span> directly:</p>
+<div class="math-block" data-tex="v_j = f_C(w^{j-1})"></div>
+<h5 id="generate-one-proof-per-column"><a class="header" href="#generate-one-proof-per-column">Generate One Proof per Column</a></h5>
+<p>For each column index <span class="math-inline" data-tex="j"></span>, the encoder computes a single KZG evaluation proof
+<span class="math-inline" data-tex="\pi_j"></span> for the combined polynomial <span class="math-inline" data-tex="f_C(x)"></span> at the evaluation point <span class="math-inline" data-tex="w^{j-1}"></span>:</p>
+<div class="math-block" data-tex="eval(f_C, w^{j-1}) \rightarrow (v_j, \pi_j)"></div>
+<p>The result is a set of <span class="math-inline" data-tex="2k"></span> evaluation proofs,
+one for each column, derived from the combined row structure.</p>
+<h3 id="dispersal"><a class="header" href="#dispersal">Dispersal</a></h3>
+<p>The encoder sends the following information to a DA node
+in the subnet corresponding to the expanded column number <span class="math-inline" data-tex="j"></span>:</p>
+<ul>
+<li>The row commitments <span class="math-inline" data-tex="\{com_1, com_2, \ldots, com_{\ell}\}"></span>.</li>
+<li>The column chunks <span class="math-inline" data-tex="\{data^{j}_{1}, data^{j}_{2}, \ldots, data^{j}_{\ell}\}"></span>.</li>
+<li>The combined proof of the column chunks <span class="math-inline" data-tex="\pi_j"></span>.</li>
+</ul>
+<p>This information is also replicated by the receiving node
+to every other node in the subnet.</p>
+<h3 id="verification"><a class="header" href="#verification">Verification</a></h3>
+<p>A DA node that receives the column information described above
+performs the following checks:</p>
+<p><img src="assets/da-dispersal-verification.png" alt="Dispersal and Verification" /></p>
+<p><em>Figure 4: Dispersal and verification flow from Encoder to DA Node.
+The DA Node receives row commitments, column data, and combined proof,
+then verifies by calculating <span class="math-inline" data-tex="h"></span>, <span class="math-inline" data-tex="com_C"></span>, and <span class="math-inline" data-tex="v_j"></span>.</em></p>
+<ol>
+<li>
+<p>The DA node computes the scalar challenge <span class="math-inline" data-tex="h \in \mathbb{F}"></span>
+using a Fiat–Shamir hash over the row commitments with a domain separation tag:</p>
+<div class="math-block" data-tex="h = \text{Hash}(\text{&#x27;DA\_V1&#x27;} \| com_1 \| com_2 \| \ldots \| com_{\ell})"></div>
+</li>
+<li>
+<p>The DA node computes the combined commitment <span class="math-inline" data-tex="com_C"></span>:</p>
+<div class="math-block" data-tex="com_C = com_1 + h \cdot com_2 + h^{2} \cdot com_3 + \cdots + h^{\ell-1} \cdot com_{\ell}"></div>
+<p>This is the commitment of the following polynomial:</p>
+<div class="math-block" data-tex="f_C(x) = f_1(x) + h \cdot f_2(x) + h^{2} \cdot f_3(x) + \cdots + h^{\ell-1} \cdot f_{\ell}(x)"></div>
+</li>
+<li>
+<p>The DA node computes:</p>
+<div class="math-block" data-tex="v_j = data^{j}_{1} + h \cdot data^{j}_{2} + h^{2} \cdot data^{j}_{3} + \cdots + h^{\ell-1} \cdot data^{j}_{\ell}"></div>
+<p>This represents <span class="math-inline" data-tex="f_C(w^{j-1})"></span>, the evaluation of the combined polynomial
+at the corresponding column index.</p>
+</li>
+<li>
+<p>The DA node verifies that <span class="math-inline" data-tex="\pi_j"></span> is a valid proof:</p>
+<div class="math-block" data-tex="\text{Verify}(com_C, w^{j-1}, v_j, \pi_j) \rightarrow \text{true/false}"></div>
+</li>
+</ol>
+<h3 id="sampling"><a class="header" href="#sampling">Sampling</a></h3>
+<p>A sampling client, such as a light node, selects a random column index <span class="math-inline" data-tex="s \in \{1, \ldots, 2k\}"></span>.
+It sends a request for column <span class="math-inline" data-tex="s"></span> to a DA node hosting that column's data.
+The DA node sends the client the column data <span class="math-inline" data-tex="data^{s}_{i}"></span> and the combined proof <span class="math-inline" data-tex="\pi_s"></span>.</p>
+<p><img src="assets/da-sampling.png" alt="Sampling" /></p>
+<p><em>Figure 5: Sampling flow between DA Node and Sampling Client.
+The client requests a random column index <span class="math-inline" data-tex="s"></span>, receives the column data and proof,
+then verifies by calculating <span class="math-inline" data-tex="h"></span>, <span class="math-inline" data-tex="com_C"></span>, and <span class="math-inline" data-tex="v_s"></span>.</em></p>
+<blockquote>
+<p><strong>Note</strong>: The row commitments <span class="math-inline" data-tex="\{com_1, \ldots, com_{\ell}\}"></span> for a given blob are public
+and remain unchanged across multiple queries to that blob.
+If a sampling client has already obtained them,
+it does not need to request them again.</p>
+</blockquote>
+<p>The verification process run by the sampling client proceeds as follows:</p>
+<ol>
+<li>
+<p>Compute the scalar <span class="math-inline" data-tex="h \in \mathbb{F}"></span> using the domain-separated Fiat–Shamir hash:</p>
+<div class="math-block" data-tex="h = \text{Hash}(\text{&#x27;DA\_V1&#x27;} \| com_1 \| com_2 \| \ldots \| com_{\ell})"></div>
+</li>
+<li>
+<p>Compute the combined commitment <span class="math-inline" data-tex="com_C"></span>:</p>
+<div class="math-block" data-tex="com_C = com_1 + h \cdot com_2 + h^{2} \cdot com_3 + \cdots + h^{\ell-1} \cdot com_{\ell}"></div>
+</li>
+<li>
+<p>Compute the combined evaluation value <span class="math-inline" data-tex="v_s"></span> using the received column data:</p>
+<div class="math-block" data-tex="v_s = data^{s}_{1} + h \cdot data^{s}_{2} + h^{2} \cdot data^{s}_{3} + \cdots + h^{\ell-1} \cdot data^{s}_{\ell}"></div>
+</li>
+<li>
+<p>Verify the evaluation proof:</p>
+<div class="math-block" data-tex="\text{Verify}(com_C, w^{s-1}, v_s, \pi_s) \rightarrow \text{true/false}"></div>
+</li>
+</ol>
+<p>If these checks succeed, then this proves to the sampling client
+that the column <span class="math-inline" data-tex="s"></span> is correctly encoded and matches the committed data.
+The sampling client can query several columns
+to reach a local opinion on the availability of the entire data.</p>
+<h2 id="security-considerations"><a class="header" href="#security-considerations">Security Considerations</a></h2>
+<h3 id="fiatshamir-security"><a class="header" href="#fiatshamir-security">Fiat–Shamir Security</a></h3>
+<p>The random scalar <span class="math-inline" data-tex="h"></span> MUST be computed using the Fiat–Shamir heuristic
+with the domain separation tag <code>DA_V1</code> to prevent cross-protocol attacks.
+The hash function MUST be BLAKE2b with a 31-byte output.</p>
+<h3 id="chunk-size"><a class="header" href="#chunk-size">Chunk Size</a></h3>
+<p>Chunks MUST be 31 bytes to ensure they fit within the BLS12-381 scalar field modulus.
+Using 32-byte chunks would cause some values to exceed the modulus,
+making data recovery impossible.</p>
+<h3 id="column-sampling-confidence"><a class="header" href="#column-sampling-confidence">Column Sampling Confidence</a></h3>
+<p>The more columns a sampling client verifies,
+the higher confidence it has in the availability of the entire blob.
+Implementations SHOULD sample a sufficient number of columns
+to achieve the desired confidence level.</p>
+<h3 id="proof-validity"><a class="header" href="#proof-validity">Proof Validity</a></h3>
+<p>If a single chunk is invalid,
+the combined evaluation will likely fail verification
+due to the unpredictability of the random coefficients.
+This provides strong guarantees against malicious encoders
+attempting to hide invalid data.</p>
+<hr />
+<h2 id="part-ii-implementation-considerations"><a class="header" href="#part-ii-implementation-considerations">Part II: Implementation Considerations</a></h2>
+<blockquote>
+<p><strong>IMPORTANT</strong>: The sections above define the normative protocol requirements.
+All implementations MUST comply with those requirements.</p>
+<p><strong>The sections below are non-normative</strong>.
+They provide mathematical background for implementers
+unfamiliar with the underlying cryptographic concepts.</p>
+</blockquote>
+<h3 id="mathematical-background"><a class="header" href="#mathematical-background">Mathematical Background</a></h3>
+<h4 id="polynomial-interpolation"><a class="header" href="#polynomial-interpolation">Polynomial Interpolation</a></h4>
+<p>Polynomial interpolation is the process of creating a unique polynomial from a set of data.
+In NomosDA, univariate interpolation is used,
+where each polynomial is defined over a single variable.
+There are two main ways to represent polynomials:</p>
+<p><strong>Coefficient form:</strong>
+Given a set of coefficients <span class="math-inline" data-tex="a_0, a_1, \ldots, a_k \in \mathbb{F}"></span>,
+a unique polynomial <span class="math-inline" data-tex="f(x)"></span> of degree at most <span class="math-inline" data-tex="k"></span> in coefficient form is:</p>
+<div class="math-block" data-tex="f(x) = a_0 + a_1 x + a_2 x^{2} + \cdots + a_k x^{k}"></div>
+<p>If <span class="math-inline" data-tex="a_k \neq 0"></span>, then the degree of <span class="math-inline" data-tex="f"></span> is exactly <span class="math-inline" data-tex="k"></span>.</p>
+<p><strong>Evaluation form:</strong>
+Let <span class="math-inline" data-tex="w \in \mathbb{F}"></span> be a primitive <span class="math-inline" data-tex="k"></span>-th root of unity in the field,
+i.e., <span class="math-inline" data-tex="w^{k} = 1"></span> and <span class="math-inline" data-tex="w^{i} \neq 1"></span> for all <span class="math-inline" data-tex="1 \leq i &lt; k"></span>.
+Given a dataset <span class="math-inline" data-tex="a_0, a_1, \ldots, a_{k-1}"></span>,
+there exists a unique polynomial <span class="math-inline" data-tex="f"></span> in <span class="math-inline" data-tex="\mathbb{F}[X]"></span> of degree less than <span class="math-inline" data-tex="k"></span> such that:</p>
+<div class="math-block" data-tex="f(w^{i}) = a_i \quad \text{for all } i = 0, 1, \ldots, k - 1"></div>
+<p>This representation of a polynomial using its values at <span class="math-inline" data-tex="k"></span> distinct points
+is called the evaluation form.</p>
+<h4 id="kzg-polynomial-commitment"><a class="header" href="#kzg-polynomial-commitment">KZG Polynomial Commitment</a></h4>
+<p>The KZG polynomial commitment scheme provides a way
+to commit to a polynomial and provide a proof for an evaluation of this polynomial.
+This scheme has 4 steps: setup, polynomial commitment, proof evaluation, and proof verification.</p>
+<p>The setup phase generates a structured reference string (SRS)
+and is required only once for all future uses of the scheme.
+The prover performs the polynomial commitment and proof generation steps,
+while the verifier checks the validity of the proof
+against the commitment and the evaluation point.</p>
+<p><strong>Setup:</strong></p>
+<ol>
+<li>Choose a generator <span class="math-inline" data-tex="g"></span> of a pairing-friendly elliptic curve group <span class="math-inline" data-tex="G"></span>.</li>
+<li>Select the maximum degree <span class="math-inline" data-tex="d"></span> of the polynomials to be committed to.</li>
+<li>Choose a secret parameter <span class="math-inline" data-tex="\tau"></span> and compute global parameters
+<span class="math-inline" data-tex="gp = (g, g^{\tau}, g^{\tau^{2}}, \ldots, g^{\tau^{d}})"></span>.
+Delete <span class="math-inline" data-tex="\tau"></span> and release the parameters publicly.</li>
+</ol>
+<blockquote>
+<p><strong>Note</strong>: The expression <span class="math-inline" data-tex="g^{a}"></span> refers to elliptic curve point addition, i.e.,
+<span class="math-inline" data-tex="g^{a} = a * g = g + g + \cdots + g"></span>
+where <span class="math-inline" data-tex="g"></span> is the generator point of the group <span class="math-inline" data-tex="G"></span>.
+This is known as multiplicative notation.</p>
+</blockquote>
+<p><strong>Polynomial Commitment:</strong>
+Given a polynomial <span class="math-inline" data-tex="f(x) = \sum_{i=0}^{d} a_i x^{i}"></span>, compute the commitment of <span class="math-inline" data-tex="f"></span> as follows:</p>
+<div class="math-block" data-tex="com(f) = g^{f(\tau)} = (g)^{a_0} (g^{\tau})^{a_1} (g^{\tau^{2}})^{a_2} \cdots (g^{\tau^{d}})^{a_d}"></div>
+<p><strong>Proof Evaluation:</strong>
+Given an evaluation <span class="math-inline" data-tex="f(u) = v"></span>, compute the proof <span class="math-inline" data-tex="\pi = g^{q(\tau)}"></span>,
+where <span class="math-inline" data-tex="q(x) = \frac{f(x) - v}{x - u}"></span> is called the quotient polynomial
+and it is a polynomial if and only if <span class="math-inline" data-tex="f(u) = v"></span>.</p>
+<p><strong>Proof Verification:</strong>
+Given commitment <span class="math-inline" data-tex="C = com(f)"></span>, the evaluation point <span class="math-inline" data-tex="u"></span>, the evaluation <span class="math-inline" data-tex="f(u) = v"></span>,
+and proof <span class="math-inline" data-tex="\pi = g^{q(\tau)}"></span>, verify that:</p>
+<div class="math-block" data-tex="e\left(\frac{C}{g^{v}}, g\right) = e\left(\pi, \frac{g^{\tau}}{g^{u}}\right)"></div>
+<p>where <span class="math-inline" data-tex="e"></span> is a non-trivial bilinear pairing.</p>
+<blockquote>
+<p><strong>Note</strong>: The evaluation of the polynomial commitment to the function <span class="math-inline" data-tex="f"></span>
+at the point <span class="math-inline" data-tex="u"></span>, yielding the result <span class="math-inline" data-tex="v"></span> and evaluation proof <span class="math-inline" data-tex="\pi"></span>,
+is represented as: <span class="math-inline" data-tex="eval(f, u) \rightarrow v, \pi"></span>.
+The verification function is defined as: <span class="math-inline" data-tex="verify(com(f), u, v, \pi) \rightarrow \text{true/false}"></span>.</p>
+</blockquote>
+<h4 id="random-linear-combination-of-commitments-and-evaluations"><a class="header" href="#random-linear-combination-of-commitments-and-evaluations">Random Linear Combination of Commitments and Evaluations</a></h4>
+<p>When multiple committed polynomials are evaluated at the same point,
+it's possible to verify all evaluations using a single combined proof,
+thanks to the homomorphic properties of KZG commitments.
+This technique improves efficiency by reducing multiple evaluation proofs to just one.</p>
+<p>Suppose there are <span class="math-inline" data-tex="\ell"></span> polynomials <span class="math-inline" data-tex="f_1(x), f_2(x), \ldots, f_{\ell}(x)"></span>
+with corresponding commitments <span class="math-inline" data-tex="C_i = com(f_i)"></span>,
+and the goal is to verify that each <span class="math-inline" data-tex="f_i(u) = v_i"></span>.</p>
+<p>Instead of generating <span class="math-inline" data-tex="\ell"></span> separate proofs and performing <span class="math-inline" data-tex="\ell"></span> pairing checks:</p>
+<ol>
+<li>
+<p>Use the Fiat–Shamir heuristic to derive deterministic random scalars
+<span class="math-inline" data-tex="h_1, h_2, \ldots, h_{\ell}"></span> from the commitments <span class="math-inline" data-tex="C_1, \ldots, C_{\ell}"></span>:</p>
+<div class="math-block" data-tex="(h_1, \ldots, h_{\ell}) = \text{Hash}(C_1 \| \ldots \| C_{\ell})"></div>
+</li>
+<li>
+<p>Form the combined polynomial:</p>
+<div class="math-block" data-tex="f_C(x) = \sum_{i=1}^{\ell} h_i \cdot f_i(x)"></div>
+</li>
+<li>
+<p>Compute the combined evaluation:</p>
+<div class="math-block" data-tex="v = f_C(u) = \sum_{i=1}^{\ell} h_i \cdot v_i"></div>
+</li>
+<li>
+<p>Compute the proof <span class="math-inline" data-tex="\pi"></span> for <span class="math-inline" data-tex="f_C(u) = v"></span> using the standard KZG method:</p>
+<div class="math-block" data-tex="\pi = g^{q(\tau)} \quad \text{where} \quad q(x) = \frac{f_C(x) - v}{x - u}"></div>
+</li>
+</ol>
+<p><strong>Verification:</strong>
+Given commitments <span class="math-inline" data-tex="C_1, \ldots, C_{\ell}"></span>, evaluation point <span class="math-inline" data-tex="u"></span> and value <span class="math-inline" data-tex="v = f_C(u)"></span>,
+and proof <span class="math-inline" data-tex="\pi = g^{q(\tau)}"></span>:</p>
+<p>The verifier calculates the combined commitment <span class="math-inline" data-tex="C = com(f_C)"></span>
+using random scalars <span class="math-inline" data-tex="h_1, h_2, \ldots, h_{\ell}"></span>:</p>
+<div class="math-block" data-tex="(h_1, \ldots, h_{\ell}) = \text{Hash}(C_1 \| \ldots \| C_{\ell})"></div>
+<div class="math-block" data-tex="C = h_1 \cdot com_1 + h_2 \cdot com_2 + \cdots + h_{\ell} \cdot com_{\ell}"></div>
+<p>and checks:</p>
+<div class="math-block" data-tex="e\left(\frac{C}{g^{v}}, g\right) \stackrel{?}{=} e\left(\pi, \frac{g^{\tau}}{g^{u}}\right)"></div>
+<p>This ensures that all original evaluations <span class="math-inline" data-tex="f_i(u) = v_i"></span> are correct
+with a single proof and a single pairing check.
+Since the random scalars <span class="math-inline" data-tex="h_i"></span> are generated via Fiat–Shamir,
+any incorrect <span class="math-inline" data-tex="v_i"></span> will almost certainly cause the combined evaluation to fail verification.</p>
+<h4 id="reed-solomon-erasure-coding"><a class="header" href="#reed-solomon-erasure-coding">Reed-Solomon Erasure Coding</a></h4>
+<p>Reed-Solomon coding, also known as RS coding, is an error-correcting code
+based on the fact that any <span class="math-inline" data-tex="n"></span>-degree polynomial
+can be uniquely determined by <span class="math-inline" data-tex="n + 1"></span> points satisfying the polynomial equation.
+It uses the interpreted polynomial over the data set
+to produce more points in a process called expansion or encoding.
+Once the data is expanded, any <span class="math-inline" data-tex="n"></span> elements of the total set of points
+can be used to reconstruct the original data.</p>
+<h4 id="pairing-details"><a class="header" href="#pairing-details">Pairing Details</a></h4>
+<p>Let <span class="math-inline" data-tex="(G_1, .)"></span>, <span class="math-inline" data-tex="(G_2, .)"></span>, and <span class="math-inline" data-tex="(G_T, .)"></span> be three cyclic groups of large prime order.
+A map <span class="math-inline" data-tex="e : G_1 \times G_2 \rightarrow G_T"></span> is a pairing map such that:</p>
+<div class="math-block" data-tex="e(g^{x}, g^{y}) = e(g, g)^{xy} = e(g, g^{xy})"></div>
+<p>Given <span class="math-inline" data-tex="g^{x}"></span> and <span class="math-inline" data-tex="g^{y}"></span>, a pairing can check that some element <span class="math-inline" data-tex="h = g^{xy}"></span>
+without knowing <span class="math-inline" data-tex="x"></span> and <span class="math-inline" data-tex="y"></span>.</p>
+<p>For the KZG commitment scheme to work, a so-called trusted setup is needed,
+consisting of a structured reference string (SRS).
+This is a set of curve points in <span class="math-inline" data-tex="G_1"></span> and <span class="math-inline" data-tex="G_2"></span>.
+For a field element <span class="math-inline" data-tex="u \in \mathbb{F}_q"></span>, define <span class="math-inline" data-tex="u * g_i = g^{u}_{i}"></span>.
+The SRS consists of two sequences of group elements:</p>
+<div class="math-block" data-tex="g^{0}_{1}, g^{\tau}_{1}, g^{\tau^{2}}_{1}, g^{\tau^{3}}_{1}, \ldots, g^{\tau^{D}}_{1} \in G_1"></div>
+<div class="math-block" data-tex="g^{0}_{2}, g^{\tau}_{2}, g^{\tau^{2}}_{2}, g^{\tau^{3}}_{2}, \ldots, g^{\tau^{K}}_{2} \in G_2"></div>
+<p>where <span class="math-inline" data-tex="\tau \in \mathbb{F}_q"></span> is a secret field element, not known by either participant.
+<span class="math-inline" data-tex="g_1"></span> is the generator point of <span class="math-inline" data-tex="G_1"></span> and <span class="math-inline" data-tex="g_2"></span> is the generator point of <span class="math-inline" data-tex="G_2"></span>.
+<span class="math-inline" data-tex="D"></span> is the upper bound for the degree of the polynomials that can be committed to,
+and <span class="math-inline" data-tex="K"></span> is the maximum number of evaluations to be proven using a batched proof.</p>
+<p><strong>Verify Operation:</strong>
+To verify an evaluation proof, the verifier checks the following equation:</p>
+<div class="math-block" data-tex="q(x)(x - u) = f(x) - f(u) = f(x) - v"></div>
+<p>As the verifier does not have access to the actual polynomials <span class="math-inline" data-tex="f"></span> and <span class="math-inline" data-tex="q"></span>,
+the next best thing would be to check that:</p>
+<div class="math-block" data-tex="com(q) \cdot (x - u) = com(f - v)"></div>
+<p>Expanding the definition of <span class="math-inline" data-tex="com"></span>:</p>
+<div class="math-block" data-tex="g^{q(\tau)(\tau - u)}_{1} = g^{f(\tau) - v}_{1}"></div>
+<p>For elliptic curve additive notation this is equivalent to:</p>
+<div class="math-block" data-tex="q(\tau)(\tau - u) * g_1 = f(\tau) * g_1 - v * g_1"></div>
+<p>Now there is a problem, namely, the multiplication on the left-hand side.
+Pairings allow us to get away with one multiplication.
+So the verifier actually checks:</p>
+<div class="math-block" data-tex="e(com(q), (\tau * g_2 - u * g_2)) = e(com(f) - v * g_1, g_2)"></div>
+<p>i.e.,</p>
+<div class="math-block" data-tex="e(q(\tau) * g_1, (\tau * g_2 - u * g_2)) = e(f(\tau) * g_1 - v * g_1, g_2)"></div>
+<p>This works because of the bilinearity property of elliptic curve pairings:</p>
+<div class="math-block" data-tex="e(a * g_1, b * g_2) = e(g_1, g_2)^{ab}"></div>
+<h2 id="references"><a class="header" href="#references">References</a></h2>
+<h3 id="normative"><a class="header" href="#normative">Normative</a></h3>
+<ul>
+<li><a href="https://hackmd.io/@benjaminion/bls12-381">BLS12-381</a> - BLS12-381 elliptic curve specification</li>
+</ul>
+<h3 id="informative"><a class="header" href="#informative">Informative</a></h3>
+<ul>
+<li><a href="https://nomos-tech.notion.site/NomosDA-Cryptographic-Protocol-1fd261aa09df816fa97ac81304732e77">NomosDA Cryptographic Protocol</a> - Original specification document</li>
+<li><a href="https://vitalik.ca/general/2017/01/14/exploring_ecp.html">Elliptic Curve Pairings</a> - Background on elliptic curve pairings</li>
+</ul>
+<h2 id="copyright"><a class="header" href="#copyright">Copyright</a></h2>
+<p>Copyright and related rights waived via <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../blockchain/raw/nomos-wallet-technical-standard.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../blockchain/raw/da-rewarding.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../blockchain/raw/nomos-wallet-technical-standard.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../blockchain/raw/da-rewarding.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../../theme/katex/katex.min.js"></script>
+        <script src="../../theme/katex/auto-render.min.js"></script>
+        <script src="../../scripts/katex-render.js"></script>
+        <script src="../../scripts/logos-lips.js"></script>
+
+
+    </div>
+    </body>
+</html>

@@ -1,0 +1,607 @@
+<!DOCTYPE HTML>
+<html lang="en" class="ayu" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>STATUS-RLN-DEPLOYMENT - Logos LIP</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../highlight.css">
+        <link rel="stylesheet" href="../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../../theme/katex/katex.min.css">
+        <link rel="stylesheet" href="../../theme/fonts/fonts.css">
+        <link rel="stylesheet" href="../../theme/FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../custom.css">
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "ayu";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('ayu')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../../index.html">Introduction</a></li><li class="chapter-item expanded affix "><a href="../../about.html">About</a></li><li class="chapter-item expanded "><a href="../../messaging/index.html"><strong aria-hidden="true">1.</strong> Messaging</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/index.html"><strong aria-hidden="true">1.1.</strong> Standards - Core</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/10/waku2.html"><strong aria-hidden="true">1.1.1.</strong> 10/WAKU2</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/11/relay.html"><strong aria-hidden="true">1.1.2.</strong> 11/WAKU2-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/12/filter.html"><strong aria-hidden="true">1.1.3.</strong> 12/WAKU2-FILTER</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/12/previous-versions/00/filter.html"><strong aria-hidden="true">1.1.3.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/13/store.html"><strong aria-hidden="true">1.1.4.</strong> 13/WAKU2-STORE</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/13/previous-versions/00/store.html"><strong aria-hidden="true">1.1.4.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/14/message.html"><strong aria-hidden="true">1.1.5.</strong> 14/WAKU2-MESSAGE</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/15/bridge.html"><strong aria-hidden="true">1.1.6.</strong> 15/WAKU-BRIDGE</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/17/rln-relay.html"><strong aria-hidden="true">1.1.7.</strong> 17/WAKU2-RLN-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/19/lightpush.html"><strong aria-hidden="true">1.1.8.</strong> 19/WAKU2-LIGHTPUSH</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/31/enr.html"><strong aria-hidden="true">1.1.9.</strong> 31/WAKU2-ENR</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/33/discv5.html"><strong aria-hidden="true">1.1.10.</strong> 33/WAKU2-DISCV5</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/34/peer-exchange.html"><strong aria-hidden="true">1.1.11.</strong> 34/WAKU2-PEER-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/36/bindings-api.html"><strong aria-hidden="true">1.1.12.</strong> 36/WAKU2-BINDINGS-API</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/64/network.html"><strong aria-hidden="true">1.1.13.</strong> 64/WAKU2-NETWORK</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/66/metadata.html"><strong aria-hidden="true">1.1.14.</strong> 66/WAKU2-METADATA</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/index.html"><strong aria-hidden="true">1.2.</strong> Standards - Application</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/application/20/toy-eth-pm.html"><strong aria-hidden="true">1.2.1.</strong> 20/TOY-ETH-PM</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/26/payload.html"><strong aria-hidden="true">1.2.2.</strong> 26/WAKU2-PAYLOAD</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/53/x3dh.html"><strong aria-hidden="true">1.2.3.</strong> 53/WAKU2-X3DH</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/54/x3dh-sessions.html"><strong aria-hidden="true">1.2.4.</strong> 54/WAKU2-X3DH-SESSIONS</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/index.html"><strong aria-hidden="true">1.3.</strong> Standards - Legacy</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/6/waku1.html"><strong aria-hidden="true">1.3.1.</strong> 6/WAKU1</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/7/data.html"><strong aria-hidden="true">1.3.2.</strong> 7/WAKU-DATA</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/8/mail.html"><strong aria-hidden="true">1.3.3.</strong> 8/WAKU-MAIL</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/9/rpc.html"><strong aria-hidden="true">1.3.4.</strong> 9/WAKU-RPC</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/informational/index.html"><strong aria-hidden="true">1.4.</strong> Informational</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/informational/22/toy-chat.html"><strong aria-hidden="true">1.4.1.</strong> 22/TOY-CHAT</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/23/topics.html"><strong aria-hidden="true">1.4.2.</strong> 23/WAKU2-TOPICS</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/27/peers.html"><strong aria-hidden="true">1.4.3.</strong> 27/WAKU2-PEERS</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/29/config.html"><strong aria-hidden="true">1.4.4.</strong> 29/WAKU2-CONFIG</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/30/adaptive-nodes.html"><strong aria-hidden="true">1.4.5.</strong> 30/ADAPTIVE-NODES</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/index.html"><strong aria-hidden="true">1.5.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/deprecated/5/waku0.html"><strong aria-hidden="true">1.5.1.</strong> 5/WAKU0</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/16/rpc.html"><strong aria-hidden="true">1.5.2.</strong> 16/WAKU2-RPC</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/18/swap.html"><strong aria-hidden="true">1.5.3.</strong> 18/WAKU2-SWAP</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/fault-tolerant-store.html"><strong aria-hidden="true">1.5.4.</strong> 21/WAKU2-FAULT-TOLERANT-STORE</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/index.html"><strong aria-hidden="true">2.</strong> Blockchain</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/index.html"><strong aria-hidden="true">2.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-anonymous-leaders-reward.html"><strong aria-hidden="true">2.1.1.</strong> BEDROCK-ANONYMOUS-LEADERS-REWARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-architecture-overview.html"><strong aria-hidden="true">2.1.2.</strong> BEDROCK-ARCHITECTURE-OVERVIEW</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-genesis-block.html"><strong aria-hidden="true">2.1.3.</strong> BEDROCK-GENESIS-BLOCK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-declaration-protocol.html"><strong aria-hidden="true">2.1.4.</strong> BEDROCK-SERVICE-DECLARATION-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-reward-distribution.html"><strong aria-hidden="true">2.1.5.</strong> BEDROCK-SERVICE-REWARD-DISTRIBUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-block-construction.html"><strong aria-hidden="true">2.1.6.</strong> BEDROCK-V1-1-BLOCK-CONSTRUCTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-mantle-specification.html"><strong aria-hidden="true">2.1.7.</strong> BEDROCK-V1.1-MANTLE-SPECIFICATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/fork-choice.html"><strong aria-hidden="true">2.1.8.</strong> CRYPTARCHIA-FORK-CHOICE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-proof-of-leadership.html"><strong aria-hidden="true">2.1.9.</strong> CRYPTARCHIA-PROOF-OF-LEADERSHIP</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-total-stake-inference.html"><strong aria-hidden="true">2.1.10.</strong> CRYPTARCHIA-TOTAL-STAKE-INFERENCE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-v1-bootstr-sync.html"><strong aria-hidden="true">2.1.11.</strong> CRYPTARCHIA-V1-BOOTSTRAPPING-SYNCHRONIZATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-blend-protocol.html"><strong aria-hidden="true">2.1.12.</strong> NOMOS-BLEND-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-cryptarchia-v1-protocol.html"><strong aria-hidden="true">2.1.13.</strong> NOMOS-CRYPTARCHIA-V1-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomosda-network.html"><strong aria-hidden="true">2.1.14.</strong> NOMOS-DA-NETWORK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/digital-signature.html"><strong aria-hidden="true">2.1.15.</strong> NOMOS-DIGITAL-SIGNATURE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-key-types-and-generation.html"><strong aria-hidden="true">2.1.16.</strong> NOMOS-KEY-TYPES-GENERATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-encapsulation.html"><strong aria-hidden="true">2.1.17.</strong> NOMOS-MESSAGE-ENCAPSULATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-formatting.html"><strong aria-hidden="true">2.1.18.</strong> NOMOS-MESSAGE-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-network.html"><strong aria-hidden="true">2.1.19.</strong> NOMOS-P2P-NETWORK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-payload-formatting.html"><strong aria-hidden="true">2.1.20.</strong> NOMOS-PAYLOAD-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-proof-of-quota.html"><strong aria-hidden="true">2.1.21.</strong> NOMOS-PROOF-OF-QUOTA</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-wallet-technical-standard.html"><strong aria-hidden="true">2.1.22.</strong> NOMOS-WALLET-TECHNICAL-STANDARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-cryptographic-protocol.html"><strong aria-hidden="true">2.1.23.</strong> NOMOSDA-CRYPTOGRAPHIC-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-rewarding.html"><strong aria-hidden="true">2.1.24.</strong> NOMOSDA-REWARDING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-hardware-requirements.html"><strong aria-hidden="true">2.1.25.</strong> P2P-HARDWARE-REQUIREMENTS</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-nat-solution.html"><strong aria-hidden="true">2.1.26.</strong> P2P-NAT-SOLUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-network-bootstrapping.html"><strong aria-hidden="true">2.1.27.</strong> P2P-NETWORK-BOOTSTRAPPING</a></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/deprecated/index.html"><strong aria-hidden="true">2.2.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/deprecated/claro.html"><strong aria-hidden="true">2.2.1.</strong> CONSENSUS-CLARO</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../storage/index.html"><strong aria-hidden="true">3.</strong> Storage</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/index.html"><strong aria-hidden="true">3.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/codex-block-exchange.html"><strong aria-hidden="true">3.1.1.</strong> CODEX-BLOCK-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/community-history.html"><strong aria-hidden="true">3.1.2.</strong> CODEX-COMMUNITY-HISTORY</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dht.html"><strong aria-hidden="true">3.1.3.</strong> CODEX-DHT</a></li><li class="chapter-item expanded "><a href="../../storage/raw/manifest.html"><strong aria-hidden="true">3.1.4.</strong> CODEX-MANIFEST</a></li><li class="chapter-item expanded "><a href="../../storage/raw/codex-store.html"><strong aria-hidden="true">3.1.5.</strong> CODEX-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dataset-store.html"><strong aria-hidden="true">3.1.6.</strong> DATASET-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/datasets.html"><strong aria-hidden="true">3.1.7.</strong> DATASETS</a></li><li class="chapter-item expanded "><a href="../../storage/raw/merkle-tree.html"><strong aria-hidden="true">3.1.8.</strong> MERKLE-TREE</a></li></ol></li><li class="chapter-item expanded "><a href="../../storage/deprecated/index.html"><strong aria-hidden="true">3.2.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/deprecated/erasure-coding.html"><strong aria-hidden="true">3.2.1.</strong> CODEX-ERASUE-CODING</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-marketplace.html"><strong aria-hidden="true">3.2.2.</strong> CODEX-MARKETPLACE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-merkle-tree.html"><strong aria-hidden="true">3.2.3.</strong> CODEX-MERKLE-TREE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-prover.html"><strong aria-hidden="true">3.2.4.</strong> CODEX-PROVER</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/slot-buIlder.html"><strong aria-hidden="true">3.2.5.</strong> CODEX-SLOT-BUILDER</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../ift-ts/index.html"><strong aria-hidden="true">4.</strong> IFT-TS</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../ift-ts/raw/index.html"><strong aria-hidden="true">4.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../ift-ts/raw/1/coss.html"><strong aria-hidden="true">4.1.1.</strong> 1/COSS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/2/mvds.html"><strong aria-hidden="true">4.1.2.</strong> 2/MVDS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/3/remote-log.html"><strong aria-hidden="true">4.1.3.</strong> 3/REMOTE-LOG</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/4/mvds-meta.html"><strong aria-hidden="true">4.1.4.</strong> 4/MVDS-META</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/25/libp2p-dns-discovery.html"><strong aria-hidden="true">4.1.5.</strong> 25/LIBP2P-DNS-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/32/rln-v1.html"><strong aria-hidden="true">4.1.6.</strong> 32/RLN-V1</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/decentralized-mls-offchain-consensus.html"><strong aria-hidden="true">4.1.7.</strong> DECENTRALIZED-MLS-OFFCHAIN-CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/decentralized-messaging-ethereum.html"><strong aria-hidden="true">4.1.8.</strong> ETH-DCGKA</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/eth-mls-onchain.html"><strong aria-hidden="true">4.1.9.</strong> ETH-MLS-ONCHAIN</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/deleted/eth-secpm.html"><strong aria-hidden="true">4.1.10.</strong> ETH-SECPM</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/extended-kad-disco.html"><strong aria-hidden="true">4.1.11.</strong> EXTENDED-KADEMLIA-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/extensible-peer-records.html"><strong aria-hidden="true">4.1.12.</strong> EXTENSIBLE-PEER-RECORDS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/gossipsub-tor-push.html"><strong aria-hidden="true">4.1.13.</strong> GOSSIPSUB-TOR-PUSH</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/consensus-hashgraphlike.html"><strong aria-hidden="true">4.1.14.</strong> HASHGRAPHLIKE CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/logos-service-discovery.html"><strong aria-hidden="true">4.1.15.</strong> LOGOS-SERVICE-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/mix.html"><strong aria-hidden="true">4.1.16.</strong> MIX</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/multi-message_id-burn-rln.html"><strong aria-hidden="true">4.1.17.</strong> Multi-message_id Burn RLN</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/noise-x3dh-double-ratchet.html"><strong aria-hidden="true">4.1.18.</strong> NOISE-X3DH-DOUBLE-RATCHET</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/payment-streams.html"><strong aria-hidden="true">4.1.19.</strong> PAYMENT-STREAMS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/mix-spam-protection-rln.html"><strong aria-hidden="true">4.1.20.</strong> RLN DoS Protection for Mixnet</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/rln-interep-spec.html"><strong aria-hidden="true">4.1.21.</strong> RLN-INTEREP-SPEC</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/rln-stealth-commitments.html"><strong aria-hidden="true">4.1.22.</strong> RLN-STEALTH-COMMITMENTS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/rln-v2.html"><strong aria-hidden="true">4.1.23.</strong> RLN-V2</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/sds.html"><strong aria-hidden="true">4.1.24.</strong> SDS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/status-rln-deployment.html" class="active"><strong aria-hidden="true">4.1.25.</strong> STATUS-RLN-DEPLOYMENT</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/zerokit-api.html"><strong aria-hidden="true">4.1.26.</strong> Zerokit API</a></li></ol></li><li class="chapter-item expanded "><a href="../../ift-ts/template.html"><strong aria-hidden="true">4.2.</strong> TEMPLATE</a></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Logos LIP</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/logos-co/logos-lips" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="status-rln-deployment"><a class="header" href="#status-rln-deployment">STATUS-RLN-DEPLOYMENT</a></h1>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
+<tr><td>Name</td><td>RLN deployment to the Status network for gasless L2</td></tr>
+<tr><td>Slug</td><td>156</td></tr>
+<tr><td>Status</td><td>raw</td></tr>
+<tr><td>Category</td><td>Standards Track</td></tr>
+<tr><td>Editor</td><td>Ugur Sen <a href="mailto:ugur@status.im">ugur@status.im</a></td></tr>
+<tr><td>Contributors</td><td>Sylvain <a href="mailto:sylvain@status.im">sylvain@status.im</a></td></tr>
+</tbody></table>
+</div><!-- timeline:start -->
+<h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
+<ul>
+<li><strong>2026-04-01</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b042c3eb64faa0202b3c80d8726d57aacf8ec82c/docs/ift-ts/raw/status-rln-deployment.md"><code>b042c3e</code></a> — docs: Initial PR for SN RLN deployment RFC (#286)</li>
+</ul>
+<!-- timeline:end -->
+<h2 id="abstract"><a class="header" href="#abstract">Abstract</a></h2>
+<p>This document specifies the Status L2 RLN deployment
+architecture for enabling gasless transactions with
+built-in spam resistance based on the RLN-V2 protocol.
+The specification defines system roles, on-chain and off-chain components,
+and the end-to-end transaction flow across users, smart contracts, Layer2 services,
+prover and verifier modules, and decentralized slashers.
+It describes Karma-based tier management, RLN membership registration,
+RLN proof generation and verification, deny-list enforcement, gas-aware message accounting,
+and decentralized slashing.
+The document further outlines storage requirements and synchronization mechanisms
+between on-chain events and off-chain state, providing a cohesive framework
+for scalable and abuse-resistant transaction processing on Status L2.</p>
+<p>The architecture separates cryptographic soundness from operational deployment.
+While operational components may be centralized in this version,
+cryptographic enforcement of rate limits and slashing remains verifiable and non-custodial.</p>
+<h2 id="roles"><a class="header" href="#roles">Roles</a></h2>
+<p>Status L2 RLN deployment consists of six roles: <code>user</code>, <code>Karma contract</code>,
+<code>RLN contract</code>,  <code>Layer2</code>, and <code>Linea ecosystem</code>, <code>Slashers</code>.</p>
+<ul>
+<li><code>user</code>: Uses the Status L2 in a gasless manner who MAY pay premium gas for the transaction (TX).</li>
+<li><code>Karma contract</code>: The contract maintains user karma balances, enforces karma slashing, and manages updateable tier limits.</li>
+<li><code>RLN contract</code>: The contract that stores the RLN memberships.</li>
+<li><code>Layer2</code>: Trusted components that are operated by Status L2 team.</li>
+<li><code>Linea ecosystem:</code> : Linea L2 components</li>
+<li><code>Slashers</code> : External identities responsible for tracking RLN proofs
+and related metadata in order to identify spam and trigger slashing when applicable.</li>
+</ul>
+<h2 id="general-flow"><a class="header" href="#general-flow">General Flow</a></h2>
+<ul>
+<li><code>User</code> creates a TX send it to the network</li>
+<li>The RPC node submits the TX to the mempool, where it is forwarded to the Prover via gRPC,
+before P2P propagation to the sequencer.</li>
+<li><code>Prover module</code> bootstraps by querying the <code>Karma contract</code> for current user tier limits,
+then listens to events and updates the local tier limit table upon any changes.</li>
+<li><code>Prover module</code> checks user has enough Karma <code>minK</code> (which equals the <code>minKarma</code> of the first tier)
+for registration, if so prover module registers RLN membership on behalf of user, otherwise skips registration.</li>
+<li>Prover creates the RLN proof using the <a href="https://github.com/vacp2p/zerokit">Zerokit</a> backend <code>prover module</code>
+if user is registered and is in Tier limit and stores in a database.
+If registered user exceeds the tier limit, the user needs to pay premium gas. Then prover streams the proofs and metadata via gRPC.</li>
+<li>RLN <a href="#2-verifier-module">verifier module</a> fetches the RLN proofs and metadata from
+prover module and try to find of RLN proof for each submitted Transaction (TX).
+The Sequencer forwards the transaction to the mempool if the RLN verifier module
+has not detected spam and the transaction is accompanied by a valid RLN proof.</li>
+<li>In parallel with the sequencer’s operation, <code>slashers</code> independently subscribe
+to and fetch RLN proofs from the prover and monitor them for spam behavior.
+Upon detecting spam, <code>slashers</code> extract corresponding <code>secret-hash</code> from proofs
+and submit it to the <code>RLN contract</code> . As result, the spammer’s RLN membership is revoked on-chain
+by removing the registration, and the prover module updates its local state accordingly
+by removing the user based on the emitted slashing event.
+Finally, spammers Karma amount is mapped to the <code>minK</code>-1.</li>
+</ul>
+<p>The tier table is as follows:</p>
+<div class="table-wrapper"><table><thead><tr><th>Tier</th><th>Daily Quota (Tier limits)</th><th>Equivalent Rate</th><th>Karma Range</th></tr></thead><tbody>
+<tr><td>Entry</td><td>1 tx/day</td><td>1 tx every 24 hours</td><td>0-1</td></tr>
+<tr><td>Newbie</td><td>5 tx/day</td><td>1 tx every ~5 hours</td><td>2-49</td></tr>
+<tr><td>Basic</td><td>15 tx/day</td><td>1 tx every 90 minutes</td><td>50-499</td></tr>
+<tr><td>Active</td><td>96 tx/day</td><td>1 tx every 15 minutes</td><td>500-4999</td></tr>
+<tr><td>Regular</td><td>480 tx/day</td><td>1 tx every 3 minutes</td><td>5000-19999</td></tr>
+<tr><td>Power User</td><td>960  tx/day</td><td>1 tx every 90 seconds</td><td>20000-99999</td></tr>
+<tr><td>Pro User</td><td>10080  tx/day</td><td>1 tx every 9 seconds</td><td>100000-499999</td></tr>
+<tr><td>High-Throughput</td><td>108000 tx/day</td><td>1 TPS</td><td>500000-4999999</td></tr>
+<tr><td>S-Tier</td><td>240000 tx/day</td><td>5 TPS</td><td>5000000-9999999</td></tr>
+<tr><td>Legendary</td><td>480000 tx/day</td><td>10 TPS</td><td>10000000-∞</td></tr>
+</tbody></table>
+</div>
+<h2 id="1-prover-module"><a class="header" href="#1-prover-module">1. Prover module</a></h2>
+<p>Prover module is a stand-alone gRPC service module
+that is mainly responsible for three functionality,
+Karma service, RLN registration, creating RLN proofs.
+This module is operated by <code>Layer2</code>.</p>
+<h3 id="11-karma-service"><a class="header" href="#11-karma-service">1.1. Karma service</a></h3>
+<p>Prover module requires to amounts of Karma
+of users to manage tier levels.
+To this Karma service has two functionality with querying <code>Karma contract</code>,</p>
+<ul>
+<li>Get amount of Karma for a user</li>
+<li>Get Tier limits</li>
+</ul>
+<p>Karma service query is triggered if the user has no more free TX right,
+in case the user can move to higher tier without user interaction.
+Otherwise, if the  <code>user</code> has enough free TX, we don’t update <code>user</code>'s tier.</p>
+<p>Tier proto file for Tier Query info:</p>
+<pre><code class="language-protobuf">message GetUserTierInfoRequest {
+Address user = 1;
+}
+</code></pre>
+<pre><code class="language-protobuf">message GetUserTierInfoReply {
+oneof resp {
+UserTierInfoResult res = 1;
+UserTierInfoError error = 2;
+}
+}
+</code></pre>
+<pre><code class="language-protobuf">message UserTierInfoResult {
+sint64 current_epoch = 1;
+sint64 current_epoch_slice = 2;
+uint64 tx_count = 3;
+optional Tier tier = 4;
+}
+</code></pre>
+<pre><code class="language-protobuf">message Tier {
+string name = 1;
+uint64 quota = 2;
+}
+</code></pre>
+<pre><code class="language-protobuf">message UserTierInfoError {
+string message = 1;
+}
+</code></pre>
+<h3 id="12-rln-registration"><a class="header" href="#12-rln-registration">1.2. RLN registration</a></h3>
+<p>Prover module MUST register the users who has at least <code>minK</code> Karma
+to the RLN contract for corresponding global rate limit <code>rateR</code> automatically,
+where <code>minK</code> and <code>rateR</code> are fixed for every user.
+After setting this values, the registration as follows:</p>
+<ul>
+<li>Creates the <code>id-commitment</code> based on <code>rateR</code> on behalf of <code>user</code>.</li>
+<li>Sends the <code>id-commitment</code> to the RLN contract without Karma stake.</li>
+<li>Receive and stores the membership proof information such as leaf index
+from the RLN contract in <code>registeredUsers</code> list.</li>
+</ul>
+<p>Finally, <code>registeredUsers</code> consists of as follows:</p>
+<ul>
+<li>User address: <code>0xabc...</code></li>
+<li>User <code>treeInfo</code>: (<code>treePath</code>,<code>treeIndex</code>) since <code>id-commitment</code> are stored in multiple tree in DB.</li>
+</ul>
+<p>With the registration, user allows to use free gas transaction within its Tier</p>
+<pre><code class="language-protobuf">enum RegistrationStatus {
+Success = 0;
+Failure = 1;
+AlreadyRegistered = 2;
+}
+</code></pre>
+<pre><code class="language-protobuf">message RegisterUserReply {
+RegistrationStatus status = 1;
+}
+</code></pre>
+<h3 id="13-proof-generation"><a class="header" href="#13-proof-generation">1.3. Proof generation</a></h3>
+<p>Prover module MUST create <code>RLNproof</code> for user who is in <code>registeredUsers</code> table,
+upon a TX as shown in previous step for a gasless TX.
+For <code>RLNproof</code> generation for the TX done by Prover module as follows:</p>
+<ul>
+<li>Receive the TX from the RPC node asynchronously, user is the owner of the TX</li>
+<li>Checks the user is indeed in <code>registeredUsers</code></li>
+<li>Creates RLN proof on TX by using Zerokit with checking membership information <code>treeInfo</code> in <code>registeredUsers</code>
+then streams the proof for a specific epoch.</li>
+<li>Serializes then streams RLN proofs via gRPC.</li>
+<li>Outputs <code>RLNProof</code> metadata named <code>proof_value</code> contains <code>y</code> and <code>internal_nullifier</code> value
+see the <a href="https://rfc.vac.dev/vac/raw/rln-v2/">RLN specification</a> for details.</li>
+</ul>
+<pre><code class="language-protobuf">message RlnProofFilter {
+optional string address = 1;
+}
+</code></pre>
+<pre><code class="language-protobuf">message RlnProofReply {
+oneof resp {
+RlnProof proof = 1;
+RlnProofError error = 2;
+}
+}
+</code></pre>
+<pre><code class="language-protobuf">message RlnProof {
+bytes sender = 1;
+bytes tx_hash = 2;
+bytes proof = 3;
+}
+</code></pre>
+<pre><code class="language-protobuf">message RlnProofError {
+string error = 2;
+}
+</code></pre>
+<p>Note that the prover module always creates an RLN proof upon user request,
+regardless of whether the user exceeds tier or RLN limits.
+Enforcement of tier limits is performed via deny-list interactions,
+while RLN limits are enforced by revealing the <code>secret-hash</code> extracted
+from spam proofs and submitting it to the <code>RLN contract</code>.</p>
+<h3 id="14-storage"><a class="header" href="#14-storage">1.4. Storage</a></h3>
+<p>RLN proofs are stored in a persistent database (DB) with other informations as follows:</p>
+<ul>
+<li>
+<p><strong>table “user”</strong>: Stores the <code>RlnUserIdentity</code> which consists of three field elements: <code>id-commitment</code>, <code>secret-hash</code> and <code>rateR</code>.</p>
+<ul>
+<li>
+<p>key = Serialized(<code>User address</code>)</p>
+</li>
+<li>
+<p>value = Serialized (<code>RlnUserIdentity</code> , <code>TreeIndex</code> , <code>IndexInMerkleTree</code>)</p>
+<p>Since <code>RlnUserIdentity</code> are stored in multiple merkle tree, prover locates them with <code>TreeIndex</code> and <code>IndexInMerkleTree.</code></p>
+</li>
+</ul>
+</li>
+<li>
+<p>table “idx”:</p>
+<ul>
+<li>there is only 1 key = “COUNT” and value = “Number of Merkle tree”</li>
+</ul>
+</li>
+<li>
+<p>table “tx_counter”:</p>
+<ul>
+<li>key = Serialized (User adress)</li>
+<li>value = Serialized(EpochCounters structure) = Serialized(~ <code>Epoch</code>, <code>tx_counter</code>)</li>
+</ul>
+</li>
+<li>
+<p>table “tier_limits”:</p>
+<ul>
+<li><strong>Key</strong> = Only 2 keys <code>CURRENT</code> ‖ <code>NEXT</code></li>
+<li><strong>Value</strong> = Serialized <code>Tier Limit list</code></li>
+</ul>
+</li>
+</ul>
+<h3 id="15-tier-list-management"><a class="header" href="#15-tier-list-management">1.5. Tier List Management</a></h3>
+<p>Tiers list are stored on-chain in <code>Karma contract</code> and this is a dynamic list
+that is adjusted by Status L2 team according to the inflation of Karma bound.
+This section specifies the changes that initiates by <code>Karma contract</code> then affects prover module.
+Each update starts by invoking the tier list in <code>Karma contract</code> with some requirements as follows:</p>
+<ul>
+<li>Each updates MUST be contiguous which means no gap or overlap between different tiers.
+Other saying, the intersection of two sequential tiers’ maxKarma and minKarma range should be distinct,
+where minKarma and MaxKarma values are the local values for each karma tier
+unlike <code>minK</code> is the minimum Karma amount for user can use gasless transaction.</li>
+<li>For a tier, minKarma MUST less than maxKarma.</li>
+<li>First tier’s minKarma MUST be equal to  <code>minK</code></li>
+</ul>
+<pre><code class="language-solidity">struct Tier {
+    uint256 minKarma;
+    uint256 maxKarma;
+    string name;
+    uint32 txPerEpoch;
+}
+</code></pre>
+<p>Updating tiers phase starts with updating tier list in <code>Karma contract</code>
+which is static writing the new tiers that MAY be change the number of tiers and their bounds.
+Then, the check method in <code>Karma contract</code> checks three requirements above.</p>
+<p>As the second phase, prover module listen for a specific event then fetch
+the new tier list from <code>Karma contract</code> and update the local list.
+Note that, updating the contract require a delay till updating the local tier table of prover.</p>
+<h3 id="16-gas-checking"><a class="header" href="#16-gas-checking">1.6 Gas Checking</a></h3>
+<p>Prover is also responsible for checking that the gas requirements of TXs are at the limit
+since the RLN protects the network in terms of number of TXs not the total gas consumptions.
+When a TX is submitted to the prover, it has a field named: <code>estimated_gas_used</code> (type uint64 - unit  gas unit e.g. not in wei).</p>
+<p>For now, prover has TX and its gas estimation , namely <code>currentGas</code>.
+Prover checks that <code>gasQuota</code> cannot be larger than <code>currentGas</code> for a single proof.
+If <code>currentGas</code> is equal or lower than the <code>gasQuota</code>,
+the prover continues with the <a href="#13-proof-generation">proof generation section</a>.</p>
+<p>Otherwise, prover calculates the <code>txCounterIncrease</code> as the number of ceil (==<code>currentGas</code>/<code>gasQuota</code>),
+expecting a value greater than 2 since the <code>currentGas</code> &gt; <code>gasQuota</code>.
+Then the prover creates a proof burns <code>txCounterIncrease</code> many message allocation
+for the TX due to the <a href="https://lip.logos.co/ift-ts/raw/multi-message_id-burn-rln.html">multi-message_id burn RLN</a>.</p>
+<h2 id="2-verifier-module"><a class="header" href="#2-verifier-module">2. Verifier Module</a></h2>
+<p>The verifier module is composed of an identity operating
+in the sequencer environment together the decentralized external slashers.
+Also verifier module manually conducts the slashing by invoking the <code>Karma contract</code>
+with authorized callers as owner in case spamming.
+Prover module outputs <code>RLNproof</code> with proof metadata named <code>proof_values</code>
+that includes <code>y</code> and <code>internal_nullifier</code> value.
+The verifier module MUST record and store all <code>internal_nullifier</code> to use them for detecting spam.</p>
+<p>The detection of spam is requiring the <code>internal_nullifier</code> in an epoch.
+In this case, when verifier module detects the recurring them,
+verifier module MUST extracts the <code>secret-hash</code> from two different message with same <code>message_id</code>
+(see <a href="https://lip.logos.co/ift-ts/raw/rln-v2.html">RLN Specification</a>), and invoke the <code>Karma contract</code>
+for slashing which maps user’s Karma to <code>MinK-1</code> then adds the <code>user</code> to <code>denylist</code>.</p>
+<p>Note that, Zerokit contains <a href="https://github.com/vacp2p/zerokit/blob/master/rln/src/protocol.rs#L526">a function named comput_id_secret</a>
+for extracting the secret-hash for a given two recurring <code>internal_nullifier</code>.</p>
+<h2 id="3-smart-contracts"><a class="header" href="#3-smart-contracts">3. Smart Contracts</a></h2>
+<p>There are two contracts as <code>Karma contract</code> and <code>RLN contract</code> that former regulates
+the tier management and slashing in case spam and later holds the RLN membership tree.
+Prover is listening slashing event so that update its state by removing the slashed user
+as spammer from the local DB. Prover also listening the tier-limits from <code>karma contract</code> to update local tier limits.</p>
+<p><code>Karma contract</code>:</p>
+<ul>
+<li>Modified ERC20 contract without transfer option.</li>
+<li>Can be queried to get any user’s Karma balance.</li>
+<li>Stored updatable tier table that shows min and max Karma that prover module fetches this information.</li>
+</ul>
+<p><code>RLN contract</code>:</p>
+<ul>
+<li>Stores the RLN membership tree that consists of <code>id-commitment</code></li>
+<li>Does not store stake since Karma is non-transferable</li>
+<li>Contains the slashing function as mentioned in <a href="#5-decentralized-slashing">Decentralized Slashing</a> section which takes a <code>secret-hash</code> and get reward
+for invoker also spammers <code>id-commitment</code> is dropped off from contract and prover.</li>
+</ul>
+<h2 id="4-deny-list"><a class="header" href="#4-deny-list">4. Deny List</a></h2>
+<p>Deny list behaves a black list for a <code>user</code> who act maliciously in two ways:</p>
+<ol>
+<li>Exceeds the tier limit and still trying to use gasless TX.
+The prover module marked as this user as in deny list but still continue to create the RLN proof for the TX.</li>
+<li>Exceeds the global rate limit <code>rateR</code> that results with slashing by mapping user’s Karma to <code>MinK-1.</code></li>
+</ol>
+<p>The <code>user</code> who is on the deny list MUST NOT be able to submit gasless transactions.
+A user can regain access to gasless transactions only after being removed from the deny list.
+Escaping from the deny list is possible under the following conditions</p>
+<ul>
+<li><strong>TTL expiration:</strong> Deny list entries MAY be configured with an expiration time.
+If a deny list participation is not intended to be permanent, the entry is assigned a predefined time window.
+Upon expiration of this period, the user address is automatically considered removed from the deny list.
+The sequencer is responsible for checking expiration timestamps and removing expired user addresses from the deny list accordingly.</li>
+<li><strong>Explicit removal:</strong> In this type removel of deny list occurs in two cases: <strong>(i)</strong> when a user submits a transaction
+with a gas price exceeding the configured premium gas threshold, in which case the sequencer removes the user from the deny list,
+and <strong>(ii)</strong> through manual deletion performed by the Layer2 operator.</li>
+</ul>
+<h2 id="5-decentralized-slashing"><a class="header" href="#5-decentralized-slashing">5. Decentralized Slashing</a></h2>
+<p>Decentralized slashing is a capability provided by specialized nodes,
+called <code>slashers</code>, which operate alongside sequencer-side RLN verifiers
+to externally detect RLN-based spam.</p>
+<p>In <code>RLN contract</code>, the user <code>id-commitment</code> is stored as mapping.
+The <code>slashers</code> receive all proofs by subscribing gRPC to the prover.
+In the event of spam, any <code>slasher</code> can extract the <code>secret-hash</code>
+from the proof and submit it to the <code>RLN contract</code>.</p>
+<p><code>RLN Contract</code> does as following:</p>
+<ul>
+<li>Receives the <code>secret-hash</code> in plaintext</li>
+<li>Calculates the <code>id-commitment</code> by hashing <code>secret-hash</code> with Poseidon hash.</li>
+<li>Look up the list whether it includes the <code>id-commitment</code> returns 1 if there is, returns 0 otherwise.</li>
+<li>If it returns 1, the slasher who is the caller of the contract, is rewarded with Karma tokens.</li>
+<li>The prover module listens this activity (an event is sent by the smart contract when slashing)
+and drop the particular <code>id-commitment</code> from its local DB.</li>
+<li>Upon detecting spam, the <code>RLN Contract</code> invokes the slashing function in the <code>Karma Contract</code>,
+which burns the spammer’s Karma tokens.</li>
+</ul>
+<p>Note that the <code>secret-hash</code> are derived by a high entropy randomness
+that implies all <code>id-commitment</code>  are unique.
+Plus, the spammers’ <code>id-commitment</code> are dropped from the list.
+Under this conditions, double slashing is not feasible.</p>
+<h3 id="51-proof-aggregation-layer"><a class="header" href="#51-proof-aggregation-layer">5.1. Proof Aggregation Layer</a></h3>
+<p>Instead of having slashers connect directly to the prover,
+an intermediate aggregation layer is introduced between the prover and the slashers.
+An <code>aggregator</code> is an entity that subscribes to the prover via gRPC,
+collects RLN proofs and associated metadata, and forwards them to slashers.</p>
+<p>The aggregator MUST:</p>
+<ul>
+<li>Subscribe to the prover module via gRPC to receive all RLN proofs and metadata.</li>
+<li>Maintain an up-to-date list of active slashers and forward received proofs to each of them.</li>
+<li>Be stateless with respect to slashing decisions. The aggregator is responsible only
+for proof distribution, not detection or submission.</li>
+</ul>
+<p>To avoid a single point of failure, multiple aggregator instances MAY be deployed.
+Each aggregator instance operates independently and subscribes to the prover separately.
+Slashers MAY connect to one or more aggregators to ensure redundant proof delivery.</p>
+<p>The prover module MUST NOT impose a connection limit on aggregators.
+Any entity MAY act as a slasher by connecting to an aggregator without restrictions
+under normal operating conditions.
+In cases where slasher capacity limits are exceeded,
+access control MAY be enforced based on the Karma balance of the requesting entity,
+prioritizing slashers with higher Karma amounts.</p>
+<h2 id="references"><a class="header" href="#references">References</a></h2>
+<ul>
+<li><a href="https://github.com/vacp2p/zerokit">Zerokit</a></li>
+<li><a href="https://linea.build/">Linea</a></li>
+<li><a href="https://github.com/vacp2p/status-rln-prover">RLN-Prover</a></li>
+<li><a href="https://lip.logos.co/ift-ts/raw/rln-v2.html">RLN Specification</a></li>
+<li><a href="https://lip.logos.co/ift-ts/raw/multi-message_id-burn-rln.html">Multi-message_id burn RLN</a></li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../ift-ts/raw/sds.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../ift-ts/raw/zerokit-api.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../ift-ts/raw/sds.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../ift-ts/raw/zerokit-api.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../../theme/katex/katex.min.js"></script>
+        <script src="../../theme/katex/auto-render.min.js"></script>
+        <script src="../../scripts/katex-render.js"></script>
+        <script src="../../scripts/logos-lips.js"></script>
+
+
+    </div>
+    </body>
+</html>

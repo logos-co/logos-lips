@@ -1,15 +1,15 @@
 {
-    "timestamp": "2026-01-23T17:29:42Z",
+    "timestamp": "2026-04-15T12:58:30Z",
     "git": {
-        "commit": "8164992534b14b2466fc1117bbeef2ae2d14f249",
+        "commit": "5a3e844679a0ac60e6b4e945a64c2f7d8650cba5",
         "branch": "origin/develop",
-        "url": "git@github.com:vacp2p/rfc-index.git"
+        "url": "git@github.com:logos-co/logos-lips.git"
     },
     "build": {
-        "id": "678",
-        "number": "678",
+        "id": "764",
+        "number": "764",
         "name": "website/dev-lip.logos.co",
         "slave": "linux-01",
-        "url": "https://ci.infra.status.im/job/website/job/dev-lip.logos.co/678/"
+        "url": "https://ci.infra.status.im/job/website/job/dev-lip.logos.co/764/"
     }
 }

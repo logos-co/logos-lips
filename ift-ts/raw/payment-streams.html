@@ -1,0 +1,857 @@
+<!DOCTYPE HTML>
+<html lang="en" class="ayu" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>PAYMENT-STREAMS - Logos LIP</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../highlight.css">
+        <link rel="stylesheet" href="../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../../theme/katex/katex.min.css">
+        <link rel="stylesheet" href="../../theme/fonts/fonts.css">
+        <link rel="stylesheet" href="../../theme/FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../custom.css">
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "ayu";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('ayu')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../../index.html">Introduction</a></li><li class="chapter-item expanded affix "><a href="../../about.html">About</a></li><li class="chapter-item expanded "><a href="../../messaging/index.html"><strong aria-hidden="true">1.</strong> Messaging</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/index.html"><strong aria-hidden="true">1.1.</strong> Standards - Core</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/10/waku2.html"><strong aria-hidden="true">1.1.1.</strong> 10/WAKU2</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/11/relay.html"><strong aria-hidden="true">1.1.2.</strong> 11/WAKU2-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/12/filter.html"><strong aria-hidden="true">1.1.3.</strong> 12/WAKU2-FILTER</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/12/previous-versions/00/filter.html"><strong aria-hidden="true">1.1.3.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/13/store.html"><strong aria-hidden="true">1.1.4.</strong> 13/WAKU2-STORE</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/13/previous-versions/00/store.html"><strong aria-hidden="true">1.1.4.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/14/message.html"><strong aria-hidden="true">1.1.5.</strong> 14/WAKU2-MESSAGE</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/15/bridge.html"><strong aria-hidden="true">1.1.6.</strong> 15/WAKU-BRIDGE</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/17/rln-relay.html"><strong aria-hidden="true">1.1.7.</strong> 17/WAKU2-RLN-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/19/lightpush.html"><strong aria-hidden="true">1.1.8.</strong> 19/WAKU2-LIGHTPUSH</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/31/enr.html"><strong aria-hidden="true">1.1.9.</strong> 31/WAKU2-ENR</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/33/discv5.html"><strong aria-hidden="true">1.1.10.</strong> 33/WAKU2-DISCV5</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/34/peer-exchange.html"><strong aria-hidden="true">1.1.11.</strong> 34/WAKU2-PEER-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/36/bindings-api.html"><strong aria-hidden="true">1.1.12.</strong> 36/WAKU2-BINDINGS-API</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/64/network.html"><strong aria-hidden="true">1.1.13.</strong> 64/WAKU2-NETWORK</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/66/metadata.html"><strong aria-hidden="true">1.1.14.</strong> 66/WAKU2-METADATA</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/index.html"><strong aria-hidden="true">1.2.</strong> Standards - Application</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/application/20/toy-eth-pm.html"><strong aria-hidden="true">1.2.1.</strong> 20/TOY-ETH-PM</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/26/payload.html"><strong aria-hidden="true">1.2.2.</strong> 26/WAKU2-PAYLOAD</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/53/x3dh.html"><strong aria-hidden="true">1.2.3.</strong> 53/WAKU2-X3DH</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/54/x3dh-sessions.html"><strong aria-hidden="true">1.2.4.</strong> 54/WAKU2-X3DH-SESSIONS</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/index.html"><strong aria-hidden="true">1.3.</strong> Standards - Legacy</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/6/waku1.html"><strong aria-hidden="true">1.3.1.</strong> 6/WAKU1</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/7/data.html"><strong aria-hidden="true">1.3.2.</strong> 7/WAKU-DATA</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/8/mail.html"><strong aria-hidden="true">1.3.3.</strong> 8/WAKU-MAIL</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/9/rpc.html"><strong aria-hidden="true">1.3.4.</strong> 9/WAKU-RPC</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/informational/index.html"><strong aria-hidden="true">1.4.</strong> Informational</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/informational/22/toy-chat.html"><strong aria-hidden="true">1.4.1.</strong> 22/TOY-CHAT</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/23/topics.html"><strong aria-hidden="true">1.4.2.</strong> 23/WAKU2-TOPICS</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/27/peers.html"><strong aria-hidden="true">1.4.3.</strong> 27/WAKU2-PEERS</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/29/config.html"><strong aria-hidden="true">1.4.4.</strong> 29/WAKU2-CONFIG</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/30/adaptive-nodes.html"><strong aria-hidden="true">1.4.5.</strong> 30/ADAPTIVE-NODES</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/index.html"><strong aria-hidden="true">1.5.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/deprecated/5/waku0.html"><strong aria-hidden="true">1.5.1.</strong> 5/WAKU0</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/16/rpc.html"><strong aria-hidden="true">1.5.2.</strong> 16/WAKU2-RPC</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/18/swap.html"><strong aria-hidden="true">1.5.3.</strong> 18/WAKU2-SWAP</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/fault-tolerant-store.html"><strong aria-hidden="true">1.5.4.</strong> 21/WAKU2-FAULT-TOLERANT-STORE</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/index.html"><strong aria-hidden="true">2.</strong> Blockchain</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/index.html"><strong aria-hidden="true">2.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-anonymous-leaders-reward.html"><strong aria-hidden="true">2.1.1.</strong> BEDROCK-ANONYMOUS-LEADERS-REWARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-architecture-overview.html"><strong aria-hidden="true">2.1.2.</strong> BEDROCK-ARCHITECTURE-OVERVIEW</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-genesis-block.html"><strong aria-hidden="true">2.1.3.</strong> BEDROCK-GENESIS-BLOCK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-declaration-protocol.html"><strong aria-hidden="true">2.1.4.</strong> BEDROCK-SERVICE-DECLARATION-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-reward-distribution.html"><strong aria-hidden="true">2.1.5.</strong> BEDROCK-SERVICE-REWARD-DISTRIBUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-block-construction.html"><strong aria-hidden="true">2.1.6.</strong> BEDROCK-V1-1-BLOCK-CONSTRUCTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-mantle-specification.html"><strong aria-hidden="true">2.1.7.</strong> BEDROCK-V1.1-MANTLE-SPECIFICATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/fork-choice.html"><strong aria-hidden="true">2.1.8.</strong> CRYPTARCHIA-FORK-CHOICE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-proof-of-leadership.html"><strong aria-hidden="true">2.1.9.</strong> CRYPTARCHIA-PROOF-OF-LEADERSHIP</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-total-stake-inference.html"><strong aria-hidden="true">2.1.10.</strong> CRYPTARCHIA-TOTAL-STAKE-INFERENCE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-v1-bootstr-sync.html"><strong aria-hidden="true">2.1.11.</strong> CRYPTARCHIA-V1-BOOTSTRAPPING-SYNCHRONIZATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-blend-protocol.html"><strong aria-hidden="true">2.1.12.</strong> NOMOS-BLEND-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-cryptarchia-v1-protocol.html"><strong aria-hidden="true">2.1.13.</strong> NOMOS-CRYPTARCHIA-V1-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomosda-network.html"><strong aria-hidden="true">2.1.14.</strong> NOMOS-DA-NETWORK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/digital-signature.html"><strong aria-hidden="true">2.1.15.</strong> NOMOS-DIGITAL-SIGNATURE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-key-types-and-generation.html"><strong aria-hidden="true">2.1.16.</strong> NOMOS-KEY-TYPES-GENERATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-encapsulation.html"><strong aria-hidden="true">2.1.17.</strong> NOMOS-MESSAGE-ENCAPSULATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-formatting.html"><strong aria-hidden="true">2.1.18.</strong> NOMOS-MESSAGE-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-network.html"><strong aria-hidden="true">2.1.19.</strong> NOMOS-P2P-NETWORK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-payload-formatting.html"><strong aria-hidden="true">2.1.20.</strong> NOMOS-PAYLOAD-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-proof-of-quota.html"><strong aria-hidden="true">2.1.21.</strong> NOMOS-PROOF-OF-QUOTA</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-wallet-technical-standard.html"><strong aria-hidden="true">2.1.22.</strong> NOMOS-WALLET-TECHNICAL-STANDARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-cryptographic-protocol.html"><strong aria-hidden="true">2.1.23.</strong> NOMOSDA-CRYPTOGRAPHIC-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-rewarding.html"><strong aria-hidden="true">2.1.24.</strong> NOMOSDA-REWARDING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-hardware-requirements.html"><strong aria-hidden="true">2.1.25.</strong> P2P-HARDWARE-REQUIREMENTS</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-nat-solution.html"><strong aria-hidden="true">2.1.26.</strong> P2P-NAT-SOLUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-network-bootstrapping.html"><strong aria-hidden="true">2.1.27.</strong> P2P-NETWORK-BOOTSTRAPPING</a></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/deprecated/index.html"><strong aria-hidden="true">2.2.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/deprecated/claro.html"><strong aria-hidden="true">2.2.1.</strong> CONSENSUS-CLARO</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../storage/index.html"><strong aria-hidden="true">3.</strong> Storage</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/index.html"><strong aria-hidden="true">3.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/codex-block-exchange.html"><strong aria-hidden="true">3.1.1.</strong> CODEX-BLOCK-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/community-history.html"><strong aria-hidden="true">3.1.2.</strong> CODEX-COMMUNITY-HISTORY</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dht.html"><strong aria-hidden="true">3.1.3.</strong> CODEX-DHT</a></li><li class="chapter-item expanded "><a href="../../storage/raw/manifest.html"><strong aria-hidden="true">3.1.4.</strong> CODEX-MANIFEST</a></li><li class="chapter-item expanded "><a href="../../storage/raw/codex-store.html"><strong aria-hidden="true">3.1.5.</strong> CODEX-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dataset-store.html"><strong aria-hidden="true">3.1.6.</strong> DATASET-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/datasets.html"><strong aria-hidden="true">3.1.7.</strong> DATASETS</a></li><li class="chapter-item expanded "><a href="../../storage/raw/merkle-tree.html"><strong aria-hidden="true">3.1.8.</strong> MERKLE-TREE</a></li></ol></li><li class="chapter-item expanded "><a href="../../storage/deprecated/index.html"><strong aria-hidden="true">3.2.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/deprecated/erasure-coding.html"><strong aria-hidden="true">3.2.1.</strong> CODEX-ERASUE-CODING</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-marketplace.html"><strong aria-hidden="true">3.2.2.</strong> CODEX-MARKETPLACE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-merkle-tree.html"><strong aria-hidden="true">3.2.3.</strong> CODEX-MERKLE-TREE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-prover.html"><strong aria-hidden="true">3.2.4.</strong> CODEX-PROVER</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/slot-buIlder.html"><strong aria-hidden="true">3.2.5.</strong> CODEX-SLOT-BUILDER</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../ift-ts/index.html"><strong aria-hidden="true">4.</strong> IFT-TS</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../ift-ts/raw/index.html"><strong aria-hidden="true">4.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../ift-ts/raw/1/coss.html"><strong aria-hidden="true">4.1.1.</strong> 1/COSS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/2/mvds.html"><strong aria-hidden="true">4.1.2.</strong> 2/MVDS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/3/remote-log.html"><strong aria-hidden="true">4.1.3.</strong> 3/REMOTE-LOG</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/4/mvds-meta.html"><strong aria-hidden="true">4.1.4.</strong> 4/MVDS-META</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/25/libp2p-dns-discovery.html"><strong aria-hidden="true">4.1.5.</strong> 25/LIBP2P-DNS-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/32/rln-v1.html"><strong aria-hidden="true">4.1.6.</strong> 32/RLN-V1</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/decentralized-mls-offchain-consensus.html"><strong aria-hidden="true">4.1.7.</strong> DECENTRALIZED-MLS-OFFCHAIN-CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/decentralized-messaging-ethereum.html"><strong aria-hidden="true">4.1.8.</strong> ETH-DCGKA</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/eth-mls-onchain.html"><strong aria-hidden="true">4.1.9.</strong> ETH-MLS-ONCHAIN</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/deleted/eth-secpm.html"><strong aria-hidden="true">4.1.10.</strong> ETH-SECPM</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/extended-kad-disco.html"><strong aria-hidden="true">4.1.11.</strong> EXTENDED-KADEMLIA-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/extensible-peer-records.html"><strong aria-hidden="true">4.1.12.</strong> EXTENSIBLE-PEER-RECORDS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/gossipsub-tor-push.html"><strong aria-hidden="true">4.1.13.</strong> GOSSIPSUB-TOR-PUSH</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/consensus-hashgraphlike.html"><strong aria-hidden="true">4.1.14.</strong> HASHGRAPHLIKE CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/logos-service-discovery.html"><strong aria-hidden="true">4.1.15.</strong> LOGOS-SERVICE-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/mix.html"><strong aria-hidden="true">4.1.16.</strong> MIX</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/multi-message_id-burn-rln.html"><strong aria-hidden="true">4.1.17.</strong> Multi-message_id Burn RLN</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/noise-x3dh-double-ratchet.html"><strong aria-hidden="true">4.1.18.</strong> NOISE-X3DH-DOUBLE-RATCHET</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/payment-streams.html" class="active"><strong aria-hidden="true">4.1.19.</strong> PAYMENT-STREAMS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/mix-spam-protection-rln.html"><strong aria-hidden="true">4.1.20.</strong> RLN DoS Protection for Mixnet</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/rln-interep-spec.html"><strong aria-hidden="true">4.1.21.</strong> RLN-INTEREP-SPEC</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/rln-stealth-commitments.html"><strong aria-hidden="true">4.1.22.</strong> RLN-STEALTH-COMMITMENTS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/rln-v2.html"><strong aria-hidden="true">4.1.23.</strong> RLN-V2</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/sds.html"><strong aria-hidden="true">4.1.24.</strong> SDS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/status-rln-deployment.html"><strong aria-hidden="true">4.1.25.</strong> STATUS-RLN-DEPLOYMENT</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/zerokit-api.html"><strong aria-hidden="true">4.1.26.</strong> Zerokit API</a></li></ol></li><li class="chapter-item expanded "><a href="../../ift-ts/template.html"><strong aria-hidden="true">4.2.</strong> TEMPLATE</a></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Logos LIP</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/logos-co/logos-lips" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="payment-streams"><a class="header" href="#payment-streams">PAYMENT-STREAMS</a></h1>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
+<tr><td>Name</td><td>Payment Streams Protocol for Logos Services</td></tr>
+<tr><td>Slug</td><td>155</td></tr>
+<tr><td>Status</td><td>raw</td></tr>
+<tr><td>Category</td><td>Standards Track</td></tr>
+<tr><td>Editor</td><td>Sergei Tikhomirov <a href="mailto:sergei@status.im">sergei@status.im</a></td></tr>
+<tr><td>Contributors</td><td>Akhil Peddireddy <a href="mailto:akhil@status.im">akhil@status.im</a></td></tr>
+</tbody></table>
+</div><!-- timeline:start -->
+<h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
+<ul>
+<li><strong>2026-03-18</strong> — <a href="https://github.com/logos-co/logos-lips/blob/e07c655a1fb86b46c99c3dd164a29438ab093b49/docs/ift-ts/raw/payment-streams.md"><code>e07c655</code></a> — Chore: move and fix header for payment streams spec (#295)</li>
+<li><strong>2026-02-24</strong> — <a href="https://github.com/logos-co/logos-lips/blob/14fd5c09ccb76cb36ebb6a4b6c8082850172d330/vac/raw/payment-streams.md"><code>14fd5c0</code></a> — docs: add payment streams raw spec (#224)</li>
+</ul>
+<!-- timeline:end -->
+<h2 id="abstract"><a class="header" href="#abstract">Abstract</a></h2>
+<p>This document provides a functional specification
+for a payment streams protocol for Logos services.</p>
+<p>A payment stream is an off-chain protocol
+where a payer's deposit releases gradually to a payee.
+The blockchain determines fund accrual based on elapsed time.</p>
+<p>This specification defines stream-backed eligibility proof types
+for the incentivization framework
+defined in the incentivization specification
+(see <a href="#references">References</a>).
+The incentivization specification is defined
+in the context of Logos Messaging request-response protocols.
+This specification can be extended to non-Messaging services.</p>
+<p>The protocol targets Logos blockchain,
+which includes the Logos Execution Zone (LEZ).
+This document clarifies MVP requirements
+and facilitates discussion with Logos blockchain and LEZ developers
+on implementation feasibility and challenges.</p>
+<h2 id="language"><a class="header" href="#language">Language</a></h2>
+<p>The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+"SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL"
+in this document are to be interpreted as described in
+<a href="http://tools.ietf.org/html/rfc2119">RFC 2119</a>.</p>
+<h2 id="change-process"><a class="header" href="#change-process">Change Process</a></h2>
+<p>This document is governed by the <a href="./1/coss.html">1/COSS</a> (COSS).</p>
+<h2 id="motivation"><a class="header" href="#motivation">Motivation</a></h2>
+<p>Logos is a privacy-focused tech stack that includes
+Logos Messaging, Logos Blockchain, and Logos Storage.</p>
+<p>Logos Messaging comprises a suite of communication protocols
+with both P2P and request-response structures.
+The backbone P2P protocols use tit-for-tat mechanisms.
+Incentivization is introduced
+for auxiliary request-response protocols
+with well-defined user and provider roles.
+One such protocol is Store,
+which allows users to query historical messages
+from Logos Messaging relay nodes.</p>
+<p>This specification introduces a payment streams protocol
+for Store and other request-response protocols.
+The protocol targets the following requirements:</p>
+<ul>
+<li>Performance: Efficient payments with low latency and fees.</li>
+<li>Security: Limited loss exposure through spending controls.</li>
+<li>Privacy: On-chain deposit identity unlinkable to off-chain service requests.</li>
+<li>Extendability: Simple initial design with room for enhancements.</li>
+</ul>
+<p>After reviewing prior work on payment channels, streams,
+e-cash, and tickets,
+payment streams were selected as the most suitable mechanism.</p>
+<p>Payment streams enable unidirectional time-based fund flows
+from payer to payee.
+Streams are simpler than alternatives
+and map well to use cases with distinct roles.
+Parties need not store old states or initiate disputes
+as required in payment channel protocols.
+Streams avoid relying on a centralized mint entity,
+typical for e-cash and ticket protocols,
+improving resilience and privacy.</p>
+<p>Different service patterns suit different payment mechanisms.
+Ongoing services align well with streams
+that provide time-based automatic fund accrual.
+One-time or on-demand services suit
+payment channels with one-off payments.</p>
+<p>This specification targets streams
+for services with steady usage patterns.
+Addressing burst services with one-off payments
+remains future work.</p>
+<p>Logos blockchain uses the Logos Execution Zone (LEZ),
+which enables both transparent and shielded execution.
+LEZ is a natural fit
+for the on-chain component of the payment protocol.</p>
+<p>This document facilitates discussion with Logos developers on
+whether the required functionality can be implemented,
+which parts are most challenging and how to simplify them,
+and other implementation considerations.</p>
+<h2 id="theory-and-semantics"><a class="header" href="#theory-and-semantics">Theory and Semantics</a></h2>
+<h3 id="architecture-overview"><a class="header" href="#architecture-overview">Architecture Overview</a></h3>
+<p>The protocol has two roles:</p>
+<ul>
+<li>User: the party paying for services (payer).</li>
+<li>Provider: the party delivering services and receiving payment (payee).</li>
+</ul>
+<p>The protocol uses a two-level architecture
+of vaults and streams.</p>
+<p>A vault holds a user's deposit and backs multiple streams.
+A user MAY have multiple vaults.
+One vault MAY back streams to different providers.
+To start using the protocol,
+the user MUST deposit funds into a vault.
+The user MAY withdraw unallocated funds from the vault at any time.
+Vault withdrawals send funds to addresses,
+which MAY be external addresses or other vaults.
+Allocating funds from a vault to a stream
+is not considered a withdrawal,
+as the funds remain within the protocol.</p>
+<p>A stream is an individual payment flow from a vault to one provider.
+When creating a stream,
+the user MUST allocate a portion of vault funds to that stream.
+Each stream MUST belong to exactly one vault.
+Each stream MUST specify an accrual rate (tokens per time unit).
+An allocation is the portion of vault funds committed to a stream.
+The sum of all stream allocations MUST NOT exceed the vault balance.</p>
+<p>A claim is the operation
+where the provider retrieves accrued funds from a stream.
+The provider MAY claim accrued funds from a stream in any state.
+A claim MUST transfer the full accrued balance to the provider.</p>
+<h3 id="stream-lifecycle"><a class="header" href="#stream-lifecycle">Stream Lifecycle</a></h3>
+<p>Stream states:</p>
+<ul>
+<li>ACTIVE: Funds accrue to the provider at the agreed rate.</li>
+<li>PAUSED: Accrual is stopped.
+The stream transitions to PAUSED by user action
+or automatically when allocated funds are fully accrued.
+The user MAY resume the stream.</li>
+<li>CLOSED: Stream is permanently terminated.
+The stream MUST NOT transition to any other state.</li>
+</ul>
+<p>Stream state transitions:</p>
+<ul>
+<li>Create: User creates a stream in ACTIVE state
+by allocating funds from the vault.</li>
+<li>Pause: User pauses an ACTIVE stream, stopping accrual.
+The stream also transitions automatically from ACTIVE to PAUSED
+when allocated funds are fully accrued.</li>
+<li>Resume: User resumes a PAUSED stream, restarting accrual.
+Resume MUST fail if remaining allocation is zero.</li>
+<li>Top-Up: User MAY add funds to stream allocation.
+Top-up MUST transition the stream to ACTIVE state.
+If the user wants to add funds without resuming,
+the user MUST pause the stream after top-up.</li>
+<li>Close: Either user or provider MAY close the stream
+from any non-CLOSED state.
+When a stream is closed,
+unaccrued funds MUST automatically return to the user's vault.
+Accrued funds remain available for the provider to claim.</li>
+<li>Claim: Provider MAY claim accrued funds from a stream in any state.
+A claim MUST transfer the full accrued balance;
+partial claims are not supported.
+A claim operation does not change stream state.</li>
+</ul>
+<h3 id="stream-state-transition-diagram"><a class="header" href="#stream-state-transition-diagram">Stream State Transition Diagram</a></h3>
+<pre><code class="language-mermaid">graph LR;
+    ACTIVE --&gt;|pause / deplete| PAUSED;
+    PAUSED --&gt;|resume / top-up| ACTIVE;
+    ACTIVE --&gt;|close| CLOSED;
+    PAUSED --&gt;|close| CLOSED;
+</code></pre>
+<h3 id="assumptions"><a class="header" href="#assumptions">Assumptions</a></h3>
+<p>Parties MUST agree on stream parameters before creation.
+A separate discovery protocol SHOULD enable
+providers to advertise services and accepted payment terms.</p>
+<p>The provider SHOULD announce
+accepted eligibility proof types and service parameters
+via the discovery protocol.</p>
+<p>The following is an informal list of discoverable parameters
+(to be formally defined in the context of the discovery specification):</p>
+<ul>
+<li>accepted eligibility proof types</li>
+<li>accepted tokens</li>
+<li>required rate (tokens per time unit)</li>
+<li>minimum allocation</li>
+<li>required vault buffer percentage (RECOMMENDED default: 5%)</li>
+<li>load cap (cumulative resource limit per stream per time window)</li>
+<li><code>VaultProof</code> response cap
+(maximum response size for <code>VaultProof</code>-backed requests)</li>
+<li><code>max_open_stream_window</code> (RECOMMENDED default: 300 seconds)
+(maximum acceptable duration
+between receiving a <code>StreamProposal</code> and stream establishment)</li>
+</ul>
+<p>Users SHOULD monitor service delivery
+and take action when providers stop delivering service.
+Since users are typically online to receive service,
+monitoring quality and pausing or closing streams
+is a reasonable expectation.</p>
+<p>Providers SHOULD monitor the stream on-chain
+and SHOULD stop providing service when a stream is not <code>ACTIVE</code>.</p>
+<h2 id="off-chain-protocol"><a class="header" href="#off-chain-protocol">Off-Chain Protocol</a></h2>
+<p>This section describes off-chain communication
+for stream establishment, service delivery, and termination.</p>
+<h3 id="design-rationale"><a class="header" href="#design-rationale">Design Rationale</a></h3>
+<p>On-chain state is the source of truth for fund allocation and accrual.
+Off-chain communication coordinates lifecycle events
+and enables service delivery.</p>
+<p>This specification does not redefine the service provision protocol.
+The incentivization specification (see <a href="#references">References</a>)
+defines the generic request-response framework
+with <code>EligibilityProof</code> and <code>EligibilityStatus</code>.
+This specification extends <code>EligibilityProof</code>
+with two new types for stream-backed service provision,
+defined in the following subsection.</p>
+<h3 id="eligibility-proof-types"><a class="header" href="#eligibility-proof-types">Eligibility Proof Types</a></h3>
+<p>The incentivization specification's <code>EligibilityProof</code>
+is extended with two new optional fields:
+<code>stream_proposal</code> and <code>stream_proof</code>.
+These fields are mutually exclusive.
+The first <code>ServiceRequest</code> MUST use <code>stream_proposal</code>;
+its semantics: "I want to open a stream to you
+with these parameters;
+here is proof I have a vault to back it;
+here is my first request."
+All subsequent requests MUST use <code>stream_proof</code>.</p>
+<pre><code class="language-protobuf">message EligibilityProof {
+  // existing, from incentivization specification
+  optional bytes proof_of_payment = 1;
+  // new, for stream-backed service provision
+  optional bytes stream_proposal = 2;
+  optional bytes stream_proof = 3;
+}
+</code></pre>
+<h4 id="streamproposal"><a class="header" href="#streamproposal">StreamProposal</a></h4>
+<pre><code class="language-protobuf">message StreamProposal {
+  VaultProof vault_proof = 1;
+  StreamParams stream_params = 2;
+  bytes public_key = 3;  // key for signing subsequent service requests
+}
+</code></pre>
+<h4 id="vaultproof"><a class="header" href="#vaultproof">VaultProof</a></h4>
+<p>A <code>VaultProof</code> proves that the user controls a vault
+with sufficient unallocated funds
+to back the proposed stream.</p>
+<pre><code class="language-protobuf">message VaultProof {
+  bytes vault_id = 1;           // on-chain identifier of the vault
+  bytes provider_id = 2;        // target provider (prevents replay)
+  uint64 balance_commitment = 3; // asserted unallocated balance
+  bytes owner_signature = 4;    // signature covering all fields above
+}
+</code></pre>
+<p>The provider SHOULD verify on-chain
+that the vault's unallocated balance is at least
+<code>stream_allocation * (1 + buffer)</code>,
+where <code>stream_allocation</code> is from the accompanying <code>StreamParams</code>
+and <code>buffer</code> is the provider's required vault buffer percentage
+(RECOMMENDED default: 5%).</p>
+<p>The user MAY issue <code>VaultProof</code>s to multiple providers.
+The user MUST ensure that issuing a new <code>VaultProof</code>
+does not cause the total of all promised <code>VaultProof</code> allocations
+from this vault
+to exceed the vault's unallocated balance.</p>
+<h4 id="streamparams"><a class="header" href="#streamparams">StreamParams</a></h4>
+<p><code>StreamParams</code> contains proposed stream parameters.</p>
+<pre><code class="language-protobuf">message StreamParams {
+  bytes service_id = 1;              // identifier of the requested service
+  uint64 stream_rate = 2;           // proposed accrual rate (tokens per time unit)
+  uint64 stream_allocation = 3;     // proposed initial allocation
+  uint64 open_stream_by = 4;   // stream establishment deadline (absolute timestamp)
+}
+</code></pre>
+<p>The <code>open_stream_by</code> field is an absolute timestamp
+by which the user commits to establishing the stream on-chain.
+The user MUST set <code>open_stream_by</code> to a future timestamp
+no later than the current time plus <code>max_open_stream_window</code>.</p>
+<h4 id="streamproof"><a class="header" href="#streamproof">StreamProof</a></h4>
+<p>A <code>StreamProof</code> links a request to an active on-chain stream.</p>
+<pre><code class="language-protobuf">message StreamProof {
+  bytes stream_id = 1;    // on-chain identifier of the stream
+  bytes signature = 2;    // signature over request_data using committed public_key
+}
+</code></pre>
+<p>The provider SHOULD verify on-chain
+that the stream is <code>ACTIVE</code>,
+that the signature matches the committed <code>public_key</code>,
+and that the stream parameters match
+those originally proposed.</p>
+<h3 id="message-types"><a class="header" href="#message-types">Message Types</a></h3>
+<p>The off-chain protocol uses three message types:
+<code>ServiceRequest</code>, <code>ServiceResponse</code>, and <code>ServiceTermination</code>.</p>
+<h4 id="servicerequest"><a class="header" href="#servicerequest">ServiceRequest</a></h4>
+<p>A <code>ServiceRequest</code> has two top-level fields,
+consistent with the incentivization specification pattern:</p>
+<ul>
+<li><code>request_data</code>: service-specific payload</li>
+<li><code>eligibility_proof</code>: an <code>EligibilityProof</code>
+containing either a <code>stream_proposal</code> or a <code>stream_proof</code>
+(see <a href="#eligibility-proof-types">Eligibility Proof Types</a>)</li>
+</ul>
+<h4 id="serviceresponse"><a class="header" href="#serviceresponse">ServiceResponse</a></h4>
+<p>A <code>ServiceResponse</code> MUST include:</p>
+<ul>
+<li><code>eligibility_status</code>: an <code>EligibilityStatus</code>
+(from the incentivization specification) with:
+<ul>
+<li><code>status_code</code>: indicating acceptance,
+parameter rejection, proof invalidity, etc.</li>
+<li><code>status_desc</code>: human-readable description
+(RECOMMENDED to include actionable guidance
+on parameter rejection)</li>
+</ul>
+</li>
+<li><code>response_data</code>: service-specific payload
+(included if and only if the request is served)</li>
+</ul>
+<p>Status codes specific to this specification:</p>
+<ul>
+<li><code>OK</code>: request served</li>
+<li><code>PARAMS_REJECTED</code>: stream parameters unacceptable;
+<code>VaultProof</code> NOT marked as spent;
+user MAY retry with adjusted parameters</li>
+<li><code>PROOF_INVALID</code>: <code>VaultProof</code> or <code>StreamProof</code> verification failed</li>
+<li><code>STREAM_NOT_ACTIVE</code>: referenced stream
+is no longer active on-chain</li>
+</ul>
+<p>The provider SHOULD limit parameter-rejection retries
+to a RECOMMENDED maximum of 5 per vault
+within a RECOMMENDED time window of 600 seconds.</p>
+<h4 id="servicetermination"><a class="header" href="#servicetermination">ServiceTermination</a></h4>
+<p>The provider SHOULD send a <code>ServiceTermination</code> message
+before stopping service.
+A <code>ServiceTermination</code> message MAY be sent regardless of whether
+a stream has been established on-chain.</p>
+<p>This message MUST include:</p>
+<ul>
+<li><code>termination_type</code>: <code>TEMPORARY</code> or <code>PERMANENT</code></li>
+<li><code>resume_after</code>: timestamp after which service MAY resume
+(REQUIRED for <code>TEMPORARY</code>, empty for <code>PERMANENT</code>)</li>
+</ul>
+<p>For temporary termination,
+the user MAY pause the stream until the <code>resume_after</code> time.
+For permanent termination,
+the user SHOULD close the stream to recover unaccrued funds.</p>
+<h3 id="protocol-flow"><a class="header" href="#protocol-flow">Protocol Flow</a></h3>
+<ol>
+<li>
+<p>The user discovers a provider via the discovery protocol.
+The provider's advertisement includes
+accepted eligibility types and service parameters.</p>
+</li>
+<li>
+<p>The user sends the first <code>ServiceRequest</code>
+with <code>eligibility_proof</code> containing a <code>StreamProposal</code>
+(<code>VaultProof</code> + <code>StreamParams</code> + <code>public_key</code>)
+and <code>request_data</code>.</p>
+</li>
+<li>
+<p>The provider verifies <code>VaultProof</code> on-chain
+and evaluates <code>StreamParams</code>:</p>
+<ul>
+<li>If parameters are unacceptable:
+the provider responds with <code>PARAMS_REJECTED</code>.
+The <code>VaultProof</code> is not marked as spent.
+The user MAY retry with adjusted <code>StreamParams</code>.</li>
+<li>If the proof is invalid:
+the provider responds with <code>PROOF_INVALID</code>.</li>
+<li>If accepted:
+the provider serves the request immediately,
+responding with <code>OK</code> and <code>response_data</code>.
+The provider notes the pending session.
+The provider SHOULD limit this response
+to the advertised <code>VaultProof</code> response cap.</li>
+</ul>
+</li>
+<li>
+<p>The user creates the stream on-chain
+before <code>open_stream_by</code>.</p>
+</li>
+<li>
+<p>The user sends subsequent <code>ServiceRequest</code>s
+with <code>eligibility_proof</code> containing a <code>StreamProof</code>.</p>
+</li>
+<li>
+<p>The provider monitors the chain for a matching stream.
+If no matching stream appears by <code>open_stream_by</code>,
+the provider SHOULD discard the session
+and release planned capacity.
+If the stream is established before <code>open_stream_by</code>,
+the first <code>StreamProof</code>-backed request
+MAY arrive after <code>open_stream_by</code>.</p>
+</li>
+</ol>
+<p>A user MUST NOT have more than one pending
+<code>StreamProposal</code>-backed session per vault-provider pair at a time.
+To open multiple streams to the same provider,
+the user MUST complete each stream establishment
+before initiating the next.
+If the vault is drained between <code>VaultProof</code> verification
+and stream creation, this constitutes a protocol violation;
+the provider SHOULD send a <code>ServiceTermination</code>
+with <code>termination_type</code> <code>PERMANENT</code>.</p>
+<h2 id="protocol-extensions"><a class="header" href="#protocol-extensions">Protocol Extensions</a></h2>
+<p>This section describes optional modifications
+that MAY be applied to the base protocol.
+Each extension is independent.</p>
+<h3 id="auto-pause"><a class="header" href="#auto-pause">Auto-Pause</a></h3>
+<p>The user MAY specify an auto-pause duration when creating a stream.
+When the specified duration elapses since stream creation or last resume,
+the stream MUST automatically transition to PAUSED state.
+The user MAY resume the stream, resetting the auto-pause timer.</p>
+<p>Auto-pause limits loss if service stops and the user is offline.
+Per-stream allocation already bounds total risk;
+auto-pause adds periodic check-ins for long-running streams.</p>
+<h3 id="delivery-receipts"><a class="header" href="#delivery-receipts">Delivery Receipts</a></h3>
+<p>The claim operation MAY require delivery receipts as proof of service.
+A delivery receipt is a user-signed message that MUST include
+stream identifier, service delivery details, and signature.
+If a stream has delivery receipts enabled,
+the protocol MUST only allow claims with valid receipts.</p>
+<p>Receipt granularity presents a trade-off.
+Per-message receipts allow the user to approve each message individually
+but require signing each receipt, increasing interaction overhead.
+Batched receipts reduce signing overhead
+but require the user to approve multiple messages at once.</p>
+<h3 id="automatic-claim-on-closure"><a class="header" href="#automatic-claim-on-closure">Automatic Claim on Closure</a></h3>
+<p>This extension adds an optional auto-claim flag.
+When auto-claim is enabled,
+closing the stream MUST automatically claim accrued funds for the provider.</p>
+<p>Auto-claim simplifies the protocol
+by ensuring closed streams hold no funds,
+eliminating the need to track balances in closed streams.</p>
+<p>However, auto-claim has potential issues:</p>
+<ul>
+<li>Prevents provider from batching claims.</li>
+<li>May create timing correlations that leak privacy.</li>
+<li>Requires user to pay for provider's claim operation.</li>
+<li>May cause the entire close operation to fail if claim fails.</li>
+</ul>
+<p>Assessing these trade-offs requires clarity on LEZ,
+particularly gas model, batching techniques, and timing privacy.</p>
+<h3 id="activation-fee"><a class="header" href="#activation-fee">Activation Fee</a></h3>
+<p>A user can exploit the pause/resume mechanism
+by keeping a stream paused
+and resuming briefly only when querying a service.
+This results in minimal payment for actual service usage.</p>
+<p>The activation fee addresses this attack.
+When the activation fee is enabled,
+a fixed amount MUST accrue to the provider
+immediately upon the stream becoming <code>ACTIVE</code>.
+The activation fee SHOULD reflect
+the minimum acceptable payment for a service session.
+The activation fee applies to stream creation, resume, and top-up operations,
+as only user actions transition a stream to <code>ACTIVE</code> state.
+If stream allocation is lower than activation fee,
+stream activation MUST fail.</p>
+<p>Providers MAY alternatively address this attack via off-chain policy
+by refusing service to users who pause and resume excessively.</p>
+<h3 id="load-cap"><a class="header" href="#load-cap">Load Cap</a></h3>
+<p>A load cap represents
+cumulative resource consumption per stream per time window
+(e.g. total bytes or requests per minute).
+It applies to the entire stream session,
+not to individual responses.
+The provider SHOULD advertise the load cap
+via the discovery protocol.</p>
+<p>For <code>VaultProof</code>-backed requests (the first <code>ServiceRequest</code>),
+the provider SHOULD advertise a separate <code>VaultProof</code> response cap:
+the maximum response size for a single <code>VaultProof</code>-backed response.
+This limits provider exposure
+to requests not yet backed by an on-chain stream.</p>
+<p>The user MUST NOT exceed the applicable cap.
+If the user exceeds it,
+the provider SHOULD terminate service.</p>
+<p>A user who requires a higher load cap
+SHOULD open multiple streams to the same provider.</p>
+<h3 id="multi-round-stream-parameter-negotiation"><a class="header" href="#multi-round-stream-parameter-negotiation">Multi-round Stream Parameter Negotiation</a></h3>
+<p>A future extension MAY allow the provider
+to include counter-proposed parameters
+in a <code>PARAMS_REJECTED</code> response,
+enabling iterative negotiation
+before the first request is served.</p>
+<h2 id="implementation-considerations"><a class="header" href="#implementation-considerations">Implementation Considerations</a></h2>
+<p>This section outlines how the protocol maps onto LEZ.</p>
+<p>The stream protocol MAY be deployed as an LEZ program
+with three account types:</p>
+<ul>
+<li>StreamDefinition: stream parameters and status.</li>
+<li>VaultDefinition: list of streams backed by a vault, controlled by payer.</li>
+<li>VaultHolding: token account funded by payer, used to pay providers.</li>
+</ul>
+<p>Stream lifecycle rules and balance constraints
+are encoded and enforced through program logic.</p>
+<p>Stream state is evaluated lazily.
+On-chain storage holds stream parameters,
+but the effective state depends on the block timestamp at execution time.
+State transitions (such as auto-pause) are reflected on-chain
+only when an on-chain operation is executed.</p>
+<p>Whether shielded execution can access block timestamps
+for time-based accrual calculation is an open question.
+Given a mechanism for elapsed time in shielded execution,
+all protocol operations MAY be performed within shielded execution.</p>
+<h2 id="security-and-privacy-considerations"><a class="header" href="#security-and-privacy-considerations">Security and Privacy Considerations</a></h2>
+<p>An initial privacy goal is unlinkability
+between off-chain requests and on-chain funding.
+Vault deposits MUST NOT reveal the depositor's identity.
+Stream creation SHOULD NOT reveal which vault funded the stream.</p>
+<p>Each account MAY be public or private, configured per-account.
+The payer decides whether stream operations use
+transparent or shielded execution.
+The protocol design SHOULD NOT fix this decision.
+A provider MAY reject stream requests
+that do not match their privacy preferences.</p>
+<p>On-chain state of a stream MUST be verifiable by both parties.</p>
+<h2 id="copyright"><a class="header" href="#copyright">Copyright</a></h2>
+<p>Copyright and related rights waived via <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>.</p>
+<h2 id="references"><a class="header" href="#references">References</a></h2>
+<h3 id="normative"><a class="header" href="#normative">Normative</a></h3>
+<ul>
+<li><a href="https://github.com/logos-messaging/specs/blob/master/standards/core/incentivization.md">Incentivization for Waku Light Protocols</a></li>
+</ul>
+<h3 id="informative"><a class="header" href="#informative">Informative</a></h3>
+<h4 id="related-work"><a class="header" href="#related-work">Related Work</a></h4>
+<ul>
+<li><a href="https://forum.vac.dev/t/off-chain-payment-protocols-classification-and-architectural-choice/596">Off-Chain Payment Protocols: Classification and Architectural Choice</a></li>
+<li><a href="https://github.com/logos-blockchain/logos-execution-zone">Logos Execution Zone</a></li>
+</ul>
+<h4 id="payment-streaming-protocols"><a class="header" href="#payment-streaming-protocols">Payment Streaming Protocols</a></h4>
+<p>Existing payment streaming protocols
+(Sablier Flow, Sablier Lockup, LlamaPay V2, Superfluid)
+target EVM-like state architectures.
+They use time-based accrual with ERC-20 tokens.
+Protocols differ in stream duration.
+Some support fixed-duration streams (Sablier Lockup),
+while others allow open-ended streams (Sablier Flow).
+Deposit architecture also varies.
+Singleton managers (Sablier Flow, Sablier Lockup)
+require separate deposits per stream.
+Per-payer vaults (LlamaPay V2)
+allow one deposit to back multiple streams.</p>
+<ul>
+<li><a href="https://github.com/sablier-labs/flow">Sablier Flow</a></li>
+<li><a href="https://github.com/sablier-labs/lockup">Sablier Lockup</a></li>
+<li><a href="https://github.com/LlamaPay/llamapay-v2">LlamaPay V2</a></li>
+<li><a href="https://github.com/superfluid-org/protocol-monorepo">Superfluid Protocol</a></li>
+</ul>
+<h2 id="appendix-a-illustrative-evm-implementation"><a class="header" href="#appendix-a-illustrative-evm-implementation">Appendix A: Illustrative EVM Implementation</a></h2>
+<p>This appendix provides an illustrative EVM-based implementation outline.
+The actual implementation will target LEZ.</p>
+<h3 id="a1-contract-structure"><a class="header" href="#a1-contract-structure">A.1 Contract Structure</a></h3>
+<pre><code class="language-solidity">contract PaymentVault {
+    enum StreamState { ACTIVE, PAUSED, CLOSED }
+
+    struct Stream {
+        address token;
+        address provider;
+        uint128 ratePerSecond;
+        uint128 allocation;
+        uint64  lastUpdatedAt;
+        uint128 accruedBalance;
+        StreamState state;
+    }
+
+    address public user;
+    mapping(address token =&gt; uint256) public vaultBalance;
+    uint256 public nextStreamId;
+    mapping(uint256 =&gt; Stream) public streams;
+}
+</code></pre>
+<h3 id="a2-vault-operations"><a class="header" href="#a2-vault-operations">A.2 Vault Operations</a></h3>
+<pre><code class="language-solidity">event Deposited(address indexed token, uint256 amount);
+event Withdrawn(address indexed token, uint256 amount, address indexed to);
+
+function deposit(address token, uint256 amount) external;
+function withdraw(address token, uint256 amount, address to) external;
+</code></pre>
+<h3 id="a3-stream-lifecycle"><a class="header" href="#a3-stream-lifecycle">A.3 Stream Lifecycle</a></h3>
+<pre><code class="language-solidity">event StreamCreated(
+    uint256 indexed streamId,
+    address indexed provider,
+    address indexed token,
+    uint128 ratePerSecond,
+    uint128 allocation
+);
+event StreamPaused(uint256 indexed streamId);
+event StreamResumed(uint256 indexed streamId);
+event StreamToppedUp(uint256 indexed streamId, uint128 additionalAllocation);
+event StreamClosed(uint256 indexed streamId, uint128 refundedToVault);
+event Claimed(uint256 indexed streamId, address indexed provider, uint128 amount);
+
+/// @notice Create a new stream in ACTIVE state (user only)
+/// @dev MUST revert if allocation exceeds available vault balance
+function createStream(
+    address provider,
+    address token,
+    uint128 ratePerSecond,
+    uint128 allocation
+) external returns (uint256 streamId);
+
+/// @notice Pause an ACTIVE stream (user only)
+function pauseStream(uint256 streamId) external;
+
+/// @notice Resume a PAUSED stream (user only)
+/// @dev MUST revert if remaining allocation (allocation - accruedBalance) is zero
+function resumeStream(uint256 streamId) external;
+
+/// @notice Add funds to stream allocation; transitions to ACTIVE (user only)
+/// @dev MUST revert if additionalAllocation exceeds available vault balance
+function topUpStream(uint256 streamId, uint128 additionalAllocation) external;
+
+/// @notice Close stream permanently
+/// @dev Callable by user or provider. Unaccrued funds (allocation - accruedBalance)
+///      MUST be returned to vaultBalance. Accrued funds remain claimable by provider.
+function closeStream(uint256 streamId) external;
+
+/// @notice Provider claims accrued funds from a stream
+/// @dev Callable in any state (ACTIVE, PAUSED, or CLOSED).
+///      Transfers full accruedBalance to provider and resets it to zero.
+function claim(uint256 streamId) external;
+</code></pre>
+<h3 id="a4-internal-accrual"><a class="header" href="#a4-internal-accrual">A.4 Internal Accrual</a></h3>
+<pre><code class="language-solidity">/// @notice Update accruedBalance based on elapsed time since lastUpdatedAt
+/// @dev Called by pauseStream, resumeStream, topUpStream, closeStream, and claim
+///      before modifying stream state. Caps accrual at allocation and
+///      transitions to PAUSED when fully accrued (lazy evaluation:
+///      state updates on next interaction, not at exact depletion time).
+function _accrue(uint256 streamId) internal;
+</code></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../ift-ts/raw/noise-x3dh-double-ratchet.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../ift-ts/raw/mix-spam-protection-rln.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../ift-ts/raw/noise-x3dh-double-ratchet.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../ift-ts/raw/mix-spam-protection-rln.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../../theme/katex/katex.min.js"></script>
+        <script src="../../theme/katex/auto-render.min.js"></script>
+        <script src="../../scripts/katex-render.js"></script>
+        <script src="../../scripts/logos-lips.js"></script>
+
+
+    </div>
+    </body>
+</html>

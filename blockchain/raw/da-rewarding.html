@@ -1,0 +1,649 @@
+<!DOCTYPE HTML>
+<html lang="en" class="ayu" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>NOMOSDA-REWARDING - Logos LIP</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../highlight.css">
+        <link rel="stylesheet" href="../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../../theme/katex/katex.min.css">
+        <link rel="stylesheet" href="../../theme/fonts/fonts.css">
+        <link rel="stylesheet" href="../../theme/FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../custom.css">
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "ayu";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('ayu')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../../index.html">Introduction</a></li><li class="chapter-item expanded affix "><a href="../../about.html">About</a></li><li class="chapter-item expanded "><a href="../../messaging/index.html"><strong aria-hidden="true">1.</strong> Messaging</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/index.html"><strong aria-hidden="true">1.1.</strong> Standards - Core</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/10/waku2.html"><strong aria-hidden="true">1.1.1.</strong> 10/WAKU2</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/11/relay.html"><strong aria-hidden="true">1.1.2.</strong> 11/WAKU2-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/12/filter.html"><strong aria-hidden="true">1.1.3.</strong> 12/WAKU2-FILTER</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/12/previous-versions/00/filter.html"><strong aria-hidden="true">1.1.3.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/13/store.html"><strong aria-hidden="true">1.1.4.</strong> 13/WAKU2-STORE</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/core/13/previous-versions/00/store.html"><strong aria-hidden="true">1.1.4.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/14/message.html"><strong aria-hidden="true">1.1.5.</strong> 14/WAKU2-MESSAGE</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/15/bridge.html"><strong aria-hidden="true">1.1.6.</strong> 15/WAKU-BRIDGE</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/17/rln-relay.html"><strong aria-hidden="true">1.1.7.</strong> 17/WAKU2-RLN-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/19/lightpush.html"><strong aria-hidden="true">1.1.8.</strong> 19/WAKU2-LIGHTPUSH</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/31/enr.html"><strong aria-hidden="true">1.1.9.</strong> 31/WAKU2-ENR</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/33/discv5.html"><strong aria-hidden="true">1.1.10.</strong> 33/WAKU2-DISCV5</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/34/peer-exchange.html"><strong aria-hidden="true">1.1.11.</strong> 34/WAKU2-PEER-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/36/bindings-api.html"><strong aria-hidden="true">1.1.12.</strong> 36/WAKU2-BINDINGS-API</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/64/network.html"><strong aria-hidden="true">1.1.13.</strong> 64/WAKU2-NETWORK</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/core/66/metadata.html"><strong aria-hidden="true">1.1.14.</strong> 66/WAKU2-METADATA</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/index.html"><strong aria-hidden="true">1.2.</strong> Standards - Application</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/application/20/toy-eth-pm.html"><strong aria-hidden="true">1.2.1.</strong> 20/TOY-ETH-PM</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/26/payload.html"><strong aria-hidden="true">1.2.2.</strong> 26/WAKU2-PAYLOAD</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/53/x3dh.html"><strong aria-hidden="true">1.2.3.</strong> 53/WAKU2-X3DH</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/application/54/x3dh-sessions.html"><strong aria-hidden="true">1.2.4.</strong> 54/WAKU2-X3DH-SESSIONS</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/index.html"><strong aria-hidden="true">1.3.</strong> Standards - Legacy</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/6/waku1.html"><strong aria-hidden="true">1.3.1.</strong> 6/WAKU1</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/7/data.html"><strong aria-hidden="true">1.3.2.</strong> 7/WAKU-DATA</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/8/mail.html"><strong aria-hidden="true">1.3.3.</strong> 8/WAKU-MAIL</a></li><li class="chapter-item expanded "><a href="../../messaging/standards/legacy/9/rpc.html"><strong aria-hidden="true">1.3.4.</strong> 9/WAKU-RPC</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/informational/index.html"><strong aria-hidden="true">1.4.</strong> Informational</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/informational/22/toy-chat.html"><strong aria-hidden="true">1.4.1.</strong> 22/TOY-CHAT</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/23/topics.html"><strong aria-hidden="true">1.4.2.</strong> 23/WAKU2-TOPICS</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/27/peers.html"><strong aria-hidden="true">1.4.3.</strong> 27/WAKU2-PEERS</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/29/config.html"><strong aria-hidden="true">1.4.4.</strong> 29/WAKU2-CONFIG</a></li><li class="chapter-item expanded "><a href="../../messaging/informational/30/adaptive-nodes.html"><strong aria-hidden="true">1.4.5.</strong> 30/ADAPTIVE-NODES</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/index.html"><strong aria-hidden="true">1.5.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/deprecated/5/waku0.html"><strong aria-hidden="true">1.5.1.</strong> 5/WAKU0</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/16/rpc.html"><strong aria-hidden="true">1.5.2.</strong> 16/WAKU2-RPC</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/18/swap.html"><strong aria-hidden="true">1.5.3.</strong> 18/WAKU2-SWAP</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/fault-tolerant-store.html"><strong aria-hidden="true">1.5.4.</strong> 21/WAKU2-FAULT-TOLERANT-STORE</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/index.html"><strong aria-hidden="true">2.</strong> Blockchain</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/index.html"><strong aria-hidden="true">2.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-anonymous-leaders-reward.html"><strong aria-hidden="true">2.1.1.</strong> BEDROCK-ANONYMOUS-LEADERS-REWARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-architecture-overview.html"><strong aria-hidden="true">2.1.2.</strong> BEDROCK-ARCHITECTURE-OVERVIEW</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-genesis-block.html"><strong aria-hidden="true">2.1.3.</strong> BEDROCK-GENESIS-BLOCK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-declaration-protocol.html"><strong aria-hidden="true">2.1.4.</strong> BEDROCK-SERVICE-DECLARATION-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-reward-distribution.html"><strong aria-hidden="true">2.1.5.</strong> BEDROCK-SERVICE-REWARD-DISTRIBUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-block-construction.html"><strong aria-hidden="true">2.1.6.</strong> BEDROCK-V1-1-BLOCK-CONSTRUCTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-mantle-specification.html"><strong aria-hidden="true">2.1.7.</strong> BEDROCK-V1.1-MANTLE-SPECIFICATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/fork-choice.html"><strong aria-hidden="true">2.1.8.</strong> CRYPTARCHIA-FORK-CHOICE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-proof-of-leadership.html"><strong aria-hidden="true">2.1.9.</strong> CRYPTARCHIA-PROOF-OF-LEADERSHIP</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-total-stake-inference.html"><strong aria-hidden="true">2.1.10.</strong> CRYPTARCHIA-TOTAL-STAKE-INFERENCE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-v1-bootstr-sync.html"><strong aria-hidden="true">2.1.11.</strong> CRYPTARCHIA-V1-BOOTSTRAPPING-SYNCHRONIZATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-blend-protocol.html"><strong aria-hidden="true">2.1.12.</strong> NOMOS-BLEND-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-cryptarchia-v1-protocol.html"><strong aria-hidden="true">2.1.13.</strong> NOMOS-CRYPTARCHIA-V1-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomosda-network.html"><strong aria-hidden="true">2.1.14.</strong> NOMOS-DA-NETWORK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/digital-signature.html"><strong aria-hidden="true">2.1.15.</strong> NOMOS-DIGITAL-SIGNATURE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-key-types-and-generation.html"><strong aria-hidden="true">2.1.16.</strong> NOMOS-KEY-TYPES-GENERATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-encapsulation.html"><strong aria-hidden="true">2.1.17.</strong> NOMOS-MESSAGE-ENCAPSULATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-formatting.html"><strong aria-hidden="true">2.1.18.</strong> NOMOS-MESSAGE-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-network.html"><strong aria-hidden="true">2.1.19.</strong> NOMOS-P2P-NETWORK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-payload-formatting.html"><strong aria-hidden="true">2.1.20.</strong> NOMOS-PAYLOAD-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-proof-of-quota.html"><strong aria-hidden="true">2.1.21.</strong> NOMOS-PROOF-OF-QUOTA</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-wallet-technical-standard.html"><strong aria-hidden="true">2.1.22.</strong> NOMOS-WALLET-TECHNICAL-STANDARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-cryptographic-protocol.html"><strong aria-hidden="true">2.1.23.</strong> NOMOSDA-CRYPTOGRAPHIC-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-rewarding.html" class="active"><strong aria-hidden="true">2.1.24.</strong> NOMOSDA-REWARDING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-hardware-requirements.html"><strong aria-hidden="true">2.1.25.</strong> P2P-HARDWARE-REQUIREMENTS</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-nat-solution.html"><strong aria-hidden="true">2.1.26.</strong> P2P-NAT-SOLUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-network-bootstrapping.html"><strong aria-hidden="true">2.1.27.</strong> P2P-NETWORK-BOOTSTRAPPING</a></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/deprecated/index.html"><strong aria-hidden="true">2.2.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/deprecated/claro.html"><strong aria-hidden="true">2.2.1.</strong> CONSENSUS-CLARO</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../storage/index.html"><strong aria-hidden="true">3.</strong> Storage</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/index.html"><strong aria-hidden="true">3.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/codex-block-exchange.html"><strong aria-hidden="true">3.1.1.</strong> CODEX-BLOCK-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/community-history.html"><strong aria-hidden="true">3.1.2.</strong> CODEX-COMMUNITY-HISTORY</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dht.html"><strong aria-hidden="true">3.1.3.</strong> CODEX-DHT</a></li><li class="chapter-item expanded "><a href="../../storage/raw/manifest.html"><strong aria-hidden="true">3.1.4.</strong> CODEX-MANIFEST</a></li><li class="chapter-item expanded "><a href="../../storage/raw/codex-store.html"><strong aria-hidden="true">3.1.5.</strong> CODEX-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dataset-store.html"><strong aria-hidden="true">3.1.6.</strong> DATASET-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/datasets.html"><strong aria-hidden="true">3.1.7.</strong> DATASETS</a></li><li class="chapter-item expanded "><a href="../../storage/raw/merkle-tree.html"><strong aria-hidden="true">3.1.8.</strong> MERKLE-TREE</a></li></ol></li><li class="chapter-item expanded "><a href="../../storage/deprecated/index.html"><strong aria-hidden="true">3.2.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/deprecated/erasure-coding.html"><strong aria-hidden="true">3.2.1.</strong> CODEX-ERASUE-CODING</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-marketplace.html"><strong aria-hidden="true">3.2.2.</strong> CODEX-MARKETPLACE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-merkle-tree.html"><strong aria-hidden="true">3.2.3.</strong> CODEX-MERKLE-TREE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-prover.html"><strong aria-hidden="true">3.2.4.</strong> CODEX-PROVER</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/slot-buIlder.html"><strong aria-hidden="true">3.2.5.</strong> CODEX-SLOT-BUILDER</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../ift-ts/index.html"><strong aria-hidden="true">4.</strong> IFT-TS</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../ift-ts/raw/index.html"><strong aria-hidden="true">4.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../ift-ts/raw/1/coss.html"><strong aria-hidden="true">4.1.1.</strong> 1/COSS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/2/mvds.html"><strong aria-hidden="true">4.1.2.</strong> 2/MVDS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/3/remote-log.html"><strong aria-hidden="true">4.1.3.</strong> 3/REMOTE-LOG</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/4/mvds-meta.html"><strong aria-hidden="true">4.1.4.</strong> 4/MVDS-META</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/25/libp2p-dns-discovery.html"><strong aria-hidden="true">4.1.5.</strong> 25/LIBP2P-DNS-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/32/rln-v1.html"><strong aria-hidden="true">4.1.6.</strong> 32/RLN-V1</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/decentralized-mls-offchain-consensus.html"><strong aria-hidden="true">4.1.7.</strong> DECENTRALIZED-MLS-OFFCHAIN-CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/decentralized-messaging-ethereum.html"><strong aria-hidden="true">4.1.8.</strong> ETH-DCGKA</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/eth-mls-onchain.html"><strong aria-hidden="true">4.1.9.</strong> ETH-MLS-ONCHAIN</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/deleted/eth-secpm.html"><strong aria-hidden="true">4.1.10.</strong> ETH-SECPM</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/extended-kad-disco.html"><strong aria-hidden="true">4.1.11.</strong> EXTENDED-KADEMLIA-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/extensible-peer-records.html"><strong aria-hidden="true">4.1.12.</strong> EXTENSIBLE-PEER-RECORDS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/gossipsub-tor-push.html"><strong aria-hidden="true">4.1.13.</strong> GOSSIPSUB-TOR-PUSH</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/consensus-hashgraphlike.html"><strong aria-hidden="true">4.1.14.</strong> HASHGRAPHLIKE CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/logos-service-discovery.html"><strong aria-hidden="true">4.1.15.</strong> LOGOS-SERVICE-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/mix.html"><strong aria-hidden="true">4.1.16.</strong> MIX</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/multi-message_id-burn-rln.html"><strong aria-hidden="true">4.1.17.</strong> Multi-message_id Burn RLN</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/noise-x3dh-double-ratchet.html"><strong aria-hidden="true">4.1.18.</strong> NOISE-X3DH-DOUBLE-RATCHET</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/payment-streams.html"><strong aria-hidden="true">4.1.19.</strong> PAYMENT-STREAMS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/mix-spam-protection-rln.html"><strong aria-hidden="true">4.1.20.</strong> RLN DoS Protection for Mixnet</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/rln-interep-spec.html"><strong aria-hidden="true">4.1.21.</strong> RLN-INTEREP-SPEC</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/rln-stealth-commitments.html"><strong aria-hidden="true">4.1.22.</strong> RLN-STEALTH-COMMITMENTS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/rln-v2.html"><strong aria-hidden="true">4.1.23.</strong> RLN-V2</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/sds.html"><strong aria-hidden="true">4.1.24.</strong> SDS</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/status-rln-deployment.html"><strong aria-hidden="true">4.1.25.</strong> STATUS-RLN-DEPLOYMENT</a></li><li class="chapter-item expanded "><a href="../../ift-ts/raw/zerokit-api.html"><strong aria-hidden="true">4.1.26.</strong> Zerokit API</a></li></ol></li><li class="chapter-item expanded "><a href="../../ift-ts/template.html"><strong aria-hidden="true">4.2.</strong> TEMPLATE</a></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Logos LIP</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/logos-co/logos-lips" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="nomosda-rewarding"><a class="header" href="#nomosda-rewarding">NOMOSDA-REWARDING</a></h1>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
+<tr><td>Name</td><td>NomosDA Rewarding</td></tr>
+<tr><td>Slug</td><td>149</td></tr>
+<tr><td>Status</td><td>raw</td></tr>
+<tr><td>Category</td><td>Standards Track</td></tr>
+<tr><td>Editor</td><td>Marcin Pawlowski <a href="mailto:marcin@status.im">marcin@status.im</a></td></tr>
+<tr><td>Contributors</td><td>Alexander Mozeika <a href="mailto:alexander.mozeika@status.im">alexander.mozeika@status.im</a>, Mehmet Gonen <a href="mailto:mehmet@status.im">mehmet@status.im</a>, Daniel Sanchez Quiros <a href="mailto:danielsq@status.im">danielsq@status.im</a>, Álvaro Castro-Castilla <a href="mailto:alvaro@status.im">alvaro@status.im</a>, Filip Dimitrijevic <a href="mailto:filip@status.im">filip@status.im</a></td></tr>
+</tbody></table>
+</div><!-- timeline:start -->
+<h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
+<ul>
+<li><strong>2026-01-30</strong> — <a href="https://github.com/logos-co/logos-lips/blob/0ef87b1ba9491c854e48c8dfd7574d34ec69c704/docs/blockchain/raw/da-rewarding.md"><code>0ef87b1</code></a> — New RFC: CODEX-MANIFEST (#191)</li>
+<li><strong>2026-01-30</strong> — <a href="https://github.com/logos-co/logos-lips/blob/3f76dd87a0b6580c16caa401c7fd5ec7dd9a7d6b/docs/blockchain/raw/da-rewarding.md"><code>3f76dd8</code></a> — Add NomosDA Rewarding specification (#269)</li>
+</ul>
+<!-- timeline:end -->
+<h2 id="abstract"><a class="header" href="#abstract">Abstract</a></h2>
+<p>This document specifies the opinion-based rewarding mechanism
+for the NomosDA (Nomos Data Availability) service.
+The mechanism incentivizes DA nodes to maintain consistent and high-quality service
+through peer evaluation using a binary opinion system.
+Nodes assess the service quality of their counterparts across different subnetworks,
+and rewards are distributed based on accumulated positive opinions
+exceeding a defined activity threshold.</p>
+<p><strong>Keywords:</strong> NomosDA, data availability, rewarding, incentives, peer evaluation,
+activity proof, quality of service, sampling</p>
+<h2 id="semantics"><a class="header" href="#semantics">Semantics</a></h2>
+<p>The keywords "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+"SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL"
+in this document are to be interpreted as described in <a href="https://www.ietf.org/rfc/rfc2119.txt">RFC 2119</a>.</p>
+<h3 id="definitions"><a class="header" href="#definitions">Definitions</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Terminology</th><th>Description</th></tr></thead><tbody>
+<tr><td>Block Finality</td><td>A period expressed in number of blocks (2160) after which a block is considered finalized, as defined by parameter <span class="math-inline" data-tex="k"></span> in Cryptarchia.</td></tr>
+<tr><td>Session</td><td>A time period during which the same set of nodes executes the protocol. Session length is two block finalization periods (4320 blocks).</td></tr>
+<tr><td>Activity Proof</td><td>A data structure containing binary opinion vectors about other nodes' service quality.</td></tr>
+<tr><td>Active Message</td><td>A message registered on the ledger that contains a node's activity proof for a session.</td></tr>
+<tr><td>Opinion Threshold</td><td>The ratio of positive to negative opinions required for a node to be positively opinionated (default: 10).</td></tr>
+<tr><td>Activity Threshold</td><td>The number of positive opinions (<span class="math-inline" data-tex="\theta = N_s/2"></span>) a node must collect to be considered active.</td></tr>
+<tr><td>DA Node</td><td>A node providing data availability service, identified by a unique <code>ProviderId</code>.</td></tr>
+<tr><td>SDP</td><td>Service Declaration Protocol, used to retrieve the list of active DA nodes.</td></tr>
+</tbody></table>
+</div>
+<h3 id="notations"><a class="header" href="#notations">Notations</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Symbol</th><th>Description</th></tr></thead><tbody>
+<tr><td><span class="math-inline" data-tex="s"></span></td><td>Current session number.</td></tr>
+<tr><td><span class="math-inline" data-tex="N_s"></span></td><td>Set of DA nodes (unique <code>ProviderId</code>s) active during session <span class="math-inline" data-tex="s"></span>.</td></tr>
+<tr><td><span class="math-inline" data-tex="S"></span></td><td>Session length in blocks (4320).</td></tr>
+<tr><td><span class="math-inline" data-tex="b"></span></td><td>Block number.</td></tr>
+<tr><td><span class="math-inline" data-tex="\theta"></span></td><td>Activity threshold (<span class="math-inline" data-tex="N_s/2"></span>).</td></tr>
+<tr><td><span class="math-inline" data-tex="R_s"></span></td><td>Base reward for session <span class="math-inline" data-tex="s"></span>.</td></tr>
+<tr><td><span class="math-inline" data-tex="I_s"></span></td><td>Total income for DA service during session <span class="math-inline" data-tex="s"></span>.</td></tr>
+<tr><td><span class="math-inline" data-tex="R(n)"></span></td><td>Reward for node <span class="math-inline" data-tex="n"></span>.</td></tr>
+</tbody></table>
+</div>
+<h2 id="background"><a class="header" href="#background">Background</a></h2>
+<p>The NomosDA service is a crucial component of the Nomos architecture,
+responsible for ensuring accessibility and retrievability of blockchain data.
+This specification defines an opinion-based rewarding mechanism
+that incentivizes DA nodes to maintain consistent and high-quality service.</p>
+<p>The approach uses peer evaluation through a binary opinion system,
+where nodes assess the service quality of their counterparts
+across different subnetworks of DA.
+This mechanism balances simplicity and effectiveness
+by integrating with the existing Nomos architecture
+while promoting decentralized quality control.</p>
+<p>The strength of this approach comes from its economic design,
+which reduces possibilities for dishonest behaviour and collusion.
+The reward calculation method divides rewards based on the total number of nodes
+rather than just active ones,
+further discouraging manipulation of the opinion system.</p>
+<h3 id="three-session-operation"><a class="header" href="#three-session-operation">Three-Session Operation</a></h3>
+<p>The mechanism operates across three consecutive sessions:</p>
+<ol>
+<li>
+<p><strong>Session <span class="math-inline" data-tex="s"></span></strong>: NomosDA nodes perform sampling of data blobs referenced in blocks.
+While sampling, nodes interact with and evaluate the service quality
+of other randomly selected nodes from different subnetworks.
+Nodes sample both new blocks and old blocks.</p>
+</li>
+<li>
+<p><strong>Session <span class="math-inline" data-tex="s + 1"></span></strong>: Nodes formalize their evaluations by submitting Activity Proofs—
+binary vectors where each bit represents their opinion (positive or negative)
+about other nodes' service quality.
+These opinions are tracked separately for new and old blocks.
+The proofs are recorded on the ledger through Active Messages.</p>
+</li>
+<li>
+<p><strong>Session <span class="math-inline" data-tex="s + 2"></span></strong>: Rewards are distributed.
+Nodes that accumulate positive opinions above the activity threshold
+receive a fixed reward calculated as a portion of the session's DA service income.</p>
+</li>
+</ol>
+<h2 id="protocol-specification"><a class="header" href="#protocol-specification">Protocol Specification</a></h2>
+<h3 id="session--sampling-phase"><a class="header" href="#session--sampling-phase">Session <span class="math-inline" data-tex="s"></span>: Sampling Phase</a></h3>
+<ol>
+<li>
+<p>If the number of DA nodes (unique <code>ProviderId</code>s from declarations)
+retrieved from the SDP is below the minimum,
+then do not perform sampling for <strong>new blocks</strong>.</p>
+</li>
+<li>
+<p>If the number of DA nodes retrieved from the SDP for session <span class="math-inline" data-tex="s - 1"></span>
+was below the minimum,
+then do not perform sampling for <strong>old blocks</strong>.</p>
+</li>
+<li>
+<p>If the number of DA nodes retrieved from the SDP is below the minimum
+for both session <span class="math-inline" data-tex="s"></span> and <span class="math-inline" data-tex="s - 1"></span>,
+then stop and do not execute this protocol.</p>
+</li>
+<li>
+<p>The DA node performs sampling for every new block <span class="math-inline" data-tex="b"></span> it receives,
+and for an old block <span class="math-inline" data-tex="b - S"></span> for every new block received
+(where <span class="math-inline" data-tex="S = 4320"></span> is the session length).</p>
+<ol>
+<li>
+<p>The node selects at random (without replacement) 20 out of 2048 subnetworks.</p>
+<blockquote>
+<p><strong>Note</strong>: The set of nodes selected does not have to be the same
+for old and new blocks.</p>
+</blockquote>
+</li>
+<li>
+<p>The node connects to a random node in each of the selected subnetworks.
+If a node does not respond to a sampling request,
+another node is selected from the same subnetwork
+and the sampling request is repeated until success is achieved
+or a specified limit is reached.</p>
+</li>
+</ol>
+</li>
+<li>
+<p>During sampling, the node measures the quality of service
+provided by selected nodes as defined in
+<a href="#quality-of-service-measurement">Quality of Service Measurement</a>.</p>
+</li>
+</ol>
+<h3 id="session--opinion-submission-phase"><a class="header" href="#session--opinion-submission-phase">Session <span class="math-inline" data-tex="s + 1"></span>: Opinion Submission Phase</a></h3>
+<ol>
+<li>
+<p>The DA node generates an Activity Proof that contains opinion vectors,
+where all DA nodes are rated for positive or negative quality of service
+for new and old blocks.</p>
+</li>
+<li>
+<p>The DA node sends an Active Message that is registered on the ledger
+and contains the node's Activity Proof.</p>
+</li>
+</ol>
+<h3 id="session--reward-distribution-phase"><a class="header" href="#session--reward-distribution-phase">Session <span class="math-inline" data-tex="s + 2"></span>: Reward Distribution Phase</a></h3>
+<ol>
+<li>
+<p>Every node that collected above <span class="math-inline" data-tex="\theta"></span> positive opinions
+receives a fixed reward as defined in <a href="#reward-calculation">Reward Calculation</a>.</p>
+</li>
+<li>
+<p>The rewards are distributed by the Service Reward Distribution Protocol.</p>
+</li>
+</ol>
+<h2 id="constructions"><a class="header" href="#constructions">Constructions</a></h2>
+<h3 id="quality-of-service-measurement"><a class="header" href="#quality-of-service-measurement">Quality of Service Measurement</a></h3>
+<p>A node MUST measure the quality of service for each sampling it performs
+to gather opinions about the quality of service of the entire DA network.
+These opinions are used to construct the Activity Proof.</p>
+<p>The global parameter <code>opinion_threshold</code> is set to 10,
+meaning a node must receive 10 positive opinions for each negative opinion
+to be positively opinionated (at least 90% positive opinions).</p>
+<p>To build an opinions vector describing the quality of data availability sampling,
+a node MUST:</p>
+<ol>
+<li>
+<p>Retrieve <span class="math-inline" data-tex="\mathcal{N}_s"></span>, a list of active DA nodes (unique <code>ProviderId</code>s)
+for session <span class="math-inline" data-tex="s"></span>, from the SDP.</p>
+</li>
+<li>
+<p>Retrieve <span class="math-inline" data-tex="\mathcal{N}_{s-1}"></span>, a list of active DA nodes for session <span class="math-inline" data-tex="s - 1"></span>,
+from the SDP (can be retained from the previous session).</p>
+</li>
+<li>
+<p>Order <span class="math-inline" data-tex="\mathcal{N}_s"></span> and <span class="math-inline" data-tex="\mathcal{N}_{s-1}"></span> in ascending lexicographical order
+by <code>ProviderId</code> of each node from both lists.</p>
+</li>
+<li>
+<p>Create for each session and independently for old (<span class="math-inline" data-tex="\mathcal{N} = \mathcal{N}_{s-1}"></span>)
+and new (<span class="math-inline" data-tex="\mathcal{N} = \mathcal{N}_s"></span>) blocks:</p>
+<ol>
+<li>
+<p><code>positive_opinions</code> vector of size <span class="math-inline" data-tex="N = \text{length}(\mathcal{N})"></span>
+where the <span class="math-inline" data-tex="i"></span>-th element (integer) represents positive opinions
+about the <span class="math-inline" data-tex="i"></span>-th node from list <span class="math-inline" data-tex="\mathcal{N}"></span>.</p>
+</li>
+<li>
+<p><code>negative_opinions</code> vector of size <span class="math-inline" data-tex="N = \text{length}(\mathcal{N})"></span>
+where the <span class="math-inline" data-tex="i"></span>-th element (integer) represents negative opinions
+about the <span class="math-inline" data-tex="i"></span>-th node from list <span class="math-inline" data-tex="\mathcal{N}"></span>.</p>
+</li>
+<li>
+<p><code>blacklist</code> vector of size <span class="math-inline" data-tex="N = \text{length}(\mathcal{N})"></span>
+where the <span class="math-inline" data-tex="i"></span>-th element (bool) marks whether the <span class="math-inline" data-tex="i"></span>-th node
+is blacklisted due to providing an invalid response.</p>
+</li>
+</ol>
+</li>
+<li>
+<p>Send a sampling request to a node <span class="math-inline" data-tex="n \in \mathcal{N}"></span> such that <code>blacklist[n]==0</code>:</p>
+<ol>
+<li>
+<p>If the node <span class="math-inline" data-tex="n"></span> responds:</p>
+<ol>
+<li>If the response is valid, then <code>positive_opinions[n]++</code></li>
+<li>If the response is not valid, then:
+<ol>
+<li>Clear positive opinions about the node: <code>positive_opinions[n]=0</code></li>
+<li>Mark the node as blacklisted: <code>blacklist[n]=1</code></li>
+</ol>
+</li>
+</ol>
+</li>
+<li>
+<p>If the node does not respond, then <code>negative_opinions[n]++</code></p>
+</li>
+</ol>
+</li>
+<li>
+<p>When the next session starts, create an opinions binary for every node <span class="math-inline" data-tex="i \in \mathcal{N}"></span>:</p>
+<pre><code class="language-python">previous_session_opinions[i] = opinion(i, old.positive_opinions,
+                                       old.negative_opinions,
+                                       old.opinions_threshold)
+
+current_session_opinions[i] = opinion(i, new.positive_opinions,
+                                      new.negative_opinions,
+                                      new.opinions_threshold)
+
+def opinion(i, positive_opinions, negative_opinions, opinion_threshold):
+    return (positive_opinions[i] &gt; (negative_opinions[i] * opinion_threshold))
+</code></pre>
+</li>
+<li>
+<p>A node sets a positive opinion about itself in the <code>current_session_opinions</code> vector.</p>
+</li>
+<li>
+<p>A node sets a positive opinion about itself in the <code>previous_session_opinions</code>
+if the node was taking part in the protocol during the previous session.</p>
+</li>
+</ol>
+<h3 id="activity-proof"><a class="header" href="#activity-proof">Activity Proof</a></h3>
+<p>The Activity Proof structure is:</p>
+<pre><code class="language-python">class ActivityProof:
+    current_session: SessionNumber
+    previous_session_opinions_length: int
+    previous_session_opinions: Opinions
+    current_session_opinions_length: int
+    current_session_opinions: Opinions
+</code></pre>
+<p><code>Opinions</code> is a binary vector of length <span class="math-inline" data-tex="N_s"></span>
+(total number of nodes identified by unique <code>ProviderId</code>s from declarations)
+where each bit represents a node providing DA service for the session.
+A bit is set to 1 only when the node considers the sampling service
+provided by the DA node to meet quality standards.</p>
+<h4 id="field-descriptions"><a class="header" href="#field-descriptions">Field Descriptions</a></h4>
+<ul>
+<li>
+<p><code>current_session</code>: The session number of the assignations used for forming opinions.</p>
+</li>
+<li>
+<p><code>previous_session_opinions_length</code>: The number of bytes used by <code>previous_session_opinions</code>.</p>
+</li>
+<li>
+<p><code>previous_session_opinions</code>: Opinions gathered from sampling old blocks.
+When there are no old blocks (first session after genesis
+or after a non-operational DA period),
+these opinions SHOULD NOT be collected nor validated.</p>
+</li>
+<li>
+<p><code>current_session_opinions_length</code>: The number of bytes used by <code>current_session_opinions</code>.</p>
+</li>
+<li>
+<p><code>current_session_opinions</code>: Opinions gathered from sampling new blocks.</p>
+</li>
+</ul>
+<h4 id="validity-rules"><a class="header" href="#validity-rules">Validity Rules</a></h4>
+<p>The Activity Proof is <strong>valid</strong> when:</p>
+<ul>
+<li>
+<p>The <code>current_session_opinions</code> vector is not provided
+(and <code>current_session_opinions_length==0</code>)
+when the DA service was not operational during that session.</p>
+</li>
+<li>
+<p>The byte-length of the <code>previous_session_opinions</code> vector is:</p>
+<div class="math-block" data-tex="|\text{previous\_session\_opinions}| = \left\lceil \frac{\log_2(N_{s-1} + 1)}{8} \right\rceil"></div>
+</li>
+<li>
+<p>The <code>previous_session_opinions</code> vector is not provided
+(and <code>previous_session_opinions_length==0</code>)
+when the DA service was not operational during that session.</p>
+</li>
+<li>
+<p>The byte-length of the <code>current_session_opinions</code> vector is:</p>
+<div class="math-block" data-tex="|\text{current\_session\_opinions}| = \left\lceil \frac{\log_2(N_s + 1)}{8} \right\rceil"></div>
+</li>
+<li>
+<p>The <span class="math-inline" data-tex="n"></span>-th node (note that <span class="math-inline" data-tex="n \in \mathcal{N}_s \not\Rightarrow n \in \mathcal{N}_{s-1}"></span>)
+is represented by the <span class="math-inline" data-tex="n"></span>-th bit of the vector (counting nodes from 0),
+with the vector encoded as little-endian.
+The rightmost byte of the vector MAY contain bits not mapped to any node;
+these bits are disregarded.</p>
+</li>
+</ul>
+<h3 id="activity-threshold"><a class="header" href="#activity-threshold">Activity Threshold</a></h3>
+<p>The activity threshold <span class="math-inline" data-tex="\theta"></span> defines the number of positive opinions
+a node must collect from peers to be considered active for session <span class="math-inline" data-tex="s"></span>.</p>
+<div class="math-block" data-tex="\theta = N_s / 2"></div>
+<p>Where <span class="math-inline" data-tex="\theta"></span> controls the number of positive opinions
+a node must collect to be considered active.</p>
+<h3 id="active-message"><a class="header" href="#active-message">Active Message</a></h3>
+<p>Each node for every session constructs an <code>active_message</code>
+that MUST follow the specified format.</p>
+<p>A node MAY stop sending <code>active_message</code>
+when the DA service is non-operational for more than a single session.</p>
+<p>The <code>active_message</code> metadata field MUST be populated with:</p>
+<ul>
+<li>A <code>header</code> containing a one-byte <code>version</code> field fixed to <code>0x01</code> value.</li>
+<li>The <code>activity_proof</code> as defined above.</li>
+</ul>
+<h4 id="active-message-rules"><a class="header" href="#active-message-rules">Active Message Rules</a></h4>
+<ul>
+<li>An Active Message is stored on the ledger.</li>
+<li>An Active Message is used for calculating the node reward.</li>
+<li>An Active Message for session <span class="math-inline" data-tex="s"></span> MUST only be sent during session <span class="math-inline" data-tex="s + 1"></span>;
+otherwise, it MUST be rejected.</li>
+<li>The ledger MUST only accept a single Active Message per node per session;
+any duplicate MUST be rejected.</li>
+</ul>
+<h3 id="reward-calculation"><a class="header" href="#reward-calculation">Reward Calculation</a></h3>
+<p>The reward calculation follows these steps:</p>
+<h4 id="step-1-calculate-base-reward"><a class="header" href="#step-1-calculate-base-reward">Step 1: Calculate Base Reward</a></h4>
+<p>Calculate the base reward for session <span class="math-inline" data-tex="s"></span>:</p>
+<div class="math-block" data-tex="R_s = \frac{I_s}{N_s}"></div>
+<p>Where <span class="math-inline" data-tex="I_s"></span> is the income for DA service during session <span class="math-inline" data-tex="s"></span>,
+and <span class="math-inline" data-tex="N_s"></span> is the number of nodes providing DA service during session <span class="math-inline" data-tex="s"></span>.</p>
+<blockquote>
+<p><strong>Note</strong>: The base reward is fixed to the total number of nodes providing the service
+instead of the number of active nodes.
+This disincentivizes nodes from providing dishonest opinions about other nodes
+to increase their own reward.</p>
+</blockquote>
+<p>The income leftovers MUST be burned or consumed
+in such a way that will not benefit the nodes.</p>
+<h4 id="step-2-count-positive-opinions"><a class="header" href="#step-2-count-positive-opinions">Step 2: Count Positive Opinions</a></h4>
+<p>Count the number of positive opinions for node <span class="math-inline" data-tex="n"></span> in session <span class="math-inline" data-tex="s"></span>:</p>
+<div class="math-block" data-tex="\text{opinions}(n, s) = \sum_{i=1}^{N} \text{valid}(\text{activity\_proof}(i, n, s))"></div>
+<p>Where <span class="math-inline" data-tex="\text{valid}()"></span> returns true only when the <code>activity_proof</code> for node <span class="math-inline" data-tex="n"></span> is valid
+and the opinion about node <span class="math-inline" data-tex="n"></span> is <strong>positive</strong> for session <span class="math-inline" data-tex="s"></span>.</p>
+<h4 id="step-3-calculate-node-reward"><a class="header" href="#step-3-calculate-node-reward">Step 3: Calculate Node Reward</a></h4>
+<p>Calculate the reward for node <span class="math-inline" data-tex="n"></span> based on node activity:</p>
+<div class="math-block" data-tex="R(n) = \frac{R_s}{2} \cdot \text{active}(n, s) + \frac{R_{s-1}}{2} \cdot \text{active}(n, s - 1)"></div>
+<p>Where <span class="math-inline" data-tex="\text{active}(n, s)"></span> returns true only when <span class="math-inline" data-tex="n \in \mathcal{N}_s"></span>
+and the number of positive opinions on node <span class="math-inline" data-tex="n"></span> for session <span class="math-inline" data-tex="s"></span>
+is greater than or equal to <span class="math-inline" data-tex="\theta"></span>:</p>
+<div class="math-block" data-tex="\text{opinions}(n, s) \geq \theta"></div>
+<p>The reward is a function of the node's capacity (quality)
+to respond to sampling requests for both new and old blocks.
+Therefore, the reward draws from half of the income from session <span class="math-inline" data-tex="s"></span> (for new blocks)
+and half of the income from session <span class="math-inline" data-tex="s - 1"></span> (for old blocks).</p>
+<p>The base reward <span class="math-inline" data-tex="R_s"></span> is distributed to nodes that both:</p>
+<ul>
+<li>Submitted a valid Activity Proof</li>
+<li>Received positive opinions exceeding the activity threshold
+for at least one of the sessions</li>
+</ul>
+<blockquote>
+<p><strong>Note</strong>: Inactive nodes are not rewarded.
+Nodes that have not participated in the previous session
+are not rewarded for the past session.</p>
+</blockquote>
+<h2 id="security-considerations"><a class="header" href="#security-considerations">Security Considerations</a></h2>
+<h3 id="subjective-opinions"><a class="header" href="#subjective-opinions">Subjective Opinions</a></h3>
+<p>The mechanism intentionally uses subjective node opinions
+rather than strict performance metrics.
+While this introduces some arbitrariness,
+it provides a simple and flexible approach
+that aligns with Nomos' architectural goals.</p>
+<h3 id="dishonest-evaluation"><a class="header" href="#dishonest-evaluation">Dishonest Evaluation</a></h3>
+<p>The system has potential for dishonest evaluation.
+However, the economic design reduces possibilities
+for dishonest behaviour and collusion:</p>
+<ul>
+<li>The reward calculation divides rewards based on total number of nodes
+rather than just active ones,
+discouraging manipulation of the opinion system.</li>
+<li>Income leftovers are burned to prevent benefit from underreporting.</li>
+</ul>
+<h3 id="collusion-resistance"><a class="header" href="#collusion-resistance">Collusion Resistance</a></h3>
+<p>The activity threshold of <span class="math-inline" data-tex="N_s/2"></span> requires a node
+to receive positive opinions from at least half of all nodes.
+This makes collusion attacks expensive,
+as an attacker would need to control a majority of nodes
+to guarantee rewards for malicious nodes.</p>
+<h2 id="references"><a class="header" href="#references">References</a></h2>
+<h3 id="normative"><a class="header" href="#normative">Normative</a></h3>
+<ul>
+<li><a href="https://nomos-tech.notion.site/Service-Declaration-Protocol">Service Declaration Protocol</a> - Protocol for declaring DA node participation</li>
+</ul>
+<h3 id="informative"><a class="header" href="#informative">Informative</a></h3>
+<ul>
+<li><a href="https://nomos-tech.notion.site/NomosDA-Rewarding-203261aa09df80af8c77dfb3dc593673">NomosDA Rewarding</a> - Original specification document</li>
+<li><a href="https://nomos-tech.notion.site/Analysis-of-Sampling-Strategy">Analysis of Sampling Strategy</a> - Motivation for sampling 20 subnetworks</li>
+</ul>
+<h2 id="copyright"><a class="header" href="#copyright">Copyright</a></h2>
+<p>Copyright and related rights waived via <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../blockchain/raw/da-cryptographic-protocol.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../blockchain/raw/p2p-hardware-requirements.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../blockchain/raw/da-cryptographic-protocol.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../blockchain/raw/p2p-hardware-requirements.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../../theme/katex/katex.min.js"></script>
+        <script src="../../theme/katex/auto-render.min.js"></script>
+        <script src="../../scripts/katex-render.js"></script>
+        <script src="../../scripts/logos-lips.js"></script>
+
+
+    </div>
+    </body>
+</html>
