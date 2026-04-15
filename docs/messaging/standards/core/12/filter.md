@@ -13,19 +13,20 @@
 
 ## Timeline
 
-- **2026-01-16** — [`f01d5b9`](https://github.com/vacp2p/rfc-index/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/standards/core/12/filter.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/core/12/filter.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/core/12/filter.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/core/12/filter.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/core/12/filter.md) — ci: add mdBook configuration (#233)
-- **2025-03-25** — [`e8a3f8a`](https://github.com/vacp2p/rfc-index/blob/e8a3f8a77ddfc84894f4e1119380e90ca2dd0ab4/waku/standards/core/12/filter.md) — 12/WAKU2-FILTER: Update (#119)
-- **2024-09-13** — [`3ab314d`](https://github.com/vacp2p/rfc-index/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/standards/core/12/filter.md) — Fix Files for Linting (#94)
-- **2024-02-01** — [`e4d8f27`](https://github.com/vacp2p/rfc-index/blob/e4d8f27fd57d64512a482c669fb30d949c1afe90/waku/standards/core/12/filter.md) — Update and rename FILTER.md to filter.md
-- **2024-01-27** — [`046a3b7`](https://github.com/vacp2p/rfc-index/blob/046a3b77a53e01a34e5b71fc3aa7af731af366ce/waku/standards/core/12/FILTER.md) — Rename WAKU2-FILTER.md to FILTER.md
-- **2024-01-27** — [`57124a7`](https://github.com/vacp2p/rfc-index/blob/57124a766cb9e87a5ae6a81522c7725ffd888d61/waku/standards/core/12/WAKU2-FILTER.md) — Rename README.md to WAKU2-FILTER.md
-- **2024-01-27** — [`eef961b`](https://github.com/vacp2p/rfc-index/blob/eef961bfe3b1cf6aab66df5450555afd1d3543cb/waku/standards/core/12/README.md) — remove rfs folder
-- **2024-01-25** — [`940d795`](https://github.com/vacp2p/rfc-index/blob/940d7958a286701155f6e8739494e426490e14c4/waku/rfcs/standards/core/12/README.md) — Rename waku/12/README.md to waku/rfcs/standards/core/12/README.md
-- **2024-01-22** — [`420adf1`](https://github.com/vacp2p/rfc-index/blob/420adf1bd6fe714366bb11667400b923772835da/waku/12/README.md) — Vac RFC index initial structure
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/messaging/standards/core/12/filter.md) — chore: add math support (#287)
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/standards/core/12/filter.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/core/12/filter.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/core/12/filter.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/core/12/filter.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/core/12/filter.md) — ci: add mdBook configuration (#233)
+- **2025-03-25** — [`e8a3f8a`](https://github.com/logos-co/logos-lips/blob/e8a3f8a77ddfc84894f4e1119380e90ca2dd0ab4/waku/standards/core/12/filter.md) — 12/WAKU2-FILTER: Update (#119)
+- **2024-09-13** — [`3ab314d`](https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/standards/core/12/filter.md) — Fix Files for Linting (#94)
+- **2024-02-01** — [`e4d8f27`](https://github.com/logos-co/logos-lips/blob/e4d8f27fd57d64512a482c669fb30d949c1afe90/waku/standards/core/12/filter.md) — Update and rename FILTER.md to filter.md
+- **2024-01-27** — [`046a3b7`](https://github.com/logos-co/logos-lips/blob/046a3b77a53e01a34e5b71fc3aa7af731af366ce/waku/standards/core/12/FILTER.md) — Rename WAKU2-FILTER.md to FILTER.md
+- **2024-01-27** — [`57124a7`](https://github.com/logos-co/logos-lips/blob/57124a766cb9e87a5ae6a81522c7725ffd888d61/waku/standards/core/12/WAKU2-FILTER.md) — Rename README.md to WAKU2-FILTER.md
+- **2024-01-27** — [`eef961b`](https://github.com/logos-co/logos-lips/blob/eef961bfe3b1cf6aab66df5450555afd1d3543cb/waku/standards/core/12/README.md) — remove rfs folder
+- **2024-01-25** — [`940d795`](https://github.com/logos-co/logos-lips/blob/940d7958a286701155f6e8739494e426490e14c4/waku/rfcs/standards/core/12/README.md) — Rename waku/12/README.md to waku/rfcs/standards/core/12/README.md
+- **2024-01-22** — [`420adf1`](https://github.com/logos-co/logos-lips/blob/420adf1bd6fe714366bb11667400b923772835da/waku/12/README.md) — Vac RFC index initial structure
 
 <!-- timeline:end -->
 

@@ -13,20 +13,20 @@
 
 ## Timeline
 
-- **2026-01-16** — [`f01d5b9`](https://github.com/vacp2p/rfc-index/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/standards/application/53/x3dh.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/application/53/x3dh.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/application/53/x3dh.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/application/53/x3dh.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/application/53/x3dh.md) — ci: add mdBook configuration (#233)
-- **2025-07-01** — [`b60abdb`](https://github.com/vacp2p/rfc-index/blob/b60abdb2fff9b4e70d862eb2550b5225b417a311/waku/standards/application/53/x3dh.md) — update waku/standards/application/53/x3dh.md (#150)
-- **2024-09-13** — [`3ab314d`](https://github.com/vacp2p/rfc-index/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/standards/application/53/x3dh.md) — Fix Files for Linting (#94)
-- **2024-08-05** — [`eb25cd0`](https://github.com/vacp2p/rfc-index/blob/eb25cd06d679e94409072a96841de16a6b3910d5/waku/standards/application/53/x3dh.md) — chore: replace email addresses (#86)
-- **2024-03-21** — [`2eaa794`](https://github.com/vacp2p/rfc-index/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/standards/application/53/x3dh.md) — Broken Links + Change Editors (#26)
-- **2024-02-01** — [`51567b1`](https://github.com/vacp2p/rfc-index/blob/51567b183115c0300c9760a104fceac7e9329475/waku/standards/application/53/x3dh.md) — Rename X3DH.md to x3dh.md
-- **2024-01-31** — [`9fd3266`](https://github.com/vacp2p/rfc-index/blob/9fd32660a085cc8b0a8fb16affd834f031c4c7c7/waku/standards/application/53/X3DH.md) — Update and rename README.md to X3DH.md
-- **2024-01-27** — [`eef961b`](https://github.com/vacp2p/rfc-index/blob/eef961bfe3b1cf6aab66df5450555afd1d3543cb/waku/standards/application/53/README.md) — remove rfs folder
-- **2024-01-25** — [`5e95a1a`](https://github.com/vacp2p/rfc-index/blob/5e95a1af46b2261b550e99f9b6e79dc5fa56b69e/waku/rfcs/standards/application/53/README.md) — Rename README.md to README.md
-- **2024-01-25** — [`555eb20`](https://github.com/vacp2p/rfc-index/blob/555eb2093afb06c2e39b29951606dc14a9dd6448/waku/rfcs/standards/application/53-X3DH/README.md) — Create README.md
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/standards/application/53/x3dh.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/application/53/x3dh.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/application/53/x3dh.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/application/53/x3dh.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/application/53/x3dh.md) — ci: add mdBook configuration (#233)
+- **2025-07-01** — [`b60abdb`](https://github.com/logos-co/logos-lips/blob/b60abdb2fff9b4e70d862eb2550b5225b417a311/waku/standards/application/53/x3dh.md) — update waku/standards/application/53/x3dh.md (#150)
+- **2024-09-13** — [`3ab314d`](https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/standards/application/53/x3dh.md) — Fix Files for Linting (#94)
+- **2024-08-05** — [`eb25cd0`](https://github.com/logos-co/logos-lips/blob/eb25cd06d679e94409072a96841de16a6b3910d5/waku/standards/application/53/x3dh.md) — chore: replace email addresses (#86)
+- **2024-03-21** — [`2eaa794`](https://github.com/logos-co/logos-lips/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/standards/application/53/x3dh.md) — Broken Links + Change Editors (#26)
+- **2024-02-01** — [`51567b1`](https://github.com/logos-co/logos-lips/blob/51567b183115c0300c9760a104fceac7e9329475/waku/standards/application/53/x3dh.md) — Rename X3DH.md to x3dh.md
+- **2024-01-31** — [`9fd3266`](https://github.com/logos-co/logos-lips/blob/9fd32660a085cc8b0a8fb16affd834f031c4c7c7/waku/standards/application/53/X3DH.md) — Update and rename README.md to X3DH.md
+- **2024-01-27** — [`eef961b`](https://github.com/logos-co/logos-lips/blob/eef961bfe3b1cf6aab66df5450555afd1d3543cb/waku/standards/application/53/README.md) — remove rfs folder
+- **2024-01-25** — [`5e95a1a`](https://github.com/logos-co/logos-lips/blob/5e95a1af46b2261b550e99f9b6e79dc5fa56b69e/waku/rfcs/standards/application/53/README.md) — Rename README.md to README.md
+- **2024-01-25** — [`555eb20`](https://github.com/logos-co/logos-lips/blob/555eb2093afb06c2e39b29951606dc14a9dd6448/waku/rfcs/standards/application/53-X3DH/README.md) — Create README.md
 
 <!-- timeline:end -->
 

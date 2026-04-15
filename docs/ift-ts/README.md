@@ -1,7 +1,7 @@
 # IFT-TS LIPs
 
 IFT-TS builds public good protocols for the decentralised web.
-IFT-TS acts as a custodian for the protocols that live in the RFC-Index repository.
+IFT-TS acts as a custodian for the protocols that live in the logos-lips repository.
 With the goal of widespread adoption,
 IFT-TS will make sure the protocols adhere to a set of principles,
 including but not limited to liberty, security, privacy, decentralisation and inclusivity.

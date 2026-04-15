@@ -13,8 +13,8 @@
 
 ## Timeline
 
-- **2026-01-26** — [`8bba444`](https://github.com/vacp2p/rfc-index/blob/8bba4441aa3601cef6fb75ff5d48b1cd27350a5c/docs/ift-ts/raw/extended-kad-disco.md) — chore: fix lint (#275)
-- **2026-01-23** — [`8164992`](https://github.com/vacp2p/rfc-index/blob/8164992534b14b2466fc1117bbeef2ae2d14f249/docs/ift-ts/raw/extended-kad-disco.md) — chore: fix lint
+- **2026-01-26** — [`8bba444`](https://github.com/logos-co/logos-lips/blob/8bba4441aa3601cef6fb75ff5d48b1cd27350a5c/docs/ift-ts/raw/extended-kad-disco.md) — chore: fix lint (#275)
+- **2026-01-23** — [`8164992`](https://github.com/logos-co/logos-lips/blob/8164992534b14b2466fc1117bbeef2ae2d14f249/docs/ift-ts/raw/extended-kad-disco.md) — chore: fix lint
 
 <!-- timeline:end -->
 
@@ -56,7 +56,7 @@ The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL 
 are to be interpreted as described in [2119](https://www.ietf.org/rfc/rfc2119.txt).
 
 Please refer to [libp2p Kademlia DHT specification](https://github.com/libp2p/specs/blob/e87cb1c32a666c2229d3b9bb8f9ce1d9cfdaa8a9/kad-dht/README.md) (`Kad-DHT`)
-and [extensible peer records specification](https://github.com/vacp2p/rfc-index/blob/31dfa0c8c2f3e7f7365156246c4eb7b7c390e76e/vac/raw/extensible-peer-records.md) (`XPR`) for terminology used in this document.
+and [extensible peer records specification](https://github.com/logos-co/logos-lips/blob/31dfa0c8c2f3e7f7365156246c4eb7b7c390e76e/vac/raw/extensible-peer-records.md) (`XPR`) for terminology used in this document.
 
 ## Protocol
 
@@ -64,7 +64,7 @@ and [extensible peer records specification](https://github.com/vacp2p/rfc-index/
 
 A node that wants to make itself discoverable,
 also known as an _advertiser_,
-MUST encode its discoverable information in an [`XPR`](https://github.com/vacp2p/rfc-index/blob/31dfa0c8c2f3e7f7365156246c4eb7b7c390e76e/vac/raw/extensible-peer-records.md#extensible-peer-records).
+MUST encode its discoverable information in an [`XPR`](https://github.com/logos-co/logos-lips/blob/31dfa0c8c2f3e7f7365156246c4eb7b7c390e76e/vac/raw/extensible-peer-records.md#extensible-peer-records).
 The encoded information MUST be sufficient for discoverers to connect to this advertiser.
 It MAY choose to encode some or all of its capabilities (and related information)
 as `services` in the `XPR`.
@@ -208,8 +208,8 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 
 ## References
 
-- [extended peer records specification](https://github.com/vacp2p/rfc-index/blob/31dfa0c8c2f3e7f7365156246c4eb7b7c390e76e/vac/raw/extensible-peer-records.md)
+- [extended peer records specification](https://github.com/logos-co/logos-lips/blob/31dfa0c8c2f3e7f7365156246c4eb7b7c390e76e/vac/raw/extensible-peer-records.md)
 - [libp2p Kademlia DHT specification](https://github.com/libp2p/specs/blob/e87cb1c32a666c2229d3b9bb8f9ce1d9cfdaa8a9/kad-dht/README.md)
 - [RFC002 Signed Envelope](https://github.com/libp2p/specs/blob/7740c076350b6636b868a9e4a411280eea34d335/RFC/0002-signed-envelopes.md)
 - [RFC003 Routing Records](https://github.com/libp2p/specs/blob/7740c076350b6636b868a9e4a411280eea34d335/RFC/0003-routing-records.md)
-- [capability discovery](https://github.com/vacp2p/rfc-index/blob/31dfa0c8c2f3e7f7365156246c4eb7b7c390e76e/vac/raw/logos-capability-discovery.md)
+- [capability discovery](https://github.com/logos-co/logos-lips/blob/31dfa0c8c2f3e7f7365156246c4eb7b7c390e76e/vac/raw/logos-capability-discovery.md)

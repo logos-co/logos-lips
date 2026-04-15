@@ -9,6 +9,15 @@
 | Editor       | Balázs Kőműves <bkomuves@status.im>       |
 | Contributors | Giuliano Mega <giuliano@status.im>, Mohammed Alghazwi <mohalghazwi@status.im> |
 
+<!-- timeline:start -->
+
+## Timeline
+
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/storage/raw/merkle-tree.md) — chore: add math support (#287)
+- **2026-02-06** — [`af4cd78`](https://github.com/logos-co/logos-lips/blob/af4cd78ffaeb12026c166df80d7c9fec5c2efb86/docs/storage/raw/merkle-tree.md) — feat: revamped Merkle tree spec (#281)
+
+<!-- timeline:end -->
+
 ## Abstract
 
 This specification describes the Merkle tree construction adopted in Logos Storage. The construction relies on keyed hashing, injective encodings, and a simple padding approach to prevent a variety of collision attacks, and is designed to operate both on conventional hashing functions like SHA-2, and ZK-friendly functions like Poseidon2.

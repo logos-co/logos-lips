@@ -5,7 +5,7 @@ and Storage. Each RFC documents a protocol, process, or system in a
 consistent, reviewable format.
 
 This site is generated with mdBook from the repository:
-[vacp2p/rfc-index](https://github.com/vacp2p/rfc-index).
+[logos-co/logos-lips](https://github.com/logos-co/logos-lips).
 
 ## Contributing
 
@@ -23,4 +23,4 @@ pull requests.
 
 - IFT-TS: <https://vac.dev>
 - IETF RFC Series: <https://www.rfc-editor.org/>
-- Repository: <https://github.com/vacp2p/rfc-index>
+- Repository: <https://github.com/logos-co/logos-lips>
