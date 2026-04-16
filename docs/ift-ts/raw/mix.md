@@ -2,12 +2,12 @@
 
 | Field | Value |
 | --- | --- |
-| Name | LIBP2P-MIX|
+| Name | LIBP2P-MIX |
 | Slug | 99 |
 | Status | raw |
 | Category | Standards Track |
-| Editor | Prem Prathi <prem@status.im>|
-| Contributors | Akshaya Mani <akshaya@status.im>, Daniel Kaiser <danielkaiser@status.im>, Hanno Cornelius |
+| Editor | Akshaya Mani <akshaya@status.im> |
+| Contributors | Prem Prathi <prem@status.im>, Daniel Kaiser <danielkaiser@status.im>, Hanno Cornelius <hanno@status.im> |
 
 <!-- timeline:start -->
 
@@ -117,7 +117,7 @@ However, Tor relies on session persistence and is ill-suited for protocols requi
 
 The Mix Protocol addresses this gap with a decentralized message routing layer based on classical mix network principles.
 It applies layered encryption and per-hop delays to obscure both routing paths and timing correlations.
-Each message is routed independently, providing resistance to traffic analysis and protection against metadata leakage
+Each message is routed independently, providing resistance to traffic analysis and protection against metadata leakage.
 
 By decoupling anonymity from connection state and transport negotiation, the Mix Protocol offers a modular privacy abstraction that existing libp2p protocols can adopt without altering their core behavior.
 
@@ -178,12 +178,12 @@ Even mix nodes learn only the immediate routing information and the delay to be 
 They do not learn their position in the path or the total number of hops.
 
 The packet format is resistant to tagging and replay attacks and is compact and efficient to process.
-Sphinx packets also include per-hop integrity checks and enforces a maximum path length.
+Sphinx packets also include per-hop integrity checks and enforce a maximum path length.
 Together with a constant-size header and payload, this provides bounded protection against endless routing and malformed packet propagation.
 
 It also supports anonymous and indistinguishable reply messages through [Single-Use Reply Blocks (SURBs)](https://cypherpunks.ca/~iang/pubs/Sphinx_Oakland09.pdf), although reply support is not implemented yet.
 
-A complete specification of the Sphinx packet structure and fields is provided in [Section 6].
+A complete specification of the Sphinx packet structure and fields is provided in [Section 8](#8-sphinx-packet-format).
 
 ## 5. Protocol Overview
 
@@ -273,7 +273,7 @@ The destination node does not need to support the Mix Protocol to receive or res
 
 The behavior described above represents the core Mix Protocol.
 In addition, the protocol supports a set of pluggable components that extend its functionality.
-These components cover areas such as node discovery, delay strategy, spam resistance, cover traffic generation, and incentivization.
+These components cover areas such as node discovery, delay strategy, exit abuse prevention, cover traffic generation, incentivization, and DoS protection.
 Some are REQUIRED for interoperability; others are OPTIONAL or deployment-specific.
 The next section describes each component.
 
@@ -298,8 +298,8 @@ Mix Protocol implementations MUST NOT assume persistent stream availability and 
 Pluggable components define functionality that extends or configures the behavior of the Mix Protocol beyond its core message routing logic.
 Each component in this section falls into one of two categories:
 
-- Required for interoperability and path construction (_e.g.,_ discovery, delay strategy).
-- Optional or deployment-specific (_e.g._ spam protection, cover traffic, incentivization).
+- Required for interoperability and path construction (_e.g.,_ discovery, delay strategy, DoS protection).
+- Optional or deployment-specific (_e.g.,_ exit abuse prevention, cover traffic, incentivization).
 
 The following subsections describe the role and expected behavior of each.
 
@@ -314,7 +314,7 @@ To enable this, regardless of the discovery mechanism used, each mix node MUST m
 - Its X25519 public key for Sphinx encryption.
 - One or more routable libp2p multiaddresses that identify the mix node's own network endpoints.
 
-To support sender anonymity at scale, discovery mechanism SHOULD support _unbiased random sampling_ from the set of live mix nodes.
+To support sender anonymity at scale, the discovery mechanism SHOULD support _unbiased random sampling_ from the set of live mix nodes.
 This enables diverse path construction and reduces exposure to adversarial routing bias.
 
 While no existing mechanism provides unbiased sampling by default, [Waku's ambient discovery](https://rfc.vac.dev/waku/standards/core/33/discv5/)&mdash;an extension over [Discv5](https://github.com/ethereum/devp2p/blob/master/discv5/discv5.md)&mdash;demonstrates an approximate solution.
@@ -346,22 +346,25 @@ However, any delay strategy MUST ensure that:
 Strategies that produce deterministic or tightly clustered output delays are NOT RECOMMENDED, as they increase the risk of timing correlation.
 Delay strategies SHOULD introduce enough uncertainty to prevent adversaries from linking packet arrival and departure times, even when monitoring multiple hops concurrently.
 
-### 6.3 Spam Protection
+### 6.3 Exit Abuse Prevention
 
-The Mix Protocol supports an optional, pluggable spam protection mechanism to defend the mixnet against denial-of-service (DoS) or resource exhaustion attacks.
-Without spam protection, malicious actors could flood mix nodes with valid Sphinx packets, exhausting computational resources or bandwidth of the mix nodes eventually making them unusable.
-Spam protection is critical to make the mixnet robust enough to be used in a production environment.
+The Mix Protocol supports optional exit abuse prevention mechanisms to defend
+exits against flooding attacks routed through them.
+These mechanisms are validated at the exit node, which is the final node in the mix path before the message is delivered to its destination via the respective libp2p protocol.
 
-The spam protection mechanism is pluggable because different deployments may require different trade-offs between computational overhead, attack resistance, and Sybil resistance.
-For a specific mix deployment, the same spam protection mechanism MUST be followed by all participating mix nodes to ensure interoperability.
+Exit nodes that enforce exit abuse prevention MUST validate the attached proof before forwarding the message.
+If validation fails, the message MUST be discarded.
 
-Two primary architectural approaches exist for integrating spam protection: sender-generated proofs and per-hop generated proofs.
-Each approach has distinct implications for computational overhead, latency, security properties, Sybil resistance, and implementation complexity.
+Common strategies include Proof of Work (PoW), Verifiable Delay Functions (VDFs), and Rate-limiting Nullifiers (RLNs).
 
-Detailed design requirements, architectural approaches, packet structure considerations, node responsibilities, and recommendations are specified in [Section 9](#9-spam-protection-architecture).
+The sender is responsible for appending the appropriate exit abuse prevention data (_e.g.,_ nonce, timestamp) to the message payload.
+The format and verification logic depend on the selected method.
 
-Note that application-level or origin-protocol spam protection mechanisms are out of scope for the Mix Protocol and MUST be handled by the appropriate protocol layer itself.
-For example, Waku protocols use RLN (Rate Limiting Nullifiers) for spam protection, which is handled by [Waku-Relay](https://rfc.vac.dev/waku/standards/core/17/rln-relay) protocol, and the RLN proof would be included as part of the mix payload.
+Note:
+The exit abuse prevention mechanisms described above are intended to protect the exit from flooding attacks routed through them.
+They do not provide protection against denial-of-service (DoS) or resource exhaustion attacks targeting the mixnet itself (_e.g.,_ flooding mix nodes with traffic, inducing processing overhead, or targeting bandwidth).
+
+Protections against attacks targeting the mixnet itself are addressed in [Section 6.6](#66-dos-protection).
 
 ### 6.4 Cover Traffic
 
@@ -399,6 +402,17 @@ Additionally, network operators or application-layer policies MAY require nodes 
 While the Mix Protocol defines a minimum participation requirement, additional incentivization extensions are considered pluggable and experimental in this version of the specification.
 No specific mechanism is standardized.
 
+### 6.6 DoS Protection
+
+The Mix Protocol supports a pluggable DoS protection mechanism to defend the mixnet against denial-of-service (DoS) or resource exhaustion attacks.
+Without DoS protection, malicious actors could flood mix nodes with valid Sphinx packets, exhausting computational resources or bandwidth of the mix nodes, eventually making them unusable.
+Deployments MUST implement a DoS protection mechanism to make the mixnet robust under adversarial conditions.
+
+The DoS protection mechanism is pluggable because different deployments may require different trade-offs between computational overhead, attack resistance, and Sybil resistance.
+For a specific mix deployment, the same DoS protection mechanism MUST be followed by all participating mix nodes to ensure interoperability.
+
+Detailed design requirements, architectural approaches, packet structure considerations, node responsibilities, and recommendations are specified in [Mix DoS Protection](./mix-dos-protection.md).
+
 ## 7. Core Mix Protocol Responsibilities
 
 This section defines the core routing behavior of the Mix Protocol, which all conforming implementations MUST support.
@@ -430,7 +444,7 @@ To perform message initiation, a mix node MUST:
 
 - Select a random mix path.
 - Assign a delay value for each hop and encode it into the Sphinx packet header.
-- Wrap message in a Sphinx packet by applying layered encryption in reverse order of nodes in the selected mix path.
+- Wrap the message in a Sphinx packet by applying layered encryption in reverse order of nodes in the selected mix path.
 - Forward the resulting packet to the first mix node in the mix path using the Mix Protocol.
 
 The Mix Protocol does not interpret message content or origin protocol context.
@@ -460,6 +474,8 @@ A mix node performing intermediary processing MUST treat each packet as stateles
 To process a Sphinx packet as an exit, a mix node MUST:
 
 - Extract the plaintext message from the final decrypted packet.
+- Validate any attached exit abuse prevention proof.
+- Discard the message if validation fails.
 - Forward the valid message to the Mix Exit Layer for delivery to the destination origin protocol instance.
 
 The node MUST NOT retain decrypted content after forwarding.
@@ -516,7 +532,7 @@ This section defines the cryptographic primitives used in Sphinx packet construc
 
   - **Curve**: Curve25519
   - **Notation**: Let $g$ denote the canonical base point (generator) of $\mathbb{G}$.
-  - **Purpose**: Used for deriving Diffie–Hellman-style shared key at each hop using $α$.
+  - **Purpose**: Used for deriving a Diffie–Hellman-style shared key at each hop using $α$.
   - **Representation**: Small 32-byte group elements, efficient for both encryption and key exchange.
   - **Scalar Field**: The curve is defined over the finite field $\mathbb{Z}_q$, where $q = 2^{252} + 27742317777372353535851937790883648493$. Ephemeral exponents used in Sphinx packet construction are selected uniformly at random from $\mathbb{Z}_q^*$, the multiplicative subgroup of $\mathbb{Z}_q$.
 
@@ -563,7 +579,7 @@ The header consists of the fields $α$, $β$, and $γ$, totaling a fixed size pe
 - **$α$ (Alpha)**: 32 bytes
   The size of $α$ is determined by the elliptic curve group representation used (Curve25519), which encodes group elements as 32-byte values.
 
-- **$β$ (Beta)**: $((t + 1)r + 1)κ$ bytes
+- **$β$ (Beta)**: $(r(t + 1) + 1)κ$ bytes
   The size of $β$ depends on:
 
   - **Maximum path length ($r$)**: The recommended value of $r=5$ balances bandwidth versus anonymity tradeoffs.
@@ -586,7 +602,7 @@ Thus, the total header length is:
 $`
 \begin{aligned}
 |Header| &= α + β + γ \\
-  &= 32 + ((t + 1)r + 1)κ + 16
+  &= 32 + (r(t + 1) + 1)κ + 16
 \end{aligned}
 `$
 
@@ -620,6 +636,9 @@ The recommended total packet size is $4608$ bytes, chosen to:
 - Allow inclusion of additional data such as SURBs without requiring fragmentation,
 - Maintain reasonable per-hop processing and bandwidth overhead.
 
+Note:
+When [DoS protection](#66-dos-protection) is enabled, the maximum packet size MUST be increased to accommodate the proof size of the chosen DoS protection mechanism.
+
 This recommended total packet size of $4608$ bytes yields:
 
 $`
@@ -649,9 +668,6 @@ Implementers SHOULD align with widely used defaults to maximize anonymity set si
 Similarly, parameters such as $r$ and $t$ are configurable.
 Changes to these parameters affect header size and therefore impact payload size if the total packet size remains fixed.
 However, if such changes alter the total packet size on the wire, the same anonymity set considerations apply.
-
-When spam protection is enabled (see [Section 9](#9-spam-protection-architecture)), the total wire size may increase depending on the integration approach.
-For per-hop generated proofs, the proof is appended after the Sphinx packet, and the proof size MUST be fixed to maintain packet indistinguishability.
 
 The following subsection defines how the next-hop or destination address and forwarding delay are encoded within $β$ to enable correct routing and mixing behavior.
 
@@ -686,7 +702,7 @@ For interoperability, a recommended default encoding format involves:
   - Peer IDs (39 bytes, post-Base58 decoding)
 
 - Encoding the forwarding delay as an unsigned 16-bit integer (2 bytes), representing the mean delay in milliseconds for the configured delay distribution, using big endian network byte order.
-  The delay distribution is pluggable, as defined in [Section 6.2](#62-delay-strategy).
+The delay distribution is pluggable, as defined in [Section 6.2](#62-delay-strategy).
 
 If the encoded address or delay is shorter than its respective allocated field, it MUST be padded with zeros.
 If it exceeds the allocated size, it MUST be rejected or truncated according to the implementation policy.
@@ -708,7 +724,7 @@ The construction process wraps the message in a sequence of encryption layers&md
 To initiate the Mix Protocol, the origin protocol instance submits a message to the Mix Entry Layer on the same node.
 This layer forwards it to the local Mix Protocol instance, which constructs a Sphinx packet using the following REQUIRED inputs:
 
-- **Application message**: The serialized message provided by the origin protocol instance. The Mix Protocol instance attaches one or two SURBs prior to encapsulating the message in the Sphinx packet. The initiating node MUST ensure that the resulting payload size does not exceed the maximum supported size defined in [Section 8.3.2](#832-payload-size).
+- **Application message**: The serialized message provided by the origin protocol instance. The Mix Protocol instance applies any configured exit abuse prevention mechanism and attaches one or two SURBs prior to encapsulating the message in the Sphinx packet. The initiating node MUST ensure that the resulting payload size does not exceed the maximum supported size defined in [Section 8.3.2](#832-payload-size).
 - **Origin protocol codec**: The libp2p protocol string corresponding to the origin protocol instance. This is included in the payload so that the exit node can route the message to the intended destination protocol after decryption.
 - **Mix Path length $L$**: The number of mix nodes to include in the path. The mix path MUST consist of at least three hops, each representing a distinct mix node.
 - **Destination address $Δ$**: The routing address of the intended recipient of the message. This address is encoded in $(tκ - 2)$ bytes as defined in [Section 8.4](#84-address-and-delay-encoding) and revealed only at the last hop.
@@ -722,6 +738,8 @@ The construction MUST proceed as follows:
 
 1. **Prepare Application Message**
 
+   - Apply any configured exit abuse prevention mechanism (_e.g.,_ PoW, VDF, RLN) to the serialized message.
+   Exit abuse prevention mechanisms are pluggable as defined in [Section 6.3](#63-exit-abuse-prevention).
    - Attach one or more SURBs, if required. Their format and processing are specified in [Section X.X].
    - Append the origin protocol codec in a format that enables the exit node to reliably extract it during parsing. A recommended encoding approach is to prefix the codec string with its length, encoded as a compact varint field limited to two bytes. Regardless of the scheme used, implementations MUST agree on the format within a deployment to ensure deterministic decoding.
    - Pad the result to the maximum application message length of $3968$ bytes using a deterministic padding scheme. This value is derived from the fixed payload size in [Section 8.3.2](#832-payload-size) ($3984$ bytes) minus the security parameter $κ = 16$ bytes defined in [Section 8.2](#82-cryptographic-primitives). The chosen scheme MUST yield a fixed-size padded output and MUST be consistent across all mix nodes to ensure correct interpretation during unpadding. For example, schemes that explicitly encode the padding length and prepend zero-valued padding bytes MAY be used.
@@ -741,6 +759,7 @@ The construction MUST proceed as follows:
 
    - Choose a random private exponent $x \in_R \mathbb{Z}_q^*$.
    - Initialize:
+
      $`
      \begin{aligned}
      α_0 &= g^x \\
@@ -749,6 +768,7 @@ The construction MUST proceed as follows:
      \end{aligned}
      `$
    - For each hop $i$ (from $1$ to $L-1$), compute:
+
      $`
      \begin{aligned}
      α_i &= α_{i-1}^{b_{i-1}} \\
@@ -760,6 +780,7 @@ The construction MUST proceed as follows:
    Note that the length of $α_i$ is $32$ bytes, $0 \leq i \leq L-1$ as defined in [Section 8.3.1](#831-header-field-sizes).
 
    b. **Compute Per-Hop Filler Strings**
+
    Filler strings are encrypted strings that are appended to the header during encryption.
    They ensure that the header length remains constant across hops, regardless of the position of a node in the mix path.
 
@@ -784,10 +805,11 @@ The construction MUST proceed as follows:
        $`
        \begin{array}{l}
        Φ_i = \mathrm{AES\text{-}CTR}'_i\bigl(Φ_{\mathrm{aes\_key}_{i-1}},
-       Φ_{\mathrm{iv}_{i-1}}, Φ_{i-1} \mid 0_{(t+1)κ} \bigr), \\
-       \text{where } 0_x \text{ defines the string of } 0 \text{ bits of length } x\text{.}
+       Φ_{\mathrm{iv}_{i-1}}, Φ_{i-1} \mid 0_{(t+1)κ} \bigr)
        \end{array}
        `$
+
+       where $0_x$ defines the string of $0$ bits of length $x$.
 
    Note that the length of $Φ_i$ is $(t+1)iκ$, $0 \leq i \leq L-1$.
 
@@ -815,7 +837,7 @@ The construction MUST proceed as follows:
 
    - Set the per hop two-byte encoded delay $\mathrm{delay}_i$ as defined in [Section 8.4](#84-address-and-delay-encoding):
 
-     - If final hop (_i.e.,_ $i = L - 1$), encode two byte zero padding.
+     - If final hop (_i.e.,_ $i = L - 1$), encode two-byte zero padding.
      - For all other hop $i$, $i < L - 1$, select the mean forwarding delay for the delay strategy configured by the application, and encode it as a two-byte value. The delay strategy is pluggable, as defined in [Section 6.2](#62-delay-strategy).
 
    - Using the derived keys and encoded forwarding delay, compute the nested encrypted routing information $β_i$:
@@ -836,11 +858,11 @@ The construction MUST proceed as follows:
        \begin{array}{l}
        β_i = \mathrm{AES\text{-}CTR}\bigl(β_{\mathrm{aes\_key}_i},
        β_{\mathrm{iv}_i}, \mathrm{addr}_{i+1} \mid \mathrm{delay}_i
-       \mid γ_{i+1} \mid β_{i+1 \, [0 \ldots (r(t+1) - t)κ - 1]} \bigr),\\
-       \text{where notation } X_{[a \ldots b]} \text{ denotes the substring of } X
-       \text{ from byte offset } a \text{ to } b\text{, inclusive, using zero-based indexing.}
+       \mid γ_{i+1} \mid β_{i+1 \, [0 \ldots (r(t+1) - t)κ - 1]} \bigr)
        \end{array}
        `$
+
+       where $X_{[a \ldots b]}$ denotes the substring of $X$ from byte offset $a$ to $b$, inclusive, using zero-based indexing.
 
      Note that the length of $\beta_i$ is $(r(t+1)+1)κ$, $0 \leq i \leq L-1$ as defined in [Section 8.3.1](#831-header-field-sizes).
 
@@ -911,7 +933,7 @@ The construction MUST proceed as follows:
 
    f. **Transmit Packet**
 
-   - Sample a randomized delay from the same distribution family used for per-hop delays (in Step 3.e.) with an independently chosen mean.
+   - Sample a randomized delay from the same distribution family used for per-hop delays (in Step 3.c.) with an independently chosen mean.
 
    This delay prevents timing correlation when multiple Sphinx packets are sent in quick succession.
    Such bursts may occur when an upstream protocol fragments a large message, or when several messages are sent close together.
@@ -1036,7 +1058,7 @@ As described in [Section 8.6.1](#861-shared-preprocessing), the mix node obtains
 
 At this stage, the node MUST determine whether it is an intermediary or the exit based on the prefix of $B$, in accordance with the construction of $β_i$ defined in [Section 8.5.2](#852-construction-steps) step 3.c.:
 
-- If the first $(tκ - 2)$ bytes of $B$ contain a nonzero-encoded address, immediately followed by a two-byte zero delay, and then $((t + 1)(r - L) + t + 2)κ$ bytes of all-zero padding, process the packet as an exit.
+- If the first $(tκ - 2)$ bytes of $B$ contain a nonzero-encoded address immediately followed by a two-byte zero delay, process the packet as an exit.
 - Otherwise, process the packet as an intermediary.
 
 The following subsections define the precise behavior for each case.
@@ -1077,7 +1099,7 @@ Once the node determines its role as an intermediary following the steps in [Sec
 
      $`
      \begin{array}{l}
-     β' = B_{[(t + 1)κ\ldots(r(t +1 ) + t + 2)κ - 1]}
+     β' = B_{[(t + 1)κ\ldots(r(t + 1) + t + 2)κ - 1]}
      \end{array}
      `$
 
@@ -1163,11 +1185,11 @@ Once the node determines its role as an exit following the steps in [Section 8.6
 
      $`
      \begin{array}{l}
-     m = δ'_{[κ\ldots]},\; \; \;
-     \text{where notation } X_{[a \ldots]} \text{ denotes the substring of } X
-     \text{ from byte offset } a \text{ to the end of the string using zero-based indexing.}
+     m = δ'_{[κ\ldots]}
      \end{array}
      `$
+
+     where $X_{[a \ldots]}$ denotes the substring of $X$ from byte offset $a$ to the end of the string, using zero-based indexing.
 
 3. **Extract Application Message**
 
@@ -1177,11 +1199,12 @@ Once the node determines its role as an exit following the steps in [Section 8.6
 
    - Next, parse the unpadded message deterministically to extract:
 
+     - optional exit abuse prevention proof
      - zero or more SURBs
      - the origin protocol codec
      - the serialized application message
 
-   - Extract SURBs , and identify protocol codec , consistent with the format and extensions applied by the initiator.
+   - Parse and deserialize the metadata fields required for exit abuse prevention validation, SURB extraction, and protocol codec identification, consistent with the format and extensions applied by the initiator.
      The application message itself MUST remain serialized.
 
    - If parsing fails at any stage, discard $m$ and terminate processing.
@@ -1192,338 +1215,19 @@ Once the node determines its role as an exit following the steps in [Section 8.6
 
    - The Exit Layer is responsible for establishing a client-only connection and forwarding the message to the destination. Implementations MAY reuse an existing stream to the destination, if doing so does not introduce any observable linkability between forwarded messages.
 
-## 9. Spam Protection Architecture
-
-This section provides detailed specifications for integrating a spam protection mechanism with the Mix Protocol.
-As introduced in [Section 6.3](#63-spam-protection), Mix protocol supports a pluggable spam protection mechanism.
-This section defines design requirements, architectural approaches, packet structure modifications, and node responsibilities for spam protection.
-This section also defines the interfaces between the Mix Protocol and spam protection mechanisms.
-
-### 9.1 Spam Protection Mechanism Requirements
-
-Any spam protection mechanism integrated with the Mix Protocol MUST satisfy the following requirements:
-
-- Each mix node in the path MUST verify proofs before applying delay and forwarding or taking further action (in the case of exit nodes).
-
-- Spam protection data and verification MUST NOT enable linking or correlating packets across hops.
-  Therefore, spam protection proofs MUST be unique per hop.
-
-- Spam protection proofs MUST NOT be reusable across different packets or hops.
-  Each hop SHOULD be able to detect replayed or forged proofs (e.g., via cryptographic binding to packet-specific or hop-specific data).
-
-- Proofs SHOULD be bound to unique signals per message that cannot be known in advance, preventing adversaries from pre-computing large batches of proofs offline for spam attacks.
-
-- Verification overhead MUST be low to minimise per-hop delays.
-  Otherwise, the spam protection mechanism would add substantial delay at each hop.
-
-- Proof generation and verification methods MUST preserve unlinkability of the sender and MUST NOT leak any additional metadata about the sender or node.
-
-- The mechanism SHOULD provide a way to punish spammers or detect misuse.
-
-### 9.2 Integration Architecture
-
-Two primary architectural approaches exist for integrating spam protection with the Mix Protocol, each with distinct trade-offs.
-This section elaborates on each approach and also lists down trade-offs and provides a comparison which helps in making a decision for deployments.
-
-#### 9.2.1 Sender-Generated Proofs
-
-In this approach, the sender generates spam protection proofs for all hops in the mix path during Sphinx packet construction.
-Proofs are embedded within each hop's routing block in the encrypted header $\beta$.
-
-##### 9.2.1.1 How It Works
-
-During Sphinx packet construction, as defined in [Section 8.5.2](#852-construction-steps), the sender follows the standard construction process (computing ephemeral secrets in step 3.a and encrypted payloads in step 3.d).
-After steps 3.a and 3.d, the sender additionally performs the following spam protection steps:
-
-1. **Generate and Embed Proofs:**
-   For each hop $i$ in the path:
-
-   a. The sender computes the spam protection proof cryptographically bound to $\delta_{i+1}$ (the decrypted payload that hop $i$ will compute).
-   This binding ensures proofs are path-specific and tied to specific encrypted message content, preventing proof extraction and reuse.
-
-   b. The proof and related metadata required for verification are embedded in hop $i$'s routing block within $\beta_i$ during header construction (step 3.c)
-
-2. **Verification at Each Hop:**
-   During Sphinx processing, hop $i$ decrypts $\beta_i$ to extract the proof and metadata, decrypts $\delta$ to get $\delta'$, then verifies the proof matches $\delta'$ using the provided metadata
-
-##### 9.2.1.2 Advantages
-
-- Only the sender performs the expensive proof generation.
-  Intermediate nodes only verify proofs, which is less expensive and also reduces latency per hop.
-- Each hop's proof is encrypted in a separate layer of $\beta$, making proofs unique per hop and cryptographically isolated.
-- Aligned with Sphinx philosophy wherein complexity is at the sender while intermediate nodes perform lightweight operations.
-
-##### 9.2.1.3 Disadvantages
-
-- Sender must generate $L$ proofs, which can be expensive.
-- Each hop's routing block must include spam protection data, increasing overall header and packet size (see impact analysis below).
-- Sender must know the full path before generating proofs and cannot reuse the proofs if two different paths are chosen for the same message.
-- Proofs can only be verified AFTER expensive Sphinx processing operations (session key derivation, replay checking, header integrity verification, and decryption), since they are encrypted within the $\beta$ field and bound to the decrypted payload state $\delta'$.
-  Deployments using this approach SHOULD augment with additional network-level protections (connection rate limiting, localized peer reputation) to defend against attacks that can lead to draining node's resources.
-- This approach does not inherently provide Sybil resistance as intermediate nodes do not generate any proof using their credentials.
-  A separate Sybil resistance mechanism (such as membership proofs) would be required, which would add additional data to the packet header.
-
-##### 9.2.1.4 Impact on Header Size
-
-If spam protection proofs are embedded in $\beta$, the per-hop routing block size increases from $(t+1)\kappa$ bytes to $(t+1)\kappa + |\mathrm{spam\_proof}|$ bytes.
-
-The total $\beta$ size becomes: $(r(t+1) + 1)\kappa + r \times |\mathrm{spam\_proof}|$ bytes, where $r$ is the maximum path length.
-
-With the current recommended values ($r=5$, $t=6$, $\kappa=16$):
-
-- Original header size: $624$ bytes
-- Header size increase: $5 \times |\mathrm{spam\_proof}|$ bytes
-
-Note that $|\mathrm{spam\_proof}|$ includes both the proof and all verification metadata.
-
-e.g. If using RLN, where proof + metadata ~= $300$ bytes, Header size becomes: $624 + 1500 = 2124$ bytes
-
-#### 9.2.2 Per-Hop Generated Proofs
-
-In this approach, each mix node generates a new spam protection proof for the next hop after verifying proof for the incoming packet.
-The proof $\sigma$ is appended after the Sphinx packet, forming the wire format: `SphinxPacket || σ`.
-The proof MAY be bound to the complete outgoing Sphinx packet $(\alpha' | \beta' | \gamma' | \delta')$.
-
-##### 9.2.2.1 How It Works
-
-1. The sender generates an initial spam protection proof $\sigma$ for the first hop and appends it after the Sphinx packet.
-   The proof MAY be cryptographically bound to the Sphinx packet and include any verification metadata required by the spam protection mechanism.
-2. The first hop extracts and verifies $\sigma$ before processing the Sphinx packet.
-3. After successful verification and Sphinx processing, the hop generates a new proof $\sigma'$ for the next hop bound to the transformed packet.
-4. The updated packet is forwarded to the next hop.
-5. This process repeats at each intermediate hop until the packet reaches the exit.
-
-##### 9.2.2.2 Advantages
-
-- Sender only generates one initial proof instead of $L$ proofs.
-- Spam protection data has less overhead on packet header size.
-- Proofs can be verified BEFORE expensive Sphinx processing operations (session key derivation, header integrity verification, and decryption).
-  This provides better DoS protection by allowing nodes to reject invalid packets earlier, before performing costly cryptographic operations.
-- If a membership-based spam protection mechanism is used (_e.g.,_ Rate Limiting Nullifiers), the same mechanism can provide Sybil resistance.
-  Nodes must prove membership or ownership of resources at each hop, making it economically infeasible to operate large numbers of Sybil nodes.
-
-##### 9.2.2.3 Disadvantages
-
-- Each node must generate fresh proofs, adding additional latency and processing cost at each hop.
-  The proof generation latency can be overcome by doing pre-computation of proofs but the proofs would not be bound to message contents rather some other means to add uniqueness.
-- When using rate-limiting mechanisms (such as RLN), intermediate nodes may exhaust their rate limits due to random path selection by multiple independent senders, causing legitimate packets to be dropped even when no individual sender is misbehaving.
-  This creates availability bottlenecks at popular nodes and unpredictable message delivery.
-  This can be mitigated by assigning higher rate-limits to intermediate or popular nodes(e.g. tied to reputation).
-
-##### 9.2.2.4 Impact on Packet Size
-
-The proof $\sigma$ is appended after the Sphinx packet, increasing total wire size to $4608 + |\sigma|$ bytes.
-The internal Sphinx packet structure remains unchanged.
-
-Note that $|\sigma|$ includes both the proof and all verification metadata.
-The proof size MUST be fixed for a given spam protection mechanism to ensure all packets remain indistinguishable on the wire (see [Section 8.3.4](#834-anonymity-set-considerations)).
-
-e.g. If using RLN, where proof + metadata ~= $300$ bytes, total wire size becomes: $4608 + 300 = 4908$ bytes
-
-#### 9.2.3 Comparison
-
-The following table provides a brief comparison between both integration approaches.
-
-| Aspect                             | Sender-Generated Proofs                 | Per-Hop Generated Proofs                   |
-| ---------------------------------- | --------------------------------------- | ------------------------------------------ |
-| **DoS protection**                 | Weaker (verify after Sphinx decryption) | Stronger (verify before Sphinx decryption) |
-| **Sender burden**                  | High (generates $L$ proofs)             | Low (generates 1 proof)                    |
-| **Per-hop computational overhead** | Low (verify only)                       | High (verify + generate)                   |
-| **Per-hop latency**                | Minimal (fast verification)             | Higher (mitigated with pre-computation)    |
-| **Total end-to-end latency**       | Lower                                   | Higher (mitigated with pre-computation)    |
-| **Sybil resistance**               | Requires separate mechanism             | Can be integrated                          |
-| **Packet size increase**           | $L \times \mathrm{spam\_proof}$         | $\|\sigma\|$                               |
-
-Separate specifications defining concrete spam protection mechanisms SHOULD specify recommended approaches and provide detailed integration instructions.
-
-### 9.3 Node Responsibilities
-
-In addition to the standard Sphinx processing responsibilities described in [Section 8](#8-sphinx-packet-format), nodes MUST implement the following spam protection responsibilities based on the chosen architectural approach.
-
-#### 9.3.1 For Sender-Generated Proofs
-
-- **Sender nodes**: MUST generate spam protection proofs for each hop during packet construction as described in [Section 9.2.1.1](#9211-how-it-works).
-  The sender MUST NOT include any identifying information in the proofs.
-
-- **Intermediate and exit nodes**: MUST verify the spam protection proof during packet processing as described in [Section 9.2.1.1](#9211-how-it-works).
-  Verification occurs after decrypting $\beta$ and $\delta$ during the shared preprocessing steps in [Section 8.6.1](#861-shared-preprocessing).
-  If verification fails, nodes MUST discard the packet and MAY apply penalties or rate-limiting measures.
-
-#### 9.3.2 For Per-Hop Generated Proofs
-
-- **Sender nodes**: MUST generate the initial spam protection proof $\sigma$ and append it after the Sphinx packet as described in [Section 9.2.2.1](#9221-how-it-works).
-  The proof MUST NOT contain identifying information.
-
-- **Intermediate nodes**: MUST extract and verify the incoming proof $\sigma$ BEFORE any Sphinx processing.
-  If verification fails, nodes MUST discard the packet and MAY apply penalties or rate-limiting measures.
-  After verification and Sphinx processing, nodes MUST generate a fresh unlinkable proof $\sigma'$ and append it to the transformed packet before forwarding.
-
-- **Exit nodes**: MUST extract and verify the incoming proof $\sigma$ before Sphinx processing.
-  Exit nodes do not generate new proofs.
-
-### 9.4 Anonymity and Security Considerations
-
-Spam protection mechanisms MUST be carefully designed to avoid introducing correlation risks:
-
-- **Timing side channels**: Proof verification and generation time SHOULD be constant to prevent packet fingerprinting through timing analysis.
-
-- **Proof uniqueness and unlinkability**: Each hop's proof MUST be unique and unlinkable from other hops' proofs.
-
-- **Verification failure handling**: Nodes MUST handle failures in a manner such that probing attacks can be prevented.
-
-- **Global state and coordination**: Mechanisms requiring global state MUST ensure access/updates don't leak any additional information.
-  State lookups SHOULD use privacy-preserving techniques.
-
-- **Sybil attacks**: For sender-generated proofs, Sybil resistance cannot be included and nodes can still perform Sybil attacks by colluding.
-  For per-hop generation, membership-based methods can provide Sybil resistance.
-
-### 9.5 Recommended Methods
-
-Specific spam protection methods fall outside this specification's scope.
-Common strategies that MAY be adapted include:
-
-- **PoW style approaches**: Approaches like [EquiHash](https://github.com/khovratovich/equihash) or [VDF Client puzzles](https://www.researchgate.net/publication/356450648_Non-Interactive_VDF_Client_Puzzle_for_DoS_Mitigation) that satisfy spam protection requirements can be used.
-  These, however, do not provide Sybil resistance, which would require a separate mechanism.
-
-- **Privacy preserving Rate-limiting**: Rate limiting approaches like [RLN](https://rate-limiting-nullifier.github.io/rln-docs/rln_in_details.html) with zero-knowledge cryptography that preserve user's privacy can be used.
-  Requires careful design of state access patterns.
-  May need to be augmented with staking and slashing to add Sybil resistance.
-
-Deployments MUST evaluate each method's computational overhead, latency impact, anonymity implications, infrastructure requirements, attack resistance, Sybil resistance, pre-computation resistance, economic cost, and architectural fit.
-
-### 9.6 Spam Protection Interface
-
-This section defines the standardized interface that spam protection mechanisms MUST implement to integrate with the Mix Protocol.
-The interface is designed to be architecture-agnostic, supporting both sender-generated proofs and Per-Hop Generated Proofs approaches described in [Section 9.2](#92-integration-architecture).
-
-Initialization and configuration of spam protection mechanisms is out of scope for this interface specification.
-Implementations are expected to handle their own initialization, configuration management, and runtime state independently before being integrated with the Mix Protocol.
-
-Any spam protection mechanism integrated with the Mix Protocol MUST provide implementations of the procedures defined in this section.
-The specific cryptographic constructions, proof systems, and verification logic are left to the mechanism's specification, but the interface signatures and the behavior defined here MUST be adhered to for interoperability.
-
-#### 9.6.1 Deployment Configuration
-
-The following parameters MUST be agreed upon and configured consistently across all nodes in a deployment:
-
-- **Proof Size**: The fixed size in bytes of `encoded_proof_data` produced by `GenerateProof`.
-  This value is used by Mix Protocol implementations to calculate header sizes and payload capacity.
-
-- **Integration Architecture**: The spam protection integration architecture used by the deployment.
-  Must be one of:
-  - `SENDER_GENERATED_PER_HOP`: Sender generates proofs for each hop (see [Section 9.6.3.1](#9631-for-sender-generated-proofs))
-  - `PER_HOP_GENERATION`: Each node generates a fresh proof for the next hop (see [Section 9.6.3.2](#9632-for-per-hop-generated-proofs))
-
-All nodes in a deployment MUST use the same integration architecture.
-Nodes MUST refuse to process packets that do not conform to the deployment's configured architecture.
-
-#### 9.6.2 Interface Procedures
-
-All spam protection mechanisms MUST implement the following procedures.
-
-##### 9.6.2.1 Proof Generation
-
-`GenerateProof(binding_data) -> encoded_proof_data`
-
-Generate a spam protection proof bound to specific packet data.
-
-**Parameters**:
-
-- `binding_data`: The packet-specific data to which the proof MAY be cryptographically bound.
-  For sender-generated proofs, this is $\delta_{i+1}$ (the decrypted payload that hop $i$ will see).
-  For per-hop generated proofs, this is the complete outgoing Sphinx packet state $(\alpha', \beta', \gamma', \delta')$.
-
-**Returns**:
-
-- `encoded_proof_data`: Serialized bytes containing the spam protection proof and any required verification metadata.
-  This is treated as opaque data by the Mix Protocol layer.
-
-**Requirements**:
-
-- The spam protection mechanism is responsible for managing its own runtime state (_e.g.,_ current epochs, difficulty levels, merkle tree states).
-  The Mix Protocol layer does not provide or track mechanism-specific runtime context.
-- The encoding MUST produce a fixed-length output, or include a length prefix if variable-length encoding is used.
-
-##### 9.6.2.2 Proof Verification
-
-`VerifyProof(encoded_proof_data, binding_data) -> valid`
-
-Verify that a spam protection proof is valid and correctly bound to the provided packet data.
-
-**Parameters**:
-
-- `encoded_proof_data`: Serialized bytes containing the spam protection proof and verification metadata, extracted from the routing block $\beta$ (for sender-generated approach) or from the packet header field $\sigma$ (for per-hop generation approach).
-- `binding_data`: The packet-specific data against which the proof SHOULD be verified.
-  For nodes verifying sender-generated proofs, this is $\delta'$ (the decrypted payload).
-  For per-hop verification, this is the received Sphinx packet state $(\alpha', \beta', \gamma', \delta')$.
-
-**Returns**:
-
-- `valid`: Boolean indicating whether the proof is valid.
-
-**Requirements**:
-
-- Implementations MUST handle malformed or truncated `encoded_proof_data` gracefully and return `false`.
-- For mechanisms that maintain global state (_e.g.,_ nullifier sets, rate-limit counters, membership trees), this procedure MUST update the internal state atomically when verification succeeds.
-  State updates (_e.g.,_ recording nullifiers, updating rate-limit counters) and state cleanup (_e.g.,_ removing expired epochs, old nullifiers) are managed internally by the spam protection mechanism.
-
-#### 9.6.3 Integration Points in Sphinx Processing
-
-The Mix Protocol invokes spam protection procedures at specific points in Sphinx packet construction and processing:
-
-##### 9.6.3.1 For Sender-Generated Proofs
-
-**Sender Nodes - During Packet Construction** ([Section 8.5.2](#852-construction-steps)):
-
-After computing encrypted payloads $\delta_i$ for each hop (Step 3.d), the sender MUST:
-
-1. For each hop $i$ in path (from $i = 0$ to $L-1$):
-   - Call `GenerateProof(binding_data = δ_{i+1})` to generate `encoded_proof_data` for hop $i$
-   - Embed the `encoded_proof_data` in hop $i$'s routing block within $\beta_i$ during header construction (Step 3.c)
-
-**Intermediate Nodes- During Packet Processing** ([Section 8.6.1](#861-shared-preprocessing)):
-
-After decrypting the routing block $\beta$ and payload $\delta'$ (Steps 4-5), the node MUST:
-
-1. Extract `encoded_proof_data` from the routing block $\beta$ at the appropriate offset
-2. Call `VerifyProof(encoded_proof_data, binding_data = δ')`
-3. If `valid = false`, discard the packet and terminate processing
-4. If `valid = true`, continue with role-specific processing (intermediary or exit)
-
-##### 9.6.3.2 For Per-Hop Generated Proofs
-
-**Entry Nodes - During Packet Construction** ([Section 8.5.2](#852-construction-steps)):
-
-After assembling the final Sphinx packet (Step 3.e), the entry node MUST:
-
-1. Call `GenerateProof(binding_data)` where `binding_data` is the complete Sphinx packet bytes
-2. Append `encoded_proof_data` after the Sphinx packet and send to the first hop
-
-**Intermediate Nodes - During Packet Processing** ([Section 8.6](#86-sphinx-packet-handling)):
-
-**Before** any Sphinx decryption operations, intermediate nodes MUST:
-
-1. Extract `encoded_proof_data` from the last `proofSize` bytes of the received packet
-2. Call `VerifyProof(encoded_proof_data, binding_data)` where `binding_data` is the Sphinx packet bytes
-3. If the proof is not valid, discard the packet and terminate processing immediately
-4. If valid, perform standard Sphinx processing, then call `GenerateProof(binding_data)` with the transformed packet as `binding_data`
-5. Append the new `encoded_proof_data` to the transformed Sphinx packet and forward
-
-**Exit nodes** follow steps 1-3 but do not generate a new proof.
-
-## 10. Security Considerations
+## 9. Security Considerations
 
 This section describes the security guarantees and limitations of the Mix Protocol.
 It begins by outlining the anonymity properties provided by the core protocol when routing messages through the mix network.
 It then discusses the trust assumptions required at the edges of the network, particularly at the final hop.
 Finally, it presents an alternative trust model for destinations that support Mix Protocol directly, followed by a summary of broader limitations and areas that may be addressed in future iterations.
 
-### 10.1 Security Guarantees of the Core Mix Protocol
+### 9.1 Security Guarantees of the Core Mix Protocol
 
 The core Mix Protocol&mdash;comprising anonymous routing through a sequence of mix nodes using Sphinx packets&mdash;provides the following security guarantees:
 
 - **Sender anonymity**: Each message is wrapped in layered encryption and routed independently, making it unlinkable to the sender even if multiple mix nodes are colluding.
-- **Metadata protection**: All messages are fixed in size and indistinguishable on the wire. Sphinx packets reveal only the immediate next hop and delay to each mix node. No intermediate node learns its position in the path or the total pathlength.
+- **Metadata protection**: All messages are fixed in size and indistinguishable on the wire. Sphinx packets reveal only the immediate next hop and delay to each mix node. No intermediate node learns its position in the path or the total path length.
 - **Traffic analysis resistance**: Continuous-time mixing with randomized per-hop delays reduces the risk of timing correlation and input-output linkage.
 - **Per-hop confidentiality and integrity**: Each hop decrypts only its assigned layer of the Sphinx packet and verifies header integrity via a per-hop MAC.
 - **No long-term state**: All routing is stateless. Mix nodes do not maintain per-message metadata, reducing the surface for correlation attacks.
@@ -1532,14 +1236,14 @@ These guarantees hold only within the boundaries of the Mix Protocol.
 Additional trust assumptions are introduced at the edges, particularly at the final hop, where the decrypted message is handed off to the Mix Exit Layer for delivery to the destination outside the mixnet.
 The next subsection discusses these trust assumptions in detail.
 
-### 10.2 Exit Node Trust Model
+### 9.2 Exit Node Trust Model
 
 The Mix Protocol ensures strong sender anonymity and metadata protection between the Mix Entry and Exit layers.
 However, once a Sphinx packet is decrypted at the final hop, additional trust assumptions are introduced.
 The node processing the final layer of encryption is trusted to forward the correct message to the destination and return any reply using the provided reply key.
 This section outlines the resulting trust boundaries.
 
-#### 10.2.1 Message Delivery and Origin Trust
+#### 9.2.1 Message Delivery and Origin Trust
 
 At the final hop, the decrypted Sphinx packet reveals the plaintext message and destination address.
 The exit node is then trusted to deliver this message to the destination application, and&mdash;if a reply is expected&mdash;to return the response using the embedded reply key.
@@ -1565,7 +1269,7 @@ That is, the exit remains a necessary point of trust for message delivery and re
 The next subsection describes a related limitation:
 the exit's ability to pose as a legitimate client to the destination's origin protocol, and how that can be abused to bypass application-layer expectations.
 
-#### 10.2.2 Origin Protocol Trust and Client Role Abuse
+#### 9.2.2 Origin Protocol Trust and Client Role Abuse
 
 In addition to the message delivery and origin trust assumption, the exit node also initiates a client-side connection to the origin protocol instance at the destination.
 From the destination's perspective, this appears indistinguishable from a conventional peer connection, and the exit is accepted as a legitimate peer.
@@ -1585,7 +1289,7 @@ It allows applications to preserve sender anonymity without requiring any partic
 However, in scenarios that demand stronger end-to-end guarantees&mdash;such as verifiable message delivery, origin authentication, or control over client access&mdash;it may be beneficial for the destination itself to operate a Mix instance.
 This alternative model is described in the next subsection.
 
-### 10.3 Destination as Final Hop
+### 9.3 Destination as Final Hop
 
 In some deployments, it may be desirable for the destination node to participate in the Mix Protocol directly.
 In this model, the destination operates its own Mix instance and is selected as the final node in the mix path.
@@ -1612,13 +1316,13 @@ Additional details on discovery configurations are out of scope for this specifi
 
 This trust model is not required for interoperability, but is recommended when assessing deployment-specific threat models, especially in protocols that require message integrity or authenticated replies.
 
-### 10.4 Known Protocol Limitations
+### 9.4 Known Protocol Limitations
 
 The Mix Protocol provides strong sender anonymity and metadata protection guarantees within the mix network.
 However, it does not address all classes of network-level disruption or application-layer abuse.
 This section outlines known limitations that deployments MUST consider when evaluating system resilience and reliability.
 
-#### 10.4.1 Undetectable Node Misbehavior
+#### 9.4.1 Undetectable Node Misbehavior
 
 The Mix Protocol in its current version does not include mechanisms to detect or attribute misbehavior by mix nodes.
 Since Sphinx packets are unlinkable and routing is stateless, malicious or faulty nodes may delay, drop, or selectively forward packets without detection.
@@ -1630,13 +1334,13 @@ As a result, unreliable nodes cannot be penalized or excluded based on observed 
 Future versions may explore accountability mechanisms.
 For now, deployments MAY improve robustness by sending each packet along multiple paths as defined in [Section X.X], but MUST treat message loss as a possibility.
 
-#### 10.4.2 No Built-in Retry or Acknowledgment
+#### 9.4.2 No Built-in Retry or Acknowledgment
 
-The Mix protocol does not support retransmission, delivery acknowledgments, or automated fallback logic.
+The Mix Protocol does not support retransmission, delivery acknowledgments, or automated fallback logic.
 Each message is sent once and routed independently through the mixnet.
 If a message is lost or a node becomes unavailable, recovery is the responsibility of the top-level application.
 
-Single-Use Reply Blocks (SURBs) (defined in Section[X.X]) enable destinations to send responses back to the sender via a fresh mix path.
+Single-Use Reply Blocks (SURBs) (defined in [Section X.X]) enable destinations to send responses back to the sender via a fresh mix path.
 However, SURBs are optional, and their usage for acknowledgments or retries must be coordinated by the application.
 
 Applications using the Mix Protocol MUST treat delivery as probabilistic.
@@ -1647,7 +1351,7 @@ To improve reliability, the sender MAY:
 
 These strategies MUST be implemented at the origin protocol layer or through Mix integration logic and are not enforced by the Mix Protocol itself.
 
-#### 10.4.3 No Sybil Resistance
+#### 9.4.3 No Sybil Resistance
 
 The Mix Protocol does not include any built-in defenses against Sybil attacks.
 All nodes that support the protocol and are discoverable via peer discovery are equally eligible for path selection.
@@ -1659,9 +1363,10 @@ This raises the risk of deanonymization through end-to-end traffic correlation o
 Deployments concerned with Sybil resistance MAY implement passive defenses such as minimum path length constraints.
 More advanced mitigations such as stake-based participation or resource proofs typically require some form of trusted setup or blockchain-based coordination.
 
-Such defenses are out of scope in the current version of the Mix Protocol, but are critical to ensuring anonymity at scale and may be explored in future iterations.
+Such defenses are not built into the current version of the Mix Protocol, but are critical to ensuring anonymity at scale.
+Deployments that enable DoS protection (see [Section 6.6](#66-dos-protection)) may gain Sybil resistance as a side effect, depending on the approach chosen.
 
-#### 10.4.4 Vulnerability to Denial-of-Service Attacks
+#### 9.4.4 Vulnerability to Denial-of-Service Attacks
 
 The Mix Protocol does not provide built-in defenses against denial-of-service (DoS) attacks targeting mix nodes.
 A malicious mix node may generate a high volume of valid Sphinx packets to exhaust computational, memory, or bandwidth resources along random paths through the network.
@@ -1670,13 +1375,9 @@ This risk stems from the protocol's stateless and sender-anonymous design.
 Mix nodes process each packet independently and cannot distinguish honest users from attackers.
 There is no mechanism to attribute packets, limit per-sender usage, or apply network-wide fairness constraints.
 
-Mix nodes remain vulnerable to volumetric attacks even when destinations are protected.
-
 While the Mix Protocol includes safeguards such as layered encryption, per-hop integrity checks, and fixed-size headers, these primarily defend against tagging attacks and structurally invalid or malformed traffic.
 The Sphinx packet format also enforces a maximum path length $(L \leq r)$, which prevents infinite loops or excessively long paths being embedded.
 However, these protections do not prevent adversaries from injecting large volumes of short, well-formed messages to exhaust mix node resources.
 
-DoS protection&mdash;such as admission control, rate-limiting, or resource-bound access&mdash;can be plugged in as explained in [Spam protection](#63-spam-protection).
+DoS protection&mdash;such as admission control, rate-limiting, or resource-bound access&mdash;can be plugged in as explained in [Section 6.6](#66-dos-protection).
 Any such mechanism MUST preserve sender unlinkability and SHOULD be evaluated carefully to avoid introducing correlation risks.
-
-Defending against large-scale DoS attacks is considered a deployment-level responsibility and is out of scope for this specification.
