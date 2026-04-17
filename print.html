@@ -31029,6 +31029,7 @@ the prospective key package has not been already used.</li>
 </div><!-- timeline:start -->
 <h2 id="timeline-84"><a class="header" href="#timeline-84">Timeline</a></h2>
 <ul>
+<li><strong>2026-04-17</strong> — <a href="https://github.com/logos-co/logos-lips/blob/9c6ba99bf88825f1ce1af64e5e4333e333068d85/docs/ift-ts/raw/extended-kad-disco.md"><code>9c6ba99</code></a> — removal of the API section of extended kad disco spec (#310)</li>
 <li><strong>2026-04-15</strong> — <a href="https://github.com/logos-co/logos-lips/blob/5a3e844679a0ac60e6b4e945a64c2f7d8650cba5/docs/ift-ts/raw/extended-kad-disco.md"><code>5a3e844</code></a> — Chore/move repo into logos co (#312)</li>
 <li><strong>2026-01-26</strong> — <a href="https://github.com/logos-co/logos-lips/blob/8bba4441aa3601cef6fb75ff5d48b1cd27350a5c/docs/ift-ts/raw/extended-kad-disco.md"><code>8bba444</code></a> — chore: fix lint (#275)</li>
 <li><strong>2026-01-23</strong> — <a href="https://github.com/logos-co/logos-lips/blob/8164992534b14b2466fc1117bbeef2ae2d14f249/docs/ift-ts/raw/extended-kad-disco.md"><code>8164992</code></a> — chore: fix lint</li>
@@ -31135,57 +31136,6 @@ or that do not advertise the <code>services</code> of interest to the discoverer
 <p>To prevent network topology mapping and eclipse attacks,
 <code>Kad-DHT</code> nodes MUST NOT disclose connection type in <a href="https://github.com/libp2p/specs/blob/e87cb1c32a666c2229d3b9bb8f9ce1d9cfdaa8a9/kad-dht/README.md#rpc-messages">response messages</a>.
 The <code>connection</code> field of every <code>Peer</code> MUST always be set to <code>NOT_CONNECTED</code>.</p>
-<h2 id="api-specification"><a class="header" href="#api-specification">API Specification</a></h2>
-<p>Implementers of this protocol,
-SHOULD wrap the implementation in a functional interface similar to the one defined below.</p>
-<p>In Extended Kademlia Discovery, the discovery protocol is based on a random DHT walk,
-optionally filtering the randomly discovered peers by capability.
-However, it's possible to define discovery protocols with better performance in finding peers with specific capabilities.
-The aim is to define an API that is compatible with Extended Kademlia Discovery
-and more sophisticated capability discovery protocols,
-maintaining similar function signatures even if the underlying protocol differs.
-This section may be extracted into a separate API specification once new capability discovery protocols are defined.</p>
-<p>The API is defined in the form of C-style bindings.
-However, this simply serves to illustrate the exposed functions
-and can be adapted into the conventions of any strongly typed language.
-Although unspecified in the API below,
-all functions SHOULD return an error result type appropriate to the implementation language.</p>
-<h3 id="start"><a class="header" href="#start"><code>start()</code></a></h3>
-<p>Start the discovery protocol,
-including all tasks related to bootstrapping and maintaining the routing table
-and advertising this node and its capabilities.</p>
-<p>In the case of Extended Kademlia Discovery,
-<code>start()</code> will kick off the periodic task of <a href="ift-ts/raw/extended-kad-disco.html#record-propagation">refreshing the propagated <code>XPR</code></a>.</p>
-<h3 id="stop"><a class="header" href="#stop"><code>stop()</code></a></h3>
-<p>Stop the discovery protocol,
-including all tasks related to maintaining the routing table
-and advertising this node and its capabilities.</p>
-<p>In the case of Extended Kademlia Discovery,
-<code>stop()</code> will cancel the periodic task of <a href="ift-ts/raw/extended-kad-disco.html#record-propagation">refreshing the propagated <code>XPR</code></a>.</p>
-<h3 id="start_advertisingconst-char-service_id"><a class="header" href="#start_advertisingconst-char-service_id"><code>start_advertising(const char* service_id)</code></a></h3>
-<p>Start advertising this node against any capability
-encoded as an input <code>service_id</code> string.</p>
-<p>In the case of Extended Kademlia Discovery,
-<code>start_advertising()</code> will include the input <code>service_id</code>
-in the <a href="ift-ts/raw/extended-kad-disco.html#record-propagation">regularly propagated <code>XPR</code></a>.</p>
-<h3 id="stop_advertisingconst-char-service_id"><a class="header" href="#stop_advertisingconst-char-service_id"><code>stop_advertising(const char* service_id)</code></a></h3>
-<p>Stop advertising this node against the capability
-encoded in the input <code>service_id</code> string.</p>
-<p>In the case of Extended Kademlia Discovery,
-<code>stop_advertising()</code> will exclude the <code>service_id</code>
-from the <a href="ift-ts/raw/extended-kad-disco.html#record-propagation">regularly propagated <code>XPR</code></a>,
-if it was previously included.</p>
-<h3 id="extensiblepeerrecords-lookupconst-char-service_id-"><a class="header" href="#extensiblepeerrecords-lookupconst-char-service_id-"><code>ExtensiblePeerRecords* lookup(const char* service_id, ...)</code></a></h3>
-<p>Lookup and return records for peers supporting the capability encoded in the input <code>service_id</code> string,
-using the underlying discovery protocol.
-<code>service_id</code> is an OPTIONAL input argument.
-If unset, it indicates a lookup for peers supporting any (or zero) capabilities.</p>
-<p>In the case of Extended Kademlia Discovery,
-<code>lookup()</code> will trigger the random walk <a href="ift-ts/raw/extended-kad-disco.html#record-discovery">record discovery</a>,
-filtering discovered records based on <code>service_id</code>, if specified.
-If no <code>service_id</code> is specified,
-Extended Kademlia Discovery will just return a random selection of peer records,
-matching any capability.</p>
 <h2 id="copyright-83"><a class="header" href="#copyright-83">Copyright</a></h2>
 <p>Copyright and related rights waived via <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>.</p>
 <h2 id="references-72"><a class="header" href="#references-72">References</a></h2>
