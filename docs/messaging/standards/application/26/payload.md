@@ -5,6 +5,7 @@
 | Name | Waku Message Payload Encryption |
 | Slug | 26 |
 | Status | draft |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Oskar Thoren <oskarth@titanproxy.com> |
 | Contributors | Oskar Thoren <oskarth@titanproxy.com> |

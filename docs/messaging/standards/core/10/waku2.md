@@ -5,6 +5,7 @@
 | Name | Waku v2 |
 | Slug | 10 |
 | Status | draft |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Hanno Cornelius <hanno@status.im> |
 | Contributors | Sanaz Taheri <sanaz@status.im>, Hanno Cornelius <hanno@status.im>, Reeshav Khan <reeshav@status.im>, Daniel Kaiser <danielkaiser@status.im>, Oskar Thorén <oskarth@titanproxy.com> |

@@ -5,6 +5,7 @@
 | Name | Codex Erasue Coding |
 | Slug | 79 |
 | Status | deprecated |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Giuliano Mega <giuliano@status.im> |
 

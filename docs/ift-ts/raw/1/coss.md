@@ -5,6 +5,7 @@
 | Name | Consensus-Oriented Specification System |
 | Slug | 1 |
 | Status | draft |
+| Type | RFC |
 | Category | Best Current Practice |
 | Editor | Daniel Kaiser <danielkaiser@status.im> |
 | Contributors | Oskar Thoren <oskarth@titanproxy.com>, Pieter Hintjens <ph@imatix.com>, André Rebentisch <andre@openstandards.de>, Alberto Barrionuevo <abarrio@opentia.es>, Chris Puttick <chris.puttick@thehumanjourney.net>, Yurii Rashkovskii <yrashk@gmail.com>, Jimmy Debe <jimmy@status.im> |
@@ -158,7 +159,7 @@ For a specification to receive a lifecycle status,
 a new specification SHOULD be presented by the team of the sub-domain.
 After discussion amongst the contributors has reached a rough consensus,
 as described in [RFC7282](https://www.rfc-editor.org/rfc/rfc7282.html),
-the specification MAY begin the process to upgrade it's status.
+the specification MAY begin the process to upgrade its status.
 
 A specification has eight possible states that reflect its maturity and
 contractual weight:
@@ -206,11 +207,11 @@ Verified specifications are contracts between editors, implementers, and externa
 
 ### Deprecated Specifications
 
-When stable or verified specifications are replaced by newer draft specifications,
+When stable or verified specifications are replaced by newer specifications,
 they become **deprecated** specifications.
 Deprecated specifications should not be changed except
 to indicate their replacements, if any.
-Deprecated specifications are contracts between editors, implementers and end-users.
+Deprecated specifications are contracts between editors, implementers, and end-users.
 
 ### Retired Specifications
 
@@ -303,6 +304,7 @@ particularly in **raw** specifications that are still being developed.
 | **name**         | required   | full name            | string | Consensus-Oriented Specification System                                                                                                                                                                                             |
 | **slug**         | required   | number               | int    | 1                                                                                                                                                                                                                                   |
 | **status**       | required   | status               | string | draft                                                                                                                                                                                                                               |
+| **type**         | required   | document type        | string | RFC                                                                                                                                                                                                                                 |
 | **category**     | optional   | category             | string | Best Current Practice                                                                                                                                                                                                               |
 | **tags**         | optional   | 0 or several tags    | list   | waku-application, waku-core-protocol                                                                                                                                                                                                |
 | **editor**       | optional   | editor name/email    | string | Oskar Thoren <oskarth@titanproxy.com>                                                                                                                                                                                               |
@@ -351,15 +353,17 @@ The IFT specification process recognizes two document types:
 
 **RFC (Request for Comments)**
 is the primary document type for technical specifications.
-RFCs progress through the full COSS lifecycle from raw to stable or beyond.
+RFCs progress through the full COSS lifecycle
+(raw → draft → approved → stable → verified).
 All specifications described in this document are RFCs by default.
 
 **CFR (Change for Request)**
 is a document type for proposing changes or amendments to existing specifications.
 A CFR describes a specific, bounded change to an existing RFC.
 CFRs follow the same lifecycle as RFCs but are scoped to a single change proposal.
-A CFR that reaches stable status MAY be merged back into the target RFC,
-after which it transitions to deprecated.
+All eight lifecycle statuses apply to CFRs.
+A CFR that reaches stable or verified status MAY be merged back into the target RFC,
+after which the CFR transitions to deprecated.
 
 ## Conventions
 

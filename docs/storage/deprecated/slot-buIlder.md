@@ -5,6 +5,7 @@
 | Name | Codex Slot Builder |
 | Slug | 78 |
 | Status | deprecated |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Jimmy Debe <jimmy@status.im> |
 | Contributors | Jimmy Debe <jimmy@status.im> |

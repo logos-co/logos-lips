@@ -5,6 +5,7 @@
 | Name | Waku v2 Discv5 Ambient Peer Discovery |
 | Slug | 33 |
 | Status | draft |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Daniel Kaiser <danielkaiser@status.im> |
 | Contributors | Filip Dimitrijevic <filip@status.im> |

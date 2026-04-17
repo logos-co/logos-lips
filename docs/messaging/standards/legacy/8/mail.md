@@ -5,6 +5,7 @@
 | Name | Waku Mailserver |
 | Slug | 8 |
 | Status | stable |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Andrea Maria Piana <andreap@status.im> |
 | Contributors | Adam Babik <adam@status.im>, Dean Eigenmann <dean@status.im>, Oskar Thorén <oskarth@titanproxy.com> |

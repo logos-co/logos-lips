@@ -5,6 +5,7 @@
 | Name | Toy Ethereum Private Message |
 | Slug | 20 |
 | Status | draft |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Franck Royer <franck@status.im> |
 

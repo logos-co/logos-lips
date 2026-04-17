@@ -5,6 +5,7 @@
 | Name | Waku v2 Relay |
 | Slug | 11 |
 | Status | stable |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Hanno Cornelius <hanno@status.im> |
 | Contributors | Oskar Thorén <oskarth@titanproxy.com>, Sanaz Taheri <sanaz@status.im> |

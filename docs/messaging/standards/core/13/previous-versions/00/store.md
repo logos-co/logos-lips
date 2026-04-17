@@ -5,6 +5,7 @@
 | Name | Waku v2 Store |
 | Slug | 13 |
 | Status | draft |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Simon-Pierre Vivier <simvivier@status.im> |
 | Contributors | Dean Eigenmann <dean@status.im>, Oskar Thorén <oskarth@titanproxy.com>, Aaryamann Challani <p1ge0nh8er@proton.me>, Sanaz Taheri <sanaz@status.im>, Hanno Cornelius <hanno@status.im> |
