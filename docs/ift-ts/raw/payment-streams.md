@@ -561,24 +561,128 @@ before the first request is served.
 
 This section outlines how the protocol maps onto LEZ.
 
-The stream protocol MAY be deployed as an LEZ program
-with three account types:
+### Scope and Mapping
 
-- StreamDefinition: stream parameters and status.
-- VaultDefinition: list of streams backed by a vault, controlled by payer.
-- VaultHolding: token account funded by payer, used to pay providers.
+This section maps the protocol semantics in this RFC
+to a concrete LEZ on-chain account and instruction model.
 
-Stream lifecycle rules and balance constraints
-are encoded and enforced through program logic.
+### On-Chain Data Model
+
+The stream protocol MAY be deployed as a single LEZ program
+with three account types.
+The exact field layouts are intentionally deferred
+to follow implementation progress in this repository.
+
+#### VaultConfig
+
+`VaultConfig` stores vault metadata and authority information
+for one user-controlled vault.
+It is the vault configuration account used for authorization and stream association.
+
+#### VaultHolding
+
+`VaultHolding` stores vault funds
+using LEZ-native balance mechanics for MVP.
+It is the vault holding account used by deposit, withdraw, and settlement flows.
+
+#### StreamConfig
+
+`StreamConfig` stores stream parameters and mutable state,
+including lifecycle status and accrual tracking fields.
+Each stream belongs to exactly one vault
+and targets exactly one provider.
+
+### PDA Derivation
+
+Vault and stream accounts MUST use deterministic account derivation
+from canonical seeds defined by the program.
+Implementations MUST verify that every provided account address
+matches the expected derivation for the operation being executed.
+
+### Instructions
+
+This subsection defines the on-chain instruction surface
+that realizes the stream lifecycle defined earlier in this RFC.
+Each instruction definition should specify required accounts,
+authorization rules, and state or balance effects.
+
+#### InitializeVault
+
+Creates a new vault account set for a user
+and initializes its control and holding accounts.
+The final text should define uniqueness rules per owner and vault identifier.
+
+#### Deposit
+
+Moves funds into a vault holding account.
+The final text should define accepted sources and post-deposit invariants.
+
+#### Withdraw
+
+Moves unallocated funds out of a vault holding account.
+The final text should require owner authorization
+and enforce available-balance constraints.
+
+#### CreateStream
+
+Creates a new stream bound to a vault and provider
+with initial allocation and rate parameters.
+The final text should require sufficient available vault balance.
+
+#### PauseStream
+
+Transitions a stream from ACTIVE to PAUSED.
+The final text should define authorized caller rules
+and required accrual update behavior before transition.
+
+#### ResumeStream
+
+Transitions a stream from PAUSED to ACTIVE.
+The final text should fail resume when remaining allocation is zero.
+
+#### TopUpStream
+
+Adds allocation to an existing stream
+and updates accounting accordingly.
+The final text should define whether top-up forces ACTIVE state.
+
+#### CloseStream
+
+Permanently closes a stream
+and returns unaccrued funds to the backing vault balance.
+The final text should define who can close and idempotency behavior.
+
+#### Claim
+
+Transfers accrued stream funds to the provider.
+The final text should define caller permissions
+and claim behavior across ACTIVE, PAUSED, and CLOSED states.
+
+### Balance Accounting Rules
+
+This subsection should define canonical accounting variables,
+including vault balance, total allocated, and available balance.
+All instructions MUST preserve balance conservation across vault and stream state.
+
+### Time Source and Accrual
 
 Stream state is evaluated lazily.
 On-chain storage holds stream parameters,
-but the effective state depends on the block timestamp at execution time.
-State transitions (such as auto-pause) are reflected on-chain
-only when an on-chain operation is executed.
+but the effective state depends on elapsed time at execution.
+This MVP uses a mock timestamp source
+until a LEZ-native timestamp mechanism is finalized.
 
-Whether shielded execution can access block timestamps
-for time-based accrual calculation is an open question.
+### Validation Rules
+
+This subsection should collect cross-cutting checks
+such as authorization, state-transition legality,
+overflow or underflow protection, and account ownership checks.
+Instruction-level rules should reference these common invariants.
+
+### Execution Modes
+
+The same guest logic is intended to support both
+transparent and shielded execution paths.
 Given a mechanism for elapsed time in shielded execution,
 all protocol operations MAY be performed within shielded execution.
 
@@ -597,10 +701,6 @@ A provider MAY reject stream requests
 that do not match their privacy preferences.
 
 On-chain state of a stream MUST be verifiable by both parties.
-
-## Copyright
-
-Copyright and related rights waived via [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
 
 ## References
 
@@ -730,3 +830,7 @@ function claim(uint256 streamId) external;
 ///      state updates on next interaction, not at exact depletion time).
 function _accrue(uint256 streamId) internal;
 ```
+
+## Copyright
+
+Copyright and related rights waived via [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
