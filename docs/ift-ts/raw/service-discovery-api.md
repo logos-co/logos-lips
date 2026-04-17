@@ -40,14 +40,14 @@ all functions SHOULD return an error result type appropriate to the implementati
 ```
 
 typedef struct {
-    const uint8_t* advertisementBytes;
-    size_t   length;
-} RawAdvertisement;
+    const uint8_t* bytes;
+    size_t   len;
+} Advertisement;
 
 typedef struct {
-    const RawAdvertisement* items;
-    size_t                  count;
-} RawAdvertisementList;
+    const Advertisement* ads;
+    size_t                  len;
+} AdvertisementList;
 
 ```
 
