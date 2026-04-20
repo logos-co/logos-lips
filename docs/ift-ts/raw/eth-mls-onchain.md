@@ -13,21 +13,21 @@
 
 ## Timeline
 
-- **2026-01-19** — [`f24e567`](https://github.com/vacp2p/rfc-index/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/ift-ts/raw/eth-mls-onchain.md) — Chore/updates mdbook (#262)
-- **2026-01-16** — [`f01d5b9`](https://github.com/vacp2p/rfc-index/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/ift-ts/raw/eth-mls-onchain.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/eth-mls-onchain.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/raw/eth-mls-onchain.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/raw/eth-mls-onchain.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/raw/eth-mls-onchain.md) — ci: add mdBook configuration (#233)
-- **2025-04-04** — [`517b639`](https://github.com/vacp2p/rfc-index/blob/517b63984c875670e437d50359f2f67331104974/vac/raw/eth-mls-onchain.md) — Update the RFCs: Vac Raw RFC (#143)
-- **2024-10-03** — [`c655980`](https://github.com/vacp2p/rfc-index/blob/c655980494a5943634c372009bbea71c13196a8f/vac/raw/eth-demls.md) — Eth secpm splitted (#91)
-- **2024-08-29** — [`13aaae3`](https://github.com/vacp2p/rfc-index/blob/13aaae37d15bdd672c26565bd0e0ebfc2e8b9459/vac/raw/eth-secpm.md) — Update eth-secpm.md (#84)
-- **2024-05-21** — [`e234e9d`](https://github.com/vacp2p/rfc-index/blob/e234e9d5a30bb4d9d4654285c6118f3d9900a3b9/vac/raw/eth-secpm.md) — Update eth-secpm.md (#35)
-- **2024-03-21** — [`2eaa794`](https://github.com/vacp2p/rfc-index/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/vac/70/eth-secpm.md) — Broken Links + Change Editors (#26)
-- **2024-02-28** — [`b842725`](https://github.com/vacp2p/rfc-index/blob/b842725d42f1c7d7661808035eff2b0dfa1fca7e/vac/70/eth-secpm.md) — Update eth-secpm.md
-- **2024-02-01** — [`f2e1b4c`](https://github.com/vacp2p/rfc-index/blob/f2e1b4cd4613f9ab648e42fd00475acf4541649d/vac/70/eth-secpm.md) — Rename ETH-SECPM.md to eth-secpm.md
-- **2024-02-01** — [`22bb331`](https://github.com/vacp2p/rfc-index/blob/22bb3312fa6ab920281e11c5db190b123c9553b1/vac/70/ETH-SECPM.md) — Update ETH-SECPM.md
-- **2024-01-27** — [`5b8ce46`](https://github.com/vacp2p/rfc-index/blob/5b8ce46a6b384d6ee4c2d884f9db82b0aee9ce8c/vac/70/ETH-SECPM.md) — Create ETH-SECPM.md
+- **2026-01-19** — [`f24e567`](https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/ift-ts/raw/eth-mls-onchain.md) — Chore/updates mdbook (#262)
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/ift-ts/raw/eth-mls-onchain.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/eth-mls-onchain.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/raw/eth-mls-onchain.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/raw/eth-mls-onchain.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/raw/eth-mls-onchain.md) — ci: add mdBook configuration (#233)
+- **2025-04-04** — [`517b639`](https://github.com/logos-co/logos-lips/blob/517b63984c875670e437d50359f2f67331104974/vac/raw/eth-mls-onchain.md) — Update the RFCs: Vac Raw RFC (#143)
+- **2024-10-03** — [`c655980`](https://github.com/logos-co/logos-lips/blob/c655980494a5943634c372009bbea71c13196a8f/vac/raw/eth-demls.md) — Eth secpm splitted (#91)
+- **2024-08-29** — [`13aaae3`](https://github.com/logos-co/logos-lips/blob/13aaae37d15bdd672c26565bd0e0ebfc2e8b9459/vac/raw/eth-secpm.md) — Update eth-secpm.md (#84)
+- **2024-05-21** — [`e234e9d`](https://github.com/logos-co/logos-lips/blob/e234e9d5a30bb4d9d4654285c6118f3d9900a3b9/vac/raw/eth-secpm.md) — Update eth-secpm.md (#35)
+- **2024-03-21** — [`2eaa794`](https://github.com/logos-co/logos-lips/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/vac/70/eth-secpm.md) — Broken Links + Change Editors (#26)
+- **2024-02-28** — [`b842725`](https://github.com/logos-co/logos-lips/blob/b842725d42f1c7d7661808035eff2b0dfa1fca7e/vac/70/eth-secpm.md) — Update eth-secpm.md
+- **2024-02-01** — [`f2e1b4c`](https://github.com/logos-co/logos-lips/blob/f2e1b4cd4613f9ab648e42fd00475acf4541649d/vac/70/eth-secpm.md) — Rename ETH-SECPM.md to eth-secpm.md
+- **2024-02-01** — [`22bb331`](https://github.com/logos-co/logos-lips/blob/22bb3312fa6ab920281e11c5db190b123c9553b1/vac/70/ETH-SECPM.md) — Update ETH-SECPM.md
+- **2024-01-27** — [`5b8ce46`](https://github.com/logos-co/logos-lips/blob/5b8ce46a6b384d6ee4c2d884f9db82b0aee9ce8c/vac/70/ETH-SECPM.md) — Create ETH-SECPM.md
 
 <!-- timeline:end -->
 
@@ -1005,7 +1005,7 @@ channels in a secure way. One of these situations is when a user A
 wants to add a new user B to an existing group.
 In such situations communications between users MUST be done following
 the instructions in this
-[specification](https://github.com/vacp2p/rfc-index/blob/eth-secpm-splitted/vac/raw/eth-secure-channel.md)
+[specification](https://github.com/logos-co/logos-lips/blob/eth-secpm-splitted/vac/raw/eth-secure-channel.md)
 describing the use of X3DH in combination with the double ratchet mechanism.
 
 ## Considerations with respect to decentralization

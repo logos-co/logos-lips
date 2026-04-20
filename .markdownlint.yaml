@@ -1,0 +1,50 @@
+# markdownlint rules intentionally relaxed for broad Markdown compatibility.
+# Keep semantics-focused checks enabled; disable mostly formatting/style-only checks.
+
+# Unordered list style consistency.
+MD004: false
+
+# Nested list indentation width (allows both 2-space and 4-space nesting).
+MD007: false
+
+# Trailing spaces (permits hard line breaks and legacy formatting).
+MD009: false
+
+# Multiple consecutive blank lines.
+MD012: false
+
+# Line length.
+MD013: false
+
+# Require blank lines around headings.
+MD022: false
+
+# Duplicate heading text.
+MD024: false
+
+# Multiple top-level headings in a document.
+MD025: false
+
+# Trailing punctuation in headings.
+MD026: false
+
+# Require blank lines around fenced code blocks.
+MD031: false
+
+# Require blank lines around lists.
+MD032: false
+
+# Inline HTML.
+MD033: false
+
+# Emphasis used instead of a heading.
+MD036: false
+
+# Code block style (fenced vs indented).
+MD046: false
+
+# Files should end with a single newline.
+MD047: false
+
+# Emphasis marker style (_ vs *).
+MD049: false

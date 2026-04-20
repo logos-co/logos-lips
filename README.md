@@ -1,4 +1,4 @@
-# Logos LIP (RFC) Index
+# Logos LIP (Logos Improvement Proposals) Index
 
 NOTE: This repo is still evolving while the LIP process is refined.
 
@@ -63,3 +63,12 @@ Or run the commands directly:
 python scripts/run_runtime_generators.py
 mdbook serve -p 3000 -n 0.0.0.0
 ```
+
+## CI/CD
+
+- [CI builds](https://ci.infra.status.im/job/website/job/lip.logos.co/) `master` and pushes to `deploy-master` branch, which is hosted at <https://lip.logos.co/>.
+- [CI builds](https://ci.infra.status.im/job/website/job/dev-lip.logos.co/) `develop` and pushes to `deploy-develop` branch, which is hosted at <https://dev-lip.logos.co.dev/>.
+
+The hosting is done using [Caddy server with Git plugin for handling GitHub webhooks](https://github.com/status-im/infra-sites/blob/b930491f44b4958957b998d20ca222b1e10c4d67/ansible/vars/sites/caddy_git.yml#L123-L149).
+
+Information about deployed build can be also found in `/build.json` available on the website.

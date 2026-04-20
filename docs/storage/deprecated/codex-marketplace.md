@@ -5,6 +5,7 @@
 | Name | Codex Storage Marketplace |
 | Slug | 77 |
 | Status | deprecated |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Codex Team and Dmitriy Ryajov <dryajov@status.im> |
 | Contributors | Mark Spanbroek <mark@codex.storage>, Adam Uhlíř <adam@codex.storage>, Eric Mastro <eric@codex.storage>, Jimmy Debe <jimmy@status.im>, Filip Dimitrijevic <filip@status.im> |
@@ -13,14 +14,14 @@
 
 ## Timeline
 
-- **2026-01-22** — [`e356a07`](https://github.com/vacp2p/rfc-index/blob/e356a076aea06653764515babc71c8d69b26358d/docs/storage/deprecated/codex-marketplace.md) — Chore/add makefile (#271)
-- **2026-01-22** — [`af45aae`](https://github.com/vacp2p/rfc-index/blob/af45aae01271637142fa931e673dc7c8627f480e/docs/storage/deprecated/codex-marketplace.md) — chore: deprecate Marketplace-related specs (#268)
-- **2026-01-19** — [`f24e567`](https://github.com/vacp2p/rfc-index/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/storage/raw/codex-marketplace.md) — Chore/updates mdbook (#262)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/storage/raw/codex-marketplace.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/codex/raw/codex-marketplace.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/codex/raw/codex-marketplace.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/codex/raw/codex-marketplace.md) — ci: add mdBook configuration (#233)
-- **2025-11-19** — [`d2df7e0`](https://github.com/vacp2p/rfc-index/blob/d2df7e0c2dbb38d5b01a504f0b8ccbaea95fe821/codex/raw/codex-marketplace.md) — Created codex/raw/codex-marketplace.md file, without integration of Sales a… (#208)
+- **2026-01-22** — [`e356a07`](https://github.com/logos-co/logos-lips/blob/e356a076aea06653764515babc71c8d69b26358d/docs/storage/deprecated/codex-marketplace.md) — Chore/add makefile (#271)
+- **2026-01-22** — [`af45aae`](https://github.com/logos-co/logos-lips/blob/af45aae01271637142fa931e673dc7c8627f480e/docs/storage/deprecated/codex-marketplace.md) — chore: deprecate Marketplace-related specs (#268)
+- **2026-01-19** — [`f24e567`](https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/storage/raw/codex-marketplace.md) — Chore/updates mdbook (#262)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/storage/raw/codex-marketplace.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/codex/raw/codex-marketplace.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/codex/raw/codex-marketplace.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/codex/raw/codex-marketplace.md) — ci: add mdBook configuration (#233)
+- **2025-11-19** — [`d2df7e0`](https://github.com/logos-co/logos-lips/blob/d2df7e0c2dbb38d5b01a504f0b8ccbaea95fe821/codex/raw/codex-marketplace.md) — Created codex/raw/codex-marketplace.md file, without integration of Sales a… (#208)
 
 <!-- timeline:end -->
 

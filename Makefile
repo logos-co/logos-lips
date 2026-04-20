@@ -15,5 +15,5 @@ build:
 
 lint:
 	python scripts/validate_metadata.py --check
-	npx markdownlint-cli2@0.12.1 "docs/**/*.md" --config .github/workflows/.markdownlint.json
+	npx markdownlint-cli2@0.12.1 "docs/**/*.md" --config .markdownlint.yaml
 	npm run lint:remark

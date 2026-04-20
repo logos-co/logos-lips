@@ -1,8 +1,8 @@
-# LOGOS-CAPABILITY-DISCOVERY
+# LOGOS-SERVICE-DISCOVERY
 
 | Field | Value |
 | --- | --- |
-| Name | Logos Capability Discovery Protocol |
+| Name | Logos Service Discovery Protocol |
 | Slug | 107 |
 | Status | raw |
 | Category | Standards Track |
@@ -13,13 +13,15 @@
 
 ## Timeline
 
-- **2026-01-27** — [`ab9337e`](https://github.com/vacp2p/rfc-index/blob/ab9337e58b5947a3b58d205fec7d52fb8d16c2eb/docs/ift-ts/raw/logos-capability-discovery.md) — Add recipe for algorithms (#232)
-- **2026-01-19** — [`f24e567`](https://github.com/vacp2p/rfc-index/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/ift-ts/raw/logos-capability-discovery.md) — Chore/updates mdbook (#262)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/logos-capability-discovery.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/raw/logos-capability-discovery.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/raw/logos-capability-discovery.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/raw/logos-capability-discovery.md) — ci: add mdBook configuration (#233)
-- **2025-12-09** — [`aaf158a`](https://github.com/vacp2p/rfc-index/blob/aaf158aa59edb2ce0841a345725d16355218c196/vac/raw/logos-capability-discovery.md) — VAC/RAW/LOGOS-DISCOVERY-CAPABILITY RFC  (#212)
+- **2026-03-24** — [`513d8ea`](https://github.com/logos-co/logos-lips/blob/513d8eae6be8b7b30bf427023ac686df2f2918c0/docs/ift-ts/raw/logos-service-discovery.md) — feat: renaming capability to service discovery (#300)
+- **2026-02-27** — [`2ec272e`](https://github.com/logos-co/logos-lips/blob/2ec272e57f6110106297d062098110a3549c5db6/docs/ift-ts/raw/logos-capability-discovery.md) — docs: refactor and add algo explanation before pseudocode (#280)
+- **2026-01-27** — [`ab9337e`](https://github.com/logos-co/logos-lips/blob/ab9337e58b5947a3b58d205fec7d52fb8d16c2eb/docs/ift-ts/raw/logos-capability-discovery.md) — Add recipe for algorithms (#232)
+- **2026-01-19** — [`f24e567`](https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/ift-ts/raw/logos-capability-discovery.md) — Chore/updates mdbook (#262)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/logos-capability-discovery.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/raw/logos-capability-discovery.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/raw/logos-capability-discovery.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/raw/logos-capability-discovery.md) — ci: add mdBook configuration (#233)
+- **2025-12-09** — [`aaf158a`](https://github.com/logos-co/logos-lips/blob/aaf158aa59edb2ce0841a345725d16355218c196/vac/raw/logos-capability-discovery.md) — VAC/RAW/LOGOS-DISCOVERY-CAPABILITY RFC  (#212)
 
 <!-- timeline:end -->
 
@@ -27,7 +29,7 @@
 
 ## Abstract
 
-This RFC defines the Logos Capability Discovery protocol,
+This RFC defines the Logos Service Discovery protocol,
 a discovery mechanism inspired by [DISC-NG service discovery](https://ieeexplore.ieee.org/document/10629017)
 built on top of [Kad-dht](https://github.com/libp2p/specs/tree/7740c076350b6636b868a9e4a411280eea34d335/kad-dht).
 
@@ -73,25 +75,16 @@ are to be interpreted as described in [2119](https://www.ietf.org/rfc/rfc2119.tx
 
 ## Protocol Roles
 
-The Logos capability discovery protocol defines three roles that nodes can perform:
+The Logos service discovery protocol defines three roles that nodes can perform:
 
 ### Advertiser
 
 **Advertisers** are nodes that participate in a service
 and want to be discovered by other peers.
 
-Responsibilities:
-
-- Advertisers SHOULD register advertisements for their service across registrars
-- Advertisers SHOULD handle registration responses
-
 ### Discoverer
 
 **Discoverers** are nodes attempting to find peers that provide a specific service.
-
-Responsibilities:
-
-- Discoverers SHOULD query registrars for advertisements of a service
 
 ### Registrar
 
@@ -131,7 +124,8 @@ Conceptually:
 - Buckets enable logarithmic routing by organizing the keyspace into manageable segments
 
 The number of buckets and their organization is described in the [Distance](#distance) section.
-Implementation considerations for bucket management are detailed in [Bucket Management](#bucket-management) section.
+Implementation considerations for bucket management
+are detailed in [Bucket Management](#bucket-management) section.
 
 ### Service
 
@@ -140,6 +134,8 @@ It represents a specific capability a node supports
 — for example, a particular protocol or functionality it offers.
 A service MUST be identified by a libp2p protocol ID via the
 [identify protocol](https://github.com/libp2p/specs/tree/7740c076350b6636b868a9e4a411280eea34d335/identify).
+This service protocol ID (e.g., `/waku/store/1.0.0`)
+identifies the capability being discovered.
 
 ### Service ID
 
@@ -260,8 +256,7 @@ Tickets enable stateless admission control at registrars.
 Advertisers accumulate waiting time across registration attempts
 by presenting tickets from previous attempts.
 
-See the [RPC Messages](#rpc-messages) section for the wire format specification of tickets
-and the [Registration Flow](#registration-flow) section for how tickets are used in the admission protocol.
+See the [RPC Messages](#rpc-messages) section for the wire format specification of tickets.
 
 ## Protocol Specifications
 
@@ -286,7 +281,7 @@ Implementations SHOULD modify them as needed based on specific requirements.
 
 ### Distance
 
-The distance `d` between any two keys in Logos Capability Discovery
+The distance `d` between any two keys in Logos Service Discovery
 MUST be calculated using the bitwise XOR applied to their 256-bit SHA-256 representations.
 This provides a deterministic, uniform, and symmetric way to measure proximity in the keyspace.
 The keyspace is the entire numerical range of possible `peerID` and `service_id_hash`
@@ -483,11 +478,11 @@ message Message {
 - Advertisements are encoded as generic `bytes` (RECOMMENDED: ExtensiblePeerRecord/XPR)
 to avoid coupling the protocol to specific formats
 - The existing `key` field is reused for `service_id_hash` in Logos operations
-- Nodes without Logos Capability Discovery support will ignore `REGISTER` and `GET_ADS` messages
+- Nodes without Logos Service Discovery support will ignore `REGISTER` and `GET_ADS` messages
 
 ### Advertisement Encoding
 
-Advertisements in the `Register.advertisement` and `GetAds.advertisements` fields are encoded as `bytes`. Implementations are RECOMMENDED to use [ExtensiblePeerRecord (XPR)](https://github.com/vacp2p/rfc-index/blob/d59c44477fcdc3c3b61655bea63068d6d94c51f6/vac/raw/extensible-peer-records.md):
+Advertisements in the `Register.advertisement` and `GetAds.advertisements` fields are encoded as `bytes`. Implementations are RECOMMENDED to use [ExtensiblePeerRecord (XPR)](https://github.com/logos-co/logos-lips/blob/d59c44477fcdc3c3b61655bea63068d6d94c51f6/vac/raw/extensible-peer-records.md):
 
 ```protobuf
 ExtensiblePeerRecord {
@@ -516,7 +511,8 @@ The XPR MUST be wrapped in a signed envelope with:
 - Domain: `libp2p-routing-state`
 - Payload type: `/libp2p/extensible-peer-record/`
 
-Alternative encodings MAY be used if they provide equivalent functionality and can be verified by discoverers.
+Alternative encodings MAY be used if they provide equivalent functionality
+and can be verified by discoverers.
 
 ### REGISTER Message
 
@@ -692,7 +688,8 @@ Registrars MUST validate:
    - Valid signature issued by this registrar
    - `ticket.ad` matches `register.advertisement`
    - Retry within window: `ticket.t_mod + ticket.t_wait_for ≤ NOW() ≤ ticket.t_mod + ticket.t_wait_for + δ`
-5. Advertisement signature is valid (see [Advertisement Signature Verification](#advertisement-signature-verification))
+5. Advertisement signature is valid
+(see [Advertisement Signature Verification](#advertisement-signature-verification))
 6. Advertisement not already in `ad_cache`
 
 Respond with `register.status = REJECTED` if validation fails.
@@ -708,7 +705,9 @@ Return empty `getAds.advertisements` list or close stream if validation fails.
 
 #### Advertisement Signature Verification
 
-Both registrars (on REGISTER) and discoverers (on GET_ADS response) MUST verify advertisement signatures. For XPR-encoded advertisements:
+Both registrars (on REGISTER) and discoverers (on GET_ADS response)
+MUST verify advertisement signatures.
+For XPR-encoded advertisements:
 
 ```text
 VERIFY_ADVERTISEMENT(encoded_ad_bytes, service_id_hash):
@@ -730,7 +729,10 @@ VERIFY_ADVERTISEMENT(encoded_ad_bytes, service_id_hash):
 
 Discard advertisements with invalid signatures or that don't advertise the requested service.
 
-> **Note:** ExtensiblePeerRecord uses protocol strings (e.g., `/waku/store/1.0.0`) in `ServiceInfo.id`. Logos discovery uses `service_id_hash = SHA256(ServiceInfo.id)` for routing. When verifying, implementations MUST hash the protocol string and compare with the `key` field (`service_id_hash`).
+> **Note:** ExtensiblePeerRecord uses protocol strings (e.g., `/waku/store/1.0.0`) in `ServiceInfo.id`.
+Logos discovery uses `service_id_hash = SHA256(ServiceInfo.id)` for routing.
+When verifying, implementations MUST hash the protocol string
+and compare with the `key` field (`service_id_hash`).
 
 ### Stream Management
 
@@ -739,7 +741,8 @@ Following standard Kad-DHT behavior:
 - Implementations MAY reuse streams for sequential requests
 - Implementations MUST handle multiple requests per stream
 - Reset stream on protocol errors or validation failures
-- Prefix messages with length as unsigned varint per [multiformats spec](https://github.com/multiformats/unsigned-varint)
+- Prefix messages with length as unsigned varint per
+[multiformats spec](https://github.com/multiformats/unsigned-varint)
 
 ### Error Handling
 
@@ -752,41 +755,33 @@ Following standard Kad-DHT behavior:
 | Unknown service_id_hash | Empty `advertisements` list but include `closerPeers` |
 | Missing required fields | Close stream |
 
-**Protocol identifier:** `/logos/capability-discovery/1.0.0`
-
-Implementations SHOULD support both standard Kad-DHT operations
-and Logos discovery operations simultaneously.
-Nodes operating in Kad-DHT-only mode will
-simply not respond to `REGISTER` or `GET_ADS` requests.
-
 ## Sequence Diagram
 
 ![Sequence diagram](https://github.com/user-attachments/assets/d85fab17-c636-417a-afaf-c609aa53075d)
 
-## Advertisement Placement
+## Advertisers
 
-### Overview
+Advertisers distribute advertisements for their service across registrars.
+
+### Distributing ads across registrars
 
 For each service, identified by `service_id_hash`,
 that an advertiser wants to advertise,
 the advertiser MUST instantiate a
-new `AdvT(service_id_hash)`,
+new advertise table, `AdvT(service_id_hash)`,
 centered on that `service_id_hash`.
-
 The advertiser MAY bootstrap `AdvT(service_id_hash)`
-from `KadDHT(peerID)` using the formula
+from the `KadDHT(peerID)` routing table using the formula
 described in the [Distance section](#distance).
+
 The advertiser SHOULD try to maintain up to `K_register`
 active registrations per bucket.
 It does so by selecting random registrars
-from each bucket of `AdvT(service_id_hash)`
-and following the [registration maintenance procedure](#registration-maintenance-requirements).
+from each bucket of `AdvT(service_id_hash)`.
 These ongoing registrations MAY be tracked in a separate data structure.
 Ongoing registrations include those registrars
-which has an active `ad` or the advertiser is
-trying to register its `ad` into that registrar.
-
-### Registration Maintenance Requirements
+at which the advertiser has an active registration or
+for which there is an ongoing registration attempt.
 
 To maintain each registration, the advertiser:
 
@@ -794,7 +789,7 @@ To maintain each registration, the advertiser:
 If there is already a cached `ticket` from a previous registration attempt
 for the same `ad` in the same registrar,
 the `ticket` MUST also be included in the REGISTER message.
-- On receipt of a Response,
+- on receipt of the `REGISTER` response:
 SHOULD add the closer peers indicated in the response to `AdvT(service_id_hash)`
 using the formula described in the [Distance](#distance) section.
 - MUST interpret the response `status` field and schedule actions accordingly:
@@ -811,13 +806,10 @@ using the formula described in the [Distance](#distance) section.
   the advertiser MUST remove the registrar from the ongoing registrations for that bucket
   and SHOULD NOT attempt further registrations with this registrar for this advertisement.
 
-### Advertisement Algorithm
+### Example ADVERTISE algorithm
 
-Advertisers place advertisements across multiple registrars
-using the `ADVERTISE()` algorithm.
-The advertisers run `ADVERTISE()` periodically.
-We RECOMMEND that the following algorithms be used
-to implement the advertisement placement requirements specified above.
+The following pseudocode block shows one way of implementing the Advertising algorithm.
+Advertisers MAY follow this example.
 
 ```text
 procedure ADVERTISE(service_id_hash):
@@ -858,49 +850,62 @@ procedure ADVERTISE_SINGLE(registrar, ad, i, service_id_hash):
 end procedure
 ```
 
-Refer to the [Advertiser Algorithms Explanation section](#advertiser-algorithms-explanation) for a detailed explanation.
+Refer to the [Advertiser Algorithms Explanation section](#advertiser-algorithms-explanation)
+for a detailed explanation.
 
-## Service Discovery
+## Discoverers
 
-### Overview
+Discoverers look up advertisers for services by querying registrars.
 
-Discoverers are nodes attempting to find peers that
-provide a specific service identified by `service_id_hash`.
+### Looking up services
 
-#### Discovery Table `DiscT(service_id_hash)` Requirements
-
-For each service that a discoverer wants to find,
-it MUST instantiate a search table `DiscT(service_id_hash)`,
+For each service, identified by `service_id_hash`,
+that a discoverer wants to find advertisers for,
+the discoverer MUST instantiate a
+new search table, `DiscT(service_id_hash)`,
 centered on that `service_id_hash`.
+The discoverer MAY bootstrap `DiscT(service_id_hash)`
+from the `KadDHT(peerID)` routing table using the formula
+described in the [Distance section](#distance).
 
-#### Lookup Requirements
+The discoverer MUST attempt to find up to `F_lookup` advertisers
+for this `service_id_hash`
+by following the lookup procedure below.
+It SHOULD perform the lookup procedure periodically,
+or whenever more peers are requested by the encapsulating application.
 
-The `LOOKUP(service_id_hash)` is carried out by discoverer nodes to query registrar nodes
-to get advertisements of a particular `service_id_hash`.
-The `LOOKUP(service_id_hash)` procedure MUST work as a gradual search
-on the search table `DiscT(service_id_hash)` of the service whose advertisements it wants.
-The `LOOKUP(service_id_hash)` MUST start from far buckets `(b_0)`
-which has registrar nodes with fewer shared bits with service_id_hash
-and moving to buckets `(b_(m-1))` containing registrar nodes with
-higher number of shared bits or closer to `service_id_hash`.
-To perform a lookup, discoverers:
+To perform a lookup,
+the discoverer MUST iterate through every bucket of `DiscT(service_id_hash)`.
+It MUST start from the farthest bucket `(b_0)`,
+which has the registrar nodes with the fewest shared bits to the `service_id_hash`,
+gradually moving through buckets `(b_(m-1))`,
+containing registrar nodes with ever increasing number of shared bits to the `service_id_hash`.
+During the lookup procedure,
+the discoverer SHOULD keep track of unique `foundPeers`.
+terminating the procedure once `F_lookup` advertisers have been found,
+or if all buckets have been traversed.
 
-- SHOULD query `K_lookup` random registrar nodes from every bucket of `DiscT(service_id_hash)`.
-- MUST verify the signature of each advertisement received before accepting it.
-- SHOULD add closer peers returned by registrars
-in the response to `DiscT(service_id_hash)` to improve future lookups.
-- SHOULD retrieve at most `F_return` advertisement peers from a single registrar.
-- SHOULD run the lookup process periodically.
-Implementations can choose the interval based on their requirements.
+1. For each bucket, the discoverer MUST select
+up to `K_lookup` random registrar peers to query.
+2. For each selected registrar, the discoverer
 
-### Lookup Algorithm
+- MUST send a [`GET_ADS` message](#get_ads-message) to the registrar
+- on receipt of a `GET_ADS` response,
+SHOULD add the closer peers indicated in the response to `DiscT(service_id_hash)`
+using the formula described in the [Distance](#distance) section.
+- SHOULD validate each `advertisement` included in the response,
+and add valid advertisers to `foundPeers`.
+Note that a valid response could also contain `0` `advertisements`.
 
-We RECOMMEND that the following algorithm be used
-to implement the service discovery requirements specified above.
-Implementations MAY use alternative algorithms
-as long as they satisfy requirements specified in the previous section.
+This iterative procedure continues until `F_lookup` advertisers have been found,
+or all buckets have been traversed.
 
-```protobuf
+### Example LOOKUP algorithm
+
+The following pseudocode block shows one way of implementing the Lookup algorithm.
+Discoverers MAY follow this example.
+
+```text
 procedure LOOKUP(service_id_hash):
     DiscT(service_id_hash) ← KadDHT(peerID)
     foundPeers ← SET<Peers>
@@ -931,66 +936,66 @@ end procedure
 Refer to the [Lookup Algorithm Explanation section](#lookupservice_id_hash-algorithm-explanation)
 for the detailed explanation.
 
-## Admission Protocol
+## Registrars
 
-### Overview
+Registrars are nodes that store advertisements,
+by handling `REGISTER` requests,
+and serve cached advertisements,
+by handling `GET_ADS` requests.
+Registrars MUST maintain a cache of advertisements, `ad_cache`,
+that associates each `advertisement`
+to its `service_id`,
+and an expiry timestamp based on admission time plus configured expiry time, `E`.
+Once an `ad` has expired, it SHOULD be removed from the `ad_cache`
 
-Registrars are nodes that store and serve advertisements.
-They play a critical role in the Logos discovery network
-by acting as intermediaries between advertisers and discoverers.
-
-#### Admission Control Requirements
-
-Registrars MUST use a waiting time based admission protocol
-to admit advertisements into their `ad_cache`.
-The mechanism does not require registrars to maintain
-any state for each ongoing request preventing DoS attacks.
+### Handling REGISTER requests
 
 When a registrar node receives a `REGISTER` request from an advertiser node
 to admit its `ad` for a service into the `ad_cache`,
-the registrar MUST process the request according to the following requirements:
-
-- The registrar MUST NOT admit an advertisement
-if an identical `ad` already exists in the `ad_cache`.
-- The Registrar MUST calculate waiting time
-using the formula in [Waiting Time Calculation](#waiting-time-calculation).
-- If no `ticket` is provided in the `REGISTER` request then
-this is the advertiser's first registration attempt for the `ad`.
-The registrar MUST create a new `ticket`
-and return the signed `ticket` to the advertiser with status `Wait`.
-- If a `ticket` is provided, the registrar MUST verify:
-  - valid signature issued by this registrar
-  - `ticket.ad` matches current `ad`
-  - `ad` is not in the `ad_cache`
-  - retry is within the registration window
-  - Reject if any verification fails
-  - The registrar MUST recalculate the waiting time based on current cache state
-  - The registrar MUST calculate remaining wait time:
-    `t_remaining = t_wait - (NOW() - ticket.t_init)`.
-    This ensures advertisers accumulate waiting time across retries
-- If `t_remaining ≤ 0`, the registrar MUST add the `ad` to the `ad_cache`.
-The registrar MUST track the admission time internally for expiry management.
-The registrar SHOULD return response with `status = Confirmed`
-- If `t_remaining > 0`, the advertiser SHOULD continue waiting.
-The registrar MUST issue a new `ticket` with updated `ticket.t_mod` and `ticket.t_wait_for = MIN(E, t_remaining)`.
-The registrar MUST sign the new `ticket`.
-The registrar SHOULD return response with status `Wait` and the new signed `ticket`.
-- The registrar SHOULD include a list of closer peers (`response.closerPeers`)
+the registrar SHOULD process the request
+and respond with a `REGISTER` response according to the steps below.
+The registrar SHOULD include a list of closer peers (`response.closerPeers`) in the response
 using the algorithm described in [Peer Table Updates](#peer-table-updates) section.
 
-**`ad_cache` Maintenance:**
+To populate the rest of the response, the registrar MUST:
 
-- Size limited by capacity `C`
-- Ads expire after time `E` from admission and are removed
-- No duplicate ads allowed
+1. If an identical `ad` already exists in the `ad_cache`,
+reject the request and respond with status `Rejected`.
+2. Calculate (or recalculate, if this is a resubmission) a waiting time for the `ad`, `t_wait`,
+using the formula in [Waiting Time Calculation](#waiting-time-calculation).
+3. If no `ticket` is provided in the `REGISTER` request
+this is the advertiser's first registration attempt for the `ad`.
+Create a new signed `ticket` based on `t_wait`,
+and return the signed `ticket` in a response with status `Wait`.
+4. If a `ticket` is provided in the `REGISTER` request,
+validate the ticket and respond with the status `Rejected` if any of the following fails:
 
-### Registration Flow
+    - `ticket.signature` contains a valid signature, issued by this registrar
+    - `ticket.ad` matches the current `ad`
+    - calculate the expected time of ticket submission,
+    `t_scheduled`, as `t_scheduled = ticket.t_mod + ticket.t_wait`
+    and verify that the actual submission time, `current_time`,
+    falls within a valid registration window, `δ`,
+    where `t_scheduled <= current_time <= t_scheduled + δ`.
+    The duration of `δ` is up to the application,
+    but SHOULD be just enough to accommodate for
+    the maximum delay between the advertiser and the registrar.
 
-We RECOMMEND that the following algorithm be used by registrars
-to implement the admission control requirements specified above.
+5. Calculate remaining wait time
+`t_remaining = t_wait - (current_time - ticket.t_init)`.
+This ensures advertisers accumulate waiting time across retries
+6. If `t_remaining ≤ 0`, add the `ad` to the `ad_cache`,
+with an expiry timestamp set to `current_time + E`.
+The registrar SHOULD return a response with status `Confirmed`.
+7. If `t_remaining > 0`, issue a new signed `ticket`
+with `ticket.t_mod` set to `current_time`
+and `ticket.t_wait_for = min(E, t_remaining)`.
+The registrar SHOULD return the signed `ticket` in a response with status `Wait`.
 
-Refer to the [Register Message section](#register-message)
-for the request and response structure of `REGISTER`.
+### Example REGISTER algorithm
+
+The following pseudocode block shows one way of implementing the algorithm to handle register requests.
+Registrars MAY follow this example.
 
 ```text
 procedure REGISTER(ad, ticket):
@@ -1027,24 +1032,21 @@ end procedure
 Refer to the [Register Algorithm Explanation section](#register-algorithm-explanation)
 for detailed explanation.
 
-## Lookup Response Algorithm
+### Handling GET_ADS requests
 
-### Overview
+Registrars SHOULD respond to [`GET_ADS`](#get_ads-message) requests from discoverers
+with a `GET_ADS` response:
 
-Registrars SHOULD respond to [`GET_ADS`](#get_ads-message) requests from discoverers.
-When responding, registrars:
-
-- SHOULD return up to `F_return` advertisements
-from their `ad_cache` for the requested `service_id_hash`.
-- SHOULD include a list of closer peers
+1. Include up to `F_return` advertisements
+from the `ad_cache` for the requested `service_id_hash`.
+2. Include a list of closer peers
 to help discoverers populate their search table using the algorithm described in
 [Peer Table Updates](#peer-table-updates) section.
 
-### Recommended Lookup Response Algorithm
+### Example LOOKUP_RESPONSE algorithm
 
-Registrars respond to `GET_ADS` requests from discoverers
-using the `LOOKUP_RESPONSE()` algorithm.
-We RECOMMEND using the following algorithm.
+The following pseudocode block shows one way of implementing the algorithm to handle `GET_ADS` requests.
+Registrars MAY follow this example.
 
 ```text
 procedure LOOKUP_RESPONSE(service_id_hash):
@@ -1144,8 +1146,10 @@ w(ad) = E × (1/(1 - c/C)^P_occ) × (c(ad.service_id_hash)/C + score(getIP(ad.ad
 
 - `c`: Current cache occupancy
 - `c(ad.service_id_hash)`: Number of advertisements for `service_id_hash` in cache
-- `getIP(ad.addrs)` is a function to get the IP address from the multiaddress of the advertisement.
-- `score(getIP(ad.addrs))`: IP similarity score (0 to 1). Refer to the [IP Similarity Score section](#ip-similarity-score)
+- `getIP(ad.addrs)` is a function to get the IP address
+from the multiaddress of the advertisement.
+- `score(getIP(ad.addrs))`: IP similarity score (0 to 1).
+Refer to the [IP Similarity Score section](#ip-similarity-score)
 
 Section [System Parameters](#system-parameters) can be referred
 for the definitions of the remaining parameters in the formula.
@@ -1443,7 +1447,7 @@ the body contains only the concise pseudocode and high-level descriptions.
 
 ### Advertiser Algorithms Explanation
 
-Refer to the [Advertisement Algorithm section](#advertisement-algorithm) for the pseudocode.
+Refer to the [Advertisement Algorithm section](#example-advertise-algorithm) for the pseudocode.
 
 #### ADVERTISE() algorithm explanation
 
@@ -1504,7 +1508,7 @@ since we’ve finished trying with it.
 
 #### LOOKUP(service_id_hash) algorithm explanation
 
-Refer to the [Lookup Algorithm section](#lookup-algorithm) for the pseudocode.
+Refer to the [Lookup Algorithm section](#example-lookup-algorithm) for the pseudocode.
 
 1. `DiscT(service_id_hash)` is initialized by
 bootstrapping peers from the discoverer’s `KadDHT(peerID)`
@@ -1521,7 +1525,8 @@ For each bucket, query up to `K_lookup` random peers.
         The function remembers already returned nodes and never returns the same one twice.
         If there are no peers, it returns `None`.
     2. A `GET_ADS` request is sent to the selected registrar peer.
-    Refer to the [GET_ADS Message section](#get_ads-message) to see the request and response structure for `GET_ADS`.
+    Refer to the [GET_ADS Message section](#get_ads-message)
+    to see the request and response structure for `GET_ADS`.
     The response returned by the registrar node is stored in `response`
     3. The `response` contains a list of advertisements `response.ads`.
     A queried registrar returns at most `F_return` advertisements.
@@ -1532,13 +1537,15 @@ For each bucket, query up to `K_lookup` random peers.
     4. The `response` also contains a list of peers `response.closerPeers`
     that is inserted into `DiscT(service_id_hash)`
     using the formula described in the [Distance section](#distance).
-    5. Stop early if enough advertiser peers (`F_lookup`) have been found — no need to continue searching.
+    5. Stop early if enough advertiser peers (`F_lookup`) have been found.
     For popular services `F_lookup` advertisers are generally found in the initial phase
     from the farther buckets and the search terminates.
     But for unpopular ones it might take longer but not more than `O(log N)`
     where N is number of nodes participating in the network as registrars.
-    6. If early stop doesn’t happen then the search stops when no unqueried registrars remain in any of the buckets.
-4. Return `foundPeers` which is the final list of discovered advertisers that provide service `service_id_hash`
+    6. If early stop doesn’t happen then the search stops
+    when no unqueried registrars remain in any of the buckets.
+4. Return `foundPeers` which is the final list of discovered advertisers
+that provide service `service_id_hash`
 
 Making the advertisers and discoverers walk towards `service_id_hash` in a similar fashion
 guarantees that the two processes overlap and contact a similar set of registrars that relay the `ads`.
@@ -1552,20 +1559,23 @@ Subsequent buckets cover smaller fractions of the key space,
 making it easier for the attacker to place Sybils
 but also increasing the chance of advertisers already gathering enough `ads` in previous buckets.
 
-Parameters `F_return` and `F_lookup` play an important role in setting a compromise between security and efficiency.
-A small value of `F_return << F_lookup` increases the diversity of the source of `ads` received by the discoverer
-but increases search time, and requires reaching buckets covering smaller key ranges where eclipse risks are higher.
+Parameters `F_return` and `F_lookup` play an important role
+in setting a compromise between security and efficiency.
+A small value of `F_return << F_lookup` increases the diversity of the source of `ads`
+received by the discoverer but increases search time,
+and requires reaching buckets covering smaller key ranges where eclipse risks are higher.
 On the other hand, similar values for `F_lookup` and `F_return` reduce overheads
 but increase the danger of a discoverer receiving `ads` uniquely from malicious nodes.
 Finally, low values of `F_lookup` stop the search operation early,
-before reaching registrars close to the service hash, contributing to a more balanced load distribution.
+before reaching registrars close to the service hash,
+contributing to a more balanced load distribution.
 Implementations should consider these trade-offs carefully when selecting appropriate values.
 
 ### Registrar Algorithms
 
 #### `REGISTER()` algorithm explanation
 
-Refer to the [Registration Flow section](#registration-flow) for the pseudocode
+Refer to the [Register Algorithm section](#example-register-algorithm) for the pseudocode
 
 1. Make sure this advertisement `ad` is not already in the registrar’s advertisement cache `ad_cache`.
 2. Prepare a response ticket `response.ticket` linked to this `ad`.
@@ -1605,7 +1615,9 @@ Tickets can only be used within registration window `δ`,
 preventing attackers from accumulating and batch-submitting tickets.
 Clock synchronization is not required as advertisers only use `t_wait_for` values.
 
-Waiting times are recalculated on each retry based on current cache state, ensuring advertisers accumulate waiting time and are eventually admitted. This stateless design protects registrars from memory exhaustion and DoS attacks.
+Waiting times are recalculated on each retry based on current cache state,
+ensuring advertisers accumulate waiting time and are eventually admitted.
+This stateless design protects registrars from memory exhaustion and DoS attacks.
 
 The waiting time `t_wait` is not fixed.
 Each time an advertiser tries to register,
@@ -1613,8 +1625,10 @@ the registrar recalculates a new waiting time.
 The remaining time `t_remaining` is then computed as the difference between
 the new waiting time and the time the advertiser has already waited,
 as recorded in the ticket.
-With every retry, the advertiser accumulates waiting time and will eventually be admitted.
-However, if the advertiser misses its registration window or fails to include the last ticket,
+With every retry, the advertiser accumulates waiting time
+and will eventually be admitted.
+However, if the advertiser misses its registration window
+or fails to include the last ticket,
 it loses all accumulated waiting time and
 must restart the registration process from the beginning.
 Implementations must consider these factors
@@ -1622,6 +1636,7 @@ while deciding the registration window `δ` time.
 
 This design lets registrars prioritize advertisers that have waited longer
 without keeping any per-request state before the `ad` is admitted to the cache.
-Because waiting times are recalculated and tickets are stored only on the advertiser’s side,
+Because waiting times are recalculated
+and tickets are stored only on the advertiser’s side,
 the registrar is protected from memory exhaustion
 and DoS attacks caused by inactive or malicious advertisers.

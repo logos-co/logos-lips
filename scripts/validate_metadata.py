@@ -18,8 +18,11 @@ ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 
 EXCLUDE_FILES = {"README.md", "SUMMARY.md", "about.md", "template.md"}
-REQUIRED_FIELDS = ("name", "slug", "status", "category", "editor")
-ALLOWED_STATUS = {"raw", "draft", "stable", "deprecated", "deleted"}
+# Fields required for draft and above; raw specs only need name + status.
+REQUIRED_FIELDS_ALL = ("name", "slug", "status", "type", "category", "editor")
+REQUIRED_FIELDS_RAW = ("name", "status")
+ALLOWED_STATUS = {"raw", "draft", "approved", "stable", "verified", "deprecated", "retired", "deleted"}
+ALLOWED_TYPES = {"rfc", "cfr"}
 ALLOWED_CATEGORIES = {
     "standards track",
     "informational",
@@ -78,7 +81,7 @@ def discover_docs() -> List[Path]:
 
 
 def find_metadata_table(lines: List[str]) -> Optional[TableInfo]:
-    max_scan = min(len(lines), 140)
+    max_scan = min(len(lines), 220)
     for idx in range(max_scan - 1):
         if not HEADER_RE.match(lines[idx].strip()):
             continue
@@ -161,8 +164,13 @@ def maybe_assign_slugs(docs: List[DocInfo], check_mode: bool) -> List[DocInfo]:
     for doc in docs:
         if not doc.table:
             continue
-        slug = doc.meta().get("slug", "").strip()
+        meta = doc.meta()
+        slug = meta.get("slug", "").strip()
         if slug:
+            continue
+        # Do not auto-assign slugs to raw specs; slugs are assigned on draft promotion.
+        status = meta.get("status", "").strip().lower()
+        if status == "raw":
             continue
         free_slug = next_free_slug(used)
         assign_missing_slug(doc, free_slug)
@@ -190,11 +198,14 @@ def validate_doc(doc: DocInfo) -> None:
 
     meta = doc.meta()
 
-    for field in REQUIRED_FIELDS:
+    status = meta.get("status", "").strip().lower()
+
+    # Raw specs have relaxed requirements; draft and above enforce all fields.
+    required_fields = REQUIRED_FIELDS_RAW if status == "raw" else REQUIRED_FIELDS_ALL
+    for field in required_fields:
         if not meta.get(field, "").strip():
             doc.errors.append(f"missing required metadata field '{field}'")
 
-    status = meta.get("status", "").strip().lower()
     if status and status not in ALLOWED_STATUS:
         allowed = ", ".join(sorted(ALLOWED_STATUS))
         doc.errors.append(f"invalid status '{status}' (allowed: {allowed})")
@@ -209,12 +220,22 @@ def validate_doc(doc: DocInfo) -> None:
     if slug and not NUMERIC_RE.fullmatch(slug):
         doc.errors.append("slug must be a positive integer")
 
-    category = meta.get("category", "").strip().lower()
-    if category and category not in ALLOWED_CATEGORIES:
-        allowed = ", ".join(sorted(ALLOWED_CATEGORIES))
+    # Validate type field if present (optional, default RFC).
+    doc_type = meta.get("type", "").strip().lower()
+    if doc_type and doc_type not in ALLOWED_TYPES:
+        allowed = ", ".join(sorted(ALLOWED_TYPES))
         doc.errors.append(
-            f"unknown category '{meta.get('category', '')}' (expected one of: {allowed})"
+            f"unknown type '{meta.get('type', '')}' (expected one of: {allowed})"
         )
+
+    # Only enforce category for non-raw specs.
+    if status != "raw":
+        category = meta.get("category", "").strip().lower()
+        if category and category not in ALLOWED_CATEGORIES:
+            allowed = ", ".join(sorted(ALLOWED_CATEGORIES))
+            doc.errors.append(
+                f"unknown category '{meta.get('category', '')}' (expected one of: {allowed})"
+            )
 
 
 def validate_slug_uniqueness(docs: List[DocInfo]) -> List[str]:

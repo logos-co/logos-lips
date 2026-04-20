@@ -3,7 +3,7 @@ name: markdown-linting
 on:
 
   pull_request:
-    branches: 
+    branches:
       - '**'
 
 jobs:
@@ -11,22 +11,42 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Validate Metadata
-        run: python3 scripts/validate_metadata.py --check
-      
-      - name: Markdown Linter
-        uses: DavidAnson/markdownlint-cli2-action@v15
+        uses: actions/checkout@v4
         with:
-          config: .github/workflows/.markdownlint.json
-          globs: 'docs/**/*.md'
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Validate Metadata And Markdown Lint
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+
+          python3 scripts/lint_targets.py --base-sha "$BASE" --head-sha "$HEAD" --output .lint-targets.txt
+
+          if [ ! -s .lint-targets.txt ]; then
+            echo "No non-raw markdown targets."
+            exit 0
+          fi
+
+          mapfile -t files < .lint-targets.txt
+
+          python3 scripts/validate_metadata.py --check
+          npx markdownlint-cli2@0.12.1 --config .markdownlint.yaml "${files[@]}"
 
   remark:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -37,4 +57,19 @@ jobs:
         run: npm install
 
       - name: Remark Linter
-        run: npm run lint:remark
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+
+          python3 scripts/lint_targets.py --base-sha "$BASE" --head-sha "$HEAD" --output .lint-targets.txt
+
+          if [ ! -s .lint-targets.txt ]; then
+            echo "No non-raw markdown targets."
+            exit 0
+          fi
+
+          mapfile -t files < .lint-targets.txt
+          npx remark --frail --no-stdout --rc-path .remarkrc.mjs "${files[@]}"

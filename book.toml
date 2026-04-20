@@ -16,9 +16,9 @@ additional-js = [
   "theme/katex/katex.min.js",
   "theme/katex/auto-render.min.js",
   "scripts/katex-render.js",
-  "scripts/rfc-index.js"
+  "scripts/logos-lips.js"
 ]
-git-repository-url = "https://github.com/vacp2p/rfc-index"
+git-repository-url = "https://github.com/logos-co/logos-lips"
 
 [preprocessor.math]
 command = "python3 scripts/mdbook-math.py"
