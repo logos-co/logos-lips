@@ -24091,73 +24091,108 @@ are acknowledged and will be addressed in future versions.</p>
 <tr><td>Status</td><td>draft</td></tr>
 <tr><td>Type</td><td>RFC</td></tr>
 <tr><td>Category</td><td>Standards Track</td></tr>
-<tr><td>Editor</td><td>Balázs Kőműves <a href="mailto:storage/raw/bkomuves@status.im">bkomuves@status.im</a></td></tr>
+<tr><td>Editor</td><td>Balázs Kőműves <a href="mailto:storage/raw/balazs@status.im">balazs@status.im</a></td></tr>
 <tr><td>Contributors</td><td>Giuliano Mega <a href="mailto:storage/raw/giuliano@status.im">giuliano@status.im</a>, Mohammed Alghazwi <a href="mailto:storage/raw/mohalghazwi@status.im">mohalghazwi@status.im</a></td></tr>
 </tbody></table>
 </div><!-- timeline:start -->
 <h2 id="timeline-68"><a class="header" href="#timeline-68">Timeline</a></h2>
 <ul>
+<li><strong>2026-04-20</strong> — <a href="https://github.com/logos-co/logos-lips/blob/5cb91fc1553230b2ab49fdfe515020ef6d15c608/docs/storage/raw/merkle-tree.md"><code>5cb91fc</code></a> — improved Merkle tree spec (#293)</li>
 <li><strong>2026-04-20</strong> — <a href="https://github.com/logos-co/logos-lips/blob/c3d15a9c7c24b4d6b0eb4fb578f9670ede6f69b0/docs/storage/raw/merkle-tree.md"><code>c3d15a9</code></a> — COSS overhaul: new statuses, CFR type, raw-spec leniency (#308)</li>
 <li><strong>2026-02-09</strong> — <a href="https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/storage/raw/merkle-tree.md"><code>afd94c8</code></a> — chore: add math support (#287)</li>
 <li><strong>2026-02-06</strong> — <a href="https://github.com/logos-co/logos-lips/blob/af4cd78ffaeb12026c166df80d7c9fec5c2efb86/docs/storage/raw/merkle-tree.md"><code>af4cd78</code></a> — feat: revamped Merkle tree spec (#281)</li>
 </ul>
 <!-- timeline:end -->
 <h2 id="abstract-51"><a class="header" href="#abstract-51">Abstract</a></h2>
-<p>This specification describes the Merkle tree construction adopted in Logos Storage. The construction relies on keyed hashing, injective encodings, and a simple padding approach to prevent a variety of collision attacks, and is designed to operate both on conventional hashing functions like SHA-2, and ZK-friendly functions like Poseidon2.</p>
-<h2 id="specification-12"><a class="header" href="#specification-12">Specification</a></h2>
-<p>Merkle trees can be implemented in a variety of ways and, if done naively, can be also attacked in a variety of ways (e.g <a href="storage/raw/merkle-tree.html#references">BitCoinOps25</a>). For this reason, this document focuses a <em>concrete implementation</em> of a Merkle tree which helps avoid common  pitfalls.</p>
-<p>We start by laying out some definitions in the <a href="storage/raw/merkle-tree.html#definitions">Definitions</a> section, followed by our <a href="storage/raw/merkle-tree.html#keyed-hash-construction">keyed hash construction</a>, which guards the Merkle against certain padding and layer abuse attacks. We then discuss injective encodings and their role in the construction of secure Merkle trees that deal with finite field elements in the <a href="storage/raw/merkle-tree.html#encoding">Encoding</a> section. Next, we provide some brief guidance on serialization in the <a href="storage/raw/merkle-tree.html#serializing--deserializing">Serialization/Deserialization</a> section. Finally, we present an abstract interface for a Merkle tree module in the <a href="storage/raw/merkle-tree.html#interfaces">Interfaces</a> section.</p>
+<p>This specification describes the Merkle tree construction adopted in Logos Storage. The principal consideration driving the design described below is to avoid security issues resulting from <em>API abuse</em>. Incorrectly using both low- and high-level cryptography APIs is a known source of never-ending security vulnerabilities (see eg. <a href="https://arxiv.org/abs/2306.08869v2">arXiv:2306.08869</a>).</p>
+<p>This construction relies on keyed compression, domain separation, injective encodings, and standard padding conventions to prevent a variety of possible collision attacks; and is designed to operate with a wide variety of hash functions, including both conventional ones like SHA-2, and arithmetic (ZK-friendly) hashes like the Poseidon family. In the Appendix, we specify some concrete hash function instances covering our use cases.</p>
+<p>So while this construction may seem unnecessarily convoluted at first, it exists to avoid possibilities for one to shoot themselves in the foot.</p>
+<h2 id="merkle-tree-specification"><a class="header" href="#merkle-tree-specification">Merkle tree specification</a></h2>
+<p>A <a href="https://en.wikipedia.org/wiki/Merkle_tree">Merkle tree</a> is a tree data structure (most often a binary tree), where nodes store the hash of their children. When working as intended, the root node behaves like a normal collision-resistant hash; in particular, the root is a <em>commitment</em> for the sequence of the leaves.</p>
+<p>The primary advantage of Merkle trees is that there are short cryptographic proofs (called "Merkle inclusion proofs" or "Merkle paths") for a given leaf being present in the tree; and similarly, one can also update a leaf. These operations have <code>O(log(N))</code> cost.</p>
+<p>Merkle trees are usually fixed depth (each leaf is at the same level). In the simplest possible version they are also complete binary trees (<code>2^n</code> leaves). In such a situation, where everything is fixed in advance, one can get away with much simpler constructions than the below one. However, unseen future changes in an application could then easily break any guarantees.</p>
+<p>The cryptographic guarantees we expect from the Merkle root are the same as for normal hash functions:</p>
+<ul>
+<li>collision resistance</li>
+<li>preimage resistance</li>
+<li>second preimage resistance</li>
+</ul>
+<p>In our setting, allowing arithmetic (finite field based) hash functions allow for further extra complications (eg. domain confusion, and padding problems).</p>
+<h3 id="overview-2"><a class="header" href="#overview-2">Overview</a></h3>
+<p>Merkle trees can be implemented in a variety of ways, and if done naively, can be also attacked in a variety of ways (e.g <a href="storage/raw/merkle-tree.html#references">BitCoinOps25</a>). For this reason, this document focuses on a <em>concrete implementation</em> of a family of Merkle trees which helps to avoid common pitfalls.</p>
+<p>We start by laying out some basic definitions in the <a href="storage/raw/merkle-tree.html#definitions">Definitions</a> section, followed by our <a href="storage/raw/merkle-tree.html#keyed-hash-construction">keyed hash construction</a>, which guards the Merkle against certain padding and layer abuse attacks. We then discuss injective encodings and their role in the construction of secure Merkle trees that deal with finite field elements in the <a href="storage/raw/merkle-tree.html#encoding">Encoding</a> section. Next, we provide some brief guidance on serialization in the <a href="storage/raw/merkle-tree.html#serializing--deserializing">Serialization/Deserialization</a> section. Finally, we present an abstract interface for a Merkle tree module in the <a href="storage/raw/merkle-tree.html#interfaces">Interfaces</a> section.</p>
 <h3 id="definitions-18"><a class="header" href="#definitions-18">Definitions</a></h3>
-<p>A Merkle tree, built on a hash function <code>H</code>, produces a Merkle root of type <code>T</code> (the "Target type"). This is usually the same type as the output of the hash function (we will assume this below). Some examples:</p>
+<p>A Merkle tree, built on a hash function <code>H : S -&gt; T</code>, produces a Merkle root; this root has essentially always the same type <code>T</code> (for "Target type") as the output of the hash function <code>H</code> (we will assume this from now on).</p>
+<p>Some examples of hash functions used in the wild are:</p>
 <ul>
 <li>SHA1: <code>T</code> is 160 bits</li>
 <li>SHA256: <code>T</code> is 256 bits</li>
-<li>Keccak (SHA3): <code>T</code> can be one of 224, 256, 384 or 512 bits</li>
-<li>Poseidon2: <code>T</code> is one or more finite field element(s) (depending on the field size)</li>
-<li>Monolith: <code>T</code> is 4 Goldilocks field elements</li>
+<li>Keccak / SHA3: <code>T</code> can be one of 224, 256, 384 or 512 bits</li>
+<li>the Poseidon(2) family: <code>T</code> is one or more finite field element(s), depending on the field size</li>
+<li>Monolith-64: <code>T</code> is a 4-tuple of Goldilocks field elements</li>
+<li>Monolith-31: <code>T</code> is an 8-tuple of Mersenne-31 field elements</li>
 </ul>
-<p>The hash function <code>H</code> can also have different types <code>S</code> ("Source type") of inputs. For example:</p>
+<p>The hash function <code>H : S -&gt; T</code> can also have different types <code>S</code> ("Source type") of inputs. For example:</p>
 <ul>
-<li>SHA1 / SHA256 / SHA3: <code>S</code> is an arbitrary sequence of bits<sup class="footnote-reference"><a href="#1">1</a></sup></li>
-<li>binary compression function: <code>S</code> is a pair of <code>T</code>-s</li>
-<li>Poseidon2: <code>S</code> is a sequence of finite field elements</li>
-<li>Poseidon2 compression function: <code>S</code> is at most <code>t-k</code> field elements, where <code>k</code> field elements should be approximately 256 bits (in our case <code>t=3</code>, <code>k=1</code> for BN254 field; or <code>t=12</code>, <code>k=4</code> for the Goldilocks field; or <code>t=24</code>, <code>k=8</code> for a ~32 bit field)</li>
+<li>SHA1 / SHA2 / SHA3: <code>S</code> is an arbitrary sequence of bits<sup class="footnote-reference"><a href="#1">1</a></sup></li>
+<li>binary compression function: <code>S = T x T</code> is a pair of <code>T</code>-s</li>
+<li>Poseidon2 sponge: <code>S</code> is a sequence of finite field elements</li>
+<li>Poseidon2 compression function: <code>S</code> is at most <code>t-k</code> field elements, where <code>t&gt;1</code> is the state size, and <code>k</code> field elements (the "capacity") should be approximately 256 bits (in our case <code>t=3</code>, <code>k=1</code> for BN254 field; or <code>t=12</code>, <code>k=4</code> for the Goldilocks field; or <code>t=24</code>, <code>k=8</code> for a ~32 bit field)</li>
 <li>as an alternative, the "Jive strategy" for binary compression (see [<a href="storage/raw/merkle-tree.html#references">Bouvier22</a>]) can eliminate the "minus <code>k</code>" requirement (you can compress <code>t</code> into <code>t/2</code>)</li>
-<li>A naive Merkle tree implementation could for example accept only a power-of-two sized sequence of <code>T</code></li>
+<li>A naive Merkle tree implementation could for example accept only a power-of-two sized sequence of <code>T</code>-s</li>
 </ul>
-<p>Notation: Let's denote a sequence of <code>T</code>-s by <code>[T]</code>.</p>
+<p>As an interesting example from the wild, the ZK proof library <a href="https://github.com/Plonky3/Plonky3">Plonky3</a> (because of performance considerations) uses a binary compression function <code>T x T -&gt; T</code> which is <em>neither collision nor preimage resistant</em> (!), to construct a Merkle tree, which at the end of the day is <a href="https://eprint.iacr.org/2026/089">still safe to use</a> <em>in the particular situation they use it</em>. However, such constructions can be pretty fragile (it would be safer to use the Jive strategy mentioned above, with negligible extra cost).</p>
+<p>Notation: Let's denote the type of a sequence of <code>T</code>-s by <code>[T]</code>.</p>
+<p>A Merkle tree is built on an ordered sequence of leaves. The leaves contain some kind of data, whose type we will denote by <code>D</code> (for data). In classical implementations, <code>D</code> is just a bytestring (a finite sequence of bytes); however, in the ZK setting, sometimes <code>D</code> can also be a field element <code>F</code>, or a sequence of field elements <code>[F]</code>.</p>
+<p>So the input of a Merkle tree is of type <code>[D]</code>, a sequence of things with type <code>D</code>; and using a hash function <code>H : S -&gt; T</code>, we output a Merkle root of type <code>T</code>. We can immediately see that we will also need a transformation from <code>D</code> to <code>S</code>; more about this below.</p>
 <h3 id="keyed-hash-construction"><a class="header" href="#keyed-hash-construction">Keyed Hash Construction</a></h3>
 <p>One of the main goals of a secure Merkle tree construction is to avoid collision attacks; i.e., situations in which an attacker is able to obtain a tree with the same Merkle root as a legitimate tree, but using data that is different from the data used to construct the tree originally. In that sense, we are interested in two different types of attacks here.</p>
-<h4 id="1-layer-abuse-attacks"><a class="header" href="#1-layer-abuse-attacks">1. Layer abuse attacks</a></h4>
-<p>A Merkle tree requires, at its minimum, two elements to be constructed:</p>
+<p>A (binary) Merkle tree requires, at its minimum, two pieces of building blocks:</p>
 <ol>
-<li>A hashing function <code>H : S -&gt; T</code>;</li>
-<li>a <em>binary compression function</em> <code>C: T x T -&gt; T</code>.</li>
+<li>A <em>leaf hashing</em> function <code>H' : D -&gt; T</code>;</li>
+<li>and a <em>binary compression</em> function <code>C : T x T -&gt; T</code>.</li>
 </ol>
-<p>In some hashing functions like SHA256, one could express <code>C(a, b)</code> as <code>H(F(a, b))</code>, where <code>F(a, b) = a || b</code> (Fig. 1(a)) and <code>||</code> denotes byte string concatenation. This creates a type of symmetry one can then exploit - since a Merkle tree root does not encode its depth, one could pretend that <code>F(a, b)</code> is actually data, and construct a shorter Merkle tree which evaluates to the same root as before (Fig. 1(b)); i.e., <span class="math-inline" data-tex="T^{\prime}_3"></span> in the second tree is the same as <span class="math-inline" data-tex="T_7"></span> in the original tree.</p>
+<p>In the classical situation, like for example SHA2 or SHA3, the leaves are just bytestrings, and the leaf hashing is just normal hashing: <code>D = S</code> and <code>H = H'</code>. However, in the arithmetic hash (eg. the Poseidon family) context, this is more involved: There <code>D</code> can be a bytestring, but <code>S</code> a sequence of field elements, and <code>T</code> a fixed length array of field elements.</p>
+<h4 id="1-layer-abuse-attacks"><a class="header" href="#1-layer-abuse-attacks">1. Layer abuse attacks</a></h4>
+<p>Using traditional functions like SHA256, one could express the compression <code>C(a,b)</code> as <code>H(f(a,b))</code>, where <code>f</code> is just concatenation: <code>f(a,b) = a || b</code> (Fig. 1(a)). This creates a type of symmetry one can then exploit - since a naive Merkle tree root does not encode its depth, one could pretend that <code>f(a,b)</code> is actually data, and construct a shorter (that is, less deep) Merkle tree which evaluates to the same root as before (Fig. 1(b)); i.e., <span class="math-inline" data-tex="T^{\prime}_3"></span> in the second tree is the same as <span class="math-inline" data-tex="T_7"></span> in the original tree.</p>
 <p><img src="storage/raw/images/layer-abuse.png" alt="layer abuse attack" /></p>
 <p><strong>Figure 1.</strong> <strong>(a)</strong> original Merkle tree; <strong>(b)</strong> a different Merkle tree with the same Merkle root as the original; i.e., <span class="math-inline" data-tex="T^{\prime}_3 = T_7"></span>, constructed from a layer abuse attack.</p>
 <h4 id="2-padding-attacks"><a class="header" href="#2-padding-attacks">2. Padding attacks</a></h4>
-<p>Merkle trees can be unbalanced as the number of leaves will often not be a power of two. A common technique is then to pad the tree in some way by adding "synthetic" missing children to internal nodes that do not have both of them (Fig. 2(a)). If done carelessly, this can potentially allow an attacker to replace the padding with real data that is equivalent to such padding (Fig. 2(b)), and again generate the same Merkle root from data that is different from what had been intended.</p>
+<p>A layer of a (binary) Merkle trees can be incomplete, when the number of leaves is odd. A common technique is then to "pad" the odd layers by adding a "synthetic" missing children, so that each layer becomes even (Fig. 2(b)).</p>
+<p>If done carelessly, this can potentially allow an attacker to replace the padding with some fake data below that is equivalent to such padding (Fig. 2(b)), and again generate the same Merkle root from data that is different from what had been intended.</p>
 <p><img src="storage/raw/images/padding.png" alt="padding attack" /></p>
 <p><strong>Figure 2.</strong> <strong>(a)</strong> Original padded Merkle tree, and <strong>(b)</strong> a Merkle tree with the same root as the original built from a padding attack.</p>
 <p>If this sounds hypothetical, early versions of Bitcoin padded their Merkle trees by using the existing child of a node as padding, and this led to security issues that had to be later addressed (e.g. see [<a href="storage/raw/merkle-tree.html#references">CVE-2012-2459</a>]).</p>
+<p>Remark: At the core, this is again an API abuse attack. Leaf data and node hashes are supposed to be two different types, so that they can be never confused. And if you add a dummy hash value as the dummy leaf (unlike in the above Bitcoin example), well, ideally the hash functions are preimage-resistant, so nobody will find neither a leaf data nor artificial children nodes which hash to a randomly chosen dummy value (for example the constant zero hash. This is more-or-less the same concept as burn addresses in blockchain).</p>
+<p>But if you are not careful, problems can still arise! Here is a simple example of a possible issue:</p>
+<ol>
+<li>We want to use the Merkle tree as a normal hash function; taking a sequence of field elements <code>[F]</code> as the input, and producing a field element <code>F</code> as the output.</li>
+<li>Note that this is a perfectly normal use case: For example the well known <a href="https://en.wikipedia.org/wiki/BLAKE_(hash_function)#BLAKE3">BLAKE3</a> hash function is in fact secretly a Merkle tree!</li>
+<li>We push an odd-length sequence as the input;</li>
+<li>the Merkle tree implementation pads that with a zero;</li>
+<li>but what if we ourselves appended the zero, before calling the Merkle tree?</li>
+<li>That results in a trivial collision!</li>
+</ol>
+<p>Again, this is not really an attack on the cryptography itself, but an API abuse. We just shouldn't allow the user to be in the above situation!</p>
+<p>A simple solution would be to disallow the Merkle tree routine taking a sequence of field elements as an input (as opposed to the more usual sequence of bytestrings). Unfortunately, the real world has a say too: In the process of implementing Codex, we wanted to first hash fixed-sized network blocks (with whatever custom construction required), and then build a Merkle tree on the top of these hashes.</p>
+<p>In code, these are two separate functions. So internally, we need to use a more abuse-prone functionality, which if naively implemented, can at the end result in <em>very subtle</em> security bugs with potentially serious consequences...</p>
+<p>Another simple solution would be to always hash the leaves first (and use a dummy padding value with no known hash preimage), even when they already look like hashes themselves. This however doubles the amount of hashing required, in turn doubling the time required to construct the tree. With the below construction, we can avoid this extra cost.</p>
 <h4 id="construction-7"><a class="header" href="#construction-7">Construction</a></h4>
-<p>To prevent the problems above, we adopt a <em>keyed compression function</em> <code>C: K x T x T -&gt; T</code> which takes a <em>key</em> in addition to the two target elements it needs to compress. Our key is composed by two bits, which encode:</p>
+<p>To prevent the problems described above, we adopt a <em>keyed compression function</em> <code>C : K x (T x T) -&gt; T</code> which also takes a <em>key</em> of type <code>K</code> as an input, in addition to the two hash target elements it needs to compress. Our key is composed of two bits, which encode:</p>
 <ul>
-<li>whether a parent node is an <em>even</em> or an <em>odd</em> node; i.e., whether it has 2 or 1 children, respectively;</li>
-<li>whether the node belongs to the bottom layer; i.e. the first layer of internal nodes above the leaves, or not.</li>
+<li>whether a parent node is an <em>even</em> or an <em>odd</em> node; that is, whether it has 2 or 1 children, respectively;</li>
+<li>and whether the node belongs to the bottom layer; that is, is it the first layer of internal nodes above the leaves or not.</li>
 </ul>
-<p>This information is converted to a number <code>0 &lt;= key &lt; 4</code> by the following algorithm:</p>
+<p>This information is converted to an integer <code>0 &lt;= key &lt; 4</code> by setting the first bit based on being the bottom layer, and the second bit based on the parity:</p>
 <pre><code class="language-haskell">data LayerFlag
-  = BottomLayer   -- ^ it's the bottom (initial, widest) layer
-  | OtherLayer    -- ^ it's not the bottom layer
+  = BottomLayer   -- it's the bottom (initial, widest) layer
+  | OtherLayer    -- it's not the bottom layer
 
 data NodeParity
-  = EvenNode      -- ^ it has 2 children
-  | OddNode       -- ^ it has 1 child
+  = EvenNode      -- it has 2 children
+  | OddNode       -- it has 1 child
 
--- | Key based on the node type:
+-- Key based on the node type:
 --
 -- &gt; bit0 := 1 if bottom layer, 0 otherwise
 -- &gt; bit1 := 1 if odd, 0 if even
@@ -24168,32 +24203,49 @@ nodeKey BottomLayer EvenNode = 0x01
 nodeKey OtherLayer  OddNode  = 0x02
 nodeKey BottomLayer OddNode  = 0x03
 </code></pre>
-<p>The number is then used to key the compression function, as follows:</p>
+<p>The number is then used to "key" the compression function, as follows:</p>
 <ul>
-<li>for finite field sponge based hash functions, like Poseidon2 or Monolith, we apply the permutation function to <code>(x,y,key)</code> where the key (as field element) is placed at index 8 (0-based) of the sponge state (assuming state size of 12). Then we take the first component of the result (<code>T</code>);</li>
-<li>for hash functions like SHA256 we simply prepend the key; i.e., we take <code>SHA256(key|x|y)</code> where <code>key</code> is encoded as bytes.</li>
+<li>for hash functions like SHA256, we can simply append the key; i.e., we take <code>SHA256(x|y|key)</code> where <code>key</code> is encoded as a single byte (but see the Appendix below for a more efficient solution!).</li>
+<li>for finite field, permutation-based hash functions, like Poseidon2 or Monolith, we apply the permutation function to <code>(x,y,key) in T^3</code>, where the key (interpreted as a field element) is embedded in the hash target space <code>T = F^(t/3)</code> at the beginning: <code>(key,0,...,0)</code>. Then as usual, we take the first component (type <code>T</code>) of the result of the permutation.</li>
 </ul>
-<p>This is in practice equivalent to having 4 different compression functions <code>C_key(x, y) = C(key, x, y)</code>. Note that the <code>BottomLayer</code> flag is set for all compression nodes whose children are leaves, but leaves themselves; i.e. the <code>H(S_i)</code>, are not keyed.</p>
-<p>Remark: Since standard SHA256 includes padding, adding a key at the beginning doesn't result in extra computation (it's always two internal hash calls). However, a faster (twice as fast) alternative would be to choose 4 different random-looking initialization vectors, and not do padding. This would be a non-standard SHA256 invocation.</p>
-<p>Finally, we proceed from the initial sequence in layers: take the previous sequence, apply the keyed compression function for each consecutive pairs <code>(x,y) : (T,T)</code> with the correct key based on whether this was the initial (bottom) layer, and whether it's a singleton "pair" <code>x : T</code>, in which case it's also padded with a zero to <code>(x,0)</code>.</p>
-<p>Note that if the input is a singleton list <code>[x]</code>, we still apply one layer, so in that case the root will be <code>compress[key=3](x,0)</code>.</p>
+<p>For example, in case of BN254 and <code>t=3</code>, the input of the permutation will be <code>(x,y,key)</code>; while in case of Goldilocks and <code>t=12</code>, the input will be <code>(x0,x1,x2,x3, y0,y1,y2,y3, key,0,0,0)</code>.</p>
+<p>This is in practice equivalent to having 4 different compression functions <code>C_key(x,y) := C(key; x,y)</code>.</p>
+<p>Remark: Since standard SHA256 already includes mandatory padding (to a multiple of 64 bytes), appending key byte at the end doesn't result in extra computation (it's always two internal hash calls). However, a faster (twice as fast!) alternative would be to choose 4 different random-looking initialization vectors, and not do padding at all. This would be a non-standard SHA256 invocation; but the speed advantage can be critical when proving SHA256 hashes in ZK! See the Appendix below for more details.</p>
+<h4 id="merkle-tree-algorithm"><a class="header" href="#merkle-tree-algorithm">Merkle tree algorithm</a></h4>
+<p>Thus a Merkle tree computation is a function <code>merkleRoot : [D] -&gt; T</code> taking a sequence of leaf data <code>[D]</code>, and producing a Merkle root <code>T</code>. In practice, we also need a version which produces the whole tree <code>Tree&lt;T&gt;</code> (eg. to be able to produce inclusion proofs), but that's just keeping the intermediate results.</p>
+<p>Normally, this is done in two or three steps:</p>
+<ol>
+<li>hash the leaf data: <code>hash : D -&gt; T</code></li>
+<li>then build the tree: <code>tree : [T] -&gt; Tree&lt;T&gt;</code></li>
+<li>finally extract the root: <code>root : Tree&lt;T&gt; -&gt; T</code></li>
+</ol>
+<p>The tree building proceeds in layers: Take the previous sequence, apply the keyed compression function for each consecutive pairs <code>(x,y) : (T,T)</code> with the correct key based on whether this was the initial (bottom) layer, and whether it's a singleton "pair" <code>x : T</code>, in which case it's also padded with a zero to <code>(x,0)</code>.</p>
+<p>Note that if the input was a singleton list <code>[x]</code>, we still apply one layer, so in that case the root will be <code>compress[key=3](x,0)</code>.</p>
+<p>Remark: The singleton input is another subtle corner case which can be potentially abused! While in practice it's unlikely to happen, such a bug in fact happened in the history of Codex development (happily, it was just a pathological failure case, not an actual vulnerability).</p>
 <h3 id="encoding-1"><a class="header" href="#encoding-1">Encoding</a></h3>
-<p>Our Merkle trees are created from arbitrary data, and arbitrary data means raw byte strings. Such byte strings are typically first split into equally-sized blocks<sup class="footnote-reference"><a href="#2">2</a></sup> of length <span class="math-inline" data-tex="b"></span>, which we refer to as <em>data blocks</em><sup class="footnote-reference"><a href="#3">3</a></sup>. Each data block then undergoes hashing under <code>H</code>, and those become the tree's leaves (Fig. 3(a)). When the source type <code>S</code> for the hashing function is a byte string; e.g. as with SHA256, those strings can be taken to be the <span class="math-inline" data-tex="S_i"></span> in Fig. 1 and hashed directly.</p>
-<p>For hashing functions which do not take byte strings as input - like  Poseidon2, which operates on sequences of finite field elements - we must <em>encode</em> our data blocks into the proper type first (Figure 3(b)).</p>
+<p>Our Merkle trees are created from arbitrary data, and arbitrary data can mean, depending on the usage:</p>
+<ul>
+<li>a raw bytestring (sequence of bytes), when the Merkle tree is used as a normal hash function;</li>
+<li>or <em>a sequence of</em> raw bytestrings, when the Merkle tree is used as an actual tree. So in this case the leaves are bytestrings themselves.</li>
+</ul>
+<p>The first case can be for example implemented by splitting the input into equally-sized blocks<sup class="footnote-reference"><a href="#2">2</a></sup> of length <code>b</code>, and passing those to the second version.</p>
+<p>In that context, each such <em>data block</em><sup class="footnote-reference"><a href="#3">3</a></sup> (of size <code>b</code>) then undergoes hashing under <code>H' : D -&gt; T</code>, and the resulting hashes become the tree's leaves (Fig. 3(a)). When <code>D = S</code> (eg. with SHA256), this is very straightforward; but maybe it's a better mental model to consider the finite field situation.</p>
+<p>For hashing functions which do not take bytestrings as input - like  Poseidon2, which operates on sequences of finite field elements - we must <em>encode</em> our data blocks into the proper type first (Figure 3(b)).</p>
 <p><img src="storage/raw/images/encoding.png" alt="encoding" /></p>
-<p><strong>Figure 3.</strong> <strong>(a)</strong> A byte string (raw data), split into data blocks which are also byte strings. <strong>(b)</strong> Data blocks after undergoing encoding.</p>
-<p>We define an <em>encoding function</em> <code>E</code> to be a function which can do that for us. Formally speaking, <code>E</code> can encode an arbitrary-valued byte string of length <span class="math-inline" data-tex="b"></span> into a value of the required type <code>S</code>; i.e., <code>E : byte[b] -&gt; S</code>. Such an encoding function MUST always be <em>injective</em>; i.e., distinct byte strings MUST map into distinct values of the type <code>S</code>. To see why, suppose <code>E</code> were not injective. This means there are two byte strings <code>D_1</code> and <code>D_2</code> such that <code>E(D_1) = E(D_2) = S_1 = S_2</code>. We could then take the raw data used to build a Merkle tree <span class="math-inline" data-tex="A"></span>, replace all occurrences of <code>D_1</code> with <code>D_2</code>, and build an identical Merkle tree from distinct data - which is what we want to avoid.</p>
+<p><strong>Figure 3.</strong> <strong>(a)</strong> A byte string (raw data), split into data blocks which are also bytestrings. <strong>(b)</strong> Data blocks after undergoing encoding.</p>
+<p>We define an <em>encoding function</em> <code>E</code> to be a function which can do that for us. Formally speaking, <code>E</code> can encode an arbitrary-valued byte string of length <code>b</code> into a value of the required type <code>S</code>; that is, <code>E : byte[b] -&gt; S</code>. Such an encoding function MUST always be <em>injective</em>; i.e., distinct bytestrings MUST map into distinct values of the type <code>S</code>. To see why, suppose <code>E</code> were not injective. This means there are two bytestrings <code>D_1</code> and <code>D_2</code> such that <code>E(D_1) = E(D_2) = S_1 = S_2</code>. We could then take the raw data used to build a Merkle tree <code>A</code>, replace all occurrences of <code>D_1</code> with <code>D_2</code>, and build an identical Merkle tree from distinct data - which is what we want to avoid.</p>
 <p>The next section deals with injective encodings for the major types we use - including SHA256, BN254, Goldilocks. We then discuss padding in Sec. <a href="storage/raw/merkle-tree.html#padding">Padding</a>.</p>
 <h4 id="injective-encodings"><a class="header" href="#injective-encodings">Injective Encodings</a></h4>
-<p>Encoding for SHA256 is trivial in that it already operates on byte strings, so there is no extra work to be done. For most of the other hashing functions we care about, however, <code>S</code> is a sequence of finite field elements, and we therefore need to perform encoding.</p>
-<p>In such situations, it is convenient to construct our injective encoding function <code>E</code> by chunking the input sequence of size <span class="math-inline" data-tex="b"></span> into smaller pieces of size <code>M</code>, and then applying a <em>element encoding function</em> <code>E_s</code> function to each chunk. This function can output either a single or multiple field elements per <code>M</code>-sized chunk (Listing 1).</p>
-<pre><code class="language-python=">def E(
-  raw: List[byte],
-  E_s: List[byte] -&gt; List[FieldElement],
-  M: uint,
-) -&gt; List[FieldElement]:
+<p>Encoding for classical hash functions like SHA256 is trivial in that they already operates on bytestrings, so there is no extra work to be done. On the other hand, for arithmetic hash functions like Poseidon(2), <code>S</code> is a sequence of finite field elements, and we therefore need to perform encoding.</p>
+<p>In such situations, it is convenient to construct our injective encoding function <code>E</code> by chunking the input sequence of size <code>b</code> into smaller pieces of size <code>M</code>, and then applying an <em>element encoding function</em> <code>E_s</code> function to each chunk. This function can output either a single or multiple field elements per <code>M</code>-sized chunk (Listing 1).</p>
+<pre><code class="language-python=">def E( raw: List[byte],
+       E_s: List[byte] -&gt; List[FieldElement],
+       M:   uint,
+     ) -&gt; List[FieldElement]:
+
   # requires len(raw) to be multiple of M
   chunks = len(raw) / M
+  assert chunks * M == len(raw)
   encoded = []
   for i in range(0, chunks):
     encoded.extend(E_s(raw[i*M:(i+1)*M-1]))
@@ -24201,9 +24253,9 @@ nodeKey BottomLayer OddNode  = 0x03
   return encoded
 </code></pre>
 <p><strong>Listing 1.</strong> Constructing <code>E</code> from <code>E_s</code>.</p>
-<p>For the BN254 field, we can construct <code>E_s</code> by taking <code>M=31</code>, and having the 31 bytes interpreted as a <em>little-endian</em> integer modulo <code>p</code>. This outputs one single field element per <span class="math-inline" data-tex="31"></span> bytes.</p>
-<p>Poseidon2 or Monolith (over the Goldilocks field) take multiples of four Goldilocks field elements at a time. We have some choices: We can have <code>M=4*7=28</code>, as a single field element can encode 7 bytes but not 8. Or, if we want to be more efficient, we can still achieve <code>M=31</code> by storing 62 bits in each field element. For this to work, some convention needs to be chosen; our implementation is the following:</p>
-<pre><code class="language-haskell">#define MASK 0x3fffffffffffffffULL
+<p>For the BN254 field, we can construct <code>E_s</code> by taking <code>M = 31</code>, and having the 31 bytes interpreted as a <em>little-endian</em> integer modulo <code>p</code> (remember that <code>31 x 8 &lt; log2(p) &lt; 32 x 8</code>). This outputs a single field element per 31 bytes.</p>
+<p>On the other hand, over the Goldilocks field, Poseidon2 or Monolith take multiples of four Goldilocks field elements at a time. We have some choices: We could have <code>M = 4*7 = 28</code>, as a single field element can encode 7 bytes but not 8. Or, if we want to be more efficient, we can still achieve <code>M = 31</code> by storing 62 bits in each field element. For this to work, some convention needs to be chosen; our implementation is the following:</p>
+<pre><code class="language-C">#define MASK 0x3fffffffffffffffULL
 
 // NOTE: we assume a little-endian architecture here
 void goldilocks_convert_31_bytes_to_4_field_elements(const uint8_t *ptr, uint64_t *felts) {
@@ -24220,26 +24272,42 @@ void goldilocks_convert_31_bytes_to_4_field_elements(const uint8_t *ptr, uint64_
 </code></pre>
 <p>This simply chunks the 31 bytes = 248 bits into 62 bits chunks, and interprets them as little endian 62 bit integers.</p>
 <h4 id="padding-2"><a class="header" href="#padding-2">Padding</a></h4>
-<p>The element encoding function <code>E_s</code> requires byte strings of length <code>M</code>, but the input's length; i.e., the size <span class="math-inline" data-tex="b"></span> our data blocks, might not be a multiple of <code>M</code>. We might therefore need to <em>pad</em> the blocks, and we need to do it in a way that avoids the usual trap: different input data resulting in the same padded representation.</p>
-<p>We adopt a <code>10*</code> padding strategy to pad raw data blocks to a multiple of <code>M</code> bytes; i.e., we <em>always</em> add a <code>0x01</code> byte, and then as many <code>0x00</code> bytes as required for the length to be divisible by <code>M</code>. Assuming again a data block of length <span class="math-inline" data-tex="b"></span> bytes, then the padded sequence will have <code>M*(floor(b/M)+1)</code> bytes.</p>
+<p>The element encoding function <code>E_s</code> requires bytestrings of length <code>M</code>, but the input's length; i.e., the size <code>b</code> our data blocks, might not be a multiple of <code>M</code>. We might therefore need to <em>pad</em> the blocks, and we need to do it in a way that avoids the usual trap: different input data resulting in the same padded representation.</p>
+<p>We adopt a <code>10*</code> padding strategy to pad raw data blocks to a multiple of <code>M</code> bytes; i.e., we <em>always</em> add a <code>0x01</code> byte, and then as many <code>0x00</code> bytes as required for the length to be divisible by <code>M</code>. Assuming again a data block of length <code>b</code> bytes, then the padded sequence will have <code>M*(floor(b/M)+1)</code> bytes.</p>
 <p>Note: The <code>10*</code> padding strategy is an invertible operation, which will ensure that there is no collision between sequences of different lengths; i.e., to unpad scan from the end, drop <code>0x00</code> bytes until the first <code>0x01</code>, drop that too; reject if no <code>0x01</code> found</p>
 <p>Once the data is padded, it can be chunked to pieces of <code>M</code> bytes (so there will be <code>floor(b/M)+1</code> chunks) and encoded by calling the element encoding function for each chunk.</p>
 <p>Remark: We don't pad the sequence of leaf hashes (<code>T</code>-s) when constructing the Merkle tree, as the tree construction ensures that different lengths will result in different root hashes. However, when <strong>using the sponge construction,</strong> we need to further pad the sequence of encoded field elements to be a multiple of the sponge rate; there again we apply the <code>10*</code> strategy, but there the <code>1</code> and <code>0</code> are finite field elements.</p>
 <h4 id="serializing--deserializing"><a class="header" href="#serializing--deserializing">Serializing / Deserializing</a></h4>
 <p>When using SHA256 or similar, this is trivial (use the standard, big-endian encoding).</p>
-<p>When <code>T</code> consists of prime field elements, simply take the smallest number of bytes the field fits in (usually 256, 64 or 32 bits, that is 32, 8 or 4 bytes), and encode as a little-endian integer (mod the prime). This is trivial to invert.</p>
+<p>When <code>T</code> consists of prime field elements, simply take the smallest number of bytes the field fits in (usually 256, 64 or 32 bits, that is 32, 8 or 4 bytes), and encode as a little-endian integer (modulo the prime). This is trivial to invert.</p>
 <p>To serialize the actual tree, just add enough metadata that the size of each layer is known, then you can simply concatenate the layers, and serialize like as above. This metadata can be as small as the size of the initial layer, that is, a single integer.</p>
+<p>Remark: we could (de)serialize in the so-called Montgomery representation instead. That would be more efficient, however, the minor efficiency gains are probably not worth the confusion and incompatibility with standard implementations.</p>
 <h3 id="reference-implementations"><a class="header" href="#reference-implementations">Reference Implementations</a></h3>
 <ul>
 <li>in Haskell: <a href="https://github.com/logos-storage/logos-storage-proofs-circuits/blob/master/reference/haskell/src/Poseidon2/Merkle.hs">https://github.com/logos-storage/logos-storage-proofs-circuits/blob/master/reference/haskell/src/Poseidon2/Merkle.hs</a></li>
 <li>in Nim: <a href="https://github.com/codex-storage/codex-storage-proofs-circuits/blob/master/reference/nim/proof_input/src/merkle.nim">https://github.com/codex-storage/codex-storage-proofs-circuits/blob/master/reference/nim/proof_input/src/merkle.nim</a></li>
 </ul>
 <h2 id="interfaces"><a class="header" href="#interfaces">Interfaces</a></h2>
-<p>The interface for a Merkle tree typically requires two types of APIs:</p>
+<p>The interface for a Merkle tree typically require the following API:</p>
 <ul>
-<li>one which takes a sequence <code>S</code> of length <code>n</code> as input, and produces a Merkle tree of type <code>T</code>, and;</li>
-<li>one which takes a sequence of bytes (or even bits, but in practice we probably only need bytes), and produces a Merkle tree of type <code>T</code>.</li>
+<li>the Merkle tree construction function takes a sequence <code>D</code>-s (typically bytestrings) of length <code>n</code> as input, and produces a Merkle tree of type <code>T</code>; that is, <code>mkTree: [D] -&gt; Tree&lt;T&gt;</code></li>
+<li>if we also want to use the Merkle tree as a normal hash function, then <code>merkleHashTree : [byte] -&gt; Tree&lt;T&gt;</code></li>
+<li>further standard functionality are:
+<ul>
+<li>extract the tree root <code>root : Tree&lt;T&gt; -&gt; T</code></li>
+<li>extract a Merkle inclusion proof</li>
+<li>check a Merkle inclusion proof against a root</li>
+<li>update a leaf of the tree</li>
 </ul>
+</li>
+</ul>
+<p>In practice, we split the tree construction into two parts:</p>
+<ul>
+<li>leaf encoding: <code>D -&gt; S</code></li>
+<li>tree construction: <code>[S] -&gt; Tree&lt;T&gt;</code></li>
+</ul>
+<p>This split makes the API inherently less safe, but in practice is required. However, our construction is hopefully robust enough that this loss of safety cannot be easily exploited (especially accidentally).</p>
+<h3 id="interface-pseudo-code"><a class="header" href="#interface-pseudo-code">Interface pseudo-code</a></h3>
 <p>We also typically want to be able to obtain proofs for existing data blocks, and check blocks along with their proofs against a root. The interface is described in Listing 2. We avoid going into actual algorithms here as those are already specified in the reference implementations.</p>
 <pre><code class="language-python">class Encoder[S]:
   """
@@ -24265,7 +24333,7 @@ class MerkleProof[T]:
 
 def create(data: List[S]) -&gt; MerkleTree[T]:
   """Creates a `MerkleTree` from a sequence
-  of data in the ."""
+  of data, encoded to be compatible with the hash."""
   ...
 
 def create(
@@ -24310,15 +24378,192 @@ def verify_proof(
 <p>[<a href="https://eprint.iacr.org/2022/840">Bouvier22</a>]: Bouvier et al. "New Design Techniques for Efficient Arithmetization-Oriented Hash Functions: Anemoi Permutations and Jive Compression Mode", Cryptology ePrint Archive, 2022.</p>
 <p>[<a href="https://bitcoinops.org/en/topics/merkle-tree-vulnerabilities/">BitCoinOps25</a>]: Merkle tree vulnerabilities. <a href="https://bitcoinops.org/en/topics/merkle-tree-vulnerabilities/">https://bitcoinops.org/en/topics/merkle-tree-vulnerabilities/</a></p>
 <p>[<a href="https://bitcointalk.org/?topic=102395">CVE-2012-2459</a>]: Block Merkle Calculation Exploit. <a href="https://bitcointalk.org/?topic=102395">https://bitcointalk.org/?topic=102395</a></p>
+<p><a href="https://arxiv.org/abs/2306.08869v2">[arXiv:2306.08869]</a>: "Detecting Misuse of Security APIs: A Systematic Review"</p>
+<p><a href="https://eprint.iacr.org/2026/089">[eprint:2026/089]</a>: "The Billion Dollar Merkle Tree"</p>
 <div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
 <p>Some less-conforming implementation of these could take a sequence of bytes instead.</p>
 </div>
 <div class="footnote-definition" id="2"><sup class="footnote-definition-label">2</sup>
-<p>Data blocks might also need to be padded to a multiple of <span class="math-inline" data-tex="b"></span>, but raw data padding is beyond the scope of this document.</p>
+<p>Data blocks might also need to be padded to a multiple of <code>b</code>, but raw data padding is beyond the scope of this document.</p>
 </div>
 <div class="footnote-definition" id="3"><sup class="footnote-definition-label">3</sup>
-<p>The standard block size for Logos storage is <span class="math-inline" data-tex="65\,536"></span> bytes for SHA256 trees, and <span class="math-inline" data-tex="2\,048"></span> bytes for Poseidon2 trees.</p>
+<p>The standard block size for Logos storage is (currently) <code>2^16 = 65536</code> bytes for SHA256 trees. In the "old Codex" design, we used <code>2^10 = 2048</code> bytes sized "cells" for probabilistic storage proofs, using a secondary, Poseidon2-based Merkle tree.</p>
 </div>
+<hr />
+<h2 id="appendix-3"><a class="header" href="#appendix-3">Appendix</a></h2>
+<p>In this Appendix we propose some concrete hash function instances to be used with the above Merkle tree specification.</p>
+<p>These are:</p>
+<ul>
+<li>"standard" SHA256</li>
+<li>"optimized" SHA256</li>
+<li>Poseidon2 over the BN254 curve's scalar field</li>
+<li>Poseidon2 over the Goldilocks field</li>
+<li>Monolith over the Goldilocks field</li>
+</ul>
+<p>These all come with some advantages and disadvantages, and are useful in different situations; hence the variety.</p>
+<h3 id="standard-sha256"><a class="header" href="#standard-sha256">Standard SHA256</a></h3>
+<p>A hash is 256 bits (32 bytes). The keys <code>0,1,2,3</code> are encoded as a single byte, <code>0x00, ..., 0x03</code>. The keyed compression function is defined as</p>
+<pre><code>    compress(x,y,key) := SHA256( x || y || key )
+</code></pre>
+<p>(so the input of the SHA256 call is <code>32+32+1 = 65</code> bytes).</p>
+<p>Remark: This is the version currently (January 2026) used in Logos Storage.</p>
+<p>Hashing leaf data (that is, sequences of bytes) is normally just a standard SHA256 call.</p>
+<p>However, in the Logos Storage context, the leaves are often fixed size (eg. 64kb) blocks. To facilitate lightweight storage proofs, we may want to use a small (eg. depth 10) Merkle tree with say 64 byte leaves to hash these blocks.</p>
+<h4 id="test-vectors-1"><a class="header" href="#test-vectors-1">Test vectors</a></h4>
+<p>TODO: add test vectors</p>
+<h3 id="optimized-sha256"><a class="header" href="#optimized-sha256">Optimized SHA256</a></h3>
+<p>This is a non-standard SHA256 instance, but in exchange it's twice as fast. This optimization is most important in the case where we want to use SHA256-based lightweight storage proofs, as SHA256 is very expensive to compute inside ZK proofs.</p>
+<p>The problem: The way SHA256 hashing works is to take the input, pad it to the next multiple of 64 bytes, and consume in 64 byte (512 bit) chunks. So in the above "standard" instance, the keyed compression function invokes the internal SHA256 compression function <em><strong>twice</strong></em>. In fact even the un-keyed version would do that, as padding is mandatory (and always appends a nonempty bitstring)!</p>
+<p>We can avoid this by encoding the key into the initialization vector (from a birds-eye point of view, this is in fact quite similar to the permutation-based keyed compression functions below: Namely, the key is encoded in the internal state), skip padding, and use the internal SHA256 compression function. This is safe to do as the input of the compression is constant length (2x32 = 64 bytes).</p>
+<p>Standard SHA256 derives its initial state (which is 256 bits) from the square roots of the first 8 primes. This is known as a "nothing-up-to-my-sleeve" construction. But really it could be just about anything. Here we need 4 different random-looking initial states corresponding to the 4 different keys. We propose</p>
+<pre><code>IV_0 := SHA3-256("LOGOS_STORAGE|MERKLE_SHA256_INITIAL_STATE|KEY=0x00")
+IV_1 := SHA3-256("LOGOS_STORAGE|MERKLE_SHA256_INITIAL_STATE|KEY=0x01")
+IV_2 := SHA3-256("LOGOS_STORAGE|MERKLE_SHA256_INITIAL_STATE|KEY=0x02")
+IV_3 := SHA3-256("LOGOS_STORAGE|MERKLE_SHA256_INITIAL_STATE|KEY=0x03")
+</code></pre>
+<p>(note: we intentially use a different hash function - namely, SHA3 - to generate these IVs here, to avoid any possible collusion with the internal structure of SHA256).</p>
+<p>In concrete (big-endian) values, these are:</p>
+<pre><code>IV_0 = 0xc616dedc2fd8bba1e2c31efeb8555bfa37efe48c7e84c7d67cc9afa0b008b2b7
+IV_1 = 0x08e555becbc79204178a3e20f689eb74552523e5d75d42e8be555a9ee671bd86
+IV_2 = 0x53eabf5ee9bff4c87515e738558093128797f2015d5994443787a215875a9a27
+IV_3 = 0x17c13498c9884a64005dda79b147b9a9c88588c62fb7138fb72d528c01eb8287
+</code></pre>
+<p>However, SHA256 initial state is represented as a length 8 array of 32-bit words. As customary, the encoding for these words is big-endian, so for example <code>IV_0</code> will become</p>
+<pre><code>    IV_0 = { 0xc616dedc, 0x2fd8bba1, 0xe2c31efe, 0xb8555bfa, 0x37efe48c, 0x7e84c7d6, 0x7cc9afa0, 0xb008b2b7 }
+</code></pre>
+<p>Our keyed compression function then would be:</p>
+<pre><code>    compress(x,y,key) := SHA256_COMPRESS( init = IV_key, chunk = x||y )
+</code></pre>
+<p>See eg. Wikipedia for the description of the <a href="https://en.wikipedia.org/wiki/SHA-2#Pseudocode">SHA256 internal compression algorithm</a>.</p>
+<p>Hashing leaf data (bytes) is exactly the same as above (either standard SHA256, or a small Merkle tree for fixed-sized data blocks).</p>
+<h4 id="test-vectors-and-implementation"><a class="header" href="#test-vectors-and-implementation">Test vectors and implementation</a></h4>
+<p>TODO: implement this, add test vectors, and a link to the implementation.</p>
+<h3 id="poseidon2-over-bn254"><a class="header" href="#poseidon2-over-bn254">Poseidon2 over BN254</a></h3>
+<p>Poseidon2 hash function is parametrized by a prime field, and the other parameters are usually derived from this (except the round constants, which are just kind of random, but deterministically derived from some seed).</p>
+<p>In this case, the field is the BN254 (aka. alt-bn128 or sometimes BN256 - though the latter name is also used for a different curve!) elliptic curve's scalar field:</p>
+<pre><code>    p = 21888242871839275222246405745257275088548364400416034343698204186575808495617
+</code></pre>
+<p>We use a state consisting of <code>t = 3</code> field elements (approx. 762 bits). A hash in this case consists of a single field element (approx. 254 bits).</p>
+<p>We use the parameters from the <code>zkfriendlyhashzoo</code> <a href="https://extgit.isec.tugraz.at/krypto/zkfriendlyhashzoo#bf2f8457076af63548e75ac84ecc81568fd93369">implementation</a>.</p>
+<p>This defines the so called "Poseidon2 permutation function":</p>
+<pre><code>    permute : F^3 -&gt; F^3
+</code></pre>
+<p>From this, our keyed compression function is derived as:</p>
+<pre><code>    compress(x,y,key) := permute([x,y,key])[0]
+</code></pre>
+<p>That is, take the three field elements <code>(x,y,key) in F^3</code> (the keys 0,1,2,3 interpreted as field elements), permute the triple, and output the first element of the resulting triple.</p>
+<h4 id="linear-hashing-of-leaf-data"><a class="header" href="#linear-hashing-of-leaf-data">Linear hashing of leaf data</a></h4>
+<p>Linear hashing of a sequence of field elements is implemented using the sponge construction, with <code>rate=2</code> and <code>capacity=1</code>. As traditional, the first 2 elements of the state corresponds to the input chunk, and the last element to the internal capacity. The <code>10*</code> padding strategy is used (always add a single <code>1</code> field element, then as many zeros as required for the length to be divisible by <code>r=2</code>). A domain separation value is used, so the initial state is <code>(0,0,domSep)</code>.</p>
+<p>Linear hashing of bytes. First we need to pad the byte sequence to a multiple of <code>2 x 31 = 62</code> bytes (again we use the <code>10*</code> padding strategy, with bytes here), then encode each 31 byte chunk into a field element, interpreting it as a little-endian integer. The resulting field element sequence (of even length) is now hashed with the sponge (<code>rate=2</code>), <em>without padding</em> (the byte sequence padding is enough for it to be injective). NOTE: a different domain separator value MUST be used in this case than for the public API hashing field elements!</p>
+<h4 id="test-vectors-2"><a class="header" href="#test-vectors-2">Test vectors</a></h4>
+<p>Permutation of <code>(0,1,2)</code>:</p>
+<pre><code>x' = 0x30610a447b7dec194697fb50786aa7421494bd64c221ba4d3b1af25fb07bd103 
+y' = 0x13f731d6ffbad391be22d2ac364151849e19fa38eced4e761bcd21dbdc600288 
+z' = 0x1433e2c8f68382c447c5c14b8b3df7cbfd9273dd655fe52f1357c27150da786f 
+</code></pre>
+<p>Keyed compression:</p>
+<pre><code>compress(x=1234, y=5678, key=0) = 0x152ef46ec26a9afb6748e7fff3f75081af33f84b77d2afa05207509fb63ec4a6
+compress(x=6666, y=7777, key=1) = 0x04f222443879d40e17174f08adfd76c23d515d370e351f5d5da69a41d84dc48a
+compress(x=9876, y=5432, key=2) = 0x1ddd85a82b30a09cded68735a8fb9a353e6448f64f28f96a6f0e495b4e50f372
+compress(x=1133, y=5577, key=3) = 0x222eda4baf17bf55f2167e6c9cd8828b8cb1762cfc61ec3195892ebc38d5d478
+</code></pre>
+<h4 id="implementations"><a class="header" href="#implementations">Implementations</a></h4>
+<ul>
+<li><a href="https://github.com/logos-storage/nim-poseidon2">https://github.com/logos-storage/nim-poseidon2</a> (includes the full Merkle tree construction)</li>
+<li><a href="https://github.com/logos-storage/rust-poseidon-bn254-pure">https://github.com/logos-storage/rust-poseidon-bn254-pure</a> (permutation only)</li>
+<li><a href="https://github.com/logos-storage/rust-bn254-hash">https://github.com/logos-storage/rust-bn254-hash</a> (permutation only)</li>
+<li><a href="https://github.com/faulhornlabs/hash-circuits">https://github.com/faulhornlabs/hash-circuits</a></li>
+</ul>
+<h3 id="poseidon2-over-goldilocks"><a class="header" href="#poseidon2-over-goldilocks">Poseidon2 over Goldilocks</a></h3>
+<p>The Goldilocks prime field is defined by</p>
+<pre><code>    p  =  2^64 - 2^32 + 1  =  18446744069414584321
+</code></pre>
+<p>As a Goldilocks field element contains approx. 64 bits, we use a state of <code>t = 12</code> field elements to have a comparable setting as before. A hash value consists of 4 field elements.</p>
+<p>The parameters we use are the same as the <a href="https://github.com/HorizenLabs/poseidon2#055bde3f4782731ba5f5ce5888a440a94327eaf3">HorizenLabs implementation</a>. Note: At some point, HorizenLabs generated new constants (this can be seen in their github history). While all our other implementations use the old constants (which are the same as the <code>zkfriendlyhashzoo</code> ones), because of a historical accident, here we use the new ones. This doesn't matter at all apart from being consistent. It could be changed but let's not do that now...</p>
+<p>The keyed compression function is then defined as:</p>
+<pre><code>compress( [x0,x1,x2,x3], [y0,y1,y2,y3], key) := 
+  let newState = permute( [x0,x1,x2,x3, y0,y1,y2,y3, key,0,0,0] ) 
+  in  newState[0..3]
+</code></pre>
+<p>that is, the resulting hash is the first four elements of the permuted state.</p>
+<p>For the sponge construction, we use <code>rate=8</code> and <code>capacity=4</code> (with the first 8 field elements corresponding to the chunk we consume). For hashing bytes, we first convert the bytes into field elements very similarly to the BN254 case, except that we encode 31 bytes into 4 field elements (10% more efficient than 7 bytes into 1 field element, while also being a drop-in replacement for the BN254 version).</p>
+<p>In Nim:</p>
+<pre><code class="language-nim">func decodeBytesToDigestFrom(bytes: openarray[byte], ofs: int): Digest =
+  const mask : uint64 = 0x3fffffffffffffff'u64
+  let p = bytesToUint64FromLE( bytes , ofs +  0 )
+  let q = bytesToUint64FromLE( bytes , ofs +  7 )
+  let r = bytesToUint64FromLE( bytes , ofs + 15 )
+  let s = bytesToUint64FromLE( bytes , ofs + 23 )
+  
+  let a = bitand( p       , mask )
+  let b = bitor(  q shr 6 , bitand(r , 0x0f) shl 58 )
+  let c = bitor(  r shr 4 , bitand(s , 0x03) shl 60 )
+  let d =         s shr 2   
+  return mkDigestU64(a,b,c,d)   
+</code></pre>
+<p>and in C:</p>
+<pre><code class="language-C">#define MASK 0x3fffffffffffffffULL
+
+// NOTE: we assume a little-endian architecture here
+void goldilocks_convert_31_bytes_to_4_field_elements(const uint8_t *ptr, uint64_t *felts) {
+  const uint64_t *q0  = (const uint64_t*)(ptr   );
+  const uint64_t *q7  = (const uint64_t*)(ptr+ 7);
+  const uint64_t *q15 = (const uint64_t*)(ptr+15);
+  const uint64_t *q23 = (const uint64_t*)(ptr+23);
+    
+  felts[0] =  (q0 [0]) &amp; MASK;
+  felts[1] = ((q7 [0]) &gt;&gt; 6) | ((uint64_t)(ptr[15] &amp; 0x0f) &lt;&lt; 58);
+  felts[2] = ((q15[0]) &gt;&gt; 4) | ((uint64_t)(ptr[23] &amp; 0x03) &lt;&lt; 60); 
+  felts[3] = ((q23[0]) &gt;&gt; 2);
+}
+</code></pre>
+<p>Again care should we taken with the padding and domain separation! By convention, the domain separation value is put in the 8th field element of the initial state:</p>
+<pre><code>    initial_state = [0,0,0,0, 0,0,0,0, domSep,0,0,0]
+</code></pre>
+<h4 id="test-vectors-3"><a class="header" href="#test-vectors-3">Test vectors</a></h4>
+<p>Permutation of <code>[0,1,2,..9,10,11]</code>:</p>
+<pre><code>    [ 0x01eaef96bdf1c0c1
+    , 0x1f0d2cc525b2540c
+    , 0x6282c1dfe1e0358d
+    , 0xe780d721f698e1e6
+    , 0x280c0b6f753d833b
+    , 0x1b942dd5023156ab
+    , 0x43f0df3fcccb8398
+    , 0xe8e8190585489025
+    , 0x56bdbf72f77ada22
+    , 0x7911c32bf9dcd705
+    , 0xec467926508fbe67
+    , 0x6a50450ddf85a6ed
+    ]
+</code></pre>
+<h4 id="implementation"><a class="header" href="#implementation">Implementation</a></h4>
+<ul>
+<li><a href="https://github.com/logos-storage/nim-goldilocks-hash">https://github.com/logos-storage/nim-goldilocks-hash</a> (includes the Merkle tree construction)</li>
+</ul>
+<h3 id="monolith-over-goldilocks"><a class="header" href="#monolith-over-goldilocks">Monolith over Goldilocks</a></h3>
+<p>The is exactly the same as Poseidon2 over Goldilocks, but using the Monolith permutation instead of the Poseidon2 permutation.</p>
+<p>Monolith is significantly faster than Poseidon2 in a CPU implementation; but less widely used, and requires lookup tables in a ZK proof implementation.</p>
+<p>We use the parameters from the <code>zkfriendlyhashzoo</code> <a href="https://extgit.isec.tugraz.at/krypto/zkfriendlyhashzoo#bf2f8457076af63548e75ac84ecc81568fd93369">implementation</a>.</p>
+<h4 id="test-vectors-4"><a class="header" href="#test-vectors-4">Test vectors</a></h4>
+<p>Permutation of <code>[0,1,2,..9,10,11]</code>:</p>
+<pre><code>    [ 0x516dd661e959f541
+    , 0x082c137169707901
+    , 0x53dff3fd9f0a5beb
+    , 0x0b2ebaa261590650
+    , 0x89aadb57e2969cb6
+    , 0x5d3d6905970259bd
+    , 0x6e5ac1a4c0cfa0fe
+    , 0xd674b7736abfc5ce
+    , 0x0d8697e1cd9a235f
+    , 0x85fc4017c247136e
+    , 0x572bafd76e511424
+    , 0xbec1638e28eae57f
+    ]
+</code></pre>
+<h4 id="implementation-1"><a class="header" href="#implementation-1">Implementation</a></h4>
+<ul>
+<li><a href="https://github.com/logos-storage/nim-goldilocks-hash">https://github.com/logos-storage/nim-goldilocks-hash</a> (includes the Merkle tree construction)</li>
+</ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="storage-deprecated-specifications"><a class="header" href="#storage-deprecated-specifications">Storage Deprecated Specifications</a></h1>
 <p>Deprecated Storage specifications kept for archival and reference purposes.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="codex-erasue-coding"><a class="header" href="#codex-erasue-coding">CODEX-ERASUE-CODING</a></h1>
@@ -24355,7 +24600,7 @@ This is achieved by the dataset that is chunked,
 which is restored in retrieval by erasure coding.
 When data blocks are abandoned by storage providers,
 the requester can be assured of data retrievability.</p>
-<h2 id="specification-13"><a class="header" href="#specification-13">Specification</a></h2>
+<h2 id="specification-12"><a class="header" href="#specification-12">Specification</a></h2>
 <p>The keywords “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”,
 “SHOULD”, “SHOULD NOT”, “RECOMMENDED”, “MAY”, and
 “OPTIONAL” in this document are to be interpreted as described in <a href="https://www.ietf.org/rfc/rfc2119.txt">2119</a>.</p>
@@ -26026,7 +26271,7 @@ Slots used in the Codex protocol are an important component of node collaboratio
 Slots control and facilitate the distribution of the data blocks to participating storage providers.
 The mechanism builds individual Merkle trees for each slot, enabling cell-level proof generation, and
 constructs a root verification tree over all slot roots.</p>
-<h2 id="specification-14"><a class="header" href="#specification-14">Specification</a></h2>
+<h2 id="specification-13"><a class="header" href="#specification-13">Specification</a></h2>
 <p>The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”, “SHOULD”,
 “SHOULD NOT”, “RECOMMENDED”, “NOT RECOMMENDED”, “MAY”, and
 “OPTIONAL” in this document are to be interpreted as described in <a href="https://www.ietf.org/rfc/rfc2119.txt">RFC 2119</a>.</p>
@@ -31460,7 +31705,7 @@ Tor Push uses a dedicated libp2p context to prevent information leakage.
 To significantly increase resilience and mitigate circuit failures,
 Tor Push establishes several connections,
 each to a different randomly selected gossipsub node.</p>
-<h2 id="specification-15"><a class="header" href="#specification-15">Specification</a></h2>
+<h2 id="specification-14"><a class="header" href="#specification-14">Specification</a></h2>
 <p>This section specifies the format of Tor Push messages,
 as well as how Tor Push messages are received and sent, respectively.</p>
 <h3 id="wire-format-4"><a class="header" href="#wire-format-4">Wire Format</a></h3>
@@ -32756,7 +33001,7 @@ Registrars MAY follow this example.</p>
 end procedure
 </code></pre>
 <h2 id="peer-table-updates"><a class="header" href="#peer-table-updates">Peer Table Updates</a></h2>
-<h3 id="overview-2"><a class="header" href="#overview-2">Overview</a></h3>
+<h3 id="overview-3"><a class="header" href="#overview-3">Overview</a></h3>
 <p>While responding to both <code>REGISTER</code> requests by advertisers
 and <code>GET_ADS</code> request by discoverers,
 registrars play an important role in helping nodes discover the network topology.
@@ -33084,7 +33329,7 @@ based on their specific requirements for performance, security, and resilience.<
 <p>[1] <a href="https://ieeexplore.ieee.org/document/10629017">DISC-NG: Robust Service Discovery in the Ethereum Global Network</a></p>
 <p>[2] <a href="https://github.com/libp2p/specs/blob/e87cb1c32a666c2229d3b9bb8f9ce1d9cfdaa8a9/kad-dht/README.md">libp2p Kademlia DHT specification</a></p>
 <p>[3] <a href="https://github.com/libp2p/go-libp2p-kad-dht">Go implementation</a></p>
-<h2 id="appendix-3"><a class="header" href="#appendix-3">Appendix</a></h2>
+<h2 id="appendix-4"><a class="header" href="#appendix-4">Appendix</a></h2>
 <p>This appendix provides detailed explanations of some algorithms
 and helper procedures referenced throughout this RFC.
 To maintain clarity and readability in the main specification,
@@ -35853,7 +36098,7 @@ This means that no more messages than the registered rate limit can be sent per 
 </blockquote>
 <p>See section <a href="ift-ts/raw/mix-spam-protection-rln.html#system-parameters">System Parameters</a> for details on the <code>period</code> parameter.</p>
 <h2 id="approach"><a class="header" href="#approach">Approach</a></h2>
-<h3 id="overview-3"><a class="header" href="#overview-3">Overview</a></h3>
+<h3 id="overview-4"><a class="header" href="#overview-4">Overview</a></h3>
 <p>The protocol implements RLN using a <a href="https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md#922-per-hop-generated-proofs">per-hop generated proof approach</a>, where each node in the mix path generates and verifies proofs.
 This enables network-wide spam protection while preserving user privacy.</p>
 <p>Each mix node MUST have an RLN group membership in order to send or forward messages in the mixnet.
@@ -37458,7 +37703,7 @@ applications SHOULD use dedicated worker threads per proof instead.
 The worker thread approach provides significantly higher throughput for
 concurrent proof generation.</p>
 <h2 id="the-api-1"><a class="header" href="#the-api-1">The API</a></h2>
-<h3 id="overview-4"><a class="header" href="#overview-4">Overview</a></h3>
+<h3 id="overview-5"><a class="header" href="#overview-5">Overview</a></h3>
 <p>The API exposes functional interfaces with strongly-typed parameters.
 All three platform bindings share the same function signatures,
 differing only in language-specific conventions.
