@@ -5,6 +5,7 @@
 | Name | MVDS Metadata Field |
 | Slug | 4 |
 | Status | draft |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Sanaz Taheri <sanaz@status.im> |
 | Contributors | Dean Eigenmann <dean@status.im>, Andrea Maria Piana <andreap@status.im>, Oskar Thorén <oskarth@titanproxy.com> |

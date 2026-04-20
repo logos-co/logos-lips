@@ -5,6 +5,7 @@
 | Name | Waku v2 Toy Chat |
 | Slug | 22 |
 | Status | draft |
+| Type | RFC |
 | Category | Informational |
 | Editor | Franck Royer <franck@status.im> |
 | Contributors | Hanno Cornelius <hanno@status.im> |

@@ -5,6 +5,7 @@
 | Name         | Merkle Tree                               |
 | Slug | 153 |
 | Status       | draft                                     |
+| Type | RFC |
 | Category     | Standards Track                           |
 | Editor       | Balázs Kőműves <bkomuves@status.im>       |
 | Contributors | Giuliano Mega <giuliano@status.im>, Mohammed Alghazwi <mohalghazwi@status.im> |

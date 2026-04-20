@@ -19,9 +19,10 @@ DOCS = ROOT / "docs"
 
 EXCLUDE_FILES = {"README.md", "SUMMARY.md", "about.md", "template.md"}
 # Fields required for draft and above; raw specs only need name + status.
-REQUIRED_FIELDS_ALL = ("name", "slug", "status", "category", "editor")
+REQUIRED_FIELDS_ALL = ("name", "slug", "status", "type", "category", "editor")
 REQUIRED_FIELDS_RAW = ("name", "status")
 ALLOWED_STATUS = {"raw", "draft", "approved", "stable", "verified", "deprecated", "retired", "deleted"}
+ALLOWED_TYPES = {"rfc", "cfr"}
 ALLOWED_CATEGORIES = {
     "standards track",
     "informational",
@@ -80,7 +81,7 @@ def discover_docs() -> List[Path]:
 
 
 def find_metadata_table(lines: List[str]) -> Optional[TableInfo]:
-    max_scan = min(len(lines), 140)
+    max_scan = min(len(lines), 220)
     for idx in range(max_scan - 1):
         if not HEADER_RE.match(lines[idx].strip()):
             continue
@@ -218,6 +219,14 @@ def validate_doc(doc: DocInfo) -> None:
     slug = meta.get("slug", "").strip()
     if slug and not NUMERIC_RE.fullmatch(slug):
         doc.errors.append("slug must be a positive integer")
+
+    # Validate type field if present (optional, default RFC).
+    doc_type = meta.get("type", "").strip().lower()
+    if doc_type and doc_type not in ALLOWED_TYPES:
+        allowed = ", ".join(sorted(ALLOWED_TYPES))
+        doc.errors.append(
+            f"unknown type '{meta.get('type', '')}' (expected one of: {allowed})"
+        )
 
     # Only enforce category for non-raw specs.
     if status != "raw":

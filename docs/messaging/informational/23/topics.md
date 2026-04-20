@@ -5,6 +5,7 @@
 | Name | Waku v2 Topic Usage Recommendations |
 | Slug | 23 |
 | Status | draft |
+| Type | RFC |
 | Category | Informational |
 | Editor | Oskar Thoren <oskarth@titanproxy.com> |
 | Contributors | Hanno Cornelius <hanno@status.im>, Daniel Kaiser <danielkaiser@status.im>, Filip Dimitrijevic <filip@status.im> |

@@ -5,6 +5,7 @@
 | Name | Codex Prover Module |
 | Slug | 81 |
 | Status | deprecated |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Codex Team |
 | Contributors | Filip Dimitrijevic <filip@status.im> |

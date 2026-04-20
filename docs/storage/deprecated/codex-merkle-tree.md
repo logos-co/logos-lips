@@ -5,6 +5,7 @@
 | Name | Codex Merkle Tree |
 | Slug | 82 |
 | Status | deprecated |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Codex Team |
 | Contributors | Filip Dimitrijevic <filip@status.im> |

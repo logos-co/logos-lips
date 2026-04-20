@@ -5,6 +5,7 @@
 | Name | Waku v2 RPC API |
 | Slug | 16 |
 | Status | deprecated |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Hanno Cornelius <hanno@status.im> |
 

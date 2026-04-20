@@ -5,6 +5,7 @@
 | Name | Waku v2 Client Peer Management Recommendations |
 | Slug | 27 |
 | Status | draft |
+| Type | RFC |
 | Category | Informational |
 | Editor | Hanno Cornelius <hanno@status.im> |
 | Contributors | Filip Dimitrijevic <filip@status.im> |
