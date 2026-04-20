@@ -1,5 +1,5 @@
 {
-  "name": "rfc-index",
+  "name": "logos-lips",
   "private": true,
   "devDependencies": {
     "@1stg/remark-preset": "^3.1.2",

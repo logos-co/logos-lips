@@ -14,16 +14,16 @@
 
 ## Timeline
 
-- **2026-01-19** — [`f24e567`](https://github.com/vacp2p/rfc-index/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/blockchain/deprecated/claro.md) — Chore/updates mdbook (#262)
-- **2026-01-16** — [`f01d5b9`](https://github.com/vacp2p/rfc-index/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/blockchain/deprecated/claro.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/blockchain/deprecated/claro.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/nomos/deprecated/claro.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/nomos/deprecated/claro.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/nomos/deprecated/claro.md) — ci: add mdBook configuration (#233)
-- **2025-02-15** — [`1ddddc7`](https://github.com/vacp2p/rfc-index/blob/1ddddc799466c7440ca86e7b7c1262b28354c04d/nomos/deprecated/claro.md) — update to tree structure (#128)
-- **2024-09-13** — [`3ab314d`](https://github.com/vacp2p/rfc-index/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/nomos/38/claro.md) — Fix Files for Linting (#94)
-- **2024-02-02** — [`f52c54f`](https://github.com/vacp2p/rfc-index/blob/f52c54fb5ac763f7cafe811eb7526a771f9246b1/nomos/38/claro.md) — Update and rename CLARO.md to claro.md
-- **2024-01-27** — [`01e2781`](https://github.com/vacp2p/rfc-index/blob/01e27811ea782c11f3db1b97c05299425b09df12/nomos/38/CLARO.md) — Create CLARO.md
+- **2026-01-19** — [`f24e567`](https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/blockchain/deprecated/claro.md) — Chore/updates mdbook (#262)
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/blockchain/deprecated/claro.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/blockchain/deprecated/claro.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/nomos/deprecated/claro.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/nomos/deprecated/claro.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/nomos/deprecated/claro.md) — ci: add mdBook configuration (#233)
+- **2025-02-15** — [`1ddddc7`](https://github.com/logos-co/logos-lips/blob/1ddddc799466c7440ca86e7b7c1262b28354c04d/nomos/deprecated/claro.md) — update to tree structure (#128)
+- **2024-09-13** — [`3ab314d`](https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/nomos/38/claro.md) — Fix Files for Linting (#94)
+- **2024-02-02** — [`f52c54f`](https://github.com/logos-co/logos-lips/blob/f52c54fb5ac763f7cafe811eb7526a771f9246b1/nomos/38/claro.md) — Update and rename CLARO.md to claro.md
+- **2024-01-27** — [`01e2781`](https://github.com/logos-co/logos-lips/blob/01e27811ea782c11f3db1b97c05299425b09df12/nomos/38/CLARO.md) — Create CLARO.md
 
 <!-- timeline:end -->
 

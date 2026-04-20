@@ -14,19 +14,20 @@
 
 ## Timeline
 
-- **2026-01-16** — [`f01d5b9`](https://github.com/vacp2p/rfc-index/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/informational/27/peers.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/informational/27/peers.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/informational/27/peers.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/informational/27/peers.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/informational/27/peers.md) — ci: add mdBook configuration (#233)
-- **2025-04-22** — [`af7c413`](https://github.com/vacp2p/rfc-index/blob/af7c413e64bf1e9f57a68c22b7237883b080939a/waku/informational/27/peers.md) — update waku/informational/27/peers.md (#145)
-- **2024-09-13** — [`3ab314d`](https://github.com/vacp2p/rfc-index/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/informational/27/peers.md) — Fix Files for Linting (#94)
-- **2024-03-21** — [`2eaa794`](https://github.com/vacp2p/rfc-index/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/informational/27/peers.md) — Broken Links + Change Editors (#26)
-- **2024-01-31** — [`4b77d10`](https://github.com/vacp2p/rfc-index/blob/4b77d10404952e0409f68a41620ea73c82bd644c/waku/informational/27/peers.md) — Update and rename README.md to peers.md
-- **2024-01-31** — [`e65c359`](https://github.com/vacp2p/rfc-index/blob/e65c3591d7991e2f24a4632a6186ed1cef970326/waku/informational/27/README.md) — Update README.md
-- **2024-01-31** — [`4a78cac`](https://github.com/vacp2p/rfc-index/blob/4a78cacb58706e1bb6f5b9b8d40e3fb27bc77cba/waku/informational/27/README.md) — Update README.md
-- **2024-01-27** — [`eef961b`](https://github.com/vacp2p/rfc-index/blob/eef961bfe3b1cf6aab66df5450555afd1d3543cb/waku/informational/27/README.md) — remove rfs folder
-- **2024-01-25** — [`7daec2f`](https://github.com/vacp2p/rfc-index/blob/7daec2f2f940535b38cc4e6d00c059a706ace3c9/waku/rfcs/informational/27/README.md) — Create README.md
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/messaging/informational/27/peers.md) — chore: add math support (#287)
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/informational/27/peers.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/informational/27/peers.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/informational/27/peers.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/informational/27/peers.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/informational/27/peers.md) — ci: add mdBook configuration (#233)
+- **2025-04-22** — [`af7c413`](https://github.com/logos-co/logos-lips/blob/af7c413e64bf1e9f57a68c22b7237883b080939a/waku/informational/27/peers.md) — update waku/informational/27/peers.md (#145)
+- **2024-09-13** — [`3ab314d`](https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/informational/27/peers.md) — Fix Files for Linting (#94)
+- **2024-03-21** — [`2eaa794`](https://github.com/logos-co/logos-lips/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/informational/27/peers.md) — Broken Links + Change Editors (#26)
+- **2024-01-31** — [`4b77d10`](https://github.com/logos-co/logos-lips/blob/4b77d10404952e0409f68a41620ea73c82bd644c/waku/informational/27/peers.md) — Update and rename README.md to peers.md
+- **2024-01-31** — [`e65c359`](https://github.com/logos-co/logos-lips/blob/e65c3591d7991e2f24a4632a6186ed1cef970326/waku/informational/27/README.md) — Update README.md
+- **2024-01-31** — [`4a78cac`](https://github.com/logos-co/logos-lips/blob/4a78cacb58706e1bb6f5b9b8d40e3fb27bc77cba/waku/informational/27/README.md) — Update README.md
+- **2024-01-27** — [`eef961b`](https://github.com/logos-co/logos-lips/blob/eef961bfe3b1cf6aab66df5450555afd1d3543cb/waku/informational/27/README.md) — remove rfs folder
+- **2024-01-25** — [`7daec2f`](https://github.com/logos-co/logos-lips/blob/7daec2f2f940535b38cc4e6d00c059a706ace3c9/waku/rfcs/informational/27/README.md) — Create README.md
 
 <!-- timeline:end -->
 

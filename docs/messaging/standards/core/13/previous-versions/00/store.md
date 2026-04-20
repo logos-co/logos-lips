@@ -14,19 +14,20 @@
 
 ## Timeline
 
-- **2026-01-16** — [`f01d5b9`](https://github.com/vacp2p/rfc-index/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/standards/core/13/previous-versions/00/store.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/core/13/previous-versions/00/store.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/core/13/previous-versions/00/store.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/core/13/previous-versions/00/store.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/core/13/previous-versions/00/store.md) — ci: add mdBook configuration (#233)
-- **2025-02-03** — [`a60a2c4`](https://github.com/vacp2p/rfc-index/blob/a60a2c45de49966c3550e0f5efe2fa4b081dd40f/waku/standards/core/13/previous-versions/00/store.md) — 13/WAKU-STORE: Update (#124)
-- **2024-09-13** — [`3ab314d`](https://github.com/vacp2p/rfc-index/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/standards/core/13/store.md) — Fix Files for Linting (#94)
-- **2024-08-05** — [`eb25cd0`](https://github.com/vacp2p/rfc-index/blob/eb25cd06d679e94409072a96841de16a6b3910d5/waku/standards/core/13/store.md) — chore: replace email addresses (#86)
-- **2024-03-21** — [`2eaa794`](https://github.com/vacp2p/rfc-index/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/standards/core/13/store.md) — Broken Links + Change Editors (#26)
-- **2024-02-01** — [`755be94`](https://github.com/vacp2p/rfc-index/blob/755be9440d31a71ffdc3c250baa802f0220f29e5/waku/standards/core/13/store.md) — Update and rename STORE.md to store.md
-- **2024-01-27** — [`3baed07`](https://github.com/vacp2p/rfc-index/blob/3baed074afeae25c69e15af1b6534d0bf89034c2/waku/standards/core/13/STORE.md) — Rename README.md to STORE.md
-- **2024-01-27** — [`eef961b`](https://github.com/vacp2p/rfc-index/blob/eef961bfe3b1cf6aab66df5450555afd1d3543cb/waku/standards/core/13/README.md) — remove rfs folder
-- **2024-01-25** — [`51e2879`](https://github.com/vacp2p/rfc-index/blob/51e28795c2b64c87c741ec7b3a6669e0d020e1e5/waku/rfcs/standards/core/13/README.md) — Create README.md
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/messaging/standards/core/13/previous-versions/00/store.md) — chore: add math support (#287)
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/standards/core/13/previous-versions/00/store.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/core/13/previous-versions/00/store.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/core/13/previous-versions/00/store.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/core/13/previous-versions/00/store.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/core/13/previous-versions/00/store.md) — ci: add mdBook configuration (#233)
+- **2025-02-03** — [`a60a2c4`](https://github.com/logos-co/logos-lips/blob/a60a2c45de49966c3550e0f5efe2fa4b081dd40f/waku/standards/core/13/previous-versions/00/store.md) — 13/WAKU-STORE: Update (#124)
+- **2024-09-13** — [`3ab314d`](https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/standards/core/13/store.md) — Fix Files for Linting (#94)
+- **2024-08-05** — [`eb25cd0`](https://github.com/logos-co/logos-lips/blob/eb25cd06d679e94409072a96841de16a6b3910d5/waku/standards/core/13/store.md) — chore: replace email addresses (#86)
+- **2024-03-21** — [`2eaa794`](https://github.com/logos-co/logos-lips/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/standards/core/13/store.md) — Broken Links + Change Editors (#26)
+- **2024-02-01** — [`755be94`](https://github.com/logos-co/logos-lips/blob/755be9440d31a71ffdc3c250baa802f0220f29e5/waku/standards/core/13/store.md) — Update and rename STORE.md to store.md
+- **2024-01-27** — [`3baed07`](https://github.com/logos-co/logos-lips/blob/3baed074afeae25c69e15af1b6534d0bf89034c2/waku/standards/core/13/STORE.md) — Rename README.md to STORE.md
+- **2024-01-27** — [`eef961b`](https://github.com/logos-co/logos-lips/blob/eef961bfe3b1cf6aab66df5450555afd1d3543cb/waku/standards/core/13/README.md) — remove rfs folder
+- **2024-01-25** — [`51e2879`](https://github.com/logos-co/logos-lips/blob/51e28795c2b64c87c741ec7b3a6669e0d020e1e5/waku/rfcs/standards/core/13/README.md) — Create README.md
 
 <!-- timeline:end -->
 

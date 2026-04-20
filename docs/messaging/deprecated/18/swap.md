@@ -13,16 +13,17 @@
 
 ## Timeline
 
-- **2026-01-16** — [`f01d5b9`](https://github.com/vacp2p/rfc-index/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/deprecated/18/swap.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/deprecated/18/swap.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/deprecated/18/swap.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/deprecated/18/swap.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/deprecated/18/swap.md) — ci: add mdBook configuration (#233)
-- **2024-09-13** — [`3ab314d`](https://github.com/vacp2p/rfc-index/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/deprecated/18/swap.md) — Fix Files for Linting (#94)
-- **2024-04-18** — [`8f94e97`](https://github.com/vacp2p/rfc-index/blob/8f94e97cf299697f30b2a2e5887e18845712cad3/waku/deprecated/18/swap.md) — docs: deprecate swap protocol (#31)
-- **2024-03-21** — [`2eaa794`](https://github.com/vacp2p/rfc-index/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/standards/application/18/swap.md) — Broken Links + Change Editors (#26)
-- **2024-01-31** — [`0d8ad08`](https://github.com/vacp2p/rfc-index/blob/0d8ad0822259fe8961764dc82975eaaf42c3a837/waku/standards/application/18/swap.md) — Update and rename SWAP.md to swap.md
-- **2024-01-31** — [`3c8410c`](https://github.com/vacp2p/rfc-index/blob/3c8410c8d8702d0bae07fce4285133579fd8589f/waku/standards/application/18/SWAP.md) — Create SWAP.md
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/messaging/deprecated/18/swap.md) — chore: add math support (#287)
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/deprecated/18/swap.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/deprecated/18/swap.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/deprecated/18/swap.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/deprecated/18/swap.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/deprecated/18/swap.md) — ci: add mdBook configuration (#233)
+- **2024-09-13** — [`3ab314d`](https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/deprecated/18/swap.md) — Fix Files for Linting (#94)
+- **2024-04-18** — [`8f94e97`](https://github.com/logos-co/logos-lips/blob/8f94e97cf299697f30b2a2e5887e18845712cad3/waku/deprecated/18/swap.md) — docs: deprecate swap protocol (#31)
+- **2024-03-21** — [`2eaa794`](https://github.com/logos-co/logos-lips/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/standards/application/18/swap.md) — Broken Links + Change Editors (#26)
+- **2024-01-31** — [`0d8ad08`](https://github.com/logos-co/logos-lips/blob/0d8ad0822259fe8961764dc82975eaaf42c3a837/waku/standards/application/18/swap.md) — Update and rename SWAP.md to swap.md
+- **2024-01-31** — [`3c8410c`](https://github.com/logos-co/logos-lips/blob/3c8410c8d8702d0bae07fce4285133579fd8589f/waku/standards/application/18/SWAP.md) — Create SWAP.md
 
 <!-- timeline:end -->
 

@@ -13,13 +13,15 @@
 
 ## Timeline
 
-- **2026-01-19** — [`f24e567`](https://github.com/vacp2p/rfc-index/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/ift-ts/raw/eth-mls-offchain.md) — Chore/updates mdbook (#262)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/eth-mls-offchain.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/raw/eth-mls-offchain.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/raw/eth-mls-offchain.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/raw/eth-mls-offchain.md) — ci: add mdBook configuration (#233)
-- **2025-11-26** — [`e39d288`](https://github.com/vacp2p/rfc-index/blob/e39d2884fee1b8a0b1b20a430d7004945ce919f6/vac/raw/eth-mls-offchain.md) — VAC/RAW/ ETH-MLS-OFFCHAIN RFC multi-steward support (#193)
-- **2025-08-21** — [`3b968cc`](https://github.com/vacp2p/rfc-index/blob/3b968ccce3848da67cddb0295a9cdcb37d63d18c/vac/raw/eth-mls-offchain.md) — VAC/RAW/ ETH-MLS-OFFCHAIN RFC  (#166)
+- **2026-04-02** — [`155c310`](https://github.com/logos-co/logos-lips/blob/155c310d7bfad6ea3cd9f68e45c68dad731ff629/docs/ift-ts/raw/decentralized-mls-offchain-consensus.md) — de-MLS RFC name change (#303)
+- **2026-03-29** — [`ff05dbd`](https://github.com/logos-co/logos-lips/blob/ff05dbd51176443b3e548e9575c3610685c32d63/docs/ift-ts/raw/eth-mls-offchain.md) — ETH-MLS-OFFCHAIN RFC multi-steward follow up (#298)
+- **2026-01-19** — [`f24e567`](https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/ift-ts/raw/eth-mls-offchain.md) — Chore/updates mdbook (#262)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/eth-mls-offchain.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/raw/eth-mls-offchain.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/raw/eth-mls-offchain.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/raw/eth-mls-offchain.md) — ci: add mdBook configuration (#233)
+- **2025-11-26** — [`e39d288`](https://github.com/logos-co/logos-lips/blob/e39d2884fee1b8a0b1b20a430d7004945ce919f6/vac/raw/eth-mls-offchain.md) — VAC/RAW/ ETH-MLS-OFFCHAIN RFC multi-steward support (#193)
+- **2025-08-21** — [`3b968cc`](https://github.com/logos-co/logos-lips/blob/3b968ccce3848da67cddb0295a9cdcb37d63d18c/vac/raw/eth-mls-offchain.md) — VAC/RAW/ ETH-MLS-OFFCHAIN RFC  (#166)
 
 <!-- timeline:end -->
 
@@ -210,7 +212,7 @@ bytes signature = 27;           // Signature of vote_hash
 The voting proposal MAY include adding a `node` or removing a `member`.
 After the `member` creates the voting proposal,
 it is emitted to the network via the MLS `Application message` with a lightweight,
-epoch based voting such as [hashgraphlike consensus.](https://github.com/vacp2p/rfc-index/blob/consensus-hashgraph-like/vac/raw/consensus-hashgraphlike.md)
+epoch based voting such as [hashgraphlike consensus.](https://github.com/logos-co/logos-lips/blob/consensus-hashgraph-like/vac/raw/consensus-hashgraphlike.md)
 This consensus result MUST be finalized within the epoch as YES or NO.
 
 If the voting result is YES, this points out the voting proposal will be converted into
@@ -584,5 +586,5 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 ### References
 
 - [MLS RFC 9420](https://datatracker.ietf.org/doc/rfc9420/)
-- [Hashgraphlike Consensus](https://github.com/vacp2p/rfc-index/blob/consensus-hashgraph-like/vac/raw/consensus-hashgraphlike.md)
+- [Hashgraphlike Consensus](https://github.com/logos-co/logos-lips/blob/consensus-hashgraph-like/vac/raw/consensus-hashgraphlike.md)
 - [vacp2p/de-mls](https://github.com/vacp2p/de-mls)

@@ -13,11 +13,12 @@
 
 ## Timeline
 
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/core/31/enr.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/core/31/enr.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/core/31/enr.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/core/31/enr.md) — ci: add mdBook configuration (#233)
-- **2025-10-16** — [`e4f5f28`](https://github.com/vacp2p/rfc-index/blob/e4f5f28ea3d44ecf6fde2f59cd1d5e094073ec35/waku/standards/core/31/enr.md) — Update WAKU-ENR: Move to Draft (#180)
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/messaging/standards/core/31/enr.md) — chore: add math support (#287)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/core/31/enr.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/core/31/enr.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/core/31/enr.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/core/31/enr.md) — ci: add mdBook configuration (#233)
+- **2025-10-16** — [`e4f5f28`](https://github.com/logos-co/logos-lips/blob/e4f5f28ea3d44ecf6fde2f59cd1d5e094073ec35/waku/standards/core/31/enr.md) — Update WAKU-ENR: Move to Draft (#180)
 
 <!-- timeline:end -->
 
@@ -180,7 +181,7 @@ We define a `waku2` field key:
 - A Waku node MAY choose to populate the `waku2` field for enhanced discovery capabilities,
   such as indicating supported protocols.
   Such a node MAY indicate support for any specific protocol by setting the corresponding flag to `true`.
-- Waku nodes that want to participate in [Node Discovery Protocol v5](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/33/discv5.md) [[4]](#references), however,
+- Waku nodes that want to participate in [Node Discovery Protocol v5](https://github.com/logos-co/logos-lips/blob/main/waku/standards/core/33/discv5.md) [[4]](#references), however,
   MUST implement the `waku2` key with at least one flag set to `true`.
 - Waku nodes that discovered other participants using Discovery v5,
   MUST filter out participant records that do not implement this field or

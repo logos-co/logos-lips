@@ -13,13 +13,13 @@
 
 ## Timeline
 
-- **2026-01-19** — [`f24e567`](https://github.com/vacp2p/rfc-index/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/storage/raw/codex-block-exchange.md) — Chore/updates mdbook (#262)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/storage/raw/codex-block-exchange.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/codex/raw/codex-block-exchange.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/codex/raw/codex-block-exchange.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/codex/raw/codex-block-exchange.md) — ci: add mdBook configuration (#233)
-- **2025-12-12** — [`b2f3564`](https://github.com/vacp2p/rfc-index/blob/b2f35644a4ffd6ec871d1a0e73c62dbffedb93e2/codex/raw/codex-block-exchange.md) — Improved codex/raw/codex-block-exchange.md file (#215)
-- **2025-11-19** — [`63107d3`](https://github.com/vacp2p/rfc-index/blob/63107d3830ae5d19c520923fde8fdfa7c89543b5/codex/raw/codex-block-exchange.md) — Created new codex/raw/codex-block-exchange.md file (#211)
+- **2026-01-19** — [`f24e567`](https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/storage/raw/codex-block-exchange.md) — Chore/updates mdbook (#262)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/storage/raw/codex-block-exchange.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/codex/raw/codex-block-exchange.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/codex/raw/codex-block-exchange.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/codex/raw/codex-block-exchange.md) — ci: add mdBook configuration (#233)
+- **2025-12-12** — [`b2f3564`](https://github.com/logos-co/logos-lips/blob/b2f35644a4ffd6ec871d1a0e73c62dbffedb93e2/codex/raw/codex-block-exchange.md) — Improved codex/raw/codex-block-exchange.md file (#215)
+- **2025-11-19** — [`63107d3`](https://github.com/logos-co/logos-lips/blob/63107d3830ae5d19c520923fde8fdfa7c89543b5/codex/raw/codex-block-exchange.md) — Created new codex/raw/codex-block-exchange.md file (#211)
 
 <!-- timeline:end -->
 

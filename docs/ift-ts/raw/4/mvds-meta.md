@@ -14,13 +14,14 @@
 
 ## Timeline
 
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/4/mvds-meta.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/4/mvds-meta.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/4/mvds-meta.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/4/mvds-meta.md) — ci: add mdBook configuration (#233)
-- **2024-09-13** — [`3ab314d`](https://github.com/vacp2p/rfc-index/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/vac/4/mvds-meta.md) — Fix Files for Linting (#94)
-- **2024-02-01** — [`3a396b5`](https://github.com/vacp2p/rfc-index/blob/3a396b5fb111e73750046afb2ca10d0c28e72e83/vac/4/mvds-meta.md) — Update and rename README.md to mvds-meta.md
-- **2024-01-30** — [`2e80c3b`](https://github.com/vacp2p/rfc-index/blob/2e80c3bb3dc69c45fb7a932bbfaedded3f116f71/vac/4/README.md) — Create README.md
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/ift-ts/raw/4/mvds-meta.md) — chore: add math support (#287)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/4/mvds-meta.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/4/mvds-meta.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/4/mvds-meta.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/4/mvds-meta.md) — ci: add mdBook configuration (#233)
+- **2024-09-13** — [`3ab314d`](https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/vac/4/mvds-meta.md) — Fix Files for Linting (#94)
+- **2024-02-01** — [`3a396b5`](https://github.com/logos-co/logos-lips/blob/3a396b5fb111e73750046afb2ca10d0c28e72e83/vac/4/mvds-meta.md) — Update and rename README.md to mvds-meta.md
+- **2024-01-30** — [`2e80c3b`](https://github.com/logos-co/logos-lips/blob/2e80c3bb3dc69c45fb7a932bbfaedded3f116f71/vac/4/README.md) — Create README.md
 
 <!-- timeline:end -->
 

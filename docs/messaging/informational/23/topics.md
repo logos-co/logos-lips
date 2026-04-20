@@ -14,22 +14,22 @@
 
 ## Timeline
 
-- **2026-01-16** — [`f01d5b9`](https://github.com/vacp2p/rfc-index/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/informational/23/topics.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/informational/23/topics.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/informational/23/topics.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/informational/23/topics.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/informational/23/topics.md) — ci: add mdBook configuration (#233)
-- **2025-04-22** — [`4df2d5f`](https://github.com/vacp2p/rfc-index/blob/4df2d5f78797cd591d0fbe835444be6c3a596810/waku/informational/23/topics.md) — update waku/informational/23/topics.md (#144)
-- **2025-01-02** — [`dc7497a`](https://github.com/vacp2p/rfc-index/blob/dc7497a3123623f2834d80ebd3a7c77e0d605074/waku/informational/23/topics.md) — add usage guidelines for waku content topics (#117)
-- **2024-11-20** — [`ff87c84`](https://github.com/vacp2p/rfc-index/blob/ff87c84dc71d4f933bab188993914069fea12baa/waku/informational/23/topics.md) — Update Waku Links (#104)
-- **2024-09-13** — [`3ab314d`](https://github.com/vacp2p/rfc-index/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/informational/23/topics.md) — Fix Files for Linting (#94)
-- **2024-03-21** — [`2eaa794`](https://github.com/vacp2p/rfc-index/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/informational/23/topics.md) — Broken Links + Change Editors (#26)
-- **2024-02-07** — [`e63d8a0`](https://github.com/vacp2p/rfc-index/blob/e63d8a0e67d1a32cbca1aeea072c0293a117beb5/waku/informational/23/topics.md) — Update topics.md
-- **2024-01-31** — [`b8f088c`](https://github.com/vacp2p/rfc-index/blob/b8f088c89611d117b58883663c55e3b402e95846/waku/informational/23/topics.md) — Update and rename README.md to topics.md
-- **2024-01-31** — [`2b693e8`](https://github.com/vacp2p/rfc-index/blob/2b693e8551c228418be07c0c764f18df8dcc8b5e/waku/informational/23/README.md) — Update README.md
-- **2024-01-29** — [`055c525`](https://github.com/vacp2p/rfc-index/blob/055c5254f675fdd7227772d0f371386c41201384/waku/informational/23/README.md) — Update README.md
-- **2024-01-27** — [`eef961b`](https://github.com/vacp2p/rfc-index/blob/eef961bfe3b1cf6aab66df5450555afd1d3543cb/waku/informational/23/README.md) — remove rfs folder
-- **2024-01-25** — [`a11dfed`](https://github.com/vacp2p/rfc-index/blob/a11dfed6e2622d8c71b1d5ba41f236b69192d9dc/waku/rfcs/informational/23/README.md) — Create README.md
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/informational/23/topics.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/informational/23/topics.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/informational/23/topics.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/informational/23/topics.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/informational/23/topics.md) — ci: add mdBook configuration (#233)
+- **2025-04-22** — [`4df2d5f`](https://github.com/logos-co/logos-lips/blob/4df2d5f78797cd591d0fbe835444be6c3a596810/waku/informational/23/topics.md) — update waku/informational/23/topics.md (#144)
+- **2025-01-02** — [`dc7497a`](https://github.com/logos-co/logos-lips/blob/dc7497a3123623f2834d80ebd3a7c77e0d605074/waku/informational/23/topics.md) — add usage guidelines for waku content topics (#117)
+- **2024-11-20** — [`ff87c84`](https://github.com/logos-co/logos-lips/blob/ff87c84dc71d4f933bab188993914069fea12baa/waku/informational/23/topics.md) — Update Waku Links (#104)
+- **2024-09-13** — [`3ab314d`](https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/informational/23/topics.md) — Fix Files for Linting (#94)
+- **2024-03-21** — [`2eaa794`](https://github.com/logos-co/logos-lips/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/informational/23/topics.md) — Broken Links + Change Editors (#26)
+- **2024-02-07** — [`e63d8a0`](https://github.com/logos-co/logos-lips/blob/e63d8a0e67d1a32cbca1aeea072c0293a117beb5/waku/informational/23/topics.md) — Update topics.md
+- **2024-01-31** — [`b8f088c`](https://github.com/logos-co/logos-lips/blob/b8f088c89611d117b58883663c55e3b402e95846/waku/informational/23/topics.md) — Update and rename README.md to topics.md
+- **2024-01-31** — [`2b693e8`](https://github.com/logos-co/logos-lips/blob/2b693e8551c228418be07c0c764f18df8dcc8b5e/waku/informational/23/README.md) — Update README.md
+- **2024-01-29** — [`055c525`](https://github.com/logos-co/logos-lips/blob/055c5254f675fdd7227772d0f371386c41201384/waku/informational/23/README.md) — Update README.md
+- **2024-01-27** — [`eef961b`](https://github.com/logos-co/logos-lips/blob/eef961bfe3b1cf6aab66df5450555afd1d3543cb/waku/informational/23/README.md) — remove rfs folder
+- **2024-01-25** — [`a11dfed`](https://github.com/logos-co/logos-lips/blob/a11dfed6e2622d8c71b1d5ba41f236b69192d9dc/waku/rfcs/informational/23/README.md) — Create README.md
 
 <!-- timeline:end -->
 
