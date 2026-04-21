@@ -63,12 +63,12 @@ Stop the discovery protocol,
 including all tasks related to maintenance
 of the underlying discovery protocol (such as advertising or discovery loops).
 
-### `start_advertising(const char* service_id, const RawAdvertisement* advertisement)`
+### `start_advertising(const char* service_id, const Advertisement* advertisement)`
 
-Start advertising the encoded raw `advertisement`
+Start advertising the encoded `advertisement`
 against any service encoded as a `service_id` string.
 For peer discovery,
-the node MUST encode sufficient connection information in the `RawAdvertisement`
+the node MUST encode sufficient connection information in the `Advertisement`
 for discoverers to connect to it.
 
 ### `stop_advertising(const char* service_id)`
@@ -86,7 +86,7 @@ for the service encoded in the input `service_id` string.
 Stop discovering and maintenance of search tables
 for the service encoded in the input `service_id` string.
 
-### `RawAdvertisementList lookup(const char* service_id)`
+### `AdvertisementList lookup(const char* service_id)`
 
 Lookup and return advertisements for peers supporting
 the service encoded in the input `service_id` string,
@@ -96,7 +96,7 @@ It is RECOMMENDED to use `start_discovering`
 in advance of any `lookup` for each `service_id`
 as a way to speed up search.
 
-### `RawAdvertisementList lookup_random()`
+### `AdvertisementList lookup_random()`
 
 Unused, reserved for future use.
 
