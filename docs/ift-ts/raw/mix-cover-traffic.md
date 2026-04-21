@@ -103,13 +103,19 @@ Since each originated packet traverses `L` forwarding hops — where `L` is the 
 as defined in [Mix Protocol §6](./mix.md#6-pluggable-components) —
 forwarding traffic naturally consumes a significant portion of the budget.
 
-If every node originates at rate `C` packets per epoch, each node forwards approximately `C * L` packets per epoch.
+If every node originates at rate `C` packets per epoch (cover plus locally originated combined),
+each node forwards approximately `C * L` packets per epoch.
 Since origination and forwarding share the same budget `R`:
 
 ```
 C + C * L ≤ R
 C ≤ R / (1 + L)
 ```
+
+`R / (1 + L)` is therefore the **upper bound on total origination**,
+not a target for cover emission alone.
+Cover rate does not need to be explicitly reduced by a node's locally originated rate,
+because the slot pool is self-balancing (see below).
 
 This means the actual cover traffic emitted by a node is always less than `R` and depends on:
 
@@ -286,19 +292,41 @@ Store the result as a [`PrebuiltCoverPacket`](#55-data-structures).
 Slots without a pre-built packet will require on-demand generation if selected for cover emission.
 Pre-computed proofs are bound to a specific epoch and MUST NOT be reused in subsequent epochs.
 
+**Proof validity over time:**
+Pre-computed proofs may be invalidated within their target epoch, not just across epochs.
+For example, in [Mix RLN DoS Protection](./mix-spam-protection-rln.md),
+accumulating membership updates can push the root used at generation time
+out of the current `acceptable_root_window_size` before the epoch ends.
+Implementations MUST therefore validate pre-computed proofs at send time
+(see [§6.5](#65-pre-computed-proof-validation-at-send-time)).
+
+**Fallback caveat:**
+On-demand generation when pre-computation falls behind introduces timing jitter,
+which shifts emissions off-grid for deterministic strategies (_e.g.,_ [§7.1](#71-constant-rate-cover-traffic))
+and weakens timing unobservability.
+Implementations SHOULD size the pre-computation pipeline ([§9.1](#91-pre-computation-scheduling))
+to avoid the fallback path in steady state.
+
 ### 6.2 Cover Emission
 
 The cover emission loop runs continuously as a background process.
 Emission timing is governed by the configured strategy ([`CoverTrafficConfig`](#55-data-structures)).
+
+A slot is **available** until it is claimed from the `R`-slot token bucket ([§6](#6-node-responsibilities)).
+Claim is the point of consumption, not transmission:
+forwarded packets within their mixing delay (see [§6.4](#64-packet-forwarding))
+hold their claimed slot and are unavailable to the cover loop.
 
 **Algorithm: Cover Emission**
 
 > The following steps repeat continuously throughout each epoch:
 >
 > 1. Wait for the next emission event as determined by the configured strategy.
-> 2. If the strategy schedules an emission **and** the pool has available slots:
+> 2. If the strategy schedules an emission **and** the pool has available slots (as defined above):
 >    - a. Dequeue the next pre-built cover packet and atomically claim its slot.
->    - b. Send the pre-built packet to the first hop.
+>    - b. Validate the proof per [§6.5](#65-pre-computed-proof-validation-at-send-time).
+>    - c. Transmit the `packet` field of [`PrebuiltCoverPacket`](#55-data-structures) to the first hop
+>      (other fields are internal and MUST NOT be sent).
 > 3. If no slots remain, suppress cover emission for the remainder of the epoch.
 
 ### 6.3 Locally Originated Message Sending
@@ -320,26 +348,55 @@ If no slot can be claimed, the packet is dropped.
 Otherwise, the Mix Protocol instance proceeds with
 [intermediary processing](./mix.md#863-intermediary-processing).
 
+**Slot consumption:**
+The slot is consumed on successful `ClaimSlot()`, not on transmission (see [§6.2](#62-cover-emission)).
+
+**Send timing:**
+The packet is dispatched when its mixing delay elapses,
+independently of the cover emission schedule.
+
+### 6.5 Pre-Computed Proof Validation at Send Time
+
+Before transmitting a pre-built cover packet,
+the mechanism MUST validate the carried DoS protection proof against the current state
+(see [§6.1](#61-at-epoch-boundary) for rationale).
+For [Mix RLN DoS Protection](./mix-spam-protection-rln.md),
+this means verifying the `merkle_root` bound into the proof
+is still within the node's `acceptable_root_window_size`.
+
+If validation fails, implementations MUST either:
+
+- **Regenerate** the proof against the current anchor, keeping the Sphinx packet body unchanged; or
+- **Skip** the emission if regeneration is infeasible.
+
+A pre-built packet with a stale proof MUST NOT be sent.
+When regenerating, implementations MAY reuse the message identifier bound to the cover packet
+where the DoS protection mechanism permits (see [Mix RLN DoS Protection](./mix-spam-protection-rln.md)).
+
 ## 7. Recommended Strategies
 
 This section defines two cover emission strategies: Constant-Rate and Poisson-Rate.
 Both operate over the same `R`-slot pool and produce irregular total output
 because forwarding traffic claims slots at unpredictable times.
 They differ only in how cover emission is scheduled.
-Both strategies will naturally emit cover at approximately `R / (1 + L)` packets per epoch
-as a consequence of the self-balancing pool — not as an explicit target.
+Both strategies emit cover at up to `R / (1 + L)` packets per epoch —
+a maximum, not a target;
+the self-balancing pool ([§4](#4-rate-limit-budget-model))
+accommodates locally originated messages without explicit adjustment.
 
 ### 7.1 Constant-Rate Cover Traffic
 
 Constant-Rate is RECOMMENDED as the default strategy for most deployments.
 
 The cover traffic mechanism emits cover packets at a fixed interval of `1 / emission_rate` seconds,
-where `emission_rate` defaults to `R / ((1 + L) * P)` packets per second
+where `emission_rate` defaults to `R / ((1 + L) * P)` packets per second —
+the maximum safe cover rate
 (see [§11.1](#111-cover-emission-rate-estimation) for deployment-specific sizing guidance).
 Non-cover traffic claims slots via `ClaimSlot()` ([§5.2](#52-non-cover-slot-claim)) as it arrives,
 making total output inherently irregular even though the cover emission rate is constant.
 
-At the recommended default rate, approximately `R / (1 + L)` cover packets are emitted per epoch.
+At the recommended default rate, up to `R / (1 + L)` cover packets are emitted per epoch;
+the actual count is lower when locally originated messages or forwarding variance claim slots first.
 The originated cover emission rate is perfectly constant,
 so an adversary cannot distinguish epochs with heavy locally originated traffic from idle epochs
 by observing cover timing alone.
@@ -389,6 +446,19 @@ They SHOULD NOT generate cover traffic,
 as cover traffic is only meaningful for nodes that participate continuously in the network with a stable identity —
 a briefly connected node has no sustained emission pattern to protect or contribute.
 
+**Residual privacy for initiating-only nodes:**
+Without cover traffic, initiating-only nodes still retain:
+
+- **Path anonymity**: Sphinx layered encryption prevents any single intermediary or exit
+  from learning both sender and recipient.
+- **Identity unlinkability**: dynamic identifiers prevent cross-session linking.
+
+However, an adversary on the link to the first hop — or a malicious first hop itself —
+can directly observe session volume and timing,
+since no cover or forwarded packets are blended with originated traffic.
+
+Deployments where this matters SHOULD route initiating-only traffic through trusted first hops.
+
 If an initiating-only node is promoted to a mix node and becomes long-lived,
 it SHOULD activate cover traffic using the Constant-Rate or Poisson-Rate strategy as appropriate.
 During the first epoch after promotion, pre-computed cover packets are unavailable;
@@ -416,6 +486,13 @@ This reduces peak computational load and memory usage.
 
 Implementations SHOULD maintain runtime counters for available slots, cover emissions, and non-cover consumptions.
 These aid in diagnostics, monitoring, and tuning the emission strategy.
+
+**Exposure restrictions:**
+The non-cover consumption counter reveals the exact per-epoch count of real traffic,
+which is what traffic analysis aims to recover.
+
+Implementations MUST keep this counter (and any derived per-epoch breakdowns) in-memory only
+and MUST NOT export it via metrics endpoints, structured logs, or any monitoring interface.
 
 ### 9.3 Slot Exhaustion Logging
 
