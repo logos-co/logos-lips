@@ -7,21 +7,22 @@
 | Status   | raw                                        |
 | Category | Standards Track                            |
 | Editor   | ksr                                        |
+| Contributors | Jarrad, atd                            |
 
 ## Abstract
 
 This specification defines how Logos modules declare their interfaces and how
-those interfaces map to both a C calling convention and a CBOR wire encoding.
+those interfaces map to both a C calling convention and a dCBOR wire encoding.
 
 A module interface is defined in a **CDDL schema** (RFC 8610). From that
 single schema, two equivalent representations are derived:
 
 - A **C API** — for direct in-process calls (no serialisation)
-- A **CBOR encoding** — for inter-process and remote calls (serialised)
+- A **dCBOR encoding** — for inter-process and remote calls (serialised)
 
 The mapping is **bidirectional and canonical**: given the same CDDL input, any
 conformant implementation MUST produce the same C function signatures and the
-same CBOR byte sequences. Conversely, given a C API that conforms to the
+same dCBOR byte sequences. Conversely, given a C API that conforms to the
 allowed subset (section 3), any conformant implementation MUST produce the
 same CDDL schema.
 
@@ -33,8 +34,16 @@ A module author may start from either end:
 Both paths MUST produce identical artefacts for the same logical interface.
 
 This spec does NOT cover how modules are loaded, discovered, or connected
-(see LOGOS-MODULE-RUNTIME) or how CBOR messages are transported over sockets
+(see LOGOS-MODULE-RUNTIME) or how dCBOR messages are transported over sockets
 (see LOGOS-MODULE-TRANSPORT).
+
+Unless otherwise qualified, references to encoded payloads and wire bytes in
+this specification mean deterministic CBOR using the dCBOR profile defined in
+section 4.5.
+For brevity, some later sections may still say "CBOR" in explanatory prose.
+In this specification, those references MUST be read as dCBOR unless the text
+is explicitly talking about generic CBOR concepts such as major types,
+RFC terminology, or envelope-level compatibility with CBOR itself.
 
 ### Execution-Boundary Invariance
 
@@ -45,7 +54,7 @@ That means the same logical Logos method/event interface MUST remain valid
 across all supported runtime realizations:
 
 - **Direct mode** — in-process C calls using the derived/generated C API
-- **Local IPC mode** — the same contract carried over local CBOR transport
+- **Local IPC mode** — the same contract carried over local dCBOR transport
 - **Remote mode** — the same contract carried over remote transport
 
 The execution boundary may change how a call is routed, serialised, scheduled,
@@ -124,7 +133,7 @@ A method whose only output is success/failure uses an empty response map:
 == LOGOS_OK`; the empty response means no additional data.
 
 Map keys MUST be bare CDDL identifiers (not quoted strings). Key names are
-used directly as C parameter names and CBOR map keys.
+used directly as C parameter names and dCBOR map keys.
 
 ### 1.4 Event Declarations
 
@@ -539,7 +548,7 @@ typedef struct {
 
 Event subscription and delivery are handled by the runtime (see
 LOGOS-MODULE-RUNTIME section 4) via generic subscribe/unsubscribe functions.
-The event struct is used by the codegen'd decode layer to convert CBOR event
+The event struct is used by the codegen'd decode layer to convert dCBOR event
 payloads into typed C structs.
 
 ### 2.6 Module Lifecycle Symbols
@@ -556,7 +565,7 @@ Every module shared library MUST export these C symbols:
   It returns `0` on success or a nonzero Logos error code on failure.
 - `logos_<module>_destroy()` is called once before unloading.
 - `logos_<module>_dispatch()` is the socket-mode entry point.
-  It receives the bare method name plus the CBOR-encoded request payload.
+  It receives the bare method name plus the dCBOR-encoded request payload.
   It does not parse the outer transport envelope.
 - `logos_<module>_dispatch()` MUST:
   - look up the method in the generated dispatch table,
@@ -564,7 +573,7 @@ Every module shared library MUST export these C symbols:
   - decode `params_cbor` according to the method request schema,
   - return `INVALID_PARAMS` if decode fails,
   - call the corresponding per-method C function,
-  - encode a successful response as a CBOR map matching the method response
+  - encode a successful response as a dCBOR map matching the method response
     schema, and
   - encode a module-level error as the error payload described in section 4.4.
 - The caller frees any non-null `_dispatch()` response buffer with `free()`.
@@ -602,7 +611,7 @@ void logos_<module>_destroy(void);
  * 2. Decode `params_cbor` according to the method's `-request` schema.
  *    If invalid: return LOGOS_ERR_INVALID_PARAMS, *response = NULL.
  * 3. Call the corresponding per-method C function.
- * 4. On success: encode return values as a CBOR map matching the
+ * 4. On success: encode return values as a dCBOR map matching the
  *    method's `-response` schema. Write to *response / *response_len.
  * 5. On module error: encode error-payload {code, message, ?detail}
  *    to *response. The module host wraps this in a Transport Response
@@ -612,7 +621,7 @@ void logos_<module>_destroy(void);
  */
 int logos_<module>_dispatch(
     const char*     method,         /* bare method name (e.g. "exists") */
-    const uint8_t*  params_cbor,    /* CBOR-encoded params map */
+    const uint8_t*  params_cbor,    /* dCBOR-encoded params map */
     size_t          params_len,
     uint8_t**       response,       /* callee allocates with malloc() */
     size_t*         response_len
@@ -645,7 +654,7 @@ The benefits of keeping `_version()` in v0.1 are pragmatic:
 
 In **direct mode** (in-process), the runtime calls per-method functions
 directly. In **socket mode**, the runtime calls `_dispatch()` which decodes
-the CBOR request and delegates to the appropriate per-method function. The
+the dCBOR request and delegates to the appropriate per-method function. The
 `_dispatch()` implementation is generated by the codegen tool.
 
 **Important distinction: lifecycle `_init()` vs schema method `init`.**
@@ -855,16 +864,16 @@ S -> (CDDL-to-C) -> header.h -> (C-to-CDDL) -> S'
 
 ---
 
-## 4. CDDL-to-CBOR Canonical Encoding
+## 4. CDDL-to-dCBOR Canonical Encoding
 
 When a method call is serialised for socket transport, the mapping from the
-CDDL schema to CBOR bytes is defined here. This section and section 2 are
-two views of the same schema — the C API is the in-process view, the CBOR
+CDDL schema to dCBOR bytes is defined here. This section and section 2 are
+two views of the same schema — the C API is the in-process view, the dCBOR
 encoding is the on-the-wire view.
 
 ### 4.1 Primitive Encoding
 
-| CDDL type  | CBOR encoding                         |
+| CDDL type  | dCBOR encoding                        |
 |------------|---------------------------------------|
 | `bool`     | Simple value: true (0xf5) / false (0xf4) |
 | `uint`     | Major type 0, shortest encoding       |
@@ -875,7 +884,7 @@ encoding is the on-the-wire view.
 
 ### 4.2 Composite Encoding
 
-**Maps (structs):** CBOR map (major type 5) with text string keys. Keys MUST
+**Maps (structs):** dCBOR map (major type 5) with text string keys. Keys MUST
 be sorted by byte-wise comparison of their encoded forms (dCBOR canonical
 ordering per RFC 8949 Section 4.2.1).
 
@@ -887,28 +896,28 @@ space-info -> {
 }
 ```
 
-Note: CBOR wire order (key-sorted) differs from C struct order (declaration
+Note: dCBOR wire order (key-sorted) differs from C struct order (declaration
 order). Encoders sort; decoders match by key name.
 
-**Arrays:** CBOR array (major type 4), definite length.
+**Arrays:** dCBOR array (major type 4), definite length.
 
-**Optional fields:** Absent keys are simply omitted from the CBOR map. The
+**Optional fields:** Absent keys are simply omitted from the dCBOR map. The
 `has_<field>` flag in the C struct is the decoded representation of key
 presence.
 
-**Choices:** Encoded as the raw CBOR value of the selected alternative. The
-decoder determines which alternative was sent by inspecting the CBOR major
+**Choices:** Encoded as the raw dCBOR value of the selected alternative. The
+decoder determines which alternative was sent by inspecting the dCBOR major
 type.
 
 ### 4.3 Method Call and Event Encoding
 
-Method params, response results, and event data are each encoded as CBOR
+Method params, response results, and event data are each encoded as dCBOR
 maps per §4.1-4.2. The Transport envelope (tags 101, 102, 105) wraps
 these maps — see LOGOS-MODULE-TRANSPORT §1.3 for the full envelope format.
 
 **Example — `storage.exists` request params:**
 ```
-{"cid": "bafy..."}     ; CBOR map, keys sorted per §4.5
+{"cid": "bafy..."}     ; dCBOR map, keys sorted per §4.5
 ```
 
 **Example — `storage.exists` response result:**
@@ -919,9 +928,11 @@ these maps — see LOGOS-MODULE-TRANSPORT §1.3 for the full envelope format.
 For methods with empty responses, the result is an empty map `{}`.
 For events, the `data` field encodes the event schema map.
 
-### 4.5 Deterministic CBOR (dCBOR)
+### 4.5 dCBOR Requirement
 
-All CBOR encoding MUST be deterministic per RFC 8949 Section 4.2.1:
+All encoded payloads at the module boundary MUST use dCBOR.
+At minimum, this implies the RFC 8949 Section 4.2.1 deterministic encoding
+rules:
 
 1. Map keys MUST be sorted by byte-wise lexicographic comparison of their
    encoded forms.
@@ -938,13 +949,13 @@ All CBOR encoding MUST be deterministic per RFC 8949 Section 4.2.1:
 
 Implementations MUST:
 
-1. Validate all incoming CBOR against the sender's CDDL schema before
+1. Validate all incoming dCBOR against the sender's CDDL schema before
    processing. Invalid messages -> error code `INVALID_PARAMS`.
-2. Validate all outgoing CBOR in debug builds.
+2. Validate all outgoing dCBOR in debug builds.
 3. Reject unknown method names -> error code `METHOD_NOT_FOUND`.
 4. Reject wrong parameter types or missing required fields ->
    error code `INVALID_PARAMS`.
-5. Enforce dCBOR determinism: reject non-deterministic CBOR (unsorted keys,
+5. Enforce dCBOR determinism: reject non-deterministic dCBOR (unsorted keys,
    non-shortest integers) -> error code `INVALID_PARAMS`.
 
 ### 4.7 Error Propagation
@@ -955,7 +966,7 @@ The error path from module to caller spans all three specs:
 Module C function returns logos_result_t with code != LOGOS_OK
     |
     v
-_dispatch() encodes error as CBOR error-payload: {code, message, ?detail}
+_dispatch() encodes error as dCBOR error-payload: {code, message, ?detail}
     |
     v
 Module host wraps in Transport Response: #6.102({id, error: {code, message, ?detail}})
@@ -972,7 +983,7 @@ Per-method C function on caller side returns logos_result_t with the error
 code passes through unchanged.
 
 **Protocol-level errors** (tag 106) are distinct from method errors. Protocol
-errors indicate connection/framing problems (malformed CBOR, unknown tag).
+errors indicate connection/framing problems (malformed dCBOR, unknown tag).
 Method errors are carried in Response messages with the `error` field. A
 module returning `LOGOS_ERR_METHOD_NOT_FOUND` produces a Response error, not
 a protocol error.
@@ -1067,7 +1078,7 @@ The following C definitions are normative:
 - `logos_error_code_t` defines the shared error-code space used at the
   module boundary.
 - `logos_result_t.message` is human-readable text and MAY be `NULL`.
-- `logos_result_t.detail` is an optional CBOR detail payload and MAY be
+- `logos_result_t.detail` is an optional dCBOR detail payload and MAY be
   `NULL`.
 - `logos_module_handle_t` is opaque to callers.
 - A handle represents a connection to a specific module instance.
@@ -1109,7 +1120,7 @@ typedef enum {
 typedef struct {
     logos_error_code_t  code;
     const char*         message;      /* human-readable; may be NULL */
-    const uint8_t*      detail;       /* optional CBOR detail; may be NULL */
+    const uint8_t*      detail;       /* optional dCBOR detail; may be NULL */
     size_t              detail_len;
 } logos_result_t;
 
@@ -1186,7 +1197,7 @@ logos-cddl-gen --from-cddl <input.cddl> --output-dir <dir>
 | Output file               | Contents                                         |
 |--------------------------|--------------------------------------------------|
 | `<module>.h`             | C header: typedefs, per-method function declarations, event publish helper declarations. Module author implements the per-method functions. |
-| `<module>_dispatch.c`    | `_dispatch()`: CBOR decode → C call → CBOR encode. Also `_name()`, `_version()`, `_schema()`, `_init()` stub, `_destroy()` stub, `logos_module_name()` bootstrap symbol. |
+| `<module>_dispatch.c`    | `_dispatch()`: dCBOR decode → C call → dCBOR encode. Also `_name()`, `_version()`, `_schema()`, `_init()` stub, `_destroy()` stub, `logos_module_name()` bootstrap symbol. |
 | `<module>_events.c`      | Typed event publish helpers (section 7.4). |
 | `<module>_client.h`      | Typed client stub declarations (section 7.5). |
 | `<module>_client.c`      | Client stub implementations. |
@@ -1224,7 +1235,7 @@ override them if they need initialisation/cleanup.
 ### 7.4 Generated Event Publish Helpers
 
 For each event `<module>.<name>-event` in the schema, the codegen produces
-a typed helper that encodes the event payload as CBOR and calls the
+a typed helper that encodes the event payload as dCBOR and calls the
 runtime-provided publish function:
 
 ```c
@@ -1237,16 +1248,16 @@ void logos_storage_publish_upload_progress(
 );
 ```
 
-The implementation CBOR-encodes `{session, bytes-sent, bytes-total}` per
+The implementation dCBOR-encodes `{session, bytes-sent, bytes-total}` per
 section 4.2 and calls
 `publish("storage.upload-progress-event", cbor, cbor_len)`.
 
-Module authors call the typed helper instead of encoding CBOR manually.
+Module authors call the typed helper instead of encoding dCBOR manually.
 
 ### 7.5 Generated Client Stubs
 
 For each method, the codegen produces a typed client function that encodes
-a CBOR request, calls the runtime-provided module call function, and
+a dCBOR request, calls the runtime-provided module call function, and
 decodes the response:
 
 ```c
@@ -1259,7 +1270,7 @@ logos_result_t logos_storage_client_exists(
 );
 ```
 
-The implementation CBOR-encodes `{cid}`, calls
+The implementation dCBOR-encodes `{cid}`, calls
 `call("storage_module", {"method":"exists","params":{cid}}, len,
 &resp, &resp_len)`,
 decodes the response map, and writes `out_exists`. The signature mirrors
@@ -1307,7 +1318,7 @@ That is an implementation convenience, not a protocol requirement.
 
 This version of the spec does NOT address streaming or chunked transfer of
 large payloads. A 100MB file cannot be sent as a single `bstr` within a
-single CBOR message (given default message size limits).
+single dCBOR message (given default message size limits).
 
 Future versions will specify a streaming mechanism. Options under
 consideration:

@@ -7,6 +7,7 @@
 | Status   | raw                                        |
 | Category | Standards Track                            |
 | Editor   | ksr                                        |
+| Contributors | Jarrad, atd                            |
 
 ## Abstract
 
