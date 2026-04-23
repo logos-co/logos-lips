@@ -107,16 +107,17 @@ Some other relative cross-refs were already broken in the source repo
 
 ## Body link rewrites
 
-Body links to `vacp2p/rfc-index` in 14 migrated files now point to
-`logos-co/logos-lips`:
+Body links in migrated files now point to `logos-co/logos-lips`:
 
-- `/blob/main/waku/...` → `/blob/master/docs/messaging/...`
-- `/tree/main/waku/...` → `/tree/master/docs/messaging/...`
-- `/blob/main/vac/...` → `/blob/master/docs/ift-ts/raw/...`
+- `vacp2p/rfc-index/blob/main/waku/...` → `/blob/master/docs/messaging/...`
+- `vacp2p/rfc-index/tree/main/waku/...` → `/tree/master/docs/messaging/...`
+- `vacp2p/rfc-index/blob/main/vac/...` → `/blob/master/docs/ift-ts/raw/...`
 - Pinned-hash URLs got the repo host renamed only; the historical paths still
   resolve via GitHub's repo-rename redirect.
-
-`rfc.vac.dev` URLs were not touched — that is the canonical published URL.
+- `waku-org/specs/blob/<ref>/<path>` and `logos-messaging/specs/blob/<ref>/<path>`
+  now point to the corresponding path under `docs/messaging/`.
+- `rfc.vac.dev/waku/<path>` rewritten to the matching `docs/messaging/<path>.md`
+  GitHub link (per review feedback — no link to specs repos should remain).
 
 ## Assets
 
@@ -149,4 +150,7 @@ Three images copied from `images/` to `docs/messaging/images/`:
 ## Verification
 
 - `scripts/validate_metadata.py --check` → `[OK] metadata validation passed`
-- `grep -rE 'vacp2p/rfc-index' docs/messaging/` → no matches
+- No matches for `vacp2p/rfc-index`, `waku-org/specs`, `logos-messaging/specs`,
+  or `rfc.vac.dev` in the 19 migrated files.
+- Pre-existing (non-migrated) files in `docs/messaging/` still contain such
+  references; those are handled in a separate follow-up PR.

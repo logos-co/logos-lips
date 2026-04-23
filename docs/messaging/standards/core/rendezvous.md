@@ -73,13 +73,13 @@ The [rendezvous namespaces](https://github.com/libp2p/specs/blob/69c4fdf5da3a07d
 MUST be in the format `rs/<cluster-id>/<capability>`.
 `<capability>` is a string representing the individual capability for which a discoverable Waku peer record is registered.
 The Waku peer record is separately registered against each capability for which discovery is desired.
-The only defined capability for now is `mix`, representing [Waku Mix](https://github.com/waku-org/specs/blob/fe5cfdf823085b8c9560df81b38bc342d6b1cb38/standards/core/mix.md) support.
+The only defined capability for now is `mix`, representing [Waku Mix](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/mix.md) support.
 For example, a Waku peer record for a node supporting mix protocol in cluster `1` will be registered against a namespace: `rs/1/mix`.
 
 This allows for discovering peers with specific capabilities within a given cluster.
 Currently, this is used for Mix protocol discovery where the capability field specifies `mix`.
 
-Refer to [RELAY-SHARDING](https://github.com/waku-org/specs/blob/fe5cfdf823085b8c9560df81b38bc342d6b1cb38/standards/core/relay-sharding.md) for cluster information.
+Refer to [RELAY-SHARDING](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/relay-sharding.md) for cluster information.
 
 ### Registration and Discovery
 
