@@ -9,7 +9,7 @@
 | Editor | Zoltan Nagy <zoltan@status.im> |
 | Contributors | Hanno Cornelius <hanno@status.im>, Daniel Kaiser <danielkaiser@status.im>, Oskar Thorén <oskarth@titanproxy.com> |
 
-previous version: `/vac/waku/lightpush/2.0.0-beta1` [19/WAKU2-LIGHTPUSH](https://rfc.vac.dev/waku/standards/core/19/lightpush)
+previous version: `/vac/waku/lightpush/2.0.0-beta1` [19/WAKU2-LIGHTPUSH](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/19/lightpush.md)
 
 ---
 **Protocol identifier**: `/vac/waku/lightpush/3.0.0`
@@ -46,11 +46,11 @@ message LightPushResponse {
 ### Message Relaying
 
 Nodes that respond to `LightPushRequest` SHOULD
-- either relay the encapsulated message via [11/WAKU2-RELAY](https://rfc.vac.dev/waku/standards/core/11/relay) protocol on the specified `pubsub_topic`<br>
+- either relay the encapsulated message via [11/WAKU2-RELAY](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/11/relay.md) protocol on the specified `pubsub_topic`<br>
 - or perform another requested service.
-  `Services beyond [11/WAKU2-RELAY](https://rfc.vac.dev/waku/standards/core/11/relay) are yet to be defined.`
+  `Services beyond [11/WAKU2-RELAY](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/11/relay.md) are yet to be defined.`
 
-Depending on the network configuration, the lightpush client may not need to provide `pubsub_topic` ([WAKU2-RELAY-SHARDING](https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md)).<br>
+Depending on the network configuration, the lightpush client may not need to provide `pubsub_topic` ([WAKU2-RELAY-SHARDING](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/relay-sharding.md)).<br>
 
 If the node is unable to perform the request for some reason, it SHOULD return an error code in `LightPushResponse`.<br>
 
@@ -76,7 +76,7 @@ Once the relay is successful, the `relay_peer_count` will indicate the number of
 Since this can introduce an amplification factor, it is RECOMMENDED for the node relaying to the rest of the network to take extra precautions.
 Therefore Waku applies or will apply:
 - DOS protection through request rate limitation on the service itself.
-- message rate limiting via [17/WAKU2-RLN-RELAY](https://rfc.vac.dev/waku/standards/core/17/rln-relay), applied via network membership subscription.
+- message rate limiting via [17/WAKU2-RLN-RELAY](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md), applied via network membership subscription.
 
 > These features are under development. 
 
@@ -92,5 +92,5 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 
 ## References
 
-* [11/WAKU2-RELAY](https://rfc.vac.dev/waku/standards/core/11/relay)
-* [17/WAKU2-RLN-RELAY](https://rfc.vac.dev/waku/standards/core/17/rln-relay)
+* [11/WAKU2-RELAY](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/11/relay.md)
+* [17/WAKU2-RLN-RELAY](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md)

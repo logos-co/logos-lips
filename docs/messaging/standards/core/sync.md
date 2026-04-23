@@ -10,7 +10,7 @@
 
 # Abstract
 This specification explains `WAKU-SYNC`
-which enables the synchronization of messages between nodes storing sets of [`14/WAKU2-MESSAGE`](https://rfc.vac.dev/waku/standards/core/14/message)s.
+which enables the synchronization of messages between nodes storing sets of [`14/WAKU2-MESSAGE`](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/14/message.md)s.
 
 # Specification
 
@@ -27,13 +27,13 @@ The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL 
 
 **Libp2p Protocol identifier**: `/vac/waku/reconciliation/1.0.0`
 
-The `reconciliation` protocol finds the differences between two sets of [`14/WAKU2-MESSAGE`](https://rfc.vac.dev/waku/standards/core/14/message) on different nodes.
-It assumes that each [`14/WAKU2-MESSAGE`](https://rfc.vac.dev/waku/standards/core/14/message) maps to a uniquely identifying `SyncID`,
+The `reconciliation` protocol finds the differences between two sets of [`14/WAKU2-MESSAGE`](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/14/message.md) on different nodes.
+It assumes that each [`14/WAKU2-MESSAGE`](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/14/message.md) maps to a uniquely identifying `SyncID`,
 which is maintained in an ordered set within each node.
 An ordered set of `SyncID`s is termed a `Range`.
 This implies that any contiguous subset of a `Range` is also a `Range`.
 In other words, the `reconciliation` protocol allows two nodes to find differences between `Range`s of `SyncID`s,
-which would map to an equivalent difference in cached [`14/WAKU2-MESSAGE`](https://rfc.vac.dev/waku/standards/core/14/message)s.
+which would map to an equivalent difference in cached [`14/WAKU2-MESSAGE`](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/14/message.md)s.
 These terms, the wire protocol and message flows are explained below.
 
 ### Wire protocol
@@ -51,7 +51,7 @@ The `RangesData` structure represents a complete `reconciliation` payload:
 | ranges        | seq[Range]               | Sequence of ranges       |
 
 The `cluster` and `shards` fields
-represent the sharding elements as defined in [RELAY-SHARDING](https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md#static-sharding).
+represent the sharding elements as defined in [RELAY-SHARDING](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/relay-sharding.md#static-sharding).
 The `ranges` field contain a sequence of ranges for reconciliation.
 
 We identify the following subtypes:
@@ -79,7 +79,7 @@ The lower bound MUST be strictly smaller than the upper bound.
 
 ##### SyncID
 
-A `SyncID` consists of a message timestamp and hash to uniquely identify a [`14/WAKU2-MESSAGE`](https://rfc.vac.dev/waku/standards/core/14/message).
+A `SyncID` consists of a message timestamp and hash to uniquely identify a [`14/WAKU2-MESSAGE`](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/14/message.md).
 
 | Field     | Type       | Description                               |
 |-----------|------------|-------------------------------------------|
@@ -87,7 +87,7 @@ A `SyncID` consists of a message timestamp and hash to uniquely identify a [`14/
 | hash      | seq[Byte]  | 32-byte message hash                 |
 
 The timestamp MUST be the time of message creation and
-the hash MUST follow the [deterministic message hashing specification](https://rfc.vac.dev/waku/standards/core/14/message#deterministic-message-hashing).
+the hash MUST follow the [deterministic message hashing specification](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/14/message.md#deterministic-message-hashing).
 SyncIDs MUST be totally ordered by timestamp first, then by hash to disambiguate messages with identical timestamps.
 
 ##### RangeType
@@ -247,7 +247,7 @@ i.e., when all ranges have been processed and reconciled by both syncing peers a
 
 Once the `reconciliation` protocol starts finding differences in `SyncID`s,
 the `transfer` protocol MAY be used to exchange actual message contents between peers.
-A node using `transfer` SHOULD proactively send [`14/WAKU2-MESSAGE`](https://rfc.vac.dev/waku/standards/core/14/message)s missing in the remote party.
+A node using `transfer` SHOULD proactively send [`14/WAKU2-MESSAGE`](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/14/message.md)s missing in the remote party.
 Nodes SHOULD only accept incoming transfers from peers for which they have an active reconciliation session.
 The `SyncID`s corresponding to messages received via `transfer`,
 MUST be added to the corresponding `Range` tracked by the `reconciliation` protocol.

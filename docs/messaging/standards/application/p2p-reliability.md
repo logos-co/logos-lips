@@ -11,7 +11,7 @@
 
 ## Abstract
 
-This specification defines peer-to-peer (p2p) reliability within [10/WAKU2](https://rfc.vac.dev/waku/standards/core/10/waku2) networks,
+This specification defines peer-to-peer (p2p) reliability within [10/WAKU2](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/10/waku2.md) networks,
 addressing dependability of message propagation between Waku node hops.
 It situates the problem of p2p reliability between the lower layer _transport_ reliability
 and the higher layer _end-to-end_ reliability.
@@ -22,7 +22,7 @@ taking into account the trade-offs between reliability, bandwidth usage, latency
 
 ## Reliability in a Waku context
 
-Reliability can be considered on three layers within a [10/WAKU2](https://rfc.vac.dev/waku/standards/core/10/waku2) context:
+Reliability can be considered on three layers within a [10/WAKU2](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/10/waku2.md) context:
 
 1. **Transport layer reliability:**
 Reliability within the networking layer of an individual node.
@@ -31,10 +31,10 @@ constituent transports,
 peer management,
 and peer discovery.
 1. **Peer-to-peer (p2p) reliability:**
-Reliability between nodes within a [10/WAKU2](https://rfc.vac.dev/waku/standards/core/10/waku2) p2p network,
+Reliability between nodes within a [10/WAKU2](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/10/waku2.md) p2p network,
 including message routing and discovery between peers.
 Note that reliability at this layer is agnostic of the application.
-At this layer, [10/WAKU2](https://rfc.vac.dev/waku/standards/core/10/waku2) nodes have no knowledge of the origin or intended destination of messages being routed.
+At this layer, [10/WAKU2](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/10/waku2.md) nodes have no knowledge of the origin or intended destination of messages being routed.
 1. **End-to-end (e2e) reliability:**
 Reliability within the application layer on top of the Waku p2p routing layer.
 This layer is concerned with message delivery between intended participants from the application's perspective
@@ -48,11 +48,11 @@ It does _not_ cover:
 - Transport-level reliability mechanisms, such as fine-tuning libp2p parameters, improving peer discovery and management, etc.
 - End-to-end message reliability protocols, covered by higher-layer application logic.
 
-We focus on p2p reliability within the context of the following [10/WAKU2](https://rfc.vac.dev/waku/standards/core/10/waku2) protocols:
-- [17/WAKU2-RLN-RELAY](https://rfc.vac.dev/waku/standards/core/17/rln-relay): used by nodes to publish and receive messages on a pub/sub topic by participating in [libp2p gossipsub](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md) routing
-- [12/WAKU2-FILTER](https://rfc.vac.dev/waku/standards/core/12/filter): used by nodes to receive messages from a pub/sub topic without participating in gossipsub routing
+We focus on p2p reliability within the context of the following [10/WAKU2](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/10/waku2.md) protocols:
+- [17/WAKU2-RLN-RELAY](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md): used by nodes to publish and receive messages on a pub/sub topic by participating in [libp2p gossipsub](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md) routing
+- [12/WAKU2-FILTER](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/12/filter.md): used by nodes to receive messages from a pub/sub topic without participating in gossipsub routing
 - [WAKU2-LIGHTPUSH](../core/lightpush.md): used by nodes to publish messages to a pub/sub topic without participating in gossipsub routing
-- [13/WAKU2-STORE](https://rfc.vac.dev/waku/standards/core/13/store): used by any node to query and retrieve historical messages
+- [13/WAKU2-STORE](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md): used by any node to query and retrieve historical messages
 
 ## Problem statement
 
@@ -86,9 +86,9 @@ Redundancy strategies can focus on:
 Publishers MAY improve the probability of their messages propagating through the network
 by publishing it simultaneously to several peers as first hop.
 Several peers would then continue routing the message.
-[17/WAKU2-RLN-RELAY](https://rfc.vac.dev/waku/standards/core/17/rln-relay) already implements redundant publishing by forwarding a message _at least_ to all mesh peers
+[17/WAKU2-RLN-RELAY](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md) already implements redundant publishing by forwarding a message _at least_ to all mesh peers
 or, as is RECOMMENDED for Waku, publishing the message to _all_ peers using [flood publishing](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#flood-publishing).
-Configuring [17/WAKU2-RLN-RELAY](https://rfc.vac.dev/waku/standards/core/17/rln-relay) is part of the transport layer and a detailed description falls outside the scope of this spec.
+Configuring [17/WAKU2-RLN-RELAY](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md) is part of the transport layer and a detailed description falls outside the scope of this spec.
 [WAKU2-LIGHTPUSH](../core/lightpush.md) MAY similarly be configured to publish to more than one lightpush service node at the same time.
 See the [lightpush section](#lightpush) for a specification of the strategy.
 
@@ -96,11 +96,11 @@ See the [lightpush section](#lightpush) for a specification of the strategy.
 
 Nodes MAY improve the probability for receiving all messages
 by increasing the number of sources from which they receive messages.
-[17/WAKU2-RLN-RELAY](https://rfc.vac.dev/waku/standards/core/17/rln-relay) already implements redundant receiving as messages are eagerly pushed from all mesh peers
+[17/WAKU2-RLN-RELAY](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md) already implements redundant receiving as messages are eagerly pushed from all mesh peers
 with added gossip mechanisms to allow lazy pulling from all peers
 as described in the [GossipSub v1.1 specification](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md).
-Configuring [17/WAKU2-RLN-RELAY](https://rfc.vac.dev/waku/standards/core/17/rln-relay) is part of the transport layer and a detailed description falls outside the scope of this spec.
-[12/WAKU2-FILTER](https://rfc.vac.dev/waku/standards/core/12/filter) MAY similarly be configured to subscribe to receive messages from more than one filter service node at the same time.
+Configuring [17/WAKU2-RLN-RELAY](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md) is part of the transport layer and a detailed description falls outside the scope of this spec.
+[12/WAKU2-FILTER](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/12/filter.md) MAY similarly be configured to subscribe to receive messages from more than one filter service node at the same time.
 See the [filter section](#filter) for a specification of the strategy.
 
 #### 2. Detect and remedy losses
@@ -110,43 +110,43 @@ Losses can occur either from the publisher's or the recipient's perspective.
 
 - **Failure to publish:**
 
-Nodes using either [17/WAKU2-RLN-RELAY](https://rfc.vac.dev/waku/standards/core/17/rln-relay) or [WAKU2-LIGHTPUSH](../core/lightpush.md) to publish
+Nodes using either [17/WAKU2-RLN-RELAY](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md) or [WAKU2-LIGHTPUSH](../core/lightpush.md) to publish
 MAY determine that a message has probably failed to publish
-by combining these protocols with [12/WAKU2-FILTER](https://rfc.vac.dev/waku/standards/core/12/filter) or [13/WAKU2-STORE](https://rfc.vac.dev/waku/standards/core/13/store)
+by combining these protocols with [12/WAKU2-FILTER](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/12/filter.md) or [13/WAKU2-STORE](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md)
 to attempt to retrieve the published message from other peers in the network.
 Failure to detect the message could indicate a publishing failure.
 The usual remedial action is to retransmit the message.
-See [Store-based reliability](#store-based-reliability) for a specification of the strategy to combine [17/WAKU2-RLN-RELAY](https://rfc.vac.dev/waku/standards/core/17/rln-relay) or [WAKU2-LIGHTPUSH](../core/lightpush.md) with [13/WAKU2-STORE](https://rfc.vac.dev/waku/standards/core/13/store).
-See [Lightpush](#lightpush) for a specification of the strategy to combine [WAKU2-LIGHTPUSH](../core/lightpush.md) with [12/WAKU2-FILTER](https://rfc.vac.dev/waku/standards/core/12/filter).
-Combining [17/WAKU2-RLN-RELAY](https://rfc.vac.dev/waku/standards/core/17/rln-relay) with [12/WAKU2-FILTER](https://rfc.vac.dev/waku/standards/core/12/filter) is conceptually possible, but underspecified.
+See [Store-based reliability](#store-based-reliability) for a specification of the strategy to combine [17/WAKU2-RLN-RELAY](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md) or [WAKU2-LIGHTPUSH](../core/lightpush.md) with [13/WAKU2-STORE](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md).
+See [Lightpush](#lightpush) for a specification of the strategy to combine [WAKU2-LIGHTPUSH](../core/lightpush.md) with [12/WAKU2-FILTER](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/12/filter.md).
+Combining [17/WAKU2-RLN-RELAY](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md) with [12/WAKU2-FILTER](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/12/filter.md) is conceptually possible, but underspecified.
 
 - **Failure to receive:**
 
-Nodes using either [17/WAKU2-RLN-RELAY](https://rfc.vac.dev/waku/standards/core/17/rln-relay) or [12/WAKU2-FILTER](https://rfc.vac.dev/waku/standards/core/12/filter) to receive messages
+Nodes using either [17/WAKU2-RLN-RELAY](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md) or [12/WAKU2-FILTER](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/12/filter.md) to receive messages
 MAY determine message losses
-by combining these protocols with [13/WAKU2-STORE](https://rfc.vac.dev/waku/standards/core/13/store)
-to compare their local message history with the historical messages cached in the [13/WAKU2-STORE](https://rfc.vac.dev/waku/standards/core/13/store).
-The usual remedial action is to retrieve the missing messages from the [13/WAKU2-STORE](https://rfc.vac.dev/waku/standards/core/13/store).
+by combining these protocols with [13/WAKU2-STORE](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md)
+to compare their local message history with the historical messages cached in the [13/WAKU2-STORE](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md).
+The usual remedial action is to retrieve the missing messages from the [13/WAKU2-STORE](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md).
 See [Store-based reliability](#store-based-reliability) for a specification of this strategy.
 
 ### Store-based reliability
 
-[13/WAKU2-STORE](https://rfc.vac.dev/waku/standards/core/13/store) provides a way for nodes to query the existence of or fetch specific historical messages.
-Nodes using any combination of [17/WAKU2-RLN-RELAY](https://rfc.vac.dev/waku/standards/core/17/rln-relay), [12/WAKU2-FILTER](https://rfc.vac.dev/waku/standards/core/12/filter) and [WAKU2-LIGHTPUSH](../core/lightpush.md) to publish/receive messages
-MAY combine these protocols with [13/WAKU2-STORE](https://rfc.vac.dev/waku/standards/core/13/store) to improve p2p reliability.
+[13/WAKU2-STORE](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md) provides a way for nodes to query the existence of or fetch specific historical messages.
+Nodes using any combination of [17/WAKU2-RLN-RELAY](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md), [12/WAKU2-FILTER](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/12/filter.md) and [WAKU2-LIGHTPUSH](../core/lightpush.md) to publish/receive messages
+MAY combine these protocols with [13/WAKU2-STORE](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md) to improve p2p reliability.
 Depending on the use case, such a node MAY use any of the strategies below:
 
 #### 1. Store-based reliability for publishing
 
 - A publishing node using this strategy MUST consider a published message as "unacknowledged" at first.
-- The publisher MUST keep a copy of this message against its [deterministic message hash](https://rfc.vac.dev/waku/standards/core/14/message#deterministic-message-hashing) in a local outgoing message buffer.
+- The publisher MUST keep a copy of this message against its [deterministic message hash](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/14/message.md#deterministic-message-hashing) in a local outgoing message buffer.
 It MAY keep the last several published messages in this buffer.
-- The publisher MUST periodically perform a [presence query](https://rfc.vac.dev/waku/standards/core/13/store#presence-queries) to the [13/WAKU2-STORE](https://rfc.vac.dev/waku/standards/core/13/store) service
+- The publisher MUST periodically perform a [presence query](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md#presence-queries) to the [13/WAKU2-STORE](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md) service
 against the message hashes of all published messages in the outgoing buffer
 to verify their existence in the store.
-    - If a message hash exists in the [13/WAKU2-STORE](https://rfc.vac.dev/waku/standards/core/13/store) service,
+    - If a message hash exists in the [13/WAKU2-STORE](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md) service,
 the publisher SHOULD consider the corresponding message as "acknowledged" and remove it from the outgoing buffer.
-    - If a message hash does not exist in the [13/WAKU2-STORE](https://rfc.vac.dev/waku/standards/core/13/store) service,
+    - If a message hash does not exist in the [13/WAKU2-STORE](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md) service,
 the publisher MUST consider the corresponding message as still "unacknowledged".
 - The publisher SHOULD retransmit all unacknowledged messages either periodically or upon reception of the presence query response
 until a positive presence query response is received for the corresponding message hash.
@@ -154,18 +154,18 @@ A publisher MAY consider a message publication as having failed irremediably aft
 
 #### 2. Store-based reliability for receiving
 
-- A receiving node using this strategy MUST have a local cache of the [deterministic message hashes](https://rfc.vac.dev/waku/standards/core/14/message#deterministic-message-hashing) of all received messages
+- A receiving node using this strategy MUST have a local cache of the [deterministic message hashes](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/14/message.md#deterministic-message-hashing) of all received messages
 spanning _at least_ the time period for which reliability is required.
-- The node MUST periodically perform a [content filtered query](https://rfc.vac.dev/waku/standards/core/13/store#content-filtered-queries) to the [13/WAKU2-STORE](https://rfc.vac.dev/waku/standards/core/13/store) service,
+- The node MUST periodically perform a [content filtered query](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md#content-filtered-queries) to the [13/WAKU2-STORE](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md) service,
 spanning the time period for which reliability is required ("reliability window")
 and including all content topics over which it is interested to receive messages.
-The `include_data` field SHOULD be set to `false` to retrieve only the matching message hashes from the [13/WAKU2-STORE](https://rfc.vac.dev/waku/standards/core/13/store) service.
+The `include_data` field SHOULD be set to `false` to retrieve only the matching message hashes from the [13/WAKU2-STORE](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md) service.
 If a connection loss is detected (e.g. if a query fails due to disconnection),
 the next query MAY span at least the time period since the last successful query
 if this is longer than the reliability window.
 - The node MUST compare the received message hashes to those in the local cache.
 Any message hashes in the response that are not in the local cache MUST be considered "missing".
-- The node SHOULD perform a [message hash lookup query](https://rfc.vac.dev/waku/standards/core/13/store#message-hash-lookup-queries) for all missing message hashes
+- The node SHOULD perform a [message hash lookup query](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md#message-hash-lookup-queries) for all missing message hashes
 to retrieve the full contents of the corresponding messages.
 It MAY do so either periodically (in batches) or upon reception of the content filtered query response.
 - The node MUST add to the local cache all message hashes corresponding to the retrieved messages,
@@ -173,14 +173,14 @@ in order to prevent them from being considered missing in future.
 
 #### 3. Combined store-based reliability for publishing and receiving messages
 
-- A node using this strategy MUST have a local cache of the [deterministic message hashes](https://rfc.vac.dev/waku/standards/core/14/message#deterministic-message-hashing) of all received messages
+- A node using this strategy MUST have a local cache of the [deterministic message hashes](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/14/message.md#deterministic-message-hashing) of all received messages
 spanning _at least_ the time period for which reliability is required.
-- In addition, the node MUST consider a published message as "unacknowledged" at first. The node MUST keep a copy of this message against its [deterministic message hash](https://rfc.vac.dev/waku/standards/core/14/message#deterministic-message-hashing) in a local outgoing message buffer.
+- In addition, the node MUST consider a published message as "unacknowledged" at first. The node MUST keep a copy of this message against its [deterministic message hash](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/14/message.md#deterministic-message-hashing) in a local outgoing message buffer.
 It MAY keep the last several published messages in this buffer.
-- The node MUST periodically perform a [content filtered query](https://rfc.vac.dev/waku/standards/core/13/store#content-filtered-queries) to the [13/WAKU2-STORE](https://rfc.vac.dev/waku/standards/core/13/store) service,
+- The node MUST periodically perform a [content filtered query](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md#content-filtered-queries) to the [13/WAKU2-STORE](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md) service,
 spanning the time period for which reliability is required
 and including all content topics over which it is interested to both publish and receive messages.
-The `include_data` field SHOULD be set to `false` to retrieve only the matching message hashes from the [13/WAKU2-STORE](https://rfc.vac.dev/waku/standards/core/13/store) service.
+The `include_data` field SHOULD be set to `false` to retrieve only the matching message hashes from the [13/WAKU2-STORE](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md) service.
 - The node MUST compare the message hashes in the content filtered query response to the message hashes of all published messages in the outgoing buffer
 to verify their existence in the store.
     - If a message hash is included in the query response,
@@ -193,7 +193,7 @@ Any message hashes in the response that are not in the local cache MUST be consi
 either periodically or upon reception of the query response,
 until a positive inclusion in a follow-up query response for the corresponding message hashes.
 The node MAY consider a message publication as having failed irremediably after a set number of query attempts without inclusion.
-- In addition, the node SHOULD perform a [message hash lookup query](https://rfc.vac.dev/waku/standards/core/13/store#message-hash-lookup-queries) for all missing message hashes
+- In addition, the node SHOULD perform a [message hash lookup query](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md#message-hash-lookup-queries) for all missing message hashes
 to retrieve the full contents of the corresponding messages.
 It MAY do so either periodically (in batches) or upon reception of the content filtered query response.
 - The node MUST add to the local cache all message hashes corresponding to the retrieved messages,
@@ -207,7 +207,7 @@ Lightpush clients MAY use any of the following strategies to improve reliability
 #### 1. Maintain a pool of reliable lightpush service nodes
 
 A lightpush client using this strategy MUST maintain a pool of reliable lightpush service nodes.
-[Discovery](https://rfc.vac.dev/waku/standards/core/10/waku2#discovery-domain) of these service nodes falls outside the scope of this specification.
+[Discovery](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/10/waku2.md#discovery-domain) of these service nodes falls outside the scope of this specification.
 As a simple heuristic, a lightpush client MAY consider all discovered lightpush service nodes as reliable until it detects a service failure.
 In case the lightpush service fails due to service node behaviour,
 the client MAY disconnect from the service node and replace it with another service node from the pool.
@@ -242,7 +242,7 @@ but we RECOMMEND starting with `1 second` and increasing it after each failure.
 > *_Note:_* Lightpush clients participating in [Store-based reliability](#store-based-reliability) already performs this strategy and can ignore this section.
 
 - A lightpush client using this strategy MUST use either [Store-based reliability](#store-based-reliability)
-or install one or more [12/WAKU2-FILTER](https://rfc.vac.dev/waku/standards/core/12/filter) subscriptions matching the content topic(s) used for publishing.
+or install one or more [12/WAKU2-FILTER](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/12/filter.md) subscriptions matching the content topic(s) used for publishing.
 In this way, the client can confirm that a published message did indeed reach the targeted store or filter service node(s).
 - The store queries or filter subscription SHOULD be requested at service nodes different from those used for the lightpush service.
 - If the client determines that a published message has not been received by the filter or store service node,
@@ -254,13 +254,13 @@ but we RECOMMEND starting with `1 second` and increasing it after each attempt.
 
 ### Filter
 
-[12/WAKU2-FILTER](https://rfc.vac.dev/waku/standards/core/12/filter) provides a way for client nodes to receive messages from a pub/sub topic via a filter service node without participating in gossipsub routing.
+[12/WAKU2-FILTER](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/12/filter.md) provides a way for client nodes to receive messages from a pub/sub topic via a filter service node without participating in gossipsub routing.
 Filter clients MAY use any of the following strategies to improve reliability of the service:
 
 #### 1. Maintain a pool of reliable filter service nodes
 
 A filter client using this strategy MUST maintain a pool of reliable filter service nodes.
-[Discovery](https://rfc.vac.dev/waku/standards/core/10/waku2#discovery-domain) of these service nodes falls outside the scope of this specification.
+[Discovery](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/10/waku2.md#discovery-domain) of these service nodes falls outside the scope of this specification.
 As a simple heuristic, a filter client MAY consider all discovered filter service nodes as reliable until it detects a service failure.
 In case the filter service fails due to service node behaviour,
 the client MAY disconnect from the service node and replace it with another service node from the pool.
@@ -273,7 +273,7 @@ We RECOMMEND replacing a filter service node under the following conditions:
 #### 2. Redundant filter subscriptions
 
 A filter client using this strategy MUST subscribe to two or more filter service nodes.
-Such clients SHOULD filter out duplicate messages by comparing [deterministic message hashes](https://rfc.vac.dev/waku/standards/core/14/message#deterministic-message-hashing).
+Such clients SHOULD filter out duplicate messages by comparing [deterministic message hashes](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/14/message.md#deterministic-message-hashing).
 Note that both bandwidth usage and computational complexity increases proportionally to the amount of service nodes used.
 For this reason, we RECOMMEND using only two filter service nodes at a time.
 
@@ -297,7 +297,7 @@ This helps ensure that local and remote views of filter criteria remains synchro
 
 > *_Note:_* Filter clients participating in [Store-based reliability](#store-based-reliability) already performs this strategy and can ignore this section.
 
-- A filter client using this strategy MUST use [13/WAKU2-STORE](https://rfc.vac.dev/waku/standards/core/13/store) queries to retrieve lost messages.
+- A filter client using this strategy MUST use [13/WAKU2-STORE](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md) queries to retrieve lost messages.
 - Such clients MAY use [Store-based reliability](#store-based-reliability) to periodically detect and remedy message losses.
 - If [Store-based reliability](#store-based-reliability) is unsuitable (e.g. due to the high resource usage of repeated store queries),
 the client MAY perform opportunistic store queries covering periods over which it detected a disconnection.
@@ -322,11 +322,11 @@ most p2p reliability strategies can be minimally configured (or even disabled) t
 
 ## References
 
-1. [10/WAKU2](https://rfc.vac.dev/waku/standards/core/10/waku2)
-1. [12/WAKU2-FILTER](https://rfc.vac.dev/waku/standards/core/12/filter)
-1. [13/WAKU2-STORE](https://rfc.vac.dev/waku/standards/core/13/store)
-1. [17/WAKU2-RLN-RELAY](https://rfc.vac.dev/waku/standards/core/17/rln-relay)
-1. [14/WAKU2-MESSAGE](https://rfc.vac.dev/waku/standards/core/14/message#deterministic-message-hashing)
+1. [10/WAKU2](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/10/waku2.md)
+1. [12/WAKU2-FILTER](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/12/filter.md)
+1. [13/WAKU2-STORE](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md)
+1. [17/WAKU2-RLN-RELAY](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md)
+1. [14/WAKU2-MESSAGE](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/14/message.md#deterministic-message-hashing)
 1. [GossipSub v1.1](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#flood-publishing)
 1. [WAKU2-LIGHTPUSH](../core/lightpush.md)
 
