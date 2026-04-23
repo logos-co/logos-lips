@@ -67,7 +67,7 @@ The peer exchange protocol, specified in this document,
 is a simple request-response protocol.
 As Figure 1 illustrates, the requesting node sends a request to a peer,
 which acts as the responder.
-The responder replies with a list of ENRs as specified in [WAKU2-ENR](https://github.com/waku-org/specs/blob/master/standards/core/enr.md).
+The responder replies with a list of ENRs as specified in [WAKU2-ENR](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/enr.md).
 The [multiaddresses](https://docs.libp2p.io/concepts/addressing/)
 used to connect to the respective peers can be extracted from the ENRs.
 
@@ -129,7 +129,7 @@ message PeerExchangeRPC {
 
 ```
 
-The `enr` field contains a Waku ENR as specified in [WAKU2-ENR](https://github.com/waku-org/specs/blob/master/standards/core/enr.md).
+The `enr` field contains a Waku ENR as specified in [WAKU2-ENR](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/enr.md).
 
 Requesters send a `PeerExchangeQuery` to a peer.
 Responders SHOULD include a maximum of `num_peers` `PeerInfo` instances into a response.
@@ -220,7 +220,7 @@ The `seen cache` MAY be used in conjunction to provide additional mitigation.
 
 ### Further Considerations
 
-The response field contains ENRs as specified in [WAKU2-ENR](https://github.com/waku-org/specs/blob/master/standards/core/enr.md).
+The response field contains ENRs as specified in [WAKU2-ENR](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/enr.md).
 While ENRs contain signatures, they do not violate the [Waku relay no-sign policy](/messaging/standards/core/11/relay.md#signature-policy),
 because they are part of the discovery domain and
 are not propagated in the relay domain.
@@ -236,7 +236,7 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 
 * [33/WAKU2-DISCV5](/messaging/standards/core/33/discv5.md)
 * [EIP-1459: Node Discovery via DNS](https://eips.ethereum.org/EIPS/eip-1459)
-* [WAKU2-ENR](https://github.com/waku-org/specs/blob/master/standards/core/enr.md)
+* [WAKU2-ENR](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/enr.md)
 * [multiaddress](https://docs.libp2p.io/concepts/addressing/)
 * [libp2p discovery interface in nim](https://github.com/status-im/nim-libp2p/issues/140)
 * [libp2p discovery interface in javascript](https://github.com/libp2p/js-libp2p-interfaces/tree/master/packages/interface-peer-discovery)
