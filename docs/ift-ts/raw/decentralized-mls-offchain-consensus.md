@@ -321,7 +321,7 @@ If the proposal returns YES, a score penalty MUST be applied to the targeted mem
 by decreasing their peer score, and a score reward MUST be granted to the creator of the proposal;
 if the proposal returns NO, a score penalty MUST be applied to the creator of the proposal.
 If the targeted member is the `epoch steward`,
-the `backup steward` MUST assume the `epoch steward` role MUST include the removal of the former `epoch steward`
+the `backup steward` MUST assume the `epoch steward` role and MUST include the removal of the former `epoch steward`
 in the subsequent commit without requiring an additional voting round,
 as the finalized emergency criteria proposal serves as sufficient authorization for the removal.
 `Proposal.payload` MUST include evidence of dishonesty as defined in the Steward Violation List,
