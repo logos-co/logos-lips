@@ -400,14 +400,26 @@ since allowing bias could enable a malicious participant to manipulate the list
 and retain control within a favored group for multiple epochs.
 
 The list MUST consist of at least `sn_min` members, including retained previous stewards,
-sorted according to the ascending value of `SHA256(epoch E || member id || group id)`,
+sorted according to the ascending value of `SHA256(epoch E || retry_round || member id || group id)`,
 where `epoch E` is the epoch in which the election proposal is initiated,
+`retry_round` is a counter for having different shuffling in the same epoch for recovering situation,
 and `group id` for shuffling the list across the different groups.
 Any proposal with a list that does not adhere to this generation method MUST be rejected by all members.
 
 It is assumed that that there are no recurring entries in `SHA256(epoch E || member id || group id)`,
 since the SHA256 outputs are unique when there is no repetition in the `member id` values,
 against the conflicts on sorting issues.
+
+#### Re-election and Recovery within the Same Epoch
+
+In cases where a `steward election proposal` is rejected
+(i.e., finalized with a NO outcome), the MLS epoch remains unchanged.
+To preserve liveness, members MAY initiate a new steward election proposal within the same epoch,
+incrementing the local `retry_round` counter by one from its initial value of zero.
+Each increment produces a distinct deterministic ordering via
+`SHA256(epoch E || retry_round || member id || group id)`,
+yielding a different but verifiable candidate shuffling without advancing the MLS epoch.
+Multiple re-election proposals with different `retry_round` values MAY coexist in the network.
 
 ### Multi steward with big consensuses
 
