@@ -279,7 +279,7 @@ Decentralization has already been achieved in the previous section.
 However, to improve availability and ensure censorship resistance,
 the single steward protocol is extended to a multi steward architecture.
 In this design, each epoch is coordinated by a designated steward,
-operating under the same protocol as the single steward model.
+operating under the similar protocol as the single steward model.
 Thus, the multi steward approach primarily defines how steward roles
 rotate across epochs while preserving the underlying structure and logic of the original protocol.
 Two variants of the multi steward design are introduced to address different system requirements.
@@ -288,6 +288,12 @@ In the multi steward setting, multiple stewards MAY issue `commit messages` with
 As a result, members may receive different numbers of commit messages with potentially differing contents.
 For all received commits, the [commit validation service](#commit-validation-service) is executed locally and
 MUST deterministically output at most one valid commit to be applied for the epoch transition.
+
+### Buffering KeyPackages
+
+In the multi-steward setting, to preserve liveness in the presence of a silent or inactive epoch steward,
+all members MUST locally buffer `KeyPackages` received for 3 epochs after the KeyPackage was received,
+or until a commit referencing that `KeyPackages` has been successfully validated and applied, whichever comes first.
 
 ### Consensus Types
 
