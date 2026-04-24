@@ -320,6 +320,10 @@ reflecting the expectation of active participation from members in the decentral
 If the proposal returns YES, a score penalty MUST be applied to the targeted member or steward
 by decreasing their peer score, and a score reward MUST be granted to the creator of the proposal;
 if the proposal returns NO, a score penalty MUST be applied to the creator of the proposal.
+If the targeted member is the `epoch steward`,
+the `backup steward` MUST assume the `epoch steward` role MUST include the removal of the former `epoch steward`
+in the subsequent commit without requiring an additional voting round,
+as the finalized emergency criteria proposal serves as sufficient authorization for the removal.
 `Proposal.payload` MUST include evidence of dishonesty as defined in the Steward Violation List,
 along with the identifier of the malicious member or steward.
 This proposal can be created by any member in any epoch.
