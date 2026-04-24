@@ -495,6 +495,33 @@ Competing commits that contain the same deterministic proposal sequence
 but differ only due to steward-generated MLS commit entropy MUST NOT be classified as misbehaviour
 and MAY instead be treated as honest participation for peer scoring purposes.
 
+## Self-Removal
+
+A `steward` MUST NOT produce a commit that includes its own removal.
+This is not a protocol violation but an inherent constraint of [MLS RFC 9420](https://datatracker.ietf.org/doc/rfc9420/):
+a member cannot apply a commit that removes itself from the group;
+otherwise, the resulting group key would be accessible to the removed member again,
+which is a contradiction of removal.
+
+A member's request to leave the group is not subject to voting.
+Any such removal voting proposal MUST be automatically treated as finalized with a YES outcome
+and MUST be processed by the epoch steward in the subsequent commit.
+
+If the `epoch steward` intends to remove itself from the group, it MUST first
+offload its epoch steward role before its removal can be committed.
+Two  approaches are valid at the application level:
+
+- The `epoch steward` waits until it has committed all currently finalized voting proposals,
+or if none are pending, MAY initiate a self key rotate request to trigger an epoch transition and naturally offload its role.
+
+- The `epoch steward` creates its own remove proposal, which is automatically finalized with a YES outcome,
+but deliberately does not commit it, leaving it to the subsequent epoch steward to include in the next commit.
+This constitutes a valid exception to the requirement that finalized voting proposals MUST be committed;
+the epoch steward MUST NOT be penalized for this omission.
+Under this approach, removal requires only a single commit by the subsequent epoch steward.
+
+Implementations MAY choose either approach. Both are compliant with this specification.
+
 ## Steward violation list
 
 A steward’s activity is called a violation if the action is one or more of the following:
