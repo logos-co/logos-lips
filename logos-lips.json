@@ -495,6 +495,15 @@
     "path": "ift-ts/raw/mix.html"
   },
   {
+    "component": "ift-ts",
+    "slug": "RLN Membership Allocation",
+    "title": "RLN Membership Allocation",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-04-27",
+    "path": "ift-ts/raw/rln-membership-service.html"
+  },
+  {
     "component": "messaging",
     "slug": "10",
     "title": "Waku v2",
