@@ -1,12 +1,14 @@
----
-title: RLN-MEMBERSHIP-ALLOCATION
-name: RLN Membership Allocation
-status: raw
-category: Standards Track
-tags: rln
-editor: Arseniy Klempner <arseniyk@status.im>
-contributors:
----
+# RLN-MEMBERSHIP-SERVICE
+
+| Field | Value |
+| --- | --- |
+| Name | RLN Membership Allocation |
+| Slug | |
+| Status | raw |
+| Category | Standards Track |
+| Tags | rln |
+| Editor | Arseniy Klempner <arseniyk@status.im> |
+| Contributors |  |
 
 **Protocol identifier**: `/logos/rln/membership/1.0.0`
 
