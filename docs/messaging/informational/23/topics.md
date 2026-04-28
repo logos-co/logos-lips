@@ -42,9 +42,9 @@ In [10/WAKU2 spec](/messaging/standards/core/10/waku2.md) there are two types of
 ## Pubsub Topics
 
 Pubsub topics are used for routing of messages (see [11/WAKU2-RELAY](/messaging/standards/core/11/relay.md)),
-and can be named implicitly by Waku sharding (see [RELAY-SHARDING](https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md)).
+and can be named implicitly by Waku sharding (see [RELAY-SHARDING](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/relay-sharding.md)).
 This document comprises recommendations for explicitly naming pubsub topics
-(e.g. when choosing *named sharding* as specified in [RELAY-SHARDING](https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md)).
+(e.g. when choosing *named sharding* as specified in [RELAY-SHARDING](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/relay-sharding.md)).
 
 ### Pubsub Topic Format
 
@@ -103,7 +103,7 @@ but for different domains completely.
 
 ### Named Topic Sharding Example
 
-The following is an example of named sharding, as specified in [RELAY-SHARDING](https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md).
+The following is an example of named sharding, as specified in [RELAY-SHARDING](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/relay-sharding.md).
 
 ```text
 waku/2/waku-9_shard-0/
@@ -220,7 +220,7 @@ Copyright and related rights waived via
 
 - [10/WAKU2 spec](/messaging/standards/core/10/waku2.md)
 - [11/WAKU2-RELAY](/messaging/standards/core/11/relay.md)
-- [RELAY-SHARDING](https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md)
+- [RELAY-SHARDING](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/relay-sharding.md)
 - [Ethereum 2 P2P spec](https://github.com/ethereum/eth2.0-specs/blob/dev/specs/phase0/p2p-interface.md#topics-and-messages)
 - [14/WAKU2-MESSAGE](/messaging/standards/core/14/message.md)
 - [12/WAKU2-FILTER](/messaging/standards/core/12/filter.md)
