@@ -159,7 +159,7 @@ Stream state transitions:
   The stream also transitions automatically from ACTIVE to PAUSED
   when allocated funds are fully accrued.
 - Resume: User resumes a PAUSED stream, restarting accrual.
-  Resume MUST fail if remaining allocation is zero.
+  Resume MUST fail if unaccrued balance is zero.
 - Top-Up: User MAY add funds to stream allocation.
   Top-up MUST transition the stream to ACTIVE state.
   If the user wants to add funds without resuming,
@@ -170,7 +170,8 @@ Stream state transitions:
   unaccrued funds MUST automatically return to the user's vault.
   Accrued funds remain available for the provider to claim.
 - Claim: Provider MAY claim accrued funds from a stream in any state.
-  A claim MUST transfer the full accrued balance;
+  A claim MUST transfer the full accrued balance to the provider
+  and MUST reduce the stream's allocation by the payout amount;
   partial claims are not supported.
   A claim operation does not change stream state.
 
@@ -548,150 +549,231 @@ in a `PARAMS_REJECTED` response,
 enabling iterative negotiation
 before the first request is served.
 
-## Implementation Considerations
+## On-Chain Protocol
 
-This section outlines how the protocol maps onto LEZ.
+This section describes the on-chain components of the protocol:
+the account model, address derivation, balance accounting,
+accrual semantics, authorization, and privacy tiers.
 
-### Scope and Mapping
+### Account Types
 
-This section maps the protocol semantics in this RFC
-to a concrete LEZ on-chain account and instruction model.
+The program stores state in three account types:
+`VaultConfig`, `VaultHolding`, and `StreamConfig`.
 
-### On-Chain Data Model
+`VaultConfig` stores vault metadata and the authorization anchor.
+Its `owner` field is the authorization anchor for owner-gated instructions.
+For `PseudonymousFunder`-tier vaults,
+`owner` SHOULD be an identifier derived from a nullifier public key,
+distinct from the user's primary wallet key.
 
-The stream protocol MAY be deployed as a single LEZ program
-with three account types.
-The exact field layouts are intentionally deferred
-to follow implementation progress in this repository.
+`VaultHolding` is a dedicated account; its platform-native balance is the vault's total funds.
+`VaultHolding` stores only a version byte in its application data.
 
-#### VaultConfig
-
-`VaultConfig` stores vault metadata and authority information
-for one user-controlled vault.
-It is the vault configuration account used for authorization and stream association.
-
-#### VaultHolding
-
-`VaultHolding` stores vault funds
-using LEZ-native balance mechanics for MVP.
-It is the vault holding account used by deposit, withdraw, and settlement flows.
-
-#### StreamConfig
-
-`StreamConfig` stores stream parameters and mutable state,
-including lifecycle status and accrual tracking fields.
-Each stream belongs to exactly one vault
-and targets exactly one provider.
+`StreamConfig` stores per-stream parameters and lazy accrual state.
 
 ### PDA Derivation
 
-Vault and stream accounts MUST use deterministic account derivation
-from canonical seeds defined by the program.
-Implementations MUST verify that every provided account address
-matches the expected derivation for the operation being executed.
+Vault and stream accounts are program-derived addresses (PDAs):
+their identifiers are derived deterministically from a canonical set of seeds.
+Any client can compute a vault or stream address locally
+without querying the chain,
+given the owner identifier, vault identifier, and stream identifier.
 
-### Instructions
+`VaultConfig` seeds include the owner account identifier
+and a user-chosen vault identifier,
+binding each vault to its authorization anchor at derivation time.
+`VaultHolding` is derived from the `VaultConfig` address,
+keeping the two vault accounts co-located.
+`StreamConfig` is derived from the `VaultConfig` address
+and a stream identifier assigned sequentially by the program on stream creation.
+Provider identity is stored as a field in `StreamConfig`
+rather than encoded in the PDA seeds,
+so a vault may back multiple streams to the same provider.
 
-This subsection defines the on-chain instruction surface
-that realizes the stream lifecycle defined earlier in this RFC.
-Each instruction definition should specify required accounts,
-authorization rules, and state or balance effects.
+### Balance Accounting
 
-#### InitializeVault
+All vault funds reside in `VaultHolding`; let B denote its balance.
 
-Creates a new vault account set for a user
-and initializes its control and holding accounts.
-The final text should define uniqueness rules per owner and vault identifier.
+Defined quantities (only B and stored account fields are on-chain):
 
-#### Deposit
+- Unallocated: B − total_allocated.
+  Bounds withdrawals and new stream allocations.
+- Allocation (per stream): the vault's current commitment to that stream,
+  equal to accrued + unaccrued.
+  Allocation decreases as the provider claims accrued funds.
+- Unaccrued (per stream): allocation − accrued.
 
-Moves funds into a vault holding account.
-The final text should define accepted sources and post-deposit invariants.
+Two solvency invariants MUST hold after every mutating instruction:
 
-#### Withdraw
+1. vault_holding.balance ≥ vault_config.total_allocated
+2. total_allocated = Σ stream.allocation across all streams for this vault,
+   including closed streams with residual accrued balance.
 
-Moves unallocated funds out of a vault holding account.
-The final text should require owner authorization
-and enforce available-balance constraints.
+Instructions maintain the second invariant by applying the same delta to `total_allocated`
+whenever any stream's `allocation` changes.
 
-#### CreateStream
+### Lazy Accrual
 
-Creates a new stream bound to a vault and provider
-with initial allocation and rate parameters.
-The final text should require sufficient available vault balance.
+Stream state is a pure function of stored `StreamConfig` fields and the current timestamp.
+A client can compute the effective stream state —
+including whether a stream has auto-paused on depletion —
+by reading `StreamConfig` and a clock account locally,
+without submitting a write transaction.
 
-#### PauseStream
+Computing elapsed accrual up to the current timestamp and applying any resulting state
+transitions is called folding the stream.
+Every instruction that touches a stream folds accrual first, then applies its own transition.
 
-Transitions a stream from ACTIVE to PAUSED.
-The final text should define authorized caller rules
-and required accrual update behavior before transition.
+Accrual runs only while the stream is `ACTIVE`.
+A paused or closed stream does not accrue over elapsed time.
+When a stream depletes, it transitions to `PAUSED` at the computed depletion instant,
+which may precede the time of the following instruction.
 
-#### ResumeStream
+The program reads time from a system clock account supplied by the client.
+Three platform clock accounts exist, updated at different frequencies.
+The client selects which to use per instruction;
+the program validates the provided account identifier against the set of system clock accounts.
+Finer-granularity clocks give more precise accrual folds;
+coarser clocks reduce metadata churn.
+In shielded execution, coarser clocks also limit timing correlations visible to observers.
+See Security and Privacy Considerations.
 
-Transitions a stream from PAUSED to ACTIVE.
-The final text should fail resume when remaining allocation is zero.
+### Authorization
 
-#### TopUpStream
+Authorization means a cryptographic signature in transparent transactions
+and proof of account control in shielded transactions.
 
-Adds allocation to an existing stream
-and updates accounting accordingly.
-The final text should define whether top-up forces ACTIVE state.
+Most instructions require authorization by the vault owner.
+Two instructions are exceptions.
 
-#### CloseStream
+`CloseStream` accepts authorization by either the vault owner or the stream provider,
+allowing the provider to initiate closure without requiring the owner's cooperation.
+`Claim` is authorized by the provider.
 
-Permanently closes a stream
-and returns unaccrued funds to the backing vault balance.
-The final text should define who can close and idempotency behavior.
+Both `CloseStream` and `Claim` include the vault owner
+as an explicit non-signing account,
+checked for equality with `VaultConfig.owner`.
+This binding is defense in depth alongside PDA derivation,
+which already ties the vault config to the owner identifier.
 
-#### Claim
+Closing an already-closed stream is an error.
 
-Transfers accrued stream funds to the provider.
-The final text should define caller permissions
-and claim behavior across ACTIVE, PAUSED, and CLOSED states.
+### Privacy Tiers
 
-### Balance Accounting Rules
+`VaultPrivacyTier` is stored in `VaultConfig` and is immutable for the vault's lifetime.
 
-This subsection should define canonical accounting variables,
-including vault balance, total allocated, and available balance.
-All instructions MUST preserve balance conservation across vault and stream state.
-
-### Time Source and Accrual
-
-Stream state is evaluated lazily.
-On-chain storage holds stream parameters,
-but the effective state depends on elapsed time at execution.
-This MVP uses a mock timestamp source
-until a LEZ-native timestamp mechanism is finalized.
-
-### Validation Rules
-
-This subsection should collect cross-cutting checks
-such as authorization, state-transition legality,
-overflow or underflow protection, and account ownership checks.
-Instruction-level rules should reference these common invariants.
-
-### Execution Modes
-
-The same guest logic is intended to support both
-transparent and shielded execution paths.
-Given a mechanism for elapsed time in shielded execution,
-all protocol operations MAY be performed within shielded execution.
+- `Public`: the vault may be operated via transparent or shielded transactions.
+  No owner-funding unlinkability guarantee.
+- `PseudonymousFunder`: the vault is intended for shielded-only operation
+  under our host or wallet.
+  The goal is to prevent linking the vault owner's primary public key
+  to vault and stream activity on-chain.
+  See Security and Privacy Considerations.
 
 ## Security and Privacy Considerations
 
-An initial privacy goal is unlinkability
-between off-chain requests and on-chain funding.
-Vault deposits MUST NOT reveal the depositor's identity.
-Stream creation SHOULD NOT reveal which vault funded the stream.
+This section describes the privacy properties of the protocol,
+what they provide, and their limits.
 
-Each account MAY be public or private, configured per-account.
-The payer decides whether stream operations use
-transparent or shielded execution.
-The protocol design SHOULD NOT fix this decision.
-A provider MAY reject stream requests
-that do not match their privacy preferences.
+### Privacy Goals
 
-On-chain state of a stream MUST be verifiable by both parties.
+The primary privacy goal is funder unlinkability:
+preventing an observer from linking the vault owner's primary public key
+to on-chain vault and stream activity.
+
+A secondary goal is provider privacy:
+enabling a provider to receive funds
+without revealing their real receiving addresses.
+
+### Execution Modes and Linkability
+
+The same program logic executes in both transparent and shielded transactions.
+Business logic — accrual math, lifecycle transitions, authorization predicates —
+is identical across modes.
+What differs is account visibility
+and what linkage an observer can infer from on-chain artifacts.
+
+Vault and stream PDAs are public accounts regardless of execution mode.
+An observer can reconstruct the vault-to-stream graph from public account identifiers.
+Shielded execution can hide the identity behind private signing accounts
+and the destinations of private transfers,
+but it does not hide the existence of a stream,
+its accrual state,
+or the association between a vault and its streams.
+
+### Stream Lifetime and Funder Unlinkability
+
+If a stream is created in a transparent transaction,
+it is permanently linked to its vault owner on-chain.
+No subsequent shielded execution can undo this linkage.
+To achieve funder unlinkability,
+a stream must be created and operated entirely via shielded transactions.
+
+The protocol captures this through two tiers assigned at vault creation time.
+
+A `Public`-tier vault may use transparent and shielded transactions.
+Shielded execution provides selective confidentiality on individual operations
+but does not provide funder unlinkability
+if the vault has ever appeared on a transparent path.
+
+A `PseudonymousFunder`-tier vault is intended to operate entirely via shielded transactions.
+Our host and wallet implementations enforce this
+by refusing to submit transparent transactions that touch these vaults.
+The same guest code runs in both transparent and shielded transactions
+and cannot determine which mode triggered it;
+shielded-only enforcement is therefore host or wallet responsibility.
+A future consensus-level hook could extend this enforcement
+to arbitrary submitters,
+but that is out of scope for this implementation.
+
+For a `PseudonymousFunder`-tier vault to provide meaningful unlinkability,
+the owner's spendable balance SHOULD be pre-shielded before vault funding.
+A transparent transfer from a primary public key into a private persona
+creates a traceable hop on-chain;
+subsequent shielded operations may not add further edges
+from that public key to the vault,
+but they do not erase the first hop.
+
+`VaultConfig` is a public account even for `PseudonymousFunder`-tier vaults.
+Its `owner` field is a persistent plaintext pseudonym visible to observers;
+for `PseudonymousFunder` vaults it SHOULD be a nullifier-public-key-derived identifier
+distinct from the user's primary wallet key.
+The unlinkability target is separation of the primary public key from that pseudonym,
+not hiding the pseudonym itself.
+
+### Verifiability
+
+On-chain state of a stream is verifiable by both parties regardless of privacy tier.
+`StreamConfig` is a public account.
+A provider who knows the stream identifier can derive the account address locally
+and read its accrual state from the chain at any time,
+without knowing the vault owner's real-world identity.
+
+### Provider Privacy
+
+`StreamConfig` stores the provider identifier in plaintext.
+The association between a stream and its provider identifier is always visible on-chain.
+
+A provider who wants to conceal their real receiving addresses
+SHOULD use a long-term public-facing provider identifier
+alongside one or more shielded receiving addresses,
+and claim funds to those addresses via shielded transactions.
+An observer then sees that a provider claimed from a stream
+but not where the funds were transferred.
+Each transparent claim permanently links the stream to the receiving address for that claim.
+Shielded claims to different addresses are independently unlinkable,
+regardless of prior transparent claims.
+
+### Achieving Unlinkability
+
+Shielded transactions alone do not guarantee unlinkability.
+To achieve funder unlinkability on a `PseudonymousFunder`-tier vault,
+the vault owner MUST use shielded transactions for all vault and stream operations
+and MUST pre-shield funds before depositing,
+so no transparent transaction links the primary public key to the vault.
+To achieve provider-address unlinkability,
+the provider MUST use shielded claims directed to addresses
+not otherwise linked to their primary identity.
 
 ## References
 
