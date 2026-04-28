@@ -14,6 +14,9 @@ build:
 	mdbook build
 
 lint:
+	python scripts/gen_rfc_index.py
+	python scripts/gen_summary.py
 	python scripts/validate_metadata.py --check
+	python scripts/validate_generated_outputs.py
 	npx markdownlint-cli2@0.12.1 "docs/**/*.md" --config .markdownlint.yaml
 	npm run lint:remark

@@ -36,6 +36,11 @@ SEPARATOR_RE = re.compile(r"^\|\s*:?-{3,}:?\s*\|\s*:?-{3,}:?\s*\|$")
 ROW_RE = re.compile(r"^\|\s*([^|]+?)\s*\|\s*(.*?)\s*\|$")
 HEADER_RE = re.compile(r"^\|\s*field\s*\|\s*value\s*\|$", re.IGNORECASE)
 NUMERIC_RE = re.compile(r"^[1-9][0-9]*$")
+FRONT_MATTER_KEY_RE = re.compile(
+    r"^(title|name|slug|status|type|category|tags|editor|contributors)\s*:",
+    re.IGNORECASE,
+)
+CANONICAL_HEADER = "| Field | Value |"
 
 
 @dataclass
@@ -103,6 +108,35 @@ def find_metadata_table(lines: List[str]) -> Optional[TableInfo]:
 
         return TableInfo(start=idx, separator=idx + 1, end=row_idx, rows=rows)
     return None
+
+
+def first_nonblank_line(lines: List[str], start: int = 0) -> Optional[int]:
+    for idx in range(start, len(lines)):
+        if lines[idx].strip():
+            return idx
+    return None
+
+
+def has_yaml_front_matter(lines: List[str]) -> bool:
+    first = first_nonblank_line(lines)
+    if first is None or lines[first].strip() != "---":
+        return False
+
+    for idx in range(first + 1, min(len(lines), first + 80)):
+        line = lines[idx].strip()
+        if line == "---":
+            block = lines[first + 1 : idx]
+            return any(FRONT_MATTER_KEY_RE.match(item.strip()) for item in block)
+    return False
+
+
+def expected_metadata_table_start(lines: List[str]) -> Optional[int]:
+    first = first_nonblank_line(lines)
+    if first is None:
+        return None
+    if lines[first].startswith("# "):
+        return first_nonblank_line(lines, first + 1)
+    return first
 
 
 def read_doc(path: Path) -> DocInfo:
@@ -180,13 +214,24 @@ def maybe_assign_slugs(docs: List[DocInfo], check_mode: bool) -> List[DocInfo]:
 
 
 def validate_doc(doc: DocInfo) -> None:
+    if has_yaml_front_matter(doc.lines):
+        doc.errors.append(
+            "YAML front matter is not supported; use the canonical Markdown metadata table"
+        )
+
     if not doc.table:
-        doc.errors.append("missing metadata table '| Field | Value |'")
+        doc.errors.append(f"missing metadata table '{CANONICAL_HEADER}'")
         return
 
+    expected_start = expected_metadata_table_start(doc.lines)
+    if expected_start is not None and doc.table.start != expected_start:
+        doc.errors.append(
+            "metadata table must appear at the top of the spec, immediately after the optional H1"
+        )
+
     # Ensure standard header rows remain canonical.
-    if doc.lines[doc.table.start].strip() != "| Field | Value |":
-        doc.errors.append("metadata header row must be exactly '| Field | Value |'")
+    if doc.lines[doc.table.start].strip() != CANONICAL_HEADER:
+        doc.errors.append(f"metadata header row must be exactly '{CANONICAL_HEADER}'")
     if not SEPARATOR_RE.match(doc.lines[doc.table.separator].strip()):
         doc.errors.append("metadata separator row is malformed")
 
