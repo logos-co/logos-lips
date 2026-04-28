@@ -481,17 +481,6 @@ recovery mode and returns the protocol to the normal working state.
 Finally, under the assumption that at least `2n/3` honest members follow the de-MLS protocol,
 the deadlock `Emergency Criteria Proposal` cannot be finalized with NO.
 
-#### Re-election and Recovery within the Same Epoch
-
-In cases where a `steward election proposal` is rejected
-(i.e., finalized with a NO outcome), the MLS epoch remains unchanged.
-To preserve liveness, members MAY initiate a new steward election proposal within the same epoch,
-incrementing the local `retry_round` counter by one from its initial value of zero.
-Each increment produces a distinct deterministic ordering via
-`SHA256(epoch E || retry_round || member id || group id)`,
-yielding a different but verifiable candidate shuffling without advancing the MLS epoch.
-Multiple re-election proposals with different `retry_round` values MAY coexist in the network.
-
 ### Multi steward with big consensuses
 
 In this model, all group modifications, such as adding or removing members,
@@ -518,8 +507,6 @@ then the steward list size MUST be equal to the total member count.
 and group changes are ready to be committed as specified in single steward section
 with a difference which is members also check the committed steward is `epoch steward` or `backup steward`,
 otherwise anyone can create `emergency criteria proposal`.
-4. If the `epoch steward` violates the changing process as described in the Steward Violation List,
-one of the members MUST initialize an `emergency criteria proposal` to apply a peer score penalty to the malicious steward.
 
 A large consensus group provides better decentralization, but it requires significant coordination,
 which MAY not be suitable for groups with more than 1000 members.
@@ -649,8 +636,7 @@ Peer score updates MUST be performed only for stewards that are active in the cu
 Peer scores may decrease due to violations and increase due to honest behavior;
 such score adjustments are derived from observable protocol events, such as
 successful commits or emergency criteria proposals, and each peer updates its local table accordingly.
-In particular, peer score updates MAY be triggered either by direct local observation of protocol violations
-or by the finalized outcome of a governance vote.
+In particular, peer score updates MAY be triggered either by direct local observation of protocol violations.
 Regardless of the trigger, score updates are applied locally by each peer to its own peer score table.
 
 Members MUST periodically evaluate peer scores against the predefined threshold `threshold_peer_score`.
@@ -664,9 +650,10 @@ The exact scoring rules, recovery mechanisms, and escalation criteria are left f
 
 ## Timer-Based Anti-Deadlock Mechanism
 
-In de-MLS, a deadlock refers to a prolonged period during which no valid commit is produced
+In de-MLS, an epoch deadlock refers to a prolonged period during which no valid commit is produced
 despite the presence of at least one `finalized commit proposal` that require a group state change.
-To mitigate deadlock risks in de-MLS, a timer-based anti-deadlock mechanism SHOULD be introduced.
+To mitigate epoch deadlock risks in de-MLS, a timer-based anti-deadlock mechanism SHOULD be applied in Layer 1,
+as it enables recovery while the current steward list is still active.
 
 Each member maintains a local timer with a configured `threshold_duration`.
 The timer MUST start when the member observes a `finalized commit proposal` that requires a corresponding commit
@@ -675,13 +662,10 @@ the [commit validation service](#commit-validation-service) outputs a valid comm
 
 If the `threshold_duration` is exceeded, the member waits an additional buffer period to account for network delays
 and then triggers a high-priority `emergency proposal` indicating a potential deadlock.
-If the proposal returns YES, the protocol SHOULD temporarily allow any member to commit in order to restore liveness.
+If the proposal returns YES, as `emergency proposal` logic, it iterates the `epoch steward` to provide liveness.
 Since timers may expire at different times in a P2P setting,
 the buffer period mitigates false positives, while commit filtering is required
 to prevent commit flooding during recovery.
-
-This timer-based method is used only for anti-deadlock detection.
-Cases where a commit message includes fewer finalized voting proposals than expected are handled by [Steward Violation List](#steward-violation-list).
 Emergency proposals that return NO, MUST incur a peer score penalty for the creator of the proposal to reduce abuse.
 
 ## Security Considerations
