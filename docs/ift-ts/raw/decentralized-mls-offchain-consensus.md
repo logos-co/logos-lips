@@ -62,6 +62,7 @@ are to be interpreted as described in [2119](https://www.ietf.org/rfc/rfc2119.tx
 
 ### Assumptions
 
+- At least $2n/3$ of the members are honest and follow the de-MLS protocol as specified.
 - The nodes in the P2P network can discover other nodes or will connect to other nodes when subscribing to same topic in a gossipsub.
 - The presence of non-reliable (silent) nodes MAY be assumed.
 - A lightweight, scalable consensus mechanism with deterministic finality within a specific time MUST be employed.
@@ -409,6 +410,76 @@ Any proposal with a list that does not adhere to this generation method MUST be 
 It is assumed that that there are no recurring entries in `SHA256(epoch E || member id || group id)`,
 since the SHA256 outputs are unique when there is no repetition in the `member id` values,
 against the conflicts on sorting issues.
+
+#### Three-Layer Steward Protection Mechanism
+
+de-MLS employs a three-layer protection mechanism to preserve liveness while maintaining security guarantees.
+Mitigation of malicious behavior proceeds progressively across layers.
+Layer 1 applies local prevention and recovery strategies; if the issue cannot be resolved at this level,
+Layer 2 introduces coordinated fallback mechanisms;
+finally, Layer 3 enforces network-wide corrective actions.
+Each layer is activated only if the previous layer fails to restore normal operation,
+ensuring minimal intervention while maintaining system continuity.
+
+##### Layer 1 - Local steward rotation
+Layer 1 ensures that a finalized voting proposal is committed by locally rotating over the active `steward list` in deterministic order.
+
+A steward is eligible to act as the `epoch steward` if there is no malicious behavior as defined in [Steward Violation List](#steward-violation-list).
+Otherwise, the `epoch steward` MUST be considered ineligible and MUST be locally assigned a low score by members.
+Upon detecting an `epoch steward` with lower peer score than `threshold_peer_score`,
+members MAY initiate an Emergency Criteria Proposal (ECP) to remove the current `epoch steward`.
+Once removal is accepted, the `backup steward` becomes the new `epoch steward`.
+
+Until such removal is finalized, members MUST skip the ineligible steward and continue walking the `steward list`.
+The first eligible steward in the list SHOULD produce the commit.
+If the `epoch steward` is ineligible, the `backup steward`, or the next eligible steward in the list,
+MAY commit without requiring an Emergency Criteria Proposal.
+
+Even in the presence of malicious or silent stewards,
+Layer 1 preserves liveness by progressing through the `steward list`
+until an eligible steward is found to produce the commit.
+This guarantees that isolated failures do not block the system.
+If no eligible steward can be found across the entire `steward list`,
+or if the issue cannot be resolved within Layer 1,
+the protocol escalates to Layer 2 for coordinated recovery.
+
+##### Layer 2 - Re-election
+
+Layer 2 enables re-election when Layer 1 fails to produce an eligible steward from the active `steward list`.
+In this layer, the members MAY initiate a new `steward election proposal` within the same MLS epoch.
+Since the MLS epoch does not advance in this case,
+the proposer MUST increment the local `retry_round` value and generate a new deterministic steward ordering using:
+
+`SHA256(epoch E || retry_round || member id || group id)`.
+
+Members that are pending removal, self-removal,
+or otherwise ineligible MUST be excluded from the proposed steward list.
+
+If the re-election proposal is finalized with YES, the new `steward list` is installed and Layer 1 is applied again.
+Otherwise, if the proposal is finalized with NO, `retry_round` MUST be incremented
+and the re-election process MAY be repeated until `max_reelection_attempts` is reached.
+Note that `max_reelection_attempts` is the parameter that is set during group creation.
+
+If no new `steward list` can be established after exhausting `max_reelection_attempts`,
+the system enters a steward deadlock condition, and Layer 3 MUST be activated.
+
+##### Layer 3 - Bounded retry failure
+
+Layer 3 is the final layer of the liveness mechanism and is triggered only
+when Layer 2 fails after `max_reelection_attempts` many re-elections.
+
+At this point, any member MAY submit an `Emergency Criteria Proposal` with deadlock `violation_type`.
+This proposal does not target a specific member for removal.
+Instead, it signals that the protocol cannot produce a valid commit
+through the active steward list or through bounded re-election.
+
+If the deadlock `Emergency Criteria Proposal` is finalized with YES, 
+the protocol enters a temporary recovery mode.
+During recovery mode, the steward gate is relaxed and any remaining member MAY produce the next valid commit.
+The first valid commit that is accepted by the commit validation service ends
+recovery mode and returns the protocol to the normal working state.
+Finally, under the assumption that at least `2n/3` honest members follow the de-MLS protocol,
+the deadlock `Emergency Criteria Proposal` cannot be finalized with NO.
 
 #### Re-election and Recovery within the Same Epoch
 
