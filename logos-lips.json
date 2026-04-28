@@ -460,15 +460,6 @@
   },
   {
     "component": "ift-ts",
-    "slug": "72",
-    "title": "RFC Template",
-    "status": "raw/draft/approved/stable/verified/deprecated/retired/deleted",
-    "category": "Standards Track/Informational/Best Current Practice",
-    "updated": "2026-04-20",
-    "path": "ift-ts/template.html"
-  },
-  {
-    "component": "ift-ts",
     "slug": "73",
     "title": "Hashgraphlike Consensus Protocol",
     "status": "raw",
@@ -824,7 +815,7 @@
     "title": "Merkle Tree",
     "status": "draft",
     "category": "Standards Track",
-    "updated": "2026-04-20",
+    "updated": "2026-04-28",
     "path": "storage/raw/merkle-tree.html"
   },
   {
