@@ -424,11 +424,10 @@ ensuring minimal intervention while maintaining system continuity.
 ##### Layer 1 - Local steward rotation
 Layer 1 ensures that a finalized voting proposal is committed by locally rotating over the active `steward list` in deterministic order.
 
-A steward is eligible to act as the `epoch steward` if there is no malicious behavior as defined in [Steward Violation List](#steward-violation-list).
-Otherwise, the `epoch steward` MUST be considered ineligible and MUST be locally assigned a low score by members.
-Upon detecting an `epoch steward` with lower peer score than `threshold_peer_score`,
-members MAY initiate an Emergency Criteria Proposal (ECP) to remove the current `epoch steward`.
-Once removal is accepted, the `backup steward` becomes the new `epoch steward`.
+A steward is eligible to act as the `epoch steward` if it is a current group member and not pending removal.
+Misbehavior per the [Steward Violation List](#steward-violation-list) does not affect eligibility directly;
+it decrements peer score per the [Peer Scoring section](#peer-scoring),
+and a steward becomes ineligible only once a `Emergency Criteria Proposal (ECP)` finalizes the removal.
 
 Until such removal is finalized, members MUST skip the ineligible steward and continue walking the `steward list`.
 The first eligible steward in the list SHOULD produce the commit.
