@@ -580,18 +580,11 @@ members MUST reject any proposal claiming auto-YES status that fails this check
 and MAY apply a peer-score penalty against the sender.
 Qualifying proposals MUST be processed by the epoch steward in the subsequent commit.
 
-If the `epoch steward` intends to remove itself from the group, it MUST first
-offload its epoch steward role before its removal can be committed.
-Two  approaches are valid at the application level:
-
-- The `epoch steward` waits until it has committed all currently finalized voting proposals,
-or if none are pending, MAY initiate a self key rotate request to trigger an epoch transition and naturally offload its role.
-
-- The `epoch steward` creates its own remove proposal, which is automatically finalized with a YES outcome,
-but deliberately does not commit it, leaving it to the subsequent epoch steward to include in the next commit.
-This constitutes a valid exception to the requirement that finalized voting proposals MUST be committed;
-the epoch steward MUST NOT be penalized for this omission.
-Under this approach, removal requires only a single commit by the subsequent epoch steward.
+The offload mechanism is implementation-defined — 
+examples include queuing the removal for the next eligible steward to commit on their next turn, 
+or triggering an epoch transition (e.g. via a key rotation) so that role rotation hands off naturally. 
+The originating steward MUST NOT be penalized for omitting its own removal from its commits — 
+this is a recognized exception to the rule that finalized voting proposals MUST be committed.
 
 Implementations MAY choose either approach. Both are compliant with this specification.
 
