@@ -41,7 +41,7 @@ Other terms are as defined in the [Mix Protocol](./mix.md), [Mix DoS Protection]
 
 - **`R_min`**: The minimum rate limit a node may be registered with. `R_min ≥ 1`.
 
-- **`R_max`**: The maximum rate limit any node may be assigned, regardless of stake, expressed as `f × R_base` where `f` is a deployment-defined multiplier `≥ 1`.
+- **`R_max`**: The maximum rate limit any node may be assigned, regardless of stake, expressed as `f × R_base` where `f ≥ 1` is a deployment-defined multiplier.
 
 - **floor-stake**: The minimum stake required to register, `R_min × S_unit`.
   Nodes with stake below floor-stake are rejected at registration.
@@ -165,9 +165,9 @@ All per-hop verification and slashing logic are as defined in [RLN Per-Hop DoS P
 | Parameter | Description |
 | --- | --- |
 | `S_unit` | Stake required per message per epoch. Deployment-defined. |
-| `R_min` | Minimum rate. Nodes with `stake < R_min × S_unit` MUST be rejected. |
+| `R_min` | Minimum rate. Nodes with stake `S < R_min × S_unit` MUST be rejected. |
 | `R_max` | `f × R_base`. Maximum rate regardless of stake. |
-| `f` | Deployment multiplier `≥ 1`. Controls the maximum rate relative to the base rate. |
+| `f` | Deployment multiplier `f ≥ 1`. Controls the maximum rate relative to the base rate. |
 
 `S_unit` SHOULD be set such that a floor-stake node generating only mandatory cover traffic at the rate specified in [Mix Cover Traffic](./mix-cover-traffic.md) can sustain operation at `R_min`.
 
