@@ -560,7 +560,9 @@ Therefore, proposal equivalence alone does not guarantee state equivalence.
 If multiple valid commits contain the identical deterministic proposal sequence,
 the commit validation service MUST select first, if there is `Epoch steward`,
 otherwise the commit whose `committer ID` is lexicographically smallest (according to canonical ordering)
-as the single valid output, thereby avoiding different state forks.
+the commit validation service MUST select the epoch steward's commit when present;
+otherwise (e.g. during Layer 3 recovery mode, where any member MAY commit) 
+the commit with the lexicographically smallest committer ID is selected, avoiding different state forks.
 Competing commits that contain the same deterministic proposal sequence
 but differ only due to steward-generated MLS commit entropy MUST NOT be classified as misbehaviour
 and MAY instead be treated as honest participation for peer scoring purposes.
