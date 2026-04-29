@@ -573,17 +573,17 @@ a member cannot apply a commit that removes itself from the group;
 otherwise, the resulting group key would be accessible to the removed member again,
 which is a contradiction of removal.
 
-A member's request to leave the group is not subject to voting. 
+A member's request to leave the group is not subject to voting.
 A removal voting proposal is auto-finalized YES only if its sender,
 proposal_owner, and RemoveMember.target all reference the same identity;
 members MUST reject any proposal claiming auto-YES status that fails this check
 and MAY apply a peer-score penalty against the sender.
 Qualifying proposals MUST be processed by the epoch steward in the subsequent commit.
 
-The offload mechanism is implementation-defined — 
-examples include queuing the removal for the next eligible steward to commit on their next turn, 
-or triggering an epoch transition (e.g. via a key rotation) so that role rotation hands off naturally. 
-The originating steward MUST NOT be penalized for omitting its own removal from its commits — 
+The offload mechanism is implementation-defined,
+examples include queuing the removal for the next eligible steward to commit on their next turn,
+or triggering an epoch transition (e.g. via a key rotation) so that role rotation hands off naturally.
+The originating steward MUST NOT be penalized for omitting its own removal from its commits,
 this is a recognized exception to the rule that finalized voting proposals MUST be committed.
 
 Implementations MAY choose either approach. Both are compliant with this specification.
