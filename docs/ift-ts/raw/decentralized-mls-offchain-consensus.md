@@ -463,7 +463,7 @@ Note that `max_reelection_attempts` is the parameter that is set during group cr
 If no new `steward list` can be established after exhausting `max_reelection_attempts`,
 the system enters a steward deadlock condition, and Layer 3 MUST be activated.
 
-##### Layer 3 - Bounded retry failure
+##### Layer 3 — Anti-deadlock ECP
 
 Layer 3 is the final layer of the liveness mechanism and is triggered only
 when Layer 2 fails after `max_reelection_attempts` many re-elections.
