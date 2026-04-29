@@ -433,13 +433,11 @@ When the nominal epoch steward is ineligible,
 members MUST walk the steward list in deterministic order and accept the commit produced by the first eligible steward.
 The `backup steward` or any subsequent eligible steward MAY commit without an Emergency Criteria Proposal.
 
-Even in the presence of malicious or silent stewards,
-Layer 1 preserves liveness by progressing through the `steward list`
-until an eligible steward is found to produce the commit.
-This guarantees that isolated failures do not block the system.
-If no eligible steward can be found across the entire `steward list`,
-or if the issue cannot be resolved within Layer 1,
-the protocol escalates to Layer 2 for coordinated recovery.
+Even when individual stewards are silent or have been removed,
+Layer 1 preserves liveness by walking the steward list until an eligible steward produces the commit.
+Misbehaving stewards continue to participate in rotation until accumulated scoring triggers `Emergency Criteria Proposal (ECP)`,
+at which point removal makes them ineligible and Layer 1 walks past them on subsequent rounds.
+If no eligible steward exists across the entire list, the protocol escalates to Layer 2.
 
 ##### Layer 2 - Re-election
 
