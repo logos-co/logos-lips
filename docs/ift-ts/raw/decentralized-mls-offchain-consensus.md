@@ -577,9 +577,11 @@ otherwise, the resulting group key would be accessible to the removed member aga
 which is a contradiction of removal.
 
 A member's request to leave the group is not subject to voting. 
-A removal voting proposal is auto-finalized YES only if its sender, proposal_owner, and RemoveMember.target all reference the same identity;
-members MUST reject any proposal claiming auto-YES status that fails this check and MAY apply a peer-score penalty against the sender. Qualifying proposals MUST be processed by the epoch steward in the
-subsequent commit.
+A removal voting proposal is auto-finalized YES only if its sender,
+proposal_owner, and RemoveMember.target all reference the same identity;
+members MUST reject any proposal claiming auto-YES status that fails this check
+and MAY apply a peer-score penalty against the sender.
+Qualifying proposals MUST be processed by the epoch steward in the subsequent commit.
 
 If the `epoch steward` intends to remove itself from the group, it MUST first
 offload its epoch steward role before its removal can be committed.
