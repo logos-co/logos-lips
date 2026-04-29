@@ -1325,21 +1325,23 @@ repeatedly request new tickets hoping for better waiting times,
 registrars MUST enforce lower bounds:
 
 Invariant: A new waiting time `w_2` at time `t_2`
-cannot be smaller than a previous waiting time `w_1` at time `t_1`
+MUST NOT be smaller than a previous waiting time `w_1` at time `t_1`
 (where `t_1 < t_2`) by more than the elapsed time:
 
 ```text
 w_2 ≥ w_1 - (t_2 - t_1)
 ```
 
-For each `service_id_hash` and each `IP`, the registrar maintains:
+For each `service_id_hash` and each `IP`, the registrar SHOULD maintain:
 
 - `bound`: the last issued waiting time (`w_1`) when bound value was updated
 - `timestamp`: the time at which `w_1` was issued (`t_1`)
 
 The total waiting time will respect the lower bound if lower bound is enforced on these.
-These two sets have bounded size because the number of `ads`
-present in the `ad_cache` at any time is bounded by `C`.
+Service-level entries are bounded by the number of distinct `service_id_hash` values
+for which non-expired `WAIT` tickets have been issued.
+IP-level entries are bounded by the number of distinct `IPs`
+appearing in advertisements associated with non-expired `WAIT` tickets.
 
 **How SHOULD lower bound be calculated**
 
@@ -1371,6 +1373,8 @@ if w_2 > remaining_bound:
   bound(IP) = w_2
   timestamp(IP) = t_2
 ```
+
+The lower-bound state is removed when the corresponding entry expires.
 
 This ensures that both the service-based and IP-based waiting times
 respect the lower-bound rule before the final ticket waiting time is issued.
