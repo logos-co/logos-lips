@@ -429,10 +429,9 @@ Misbehavior per the [Steward Violation List](#steward-violation-list) does not a
 it decrements peer score per the [Peer Scoring section](#peer-scoring),
 and a steward becomes ineligible only once a `Emergency Criteria Proposal (ECP)` finalizes the removal.
 
-Until such removal is finalized, members MUST skip the ineligible steward and continue walking the `steward list`.
-The first eligible steward in the list SHOULD produce the commit.
-If the `epoch steward` is ineligible, the `backup steward`, or the next eligible steward in the list,
-MAY commit without requiring an Emergency Criteria Proposal.
+When the nominal epoch steward is ineligible,
+members MUST walk the steward list in deterministic order and accept the commit produced by the first eligible steward.
+The `backup steward` or any subsequent eligible steward MAY commit without an Emergency Criteria Proposal.
 
 Even in the presence of malicious or silent stewards,
 Layer 1 preserves liveness by progressing through the `steward list`
