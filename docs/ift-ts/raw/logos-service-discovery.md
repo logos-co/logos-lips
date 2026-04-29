@@ -1332,31 +1332,48 @@ cannot be smaller than a previous waiting time `w_1` at time `t_1`
 w_2 ≥ w_1 - (t_2 - t_1)
 ```
 
-Thus registrars MUST maintain lower bound state for:
+For each `service_id_hash` and each `IP`, the registrar maintains:
 
-- Each service in the cache: `bound(service_id_hash)` and `timestamp(service_id_hash)`
-- Each IP prefix in the IP tree: `bound(IP)` and `timestamp(IP)`
+- `bound`: the last issued waiting time (`w_1`) when bound value was updated
+- `timestamp`: the time at which `w_1` was issued (`t_1`)
 
 The total waiting time will respect the lower bound if lower bound is enforced on these.
-These two sets have a bounded size as number of `ads` present in the `ad_cache`
-at a time is bounded by the cache capacity `C`.
+These two sets have bounded size because the number of `ads`
+present in the `ad_cache` at any time is bounded by `C`.
 
-**How SHOULD lower bound be calculated for service IDs:**
+**How SHOULD lower bound be calculated**
 
-When new `service_id_hash` enters the cache, `bound(service_id_hash)` is set to `0`,
-and a `timestamp(service_id_hash)` is set to the current time.
-When a new ticket request arrives for the same `service_id_hash`,
-the registrar calculates the service waiting time `w_s` and then applies the lower-bound rule:
+When a new ticket request arrives, the registrar first calculates the waiting time `w_2` at time `t_2`.
 
-`w_s = max(w_s, bound(service_id_hash) - timestamp(service_id_hash))`
+Then, for the corresponding `service_id_hash`, it calculates the remaining lower bound:
 
-The values `bound(service_id_hash)` and `timestamp(service_id_hash)`
-are updated whenever a new `ticket` is issued
-and the condition `w_s > (bound(service_id_hash) - timestamp(service_id_hash))`is satisfied.
+`remaining_bound = bound(service_id_hash) - (t_2 - timestamp(service_id_hash))`
 
-**How SHOULD lower bound be calculated for IPs:**
-Registrars enforce lower-bound state for the advertiser’s IP address using IP tree
-(refer to the [IP Similarity Score section](#ip-similarity-score)).
+The service waiting time is then adjusted as:
+
+`w_2 = max(w_2, remaining_bound)`
+
+After the ticket is issued, the registrar updates the lower-bound state only if the issued waiting time is greater than the remaining lower bound:
+
+```
+if w_2 > remaining_bound:
+  bound(service_id_hash) = w_2
+  timestamp(service_id_hash) = t_2
+```
+
+The same logic is applied for each `IP` associated with the advertisement:
+
+```
+remaining_bound = bound(IP) - (t_2 - timestamp(IP))
+w_2 = max(w_2, remaining_bound)
+
+if w_2 > remaining_bound:
+  bound(IP) = w_2
+  timestamp(IP) = t_2
+```
+
+This ensures that both the service-based and IP-based waiting times
+respect the lower-bound rule before the final ticket waiting time is issued.
 
 ## Implementation Notes
 
