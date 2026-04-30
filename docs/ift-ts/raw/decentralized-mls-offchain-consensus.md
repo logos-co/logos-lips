@@ -315,19 +315,13 @@ The `Proposal.payload` field MUST represent the ordered identities of the propos
 Each steward election proposal MUST be verified and finalized through the consensus process
 so that members can identify which steward will be responsible in each epoch
 and detect any unauthorized steward commits.
-3. `Emergency criteria proposal`: If there is a malicious member or steward,
-this event MUST be finalized through a governance vote,
-reflecting the expectation of active participation from members in the decentralized governance process.
-If the proposal returns YES, a score penalty MUST be applied to the targeted member or steward
-by decreasing their peer score, and a score reward MUST be granted to the creator of the proposal;
-if the proposal returns NO, a score penalty MUST be applied to the creator of the proposal.
-If the targeted member is the `epoch steward`,
-the `backup steward` MUST assume the `epoch steward` role and MUST include the removal of the former `epoch steward`
-in the subsequent commit without requiring an additional voting round,
-as the finalized emergency criteria proposal serves as sufficient authorization for the removal.
-`Proposal.payload` MUST include evidence of dishonesty as defined in the Steward Violation List,
-along with the identifier of the malicious member or steward.
-This proposal can be created by any member in any epoch.
+3. `Emergency criteria proposal (ECP)`: A consensus action carrying a `violation_type` field that discriminates between
+(a) member removal, where `Proposal.payload` MUST include the target identifier and supporting evidence per the Steward Violation List;
+(b) protocol deadlock, where no specific target exists and recovery is handled per Layer 3.
+Any member MAY create an `Emergency criteria proposal (ECP) in any epoch.
+On YES, members MUST enter the freezing phase immediately, bypassing the inactivity timer,
+so the consequent commit lands without waiting a full cycle and a peer-score reward MUST be granted to the creator of the proposal;
+on NO, a peer-score penalty MUST be applied to the creator to deter abuse.
 
 The order of consensus proposal messages is important to achieving a consistent result.
 Therefore, messages MUST be prioritized by type in the following order, from highest to lowest priority:
