@@ -13,23 +13,24 @@
 
 ## Timeline
 
-- **2026-01-29** — [`925aeac`](https://github.com/vacp2p/rfc-index/blob/925aeac395050c948c1cceb1d5b0673836ebd442/docs/ift-ts/raw/mix.md) — chore: changes to how per-hop proof is added to sphinx packet which makes it simpler (#263)
-- **2026-01-19** — [`f24e567`](https://github.com/vacp2p/rfc-index/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/ift-ts/raw/mix.md) — Chore/updates mdbook (#262)
-- **2026-01-16** — [`f01d5b9`](https://github.com/vacp2p/rfc-index/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/ift-ts/raw/mix.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/mix.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/raw/mix.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/raw/mix.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/raw/mix.md) — ci: add mdBook configuration (#233)
-- **2025-12-15** — [`dabc317`](https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/raw/mix.md) — fixing format errors in mix rfc (#229)
-- **2025-12-12** — [`4f54254`](https://github.com/vacp2p/rfc-index/blob/4f54254706666e373b5987901d974dc40f109293/vac/raw/mix.md) — fix format errors in math sections for mix rfc (#225)
-- **2025-12-11** — [`7f1df32`](https://github.com/vacp2p/rfc-index/blob/7f1df32779d5ff3fa57abc2e71ac2ad1b9662965/vac/raw/mix.md) — chore: use sembreaks for easy review and edits (#223)
-- **2025-12-10** — [`e742cd5`](https://github.com/vacp2p/rfc-index/blob/e742cd519200a7cb0971936bd1dbbeb31397bce5/vac/raw/mix.md) — RFC Addition: Section 9 Security Considerations (#194)
-- **2025-12-10** — [`9d11a22`](https://github.com/vacp2p/rfc-index/blob/9d11a22901ffe9c3ab0007f58baa55b0e08abfc9/vac/raw/mix.md) — docs: finalize Section 8 Sphinx Packet Construction and Handling (#202)
-- **2025-10-05** — [`36be428`](https://github.com/vacp2p/rfc-index/blob/36be428cdd2f12e1c9a1dd0b984dc9a6fd4acfee/vac/raw/mix.md) —  RFC Refactor: Sphinx Packet Format (#173)
-- **2025-06-27** — [`5e3b478`](https://github.com/vacp2p/rfc-index/blob/5e3b4788ec1c0ec07535efe321b103d52b118db5/vac/raw/mix.md) —  RFC Refactor PR: Modular Rewrite of Mix Protocol Specification (#158)
-- **2025-06-02** — [`db90adc`](https://github.com/vacp2p/rfc-index/blob/db90adc94e9f69627dd1254159d33eb062f00867/vac/raw/mix.md) — Fix LaTeX errors (#163)
-- **2024-11-08** — [`38fce27`](https://github.com/vacp2p/rfc-index/blob/38fce27d33ff11fcf15f947a9985c86b297c71b6/vac/raw/mix.md) — typo fix
-- **2024-09-16** — [`7f5276e`](https://github.com/vacp2p/rfc-index/blob/7f5276e18c16e644ba6645d20854ce6e6dd82aad/vac/raw/mix.md) — libp2p Mix Protocol Spec Draft (#97)
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/ift-ts/raw/mix.md) — chore: add math support (#287)
+- **2026-01-29** — [`925aeac`](https://github.com/logos-co/logos-lips/blob/925aeac395050c948c1cceb1d5b0673836ebd442/docs/ift-ts/raw/mix.md) — chore: changes to how per-hop proof is added to sphinx packet which makes it simpler (#263)
+- **2026-01-19** — [`f24e567`](https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/ift-ts/raw/mix.md) — Chore/updates mdbook (#262)
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/ift-ts/raw/mix.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/mix.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/raw/mix.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/raw/mix.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/raw/mix.md) — ci: add mdBook configuration (#233)
+- **2025-12-15** — [`dabc317`](https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/raw/mix.md) — fixing format errors in mix rfc (#229)
+- **2025-12-12** — [`4f54254`](https://github.com/logos-co/logos-lips/blob/4f54254706666e373b5987901d974dc40f109293/vac/raw/mix.md) — fix format errors in math sections for mix rfc (#225)
+- **2025-12-11** — [`7f1df32`](https://github.com/logos-co/logos-lips/blob/7f1df32779d5ff3fa57abc2e71ac2ad1b9662965/vac/raw/mix.md) — chore: use sembreaks for easy review and edits (#223)
+- **2025-12-10** — [`e742cd5`](https://github.com/logos-co/logos-lips/blob/e742cd519200a7cb0971936bd1dbbeb31397bce5/vac/raw/mix.md) — RFC Addition: Section 9 Security Considerations (#194)
+- **2025-12-10** — [`9d11a22`](https://github.com/logos-co/logos-lips/blob/9d11a22901ffe9c3ab0007f58baa55b0e08abfc9/vac/raw/mix.md) — docs: finalize Section 8 Sphinx Packet Construction and Handling (#202)
+- **2025-10-05** — [`36be428`](https://github.com/logos-co/logos-lips/blob/36be428cdd2f12e1c9a1dd0b984dc9a6fd4acfee/vac/raw/mix.md) —  RFC Refactor: Sphinx Packet Format (#173)
+- **2025-06-27** — [`5e3b478`](https://github.com/logos-co/logos-lips/blob/5e3b4788ec1c0ec07535efe321b103d52b118db5/vac/raw/mix.md) —  RFC Refactor PR: Modular Rewrite of Mix Protocol Specification (#158)
+- **2025-06-02** — [`db90adc`](https://github.com/logos-co/logos-lips/blob/db90adc94e9f69627dd1254159d33eb062f00867/vac/raw/mix.md) — Fix LaTeX errors (#163)
+- **2024-11-08** — [`38fce27`](https://github.com/logos-co/logos-lips/blob/38fce27d33ff11fcf15f947a9985c86b297c71b6/vac/raw/mix.md) — typo fix
+- **2024-09-16** — [`7f5276e`](https://github.com/logos-co/logos-lips/blob/7f5276e18c16e644ba6645d20854ce6e6dd82aad/vac/raw/mix.md) — libp2p Mix Protocol Spec Draft (#97)
 
 <!-- timeline:end -->
 

@@ -103,7 +103,7 @@
       <span class="footer-sep">·</span>
       <a href="https://www.ietf.org">IETF</a>
       <span class="footer-sep">·</span>
-      <a href="https://github.com/vacp2p/rfc-index">GitHub</a>
+      <a href="https://github.com/logos-co/logos-lips">GitHub</a>
     `;
     page.appendChild(footer);
   }
@@ -688,7 +688,7 @@
   }
 
   resultsCount.textContent = "Loading RFC index...";
-  fetch(`${rootPrefix}rfc-index.json`)
+  fetch(`${rootPrefix}logos-lips.json`)
     .then((resp) => {
       if (!resp.ok) throw new Error(resp.statusText);
       return resp.json();

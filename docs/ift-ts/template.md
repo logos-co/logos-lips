@@ -4,7 +4,8 @@
 | --- | --- |
 | Name | RFC Template |
 | Slug | 72 |
-| Status | raw/draft/stable/deprecated |
+| Status | raw/draft/approved/stable/verified/deprecated/retired/deleted |
+| Type | RFC/CFR |
 | Category | Standards Track/Informational/Best Current Practice |
 | Editor | Daniel Kaiser <danielkaiser@status.im> |
 

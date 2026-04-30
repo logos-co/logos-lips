@@ -5,6 +5,7 @@
 | Name | Toy Ethereum Private Message |
 | Slug | 20 |
 | Status | draft |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Franck Royer <franck@status.im> |
 
@@ -12,18 +13,20 @@
 
 ## Timeline
 
-- **2026-01-16** — [`f01d5b9`](https://github.com/vacp2p/rfc-index/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/standards/application/20/toy-eth-pm.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/application/20/toy-eth-pm.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/application/20/toy-eth-pm.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/application/20/toy-eth-pm.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/application/20/toy-eth-pm.md) — ci: add mdBook configuration (#233)
-- **2025-04-09** — [`3b152e4`](https://github.com/vacp2p/rfc-index/blob/3b152e44b595456250c0f45288c4e2e6a87774e4/waku/standards/application/20/toy-eth-pm.md) — 20/TOY-ETH-PM: Update (#141)
-- **2024-09-13** — [`3ab314d`](https://github.com/vacp2p/rfc-index/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/standards/application/20/toy-eth-pm.md) — Fix Files for Linting (#94)
-- **2024-03-21** — [`2eaa794`](https://github.com/vacp2p/rfc-index/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/standards/application/20/toy-eth-pm.md) — Broken Links + Change Editors (#26)
-- **2024-01-31** — [`89a94a5`](https://github.com/vacp2p/rfc-index/blob/89a94a5ba9e5d45f2563a9ede5ad4fe976d1cc54/waku/standards/application/20/toy-eth-pm.md) — Update toy-eth-pm.md
-- **2024-01-30** — [`c4ff509`](https://github.com/vacp2p/rfc-index/blob/c4ff509ce7ba84eaf60d9ddb6e273d0a06fbf32d/waku/standards/application/20/toy-eth-pm.md) — Create toy-eth-pm.md
-- **2024-01-30** — [`8841f49`](https://github.com/vacp2p/rfc-index/blob/8841f4941ec2efd34126ce297c42722ab437b806/waku/informational/20/toy-eth-pm.md) — Update toy-eth-pm.md
-- **2024-01-29** — [`a16a2b4`](https://github.com/vacp2p/rfc-index/blob/a16a2b474d8f841f71fed42f6247539daa7c4d53/waku/informational/20/toy-eth-pm.md) — Create toy-eth-pm.md
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/messaging/standards/application/20/toy-eth-pm.md) — chore: add math support (#287)
+- **2026-01-30** — [`d5a9240`](https://github.com/logos-co/logos-lips/blob/d5a9240c6c6c859eddd30742b2251f8a13480cf9/docs/messaging/standards/application/20/toy-eth-pm.md) — chore: removed archived (#283)
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/standards/application/20/toy-eth-pm.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/application/20/toy-eth-pm.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/application/20/toy-eth-pm.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/application/20/toy-eth-pm.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/application/20/toy-eth-pm.md) — ci: add mdBook configuration (#233)
+- **2025-04-09** — [`3b152e4`](https://github.com/logos-co/logos-lips/blob/3b152e44b595456250c0f45288c4e2e6a87774e4/waku/standards/application/20/toy-eth-pm.md) — 20/TOY-ETH-PM: Update (#141)
+- **2024-09-13** — [`3ab314d`](https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/standards/application/20/toy-eth-pm.md) — Fix Files for Linting (#94)
+- **2024-03-21** — [`2eaa794`](https://github.com/logos-co/logos-lips/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/standards/application/20/toy-eth-pm.md) — Broken Links + Change Editors (#26)
+- **2024-01-31** — [`89a94a5`](https://github.com/logos-co/logos-lips/blob/89a94a5ba9e5d45f2563a9ede5ad4fe976d1cc54/waku/standards/application/20/toy-eth-pm.md) — Update toy-eth-pm.md
+- **2024-01-30** — [`c4ff509`](https://github.com/logos-co/logos-lips/blob/c4ff509ce7ba84eaf60d9ddb6e273d0a06fbf32d/waku/standards/application/20/toy-eth-pm.md) — Create toy-eth-pm.md
+- **2024-01-30** — [`8841f49`](https://github.com/logos-co/logos-lips/blob/8841f4941ec2efd34126ce297c42722ab437b806/waku/informational/20/toy-eth-pm.md) — Update toy-eth-pm.md
+- **2024-01-29** — [`a16a2b4`](https://github.com/logos-co/logos-lips/blob/a16a2b474d8f841f71fed42f6247539daa7c4d53/waku/informational/20/toy-eth-pm.md) — Create toy-eth-pm.md
 
 <!-- timeline:end -->
 

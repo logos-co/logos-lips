@@ -5,6 +5,7 @@
 | Name | Consensus-Oriented Specification System |
 | Slug | 1 |
 | Status | draft |
+| Type | RFC |
 | Category | Best Current Practice |
 | Editor | Daniel Kaiser <danielkaiser@status.im> |
 | Contributors | Oskar Thoren <oskarth@titanproxy.com>, Pieter Hintjens <ph@imatix.com>, André Rebentisch <andre@openstandards.de>, Alberto Barrionuevo <abarrio@opentia.es>, Chris Puttick <chris.puttick@thehumanjourney.net>, Yurii Rashkovskii <yrashk@gmail.com>, Jimmy Debe <jimmy@status.im> |
@@ -13,20 +14,21 @@
 
 ## Timeline
 
-- **2026-01-16** — [`f01d5b9`](https://github.com/vacp2p/rfc-index/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/ift-ts/raw/1/coss.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/1/coss.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/1/coss.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/1/coss.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/1/coss.md) — ci: add mdBook configuration (#233)
-- **2025-11-04** — [`dd397ad`](https://github.com/vacp2p/rfc-index/blob/dd397adc594c121ce3e10b7e81b5c2ed4818c0a6/vac/1/coss.md) — Update Coss Date (#206)
-- **2024-10-09** — [`d5e0072`](https://github.com/vacp2p/rfc-index/blob/d5e0072498858c5d699ec091c41ae8961badcaee/vac/1/coss.md) — cosmetic: fix external links in 1/COSS (#100)
-- **2024-09-13** — [`3ab314d`](https://github.com/vacp2p/rfc-index/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/vac/1/coss.md) — Fix Files for Linting (#94)
-- **2024-08-09** — [`ed2c68f`](https://github.com/vacp2p/rfc-index/blob/ed2c68f0722a88ec5781741e07bafc3920d1796a/vac/1/coss.md) — 1/COSS: New RFC Process (#4)
-- **2024-02-01** — [`3eaccf9`](https://github.com/vacp2p/rfc-index/blob/3eaccf93b593026f05c8bfc2dc3a9f5657398cd3/vac/1/coss.md) — Update and rename COSS.md to coss.md
-- **2024-01-30** — [`990d940`](https://github.com/vacp2p/rfc-index/blob/990d940d92e3bbbfa41b1b57fbcbbea05d41834d/vac/1/COSS.md) — Rename COSS.md to COSS.md
-- **2024-01-27** — [`6495074`](https://github.com/vacp2p/rfc-index/blob/649507410e07e0d0a08f3122a625c86a12e38de0/vac/01/COSS.md) — Rename vac/rfcs/01/README.md to vac/01/COSS.md
-- **2024-01-25** — [`bab16a8`](https://github.com/vacp2p/rfc-index/blob/bab16a8463d343392f45defb79b6dddbe68eb636/vac/rfcs/01/README.md) — Rename README.md to README.md
-- **2024-01-25** — [`a9162f2`](https://github.com/vacp2p/rfc-index/blob/a9162f28df681781e9bc94b94e2b3a6425cf4428/vac/rfc/01/README.md) — Create README.md
+- **2026-03-23** — [`011eea8`](https://github.com/logos-co/logos-lips/blob/011eea8f069feed3a4feee1c2cc2669f8ed498d9/docs/ift-ts/raw/1/coss.md) — docs(1/coss): add Approved/Verified statuses, CFR doc type, and raw-spec leniency (#301)
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/ift-ts/raw/1/coss.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/1/coss.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/1/coss.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/1/coss.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/1/coss.md) — ci: add mdBook configuration (#233)
+- **2025-11-04** — [`dd397ad`](https://github.com/logos-co/logos-lips/blob/dd397adc594c121ce3e10b7e81b5c2ed4818c0a6/vac/1/coss.md) — Update Coss Date (#206)
+- **2024-10-09** — [`d5e0072`](https://github.com/logos-co/logos-lips/blob/d5e0072498858c5d699ec091c41ae8961badcaee/vac/1/coss.md) — cosmetic: fix external links in 1/COSS (#100)
+- **2024-09-13** — [`3ab314d`](https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/vac/1/coss.md) — Fix Files for Linting (#94)
+- **2024-08-09** — [`ed2c68f`](https://github.com/logos-co/logos-lips/blob/ed2c68f0722a88ec5781741e07bafc3920d1796a/vac/1/coss.md) — 1/COSS: New RFC Process (#4)
+- **2024-02-01** — [`3eaccf9`](https://github.com/logos-co/logos-lips/blob/3eaccf93b593026f05c8bfc2dc3a9f5657398cd3/vac/1/coss.md) — Update and rename COSS.md to coss.md
+- **2024-01-30** — [`990d940`](https://github.com/logos-co/logos-lips/blob/990d940d92e3bbbfa41b1b57fbcbbea05d41834d/vac/1/COSS.md) — Rename COSS.md to COSS.md
+- **2024-01-27** — [`6495074`](https://github.com/logos-co/logos-lips/blob/649507410e07e0d0a08f3122a625c86a12e38de0/vac/01/COSS.md) — Rename vac/rfcs/01/README.md to vac/01/COSS.md
+- **2024-01-25** — [`bab16a8`](https://github.com/logos-co/logos-lips/blob/bab16a8463d343392f45defb79b6dddbe68eb636/vac/rfcs/01/README.md) — Rename README.md to README.md
+- **2024-01-25** — [`a9162f2`](https://github.com/logos-co/logos-lips/blob/a9162f28df681781e9bc94b94e2b3a6425cf4428/vac/rfc/01/README.md) — Create README.md
 
 <!-- timeline:end -->
 
@@ -157,12 +159,12 @@ For a specification to receive a lifecycle status,
 a new specification SHOULD be presented by the team of the sub-domain.
 After discussion amongst the contributors has reached a rough consensus,
 as described in [RFC7282](https://www.rfc-editor.org/rfc/rfc7282.html),
-the specification MAY begin the process to upgrade it's status.
+the specification MAY begin the process to upgrade its status.
 
-A specification has five possible states that reflect its maturity and
+A specification has eight possible states that reflect its maturity and
 contractual weight:
 
-![Lifecycle diagram](images/lifecycle.png)
+![Lifecycle diagram](images/lifecycle.svg)
 
 ### Raw Specifications
 
@@ -179,20 +181,37 @@ they become **draft** specifications and are assigned numbers.
 Changes to draft specifications should be done in consultation with users.
 Draft specifications are contracts between the editors and implementers.
 
+### Approved Specifications
+
+When draft specifications have been reviewed and verified by the internal development team,
+they become **approved** specifications.
+Approved specifications are ready to be included in the specification index.
+Changes to approved specifications should be done in consultation with the development team.
+Approved specifications are contracts between the editors, the development team, and implementers.
+
 ### Stable Specifications
 
-When draft specifications are used by third parties, they become **stable** specifications.
+When approved specifications are used by third parties, they become **stable** specifications.
 Changes to stable specifications should be restricted to cosmetic ones,
 errata and clarifications.
 Stable specifications are contracts between editors, implementers, and end-users.
 
+### Verified Specifications
+
+When stable specifications have been implemented by a non-IFT entity,
+they become **verified** specifications.
+Verified status indicates external validation of the specification
+through independent implementation.
+Changes to verified specifications MUST be restricted to errata and clarifications.
+Verified specifications are contracts between editors, implementers, and external parties.
+
 ### Deprecated Specifications
 
-When stable specifications are replaced by newer draft specifications,
+When stable or verified specifications are replaced by newer specifications,
 they become **deprecated** specifications.
 Deprecated specifications should not be changed except
 to indicate their replacements, if any.
-Deprecated specifications are contracts between editors, implementers and end-users.
+Deprecated specifications are contracts between editors, implementers, and end-users.
 
 ### Retired Specifications
 
@@ -271,20 +290,29 @@ and may suspend or ban individuals for behaviour they consider inappropriate.
 
 ### Meta Information
 
-Specifications MUST contain the following metadata.
+Specifications MUST contain certain metadata fields.
 It is RECOMMENDED that specification metadata is specified as a YAML header
 (where possible).
 This will enable programmatic access to specification metadata.
 
-| Key              | Value                | Type   | Example                                                                                                                                                                                                                             |
-|------------------|----------------------|--------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **shortname**    | short name           | string | 1/COSS                                                                                                                                                                                                                              |
-| **title**        | full name            | string | Consensus-Oriented Specification System                                                                                                                                                                                             |
-| **status**       | status               | string | draft                                                                                                                                                                                                                               |
-| **category**     | category             | string | Best Current Practice                                                                                                                                                                                                                            |
-| **tags**         | 0 or several tags    | list   | waku-application, waku-core-protocol                                                                                                                                                                                                |
-| **editor**       | editor name/email    | string | Oskar Thoren <oskarth@titanproxy.com>                                                                                                                                                                                                      |
-| **contributors** | contributors         | list   | - Pieter Hintjens <ph@imatix.com> - André Rebentisch <andre@openstandards.de> - Alberto Barrionuevo <abarrio@opentia.es> - Chris Puttick <chris.puttick@thehumanjourney.net> - Yurii Rashkovskii <yrashk@gmail.com> |
+Fields marked **required** MUST be present in all specifications at **draft** status or above.
+Fields marked **optional** MAY be omitted,
+particularly in **raw** specifications that are still being developed.
+
+| Key              | Required   | Value                | Type   | Example                                                                                                                                                                                                                             |
+|------------------|------------|----------------------|--------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **name**         | required   | full name            | string | Consensus-Oriented Specification System                                                                                                                                                                                             |
+| **slug**         | required   | number               | int    | 1                                                                                                                                                                                                                                   |
+| **status**       | required   | status               | string | draft                                                                                                                                                                                                                               |
+| **type**         | required   | document type        | string | RFC                                                                                                                                                                                                                                 |
+| **category**     | optional   | category             | string | Best Current Practice                                                                                                                                                                                                               |
+| **tags**         | optional   | 0 or several tags    | list   | waku-application, waku-core-protocol                                                                                                                                                                                                |
+| **editor**       | optional   | editor name/email    | string | Oskar Thoren <oskarth@titanproxy.com>                                                                                                                                                                                               |
+| **contributors** | optional   | contributors         | list   | - Pieter Hintjens <ph@imatix.com> - André Rebentisch <andre@openstandards.de> - Alberto Barrionuevo <abarrio@opentia.es> - Chris Puttick <chris.puttick@thehumanjourney.net> - Yurii Rashkovskii <yrashk@gmail.com> |
+
+For **raw** specifications,
+only `name` and `status` are strictly required.
+All other fields SHOULD be added before the specification is promoted to **draft** status.
 
 ### IFT/Logos LIP Process
 
@@ -319,6 +347,24 @@ Standards track specifications MUST be based on the
 [Logos LIP template](../../template.md) before obtaining a new status.
 All changes, comments, and contributions SHOULD be documented.
 
+### Document Types
+
+The IFT specification process recognizes two document types:
+
+**RFC (Request for Comments)**
+is the primary document type for technical specifications.
+RFCs progress through the full COSS lifecycle
+(raw → draft → approved → stable → verified).
+All specifications described in this document are RFCs by default.
+
+**CFR (Change for Request)**
+is a document type for proposing changes or amendments to existing specifications.
+A CFR describes a specific, bounded change to an existing RFC.
+CFRs follow the same lifecycle as RFCs but are scoped to a single change proposal.
+All eight lifecycle statuses apply to CFRs.
+A CFR that reaches stable or verified status MAY be merged back into the target RFC,
+after which the CFR transitions to deprecated.
+
 ## Conventions
 
 Where possible editors and contributors are encouraged to:
@@ -335,7 +381,9 @@ Color coded specifications SHOULD use the following color scheme:
 
 - ![raw](https://raw.githubusercontent.com/unprotocols/rfc/master/2/raw.svg)
 - ![draft](https://raw.githubusercontent.com/unprotocols/rfc/master/2/draft.svg)
+- ![approved](images/approved.svg)
 - ![stable](https://raw.githubusercontent.com/unprotocols/rfc/master/2/stable.svg)
+- ![verified](images/verified.svg)
 - ![deprecated](https://raw.githubusercontent.com/unprotocols/rfc/master/2/deprecated.svg)
 - ![retired](https://raw.githubusercontent.com/unprotocols/rfc/master/2/retired.svg)
 - ![deleted](https://raw.githubusercontent.com/unprotocols/rfc/master/2/deleted.svg)
