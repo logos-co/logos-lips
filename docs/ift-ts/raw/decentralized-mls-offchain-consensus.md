@@ -62,6 +62,7 @@ are to be interpreted as described in [2119](https://www.ietf.org/rfc/rfc2119.tx
 
 ### Assumptions
 
+- At least $2n/3$ of the members are honest and follow the de-MLS protocol as specified.
 - The nodes in the P2P network can discover other nodes or will connect to other nodes when subscribing to same topic in a gossipsub.
 - The presence of non-reliable (silent) nodes MAY be assumed.
 - A lightweight, scalable consensus mechanism with deterministic finality within a specific time MUST be employed.
@@ -279,7 +280,7 @@ Decentralization has already been achieved in the previous section.
 However, to improve availability and ensure censorship resistance,
 the single steward protocol is extended to a multi steward architecture.
 In this design, each epoch is coordinated by a designated steward,
-operating under the same protocol as the single steward model.
+operating under the similar protocol as the single steward model.
 Thus, the multi steward approach primarily defines how steward roles
 rotate across epochs while preserving the underlying structure and logic of the original protocol.
 Two variants of the multi steward design are introduced to address different system requirements.
@@ -288,6 +289,12 @@ In the multi steward setting, multiple stewards MAY issue `commit messages` with
 As a result, members may receive different numbers of commit messages with potentially differing contents.
 For all received commits, the [commit validation service](#commit-validation-service) is executed locally and
 MUST deterministically output at most one valid commit to be applied for the epoch transition.
+
+### Buffering KeyPackages
+
+In the multi-steward setting, to preserve liveness in the presence of a silent or inactive epoch steward,
+all members MUST locally buffer `KeyPackages` received for 3 epochs after the KeyPackage was received,
+or until a commit referencing that `KeyPackages` has been successfully validated and applied, whichever comes first.
 
 ### Consensus Types
 
@@ -308,15 +315,13 @@ The `Proposal.payload` field MUST represent the ordered identities of the propos
 Each steward election proposal MUST be verified and finalized through the consensus process
 so that members can identify which steward will be responsible in each epoch
 and detect any unauthorized steward commits.
-3. `Emergency criteria proposal`: If there is a malicious member or steward,
-this event MUST be finalized through a governance vote,
-reflecting the expectation of active participation from members in the decentralized governance process.
-If the proposal returns YES, a score penalty MUST be applied to the targeted member or steward
-by decreasing their peer score, and a score reward MUST be granted to the creator of the proposal;
-if the proposal returns NO, a score penalty MUST be applied to the creator of the proposal.
-`Proposal.payload` MUST include evidence of dishonesty as defined in the Steward Violation List,
-along with the identifier of the malicious member or steward.
-This proposal can be created by any member in any epoch.
+3. `Emergency criteria proposal (ECP)`: A consensus action carrying a `violation_type` field that discriminates between
+(a) member removal, where `Proposal.payload` MUST include the target identifier and supporting evidence per the Steward Violation List;
+(b) protocol deadlock, where no specific target exists and recovery is handled per Layer 3.
+Any member MAY create an `Emergency criteria proposal (ECP) in any epoch.
+On YES, members MUST enter the freezing phase immediately, bypassing the inactivity timer,
+so the consequent commit lands without waiting a full cycle and a peer-score reward MUST be granted to the creator of the proposal;
+on NO, a peer-score penalty MUST be applied to the creator to deter abuse.
 
 The order of consensus proposal messages is important to achieving a consistent result.
 Therefore, messages MUST be prioritized by type in the following order, from highest to lowest priority:
@@ -390,14 +395,81 @@ since allowing bias could enable a malicious participant to manipulate the list
 and retain control within a favored group for multiple epochs.
 
 The list MUST consist of at least `sn_min` members, including retained previous stewards,
-sorted according to the ascending value of `SHA256(epoch E || member id || group id)`,
+sorted according to the ascending value of `SHA256(epoch E || retry_round || member id || group id)`,
 where `epoch E` is the epoch in which the election proposal is initiated,
+`retry_round` is a counter for having different shuffling in the same epoch for recovering situation,
 and `group id` for shuffling the list across the different groups.
 Any proposal with a list that does not adhere to this generation method MUST be rejected by all members.
 
 It is assumed that that there are no recurring entries in `SHA256(epoch E || member id || group id)`,
 since the SHA256 outputs are unique when there is no repetition in the `member id` values,
 against the conflicts on sorting issues.
+
+#### Three-Layer Steward Protection Mechanism
+
+de-MLS employs a three-layer protection mechanism to preserve liveness while maintaining security guarantees.
+Mitigation of malicious behavior proceeds progressively across layers.
+Layer 1 applies local prevention and recovery strategies; if the issue cannot be resolved at this level,
+Layer 2 introduces coordinated fallback mechanisms;
+finally, Layer 3 enforces network-wide corrective actions.
+Each layer is activated only if the previous layer fails to restore normal operation,
+ensuring minimal intervention while maintaining system continuity.
+
+##### Layer 1 - Local steward rotation
+Layer 1 ensures that a finalized voting proposal is committed by locally rotating over the active `steward list` in deterministic order.
+
+A steward is eligible to act as the `epoch steward` if it is a current group member and not pending removal.
+Misbehavior per the [Steward Violation List](#steward-violation-list) does not affect eligibility directly;
+it decrements peer score per the [Peer Scoring section](#peer-scoring),
+and a steward becomes ineligible only once a `Emergency Criteria Proposal (ECP)` finalizes the removal.
+
+When the nominal epoch steward is ineligible,
+members MUST walk the steward list in deterministic order and accept the commit produced by the first eligible steward.
+The `backup steward` or any subsequent eligible steward MAY commit without an Emergency Criteria Proposal.
+
+Even when individual stewards are silent or have been removed,
+Layer 1 preserves liveness by walking the steward list until an eligible steward produces the commit.
+Misbehaving stewards continue to participate in rotation until accumulated scoring triggers `Emergency Criteria Proposal (ECP)`,
+at which point removal makes them ineligible and Layer 1 walks past them on subsequent rounds.
+If no eligible steward exists across the entire list, the protocol escalates to Layer 2.
+
+##### Layer 2 - Re-election
+
+Layer 2 enables re-election when Layer 1 fails to produce an eligible steward from the active `steward list`.
+In this layer, the members MAY initiate a new `steward election proposal` within the same MLS epoch.
+Since the MLS epoch does not advance in this case,
+the proposer MUST increment the local `retry_round` value and generate a new deterministic steward ordering using:
+
+`SHA256(epoch E || retry_round || member id || group id)`.
+
+Members that are pending removal, self-removal,
+or otherwise ineligible MUST be excluded from the proposed steward list.
+
+If the re-election proposal is finalized with YES, the new `steward list` is installed and Layer 1 is applied again.
+Otherwise, if the proposal is finalized with NO, `retry_round` MUST be incremented
+and the re-election process MAY be repeated until `max_reelection_attempts` is reached.
+Note that `max_reelection_attempts` is the parameter that is set during group creation.
+
+If no new `steward list` can be established after exhausting `max_reelection_attempts`,
+the system enters a steward deadlock condition, and Layer 3 MUST be activated.
+
+##### Layer 3 — Anti-deadlock ECP
+
+Layer 3 is the final layer of the liveness mechanism and is triggered only
+when Layer 2 fails after `max_reelection_attempts` many re-elections.
+
+At this point, any member MAY submit an `Emergency Criteria Proposal` with deadlock `violation_type`.
+This proposal does not target a specific member for removal.
+Instead, it signals that the protocol cannot produce a valid commit
+through the active steward list or through bounded re-election.
+
+If the deadlock `Emergency Criteria Proposal` is finalized with YES, 
+the protocol enters a temporary recovery mode.
+During recovery mode, the steward gate is relaxed and any remaining member MAY produce the next valid commit.
+The first valid commit that is accepted by the commit validation service ends
+recovery mode and returns the protocol to the normal working state.
+Finally, under the assumption that at least `2n/3` honest members follow the de-MLS protocol,
+the deadlock `Emergency Criteria Proposal` cannot be finalized with NO.
 
 ### Multi steward with big consensuses
 
@@ -425,8 +497,6 @@ then the steward list size MUST be equal to the total member count.
 and group changes are ready to be committed as specified in single steward section
 with a difference which is members also check the committed steward is `epoch steward` or `backup steward`,
 otherwise anyone can create `emergency criteria proposal`.
-4. If the `epoch steward` violates the changing process as described in the Steward Violation List,
-one of the members MUST initialize an `emergency criteria proposal` to apply a peer score penalty to the malicious steward.
 
 A large consensus group provides better decentralization, but it requires significant coordination,
 which MAY not be suitable for groups with more than 1000 members.
@@ -484,10 +554,35 @@ Therefore, proposal equivalence alone does not guarantee state equivalence.
 If multiple valid commits contain the identical deterministic proposal sequence,
 the commit validation service MUST select first, if there is `Epoch steward`,
 otherwise the commit whose `committer ID` is lexicographically smallest (according to canonical ordering)
-as the single valid output, thereby avoiding different state forks.
+the commit validation service MUST select the epoch steward's commit when present;
+otherwise (e.g. during Layer 3 recovery mode, where any member MAY commit) 
+the commit with the lexicographically smallest committer ID is selected, avoiding different state forks.
 Competing commits that contain the same deterministic proposal sequence
 but differ only due to steward-generated MLS commit entropy MUST NOT be classified as misbehaviour
 and MAY instead be treated as honest participation for peer scoring purposes.
+
+## Self-Removal
+
+A `steward` MUST NOT produce a commit that includes its own removal.
+This is not a protocol violation but an inherent constraint of [MLS RFC 9420](https://datatracker.ietf.org/doc/rfc9420/):
+a member cannot apply a commit that removes itself from the group;
+otherwise, the resulting group key would be accessible to the removed member again,
+which is a contradiction of removal.
+
+A member's request to leave the group is not subject to voting.
+A removal voting proposal is auto-finalized YES only if its sender,
+proposal_owner, and RemoveMember.target all reference the same identity;
+members MUST reject any proposal claiming auto-YES status that fails this check
+and MAY apply a peer-score penalty against the sender.
+Qualifying proposals MUST be processed by the epoch steward in the subsequent commit.
+
+The offload mechanism is implementation-defined,
+examples include queuing the removal for the next eligible steward to commit on their next turn,
+or triggering an epoch transition (e.g. via a key rotation) so that role rotation hands off naturally.
+The originating steward MUST NOT be penalized for omitting its own removal from its commits,
+this is a recognized exception to the rule that finalized voting proposals MUST be committed.
+
+Implementations MAY choose either approach. Both are compliant with this specification.
 
 ## Steward violation list
 
@@ -510,6 +605,11 @@ This activity is again identified by the `members`since `voting proposals` are v
 therefore each member can verify that there is no `MLS proposal` corresponding to `voting proposal`,
 or commit was produced for a voting proposal that has already been finalized due to timer expiration.
 
+All three violation types are detected locally by members;
+each detection contributes a peer-score decrement per the [Peer Scoring section](#peer-scoring).
+Removal occurs only after the steward's accumulated score drops below `threshold_peer_score`,
+triggering a `Emergency Criteria Proposal (ECP)`.
+
 ## Peer Scoring
 
 To improve fairness in member and steward management, de-MLS SHOULD incorporate a
@@ -529,8 +629,7 @@ Peer score updates MUST be performed only for stewards that are active in the cu
 Peer scores may decrease due to violations and increase due to honest behavior;
 such score adjustments are derived from observable protocol events, such as
 successful commits or emergency criteria proposals, and each peer updates its local table accordingly.
-In particular, peer score updates MAY be triggered either by direct local observation of protocol violations
-or by the finalized outcome of a governance vote.
+In particular, peer score updates MAY be triggered either by direct local observation of protocol violations.
 Regardless of the trigger, score updates are applied locally by each peer to its own peer score table.
 
 Members MUST periodically evaluate peer scores against the predefined threshold `threshold_peer_score`.
@@ -542,27 +641,20 @@ This mechanism allows accidental or transient failures to be tolerated while sti
 decisive action against repeated or harmful behavior.
 The exact scoring rules, recovery mechanisms, and escalation criteria are left for future discussion.
 
-## Timer-Based Anti-Deadlock Mechanism
+## Inactivity Timer
 
-In de-MLS, a deadlock refers to a prolonged period during which no valid commit is produced
-despite the presence of at least one `finalized commit proposal` that require a group state change.
-To mitigate deadlock risks in de-MLS, a timer-based anti-deadlock mechanism SHOULD be introduced.
+Each member MUST maintain local timers to detect when expected protocol events fail to occur within a bounded time.
+The protocol relies on inactivity detection in three contexts:
 
-Each member maintains a local timer with a configured `threshold_duration`.
-The timer MUST start when the member observes a `finalized commit proposal` that requires a corresponding commit
-(e.g., add/remove membership changes) and MUST reset only when
-the [commit validation service](#commit-validation-service) outputs a valid commit for the current commit context.
+1. Commit inactivity: The epoch steward does not produce a commit referencing a finalized voting proposal.
+On expiry, the member treats the epoch steward as inactive and proceeds with [Layer 1](#layer-1---local-steward-rotation) rotation.
+2. Recovery inactivity: During an active recovery window in [Layer 2](#layer-2---re-election), or [Layer 3](#layer-3--anti-deadlock-ecp),
+a separate, typically shorter inactivity duration SHOULD apply so retries do not burn a full epoch.
+3. Voting inactivity: A submitted update request (e.g. an add or remove) does not progress to an open consensus session
+within the expected window. Members MAY initiate or re-submit the corresponding voting proposal directly.
 
-If the `threshold_duration` is exceeded, the member waits an additional buffer period to account for network delays
-and then triggers a high-priority `emergency proposal` indicating a potential deadlock.
-If the proposal returns YES, the protocol SHOULD temporarily allow any member to commit in order to restore liveness.
-Since timers may expire at different times in a P2P setting,
-the buffer period mitigates false positives, while commit filtering is required
-to prevent commit flooding during recovery.
-
-This timer-based method is used only for anti-deadlock detection.
-Cases where a commit message includes fewer finalized voting proposals than expected are handled by [Steward Violation List](#steward-violation-list).
-Emergency proposals that return NO, MUST incur a peer score penalty for the creator of the proposal to reduce abuse.
+Each timer's duration and any tolerance buffer for P2P timing variance are configured per group.
+Escalation beyond Layer 1 follows the Three-Layer Steward Protection Mechanism.
 
 ## Security Considerations
 
