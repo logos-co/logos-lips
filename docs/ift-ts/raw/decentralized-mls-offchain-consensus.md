@@ -647,25 +647,20 @@ This mechanism allows accidental or transient failures to be tolerated while sti
 decisive action against repeated or harmful behavior.
 The exact scoring rules, recovery mechanisms, and escalation criteria are left for future discussion.
 
-## Timer-Based Anti-Deadlock Mechanism
+## Inactivity Timer
 
-In de-MLS, an epoch deadlock refers to a prolonged period during which no valid commit is produced
-despite the presence of at least one `finalized commit proposal` that require a group state change.
-To mitigate epoch deadlock risks in de-MLS, a timer-based anti-deadlock mechanism SHOULD be applied in Layer 1,
-as it enables recovery while the current steward list is still active.
+Each member MUST maintain local timers to detect when expected protocol events fail to occur within a bounded time.
+The protocol relies on inactivity detection in three contexts:
 
-Each member maintains a local timer with a configured `threshold_duration`.
-The timer MUST start when the member observes a `finalized commit proposal` that requires a corresponding commit
-(e.g., add/remove membership changes) and MUST reset only when
-the [commit validation service](#commit-validation-service) outputs a valid commit for the current commit context.
+1. Commit inactivity: The epoch steward does not produce a commit referencing a finalized voting proposal.
+On expiry, the member treats the epoch steward as inactive and proceeds with [Layer 1](#layer-1---local-steward-rotation) rotation.
+2. Recovery inactivity: During an active recovery window in [Layer 2](#layer-2---re-election), or [Layer 3](#layer-3--anti-deadlock-ecp),
+a separate, typically shorter inactivity duration SHOULD apply so retries do not burn a full epoch.
+3. Voting inactivity: A submitted update request (e.g. an add or remove) does not progress to an open consensus session
+within the expected window. Members MAY initiate or re-submit the corresponding voting proposal directly.
 
-If the `threshold_duration` is exceeded, the member waits an additional buffer period to account for network delays
-and then triggers a high-priority `emergency proposal` indicating a potential deadlock.
-If the proposal returns YES, as `emergency proposal` logic, it iterates the `epoch steward` to provide liveness.
-Since timers may expire at different times in a P2P setting,
-the buffer period mitigates false positives, while commit filtering is required
-to prevent commit flooding during recovery.
-Emergency proposals that return NO, MUST incur a peer score penalty for the creator of the proposal to reduce abuse.
+Each timer's duration and any tolerance buffer for P2P timing variance are configured per group.
+Escalation beyond Layer 1 follows the Three-Layer Steward Protection Mechanism.
 
 ## Security Considerations
 
