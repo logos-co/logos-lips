@@ -611,6 +611,11 @@ This activity is again identified by the `members`since `voting proposals` are v
 therefore each member can verify that there is no `MLS proposal` corresponding to `voting proposal`,
 or commit was produced for a voting proposal that has already been finalized due to timer expiration.
 
+All three violation types are detected locally by members;
+each detection contributes a peer-score decrement per the [Peer Scoring section](#peer-scoring).
+Removal occurs only after the steward's accumulated score drops below `threshold_peer_score`,
+triggering a `Emergency Criteria Proposal (ECP)`.
+
 ## Peer Scoring
 
 To improve fairness in member and steward management, de-MLS SHOULD incorporate a
