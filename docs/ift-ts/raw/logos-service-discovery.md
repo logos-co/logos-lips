@@ -1332,12 +1332,18 @@ MUST NOT be smaller than a previous waiting time `w_1` at time `t_1`
 w_2 ≥ w_1 - (t_2 - t_1)
 ```
 
-For each `service_id_hash` and each `IP` prefix in the IP tree, the registrar MUST maintain:
+For each `service_id_hash`, the registrar MUST maintain:
 
-- `bound`: the last issued waiting time (`w_1`) when bound value was updated
-- `timestamp`: the time at which `w_1` was issued (`t_1`)
+- `bound(service_id_hash)`: the last issued waiting time (`w_1`)
+- `timestamp(service_id_hash)`: the time at which `w_1` was issued (`t_1`)
 
-The total waiting time will respect the lower bound if lower bound is enforced on these.
+For each `IP` prefix in the IP tree, the registrar MUST maintain:
+
+- `bound(IP)`: the last issued waiting time (`w_1`)
+- `timestamp(IP)`: the time at which `w_1` was issued (`t_1`)
+
+The final waiting time respects the lower bound when
+both service-level and IP-level bounds are enforced.
 Service-level entries are bounded by the number of distinct `service_id_hash` values
 for which non-expired `WAIT` tickets have been issued.
 IP-level entries are bounded by the number of distinct `IPs`
@@ -1345,13 +1351,18 @@ appearing in advertisements associated with non-expired `WAIT` tickets.
 
 **Lower bounds SHOULD be calculated as follows:**
 
-When a new ticket request arrives, the registrar first calculates the waiting time `w_2` at time `t_2`.
+When a new ticket request arrives at time `t_2`,
+the registrar calculates the waiting time `w_2`
+using the [waiting time formula](#formula).
 
-Then, for the corresponding `service_id_hash`, it calculates the remaining lower bound:
+For the corresponding `service_id_hash`,
+it calculates the remaining lower bound:
 
-`remaining_bound = bound(service_id_hash) - (t_2 - timestamp(service_id_hash))`
+```
+remaining_bound = bound(service_id_hash) - (t_2 - timestamp(service_id_hash))
+```
 
-The service waiting time is then adjusted as:
+The waiting time is then adjusted as:
 
 `w_2 = max(w_2, remaining_bound)`
 
