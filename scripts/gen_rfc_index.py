@@ -3,7 +3,7 @@
 Generate a JSON index of RFC metadata for the landing page filters.
 
 Scans the docs/ tree for Markdown files and writes
-`docs/rfc-index.json`.
+`docs/logos-lips.json`.
 """
 from __future__ import annotations
 
@@ -17,9 +17,9 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
-OUTPUT = DOCS / "rfc-index.json"
+OUTPUT = DOCS / "logos-lips.json"
 
-EXCLUDE_FILES = {"README.md", "SUMMARY.md", "about.md"}
+EXCLUDE_FILES = {"README.md", "SUMMARY.md", "about.md", "template.md"}
 EXCLUDE_PARTS = {"previous-versions"}
 
 

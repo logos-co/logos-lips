@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 780" font-family="Helvetica, Arial, sans-serif">
+  <title>Consensus Oriented Specification System Life Cycle</title>
+
+  <defs>
+    <marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#cc4444"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="800" y="32" text-anchor="middle" font-size="17" font-weight="bold" fill="#e6e1cf">Consensus Oriented Specification System Life Cycle</text>
+
+  <!-- Column borders -->
+  <g stroke="#cc4444" stroke-width="1" fill="none">
+    <rect x="0" y="48" width="1600" height="720"/>
+    <line x1="200" y1="48" x2="200" y2="768"/>
+    <line x1="400" y1="48" x2="400" y2="768"/>
+    <line x1="600" y1="48" x2="600" y2="768"/>
+    <line x1="800" y1="48" x2="800" y2="768"/>
+    <line x1="1000" y1="48" x2="1000" y2="768"/>
+    <line x1="1200" y1="48" x2="1200" y2="768"/>
+    <line x1="1400" y1="48" x2="1400" y2="768"/>
+  </g>
+
+  <!-- Column header backgrounds (color coding) -->
+  <rect x="0"    y="48" width="200" height="32" fill="#9f9f9f"/>
+  <rect x="200"  y="48" width="200" height="32" fill="#007ec6"/>
+  <rect x="400"  y="48" width="200" height="32" fill="#0096be"/>
+  <rect x="600"  y="48" width="200" height="32" fill="#44cc11"/>
+  <rect x="800"  y="48" width="200" height="32" fill="#2d8a4e"/>
+  <rect x="1000" y="48" width="200" height="32" fill="#a4a61d"/>
+  <rect x="1200" y="48" width="200" height="32" fill="#e05d44"/>
+  <rect x="1400" y="48" width="200" height="32" fill="#555"/>
+
+  <!-- Column headers -->
+  <g font-size="15" font-weight="bold" text-anchor="middle" fill="#fff">
+    <text x="100"  y="70">Raw</text>
+    <text x="300"  y="70">Draft</text>
+    <text x="500"  y="70">Approved</text>
+    <text x="700"  y="70">Stable</text>
+    <text x="900"  y="70">Verified</text>
+    <text x="1100" y="70">Deprecated</text>
+    <text x="1300" y="70">Retired</text>
+    <text x="1500" y="70">Deleted</text>
+  </g>
+
+  <!-- ======== RAW COLUMN ======== -->
+  <rect x="50" y="88" width="100" height="30" rx="15" fill="#d4943a" stroke="#b07828" stroke-width="1.5"/>
+  <text x="100" y="108" text-anchor="middle" font-size="13" font-weight="bold" fill="#000">Create</text>
+
+  <line x1="100" y1="118" x2="100" y2="135" stroke="#cc4444" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <rect x="22" y="135" width="156" height="44" rx="8" fill="#d4943a" stroke="#b07828" stroke-width="1.5"/>
+  <text x="100" y="153" text-anchor="middle" font-size="11" fill="#000">Use: mockups</text>
+  <text x="100" y="170" text-anchor="middle" font-size="11" fill="#000">Goal: design it</text>
+
+  <line x1="100" y1="179" x2="100" y2="217" stroke="#cc4444" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <polygon points="100,217 158,247 100,277 42,247" fill="#d4943a" stroke="#b07828" stroke-width="1.5"/>
+  <text x="100" y="252" text-anchor="middle" font-size="12" fill="#000">useful</text>
+
+  <!-- ======== DRAFT COLUMN ======== -->
+  <rect x="222" y="135" width="156" height="44" rx="8" fill="#d4943a" stroke="#b07828" stroke-width="1.5"/>
+  <text x="300" y="153" text-anchor="middle" font-size="11" fill="#000">Use: prototypes</text>
+  <text x="300" y="170" text-anchor="middle" font-size="11" fill="#000">Goal: prove it</text>
+
+  <line x1="300" y1="179" x2="300" y2="300" stroke="#cc4444" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <rect x="245" y="300" width="110" height="30" rx="8" fill="#d4943a" stroke="#b07828" stroke-width="1.5"/>
+  <text x="300" y="320" text-anchor="middle" font-size="13" fill="#000">Iterate</text>
+
+  <line x1="300" y1="330" x2="300" y2="358" stroke="#cc4444" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <polygon points="300,358 365,390 300,422 235,390" fill="#d4943a" stroke="#b07828" stroke-width="1.5"/>
+  <text x="300" y="395" text-anchor="middle" font-size="11" fill="#000">successful</text>
+
+  <!-- ======== APPROVED COLUMN ======== -->
+  <rect x="420" y="443" width="160" height="44" rx="8" fill="#d4943a" stroke="#b07828" stroke-width="1.5"/>
+  <text x="500" y="461" text-anchor="middle" font-size="11" fill="#000">Use: internal review</text>
+  <text x="500" y="478" text-anchor="middle" font-size="11" fill="#000">Goal: verify it</text>
+
+  <line x1="500" y1="487" x2="500" y2="512" stroke="#cc4444" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <rect x="430" y="512" width="140" height="30" rx="8" fill="#d4943a" stroke="#b07828" stroke-width="1.5"/>
+  <text x="500" y="532" text-anchor="middle" font-size="12" fill="#000">Dev team sign-off</text>
+
+  <!-- ======== STABLE COLUMN ======== -->
+  <rect x="622" y="512" width="156" height="44" rx="8" fill="#d4943a" stroke="#b07828" stroke-width="1.5"/>
+  <text x="700" y="530" text-anchor="middle" font-size="11" fill="#000">Use: products</text>
+  <text x="700" y="547" text-anchor="middle" font-size="11" fill="#000">Goal: deploy it</text>
+
+  <line x1="700" y1="556" x2="700" y2="576" stroke="#cc4444" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <rect x="620" y="576" width="160" height="30" rx="8" fill="#d4943a" stroke="#b07828" stroke-width="1.5"/>
+  <text x="700" y="596" text-anchor="middle" font-size="11" fill="#000">Cosmetic improvements</text>
+
+  <!-- ======== VERIFIED COLUMN ======== -->
+  <rect x="820" y="576" width="160" height="44" rx="8" fill="#d4943a" stroke="#b07828" stroke-width="1.5"/>
+  <text x="900" y="594" text-anchor="middle" font-size="11" fill="#000">Use: external impl.</text>
+  <text x="900" y="611" text-anchor="middle" font-size="11" fill="#000">Goal: validate it</text>
+
+  <!-- ======== DEPRECATED COLUMN ======== -->
+  <rect x="1022" y="652" width="156" height="44" rx="8" fill="#d4943a" stroke="#b07828" stroke-width="1.5"/>
+  <text x="1100" y="670" text-anchor="middle" font-size="11" fill="#000">Use: products</text>
+  <text x="1100" y="687" text-anchor="middle" font-size="11" fill="#000">Goal: replace it</text>
+
+  <!-- ======== RETIRED COLUMN ======== -->
+  <rect x="1218" y="659" width="164" height="30" rx="8" fill="#d4943a" stroke="#b07828" stroke-width="1.5"/>
+  <text x="1300" y="679" text-anchor="middle" font-size="11" fill="#000">Use: historical, Goal: study it</text>
+
+  <!-- ======== DELETED COLUMN ======== -->
+  <rect x="1450" y="232" width="100" height="30" rx="15" fill="#d4943a" stroke="#b07828" stroke-width="1.5"/>
+  <text x="1500" y="252" text-anchor="middle" font-size="13" fill="#000">Archive</text>
+
+  <rect x="1450" y="375" width="100" height="30" rx="15" fill="#d4943a" stroke="#b07828" stroke-width="1.5"/>
+  <text x="1500" y="395" text-anchor="middle" font-size="13" fill="#000">Archive</text>
+
+  <!-- ======== TRANSITION ARROWS ======== -->
+  <line x1="158" y1="247" x2="220" y2="157" stroke="#cc4444" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="168" y="238" font-size="11" fill="#cc4444">yes</text>
+
+  <line x1="158" y1="247" x2="1450" y2="247" stroke="#cc4444" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="165" y="263" font-size="11" fill="#cc4444">no</text>
+
+  <line x1="300" y1="422" x2="418" y2="450" stroke="#cc4444" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="308" y="443" font-size="11" fill="#cc4444">yes</text>
+
+  <line x1="365" y1="390" x2="1450" y2="390" stroke="#cc4444" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="373" y="383" font-size="11" fill="#cc4444">no</text>
+
+  <line x1="570" y1="527" x2="620" y2="527" stroke="#cc4444" stroke-width="1.5" marker-end="url(#arr)"/>
+  <!-- Stable Cosmetic -> Verified (horizontal) -->
+  <line x1="780" y1="591" x2="818" y2="591" stroke="#cc4444" stroke-width="1.5" marker-end="url(#arr)"/>
+  <!-- Stable Cosmetic -> Deprecated (L-bend below Verified) -->
+  <polyline points="700,606 700,636 1022,663" fill="none" stroke="#cc4444" stroke-width="1.5" marker-end="url(#arr)"/>
+  <!-- Verified -> Deprecated (from right edge) -->
+  <line x1="980" y1="598" x2="1022" y2="663" stroke="#cc4444" stroke-width="1.5" marker-end="url(#arr)"/>
+  <!-- Deprecated -> Retired (horizontal) -->
+  <line x1="1178" y1="674" x2="1218" y2="674" stroke="#cc4444" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <text x="800" y="758" text-anchor="middle" font-size="10" fill="#999">rfc.vac.dev/1/COSS</text>
+</svg>

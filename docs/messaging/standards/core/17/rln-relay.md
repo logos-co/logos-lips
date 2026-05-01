@@ -5,6 +5,7 @@
 | Name | Waku v2 RLN Relay |
 | Slug | 17 |
 | Status | draft |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Alvaro Revuelta <alvaro@status.im> |
 | Contributors | Oskar Thorén <oskarth@titanproxy.com>, Aaryamann Challani <p1ge0nh8er@proton.me>, Sanaz Taheri <sanaz@status.im>, Hanno Cornelius <hanno@status.im> |
@@ -13,22 +14,23 @@
 
 ## Timeline
 
-- **2026-01-16** — [`f01d5b9`](https://github.com/vacp2p/rfc-index/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/standards/core/17/rln-relay.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/core/17/rln-relay.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/core/17/rln-relay.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/core/17/rln-relay.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/core/17/rln-relay.md) — ci: add mdBook configuration (#233)
-- **2024-11-20** — [`776c1b7`](https://github.com/vacp2p/rfc-index/blob/776c1b76cda73aa1feaf5746a4cdb56b6836b4be/waku/standards/core/17/rln-relay.md) — rfc-index: Update (#110)
-- **2024-09-13** — [`3ab314d`](https://github.com/vacp2p/rfc-index/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/standards/core/17/rln-relay.md) — Fix Files for Linting (#94)
-- **2024-08-05** — [`eb25cd0`](https://github.com/vacp2p/rfc-index/blob/eb25cd06d679e94409072a96841de16a6b3910d5/waku/standards/core/17/rln-relay.md) — chore: replace email addresses (#86)
-- **2024-06-06** — [`5064ded`](https://github.com/vacp2p/rfc-index/blob/5064ded9982e8540a763afc7f698ead9eb9f9477/waku/standards/core/17/rln-relay.md) — Update 17/WAKU2-RLN-RELAY: Proof Size (#44)
-- **2024-05-28** — [`7b443c1`](https://github.com/vacp2p/rfc-index/blob/7b443c1aab627894e3f22f5adfbb93f4c4eac4f6/waku/standards/core/17/rln-relay.md) — 17/WAKU2-RLN-RELAY: Update (#32)
-- **2024-03-21** — [`2eaa794`](https://github.com/vacp2p/rfc-index/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/standards/core/17/rln-relay.md) — Broken Links + Change Editors (#26)
-- **2024-02-01** — [`244ea55`](https://github.com/vacp2p/rfc-index/blob/244ea554800c28ffe6ae2730729aa631863dbbc5/waku/standards/core/17/rln-relay.md) — Update and rename RLN-RELAY.md to rln-relay.md
-- **2024-01-27** — [`7bcefac`](https://github.com/vacp2p/rfc-index/blob/7bcefaca66451f555555c252a724889bd7d13d3f/waku/standards/core/17/RLN-RELAY.md) — Rename README.md to RLN-RELAY.md
-- **2024-01-27** — [`eef961b`](https://github.com/vacp2p/rfc-index/blob/eef961bfe3b1cf6aab66df5450555afd1d3543cb/waku/standards/core/17/README.md) — remove rfs folder
-- **2024-01-26** — [`1ed5919`](https://github.com/vacp2p/rfc-index/blob/1ed5919657475a66ca54cf8e2dc3c27208a5fc1a/waku/rfcs/standards/core/17/README.md) — Update README.md
-- **2024-01-25** — [`4b3b4e3`](https://github.com/vacp2p/rfc-index/blob/4b3b4e30803638b48244b8029b7be5bbd3530ee7/waku/rfcs/standards/core/17/README.md) — Create README.md
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/messaging/standards/core/17/rln-relay.md) — chore: add math support (#287)
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/standards/core/17/rln-relay.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/core/17/rln-relay.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/core/17/rln-relay.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/core/17/rln-relay.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/core/17/rln-relay.md) — ci: add mdBook configuration (#233)
+- **2024-11-20** — [`776c1b7`](https://github.com/logos-co/logos-lips/blob/776c1b76cda73aa1feaf5746a4cdb56b6836b4be/waku/standards/core/17/rln-relay.md) — rfc-index: Update (#110)
+- **2024-09-13** — [`3ab314d`](https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/standards/core/17/rln-relay.md) — Fix Files for Linting (#94)
+- **2024-08-05** — [`eb25cd0`](https://github.com/logos-co/logos-lips/blob/eb25cd06d679e94409072a96841de16a6b3910d5/waku/standards/core/17/rln-relay.md) — chore: replace email addresses (#86)
+- **2024-06-06** — [`5064ded`](https://github.com/logos-co/logos-lips/blob/5064ded9982e8540a763afc7f698ead9eb9f9477/waku/standards/core/17/rln-relay.md) — Update 17/WAKU2-RLN-RELAY: Proof Size (#44)
+- **2024-05-28** — [`7b443c1`](https://github.com/logos-co/logos-lips/blob/7b443c1aab627894e3f22f5adfbb93f4c4eac4f6/waku/standards/core/17/rln-relay.md) — 17/WAKU2-RLN-RELAY: Update (#32)
+- **2024-03-21** — [`2eaa794`](https://github.com/logos-co/logos-lips/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/standards/core/17/rln-relay.md) — Broken Links + Change Editors (#26)
+- **2024-02-01** — [`244ea55`](https://github.com/logos-co/logos-lips/blob/244ea554800c28ffe6ae2730729aa631863dbbc5/waku/standards/core/17/rln-relay.md) — Update and rename RLN-RELAY.md to rln-relay.md
+- **2024-01-27** — [`7bcefac`](https://github.com/logos-co/logos-lips/blob/7bcefaca66451f555555c252a724889bd7d13d3f/waku/standards/core/17/RLN-RELAY.md) — Rename README.md to RLN-RELAY.md
+- **2024-01-27** — [`eef961b`](https://github.com/logos-co/logos-lips/blob/eef961bfe3b1cf6aab66df5450555afd1d3543cb/waku/standards/core/17/README.md) — remove rfs folder
+- **2024-01-26** — [`1ed5919`](https://github.com/logos-co/logos-lips/blob/1ed5919657475a66ca54cf8e2dc3c27208a5fc1a/waku/rfcs/standards/core/17/README.md) — Update README.md
+- **2024-01-25** — [`4b3b4e3`](https://github.com/logos-co/logos-lips/blob/4b3b4e30803638b48244b8029b7be5bbd3530ee7/waku/rfcs/standards/core/17/README.md) — Create README.md
 
 <!-- timeline:end -->
 

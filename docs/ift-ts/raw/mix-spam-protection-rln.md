@@ -9,25 +9,36 @@
 | Editor       | Prem Prathi <prem@status.im>  |
 | Contributors |                               |
 
+<!-- timeline:start -->
+
+## Timeline
+
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/ift-ts/raw/mix-spam-protection-rln.md) — chore: add math support (#287)
+- **2026-01-29** — [`3cd2d09`](https://github.com/logos-co/logos-lips/blob/3cd2d090a4c8aa7a762dd9357d21cd73bb57cd15/docs/ift-ts/raw/mix-spam-protection-rln.md) — fix title of doc (#282)
+- **2026-01-29** — [`0e53ebb`](https://github.com/logos-co/logos-lips/blob/0e53ebb1b0d090d1d2957a0164c85c38d81560f8/docs/ift-ts/raw/mix-spam-protection-rln.md) — change header to new format (#279)
+- **2026-01-24** — [`ffca40a`](https://github.com/logos-co/logos-lips/blob/ffca40abfa6b42f239439550cd2fc47fc802f22a/docs/ift-ts/raw/mix-spam-protection-rln.md) — Mix spam and sybil protection protocol using RLN (#252)
+
+<!-- timeline:end -->
+
 ## Abstract
 
-This document defines a spam and sybil protection protocol for [libp2p mix](https://github.com/vacp2p/rfc-index/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md) based mixnets.
+This document defines a spam and sybil protection protocol for [libp2p mix](https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md) based mixnets.
 The protocol specifies how [Rate Limiting Nullifiers (RLN)](https://vac.dev/rln) can be integrated into libp2p mix.
 RLN allows mix nodes to detect and drop spam without identifying legitimate users, addressing spam attacks.
 RLN requires membership for mix nodes to send or forward messages, addressing the sybil attack vector.
-RLN satisfies the spam protection [requirements](https://github.com/vacp2p/rfc-index/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md#91-spam-protection-mechanism-requirements) defined in the libp2p mix protocol.
+RLN satisfies the spam protection [requirements](https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md#91-spam-protection-mechanism-requirements) defined in the libp2p mix protocol.
 
 ## Background / Rationale / Motivation
 
-Mixnets provide strong privacy guarantees by routing messages through multiple mix nodes using layered encryption and per-hop delays to obscure both routing paths and timing correlations. In order to have a production-ready mixnet using the [libp2p mix](https://github.com/vacp2p/rfc-index/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md), two critical vulnerabilities must be addressed:
+Mixnets provide strong privacy guarantees by routing messages through multiple mix nodes using layered encryption and per-hop delays to obscure both routing paths and timing correlations. In order to have a production-ready mixnet using the [libp2p mix](https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md), two critical vulnerabilities must be addressed:
 
 1. **Spam attacks**: An attacker can generate well-formed sphinx packets targeting mix nodes and can exhaust their resources.
    In case of mixnets, it is easy to attack a later hop in the mix path by choosing different first hop nodes.
    An attacker with minimal resources can launch spam/DoS attacks against individual mix nodes. By targeting all mix nodes in this manner, the attacker can render the entire mixnet unusable.
 2. **Sybil attacks**: Adversaries operating multiple node identities can increase the probability of path compromise, enabling deanonymization through traffic correlation or timing analysis.
 
-The [libp2p mix](https://github.com/vacp2p/rfc-index/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md) protocol provides an extension for integrating spam protection mechanisms.
-This specification proposes to use [Rate Limiting Nullifiers (RLN)](https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/raw/rln-v2.md) as the spam prevention and sybil protection mechanism.
+The [libp2p mix](https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md) protocol provides an extension for integrating spam protection mechanisms.
+This specification proposes to use [Rate Limiting Nullifiers (RLN)](https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/raw/rln-v2.md) as the spam prevention and sybil protection mechanism.
 This approach introduces some trade-offs such as additional per-hop latency for proof generation which are discussed in the [Tradeoffs](#tradeoffs) section.
 
 ## Terminology
@@ -65,7 +76,7 @@ See section [System Parameters](#system-parameters) for details on the `period` 
 
 ### Overview
 
-The protocol implements RLN using a [per-hop generated proof approach](https://github.com/vacp2p/rfc-index/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md#922-per-hop-generated-proofs), where each node in the mix path generates and verifies proofs.
+The protocol implements RLN using a [per-hop generated proof approach](https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md#922-per-hop-generated-proofs), where each node in the mix path generates and verifies proofs.
 This enables network-wide spam protection while preserving user privacy.
 
 Each mix node MUST have an RLN group membership in order to send or forward messages in the mixnet.
@@ -97,10 +108,10 @@ RLN is well-suited for spam and sybil protection in libp2p mix based mixnets due
 
 ### Setup
 
-Each mix node has an RLN key pair consisting of a secret key `sk` and public key `pk` as defined in [RLN](https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md).
+Each mix node has an RLN key pair consisting of a secret key `sk` and public key `pk` as defined in [RLN](https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md).
 The secret key `sk` MUST be persisted securely by the mix node.
 
-A mixnet that is spam-protected requires all mix nodes in it to form an [RLN group](https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#flow).
+A mixnet that is spam-protected requires all mix nodes in it to form an [RLN group](https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#flow).
 
 - Mix nodes MUST be registered to the RLN group to be able to send or forward messages.
 - Registration MAY be moderated through a smart contract deployed on a blockchain.
@@ -115,15 +126,15 @@ This ensures that mix nodes can detect spam and trigger slashing.
 
 ### Sending and forwarding messages
 
-In order to send/forward messages via mixnet, a mix node MUST include the [RateLimitProof](#ratelimitproof) in the sphinx packet as [$\sigma$](https://github.com/vacp2p/rfc-index/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md#922-per-hop-generated-proofs).
+In order to send/forward messages via mixnet, a mix node MUST include the [RateLimitProof](#ratelimitproof) in the sphinx packet as [$\sigma$](https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md#922-per-hop-generated-proofs).
 
 #### Proof Generation
 
 When generating an RLN proof, the node MUST:
 
 1. Use its secret key `sk` and the current `epoch`
-2. Obtain the current Merkle root and [`path_elements`](https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#obtaining-merkle-proof) from the synchronized membership tree
-3. Generate a keccak256 hash of all components of the **outgoing** sphinx packet [(α', β', γ', δ')](https://github.com/vacp2p/rfc-index/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md#81-packet-structure-overview) and set it as the proof signal. This prevents proof reuse across different messages.
+2. Obtain the current Merkle root and [`path_elements`](https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#obtaining-merkle-proof) from the synchronized membership tree
+3. Generate a keccak256 hash of all components of the **outgoing** sphinx packet [(α', β', γ', δ')](https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md#81-packet-structure-overview) and set it as the proof signal. This prevents proof reuse across different messages.
 
 **Sender nodes**:
 
@@ -141,7 +152,7 @@ MUST do the following for every incoming mix packet:
 
 ### Group Synchronization
 
-Proof generation relies on the knowledge of Merkle tree root `merkle_root` and `path_elements` (the authentication path in the Merkle proof as defined in [RLN](https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#obtaining-merkle-proof)) which both require access to the membership Merkle tree.
+Proof generation relies on the knowledge of Merkle tree root `merkle_root` and `path_elements` (the authentication path in the Merkle proof as defined in [RLN](https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#obtaining-merkle-proof)) which both require access to the membership Merkle tree.
 Proof verification also requires knowledge of the `merkle_root` to validate that the proof was generated against a valid membership tree state.
 The RLN membership group MUST be synchronized across all mix nodes to ensure the latest Merkle root is used for RLN proof generation and verification.
 Stale roots may cause legitimate proofs to be rejected.
@@ -160,9 +171,9 @@ Intermediary and exit nodes that participate in the coordination layer MUST both
 Sender-only nodes need not participate in this coordination layer as they only originate messages and do not forward or validate messages from others.
 
 The coordination layer MUST have its own spam and sybil protection mechanism in order to prevent from these attacks.
-We recommend using [WAKU-RLN-RELAY](https://github.com/vacp2p/rfc-index/blob/72196d89c1084d625c22b1d5cb775ad7729ad577/waku/standards/core/17/rln-relay.md)
+We recommend using [WAKU-RLN-RELAY](https://github.com/logos-co/logos-lips/blob/72196d89c1084d625c22b1d5cb775ad7729ad577/waku/standards/core/17/rln-relay.md)
 In this case, the Messaging Metadata MUST be encoded as the Waku Message payload.
-We recommend using the [public Waku Network](https://github.com/vacp2p/rfc-index/blob/72196d89c1084d625c22b1d5cb775ad7729ad577/waku/standards/core/64/network.md) with a content topic agreed by all mix nodes.
+We recommend using the [public Waku Network](https://github.com/logos-co/logos-lips/blob/72196d89c1084d625c22b1d5cb775ad7729ad577/waku/standards/core/64/network.md) with a content topic agreed by all mix nodes.
 
 ### Message validation
 
@@ -170,7 +181,7 @@ A mix node MUST validate a received message using the below checks, discard the 
 
 1. If the `epoch` in the received message differs from the mix node's current `epoch` by more than `max_epoch_gap`.
 2. If the `merkle_root` is NOT in the `acceptable_root_window_size` past roots of the mix node.
-3. If the zero-knowledge proof `proof` is valid. It does so by running the zk verification algorithm as explained in [RLN](https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#verification-and-slashing).
+3. If the zero-knowledge proof `proof` is valid. It does so by running the zk verification algorithm as explained in [RLN](https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#verification-and-slashing).
 
 If all checks pass, the node proceeds to [spam detection](#spam-detection-and-slashing) before processing the message.
 
@@ -222,12 +233,12 @@ Below is the description of the fields of `RateLimitProof` and their types.
 |                 `proof` | array of 128 bytes compressed            | the zkSNARK proof as explained in the [Sending process](#sending-and-forwarding-messages)                                                                                                                                                                            |
 |           `merkle_root` | array of 32 bytes in little-endian order | the root of membership group Merkle tree at the time of sending the message                                                                                                                                                                                          |
 |                 `epoch` | array of 32 bytes                        | the current epoch at time of sending the message                                                                                                                                                                                                                     |
-| `share_x` and `share_y` | array of 32 bytes each                   | Shamir secret shares of the user's secret identity key `sk` . `share_x` is the hash of the message. `share_y` is calculated using [Shamir secret sharing scheme](https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md) |
-|             `nullifier` | array of 32 bytes                        | internal nullifier derived from `epoch` and node's `sk` as explained in [RLN construct](https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md)                                                                          |
+| `share_x` and `share_y` | array of 32 bytes each                   | Shamir secret shares of the user's secret identity key `sk` . `share_x` is the hash of the message. `share_y` is calculated using [Shamir secret sharing scheme](https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md) |
+|             `nullifier` | array of 32 bytes                        | internal nullifier derived from `epoch` and node's `sk` as explained in [RLN construct](https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md)                                                                          |
 
 ### Messaging Metadata
 
-[Messaging metadata](https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#notes-from-implementation) is metadata which is broadcasted via coordination layer and cached by mix nodes locally.
+[Messaging metadata](https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#notes-from-implementation) is metadata which is broadcasted via coordination layer and cached by mix nodes locally.
 This helps identify duplicate signalling in order to detect spam.
 
 ```protobuf
@@ -340,10 +351,10 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 
 ## References
 
-- [libp2p mix protocol](https://github.com/vacp2p/rfc-index/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md/)
+- [libp2p mix protocol](https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md/)
 - [Rate Limiting Nullifiers (RLN)](https://vac.dev/rln)
-- [Rate Limiting Nullifiers v2](https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/raw/rln-v2.md)
-- [RLN v1](https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md)
+- [Rate Limiting Nullifiers v2](https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/raw/rln-v2.md)
+- [RLN v1](https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md)
 - [Waku-Relay](https://rfc.vac.dev/spec/11/)
 - [RLN with precomputed proofs](https://forum.vac.dev/t/rln-with-pre-computed-proofs/606)
 - [Poseidon hash implementation](https://eprint.iacr.org/2019/458.pdf)

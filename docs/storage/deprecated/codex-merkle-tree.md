@@ -5,6 +5,7 @@
 | Name | Codex Merkle Tree |
 | Slug | 82 |
 | Status | deprecated |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Codex Team |
 | Contributors | Filip Dimitrijevic <filip@status.im> |
@@ -13,8 +14,10 @@
 
 ## Timeline
 
-- **2026-01-19** — [`f24e567`](https://github.com/vacp2p/rfc-index/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/storage/raw/codex-merkle-tree.md) — Chore/updates mdbook (#262)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/storage/raw/codex-merkle-tree.md) — Chore/mdbook updates (#258)
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/storage/deprecated/codex-merkle-tree.md) — chore: add math support (#287)
+- **2026-02-06** — [`af4cd78`](https://github.com/logos-co/logos-lips/blob/af4cd78ffaeb12026c166df80d7c9fec5c2efb86/docs/storage/deprecated/codex-merkle-tree.md) — feat: revamped Merkle tree spec (#281)
+- **2026-01-19** — [`f24e567`](https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/storage/raw/codex-merkle-tree.md) — Chore/updates mdbook (#262)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/storage/raw/codex-merkle-tree.md) — Chore/mdbook updates (#258)
 
 <!-- timeline:end -->
 

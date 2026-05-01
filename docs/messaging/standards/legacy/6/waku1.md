@@ -5,6 +5,7 @@
 | Name | Waku v1 |
 | Slug | 6 |
 | Status | stable |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Oskar Thorén <oskarth@titanproxy.com> |
 | Contributors | Adam Babik <adam@status.im>, Andrea Maria Piana <andreap@status.im>, Dean Eigenmann <dean@status.im>, Kim De Mey <kimdemey@status.im> |
@@ -13,17 +14,18 @@
 
 ## Timeline
 
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/legacy/6/waku1.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/legacy/6/waku1.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/legacy/6/waku1.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/legacy/6/waku1.md) — ci: add mdBook configuration (#233)
-- **2024-09-13** — [`3ab314d`](https://github.com/vacp2p/rfc-index/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/standards/legacy/6/waku1.md) — Fix Files for Linting (#94)
-- **2024-03-21** — [`2eaa794`](https://github.com/vacp2p/rfc-index/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/standards/legacy/6/waku1.md) — Broken Links + Change Editors (#26)
-- **2024-02-12** — [`be052c8`](https://github.com/vacp2p/rfc-index/blob/be052c8d76281c8ca62975d2d07ae53434744235/waku/standards/legacy/6/waku1.md) — Rename waku/standards/core/waku_legacy/6/waku1.md to waku/standards/legacy/6/waku1.md
-- **2024-02-12** — [`7d83b3d`](https://github.com/vacp2p/rfc-index/blob/7d83b3d51db2ecd04330e7d3cb713094afd59649/waku/standards/core/waku_legacy/6/waku1.md) — Rename waku/standards/core/6/waku1.md to waku/standards/core/waku_legacy/6/waku1.md
-- **2024-02-01** — [`161b35a`](https://github.com/vacp2p/rfc-index/blob/161b35a2e74c5e5d22dd1f7f70d35d952c2ba492/waku/standards/core/6/waku1.md) — Update and rename WAKU1.md to waku1.md
-- **2024-01-27** — [`4c666c6`](https://github.com/vacp2p/rfc-index/blob/4c666c6754b86db60d694db23ea6f2c318b6aab2/waku/standards/core/6/WAKU1.md) — Create WAKU1.md
-- **2024-01-27** — [`61f7641`](https://github.com/vacp2p/rfc-index/blob/61f7641fdd055e71646ccabdc9c873899417323d/waku/rfc/deprecated/5/WAKU0.md) — Create WAKU0.md
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/messaging/standards/legacy/6/waku1.md) — chore: add math support (#287)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/legacy/6/waku1.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/legacy/6/waku1.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/legacy/6/waku1.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/legacy/6/waku1.md) — ci: add mdBook configuration (#233)
+- **2024-09-13** — [`3ab314d`](https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/standards/legacy/6/waku1.md) — Fix Files for Linting (#94)
+- **2024-03-21** — [`2eaa794`](https://github.com/logos-co/logos-lips/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/standards/legacy/6/waku1.md) — Broken Links + Change Editors (#26)
+- **2024-02-12** — [`be052c8`](https://github.com/logos-co/logos-lips/blob/be052c8d76281c8ca62975d2d07ae53434744235/waku/standards/legacy/6/waku1.md) — Rename waku/standards/core/waku_legacy/6/waku1.md to waku/standards/legacy/6/waku1.md
+- **2024-02-12** — [`7d83b3d`](https://github.com/logos-co/logos-lips/blob/7d83b3d51db2ecd04330e7d3cb713094afd59649/waku/standards/core/waku_legacy/6/waku1.md) — Rename waku/standards/core/6/waku1.md to waku/standards/core/waku_legacy/6/waku1.md
+- **2024-02-01** — [`161b35a`](https://github.com/logos-co/logos-lips/blob/161b35a2e74c5e5d22dd1f7f70d35d952c2ba492/waku/standards/core/6/waku1.md) — Update and rename WAKU1.md to waku1.md
+- **2024-01-27** — [`4c666c6`](https://github.com/logos-co/logos-lips/blob/4c666c6754b86db60d694db23ea6f2c318b6aab2/waku/standards/core/6/WAKU1.md) — Create WAKU1.md
+- **2024-01-27** — [`61f7641`](https://github.com/logos-co/logos-lips/blob/61f7641fdd055e71646ccabdc9c873899417323d/waku/rfc/deprecated/5/WAKU0.md) — Create WAKU0.md
 
 <!-- timeline:end -->
 
