@@ -1356,10 +1356,16 @@ the registrar calculates the waiting time `w_2`
 using the [waiting time formula](#formula).
 
 For the corresponding `service_id_hash`,
-it calculates the remaining lower bound:
+it first calculates the elapsed time since the bound was last updated:
+
+```text
+elapsed_time = t_2 - timestamp(service_id_hash)
+```
+
+It then calculates the remaining lower bound:
 
 ```
-remaining_bound = bound(service_id_hash) - (t_2 - timestamp(service_id_hash))
+remaining_bound = bound(service_id_hash) - elapsed_time
 ```
 
 The waiting time is then adjusted as:
@@ -1377,7 +1383,8 @@ if w_2 > remaining_bound:
 The same logic is applied for each `IP` associated with the advertisement:
 
 ```
-remaining_bound = bound(IP) - (t_2 - timestamp(IP))
+elapsed_time = t_2 - timestamp(IP)
+remaining_bound = bound(IP) - elapsed_time
 w_2 = max(w_2, remaining_bound)
 
 if w_2 > remaining_bound:
