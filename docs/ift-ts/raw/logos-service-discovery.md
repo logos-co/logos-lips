@@ -1322,7 +1322,7 @@ send `ads` for random services or from diverse IPs.
 
 To prevent "ticket grinding" attacks where advertisers
 repeatedly request new tickets hoping for better waiting times,
-registrars MUST enforce lower bounds:
+registrars MUST enforce lower bounds.
 
 Invariant: A new waiting time `w_2` at time `t_2`
 MUST NOT be smaller than a previous waiting time `w_1` at time `t_1`
@@ -1345,11 +1345,27 @@ For each `IP` prefix in the IP tree, the registrar MUST maintain:
 The final waiting time respects the lower bound when
 both service-level and IP-level bounds are enforced.
 Service-level entries are bounded by the number of distinct `service_id_hash` values
-for which non-expired `WAIT` tickets have been issued.
+currently tracked in the registrar state.
 IP-level entries are bounded by the number of distinct `IPs`
-appearing in advertisements associated with non-expired `WAIT` tickets.
+present in advertisements currently stored in the registrar state.
 
 **Lower bounds SHOULD be calculated as follows:**
+
+When a `service_id_hash` first enters the registrar state,
+the registrar sets:
+
+```text
+bound(service_id_hash) = 0
+timestamp(service_id_hash) = current_time
+```
+
+When an IP first enters the registrar state,
+the registrar sets:
+
+```text
+bound(IP) = 0
+timestamp(IP) = current_time
+```
 
 When a new ticket request arrives at time `t_2`,
 the registrar calculates the waiting time `w_2`
