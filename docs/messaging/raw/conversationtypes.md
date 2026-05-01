@@ -1,5 +1,14 @@
 # ConversationTypes
 
+| Field | Value |
+| --- | --- |
+| Name | RFC Template |
+| Slug | __ |
+| Status | raw |
+| Type | RFC |
+| Category | Standards Track |
+| Editor | jazzz <jazz@status.im> |
+
 ## Terminology
 
 This specification uses the terminology outlined in [CHAT_DEFS](https://github.com/logos-messaging/specs/blob/master/informational/chatdefs.md) including;
