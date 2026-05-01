@@ -1343,7 +1343,7 @@ for which non-expired `WAIT` tickets have been issued.
 IP-level entries are bounded by the number of distinct `IPs`
 appearing in advertisements associated with non-expired `WAIT` tickets.
 
-**How SHOULD lower bound be calculated**
+**Lower bounds SHOULD be calculated as follows:**
 
 When a new ticket request arrives, the registrar first calculates the waiting time `w_2` at time `t_2`.
 
