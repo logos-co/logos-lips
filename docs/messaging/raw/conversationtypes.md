@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Name | RFC Template |
+| Name | ConversationTypes |
 | Slug | __ |
 | Status | raw |
 | Type | RFC |
@@ -11,216 +11,180 @@
 
 ## Terminology
 
-This specification uses the terminology outlined in [CHAT_DEFS](https://github.com/logos-messaging/specs/blob/master/informational/chatdefs.md) including;
+This specification uses the terminology outlined in [CHAT_DEFS](https://github.com/logos-messaging/specs/blob/master/informational/chatdefs.md) including:
 - Content
 - Frame
 - Payload
 
-
 ## Background
 
-Messaging protocols specifications can be long and dense documents. To fully describe a messaging protocol, there are many layers and operations which are required to be documented. This includes payloads, message transport, encryption as well as user level features such as account registration, typing indicators, content formatting.
+Building a messaging protocol requires solving the same set of problems repeatedly: how to structure messages, encrypt them, encode them for transport, and handle versioning across a decentralized network where you can't force clients to upgrade in lockstep.
 
+Without a shared abstraction, each protocol re-solves these problems independently — producing incompatible implementations that resist interoperability and make coordinated upgrades expensive.
 
-This specification Introduces a common method for defining core messaging protocols, in a way that promotes interoperability, and version handling in a decentralized environment. 
+### The hard problem: versioning in a decentralized network
 
+In centralized systems, versioning is straightforward — the server dictates the protocol, and clients update or lose access. In a decentralized network, no such authority exists. Clients at different versions must coexist indefinitely, and any breaking change risks permanently fragmenting the network.
+
+The conventional response is complex negotiation logic, semver schemes, and careful backwards-compatibility maintenance. This creates a compounding burden: the older the protocol, the more legacy behavior implementors must carry.
 
 ## Overview
 
-This specification outlines the requirements for defining abstract communication mechanisms called "ConversationTypes".
+This specification takes a different approach to the versioning problem. Rather than versioning protocols, we make them immutable. A ConversationType is a fixed contract — it never changes. When new functionality is needed, a new ConversationType is defined and participants rotate to it. This makes upgrades cheap, explicit, and coordination-free: clients that support a ConversationType can always communicate, and adding new capabilities never breaks existing ones.
 
-ConversationTypes are specifications which define protocol messages and their serialization. This includes the message structures, encryption mechanisms, and encoding. 
+ConversationTypes are the mechanism that makes this possible — a common framework for defining messaging protocols that is modular, immutable, and interoperable by design. ConversationTypes define protocol messages and their serialization, including message structures, encryption mechanisms, and encoding.
 
-A Conversation is an instance of a ConversationType. 
-A ConversationType is a protocol for full-duplex communication. 
+In this model, clients are expected to support multiple ConversationTypes simultaneously. Compatibility between clients is determined not by client version, but by the set of ConversationTypes each client supports.
 
+### Definitions
 
-### Scope & Context
+A ConversationType is a specification for full-duplex communication.
 
-A Conversation can be considered a processor which converts between Content and Payloads and vice versa.
+A Conversation is a software instance of that specification.
 
-[TODO: Add Diagram]
+### Scope
 
-The Scope of an ConversationType includes:
+A Conversation can be considered a processor which converts between Content and Payloads. The scope of a ConversationType defines everything inside that boundary.
 
-- Framing: How data is bundled and organized into frames.
-- Encryption: How and if frames have confidentiality and integrity. 
-- Encoding: How frames are converted to bytes for transport
-- Addressing: Which delivery address to send a payload too.
+| In scope | Out of scope |
+| --- | --- |
+| Framing: how data is bundled into frames | Transport & routing: how payloads move between clients |
+| Encryption: confidentiality and integrity of frames | Content schema: conversations are content-agnostic |
+| Encoding: how frames are converted to bytes | Discovery & peer negotiation |
+| Addressing: which delivery address a payload targets | Conversation initialization & bootstrapping |
 
-Tasks which are handled by other components:
-
-- Transport and Routing: How messages are sent between clients.
-- Content Schema: Conversations are Content agnostic.
-
-
-
-#### High Level Flow
-
+### Interface
 
 ```mermaid
 sequenceDiagram
     participant A as Client
     participant C as Conversation
-    
-    Note over A,C : When Initializing new <br> Conversation Instance
 
+    Note over A,C : Initialization
     A ->> C: constructor(...)
     C -->> A: ret: List<deliveryAddr>
 
-    Note over A,C :When Developer <br> provides AppContent
-
+    Note over A,C : Sending
     A ->> C : Send(Content)
     C -->> A : ret: List<(deliveryAddr, Payload)>
 
-    Note over A,C :When DS provides <br> inbound Payloads
-
+    Note over A,C : Receiving
     A ->> C : Receive(Payload)
     C -->> A : ret: Content or None
 ```
 
-
-## Assumptions 
+## Assumptions
 
 ### Delivery Service
-This specification assumes that a service exists which is responsible for routing payloads - called a DeliveryService or DS.
 
-A DeliveryService has the following properties:
-- A DS operates as a PubSub like - It supports Publish and Subscribe functionality.
-- A DS uses a `delivery address` to created broadcast domains.
-- A DS is not reliable - message delivery is not guaranteed
+This specification assumes the existence of a Delivery Service responsible for routing payloads between clients. A ConversationType is always defined in the context of a DS with the following properties:
 
-
+- A DS operates as a PubSub — it supports Publish and Subscribe functionality.
+- A DS uses a `delivery address` to create broadcast domains.
+- A DS is not reliable — message delivery is not guaranteed.
 
 ## Specification
 
-- A ConversationType SHOULD be defined in a normative specification.
-- A ConversationType MUST define how to generate ConversationIds
+- A ConversationType MUST define how to generate ConversationIds.
+- A ConversationType MUST define how to assign `delivery addresses` to Payloads.
 - A ConversationType MUST define how to generate Payloads.
 - A ConversationType MUST define how to retrieve Content.
-- A ConversationType MUST define how to encode/decode frames. 
 - A ConversationType MUST be immutable.
-- A ConversationType SHOULD explicitly document all the Frames used in operation.
-- A ConversationType MUST be agnostic of any content. 
-- A ConversationType MUST be self-contained and operate independently of other ConversationTypes.
+- A ConversationType MUST explicitly document all Frames required for interoperability.
+- A ConversationType MUST NOT impose any requirements on Content structure.
+- A ConversationType MUST NOT depend on the internal state of any other ConversationType.
 
+### ConversationIds
 
-### Initialization
-#### ConversationIds
+ConversationIds uniquely identify a Conversation instance on a client. Their primary role is routing — when an inbound Payload arrives, the client uses the ConversationId to determine which Conversation should process it.
 
-ConversationIds are used to uniquely identify a protocol instance on a client. 
-Their primary use is for routing Payloads to the correct Conversation for processing inbound messages.
-ConversationTypes are responsible to defining a mechanism to produce these identifiers.
+**Requirements:**
+- ConversationIds MUST be 128bits long.
+- For every client, a ConversationId MUST reference one and only one Conversation.
 
-- ConversationIds MUST be 96bits long.
-- For every client, ConversationIds MUST reference one and only one Conversation.
+### Delivery Subscriptions
 
-The serialization of ConversationIds is determined by the the implementation is not defined by a ConversationType.
+Delivery addresses define where a Conversation expects to receive inbound Payloads from the DS. They are defined by the ConversationType rather than the DS for two reasons:
 
-#### Delivery Subscriptions
+First, delivery addresses have direct privacy implications — how messages are grouped and addressed can leak metadata about participants and group membership. The ConversationType is best positioned to reason about this, as it has full knowledge of the message structure and encryption scheme.
 
-When a new Conversation is initialized, the delivery service does not know where the conversation expects to receive messages. As how the `delivery_addresses` are used have implications on Conversation privacy, these identifiers are defined by the ConversationType. 
+Second, the DS treats all Payloads as opaque bytes — it has no visibility into content, participants, or intent. The ConversationType, by contrast, understands the semantics of its messages and can make informed decisions about how to group and address them for delivery.
 
-- A Conversation instance MUST define a static set of `delivery addresses` to subscribe to during initialization. 
+**Requirements:**
+- A Conversation instance MUST define a static set of `delivery addresses` to subscribe to during initialization.
 
 ### Payload Generation & Content Retrieval
 
-All Conversation Instances MUST provide the following conversions:
+A Conversation exposes two conversions — one for each direction of communication. These are the core operations of a ConversationType and define how Content moves in and out of the protocol layer.
 
-- Content -> list(DeliveryAddress, Payload)
-- Payload -> Content | None
+A single Content message MAY result in multiple Payloads, each with its own delivery address. This allows a ConversationType to fan out messages across multiple delivery addresses when required by its design.
 
-A single content message MAY result in multiple Payloads, and it is not assumed that the destination delivery_address is the same for each payload generated.
-An incoming payload will either generate a single Content, or nothing. 
+An inbound Payload will either produce a single Content or nothing. The None case is intentional — not all Payloads are intended to surface content to the application. Some may be protocol-level messages handled internally by the Conversation.
 
+**Requirements:**
+- All Conversation instances MUST provide the following conversions:
+  - `Content -> list(DeliveryAddress, Payload)`
+  - `Payload -> Content | None`
 
 ### Immutability
 
-To avoid compatibility mismatches between different client versions, Conversations are considered static.
-Clients supporting a ConversationType MUST always be able to inter-operate regardless of implementation.
-Any breaking changes to a ConversationType are considered a different independent ConversationType. 
+A ConversationType is a fixed contract — once published it cannot be changed. This eliminates compatibility mismatches between clients: any two clients that support the same ConversationType can always interoperate, regardless of their implementation or version.
 
-As there cannot exist multiple versions of a single ConversationType, compatibility issues between clients are removed.
+When new functionality is needed, a new ConversationType is defined. Existing ConversationTypes remain valid indefinitely.
 
-Upgrading from one conversation to another is purposely not specified. Any such feature would be defined by a individual ConversationType. 
-
-### Frame Definitions
-
-ConversationTypes MUST define all the types used in the operation of the protocol. These types referred to as `Frames` are specific to each ConversationType. Multiple ConversationTypes CAN reuse the same types, however there are no requirements to due so. 
-
-### Encoding/Decoding
-The output Payloads from a Conversation are treated as opaque bytes by other layers. 
-A ConversationType MUST define how to convert between Payloads and Frames.
-Different ConversationTypes MAY use different encoding procedures.
-
-
-## Implementation Suggestions
-
-
-### Logical "Chats"
-
-It is strongly suggested that App developers keep a logical separation between the user facing stream of messages (ie: a "chat") and the method used to transport those messages (ie: Conversation)
-As ConversationTypes are immutable, the life cycle of a "chat" may exceed that of the original Conversation used to transport those messages. 
-Applications which consider a "ChatId" that maps to a current ConversationId will have a smoother time during conversation rotation. 
-
-
-### Versioning 
-
-Coordinating client upgrades is complex in decentralized protocols, which eats up resources and slows deploying features. 
-To avoid conflicts ConversationTypes cannot be altered in a way that would break compatibility. 
-
-This establishes an Invariant - Any Clients that implement the same ConversationTypes can communicate. 
-
-
-#### Conversation-Centric Versioning
-
-In this model it's expected that Clients can support multiple different conversationTypes simultaneously.
-Rather than the Client version being the major factor on wether clients can communicate, compatibility is determined by what set of protocols a client supports. 
-
-
-#### Protocol Naming
-
-ConversationTypes themselves are identified by the specification, and any associated name is solely for convenience.
- 
-ConversationType names carry no semantic meaning. 
-Implementors MAY use a common prefix for organizational clarity, but similarly named ConversationTypes do not imply any protocol relationship, compatibility, or ordering between types.
-
-While it makes sense to use similar names for similar ConversationTypes, this is not required.  
-
-#### Upgrading from one ConversationType to another
-In order to access new functionality, participants may want to "upgrade" from one ConversationType to another.
-To achieve this, a new conversation is initialized with the same membership, and the existing Conversation is archived. This process is referred to as `Conversation Rotation`. 
-
-- ConversationTypes MAY create specialized frames for coordinating this process.
-- There is no inherent limitations on which ConversationTypes a Conversation can rotate to. This is defined by the specific ConversationType, thought it should be deterministic.
-
-
-### Deterministic Parsing Trees
-
-ConversationTypes are responsible for defining all types used in operation. 
-How to parse these types SHOULD be clear and unambiguous - even in the presence of errors.
-Conversations SHOULD use a parsing strategy which is deterministic and makes no assumption about the payloads received.  
-
-Deterministic parsing trees, forces a frame or payload to be in 1 of 3 states: Valid, Invalid, Unsupported. Distinguishing between invalid and unsupported types helps increase observability in a decentralized environment. 
-
-Choosing self-describing protocol messages is always preferred.
-
-#### Explicit Content Tagging
-
-Assuming an unknown frametype corresponds to content intended for the Application, can surface bad data to applications in the event of decoding errors.
-All content intended for applications SHOULD be explicitly tagged so there is no ambiguity. This ensures that client implementations can always differentiate between three possible outcomes:
-- The frame contains a meta-message to be handled by the conversation.
-- the frame contains content destined for the Application
-- The frame is malformed due to a protocol error. 
-
-### State Persistence
+Immutability applies to frame definitions and their semantics — not to the data carried within frames.
 
 Because ConversationTypes are immutable, implementors do not need to manage breaking schema changes. Any additions to stored state will be additive, removing the need for complex migrations, `semver`, or version tracking.
 
-Instead Implementors are encouraged to enable fast deployments with minimal to no changes in clients. 
+**Requirements:**
+- A ConversationType MUST NOT be modified after publication.
+- Any change that affects interoperability MUST be defined as a new ConversationType.
+
+### Frame Definitions
+
+Frames are the typed data structures that a Conversation operates on internally. They sit between the raw Payload bytes and the Content exposed to the application — a Payload is decoded into a Frame, and either handled internally by the Conversation or converted to Content.
+
+Each ConversationType defines its own set of Frames. Multiple ConversationTypes may reuse the same Frame definitions but there is no requirement to do so.
+
+All Frames fall into one of three states when processed by a Conversation. Distinguishing between these states improves observability — a malformed Frame and an unrecognised Frame are different problems and should not be conflated:
+- **Valid** — the Frame is well-formed and recognised.
+- **Invalid** — the Frame is malformed or fails validation.
+- **Unsupported** — the Frame is unrecognised by this Conversation instance.
+
+**Requirements:**
+- A ConversationType MUST explicitly document all Frames required for interoperability.
+- A ConversationType MUST define how to distinguish between Valid, Invalid, and Unsupported frames.
+- A ConversationType MUST explicitly tag all Frames intended for the application layer.
+- A ConversationType SHOULD define an unambiguous parsing strategy for all Frames, including in the presence of errors.
+
+### Encoding/Decoding
+
+Encoding defines how Frames are serialized into Payload bytes for transport, and how inbound Payload bytes are deserialized back into Frames. Payloads are treated as opaque bytes by all other layers — only the Conversation itself is responsible for interpreting them.
+
+Different ConversationTypes may use different encoding schemes. There is no requirement to share encoding procedures across ConversationTypes.
+
+**Requirements:**
+- A ConversationType MUST define how to encode Frames into Payloads.
+- A ConversationType MUST define how to decode Payloads into Frames.
+
+## Implementation Suggestions
+
+### Logical "Chats"
+
+App developers should maintain a logical separation between the user-facing message stream (a "chat") and the Conversation used to transport it. As ConversationTypes are immutable, the lifecycle of a "chat" may outlive the Conversation that carries it — particularly across Conversation Rotation. Applications that map a stable "ChatId" to a current ConversationId will handle rotation more gracefully.
+
+### Conversation Rotation
+
+Conversation Rotation is the process of migrating participants from one ConversationType to a new one. A new Conversation is initialized with the same membership and the existing Conversation is archived. This is the primary mechanism for accessing new functionality without breaking existing clients.
+
+### Protocol Naming
+
+ConversationType names are for convenience only — they carry no semantic meaning and imply no protocol relationship, compatibility, or ordering. Similarly named ConversationTypes do not imply any relationship between them. Implementors MAY use a common prefix for organizational clarity.
+
+### Self-Describing Messages
+
+Choosing self-describing protocol messages is always preferred — it reduces ambiguity and makes implementations easier to debug and extend.
 
 ## Security Considerations
-
-### State Binding
 
 [TODO]
