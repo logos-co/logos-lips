@@ -1332,7 +1332,7 @@ MUST NOT be smaller than a previous waiting time `w_1` at time `t_1`
 w_2 ≥ w_1 - (t_2 - t_1)
 ```
 
-For each `service_id_hash` and each `IP`, the registrar SHOULD maintain:
+For each `service_id_hash` and each `IP` prefix in the IP tree, the registrar MUST maintain:
 
 - `bound`: the last issued waiting time (`w_1`) when bound value was updated
 - `timestamp`: the time at which `w_1` was issued (`t_1`)
