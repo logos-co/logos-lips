@@ -7,8 +7,8 @@
 | Status | raw |
 | Category | Standards Track |
 | Tags | reliability, application, api, sds, segmentation |
-| Editor | Igor Sirotin <sirotin@status.im> |
-| Contributors | Jazz Turner-Baggs <jazz@status.im>, Ivan Folgueira Bande <ivansete@status.im> |
+| Editor | Ivan Folgueira Bande <ivansete@status.im> |
+| Contributors | Jazz Turner-Baggs <jazz@status.im>, Igor Sirotin <sirotin@status.im> |
 
 ## Table of contents
 
