@@ -29,7 +29,6 @@ The blockchain determines fund accrual based on elapsed time.
 
 This specification defines stream-backed eligibility proof types
 for the incentivization framework
-defined in the incentivization specification
 (see [References](#references)).
 The incentivization specification is defined
 in the context of Logos Messaging request-response protocols.
@@ -145,8 +144,7 @@ The sum of all stream allocations MUST NOT exceed the vault balance.
 
 A claim is the operation
 where the provider retrieves accrued funds from a stream.
-The provider MAY claim accrued funds from a stream in any state.
-A claim MUST transfer the full accrued balance to the provider.
+Claim semantics are defined in the [Stream Lifecycle](#stream-lifecycle) section below.
 
 ### Stream Lifecycle
 
@@ -155,7 +153,7 @@ Stream states:
 - ACTIVE: Funds accrue to the provider at the agreed rate.
 - PAUSED: Accrual is stopped.
   The stream transitions to PAUSED by user action
-  or automatically when allocated funds are fully accrued.
+  or automatically when the stream's allocation is depleted.
   The user MAY resume the stream.
 - CLOSED: Stream is permanently terminated.
   The stream MUST NOT transition to any other state.
@@ -322,7 +320,7 @@ message StreamParams {
 ```
 
 The `open_stream_by` field is an absolute timestamp
-by which the user commits to establishing the stream on-chain.
+by which the user agrees to establish the stream on-chain.
 The user MUST set `open_stream_by` to a future timestamp
 no later than the current time plus `max_open_stream_window`.
 
@@ -390,8 +388,8 @@ within a RECOMMENDED time window of 600 seconds.
 
 The provider SHOULD send a `ServiceTermination` message
 before stopping service.
-A `ServiceTermination` message MAY be sent regardless of whether
-a stream has been established on-chain.
+This message MAY be sent at any point,
+including before a stream is established on-chain.
 
 This message MUST include:
 
@@ -500,7 +498,7 @@ so a vault may back multiple streams to the same provider.
 
 All vault funds reside in `VaultHolding`; let B denote its balance.
 
-Defined quantities (only B and stored account fields are on-chain):
+Only B and stored account fields exist on-chain; the following quantities are derived from them:
 
 - Unallocated: B − total_allocated.
   Bounds withdrawals and new stream allocations.
@@ -626,7 +624,7 @@ if the vault has ever appeared on a transparent path.
 A `PseudonymousFunder`-tier vault is intended to operate entirely via shielded transactions.
 The wallet enforces this
 by refusing to submit transparent transactions that touch these vaults.
-The same guest code runs in both transparent and shielded transactions
+The same program logic runs in both transparent and shielded transactions
 and cannot determine which mode triggered it;
 shielded-only enforcement is therefore wallet responsibility.
 A future consensus-level hook could extend this enforcement
@@ -763,7 +761,7 @@ This results in minimal payment for actual service usage.
 
 The activation fee addresses this attack.
 When the activation fee is enabled,
-a fixed amount MUST accrue to the provider
+a fixed amount MUST be transferred to the provider
 immediately upon the stream becoming `ACTIVE`.
 The activation fee SHOULD reflect
 the minimum acceptable payment for a service session.
