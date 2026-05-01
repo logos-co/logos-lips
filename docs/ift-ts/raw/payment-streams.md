@@ -634,7 +634,7 @@ but they do not erase the first hop.
 
 `VaultConfig` is a public account even for `PseudonymousFunder`-tier vaults.
 Its `owner` field is a persistent plaintext pseudonym visible to observers;
-for `PseudonymousFunder` vaults it SHOULD be a nullifier-public-key-derived identifier
+for `PseudonymousFunder` vaults it MUST be a nullifier-public-key-derived identifier
 distinct from the user's primary public key linked to public on-chain activity.
 The unlinkability target is separation of the primary public key from that pseudonym,
 not hiding the pseudonym itself.
