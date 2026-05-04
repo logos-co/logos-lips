@@ -415,6 +415,24 @@
   },
   {
     "component": "ift-ts",
+    "slug": "157",
+    "title": "Mix DoS Protection",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-04",
+    "path": "ift-ts/raw/mix-dos-protection.html"
+  },
+  {
+    "component": "ift-ts",
+    "slug": "158",
+    "title": "RLN Membership Allocation",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-04",
+    "path": "ift-ts/raw/rln-membership-service.html"
+  },
+  {
+    "component": "ift-ts",
     "slug": "2",
     "title": "Minimum Viable Data Synchronization",
     "status": "stable",
@@ -484,15 +502,6 @@
     "category": "Standards Track",
     "updated": "2026-04-30",
     "path": "ift-ts/raw/mix.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "RLN Membership Allocation",
-    "title": "RLN Membership Allocation",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-04-27",
-    "path": "ift-ts/raw/rln-membership-service.html"
   },
   {
     "component": "messaging",
