@@ -128,11 +128,11 @@ for new joiners and new entropy for removed members. In this RFC, the committers
 
 This section presents the de-MLS objects:
 
-`Voting proposal`: Similar to MLS proposals, but processed only if approved through a voting process.
+`Voting Proposal`: Similar to MLS proposals, but processed only if approved through a voting process.
 They function as application messages in the MLS group,
 allowing the steward to collect them without halting the protocol.
-There are three types of `voting proposal` according to the type of consensus as in shown [Consensus Types section](#consensus-types),
-these are, `commit proposal`, `steward election proposal` and `emergency criteria proposal`.
+There are three types of `Voting Proposal` according to the type of consensus as in shown [Consensus Types section](#consensus-types),
+these are, `Commit Proposal`, `Steward Election Proposal` and `Emergency Criteria Proposal`.
 
 `Epoch steward`: The steward assigned to commit in `epoch E` according to the steward list.
 Holds the primary responsibility for creating commit in that epoch.
@@ -302,15 +302,15 @@ Consensus is agnostic with its payload; therefore, it can be used for various pu
 Note that each message for the consensus of proposals is an `application message` in the MLS object section.
 It is used in three ways as follows:
 
-1. `Commit proposal`:  It is the proposal instance that is specified in Creating Voting Proposal section
+1. `Commit Proposal`:  It is the proposal instance that is specified in Creating Voting Proposal section
 with `Proposal.payload` MUST show the commit request from `members`.
 Any member MAY create this proposal in any epoch and `epoch steward` MUST collect and commit YES voted proposals.
 This is the only proposal type common to both single steward and multi steward designs.
-2. `Steward election proposal`: This is the process that finalizes the `steward list`,
+2. `Steward Election Proposal`: This is the process that finalizes the `steward list`,
 which sets and orders stewards responsible for creating commits over a predefined number of range in (`sn_min`,`sn_max`).
 The validity of the choosen `steward list` ends
 when the last steward in the list (the one at the final index) completes its commit.
-At that point, a new `steward election proposal` MUST be initiated again by any member during the corresponding epoch.
+At that point, a new `Steward Election Proposal` MUST be initiated again by any member during the corresponding epoch.
 The `Proposal.payload` field MUST represent the ordered identities of the proposed stewards.
 Each steward election proposal MUST be verified and finalized through the consensus process
 so that members can identify which steward will be responsible in each epoch
@@ -326,11 +326,11 @@ on NO, a peer-score penalty MUST be applied to the creator to deter abuse.
 The order of consensus proposal messages is important to achieving a consistent result.
 Therefore, messages MUST be prioritized by type in the following order, from highest to lowest priority:
 
-- `Emergency criteria proposal`
+- `Emergency Criteria Proposal`
 
-- `Steward election proposal`
+- `Steward Election Proposal`
 
-- `Commit proposal`
+- `Commit Proposal`
 
 This means that if a higher-priority consensus proposal is present in the network,
 lower-priority messages MUST be withheld from transmission until the higher-priority proposals have been finalized.
@@ -338,7 +338,7 @@ lower-priority messages MUST be withheld from transmission until the higher-prio
 #### Partial Freeze Semantics
 
 This prioritization is realized through a partial freeze of lower-priority governance traffic.
-When an active `Emergency criteria proposal` is observed and has not yet been finalized,
+When an active `Emergency Criteria Proposal` is observed and has not yet been finalized,
 honest nodes MUST temporarily suspend the propagation and creation of lower-priority consensus proposal messages,
 including Steward election proposals and Commit proposals.
 Such messages MUST be dropped and MUST NOT be forwarded over the network until the emergency proposal is finalized.
@@ -358,7 +358,7 @@ and apply priority-based filtering accordingly.
 ### Steward list creation
 
 The `steward list` consists of steward nominees who will become actual stewards
-if the `steward election proposal` is finalized with YES,
+if the `Steward Election Proposal` is finalized with YES,
 is arbitrarily chosen from `member` and OPTIONALLY adjusted depending on the needs of the implementation.
 The `steward list` size, defined by the minimum `sn_min` and maximum `sn_max` bounds,
 is determined at the time of group creation.
@@ -387,9 +387,9 @@ Once the active `steward list` has completed its assigned epochs,
 
 members MUST proceed to elect the next set of stewards
 (which MAY include some or all of the previous members).
-This election is conducted through a type 2 consensus procedure, `steward election proposal`.
+This election is conducted through a type 2 consensus procedure, `Steward Election Proposal`.
 
-A `Steward election proposal` is considered valid only if the resulting `steward list`
+A `Steward Election Proposal` is considered valid only if the resulting `steward list`
 is produced through a deterministic process that ensures an unbiased distribution of steward assignments,
 since allowing bias could enable a malicious participant to manipulate the list
 and retain control within a favored group for multiple epochs.
@@ -436,7 +436,7 @@ If no eligible steward exists across the entire list, the protocol escalates to 
 ##### Layer 2 - Re-election
 
 Layer 2 enables re-election when Layer 1 fails to produce an eligible steward from the active `steward list`.
-In this layer, the members MAY initiate a new `steward election proposal` within the same MLS epoch.
+In this layer, the members MAY initiate a new `Steward Election Proposal` within the same MLS epoch.
 Since the MLS epoch does not advance in this case,
 the proposer MUST increment the local `retry_round` value and generate a new deterministic steward ordering using:
 
@@ -496,7 +496,7 @@ then the steward list size MUST be equal to the total member count.
 3. After the voting proposal ends up with a `steward list`,
 and group changes are ready to be committed as specified in single steward section
 with a difference which is members also check the committed steward is `epoch steward` or `backup steward`,
-otherwise anyone can create `emergency criteria proposal`.
+otherwise anyone can create `Emergency Criteria Proposal`.
 
 A large consensus group provides better decentralization, but it requires significant coordination,
 which MAY not be suitable for groups with more than 1000 members.
@@ -505,13 +505,13 @@ which MAY not be suitable for groups with more than 1000 members.
 
 The small consensus model offers improved efficiency with a trade-off in decentralization.
 In this design, group changes require consensus only among the stewards, rather than all members.
-Regular members participate by periodically selecting the stewards by `steward election proposal`
-but do not take part in commit decision by `commit proposal`.
+Regular members participate by periodically selecting the stewards by `Steward Election Proposal`
+but do not take part in commit decision by `Commit Proposal`.
 This structure enables faster coordination since consensus is achieved within a smaller group of stewards.
 It is particularly suitable for large user groups, where involving every member in each decision would be impractical.
 
 The flow is similar to the big consensus including the `steward list` finalization with all members consensus
-only the difference here, the commit messages requires `commit proposal` only among the stewards.
+only the difference here, the commit messages requires `Commit Proposal` only among the stewards.
 
 ### Commit validation service
 
@@ -588,21 +588,21 @@ Implementations MAY choose either approach. Both are compliant with this specifi
 
 A steward’s activity is called a violation if the action is one or more of the following:
 
-1. Broken commit: The steward releases a different commit message from the voted `commit proposal`.
+1. Broken commit: The steward releases a different commit message from the voted `Commit Proposal`.
 This activity is identified by the `members` since the [MLS RFC 9420](https://datatracker.ietf.org/doc/rfc9420/) provides the methods
 that members can use to identify the broken commit messages that are possible in a few situations,
 such as commit and proposal incompatibility. Specifically, the broken commit can arise as follows:
     1. The commit belongs to the earlier epoch.
     2. The commit message should equal the latest epoch
-    3. The commit needs to be compatible with the previous epoch’s `MLS proposal`.
-2. Broken MLS proposal: The steward prepares a different `MLS proposal` for the corresponding `voting proposal`.
-This activity is identified by the `members` since both `MLS proposal` and `voting proposal` are visible
+    3. The commit needs to be compatible with the previous epoch’s `MLS Proposal`.
+2. Broken MLS proposal: The steward prepares a different `MLS Proposal` for the corresponding `Voting Proposal`.
+This activity is identified by the `members` since both `MLS Proposal` and `Voting Proposal` are visible
 and can be identified by checking the hash of `Proposal.payload` and `MLSProposal.payload` is the same as RFC9240 section 12.1. Proposals.
 3. Censorship and inactivity: The situation where there is a voting proposal that is visible for every member,
 and the Steward does not provide an MLS proposal and commit within the configured `threshold_duration`,
 after which the voting process is considered finalized by the majority timer.
-This activity is again identified by the `members`since `voting proposals` are visible to every member in the group,
-therefore each member can verify that there is no `MLS proposal` corresponding to `voting proposal`,
+This activity is again identified by the `members`since `Voting Proposals` are visible to every member in the group,
+therefore each member can verify that there is no `MLS Proposal` corresponding to `Voting Proposal`,
 or commit was produced for a voting proposal that has already been finalized due to timer expiration.
 
 All three violation types are detected locally by members;
@@ -633,7 +633,7 @@ In particular, peer score updates MAY be triggered either by direct local observ
 Regardless of the trigger, score updates are applied locally by each peer to its own peer score table.
 
 Members MUST periodically evaluate peer scores against the predefined threshold `threshold_peer_score`.
-A removal operation based on the `threshold_peer_score` MUST be initiated as an `emergency criteria proposal`
+A removal operation based on the `threshold_peer_score` MUST be initiated as an `Emergency Criteria Proposal`
 by at least one member and, only after being finalized with a YES outcome, MUST be included in the subsequent commit.
 To prevent abuse, if such a removal emergency criteria proposal is finalized with a NO outcome,
 a low score MAY be applied to the proposal owner.
