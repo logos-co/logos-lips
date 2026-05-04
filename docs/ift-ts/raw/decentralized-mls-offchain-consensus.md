@@ -280,7 +280,7 @@ Decentralization has already been achieved in the previous section.
 However, to improve availability and ensure censorship resistance,
 the single steward protocol is extended to a multi steward architecture.
 In this design, each epoch is coordinated by a designated steward,
-operating under the similar protocol as the single steward model.
+operating under a similar protocol as the single steward model.
 Thus, the multi steward approach primarily defines how steward roles
 rotate across epochs while preserving the underlying structure and logic of the original protocol.
 Two variants of the multi steward design are introduced to address different system requirements.
@@ -318,7 +318,7 @@ and detect any unauthorized steward commits.
 3. `Emergency criteria proposal (ECP)`: A consensus action carrying a `violation_type` field that discriminates between
 (a) member removal, where `Proposal.payload` MUST include the target identifier and supporting evidence per the Steward Violation List;
 (b) protocol deadlock, where no specific target exists and recovery is handled per Layer 3.
-Any member MAY create an `Emergency criteria proposal (ECP) in any epoch.
+Any member MAY create an `Emergency criteria proposal (ECP)` in any epoch.
 On YES, members MUST enter the freezing phase immediately, bypassing the inactivity timer,
 so the consequent commit lands without waiting a full cycle and a peer-score reward MUST be granted to the creator of the proposal;
 on NO, a peer-score penalty MUST be applied to the creator to deter abuse.
@@ -421,7 +421,7 @@ Layer 1 ensures that a finalized voting proposal is committed by locally rotatin
 A steward is eligible to act as the `epoch steward` if it is a current group member and not pending removal.
 Misbehavior per the [Steward Violation List](#steward-violation-list) does not affect eligibility directly;
 it decrements peer score per the [Peer Scoring section](#peer-scoring),
-and a steward becomes ineligible only once a `Emergency Criteria Proposal (ECP)` finalizes the removal.
+and a steward becomes ineligible only once an `Emergency Criteria Proposal (ECP)` finalizes the removal.
 
 When the nominal epoch steward is ineligible,
 members MUST walk the steward list in deterministic order and accept the commit produced by the first eligible steward.
@@ -429,7 +429,7 @@ The `backup steward` or any subsequent eligible steward MAY commit without an Em
 
 Even when individual stewards are silent or have been removed,
 Layer 1 preserves liveness by walking the steward list until an eligible steward produces the commit.
-Misbehaving stewards continue to participate in rotation until accumulated scoring triggers `Emergency Criteria Proposal (ECP)`,
+Misbehaving stewards continue to participate in rotation until accumulated scoring triggers an `Emergency Criteria Proposal (ECP)`,
 at which point removal makes them ineligible and Layer 1 walks past them on subsequent rounds.
 If no eligible steward exists across the entire list, the protocol escalates to Layer 2.
 
@@ -608,7 +608,7 @@ or commit was produced for a voting proposal that has already been finalized due
 All three violation types are detected locally by members;
 each detection contributes a peer-score decrement per the [Peer Scoring section](#peer-scoring).
 Removal occurs only after the steward's accumulated score drops below `threshold_peer_score`,
-triggering a `Emergency Criteria Proposal (ECP)`.
+triggering an `Emergency Criteria Proposal (ECP)`.
 
 ## Peer Scoring
 
