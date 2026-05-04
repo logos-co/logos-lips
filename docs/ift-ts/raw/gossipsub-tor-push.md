@@ -12,16 +12,16 @@
 
 ## Timeline
 
-- **2026-01-19** — [`f24e567`](https://github.com/vacp2p/rfc-index/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/ift-ts/raw/gossipsub-tor-push.md) — Chore/updates mdbook (#262)
-- **2026-01-16** — [`f01d5b9`](https://github.com/vacp2p/rfc-index/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/ift-ts/raw/gossipsub-tor-push.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/gossipsub-tor-push.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/raw/gossipsub-tor-push.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/raw/gossipsub-tor-push.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/raw/gossipsub-tor-push.md) — ci: add mdBook configuration (#233)
-- **2024-09-13** — [`3ab314d`](https://github.com/vacp2p/rfc-index/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/vac/raw/gossipsub-tor-push.md) — Fix Files for Linting (#94)
-- **2024-05-27** — [`99be3b9`](https://github.com/vacp2p/rfc-index/blob/99be3b974509ea03561c7ef4b1b02a56f24e9297/vac/raw/gossipsub-tor-push.md) — Move Raw Specs (#37)
-- **2024-02-01** — [`cd8c9f4`](https://github.com/vacp2p/rfc-index/blob/cd8c9f45f4d3eb0d8275fbaad378a42370c5b9a6/vac/46/gossipsub-tor-push.md) — Update and rename GOSSIPSUB-TOR-PUSH.md to gossipsub-tor-push.md
-- **2024-01-27** — [`0db60c1`](https://github.com/vacp2p/rfc-index/blob/0db60c18c18cfd2373204083cf4a1f5f3b8845dd/vac/46/GOSSIPSUB-TOR-PUSH.md) — Create GOSSIPSUB-TOR-PUSH.md
+- **2026-01-19** — [`f24e567`](https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/ift-ts/raw/gossipsub-tor-push.md) — Chore/updates mdbook (#262)
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/ift-ts/raw/gossipsub-tor-push.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/gossipsub-tor-push.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/raw/gossipsub-tor-push.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/raw/gossipsub-tor-push.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/raw/gossipsub-tor-push.md) — ci: add mdBook configuration (#233)
+- **2024-09-13** — [`3ab314d`](https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/vac/raw/gossipsub-tor-push.md) — Fix Files for Linting (#94)
+- **2024-05-27** — [`99be3b9`](https://github.com/logos-co/logos-lips/blob/99be3b974509ea03561c7ef4b1b02a56f24e9297/vac/raw/gossipsub-tor-push.md) — Move Raw Specs (#37)
+- **2024-02-01** — [`cd8c9f4`](https://github.com/logos-co/logos-lips/blob/cd8c9f45f4d3eb0d8275fbaad378a42370c5b9a6/vac/46/gossipsub-tor-push.md) — Update and rename GOSSIPSUB-TOR-PUSH.md to gossipsub-tor-push.md
+- **2024-01-27** — [`0db60c1`](https://github.com/logos-co/logos-lips/blob/0db60c18c18cfd2373204083cf4a1f5f3b8845dd/vac/46/GOSSIPSUB-TOR-PUSH.md) — Create GOSSIPSUB-TOR-PUSH.md
 
 <!-- timeline:end -->
 

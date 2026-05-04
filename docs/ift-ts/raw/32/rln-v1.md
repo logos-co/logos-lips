@@ -5,6 +5,7 @@
 | Name | Rate Limit Nullifier |
 | Slug | 32 |
 | Status | draft |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Aaryamann Challani <p1ge0nh8er@proton.me> |
 | Contributors | Barry Whitehat <barrywhitehat@protonmail.com>, Sanaz Taheri <sanaz@status.im>, Oskar Thorén <oskarth@titanproxy.com>, Onur Kilic <onurkilic1004@gmail.com>, Blagoj Dimovski <blagoj.dimovski@yandex.com>, Rasul Ibragimov <curryrasul@gmail.com> |
@@ -13,18 +14,19 @@
 
 ## Timeline
 
-- **2026-01-16** — [`f01d5b9`](https://github.com/vacp2p/rfc-index/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/ift-ts/raw/32/rln-v1.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/32/rln-v1.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/32/rln-v1.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/32/rln-v1.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/32/rln-v1.md) — ci: add mdBook configuration (#233)
-- **2024-09-13** — [`3ab314d`](https://github.com/vacp2p/rfc-index/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/vac/32/rln-v1.md) — Fix Files for Linting (#94)
-- **2024-08-05** — [`eb25cd0`](https://github.com/vacp2p/rfc-index/blob/eb25cd06d679e94409072a96841de16a6b3910d5/vac/32/rln-v1.md) — chore: replace email addresses (#86)
-- **2024-06-06** — [`cbefa48`](https://github.com/vacp2p/rfc-index/blob/cbefa483fca219c3787b0ff0e3c64a6436a6a8cc/vac/32/rln-v1.md) — 32/RLN-V1: Move to Draft (#40)
-- **2024-03-21** — [`2eaa794`](https://github.com/vacp2p/rfc-index/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/vac/32/rln-v1.md) — Broken Links + Change Editors (#26)
-- **2024-02-01** — [`94db406`](https://github.com/vacp2p/rfc-index/blob/94db40661ef4df3456e2e6996164a1bbc5427914/vac/32/rln-v1.md) — Update rln-v1.md
-- **2024-02-01** — [`a23299f`](https://github.com/vacp2p/rfc-index/blob/a23299fe32f3ba780770f26dadfcf17118bd478c/vac/32/rln-v1.md) — Update and rename RLN-V1.md to rln-v1.md
-- **2024-01-27** — [`539575b`](https://github.com/vacp2p/rfc-index/blob/539575b01ca2cff7e5e596ecae9a5c1fc035cd79/vac/32/RLN-V1.md) — Create RLN-V1.md
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/ift-ts/raw/32/rln-v1.md) — chore: add math support (#287)
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/ift-ts/raw/32/rln-v1.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/32/rln-v1.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/32/rln-v1.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/32/rln-v1.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/32/rln-v1.md) — ci: add mdBook configuration (#233)
+- **2024-09-13** — [`3ab314d`](https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/vac/32/rln-v1.md) — Fix Files for Linting (#94)
+- **2024-08-05** — [`eb25cd0`](https://github.com/logos-co/logos-lips/blob/eb25cd06d679e94409072a96841de16a6b3910d5/vac/32/rln-v1.md) — chore: replace email addresses (#86)
+- **2024-06-06** — [`cbefa48`](https://github.com/logos-co/logos-lips/blob/cbefa483fca219c3787b0ff0e3c64a6436a6a8cc/vac/32/rln-v1.md) — 32/RLN-V1: Move to Draft (#40)
+- **2024-03-21** — [`2eaa794`](https://github.com/logos-co/logos-lips/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/vac/32/rln-v1.md) — Broken Links + Change Editors (#26)
+- **2024-02-01** — [`94db406`](https://github.com/logos-co/logos-lips/blob/94db40661ef4df3456e2e6996164a1bbc5427914/vac/32/rln-v1.md) — Update rln-v1.md
+- **2024-02-01** — [`a23299f`](https://github.com/logos-co/logos-lips/blob/a23299fe32f3ba780770f26dadfcf17118bd478c/vac/32/rln-v1.md) — Update and rename RLN-V1.md to rln-v1.md
+- **2024-01-27** — [`539575b`](https://github.com/logos-co/logos-lips/blob/539575b01ca2cff7e5e596ecae9a5c1fc035cd79/vac/32/RLN-V1.md) — Create RLN-V1.md
 
 <!-- timeline:end -->
 

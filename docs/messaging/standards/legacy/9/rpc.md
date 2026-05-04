@@ -5,6 +5,7 @@
 | Name | Waku RPC API |
 | Slug | 9 |
 | Status | stable |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Andrea Maria Piana <andreap@status.im> |
 | Contributors | Dean Eigenmann <dean@status.im>, Oskar Thorén <oskarth@titanproxy.com> |
@@ -13,16 +14,17 @@
 
 ## Timeline
 
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/legacy/9/rpc.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/legacy/9/rpc.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/legacy/9/rpc.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/legacy/9/rpc.md) — ci: add mdBook configuration (#233)
-- **2024-09-13** — [`3ab314d`](https://github.com/vacp2p/rfc-index/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/standards/legacy/9/rpc.md) — Fix Files for Linting (#94)
-- **2024-03-21** — [`2eaa794`](https://github.com/vacp2p/rfc-index/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/standards/legacy/9/rpc.md) — Broken Links + Change Editors (#26)
-- **2024-02-12** — [`5eb393f`](https://github.com/vacp2p/rfc-index/blob/5eb393f47c2d7c7b10f024e07a20e2b6647a14bc/waku/standards/legacy/9/rpc.md) — Rename waku/legacy/9/rpc.md to waku/standards/legacy/9/rpc.md
-- **2024-02-12** — [`9617146`](https://github.com/vacp2p/rfc-index/blob/9617146a6a5ddaa676ef6d5ee47bf073c2b86f9f/waku/legacy/9/rpc.md) — Rename waku/standards/core/waku_legacy/9/waku2-rpc.md to waku/legacy/9/rpc.md
-- **2024-02-12** — [`75705cd`](https://github.com/vacp2p/rfc-index/blob/75705cd142342c905961c55da5914513599b2a7b/waku/standards/core/waku_legacy/9/waku2-rpc.md) — Rename waku/standards/core/9/waku2-rpc.md to waku/standards/core/waku_legacy/9/waku2-rpc.md
-- **2024-02-01** — [`e808e36`](https://github.com/vacp2p/rfc-index/blob/e808e36eb7f011c6f15fb2f73f9520b5cc7dbff1/waku/standards/core/9/waku2-rpc.md) — Create waku2-rpc.md
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/messaging/standards/legacy/9/rpc.md) — chore: add math support (#287)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/legacy/9/rpc.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/legacy/9/rpc.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/legacy/9/rpc.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/legacy/9/rpc.md) — ci: add mdBook configuration (#233)
+- **2024-09-13** — [`3ab314d`](https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/standards/legacy/9/rpc.md) — Fix Files for Linting (#94)
+- **2024-03-21** — [`2eaa794`](https://github.com/logos-co/logos-lips/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/standards/legacy/9/rpc.md) — Broken Links + Change Editors (#26)
+- **2024-02-12** — [`5eb393f`](https://github.com/logos-co/logos-lips/blob/5eb393f47c2d7c7b10f024e07a20e2b6647a14bc/waku/standards/legacy/9/rpc.md) — Rename waku/legacy/9/rpc.md to waku/standards/legacy/9/rpc.md
+- **2024-02-12** — [`9617146`](https://github.com/logos-co/logos-lips/blob/9617146a6a5ddaa676ef6d5ee47bf073c2b86f9f/waku/legacy/9/rpc.md) — Rename waku/standards/core/waku_legacy/9/waku2-rpc.md to waku/legacy/9/rpc.md
+- **2024-02-12** — [`75705cd`](https://github.com/logos-co/logos-lips/blob/75705cd142342c905961c55da5914513599b2a7b/waku/standards/core/waku_legacy/9/waku2-rpc.md) — Rename waku/standards/core/9/waku2-rpc.md to waku/standards/core/waku_legacy/9/waku2-rpc.md
+- **2024-02-01** — [`e808e36`](https://github.com/logos-co/logos-lips/blob/e808e36eb7f011c6f15fb2f73f9520b5cc7dbff1/waku/standards/core/9/waku2-rpc.md) — Create waku2-rpc.md
 
 <!-- timeline:end -->
 

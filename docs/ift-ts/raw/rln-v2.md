@@ -13,16 +13,17 @@
 
 ## Timeline
 
-- **2026-01-19** — [`f24e567`](https://github.com/vacp2p/rfc-index/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/ift-ts/raw/rln-v2.md) — Chore/updates mdbook (#262)
-- **2026-01-16** — [`f01d5b9`](https://github.com/vacp2p/rfc-index/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/ift-ts/raw/rln-v2.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/rln-v2.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/raw/rln-v2.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/raw/rln-v2.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/raw/rln-v2.md) — ci: add mdBook configuration (#233)
-- **2024-09-13** — [`3ab314d`](https://github.com/vacp2p/rfc-index/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/vac/raw/rln-v2.md) — Fix Files for Linting (#94)
-- **2024-05-27** — [`99be3b9`](https://github.com/vacp2p/rfc-index/blob/99be3b974509ea03561c7ef4b1b02a56f24e9297/vac/raw/rln-v2.md) — Move Raw Specs (#37)
-- **2024-02-01** — [`8342636`](https://github.com/vacp2p/rfc-index/blob/83426365f7b85619052172be4e55a5f2b9b052a0/vac/58/rln-v2.md) — Update and rename RLN-V2.md to rln-v2.md
-- **2024-01-27** — [`d7e84b4`](https://github.com/vacp2p/rfc-index/blob/d7e84b4762946426e7317ec43e27dfd0738ec39b/vac/58/RLN-V2.md) — Create RLN-V2.md
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/ift-ts/raw/rln-v2.md) — chore: add math support (#287)
+- **2026-01-19** — [`f24e567`](https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/ift-ts/raw/rln-v2.md) — Chore/updates mdbook (#262)
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/ift-ts/raw/rln-v2.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/rln-v2.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/raw/rln-v2.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/raw/rln-v2.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/raw/rln-v2.md) — ci: add mdBook configuration (#233)
+- **2024-09-13** — [`3ab314d`](https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/vac/raw/rln-v2.md) — Fix Files for Linting (#94)
+- **2024-05-27** — [`99be3b9`](https://github.com/logos-co/logos-lips/blob/99be3b974509ea03561c7ef4b1b02a56f24e9297/vac/raw/rln-v2.md) — Move Raw Specs (#37)
+- **2024-02-01** — [`8342636`](https://github.com/logos-co/logos-lips/blob/83426365f7b85619052172be4e55a5f2b9b052a0/vac/58/rln-v2.md) — Update and rename RLN-V2.md to rln-v2.md
+- **2024-01-27** — [`d7e84b4`](https://github.com/logos-co/logos-lips/blob/d7e84b4762946426e7317ec43e27dfd0738ec39b/vac/58/RLN-V2.md) — Create RLN-V2.md
 
 <!-- timeline:end -->
 

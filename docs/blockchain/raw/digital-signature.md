@@ -9,6 +9,15 @@
 | Editor | Jimmy Debe <jimmy@status.im> |
 | Contributors | Filip Dimitrijevic <filip@status.im> |
 
+<!-- timeline:start -->
+
+## Timeline
+
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/blockchain/raw/digital-signature.md) — chore: add math support (#287)
+- **2026-01-30** — [`99ca13a`](https://github.com/logos-co/logos-lips/blob/99ca13af02087ff94fabbf3e7fca7cb8e5320f46/docs/blockchain/raw/digital-signature.md) — New RFC: Nomos Digital Signature (#167)
+
+<!-- timeline:end -->
+
 ## Abstract
 
 This specification describes the digital signature schemes

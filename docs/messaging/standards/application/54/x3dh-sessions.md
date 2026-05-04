@@ -5,6 +5,7 @@
 | Name | Session management for Waku X3DH |
 | Slug | 54 |
 | Status | draft |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Aaryamann Challani <p1ge0nh8er@proton.me> |
 | Contributors | Andrea Piana <andreap@status.im>, Pedro Pombeiro <pedro@status.im>, Corey Petty <corey@status.im>, Oskar Thorén <oskarth@titanproxy.com>, Dean Eigenmann <dean@status.im>, Filip Dimitrijevic <filip@status.im> |
@@ -13,20 +14,20 @@
 
 ## Timeline
 
-- **2026-01-16** — [`f01d5b9`](https://github.com/vacp2p/rfc-index/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/standards/application/54/x3dh-sessions.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/application/54/x3dh-sessions.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/application/54/x3dh-sessions.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/application/54/x3dh-sessions.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/application/54/x3dh-sessions.md) — ci: add mdBook configuration (#233)
-- **2025-04-24** — [`db365cb`](https://github.com/vacp2p/rfc-index/blob/db365cb756716fb76731c7988d41e9af9a850bc2/waku/standards/application/54/x3dh-sessions.md) — update waku/standards/application/54/x3dh-sessions.md (#151)
-- **2024-09-13** — [`3ab314d`](https://github.com/vacp2p/rfc-index/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/standards/application/54/x3dh-sessions.md) — Fix Files for Linting (#94)
-- **2024-08-05** — [`eb25cd0`](https://github.com/vacp2p/rfc-index/blob/eb25cd06d679e94409072a96841de16a6b3910d5/waku/standards/application/54/x3dh-sessions.md) — chore: replace email addresses (#86)
-- **2024-03-21** — [`2eaa794`](https://github.com/vacp2p/rfc-index/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/standards/application/54/x3dh-sessions.md) — Broken Links + Change Editors (#26)
-- **2024-02-01** — [`0e490d4`](https://github.com/vacp2p/rfc-index/blob/0e490d46bb99c2fbae1ac193fbdfc11d84fb080d/waku/standards/application/54/x3dh-sessions.md) — Rename X3DH-sessions.md to x3dh-sessions.md
-- **2024-01-31** — [`7f8b187`](https://github.com/vacp2p/rfc-index/blob/7f8b187f1b8b77af0c88c9fb154144494a7dfb7d/waku/standards/application/54/X3DH-sessions.md) — Update and rename README.md to X3DH-sessions.md
-- **2024-01-27** — [`a22c2a0`](https://github.com/vacp2p/rfc-index/blob/a22c2a0d79058ab435fcd38fe17a9f19021d5cd4/waku/standards/application/54/README.md) — Rename README.md to README.md
-- **2024-01-27** — [`eef961b`](https://github.com/vacp2p/rfc-index/blob/eef961bfe3b1cf6aab66df5450555afd1d3543cb/waku/standards/application/56/README.md) — remove rfs folder
-- **2024-01-25** — [`484df92`](https://github.com/vacp2p/rfc-index/blob/484df92848f90025fc538c19616fff904d72bc26/waku/rfcs/standards/application/56/README.md) — Create README.md
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/standards/application/54/x3dh-sessions.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/application/54/x3dh-sessions.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/application/54/x3dh-sessions.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/application/54/x3dh-sessions.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/application/54/x3dh-sessions.md) — ci: add mdBook configuration (#233)
+- **2025-04-24** — [`db365cb`](https://github.com/logos-co/logos-lips/blob/db365cb756716fb76731c7988d41e9af9a850bc2/waku/standards/application/54/x3dh-sessions.md) — update waku/standards/application/54/x3dh-sessions.md (#151)
+- **2024-09-13** — [`3ab314d`](https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/standards/application/54/x3dh-sessions.md) — Fix Files for Linting (#94)
+- **2024-08-05** — [`eb25cd0`](https://github.com/logos-co/logos-lips/blob/eb25cd06d679e94409072a96841de16a6b3910d5/waku/standards/application/54/x3dh-sessions.md) — chore: replace email addresses (#86)
+- **2024-03-21** — [`2eaa794`](https://github.com/logos-co/logos-lips/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/standards/application/54/x3dh-sessions.md) — Broken Links + Change Editors (#26)
+- **2024-02-01** — [`0e490d4`](https://github.com/logos-co/logos-lips/blob/0e490d46bb99c2fbae1ac193fbdfc11d84fb080d/waku/standards/application/54/x3dh-sessions.md) — Rename X3DH-sessions.md to x3dh-sessions.md
+- **2024-01-31** — [`7f8b187`](https://github.com/logos-co/logos-lips/blob/7f8b187f1b8b77af0c88c9fb154144494a7dfb7d/waku/standards/application/54/X3DH-sessions.md) — Update and rename README.md to X3DH-sessions.md
+- **2024-01-27** — [`a22c2a0`](https://github.com/logos-co/logos-lips/blob/a22c2a0d79058ab435fcd38fe17a9f19021d5cd4/waku/standards/application/54/README.md) — Rename README.md to README.md
+- **2024-01-27** — [`eef961b`](https://github.com/logos-co/logos-lips/blob/eef961bfe3b1cf6aab66df5450555afd1d3543cb/waku/standards/application/56/README.md) — remove rfs folder
+- **2024-01-25** — [`484df92`](https://github.com/logos-co/logos-lips/blob/484df92848f90025fc538c19616fff904d72bc26/waku/rfcs/standards/application/56/README.md) — Create README.md
 
 <!-- timeline:end -->
 

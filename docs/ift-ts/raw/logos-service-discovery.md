@@ -1,8 +1,8 @@
-# LOGOS-CAPABILITY-DISCOVERY
+# LOGOS-SERVICE-DISCOVERY
 
 | Field | Value |
 | --- | --- |
-| Name | Logos Capability Discovery Protocol |
+| Name | Logos Service Discovery Protocol |
 | Slug | 107 |
 | Status | raw |
 | Category | Standards Track |
@@ -13,13 +13,15 @@
 
 ## Timeline
 
-- **2026-01-27** — [`ab9337e`](https://github.com/vacp2p/rfc-index/blob/ab9337e58b5947a3b58d205fec7d52fb8d16c2eb/docs/ift-ts/raw/logos-capability-discovery.md) — Add recipe for algorithms (#232)
-- **2026-01-19** — [`f24e567`](https://github.com/vacp2p/rfc-index/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/ift-ts/raw/logos-capability-discovery.md) — Chore/updates mdbook (#262)
-- **2026-01-16** — [`89f2ea8`](https://github.com/vacp2p/rfc-index/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/logos-capability-discovery.md) — Chore/mdbook updates (#258)
-- **2025-12-22** — [`0f1855e`](https://github.com/vacp2p/rfc-index/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/raw/logos-capability-discovery.md) — Chore/fix headers (#239)
-- **2025-12-22** — [`b1a5783`](https://github.com/vacp2p/rfc-index/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/raw/logos-capability-discovery.md) — Chore/mdbook updates (#237)
-- **2025-12-18** — [`d03e699`](https://github.com/vacp2p/rfc-index/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/raw/logos-capability-discovery.md) — ci: add mdBook configuration (#233)
-- **2025-12-09** — [`aaf158a`](https://github.com/vacp2p/rfc-index/blob/aaf158aa59edb2ce0841a345725d16355218c196/vac/raw/logos-capability-discovery.md) — VAC/RAW/LOGOS-DISCOVERY-CAPABILITY RFC  (#212)
+- **2026-03-24** — [`513d8ea`](https://github.com/logos-co/logos-lips/blob/513d8eae6be8b7b30bf427023ac686df2f2918c0/docs/ift-ts/raw/logos-service-discovery.md) — feat: renaming capability to service discovery (#300)
+- **2026-02-27** — [`2ec272e`](https://github.com/logos-co/logos-lips/blob/2ec272e57f6110106297d062098110a3549c5db6/docs/ift-ts/raw/logos-capability-discovery.md) — docs: refactor and add algo explanation before pseudocode (#280)
+- **2026-01-27** — [`ab9337e`](https://github.com/logos-co/logos-lips/blob/ab9337e58b5947a3b58d205fec7d52fb8d16c2eb/docs/ift-ts/raw/logos-capability-discovery.md) — Add recipe for algorithms (#232)
+- **2026-01-19** — [`f24e567`](https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/ift-ts/raw/logos-capability-discovery.md) — Chore/updates mdbook (#262)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/logos-capability-discovery.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/raw/logos-capability-discovery.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/raw/logos-capability-discovery.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/raw/logos-capability-discovery.md) — ci: add mdBook configuration (#233)
+- **2025-12-09** — [`aaf158a`](https://github.com/logos-co/logos-lips/blob/aaf158aa59edb2ce0841a345725d16355218c196/vac/raw/logos-capability-discovery.md) — VAC/RAW/LOGOS-DISCOVERY-CAPABILITY RFC  (#212)
 
 <!-- timeline:end -->
 
@@ -27,7 +29,7 @@
 
 ## Abstract
 
-This RFC defines the Logos Capability Discovery protocol,
+This RFC defines the Logos Service Discovery protocol,
 a discovery mechanism inspired by [DISC-NG service discovery](https://ieeexplore.ieee.org/document/10629017)
 built on top of [Kad-dht](https://github.com/libp2p/specs/tree/7740c076350b6636b868a9e4a411280eea34d335/kad-dht).
 
@@ -73,7 +75,7 @@ are to be interpreted as described in [2119](https://www.ietf.org/rfc/rfc2119.tx
 
 ## Protocol Roles
 
-The Logos capability discovery protocol defines three roles that nodes can perform:
+The Logos service discovery protocol defines three roles that nodes can perform:
 
 ### Advertiser
 
@@ -279,7 +281,7 @@ Implementations SHOULD modify them as needed based on specific requirements.
 
 ### Distance
 
-The distance `d` between any two keys in Logos Capability Discovery
+The distance `d` between any two keys in Logos Service Discovery
 MUST be calculated using the bitwise XOR applied to their 256-bit SHA-256 representations.
 This provides a deterministic, uniform, and symmetric way to measure proximity in the keyspace.
 The keyspace is the entire numerical range of possible `peerID` and `service_id_hash`
@@ -476,11 +478,11 @@ message Message {
 - Advertisements are encoded as generic `bytes` (RECOMMENDED: ExtensiblePeerRecord/XPR)
 to avoid coupling the protocol to specific formats
 - The existing `key` field is reused for `service_id_hash` in Logos operations
-- Nodes without Logos Capability Discovery support will ignore `REGISTER` and `GET_ADS` messages
+- Nodes without Logos Service Discovery support will ignore `REGISTER` and `GET_ADS` messages
 
 ### Advertisement Encoding
 
-Advertisements in the `Register.advertisement` and `GetAds.advertisements` fields are encoded as `bytes`. Implementations are RECOMMENDED to use [ExtensiblePeerRecord (XPR)](https://github.com/vacp2p/rfc-index/blob/d59c44477fcdc3c3b61655bea63068d6d94c51f6/vac/raw/extensible-peer-records.md):
+Advertisements in the `Register.advertisement` and `GetAds.advertisements` fields are encoded as `bytes`. Implementations are RECOMMENDED to use [ExtensiblePeerRecord (XPR)](https://github.com/logos-co/logos-lips/blob/d59c44477fcdc3c3b61655bea63068d6d94c51f6/vac/raw/extensible-peer-records.md):
 
 ```protobuf
 ExtensiblePeerRecord {

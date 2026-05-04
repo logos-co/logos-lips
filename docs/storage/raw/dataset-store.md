@@ -8,6 +8,15 @@
 | Category | Standards Track |
 | Editor | Giuliano Mega <giuliano@status.im>   |
 
+<!-- timeline:start -->
+
+## Timeline
+
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/storage/raw/dataset-store.md) — chore: add math support (#287)
+- **2026-02-05** — [`4d0ee49`](https://github.com/logos-co/logos-lips/blob/4d0ee4929bd2c5037f72e3ca544f116f4c6fe39d/docs/storage/raw/dataset-store.md) — feat: Logos Storage dataset store (#278)
+
+<!-- timeline:end -->
+
 ## Abstract
 
 This specification contains the interface for a simple local storage component, named the Dataset Store, which supports Logos Storage nodes in storing and keeping track of partial and complete datasets along with their metadata on-disk, and provides basic support for dataset caching.
