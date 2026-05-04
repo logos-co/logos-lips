@@ -548,18 +548,20 @@ Therefore, commit messages that contain the same set of voting proposals
 are identical in content and can be easily deduplicated.
 
 Since MLS derives new group secrets from the committer’s contribution,
-two `commit messages` containing the exact same ordered set of `voting proposals`
+two `commit_messages` containing the exact same ordered set of `voting_proposals`
 but produced by different `stewards` will generate different group keys.
 Therefore, proposal equivalence alone does not guarantee state equivalence.
+
 If multiple valid commits contain the identical deterministic proposal sequence,
-the commit validation service MUST select first, if there is `Epoch steward`,
-otherwise the commit whose `committer ID` is lexicographically smallest (according to canonical ordering)
-the commit validation service MUST select the epoch steward's commit when present;
-otherwise (e.g. during Layer 3 recovery mode, where any member MAY commit) 
-the commit with the lexicographically smallest committer ID is selected, avoiding different state forks.
+the commit validation service MUST select the `epoch_steward`'s commit when present;
+otherwise (e.g., during Layer 3 recovery mode, where any member MAY commit),
+the commit with the lexicographically smallest `committer_id` (according to canonical ordering)
+MUST be selected, thereby avoiding state divergence.
+
 Competing commits that contain the same deterministic proposal sequence
-but differ only due to steward-generated MLS commit entropy MUST NOT be classified as misbehaviour
-and MAY instead be treated as honest participation for peer scoring purposes.
+but differ only due to steward-generated MLS commit entropy
+MUST NOT be classified as misbehaviour and MAY instead be treated as honest participation
+for peer scoring purposes.
 
 ## Self-Removal
 
