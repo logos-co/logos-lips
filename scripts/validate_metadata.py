@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Validate RFC metadata tables and auto-assign missing slugs.
+Validate RFC metadata tables and auto-assign invalid or missing slugs.
 
-By default, this script writes fixes for missing/blank `Slug` values and
+By default, this script writes fixes for missing/blank/invalid `Slug` values and
 returns non-zero on any validation issue.
 Use `--check` to run in read-only mode.
 """
@@ -158,7 +158,7 @@ def next_free_slug(used: set[int]) -> int:
     return candidate
 
 
-def assign_missing_slug(doc: DocInfo, slug: int) -> None:
+def assign_slug(doc: DocInfo, slug: int) -> None:
     assert doc.table is not None
     slug_row = doc.table.rows.get("slug")
     if slug_row:
@@ -189,25 +189,35 @@ def collect_used_numeric_slugs(docs: List[DocInfo]) -> set[int]:
     return used
 
 
+def slug_needs_assignment(doc: DocInfo, seen: set[int]) -> bool:
+    slug = doc.meta().get("slug", "").strip()
+    if not NUMERIC_RE.fullmatch(slug):
+        return True
+
+    value = int(slug)
+    if "previous-versions" in doc.rel.parts:
+        return False
+    if value in seen:
+        return True
+
+    seen.add(value)
+    return False
+
+
 def maybe_assign_slugs(docs: List[DocInfo], check_mode: bool) -> List[DocInfo]:
     if check_mode:
         return []
 
     changed: List[DocInfo] = []
     used = collect_used_numeric_slugs(docs)
+    seen_unique: set[int] = set()
     for doc in docs:
         if not doc.table:
             continue
-        meta = doc.meta()
-        slug = meta.get("slug", "").strip()
-        if slug:
-            continue
-        # Do not auto-assign slugs to raw specs; slugs are assigned on draft promotion.
-        status = meta.get("status", "").strip().lower()
-        if status == "raw":
+        if not slug_needs_assignment(doc, seen_unique):
             continue
         free_slug = next_free_slug(used)
-        assign_missing_slug(doc, free_slug)
+        assign_slug(doc, free_slug)
         used.add(free_slug)
         changed.append(doc)
     return changed

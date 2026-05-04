@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Name | RLN Membership Allocation |
-| Slug | |
+| Slug | 158 |
 | Status | raw |
 | Category | Standards Track |
 | Tags | rln |
