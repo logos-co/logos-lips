@@ -75,7 +75,7 @@ A key feature of Sphinx is support for Single-Use Reply Blocks (SURBs). SURBs ac
 For further reading, see:
 - The original Sphinx design, see the paper: [*Sphinx: A Compact and Provably Secure Mix Format*](https://cypherpunks.ca/~iang/pubs/Sphinx_Oakland09.pdf). 
 - [A write-up on Sphinx](https://hackmd.io/@bkomuves/SJzVxYMsZl) 
-- [Sphinx section of the mix specification](https://lip.logos.co/ift-ts/raw/mix#8-sphinx-packet-format)
+- [Sphinx section of the mix specification](./mix.md#8-sphinx-packet-format)
 
 ### 5.2 Mix Protocol
 The Mix Protocol is a decentralized anonymous message-routing layer for libp2p networks. It allows existing libp2p protocols to selectively anonymize messages by routing them through a mix overlay containing a set of libp2p nodes. Each message is wrapped into a Sphinx packet and routed through a randomly selected mix path. Along the path, each mix node removes one layer of encryption, applies a randomized delay, and forwards the packet to the next hop.
@@ -83,8 +83,8 @@ The Mix Protocol is a decentralized anonymous message-routing layer for libp2p n
 Unlike Tor, which uses persistent low-latency circuits, the Mix Protocol is message-based and stateless. Each message (wrapped in Sphinx packet) is self-contained and independently routed. This makes it better suited for settings where higher latency is acceptable in exchange for stronger anonymity guarantees.
 
 References:
-- [Mix protocol specification](https://lip.logos.co/ift-ts/raw/mix).
-- [Mix libp2p protocol implementation](https://github.com/vacp2p/nim-libp2p/tree/master/libp2p/protocols/mix).
+- [Mix protocol specification](./mix.md).
+- [Mix libp2p protocol implementation](https://github.com/logos-co/nim-libp2p-mix).
 
 ### 5.3 Tor Hidden Services
 Tor hidden services (also called onion services) allow a service to be reachable without revealing its network identity. A hidden service publishes a signed descriptor to hidden service directories. This descriptor contains the information clients need to contact the service, including a set of introduction points. Clients fetch the descriptor, choose an introduction point, and use it to initiate contact with the hidden service. In Tor's design, the client and service then communicate through a rendezvous point (creating a 6-hop circuit), so neither side needs to reveal its network address to the other.
@@ -152,7 +152,7 @@ The signature scheme with key blinding must satisfy two main security requiremen
 - Without $sk'$, it is infeasible to forge signatures that verify under $pk'$.
 - Different values of $r$ yield different blinded keys, except with negligible probability.
 
-For more in-depth discussion and analysis of the security requirements for signature schemes with key blinding, refer to [Eaton et al.](https://eprint.iacr.org/2023/380.pdf) and [Celi et al.](https://eprint.iacr.org/2023/1524.pdf) In [the appendix](TODO), we provide a concrete construction of a signature scheme with key blinding based on ECDSA, and Ed25519. 
+For more in-depth discussion and analysis of the security requirements for signature schemes with key blinding, refer to [Eaton et al.](https://eprint.iacr.org/2023/380.pdf) and [Celi et al.](https://eprint.iacr.org/2023/1524.pdf) In [the appendix](#appendix), we provide a concrete construction of a signature scheme with key blinding based on ECDSA, and Ed25519. 
 
 **Hash Function**
 Let $H(\cdot)$ be a *preimage resistant*, *second-preimage resistant*, and *collision resistant* cryptographic hash function:
