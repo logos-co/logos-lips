@@ -25,7 +25,7 @@ The libp2p Mix Protocol uses a Sphinx packet format with four fields ($\alpha,\ 
 
 In the current Mix Protocol, AES-CTR is used to encrypt the routing header $\beta$. This is sufficient for $\beta$ because header integrity is separately protected by the per-hop MAC field $\gamma$. However, the integrity of $\delta$ is not covered by $\gamma$, since the Sphinx design intentionally separates header integrity from payload integrity.
 
-This separation is necessary because a valid Sphinx header may be paired with different payload content, and because SURB replies require the sender of the SURB to construct the return header before the reply payload is known. As a result, payload integrity MUST be provided independently of header integrity.
+This separation is necessary SURB replies require the sender of the SURB to construct the return header before the reply payload is known. As a result, payload integrity MUST be provided independently of header integrity.
 
 A malleable encryption scheme such as AES-CTR does not satisfy this requirement. Bit modifications to the ciphertext result in modifications to the decrypted plaintext. This violates the integrity of the Sphinx payload. Therefore, the payload-encryption scheme for libp2p mix MUST satisfy the following:
 1. It MUST preserve the fixed payload size $|\delta|$.
@@ -34,7 +34,7 @@ A malleable encryption scheme such as AES-CTR does not satisfy this requirement.
 4. It MUST allow the final hop to detect payload tampering.
 5. It MUST avoid adding external authentication material/tags that change the packet or payload size.
 
-To achieve this, this specification introduces LIONESS, a wide-block cipher built from a stream cipher and a keyed hash function. LIONESS acts as a pseudo-random permutation (PRP) over the entire payload block, allowing us to add an integrity prefix (e.g. leading zeros) into the plaintext and verify it after decryption.
+To achieve this, this specification uses LIONESS as described in [anderson et al](https://www.cl.cam.ac.uk/archive/rja14/Papers/bear-lion.pdf). LIONESS is a wide-block cipher built from a stream cipher and a keyed hash function. LIONESS acts as a pseudo-random permutation (PRP) over the entire payload block, allowing us to add an integrity prefix (e.g. leading zeros) into the plaintext and verify it after decryption.
 
 ## 2. Terminology
 The following terms are used throughout this specification:
@@ -43,7 +43,7 @@ The following terms are used throughout this specification:
 - **Sphinx packet**: The packet format used by the Mix Protocol, consisting of ($\alpha,\ \beta,\ \gamma,\ \delta$).
 - **Payload**: The fixed-size encrypted field $\delta$ in a Sphinx packet.
 - **Payload integrity prefix**: A fixed all-zero prefix added to the plaintext payload before layered encryption and checked after final decryption.
-- **Wide-block cipher**: A cipher that operates on the whole payload block as one unit rather than as independent small blocks.
+- **Wide-block cipher**: A block cipher with a large block size compared to conventional fixed-size block ciphers such as AES. LIONESS is a wide-block cipher that supports variable-length input blocks above a lower bound.
 - **Payload encryption key ($\mathbf{\delta_{key}}$)**: A key derived from the per-hop shared secret. It is used to derive the four LIONESS internal round keys.
 - **Round keys**: The four keys $(K_1, K_2, K_3, K_4)$ used by the LIONESS Feistel network.
 
@@ -57,13 +57,11 @@ This section defines the primitives used by this specification. In this specific
 
 The stream cipher $\mathsf{S}$ used in LIONESS. We denote this as:
 $$
-\mathsf{S}(k, \mathsf{iv}, n) \to \mathsf{ks}
+\mathsf{S}(k) \to \mathsf{ks}
 $$
 
 where:
 - $k$ is a 32 byte key
-- $\mathsf{iv}$ is IV/nonce with size that depends on the chosen stream cipher. 
-- $n$ is the required keystream length
 - $\mathsf{ks}$ is the output arbitrary-length keystream.
 
 Encryption and decryption can then be done by first generating a key stream $\mathsf{ks}$ and then XORing the key stream with the message/ciphertext. Encryption and decryption work in the same way: 
@@ -93,7 +91,7 @@ where:
 
 ### 3.3 Key Derivation Function (KDF)
 The key derivation function $\mathsf{KDF}$ is used to derive the internal LIONESS round keys from:
-- $\mathsf{dom}$: a domain-separation string
+- $\mathsf{dom}$: a 16 bytes domain-separation string
 - $\mathsf{seed}$: a 32-byte seed 
 - $\mathsf{len}$: a required output length  in bytes
 
@@ -171,23 +169,22 @@ Let:
 - round keys $(K_1, K_2, K_3, K_4)$ 
 - $S$ is the stream cipher as defined in section 3.1
 - $H$ is the keyed hash function as defined in section 3.2 
-- $\mathsf{iv}$ is the initialization vector or nonce for the stream cipher. The choice of $\mathsf{iv}$  and its size depend on the chosen stream cipher and therefore depend on how LIONESS is instantiated.
 
 LIONESS encryption proceeds with applying a small Feistel network of four rounds:
 
 $$
 \begin{aligned}
 B &= L_0 \parallel R_0 \\
-R_1 &= R_0 \oplus S(K_1 \oplus L_0, \mathsf{iv}, |R_0|) \\
+R_1 &= R_0 \oplus S(K_1 \oplus L_0, |R_0|) \\
 L_1 &= L_0 \oplus H_{K_2}(R_1) \\
-R_2 &= R_1 \oplus S(K_3 \oplus L_1, \mathsf{iv}, |R_1|) \\
+R_2 &= R_1 \oplus S(K_3 \oplus L_1, |R_1|) \\
 L_2 &= L_1 \oplus H_{K_4}(R_2) \\
 C   &= L_2 \parallel R_2
 \end{aligned}
 $$
 
 ```                                                   
-round 1:  R1 = R0 ^ S(L0 ^ K1, iv, |R_0|)                        
+round 1:  R1 = R0 ^ S(L0 ^ K1, |R_0|)                        
                                                       
 +-----------+                           +-----------+ 
 |    L0     |                           |    R0     | 
@@ -223,7 +220,7 @@ round 2:  L1 = L0 ^ H_K2(R1)
 +-----------+                           +-----------+ 
                                                       
                                                       
-round 3:  R2 = R1 ^ S(L1 ^ K3, iv, |R_1|)                        
+round 3:  R2 = R1 ^ S(L1 ^ K3, |R_1|)                        
                                                       
 +-----------+                           +-----------+ 
 |    L1     |                           |    R1     | 
@@ -267,9 +264,9 @@ $$
 \begin{aligned}
 C &= L_2 \parallel R_2 \\
 L_1 &= L_2 \oplus H_{K_4}(R_2) \\
-R_1 &= R_2 \oplus S(K_3 \oplus L_1, \mathsf{iv}, |R_2|) \\
+R_1 &= R_2 \oplus S(K_3 \oplus L_1, |R_2|) \\
 L_0 &= L_1 \oplus H_{K_2}(R_1) \\
-R_0 &= R_1 \oplus S(K_1 \oplus L_0, \mathsf{iv}, |R_1|) \\
+R_0 &= R_1 \oplus S(K_1 \oplus L_0, |R_1|) \\
 B &= L_0 \parallel R_0
 \end{aligned}
 $$
