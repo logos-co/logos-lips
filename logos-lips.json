@@ -397,6 +397,15 @@
   },
   {
     "component": "ift-ts",
+    "slug": "145",
+    "title": "Service Discovery API",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-05",
+    "path": "ift-ts/raw/service-discovery-api.html"
+  },
+  {
+    "component": "ift-ts",
     "slug": "155",
     "title": "Payment Streams Protocol for Logos Services",
     "status": "raw",
@@ -793,15 +802,6 @@
   },
   {
     "component": "storage",
-    "slug": "145",
-    "title": "Codex Manifest",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-04-15",
-    "path": "storage/raw/manifest.html"
-  },
-  {
-    "component": "storage",
     "slug": "151",
     "title": "Dataset Store",
     "status": "raw",
@@ -826,6 +826,15 @@
     "category": "Standards Track",
     "updated": "2026-04-28",
     "path": "storage/raw/merkle-tree.html"
+  },
+  {
+    "component": "storage",
+    "slug": "159",
+    "title": "Codex Manifest",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-04-15",
+    "path": "storage/raw/manifest.html"
   },
   {
     "component": "storage",
