@@ -88,6 +88,11 @@ envelope spec, not a module schema. Validation against the concrete module
 schema happens at the module layer after the transport layer delivers the
 message.
 
+The message maps below list the fields defined by transport version 1.
+Future versions may add fields.
+Implementations MUST ignore unknown fields in known message maps, as specified
+in section 10.2.
+
 ```cddl
 ; -- Hello --
 ; Sent by caller after opening socket. Callee responds with its own Hello.
@@ -242,8 +247,15 @@ fast synchronous call may return before a slow one started earlier).
 ### 2.3 Deterministic CBOR
 
 All messages MUST be encoded using deterministic CBOR (dCBOR) as specified
-in LOGOS-MODULE-INTERFACE section 4.5. This applies to both the envelope
-and the payload (`params`, `result`, `data` fields).
+in LOGOS-MODULE-INTERFACE section 4.5.
+The transport layer MUST validate the message envelope:
+frame length, deterministic CBOR, known transport tag, required envelope
+fields, and envelope field types.
+
+The transport layer treats schema payload fields (`params`, `result`, and
+`data`) as opaque CBOR maps after envelope validation.
+Payload validation against module CDDL schemas is owned by the module dispatch
+layer defined in LOGOS-MODULE-INTERFACE.
 
 ---
 
@@ -276,9 +288,14 @@ Caller                                  Callee
    - `token`: a capability token authorising this connection
 
 3. **Callee validates the Hello:**
-   - `protocol` MUST be supported. If not: Error `VERSION_MISMATCH`.
-   - Token MUST be valid (issued by the Capability Module for this
-     caller/callee pair). If not: Error `NOT_AUTHORISED`.
+   - `protocol` MUST be compatible with the callee's supported transport
+     versions, using the negotiation rule in section 10.1.
+     If not: Error `VERSION_MISMATCH`.
+   - In transport version 1, the `token` field MUST be present and MAY be
+     empty.
+     If the active runtime security policy enforces capability tokens, the
+     token MUST be valid for this caller/callee pair.
+     If token validation is enforced and fails: Error `NOT_AUTHORISED`.
    - Schema version MUST be compatible (same major version, caller's minor
      <= callee's minor). If not: Error `VERSION_MISMATCH`.
    - On validation failure: callee sends protocol-error and closes.
@@ -302,8 +319,11 @@ Either party may close the socket at any time. On close:
 ### 3.3 Keep-Alive
 
 For long-lived connections, either party MAY send a Hello message with the
-same token as a keep-alive / heartbeat. The recipient MUST respond with a
-Hello. This can be used to detect dead connections.
+same token as a keep-alive / heartbeat.
+The recipient MUST validate it using the same negotiated transport version and
+token policy as the initial Hello, then respond with a Hello.
+If validation fails, the recipient sends protocol-error and closes.
+This can be used to detect dead connections.
 
 ---
 
@@ -367,10 +387,24 @@ that `subscription-id` in the `sub` field.
 A caller MAY subscribe to the same event multiple times (with different
 IDs). Unsubscribe removes one subscription by ID.
 
+Subscribe and Unsubscribe messages have no separate acknowledgement in
+transport version 1.
+On a single connection, normal connection ordering applies:
+a callee processes a Subscribe before any later Request read on that same
+connection.
+Across different connections, the transport provides no global ordering.
+If one connection subscribes while another connection triggers an event, the
+caller cannot infer that the subscription was active for that event unless the
+application establishes its own ordering.
+
 ### 5.2 Event Delivery
 
 Events are fire-and-forget. No acknowledgement. If the caller's socket
 buffer is full, the callee MAY drop events (SHOULD log this).
+
+For a given published event, the callee sends Event messages to every active
+connection that has matching subscription IDs.
+The `sub` field is scoped to the connection that created the subscription.
 
 The `data` field is a CBOR map matching the event's `-event` schema
 (see LOGOS-MODULE-INTERFACE section 1.4).
@@ -446,11 +480,21 @@ validation, and revocation. See LOGOS-MODULE-RUNTIME section 4.3.
 Unix domain socket paths (`<runtime-dir>/logos_<name>.sock`) are predictable.
 To prevent socket squatting:
 
-- Place sockets in a per-user runtime directory with mode `0700`
-  (e.g. `/run/user/<uid>/logos/`)
+- Place sockets in a per-instance runtime directory with mode `0700`
+  (e.g. `/run/user/<uid>/logos/<instance-id>/`)
 - The runtime SHOULD verify socket ownership (via `SO_PEERCRED` or
   `getpeereid()`) after connecting
 - The runtime SHOULD delete stale socket files on startup
+
+The runtime environment, typically a host shell, SHOULD derive a fresh instance
+identity for each local runtime session and set `LOGOS_RUNTIME_DIR` to the
+per-instance runtime directory.
+Socket filenames inside that directory should remain stable, such as
+`logos_<module>.sock`.
+The instance identity MAY also be exposed to hosted processes as
+`LOGOS_INSTANCE_ID` for diagnostics and host/session correlation, but modules
+MUST NOT need it to construct local module socket paths when
+`LOGOS_RUNTIME_DIR` is available.
 
 ### 8.3 CBOR Validation
 
@@ -458,11 +502,15 @@ All incoming CBOR MUST be validated before processing:
 
 - Reject malformed CBOR with `INVALID_PARAMS`
 - Reject messages exceeding the size limit with `INVALID_PARAMS`
-- Reject non-deterministic CBOR (unsorted keys, non-shortest integers)
+- Reject non-deterministic envelope CBOR (unsorted keys, non-shortest integers)
   with `INVALID_PARAMS`
-- Reject unknown CBOR tags with `INVALID_PARAMS`
-- Validate `params`, `result`, and `data` maps against the module's CDDL
-  schema
+- Reject unknown or unallocated transport tags with `INVALID_PARAMS`
+- Validate required envelope fields and envelope field types
+
+The runtime MUST NOT be required to validate `params`, `result`, or `data`
+against the module's CDDL schema when forwarding a socket or remote call.
+Those payload maps are validated by the module dispatch layer and generated
+client/host adapters.
 
 ### 8.4 TLS (Remote Mode)
 
@@ -521,10 +569,16 @@ of the Hello message. The current protocol version is **1**.
 
 ### 10.1 Version Negotiation
 
-Both parties send their protocol version in the Hello. The connection operates
-at the **minimum** of the two versions. If the minimum version is below the
-recipient's minimum supported version, it MUST send Error `VERSION_MISMATCH`
-and close.
+Both parties send their highest supported protocol version in the Hello.
+The connection operates at the **minimum** of the caller's offered version and
+the callee's highest supported version.
+If that negotiated version is below the callee's minimum supported version,
+the callee MUST send Error `VERSION_MISMATCH` and close.
+
+Transport version 1 implementations currently have no lower protocol version
+to negotiate to.
+Therefore a version 1-only callee accepts `protocol = 1` and rejects any
+offered version that cannot negotiate to 1.
 
 ### 10.2 Future Versions
 
@@ -532,6 +586,16 @@ New protocol versions MAY add:
 - New message types (new tags)
 - New fields in existing message types (existing fields MUST remain)
 - New error codes
+
+Implementations MUST ignore unknown fields in known message maps.
+This is the forward-compatibility mechanism for future envelope extensions.
+
+Tags 100 through 109 are reserved for the LOGOS-MODULE-TRANSPORT protocol
+family.
+Tags 108 and 109 are unallocated in transport version 1 and reserved for
+future versions of this specification.
+Receiving an unallocated reserved tag in transport version 1 MUST yield a
+protocol error with code `INVALID_PARAMS`.
 
 New protocol versions MUST NOT:
 - Remove existing message types

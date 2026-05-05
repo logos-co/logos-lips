@@ -567,6 +567,8 @@ Every module shared library MUST export these C symbols:
 - `logos_<module>_dispatch()` is the socket-mode entry point.
   It receives the bare method name plus the dCBOR-encoded request payload.
   It does not parse the outer transport envelope.
+- `logos_free()` releases typed dynamic outputs and module-kit helper
+  allocations returned across this ABI.
 - `logos_<module>_dispatch()` MUST:
   - look up the method in the generated dispatch table,
   - return `METHOD_NOT_FOUND` for an unknown method,
@@ -577,10 +579,19 @@ Every module shared library MUST export these C symbols:
     schema, and
   - encode a module-level error as the error payload described in section 4.4.
 - The caller frees any non-null `_dispatch()` response buffer with `free()`.
+  This is a narrow dispatch-buffer rule:
+  `_dispatch()` response buffers are allocated with the C allocator because
+  the dispatch ABI is the lowest common denominator used by independent
+  module hosts.
+  Typed per-method outputs and module-kit helper allocations use
+  `logos_free()` as described in section 2.7.
 - `logos_module_name()` is the bootstrap symbol for runtimes that do not know
   the module name in advance.
-  The runtime probes this symbol first and then resolves the remaining
-  module-prefixed symbols.
+  Modules SHOULD export this symbol so directory scanners can discover them
+  without sidecar metadata.
+  Runtimes MUST also support loading modules whose name is already known from
+  a manifest, static registration table, command-line argument, or equivalent
+  host/deployment metadata.
 
 ```c
 /* Module name (static string, valid for library lifetime) */
@@ -618,6 +629,8 @@ void logos_<module>_destroy(void);
  *    with the `error` field.
  *
  * The caller (module host) frees *response with free().
+ * This rule applies only to the raw dispatch response buffer.
+ * Typed dynamic outputs use logos_free().
  */
 int logos_<module>_dispatch(
     const char*     method,         /* bare method name (e.g. "exists") */
@@ -631,6 +644,9 @@ int logos_<module>_dispatch(
  * The runtime calls dlsym("logos_module_name") to discover the module
  * name, then uses the module-specific prefix for all other symbols. */
 const char* logos_module_name(void);
+
+/* Shared deallocator for typed dynamic outputs and module-kit helpers */
+void logos_free(void* ptr);
 ```
 
 Plus all per-method C functions derived from the CDDL schema (section 2.4).
@@ -686,7 +702,8 @@ boundary.
 Without this, independently implemented runtimes and modules cannot safely
 interoperate.
 
-The ABI therefore defines one shared deallocation function:
+The ABI therefore defines one shared deallocation function for typed dynamic
+outputs and module-kit helper allocations:
 
 ```c
 void logos_free(void* ptr);
@@ -704,6 +721,10 @@ void logos_free(void* ptr);
 - All `const` pointer input parameters are borrowed for the duration of the
   call. Modules MUST copy if they need to retain.
 - `_name()` and `_schema()` return static strings. Callers MUST NOT free.
+- Raw `_dispatch()` response buffers are the one exception to the
+  `logos_free()` rule:
+  they are allocated with `malloc()` and freed by the module host with
+  `free()` as specified in section 2.6.
 
 ---
 
@@ -885,8 +906,7 @@ encoding is the on-the-wire view.
 ### 4.2 Composite Encoding
 
 **Maps (structs):** dCBOR map (major type 5) with text string keys. Keys MUST
-be sorted by byte-wise comparison of their encoded forms (dCBOR canonical
-ordering per RFC 8949 Section 4.2.1).
+be sorted using the length-first ordering defined in section 4.5.
 
 ```
 space-info -> {
@@ -934,8 +954,11 @@ All encoded payloads at the module boundary MUST use dCBOR.
 At minimum, this implies the RFC 8949 Section 4.2.1 deterministic encoding
 rules:
 
-1. Map keys MUST be sorted by byte-wise lexicographic comparison of their
-   encoded forms.
+1. Map keys MUST be sorted using the Length-First Map Key Ordering of
+   RFC 8949 Section 4.2.1:
+   keys are first compared by the length of their encoded forms, with shorter
+   keys preceding longer keys;
+   ties are broken by byte-wise lexicographic comparison of the encoded forms.
 2. Integers MUST use the shortest possible encoding.
 3. Indefinite-length encodings MUST NOT be used.
 4. Duplicate map keys MUST NOT appear.
@@ -949,14 +972,18 @@ rules:
 
 Implementations MUST:
 
-1. Validate all incoming dCBOR against the sender's CDDL schema before
-   processing. Invalid messages -> error code `INVALID_PARAMS`.
+1. Reject any incoming dCBOR that violates the determinism rules in section
+   4.5 with error code `INVALID_PARAMS`.
 2. Validate all outgoing dCBOR in debug builds.
 3. Reject unknown method names -> error code `METHOD_NOT_FOUND`.
 4. Reject wrong parameter types or missing required fields ->
    error code `INVALID_PARAMS`.
-5. Enforce dCBOR determinism: reject non-deterministic dCBOR (unsorted keys,
-   non-shortest integers) -> error code `INVALID_PARAMS`.
+
+For module method payloads, schema validation is owned by the module dispatch
+layer generated from or implemented against the module's CDDL schema.
+The runtime and transport layers validate envelopes and routing fields.
+They MUST NOT be required to introspect module payload schemas while forwarding
+socket or remote calls.
 
 ### 4.7 Error Propagation
 
@@ -1242,6 +1269,7 @@ runtime-provided publish function:
 /* From: storage.upload-progress-event = { session: tstr, bytes-sent: uint, bytes-total: uint } */
 void logos_storage_publish_upload_progress(
     logos_publish_fn  publish,
+    void*             publish_user_data,
     const char*       session,
     uint64_t          bytes_sent,
     uint64_t          bytes_total
@@ -1250,9 +1278,11 @@ void logos_storage_publish_upload_progress(
 
 The implementation dCBOR-encodes `{session, bytes-sent, bytes-total}` per
 section 4.2 and calls
-`publish("storage.upload-progress-event", cbor, cbor_len)`.
+`publish(publish_user_data, "storage.upload-progress-event", cbor, cbor_len)`.
 
 Module authors call the typed helper instead of encoding dCBOR manually.
+`publish_user_data` is the process-local callback context installed by the
+runtime or module host, as defined by LOGOS-MODULE-RUNTIME.
 
 ### 7.5 Generated Client Stubs
 
@@ -1265,17 +1295,20 @@ decodes the response:
  *       storage.exists-response = { exists: bool } */
 logos_result_t logos_storage_client_exists(
     logos_call_module_fn  call,
+    void*                 call_user_data,
     const char*           cid,
     bool*                 out_exists
 );
 ```
 
 The implementation dCBOR-encodes `{cid}`, calls
-`call("storage_module", {"method":"exists","params":{cid}}, len,
+`call(call_user_data, "storage_module", {"method":"exists","params":{cid}}, len,
 &resp, &resp_len)`,
 decodes the response map, and writes `out_exists`. The signature mirrors
 the per-method function (section 2.4) but takes `logos_call_module_fn`
 instead of `logos_module_handle_t*`.
+`call_user_data` follows the same process-local callback context rules as
+the runtime-provided call-module hook.
 
 ### 7.6 Generated Qt/QML Bindings
 

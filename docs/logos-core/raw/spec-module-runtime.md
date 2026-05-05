@@ -42,30 +42,20 @@ particular auth-token handoff mechanism between a host shell and a spawned
 module process. A concrete host MAY implement such mechanisms, but they are
 deployment concerns rather than part of the reusable module-runtime contract.
 
-### Execution-Boundary Equivalence
+### Execution-Boundary Preservation
 
-The runtime MAY realize the same module contract through different execution
-boundaries:
+LOGOS-MODULE-INTERFACE defines the execution-boundary invariant of the module
+contract.
 
-- **Direct mode** — in-process C calls
-- **Socket mode** — local IPC using LOGOS-MODULE-TRANSPORT
-- **Remote mode** — remote RPC using the same transport model
+This runtime specification does not restate that invariant in full.
+Its requirement is operational:
 
-These are different runtime/transport realizations of the same interface
-contract, not three different APIs.
+- the runtime MAY realize a module through direct, socket, or remote mode,
+- but it MUST preserve the same module contract semantics when doing so.
 
-A conforming runtime MUST preserve the same observable module semantics across
-those modes:
-
-- the same module, method, and event identifiers
-- the same schema-defined request, response, and event shapes
-- the same success/error meaning at the module boundary
-- the same schema-version compatibility rules
-
-The runtime MAY change routing, framing, process placement, scheduling,
-connection management, capability enforcement, or reconnection behavior by
-mode. It MUST NOT silently change the module contract itself when switching a
-callee between direct, local IPC, or remote execution.
+In other words, routing mode is a runtime concern.
+Changing execution boundary MUST NOT silently change the interface contract
+observed by callers.
 
 ## 1. Module Structure
 
@@ -199,6 +189,7 @@ typedef struct {
                                     const uint8_t* params_cbor, size_t params_len,
                                     uint8_t** response, size_t* response_len);
     logos_publish_fn    publish;    /* may be NULL; runtime sets it during init */
+    void*               publish_user_data;
 } logos_module_vtable_t;
 
 /* Application registers modules at startup.
@@ -322,23 +313,31 @@ Therefore:
 
 ### 3.4 Discovery Sources
 
-The runtime discovers modules from these sources, in order:
+The runtime registry can be populated from several sources:
 
-1. **Configuration file.** A CBOR or JSON config listing module names,
-   paths, and options.
-2. **Plugin directories.** The runtime scans one or more directories for
-   `.so`/`.dylib` files and probes each using the bootstrap symbol
+1. **Resolved host records.** A host shell, package manager, or deployment
+   tool may hand the runtime a resolved module name, artifact path, runtime
+   mode, version expectation, and dependency closure.
+2. **Configuration file.** A CBOR or JSON config may list resolved module
+   names, paths, and options for a concrete runtime instance.
+3. **Self-describing plugin scan.** A runtime may scan one or more directories
+   for `.so`/`.dylib` files and probe each using the bootstrap symbol
    (see section 3.5).
-3. **Package manifests.** LGX packages contain a `manifest.json` that lists
-   the module name, version, and entry point.
 4. **Runtime registration.** For static linking or test scenarios, modules
-   are registered programmatically via `logos_runtime_register_module()`.
+   may be registered programmatically via `logos_runtime_register_module()`.
+
+The on-disk package or module manifest schema is outside this specification.
+It belongs to a future deployment specification or to package-manager input
+contracts.
+The package-manager catalog output shape also belongs outside this runtime
+specification.
+The runtime consumes resolved records and maintains loaded runtime state.
 
 ### 3.5 Plugin Directory Scanning
 
-When scanning a plugin directory, the runtime probes each `.so`/`.dylib`
-file to extract metadata. The probe uses `dlopen` + `dlsym` — no framework-
-specific metadata embedding is required.
+When scanning a plugin directory without trusted sidecar metadata, the runtime
+probes each `.so`/`.dylib` file to extract metadata. The probe uses `dlopen`
++ `dlsym` — no framework-specific metadata embedding is required.
 
 **Probe procedure:**
 
@@ -348,7 +347,7 @@ for each .so file in plugin_dir:
        if failed: skip (not a valid shared library)
 
     2. name_fn = dlsym(handle, "logos_module_name")
-       if not found: dlclose, skip (not a Logos module)
+       if not found: dlclose, skip (not self-describing)
 
     3. name = name_fn()
        if empty or invalid: dlclose, skip
@@ -363,32 +362,47 @@ for each .so file in plugin_dir:
     6. dlclose(handle)  -- module is not loaded yet, only discovered
 ```
 
-This approach has no dependency on Qt's `QPluginLoader` or embedded JSON
-metadata. Any shared library that exports `logos_module_name()` is
-discoverable.
+This self-describing scan path has no dependency on Qt's `QPluginLoader` or
+embedded JSON metadata. Any shared library that exports `logos_module_name()`
+is discoverable without knowing its module name in advance.
 
 **The bootstrap symbol `logos_module_name()` is the sole requirement for
-discovery.** Version and schema symbols are optional at discovery time
-(they can be queried after loading). This keeps the bar low for module
-authors: export one function, and the runtime finds you.
+self-describing discovery.** Version and schema symbols are optional at
+discovery time (they can be queried after loading). This keeps the bar low for
+module authors: export one function, and the runtime finds you.
+
+This does not make `logos_module_name()` mandatory for every load path.
+If the runtime already knows the module name from a resolved host record,
+static registration table, command-line argument, or equivalent
+host/deployment metadata, it MAY construct the prefixed lifecycle symbol names
+directly as described in section 2.2.
 
 ### 3.6 Module Dependencies
 
-A module MAY declare dependencies on other modules in its package manifest
-(not in the CDDL schema -- the schema describes the interface, not deployment
-requirements):
+Module dependencies are deployment facts, not CDDL interface facts.
+A package manifest or package-manager catalog may declare dependencies on
+other modules.
+Such fields are outside this runtime specification until a deployment
+specification or package-manager CDDL defines them.
 
 ```json
 {
     "name": "delivery_module",
-    "depends": ["storage_module", "capability_module"]
+    "dependencies": ["storage_module", "capability_module"]
 }
 ```
 
-The runtime MUST ensure dependencies are loaded and initialised before the
-dependent module's `_init()` is called.
+The dependency field name for new Logos manifests and catalogs should be
+`dependencies`.
+Implementations MAY accept `depends` as a deprecated compatibility alias in
+private or transitional tooling.
 
-Circular dependencies are an error. The runtime MUST detect and reject them.
+When the runtime is asked to start a dependency closure, every dependency in
+that resolved closure MUST be loaded and initialised before the dependent
+module's `_init()` is called.
+Dependency graph construction, missing-dependency detection, and cycle
+detection belong to the package manager or host/deployment layer unless a
+future deployment specification assigns those responsibilities differently.
 
 ---
 
@@ -598,6 +612,14 @@ In socket mode, the module host process runs an event loop that:
 - Reads requests from all connections (via `poll`/`epoll`/`kqueue`)
 - Dispatches requests to `_dispatch()` or per-method functions
 
+The runtime MUST NOT mark a socket-hosted module as `ready` merely because a
+socket path exists.
+The host is ready only after the runtime can connect to that socket and
+complete the LOGOS-MODULE-TRANSPORT Hello handshake for the hosted module.
+If readiness is not reached before the startup timeout, the runtime MUST
+terminate the host process, remove any stale socket file it owns, and leave the
+module out of the ready routing table.
+
 The module host SHOULD use a thread pool for dispatching requests, so that
 a slow method does not block other callers. The default pool size is
 implementation-defined (recommended: number of CPU cores).
@@ -652,6 +674,7 @@ A module publishes events by calling a runtime-provided function:
 
 ```c
 typedef void (*logos_publish_fn)(
+    void*          user_data,
     const char*    event_name,
     const uint8_t* cbor_data,
     size_t         cbor_data_len
@@ -665,6 +688,8 @@ CDDL, for example `storage.started-event` or
 The runtime delivers the event to all subscribers (local or remote). In
 socket mode, the module host translates `logos_publish_fn` calls into Event
 messages (tag 105) on all connections with matching subscriptions.
+If multiple caller connections have matching subscriptions, each connection
+MUST receive an Event message for its own matching subscription IDs.
 
 This publish path is for **narrow asynchronous notifications** only. Modules
 use it for progress, completion, and state-change signals. It is not a
@@ -676,14 +701,22 @@ request/response dispatch.
 The publish function is provided via a **well-known symbol** that the
 runtime calls after `_init()` succeeds:
 
+The module stores the function pointer and user data internally.
+If the module does not publish any events, it MAY omit this symbol — the
+runtime MUST NOT fail if the symbol is absent.
+
 ```c
 /* Exported by the module. Called by runtime/host after _init() returns OK. */
-void logos_<module>_set_publish(logos_publish_fn fn);
+void logos_<module>_set_publish(logos_publish_fn fn, void* user_data);
 ```
 
-The module stores the function pointer internally. If the module does not
-publish any events, it MAY omit this symbol — the runtime MUST NOT fail
-if the symbol is absent.
+`user_data` is opaque, process-local callback state supplied by the runtime or
+module host.
+The module MUST pass the value back unchanged when it calls `fn`.
+The module MUST NOT dereference it, compare it for semantic identity, serialize
+it, persist it, expose it in schemas, or send it across a transport or network
+boundary.
+It is meaningful only inside the process that installed the callback.
 
 For compatibility with older generated modules that may still publish short
 event names such as `started`, a runtime MAY normalize those legacy names
@@ -691,12 +724,15 @@ to the canonical schema event name before putting them on the wire. New
 modules and code generators MUST use the canonical schema event name
 directly.
 
-For statically linked modules, the publish function is set via the
-`logos_module_vtable_t.publish` field (see section 2.3). The runtime sets
-this field before calling `init`.
+For statically linked modules, the publish function and context are set via
+the `logos_module_vtable_t.publish` and
+`logos_module_vtable_t.publish_user_data` fields (see section 2.3).
+The runtime sets these fields before calling `init`.
 
-**Lifetime:** The publish function is valid from the time it is set until
-`_destroy()` returns. Modules MUST NOT call it after `_destroy()`.
+**Lifetime:** The publish function and its `user_data` are valid from the
+time they are set until `_destroy()` returns or until the hook is replaced.
+Modules MUST NOT call a previous hook after replacement and MUST NOT call any
+hook after `_destroy()`.
 
 **Thread safety:** The publish function is thread-safe. Modules MAY call
 it from any thread.
@@ -710,6 +746,7 @@ protocol's client side:
 ```c
 /* Provided by the runtime to the module after _init() */
 typedef logos_result_t (*logos_call_module_fn)(
+    void*           user_data,
     const char*     target_module,
     const uint8_t*  request_cbor,    /* CBOR: {"method": tstr, "params": {...}} */
     size_t          request_len,
@@ -718,7 +755,7 @@ typedef logos_result_t (*logos_call_module_fn)(
 );
 
 /* Exported by the module. Called by runtime/host after _init() returns OK. */
-void logos_<module>_set_call_module(logos_call_module_fn fn);
+void logos_<module>_set_call_module(logos_call_module_fn fn, void* user_data);
 ```
 
 The module encodes a CBOR request map (`{method, params}`) for the target
@@ -734,7 +771,16 @@ when the concrete function pointer is installed by a per-module host process.
 If the module does not call other modules, it MAY omit this symbol. The
 runtime MUST NOT fail if the symbol is absent.
 
-**Lifetime:** Same as `logos_publish_fn` — valid from set until `_destroy()`.
+`user_data` follows the same process-local callback-state rules as
+`logos_publish_fn`.
+For Level 1 transport placement, it remains inside the module host process:
+the host callback translates the outbound call into transport requests and
+responses, and only CBOR envelopes and payloads cross the process or network
+boundary.
+For Level 2 and Level 3 local placement, it similarly remains local glue state
+for the runtime or host that installed the callback.
+
+**Lifetime:** Same as `logos_publish_fn`.
 
 **Thread safety:** The function is thread-safe. Modules MAY call it from
 any thread. Calls are synchronous — the function blocks until the target
@@ -751,6 +797,8 @@ error, the error is encoded in `response_cbor` as an error-payload map
 
 Packaging is not part of the core runtime protocol.
 This section is therefore informative.
+It is a placeholder for deployment concerns until a deployment specification
+or package-manager CDDL owns the exact manifest and catalog shapes.
 
 The runtime requires deployable module artifacts plus enough metadata to
 discover them, identify the entry point, and evaluate compatibility.
@@ -781,7 +829,8 @@ An LGX package may contain:
 
 ### 8.2 Manifest
 
-A deployment manifest may contain:
+A deployment manifest may contain fields like the following.
+This example is informative only and is not a normative manifest schema:
 
 ```json
 {
@@ -790,7 +839,7 @@ A deployment manifest may contain:
     "description": "Codex-based decentralised storage",
     "entry_point": "lib/storage_module.so",
     "schema": "storage_module.cddl",
-    "depends": ["capability_module"],
+    "dependencies": ["capability_module"],
     "min_runtime_version": [1, 0]
 }
 ```
@@ -870,6 +919,11 @@ On runtime shutdown:
 1. All modules receive `_destroy()` in reverse dependency order.
 2. Socket connections are closed.
 3. Module host processes are sent `SIGTERM`, then `SIGKILL` after a timeout.
+
+If a socket-hosted module fails during startup before it reaches ready state,
+the same cleanup rule applies to the partially started host process.
+The runtime MUST NOT leave failed startup children running as unregistered
+modules.
 
 ---
 
