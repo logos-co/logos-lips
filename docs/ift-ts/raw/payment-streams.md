@@ -29,7 +29,6 @@ The blockchain determines fund accrual based on elapsed time.
 
 This specification defines stream-backed eligibility proof types
 for the incentivization framework
-defined in the incentivization specification
 (see [References](#references)).
 The incentivization specification is defined
 in the context of Logos Messaging request-response protocols.
@@ -145,8 +144,7 @@ The sum of all stream allocations MUST NOT exceed the vault balance.
 
 A claim is the operation
 where the provider retrieves accrued funds from a stream.
-The provider MAY claim accrued funds from a stream in any state.
-A claim MUST transfer the full accrued balance to the provider.
+Claim semantics are defined in the [Stream Lifecycle](#stream-lifecycle) section below.
 
 ### Stream Lifecycle
 
@@ -155,7 +153,7 @@ Stream states:
 - ACTIVE: Funds accrue to the provider at the agreed rate.
 - PAUSED: Accrual is stopped.
   The stream transitions to PAUSED by user action
-  or automatically when allocated funds are fully accrued.
+  or automatically when the stream's allocation is depleted.
   The user MAY resume the stream.
 - CLOSED: Stream is permanently terminated.
   The stream MUST NOT transition to any other state.
@@ -168,7 +166,7 @@ Stream state transitions:
   The stream also transitions automatically from ACTIVE to PAUSED
   when allocated funds are fully accrued.
 - Resume: User resumes a PAUSED stream, restarting accrual.
-  Resume MUST fail if remaining allocation is zero.
+  Resume MUST fail if unaccrued balance is zero.
 - Top-Up: User MAY add funds to stream allocation.
   Top-up MUST transition the stream to ACTIVE state.
   If the user wants to add funds without resuming,
@@ -179,7 +177,8 @@ Stream state transitions:
   unaccrued funds MUST automatically return to the user's vault.
   Accrued funds remain available for the provider to claim.
 - Claim: Provider MAY claim accrued funds from a stream in any state.
-  A claim MUST transfer the full accrued balance;
+  A claim MUST transfer the full accrued balance to the provider
+  and MUST reduce the stream's allocation by the payout amount;
   partial claims are not supported.
   A claim operation does not change stream state.
 
@@ -321,7 +320,7 @@ message StreamParams {
 ```
 
 The `open_stream_by` field is an absolute timestamp
-by which the user commits to establishing the stream on-chain.
+by which the user agrees to establish the stream on-chain.
 The user MUST set `open_stream_by` to a future timestamp
 no later than the current time plus `max_open_stream_window`.
 
@@ -389,8 +388,8 @@ within a RECOMMENDED time window of 600 seconds.
 
 The provider SHOULD send a `ServiceTermination` message
 before stopping service.
-A `ServiceTermination` message MAY be sent regardless of whether
-a stream has been established on-chain.
+This message MAY be sent at any point,
+including before a stream is established on-chain.
 
 This message MUST include:
 
@@ -454,79 +453,242 @@ and stream creation, this constitutes a protocol violation;
 the provider SHOULD send a `ServiceTermination`
 with `termination_type` `PERMANENT`.
 
+## On-Chain Protocol
+
+This section describes the on-chain components of the protocol:
+the account model, address derivation, balance accounting,
+accrual semantics, authorization, and privacy tiers.
+
+### Account Types
+
+The program stores state in three account types:
+`VaultConfig`, `VaultHolding`, and `StreamConfig`.
+
+`VaultConfig` stores vault metadata and the authorization anchor.
+Its `owner` field is the authorization anchor for owner-gated instructions.
+For `PseudonymousFunder`-tier vaults,
+`owner` MUST be an identifier derived from a nullifier public key,
+distinct from the user's key associated with their public on-chain activity.
+
+`VaultHolding` is a dedicated account; its platform-native balance is the vault's total funds.
+`VaultHolding` stores only a version byte in its application data.
+
+`StreamConfig` stores per-stream parameters and lazy accrual state.
+
+### PDA Derivation
+
+Vault and stream accounts are program-derived addresses (PDAs):
+their identifiers are derived deterministically from a canonical set of seeds.
+Any party can compute a vault or stream address locally
+without querying the chain,
+given the owner identifier, vault identifier, and stream identifier.
+
+`VaultConfig` seeds include the owner account identifier
+and a user-chosen vault identifier,
+binding each vault to its authorization anchor at derivation time.
+`VaultHolding` is derived from the `VaultConfig` address,
+keeping the two vault accounts co-located.
+`StreamConfig` is derived from the `VaultConfig` address
+and a stream identifier assigned sequentially by the program on stream creation.
+Provider identity is stored as a field in `StreamConfig`
+rather than encoded in the PDA seeds,
+so a vault may back multiple streams to the same provider.
+
+### Balance Accounting
+
+All vault funds reside in `VaultHolding`; let B denote its balance.
+
+Only B and stored account fields exist on-chain; the following quantities are derived from them:
+
+- Unallocated: B − total_allocated.
+  Bounds withdrawals and new stream allocations.
+- Allocation (per stream): the vault's current commitment to that stream,
+  equal to accrued + unaccrued.
+  Allocation decreases as the provider claims accrued funds.
+- Unaccrued (per stream): allocation − accrued.
+
+Two solvency invariants MUST hold after every mutating instruction:
+
+1. vault_holding.balance ≥ vault_config.total_allocated
+2. total_allocated = Σ stream.allocation across all streams for this vault,
+   including closed streams with residual accrued balance.
+
+Instructions maintain the second invariant by applying the same delta to `total_allocated`
+whenever any stream's `allocation` changes.
+
+### Lazy Accrual
+
+Stream state is a pure function of stored `StreamConfig` fields and the current timestamp.
+Any party can compute the effective stream state —
+including whether a stream has auto-paused on depletion —
+by reading `StreamConfig` and a clock account locally,
+without submitting a write transaction.
+
+Computing elapsed accrual up to the current timestamp and applying any resulting state
+transitions is called folding the stream.
+Every instruction that touches a stream folds accrual first, then applies its own transition.
+The time window `[accrued_as_of, t]` over which a fold accumulates accrual is the accrual interval.
+
+Accrual runs only while the stream is `ACTIVE`.
+A paused or closed stream does not accrue over elapsed time.
+When a stream depletes, it transitions to `PAUSED` at the computed depletion instant,
+which may precede `t` if depletion occurred within the accrual interval.
+
+The program reads time from a system clock account supplied by the caller.
+Three platform clock accounts exist, updated at different frequencies.
+The caller selects which to use per instruction;
+the program validates the provided account identifier against the set of system clock accounts.
+Finer-granularity clocks give more precise accrual folds;
+coarser clocks reduce metadata churn.
+In shielded execution, coarser clocks also limit timing correlations visible to observers.
+See Security and Privacy Considerations.
+
+### Authorization
+
+Authorization means a cryptographic signature in transparent transactions
+and proof of account control in shielded transactions.
+
+Most instructions require authorization by the vault owner.
+Two instructions are exceptions.
+
+`CloseStream` accepts authorization by either the vault owner or the stream provider,
+allowing the provider to initiate closure without requiring the owner's cooperation.
+`Claim` is authorized by the provider.
+
+Both `CloseStream` and `Claim` include the vault owner
+as an explicit non-signing account,
+checked for equality with `VaultConfig.owner`.
+This binding is defense in depth alongside PDA derivation,
+which already ties the vault config to the owner identifier.
+
+Closing an already-closed stream is an error.
+
+### Privacy Tiers
+
+`VaultPrivacyTier` is stored in `VaultConfig` and is immutable for the vault's lifetime.
+
+- `Public`: the vault may be operated via transparent or shielded transactions.
+  No owner-funding unlinkability guarantee.
+- `PseudonymousFunder`: the vault is intended for shielded-only operation
+  under our wallet.
+  The goal is to prevent linking the vault owner's primary public key
+  to vault and stream activity on-chain.
+  See Security and Privacy Considerations.
+
+## Security and Privacy Considerations
+
+This section describes the privacy properties of the protocol,
+what they provide, and their limits.
+
+### Privacy Goals
+
+The primary privacy goal is funder unlinkability:
+preventing an observer from linking the vault owner's primary public key
+to on-chain vault and stream activity.
+
+A secondary goal is provider privacy:
+enabling a provider to receive funds
+without revealing their real receiving addresses.
+
+### Execution Modes and Linkability
+
+The same program logic executes in both transparent and shielded transactions.
+Business logic — accrual math, lifecycle transitions, authorization predicates —
+is identical across modes.
+What differs is account visibility
+and what linkage an observer can infer from on-chain artifacts.
+
+Vault and stream PDAs are public accounts regardless of execution mode.
+An observer can reconstruct the vault-to-stream graph from public account identifiers.
+Shielded execution can hide the identity behind private signing accounts
+and the destinations of private transfers,
+but it does not hide the existence of a stream,
+its accrual state,
+or the association between a vault and its streams.
+
+### Stream Lifetime and Funder Unlinkability
+
+If a stream is created in a transparent transaction,
+it is permanently linked to its vault owner on-chain.
+No subsequent shielded execution can undo this linkage.
+To achieve funder unlinkability,
+a stream must be created and operated entirely via shielded transactions.
+
+The protocol captures this through two tiers assigned at vault creation time.
+
+A `Public`-tier vault may use transparent and shielded transactions.
+Shielded execution provides selective confidentiality on individual operations
+but does not provide funder unlinkability
+if the vault has ever appeared on a transparent path.
+
+A `PseudonymousFunder`-tier vault is intended to operate entirely via shielded transactions.
+The wallet enforces this
+by refusing to submit transparent transactions that touch these vaults.
+The same program logic runs in both transparent and shielded transactions
+and cannot determine which mode triggered it;
+shielded-only enforcement is therefore wallet responsibility.
+A future consensus-level hook could extend this enforcement
+to arbitrary submitters,
+but that is out of scope for this implementation.
+
+For a `PseudonymousFunder`-tier vault to provide meaningful unlinkability,
+the owner's spendable balance SHOULD be pre-shielded before vault funding.
+A transparent transfer from a primary public key into a private persona
+creates a traceable hop on-chain;
+subsequent shielded operations may not add further edges
+from that public key to the vault,
+but they do not erase the first hop.
+
+`VaultConfig` is a public account even for `PseudonymousFunder`-tier vaults.
+Its `owner` field is a persistent plaintext pseudonym visible to observers;
+for `PseudonymousFunder` vaults it MUST be a nullifier-public-key-derived identifier
+distinct from the user's primary public key linked to public on-chain activity.
+The unlinkability target is separation of the primary public key from that pseudonym,
+not hiding the pseudonym itself.
+
+### Verifiability
+
+On-chain state of a stream is verifiable by both parties regardless of privacy tier.
+`StreamConfig` is a public account.
+A provider who knows the stream identifier can derive the account address locally
+and read its accrual state from the chain at any time,
+without knowing the vault owner's real-world identity.
+
+### Provider Privacy
+
+`StreamConfig` stores the provider identifier in plaintext.
+The association between a stream and its provider identifier is always visible on-chain.
+
+A provider who wants to conceal their real receiving addresses
+SHOULD use a long-term public-facing provider identifier
+alongside one or more shielded receiving addresses,
+and claim funds to those addresses via shielded transactions.
+An observer then sees that a provider claimed from a stream
+but not where the funds were transferred.
+Each transparent claim permanently links the stream to the receiving address for that claim.
+Shielded claims to different addresses are independently unlinkable,
+regardless of prior transparent claims.
+
+### Achieving Unlinkability
+
+Shielded transactions alone do not guarantee unlinkability.
+To achieve funder unlinkability on a `PseudonymousFunder`-tier vault,
+the vault owner MUST use shielded transactions for all vault and stream operations
+and MUST pre-shield funds before depositing,
+so no transparent transaction links the primary public key to the vault.
+To achieve provider-address unlinkability,
+the provider MUST use shielded claims directed to addresses
+not otherwise linked to their primary identity.
+
 ## Protocol Extensions
 
 This section describes optional modifications
 that MAY be applied to the base protocol.
 Each extension is independent.
 
-### Auto-Pause
+### Off-Chain Extensions
 
-The user MAY specify an auto-pause duration when creating a stream.
-When the specified duration elapses since stream creation or last resume,
-the stream MUST automatically transition to PAUSED state.
-The user MAY resume the stream, resetting the auto-pause timer.
-
-Auto-pause limits loss if service stops and the user is offline.
-Per-stream allocation already bounds total risk;
-auto-pause adds periodic check-ins for long-running streams.
-
-### Delivery Receipts
-
-The claim operation MAY require delivery receipts as proof of service.
-A delivery receipt is a user-signed message that MUST include
-stream identifier, service delivery details, and signature.
-If a stream has delivery receipts enabled,
-the protocol MUST only allow claims with valid receipts.
-
-Receipt granularity presents a trade-off.
-Per-message receipts allow the user to approve each message individually
-but require signing each receipt, increasing interaction overhead.
-Batched receipts reduce signing overhead
-but require the user to approve multiple messages at once.
-
-### Automatic Claim on Closure
-
-This extension adds an optional auto-claim flag.
-When auto-claim is enabled,
-closing the stream MUST automatically claim accrued funds for the provider.
-
-Auto-claim simplifies the protocol
-by ensuring closed streams hold no funds,
-eliminating the need to track balances in closed streams.
-
-However, auto-claim has potential issues:
-
-- Prevents provider from batching claims.
-- May create timing correlations that leak privacy.
-- Requires user to pay for provider's claim operation.
-- May cause the entire close operation to fail if claim fails.
-
-Assessing these trade-offs requires clarity on LEZ,
-particularly gas model, batching techniques, and timing privacy.
-
-### Activation Fee
-
-A user can exploit the pause/resume mechanism
-by keeping a stream paused
-and resuming briefly only when querying a service.
-This results in minimal payment for actual service usage.
-
-The activation fee addresses this attack.
-When the activation fee is enabled,
-a fixed amount MUST accrue to the provider
-immediately upon the stream becoming `ACTIVE`.
-The activation fee SHOULD reflect
-the minimum acceptable payment for a service session.
-The activation fee applies to stream creation, resume, and top-up operations,
-as only user actions transition a stream to `ACTIVE` state.
-If stream allocation is lower than activation fee,
-stream activation MUST fail.
-
-Providers MAY alternatively address this attack via off-chain policy
-by refusing service to users who pause and resume excessively.
-
-### Load Cap
+#### Load Cap
 
 A load cap represents
 cumulative resource consumption per stream per time window
@@ -549,7 +711,7 @@ the provider SHOULD terminate service.
 A user who requires a higher load cap
 SHOULD open multiple streams to the same provider.
 
-### Multi-round Stream Parameter Negotiation
+#### Multi-round Stream Parameter Negotiation
 
 A future extension MAY allow the provider
 to include counter-proposed parameters
@@ -557,50 +719,74 @@ in a `PARAMS_REJECTED` response,
 enabling iterative negotiation
 before the first request is served.
 
-## Implementation Considerations
+### On-Chain Extensions
 
-This section outlines how the protocol maps onto LEZ.
+#### Auto-Pause
 
-The stream protocol MAY be deployed as an LEZ program
-with three account types:
+The user MAY specify an auto-pause duration when creating a stream.
+When the specified duration elapses since stream creation or last resume,
+the stream MUST automatically transition to PAUSED state.
+The user MAY resume the stream, resetting the auto-pause timer.
 
-- StreamDefinition: stream parameters and status.
-- VaultDefinition: list of streams backed by a vault, controlled by payer.
-- VaultHolding: token account funded by payer, used to pay providers.
+Auto-pause limits loss if service stops and the user is offline.
+Per-stream allocation already bounds total risk;
+auto-pause adds periodic check-ins for long-running streams.
 
-Stream lifecycle rules and balance constraints
-are encoded and enforced through program logic.
+#### Automatic Claim on Closure
 
-Stream state is evaluated lazily.
-On-chain storage holds stream parameters,
-but the effective state depends on the block timestamp at execution time.
-State transitions (such as auto-pause) are reflected on-chain
-only when an on-chain operation is executed.
+This extension adds an optional auto-claim flag.
+When auto-claim is enabled,
+closing the stream MUST automatically claim accrued funds for the provider.
 
-Whether shielded execution can access block timestamps
-for time-based accrual calculation is an open question.
-Given a mechanism for elapsed time in shielded execution,
-all protocol operations MAY be performed within shielded execution.
+Auto-claim simplifies the protocol
+by ensuring closed streams hold no funds,
+eliminating the need to track balances in closed streams.
 
-## Security and Privacy Considerations
+However, auto-claim has potential issues:
 
-An initial privacy goal is unlinkability
-between off-chain requests and on-chain funding.
-Vault deposits MUST NOT reveal the depositor's identity.
-Stream creation SHOULD NOT reveal which vault funded the stream.
+- Prevents provider from batching claims.
+- May create timing correlations that leak privacy.
+- Requires user to pay for provider's claim operation.
+- May cause the entire close operation to fail if claim fails.
 
-Each account MAY be public or private, configured per-account.
-The payer decides whether stream operations use
-transparent or shielded execution.
-The protocol design SHOULD NOT fix this decision.
-A provider MAY reject stream requests
-that do not match their privacy preferences.
+Assessing these trade-offs requires clarity on LEZ,
+particularly gas model, batching techniques, and timing privacy.
 
-On-chain state of a stream MUST be verifiable by both parties.
+#### Activation Fee
 
-## Copyright
+A user can exploit the pause/resume mechanism
+by keeping a stream paused
+and resuming briefly only when querying a service.
+This results in minimal payment for actual service usage.
 
-Copyright and related rights waived via [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
+The activation fee addresses this attack.
+When the activation fee is enabled,
+a fixed amount MUST be transferred to the provider
+immediately upon the stream becoming `ACTIVE`.
+The activation fee SHOULD reflect
+the minimum acceptable payment for a service session.
+The activation fee applies to stream creation, resume, and top-up operations,
+as only user actions transition a stream to `ACTIVE` state.
+If stream allocation is lower than activation fee,
+stream activation MUST fail.
+
+Providers MAY alternatively address this attack via off-chain policy
+by refusing service to users who pause and resume excessively.
+
+#### Delivery Receipts
+
+The claim operation MAY require delivery receipts as proof of service.
+A delivery receipt is an off-chain user-signed message that MUST include
+stream identifier, service delivery details, and signature.
+If a stream has delivery receipts enabled,
+the protocol MUST only allow claims with valid receipts.
+
+Receipt granularity presents a trade-off.
+Per-message receipts allow the user to approve each message individually
+but require signing each receipt, increasing interaction overhead.
+Batched receipts reduce signing overhead
+but require the user to approve multiple messages at once.
+
 
 ## References
 
@@ -730,3 +916,7 @@ function claim(uint256 streamId) external;
 ///      state updates on next interaction, not at exact depletion time).
 function _accrue(uint256 streamId) internal;
 ```
+
+## Copyright
+
+Copyright and related rights waived via [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
