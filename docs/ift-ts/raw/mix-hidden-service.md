@@ -500,7 +500,7 @@ The epoch-specific discovery key `disc_key` is derived from the blinded public k
 
 ```=
 e = get_public_entropy(epoch_i)
-disc_key = H("discovery key" || bk_i || e)
+disc_key = H("discovery key" || bk_i || e_i)
 ```
 where `e` is public epoch-specific entropy, for example a randomness beacon, block hash, or other agreed public entropy source. Including the public entropy `e` ensures that descriptor placement is not determined solely by public long-term service identity and epoch. This makes the storage location less predictable in advance and reduces the risk that an attacker can precompute and target the responsible discovery/DHT nodes for a future epoch.
 
@@ -600,7 +600,7 @@ The plaintext of this inner layer contains the following fields:
 - `intro_points`: A list of intro point objects `IntroPoint`, each containing:
     - `info`: A `MixPubInfo` object containing mix routing information and public key for the intro point. The contents of this object depends on how mix routing is implemented, but in general it should contain sufficient information to create a sphinx packet with the intro point as the exit.
     - `auth_key_cert`: a key certificate `KeyCert` in the same for shown earlier and includes `auth_key` the authentication key for clients to use at this intro point. Note that here we require `signing_key = auth_key` and `certified_key = desc_key`. This is to cross-link ownership of these keys.
-    - `service_key_cert`: a key certificate `KeyCert` for an encryption key `service_key` for clients to use to encrypt requests for the service, routed through the intro point. here we have `signing_key = service_key` and `certified_key = desc_key`
+    - `service_key_cert`: a key certificate `KeyCert` for an encryption key `service_key` for clients to use to encrypt requests for the service, routed through the intro point. here we have `signing_key = desc_key` and `certified_key = service_key`. Note that `service_key` is an encryption key not a signing key.
 - `dos_params`: an optional DOS protection params/proofs. 
 
 
@@ -771,7 +771,7 @@ The intro point will then act only as a forwarding node:
 2. uses `auth_key` to forward incoming requests to an active hidden-service state using the transport layer state for that service. If `auth_key` is not found or expired, then request is dropped.
 3. maintain a short-lived transport layer session/state with the client and send an acknowledgement (`IntroduceAck`) to the client. 
 
-### 9.3 Service behaviour
+### 9.4 Service behaviour
 A hidden service accepts intro requests only for intro points that it has previously established as described in Section 7. For each intro point the service must maintain the following:
 - authentication key `auth_key`
 - service key `service_key`
@@ -787,7 +787,7 @@ When the hidden service receives an `Introduce2` message from an introduction po
 6. decrypt the encrypted payload `enc_payload` and process the plaintext first by the transport layer, creating a session/state for subsequent communication.
 7. Pass the request plaintext to the local service for further processing. 
 
-### 9.4 Replay resistance
+### 9.5 Replay resistance
 Replay resistance is required to prevent an adversary from resending previously valid intro messages in order to:
 - DOS/spam the service by repeatedly sending a valid looking intro request message, and possibly consuming all SURBs stored at the intro point (this is dependent on how the transport layer manages SURBs).
 - DOS/spam the service by triggering repeated processing of the packet at the hidden service. 
@@ -796,7 +796,7 @@ Replay resistance is required to prevent an adversary from resending previously 
 
 In this protocol, replay resistance is achieved by the following:
 - *Binding to `auth_key`*: the MAC in `Introduce1` is computed over `auth_key || client_key || enc_payload`, therefore, an attacker cannot move a valid encrypted intro payload from one intro point to another or change `auth_key` without invalidating MAC. 
-- *Client tags*: The intro point and service must maintain replay cache/table of previously seen client tags for each service-intro session/state. These client tags are computed as `client_tag = H(node_key)`. When a request is received by either the intro point or service, they will check the existence of such tag in the local cache/table. If not present, record the tag in the cache/table and continue processing. If present, the request must be dropped with no further processing. The local cache for each service-intro session can be flushed with it expires or gets terminated (i.e. when `auth_key` is no longer assigned to a service/intro). 
+- *Client tags*: The intro point and service must maintain replay cache/table of previously seen client tags for each service-intro session/state. These client tags are computed as `client_tag = H(client_key)`. When a request is received by either the intro point or service, they will check the existence of such tag in the local cache/table. If not present, record the tag in the cache/table and continue processing. If present, the request must be dropped with no further processing. The local cache for each service-intro session can be flushed with it expires or gets terminated (i.e. when `auth_key` is no longer assigned to a service/intro). 
 
 
 *Note: these replay preventions are not suffcient for DOS/spam prevention. An additional (pluggable) component is needed for DOS/spam prevention. This will be specified in the future.*
