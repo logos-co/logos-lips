@@ -178,6 +178,9 @@ Distinguishing between these states improves observability — a malformed Frame
 - A ConversationType MUST define how to distinguish between Valid, Invalid, and Unsupported frames.
 - A ConversationType MUST explicitly tag all Frames intended for the application layer.
 - A ConversationType SHOULD define an unambiguous parsing strategy for all Frames, including in the presence of errors.
+- A Conversation MUST process all valid frames. 
+- A Conversation SHOULD notify clients when Unsupported Frames are received.
+
 
 ### Encoding/Decoding
 
