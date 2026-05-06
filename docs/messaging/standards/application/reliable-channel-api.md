@@ -264,6 +264,13 @@ NodeConfig:  # Extends NodeConfig defined in MESSAGING-API
     sds_config:
       type: SdsConfig
       description: "SDS configuration. See SdsConfig defined in this spec."
+    rate_limit_config:
+      type: RateLimitConfig
+      description: "See RateLimitConfig defined in this spec."
+    segmentation_config:
+      type: SegmentationConfig
+      description: "See SegmentationConfig defined in this spec."
+
 ```
 
 ### Type definitions
