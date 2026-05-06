@@ -26,7 +26,7 @@ Without a shared abstraction, each protocol re-solves these problems independent
 
 In centralized systems, versioning is straightforward — the server dictates the protocol, and clients update or lose access. In a decentralized network, no such authority exists. Clients at different versions must coexist indefinitely, and any breaking change risks permanently fragmenting the network.
 
-The conventional response is complex negotiation logic, semver schemes, and careful backwards-compatibility maintenance. This creates a compounding burden: the older the protocol, the more legacy behavior implementors must carry.
+The conventional response is complex negotiation logic, `semver` schemes, and careful backwards-compatibility maintenance. This creates a compounding burden: the older the protocol, the more legacy behavior implementors must carry.
 
 ## Overview
 
@@ -147,10 +147,10 @@ Frames are the typed data structures that a Conversation operates on internally.
 
 Each ConversationType defines its own set of Frames. Multiple ConversationTypes may reuse the same Frame definitions but there is no requirement to do so.
 
-All Frames fall into one of three states when processed by a Conversation. Distinguishing between these states improves observability — a malformed Frame and an unrecognised Frame are different problems and should not be conflated:
-- **Valid** — the Frame is well-formed and recognised.
+All Frames fall into one of three states when processed by a Conversation. Distinguishing between these states improves observability — a malformed Frame and an unrecognized Frame are different problems and should not be conflated:
+- **Valid** — the Frame is well-formed and recognized.
 - **Invalid** — the Frame is malformed or fails validation.
-- **Unsupported** — the Frame is unrecognised by this Conversation instance.
+- **Unsupported** — the Frame is unrecognized by this Conversation instance.
 
 **Requirements:**
 - A ConversationType MUST explicitly document all Frames required for interoperability.
