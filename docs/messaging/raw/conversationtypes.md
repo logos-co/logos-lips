@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Name | ConversationTypes |
-| Slug | 9000 |
+| Slug |  |
 | Status | raw |
 | Type | RFC |
 | Category | Standards Track |
