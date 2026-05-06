@@ -1,13 +1,13 @@
 # SERVICE-DISCOVERY-API
 
-| Field | Value |
-| --- | --- |
-| Name | Service Discovery API |
-| Slug | 145  |
-| Status | raw |
-| Category | Standards Track |
-| Editor | Simon-Pierre Vivier <simvivier@status.im> |
-| Contributors | Hanno Cornelius <hanno@status.im>|
+| Field        | Value                                     |
+| ------------ | ----------------------------------------- |
+| Name         | Service Discovery API                     |
+| Slug         | 146                                       |
+| Status       | raw                                       |
+| Category     | Standards Track                           |
+| Editor       | Simon-Pierre Vivier <simvivier@status.im> |
+| Contributors | Hanno Cornelius <hanno@status.im>         |
 
 ## Abstract
 
