@@ -218,7 +218,7 @@ This is the primary mechanism for accessing new functionality without breaking e
 ### Protocol Naming
 
 ConversationType names are for convenience only — they carry no semantic meaning and imply no protocol relationship, compatibility, or ordering. 
-`Similarly named ConversationTypes do not imply any relationship between them. Implementors MAY use a common prefix for organizational clarity.
+Similarly named ConversationTypes do not imply any relationship between them. Implementors MAY use a common prefix for organizational clarity.
 
 
 ## Security Considerations
