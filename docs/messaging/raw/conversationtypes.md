@@ -52,6 +52,7 @@ A Conversation can be considered a processor which converts between Content and 
 | Encryption: confidentiality and integrity of frames | Content schema: conversations are content-agnostic |
 | Encoding: how frames are converted to bytes | Discovery & peer negotiation |
 | Addressing: which delivery address a payload targets | Conversation initialization & bootstrapping |
+| Membership & Administration  |  |
 
 ### Interface
 
@@ -172,6 +173,17 @@ Different ConversationTypes may use different encoding schemes. There is no requ
 ### Logical "Chats"
 
 App developers should maintain a logical separation between the user-facing message stream (a "chat") and the Conversation used to transport it. As ConversationTypes are immutable, the lifecycle of a "chat" may outlive the Conversation that carries it — particularly across Conversation Rotation. Applications that map a stable "ChatId" to a current ConversationId will handle rotation more gracefully.
+
+### Membership
+
+One property which is determined by the ConversationType is the membership model. 
+For clarity the ConversationType SHOULD define this clearly in the spec.
+
+Is participant list fixed at initialization or can be changed? 
+Who decides which participants are allowed to join? 
+How does a participant join? 
+These are all questions which would be helpful for implementors to know. 
+
 
 ### Conversation Rotation
 
