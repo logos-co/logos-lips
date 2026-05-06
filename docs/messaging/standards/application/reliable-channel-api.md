@@ -405,7 +405,7 @@ types:
       epochPeriodSec:
         type: uint
         default: 600  # 10 minutes
-        description: "The epoch size used by the RLN relay, in milliseconds."
+        description: "The epoch size used by the RLN relay, in seconds."
 
   Encryption:
     type: object
