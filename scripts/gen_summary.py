@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 OUTPUT = DOCS / "SUMMARY.md"
 
-SKIP_FILES = {"README.md", "SUMMARY.md"}
+SKIP_FILES = {"README.md", "SUMMARY.md", "template.md"}
 
 TOP_LEVEL = ["messaging", "blockchain", "storage", "ift-ts"]
 

@@ -28,6 +28,11 @@ jobs:
           BASE="${{ github.event.pull_request.base.sha }}"
           HEAD="${{ github.event.pull_request.head.sha }}"
 
+          python3 scripts/validate_metadata.py --check
+          python3 scripts/gen_rfc_index.py
+          python3 scripts/gen_summary.py
+          python3 scripts/validate_generated_outputs.py
+  
           python3 scripts/lint_targets.py --base-sha "$BASE" --head-sha "$HEAD" --output .lint-targets.txt
 
           if [ ! -s .lint-targets.txt ]; then
@@ -37,7 +42,6 @@ jobs:
 
           mapfile -t files < .lint-targets.txt
 
-          python3 scripts/validate_metadata.py --check
           npx markdownlint-cli2@0.12.1 --config .markdownlint.yaml "${files[@]}"
 
   remark:

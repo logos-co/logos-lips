@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 OUTPUT = DOCS / "logos-lips.json"
 
-EXCLUDE_FILES = {"README.md", "SUMMARY.md", "about.md"}
+EXCLUDE_FILES = {"README.md", "SUMMARY.md", "about.md", "template.md"}
 EXCLUDE_PARTS = {"previous-versions"}
 
 
