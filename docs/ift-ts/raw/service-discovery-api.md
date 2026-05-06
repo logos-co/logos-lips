@@ -3,11 +3,11 @@
 | Field | Value |
 | --- | --- |
 | Name | Service Discovery API |
-| Slug | 145  |
+| Slug | 160 |
 | Status | raw |
 | Category | Standards Track |
 | Editor | Simon-Pierre Vivier <simvivier@status.im> |
-| Contributors | Hanno Cornelius <hanno@status.im>|
+| Contributors | Hanno Cornelius <hanno@status.im> |
 
 ## Abstract
 
