@@ -1,7 +1,7 @@
 # SERVICE-DISCOVERY-API
 
 | Field        | Value                                     |
-| ------------ | ----------------------------------------- |
+| --- | --- |
 | Name         | Service Discovery API                     |
 | Slug         | 160                                       |
 | Status       | raw                                       |
