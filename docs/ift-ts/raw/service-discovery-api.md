@@ -3,7 +3,7 @@
 | Field        | Value                                     |
 | ------------ | ----------------------------------------- |
 | Name         | Service Discovery API                     |
-| Slug         | 146                                       |
+| Slug         | 160                                       |
 | Status       | raw                                       |
 | Category     | Standards Track                           |
 | Editor       | Simon-Pierre Vivier <simvivier@status.im> |
