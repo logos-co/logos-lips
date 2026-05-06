@@ -1,0 +1,564 @@
+<!DOCTYPE HTML>
+<html lang="en" class="ayu" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>WAKU-P2P-RELIABILITY - Logos LIP</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../../favicon.svg">
+        <link rel="shortcut icon" href="../../../favicon.png">
+        <link rel="stylesheet" href="../../../css/variables.css">
+        <link rel="stylesheet" href="../../../css/general.css">
+        <link rel="stylesheet" href="../../../css/chrome.css">
+        <link rel="stylesheet" href="../../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../../highlight.css">
+        <link rel="stylesheet" href="../../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../../../theme/katex/katex.min.css">
+        <link rel="stylesheet" href="../../../theme/fonts/fonts.css">
+        <link rel="stylesheet" href="../../../theme/FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../../custom.css">
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "ayu";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('ayu')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../../../index.html">Introduction</a></li><li class="chapter-item expanded affix "><a href="../../../about.html">About</a></li><li class="chapter-item expanded "><a href="../../../messaging/index.html"><strong aria-hidden="true">1.</strong> Messaging</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../messaging/standards/core/index.html"><strong aria-hidden="true">1.1.</strong> Standards - Core</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../messaging/standards/core/10/waku2.html"><strong aria-hidden="true">1.1.1.</strong> 10/WAKU2</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/core/11/relay.html"><strong aria-hidden="true">1.1.2.</strong> 11/WAKU2-RELAY</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/core/12/filter.html"><strong aria-hidden="true">1.1.3.</strong> 12/WAKU2-FILTER</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../messaging/standards/core/12/previous-versions/00/filter.html"><strong aria-hidden="true">1.1.3.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../../messaging/standards/core/13/store.html"><strong aria-hidden="true">1.1.4.</strong> 13/WAKU2-STORE</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../messaging/standards/core/13/previous-versions/00/store.html"><strong aria-hidden="true">1.1.4.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../../messaging/standards/core/14/message.html"><strong aria-hidden="true">1.1.5.</strong> 14/WAKU2-MESSAGE</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/core/15/bridge.html"><strong aria-hidden="true">1.1.6.</strong> 15/WAKU-BRIDGE</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/core/17/rln-relay.html"><strong aria-hidden="true">1.1.7.</strong> 17/WAKU2-RLN-RELAY</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/core/19/lightpush.html"><strong aria-hidden="true">1.1.8.</strong> 19/WAKU2-LIGHTPUSH</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/core/31/enr.html"><strong aria-hidden="true">1.1.9.</strong> 31/WAKU2-ENR</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/core/33/discv5.html"><strong aria-hidden="true">1.1.10.</strong> 33/WAKU2-DISCV5</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/core/34/peer-exchange.html"><strong aria-hidden="true">1.1.11.</strong> 34/WAKU2-PEER-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/core/36/bindings-api.html"><strong aria-hidden="true">1.1.12.</strong> 36/WAKU2-BINDINGS-API</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/core/64/network.html"><strong aria-hidden="true">1.1.13.</strong> 64/WAKU2-NETWORK</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/core/66/metadata.html"><strong aria-hidden="true">1.1.14.</strong> 66/WAKU2-METADATA</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/core/relay-sharding.html"><strong aria-hidden="true">1.1.15.</strong> RELAY-SHARDING</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/core/lightpush.html"><strong aria-hidden="true">1.1.16.</strong> WAKU-LIGHTPUSH</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/core/mix.html"><strong aria-hidden="true">1.1.17.</strong> WAKU-MIX</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/core/rendezvous.html"><strong aria-hidden="true">1.1.18.</strong> WAKU-RENDEZVOUS</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/core/store-sync.html"><strong aria-hidden="true">1.1.19.</strong> WAKU-STORE-SYNC</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/core/sync.html"><strong aria-hidden="true">1.1.20.</strong> WAKU-SYNC</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/core/incentivization.html"><strong aria-hidden="true">1.1.21.</strong> WAKU2-INCENTIVIZATION</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/core/rln-contract.html"><strong aria-hidden="true">1.1.22.</strong> WAKU2-RLN-CONTRACT</a></li></ol></li><li class="chapter-item expanded "><a href="../../../messaging/standards/application/index.html"><strong aria-hidden="true">1.2.</strong> Standards - Application</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../messaging/standards/application/20/toy-eth-pm.html"><strong aria-hidden="true">1.2.1.</strong> 20/TOY-ETH-PM</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/application/26/payload.html"><strong aria-hidden="true">1.2.2.</strong> 26/WAKU2-PAYLOAD</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/application/53/x3dh.html"><strong aria-hidden="true">1.2.3.</strong> 53/WAKU2-X3DH</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/application/54/x3dh-sessions.html"><strong aria-hidden="true">1.2.4.</strong> 54/WAKU2-X3DH-SESSIONS</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/application/dandelion.html"><strong aria-hidden="true">1.2.5.</strong> DANDELION</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/application/messaging-api.html"><strong aria-hidden="true">1.2.6.</strong> MESSAGING-API</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/application/opchan.html"><strong aria-hidden="true">1.2.7.</strong> OP-CHAN</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/application/p2p-reliability.html" class="active"><strong aria-hidden="true">1.2.8.</strong> WAKU-P2P-RELIABILITY</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/application/rln-keystore.html"><strong aria-hidden="true">1.2.9.</strong> WAKU-RLN-KEYSTORE</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/application/device-pairing.html"><strong aria-hidden="true">1.2.10.</strong> WAKU2-DEVICE-PAIRING</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/application/noise.html"><strong aria-hidden="true">1.2.11.</strong> WAKU2-NOISE</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/application/noise-sessions.html"><strong aria-hidden="true">1.2.12.</strong> WAKU2-NOISE-SESSIONS</a></li></ol></li><li class="chapter-item expanded "><a href="../../../messaging/standards/legacy/index.html"><strong aria-hidden="true">1.3.</strong> Standards - Legacy</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../messaging/standards/legacy/6/waku1.html"><strong aria-hidden="true">1.3.1.</strong> 6/WAKU1</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/legacy/7/data.html"><strong aria-hidden="true">1.3.2.</strong> 7/WAKU-DATA</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/legacy/8/mail.html"><strong aria-hidden="true">1.3.3.</strong> 8/WAKU-MAIL</a></li><li class="chapter-item expanded "><a href="../../../messaging/standards/legacy/9/rpc.html"><strong aria-hidden="true">1.3.4.</strong> 9/WAKU-RPC</a></li></ol></li><li class="chapter-item expanded "><a href="../../../messaging/informational/index.html"><strong aria-hidden="true">1.4.</strong> Informational</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../messaging/informational/22/toy-chat.html"><strong aria-hidden="true">1.4.1.</strong> 22/TOY-CHAT</a></li><li class="chapter-item expanded "><a href="../../../messaging/informational/23/topics.html"><strong aria-hidden="true">1.4.2.</strong> 23/WAKU2-TOPICS</a></li><li class="chapter-item expanded "><a href="../../../messaging/informational/27/peers.html"><strong aria-hidden="true">1.4.3.</strong> 27/WAKU2-PEERS</a></li><li class="chapter-item expanded "><a href="../../../messaging/informational/29/config.html"><strong aria-hidden="true">1.4.4.</strong> 29/WAKU2-CONFIG</a></li><li class="chapter-item expanded "><a href="../../../messaging/informational/30/adaptive-nodes.html"><strong aria-hidden="true">1.4.5.</strong> 30/ADAPTIVE-NODES</a></li><li class="chapter-item expanded "><a href="../../../messaging/informational/adversarial-models.html"><strong aria-hidden="true">1.4.6.</strong> ADVERSARIAL-MODELS</a></li><li class="chapter-item expanded "><a href="../../../messaging/informational/chat-cast.html"><strong aria-hidden="true">1.4.7.</strong> CHAT-CAST</a></li><li class="chapter-item expanded "><a href="../../../messaging/informational/chatdefs.html"><strong aria-hidden="true">1.4.8.</strong> CHAT-DEFINITIONS</a></li><li class="chapter-item expanded "><a href="../../../messaging/informational/relay-static-shard-alloc.html"><strong aria-hidden="true">1.4.9.</strong> RELAY-STATIC-SHARD-ALLOC</a></li></ol></li><li class="chapter-item expanded "><a href="../../../messaging/deprecated/index.html"><strong aria-hidden="true">1.5.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../messaging/deprecated/5/waku0.html"><strong aria-hidden="true">1.5.1.</strong> 5/WAKU0</a></li><li class="chapter-item expanded "><a href="../../../messaging/deprecated/16/rpc.html"><strong aria-hidden="true">1.5.2.</strong> 16/WAKU2-RPC</a></li><li class="chapter-item expanded "><a href="../../../messaging/deprecated/18/swap.html"><strong aria-hidden="true">1.5.3.</strong> 18/WAKU2-SWAP</a></li><li class="chapter-item expanded "><a href="../../../messaging/deprecated/fault-tolerant-store.html"><strong aria-hidden="true">1.5.4.</strong> 21/WAKU2-FAULT-TOLERANT-STORE</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../../blockchain/index.html"><strong aria-hidden="true">2.</strong> Blockchain</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../blockchain/raw/index.html"><strong aria-hidden="true">2.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../blockchain/raw/bedrock-anonymous-leaders-reward.html"><strong aria-hidden="true">2.1.1.</strong> BEDROCK-ANONYMOUS-LEADERS-REWARD</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/bedrock-architecture-overview.html"><strong aria-hidden="true">2.1.2.</strong> BEDROCK-ARCHITECTURE-OVERVIEW</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/bedrock-genesis-block.html"><strong aria-hidden="true">2.1.3.</strong> BEDROCK-GENESIS-BLOCK</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/bedrock-service-declaration-protocol.html"><strong aria-hidden="true">2.1.4.</strong> BEDROCK-SERVICE-DECLARATION-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/bedrock-service-reward-distribution.html"><strong aria-hidden="true">2.1.5.</strong> BEDROCK-SERVICE-REWARD-DISTRIBUTION</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/bedrock-v1.1-block-construction.html"><strong aria-hidden="true">2.1.6.</strong> BEDROCK-V1-1-BLOCK-CONSTRUCTION</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/bedrock-v1.1-mantle-specification.html"><strong aria-hidden="true">2.1.7.</strong> BEDROCK-V1.1-MANTLE-SPECIFICATION</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/fork-choice.html"><strong aria-hidden="true">2.1.8.</strong> CRYPTARCHIA-FORK-CHOICE</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/cryptarchia-proof-of-leadership.html"><strong aria-hidden="true">2.1.9.</strong> CRYPTARCHIA-PROOF-OF-LEADERSHIP</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/cryptarchia-total-stake-inference.html"><strong aria-hidden="true">2.1.10.</strong> CRYPTARCHIA-TOTAL-STAKE-INFERENCE</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/cryptarchia-v1-bootstr-sync.html"><strong aria-hidden="true">2.1.11.</strong> CRYPTARCHIA-V1-BOOTSTRAPPING-SYNCHRONIZATION</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/nomos-blend-protocol.html"><strong aria-hidden="true">2.1.12.</strong> NOMOS-BLEND-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/nomos-cryptarchia-v1-protocol.html"><strong aria-hidden="true">2.1.13.</strong> NOMOS-CRYPTARCHIA-V1-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/nomosda-network.html"><strong aria-hidden="true">2.1.14.</strong> NOMOS-DA-NETWORK</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/digital-signature.html"><strong aria-hidden="true">2.1.15.</strong> NOMOS-DIGITAL-SIGNATURE</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/nomos-key-types-and-generation.html"><strong aria-hidden="true">2.1.16.</strong> NOMOS-KEY-TYPES-GENERATION</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/nomos-message-encapsulation.html"><strong aria-hidden="true">2.1.17.</strong> NOMOS-MESSAGE-ENCAPSULATION</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/nomos-message-formatting.html"><strong aria-hidden="true">2.1.18.</strong> NOMOS-MESSAGE-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/p2p-network.html"><strong aria-hidden="true">2.1.19.</strong> NOMOS-P2P-NETWORK</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/nomos-payload-formatting.html"><strong aria-hidden="true">2.1.20.</strong> NOMOS-PAYLOAD-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/nomos-proof-of-quota.html"><strong aria-hidden="true">2.1.21.</strong> NOMOS-PROOF-OF-QUOTA</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/nomos-wallet-technical-standard.html"><strong aria-hidden="true">2.1.22.</strong> NOMOS-WALLET-TECHNICAL-STANDARD</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/da-cryptographic-protocol.html"><strong aria-hidden="true">2.1.23.</strong> NOMOSDA-CRYPTOGRAPHIC-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/da-rewarding.html"><strong aria-hidden="true">2.1.24.</strong> NOMOSDA-REWARDING</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/p2p-hardware-requirements.html"><strong aria-hidden="true">2.1.25.</strong> P2P-HARDWARE-REQUIREMENTS</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/p2p-nat-solution.html"><strong aria-hidden="true">2.1.26.</strong> P2P-NAT-SOLUTION</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/p2p-network-bootstrapping.html"><strong aria-hidden="true">2.1.27.</strong> P2P-NETWORK-BOOTSTRAPPING</a></li></ol></li><li class="chapter-item expanded "><a href="../../../blockchain/deprecated/index.html"><strong aria-hidden="true">2.2.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../blockchain/deprecated/claro.html"><strong aria-hidden="true">2.2.1.</strong> CONSENSUS-CLARO</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../../storage/index.html"><strong aria-hidden="true">3.</strong> Storage</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../storage/raw/index.html"><strong aria-hidden="true">3.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../storage/raw/codex-block-exchange.html"><strong aria-hidden="true">3.1.1.</strong> CODEX-BLOCK-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../../storage/raw/community-history.html"><strong aria-hidden="true">3.1.2.</strong> CODEX-COMMUNITY-HISTORY</a></li><li class="chapter-item expanded "><a href="../../../storage/raw/dht.html"><strong aria-hidden="true">3.1.3.</strong> CODEX-DHT</a></li><li class="chapter-item expanded "><a href="../../../storage/raw/manifest.html"><strong aria-hidden="true">3.1.4.</strong> CODEX-MANIFEST</a></li><li class="chapter-item expanded "><a href="../../../storage/raw/codex-store.html"><strong aria-hidden="true">3.1.5.</strong> CODEX-STORE</a></li><li class="chapter-item expanded "><a href="../../../storage/raw/dataset-store.html"><strong aria-hidden="true">3.1.6.</strong> DATASET-STORE</a></li><li class="chapter-item expanded "><a href="../../../storage/raw/datasets.html"><strong aria-hidden="true">3.1.7.</strong> DATASETS</a></li><li class="chapter-item expanded "><a href="../../../storage/raw/merkle-tree.html"><strong aria-hidden="true">3.1.8.</strong> MERKLE-TREE</a></li></ol></li><li class="chapter-item expanded "><a href="../../../storage/deprecated/index.html"><strong aria-hidden="true">3.2.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../storage/deprecated/erasure-coding.html"><strong aria-hidden="true">3.2.1.</strong> CODEX-ERASUE-CODING</a></li><li class="chapter-item expanded "><a href="../../../storage/deprecated/codex-marketplace.html"><strong aria-hidden="true">3.2.2.</strong> CODEX-MARKETPLACE</a></li><li class="chapter-item expanded "><a href="../../../storage/deprecated/codex-merkle-tree.html"><strong aria-hidden="true">3.2.3.</strong> CODEX-MERKLE-TREE</a></li><li class="chapter-item expanded "><a href="../../../storage/deprecated/codex-prover.html"><strong aria-hidden="true">3.2.4.</strong> CODEX-PROVER</a></li><li class="chapter-item expanded "><a href="../../../storage/deprecated/slot-buIlder.html"><strong aria-hidden="true">3.2.5.</strong> CODEX-SLOT-BUILDER</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../../ift-ts/index.html"><strong aria-hidden="true">4.</strong> IFT-TS</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../ift-ts/raw/index.html"><strong aria-hidden="true">4.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../ift-ts/raw/1/coss.html"><strong aria-hidden="true">4.1.1.</strong> 1/COSS</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/2/mvds.html"><strong aria-hidden="true">4.1.2.</strong> 2/MVDS</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/3/remote-log.html"><strong aria-hidden="true">4.1.3.</strong> 3/REMOTE-LOG</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/4/mvds-meta.html"><strong aria-hidden="true">4.1.4.</strong> 4/MVDS-META</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/25/libp2p-dns-discovery.html"><strong aria-hidden="true">4.1.5.</strong> 25/LIBP2P-DNS-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/32/rln-v1.html"><strong aria-hidden="true">4.1.6.</strong> 32/RLN-V1</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/decentralized-mls-offchain-consensus.html"><strong aria-hidden="true">4.1.7.</strong> DECENTRALIZED-MLS-OFFCHAIN-CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/decentralized-messaging-ethereum.html"><strong aria-hidden="true">4.1.8.</strong> ETH-DCGKA</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/eth-mls-onchain.html"><strong aria-hidden="true">4.1.9.</strong> ETH-MLS-ONCHAIN</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/deleted/eth-secpm.html"><strong aria-hidden="true">4.1.10.</strong> ETH-SECPM</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/extended-kad-disco.html"><strong aria-hidden="true">4.1.11.</strong> EXTENDED-KADEMLIA-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/extensible-peer-records.html"><strong aria-hidden="true">4.1.12.</strong> EXTENSIBLE-PEER-RECORDS</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/gossipsub-tor-push.html"><strong aria-hidden="true">4.1.13.</strong> GOSSIPSUB-TOR-PUSH</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/consensus-hashgraphlike.html"><strong aria-hidden="true">4.1.14.</strong> HASHGRAPHLIKE CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/logos-service-discovery.html"><strong aria-hidden="true">4.1.15.</strong> LOGOS-SERVICE-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/mix.html"><strong aria-hidden="true">4.1.16.</strong> MIX</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/mix-dos-protection.html"><strong aria-hidden="true">4.1.17.</strong> Mix DoS Protection</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/multi-message_id-burn-rln.html"><strong aria-hidden="true">4.1.18.</strong> Multi-message_id Burn RLN</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/noise-x3dh-double-ratchet.html"><strong aria-hidden="true">4.1.19.</strong> NOISE-X3DH-DOUBLE-RATCHET</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/payment-streams.html"><strong aria-hidden="true">4.1.20.</strong> PAYMENT-STREAMS</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/mix-spam-protection-rln.html"><strong aria-hidden="true">4.1.21.</strong> RLN DoS Protection for Mixnet</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/rln-interep-spec.html"><strong aria-hidden="true">4.1.22.</strong> RLN-INTEREP-SPEC</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/rln-membership-service.html"><strong aria-hidden="true">4.1.23.</strong> RLN-MEMBERSHIP-SERVICE</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/rln-stealth-commitments.html"><strong aria-hidden="true">4.1.24.</strong> RLN-STEALTH-COMMITMENTS</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/rln-v2.html"><strong aria-hidden="true">4.1.25.</strong> RLN-V2</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/sds.html"><strong aria-hidden="true">4.1.26.</strong> SDS</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/service-discovery-api.html"><strong aria-hidden="true">4.1.27.</strong> SERVICE-DISCOVERY-API</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/status-rln-deployment.html"><strong aria-hidden="true">4.1.28.</strong> STATUS-RLN-DEPLOYMENT</a></li><li class="chapter-item expanded "><a href="../../../ift-ts/raw/zerokit-api.html"><strong aria-hidden="true">4.1.29.</strong> Zerokit API</a></li></ol></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Logos LIP</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/logos-co/logos-lips" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="waku-p2p-reliability"><a class="header" href="#waku-p2p-reliability">WAKU-P2P-RELIABILITY</a></h1>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
+<tr><td>Name</td><td>Waku P2P Reliability</td></tr>
+<tr><td>Slug</td><td>171</td></tr>
+<tr><td>Status</td><td>raw</td></tr>
+<tr><td>Type</td><td>RFC</td></tr>
+<tr><td>Category</td><td>Standards Track</td></tr>
+<tr><td>Editor</td><td>Hanno Cornelius <a href="mailto:hanno@status.im">hanno@status.im</a></td></tr>
+<tr><td>Contributors</td><td>Danish Arora <a href="mailto:danish@status.im">danish@status.im</a>, Kaichao Sun <a href="mailto:kaichao@status.im">kaichao@status.im</a>, Oleksandr Kozlov <a href="mailto:oleksandr@status.im">oleksandr@status.im</a>, Prem Chaitanya Prathi <a href="mailto:prem@status.im">prem@status.im</a></td></tr>
+</tbody></table>
+</div><!-- timeline:start -->
+<h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
+<ul>
+<li><strong>2026-05-07</strong> — <a href="https://github.com/logos-co/logos-lips/blob/48600b5b4fcdcb89f3d556ee0e4d417526f2919a/docs/messaging/standards/application/p2p-reliability.md"><code>48600b5</code></a> — Migrate logos-messaging/specs into docs/messaging/ (#315)</li>
+</ul>
+<!-- timeline:end -->
+<h2 id="abstract"><a class="header" href="#abstract">Abstract</a></h2>
+<p>This specification defines peer-to-peer (p2p) reliability within <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/10/waku2.md">10/WAKU2</a> networks,
+addressing dependability of message propagation between Waku node hops.
+It situates the problem of p2p reliability between the lower layer <em>transport</em> reliability
+and the higher layer <em>end-to-end</em> reliability.
+We also propose strategies to enhance message propagation reliability
+and mechanisms to detect and mitigate message loss
+between Waku nodes,
+taking into account the trade-offs between reliability, bandwidth usage, latency, and resource consumption.</p>
+<h2 id="reliability-in-a-waku-context"><a class="header" href="#reliability-in-a-waku-context">Reliability in a Waku context</a></h2>
+<p>Reliability can be considered on three layers within a <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/10/waku2.md">10/WAKU2</a> context:</p>
+<ol>
+<li><strong>Transport layer reliability:</strong>
+Reliability within the networking layer of an individual node.
+This includes reliability of the underlying libp2p layer,
+constituent transports,
+peer management,
+and peer discovery.</li>
+<li><strong>Peer-to-peer (p2p) reliability:</strong>
+Reliability between nodes within a <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/10/waku2.md">10/WAKU2</a> p2p network,
+including message routing and discovery between peers.
+Note that reliability at this layer is agnostic of the application.
+At this layer, <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/10/waku2.md">10/WAKU2</a> nodes have no knowledge of the origin or intended destination of messages being routed.</li>
+<li><strong>End-to-end (e2e) reliability:</strong>
+Reliability within the application layer on top of the Waku p2p routing layer.
+This layer is concerned with message delivery between intended participants from the application's perspective
+regardless of the underlying Waku network.
+As such, e2e reliability mechanisms are usually implemented within the encrypted application payload.</li>
+</ol>
+<h2 id="scope"><a class="header" href="#scope">Scope</a></h2>
+<p>This specification focuses on p2p reliability.
+It does <em>not</em> cover:</p>
+<ul>
+<li>Transport-level reliability mechanisms, such as fine-tuning libp2p parameters, improving peer discovery and management, etc.</li>
+<li>End-to-end message reliability protocols, covered by higher-layer application logic.</li>
+</ul>
+<p>We focus on p2p reliability within the context of the following <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/10/waku2.md">10/WAKU2</a> protocols:</p>
+<ul>
+<li><a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md">17/WAKU2-RLN-RELAY</a>: used by nodes to publish and receive messages on a pub/sub topic by participating in <a href="https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md">libp2p gossipsub</a> routing</li>
+<li><a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/12/filter.md">12/WAKU2-FILTER</a>: used by nodes to receive messages from a pub/sub topic without participating in gossipsub routing</li>
+<li><a href="../core/lightpush.html">WAKU2-LIGHTPUSH</a>: used by nodes to publish messages to a pub/sub topic without participating in gossipsub routing</li>
+<li><a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md">13/WAKU2-STORE</a>: used by any node to query and retrieve historical messages</li>
+</ul>
+<h2 id="problem-statement"><a class="header" href="#problem-statement">Problem statement</a></h2>
+<p>The primary challenge at the p2p layer is ensuring that messages sent from one Waku node propagate to peers
+with a high probability of success
+while minimising redundant transmissions and excessive bandwidth use.</p>
+<p>Factors affecting reliability include:</p>
+<ul>
+<li><strong>Network instability</strong>: detected and undetected network connectivity drops can lead to message loss or duplication.</li>
+<li><strong>Network churn</strong>: frequent changes in the network topology as peers connect and disconnect can lead to potential message loss.</li>
+<li><strong>Node resource constraints</strong>: nodes with limited bandwidth or processing power may struggle to handle high message volumes, leading to potential drops.</li>
+<li><strong>Adversarial behaviour</strong>: adversarial nodes may deliberately drop, delay, or selectively forward messages.</li>
+</ul>
+<h2 id="reliability-strategies"><a class="header" href="#reliability-strategies">Reliability Strategies</a></h2>
+<h3 id="general"><a class="header" href="#general">General</a></h3>
+<p>In this section, we first summarise strategies to improve p2p reliability
+based on their functional effect before specifying the detailed strategies for each Waku protocol.
+P2p reliability consists of either configuring individual Waku protocols
+or composing several Waku protocols
+to achieve one or both of the following two objectives:</p>
+<h4 id="1-improve-redundancy"><a class="header" href="#1-improve-redundancy">1. Improve redundancy</a></h4>
+<p>Redundancy improves the probability that a message reaches its intended recipients.
+Redundancy strategies can focus on:</p>
+<ul>
+<li><strong>Redundant publishing:</strong></li>
+</ul>
+<p>Publishers MAY improve the probability of their messages propagating through the network
+by publishing it simultaneously to several peers as first hop.
+Several peers would then continue routing the message.
+<a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md">17/WAKU2-RLN-RELAY</a> already implements redundant publishing by forwarding a message <em>at least</em> to all mesh peers
+or, as is RECOMMENDED for Waku, publishing the message to <em>all</em> peers using <a href="https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#flood-publishing">flood publishing</a>.
+Configuring <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md">17/WAKU2-RLN-RELAY</a> is part of the transport layer and a detailed description falls outside the scope of this spec.
+<a href="../core/lightpush.html">WAKU2-LIGHTPUSH</a> MAY similarly be configured to publish to more than one lightpush service node at the same time.
+See the <a href="#lightpush">lightpush section</a> for a specification of the strategy.</p>
+<ul>
+<li><strong>Redundant receiving:</strong></li>
+</ul>
+<p>Nodes MAY improve the probability for receiving all messages
+by increasing the number of sources from which they receive messages.
+<a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md">17/WAKU2-RLN-RELAY</a> already implements redundant receiving as messages are eagerly pushed from all mesh peers
+with added gossip mechanisms to allow lazy pulling from all peers
+as described in the <a href="https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md">GossipSub v1.1 specification</a>.
+Configuring <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md">17/WAKU2-RLN-RELAY</a> is part of the transport layer and a detailed description falls outside the scope of this spec.
+<a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/12/filter.md">12/WAKU2-FILTER</a> MAY similarly be configured to subscribe to receive messages from more than one filter service node at the same time.
+See the <a href="#filter">filter section</a> for a specification of the strategy.</p>
+<h4 id="2-detect-and-remedy-losses"><a class="header" href="#2-detect-and-remedy-losses">2. Detect and remedy losses</a></h4>
+<p>Nodes MAY combine different Waku protocols to detect and remedy possible losses.
+Losses can occur either from the publisher's or the recipient's perspective.</p>
+<ul>
+<li><strong>Failure to publish:</strong></li>
+</ul>
+<p>Nodes using either <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md">17/WAKU2-RLN-RELAY</a> or <a href="../core/lightpush.html">WAKU2-LIGHTPUSH</a> to publish
+MAY determine that a message has probably failed to publish
+by combining these protocols with <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/12/filter.md">12/WAKU2-FILTER</a> or <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md">13/WAKU2-STORE</a>
+to attempt to retrieve the published message from other peers in the network.
+Failure to detect the message could indicate a publishing failure.
+The usual remedial action is to retransmit the message.
+See <a href="#store-based-reliability">Store-based reliability</a> for a specification of the strategy to combine <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md">17/WAKU2-RLN-RELAY</a> or <a href="../core/lightpush.html">WAKU2-LIGHTPUSH</a> with <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md">13/WAKU2-STORE</a>.
+See <a href="#lightpush">Lightpush</a> for a specification of the strategy to combine <a href="../core/lightpush.html">WAKU2-LIGHTPUSH</a> with <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/12/filter.md">12/WAKU2-FILTER</a>.
+Combining <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md">17/WAKU2-RLN-RELAY</a> with <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/12/filter.md">12/WAKU2-FILTER</a> is conceptually possible, but underspecified.</p>
+<ul>
+<li><strong>Failure to receive:</strong></li>
+</ul>
+<p>Nodes using either <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md">17/WAKU2-RLN-RELAY</a> or <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/12/filter.md">12/WAKU2-FILTER</a> to receive messages
+MAY determine message losses
+by combining these protocols with <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md">13/WAKU2-STORE</a>
+to compare their local message history with the historical messages cached in the <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md">13/WAKU2-STORE</a>.
+The usual remedial action is to retrieve the missing messages from the <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md">13/WAKU2-STORE</a>.
+See <a href="#store-based-reliability">Store-based reliability</a> for a specification of this strategy.</p>
+<h3 id="store-based-reliability"><a class="header" href="#store-based-reliability">Store-based reliability</a></h3>
+<p><a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md">13/WAKU2-STORE</a> provides a way for nodes to query the existence of or fetch specific historical messages.
+Nodes using any combination of <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md">17/WAKU2-RLN-RELAY</a>, <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/12/filter.md">12/WAKU2-FILTER</a> and <a href="../core/lightpush.html">WAKU2-LIGHTPUSH</a> to publish/receive messages
+MAY combine these protocols with <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md">13/WAKU2-STORE</a> to improve p2p reliability.
+Depending on the use case, such a node MAY use any of the strategies below:</p>
+<h4 id="1-store-based-reliability-for-publishing"><a class="header" href="#1-store-based-reliability-for-publishing">1. Store-based reliability for publishing</a></h4>
+<ul>
+<li>A publishing node using this strategy MUST consider a published message as "unacknowledged" at first.</li>
+<li>The publisher MUST keep a copy of this message against its <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/14/message.md#deterministic-message-hashing">deterministic message hash</a> in a local outgoing message buffer.
+It MAY keep the last several published messages in this buffer.</li>
+<li>The publisher MUST periodically perform a <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md#presence-queries">presence query</a> to the <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md">13/WAKU2-STORE</a> service
+against the message hashes of all published messages in the outgoing buffer
+to verify their existence in the store.
+<ul>
+<li>If a message hash exists in the <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md">13/WAKU2-STORE</a> service,
+the publisher SHOULD consider the corresponding message as "acknowledged" and remove it from the outgoing buffer.</li>
+<li>If a message hash does not exist in the <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md">13/WAKU2-STORE</a> service,
+the publisher MUST consider the corresponding message as still "unacknowledged".</li>
+</ul>
+</li>
+<li>The publisher SHOULD retransmit all unacknowledged messages either periodically or upon reception of the presence query response
+until a positive presence query response is received for the corresponding message hash.
+A publisher MAY consider a message publication as having failed irremediably after a set number of failed presence query attempts.</li>
+</ul>
+<h4 id="2-store-based-reliability-for-receiving"><a class="header" href="#2-store-based-reliability-for-receiving">2. Store-based reliability for receiving</a></h4>
+<ul>
+<li>A receiving node using this strategy MUST have a local cache of the <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/14/message.md#deterministic-message-hashing">deterministic message hashes</a> of all received messages
+spanning <em>at least</em> the time period for which reliability is required.</li>
+<li>The node MUST periodically perform a <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md#content-filtered-queries">content filtered query</a> to the <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md">13/WAKU2-STORE</a> service,
+spanning the time period for which reliability is required ("reliability window")
+and including all content topics over which it is interested to receive messages.
+The <code>include_data</code> field SHOULD be set to <code>false</code> to retrieve only the matching message hashes from the <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md">13/WAKU2-STORE</a> service.
+If a connection loss is detected (e.g. if a query fails due to disconnection),
+the next query MAY span at least the time period since the last successful query
+if this is longer than the reliability window.</li>
+<li>The node MUST compare the received message hashes to those in the local cache.
+Any message hashes in the response that are not in the local cache MUST be considered "missing".</li>
+<li>The node SHOULD perform a <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md#message-hash-lookup-queries">message hash lookup query</a> for all missing message hashes
+to retrieve the full contents of the corresponding messages.
+It MAY do so either periodically (in batches) or upon reception of the content filtered query response.</li>
+<li>The node MUST add to the local cache all message hashes corresponding to the retrieved messages,
+in order to prevent them from being considered missing in future.</li>
+</ul>
+<h4 id="3-combined-store-based-reliability-for-publishing-and-receiving-messages"><a class="header" href="#3-combined-store-based-reliability-for-publishing-and-receiving-messages">3. Combined store-based reliability for publishing and receiving messages</a></h4>
+<ul>
+<li>A node using this strategy MUST have a local cache of the <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/14/message.md#deterministic-message-hashing">deterministic message hashes</a> of all received messages
+spanning <em>at least</em> the time period for which reliability is required.</li>
+<li>In addition, the node MUST consider a published message as "unacknowledged" at first. The node MUST keep a copy of this message against its <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/14/message.md#deterministic-message-hashing">deterministic message hash</a> in a local outgoing message buffer.
+It MAY keep the last several published messages in this buffer.</li>
+<li>The node MUST periodically perform a <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md#content-filtered-queries">content filtered query</a> to the <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md">13/WAKU2-STORE</a> service,
+spanning the time period for which reliability is required
+and including all content topics over which it is interested to both publish and receive messages.
+The <code>include_data</code> field SHOULD be set to <code>false</code> to retrieve only the matching message hashes from the <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md">13/WAKU2-STORE</a> service.</li>
+<li>The node MUST compare the message hashes in the content filtered query response to the message hashes of all published messages in the outgoing buffer
+to verify their existence in the store.
+<ul>
+<li>If a message hash is included in the query response,
+the publisher SHOULD consider the corresponding message as "acknowledged" and remove it from the outgoing buffer.</li>
+<li>If a message hash is not included in the query response,
+the publisher MUST consider the corresponding messages as still "unacknowledged".</li>
+</ul>
+</li>
+<li>In addition, the node MUST compare the message hashes in the content filtered query response to the message hashes in the local cache.
+Any message hashes in the response that are not in the local cache MUST be considered "missing".</li>
+<li>The node SHOULD retransmit all unacknowledged messages in the outgoing buffer,
+either periodically or upon reception of the query response,
+until a positive inclusion in a follow-up query response for the corresponding message hashes.
+The node MAY consider a message publication as having failed irremediably after a set number of query attempts without inclusion.</li>
+<li>In addition, the node SHOULD perform a <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md#message-hash-lookup-queries">message hash lookup query</a> for all missing message hashes
+to retrieve the full contents of the corresponding messages.
+It MAY do so either periodically (in batches) or upon reception of the content filtered query response.</li>
+<li>The node MUST add to the local cache all message hashes corresponding to the retrieved messages,
+in order to prevent them from being considered missing in future.</li>
+</ul>
+<h3 id="lightpush"><a class="header" href="#lightpush">Lightpush</a></h3>
+<p><a href="../core/lightpush.html">WAKU2-LIGHTPUSH</a> provides a way for client nodes to publish messages to a pub/sub topic via a lightpush service node without participating in gossipsub routing.
+Lightpush clients MAY use any of the following strategies to improve reliability of the service:</p>
+<h4 id="1-maintain-a-pool-of-reliable-lightpush-service-nodes"><a class="header" href="#1-maintain-a-pool-of-reliable-lightpush-service-nodes">1. Maintain a pool of reliable lightpush service nodes</a></h4>
+<p>A lightpush client using this strategy MUST maintain a pool of reliable lightpush service nodes.
+<a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/10/waku2.md#discovery-domain">Discovery</a> of these service nodes falls outside the scope of this specification.
+As a simple heuristic, a lightpush client MAY consider all discovered lightpush service nodes as reliable until it detects a service failure.
+In case the lightpush service fails due to service node behaviour,
+the client MAY disconnect from the service node and replace it with another service node from the pool.
+Such a client SHOULD also remove the failing service node from the pool of reliable service nodes.</p>
+<p>We RECOMMEND replacing a lightpush service node after a single failure in the following categories:</p>
+<ul>
+<li>the connection to the service node is lost or a lightpush request times out</li>
+<li>the lightpush request fails due to a service-side error, for example if the response contains one of the following <a href="../core/lightpush.html#examples-of-possible-error-codes">error codes</a>:
+<ul>
+<li><code>UNSUPPORTED_PUBSUB_TOPIC</code></li>
+<li><code>INTERNAL_SERVER_ERROR</code></li>
+<li><code>NO_PEERS_TO_RELAY</code></li>
+</ul>
+</li>
+<li>the request failed without an error response</li>
+</ul>
+<h4 id="2-redundant-lightpush-publishing"><a class="header" href="#2-redundant-lightpush-publishing">2. Redundant lightpush publishing</a></h4>
+<p>A lightpush client using this strategy MUST publish each message simultaneously to two or more lightpush service nodes.
+Note that bandwidth usage increases proportionally to the amount of service nodes used.
+For this reason, we RECOMMEND using only two lightpush service nodes at a time.</p>
+<h4 id="3-retransmit-on-failure"><a class="header" href="#3-retransmit-on-failure">3. Retransmit on failure</a></h4>
+<ul>
+<li>A lightpush client using this strategy MUST wait for a <a href="../core/lightpush.html">WAKU2-LIGHTPUSH response</a> after publishing a message.</li>
+<li>If the response times out or contains <a href="../core/lightpush.html#examples-of-possible-error-codes">a recoverable error code</a> (e.g. <code>TOO_MANY_REQUESTS</code>)
+the lightpush client SHOULD attempt to retransmit the message after some interval.</li>
+<li>The client MAY choose to continue retransmitting the message until an <code>OK</code> response is received from the service node.
+The interval between each retransmission attempt is up to the implementation,
+but we RECOMMEND starting with <code>1 second</code> and increasing it after each failure.</li>
+<li>The client MAY consider a message publication as having failed irremediably after a set number of failed lightpush requests.</li>
+</ul>
+<h4 id="4-retransmit-on-possible-message-loss-detection"><a class="header" href="#4-retransmit-on-possible-message-loss-detection">4. Retransmit on possible message loss detection</a></h4>
+<blockquote>
+<p><em><em>Note:</em></em> Lightpush clients participating in <a href="#store-based-reliability">Store-based reliability</a> already performs this strategy and can ignore this section.</p>
+</blockquote>
+<ul>
+<li>A lightpush client using this strategy MUST use either <a href="#store-based-reliability">Store-based reliability</a>
+or install one or more <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/12/filter.md">12/WAKU2-FILTER</a> subscriptions matching the content topic(s) used for publishing.
+In this way, the client can confirm that a published message did indeed reach the targeted store or filter service node(s).</li>
+<li>The store queries or filter subscription SHOULD be requested at service nodes different from those used for the lightpush service.</li>
+<li>If the client determines that a published message has not been received by the filter or store service node,
+it SHOULD retransmit the message after some interval.</li>
+<li>The client MAY choose to continue retransmitting the message until it is confirmed by one more service nodes.
+The interval between each retransmission attempt is up to the implementation,
+but we RECOMMEND starting with <code>1 second</code> and increasing it after each attempt.</li>
+<li>The client MAY consider a message publication as having failed irremediably after a set number of failed lightpush requests.</li>
+</ul>
+<h3 id="filter"><a class="header" href="#filter">Filter</a></h3>
+<p><a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/12/filter.md">12/WAKU2-FILTER</a> provides a way for client nodes to receive messages from a pub/sub topic via a filter service node without participating in gossipsub routing.
+Filter clients MAY use any of the following strategies to improve reliability of the service:</p>
+<h4 id="1-maintain-a-pool-of-reliable-filter-service-nodes"><a class="header" href="#1-maintain-a-pool-of-reliable-filter-service-nodes">1. Maintain a pool of reliable filter service nodes</a></h4>
+<p>A filter client using this strategy MUST maintain a pool of reliable filter service nodes.
+<a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/10/waku2.md#discovery-domain">Discovery</a> of these service nodes falls outside the scope of this specification.
+As a simple heuristic, a filter client MAY consider all discovered filter service nodes as reliable until it detects a service failure.
+In case the filter service fails due to service node behaviour,
+the client MAY disconnect from the service node and replace it with another service node from the pool.
+Such a client SHOULD also remove the failing service node from the pool of reliable service nodes.</p>
+<p>We RECOMMEND replacing a filter service node under the following conditions:</p>
+<ul>
+<li>a <a href="https://github.com/logos-co/logos-lips/blob/7b443c1aab627894e3f22f5adfbb93f4c4eac4f6/waku/standards/core/12/filter.md#subscribe"><code>SUBSCRIBE</code></a> request fails due to a service-side error</li>
+<li>a <a href="https://github.com/logos-co/logos-lips/blob/7b443c1aab627894e3f22f5adfbb93f4c4eac4f6/waku/standards/core/12/filter.md#subscriber_ping"><code>SUBSCRIBER_PING</code></a> request fails twice in a row</li>
+</ul>
+<h4 id="2-redundant-filter-subscriptions"><a class="header" href="#2-redundant-filter-subscriptions">2. Redundant filter subscriptions</a></h4>
+<p>A filter client using this strategy MUST subscribe to two or more filter service nodes.
+Such clients SHOULD filter out duplicate messages by comparing <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/14/message.md#deterministic-message-hashing">deterministic message hashes</a>.
+Note that both bandwidth usage and computational complexity increases proportionally to the amount of service nodes used.
+For this reason, we RECOMMEND using only two filter service nodes at a time.</p>
+<h4 id="3-maintaining-healthy-subscriptions"><a class="header" href="#3-maintaining-healthy-subscriptions">3. Maintaining healthy subscriptions</a></h4>
+<ul>
+<li>A filter client using this strategy MUST regularly send a <a href="https://github.com/logos-co/logos-lips/blob/7b443c1aab627894e3f22f5adfbb93f4c4eac4f6/waku/standards/core/12/filter.md#subscriber_ping"><code>SUBSCRIBER_PING</code></a> to each of its filter service nodes,
+to ensure that the service node is online and maintaining an active subscription for the client.
+The interval between each <code>SUBSCRIBER_PING</code> is up to the implementation,
+but we RECOMMEND <code>1 minute</code>.</li>
+<li>If the <code>SUBSCRIBER_PING</code> request times out or returns an error code,
+the client SHOULD attempt to reinstall its filter subscription with a <a href="https://github.com/logos-co/logos-lips/blob/7b443c1aab627894e3f22f5adfbb93f4c4eac4f6/waku/standards/core/12/filter.md#subscribe"><code>SUBSCRIBE</code></a> request.</li>
+<li>If a [<code>SUBSCRIBER_PING</code>] or [<code>SUBSCRIBE</code>] request fails more than once to the same filter service node,
+the client MAY choose to replace this service node with another from the service node pool.
+We RECOMMEND a strict policy of replacing filter service nodes after only two <code>SUBSCRIBER_PING</code> failures
+or after a single <code>SUBSCRIBE</code> failure.</li>
+<li>A filter client MAY also choose to refresh its existing subscriptions periodically,
+by submitting the same filter criteria as before in a new <a href="https://github.com/logos-co/logos-lips/blob/7b443c1aab627894e3f22f5adfbb93f4c4eac4f6/waku/standards/core/12/filter.md#subscribe"><code>SUBSCRIBE</code></a> request to the same service node.
+This helps ensure that local and remote views of filter criteria remains synchronised.</li>
+</ul>
+<h4 id="4-store-query-on-possible-message-loss-detection"><a class="header" href="#4-store-query-on-possible-message-loss-detection">4. Store query on possible message loss detection</a></h4>
+<blockquote>
+<p><em><em>Note:</em></em> Filter clients participating in <a href="#store-based-reliability">Store-based reliability</a> already performs this strategy and can ignore this section.</p>
+</blockquote>
+<ul>
+<li>A filter client using this strategy MUST use <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md">13/WAKU2-STORE</a> queries to retrieve lost messages.</li>
+<li>Such clients MAY use <a href="#store-based-reliability">Store-based reliability</a> to periodically detect and remedy message losses.</li>
+<li>If <a href="#store-based-reliability">Store-based reliability</a> is unsuitable (e.g. due to the high resource usage of repeated store queries),
+the client MAY perform opportunistic store queries covering periods over which it detected a disconnection.
+For example, a client MAY consider itself offline over a period of repeated failed regular pings and perform a store query once the connection has been restored.
+The store query SHOULD cover the period from the last successfully received message to the reestablishment of connectivity.</li>
+</ul>
+<h2 id="tradeoffs"><a class="header" href="#tradeoffs">Tradeoffs</a></h2>
+<p>All p2p reliability strategies set out in this document increases resource usage,
+most prominently bandwidth usage but also processing power and storage in some circumstances.
+As such, each strategy SHOULD be carefully considered and configured based on the intended use case.
+Increasing redundancy 20-fold may significantly improve reliability,
+but the accompanying bump in resource usage will be unacceptable for the average Waku user.
+At the same time,
+none of the reliability strategies described here can <em>guarantee</em> end-to-end reliability from an application's perspective.
+This is due to the inherent probabilistic nature of p2p message propagation on the routing layer.
+For example, certain sections of the network may become temporarily unreachable due to a network split,
+without this being visible on a hop-to-hop basis.
+Only the application has the end-to-end view to ensure reliability spanning all routing layer hops between that application's publishers and intended recipients.
+For applications with an integrated end-to-end reliability protocol,
+most p2p reliability strategies can be minimally configured (or even disabled) to save resources.</p>
+<h2 id="references"><a class="header" href="#references">References</a></h2>
+<ol>
+<li><a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/10/waku2.md">10/WAKU2</a></li>
+<li><a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/12/filter.md">12/WAKU2-FILTER</a></li>
+<li><a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md">13/WAKU2-STORE</a></li>
+<li><a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md">17/WAKU2-RLN-RELAY</a></li>
+<li><a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/14/message.md#deterministic-message-hashing">14/WAKU2-MESSAGE</a></li>
+<li><a href="https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#flood-publishing">GossipSub v1.1</a></li>
+<li><a href="../core/lightpush.html">WAKU2-LIGHTPUSH</a></li>
+</ol>
+<h2 id="copyright"><a class="header" href="#copyright">Copyright</a></h2>
+<p>Copyright and related rights waived via <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../../messaging/standards/application/opchan.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../../messaging/standards/application/rln-keystore.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../../messaging/standards/application/opchan.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../../messaging/standards/application/rln-keystore.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../../elasticlunr.min.js"></script>
+        <script src="../../../mark.min.js"></script>
+        <script src="../../../searcher.js"></script>
+
+        <script src="../../../clipboard.min.js"></script>
+        <script src="../../../highlight.js"></script>
+        <script src="../../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../../../theme/katex/katex.min.js"></script>
+        <script src="../../../theme/katex/auto-render.min.js"></script>
+        <script src="../../../scripts/katex-render.js"></script>
+        <script src="../../../scripts/logos-lips.js"></script>
+
+
+    </div>
+    </body>
+</html>
