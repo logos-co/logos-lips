@@ -181,9 +181,6 @@ Conversation Rotation is the process of migrating participants from one Conversa
 
 ConversationType names are for convenience only — they carry no semantic meaning and imply no protocol relationship, compatibility, or ordering. Similarly named ConversationTypes do not imply any relationship between them. Implementors MAY use a common prefix for organizational clarity.
 
-### Self-Describing Messages
-
-Choosing self-describing protocol messages is always preferred — it reduces ambiguity and makes implementations easier to debug and extend.
 
 ## Security Considerations
 
