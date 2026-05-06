@@ -64,16 +64,14 @@ The scope of a ConversationType defines everything inside that boundary.
 | Addressing: which delivery address a payload targets | Conversation initialization & bootstrapping |
 | Membership & Administration  |  |
 
-### Interface
+### High Level Operation
 
 ```mermaid
 sequenceDiagram
     participant A as Client
     participant C as Conversation
 
-    Note over A,C : Initialization
-    A ->> C: constructor(...)
-    C -->> A: ret: List<deliveryAddr>
+    A ->> C: Initializes
 
     Note over A,C : Sending
     A ->> C : Send(Content)
