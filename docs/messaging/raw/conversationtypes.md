@@ -86,7 +86,7 @@ sequenceDiagram
 
 ### Delivery Service
 
-This specification assumes the existence of a Delivery Service responsible for routing payloads between clients. A ConversationType is always defined in the context of a DS with the following properties:
+This specification assumes the existence of a Delivery Service(DS) responsible for routing payloads between clients. A ConversationType is always defined in the context of a DS with the following properties:
 
 - A DS operates as a PubSub — it supports Publish and Subscribe functionality.
 - A DS uses a `delivery address` to create broadcast domains.
