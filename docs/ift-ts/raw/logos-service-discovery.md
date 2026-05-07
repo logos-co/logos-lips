@@ -1384,6 +1384,9 @@ It then calculates the remaining lower bound:
 remaining_bound = bound(service_id_hash) - elapsed_time
 ```
 
+`remaining_bound` MAY be negative if the elapsed time exceeds the previous bound.
+This is expected and MUST NOT be clamped to zero.
+
 The waiting time is then adjusted as:
 
 `w_2 = max(w_2, remaining_bound)`
