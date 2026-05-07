@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Validate RFC metadata tables and auto-assign missing slugs.
+Validate RFC metadata tables and auto-assign invalid or missing slugs.
 
-By default, this script writes fixes for missing/blank `Slug` values and
+By default, this script writes fixes for missing/blank/invalid `Slug` values and
 returns non-zero on any validation issue.
 Use `--check` to run in read-only mode.
 """
@@ -36,6 +36,11 @@ SEPARATOR_RE = re.compile(r"^\|\s*:?-{3,}:?\s*\|\s*:?-{3,}:?\s*\|$")
 ROW_RE = re.compile(r"^\|\s*([^|]+?)\s*\|\s*(.*?)\s*\|$")
 HEADER_RE = re.compile(r"^\|\s*field\s*\|\s*value\s*\|$", re.IGNORECASE)
 NUMERIC_RE = re.compile(r"^[1-9][0-9]*$")
+FRONT_MATTER_KEY_RE = re.compile(
+    r"^(title|name|slug|status|type|category|tags|editor|contributors)\s*:",
+    re.IGNORECASE,
+)
+CANONICAL_HEADER = "| Field | Value |"
 
 
 @dataclass
@@ -105,6 +110,35 @@ def find_metadata_table(lines: List[str]) -> Optional[TableInfo]:
     return None
 
 
+def first_nonblank_line(lines: List[str], start: int = 0) -> Optional[int]:
+    for idx in range(start, len(lines)):
+        if lines[idx].strip():
+            return idx
+    return None
+
+
+def has_yaml_front_matter(lines: List[str]) -> bool:
+    first = first_nonblank_line(lines)
+    if first is None or lines[first].strip() != "---":
+        return False
+
+    for idx in range(first + 1, min(len(lines), first + 80)):
+        line = lines[idx].strip()
+        if line == "---":
+            block = lines[first + 1 : idx]
+            return any(FRONT_MATTER_KEY_RE.match(item.strip()) for item in block)
+    return False
+
+
+def expected_metadata_table_start(lines: List[str]) -> Optional[int]:
+    first = first_nonblank_line(lines)
+    if first is None:
+        return None
+    if lines[first].startswith("# "):
+        return first_nonblank_line(lines, first + 1)
+    return first
+
+
 def read_doc(path: Path) -> DocInfo:
     lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
     table = find_metadata_table(lines)
@@ -124,7 +158,7 @@ def next_free_slug(used: set[int]) -> int:
     return candidate
 
 
-def assign_missing_slug(doc: DocInfo, slug: int) -> None:
+def assign_slug(doc: DocInfo, slug: int) -> None:
     assert doc.table is not None
     slug_row = doc.table.rows.get("slug")
     if slug_row:
@@ -155,38 +189,59 @@ def collect_used_numeric_slugs(docs: List[DocInfo]) -> set[int]:
     return used
 
 
+def slug_needs_assignment(doc: DocInfo, seen: set[int]) -> bool:
+    slug = doc.meta().get("slug", "").strip()
+    if not NUMERIC_RE.fullmatch(slug):
+        return True
+
+    value = int(slug)
+    if "previous-versions" in doc.rel.parts:
+        return False
+    if value in seen:
+        return True
+
+    seen.add(value)
+    return False
+
+
 def maybe_assign_slugs(docs: List[DocInfo], check_mode: bool) -> List[DocInfo]:
     if check_mode:
         return []
 
     changed: List[DocInfo] = []
     used = collect_used_numeric_slugs(docs)
+    seen_unique: set[int] = set()
     for doc in docs:
         if not doc.table:
             continue
-        meta = doc.meta()
-        slug = meta.get("slug", "").strip()
-        if slug:
-            continue
-        # Do not auto-assign slugs to raw specs; slugs are assigned on draft promotion.
-        status = meta.get("status", "").strip().lower()
-        if status == "raw":
+        if not slug_needs_assignment(doc, seen_unique):
             continue
         free_slug = next_free_slug(used)
-        assign_missing_slug(doc, free_slug)
+        assign_slug(doc, free_slug)
         used.add(free_slug)
         changed.append(doc)
     return changed
 
 
 def validate_doc(doc: DocInfo) -> None:
+    if has_yaml_front_matter(doc.lines):
+        doc.errors.append(
+            "YAML front matter is not supported; use the canonical Markdown metadata table"
+        )
+
     if not doc.table:
-        doc.errors.append("missing metadata table '| Field | Value |'")
+        doc.errors.append(f"missing metadata table '{CANONICAL_HEADER}'")
         return
 
+    expected_start = expected_metadata_table_start(doc.lines)
+    if expected_start is not None and doc.table.start != expected_start:
+        doc.errors.append(
+            "metadata table must appear at the top of the spec, immediately after the optional H1"
+        )
+
     # Ensure standard header rows remain canonical.
-    if doc.lines[doc.table.start].strip() != "| Field | Value |":
-        doc.errors.append("metadata header row must be exactly '| Field | Value |'")
+    if doc.lines[doc.table.start].strip() != CANONICAL_HEADER:
+        doc.errors.append(f"metadata header row must be exactly '{CANONICAL_HEADER}'")
     if not SEPARATOR_RE.match(doc.lines[doc.table.separator].strip()):
         doc.errors.append("metadata separator row is malformed")
 

@@ -412,7 +412,7 @@ These all come with some advantages and disadvantages, and are useful in differe
 
 A hash is 256 bits (32 bytes). The keys `0,1,2,3` are encoded as a single byte, `0x00, ..., 0x03`. The keyed compression function is defined as 
 
-```
+```text
     compress(x,y,key) := SHA256( x || y || key )
 ```
 
@@ -438,7 +438,7 @@ We can avoid this by encoding the key into the initialization vector (from a bir
 
 Standard SHA256 derives its initial state (which is 256 bits) from the square roots of the first 8 primes. This is known as a "nothing-up-to-my-sleeve" construction. But really it could be just about anything. Here we need 4 different random-looking initial states corresponding to the 4 different keys. We propose
 
-```
+```text
 IV_0 := SHA3-256("LOGOS_STORAGE|MERKLE_SHA256_INITIAL_STATE|KEY=0x00")
 IV_1 := SHA3-256("LOGOS_STORAGE|MERKLE_SHA256_INITIAL_STATE|KEY=0x01")
 IV_2 := SHA3-256("LOGOS_STORAGE|MERKLE_SHA256_INITIAL_STATE|KEY=0x02")
@@ -449,7 +449,7 @@ IV_3 := SHA3-256("LOGOS_STORAGE|MERKLE_SHA256_INITIAL_STATE|KEY=0x03")
 
 In concrete (big-endian) values, these are:
 
-```
+```text
 IV_0 = 0xc616dedc2fd8bba1e2c31efeb8555bfa37efe48c7e84c7d67cc9afa0b008b2b7
 IV_1 = 0x08e555becbc79204178a3e20f689eb74552523e5d75d42e8be555a9ee671bd86
 IV_2 = 0x53eabf5ee9bff4c87515e738558093128797f2015d5994443787a215875a9a27
@@ -458,13 +458,13 @@ IV_3 = 0x17c13498c9884a64005dda79b147b9a9c88588c62fb7138fb72d528c01eb8287
 
 However, SHA256 initial state is represented as a length 8 array of 32-bit words. As customary, the encoding for these words is big-endian, so for example `IV_0` will become
 
-```
+```text
     IV_0 = { 0xc616dedc, 0x2fd8bba1, 0xe2c31efe, 0xb8555bfa, 0x37efe48c, 0x7e84c7d6, 0x7cc9afa0, 0xb008b2b7 }
 ```
 
 Our keyed compression function then would be:
 
-```
+```text
     compress(x,y,key) := SHA256_COMPRESS( init = IV_key, chunk = x||y )
 ```
 
@@ -482,7 +482,7 @@ Poseidon2 hash function is parametrized by a prime field, and the other paramete
 
 In this case, the field is the BN254 (aka. alt-bn128 or sometimes BN256 - though the latter name is also used for a different curve!) elliptic curve's scalar field:
 
-```
+```text
     p = 21888242871839275222246405745257275088548364400416034343698204186575808495617
 ```
 
@@ -492,13 +492,13 @@ We use the parameters from the `zkfriendlyhashzoo` [implementation](https://extg
 
 This defines the so called "Poseidon2 permutation function":
 
-```
+```text
     permute : F^3 -> F^3
 ```
     
 From this, our keyed compression function is derived as:
 
-```
+```text
     compress(x,y,key) := permute([x,y,key])[0]
 ```
     
@@ -514,7 +514,7 @@ Linear hashing of bytes. First we need to pad the byte sequence to a multiple of
 
 Permutation of `(0,1,2)`:
 
-```
+```text
 x' = 0x30610a447b7dec194697fb50786aa7421494bd64c221ba4d3b1af25fb07bd103 
 y' = 0x13f731d6ffbad391be22d2ac364151849e19fa38eced4e761bcd21dbdc600288 
 z' = 0x1433e2c8f68382c447c5c14b8b3df7cbfd9273dd655fe52f1357c27150da786f 
@@ -522,7 +522,7 @@ z' = 0x1433e2c8f68382c447c5c14b8b3df7cbfd9273dd655fe52f1357c27150da786f
 
 Keyed compression:
 
-```
+```text
 compress(x=1234, y=5678, key=0) = 0x152ef46ec26a9afb6748e7fff3f75081af33f84b77d2afa05207509fb63ec4a6
 compress(x=6666, y=7777, key=1) = 0x04f222443879d40e17174f08adfd76c23d515d370e351f5d5da69a41d84dc48a
 compress(x=9876, y=5432, key=2) = 0x1ddd85a82b30a09cded68735a8fb9a353e6448f64f28f96a6f0e495b4e50f372
@@ -540,7 +540,7 @@ compress(x=1133, y=5577, key=3) = 0x222eda4baf17bf55f2167e6c9cd8828b8cb1762cfc61
 
 The Goldilocks prime field is defined by
 
-```
+```text
     p  =  2^64 - 2^32 + 1  =  18446744069414584321
 ```
     
@@ -550,7 +550,7 @@ The parameters we use are the same as the [HorizenLabs implementation](https://g
 
 The keyed compression function is then defined as:
 
-```
+```text
 compress( [x0,x1,x2,x3], [y0,y1,y2,y3], key) := 
   let newState = permute( [x0,x1,x2,x3, y0,y1,y2,y3, key,0,0,0] ) 
   in  newState[0..3]
@@ -598,7 +598,7 @@ void goldilocks_convert_31_bytes_to_4_field_elements(const uint8_t *ptr, uint64_
 
 Again care should we taken with the padding and domain separation! By convention, the domain separation value is put in the 8th field element of the initial state:
 
-```
+```text
     initial_state = [0,0,0,0, 0,0,0,0, domSep,0,0,0]
 ```
 
@@ -606,7 +606,7 @@ Again care should we taken with the padding and domain separation! By convention
 
 Permutation of `[0,1,2,..9,10,11]`:
 
-```
+```text
     [ 0x01eaef96bdf1c0c1
     , 0x1f0d2cc525b2540c
     , 0x6282c1dfe1e0358d
@@ -638,7 +638,7 @@ We use the parameters from the `zkfriendlyhashzoo` [implementation](https://extg
 
 Permutation of `[0,1,2,..9,10,11]`:
 
-```
+```text
     [ 0x516dd661e959f541
     , 0x082c137169707901
     , 0x53dff3fd9f0a5beb
@@ -657,4 +657,3 @@ Permutation of `[0,1,2,..9,10,11]`:
 #### Implementation
 
 - [https://github.com/logos-storage/nim-goldilocks-hash](https://github.com/logos-storage/nim-goldilocks-hash) (includes the Merkle tree construction)
-

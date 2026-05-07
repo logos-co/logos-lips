@@ -14,13 +14,16 @@ SCRIPTS = [
     "scripts/gen_history.py",
     "scripts/gen_rfc_index.py",
     "scripts/gen_summary.py",
+    "scripts/validate_generated_outputs.py",
 ]
 
 
 def run(script: str) -> None:
-    path = ROOT / script
-    print(f"[INFO] Running {path}")
-    result = subprocess.run([sys.executable, str(path)], cwd=ROOT)
+    parts = script.split()
+    path = ROOT / parts[0]
+    args = parts[1:]
+    print(f"[INFO] Running {path} {' '.join(args)}".rstrip())
+    result = subprocess.run([sys.executable, str(path), *args], cwd=ROOT)
     if result.returncode != 0:
         raise SystemExit(result.returncode)
 
