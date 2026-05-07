@@ -686,6 +686,15 @@
   {
     "component": "messaging",
     "slug": "172",
+    "title": "Reliable Channel API definition",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-07",
+    "path": "messaging/standards/application/reliable-channel-api.html"
+  },
+  {
+    "component": "messaging",
+    "slug": "173",
     "title": "Waku RLN Keystore",
     "status": "raw",
     "category": "Standards Track",
@@ -694,7 +703,7 @@
   },
   {
     "component": "messaging",
-    "slug": "173",
+    "slug": "174",
     "title": "Incentivization for Waku Light Protocols",
     "status": "raw",
     "category": "Standards Track",
@@ -703,7 +712,7 @@
   },
   {
     "component": "messaging",
-    "slug": "174",
+    "slug": "175",
     "title": "Waku Light Push",
     "status": "raw",
     "category": "Standards Track",
@@ -712,7 +721,7 @@
   },
   {
     "component": "messaging",
-    "slug": "175",
+    "slug": "176",
     "title": "Waku Mix",
     "status": "raw",
     "category": "Standards Track",
@@ -721,7 +730,7 @@
   },
   {
     "component": "messaging",
-    "slug": "176",
+    "slug": "177",
     "title": "Waku v2 Relay Sharding",
     "status": "raw",
     "category": "Standards Track",
@@ -730,7 +739,7 @@
   },
   {
     "component": "messaging",
-    "slug": "177",
+    "slug": "178",
     "title": "Waku Rendezvous discovery",
     "status": "raw",
     "category": "Standards Track",
@@ -739,21 +748,12 @@
   },
   {
     "component": "messaging",
-    "slug": "178",
+    "slug": "179",
     "title": "Waku2 RLN Contract Specification",
     "status": "raw",
     "category": "Standards Track",
     "updated": "2026-05-07",
     "path": "messaging/standards/core/rln-contract.html"
-  },
-  {
-    "component": "messaging",
-    "slug": "179",
-    "title": "Waku Store Synchronization",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-05-07",
-    "path": "messaging/standards/core/store-sync.html"
   },
   {
     "component": "messaging",
@@ -767,6 +767,15 @@
   {
     "component": "messaging",
     "slug": "180",
+    "title": "Waku Store Synchronization",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-07",
+    "path": "messaging/standards/core/store-sync.html"
+  },
+  {
+    "component": "messaging",
+    "slug": "181",
     "title": "Waku Sync",
     "status": "raw",
     "category": "Standards Track",
