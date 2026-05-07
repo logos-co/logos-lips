@@ -39,7 +39,7 @@ Other terms are as defined in the [Mix Protocol](./mix.md), [Mix DoS Protection]
 
 - **`R_base`**: The flat per-node rate limit per epoch on outgoing packets, referred to as the messaging rate in [RLN Per-Hop DoS Protection](./mix-spam-protection-rln.md).
 
-- **`R_min`**: The minimum rate limit a node may be registered with. `R_min ≥ 1`.
+- **`R_min`**: The minimum rate limit a node may be registered with. `1 ≤ R_min ≤ R_base`.
 
 - **`R_max`**: The maximum rate limit any node may be assigned, regardless of stake, expressed as `f × R_base` where `f ≥ 1` is a deployment-defined multiplier.
 
@@ -149,8 +149,8 @@ The membership registry MUST enforce the following at the time of registration:
 4. Lock the stake for the duration of membership.
    Stake MUST NOT be withdrawable while membership is active.
 
-A node that wishes to increase its `user_message_limit` MUST deregister and re-register with the new stake amount.
-Partial stake top-ups that would change `user_message_limit` without re-registration MUST NOT be accepted, as the existing Merkle leaf encodes the previous rate.
+Stake top-ups MUST NOT be accepted while a membership is active.
+Any change in stake requires deregistration followed by re-registration.
 
 ### 4.3 Packet Sending and Verification
 
@@ -165,7 +165,7 @@ All per-hop verification and slashing logic are as defined in [RLN Per-Hop DoS P
 | Parameter | Description |
 | --- | --- |
 | `S_unit` | Stake required per message per epoch. Deployment-defined. |
-| `R_min` | Minimum rate. Nodes with stake `S < R_min × S_unit` MUST be rejected. |
+| `R_min` | Minimum rate, `1 ≤ R_min ≤ R_base`. Nodes with stake `S < R_min × S_unit` MUST be rejected. |
 | `R_max` | `f × R_base`. Maximum rate regardless of stake. |
 | `f` | Deployment multiplier `f ≥ 1`. Controls the maximum rate relative to the base rate. |
 
@@ -175,7 +175,7 @@ All per-hop verification and slashing logic are as defined in [RLN Per-Hop DoS P
 `f = 10` is a reasonable starting point: it allows a high-stake operator to handle `10×` the base forwarding load without dominating the network.
 Values above `f = 50` SHOULD be avoided without careful analysis of the deployment's expected node count and forwarding load distribution.
 
-`S_unit`, `R_min`, `R_max`, and `f` MUST be published in a deployment configuration accessible to all participants before the network accepts registrations.
+`S_unit`, `R_base`, `R_min`, `R_max`, and `f` MUST be published in a deployment configuration accessible to all participants before the network accepts registrations.
 The membership registry MUST reject registrations inconsistent with the published parameters.
 Verifiers trust the membership registry to enforce the correct value of these parameters at registration time.
 
