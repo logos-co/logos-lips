@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Name | Reliable Channel API definition |
-| Slug | |
+| Slug  | |
 | Status | raw |
 | Category | Standards Track |
 | Tags | reliability, application, api, sds, segmentation |
