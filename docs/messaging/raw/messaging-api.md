@@ -110,7 +110,7 @@ language_mappings:
       - functions: "camelCase"
       - variables: "camelCase"
       - types: "PascalCase"
-    event_emitter: "Use EventEmitter object with `emit`, `addListener`, etc; with event name the string specified in IDL. For example. eventEmitter.emit('message:sent',...)"
+    event_emitter: "Use EventEmitter object with `emit`, `addListener`, etc; with event name the string specified in IDL. For example. eventEmitter.emit('message_sent',...)"
   nim:
     naming_convention:
       - functions: "camelCase"
@@ -376,6 +376,9 @@ types:
     type: object
     description: "Event emitted when a message is received from the network"
     fields:
+      message_hash:
+        type: string
+        description: "Hash of the received message"
       message:
         type: MessageEnvelope
         description: "The received message's payload and metadata"
@@ -391,7 +394,7 @@ types:
         type: string
         description: "Hash of the message that got sent to the network"
 
-  MessageSendErrorEvent:
+  MessageErrorEvent:
     type: object
     description: "Event emitted when a message send operation fails"
     fields:
@@ -405,7 +408,7 @@ types:
         type: string
         description: "Error message describing what went wrong"
 
-  MessageSendPropagatedEvent:
+  MessagePropagatedEvent:
     type: object
     description: "Confirmation that a message has been correctly delivered to some neighbouring nodes."
     fields:
@@ -420,14 +423,14 @@ types:
     type: event_emitter
     description: "Event source for message-related events"
     events:
-      "message:received":
+      "message_received":
         type: MessageReceivedEvent
-      "message:sent":
+      "message_sent":
         type: MessageSentEvent
-      "message:send-error":
-        type: MessageSendErrorEvent
-      "message:send-propagated":
-        type: MessageSendPropagatedEvent
+      "message_error":
+        type: MessageErrorEvent
+      "message_propagated":
+        type: MessagePropagatedEvent
 ```
 
 #### Messaging function definitions
@@ -532,20 +535,51 @@ types:
     values: [Disconnected, PartiallyConnected, Connected]
     description: "Used to identify health of the operating node"
 
-  HealthConnectionStatusEvent:
+  TopicHealth:
+    type: enum
+    values: [UNHEALTHY, MINIMALLY_HEALTHY, SUFFICIENTLY_HEALTHY, NOT_SUBSCRIBED]
+    description: "Used to identify health of a subscribed topic or shard"
+
+  EventConnectionStatusChange:
     type: object
-    description: "Event emitted when the overall node health status changes"
+    description: "Event emitted when the overall node connection status changes"
     fields:
-      connection-status:
+      connection_status:
         type: ConnectionStatus
         description: "The node's new connection status"
+
+  EventContentTopicHealthChange:
+    type: object
+    description: "Event emitted when health of a subscribed content topic changes"
+    fields:
+      content_topic:
+        type: string
+        description: "The content topic whose health changed"
+      health:
+        type: TopicHealth
+        description: "The new health status of the content topic"
+
+  EventShardTopicHealthChange:
+    type: object
+    description: "Event emitted when health of a shard (pubsub topic) changes"
+    fields:
+      topic:
+        type: string
+        description: "The pubsub topic (shard) whose health changed"
+      health:
+        type: TopicHealth
+        description: "The new health status of the shard"
 
   HealthEvents:
     type: event_emitter
     description: "Event source for health-related events."
     events:
-      "health:connection-status":
-        type: HealthConnectionStatusEvent
+      "health_connection_status_change":
+        type: EventConnectionStatusChange
+      "health_content_topic_health_change":
+        type: EventContentTopicHealthChange
+      "health_shard_topic_health_change":
+        type: EventShardTopicHealthChange
 ```
 
 #### Health function definitions
@@ -553,6 +587,8 @@ types:
 TODO
 
 #### Health extended definitions
+
+**`EventConnectionStatusChange`**:
 
 `Disconnected` indicates that the node has lost connectivity for message reception,
 sending, or both, and as a result, it cannot reliably receive or transmit messages.
@@ -565,6 +601,16 @@ although performance or reliability may still be impacted.
 
 `Connected` indicates that the node is operating optimally,
 with full support for message reception and transmission.
+
+**`EventContentTopicHealthChange`** and **`EventShardTopicHealthChange`**:
+
+`NOT_SUBSCRIBED` indicates that the node is not subscribed to the topic.
+
+`UNHEALTHY` indicates that the node has no peers on the topic.
+
+`MINIMALLY_HEALTHY` indicates that the node has at least one peer on the topic but has not reached the healthy threshold.
+
+`SUFFICIENTLY_HEALTHY` indicates that the node has reached the healthy threshold of peers on the topic.
 
 ### Debug
 
