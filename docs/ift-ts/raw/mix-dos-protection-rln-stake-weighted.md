@@ -15,13 +15,13 @@
 
 ## Abstract
 
-This document specifies a registration policy extension for the [RLN Per-Hop DoS Protection](./mix-spam-protection-rln.md) specification, introducing stake-proportional rate limits for mix nodes.
+This document specifies a registration policy extension for the [RLN Per-Hop DoS Protection](./mix-dos-protection-rln.md) specification, introducing stake-proportional rate limits for mix nodes.
 Under this extension, each node's rate limit is computed as a linear function of its committed stake and enforced via the RLN-Diff circuit defined in [RLN-v2](https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/raw/rln-v2.md).
 The mapping is Sybil-resistant, requires no circuit changes, and enforces rate differentiation entirely through the membership registry.
 
 ## 1. Introduction
 
-The [RLN Per-Hop DoS Protection](./mix-spam-protection-rln.md) assigns a flat rate limit to all mix nodes that meet a minimum stake requirement. To accommodate high-capacity relay nodes, this limit must be set high &mdash; making the same rate headroom available to any minimally-staked attacker. This structural limitation is referred to as the rate amplification gap, defined in [Section 3.1](#31-rate-amplification-gap).
+The [RLN Per-Hop DoS Protection](./mix-dos-protection-rln.md) assigns a flat rate limit to all mix nodes that meet a minimum stake requirement. To accommodate high-capacity relay nodes, this limit must be set high &mdash; making the same rate headroom available to any minimally-staked attacker. This structural limitation is referred to as the rate amplification gap, defined in [Section 3.1](#31-rate-amplification-gap).
 
 This document specifies an extension that replaces this flat limit with a stake-proportional mapping: a node claiming a higher rate must commit proportionally more stake. This raises the economic cost of exploiting the gap but does not eliminate it.
 
@@ -32,12 +32,12 @@ This document specifies an extension that replaces this flat limit with a stake-
 The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in [RFC 2119](https://www.ietf.org/rfc/rfc2119.txt).
 
 The following terms are used throughout this specification.
-Other terms are as defined in the [Mix Protocol](./mix.md), [Mix DoS Protection](./mix-dos-protection.md), [RLN Per-Hop DoS Protection](./mix-spam-protection-rln.md), [RLN-v1](https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md), and [RLN-v2](https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/raw/rln-v2.md) specs.
+Other terms are as defined in the [Mix Protocol](./mix.md), [Mix DoS Protection](./mix-dos-protection.md), [RLN Per-Hop DoS Protection](./mix-dos-protection-rln.md), [RLN-v1](https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md), and [RLN-v2](https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/raw/rln-v2.md) specs.
 
 - **`S_unit`**: The stake required per message per epoch.
   A system-wide constant defined at deployment time.
 
-- **`R_base`**: The flat per-node rate limit per epoch on outgoing packets, referred to as the messaging rate in [RLN Per-Hop DoS Protection](./mix-spam-protection-rln.md).
+- **`R_base`**: The flat per-node rate limit per epoch on outgoing packets, referred to as the messaging rate in [RLN Per-Hop DoS Protection](./mix-dos-protection-rln.md).
 
 - **`R_min`**: The minimum rate limit a node may be registered with. `1 ≤ R_min ≤ R_base`.
 
@@ -54,11 +54,11 @@ Other terms are as defined in the [Mix Protocol](./mix.md), [Mix DoS Protection]
 
 ## 3. Background
 
-This section provides background on the rate amplification gap in [RLN Per-Hop DoS Protection](./mix-spam-protection-rln.md), and RLN-Diff.
+This section provides background on the rate amplification gap in [RLN Per-Hop DoS Protection](./mix-dos-protection-rln.md), and RLN-Diff.
 
 ### 3.1 Rate Amplification Gap
 
-[RLN Per-Hop DoS Protection](./mix-spam-protection-rln.md) enforces a flat rate limit `R_base` per node per epoch on outgoing packets. Two properties combine to make this exploitable:
+[RLN Per-Hop DoS Protection](./mix-dos-protection-rln.md) enforces a flat rate limit `R_base` per node per epoch on outgoing packets. Two properties combine to make this exploitable:
 
 - `R_base` must be set high enough to accommodate the forwarding load of high-capacity relay nodes. As a result, all nodes receive the same high `R_base` regardless of stake.
 - The [Mix Protocol](./mix.md)'s unlinkability guarantees make forwarded and originated packets cryptographically indistinguishable by design, so any node can use its `R_base` allowance entirely for origination.
@@ -143,7 +143,7 @@ Packet sending follows the rate limit and double-signalling mechanics described 
 
 `user_message_limit` is observable at the registry layer but is not revealed by proofs; verifiers learn only that the sender has not exceeded their registered limit.
 
-All per-hop verification and slashing logic are as defined in [RLN Per-Hop DoS Protection](./mix-spam-protection-rln.md).
+All per-hop verification and slashing logic are as defined in [RLN Per-Hop DoS Protection](./mix-dos-protection-rln.md).
 
 ### 4.4 System Parameters
 
@@ -205,7 +205,7 @@ The following are explicitly out of scope for this specification:
 - Reputation-based rate multipliers
 - Stake token selection and blockchain infrastructure
 - Detailed migration procedures and tooling for networks upgrading from flat-rate RLN
-- Voluntary deregistration mechanisms (a [RLN Per-Hop DoS Protection](./mix-spam-protection-rln.md) responsibility)
+- Voluntary deregistration mechanisms (a [RLN Per-Hop DoS Protection](./mix-dos-protection-rln.md) responsibility)
 - Membership registry implementation (smart contract, coordination layer, or other)
 
 ## 7. Future Work
@@ -225,7 +225,7 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 ## References
 
 - [Mix DoS Protection](./mix-dos-protection.md)
-- [RLN Per-Hop DoS Protection for Mixnet](./mix-spam-protection-rln.md)
+- [RLN Per-Hop DoS Protection for Mixnet](./mix-dos-protection-rln.md)
 - [Mix Cover Traffic](./mix-cover-traffic.md)
 - [libp2p Mix Protocol](./mix.md)
 - [Rate Limiting Nullifiers v1](https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md)

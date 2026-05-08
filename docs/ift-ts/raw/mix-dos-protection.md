@@ -20,7 +20,7 @@
 This document defines the DoS protection architecture for the [libp2p Mix Protocol](./mix.md).
 It specifies the requirements, integration architectures, node responsibilities, and standardized interfaces that any DoS protection mechanism must satisfy to integrate with the Mix Protocol.
 Two primary architectural approaches are defined: sender-generated proofs and per-hop generated proofs.
-Concrete instantiation of this architecture, using Rate Limiting Nullifier (RLN), is defined in a separate specification (see [Mix RLN DoS Protection](./mix-spam-protection-rln.md)).
+Concrete instantiation of this architecture, using Rate Limiting Nullifier (RLN), is defined in a separate specification (see [Mix RLN DoS Protection](./mix-dos-protection-rln.md)).
 
 ## 1. Introduction
 
@@ -225,7 +225,7 @@ Common strategies that MAY be adapted include:
 - **PoW-style approaches**: Approaches like [EquiHash](https://github.com/khovratovich/equihash) or [VDF Client puzzles](https://www.researchgate.net/publication/356450648_Non-Interactive_VDF_Client_Puzzle_for_DoS_Mitigation) that satisfy DoS protection requirements can be used.
   These, however, do not provide Sybil resistance, which requires a separate mechanism.
 
-- **Privacy-preserving rate-limiting**: Rate-limiting approaches with zero-knowledge cryptography, such as [RLN](https://rate-limiting-nullifier.github.io/rln-docs/rln_in_details.html), that preserve users' privacy can be used (see [Mix RLN DoS Protection](./mix-spam-protection-rln.md)).
+- **Privacy-preserving rate-limiting**: Rate-limiting approaches with zero-knowledge cryptography, such as [RLN](https://rate-limiting-nullifier.github.io/rln-docs/rln_in_details.html), that preserve users' privacy can be used (see [Mix RLN DoS Protection](./mix-dos-protection-rln.md)).
   This approach requires careful design of state access patterns.
   Deployments requiring Sybil resistance SHOULD augment this mechanism with staking and slashing.
 
@@ -362,7 +362,7 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 ## References
 
 - [libp2p Mix Protocol](./mix.md)
-- [Mix RLN DoS Protection](./mix-spam-protection-rln.md)
+- [Mix RLN DoS Protection](./mix-dos-protection-rln.md)
 - [EquiHash](https://github.com/khovratovich/equihash)
 - [VDF Client Puzzles](https://www.researchgate.net/publication/356450648_Non-Interactive_VDF_Client_Puzzle_for_DoS_Mitigation)
 - [Rate Limiting Nullifiers (RLN)](https://rate-limiting-nullifier.github.io/rln-docs/rln_in_details.html)
