@@ -21,7 +21,7 @@ The mapping is Sybil-resistant, requires no circuit changes, and enforces rate d
 
 ## 1. Introduction
 
-The [RLN Per-Hop DoS Protection](./mix-spam-protection-rln.md) assigns a flat rate limit to all mix nodes that meet a minimum stake requirement. To accommodate high-capacity relay nodes, this limit must be set high&mdash;making the same rate headroom available to any minimally-staked attacker. This structural limitation is referred to as the rate amplification gap, defined in [Section 3.1](#31-rate-amplification-gap).
+The [RLN Per-Hop DoS Protection](./mix-spam-protection-rln.md) assigns a flat rate limit to all mix nodes that meet a minimum stake requirement. To accommodate high-capacity relay nodes, this limit must be set high &mdash; making the same rate headroom available to any minimally-staked attacker. This structural limitation is referred to as the rate amplification gap, defined in [Section 3.1](#31-rate-amplification-gap).
 
 This document specifies an extension that replaces this flat limit with a stake-proportional mapping: a node claiming a higher rate must commit proportionally more stake. This raises the economic cost of exploiting the gap but does not eliminate it.
 
@@ -70,43 +70,28 @@ Raising `R_base` to accommodate higher-capacity relays widens this budget propor
 ### 3.2 RLN-Diff
 
 [Rate Limiting Nullifiers (RLN)](https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/raw/rln-v2.md) is a zero-knowledge construct that allows message rate limits to be set and cryptographically enforced for members of a group, without revealing their identity.
-To participate, senders must register for a membership, typically backed by stake, to generate valid proofs.
-If a sender exceeds the defined rate limit within a given epoch, the protocol allows for the reconstruction of their secret and subsequent slashing of their stake.
-This specification uses the RLN-Diff variant, which supports per-member rate limits set individually at registration.
+This specification uses the RLN-Diff variant, which supports per-member rate limits set individually at registration. The full mechanics are defined in [RLN-v2](https://github.com/vacp2p/rfc-index/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/raw/rln-v2.md); only the parts required to follow [Section 4.2](#42-registration) and [Section 5](#5-security-and-privacy-considerations) are summarised below.
 
-**Registration.**
-To join the group, a member:
+**Registration**:
+A member generates an `identity_secret` and derives `id_commitment = Poseidon(identity_secret)`. It submits `id_commitment` and a `user_message_limit` to the membership registry.
 
-1. Generates an `identity_secret` and derives `id_commitment = Poseidon(identity_secret)`.
-2. Submits `id_commitment` and a `user_message_limit` to the membership registry.
-
-The registry computes the Merkle leaf:
+The registry writes a Merkle leaf encoding both as a `rate_commitment`:
 
 ```text
 rate_commitment = Poseidon(id_commitment, user_message_limit)
 ```
 
-and writes `rate_commitment` to the RLN membership Merkle tree.
 `user_message_limit` is observable to any party that can read the registry.
 
-All members of a group share a single Merkle tree.
-The Merkle root compactly represents the current group state and changes whenever a member joins or is slashed; a proof must reference a recent root to be considered valid.
-
-**Rate limit.**
+**Rate limit**:
 Each member's rate is bounded by the `user_message_limit` set at registration.
-To send a packet, a member selects a `message_id` in the range `[1, user_message_limit]` that has not been used in the current epoch, and generates a ZK proof that:
+For each outgoing packet, a member selects an unused `message_id` in `[1, user_message_limit]` for the current epoch and generates an RLN-Diff proof. 
+The proof binds the packet to that `message_id` and epoch, attests that the member holds a `rate_commitment` in the Merkle tree, and enforces `message_id ≤ user_message_limit` via a range constraint.
 
-- proves membership&mdash;that the member holds a `rate_commitment` in the Merkle tree, without revealing `identity_secret`, `user_message_limit`, or the leaf index;
-- enforces `message_id ≤ user_message_limit` via a range constraint, with `user_message_limit` as a private witness&mdash;not revealed in the proof;
-- produces a Shamir secret share of `identity_secret` bound to the current `epoch` and the proof signal;
-- computes an `internal_nullifier` unique per `(member, epoch, message_id)` tuple, without revealing `identity_secret`.
+`user_message_limit` is not revealed by the proof.
 
-Each `message_id` value may be used at most once per epoch; using all values in `[1, user_message_limit]` exhausts the member's rate allowance for that epoch.
-
-**Double-signalling and slashing.**
-A member that sends two packets with the same `message_id` and different signals in the same epoch produces two shares with the same `internal_nullifier`, sufficient to reconstruct `identity_secret` by polynomial interpolation.
-Any verifier holding these shares can remove the member from the group and seize its stake.
-Reuse of the same `message_id` with the same signal is detectable as a duplicate without requiring secret reconstruction.
+**Double-signalling and slashing**:
+Reusing the same `message_id` with different signals in an epoch allows any verifier to reconstruct the member's `identity_secret` and slash its stake.
 
 ## 4. Approach
 
@@ -131,9 +116,9 @@ It MUST NOT be modifiable after registration without re-registration.
 
 The mapping is linear: doubling stake doubles `user_message_limit`, subject to `R_max`.
 
-**Rationale for linear mapping.**
+**Rationale for linear mapping**:
 Any sub-linear mapping `g` where `g(S)/S` decreases with `S` is subadditive: `g(S₁) + g(S₂) > g(S₁ + S₂)`, meaning an attacker gains aggregate rate by splitting stake across multiple registrations.
-Linear mapping is the unique Sybil-resistant boundary&mdash;it is additive (`g(S₁ + S₂) = g(S₁) + g(S₂)`), ensuring no rate advantage from splitting.
+Linear mapping is the unique Sybil-resistant boundary &mdash; it is additive (`g(S₁ + S₂) = g(S₁) + g(S₂)`), ensuring no rate advantage from splitting.
 Super-linear mappings are Sybil-resistant but reward stake concentration, exacerbating the rate amplification gap.
 Rate concentration is capped by `R_max`.
 
@@ -195,7 +180,7 @@ Splitting stake across nodes cannot produce more aggregate `user_message_limit` 
 Equality holds when each `S_i` is an exact multiple of `S_unit`.
 
 The above holds for stake up to `R_max × S_unit` per node.
-Above this ceiling, the per-node `R_max` cap creates a residual incentive to register across additional nodes&mdash;each further `R_max × S_unit` of stake can claim an additional `R_max` of rate by registering a new node.
+Above this ceiling, the per-node `R_max` cap creates a residual incentive to register across additional nodes &mdash; each further `R_max × S_unit` of stake can claim an additional `R_max` of rate by registering a new node.
 Each additional registration also incurs transaction fees and coordination overhead, providing an economic deterrent beyond the protocol guarantee.
 
 ### 5.2 Residual Rate Amplification Gap
@@ -208,7 +193,7 @@ This is an explicitly acknowledged limitation of per-hop RLN regardless of the r
 
 ### 5.3 Registry-Layer Observability
 
-`user_message_limit` is observable at the registry layer but is a private witness in the RLN-Diff circuit&mdash;not revealed by proofs.
+`user_message_limit` is observable at the registry layer but is a private witness in the RLN-Diff circuit &mdash; not revealed by proofs.
 All proofs are structurally identical regardless of the sender's registered rate.
 Registry-level stake observability does not enable linking proofs to specific members.
 
@@ -225,9 +210,11 @@ The following are explicitly out of scope for this specification:
 
 ## 7. Future Work
 
-- **Registry-layer privacy**: The registration publicly reveals the node's effective rate. A shielded membership registry&mdash;where the stake-to-identity link is concealed via ZK&mdash;would close this gap. One approach is multi-identity registration: a node registers multiple unit-rate identities, hiding its total rate from registry observers. However, slashing requires linking all identities to the committed stake: double-signalling on any identity must make the entire stake slashable. Achieving such an unlinkable registration with linked slashing requires circuit-level changes not available in current RLN-v2.
+- **Registry-layer privacy**: The registration publicly reveals the node's effective rate. A shielded membership registry &mdash; where the stake-to-identity link is concealed via ZK &mdash; would close this gap. One approach is multi-identity registration: a node registers multiple unit-rate identities, hiding its total rate from registry observers. However, slashing requires linking all identities to the committed stake: double-signalling on any identity must make the entire stake slashable. Achieving such an unlinkable registration with linked slashing requires circuit-level changes not available in current RLN-v2.
 
 - **Dynamic stake top-up**: A mechanism for incrementally increasing stake without full deregistration would improve operational ergonomics.
+
+- **Rate-weighted path selection**: The [Mix Protocol](./mix.md) currently specifies uniform random path selection. Under stake-weighted rate limits, this distributes forwarding load equally regardless of node capacity, causing low-rate nodes to hit their limits and drop forwarding traffic. Adapting the [Mix Protocol](./mix.md) to weight path selection proportional to registered rates &mdash; similar to Tor &mdash; would address this.
 
 - **Cover traffic under non-uniform rates**: The [Mix Cover Traffic](./mix-cover-traffic.md) specification derives per-node cover emission bounds assuming uniform rate limits. Under stake-weighted rates, the forwarding load depends on the network's stake distribution, and the cover budget derivation does not directly apply.
 
