@@ -70,7 +70,7 @@ message PushRPC {
 Nodes that respond to `PushRequests` MUST either
 relay the encapsulated message via [11/WAKU2-RELAY](../11/relay.md) protocol
 on the specified `pubsub_topic`,
-or forward the `PushRequest` via 19/LIGHTPUSH on a [WAKU2-DANDELION](https://github.com/waku-org/specs/blob/master/standards/application/dandelion.md)
+or forward the `PushRequest` via 19/LIGHTPUSH on a [WAKU2-DANDELION](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/application/dandelion.md)
 stem.
 If they are unable to do so for some reason,
 they SHOULD return an error code in `PushResponse`.
@@ -91,5 +91,5 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 ## References
 
 * [11/WAKU2-RELAY](../11/relay.md)
-* [WAKU2-DANDELION](https://github.com/waku-org/specs/blob/master/standards/application/dandelion.md)
+* [WAKU2-DANDELION](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/application/dandelion.md)
 * [17/WAKU2-RLN-RELAY](../17/rln-relay.md)

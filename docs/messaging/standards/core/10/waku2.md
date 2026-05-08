@@ -253,7 +253,7 @@ It is possible to bypass the discovery domain by specifying static nodes.
 
 #### Use of ENR
 
-[WAKU2-ENR](https://github.com/waku-org/specs/blob/master/standards/core/enr.md)
+[WAKU2-ENR](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/enr.md)
 describes the usage of [EIP-778 ENR (Ethereum Node Records)](https://eips.ethereum.org/EIPS/eip-778)
 for Waku discovery purposes.
 It introduces two new ENR fields, `multiaddrs` and
@@ -607,7 +607,7 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 
 17. [Node Discovery v5](https://github.com/ethereum/devp2p/blob/8fd5f7e1c1ec496a9d8dc1640a8548b8a8b5986b/discv5/discv5.md)
 
-18. [WAKU2-ENR](https://github.com/waku-org/specs/blob/master/standards/core/enr.md)
+18. [WAKU2-ENR](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/enr.md)
 
 19. [EIP-778 ENR (Ethereum Node Records)](https://eips.ethereum.org/EIPS/eip-778)
 

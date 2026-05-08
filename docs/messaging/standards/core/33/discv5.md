@@ -101,7 +101,7 @@ This also increases decentralization.
 isolated from the Ethereum Discovery v5 network.
 
 Another simple solution would be taking part in the Ethereum Discovery network,
-and filtering Waku nodes based on whether they support [WAKU2-ENR](https://github.com/waku-org/specs/blob/master/standards/core/enr.md).
+and filtering Waku nodes based on whether they support [WAKU2-ENR](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/enr.md).
 This solution is more resilient towards eclipse attacks.
 However, this discovery method is very inefficient
 for small percentages of Waku nodes
@@ -234,7 +234,7 @@ raises research questions that we will address in future stages of our discv5 ro
 1. [10/WAKU2](/messaging/standards/core/10/waku2.md)
 2. [`34/WAKU2-PEER-EXCHANGE`](/messaging/standards/core/34/peer-exchange.md)
 3. [11/WAKU2-RELAY](/messaging/standards/core/11/relay.md)
-4. [WAKU2-ENR](https://github.com/waku-org/specs/blob/master/standards/core/enr.md)
+4. [WAKU2-ENR](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/enr.md)
 5. [Node Discovery Protocol v5 (`discv5`)](https://github.com/ethereum/devp2p/blob/master/discv5/discv5.md)
 6. [`discv5` semantics](https://github.com/ethereum/devp2p/blob/master/discv5/discv5-theory.md).
 7. [`discv5` wire protocol](https://github.com/ethereum/devp2p/blob/master/discv5/discv5-wire.md)
