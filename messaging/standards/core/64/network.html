@@ -192,6 +192,7 @@
 </div><!-- timeline:start -->
 <h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
 <ul>
+<li><strong>2026-05-08</strong> — <a href="https://github.com/logos-co/logos-lips/blob/c0ef3b965ce844c4ad757832cce9e082b8435b01/docs/messaging/standards/core/64/network.md"><code>c0ef3b9</code></a> — Cleanup: rewrite specs-repo links in pre-existing messaging specs (#316)</li>
 <li><strong>2026-04-20</strong> — <a href="https://github.com/logos-co/logos-lips/blob/c3d15a9c7c24b4d6b0eb4fb578f9670ede6f69b0/docs/messaging/standards/core/64/network.md"><code>c3d15a9</code></a> — COSS overhaul: new statuses, CFR type, raw-spec leniency (#308)</li>
 <li><strong>2026-04-15</strong> — <a href="https://github.com/logos-co/logos-lips/blob/5a3e844679a0ac60e6b4e945a64c2f7d8650cba5/docs/messaging/standards/core/64/network.md"><code>5a3e844</code></a> — Chore/move repo into logos co (#312)</li>
 <li><strong>2026-01-16</strong> — <a href="https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/standards/core/64/network.md"><code>f01d5b9</code></a> — chore: fix links (#260)</li>
@@ -225,7 +226,7 @@ which in turn is an extension of
 <p>Traffic in the Waku Network is sharded into eight
 <a href="../17/rln-relay.html">17/WAKU2-RLN-RELAY</a> pubsub topics.
 Each pubsub topic is named according to the static shard naming format
-defined in <a href="https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md">WAKU2-RELAY-SHARDING</a>
+defined in <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/relay-sharding.md">WAKU2-RELAY-SHARDING</a>
 with:</p>
 <ul>
 <li><code>&lt;cluster_id&gt;</code> set to <code>1</code></li>
@@ -284,7 +285,7 @@ to using <a href="https://eips.ethereum.org/EIPS/eip-1459">EIP-1459 DNS-based di
 Relay nodes SHOULD use <a href="../33/discv5.html">33/WAKU2-DISCV5</a> to continually discover
 other peers in the network.
 Each relay node MUST encode its supported shards into its discoverable ENR,
-as described in <a href="https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md/#discovery">WAKU2-RELAY-SHARDING</a>.
+as described in <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/relay-sharding.md#discovery">WAKU2-RELAY-SHARDING</a>.
 The ENR MUST be updated if the set of supported shards change.
 A node MAY choose to ignore discovered peers that do not support any of the shards
 in its own subscribed set.</p>
@@ -308,7 +309,7 @@ to messages matching a specific content filter.</li>
 from this node.</li>
 <li><a href="../19/lightpush.html">19/WAKU2-LIGHTPUSH</a> to allow resource-restricted peers to
 request publishing a message to the network on their behalf.</li>
-<li><a href="https://github.com/waku-org/specs/blob/master/standards/core/peer-exchange.md">WAKU2-PEER-EXCHANGE</a>
+<li><a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/peer-exchange.md">WAKU2-PEER-EXCHANGE</a>
 to allow resource-restricted peers to discover more peers
 in a resource efficient way.</li>
 </ol>
@@ -330,7 +331,7 @@ to subscribe to messages matching a specific content filter.</li>
 to request historical messages matching a specific content filter.</li>
 <li><a href="../19/lightpush.html">19/WAKU2-LIGHTPUSH</a>
 to request publishing a message to the network.</li>
-<li><a href="https://github.com/waku-org/specs/blob/master/standards/core/peer-exchange.md">WAKU2-PEER-EXCHANGE</a>
+<li><a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/peer-exchange.md">WAKU2-PEER-EXCHANGE</a>
 to discover more peers in a resource efficient way.</li>
 </ol>
 <h4 id="store-client-nodes"><a class="header" href="#store-client-nodes">Store client nodes</a></h4>
@@ -488,20 +489,20 @@ every <code>rlnEpochSizeSec</code> second.
 This SHOULD trigger a penalty against the transmitting peer.</p>
 <h2 id="autosharding"><a class="header" href="#autosharding">Autosharding</a></h2>
 <p>Nodes in the Waku Network SHOULD allow encapsulating applications to use autosharding,
-as defined in <a href="https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md/#automatic-sharding">WAKU2-RELAY-SHARDING</a>
+as defined in <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/relay-sharding.md#automatic-sharding">WAKU2-RELAY-SHARDING</a>
 by automatically determining the appropriate pubsub topic
 from the list <a href="#network-shards">of defined Waku Network shards</a>.
 This allows the application to omit the target pubsub topic
 when invoking any Waku protocol function.
 Applications using autosharding MUST use content topics in the format
-defined in <a href="https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md/#content-topics-format-for-autosharding">WAKU2-RELAY-SHARDING</a>
+defined in <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/relay-sharding.md#content-topics-format-for-autosharding">WAKU2-RELAY-SHARDING</a>
 and SHOULD use the short length format:</p>
 <pre><code class="language-text">/{application-name}/{version-of-the-application}/{content-topic-name}/{encoding}
 </code></pre>
 <p>When an encapsulating application makes use of autosharding
 the underlying node MUST determine the target pubsub topic(s)
 from the content topics provided by the application
-using the hashing mechanism defined in <a href="https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md/#automatic-sharding">WAKU2-RELAY-SHARDING</a>.</p>
+using the hashing mechanism defined in <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/relay-sharding.md#automatic-sharding">WAKU2-RELAY-SHARDING</a>.</p>
 <h2 id="copyright"><a class="header" href="#copyright">Copyright</a></h2>
 <p>Copyright and related rights waived via <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>.</p>
 <h2 id="references"><a class="header" href="#references">References</a></h2>
@@ -509,7 +510,7 @@ using the hashing mechanism defined in <a href="https://github.com/waku-org/spec
 <li><a href="../10/waku2.html">10/WAKU2</a></li>
 <li><a href="../17/rln-relay.html">17/WAKU2-RLN-RELAY</a></li>
 <li><a href="../11/relay.html">11/WAKU2-RELAY</a></li>
-<li><a href="https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md">WAKU2-RELAY-SHARDING</a></li>
+<li><a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/relay-sharding.md">WAKU2-RELAY-SHARDING</a></li>
 <li><a href="../66/metadata.html">66/WAKU2-METADATA</a></li>
 <li><a href="https://eips.ethereum.org/EIPS/eip-1459">EIP-1459 DNS-based discovery</a></li>
 <li><a href="../33/discv5.html">33/WAKU2-DISCV5</a></li>
@@ -521,7 +522,7 @@ using the hashing mechanism defined in <a href="https://github.com/waku-org/spec
 <li><a href="https://github.com/logos-co/logos-lips/blob/a5b24ac0a27da361312260f9da372a0e6e812212/vac/raw/rln-v2.md">RLN-V2</a></li>
 <li><a href="../14/message.html">14/WAKU2-MESSAGE</a></li>
 <li><a href="https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#extended-validators">gossipsub v1.1 validation</a></li>
-<li><a href="https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md/">WAKU2-RELAY-SHARDING</a></li>
+<li><a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/relay-sharding.md/">WAKU2-RELAY-SHARDING</a></li>
 <li><a href="https://github.com/waku-org/nwaku/blob/master/waku/factory/networks_config.nim#L31">The Waku Network Config</a></li>
 </ul>
 

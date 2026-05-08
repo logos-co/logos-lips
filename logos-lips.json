@@ -518,7 +518,7 @@
     "title": "Waku v2",
     "status": "draft",
     "category": "Standards Track",
-    "updated": "2026-04-20",
+    "updated": "2026-05-08",
     "path": "messaging/standards/core/10/waku2.html"
   },
   {
@@ -554,7 +554,7 @@
     "title": "Waku v2 Message",
     "status": "stable",
     "category": "Standards Track",
-    "updated": "2026-04-20",
+    "updated": "2026-05-08",
     "path": "messaging/standards/core/14/message.html"
   },
   {
@@ -788,7 +788,7 @@
     "title": "Waku v2 Light Push",
     "status": "draft",
     "category": "Standards Track",
-    "updated": "2026-04-20",
+    "updated": "2026-05-08",
     "path": "messaging/standards/core/19/lightpush.html"
   },
   {
@@ -824,7 +824,7 @@
     "title": "Waku v2 Topic Usage Recommendations",
     "status": "draft",
     "category": "Informational",
-    "updated": "2026-04-20",
+    "updated": "2026-05-08",
     "path": "messaging/informational/23/topics.html"
   },
   {
@@ -878,7 +878,7 @@
     "title": "Waku v2 Discv5 Ambient Peer Discovery",
     "status": "draft",
     "category": "Standards Track",
-    "updated": "2026-04-20",
+    "updated": "2026-05-08",
     "path": "messaging/standards/core/33/discv5.html"
   },
   {
@@ -887,7 +887,7 @@
     "title": "Waku2 Peer Exchange",
     "status": "draft",
     "category": "Standards Track",
-    "updated": "2026-04-20",
+    "updated": "2026-05-08",
     "path": "messaging/standards/core/34/peer-exchange.html"
   },
   {
@@ -941,7 +941,7 @@
     "title": "Waku v2 Network",
     "status": "draft",
     "category": "Best Current Practice",
-    "updated": "2026-04-20",
+    "updated": "2026-05-08",
     "path": "messaging/standards/core/64/network.html"
   },
   {
