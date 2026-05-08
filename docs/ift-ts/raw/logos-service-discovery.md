@@ -1389,13 +1389,13 @@ This is expected and MUST NOT be clamped to zero.
 
 The waiting time is then adjusted as:
 
-`w_2 = max(w_2, remaining_bound)`
+`w_issued = max(w_2, remaining_bound)`
 
 After the ticket is issued, the registrar updates the lower-bound state only if the issued waiting time is greater than the remaining lower bound:
 
 ```
 if w_2 > remaining_bound:
-  bound(service_id_hash) = w_2
+  bound(service_id_hash) = w_issued
   timestamp(service_id_hash) = t_2
 ```
 
@@ -1404,10 +1404,10 @@ The same logic is applied for each `IP` associated with the advertisement:
 ```
 elapsed_time = t_2 - timestamp(IP)
 remaining_bound = bound(IP) - elapsed_time
-w_2 = max(w_2, remaining_bound)
+w_issued = max(w_2, remaining_bound)
 
 if w_2 > remaining_bound:
-  bound(IP) = w_2
+  bound(IP) = w_issued
   timestamp(IP) = t_2
 ```
 
