@@ -1216,7 +1216,17 @@ Once the node determines its role as an exit following the steps in [Section 8.6
 
    - If parsing fails at any stage, discard $m$ and terminate processing.
 
-4. **Handoff to Exit Layer**
+4. **Internal Protocol Codec Check**
+
+   - If the origin protocol codec extracted in step 3 matches a reserved internal protocol codec,
+     the Mix Protocol MUST handle the message internally without handing off to the Mix Exit Layer.
+     Internal protocol codecs are used by pluggable components (_e.g.,_ cover traffic)
+     that route packets through the mix network for protocol-internal purposes.
+     The specific handling is defined by the component that registered the codec.
+
+   - If the codec does not match any reserved internal protocol codec, proceed to step 5.
+
+5. **Handoff to Exit Layer**
 
    - Hand off the serialized application message, the origin protocol codec, and destination address $Δ$ (extracted in step 1.) to the local Exit layer for further processing and delivery.
 
