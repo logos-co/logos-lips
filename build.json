@@ -1,15 +1,15 @@
 {
-    "timestamp": "2026-05-09T14:11:27Z",
+    "timestamp": "2026-05-10T14:11:30Z",
     "git": {
         "commit": "c0ef3b965ce844c4ad757832cce9e082b8435b01",
         "branch": "origin/master",
         "url": "git@github.com:logos-co/logos-lips.git"
     },
     "build": {
-        "id": "870",
-        "number": "870",
+        "id": "871",
+        "number": "871",
         "name": "website/lip.logos.co",
         "slave": "linux-01",
-        "url": "https://ci.infra.status.im/job/website/job/lip.logos.co/870/"
+        "url": "https://ci.infra.status.im/job/website/job/lip.logos.co/871/"
     }
 }
