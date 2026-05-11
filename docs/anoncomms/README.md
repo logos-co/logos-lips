@@ -1,12 +1,10 @@
 # AnonComms LIPs
 
-AnonComms builds public good protocols for the decentralised web.
-AnonComms acts as a custodian for the protocols that live in the logos-lips repository.
-With the goal of widespread adoption,
-AnonComms will make sure the protocols adhere to a set of principles,
-including but not limited to liberty, security, privacy, decentralisation and inclusivity.
-
-To learn more, visit [AnonComms Research](https://vac.dev/)
+AnonComms cover protocols and cryptographic mechanisms for anonymous,
+private, and censorship-resistant communication.
+This includes mixnets, rate-limiting nullifiers, private membership systems,
+secure discovery, encrypted messaging, and related primitives that let users
+communicate without unnecessary metadata exposure.
 
 <div class="landing-hero">
   <div class="filter-row">

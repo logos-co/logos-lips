@@ -13,8 +13,11 @@
 
 ## Timeline
 
-- **2026-01-26** — [`8bba444`](https://github.com/logos-co/logos-lips/blob/8bba4441aa3601cef6fb75ff5d48b1cd27350a5c/docs/anoncomms/raw/extended-kad-disco.md) — chore: fix lint (#275)
-- **2026-01-23** — [`8164992`](https://github.com/logos-co/logos-lips/blob/8164992534b14b2466fc1117bbeef2ae2d14f249/docs/anoncomms/raw/extended-kad-disco.md) — chore: fix lint
+- **2026-05-11** — [`ae4c4a1`](https://github.com/logos-co/logos-lips/blob/ae4c4a11e4f7b0d09cbfd2333e22295d3df56582/docs/anoncomms/raw/extended-kad-disco.md) — chore: split ift ts specs
+- **2026-04-17** — [`9c6ba99`](https://github.com/logos-co/logos-lips/blob/9c6ba99bf88825f1ce1af64e5e4333e333068d85/docs/ift-ts/raw/extended-kad-disco.md) — removal of the API section of extended kad disco spec (#310)
+- **2026-04-15** — [`5a3e844`](https://github.com/logos-co/logos-lips/blob/5a3e844679a0ac60e6b4e945a64c2f7d8650cba5/docs/ift-ts/raw/extended-kad-disco.md) — Chore/move repo into logos co (#312)
+- **2026-01-26** — [`8bba444`](https://github.com/logos-co/logos-lips/blob/8bba4441aa3601cef6fb75ff5d48b1cd27350a5c/docs/ift-ts/raw/extended-kad-disco.md) — chore: fix lint (#275)
+- **2026-01-23** — [`8164992`](https://github.com/logos-co/logos-lips/blob/8164992534b14b2466fc1117bbeef2ae2d14f249/docs/ift-ts/raw/extended-kad-disco.md) — chore: fix lint
 
 <!-- timeline:end -->
 

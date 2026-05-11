@@ -12,9 +12,10 @@
 
 ## Timeline
 
-- **2026-01-19** — [`f24e567`](https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/anoncomms/raw/gossipsub-tor-push.md) — Chore/updates mdbook (#262)
-- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/anoncomms/raw/gossipsub-tor-push.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/anoncomms/raw/gossipsub-tor-push.md) — Chore/mdbook updates (#258)
+- **2026-05-11** — [`ae4c4a1`](https://github.com/logos-co/logos-lips/blob/ae4c4a11e4f7b0d09cbfd2333e22295d3df56582/docs/anoncomms/raw/gossipsub-tor-push.md) — chore: split ift ts specs
+- **2026-01-19** — [`f24e567`](https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/ift-ts/raw/gossipsub-tor-push.md) — Chore/updates mdbook (#262)
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/ift-ts/raw/gossipsub-tor-push.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/gossipsub-tor-push.md) — Chore/mdbook updates (#258)
 - **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/raw/gossipsub-tor-push.md) — Chore/fix headers (#239)
 - **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/raw/gossipsub-tor-push.md) — Chore/mdbook updates (#237)
 - **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/raw/gossipsub-tor-push.md) — ci: add mdBook configuration (#233)
@@ -117,7 +118,7 @@ Tp-peers MUST support `/meshsub/1.1.0`.
 For retrieving Tp-peers,
 Tp-nodes SHOULD use an ambient peer discovery method
 that retrieves a random peer sample (from the set of all peers),
-e.g. [33/WAKU2-DISCV5](../../messaging/standards/core/33/discv5.md).
+e.g. [33/WAKU2-DISCV5](../../messaging/draft/33/discv5.md).
 
 Tp-nodes MUST establish a connection as described in sub-section
 [Tor Push Connection Establishment](#connection-establishment) to at least one Tp-peer.
@@ -190,7 +191,7 @@ which might be critical to certain applications.
 
 #### Targeting the Gossipsub Network
 
-Without sophisticated rate limiting (for example using [17/WAKU2-RLN-RELAY](../../messaging/standards/core/17/rln-relay.md)),
+Without sophisticated rate limiting (for example using [17/WAKU2-RLN-RELAY](../../messaging/draft/17/rln-relay.md)),
 attackers can spam the gossipsub network.
 It is not enough to just block peers that send too many messages,
 because these messages might actually come from a Tor exit node
@@ -238,6 +239,6 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 * [libp2p switch](https://docs.libp2p.io/concepts/multiplex/switch)
 * [SOCKS5](https://www.rfc-editor.org/rfc/rfc1928)
 * [Tor](https://www.torproject.org/)
-* [33/WAKU2-DISCV5](../../messaging/standards/core/33/discv5.md)
+* [33/WAKU2-DISCV5](../../messaging/draft/33/discv5.md)
 * [Bitcoin over Tor isn't a Good Idea](https://ieeexplore.ieee.org/abstract/document/7163022)
-* [17/WAKU2-RLN-RELAY](../../messaging/standards/core/17/rln-relay.md)
+* [17/WAKU2-RLN-RELAY](../../messaging/draft/17/rln-relay.md)

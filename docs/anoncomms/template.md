@@ -14,7 +14,7 @@
 This section contains meta info about writing LIPs.
 This section (including its subsections) MUST be removed.
 
-[COSS](https://lip.logos.co/process/draft/1/coss.html) explains the Logos LIP process.
+[COSS](https://lip.logos.co/research/draft/1/coss.html) explains the Logos LIP process.
 
 ## Tags
 

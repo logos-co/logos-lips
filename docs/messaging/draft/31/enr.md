@@ -1,0 +1,205 @@
+# 31/WAKU2-ENR
+
+| Field | Value |
+| --- | --- |
+| Name | Waku v2 usage of ENR |
+| Slug | 31 |
+| Status | draft |
+| Type | RFC |
+| Category | Standards Track |
+| Editor | Franck Royer <franck@status.im> |
+
+<!-- timeline:start -->
+
+## Timeline
+
+- **2026-04-20** — [`c3d15a9`](https://github.com/logos-co/logos-lips/blob/c3d15a9c7c24b4d6b0eb4fb578f9670ede6f69b0/docs/messaging/standards/core/31/enr.md) — COSS overhaul: new statuses, CFR type, raw-spec leniency (#308)
+- **2026-04-15** — [`5a3e844`](https://github.com/logos-co/logos-lips/blob/5a3e844679a0ac60e6b4e945a64c2f7d8650cba5/docs/messaging/standards/core/31/enr.md) — Chore/move repo into logos co (#312)
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/messaging/standards/core/31/enr.md) — chore: add math support (#287)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/core/31/enr.md) — Chore/mdbook updates (#258)
+- **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/core/31/enr.md) — Chore/fix headers (#239)
+- **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/core/31/enr.md) — Chore/mdbook updates (#237)
+- **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/core/31/enr.md) — ci: add mdBook configuration (#233)
+- **2025-10-16** — [`e4f5f28`](https://github.com/logos-co/logos-lips/blob/e4f5f28ea3d44ecf6fde2f59cd1d5e094073ec35/waku/standards/core/31/enr.md) — Update WAKU-ENR: Move to Draft (#180)
+
+<!-- timeline:end -->
+
+## Abstract
+
+This specification describes the usage of the ENR (Ethereum Node Records)
+format for [10/WAKU2](../10/waku2.md) purposes.
+The ENR format is defined in [EIP-778](https://eips.ethereum.org/EIPS/eip-778) [[3]](#references).
+
+This specification is an extension of EIP-778,
+ENR used in Waku MUST adhere to both EIP-778 and 31/WAKU2-ENR.
+
+## Motivation
+
+EIP-1459 with the usage of ENR has been implemented [[1]](#references) [[2]](#references) as a discovery protocol for Waku.
+
+EIP-778 specifies a number of pre-defined keys.
+However, the usage of these keys alone does not allow for certain transport capabilities to be encoded,
+such as Websocket.
+Currently, Waku nodes running in a browser only support websocket transport protocol.
+Hence, new ENR keys need to be defined to allow for the encoding of transport protocol other than raw TCP.
+
+### Usage of Multiaddr Format Rationale
+
+One solution would be to define new keys such as `ws` to encode the websocket port of a node.
+However, we expect new transport protocols to be added overtime such as quic.
+Hence, this would only provide a short term solution until another specification would need to be added.
+
+Moreover, secure websocket involves SSL certificates.
+SSL certificates are only valid for a given domain and ip,
+so an ENR containing the following information:
+
+- secure websocket port
+- ipv4 fqdn
+- ipv4 address
+- ipv6 address
+
+Would carry some ambiguity: Is the certificate securing the websocket port valid for the ipv4 fqdn?
+the ipv4 address?
+the ipv6 address?
+
+The [10/WAKU2](../10/waku2.md) protocol family is built on the [libp2p](https://github.com/libp2p/specs) protocol stack.
+Hence, it uses [multiaddr](https://github.com/multiformats/multiaddr) to format network addresses.
+
+Directly storing one or several multiaddresses in the ENR would fix the issues listed above:
+
+- multiaddr is self-describing and support addresses for any network protocol:
+  No new specification would be needed to support encoding other transport protocols in an ENR.
+- multiaddr contains both the host and port information,
+allowing the ambiguity previously described to be resolved.
+
+## Wire Format
+
+### `multiaddrs` ENR key
+
+We define a `multiaddrs` key.
+
+- The value MUST be a list of binary encoded multiaddr prefixed by their size.
+- The size of the multiaddr MUST be encoded in a Big Endian unsigned 16-bit integer.
+- The size of the multiaddr MUST be encoded in 2 bytes.
+- The `secp256k1` value MUST be present on the record;
+  `secp256k1` is defined in [EIP-778](https://eips.ethereum.org/EIPS/eip-778) and
+  contains the compressed secp256k1 public key.
+- The node's peer id SHOULD be deduced from the `secp256k1` value.
+- The multiaddresses SHOULD NOT contain a peer id except for circuit relay addresses
+- For raw TCP & UDP connections details,
+ [EIP-778](https://eips.ethereum.org/EIPS/eip-778) pre-defined keys SHOULD be used;
+  The keys `tcp`, `udp`, `ip` (and `tcp6`, `udp6`, `ip6` for IPv6)
+  are enough to convey all necessary information;
+- To save space, `multiaddrs` key SHOULD only be used for connection details that cannot be represented using the [EIP-778](https://eips.ethereum.org/EIPS/eip-778) pre-defined keys.
+- The 300 bytes size limit as defined by [EIP-778](https://eips.ethereum.org/EIPS/eip-778) still applies;
+  In practice, it is possible to encode 3 multiaddresses in ENR, more or
+  less could be encoded depending on the size of each multiaddress.
+
+### Usage
+
+#### Many connection types
+
+Alice is a Waku node operator, she runs a node that supports inbound connection for the following protocols:
+
+- TCP 10101 on `1.2.3.4`
+- UDP 20202 on `1.2.3.4`
+- TCP 30303 on `1234:5600:101:1::142`
+- UDP 40404 on `1234:5600:101:1::142`
+- Secure Websocket on `wss://example.com:443/`
+- QUIC on `quic://quic.example.com:443/`
+- A circuit relay address `/ip4/1.2.3.4/tcp/55555/p2p/QmRelay/p2p-circuit/p2p/QmAlice`
+
+Alice SHOULD structure the ENR for her node as follows:
+
+| key          | value                                                                                                                                                               |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tcp`        | `10101`                                                                                                                                                             |
+| `udp`        | `20202`                                                                                                                                                             |
+| `tcp6`       | `30303`                                                                                                                                                             |
+| `udp6`       | `40404`                                                                                                                                                             |
+| `ip`         | `1.2.3.4`                                                                                                                                                           |
+| `ip6`        | `1234:5600:101:1::142`                                                                                                                                              |
+| `secp256k1`  | Alice's compressed secp256k1 public key, 33 bytes                                                                                                                   |
+| `multiaddrs` | `len1 \| /dns4/example.com/tcp/443/wss \| len2 \| /dns4/quic.examle.com/tcp/443/quic \| len3 \| /ip4/1.2.3.4/tcp/55555/p2p/QmRelay` |
+
+Where `multiaddrs`:
+
+- `|` is the concatenation operator,
+- `len1` is the length of `/dns4/example.com/tcp/443/wss` byte representation,
+- `len2` is the length of `/dns4/quic.examle.com/tcp/443/quic` byte representation.
+- `len3` is the length of `/ip4/1.2.3.4/tcp/55555/p2p/QmRelay` byte representation.
+ Notice that the `/p2p-circuit` component is not stored, but,
+ since circuit relay addresses are the only one containing a `p2p` component,
+it's safe to assume that any address containing this component is a circuit relay address.
+Decoding this type of multiaddresses would require appending the `/p2p-circuit` component.
+
+#### Raw TCP only
+
+Bob is a node operator that runs a node that supports inbound connection for the following protocols:
+
+- TCP 10101 on `1.2.3.4`
+
+Bob SHOULD structure the ENR for his node as follows:
+
+| key         | value                                           |
+| ----------- | ----------------------------------------------- |
+| `tcp`       | `10101`                                         |
+| `ip`        | `1.2.3.4`                                       |
+| `secp256k1` | Bob's compressed secp256k1 public key, 33 bytes |
+
+As Bob's node's connection details can be represented with EIP-778's pre-defined keys only,
+it is not needed to use the `multiaddrs` key.
+
+### Limitations
+
+Supported key type is `secp256k1` only.
+
+Support for other elliptic curve cryptography such as `ed25519` MAY be used.
+
+### `waku2` ENR key
+
+We define a `waku2` field key:
+
+- The value MUST be an 8-bit flag field,
+  where bits set to `1` indicate `true` and
+  bits set to `0` indicate `false` for the relevant flags.
+- The flag values already defined are set out below,
+  with `bit 7` the most significant bit and `bit 0` the least significant bit.
+
+| bit 7   | bit 6   | bit 5   | bit 4   | bit 3       | bit 2    | bit 1   | bit 0   |
+| ------- | ------- | ------- | ------- | ----------- | -------- | ------- | ------- |
+| `undef` | `undef` | `undef` | `sync` | `lightpush` | `filter` | `store` | `relay` |
+
+- In the scheme above, the flags `sync`, `lightpush`, `filter`, `store` and
+  `relay` correlates with support for protocols with the same name.
+  If a protocol is not supported, the corresponding field MUST be set to `false`.
+  Indicating positive support for any specific protocol is OPTIONAL,
+  though it MAY be required by the relevant application or discovery process.
+- Flags marked as `undef` is not yet defined.
+  These SHOULD be set to `false` by default.
+
+### Key Usage
+
+- A Waku node MAY choose to populate the `waku2` field for enhanced discovery capabilities,
+  such as indicating supported protocols.
+  Such a node MAY indicate support for any specific protocol by setting the corresponding flag to `true`.
+- Waku nodes that want to participate in [Node Discovery Protocol v5](https://github.com/logos-co/logos-lips/blob/main/waku/standards/core/33/discv5.md) [[4]](#references), however,
+  MUST implement the `waku2` key with at least one flag set to `true`.
+- Waku nodes that discovered other participants using Discovery v5,
+  MUST filter out participant records that do not implement this field or
+  do not have at least one flag set to `true`.
+- In addition, such nodes MAY choose to filter participants on specific flags
+ (such as supported protocols),
+  or further interpret the `waku2` field as required by the application.
+
+## Copyright
+
+Copyright and related rights waived via [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
+
+## References
+
+- [1](../10/waku2.md)
+- [2](https://github.com/status-im/nim-waku/pull/690)
+- [3](https://github.com/vacp2p/rfc/issues/462#issuecomment-943869940)
+- [4](https://eips.ethereum.org/EIPS/eip-778)
+- [5](https://github.com/ethereum/devp2p/blob/master/discv5/discv5.md)

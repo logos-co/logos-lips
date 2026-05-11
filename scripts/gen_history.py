@@ -5,6 +5,9 @@ from pathlib import Path
 import re
 
 VERBOSE = False
+PATH_HISTORY_FALLBACKS = (
+    ("docs/research/", "docs/process/"),
+)
 
 
 def log(msg: str):
@@ -115,6 +118,27 @@ def get_repo_file_path(path: str) -> str:
     resolved = out.splitlines()[0]
     debug(f"Resolved path inside repo: {resolved}")
     return resolved
+
+
+def get_history_file_path(path: str) -> Optional[str]:
+    try:
+        return get_repo_file_path(path)
+    except SystemExit:
+        pass
+
+    for current_prefix, historical_prefix in PATH_HISTORY_FALLBACKS:
+        if not path.startswith(current_prefix):
+            continue
+
+        candidate = historical_prefix + path[len(current_prefix):]
+        if run_git_optional(["cat-file", "-e", f"HEAD:{candidate}"]) is None:
+            continue
+
+        debug(f"Using historical path for untracked rename: {path} -> {candidate}")
+        return candidate
+
+    print(f"[WARN] {path!r} is not tracked by git; skipping timeline generation")
+    return None
 
 
 def get_file_commits(path: str) -> List[Tuple[str, str, str, str]]:
@@ -308,7 +332,10 @@ def main():
 
     updated = 0
     for file_path in files:
-        repo_file_path = get_repo_file_path(str(file_path))
+        repo_file_path = get_history_file_path(str(file_path))
+        if repo_file_path is None:
+            continue
+
         commits = get_file_commits(repo_file_path)
         commits = filter_timeline_commits(commits)
         if not commits:

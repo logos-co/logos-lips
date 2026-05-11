@@ -14,6 +14,7 @@
 
 ## Timeline
 
+- **2026-04-20** — [`c3d15a9`](https://github.com/logos-co/logos-lips/blob/c3d15a9c7c24b4d6b0eb4fb578f9670ede6f69b0/docs/storage/deprecated/codex-marketplace.md) — COSS overhaul: new statuses, CFR type, raw-spec leniency (#308)
 - **2026-01-22** — [`e356a07`](https://github.com/logos-co/logos-lips/blob/e356a076aea06653764515babc71c8d69b26358d/docs/storage/deprecated/codex-marketplace.md) — Chore/add makefile (#271)
 - **2026-01-22** — [`af45aae`](https://github.com/logos-co/logos-lips/blob/af45aae01271637142fa931e673dc7c8627f480e/docs/storage/deprecated/codex-marketplace.md) — chore: deprecate Marketplace-related specs (#268)
 - **2026-01-19** — [`f24e567`](https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/storage/raw/codex-marketplace.md) — Chore/updates mdbook (#262)

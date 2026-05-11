@@ -59,6 +59,7 @@
           <a href="${root}blockchain/index.html">Blockchain</a>
           <a href="${root}storage/index.html">Storage</a>
           <a href="${root}anoncomms/index.html">AnonComms</a>
+          <a href="${root}research/index.html">Research</a>
         </div>
       </details>
       <a class="nav-link" href="${root}about.html">About</a>
@@ -99,7 +100,7 @@
     const footer = document.createElement("footer");
     footer.className = "site-footer";
     footer.innerHTML = `
-      <a href="https://vac.dev">AnonComms</a>
+      <a href="https://vac.dev">Logos Research</a>
       <span class="footer-sep">·</span>
       <a href="https://www.ietf.org">IETF</a>
       <span class="footer-sep">·</span>
@@ -363,7 +364,7 @@
     blockchain: "Blockchain",
     storage: "Storage",
     "anoncomms": "AnonComms",
-    process: "Process",
+    research: "Research",
   };
   const hiddenByDefaultStatuses = new Set(["deprecated", "deleted"]);
   const headers = [

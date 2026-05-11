@@ -13,7 +13,8 @@
 
 ## Timeline
 
-- **2026-04-01** — [`b042c3e`](https://github.com/logos-co/logos-lips/blob/b042c3eb64faa0202b3c80d8726d57aacf8ec82c/docs/anoncomms/raw/status-rln-deployment.md) — docs: Initial PR for SN RLN deployment RFC (#286)
+- **2026-05-11** — [`ae4c4a1`](https://github.com/logos-co/logos-lips/blob/ae4c4a11e4f7b0d09cbfd2333e22295d3df56582/docs/anoncomms/raw/status-rln-deployment.md) — chore: split ift ts specs
+- **2026-04-01** — [`b042c3e`](https://github.com/logos-co/logos-lips/blob/b042c3eb64faa0202b3c80d8726d57aacf8ec82c/docs/ift-ts/raw/status-rln-deployment.md) — docs: Initial PR for SN RLN deployment RFC (#286)
 
 <!-- timeline:end -->
 

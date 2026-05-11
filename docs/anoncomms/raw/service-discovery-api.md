@@ -9,6 +9,16 @@
 | Editor | Simon-Pierre Vivier <simvivier@status.im> |
 | Contributors | Hanno Cornelius <hanno@status.im> |
 
+<!-- timeline:start -->
+
+## Timeline
+
+- **2026-05-11** — [`ae4c4a1`](https://github.com/logos-co/logos-lips/blob/ae4c4a11e4f7b0d09cbfd2333e22295d3df56582/docs/anoncomms/raw/service-discovery-api.md) — chore: split ift ts specs
+- **2026-05-07** — [`48600b5`](https://github.com/logos-co/logos-lips/blob/48600b5b4fcdcb89f3d556ee0e4d417526f2919a/docs/ift-ts/raw/service-discovery-api.md) — Migrate logos-messaging/specs into docs/messaging/ (#315)
+- **2026-05-05** — [`ea3f24b`](https://github.com/logos-co/logos-lips/blob/ea3f24b2a68afb9dced51284ce6bfa1dbb7f8ecc/docs/ift-ts/raw/service-discovery-api.md) — New logos service discovery API (#309)
+
+<!-- timeline:end -->
+
 ## Abstract
 
 TODO
@@ -37,7 +47,7 @@ all functions SHOULD return an error result type appropriate to the implementati
 
 ### Type Definitions
 
-```
+```c
 
 typedef struct {
     const uint8_t* bytes;

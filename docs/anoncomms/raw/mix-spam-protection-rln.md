@@ -13,10 +13,12 @@
 
 ## Timeline
 
-- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/anoncomms/raw/mix-spam-protection-rln.md) — chore: add math support (#287)
-- **2026-01-29** — [`3cd2d09`](https://github.com/logos-co/logos-lips/blob/3cd2d090a4c8aa7a762dd9357d21cd73bb57cd15/docs/anoncomms/raw/mix-spam-protection-rln.md) — fix title of doc (#282)
-- **2026-01-29** — [`0e53ebb`](https://github.com/logos-co/logos-lips/blob/0e53ebb1b0d090d1d2957a0164c85c38d81560f8/docs/anoncomms/raw/mix-spam-protection-rln.md) — change header to new format (#279)
-- **2026-01-24** — [`ffca40a`](https://github.com/logos-co/logos-lips/blob/ffca40abfa6b42f239439550cd2fc47fc802f22a/docs/anoncomms/raw/mix-spam-protection-rln.md) — Mix spam and sybil protection protocol using RLN (#252)
+- **2026-05-11** — [`ae4c4a1`](https://github.com/logos-co/logos-lips/blob/ae4c4a11e4f7b0d09cbfd2333e22295d3df56582/docs/anoncomms/raw/mix-spam-protection-rln.md) — chore: split ift ts specs
+- **2026-04-15** — [`5a3e844`](https://github.com/logos-co/logos-lips/blob/5a3e844679a0ac60e6b4e945a64c2f7d8650cba5/docs/ift-ts/raw/mix-spam-protection-rln.md) — Chore/move repo into logos co (#312)
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/ift-ts/raw/mix-spam-protection-rln.md) — chore: add math support (#287)
+- **2026-01-29** — [`3cd2d09`](https://github.com/logos-co/logos-lips/blob/3cd2d090a4c8aa7a762dd9357d21cd73bb57cd15/docs/ift-ts/raw/mix-spam-protection-rln.md) — fix title of doc (#282)
+- **2026-01-29** — [`0e53ebb`](https://github.com/logos-co/logos-lips/blob/0e53ebb1b0d090d1d2957a0164c85c38d81560f8/docs/ift-ts/raw/mix-spam-protection-rln.md) — change header to new format (#279)
+- **2026-01-24** — [`ffca40a`](https://github.com/logos-co/logos-lips/blob/ffca40abfa6b42f239439550cd2fc47fc802f22a/docs/ift-ts/raw/mix-spam-protection-rln.md) — Mix spam and sybil protection protocol using RLN (#252)
 
 <!-- timeline:end -->
 

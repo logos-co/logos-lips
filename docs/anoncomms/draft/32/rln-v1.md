@@ -14,9 +14,11 @@
 
 ## Timeline
 
-- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/anoncomms/raw/32/rln-v1.md) — chore: add math support (#287)
-- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/anoncomms/raw/32/rln-v1.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/anoncomms/raw/32/rln-v1.md) — Chore/mdbook updates (#258)
+- **2026-05-11** — [`ae4c4a1`](https://github.com/logos-co/logos-lips/blob/ae4c4a11e4f7b0d09cbfd2333e22295d3df56582/docs/anoncomms/draft/32/rln-v1.md) — chore: split ift ts specs
+- **2026-04-20** — [`c3d15a9`](https://github.com/logos-co/logos-lips/blob/c3d15a9c7c24b4d6b0eb4fb578f9670ede6f69b0/docs/ift-ts/raw/32/rln-v1.md) — COSS overhaul: new statuses, CFR type, raw-spec leniency (#308)
+- **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/ift-ts/raw/32/rln-v1.md) — chore: add math support (#287)
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/ift-ts/raw/32/rln-v1.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/32/rln-v1.md) — Chore/mdbook updates (#258)
 - **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/32/rln-v1.md) — Chore/fix headers (#239)
 - **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/32/rln-v1.md) — Chore/mdbook updates (#237)
 - **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/32/rln-v1.md) — ci: add mdBook configuration (#233)
@@ -50,7 +52,7 @@ an e-voting system can integrate RLN to contain the voting rate while
 protecting the voters-vote unlinkability.
 Another use case is to protect an anonymous messaging system against DDoS and
 spam attacks by constraining messaging rate of users.
-This latter use case is explained in [17/WAKU2-RLN-RELAY RFC](../../../messaging/standards/core/17/rln-relay.md).
+This latter use case is explained in [17/WAKU2-RLN-RELAY RFC](../../../messaging/draft/17/rln-relay.md).
 
 ## Wire Format Specification
 
@@ -790,7 +792,7 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 
 ## References
 
-- [17/WAKU2-RLN-RELAY RFC](../../../messaging/standards/core/17/rln-relay.md)
+- [17/WAKU2-RLN-RELAY RFC](../../../messaging/draft/17/rln-relay.md)
 - [Interep](https://interep.link/)
 - [incremental Merkle tree algorithm](https://github.com/appliedzkp/incrementalquintree/blob/master/ts/IncrementalQuinTree.ts)
 - [Shamir's Secret sharing scheme](https://en.wikipedia.org/wiki/Shamir%27s_Secret_Sharing)

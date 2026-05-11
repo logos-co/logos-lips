@@ -1,7 +1,7 @@
 # Logos LIP Index
 
 An IETF-style index of Logos-managed LIPs across Storage, Messaging, Blockchain,
-AnonComms, and Process sections. Use the filters below to jump straight to a
+AnonComms, and Research sections. Use the filters below to jump straight to a
 specification.
 
 <div class="landing-hero">
@@ -24,7 +24,7 @@ specification.
       <span class="chip" data-component="blockchain" data-label="Blockchain">Blockchain</span>
       <span class="chip" data-component="storage" data-label="Storage">Storage</span>
       <span class="chip" data-component="anoncomms" data-label="AnonComms">AnonComms</span>
-      <span class="chip" data-component="process" data-label="Process">Process</span>
+      <span class="chip" data-component="research" data-label="Research">Research</span>
     </div>
   </div>
   <div class="filter-row">

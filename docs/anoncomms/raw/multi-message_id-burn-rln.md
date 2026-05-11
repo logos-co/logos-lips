@@ -12,7 +12,8 @@
 
 ## Timeline
 
-- **2026-01-21** — [`70f3cfb`](https://github.com/logos-co/logos-lips/blob/70f3cfb4df4e9a94e56b1284e98ee1dc9df50ac7/docs/anoncomms/raw/multi-message_id-burn-rln.md) — chore: mdbook font fix (#266)
+- **2026-05-11** — [`ae4c4a1`](https://github.com/logos-co/logos-lips/blob/ae4c4a11e4f7b0d09cbfd2333e22295d3df56582/docs/anoncomms/raw/multi-message_id-burn-rln.md) — chore: split ift ts specs
+- **2026-01-21** — [`70f3cfb`](https://github.com/logos-co/logos-lips/blob/70f3cfb4df4e9a94e56b1284e98ee1dc9df50ac7/docs/ift-ts/raw/multi-message_id-burn-rln.md) — chore: mdbook font fix (#266)
 
 <!-- timeline:end -->
 

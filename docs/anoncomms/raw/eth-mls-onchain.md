@@ -13,9 +13,11 @@
 
 ## Timeline
 
-- **2026-01-19** — [`f24e567`](https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/anoncomms/raw/eth-mls-onchain.md) — Chore/updates mdbook (#262)
-- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/anoncomms/raw/eth-mls-onchain.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/anoncomms/raw/eth-mls-onchain.md) — Chore/mdbook updates (#258)
+- **2026-05-11** — [`ae4c4a1`](https://github.com/logos-co/logos-lips/blob/ae4c4a11e4f7b0d09cbfd2333e22295d3df56582/docs/anoncomms/raw/eth-mls-onchain.md) — chore: split ift ts specs
+- **2026-04-15** — [`5a3e844`](https://github.com/logos-co/logos-lips/blob/5a3e844679a0ac60e6b4e945a64c2f7d8650cba5/docs/ift-ts/raw/eth-mls-onchain.md) — Chore/move repo into logos co (#312)
+- **2026-01-19** — [`f24e567`](https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/ift-ts/raw/eth-mls-onchain.md) — Chore/updates mdbook (#262)
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/ift-ts/raw/eth-mls-onchain.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/eth-mls-onchain.md) — Chore/mdbook updates (#258)
 - **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/raw/eth-mls-onchain.md) — Chore/fix headers (#239)
 - **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/raw/eth-mls-onchain.md) — Chore/mdbook updates (#237)
 - **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/raw/eth-mls-onchain.md) — ci: add mdBook configuration (#233)
@@ -41,7 +43,7 @@ offering a robust solution to address these challenges.
 
 This document specifies a private messaging service using the
 Ethereum blockchain as authentication service.
-Rooted in the existing [model](../../messaging/standards/application/20/toy-eth-pm.md),
+Rooted in the existing [model](../../messaging/draft/20/toy-eth-pm.md),
 this proposal addresses the deficiencies related
 to forward privacy and authentication inherent
 in the current framework.

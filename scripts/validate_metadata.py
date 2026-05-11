@@ -22,7 +22,7 @@ EXCLUDE_FILES = {"README.md", "SUMMARY.md", "about.md", "template.md"}
 REQUIRED_FIELDS_ALL = ("name", "slug", "status", "type", "category", "editor")
 REQUIRED_FIELDS_RAW = ("name", "status")
 ALLOWED_STATUS = {"raw", "draft", "approved", "stable", "verified", "deprecated", "retired", "deleted"}
-STATUS_SCOPED_COMPONENTS = {"blockchain", "storage", "anoncomms", "process"}
+STATUS_SCOPED_COMPONENTS = {"messaging", "blockchain", "storage", "anoncomms", "research"}
 ALLOWED_TYPES = {"rfc", "cfr"}
 ALLOWED_CATEGORIES = {
     "standards track",

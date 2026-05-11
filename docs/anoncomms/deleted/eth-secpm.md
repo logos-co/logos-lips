@@ -13,9 +13,11 @@
 
 ## Timeline
 
-- **2026-01-19** — [`f24e567`](https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/anoncomms/raw/deleted/eth-secpm.md) — Chore/updates mdbook (#262)
-- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/anoncomms/raw/deleted/eth-secpm.md) — chore: fix links (#260)
-- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/anoncomms/raw/deleted/eth-secpm.md) — Chore/mdbook updates (#258)
+- **2026-05-11** — [`ae4c4a1`](https://github.com/logos-co/logos-lips/blob/ae4c4a11e4f7b0d09cbfd2333e22295d3df56582/docs/anoncomms/deleted/eth-secpm.md) — chore: split ift ts specs
+- **2026-04-20** — [`c3d15a9`](https://github.com/logos-co/logos-lips/blob/c3d15a9c7c24b4d6b0eb4fb578f9670ede6f69b0/docs/ift-ts/raw/deleted/eth-secpm.md) — COSS overhaul: new statuses, CFR type, raw-spec leniency (#308)
+- **2026-01-19** — [`f24e567`](https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/ift-ts/raw/deleted/eth-secpm.md) — Chore/updates mdbook (#262)
+- **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/ift-ts/raw/deleted/eth-secpm.md) — chore: fix links (#260)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/deleted/eth-secpm.md) — Chore/mdbook updates (#258)
 - **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/raw/deleted/eth-secpm.md) — Chore/fix headers (#239)
 - **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/raw/deleted/eth-secpm.md) — Chore/mdbook updates (#237)
 - **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/raw/deleted/eth-secpm.md) — ci: add mdBook configuration (#233)
@@ -48,7 +50,7 @@ offering a robust solution to address these challenges.
 
 This specification outlines a private messaging service using the
 Ethereum blockchain as authentication service.
-Rooted in the existing [model](../../../messaging/standards/application/20/toy-eth-pm.md),
+Rooted in the existing [model](../../../messaging/draft/20/toy-eth-pm.md),
 this proposal addresses the deficiencies related
 to forward privacy and authentication inherent
 in the current framework.

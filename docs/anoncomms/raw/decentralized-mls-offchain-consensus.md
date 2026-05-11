@@ -13,10 +13,13 @@
 
 ## Timeline
 
-- **2026-04-02** — [`155c310`](https://github.com/logos-co/logos-lips/blob/155c310d7bfad6ea3cd9f68e45c68dad731ff629/docs/anoncomms/raw/decentralized-mls-offchain-consensus.md) — de-MLS RFC name change (#303)
-- **2026-03-29** — [`ff05dbd`](https://github.com/logos-co/logos-lips/blob/ff05dbd51176443b3e548e9575c3610685c32d63/docs/anoncomms/raw/eth-mls-offchain.md) — ETH-MLS-OFFCHAIN RFC multi-steward follow up (#298)
-- **2026-01-19** — [`f24e567`](https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/anoncomms/raw/eth-mls-offchain.md) — Chore/updates mdbook (#262)
-- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/anoncomms/raw/eth-mls-offchain.md) — Chore/mdbook updates (#258)
+- **2026-05-11** — [`ae4c4a1`](https://github.com/logos-co/logos-lips/blob/ae4c4a11e4f7b0d09cbfd2333e22295d3df56582/docs/anoncomms/raw/decentralized-mls-offchain-consensus.md) — chore: split ift ts specs
+- **2026-05-07** — [`a4ef18f`](https://github.com/logos-co/logos-lips/blob/a4ef18f6e0cb77583d8facf57e6056b95e65f5f5/docs/ift-ts/raw/decentralized-mls-offchain-consensus.md) — de-MLS clarifying edge cases (#318)
+- **2026-04-15** — [`5a3e844`](https://github.com/logos-co/logos-lips/blob/5a3e844679a0ac60e6b4e945a64c2f7d8650cba5/docs/ift-ts/raw/decentralized-mls-offchain-consensus.md) — Chore/move repo into logos co (#312)
+- **2026-04-02** — [`155c310`](https://github.com/logos-co/logos-lips/blob/155c310d7bfad6ea3cd9f68e45c68dad731ff629/docs/ift-ts/raw/decentralized-mls-offchain-consensus.md) — de-MLS RFC name change (#303)
+- **2026-03-29** — [`ff05dbd`](https://github.com/logos-co/logos-lips/blob/ff05dbd51176443b3e548e9575c3610685c32d63/docs/ift-ts/raw/eth-mls-offchain.md) — ETH-MLS-OFFCHAIN RFC multi-steward follow up (#298)
+- **2026-01-19** — [`f24e567`](https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/ift-ts/raw/eth-mls-offchain.md) — Chore/updates mdbook (#262)
+- **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/eth-mls-offchain.md) — Chore/mdbook updates (#258)
 - **2025-12-22** — [`0f1855e`](https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/raw/eth-mls-offchain.md) — Chore/fix headers (#239)
 - **2025-12-22** — [`b1a5783`](https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/raw/eth-mls-offchain.md) — Chore/mdbook updates (#237)
 - **2025-12-18** — [`d03e699`](https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/raw/eth-mls-offchain.md) — ci: add mdBook configuration (#233)

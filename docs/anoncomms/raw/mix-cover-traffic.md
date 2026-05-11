@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Name | Mix Cover Traffic |
-| Slug |  |
+| Slug | 161 |
 | Status | raw |
 | Category | Standards Track |
 | Editor | Prem Prathi <prem@status.im> |
@@ -13,11 +13,14 @@
 
 ## Timeline
 
+- **2026-05-11** — [`ae4c4a1`](https://github.com/logos-co/logos-lips/blob/ae4c4a11e4f7b0d09cbfd2333e22295d3df56582/docs/anoncomms/raw/mix-cover-traffic.md) — chore: split ift ts specs
+- **2026-05-11** — [`2aa2bcd`](https://github.com/logos-co/logos-lips/blob/2aa2bcd89c58ccc4453207edeb8269e66a631b48/docs/ift-ts/raw/mix-cover-traffic.md) — feat: Mix Cover Traffic specification (#311)
+
 <!-- timeline:end -->
 
 ## Abstract
 
-This document specifies the cover traffic architecture for the [libp2p Mix Protocol](./mix.md).
+This document specifies the cover traffic architecture for the [libp2p Mix Protocol](mix.md).
 The architecture ensures that an observer cannot distinguish cover traffic from locally originated messages
 by observing a node's emission pattern.
 It defines how cover packets are generated and emitted,
@@ -43,18 +46,18 @@ a node's emission pattern leaks information about whether it is carrying non-cov
 Cover traffic addresses this by ensuring a node's emission pattern does not depend on non-cover traffic volume,
 making it indistinguishable to an observer whether the node is sending locally originated messages or none at all.
 
-The Mix Protocol defines cover traffic as a pluggable component (see [Mix Protocol §6.4](./mix.md#64-cover-traffic)).
+The Mix Protocol defines cover traffic as a pluggable component (see [Mix Protocol §6.4](mix.md#64-cover-traffic)).
 This specification provides a concrete instantiation of that component,
 defining the cover traffic architecture, the rate-limit budget model, and two concrete scheduling strategies.
-The architecture is designed to be compatible with the DoS protection mechanism defined in [Mix DoS Protection](./mix-dos-protection.md)
-and specifically with the [Mix RLN DoS Protection](./mix-spam-protection-rln.md) mechanism.
+The architecture is designed to be compatible with the DoS protection mechanism defined in [Mix DoS Protection](mix-dos-protection.md)
+and specifically with the [Mix RLN DoS Protection](mix-spam-protection-rln.md) mechanism.
 
 ## 2. Terminology
 
 The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL"
 in this document are to be interpreted as described in [RFC 2119](https://datatracker.ietf.org/doc/html/rfc2119).
 
-Other terms used in this document are as defined in the [libp2p Mix Protocol](./mix.md) and [Mix DoS Protection](./mix-dos-protection.md).
+Other terms used in this document are as defined in the [libp2p Mix Protocol](mix.md) and [Mix DoS Protection](mix-dos-protection.md).
 
 The following additional terms are used throughout this specification:
 
@@ -80,12 +83,12 @@ The cover traffic architecture is guided by the following principles:
 - **Sender unobservability**: A node's emission pattern must not depend on non-cover traffic volume,
   making it indistinguishable to an observer whether the node is carrying non-cover traffic or not.
 - **Indistinguishability**: Cover packets are structurally identical to non-cover Sphinx packets in size and routing behavior,
-  preventing packet-level classification. ([Mix Protocol §6.4](./mix.md#64-cover-traffic))
+  preventing packet-level classification. ([Mix Protocol §6.4](mix.md#64-cover-traffic))
 - **Self-exit**: Cover packets SHOULD use loop paths where the originating node is also the exit node.
   This ensures the dummy payload is never decrypted by an external party,
   eliminating the risk of cover classification at the exit.
 - **DoS protection compliance**: All cover traffic operates within the rate-limit budget `R` enforced per epoch.
-  Proofs are epoch-bound and unused slots are discarded at epoch boundaries. ([Mix DoS Protection](./mix-dos-protection.md))
+  Proofs are epoch-bound and unused slots are discarded at epoch boundaries. ([Mix DoS Protection](mix-dos-protection.md))
 - **Slot integrity**: Each rate-limit slot is consumed at most once on the wire per epoch.
   When a non-cover claim reclaims a slot held by a queued cover packet,
   that packet's pre-computed proof is discarded before the slot is reused.
@@ -136,14 +139,14 @@ An alternative Poisson-Rate strategy, where cover emission times are randomized,
 Each mix node receives a budget of `R` slots per epoch from the DoS protection mechanism.
 Cover emission, locally originated message sending, and packet forwarding all draw from the same pool.
 Since each originated packet traverses `L` forwarding hops — where `L` is the mix path length
-as defined in [Mix Protocol §6](./mix.md#6-pluggable-components) —
+as defined in [Mix Protocol §6](mix.md#6-pluggable-components) —
 forwarding traffic naturally consumes a significant portion of the budget.
 
 If every node originates at rate `C` packets per epoch (cover plus locally originated combined),
 each node forwards approximately `C * L` packets per epoch.
 Since origination and forwarding share the same budget `R`:
 
-```
+```text
 C + C * L ≤ R
 C ≤ R / (1 + L)
 ```
@@ -166,9 +169,9 @@ Heavier forwarding load automatically leaves fewer slots for cover; lighter load
 
 **Note on DoS protection architecture:**
 The self-balancing pool model assumes per-hop generated proofs
-([Mix DoS Protection §4.2](./mix-dos-protection.md#42-per-hop-generated-proofs)),
+([Mix DoS Protection §4.2](mix-dos-protection.md#42-per-hop-generated-proofs)),
 where forwarding consumes slots from the node's own `R` budget.
-With sender-generated proofs ([Mix DoS Protection §4.1](./mix-dos-protection.md#41-sender-generated-proofs)),
+With sender-generated proofs ([Mix DoS Protection §4.1](mix-dos-protection.md#41-sender-generated-proofs)),
 forwarding nodes only verify proofs and do not consume their own `R`,
 but cover emission must still account for forwarding load to maintain constant total output.
 The budget model and slot pool semantics for sender-generated proofs require separate analysis
@@ -186,13 +189,13 @@ All mix nodes in a deployment SHOULD use the same strategy type and parameters
 to ensure uniform emission patterns across the anonymity set.
 The configured path length `L` for cover packets
 MUST match the path length used for locally originated messages
-as defined in [Mix Protocol §6](./mix.md#6-pluggable-components).
+as defined in [Mix Protocol §6](mix.md#6-pluggable-components).
 
 ### 5.1 Cover Packet Transmission
 
 **Trigger:** The configured strategy schedules a cover emission.
 
-**[During Sphinx packet construction](./mix.md#85-packet-construction):**
+**[During Sphinx packet construction](mix.md#85-packet-construction):**
 The mechanism constructs a cover Sphinx packet
 following the same construction procedure as a locally originated message,
 with the following differences:
@@ -208,7 +211,7 @@ with the following differences:
 - If pre-computation is enabled, the pre-built cover packet is used directly without re-construction.
 
 **Wire format:**
-Cover packets use the exact Sphinx packet format defined in [Mix Protocol §8](./mix.md#8-sphinx-packet-format).
+Cover packets use the exact Sphinx packet format defined in [Mix Protocol §8](mix.md#8-sphinx-packet-format).
 No additional fields or framing are introduced.
 A cover packet on the wire is indistinguishable from a non-cover traffic packet,
 ensuring that intermediary nodes and external observers cannot classify packets as cover or non-cover.
@@ -233,7 +236,7 @@ a queued cover packet is reclaimed only when no free slots remain
 (_i.e._, when every remaining slot is committed to either non-cover claims already on the wire or pre-built cover in the queue).
 
 On success, the caller then generates a DoS protection proof
-via `GenerateProof(binding_data)` ([Mix DoS Protection §8.2.1](./mix-dos-protection.md#821-proof-generation)),
+via `GenerateProof(binding_data)` ([Mix DoS Protection §8.2.1](mix-dos-protection.md#821-proof-generation)),
 where `binding_data` is the packet-specific data as defined by the DoS protection mechanism.
 
 If the claim fails, the packet SHOULD be handled as follows to avoid hitting DoS protection limits:
@@ -246,7 +249,7 @@ If the claim fails, the packet SHOULD be handled as follows to avoid hitting DoS
 **Procedure:** `ResetEpoch(epoch) -> void`
 
 **Trigger:** The DoS protection mechanism signals the start of a new epoch
-via `OnEpochChange` ([Mix DoS Protection §8.2.3](./mix-dos-protection.md#823-epoch-change-notification)).
+via `OnEpochChange` ([Mix DoS Protection §8.2.3](mix-dos-protection.md#823-epoch-change-notification)).
 The Mix Protocol MUST call `ResetEpoch` before processing any packets in the new epoch.
 
 The mechanism refreshes the slot pool for the new epoch:
@@ -257,11 +260,11 @@ are loaded into the new pool.
 
 Cover packets emitted near epoch end may arrive at later hops in a subsequent epoch.
 The DoS protection mechanism is responsible for accepting proofs within a configurable epoch window
-(_e.g.,_ the `max_epoch_gap` parameter in [Mix RLN DoS Protection](./mix-spam-protection-rln.md)).
+(_e.g.,_ the `max_epoch_gap` parameter in [Mix RLN DoS Protection](mix-spam-protection-rln.md)).
 
 ### 5.4 Cover Packet Reception
 
-**Trigger:** The Mix Protocol completes [exit processing](./mix.md#864-exit-processing) on a received Sphinx packet
+**Trigger:** The Mix Protocol completes [exit processing](mix.md#864-exit-processing) on a received Sphinx packet
 and extracts the origin protocol codec from the decrypted payload.
 
 If the codec matches the cover traffic codec (see [§5](#5-integration-with-the-mix-protocol)),
@@ -271,7 +274,7 @@ Implementations MAY use this reception event for diagnostics such as path health
 (see [§11.2](#112-path-health-monitoring)).
 
 This is handled by the cover traffic codec check
-in [Mix Protocol §8.6.4](./mix.md#864-exit-processing) step 4,
+in [Mix Protocol §8.6.4](mix.md#864-exit-processing) step 4,
 which intercepts cover packets before handing off to the Mix Exit Layer.
 
 Since cover packets use loop paths (see the self-exit principle in [§3](#3-design-principles)),
@@ -286,7 +289,7 @@ leaking information about network-wide cover strategy and volume.
 
 ### 5.5 Data Structures
 
-```
+```text
 PrebuiltCoverPacket {
   slot_id:        bytes                 // Slot identifier within the epoch
   packet:         bytes                 // Pre-built wire-format packet (Sphinx packet + DoS protection proof), ready to transmit
@@ -295,7 +298,7 @@ PrebuiltCoverPacket {
 }
 ```
 
-```
+```text
 SlotPool {
   epoch:              uint64                 // The epoch this pool belongs to
   cover_queue:        []PrebuiltCoverPacket  // Pre-built cover packets, dequeued on emission or reclaimed by non-cover claims
@@ -304,7 +307,7 @@ SlotPool {
 }
 ```
 
-```
+```text
 CoverTrafficConfig {
   strategy_type:  enum { CONSTANT_RATE, POISSON, NONE }
   cover_rate_fraction:  float64    // f ∈ (0.0, 1.0], scales cover rate relative to the maximum safe rate (see §7); RECOMMENDED default 0.7
@@ -333,14 +336,14 @@ The cover traffic mechanism pre-builds cover packets during epoch `N-1` for use 
 For each slot to be pre-computed (at most `R`; see [§9.1](#91-pre-computation-scheduling) for sizing guidance),
 construct a cover Sphinx packet following the procedure in [§5.1](#51-cover-packet-transmission)
 and generate a DoS protection proof for the **next** epoch
-via `GenerateProof(binding_data)` ([Mix DoS Protection §8.2.1](./mix-dos-protection.md#821-proof-generation)).
+via `GenerateProof(binding_data)` ([Mix DoS Protection §8.2.1](mix-dos-protection.md#821-proof-generation)).
 Store the result as a [`PrebuiltCoverPacket`](#55-data-structures).
 Slots without a pre-built packet will require on-demand generation if selected for cover emission.
 Pre-computed proofs are bound to a specific epoch and MUST NOT be reused in subsequent epochs.
 
 **Proof validity over time:**
 Pre-computed proofs may be invalidated within their target epoch, not just across epochs.
-For example, in [Mix RLN DoS Protection](./mix-spam-protection-rln.md),
+For example, in [Mix RLN DoS Protection](mix-spam-protection-rln.md),
 accumulating membership updates can push the root used at generation time
 out of the current `acceptable_root_window_size` before the epoch ends.
 Implementations MUST therefore validate pre-computed proofs at send time
@@ -379,22 +382,22 @@ have already been deducted, so their slots are unavailable to any later claim.
 
 ### 6.3 Locally Originated Message Sending
 
-**[During Sphinx packet construction](./mix.md#85-packet-construction):**
+**[During Sphinx packet construction](mix.md#85-packet-construction):**
 When the Mix Entry Layer submits a locally originated message for mixification,
 the Mix Protocol instance MUST first call `ClaimSlot()` ([§5.2](#52-non-cover-slot-claim)).
 If no slot can be claimed, the message is queued for the next epoch.
 Otherwise, the Mix Protocol instance proceeds with
-[Sphinx packet construction](./mix.md#85-packet-construction).
+[Sphinx packet construction](mix.md#85-packet-construction).
 
 ### 6.4 Packet Forwarding
 
-**[During Sphinx packet handling](./mix.md#86-sphinx-packet-handling):**
+**[During Sphinx packet handling](mix.md#86-sphinx-packet-handling):**
 When the Mix Protocol instance acts as an intermediary and receives a Sphinx packet to forward,
 it MUST first call `ClaimSlot()` ([§5.2](#52-non-cover-slot-claim)) before applying the mixing delay.
 This ensures no two forwarded packets consume the same slot regardless of how their mixing delays overlap.
 If no slot can be claimed, the packet is dropped.
 Otherwise, the Mix Protocol instance proceeds with
-[intermediary processing](./mix.md#863-intermediary-processing).
+[intermediary processing](mix.md#863-intermediary-processing).
 
 **Slot consumption:**
 The slot is consumed on successful `ClaimSlot()`, not on transmission (see [§6.2](#62-cover-emission)).
@@ -408,7 +411,7 @@ independently of the cover emission schedule.
 Before transmitting a pre-built cover packet,
 the mechanism MUST validate the carried DoS protection proof against the current state
 (see [§6.1](#61-at-epoch-boundary) for rationale).
-For [Mix RLN DoS Protection](./mix-spam-protection-rln.md),
+For [Mix RLN DoS Protection](mix-spam-protection-rln.md),
 this means verifying the `merkle_root` bound into the proof
 is still within the node's `acceptable_root_window_size`.
 
@@ -419,7 +422,7 @@ If validation fails, implementations MUST either:
 
 A pre-built packet with a stale proof MUST NOT be sent.
 When regenerating, implementations MAY reuse the message identifier bound to the cover packet
-where the DoS protection mechanism permits (see [Mix RLN DoS Protection](./mix-spam-protection-rln.md)).
+where the DoS protection mechanism permits (see [Mix RLN DoS Protection](mix-spam-protection-rln.md)).
 
 ## 7. Recommended Strategy
 
@@ -704,9 +707,9 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 
 ## References
 
-- [libp2p Mix Protocol](./mix.md)
-- [Mix DoS Protection](./mix-dos-protection.md)
-- [Mix RLN DoS Protection](./mix-spam-protection-rln.md)
+- [libp2p Mix Protocol](mix.md)
+- [Mix DoS Protection](mix-dos-protection.md)
+- [Mix RLN DoS Protection](mix-spam-protection-rln.md)
 - [Loopix: Providing Anonymity in a Message Passing System](https://www.usenix.org/conference/usenixsecurity17/technical-sessions/presentation/piotrowska)
 - [Nym: Mixnet for Network-Level Privacy](https://nymtech.net/nym-whitepaper.pdf)
 - [Blend Protocol](../../blockchain/raw/nomos-blend-protocol.md)
