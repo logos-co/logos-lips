@@ -17,33 +17,40 @@ OUTPUT = DOCS / "SUMMARY.md"
 
 SKIP_FILES = {"README.md", "SUMMARY.md", "template.md"}
 
-TOP_LEVEL = ["messaging", "blockchain", "storage", "ift-ts"]
+TOP_LEVEL = ["messaging", "blockchain", "storage", "anoncomms", "research"]
 
 LABEL_OVERRIDES = {
-    "ift-ts": "IFT-TS",
-    "messaging/standards/core": "Standards - Core",
-    "messaging/standards/application": "Standards - Application",
-    "messaging/standards/legacy": "Standards - Legacy",
-    "messaging/informational": "Informational",
+    "anoncomms": "AnonComms",
+    "messaging/raw": "Raw",
+    "messaging/draft": "Draft",
+    "messaging/stable": "Stable",
     "messaging/deprecated": "Deprecated",
+    "messaging/deleted": "Deleted",
     "blockchain/raw": "Raw",
+    "blockchain/draft": "Draft",
     "blockchain/deprecated": "Deprecated",
     "storage/raw": "Raw",
+    "storage/draft": "Draft",
     "storage/deprecated": "Deprecated",
-    "ift-ts/raw": "Raw",
+    "anoncomms/raw": "Raw",
+    "anoncomms/draft": "Draft",
+    "anoncomms/deleted": "Deleted",
+    "research": "Research",
+    "research/draft": "Draft",
 }
 
 ORDER_OVERRIDES = {
     "messaging": [
-        "standards/core",
-        "standards/application",
-        "standards/legacy",
-        "informational",
+        "raw",
+        "draft",
+        "stable",
         "deprecated",
+        "deleted",
     ],
-    "blockchain": ["raw", "deprecated"],
-    "storage": ["raw", "deprecated"],
-    "ift-ts": ["raw"],
+    "blockchain": ["raw", "draft", "deprecated"],
+    "storage": ["raw", "draft", "deprecated"],
+    "anoncomms": ["raw", "draft", "deleted"],
+    "research": ["draft"],
 }
 
 ACRONYMS = {

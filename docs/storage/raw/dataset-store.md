@@ -53,7 +53,7 @@ The `DatasetStore`/`Dataset` interfaces rely on a few external pseudotypes:
 1. `BytesIO` represents a generic read or write byte stream;
 2. `Bitset` is a fixed-size set - typically represented as a bit array - which encodes an integer set. Bit $i$ in this array is set to $1$ if $i$ is in the set, or $0$ otherwise;
 3. `CID` represents a libp2p [Content Identifier](https://github.com/multiformats/cid);
-4. `Manifest` represents a [Logos Storage Manifest](./datasets.md);
+4. `Manifest` represents a [Logos Storage Manifest](datasets.md);
 5. `Block` represents an arbitrary chunk of data;
 6. `MerkleProof` represents a Merkle inclusion proof for a `Block`.
 

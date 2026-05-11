@@ -1,6 +1,8 @@
 # Logos LIP Index
 
-An IETF-style index of Logos-managed LIPs across Storage, Messaging, Blockchain and IFT-TS components. Use the filters below to jump straight to a specification.
+An IETF-style index of Logos-managed LIPs across Storage, Messaging, Blockchain,
+AnonComms, and Research sections. Use the filters below to jump straight to a
+specification.
 
 <div class="landing-hero">
   <div class="filter-row">
@@ -21,7 +23,8 @@ An IETF-style index of Logos-managed LIPs across Storage, Messaging, Blockchain 
       <span class="chip" data-component="messaging" data-label="Messaging">Messaging</span>
       <span class="chip" data-component="blockchain" data-label="Blockchain">Blockchain</span>
       <span class="chip" data-component="storage" data-label="Storage">Storage</span>
-      <span class="chip" data-component="ift-ts" data-label="IFT-TS">IFT-TS</span>
+      <span class="chip" data-component="anoncomms" data-label="AnonComms">AnonComms</span>
+      <span class="chip" data-component="research" data-label="Research">Research</span>
     </div>
   </div>
   <div class="filter-row">

@@ -3,7 +3,7 @@
 NOTE: This repo is still evolving while the LIP process is refined.
 
 This repository contains specifications from the Messaging, Blockchain, Storage,
-and IFT-TS components of the IFT portfolio. LIPs are Requests for Comments that
+and AnonComms components of the IFT portfolio. LIPs are Requests for Comments that
 document protocols, processes, and system interfaces in a consistent, reviewable
 format.
 
@@ -13,7 +13,7 @@ This repository replaces the old rfc.vac.dev resource. Specs are maintained in
 Markdown here and progress through statuses such as raw, draft, stable, or
 deprecated. The process and lifecycle are defined in:
 
-- 1/COSS: `docs/ift-ts/raw/1/coss.md`
+- 1/COSS: `docs/research/draft/1/coss.md`
 
 ## Contributing
 
@@ -29,7 +29,8 @@ help route it.
 - Messaging: `docs/messaging/README.md`
 - Blockchain: `docs/blockchain/README.md`
 - Storage: `docs/storage/README.md`
-- IFT-TS: `docs/ift-ts/README.md`
+- AnonComms: `docs/anoncomms/README.md`
+- Research: `docs/research/README.md`
 
 ## Local setup
 
