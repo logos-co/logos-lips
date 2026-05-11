@@ -216,7 +216,7 @@ and
 respectively, as basic means for capability discovery.
 These protocols are anyway used by the libp2p connection
 establishment layer Waku is built on.
-We plan to introduce a new IFT-TS capability discovery protocol
+We plan to introduce a new AnonComms capability discovery protocol
 with better anonymity properties and more functionality.
 
 #### Transports

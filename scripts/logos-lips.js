@@ -58,7 +58,7 @@
           <a href="${root}messaging/index.html">Messaging</a>
           <a href="${root}blockchain/index.html">Blockchain</a>
           <a href="${root}storage/index.html">Storage</a>
-          <a href="${root}ift-ts/index.html">IFT-TS</a>
+          <a href="${root}anoncomms/index.html">AnonComms</a>
         </div>
       </details>
       <a class="nav-link" href="${root}about.html">About</a>
@@ -99,7 +99,7 @@
     const footer = document.createElement("footer");
     footer.className = "site-footer";
     footer.innerHTML = `
-      <a href="https://vac.dev">IFT-TS</a>
+      <a href="https://vac.dev">AnonComms</a>
       <span class="footer-sep">·</span>
       <a href="https://www.ietf.org">IETF</a>
       <span class="footer-sep">·</span>
@@ -359,10 +359,11 @@
     unknown: "Unknown"
   };
   const componentLabels = {
-    waku: "Messaging",
-    nomos: "Blockchain",
-    codex: "Storage",
-    vac: "IFT-TS",
+    messaging: "Messaging",
+    blockchain: "Blockchain",
+    storage: "Storage",
+    "anoncomms": "AnonComms",
+    process: "Process",
   };
   const hiddenByDefaultStatuses = new Set(["deprecated", "deleted"]);
   const headers = [

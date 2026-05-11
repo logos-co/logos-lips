@@ -22,6 +22,7 @@ EXCLUDE_FILES = {"README.md", "SUMMARY.md", "about.md", "template.md"}
 REQUIRED_FIELDS_ALL = ("name", "slug", "status", "type", "category", "editor")
 REQUIRED_FIELDS_RAW = ("name", "status")
 ALLOWED_STATUS = {"raw", "draft", "approved", "stable", "verified", "deprecated", "retired", "deleted"}
+STATUS_SCOPED_COMPONENTS = {"blockchain", "storage", "anoncomms", "process"}
 ALLOWED_TYPES = {"rfc", "cfr"}
 ALLOWED_CATEGORIES = {
     "standards track",
@@ -151,6 +152,19 @@ def read_doc(path: Path) -> DocInfo:
     )
 
 
+def lifecycle_status_dir(rel: Path) -> Optional[str]:
+    parts = rel.parts
+    if len(parts) < 4 or parts[0] != "docs":
+        return None
+    component = parts[1]
+    if component not in STATUS_SCOPED_COMPONENTS:
+        return None
+    for part in parts[2:-1]:
+        if part in ALLOWED_STATUS:
+            return part
+    return None
+
+
 def next_free_slug(used: set[int]) -> int:
     candidate = max(used, default=0) + 1
     while candidate in used:
@@ -270,6 +284,18 @@ def validate_doc(doc: DocInfo) -> None:
         doc.errors.append(
             "file is under '/deprecated/' but status is not deprecated/deleted"
         )
+
+    status_dir = lifecycle_status_dir(doc.rel)
+    component = doc.rel.parts[1] if len(doc.rel.parts) > 1 else ""
+    if component in STATUS_SCOPED_COMPONENTS:
+        if not status_dir:
+            doc.errors.append(
+                f"file is under status-scoped component '{component}' but not under a lifecycle status directory"
+            )
+        elif status and status != status_dir:
+            doc.errors.append(
+                f"file is under '/{status_dir}/' but metadata status is '{status}'"
+            )
 
     slug = meta.get("slug", "").strip()
     if slug and not NUMERIC_RE.fullmatch(slug):

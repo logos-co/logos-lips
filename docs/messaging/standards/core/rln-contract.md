@@ -49,7 +49,7 @@ The holder role MUST be assigned at membership registration time to the sender
 (`msg.sender` in Solidity semantics) of the registration transaction.
 The sender of the registration SHOULD have an RLN `identity_commitment` created.
 For more information on `identity_commitment` creation,
-see [32/RLN-V1](https://github.com/logos-co/logos-lips/blob/master/docs/ift-ts/raw/32/rln-v1.md).
+see [32/RLN-V1](https://github.com/logos-co/logos-lips/blob/master/docs/anoncomms/draft/32/rln-v1.md).
 
 Membership registration MAY be initiated by a different entity from the one that controls the RLN `identity_secret`,
 which is associated with the respective RLN `identity_commitment`.
@@ -169,10 +169,10 @@ Membership registration is subject to the following requirements:
 - To register a membership, the holder MUST make a tranasction that locks up a deposit in the contract.
 - The amount of the deposit MUST depend on the specified rate limit.
 - In case of a successful registration:
-	- the new membership MUST become _Active_;
-	- the new membership MUST have an active state duration `A > 0` and
-   	a grace period duration `G >= 0`;
-	- the current total rate limit MUST be incremented by the rate limit of the new membership.
+    - the new membership MUST become _Active_;
+    - the new membership MUST have an active state duration `A > 0` and
+       a grace period duration `G >= 0`;
+    - the current total rate limit MUST be incremented by the rate limit of the new membership.
 
 #### Reusing the rate limit of _Expired_ memberships
 
@@ -184,25 +184,25 @@ The rate limits are defined as follows:
 
 The free rate limit that is available without reusing the rate limit of _Expired_ memberships is defined as follows:
 
-```
+```text
 R_{free} = R_{max} - R_{active} - R_{grace_period} - R_{expired}
 ```
 
 Membership registration is additionally subject to the following requirements:
 
 - If `r <= R_{free}`, the new membership MUST be registered (assuming all other necessary conditions hold).
-	- The new membership MAY erase one or multiple _Expired_ memberships and reuse their rate limit.
+    - The new membership MAY erase one or multiple _Expired_ memberships and reuse their rate limit.
 - If `r > R_{free}`:
-	- if `r > R_{free} + R_{expired}`, registration MUST fail;
-	- if `r <= R_{free} + R_{expired}`, the new membership SHOULD be registered by reusing some _Expired_ memberships.
+    - if `r > R_{free} + R_{expired}`, registration MUST fail;
+    - if `r <= R_{free} + R_{expired}`, the new membership SHOULD be registered by reusing some _Expired_ memberships.
 - The sender of the registration transaction MAY specify a list of _Expired_ memberships to be erased and their rate limit reused.
-	- If any of the memberships in the list are not _Expired_, the registration MUST fail.
-	- If the list is not provided, the contract MAY use any criteria to select _Expired_ memberships to reuse (see [Implementation Suggestions](#implementation-suggestions)).
-	- If the list is not provided, the registration MAY fail even if the membership set contains _Expired_ membership that, if erased, would free up sufficient rate limit.
+    - If any of the memberships in the list are not _Expired_, the registration MUST fail.
+    - If the list is not provided, the contract MAY use any criteria to select _Expired_ memberships to reuse (see [Implementation Suggestions](#implementation-suggestions)).
+    - If the list is not provided, the registration MAY fail even if the membership set contains _Expired_ membership that, if erased, would free up sufficient rate limit.
 - If a new membership A erases an _Expired_ membership B to reuse its rate limit:
-	- membership B MUST become _ErasedAwaitsWithdrawal_;
-	- the current total rate limit MUST be decremented by the rate limit of membership B;
-	- the contract MUST take all necessary steps to ensure that the holder of membership B can withdraw their deposit later.
+    - membership B MUST become _ErasedAwaitsWithdrawal_;
+    - the current total rate limit MUST be decremented by the rate limit of membership B;
+    - the contract MUST take all necessary steps to ensure that the holder of membership B can withdraw their deposit later.
 
 [^3]: A user-facing application SHOULD suggest default rate limits to the holder (see [Implementation Suggestions](#implementation-suggestions)).
 
@@ -386,4 +386,4 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 - [Rate-Limiting Nullifier](https://rate-limiting-nullifier.github.io/rln-docs/)
 - [11/WAKU2-RELAY](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/11/relay.md)
 - [17/WAKU2-RLN-RELAY](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/17/rln-relay.md)
-- [32/RLN-V1](https://github.com/logos-co/logos-lips/blob/master/docs/ift-ts/raw/32/rln-v1.md)
+- [32/RLN-V1](https://github.com/logos-co/logos-lips/blob/master/docs/anoncomms/draft/32/rln-v1.md)

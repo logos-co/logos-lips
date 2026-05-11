@@ -38,7 +38,7 @@
 
 This specification describes the `17/WAKU2-RLN-RELAY` protocol,
 which is an extension of [`11/WAKU2-RELAY`](../11/relay.md)
-to provide spam protection using [Rate Limiting Nullifiers (RLN)](../../../../ift-ts/raw/32/rln-v1.md).
+to provide spam protection using [Rate Limiting Nullifiers (RLN)](../../../../anoncomms/draft/32/rln-v1.md).
 
 The security objective is to contain spam activity in the [64/WAKU-NETWORK](../64/network.md)
 by enforcing a global messaging rate to all the peers.
@@ -56,7 +56,7 @@ Other reputation-based approaches might not be desirable,
 due to issues around arbitrary exclusion and privacy.
 
 We augment the [`11/WAKU2-RELAY`](../11/relay.md) protocol
-with a novel construct of [RLN](../../../../ift-ts/raw/32/rln-v1.md)
+with a novel construct of [RLN](../../../../anoncomms/draft/32/rln-v1.md)
 to enable an efficient economic spam prevention mechanism
 that can be run in resource-constrained environments.
 
@@ -88,13 +88,13 @@ with a specific `contentTopic` published on a `pubsubTopic`.
 
 #### Setup and Registration
 
-A `pubsubTopic` that is spam-protected requires subscribed peers to form a [RLN group](../../../../ift-ts/raw/32/rln-v1.md).
+A `pubsubTopic` that is spam-protected requires subscribed peers to form a [RLN group](../../../../anoncomms/draft/32/rln-v1.md).
 
 - Peers MUST be registered to the RLN group to be able to publish messages.
 - Registration MAY be moderated through a smart contract
 deployed on the Ethereum blockchain.
 
-Each peer has an [RLN key pair](../../../../ift-ts/raw/32/rln-v1.md) denoted by `sk`
+Each peer has an [RLN key pair](../../../../anoncomms/draft/32/rln-v1.md) denoted by `sk`
 and `pk`.
 
 - The secret key `sk` is secret data and MUST be persisted securely by the peer.
@@ -143,7 +143,7 @@ for the same `epoch` are guaranteed to have identical `nullifier`s.
 - The `share_x` and
 `share_y` can be seen as partial disclosure of peer's `sk` for the intended `epoch`.
 They are derived deterministically from peer's `sk` and
-current `epoch` using [Shamir secret sharing scheme](../../../../ift-ts/raw/32/rln-v1.md).
+current `epoch` using [Shamir secret sharing scheme](../../../../anoncomms/draft/32/rln-v1.md).
 
 If a peer discloses more than one such pair (`share_x`, `share_y`) for the same `epoch`,
 it would allow full disclosure of its  `sk` and
@@ -156,7 +156,7 @@ the peer's identity commitment key, `pk`,
 is part of the membership group Merkle tree with the root `merkle_root`.
 2. `share_x` and `share_y` are correctly computed.
 3. The `nullifier` is constructed correctly.
-For more details about the proof generation check [RLN](../../../../ift-ts/raw/32/rln-v1.md)
+For more details about the proof generation check [RLN](../../../../anoncomms/draft/32/rln-v1.md)
 The proof generation relies on the knowledge of two pieces of private information
 i.e., `sk` and `authPath`.
 The `authPath` is a subset of Merkle tree nodes
@@ -248,7 +248,7 @@ on choosing an appropriate `acceptable_root_window_size`.
 ##### Proof Verification
 
 The routing peers MUST check whether the zero-knowledge proof `proof` is valid.
-It does so by running the zk verification algorithm as explained in [RLN](../../../../ift-ts/raw/32/rln-v1.md).
+It does so by running the zk verification algorithm as explained in [RLN](../../../../anoncomms/draft/32/rln-v1.md).
 If `proof` is invalid then the message MUST be discarded.
 
 ##### Spam detection
@@ -322,8 +322,8 @@ Below is the description of the fields of `RateLimitProof` and their types.
 | ----: | ----------- | ----------- |
 | `proof` | array of 256 bytes uncompressed or 128 bytes compressed | the zkSNARK proof as explained in the [Publishing process](#publishing) |
 | `merkle_root` | array of 32 bytes in little-endian order | the root of membership group Merkle tree at the time of publishing the message |
-| `share_x` and `share_y`| array of 32 bytes each | Shamir secret shares of the user's secret identity key `sk` . `share_x` is the Poseidon hash of the `WakuMessage`'s `payload` concatenated with its `contentTopic` . `share_y` is calculated using [Shamir secret sharing scheme](../../../../ift-ts/raw/32/rln-v1.md) |
-| `nullifier`  | array of 32 bytes | internal nullifier derived from `epoch` and peer's `sk` as explained in [RLN construct](../../../../ift-ts/raw/32/rln-v1.md)|
+| `share_x` and `share_y`| array of 32 bytes each | Shamir secret shares of the user's secret identity key `sk` . `share_x` is the Poseidon hash of the `WakuMessage`'s `payload` concatenated with its `contentTopic` . `share_y` is calculated using [Shamir secret sharing scheme](../../../../anoncomms/draft/32/rln-v1.md) |
+| `nullifier`  | array of 32 bytes | internal nullifier derived from `epoch` and peer's `sk` as explained in [RLN construct](../../../../anoncomms/draft/32/rln-v1.md)|
 
 ### Recommended System Parameters
 
@@ -397,7 +397,7 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 
 1. [`11/WAKU2-RELAY`](../11/relay.md)
 2. [64/WAKU-NETWORK](../64/network.md)
-3. [RLN](../../../../ift-ts/raw/32/rln-v1.md)
+3. [RLN](../../../../anoncomms/draft/32/rln-v1.md)
 4. [14/WAKU2-MESSAGE](../14/message.md)
 5. [RLN documentation](https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view)
 6. [Public inputs to the RLN circuit](https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Public-Inputs)

@@ -123,7 +123,7 @@ a topic in Waku v1 (Status chat), WalletConnect, and SuperRare community.
 This is a separate component with its own topology.
 
 Behavior and interaction with other protocols specified in Logos LIPs,
-e.g. [25/LIBP2P-DNS-DISCOVERY](/ift-ts/raw/25/libp2p-dns-discovery.md)
+e.g. [25/LIBP2P-DNS-DISCOVERY](/anoncomms/deleted/25/libp2p-dns-discovery.md)
 and [15/WAKU-BRIDGE](/messaging/standards/core/15/bridge.md).
 
 ### Node Cross Section
@@ -141,5 +141,5 @@ Copyright and related rights waived via
 ## References
 
 - [11/WAKU2-RELAY](/messaging/standards/core/11/relay.md)
-- [25/LIBP2P-DNS-DISCOVERY](/ift-ts/raw/25/libp2p-dns-discovery.md)
+- [25/LIBP2P-DNS-DISCOVERY](/anoncomms/deleted/25/libp2p-dns-discovery.md)
 - [15/WAKU-BRIDGE](/messaging/standards/core/15/bridge.md)

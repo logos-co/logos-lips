@@ -17,20 +17,26 @@ OUTPUT = DOCS / "SUMMARY.md"
 
 SKIP_FILES = {"README.md", "SUMMARY.md", "template.md"}
 
-TOP_LEVEL = ["messaging", "blockchain", "storage", "ift-ts"]
+TOP_LEVEL = ["messaging", "blockchain", "storage", "anoncomms", "process"]
 
 LABEL_OVERRIDES = {
-    "ift-ts": "IFT-TS",
+    "anoncomms": "AnonComms",
     "messaging/standards/core": "Standards - Core",
     "messaging/standards/application": "Standards - Application",
     "messaging/standards/legacy": "Standards - Legacy",
     "messaging/informational": "Informational",
     "messaging/deprecated": "Deprecated",
     "blockchain/raw": "Raw",
+    "blockchain/draft": "Draft",
     "blockchain/deprecated": "Deprecated",
     "storage/raw": "Raw",
+    "storage/draft": "Draft",
     "storage/deprecated": "Deprecated",
-    "ift-ts/raw": "Raw",
+    "anoncomms/raw": "Raw",
+    "anoncomms/draft": "Draft",
+    "anoncomms/deleted": "Deleted",
+    "process": "Process",
+    "process/draft": "Draft",
 }
 
 ORDER_OVERRIDES = {
@@ -41,9 +47,10 @@ ORDER_OVERRIDES = {
         "informational",
         "deprecated",
     ],
-    "blockchain": ["raw", "deprecated"],
-    "storage": ["raw", "deprecated"],
-    "ift-ts": ["raw"],
+    "blockchain": ["raw", "draft", "deprecated"],
+    "storage": ["raw", "draft", "deprecated"],
+    "anoncomms": ["raw", "draft", "deleted"],
+    "process": ["draft"],
 }
 
 ACRONYMS = {

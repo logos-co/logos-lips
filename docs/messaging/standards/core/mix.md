@@ -15,7 +15,7 @@
 
 # Abstract
 
-The document describes [libp2p mix](https://lip.logos.co/ift-ts/raw/mix.html) integration into waku.
+The document describes [libp2p mix](https://lip.logos.co/anoncomms/raw/mix.html) integration into waku.
 This integration provides higher anonymity for users publishing or querying for messages to/from the Waku network.
 
 This document covers integration of mix with [lightpush](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/19/lightpush.md) and [store](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/13/store.md) protocols.
@@ -57,11 +57,11 @@ Sender Node that would like to use `mix` protocol SHOULD discover enough mix nod
 The pool size of mix nodes SHOULD be large enough for the mixing to be effective.
 We RECOMMEND a pool size of at least 100 mix nodes for the mixing to be effective.
 
-The serialized [Waku Message](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/14/message.md) MUST be the payload in the [sphinx packet](https://github.com/logos-co/logos-lips/blob/master/docs/ift-ts/raw/mix.md#4-sphinx-packet-format).
+The serialized [Waku Message](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/14/message.md) MUST be the payload in the [sphinx packet](https://github.com/logos-co/logos-lips/blob/master/docs/anoncomms/raw/mix.md#4-sphinx-packet-format).
 
 To allow acknowledgments from the `service-node` while preserving sender anonymity, `Single Use Reply Blocks` or `anonymous replies` as specified in the original [sphinx](#references) paper SHALL be used.
 
-A node that sends messages using `mix` MAY use two redundant (paths)[https://github.com/logos-co/logos-lips/blob/master/docs/ift-ts/raw/mix.md#24-node-discovery] to have better reliability of the message being delivered.
+A node that sends messages using `mix` MAY use two redundant [paths](https://github.com/logos-co/logos-lips/blob/master/docs/anoncomms/raw/mix.md#24-node-discovery) to have better reliability of the message being delivered.
 It is up to the higher-layer mixed protocol to deduplicate redundant messages received in this way.
 
 ## Node Roles
@@ -138,7 +138,7 @@ Copyright and related rights waived via
 
 ## References
 
-- [libp2p mix](https://lip.logos.co/ift-ts/raw/mix.html)
+- [libp2p mix](https://lip.logos.co/anoncomms/raw/mix.html)
 - [waku lightpush](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/19/lightpush.md)
 - [waku relay](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/11/relay.md)
 - [ENR](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/standards/core/enr.md)

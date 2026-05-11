@@ -393,7 +393,7 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 * [13/WAKU2-STORE](../13/store.md)
 * [19/WAKU2-LIGHTPUSH](../19/lightpush.md)
 * [34/WAKU2-PEER-EXCHANGE](../34/peer-exchange.md)
-* [32/RLN-V1](../../../../ift-ts/raw/32/rln-v1.md)
+* [32/RLN-V1](../../../../anoncomms/draft/32/rln-v1.md)
 * [RLN-V2](https://github.com/logos-co/logos-lips/blob/a5b24ac0a27da361312260f9da372a0e6e812212/vac/raw/rln-v2.md)
 * [14/WAKU2-MESSAGE](../14/message.md)
 * [gossipsub v1.1 validation](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#extended-validators)
