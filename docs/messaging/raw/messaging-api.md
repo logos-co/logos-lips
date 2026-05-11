@@ -578,7 +578,7 @@ types:
         type: EventConnectionStatusChange
       "content_topic_health_change":
         type: EventContentTopicHealthChange
-      "health_shard_topic_health_change":
+      "shard_topic_health_change":
         type: EventShardTopicHealthChange
 ```
 
