@@ -193,6 +193,7 @@
 </div><!-- timeline:start -->
 <h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
 <ul>
+<li><strong>2026-05-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/cd783d494e935bf9212aae81668f56a3288aba62/docs/messaging/raw/messaging-api.md"><code>cd783d4</code></a> — adjust event defs to messaging-api implementation in logos-delivery (#333)</li>
 <li><strong>2026-05-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/1ac7689ee3fe1665d5d5d1bf9c180ed951cc660d/docs/messaging/raw/messaging-api.md"><code>1ac7689</code></a> — chore: split ift ts specs (#334)</li>
 <li><strong>2026-05-07</strong> — <a href="https://github.com/logos-co/logos-lips/blob/48600b5b4fcdcb89f3d556ee0e4d417526f2919a/docs/messaging/standards/application/messaging-api.md"><code>48600b5</code></a> — Migrate logos-messaging/specs into docs/messaging/ (#315)</li>
 </ul>
@@ -297,7 +298,7 @@ Hence, instead of having the reader learn a new IDL, we propose to use a simple 
       - functions: "camelCase"
       - variables: "camelCase"
       - types: "PascalCase"
-    event_emitter: "Use EventEmitter object with `emit`, `addListener`, etc; with event name the string specified in IDL. For example. eventEmitter.emit('message:sent',...)"
+    event_emitter: "Use EventEmitter object with `emit`, `addListener`, etc; with event name the string specified in IDL. For example. eventEmitter.emit('message_sent',...)"
   nim:
     naming_convention:
       - functions: "camelCase"
@@ -535,6 +536,9 @@ whereas <code>core</code> SHOULD be used if node has no strong hardware or bandw
     type: object
     description: "Event emitted when a message is received from the network"
     fields:
+      message_hash:
+        type: string
+        description: "Hash of the received message"
       message:
         type: MessageEnvelope
         description: "The received message's payload and metadata"
@@ -550,7 +554,7 @@ whereas <code>core</code> SHOULD be used if node has no strong hardware or bandw
         type: string
         description: "Hash of the message that got sent to the network"
 
-  MessageSendErrorEvent:
+  MessageErrorEvent:
     type: object
     description: "Event emitted when a message send operation fails"
     fields:
@@ -564,7 +568,7 @@ whereas <code>core</code> SHOULD be used if node has no strong hardware or bandw
         type: string
         description: "Error message describing what went wrong"
 
-  MessageSendPropagatedEvent:
+  MessagePropagatedEvent:
     type: object
     description: "Confirmation that a message has been correctly delivered to some neighbouring nodes."
     fields:
@@ -579,14 +583,14 @@ whereas <code>core</code> SHOULD be used if node has no strong hardware or bandw
     type: event_emitter
     description: "Event source for message-related events"
     events:
-      "message:received":
+      "message_received":
         type: MessageReceivedEvent
-      "message:sent":
+      "message_sent":
         type: MessageSentEvent
-      "message:send-error":
-        type: MessageSendErrorEvent
-      "message:send-propagated":
-        type: MessageSendPropagatedEvent
+      "message_error":
+        type: MessageErrorEvent
+      "message_propagated":
+        type: MessagePropagatedEvent
 </code></pre>
 <h4 id="messaging-function-definitions"><a class="header" href="#messaging-function-definitions">Messaging function definitions</a></h4>
 <pre><code class="language-yaml">functions:
@@ -666,24 +670,56 @@ This MAY trigger joining a new shard if not already set.</p>
     values: [Disconnected, PartiallyConnected, Connected]
     description: "Used to identify health of the operating node"
 
-  HealthConnectionStatusEvent:
+  TopicHealth:
+    type: enum
+    values: [UNHEALTHY, MINIMALLY_HEALTHY, SUFFICIENTLY_HEALTHY, NOT_SUBSCRIBED]
+    description: "Used to identify health of a subscribed topic or shard"
+
+  EventConnectionStatusChange:
     type: object
-    description: "Event emitted when the overall node health status changes"
+    description: "Event emitted when the overall node connection status changes"
     fields:
-      connection-status:
+      connection_status:
         type: ConnectionStatus
         description: "The node's new connection status"
+
+  EventContentTopicHealthChange:
+    type: object
+    description: "Event emitted when health of a subscribed content topic changes"
+    fields:
+      content_topic:
+        type: string
+        description: "The content topic whose health changed"
+      health:
+        type: TopicHealth
+        description: "The new health status of the content topic"
+
+  EventShardTopicHealthChange:
+    type: object
+    description: "Event emitted when health of a shard (pubsub topic) changes"
+    fields:
+      topic:
+        type: string
+        description: "The pubsub topic (shard) whose health changed"
+      health:
+        type: TopicHealth
+        description: "The new health status of the shard"
 
   HealthEvents:
     type: event_emitter
     description: "Event source for health-related events."
     events:
-      "health:connection-status":
-        type: HealthConnectionStatusEvent
+      "connection_status_change":
+        type: EventConnectionStatusChange
+      "content_topic_health_change":
+        type: EventContentTopicHealthChange
+      "shard_topic_health_change":
+        type: EventShardTopicHealthChange
 </code></pre>
 <h4 id="health-function-definitions"><a class="header" href="#health-function-definitions">Health function definitions</a></h4>
 <p>TODO</p>
 <h4 id="health-extended-definitions"><a class="header" href="#health-extended-definitions">Health extended definitions</a></h4>
+<p><strong><code>EventConnectionStatusChange</code></strong>:</p>
 <p><code>Disconnected</code> indicates that the node has lost connectivity for message reception,
 sending, or both, and as a result, it cannot reliably receive or transmit messages.</p>
 <p><code>PartiallyConnected</code> indicates that the node meets the minimum operational requirements:
@@ -693,6 +729,11 @@ and one peer with <a href="https://lip.logos.co/messaging/draft/13/store.html">S
 although performance or reliability may still be impacted.</p>
 <p><code>Connected</code> indicates that the node is operating optimally,
 with full support for message reception and transmission.</p>
+<p><strong><code>EventContentTopicHealthChange</code></strong> and <strong><code>EventShardTopicHealthChange</code></strong>:</p>
+<p><code>NOT_SUBSCRIBED</code> indicates that the node is not subscribed to the topic.</p>
+<p><code>UNHEALTHY</code> indicates that the node has no peers on the topic.</p>
+<p><code>MINIMALLY_HEALTHY</code> indicates that the node has at least one peer on the topic but has not reached the healthy threshold.</p>
+<p><code>SUFFICIENTLY_HEALTHY</code> indicates that the node has reached the healthy threshold of peers on the topic.</p>
 <h3 id="debug"><a class="header" href="#debug">Debug</a></h3>
 <h4 id="debug-function-definitions"><a class="header" href="#debug-function-definitions">Debug function definitions</a></h4>
 <pre><code class="language-yaml">functions:
