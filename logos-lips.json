@@ -419,7 +419,7 @@
     "title": "Mix DoS Protection",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-05-04",
+    "updated": "2026-05-11",
     "path": "ift-ts/raw/mix-dos-protection.html"
   },
   {
@@ -439,6 +439,15 @@
     "category": "Standards Track",
     "updated": "2026-05-07",
     "path": "ift-ts/raw/service-discovery-api.html"
+  },
+  {
+    "component": "ift-ts",
+    "slug": "161",
+    "title": "Mix Cover Traffic",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "ift-ts/raw/mix-cover-traffic.html"
   },
   {
     "component": "ift-ts",
@@ -509,7 +518,7 @@
     "title": "LIBP2P-MIX",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-04-30",
+    "updated": "2026-05-11",
     "path": "ift-ts/raw/mix.html"
   },
   {
@@ -577,7 +586,7 @@
   },
   {
     "component": "messaging",
-    "slug": "161",
+    "slug": "162",
     "title": "Waku v2 Adversarial Models and Attack-based Threat List",
     "status": "raw",
     "category": "Informational",
@@ -586,7 +595,7 @@
   },
   {
     "component": "messaging",
-    "slug": "162",
+    "slug": "163",
     "title": "Roles and Entities Used in Chat Protocol Documentation",
     "status": "raw",
     "category": "Informational",
@@ -595,7 +604,7 @@
   },
   {
     "component": "messaging",
-    "slug": "163",
+    "slug": "164",
     "title": "Shared definitions for Chat Protocols",
     "status": "raw",
     "category": "Informational",
@@ -604,7 +613,7 @@
   },
   {
     "component": "messaging",
-    "slug": "164",
+    "slug": "165",
     "title": "Waku v2 Relay Static Shard Allocation",
     "status": "raw",
     "category": "Informational",
@@ -613,7 +622,7 @@
   },
   {
     "component": "messaging",
-    "slug": "165",
+    "slug": "166",
     "title": "Waku v2 Dandelion",
     "status": "raw",
     "category": "Standards Track",
@@ -622,7 +631,7 @@
   },
   {
     "component": "messaging",
-    "slug": "166",
+    "slug": "167",
     "title": "Device pairing and secure transfers with Noise",
     "status": "raw",
     "category": "Standards Track",
@@ -631,7 +640,7 @@
   },
   {
     "component": "messaging",
-    "slug": "167",
+    "slug": "168",
     "title": "Messaging API definition",
     "status": "raw",
     "category": "Standards Track",
@@ -640,21 +649,12 @@
   },
   {
     "component": "messaging",
-    "slug": "168",
+    "slug": "169",
     "title": "Session Management for Waku Noise",
     "status": "raw",
     "category": "Standards Track",
     "updated": "2026-05-07",
     "path": "messaging/standards/application/noise-sessions.html"
-  },
-  {
-    "component": "messaging",
-    "slug": "169",
-    "title": "Noise Protocols for Waku Payload Encryption",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-05-07",
-    "path": "messaging/standards/application/noise.html"
   },
   {
     "component": "messaging",
@@ -668,6 +668,15 @@
   {
     "component": "messaging",
     "slug": "170",
+    "title": "Noise Protocols for Waku Payload Encryption",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-07",
+    "path": "messaging/standards/application/noise.html"
+  },
+  {
+    "component": "messaging",
+    "slug": "171",
     "title": "OpChan Decentralized Forum",
     "status": "raw",
     "category": "Standards Track",
@@ -676,7 +685,7 @@
   },
   {
     "component": "messaging",
-    "slug": "171",
+    "slug": "172",
     "title": "Waku P2P Reliability",
     "status": "raw",
     "category": "Standards Track",
@@ -685,7 +694,7 @@
   },
   {
     "component": "messaging",
-    "slug": "172",
+    "slug": "173",
     "title": "Reliable Channel API definition",
     "status": "raw",
     "category": "Standards Track",
@@ -694,7 +703,7 @@
   },
   {
     "component": "messaging",
-    "slug": "173",
+    "slug": "174",
     "title": "Waku RLN Keystore",
     "status": "raw",
     "category": "Standards Track",
@@ -703,7 +712,7 @@
   },
   {
     "component": "messaging",
-    "slug": "174",
+    "slug": "175",
     "title": "Incentivization for Waku Light Protocols",
     "status": "raw",
     "category": "Standards Track",
@@ -712,7 +721,7 @@
   },
   {
     "component": "messaging",
-    "slug": "175",
+    "slug": "176",
     "title": "Waku Light Push",
     "status": "raw",
     "category": "Standards Track",
@@ -721,7 +730,7 @@
   },
   {
     "component": "messaging",
-    "slug": "176",
+    "slug": "177",
     "title": "Waku Mix",
     "status": "raw",
     "category": "Standards Track",
@@ -730,7 +739,7 @@
   },
   {
     "component": "messaging",
-    "slug": "177",
+    "slug": "178",
     "title": "Waku v2 Relay Sharding",
     "status": "raw",
     "category": "Standards Track",
@@ -739,21 +748,12 @@
   },
   {
     "component": "messaging",
-    "slug": "178",
+    "slug": "179",
     "title": "Waku Rendezvous discovery",
     "status": "raw",
     "category": "Standards Track",
     "updated": "2026-05-07",
     "path": "messaging/standards/core/rendezvous.html"
-  },
-  {
-    "component": "messaging",
-    "slug": "179",
-    "title": "Waku2 RLN Contract Specification",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-05-07",
-    "path": "messaging/standards/core/rln-contract.html"
   },
   {
     "component": "messaging",
@@ -767,6 +767,15 @@
   {
     "component": "messaging",
     "slug": "180",
+    "title": "Waku2 RLN Contract Specification",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-07",
+    "path": "messaging/standards/core/rln-contract.html"
+  },
+  {
+    "component": "messaging",
+    "slug": "181",
     "title": "Waku Store Synchronization",
     "status": "raw",
     "category": "Standards Track",
@@ -775,7 +784,7 @@
   },
   {
     "component": "messaging",
-    "slug": "181",
+    "slug": "182",
     "title": "Waku Sync",
     "status": "raw",
     "category": "Standards Track",
