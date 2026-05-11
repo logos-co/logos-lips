@@ -1,0 +1,1459 @@
+<!DOCTYPE HTML>
+<html lang="en" class="ayu" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>ETH-SECPM - Logos LIP</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../highlight.css">
+        <link rel="stylesheet" href="../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../../theme/katex/katex.min.css">
+        <link rel="stylesheet" href="../../theme/fonts/fonts.css">
+        <link rel="stylesheet" href="../../theme/FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../custom.css">
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "ayu";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('ayu')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../../index.html">Introduction</a></li><li class="chapter-item expanded affix "><a href="../../about.html">About</a></li><li class="chapter-item expanded "><a href="../../messaging/index.html"><strong aria-hidden="true">1.</strong> Messaging</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/raw/index.html"><strong aria-hidden="true">1.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/raw/adversarial-models.html"><strong aria-hidden="true">1.1.1.</strong> ADVERSARIAL-MODELS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/chat-cast.html"><strong aria-hidden="true">1.1.2.</strong> CHAT-CAST</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/chatdefs.html"><strong aria-hidden="true">1.1.3.</strong> CHAT-DEFINITIONS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/dandelion.html"><strong aria-hidden="true">1.1.4.</strong> DANDELION</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/messaging-api.html"><strong aria-hidden="true">1.1.5.</strong> MESSAGING-API</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/opchan.html"><strong aria-hidden="true">1.1.6.</strong> OP-CHAN</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/relay-sharding.html"><strong aria-hidden="true">1.1.7.</strong> RELAY-SHARDING</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/relay-static-shard-alloc.html"><strong aria-hidden="true">1.1.8.</strong> RELAY-STATIC-SHARD-ALLOC</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/reliable-channel-api.html"><strong aria-hidden="true">1.1.9.</strong> RELIABLE-CHANNEL-API</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/lightpush.html"><strong aria-hidden="true">1.1.10.</strong> WAKU-LIGHTPUSH</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/mix.html"><strong aria-hidden="true">1.1.11.</strong> WAKU-MIX</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/p2p-reliability.html"><strong aria-hidden="true">1.1.12.</strong> WAKU-P2P-RELIABILITY</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/rendezvous.html"><strong aria-hidden="true">1.1.13.</strong> WAKU-RENDEZVOUS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/rln-keystore.html"><strong aria-hidden="true">1.1.14.</strong> WAKU-RLN-KEYSTORE</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/store-sync.html"><strong aria-hidden="true">1.1.15.</strong> WAKU-STORE-SYNC</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/sync.html"><strong aria-hidden="true">1.1.16.</strong> WAKU-SYNC</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/device-pairing.html"><strong aria-hidden="true">1.1.17.</strong> WAKU2-DEVICE-PAIRING</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/incentivization.html"><strong aria-hidden="true">1.1.18.</strong> WAKU2-INCENTIVIZATION</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/noise.html"><strong aria-hidden="true">1.1.19.</strong> WAKU2-NOISE</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/noise-sessions.html"><strong aria-hidden="true">1.1.20.</strong> WAKU2-NOISE-SESSIONS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/rln-contract.html"><strong aria-hidden="true">1.1.21.</strong> WAKU2-RLN-CONTRACT</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/draft/index.html"><strong aria-hidden="true">1.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/draft/3/remote-log.html"><strong aria-hidden="true">1.2.1.</strong> 3/REMOTE-LOG</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/4/mvds-meta.html"><strong aria-hidden="true">1.2.2.</strong> 4/MVDS-META</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/10/waku2.html"><strong aria-hidden="true">1.2.3.</strong> 10/WAKU2</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/12/filter.html"><strong aria-hidden="true">1.2.4.</strong> 12/WAKU2-FILTER</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/draft/12/previous-versions/00/filter.html"><strong aria-hidden="true">1.2.4.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/draft/13/store.html"><strong aria-hidden="true">1.2.5.</strong> 13/WAKU2-STORE</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/draft/13/previous-versions/00/store.html"><strong aria-hidden="true">1.2.5.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/draft/15/bridge.html"><strong aria-hidden="true">1.2.6.</strong> 15/WAKU-BRIDGE</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/17/rln-relay.html"><strong aria-hidden="true">1.2.7.</strong> 17/WAKU2-RLN-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/19/lightpush.html"><strong aria-hidden="true">1.2.8.</strong> 19/WAKU2-LIGHTPUSH</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/20/toy-eth-pm.html"><strong aria-hidden="true">1.2.9.</strong> 20/TOY-ETH-PM</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/22/toy-chat.html"><strong aria-hidden="true">1.2.10.</strong> 22/TOY-CHAT</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/23/topics.html"><strong aria-hidden="true">1.2.11.</strong> 23/WAKU2-TOPICS</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/26/payload.html"><strong aria-hidden="true">1.2.12.</strong> 26/WAKU2-PAYLOAD</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/27/peers.html"><strong aria-hidden="true">1.2.13.</strong> 27/WAKU2-PEERS</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/29/config.html"><strong aria-hidden="true">1.2.14.</strong> 29/WAKU2-CONFIG</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/30/adaptive-nodes.html"><strong aria-hidden="true">1.2.15.</strong> 30/ADAPTIVE-NODES</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/31/enr.html"><strong aria-hidden="true">1.2.16.</strong> 31/WAKU2-ENR</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/33/discv5.html"><strong aria-hidden="true">1.2.17.</strong> 33/WAKU2-DISCV5</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/34/peer-exchange.html"><strong aria-hidden="true">1.2.18.</strong> 34/WAKU2-PEER-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/36/bindings-api.html"><strong aria-hidden="true">1.2.19.</strong> 36/WAKU2-BINDINGS-API</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/53/x3dh.html"><strong aria-hidden="true">1.2.20.</strong> 53/WAKU2-X3DH</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/54/x3dh-sessions.html"><strong aria-hidden="true">1.2.21.</strong> 54/WAKU2-X3DH-SESSIONS</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/64/network.html"><strong aria-hidden="true">1.2.22.</strong> 64/WAKU2-NETWORK</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/66/metadata.html"><strong aria-hidden="true">1.2.23.</strong> 66/WAKU2-METADATA</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/stable/index.html"><strong aria-hidden="true">1.3.</strong> Stable</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/stable/2/mvds.html"><strong aria-hidden="true">1.3.1.</strong> 2/MVDS</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/6/waku1.html"><strong aria-hidden="true">1.3.2.</strong> 6/WAKU1</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/7/data.html"><strong aria-hidden="true">1.3.3.</strong> 7/WAKU-DATA</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/8/mail.html"><strong aria-hidden="true">1.3.4.</strong> 8/WAKU-MAIL</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/9/rpc.html"><strong aria-hidden="true">1.3.5.</strong> 9/WAKU-RPC</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/11/relay.html"><strong aria-hidden="true">1.3.6.</strong> 11/WAKU2-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/14/message.html"><strong aria-hidden="true">1.3.7.</strong> 14/WAKU2-MESSAGE</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/index.html"><strong aria-hidden="true">1.4.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/deprecated/5/waku0.html"><strong aria-hidden="true">1.4.1.</strong> 5/WAKU0</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/16/rpc.html"><strong aria-hidden="true">1.4.2.</strong> 16/WAKU2-RPC</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/18/swap.html"><strong aria-hidden="true">1.4.3.</strong> 18/WAKU2-SWAP</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/deleted/index.html"><strong aria-hidden="true">1.5.</strong> Deleted</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/deleted/fault-tolerant-store.html"><strong aria-hidden="true">1.5.1.</strong> 21/WAKU2-FAULT-TOLERANT-STORE</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/index.html"><strong aria-hidden="true">2.</strong> Blockchain</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/index.html"><strong aria-hidden="true">2.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-anonymous-leaders-reward.html"><strong aria-hidden="true">2.1.1.</strong> BEDROCK-ANONYMOUS-LEADERS-REWARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-architecture-overview.html"><strong aria-hidden="true">2.1.2.</strong> BEDROCK-ARCHITECTURE-OVERVIEW</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-genesis-block.html"><strong aria-hidden="true">2.1.3.</strong> BEDROCK-GENESIS-BLOCK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-declaration-protocol.html"><strong aria-hidden="true">2.1.4.</strong> BEDROCK-SERVICE-DECLARATION-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-reward-distribution.html"><strong aria-hidden="true">2.1.5.</strong> BEDROCK-SERVICE-REWARD-DISTRIBUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-block-construction.html"><strong aria-hidden="true">2.1.6.</strong> BEDROCK-V1-1-BLOCK-CONSTRUCTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-mantle-specification.html"><strong aria-hidden="true">2.1.7.</strong> BEDROCK-V1.1-MANTLE-SPECIFICATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/fork-choice.html"><strong aria-hidden="true">2.1.8.</strong> CRYPTARCHIA-FORK-CHOICE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-proof-of-leadership.html"><strong aria-hidden="true">2.1.9.</strong> CRYPTARCHIA-PROOF-OF-LEADERSHIP</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-total-stake-inference.html"><strong aria-hidden="true">2.1.10.</strong> CRYPTARCHIA-TOTAL-STAKE-INFERENCE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-v1-bootstr-sync.html"><strong aria-hidden="true">2.1.11.</strong> CRYPTARCHIA-V1-BOOTSTRAPPING-SYNCHRONIZATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-blend-protocol.html"><strong aria-hidden="true">2.1.12.</strong> NOMOS-BLEND-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-cryptarchia-v1-protocol.html"><strong aria-hidden="true">2.1.13.</strong> NOMOS-CRYPTARCHIA-V1-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomosda-network.html"><strong aria-hidden="true">2.1.14.</strong> NOMOS-DA-NETWORK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/digital-signature.html"><strong aria-hidden="true">2.1.15.</strong> NOMOS-DIGITAL-SIGNATURE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-key-types-and-generation.html"><strong aria-hidden="true">2.1.16.</strong> NOMOS-KEY-TYPES-GENERATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-encapsulation.html"><strong aria-hidden="true">2.1.17.</strong> NOMOS-MESSAGE-ENCAPSULATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-formatting.html"><strong aria-hidden="true">2.1.18.</strong> NOMOS-MESSAGE-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-payload-formatting.html"><strong aria-hidden="true">2.1.19.</strong> NOMOS-PAYLOAD-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-proof-of-quota.html"><strong aria-hidden="true">2.1.20.</strong> NOMOS-PROOF-OF-QUOTA</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-wallet-technical-standard.html"><strong aria-hidden="true">2.1.21.</strong> NOMOS-WALLET-TECHNICAL-STANDARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-cryptographic-protocol.html"><strong aria-hidden="true">2.1.22.</strong> NOMOSDA-CRYPTOGRAPHIC-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-rewarding.html"><strong aria-hidden="true">2.1.23.</strong> NOMOSDA-REWARDING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-hardware-requirements.html"><strong aria-hidden="true">2.1.24.</strong> P2P-HARDWARE-REQUIREMENTS</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-nat-solution.html"><strong aria-hidden="true">2.1.25.</strong> P2P-NAT-SOLUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-network-bootstrapping.html"><strong aria-hidden="true">2.1.26.</strong> P2P-NETWORK-BOOTSTRAPPING</a></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/draft/index.html"><strong aria-hidden="true">2.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/draft/p2p-network.html"><strong aria-hidden="true">2.2.1.</strong> NOMOS-P2P-NETWORK</a></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/deprecated/index.html"><strong aria-hidden="true">2.3.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/deprecated/claro.html"><strong aria-hidden="true">2.3.1.</strong> CONSENSUS-CLARO</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../storage/index.html"><strong aria-hidden="true">3.</strong> Storage</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/index.html"><strong aria-hidden="true">3.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/codex-block-exchange.html"><strong aria-hidden="true">3.1.1.</strong> CODEX-BLOCK-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/community-history.html"><strong aria-hidden="true">3.1.2.</strong> CODEX-COMMUNITY-HISTORY</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dht.html"><strong aria-hidden="true">3.1.3.</strong> CODEX-DHT</a></li><li class="chapter-item expanded "><a href="../../storage/raw/manifest.html"><strong aria-hidden="true">3.1.4.</strong> CODEX-MANIFEST</a></li><li class="chapter-item expanded "><a href="../../storage/raw/codex-store.html"><strong aria-hidden="true">3.1.5.</strong> CODEX-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dataset-store.html"><strong aria-hidden="true">3.1.6.</strong> DATASET-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/datasets.html"><strong aria-hidden="true">3.1.7.</strong> DATASETS</a></li></ol></li><li class="chapter-item expanded "><a href="../../storage/draft/index.html"><strong aria-hidden="true">3.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/draft/merkle-tree.html"><strong aria-hidden="true">3.2.1.</strong> MERKLE-TREE</a></li></ol></li><li class="chapter-item expanded "><a href="../../storage/deprecated/index.html"><strong aria-hidden="true">3.3.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/deprecated/erasure-coding.html"><strong aria-hidden="true">3.3.1.</strong> CODEX-ERASUE-CODING</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-marketplace.html"><strong aria-hidden="true">3.3.2.</strong> CODEX-MARKETPLACE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-merkle-tree.html"><strong aria-hidden="true">3.3.3.</strong> CODEX-MERKLE-TREE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-prover.html"><strong aria-hidden="true">3.3.4.</strong> CODEX-PROVER</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/slot-buIlder.html"><strong aria-hidden="true">3.3.5.</strong> CODEX-SLOT-BUILDER</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../anoncomms/index.html"><strong aria-hidden="true">4.</strong> AnonComms</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/raw/index.html"><strong aria-hidden="true">4.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/raw/decentralized-mls-offchain-consensus.html"><strong aria-hidden="true">4.1.1.</strong> DECENTRALIZED-MLS-OFFCHAIN-CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/decentralized-messaging-ethereum.html"><strong aria-hidden="true">4.1.2.</strong> ETH-DCGKA</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/eth-mls-onchain.html"><strong aria-hidden="true">4.1.3.</strong> ETH-MLS-ONCHAIN</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/extended-kad-disco.html"><strong aria-hidden="true">4.1.4.</strong> EXTENDED-KADEMLIA-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/extensible-peer-records.html"><strong aria-hidden="true">4.1.5.</strong> EXTENSIBLE-PEER-RECORDS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/gossipsub-tor-push.html"><strong aria-hidden="true">4.1.6.</strong> GOSSIPSUB-TOR-PUSH</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/consensus-hashgraphlike.html"><strong aria-hidden="true">4.1.7.</strong> HASHGRAPHLIKE CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/logos-service-discovery.html"><strong aria-hidden="true">4.1.8.</strong> LOGOS-SERVICE-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix.html"><strong aria-hidden="true">4.1.9.</strong> MIX</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix-cover-traffic.html"><strong aria-hidden="true">4.1.10.</strong> Mix Cover Traffic</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix-dos-protection.html"><strong aria-hidden="true">4.1.11.</strong> Mix DoS Protection</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/multi-message_id-burn-rln.html"><strong aria-hidden="true">4.1.12.</strong> Multi-message_id Burn RLN</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/noise-x3dh-double-ratchet.html"><strong aria-hidden="true">4.1.13.</strong> NOISE-X3DH-DOUBLE-RATCHET</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/payment-streams.html"><strong aria-hidden="true">4.1.14.</strong> PAYMENT-STREAMS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix-spam-protection-rln.html"><strong aria-hidden="true">4.1.15.</strong> RLN DoS Protection for Mixnet</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-interep-spec.html"><strong aria-hidden="true">4.1.16.</strong> RLN-INTEREP-SPEC</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-membership-service.html"><strong aria-hidden="true">4.1.17.</strong> RLN-MEMBERSHIP-SERVICE</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-stealth-commitments.html"><strong aria-hidden="true">4.1.18.</strong> RLN-STEALTH-COMMITMENTS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-v2.html"><strong aria-hidden="true">4.1.19.</strong> RLN-V2</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/sds.html"><strong aria-hidden="true">4.1.20.</strong> SDS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/service-discovery-api.html"><strong aria-hidden="true">4.1.21.</strong> SERVICE-DISCOVERY-API</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/status-rln-deployment.html"><strong aria-hidden="true">4.1.22.</strong> STATUS-RLN-DEPLOYMENT</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/zerokit-api.html"><strong aria-hidden="true">4.1.23.</strong> Zerokit API</a></li></ol></li><li class="chapter-item expanded "><a href="../../anoncomms/draft/index.html"><strong aria-hidden="true">4.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/draft/32/rln-v1.html"><strong aria-hidden="true">4.2.1.</strong> 32/RLN-V1</a></li></ol></li><li class="chapter-item expanded "><a href="../../anoncomms/deleted/index.html"><strong aria-hidden="true">4.3.</strong> Deleted</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/deleted/25/libp2p-dns-discovery.html"><strong aria-hidden="true">4.3.1.</strong> 25/LIBP2P-DNS-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../anoncomms/deleted/eth-secpm.html" class="active"><strong aria-hidden="true">4.3.2.</strong> ETH-SECPM</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../research/index.html"><strong aria-hidden="true">5.</strong> Research</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../research/draft/index.html"><strong aria-hidden="true">5.1.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../research/draft/1/coss.html"><strong aria-hidden="true">5.1.1.</strong> 1/COSS</a></li></ol></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Logos LIP</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/logos-co/logos-lips" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="eth-secpm"><a class="header" href="#eth-secpm">ETH-SECPM</a></h1>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
+<tr><td>Name</td><td>Secure channel setup using Ethereum accounts</td></tr>
+<tr><td>Slug</td><td>110</td></tr>
+<tr><td>Status</td><td>deleted</td></tr>
+<tr><td>Type</td><td>RFC</td></tr>
+<tr><td>Category</td><td>Standards Track</td></tr>
+<tr><td>Editor</td><td>Ramses Fernandez <a href="mailto:ramses@status.im">ramses@status.im</a></td></tr>
+</tbody></table>
+</div><!-- timeline:start -->
+<h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
+<ul>
+<li><strong>2026-05-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/1ac7689ee3fe1665d5d5d1bf9c180ed951cc660d/docs/anoncomms/deleted/eth-secpm.md"><code>1ac7689</code></a> — chore: split ift ts specs (#334)</li>
+<li><strong>2026-04-20</strong> — <a href="https://github.com/logos-co/logos-lips/blob/c3d15a9c7c24b4d6b0eb4fb578f9670ede6f69b0/docs/ift-ts/raw/deleted/eth-secpm.md"><code>c3d15a9</code></a> — COSS overhaul: new statuses, CFR type, raw-spec leniency (#308)</li>
+<li><strong>2026-01-19</strong> — <a href="https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/ift-ts/raw/deleted/eth-secpm.md"><code>f24e567</code></a> — Chore/updates mdbook (#262)</li>
+<li><strong>2026-01-16</strong> — <a href="https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/ift-ts/raw/deleted/eth-secpm.md"><code>f01d5b9</code></a> — chore: fix links (#260)</li>
+<li><strong>2026-01-16</strong> — <a href="https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/deleted/eth-secpm.md"><code>89f2ea8</code></a> — Chore/mdbook updates (#258)</li>
+<li><strong>2025-12-22</strong> — <a href="https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/raw/deleted/eth-secpm.md"><code>0f1855e</code></a> — Chore/fix headers (#239)</li>
+<li><strong>2025-12-22</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/raw/deleted/eth-secpm.md"><code>b1a5783</code></a> — Chore/mdbook updates (#237)</li>
+<li><strong>2025-12-18</strong> — <a href="https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/raw/deleted/eth-secpm.md"><code>d03e699</code></a> — ci: add mdBook configuration (#233)</li>
+<li><strong>2025-06-05</strong> — <a href="https://github.com/logos-co/logos-lips/blob/36caaa621a711c7d73b5ecc80e7ba5f938d30691/vac/raw/deleted/eth-secpm.md"><code>36caaa6</code></a> — Fix Errors rfc.vac.dev (#165)</li>
+<li><strong>2025-06-02</strong> — <a href="https://github.com/logos-co/logos-lips/blob/db90adc94e9f69627dd1254159d33eb062f00867/vac/raw/deleted/eth-secpm.md"><code>db90adc</code></a> — Fix LaTeX errors (#163)</li>
+<li><strong>2025-04-04</strong> — <a href="https://github.com/logos-co/logos-lips/blob/517b63984c875670e437d50359f2f67331104974/vac/raw/deleted/eth-secpm.md"><code>517b639</code></a> — Update the RFCs: Vac Raw RFC (#143)</li>
+<li><strong>2024-08-29</strong> — <a href="https://github.com/logos-co/logos-lips/blob/13aaae37d15bdd672c26565bd0e0ebfc2e8b9459/vac/raw/eth-secpm.md"><code>13aaae3</code></a> — Update eth-secpm.md (#84)</li>
+<li><strong>2024-05-21</strong> — <a href="https://github.com/logos-co/logos-lips/blob/e234e9d5a30bb4d9d4654285c6118f3d9900a3b9/vac/raw/eth-secpm.md"><code>e234e9d</code></a> — Update eth-secpm.md (#35)</li>
+<li><strong>2024-03-21</strong> — <a href="https://github.com/logos-co/logos-lips/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/vac/70/eth-secpm.md"><code>2eaa794</code></a> — Broken Links + Change Editors (#26)</li>
+<li><strong>2024-02-28</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b842725d42f1c7d7661808035eff2b0dfa1fca7e/vac/70/eth-secpm.md"><code>b842725</code></a> — Update eth-secpm.md</li>
+<li><strong>2024-02-01</strong> — <a href="https://github.com/logos-co/logos-lips/blob/f2e1b4cd4613f9ab648e42fd00475acf4541649d/vac/70/eth-secpm.md"><code>f2e1b4c</code></a> — Rename ETH-SECPM.md to eth-secpm.md</li>
+<li><strong>2024-02-01</strong> — <a href="https://github.com/logos-co/logos-lips/blob/22bb3312fa6ab920281e11c5db190b123c9553b1/vac/70/ETH-SECPM.md"><code>22bb331</code></a> — Update ETH-SECPM.md</li>
+<li><strong>2024-01-27</strong> — <a href="https://github.com/logos-co/logos-lips/blob/5b8ce46a6b384d6ee4c2d884f9db82b0aee9ce8c/vac/70/ETH-SECPM.md"><code>5b8ce46</code></a> — Create ETH-SECPM.md</li>
+</ul>
+<!-- timeline:end -->
+<h2 id="note"><a class="header" href="#note">NOTE</a></h2>
+<p>The content of this specification has been split between
+<a href="/anoncomms/raw/eth-mls-offchain.html">ETH-MLS-OFFCHAIN</a> and <a href="/anoncomms/raw/noise-x3dh-double-ratchet.html">NOISE-X3DH-DOUBLE-RATCHET</a>
+LIPs.</p>
+<h2 id="motivation"><a class="header" href="#motivation">Motivation</a></h2>
+<p>The need for secure communications has become paramount.<br />
+Traditional centralized messaging protocols are susceptible to various security threats,
+including unauthorized access, data breaches, and single points of failure.
+Therefore a decentralized approach to secure communication becomes increasingly relevant,
+offering a robust solution to address these challenges.</p>
+<p>This specification outlines a private messaging service using the
+Ethereum blockchain as authentication service.
+Rooted in the existing <a href="../../../messaging/draft/20/toy-eth-pm.html">model</a>,
+this proposal addresses the deficiencies related
+to forward privacy and authentication inherent
+in the current framework.
+The specification is divided into 3 sections:</p>
+<ul>
+<li>Private 1-to-1 communications protocol, based on <a href="https://signal.org/docs/specifications/doubleratchet/">Signal's double
+ratchet</a>.</li>
+<li>Private group messaging protocol, based on the
+<a href="https://datatracker.ietf.org/doc/rfc9420/">MLS protocol</a>.</li>
+<li>Description of an Ethereum-based authentication protocol, based on
+<a href="https://eips.ethereum.org/EIPS/eip-4361">SIWE</a>.</li>
+</ul>
+<h2 id="private-1-to-1-communications-protocol"><a class="header" href="#private-1-to-1-communications-protocol">Private 1-to-1 communications protocol</a></h2>
+<h3 id="theory"><a class="header" href="#theory">Theory</a></h3>
+<p>The specification is based on the noise protocol framework.
+It corresponds to the double ratchet scheme combined with
+the X3DH algorithm, which will be used to initialize the former.
+We chose to express the protocol in noise to be be able to use
+the noise streamlined implementation and proving features.
+The X3DH algorithm provides both authentication and forward
+secrecy, as stated in the
+<a href="https://signal.org/docs/specifications/x3dh/">X3DH specification</a>.</p>
+<p>This protocol will consist of several stages:</p>
+<ol>
+<li>Key setting for X3DH: this step will produce
+prekey bundles for Bob which will be fed into X3DH.
+It will also allow Alice to generate the keys required
+to run the X3DH algorithm correctly.</li>
+<li>Execution of X3DH: This step will output
+a common secret key <code>SK</code> together with an additional
+data vector <code>AD</code>. Both will be used in the double
+ratchet algorithm initialization.</li>
+<li>Execution of the double ratchet algorithm
+for forward secure, authenticated communications,
+using the common secret key <code>SK</code>, obtained from X3DH, as a root key.</li>
+</ol>
+<p>The protocol assumes the following requirements:</p>
+<ul>
+<li>Alice knows Bob’s Ethereum address.</li>
+<li>Bob is willing to participate in the protocol,
+and publishes his public key.</li>
+<li>Bob’s ownership of his public key is verifiable,</li>
+<li>Alice wants to send message M to Bob.</li>
+<li>An eavesdropper cannot read M’s content
+even if she is storing it or relaying it.</li>
+</ul>
+<blockquote>
+<p>The inclusion of this first section devoted to secure 1-to-1
+communications between users is motivated by the fact certain
+interactions between existing group members and prospective new
+members require secure communication channels.</p>
+</blockquote>
+<h3 id="syntax"><a class="header" href="#syntax">Syntax</a></h3>
+<h4 id="cryptographic-suite"><a class="header" href="#cryptographic-suite">Cryptographic suite</a></h4>
+<p>The following cryptographic functions MUST be used:</p>
+<ul>
+<li><code>X488</code> as Diffie-Hellman function <code>DH</code>.</li>
+<li><code>SHA256</code> as KDF.</li>
+<li><code>AES256-GCM</code> as AEAD algorithm.</li>
+<li><code>SHA512</code> as hash function.</li>
+<li><code>XEd448</code> for digital signatures.</li>
+</ul>
+<h4 id="x3dh-initialization"><a class="header" href="#x3dh-initialization">X3DH initialization</a></h4>
+<p>This scheme MUST work on the curve curve448.
+The X3DH algorithm corresponds to the IX pattern in Noise.</p>
+<p>Bob and Alice MUST define personal key pairs
+<code>(ik_B, IK_B)</code> and <code>(ik_A, IK_A)</code> respectively where:</p>
+<ul>
+<li>The key <code>ik</code> must be kept secret,</li>
+<li>and the key <code>IK</code> is public.</li>
+</ul>
+<p>Bob MUST generate new keys using
+<code>(ik_B, IK_B) = GENERATE_KEYPAIR(curve = curve448)</code>.</p>
+<p>Bob MUST also generate a public key pair
+<code>(spk_B, SPK_B) = GENERATE_KEYPAIR(curve = curve448)</code>.</p>
+<p><code>SPK</code> is a public key generated and stored at medium-term.
+Both signed prekey and the certificate MUST
+undergo periodic replacement.
+After replacing the key,
+Bob keeps the old private key of <code>SPK</code>
+for some interval, dependant on the implementation.
+This allows Bob to decrypt delayed messages.</p>
+<p>Bob MUST sign <code>SPK</code> for authentication:
+<code>SigSPK = XEd448(ik, Encode(SPK))</code></p>
+<p>A final step requires the definition of
+<code>prekey_bundle = (IK, SPK, SigSPK, OPK_i)</code></p>
+<p>One-time keys <code>OPK</code> MUST be generated as
+<code>(opk_B, OPK_B) = GENERATE_KEYPAIR(curve = curve448)</code>.</p>
+<p>Before sending an initial message to Bob,
+Alice MUST generate an AD: <code>AD = Encode(IK_A) || Encode(IK_B)</code>.</p>
+<p>Alice MUST generate ephemeral key pairs
+<code>(ek, EK) = GENERATE_KEYPAIR(curve = curve448)</code>.</p>
+<p>The function <code>Encode()</code> transforms a
+curve448 public key into a byte sequence.
+This is specified in the <a href="http://www.ietf.org/rfc/rfc7748.txt">RFC 7748</a>
+on elliptic curves for security.</p>
+<p>One MUST consider <code>q = 2^446 - 13818066809895115352007386748515426880336692474882178609894547503885</code>
+for digital signatures with <code>(XEd448_sign, XEd448_verify)</code>:</p>
+<pre><code class="language-text">XEd448_sign((ik, IK), message):
+    Z = randbytes(64)  
+    r = SHA512(2^456 - 2 || ik || message || Z )
+    R = (r * convert_mont(5)) % q
+    h = SHA512(R || IK || M)
+    s = (r + h * ik) % q
+    return (R || s)
+</code></pre>
+<pre><code class="language-text">XEd448_verify(u, message, (R || s)):
+    if (R.y &gt;= 2^448) or (s &gt;= 2^446): return FALSE
+    h = (SHA512(R || 156326 || message)) % q
+    R_check = s * convert_mont(5) - h * 156326
+    if R == R_check: return TRUE
+    return FALSE 
+</code></pre>
+<pre><code class="language-text">convert_mont(u):
+    u_masked = u % mod 2^448
+    inv = ((1 - u_masked)^(2^448 - 2^224 - 3)) % (2^448 - 2^224 - 1)
+    P.y = ((1 + u_masked) * inv)) % (2^448 - 2^224 - 1)
+    P.s = 0
+    return P
+</code></pre>
+<h4 id="use-of-x3dh"><a class="header" href="#use-of-x3dh">Use of X3DH</a></h4>
+<p>This specification combines the double ratchet
+with X3DH using the following data as initialization for the former:</p>
+<ul>
+<li>The <code>SK</code> output from X3DH becomes the <code>SK</code>
+input of the double ratchet. See section 3.3 of
+<a href="https://signal.org/docs/specifications/doubleratchet/">Signal Specification</a>
+for a detailed description.</li>
+<li>The <code>AD</code> output from X3DH becomes the <code>AD</code>
+input of the double ratchet. See sections 3.4 and 3.5 of
+<a href="https://signal.org/docs/specifications/doubleratchet/">Signal Specification</a>
+for a detailed description.</li>
+<li>Bob’s signed prekey <code>SigSPKB</code> from X3DH is used as Bob’s
+initial ratchet public key of the double ratchet.</li>
+</ul>
+<p>X3DH has three phases:</p>
+<ol>
+<li>Bob publishes his identity key and prekeys to a server,
+a network, or dedicated smart contract.</li>
+<li>Alice fetches a prekey bundle from the server,
+and uses it to send an initial message to Bob.</li>
+<li>Bob receives and processes Alice's initial message.</li>
+</ol>
+<p>Alice MUST perform the following computations:</p>
+<pre><code class="language-text">dh1 = DH(IK_A, SPK_B, curve = curve448)
+dh2 = DH(EK_A, IK_B, curve = curve448)
+dh3 = DH(EK_A, SPK_B)
+SK = KDF(dh1 || dh2 || dh3)
+</code></pre>
+<p>Alice MUST send to Bob a message containing:</p>
+<ul>
+<li><code>IK_A, EK_A</code>.</li>
+<li>An identifier to Bob's prekeys used.</li>
+<li>A message encrypted with AES256-GCM using <code>AD</code> and <code>SK</code>.</li>
+</ul>
+<p>Upon reception of the initial message, Bob MUST:</p>
+<ol>
+<li>Perform the same computations above with the <code>DH()</code> function.</li>
+<li>Derive <code>SK</code> and construct <code>AD</code>.</li>
+<li>Decrypt the initial message encrypted with <code>AES256-GCM</code>.</li>
+<li>If decryption fails, abort the protocol.</li>
+</ol>
+<h4 id="initialization-of-the-double-datchet"><a class="header" href="#initialization-of-the-double-datchet">Initialization of the double datchet</a></h4>
+<p>In this stage Bob and Alice have generated key pairs
+and agreed a shared secret <code>SK</code> using X3DH.</p>
+<p>Alice calls <code>RatchetInitAlice()</code> defined below:</p>
+<pre><code class="language-text">RatchetInitAlice(SK, IK_B):
+    state.DHs = GENERATE_KEYPAIR(curve = curve448)
+    state.DHr = IK_B
+    state.RK, state.CKs = HKDF(SK, DH(state.DHs, state.DHr)) 
+    state.CKr = None
+    state.Ns, state.Nr, state.PN = 0
+    state.MKSKIPPED = {}
+</code></pre>
+<p>The HKDF function MUST be the proposal by
+<a href="http://www.ietf.org/rfc/rfc5869.txt">Krawczyk and Eronen</a>.
+In this proposal <code>chaining_key</code> and <code>input_key_material</code>
+MUST be replaced with <code>SK</code> and the output of <code>DH</code> respectively.</p>
+<p>Similarly, Bob calls the function <code>RatchetInitBob()</code> defined below:</p>
+<pre><code class="language-text">RatchetInitBob(SK, (ik_B,IK_B)):
+    state.DHs = (ik_B, IK_B)
+    state.Dhr = None
+    state.RK = SK
+    state.CKs, state.CKr = None
+    state.Ns, state.Nr, state.PN = 0
+    state.MKSKIPPED = {}
+</code></pre>
+<h4 id="encryption"><a class="header" href="#encryption">Encryption</a></h4>
+<p>This function performs the symmetric key ratchet.</p>
+<pre><code class="language-text">RatchetEncrypt(state, plaintext, AD):
+   state.CKs, mk = HMAC-SHA256(state.CKs)
+   header = HEADER(state.DHs, state.PN, state.Ns)
+   state.Ns = state.Ns + 1
+   return header, AES256-GCM_Enc(mk, plaintext, AD || header)
+</code></pre>
+<p>The <code>HEADER</code> function creates a new message header
+containing the public key from the key pair output of the <code>DH</code>function.
+It outputs the previous chain length <code>pn</code>,
+and the message number <code>n</code>.
+The returned header object contains ratchet public key
+<code>dh</code> and integers <code>pn</code> and <code>n</code>.</p>
+<h4 id="decryption"><a class="header" href="#decryption">Decryption</a></h4>
+<p>The function <code>RatchetDecrypt()</code> decrypts incoming messages:</p>
+<pre><code class="language-text">RatchetDecrypt(state, header, ciphertext, AD):
+    plaintext = TrySkippedMessageKeys(state, header, ciphertext, AD)
+    if plaintext != None:
+        return plaintext
+    if header.dh != state.DHr:
+        SkipMessageKeys(state, header.pn)
+        DHRatchet(state, header)
+    SkipMessageKeys(state, header.n)
+    state.CKr, mk = HMAC-SHA256(state.CKr)
+    state.Nr = state.Nr + 1
+    return AES256-GCM_Dec(mk, ciphertext, AD || header)
+</code></pre>
+<p>Auxiliary functions follow:</p>
+<pre><code class="language-text">DHRatchet(state, header):
+    state.PN = state.Ns
+    state.Ns = state.Nr = 0
+    state.DHr = header.dh
+    state.RK, state.CKr = HKDF(state.RK, DH(state.DHs, state.DHr))
+    state.DHs = GENERATE_KEYPAIR(curve = curve448)
+    state.RK, state.CKs = HKDF(state.RK, DH(state.DHs, state.DHr))
+</code></pre>
+<pre><code class="language-text">SkipMessageKeys(state, until):
+    if state.NR + MAX_SKIP &lt; until:
+        raise Error
+    if state.CKr != none:
+        while state.Nr &lt; until:
+            state.CKr, mk = HMAC-SHA256(state.CKr)
+            state.MKSKIPPED[state.DHr, state.Nr] = mk
+            state.Nr = state.Nr + 1
+</code></pre>
+<pre><code class="language-text">TrySkippedMessageKey(state, header, ciphertext, AD):
+    if (header.dh, header.n) in state.MKSKIPPED:
+        mk = state.MKSKIPPED[header.dh, header.n]
+        delete state.MKSKIPPED[header.dh, header.n]
+        return AES256-GCM_Dec(mk, ciphertext, AD || header)
+    else: return None
+</code></pre>
+<h2 id="information-retrieval"><a class="header" href="#information-retrieval">Information retrieval</a></h2>
+<h3 id="static-data"><a class="header" href="#static-data">Static data</a></h3>
+<p>Some data, such as the key pairs <code>(ik, IK)</code> for Alice and Bob,
+MAY NOT be regenerated after a period of time.
+Therefore the prekey bundle MAY be stored in long-term
+storage solutions, such as a dedicated smart contract
+which outputs such a key pair when receiving an Ethereum wallet
+address.</p>
+<p>Storing static data is done using a dedicated
+smart contract <code>PublicKeyStorage</code> which associates
+the Ethereum wallet address of a user with his public key.
+This mapping is done by <code>PublicKeyStorage</code>
+using a <code>publicKeys</code> function, or a <code>setPublicKey</code> function.
+This mapping is done if the user passed an authorization process.
+A user who wants to retrieve a public key associated
+with a specific wallet address calls a function <code>getPublicKey</code>.
+The user provides the wallet address as the only
+input parameter for <code>getPublicKey</code>.
+The function outputs the associated public key
+from the smart contract.</p>
+<h3 id="ephemeral-data"><a class="header" href="#ephemeral-data">Ephemeral data</a></h3>
+<p>Storing ephemeral data on Ethereum MAY be done using
+a combination of on-chain and off-chain solutions.
+This approach provides an efficient solution to
+the problem of storing updatable data in Ethereum.</p>
+<ol>
+<li>Ethereum stores a reference or a hash
+that points to the off-chain data.</li>
+<li>Off-chain solutions can include systems like IPFS,
+traditional cloud storage solutions, or
+decentralized storage networks such as a
+<a href="https://www.ethswarm.org">Swarm</a>.</li>
+</ol>
+<p>In any case, the user stores the associated
+IPFS hash, URL or reference in Ethereum.</p>
+<p>The fact of a user not updating the ephemeral information
+can be understood as Bob not willing to participate in any
+communication.</p>
+<p>This applies to <code>KeyPackage</code>,
+which in the MLS specification are meant
+o be stored in a directory provided by the delivery service.
+If such an element does not exist,
+<code>KeyPackage</code> MUST be stored according
+to one of the two options outlined above.</p>
+<h2 id="private-group-messaging-protocol"><a class="header" href="#private-group-messaging-protocol">Private group messaging protocol</a></h2>
+<h3 id="theoretical-content"><a class="header" href="#theoretical-content">Theoretical content</a></h3>
+<p>The <a href="https://datatracker.ietf.org/doc/rfc9420/">Messaging Layer Security</a>(MLS)
+protocol aims at providing a group of users with
+end-to-end encryption in an authenticated and asynchronous way.
+The main security characteristics of the protocol are:
+Message confidentiality and authentication, sender authentication,
+membership agreement, post-remove
+and post-update security, and forward secrecy and
+post-compromise security.
+The MLS protocol achieves: low-complexity, group integrity,
+synchronization and extensibility.</p>
+<p>The extension to group chat described in forthcoming sections is built upon the
+<a href="https://datatracker.ietf.org/doc/rfc9420/">MLS</a> protocol.</p>
+<h3 id="structure"><a class="header" href="#structure">Structure</a></h3>
+<p>Each MLS session uses a single cipher suite that specifies the
+primitives to be used in group key computations. The cipher suite MUST
+use:</p>
+<ul>
+<li><code>X488</code> as Diffie-Hellman function.</li>
+<li><code>SHA256</code> as KDF.</li>
+<li><code>AES256-GCM</code> as AEAD algorithm.</li>
+<li><code>SHA512</code> as hash function.</li>
+<li><code>XEd448</code> for digital signatures.</li>
+</ul>
+<p>Formats for public keys, signatures and public-key encryption MUST
+follow Section 5.1 of
+<a href="https://datatracker.ietf.org/doc/rfc9420/">RFC9420</a>.</p>
+<h3 id="hash-based-identifiers"><a class="header" href="#hash-based-identifiers">Hash-based identifiers</a></h3>
+<p>Some MLS messages refer to other MLS objects by hash.
+These identifiers MUST be computed according to Section 5.2 of
+<a href="https://datatracker.ietf.org/doc/rfc9420/">RFC9420</a>.</p>
+<h3 id="credentials"><a class="header" href="#credentials">Credentials</a></h3>
+<p>Each member of a group presents a credential that provides one or more
+identities for the
+member and associates them with the member's signing key.
+The identities and signing key are verified by the Authentication
+Service in use for a
+group.</p>
+<p>Credentials MUST follow the specifications of section 5.3 of
+<a href="https://datatracker.ietf.org/doc/rfc9420/">RFC9420</a>.</p>
+<p>Below follows the flow diagram for the generation of credentials.
+Users MUST generate key pairs by themselves.
+<img src="/anoncomms/deleted/images/eth-secpm_credential.png" alt="figure1" /></p>
+<h3 id="message-framing"><a class="header" href="#message-framing">Message framing</a></h3>
+<p>Handshake and application messages use a common framing structure
+providing encryption to
+ensure confidentiality within the group, and signing to authenticate
+the sender.</p>
+<p>The structure is:</p>
+<ul>
+<li><code>PublicMessage</code>: represents a message that is only signed, and not
+encrypted.
+The definition and the encoding/decoding of a <code>PublicMessage</code> MUST
+follow the specification
+in section 6.2 of <a href="https://datatracker.ietf.org/doc/rfc9420/">RFC9420</a>.</li>
+<li><code>PrivateMessage</code>: represents a signed and encrypted message, with
+protections for both the content of the message and related metadata.</li>
+</ul>
+<p>The definition, and the encoding/decoding of a <code>PrivateMessage</code> MUST
+follow the  specification in section 6.3 of
+<a href="https://datatracker.ietf.org/doc/rfc9420/">RFC9420</a>.</p>
+<p>Applications MUST use <code>PrivateMessage</code> to encrypt application messages.</p>
+<p>Applications SHOULD use <code>PrivateMessage</code> to encode handshake messages.</p>
+<p>Each encrypted MLS message carries a "generation" number which is a
+per-sender incrementing counter.
+If a group member observes a gap in the generation sequence for a
+sender, then they know that they have missed a message from that
+sender.</p>
+<h3 id="nodes-contents"><a class="header" href="#nodes-contents">Nodes contents</a></h3>
+<p>The nodes of a ratchet tree contain several types of data:</p>
+<ul>
+<li>Leaf nodes describe individual members.</li>
+<li>Parent nodes describe subgroups.</li>
+</ul>
+<p>Contents of each kind of node, and its structure MUST follow the
+indications described in
+sections 7.1 and 7.2 of
+<a href="https://datatracker.ietf.org/docrfc9420/">RFC9420</a>.</p>
+<h3 id="leaf-node-validation"><a class="header" href="#leaf-node-validation">Leaf node validation</a></h3>
+<p><code>KeyPackage</code> objects describe the client's capabilities and provides
+keys that can be used  to add the client to a group.</p>
+<p>The validity of a leaf node needs to be verified at the following
+stages:</p>
+<ul>
+<li>When a leaf node is downloaded in a <code>KeyPackage</code>, before it is used
+to add the client to the group.</li>
+<li>When a leaf node is received by a group member in an Add, Update, or
+Commit message.</li>
+<li>When a client validates a ratchet tree.</li>
+</ul>
+<p>A client MUST verify the validity of a leaf node following the
+instructions of section 7.3 in
+<a href="https://datatracker.ietf.org/doc/rfc9420/">RFC9420</a>.</p>
+<h3 id="ratchet-tree-evolution"><a class="header" href="#ratchet-tree-evolution">Ratchet tree evolution</a></h3>
+<p>Whenever a member initiates an epoch change, they MAY need to refresh
+the key pairs of their leaf and of the nodes on their direct path. This
+is done to keep forward secrecy and post-compromise security.
+The member initiating the epoch change MUST follow this procedure
+procedure.
+A member updates the nodes along its direct path as follows:</p>
+<ul>
+<li>Blank all the nodes on the direct path from the leaf to the root.</li>
+<li>Generate a fresh HPKE key pair for the leaf.</li>
+<li>Generate a sequence of path secrets, one for each node on the leaf's
+filtered direct path.</li>
+</ul>
+<p>It MUST follow the procedure described in section 7.4 of [RFC9420
+(https://datatracker.ietf.org/doc/rfc9420/).</p>
+<ul>
+<li>Compute the sequence of HPKE key pairs <code>(node_priv,node_pub)</code>, one
+for each node on the leaf's direct path.</li>
+</ul>
+<p>It MUST follow the procedure described in section 7.4 of [RFC9420
+(https://datatracker.ietf.org/doc/rfc9420/).</p>
+<h3 id="views-of-the-tree-synchronization"><a class="header" href="#views-of-the-tree-synchronization">Views of the tree synchronization</a></h3>
+<p>After generating fresh key material and applying it to update their
+local tree state, the generator broadcasts this update to other members
+of the group.
+This operation MUST be done according to section 7.5 of [RFC9420
+(https://datatracker.ietf.org/doc/rfc9420/).</p>
+<h3 id="leaf-synchronization"><a class="header" href="#leaf-synchronization">Leaf synchronization</a></h3>
+<p>Changes to group memberships MUST be represented by adding and removing
+leaves of the tree.
+This corresponds to increasing or decreasing the depth of the tree,
+resulting in the number of leaves being doubled or halved.
+These operations MUST be done as described in section 7.7 of [RFC9420
+(https://datatracker.ietf.org/doc/rfc9420/).</p>
+<h3 id="tree-and-parent-hashing"><a class="header" href="#tree-and-parent-hashing">Tree and parent hashing</a></h3>
+<p>Group members can agree on the cryptographic state of the group by
+generating a hash value that represents the contents of the group
+ratchet tree and the member’s credentials.
+The hash of the tree is the hash of its root node, defined recursively
+from the leaves.
+Tree hashes summarize the state of a tree at point in time.
+The hash of a leaf is the hash of the <code>LeafNodeHashInput</code> object.
+At the same time, the hash of a parent node including the root, is the
+hash of a <code>ParentNodeHashInput</code> object.
+Parent hashes capture information about how keys in the tree were
+populated.</p>
+<p>Tree and parent hashing MUST follow the directions in Sections 7.8 and
+7.9 of <a href="https://datatracker.ietf.org/doc/rfc9420/">RFC9420</a>.</p>
+<h3 id="key-schedule"><a class="header" href="#key-schedule">Key schedule</a></h3>
+<p>Group keys are derived using the <code>Extract</code> and <code>Expand</code> functions from
+the KDF for the group's cipher suite, as well as the functions defined
+below:</p>
+<pre><code class="language-text">ExpandWithLabel(Secret, Label, Context, Length) = KDF.Expand(Secret,
+KDFLabel, Length)
+DeriveSecret(Secret, Label) = ExpandWithLabel(Secret, Label, "",
+KDF.Nh)
+
+</code></pre>
+<p><code>KDFLabel</code> MUST be specified as:</p>
+<pre><code class="language-text">struct {
+    uint16 length;
+    opaque label&lt;V&gt;;
+    opaque context&lt;V&gt;;
+} KDFLabel;
+
+</code></pre>
+<p>The fields of <code>KDFLabel</code> MUST be:</p>
+<pre><code class="language-text">length = Length;
+label = "MLS 1.0 " + Label;
+context = Context;
+
+</code></pre>
+<p>Each member of the group MUST maintaint a <code>GroupContext</code> object
+summarizing the state of the group.</p>
+<p>The sturcture of such object MUST be:</p>
+<pre><code class="language-text">struct {
+ProtocolVersion version = mls10;
+CipherSuite cipher_suite;
+opaque group_id&lt;V&gt;;
+uint64 epoch;
+opaque tree_hash&lt;V&gt;;
+opaque confirmed_trasncript_hash&lt;V&gt;;
+Extension extension&lt;V&gt;;
+} GroupContext;
+
+</code></pre>
+<p>The use of key scheduling MUST follow the indications in sections 8.1 -
+8.7 in <a href="https://datatracker.ietf.org/doc/rfc9420/">RFC9420</a>.</p>
+<h3 id="secret-trees"><a class="header" href="#secret-trees">Secret trees</a></h3>
+<p>For the generation of encryption keys and nonces, the key schedule
+begins with the <code>encryption_secret</code> at the root and derives a tree of
+secrets with the same structure as the group's ratchet tree.
+Each leaf in the secret tree is associated with the same group member
+as the corresponding leaf in the ratchet tree.</p>
+<p>If <code>N</code> is a parent node in the secret tree, the secrets of the children
+of <code>N</code> MUST be defined following section 9 of
+<a href="https://datatracker.ietf.org/doc/rfc9420/">RFC9420</a>.</p>
+<h4 id="encryption-keys"><a class="header" href="#encryption-keys">Encryption keys</a></h4>
+<p>MLS encrypts three different types of information:</p>
+<ul>
+<li>Metadata (sender information).</li>
+<li>Handshake messages (Proposal and Commit).</li>
+<li>Application messages.</li>
+</ul>
+<p>For handshake and application messages, a sequence of keys is derived
+via a sender ratchet.
+Each sender has their own sender ratchet, and each step along the
+ratchet is called a generation. These procedures MUST follow section
+9.1 of <a href="https://datatracker.ietf.org/doc/rfc9420/">RFC9420</a>.</p>
+<h4 id="deletion-schedule"><a class="header" href="#deletion-schedule">Deletion schedule</a></h4>
+<p>All security-sensitive values MUST be deleted as soon as they are
+consumed.</p>
+<p>A sensitive value S is consumed if:</p>
+<ul>
+<li>S was used to encrypt or (successfully) decrypt a message.</li>
+<li>A key, nonce, or secret derived from S has been consumed.</li>
+</ul>
+<p>The deletion procedure MUST follow the instruction described in section
+9.2 of <a href="https://datatracker.ietf.org/doc/rfc9420/">RFC9420</a>.</p>
+<h3 id="key-packages"><a class="header" href="#key-packages">Key packages</a></h3>
+<p>KeyPackage objects are used to ease the addition of clients to a group
+asynchronously.
+A KeyPackage object specifies:</p>
+<ul>
+<li>Protocol version and cipher suite supported by the client.</li>
+<li>Public keys that can be used to encrypt Welcome messages.
+Welcome messages provide new members with the information
+to initialize their
+state for the epoch in which they were added or in which they want to
+add themselves to the group</li>
+<li>The content of the leaf node that should be added to the tree to
+represent this client.</li>
+</ul>
+<p>KeyPackages are intended to be used only once and SHOULD NOT be reused.</p>
+<p>Clients MAY generate and publish multiple KeyPackages to support
+multiple cipher suites.</p>
+<p>The structure of the object MUST be:</p>
+<pre><code class="language-text">struct {
+ProtocolVersion version;
+CipherSuite cipher_suite;
+HPKEPublicKey init_key;
+LeafNode leaf_node;
+Extension extensions&lt;V&gt;;
+/* SignWithLabel(., "KeyPackageTBS", KeyPackageTBS) */
+opaque signature&lt;V&gt;;
+}
+
+</code></pre>
+<pre><code class="language-text">struct {
+ProtocolVersion version;
+CipheSuite cipher_suite;
+HPKEPublicKey init_key;
+LeafNode leaf_node;
+Extension extensions&lt;V&gt;;
+}
+
+</code></pre>
+<p><code>KeyPackage</code> object MUST be verified when:</p>
+<ul>
+<li>A <code>KeyPackage</code> is downloaded by a group member, before it is used to
+add the client to the group.</li>
+<li>When a <code>KeyPackage</code> is received by a group member in an <code>Add</code>
+message.</li>
+</ul>
+<p>Verification MUST be done as follows:</p>
+<ul>
+<li>Verify that the cipher suite and protocol version of the <code>KeyPackage</code>
+match those in the <code>GroupContext</code>.</li>
+<li>Verify that the <code>leaf_node</code> of the <code>KeyPackage</code> is valid for a
+<code>KeyPackage</code>.</li>
+<li>Verify that the signature on the <code>KeyPackage</code> is valid.</li>
+<li>Verify that the value of <code>leaf_node.encryption_key</code> is different from
+the value of the <code>init_key field</code>.</li>
+</ul>
+<p>HPKE public keys are opaque values in a format defined by Section 4 of
+<a href="https://datatracker.ietf.org/doc/rfc9180/">RFC9180</a>.</p>
+<p>Signature public keys are represented as opaque values in a format
+defined by the cipher suite's signature scheme.</p>
+<h3 id="group-creation"><a class="header" href="#group-creation">Group creation</a></h3>
+<p>A group is always created with a single member.
+Other members are then added to the group using the usual Add/Commit
+mechanism.
+The creator of a group MUST set:</p>
+<ul>
+<li>the group ID.</li>
+<li>cipher suite.</li>
+<li>initial extensions for the group.</li>
+</ul>
+<p>If the creator intends to add other members at the time of creation,
+then it SHOULD fetch <code>KeyPackages</code> for those members, and select a
+cipher suite and extensions according to their capabilities.</p>
+<p>The creator MUST use the capabilities information in these
+<code>KeyPackages</code> to verify that the chosen version and cipher suite is the
+best option supported by all members.</p>
+<p>Group IDs SHOULD be constructed so they are unique with high
+probability.</p>
+<p>To initialize a group, the creator of the group MUST initialize a one
+member group with the following initial values:</p>
+<ul>
+<li>Ratchet tree: A tree with a single node, a leaf node containing an
+HPKE public key and credential for the creator.</li>
+<li>Group ID: A value set by the creator.</li>
+<li>Epoch: <code>0</code>.</li>
+<li>Tree hash: The root hash of the above ratchet tree.</li>
+<li>Confirmed transcript hash: The zero-length octet string.</li>
+<li>Epoch secret: A fresh random value of size <code>KDF.Nh</code>.</li>
+<li>Extensions: Any values of the creator's choosing.</li>
+</ul>
+<p>The creator MUST also calculate the interim transcript hash:</p>
+<ul>
+<li>Derive the <code>confirmation_key</code> for the epoch according to Section 8 of
+<a href="https://datatracker.ietf.org/doc/rfc9420/">RFC9420</a>.</li>
+<li>Compute a <code>confirmation_tag</code> over the empty
+<code>confirmed_transcript_hash</code> using the <code>confirmation_key</code> as described
+in Section 8.1 of <a href="https://datatracker.ietf.org/doc/rfc9420/">RFC9420</a>.</li>
+<li>Compute the updated <code>interim_transcript_hash</code> from the
+<code>confirmed_transcript_hash</code> and the <code>confirmation_tag</code> as described in
+Section 8.2 <a href="https://datatracker.ietf.org/doc/rfc9420/">RFC9420</a>.</li>
+</ul>
+<p>All members of a group MUST support the cipher suite and protocol
+version in use. Additional requirements MAY be imposed by including a
+<code>required_capabilities</code> extension in the <code>GroupContext</code>.</p>
+<pre><code class="language-text">struct {
+ExtensionType extension_types&lt;V&gt;;
+ProposalType proposal_types&lt;V&gt;;
+CredentialType credential_types&lt;V&gt;;
+}
+
+</code></pre>
+<p>The flow diagram shows the procedure to fetch key material from other
+users:
+<img src="/anoncomms/deleted/images/eth-secpm_fetching.png" alt="figure2" /></p>
+<p>Below follows the flow diagram for the creation of a group:
+<img src="/anoncomms/deleted/images/eth-secpm_creation.png" alt="figure3" /></p>
+<h3 id="group-evolution"><a class="header" href="#group-evolution">Group evolution</a></h3>
+<p>Group membership can change, and existing members can change their keys
+in order to achieve post-compromise security.
+In MLS, each such change is accomplished by a two-step process:</p>
+<ul>
+<li>A proposal to make the change is broadcast to the group in a Proposal
+message.</li>
+<li>A member of the group or a new member broadcasts a Commit message
+that causes one or more proposed changes to enter into effect.</li>
+</ul>
+<p>The group evolves from one cryptographic state to another each time a
+Commit message is sent and processed.
+These states are called epochs and are uniquely identified among states
+of the group by eight-octet epoch values.</p>
+<p>Proposals are included in a <code>FramedContent</code> by way of a <code>Proposal</code>
+structure that indicates their type:</p>
+<pre><code class="language-text">struct {
+ProposalType proposal_type;
+select (Proposal.proposal_type) {
+case add:                      Add:
+case update:                   Update;
+case remove:                   Remove;
+case psk:                      PreSharedKey;
+case reinit:                   ReInit;
+case external_init:            ExternalInit;
+case group_context_extensions: GroupContextExtensions;
+}
+
+</code></pre>
+<p>On receiving a <code>FramedContent</code> containing a <code>Proposal</code>, a client MUST
+verify the signature inside <code>FramedContentAuthData</code> and that the epoch
+field of the enclosing FramedContent is equal to the epoch field of the
+current GroupContext object.
+If the verification is successful, then the Proposal SHOULD be cached
+in such a way that it can be retrieved by hash in a later Commit
+message.</p>
+<p>Proposals are organized as follows:</p>
+<ul>
+<li><code>Add</code>: requests that a client with a specified KeyPackage be added to
+the group.</li>
+<li><code>Update</code>: similar to Add, it replaces the sender's LeafNode in the
+tree instead of adding a new leaf to the tree.</li>
+<li><code>Remove</code>: requests that the member with the leaf index removed be
+removed from the group.</li>
+<li><code>ReInit</code>: requests to reinitialize the group with different
+parameters.</li>
+<li><code>ExternalInit</code>: used by new members that want to join a group by
+using an external commit.</li>
+<li><code>GroupContentExtensions</code>: it is used to update the list of extensions
+in the GroupContext for the group.</li>
+</ul>
+<p>Proposals structure and semantics MUST follow sections 12.1.1 - 12.1.7
+of <a href="https://datatracker.ietf.org/doc/rfc9420/">RFC9420</a>.</p>
+<p>Any list of commited proposals MUST be validated either by a the group
+member who created the commit, or any group member processing such
+commit.
+The validation MUST be done according to one of the procedures
+described in Section 12.2 of
+<a href="https://datatracker.ietf.orgdoc/rfc9420/">RFC9420</a>.</p>
+<p>When creating or processing a Commit, a client applies a list of
+proposals to the ratchet tree and <code>GroupContext</code>.
+The client MUST apply the proposals in the list in the order described
+in Section 12.3 of <a href="https://datatracker.ietf.org/docrfc9420/">RFC9420</a>.</p>
+<p>Below follows the flow diagram for the addition of a member to a group:
+<img src="/anoncomms/deleted/images/eth-secpm_add.png" alt="figure4" /></p>
+<p>The diagram below shows the procedure to remove a group member:</p>
+<p><img src="/anoncomms/deleted/images/eth-secpm_remove.png" alt="figure5" /></p>
+<p>The flow diagram below shows an update procedure:</p>
+<p><img src="/anoncomms/deleted/images/eth-secpm_update.png" alt="figure6" /></p>
+<h3 id="commit-messages"><a class="header" href="#commit-messages">Commit messages</a></h3>
+<p>Commit messages initiate new group epochs.
+It informs group members to update their representation of the state of
+the group by applying the proposals and advancing the key schedule.</p>
+<p>Each proposal covered by the Commit is included by a <code>ProposalOrRef</code>
+value.
+<code>ProposalOrRef</code> identify the proposal to be applied by value or by
+reference.
+Commits that refer to new Proposals from the committer can be included
+by value.
+Commits for previously sent proposals from anyone can be sent by
+reference.
+Proposals sent by reference are specified by including the hash of the
+<code>AuthenticatedContent</code>.</p>
+<p>Group members that have observed one or more valid proposals within an
+epoch MUST send a Commit message before sending application data.
+A sender and a receiver of a Commit MUST verify that the committed list
+of proposals is valid.
+The sender of a Commit SHOULD include all valid proposals received
+during the current epoch.</p>
+<p>Functioning of commits MUST follow the instructions of Section 12.4 of
+<a href="https://datatracker.ietf.org/doc/rfc9420/">RFC9420</a>.</p>
+<h3 id="application-messages"><a class="header" href="#application-messages">Application messages</a></h3>
+<p>Handshake messages provide an authenticated group key exchange to
+clients.
+To protect application messages sent among the members of a group, the
+<code>encryption_secret</code> provided by the key schedule is used to derive a
+sequence of nonces and keys for message encryption.</p>
+<p>Each client MUST maintain their local copy of the key schedule for each
+epoch during which they are a group member.
+They derive new keys, nonces, and secrets as needed. This data MUST be
+deleted as soon as they have been used.</p>
+<p>Group members MUST use the AEAD algorithm associated with the
+negotiated MLS ciphersuite to encrypt and decrypt Application messages
+according to the Message Framing section.
+The group identifier and epoch allow a device to know which group
+secrets should be used and from which Epoch secret to start computing
+other secrets and keys.
+Application messages SHOULD be padded to provide resistance against
+traffic analysis techniques.
+This avoids additional information to be provided to an attacker in
+order to guess the length of the encrypted message.
+Padding SHOULD be used on messages with zero-valued bytes before AEAD
+encryption.</p>
+<p>Functioning of application messages MUST follow the instructions of
+Section 15 of <a href="https://datatracker.ietf.org/doc/rfc9420/">RFC9420</a>.</p>
+<h3 id="considerations-with-respect-to-decentralization"><a class="header" href="#considerations-with-respect-to-decentralization">Considerations with respect to decentralization</a></h3>
+<p>The MLS protocol assumes the existence on a (central, untrusted)
+<em>delivery service</em>, whose responsabilites include:</p>
+<ul>
+<li>Acting as a directory service providing the initial
+keying material for clients to use.</li>
+<li>Routing MLS messages among clients.</li>
+</ul>
+<p>The central delivery service can be avoided in protocols using the
+publish/gossip approach, such as
+<a href="https://github.com/libp2p/specs/tree/master/pubsub/gossipsub">gossipsub</a>.</p>
+<p>Concerning keys, each node can generate and disseminate their
+encryption key among the other nodes, so they can create a local
+version of the tree that allows for the generation of the group key.</p>
+<p>Another important component is the <em>authentication service</em>, which is
+replaced with SIWE in this specification.</p>
+<h2 id="ethereum-based-authentication-protocol"><a class="header" href="#ethereum-based-authentication-protocol">Ethereum-based authentication protocol</a></h2>
+<h3 id="introduction"><a class="header" href="#introduction">Introduction</a></h3>
+<p>Sign-in with Ethereum describes how Ethereum accounts authenticate with
+off-chain services by signing a standard message format
+parameterized by scope, session details, and security mechanisms.
+Sign-in with Ethereum (SIWE), which is described in the [EIP 4361
+(https://eips.ethereum.org/EIPS/eip-4361), MUST be the authentication
+method required.</p>
+<h3 id="pattern"><a class="header" href="#pattern">Pattern</a></h3>
+<h4 id="message-format-abnf"><a class="header" href="#message-format-abnf">Message format (ABNF)</a></h4>
+<p>A SIWE Message MUST conform with the following Augmented Backus–Naur
+Form (<a href="https://datatracker.ietf.org/doc/html/rfc5234">RFC 5234</a>)
+expression.</p>
+<pre><code class="language-text">sign-in-with-ethereum =
+    [ scheme "://" ] domain %s" wants you to sign in with your 
+    Ethereum account:" LF address LF
+    LF
+    [ statement LF ]
+    LF
+    %s"URI: " uri LF
+    %s"Version: " version LF
+    %s"Chain ID: " chain-id LF
+    %s"Nonce: " nonce LF
+    %s"Issued At: " issued-at
+    [ LF %s"Expiration Time: " expiration-time ]
+    [ LF %s"Not Before: " not-before ]
+    [ LF %s"Request ID: " request-id ]
+    [ LF %s"Resources:"
+    resources ]
+
+scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
+    ; See RFC 3986 for the fully contextualized
+    ; definition of "scheme".
+
+domain = authority
+    ; From RFC 3986:
+    ;     authority     = [ userinfo "@" ] host [ ":" port ]
+    ; See RFC 3986 for the fully contextualized
+    ; definition of "authority".
+
+address = "0x" 40*40HEXDIG
+    ; Must also conform to captilization
+    ; checksum encoding specified in EIP-55
+    ; where applicable (EOAs).
+
+statement = *( reserved / unreserved / " " )
+    ; See RFC 3986 for the definition
+    ; of "reserved" and "unreserved".
+    ; The purpose is to exclude LF (line break).
+
+uri = URI
+    ; See RFC 3986 for the definition of "URI".
+
+version = "1"
+
+chain-id = 1*DIGIT
+    ; See EIP-155 for valid CHAIN_IDs.
+
+nonce = 8*( ALPHA / DIGIT )
+    ; See RFC 5234 for the definition
+    ; of "ALPHA" and "DIGIT".
+
+issued-at = date-time
+expiration-time = date-time
+not-before = date-time
+    ; See RFC 3339 (ISO 8601) for the
+    ; definition of "date-time".
+
+request-id = *pchar
+    ; See RFC 3986 for the definition of "pchar".
+
+resources = *( LF resource )
+
+resource = "- " URI
+
+</code></pre>
+<p>This specification defines the following SIWE Message fields that can
+be parsed from a SIWE Message by following the rules in ABNF Message
+Format:</p>
+<ul>
+<li>
+<p><code>scheme</code> OPTIONAL. The URI scheme of the origin of the request.
+Its value MUST be a
+<a href="https://datatracker.ietf.org/doc/htmlrfc3986">RFC 3986</a>
+URI scheme.</p>
+</li>
+<li>
+<p><code>domain</code> REQUIRED.
+The domain that is requesting the signing.
+Its value MUST be a <a href="https://datatracker.ietf.org/doc/html/rfc3986">RFC 3986</a>
+authority. The authority includes an OPTIONAL port.
+If the port is not specified, the default
+port for the provided scheme is assumed.</p>
+</li>
+</ul>
+<p>If scheme is not specified, HTTPS is assumed by default.</p>
+<ul>
+<li>
+<p><code>address</code> REQUIRED. The Ethereum address performing the signing.
+Its value SHOULD be conformant to mixed-case checksum address encoding
+specified in ERC-55 where applicable.</p>
+</li>
+<li>
+<p><code>statement</code> OPTIONAL. A human-readable ASCII assertion that the user
+will sign which MUST NOT include '\n' (the byte 0x0a).</p>
+</li>
+<li>
+<p><code>uri</code> REQUIRED. An
+<a href="https://datatracker.ietf.org/doc/htmlrfc3986">RFC 3986</a>
+URI referring to the resource that is the subject of the
+signing.</p>
+</li>
+<li>
+<p><code>version</code> REQUIRED. The current version of the SIWE Message, which
+MUST be 1 for this specification.</p>
+</li>
+<li>
+<p><code>chain-id</code> REQUIRED. The EIP-155 Chain ID to which the session is
+bound, and the network where Contract Accounts MUST be resolved.</p>
+</li>
+<li>
+<p><code>nonce</code> REQUIRED. A random string (minimum 8 alphanumeric characters)
+chosen by the relying party and used to prevent replay attacks.</p>
+</li>
+<li>
+<p><code>issued-at</code> REQUIRED. The time when the message was generated,
+typically the current time.</p>
+</li>
+</ul>
+<p>Its value MUST be an ISO 8601 datetime string.</p>
+<ul>
+<li><code>expiration-time</code> OPTIONAL. The time when the signed authentication
+message is no longer valid.</li>
+</ul>
+<p>Its value MUST be an ISO 8601 datetime string.</p>
+<ul>
+<li><code>not-before</code> OPTIONAL. The time when the signed authentication
+message will become valid.</li>
+</ul>
+<p>Its value MUST be an ISO 8601 datetime string.</p>
+<ul>
+<li>
+<p><code>request-id</code> OPTIONAL. An system-specific identifier that MAY be used
+to uniquely refer to the sign-in request.</p>
+</li>
+<li>
+<p><code>resources</code> OPTIONAL. A list of information or references to
+information the user wishes to have resolved as part of authentication
+by the relying party.</p>
+</li>
+</ul>
+<p>Every resource MUST be a RFC 3986 URI separated by "\n- " where \n is
+the byte 0x0a.</p>
+<h4 id="signing-and-verifying-messages-with-ethereum-accounts"><a class="header" href="#signing-and-verifying-messages-with-ethereum-accounts">Signing and Verifying Messages with Ethereum Accounts</a></h4>
+<ul>
+<li>
+<p>For Externally Owned Accounts, the verification method specified in
+<a href="https://eips.ethereum.org/EIPS/eip-191">ERC-191</a>
+MUST be used.</p>
+</li>
+<li>
+<p>For Contract Accounts,</p>
+<ul>
+<li>
+<p>The verification method specified in
+<a href="https://eips.ethereum.org/EIPS/eip-1271">ERC-1271</a>
+SHOULD be used.
+Otherwise, the implementer MUST clearly define the
+verification method
+to attain security and interoperability for both
+wallets and relying parties.</p>
+</li>
+<li>
+<p>When performing <a href="https://eips.ethereum.org/EIPS/eip-1271">ERC-1271</a>
+signature verification, the contract performing the verification MUST
+be resolved from the specified <code>chain-id</code>.</p>
+</li>
+<li>
+<p>Implementers SHOULD take into consideration that [ERC-1271
+(https://eips.ethereum.org/EIPS/eip-1271) implementations are not
+required to be pure functions.
+They can return different results for the same inputs depending on
+blockchain state.
+This can affect the security model and session validation rules.</p>
+</li>
+</ul>
+</li>
+</ul>
+<h4 id="resolving-ethereum-name-service-ens-data"><a class="header" href="#resolving-ethereum-name-service-ens-data">Resolving Ethereum Name Service (ENS) Data</a></h4>
+<ul>
+<li>
+<p>The relying party or wallet MAY additionally perform resolution of
+ENS data, as this can improve the user experience by displaying human
+friendly information that is related to the <code>address</code>.
+Resolvable ENS data include:</p>
+<ul>
+<li>The primary ENS name.</li>
+<li>The ENS avatar.</li>
+<li>Any other resolvable resources specified in the ENS documentation.</li>
+</ul>
+</li>
+<li>
+<p>If resolution of ENS data is performed, implementers SHOULD take
+precautions to preserve user privacy and consent.
+Their <code>address</code> could be forwarded to third party services as part of
+the resolution process.</p>
+</li>
+</ul>
+<h4 id="implementer-steps-specifying-the-request-origin"><a class="header" href="#implementer-steps-specifying-the-request-origin">Implementer steps: specifying the request origin</a></h4>
+<p>The <code>domain</code> and, if present, the <code>scheme</code>, in the SIWE Message MUST
+correspond to the origin from where the signing request was made.</p>
+<h4 id="implementer-steps-verifying-a-signed-message"><a class="header" href="#implementer-steps-verifying-a-signed-message">Implementer steps: verifying a signed message</a></h4>
+<p>The SIWE Message MUST be checked for conformance to the ABNF Message
+Format and its signature MUST be checked as defined in Signing and
+Verifying Messages with Ethereum Accounts.</p>
+<h4 id="implementer-steps-creating-sessions"><a class="header" href="#implementer-steps-creating-sessions">Implementer steps: creating sessions</a></h4>
+<p>Sessions MUST be bound to the address and not to further resolved
+resources that can change.</p>
+<h4 id="implementer-steps-interpreting-and-resolving-resources"><a class="header" href="#implementer-steps-interpreting-and-resolving-resources">Implementer steps: interpreting and resolving resources</a></h4>
+<p>Implementers SHOULD ensure that that URIs in the listed resources are
+human-friendly when expressed in plaintext form.</p>
+<h4 id="wallet-implementer-steps-verifying-the-message-format"><a class="header" href="#wallet-implementer-steps-verifying-the-message-format">Wallet implementer steps: verifying the message format</a></h4>
+<p>The full SIWE message MUST be checked for conformance to the ABNF
+defined in ABNF Message Format.</p>
+<p>Wallet implementers SHOULD warn users if the substring <code>"wants you to sign in with your Ethereum account"</code> appears anywhere in an [ERC-191
+(https://eips.ethereum.org/EIPS/eip-191) message signing request unless
+the message fully conforms to the format defined ABNF Message Format.</p>
+<h4 id="wallet-implementer-steps-verifying-the-request-origin"><a class="header" href="#wallet-implementer-steps-verifying-the-request-origin">Wallet implementer steps: verifying the request origin</a></h4>
+<p>Wallet implementers MUST prevent phishing attacks by verifying the
+origin of the request against the <code>scheme</code> and <code>domain</code> fields in the
+SIWE Message.</p>
+<p>The origin SHOULD be read from a trusted data source such as the
+browser window or over WalletConnect
+<a href="https://eips.ethereum.org/EIPS/eip-1328">ERC-1328</a> sessions for
+comparison against the
+signing message contents.</p>
+<p>Wallet implementers MAY warn instead of rejecting the verification if
+the origin is pointing to localhost.</p>
+<p>The following is a RECOMMENDED algorithm for Wallets to conform with
+the requirements on request origin verification defined by this
+specification.</p>
+<p>The algorithm takes the following input variables:</p>
+<ul>
+<li>fields from the SIWE message.</li>
+<li><code>origin</code> of the signing request: the origin of the page which
+requested the signin via the provider.</li>
+<li><code>allowedSchemes</code>: a list of schemes allowed by the Wallet.</li>
+<li><code>defaultScheme</code>: a scheme to assume when none was provided. Wallet
+implementers in the browser SHOULD use https.</li>
+<li>developer mode indication: a setting deciding if certain risks should
+be a warning instead of rejection. Can be manually configured or
+derived from <code>origin</code> being localhost.</li>
+</ul>
+<p>The algorithm is described as follows:</p>
+<ul>
+<li>If <code>scheme</code> was not provided, then assign <code>defaultScheme</code> as scheme.</li>
+<li>If <code>scheme</code> is not contained in <code>allowedSchemes</code>, then the <code>scheme</code>
+is not expected and the Wallet MUST reject the request.
+Wallet implementers in the browser SHOULD limit the list of
+allowedSchemes to just 'https' unless a developer mode is activated.</li>
+<li>If <code>scheme</code> does not match the scheme of origin, the Wallet SHOULD
+reject the request.
+Wallet implementers MAY show a warning instead of rejecting the request
+if a developer mode is activated.
+In that case the Wallet continues processing the request.</li>
+<li>If the <code>host</code> part of the <code>domain</code> and <code>origin</code> do not match, the
+Wallet MUST reject the request unless the Wallet is in developer mode.
+In developer mode the Wallet MAY show a warning instead and continues
+procesing the request.</li>
+<li>If <code>domain</code> and <code>origin</code> have mismatching subdomains, the Wallet
+SHOULD reject the request unless the Wallet is in developer mode.
+In developer mode the Wallet MAY show a warning instead and continues
+procesing the request.</li>
+<li>Let <code>port</code> be the port component of <code>domain</code>, and if no port is
+contained in domain, assign port the default port specified for the
+scheme.</li>
+<li>If <code>port</code> is not empty, then the Wallet SHOULD show a warning if the
+<code>port</code> does not match the port of <code>origin</code>.</li>
+<li>If <code>port</code> is empty, then the Wallet MAY show a warning if <code>origin</code>
+contains a specific port.</li>
+<li>Return request origin verification completed.</li>
+</ul>
+<h4 id="wallet-implementer-steps-creating-siwe-interfaces"><a class="header" href="#wallet-implementer-steps-creating-siwe-interfaces">Wallet implementer steps: creating SIWE interfaces</a></h4>
+<p>Wallet implementers MUST display to the user the following fields from
+the SIWE Message request by default and prior to signing, if they are
+present: <code>scheme</code>, <code>domain</code>, <code>address</code>, <code>statement</code>, and <code>resources</code>.
+Other present fields MUST also be made available to the user prior to
+signing either by default or through an extended interface.</p>
+<p>Wallet implementers displaying a plaintext SIWE Message to the user
+SHOULD require the user to scroll to the bottom of the text area prior
+to signing.</p>
+<p>Wallet implementers MAY construct a custom SIWE user interface by
+parsing the ABNF terms into data elements for use in the interface.
+The display rules above still apply to custom interfaces.</p>
+<h4 id="wallet-implementer-steps-supporting-internationalization-i18n"><a class="header" href="#wallet-implementer-steps-supporting-internationalization-i18n">Wallet implementer steps: supporting internationalization (i18n)</a></h4>
+<p>After successfully parsing the message into ABNF terms, translation MAY
+happen at the UX level per human language.</p>
+<h2 id="privacy-and-security-considerations"><a class="header" href="#privacy-and-security-considerations">Privacy and Security Considerations</a></h2>
+<ul>
+<li>The double ratchet "recommends" using AES in CBC mode. Since
+encryption must be with an AEAD encryption scheme, we will use AES in
+GCM mode instead (supported by Noise).</li>
+<li>For the information retrieval, the algorithm MUST include a access
+control mechanisms to restrict who can call the set and get functions.</li>
+<li>One SHOULD include event logs to track changes in public keys.</li>
+<li>The curve vurve448 MUST be chosen due to its higher security level:
+224-bit security instead of the 128-bit security provided by X25519.</li>
+<li>It is important that Bob MUST NOT reuse <code>SPK</code>.</li>
+</ul>
+<h2 id="considerations-related-to-the-use-of-ethereum-addresses"><a class="header" href="#considerations-related-to-the-use-of-ethereum-addresses">Considerations related to the use of Ethereum addresses</a></h2>
+<h3 id="with-respect-to-the-authentication-service"><a class="header" href="#with-respect-to-the-authentication-service">With respect to the Authentication Service</a></h3>
+<ul>
+<li>If users used their Ethereum addresses as identifiers, they MUST
+generate their own credentials.
+These credentials MUST use the digital signature key pair associated to
+the Ethereum address.</li>
+<li>Other users can verify credentials.</li>
+<li>With this approach, there is no need to have a dedicated
+Authentication Service responsible for the issuance and verification of
+credentials.</li>
+<li>The interaction diagram showing the generation of credentials becomes
+obsolete.</li>
+</ul>
+<h3 id="with-respect-to-the-delivery-service"><a class="header" href="#with-respect-to-the-delivery-service">With respect to the Delivery Service</a></h3>
+<ul>
+<li>Users MUST generate their own KeyPackage.</li>
+<li>Other users can verify KeyPackages when required.</li>
+<li>A Delivery Service storage system MUST verify KeyPackages before
+storing them.</li>
+<li>Interaction diagrams involving the DS do not change.</li>
+</ul>
+<h2 id="consideration-related-to-the-onchain-component-of-the-protocol"><a class="header" href="#consideration-related-to-the-onchain-component-of-the-protocol">Consideration related to the onchain component of the protocol</a></h2>
+<h3 id="assumptions"><a class="header" href="#assumptions">Assumptions</a></h3>
+<ul>
+<li>Users have set a secure 1-1 communication channel.</li>
+<li>Each group is managed by a separate smart contract.</li>
+</ul>
+<h3 id="addition-of-members-to-a-group"><a class="header" href="#addition-of-members-to-a-group">Addition of members to a group</a></h3>
+<h4 id="alice-knows-bobs-ethereum-address"><a class="header" href="#alice-knows-bobs-ethereum-address">Alice knows Bob’s Ethereum address</a></h4>
+<ol>
+<li>Off-chain - Alice and Bob set a secure communication channel.</li>
+<li>Alice creates the smart contract associated to the group. This smart
+contract MUST include an ACL.</li>
+<li>Alice adds Bob’s Ethereum address to the ACL.</li>
+<li>Off-chain - Alice sends a request to join the group to Bob. The
+request MUST include the contract’s address: <code>RequestMLSPayload {"You are joining the group with smart contract: 0xabcd"}</code></li>
+<li>Off-chain - Bob responds the request with a digitally signed
+response. This response includes Bob’s credentials and key package:
+<code>ResponseMLSPayload {sig: signature(ethereum_sk, message_to_sign), address: ethereum_address, credentials, keypackage}</code></li>
+<li>Off-chain - Alice verifies the signature, using Bob’s <code>ethereum_pk</code>
+and checks that it corresponds to an address contained in the ACL.</li>
+<li>Off-chain - Alice sends a welcome message to Bob.</li>
+<li>Off-chain - Alice SHOULD broadcasts a message announcing the
+addition of Bob to other users of the group.
+<img src="/anoncomms/deleted/images/eth-secpm_onchain-register-1.png" alt="figure7" /></li>
+</ol>
+<h4 id="alice-does-not-know-bobs-ethereum-address"><a class="header" href="#alice-does-not-know-bobs-ethereum-address">Alice does not know Bob’s Ethereum address</a></h4>
+<ol>
+<li>Off-chain - Alice and Bob set a secure communication channel.</li>
+<li>Alice creates the smart contract associated to the group.
+This smart contract MUST include an ACL.</li>
+<li>Off-chain - Alice sends a request to join the group to Bob. The
+request MUST include the contract’s address:
+<code>RequestMLSPayload{"You are joining the group with smart contract: 0xabcd"}</code></li>
+<li>Off-chain - Bob responds the request with a digitally signed
+response. This response includes Bob’s credentials, his Ethereum
+address and key package: <code>ResponseMLSPayload {sig: signature(ethereum_sk, message_to_sign), address: ethereum_address, credentials, keypackage}</code></li>
+<li>Off-chain - Alice verifies the signature using Bob’s <code>ethereum_pk</code>.</li>
+<li>Upon reception of Bob’s data, Alice registers data with the smart
+contract.</li>
+<li>Off-chain - Alice sends a welcome message to Bob.</li>
+<li>Off-chain - Alice SHOULD broadcasts a message announcing the
+addition of Bob to other users of the group.</li>
+</ol>
+<p><img src="/anoncomms/deleted/images/eth-secpm_onchain-register-2.png" alt="figure8" /></p>
+<h3 id="considerations-regarding-smart-contracts"><a class="header" href="#considerations-regarding-smart-contracts">Considerations regarding smart contracts</a></h3>
+<p>The role of the smart contract includes:</p>
+<ul>
+<li>Register user information and key packages:
+As described in the previous section.</li>
+<li>Updates of key material.
+<ul>
+<li>Users MUST send any update in their key material to the other
+users of the group via off-chain messages.</li>
+<li>Upon reception of the new key material, the creator of the
+contract MUST update the state of the smart contract.</li>
+</ul>
+</li>
+<li>Deletion of users.
+<ul>
+<li>Any user can submit a proposal for the removal of a user via
+off-chain message.</li>
+<li>This proposal MUST be sent to the creator of the contract.</li>
+<li>The creator of the contract MUST update the ACL, and send
+messages to the group for key update.</li>
+</ul>
+</li>
+</ul>
+<p><img src="/anoncomms/deleted/images/eth-secpm_onchain-update.png" alt="figure9" /></p>
+<blockquote>
+<p>It is important to note that both
+user removal and updates of any kind
+have a similar interaction flow.</p>
+</blockquote>
+<ul>
+<li>Queries of existing users.
+<ul>
+<li>Any user can query the smart contract to know the state of the
+group, including existing users and removed ones.</li>
+<li>This aspect MUST be used when adding new members to verify that
+the prospective key package has not been already used.</li>
+</ul>
+</li>
+</ul>
+<h2 id="copyright"><a class="header" href="#copyright">Copyright</a></h2>
+<p>Copyright and related rights waived via <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>.</p>
+<h2 id="references"><a class="header" href="#references">References</a></h2>
+<ul>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc5234">Augmented BNF for Syntax Specifications</a></li>
+<li><a href="https://github.com/libp2p/specs/tree/master/pubsub/gossipsub">Gossipsub</a></li>
+<li><a href="https://www.ietf.org/rfc/rfc5869.txt">HMAC-based Extract-and-Expand Key Derivation Function</a></li>
+<li><a href="https://datatracker.ietf.org/doc/rfc9180/">Hybrid Public Key Encryption</a></li>
+<li><a href="https://eprint.iacr.org/2019/1189.pdf">Security Analysis and Improvements for the IETF MLS Standard for Group Messaging</a></li>
+<li><a href="https://eips.ethereum.org/EIPS/eip-191">Signed Data Standard</a></li>
+<li><a href="https://eips.ethereum.org/EIPS/eip-4361">Sign-In with Ethereum</a></li>
+<li><a href="https://eips.ethereum.org/EIPS/eip-1271">Standard Signature Validation Method for Contracts</a></li>
+<li><a href="https://signal.org/docs/specifications/doubleratchet/">The Double Ratchet Algorithm</a></li>
+<li><a href="https://datatracker.ietf.org/doc/rfc9420/">The Messaging Layer Security Protocol</a></li>
+<li><a href="https://signal.org/docs/specifications/x3dh/">The X3DH Key Agreement Protocol</a></li>
+<li><a href="https://rfc.vac.dev/spec/20/">Toy Ethereum Private Messaging Protocol</a></li>
+<li><a href="https://datatracker.ietf.org/doc/html/rfc3986">Uniform Resource Identifier</a></li>
+<li><a href="https://eips.ethereum.org/EIPS/eip-1328">WalletConnect URI Format</a></li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../anoncomms/deleted/25/libp2p-dns-discovery.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../research/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../anoncomms/deleted/25/libp2p-dns-discovery.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../research/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../../theme/katex/katex.min.js"></script>
+        <script src="../../theme/katex/auto-render.min.js"></script>
+        <script src="../../scripts/katex-render.js"></script>
+        <script src="../../scripts/logos-lips.js"></script>
+
+
+    </div>
+    </body>
+</html>

@@ -1,0 +1,317 @@
+<!DOCTYPE HTML>
+<html lang="en" class="ayu" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>CHAT-CAST - Logos LIP</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../highlight.css">
+        <link rel="stylesheet" href="../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../../theme/katex/katex.min.css">
+        <link rel="stylesheet" href="../../theme/fonts/fonts.css">
+        <link rel="stylesheet" href="../../theme/FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../custom.css">
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "ayu";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('ayu')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../../index.html">Introduction</a></li><li class="chapter-item expanded affix "><a href="../../about.html">About</a></li><li class="chapter-item expanded "><a href="../../messaging/index.html"><strong aria-hidden="true">1.</strong> Messaging</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/raw/index.html"><strong aria-hidden="true">1.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/raw/adversarial-models.html"><strong aria-hidden="true">1.1.1.</strong> ADVERSARIAL-MODELS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/chat-cast.html" class="active"><strong aria-hidden="true">1.1.2.</strong> CHAT-CAST</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/chatdefs.html"><strong aria-hidden="true">1.1.3.</strong> CHAT-DEFINITIONS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/dandelion.html"><strong aria-hidden="true">1.1.4.</strong> DANDELION</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/messaging-api.html"><strong aria-hidden="true">1.1.5.</strong> MESSAGING-API</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/opchan.html"><strong aria-hidden="true">1.1.6.</strong> OP-CHAN</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/relay-sharding.html"><strong aria-hidden="true">1.1.7.</strong> RELAY-SHARDING</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/relay-static-shard-alloc.html"><strong aria-hidden="true">1.1.8.</strong> RELAY-STATIC-SHARD-ALLOC</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/reliable-channel-api.html"><strong aria-hidden="true">1.1.9.</strong> RELIABLE-CHANNEL-API</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/lightpush.html"><strong aria-hidden="true">1.1.10.</strong> WAKU-LIGHTPUSH</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/mix.html"><strong aria-hidden="true">1.1.11.</strong> WAKU-MIX</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/p2p-reliability.html"><strong aria-hidden="true">1.1.12.</strong> WAKU-P2P-RELIABILITY</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/rendezvous.html"><strong aria-hidden="true">1.1.13.</strong> WAKU-RENDEZVOUS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/rln-keystore.html"><strong aria-hidden="true">1.1.14.</strong> WAKU-RLN-KEYSTORE</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/store-sync.html"><strong aria-hidden="true">1.1.15.</strong> WAKU-STORE-SYNC</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/sync.html"><strong aria-hidden="true">1.1.16.</strong> WAKU-SYNC</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/device-pairing.html"><strong aria-hidden="true">1.1.17.</strong> WAKU2-DEVICE-PAIRING</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/incentivization.html"><strong aria-hidden="true">1.1.18.</strong> WAKU2-INCENTIVIZATION</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/noise.html"><strong aria-hidden="true">1.1.19.</strong> WAKU2-NOISE</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/noise-sessions.html"><strong aria-hidden="true">1.1.20.</strong> WAKU2-NOISE-SESSIONS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/rln-contract.html"><strong aria-hidden="true">1.1.21.</strong> WAKU2-RLN-CONTRACT</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/draft/index.html"><strong aria-hidden="true">1.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/draft/3/remote-log.html"><strong aria-hidden="true">1.2.1.</strong> 3/REMOTE-LOG</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/4/mvds-meta.html"><strong aria-hidden="true">1.2.2.</strong> 4/MVDS-META</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/10/waku2.html"><strong aria-hidden="true">1.2.3.</strong> 10/WAKU2</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/12/filter.html"><strong aria-hidden="true">1.2.4.</strong> 12/WAKU2-FILTER</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/draft/12/previous-versions/00/filter.html"><strong aria-hidden="true">1.2.4.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/draft/13/store.html"><strong aria-hidden="true">1.2.5.</strong> 13/WAKU2-STORE</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/draft/13/previous-versions/00/store.html"><strong aria-hidden="true">1.2.5.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/draft/15/bridge.html"><strong aria-hidden="true">1.2.6.</strong> 15/WAKU-BRIDGE</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/17/rln-relay.html"><strong aria-hidden="true">1.2.7.</strong> 17/WAKU2-RLN-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/19/lightpush.html"><strong aria-hidden="true">1.2.8.</strong> 19/WAKU2-LIGHTPUSH</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/20/toy-eth-pm.html"><strong aria-hidden="true">1.2.9.</strong> 20/TOY-ETH-PM</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/22/toy-chat.html"><strong aria-hidden="true">1.2.10.</strong> 22/TOY-CHAT</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/23/topics.html"><strong aria-hidden="true">1.2.11.</strong> 23/WAKU2-TOPICS</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/26/payload.html"><strong aria-hidden="true">1.2.12.</strong> 26/WAKU2-PAYLOAD</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/27/peers.html"><strong aria-hidden="true">1.2.13.</strong> 27/WAKU2-PEERS</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/29/config.html"><strong aria-hidden="true">1.2.14.</strong> 29/WAKU2-CONFIG</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/30/adaptive-nodes.html"><strong aria-hidden="true">1.2.15.</strong> 30/ADAPTIVE-NODES</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/31/enr.html"><strong aria-hidden="true">1.2.16.</strong> 31/WAKU2-ENR</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/33/discv5.html"><strong aria-hidden="true">1.2.17.</strong> 33/WAKU2-DISCV5</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/34/peer-exchange.html"><strong aria-hidden="true">1.2.18.</strong> 34/WAKU2-PEER-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/36/bindings-api.html"><strong aria-hidden="true">1.2.19.</strong> 36/WAKU2-BINDINGS-API</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/53/x3dh.html"><strong aria-hidden="true">1.2.20.</strong> 53/WAKU2-X3DH</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/54/x3dh-sessions.html"><strong aria-hidden="true">1.2.21.</strong> 54/WAKU2-X3DH-SESSIONS</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/64/network.html"><strong aria-hidden="true">1.2.22.</strong> 64/WAKU2-NETWORK</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/66/metadata.html"><strong aria-hidden="true">1.2.23.</strong> 66/WAKU2-METADATA</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/stable/index.html"><strong aria-hidden="true">1.3.</strong> Stable</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/stable/2/mvds.html"><strong aria-hidden="true">1.3.1.</strong> 2/MVDS</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/6/waku1.html"><strong aria-hidden="true">1.3.2.</strong> 6/WAKU1</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/7/data.html"><strong aria-hidden="true">1.3.3.</strong> 7/WAKU-DATA</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/8/mail.html"><strong aria-hidden="true">1.3.4.</strong> 8/WAKU-MAIL</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/9/rpc.html"><strong aria-hidden="true">1.3.5.</strong> 9/WAKU-RPC</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/11/relay.html"><strong aria-hidden="true">1.3.6.</strong> 11/WAKU2-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/14/message.html"><strong aria-hidden="true">1.3.7.</strong> 14/WAKU2-MESSAGE</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/index.html"><strong aria-hidden="true">1.4.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/deprecated/5/waku0.html"><strong aria-hidden="true">1.4.1.</strong> 5/WAKU0</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/16/rpc.html"><strong aria-hidden="true">1.4.2.</strong> 16/WAKU2-RPC</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/18/swap.html"><strong aria-hidden="true">1.4.3.</strong> 18/WAKU2-SWAP</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/deleted/index.html"><strong aria-hidden="true">1.5.</strong> Deleted</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/deleted/fault-tolerant-store.html"><strong aria-hidden="true">1.5.1.</strong> 21/WAKU2-FAULT-TOLERANT-STORE</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/index.html"><strong aria-hidden="true">2.</strong> Blockchain</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/index.html"><strong aria-hidden="true">2.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-anonymous-leaders-reward.html"><strong aria-hidden="true">2.1.1.</strong> BEDROCK-ANONYMOUS-LEADERS-REWARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-architecture-overview.html"><strong aria-hidden="true">2.1.2.</strong> BEDROCK-ARCHITECTURE-OVERVIEW</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-genesis-block.html"><strong aria-hidden="true">2.1.3.</strong> BEDROCK-GENESIS-BLOCK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-declaration-protocol.html"><strong aria-hidden="true">2.1.4.</strong> BEDROCK-SERVICE-DECLARATION-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-reward-distribution.html"><strong aria-hidden="true">2.1.5.</strong> BEDROCK-SERVICE-REWARD-DISTRIBUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-block-construction.html"><strong aria-hidden="true">2.1.6.</strong> BEDROCK-V1-1-BLOCK-CONSTRUCTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-mantle-specification.html"><strong aria-hidden="true">2.1.7.</strong> BEDROCK-V1.1-MANTLE-SPECIFICATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/fork-choice.html"><strong aria-hidden="true">2.1.8.</strong> CRYPTARCHIA-FORK-CHOICE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-proof-of-leadership.html"><strong aria-hidden="true">2.1.9.</strong> CRYPTARCHIA-PROOF-OF-LEADERSHIP</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-total-stake-inference.html"><strong aria-hidden="true">2.1.10.</strong> CRYPTARCHIA-TOTAL-STAKE-INFERENCE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-v1-bootstr-sync.html"><strong aria-hidden="true">2.1.11.</strong> CRYPTARCHIA-V1-BOOTSTRAPPING-SYNCHRONIZATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-blend-protocol.html"><strong aria-hidden="true">2.1.12.</strong> NOMOS-BLEND-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-cryptarchia-v1-protocol.html"><strong aria-hidden="true">2.1.13.</strong> NOMOS-CRYPTARCHIA-V1-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomosda-network.html"><strong aria-hidden="true">2.1.14.</strong> NOMOS-DA-NETWORK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/digital-signature.html"><strong aria-hidden="true">2.1.15.</strong> NOMOS-DIGITAL-SIGNATURE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-key-types-and-generation.html"><strong aria-hidden="true">2.1.16.</strong> NOMOS-KEY-TYPES-GENERATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-encapsulation.html"><strong aria-hidden="true">2.1.17.</strong> NOMOS-MESSAGE-ENCAPSULATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-formatting.html"><strong aria-hidden="true">2.1.18.</strong> NOMOS-MESSAGE-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-payload-formatting.html"><strong aria-hidden="true">2.1.19.</strong> NOMOS-PAYLOAD-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-proof-of-quota.html"><strong aria-hidden="true">2.1.20.</strong> NOMOS-PROOF-OF-QUOTA</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-wallet-technical-standard.html"><strong aria-hidden="true">2.1.21.</strong> NOMOS-WALLET-TECHNICAL-STANDARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-cryptographic-protocol.html"><strong aria-hidden="true">2.1.22.</strong> NOMOSDA-CRYPTOGRAPHIC-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-rewarding.html"><strong aria-hidden="true">2.1.23.</strong> NOMOSDA-REWARDING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-hardware-requirements.html"><strong aria-hidden="true">2.1.24.</strong> P2P-HARDWARE-REQUIREMENTS</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-nat-solution.html"><strong aria-hidden="true">2.1.25.</strong> P2P-NAT-SOLUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-network-bootstrapping.html"><strong aria-hidden="true">2.1.26.</strong> P2P-NETWORK-BOOTSTRAPPING</a></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/draft/index.html"><strong aria-hidden="true">2.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/draft/p2p-network.html"><strong aria-hidden="true">2.2.1.</strong> NOMOS-P2P-NETWORK</a></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/deprecated/index.html"><strong aria-hidden="true">2.3.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/deprecated/claro.html"><strong aria-hidden="true">2.3.1.</strong> CONSENSUS-CLARO</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../storage/index.html"><strong aria-hidden="true">3.</strong> Storage</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/index.html"><strong aria-hidden="true">3.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/codex-block-exchange.html"><strong aria-hidden="true">3.1.1.</strong> CODEX-BLOCK-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/community-history.html"><strong aria-hidden="true">3.1.2.</strong> CODEX-COMMUNITY-HISTORY</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dht.html"><strong aria-hidden="true">3.1.3.</strong> CODEX-DHT</a></li><li class="chapter-item expanded "><a href="../../storage/raw/manifest.html"><strong aria-hidden="true">3.1.4.</strong> CODEX-MANIFEST</a></li><li class="chapter-item expanded "><a href="../../storage/raw/codex-store.html"><strong aria-hidden="true">3.1.5.</strong> CODEX-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dataset-store.html"><strong aria-hidden="true">3.1.6.</strong> DATASET-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/datasets.html"><strong aria-hidden="true">3.1.7.</strong> DATASETS</a></li></ol></li><li class="chapter-item expanded "><a href="../../storage/draft/index.html"><strong aria-hidden="true">3.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/draft/merkle-tree.html"><strong aria-hidden="true">3.2.1.</strong> MERKLE-TREE</a></li></ol></li><li class="chapter-item expanded "><a href="../../storage/deprecated/index.html"><strong aria-hidden="true">3.3.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/deprecated/erasure-coding.html"><strong aria-hidden="true">3.3.1.</strong> CODEX-ERASUE-CODING</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-marketplace.html"><strong aria-hidden="true">3.3.2.</strong> CODEX-MARKETPLACE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-merkle-tree.html"><strong aria-hidden="true">3.3.3.</strong> CODEX-MERKLE-TREE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-prover.html"><strong aria-hidden="true">3.3.4.</strong> CODEX-PROVER</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/slot-buIlder.html"><strong aria-hidden="true">3.3.5.</strong> CODEX-SLOT-BUILDER</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../anoncomms/index.html"><strong aria-hidden="true">4.</strong> AnonComms</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/raw/index.html"><strong aria-hidden="true">4.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/raw/decentralized-mls-offchain-consensus.html"><strong aria-hidden="true">4.1.1.</strong> DECENTRALIZED-MLS-OFFCHAIN-CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/decentralized-messaging-ethereum.html"><strong aria-hidden="true">4.1.2.</strong> ETH-DCGKA</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/eth-mls-onchain.html"><strong aria-hidden="true">4.1.3.</strong> ETH-MLS-ONCHAIN</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/extended-kad-disco.html"><strong aria-hidden="true">4.1.4.</strong> EXTENDED-KADEMLIA-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/extensible-peer-records.html"><strong aria-hidden="true">4.1.5.</strong> EXTENSIBLE-PEER-RECORDS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/gossipsub-tor-push.html"><strong aria-hidden="true">4.1.6.</strong> GOSSIPSUB-TOR-PUSH</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/consensus-hashgraphlike.html"><strong aria-hidden="true">4.1.7.</strong> HASHGRAPHLIKE CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/logos-service-discovery.html"><strong aria-hidden="true">4.1.8.</strong> LOGOS-SERVICE-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix.html"><strong aria-hidden="true">4.1.9.</strong> MIX</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix-cover-traffic.html"><strong aria-hidden="true">4.1.10.</strong> Mix Cover Traffic</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix-dos-protection.html"><strong aria-hidden="true">4.1.11.</strong> Mix DoS Protection</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/multi-message_id-burn-rln.html"><strong aria-hidden="true">4.1.12.</strong> Multi-message_id Burn RLN</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/noise-x3dh-double-ratchet.html"><strong aria-hidden="true">4.1.13.</strong> NOISE-X3DH-DOUBLE-RATCHET</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/payment-streams.html"><strong aria-hidden="true">4.1.14.</strong> PAYMENT-STREAMS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix-spam-protection-rln.html"><strong aria-hidden="true">4.1.15.</strong> RLN DoS Protection for Mixnet</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-interep-spec.html"><strong aria-hidden="true">4.1.16.</strong> RLN-INTEREP-SPEC</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-membership-service.html"><strong aria-hidden="true">4.1.17.</strong> RLN-MEMBERSHIP-SERVICE</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-stealth-commitments.html"><strong aria-hidden="true">4.1.18.</strong> RLN-STEALTH-COMMITMENTS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-v2.html"><strong aria-hidden="true">4.1.19.</strong> RLN-V2</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/sds.html"><strong aria-hidden="true">4.1.20.</strong> SDS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/service-discovery-api.html"><strong aria-hidden="true">4.1.21.</strong> SERVICE-DISCOVERY-API</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/status-rln-deployment.html"><strong aria-hidden="true">4.1.22.</strong> STATUS-RLN-DEPLOYMENT</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/zerokit-api.html"><strong aria-hidden="true">4.1.23.</strong> Zerokit API</a></li></ol></li><li class="chapter-item expanded "><a href="../../anoncomms/draft/index.html"><strong aria-hidden="true">4.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/draft/32/rln-v1.html"><strong aria-hidden="true">4.2.1.</strong> 32/RLN-V1</a></li></ol></li><li class="chapter-item expanded "><a href="../../anoncomms/deleted/index.html"><strong aria-hidden="true">4.3.</strong> Deleted</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/deleted/25/libp2p-dns-discovery.html"><strong aria-hidden="true">4.3.1.</strong> 25/LIBP2P-DNS-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../anoncomms/deleted/eth-secpm.html"><strong aria-hidden="true">4.3.2.</strong> ETH-SECPM</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../research/index.html"><strong aria-hidden="true">5.</strong> Research</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../research/draft/index.html"><strong aria-hidden="true">5.1.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../research/draft/1/coss.html"><strong aria-hidden="true">5.1.1.</strong> 1/COSS</a></li></ol></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Logos LIP</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/logos-co/logos-lips" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="chat-cast"><a class="header" href="#chat-cast">CHAT-CAST</a></h1>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
+<tr><td>Name</td><td>Roles and Entities Used in Chat Protocol Documentation</td></tr>
+<tr><td>Slug</td><td>163</td></tr>
+<tr><td>Status</td><td>raw</td></tr>
+<tr><td>Type</td><td>RFC</td></tr>
+<tr><td>Category</td><td>Informational</td></tr>
+<tr><td>Tags</td><td>chat/informational</td></tr>
+<tr><td>Editor</td><td>Jazzz <a href="mailto:jazz@status.im">jazz@status.im</a></td></tr>
+</tbody></table>
+</div><!-- timeline:start -->
+<h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
+<ul>
+<li><strong>2026-05-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/1ac7689ee3fe1665d5d5d1bf9c180ed951cc660d/docs/messaging/raw/chat-cast.md"><code>1ac7689</code></a> — chore: split ift ts specs (#334)</li>
+<li><strong>2026-05-07</strong> — <a href="https://github.com/logos-co/logos-lips/blob/48600b5b4fcdcb89f3d556ee0e4d417526f2919a/docs/messaging/informational/chat-cast.md"><code>48600b5</code></a> — Migrate logos-messaging/specs into docs/messaging/ (#315)</li>
+</ul>
+<!-- timeline:end -->
+<h2 id="abstract"><a class="header" href="#abstract">Abstract</a></h2>
+<p>This document defines a reusable cast of characters to be used in chat protocol documentation and related supporting materials.
+The goal is to improve clarity and consistency when describing protocol roles, actors, and message flows.</p>
+<h2 id="background"><a class="header" href="#background">Background</a></h2>
+<p>When documenting applications and protocols, it is often beneficial to define a consistent set of characters representing common roles.
+A shared cast allows authors to convey meaning and intent quickly to readers.
+Readers are not required to understand these meanings, however consistent usage can make comprehension faster to achieve.</p>
+<p>This approach is well established in cryptographic literature, where <code>Alice</code> and <code>Bob</code> are commonly used to describe participants in key exchange protocols.
+Within that context, Alice typically initiates the exchange and Bob responds.
+Readers familiar with this convention can quickly understand protocol flows without additional explanation.</p>
+<p>In messaging and communication protocols, a similar approach can be helpful, particularly when describing multiple actors and roles required for correct protocol operation.
+However, reusing <code>Alice</code> and <code>Bob</code> in these contexts can introduce ambiguity:</p>
+<ul>
+<li>In cryptography, Alice is the initiator of a key exchange, but in a communication protocol the initiator role may vary by sub-protocol or phase.</li>
+<li>Complex, multi-step systems may embed multiple cryptographic and application-level processes, each with their own initiator and responder.</li>
+<li>The use of Alice and Bob implicitly frames the discussion as cryptographic, which may be misleading when describing application-level behavior such as message encoding, routing, or reliability.</li>
+</ul>
+<p>For these reasons, when documenting communication protocols that integrate multiple roles and procedures, it is preferable to use a context-specific cast of characters designed for that domain.</p>
+<h2 id="guidelines"><a class="header" href="#guidelines">Guidelines</a></h2>
+<h3 id="use-of-alice-and-bob"><a class="header" href="#use-of-alice-and-bob">Use of Alice and Bob</a></h3>
+<p><code>Alice</code> and <code>Bob</code> SHOULD be used when describing novel cryptographic constructions or key exchange mechanisms that are not embedded within higher-layer communication protocols.
+These names are widely understood in cryptographic contexts, and introducing alternatives would reduce clarity.</p>
+<p>Communication protocols may incorporate cryptographic components, but they are not themselves cryptographic key exchanges.
+When documenting application-centric or protocol-level processes, the cast defined in this document SHOULD be used instead.
+This separation establishes clear contextual boundaries and prepares the reader to reason about different layers independently.</p>
+<h3 id="standalone-documents"><a class="header" href="#standalone-documents">Standalone Documents</a></h3>
+<p>Knowledge of this cast MUST NOT be a requirement to understand a given document.
+Documents MUST be fully standalone and understandable to first-time readers.</p>
+<h3 id="consistency"><a class="header" href="#consistency">Consistency</a></h3>
+<p>Use of the cast is optional.
+Characters SHOULD only be used when their presence improves understanding.
+Using characters in the wrong context can negatively impact comprehension by implying incorrect information.
+It is always acceptable to use other identifiers.</p>
+<h2 id="character-list"><a class="header" href="#character-list">Character List</a></h2>
+<p>The following characters are defined for use throughout the documentation of chat protocols. Documentation and examples focus on a portion of a real clients operation for simplicity. Using the character who corresponds to the role or perspective being highlighted, can help convey this information to readers.</p>
+<p><strong>Saro</strong><br />
+Sender ::
+Saro is the participant who sends the first message within a given time window or protocol context.
+Saro MAY be the party who initiates a conversation, or simply the first participant to act relative to a defined starting reference.</p>
+<p><strong>Raya</strong><br />
+Recipient ::
+Raya is the participant who receives the first message sent by Saro.
+After the initial exchange, Raya MAY send messages and behave as a regular participant in the conversation.
+When documenting message receipt or processing, Raya’s perspective SHOULD be used.</p>
+<p><strong>Pax</strong><br />
+Participant ::
+Pax represents an additional member of a conversation, typically in a group context.
+Pax is often used when the specific identity or perspective of the participant is not relevant to the discussion.</p>
+<h2 id="decision-criteria"><a class="header" href="#decision-criteria">Decision Criteria</a></h2>
+<p>The following criteria SHOULD be applied when considering the introduction of new character names or roles.</p>
+<h3 id="clarity"><a class="header" href="#clarity">Clarity</a></h3>
+<p>Names without strong pre-existing associations or implied behavior SHOULD be preferred where possible.</p>
+<h3 id="brevity"><a class="header" href="#brevity">Brevity</a></h3>
+<p>Short, easily distinguishable names SHOULD be preferred, provided they do not reduce clarity.</p>
+<h3 id="inclusivity"><a class="header" href="#inclusivity">Inclusivity</a></h3>
+<p>The cast of characters SHOULD be diverse, culturally neutral, and avoid reinforcing stereotypes.</p>
+<h3 id="mnemonic-naming"><a class="header" href="#mnemonic-naming">Mnemonic Naming</a></h3>
+<p>Where possible the characters name should hint at their role in order to make them easier to remember.</p>
+<h2 id="copyright"><a class="header" href="#copyright">Copyright</a></h2>
+<p>Copyright and related rights waived via <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>.</p>
+<h2 id="references"><a class="header" href="#references">References</a></h2>
+<p><a href="https://github.com/jhaaaa/alix-and-bo">A global cast of characters for cryptography</a></p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../messaging/raw/adversarial-models.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../messaging/raw/chatdefs.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../messaging/raw/adversarial-models.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../messaging/raw/chatdefs.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../../theme/katex/katex.min.js"></script>
+        <script src="../../theme/katex/auto-render.min.js"></script>
+        <script src="../../scripts/katex-render.js"></script>
+        <script src="../../scripts/logos-lips.js"></script>
+
+
+    </div>
+    </body>
+</html>

@@ -1,0 +1,968 @@
+<!DOCTYPE HTML>
+<html lang="en" class="ayu" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>ETH-DCGKA - Logos LIP</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../highlight.css">
+        <link rel="stylesheet" href="../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../../theme/katex/katex.min.css">
+        <link rel="stylesheet" href="../../theme/fonts/fonts.css">
+        <link rel="stylesheet" href="../../theme/FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../custom.css">
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "ayu";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('ayu')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../../index.html">Introduction</a></li><li class="chapter-item expanded affix "><a href="../../about.html">About</a></li><li class="chapter-item expanded "><a href="../../messaging/index.html"><strong aria-hidden="true">1.</strong> Messaging</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/raw/index.html"><strong aria-hidden="true">1.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/raw/adversarial-models.html"><strong aria-hidden="true">1.1.1.</strong> ADVERSARIAL-MODELS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/chat-cast.html"><strong aria-hidden="true">1.1.2.</strong> CHAT-CAST</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/chatdefs.html"><strong aria-hidden="true">1.1.3.</strong> CHAT-DEFINITIONS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/dandelion.html"><strong aria-hidden="true">1.1.4.</strong> DANDELION</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/messaging-api.html"><strong aria-hidden="true">1.1.5.</strong> MESSAGING-API</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/opchan.html"><strong aria-hidden="true">1.1.6.</strong> OP-CHAN</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/relay-sharding.html"><strong aria-hidden="true">1.1.7.</strong> RELAY-SHARDING</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/relay-static-shard-alloc.html"><strong aria-hidden="true">1.1.8.</strong> RELAY-STATIC-SHARD-ALLOC</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/reliable-channel-api.html"><strong aria-hidden="true">1.1.9.</strong> RELIABLE-CHANNEL-API</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/lightpush.html"><strong aria-hidden="true">1.1.10.</strong> WAKU-LIGHTPUSH</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/mix.html"><strong aria-hidden="true">1.1.11.</strong> WAKU-MIX</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/p2p-reliability.html"><strong aria-hidden="true">1.1.12.</strong> WAKU-P2P-RELIABILITY</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/rendezvous.html"><strong aria-hidden="true">1.1.13.</strong> WAKU-RENDEZVOUS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/rln-keystore.html"><strong aria-hidden="true">1.1.14.</strong> WAKU-RLN-KEYSTORE</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/store-sync.html"><strong aria-hidden="true">1.1.15.</strong> WAKU-STORE-SYNC</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/sync.html"><strong aria-hidden="true">1.1.16.</strong> WAKU-SYNC</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/device-pairing.html"><strong aria-hidden="true">1.1.17.</strong> WAKU2-DEVICE-PAIRING</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/incentivization.html"><strong aria-hidden="true">1.1.18.</strong> WAKU2-INCENTIVIZATION</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/noise.html"><strong aria-hidden="true">1.1.19.</strong> WAKU2-NOISE</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/noise-sessions.html"><strong aria-hidden="true">1.1.20.</strong> WAKU2-NOISE-SESSIONS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/rln-contract.html"><strong aria-hidden="true">1.1.21.</strong> WAKU2-RLN-CONTRACT</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/draft/index.html"><strong aria-hidden="true">1.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/draft/3/remote-log.html"><strong aria-hidden="true">1.2.1.</strong> 3/REMOTE-LOG</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/4/mvds-meta.html"><strong aria-hidden="true">1.2.2.</strong> 4/MVDS-META</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/10/waku2.html"><strong aria-hidden="true">1.2.3.</strong> 10/WAKU2</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/12/filter.html"><strong aria-hidden="true">1.2.4.</strong> 12/WAKU2-FILTER</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/draft/12/previous-versions/00/filter.html"><strong aria-hidden="true">1.2.4.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/draft/13/store.html"><strong aria-hidden="true">1.2.5.</strong> 13/WAKU2-STORE</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/draft/13/previous-versions/00/store.html"><strong aria-hidden="true">1.2.5.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/draft/15/bridge.html"><strong aria-hidden="true">1.2.6.</strong> 15/WAKU-BRIDGE</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/17/rln-relay.html"><strong aria-hidden="true">1.2.7.</strong> 17/WAKU2-RLN-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/19/lightpush.html"><strong aria-hidden="true">1.2.8.</strong> 19/WAKU2-LIGHTPUSH</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/20/toy-eth-pm.html"><strong aria-hidden="true">1.2.9.</strong> 20/TOY-ETH-PM</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/22/toy-chat.html"><strong aria-hidden="true">1.2.10.</strong> 22/TOY-CHAT</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/23/topics.html"><strong aria-hidden="true">1.2.11.</strong> 23/WAKU2-TOPICS</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/26/payload.html"><strong aria-hidden="true">1.2.12.</strong> 26/WAKU2-PAYLOAD</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/27/peers.html"><strong aria-hidden="true">1.2.13.</strong> 27/WAKU2-PEERS</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/29/config.html"><strong aria-hidden="true">1.2.14.</strong> 29/WAKU2-CONFIG</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/30/adaptive-nodes.html"><strong aria-hidden="true">1.2.15.</strong> 30/ADAPTIVE-NODES</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/31/enr.html"><strong aria-hidden="true">1.2.16.</strong> 31/WAKU2-ENR</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/33/discv5.html"><strong aria-hidden="true">1.2.17.</strong> 33/WAKU2-DISCV5</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/34/peer-exchange.html"><strong aria-hidden="true">1.2.18.</strong> 34/WAKU2-PEER-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/36/bindings-api.html"><strong aria-hidden="true">1.2.19.</strong> 36/WAKU2-BINDINGS-API</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/53/x3dh.html"><strong aria-hidden="true">1.2.20.</strong> 53/WAKU2-X3DH</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/54/x3dh-sessions.html"><strong aria-hidden="true">1.2.21.</strong> 54/WAKU2-X3DH-SESSIONS</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/64/network.html"><strong aria-hidden="true">1.2.22.</strong> 64/WAKU2-NETWORK</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/66/metadata.html"><strong aria-hidden="true">1.2.23.</strong> 66/WAKU2-METADATA</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/stable/index.html"><strong aria-hidden="true">1.3.</strong> Stable</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/stable/2/mvds.html"><strong aria-hidden="true">1.3.1.</strong> 2/MVDS</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/6/waku1.html"><strong aria-hidden="true">1.3.2.</strong> 6/WAKU1</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/7/data.html"><strong aria-hidden="true">1.3.3.</strong> 7/WAKU-DATA</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/8/mail.html"><strong aria-hidden="true">1.3.4.</strong> 8/WAKU-MAIL</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/9/rpc.html"><strong aria-hidden="true">1.3.5.</strong> 9/WAKU-RPC</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/11/relay.html"><strong aria-hidden="true">1.3.6.</strong> 11/WAKU2-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/14/message.html"><strong aria-hidden="true">1.3.7.</strong> 14/WAKU2-MESSAGE</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/index.html"><strong aria-hidden="true">1.4.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/deprecated/5/waku0.html"><strong aria-hidden="true">1.4.1.</strong> 5/WAKU0</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/16/rpc.html"><strong aria-hidden="true">1.4.2.</strong> 16/WAKU2-RPC</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/18/swap.html"><strong aria-hidden="true">1.4.3.</strong> 18/WAKU2-SWAP</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/deleted/index.html"><strong aria-hidden="true">1.5.</strong> Deleted</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/deleted/fault-tolerant-store.html"><strong aria-hidden="true">1.5.1.</strong> 21/WAKU2-FAULT-TOLERANT-STORE</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/index.html"><strong aria-hidden="true">2.</strong> Blockchain</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/index.html"><strong aria-hidden="true">2.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-anonymous-leaders-reward.html"><strong aria-hidden="true">2.1.1.</strong> BEDROCK-ANONYMOUS-LEADERS-REWARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-architecture-overview.html"><strong aria-hidden="true">2.1.2.</strong> BEDROCK-ARCHITECTURE-OVERVIEW</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-genesis-block.html"><strong aria-hidden="true">2.1.3.</strong> BEDROCK-GENESIS-BLOCK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-declaration-protocol.html"><strong aria-hidden="true">2.1.4.</strong> BEDROCK-SERVICE-DECLARATION-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-reward-distribution.html"><strong aria-hidden="true">2.1.5.</strong> BEDROCK-SERVICE-REWARD-DISTRIBUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-block-construction.html"><strong aria-hidden="true">2.1.6.</strong> BEDROCK-V1-1-BLOCK-CONSTRUCTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-mantle-specification.html"><strong aria-hidden="true">2.1.7.</strong> BEDROCK-V1.1-MANTLE-SPECIFICATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/fork-choice.html"><strong aria-hidden="true">2.1.8.</strong> CRYPTARCHIA-FORK-CHOICE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-proof-of-leadership.html"><strong aria-hidden="true">2.1.9.</strong> CRYPTARCHIA-PROOF-OF-LEADERSHIP</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-total-stake-inference.html"><strong aria-hidden="true">2.1.10.</strong> CRYPTARCHIA-TOTAL-STAKE-INFERENCE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-v1-bootstr-sync.html"><strong aria-hidden="true">2.1.11.</strong> CRYPTARCHIA-V1-BOOTSTRAPPING-SYNCHRONIZATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-blend-protocol.html"><strong aria-hidden="true">2.1.12.</strong> NOMOS-BLEND-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-cryptarchia-v1-protocol.html"><strong aria-hidden="true">2.1.13.</strong> NOMOS-CRYPTARCHIA-V1-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomosda-network.html"><strong aria-hidden="true">2.1.14.</strong> NOMOS-DA-NETWORK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/digital-signature.html"><strong aria-hidden="true">2.1.15.</strong> NOMOS-DIGITAL-SIGNATURE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-key-types-and-generation.html"><strong aria-hidden="true">2.1.16.</strong> NOMOS-KEY-TYPES-GENERATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-encapsulation.html"><strong aria-hidden="true">2.1.17.</strong> NOMOS-MESSAGE-ENCAPSULATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-formatting.html"><strong aria-hidden="true">2.1.18.</strong> NOMOS-MESSAGE-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-payload-formatting.html"><strong aria-hidden="true">2.1.19.</strong> NOMOS-PAYLOAD-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-proof-of-quota.html"><strong aria-hidden="true">2.1.20.</strong> NOMOS-PROOF-OF-QUOTA</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-wallet-technical-standard.html"><strong aria-hidden="true">2.1.21.</strong> NOMOS-WALLET-TECHNICAL-STANDARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-cryptographic-protocol.html"><strong aria-hidden="true">2.1.22.</strong> NOMOSDA-CRYPTOGRAPHIC-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-rewarding.html"><strong aria-hidden="true">2.1.23.</strong> NOMOSDA-REWARDING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-hardware-requirements.html"><strong aria-hidden="true">2.1.24.</strong> P2P-HARDWARE-REQUIREMENTS</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-nat-solution.html"><strong aria-hidden="true">2.1.25.</strong> P2P-NAT-SOLUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-network-bootstrapping.html"><strong aria-hidden="true">2.1.26.</strong> P2P-NETWORK-BOOTSTRAPPING</a></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/draft/index.html"><strong aria-hidden="true">2.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/draft/p2p-network.html"><strong aria-hidden="true">2.2.1.</strong> NOMOS-P2P-NETWORK</a></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/deprecated/index.html"><strong aria-hidden="true">2.3.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/deprecated/claro.html"><strong aria-hidden="true">2.3.1.</strong> CONSENSUS-CLARO</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../storage/index.html"><strong aria-hidden="true">3.</strong> Storage</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/index.html"><strong aria-hidden="true">3.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/codex-block-exchange.html"><strong aria-hidden="true">3.1.1.</strong> CODEX-BLOCK-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/community-history.html"><strong aria-hidden="true">3.1.2.</strong> CODEX-COMMUNITY-HISTORY</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dht.html"><strong aria-hidden="true">3.1.3.</strong> CODEX-DHT</a></li><li class="chapter-item expanded "><a href="../../storage/raw/manifest.html"><strong aria-hidden="true">3.1.4.</strong> CODEX-MANIFEST</a></li><li class="chapter-item expanded "><a href="../../storage/raw/codex-store.html"><strong aria-hidden="true">3.1.5.</strong> CODEX-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dataset-store.html"><strong aria-hidden="true">3.1.6.</strong> DATASET-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/datasets.html"><strong aria-hidden="true">3.1.7.</strong> DATASETS</a></li></ol></li><li class="chapter-item expanded "><a href="../../storage/draft/index.html"><strong aria-hidden="true">3.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/draft/merkle-tree.html"><strong aria-hidden="true">3.2.1.</strong> MERKLE-TREE</a></li></ol></li><li class="chapter-item expanded "><a href="../../storage/deprecated/index.html"><strong aria-hidden="true">3.3.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/deprecated/erasure-coding.html"><strong aria-hidden="true">3.3.1.</strong> CODEX-ERASUE-CODING</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-marketplace.html"><strong aria-hidden="true">3.3.2.</strong> CODEX-MARKETPLACE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-merkle-tree.html"><strong aria-hidden="true">3.3.3.</strong> CODEX-MERKLE-TREE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-prover.html"><strong aria-hidden="true">3.3.4.</strong> CODEX-PROVER</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/slot-buIlder.html"><strong aria-hidden="true">3.3.5.</strong> CODEX-SLOT-BUILDER</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../anoncomms/index.html"><strong aria-hidden="true">4.</strong> AnonComms</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/raw/index.html"><strong aria-hidden="true">4.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/raw/decentralized-mls-offchain-consensus.html"><strong aria-hidden="true">4.1.1.</strong> DECENTRALIZED-MLS-OFFCHAIN-CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/decentralized-messaging-ethereum.html" class="active"><strong aria-hidden="true">4.1.2.</strong> ETH-DCGKA</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/eth-mls-onchain.html"><strong aria-hidden="true">4.1.3.</strong> ETH-MLS-ONCHAIN</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/extended-kad-disco.html"><strong aria-hidden="true">4.1.4.</strong> EXTENDED-KADEMLIA-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/extensible-peer-records.html"><strong aria-hidden="true">4.1.5.</strong> EXTENSIBLE-PEER-RECORDS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/gossipsub-tor-push.html"><strong aria-hidden="true">4.1.6.</strong> GOSSIPSUB-TOR-PUSH</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/consensus-hashgraphlike.html"><strong aria-hidden="true">4.1.7.</strong> HASHGRAPHLIKE CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/logos-service-discovery.html"><strong aria-hidden="true">4.1.8.</strong> LOGOS-SERVICE-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix.html"><strong aria-hidden="true">4.1.9.</strong> MIX</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix-cover-traffic.html"><strong aria-hidden="true">4.1.10.</strong> Mix Cover Traffic</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix-dos-protection.html"><strong aria-hidden="true">4.1.11.</strong> Mix DoS Protection</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/multi-message_id-burn-rln.html"><strong aria-hidden="true">4.1.12.</strong> Multi-message_id Burn RLN</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/noise-x3dh-double-ratchet.html"><strong aria-hidden="true">4.1.13.</strong> NOISE-X3DH-DOUBLE-RATCHET</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/payment-streams.html"><strong aria-hidden="true">4.1.14.</strong> PAYMENT-STREAMS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix-spam-protection-rln.html"><strong aria-hidden="true">4.1.15.</strong> RLN DoS Protection for Mixnet</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-interep-spec.html"><strong aria-hidden="true">4.1.16.</strong> RLN-INTEREP-SPEC</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-membership-service.html"><strong aria-hidden="true">4.1.17.</strong> RLN-MEMBERSHIP-SERVICE</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-stealth-commitments.html"><strong aria-hidden="true">4.1.18.</strong> RLN-STEALTH-COMMITMENTS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-v2.html"><strong aria-hidden="true">4.1.19.</strong> RLN-V2</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/sds.html"><strong aria-hidden="true">4.1.20.</strong> SDS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/service-discovery-api.html"><strong aria-hidden="true">4.1.21.</strong> SERVICE-DISCOVERY-API</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/status-rln-deployment.html"><strong aria-hidden="true">4.1.22.</strong> STATUS-RLN-DEPLOYMENT</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/zerokit-api.html"><strong aria-hidden="true">4.1.23.</strong> Zerokit API</a></li></ol></li><li class="chapter-item expanded "><a href="../../anoncomms/draft/index.html"><strong aria-hidden="true">4.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/draft/32/rln-v1.html"><strong aria-hidden="true">4.2.1.</strong> 32/RLN-V1</a></li></ol></li><li class="chapter-item expanded "><a href="../../anoncomms/deleted/index.html"><strong aria-hidden="true">4.3.</strong> Deleted</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/deleted/25/libp2p-dns-discovery.html"><strong aria-hidden="true">4.3.1.</strong> 25/LIBP2P-DNS-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../anoncomms/deleted/eth-secpm.html"><strong aria-hidden="true">4.3.2.</strong> ETH-SECPM</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../research/index.html"><strong aria-hidden="true">5.</strong> Research</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../research/draft/index.html"><strong aria-hidden="true">5.1.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../research/draft/1/coss.html"><strong aria-hidden="true">5.1.1.</strong> 1/COSS</a></li></ol></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Logos LIP</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/logos-co/logos-lips" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="eth-dcgka"><a class="header" href="#eth-dcgka">ETH-DCGKA</a></h1>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
+<tr><td>Name</td><td>Decentralized Key and Session Setup for Secure Messaging over Ethereum</td></tr>
+<tr><td>Slug</td><td>103</td></tr>
+<tr><td>Status</td><td>raw</td></tr>
+<tr><td>Category</td><td>informational</td></tr>
+<tr><td>Editor</td><td>Ramses Fernandez-Valencia <a href="mailto:ramses@status.im">ramses@status.im</a></td></tr>
+</tbody></table>
+</div><!-- timeline:start -->
+<h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
+<ul>
+<li><strong>2026-05-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/1ac7689ee3fe1665d5d5d1bf9c180ed951cc660d/docs/anoncomms/raw/decentralized-messaging-ethereum.md"><code>1ac7689</code></a> — chore: split ift ts specs (#334)</li>
+<li><strong>2026-01-19</strong> — <a href="https://github.com/logos-co/logos-lips/blob/f24e567d0b1e10c178bfa0c133495fe83b969b76/docs/ift-ts/raw/decentralized-messaging-ethereum.md"><code>f24e567</code></a> — Chore/updates mdbook (#262)</li>
+<li><strong>2026-01-16</strong> — <a href="https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/ift-ts/raw/decentralized-messaging-ethereum.md"><code>f01d5b9</code></a> — chore: fix links (#260)</li>
+<li><strong>2026-01-16</strong> — <a href="https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/ift-ts/raw/decentralized-messaging-ethereum.md"><code>89f2ea8</code></a> — Chore/mdbook updates (#258)</li>
+<li><strong>2025-12-22</strong> — <a href="https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/vac/raw/decentralized-messaging-ethereum.md"><code>0f1855e</code></a> — Chore/fix headers (#239)</li>
+<li><strong>2025-12-22</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/vac/raw/decentralized-messaging-ethereum.md"><code>b1a5783</code></a> — Chore/mdbook updates (#237)</li>
+<li><strong>2025-12-18</strong> — <a href="https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/vac/raw/decentralized-messaging-ethereum.md"><code>d03e699</code></a> — ci: add mdBook configuration (#233)</li>
+<li><strong>2025-04-04</strong> — <a href="https://github.com/logos-co/logos-lips/blob/517b63984c875670e437d50359f2f67331104974/vac/raw/decentralized-messaging-ethereum.md"><code>517b639</code></a> — Update the RFCs: Vac Raw RFC (#143)</li>
+<li><strong>2024-10-03</strong> — <a href="https://github.com/logos-co/logos-lips/blob/c655980494a5943634c372009bbea71c13196a8f/vac/raw/decentralized-messaging-ethereum.md"><code>c655980</code></a> — Eth secpm splitted (#91)</li>
+<li><strong>2024-09-13</strong> — <a href="https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/vac/raw/decentralized-messaging-ethereum.md"><code>3ab314d</code></a> — Fix Files for Linting (#94)</li>
+<li><strong>2024-05-27</strong> — <a href="https://github.com/logos-co/logos-lips/blob/7e3a625812bd954696b7facc29a205053d1acc3c/vac/raw/decentralized-messaging-ethereum.md"><code>7e3a625</code></a> — ETH-SECPM-DEC (#28)</li>
+</ul>
+<!-- timeline:end -->
+<h2 id="abstract"><a class="header" href="#abstract">Abstract</a></h2>
+<p>This document introduces a decentralized group messaging protocol
+using Ethereum adresses as identifiers.
+It is based in the proposal
+<a href="https://eprint.iacr.org/2020/1281">DCGKA</a> by Weidner et al.
+It includes also approximations to overcome limitations related to using PKI and
+the multi-device setting.</p>
+<h2 id="motivation"><a class="header" href="#motivation">Motivation</a></h2>
+<p>The need for secure communications has become paramount.
+Traditional centralized messaging protocols are susceptible to various security
+threats, including unauthorized access, data breaches, and single points of
+failure.
+Therefore a decentralized approach to secure communication becomes increasingly
+relevant, offering a robust solution to address these challenges.</p>
+<p>Secure messaging protocols used should have the following key features:</p>
+<ol>
+<li>
+<p><strong>Asynchronous Messaging:</strong> Users can send messages even if the recipients
+are not online at the moment.</p>
+</li>
+<li>
+<p><strong>Resilience to Compromise:</strong> If a user's security is compromised,
+the protocol ensures that previous messages remain secure through forward
+secrecy (FS). This means that messages sent before the compromise cannot be
+decrypted by adversaries. Additionally, the protocol maintains post-compromise
+security (PCS) by regularly updating keys, making it difficult for adversaries
+to decrypt future communication.</p>
+</li>
+<li>
+<p><strong>Dynamic Group Management:</strong> Users can easily add or remove group members
+at any time, reflecting the flexible nature of communication within the app.</p>
+</li>
+</ol>
+<p>In this field, there exists a <em>trilemma</em>, similar to what one observes in
+blockchain, involving three key aspects:</p>
+<ol>
+<li>security,</li>
+<li>scalability, and</li>
+<li>decentralization.</li>
+</ol>
+<p>For instance, protocols like the <a href="https://messaginglayersecurity.rocks">MLS</a>
+perform well in terms of scalability and security.
+However, they falls short in decentralization.</p>
+<p>Newer studies such as <a href="https://eprint.iacr.org/2022/251">CoCoa</a>
+improve features related to security and scalability,
+but they still rely on servers, which may not be fully trusted though they are necessary.</p>
+<p>On the other hand,
+older studies like <a href="https://mattweidner.com/assets/pdf/acs-dissertation.pdf">Causal TreeKEM</a>
+exhibit decent scalability (logarithmic)
+but lack forward secrecy and have weak post-compromise security (PCS).</p>
+<p>The creators of <a href="https://eprint.iacr.org/2020/1281">DCGKA</a> introduce a decentralized,
+asynchronous secure group messaging protocol that supports dynamic groups.
+This protocol operates effectively on various underlying networks
+without strict requirements on message ordering or latency.
+It can be implemented in peer-to-peer or anonymity networks,
+accommodating network partitions, high latency links, and
+disconnected operation seamlessly.
+Notably, the protocol doesn't rely on servers or
+a consensus protocol for its functionality.</p>
+<p>This proposal provides end-to-end encryption with forward secrecy and
+post-compromise security,
+even when multiple users concurrently modify the group state.</p>
+<h2 id="theory"><a class="header" href="#theory">Theory</a></h2>
+<h3 id="protocol-overview"><a class="header" href="#protocol-overview">Protocol overview</a></h3>
+<p>This protocol makes use of ratchets to provide FS
+by encrypting each message with a different key.</p>
+<p>In the figure one can see the ratchet for encrypting a sequence of messages.
+The sender requires an initial update secret <code>I_1</code>, which is introduced in a PRG.
+The PRG will produce two outputs, namely a symmetric key for AEAD encryption, and
+a seed for the next ratchet state.
+The associated data needed in the AEAD encryption includes the message index <code>i</code>.
+The ciphertext <code>c_i</code> associated to message <code>m_i</code>
+is then broadcasted to all group members.
+The next step requires deleting <code>I_1</code>, <code>k_i</code> and any old ratchet state.</p>
+<p>After a period of time the sender may replace the ratchet state with new update secrets
+<code>I_2</code>, <code>I_3</code>, and so on.</p>
+<p>To start a post-compromise security update,
+a user creates a new random value known as a seed secret and
+shares it with every other group member through a secure two-party channel.
+Upon receiving the seed secret,
+each group member uses it to calculate an update secret for both the sender's ratchet
+and their own.
+Additionally, the recipient sends an unencrypted acknowledgment to the group
+confirming the update.
+Every member who receives the acknowledgment updates
+not only the ratchet for the original sender but
+also the ratchet for the sender of the acknowledgment.
+Consequently, after sharing the seed secret through <code>n - 1</code> two-party messages and
+confirming it with <code>n - 1</code> broadcast acknowledgments,
+every group member has derived an update secret and updated their ratchet accordingly.</p>
+<p>When removing a group member,
+the user who initiates the removal conducts a post-compromise security update
+by sending the update secret to all group members except the one being removed.
+To add a new group member,
+each existing group member shares the necessary state with the new user,
+enabling them to derive their future update secrets.</p>
+<p>Since group members may receive messages in various orders,
+it's important to ensure that each sender's ratchet is updated consistently
+with the same sequence of update secrets at each group member.</p>
+<p>The network protocol used in this scheme ensures that messages from the same sender
+are processed in the order they were sent.</p>
+<h3 id="components-of-the-protocol"><a class="header" href="#components-of-the-protocol">Components of the protocol</a></h3>
+<p>This protocol relies in 3 components:
+authenticated causal broadcast (ACB),
+decentralized group membership (DGM) and
+2-party secure messaging (2SM).</p>
+<h4 id="authenticated-causal-broadcast"><a class="header" href="#authenticated-causal-broadcast">Authenticated causal broadcast</a></h4>
+<p>A causal order is a partial order relation <code>&lt;</code> on messages.
+Two messages <code>m_1</code> and <code>m_2</code> are causally ordered, or
+<code>m_1</code> causally precedes <code>m_2</code>
+(denoted by <code>m_1 &lt; m_2</code>), if one of the following contiditions hold:</p>
+<ol>
+<li><code>m_1</code> and <code>m_2</code> were sent by the same group member, and
+<code>m_1</code> was sent before <code>m_2</code>.</li>
+<li><code>m_2</code> was sent by a group member U, and <code>m_1</code> was received and
+processed by <code>U</code> before sending <code>m_2</code>.</li>
+<li>There exists <code>m_3</code> such that <code>m_1 &lt; m_3</code> and <code>m_3 &lt; m_2</code>.</li>
+</ol>
+<p>Causal broadcast requires that before processing <code>m</code>, a group member must
+process all preceding messages <code>{m' | m' &lt; m}</code>.</p>
+<p>The causal broadcast module used in this protocol authenticates the sender of
+each message, as well as its causal ordering metadata, using a digital
+signature under the sender’s identity key.
+This prevents a passive adversary from impersonating users or affecting
+causally ordered delivery.</p>
+<h4 id="decentralized-group-membership"><a class="header" href="#decentralized-group-membership">Decentralized group membership</a></h4>
+<p>This protocol assumes the existence of a decentralized group membership
+function (denoted as DGM) that takes a set of membership change messages and
+their causal order relantionships, and returns the current set of group
+members’ IDs. It needs to be deterministic and depend only on causal order, and
+not exact order.</p>
+<h4 id="2-party-secure-messaging-2sm"><a class="header" href="#2-party-secure-messaging-2sm">2-party secure messaging (2SM)</a></h4>
+<p>This protocol makes use of bidirectional 2-party secure messaging schemes,
+which consist of 3 algorithms: <code>2SM-Init</code>, <code>2SM-Send</code> and <code>2SM-Receive</code>.</p>
+<h5 id="function-2sm-init"><a class="header" href="#function-2sm-init">Function 2SM-Init</a></h5>
+<p>This function takes two IDs as inputs:
+<code>ID1</code> representing the local user and <code>ID2</code> representing the other party.
+It returns an initial protocol state <code>sigma</code>.
+The 2SM protocol relies on a Public Key Infrastructure (PKI) or
+a key server to map these IDs to their corresponding public keys.
+In practice, the PKI should incorporate ephemeral prekeys.
+This allows users to send messages to a new group member,
+even if that member is currently offline.</p>
+<h5 id="function-2sm-send"><a class="header" href="#function-2sm-send">Function 2SM-Send</a></h5>
+<p>This function takes a state <code>sigma</code> and a plaintext <code>m</code> as inputs, and returns
+a new state <code>sigma’</code> and a ciphertext <code>c</code>.</p>
+<h5 id="function-2sm-receive"><a class="header" href="#function-2sm-receive">Function 2SM-Receive</a></h5>
+<p>This function takes a state <code>sigma</code> and a ciphertext <code>c</code>, and
+returns a new state <code>sigma’</code> and a plaintext <code>m</code>.</p>
+<p>This function takes a state <code>sigma</code> and a ciphertext <code>c</code>, and returns a new
+state <code>sigma’</code> and a plaintext <code>m</code>.</p>
+<h4 id="function-2sm-syntax"><a class="header" href="#function-2sm-syntax">Function 2SM Syntax</a></h4>
+<p>The variable <code>sigma</code> denotes the state consisting in the variables below:</p>
+<pre><code class="language-text">sigma.mySks[0] = sk
+sigma.nextIndex = 1 
+sigma.receivedSk = empty_string
+sigma.otherPk = pk`&lt;br&gt; 
+sigma.otherPksender = “other”
+sigma.otherPkIndex = 0
+
+</code></pre>
+<h4 id="2sm-init"><a class="header" href="#2sm-init">2SM-Init</a></h4>
+<p>On input a key pair <code>(sk, pk)</code>, this functions otuputs a state <code>sigma</code>.</p>
+<h4 id="2sm-send"><a class="header" href="#2sm-send">2SM-Send</a></h4>
+<p>This function encrypts the message <code>m</code> using <code>sigma.otherPk</code>, which represents
+the other party’s current public key.
+This key is determined based on the last public key generated for the other
+party or the last public key received from the other party,
+whichever is more recent. <code>sigma.otherPkSender</code> is set to <code>me</code> in the former
+case and <code>other</code> in the latter case.</p>
+<p>Metadata including <code>otherPkSender</code> and <code>otherPkIndex</code> are included in the
+message to indicate which of the recipient’s public keys is being utilized.</p>
+<p>Additionally, this function generates a new key pair for the local user,
+storing the secret key in <code>sigma.mySks</code> and sending the public key.
+Similarly, it generates a new key pair for the other party,
+sending the secret key (encrypted) and storing the public key in
+<code>sigma.otherPk</code>.</p>
+<pre><code class="language-text">sigma.mySks[sigma.nextIndex], myNewPk) = PKE-Gen()
+(otherNewSk, otherNewPk) = PKE-Gen()
+plaintext = (m, otherNewSk, sigma`.nextIndex, myNewPk)
+msg = (PKE-Enc(sigma.otherPk, plaintext), sigma.otherPkSender, sigma.otherPkIndex)
+sigma.nextIndex++
+(sigma.otherPk, sigma.otherPkSender, sigma.otherPkIndex) = (otherNewPk, "me", empty_string)
+return (sigma`, msg)
+
+</code></pre>
+<h4 id="2sm-receive"><a class="header" href="#2sm-receive">2SM-Receive</a></h4>
+<p>This function utilizes the metadata of the message <code>c</code> to determine which
+secret key to utilize for decryption, assigning it to <code>sk</code>.
+If the secret key corresponds to one generated by ourselves,
+that secret key along with all keys with lower index are deleted.
+This deletion is indicated by <code>sigma.mySks[≤ keyIndex] = empty_string</code>.
+Subsequently, the new public and secret keys contained in the message are
+stored.</p>
+<pre><code class="language-text">(ciphertext, keySender, keyIndex) = c
+if keySender = "other" then 
+sk = sigma.mySks[keyIndex] 
+sigma.mySks[≤ keyIndex] = empty_string
+else sk = sigma.receivedSk
+(m, sigma.receivedSk, sigma.otherPkIndex, sigma.otherPk) = PKE-Dec(sk, ciphertext)
+sigma.otherPkSender = "other"
+return (sigma, m)
+
+</code></pre>
+<h3 id="pke-syntax"><a class="header" href="#pke-syntax">PKE Syntax</a></h3>
+<p>The required PKE that MUST be used is ElGamal with a 2048-bit modulus <code>p</code>.</p>
+<h4 id="parameters"><a class="header" href="#parameters">Parameters</a></h4>
+<p>The following parameters must be used:</p>
+<pre><code class="language-text">p = 308920927247127345254346920820166145569
+g = 2
+
+</code></pre>
+<h4 id="pke-kgen"><a class="header" href="#pke-kgen">PKE-KGen</a></h4>
+<p>Each user <code>u</code> MUST do the following:</p>
+<pre><code class="language-text">PKE-KGen():
+a = randint(2, p-2)
+pk = (p, g, g^a)
+sk = a
+return (pk, sk)
+
+</code></pre>
+<h4 id="pke-enc"><a class="header" href="#pke-enc">PKE-Enc</a></h4>
+<p>A user <code>v</code> encrypting a message <code>m</code> for <code>u</code> MUST follow these steps:</p>
+<pre><code class="language-text">PKE-Enc(pk):
+k = randint(2, p-2)
+eta = g^k % p
+delta = m * (g^a)^k % p
+return ((eta, delta))
+
+</code></pre>
+<h4 id="pke-dec"><a class="header" href="#pke-dec">PKE-Dec</a></h4>
+<p>The user <code>u</code> recovers a message <code>m</code> from a ciphertext <code>c</code>
+by performing the following operations:</p>
+<pre><code class="language-text">PKE-Dec(sk):
+mu = eta^(p-1-sk) % p
+return ((mu * delta) % p)
+
+</code></pre>
+<h3 id="dcgka-syntax"><a class="header" href="#dcgka-syntax">DCGKA Syntax</a></h3>
+<h4 id="auxiliary-functions"><a class="header" href="#auxiliary-functions">Auxiliary functions</a></h4>
+<p>There exist 6 functions that are auxiliary for the rest of components of the
+protocol, namely:</p>
+<h4 id="init"><a class="header" href="#init">init</a></h4>
+<p>This function takes an <code>ID</code> as input and returns its associated initial state,
+denoted by <code>gamma</code>:</p>
+<pre><code class="language-text">gamma.myId = ID
+gamma.mySeq = 0
+gamma.history = empty
+gamma.nextSeed = empty_string
+gamma.2sm[·] = empty_string
+gamma.memberSecret[·, ·, ·] = empty_string
+gamma.ratchet[·] = empty_string
+return (gamma)
+
+</code></pre>
+<h4 id="encrypt-to"><a class="header" href="#encrypt-to">encrypt-to</a></h4>
+<p>Upon reception of the recipient’s <code>ID</code> and a plaintext, it encrypts a direct
+message for another group member.
+Should it be the first message for a particular <code>ID</code>,
+then the <code>2SM</code> protocol state is initialized and stored in
+<code>gamma.2sm[recipient.ID]</code>.
+One then uses <code>2SM_Send</code> to encrypt the message and store the updated protocol
+in <code>gamma</code>.</p>
+<pre><code class="language-text">if gamma.2sm[recipient_ID] = empty_string then
+ gamma.2sm[recipient_ID] = 2SM_Init(gamma.myID, recipient_ID)
+(gamma.2sm[recipient_ID], ciphertext) = 2SM_Send(gamma.2sm[recipient_ID], plaintext)
+return (gamma, ciphertext)
+
+</code></pre>
+<h4 id="decrypt-from"><a class="header" href="#decrypt-from">decrypt-from</a></h4>
+<p>After receiving the sender’s <code>ID</code> and a ciphertext, it behaves as the reverse
+function of <code>encrypt-to</code> and has a similar initialization:</p>
+<pre><code class="language-text">if gamma.2sm[sender_ID] = empty_string then
+gamma.2sm[sender_ID] = 2SM_Init(gamma.myID, sender_ID)
+(gamma.2sm[sender_ID], plaintext) = 2SM_Receive(gamma.2sm[sender_ID], ciphertext)
+return (gamma, plaintext)
+
+</code></pre>
+<h4 id="update-ratchet"><a class="header" href="#update-ratchet">update-ratchet</a></h4>
+<p>This function generates the next update secret <code>I_update</code> for the group member
+<code>ID</code>.
+The ratchet state is stored in <code>gamma.ratchet[ID]</code>.
+It is required to use a HMAC-based key derivation function HKDF to combine the
+ratchet state with an input, returning an update secret and a new ratchet
+state.</p>
+<pre><code class="language-text">(updateSecret, gamma.ratchet[ID]) = HKDF(gamma.ratchet[ID], input)
+return (gamma, updateSecret)
+
+</code></pre>
+<h4 id="member-view"><a class="header" href="#member-view">member-view</a></h4>
+<p>This function calculates the set of group members
+based on the most recent control message sent by the specified user <code>ID</code>.
+It filters the group membership operations
+to include only those observed by the specified <code>ID</code>, and
+then invokes the DGM function to generate the group membership.</p>
+<pre><code class="language-text">ops = {m in gamma.history st. m was sent or acknowledged by ID}
+return DGM(ops)
+
+</code></pre>
+<h4 id="generate-seed"><a class="header" href="#generate-seed">generate-seed</a></h4>
+<p>This functions generates a random bit string and
+sends it encrypted to each member of the group using the <code>2SM</code> mechanism.
+It returns the updated protocol state and
+the set of direct messages (denoted as <code>dmsgs</code>) to send.</p>
+<pre><code class="language-text">gamma.nextSeed = random.randbytes()
+dmsgs = empty
+for each ID in recipients:
+(gamma, msg) = encrypt-to(gamma, ID, gamma.nextSeed)
+dmsgs = dmsgs + (ID, msg)
+return (gamma, dmsgs)
+
+</code></pre>
+<h3 id="creation-of-a-group"><a class="header" href="#creation-of-a-group">Creation of a group</a></h3>
+<p>A group is generated in a 3 steps procedure:</p>
+<ol>
+<li>A user calls the <code>create</code> function and broadcasts a control message of type
+<em>create</em>.</li>
+<li>Each receiver of the message processes the message and broadcasts an <em>ack</em>
+control message.</li>
+<li>Each member processes the <em>ack</em> message received.</li>
+</ol>
+<h4 id="create"><a class="header" href="#create">create</a></h4>
+<p>This function generates a <em>create</em> control message and calls <code>generate-seed</code> to
+define the set of direct messages that need to be sent.
+Then it calls <code>process-create</code> to process the control message for this user.
+The function <code>process-create</code> returns a tuple including an updated state gamma
+and an update secret <code>I</code>.</p>
+<pre><code class="language-text">control = (“create”, gamma.mySeq, IDs)
+(gamma, dmsgs) = generate-seed(gamma, IDs)
+(gamma, _, _, I, _) = process-create(gamma, gamma.myId, gamma.mySeq, IDs, empty_string)
+return (gamma, control, dmsgs, I)
+
+</code></pre>
+<h4 id="process-seed"><a class="header" href="#process-seed">process-seed</a></h4>
+<p>This function initially employs <code>member-view</code> to identify the users who were
+part of the group when the control message was dispatched.
+Then, it attempts to acquire the seed secret through the following steps:</p>
+<ol>
+<li>If the control message was dispatched by the local user, it uses the most
+recent invocation of <code>generate-seed</code> stored the seed secret in
+<code>gamma.nextSeed</code>.</li>
+<li>If the <code>control</code> message was dispatched by another user, and the local user
+is among its recipients, the function utilizes <code>decrypt-from</code> to decrypt the
+direct message that includes the seed secret.</li>
+<li>Otherwise, it returns an <code>ack</code> message without deriving an update secret.</li>
+</ol>
+<p>Afterwards, <code>process-seed</code> generates separate member secrets for each group
+member from the seed secret by combining the seed secret and
+each user ID using HKDF.
+The secret for the sender of the message is stored in <code>senderSecret</code>, while
+those for the other group members are stored in <code>gamma.memberSecret</code>.
+The sender's member secret is immediately utilized to update their KDF ratchet
+and compute their update secret <code>I_sender</code> using <code>update-ratchet</code>.
+If the local user is the sender of the control message, the process is
+completed, and the update secret is returned.
+However, if the seed secret is received from another user, an <code>ack</code> control
+message is constructed for broadcast, including the sender ID and sequence
+number of the message being acknowledged.</p>
+<p>The final step computes an update secret <code>I_me</code> for the local user invoking the
+<code>process-ack</code> function.</p>
+<pre><code class="language-text">recipients = member-view(gamma, sender) - {sender}
+if sender =  gamma.myId then seed = gamma.nextSeed; gamma.nextSeed =
+empty_string
+else if  gamma.myId in recipients then (gamma, seed) = decrypt-from(gamma,
+sender, dmsg)
+else
+return (gamma, (ack, ++gamma.mySeq, (sender, seq)), empty_string ,
+empty_string , empty_string)
+
+for ID in recipients do gamma.memberSecret[sender, seq, ID] = HKDF(seed, ID)
+senderSecret = HKDF(seed, sender)
+(gamma, I_sender) = update-ratchet(gamma, sender, senderSecret)
+if sender = gamma.myId then return (gamma, empty_string , empty_string ,
+I_sender, empty_string)
+control = (ack, ++gamma.mySeq, (sender, seq))
+members = member-view(gamma, gamma.myId)
+forward = empty
+for ID in {members - (recipients + {sender})}
+    s = gamma.memberSecret[sender, seq, gamma.myId]
+    (gamma, msg) = encrypt-to(gamma, ID, s)
+    forward = forward + {(ID, msg)}
+    (gamma, _, _, I_me, _) = process-ack(gamma, gamma.myId, gamma.mySeq, 
+    (sender, seq), empty_string)
+    return (gamma, control, forward, I_sender, I_me)
+
+</code></pre>
+<h4 id="process-create"><a class="header" href="#process-create">process-create</a></h4>
+<p>This function is called by the sender and each of the receivers of the <code>create</code>
+control message.
+First, it records the information from the create message in the
+<code>gamma.history+ {op}</code>, which is used to track group membership changes. Then,
+it proceeds to call <code>process-seed</code>.</p>
+<pre><code class="language-text">op = (”create”, sender, seq, IDs)
+gamma.history = gamma.history + {op}
+return (process-seed(gamma, sender, seq, dmsg))
+
+</code></pre>
+<h4 id="process-ack"><a class="header" href="#process-ack">process-ack</a></h4>
+<p>This function is called by those group members once they receive an ack
+message.
+In <code>process-ack</code>, <code>ackID</code> and <code>ackSeq</code> are the sender and sequence number of
+the acknowledged message.
+Firstly, if the acknowledged message is a group membership operation, it
+records the acknowledgement in <code>gamma.history</code>.</p>
+<p>Following this, the function retrieves the relevant member secret from
+<code>gamma.memberSecret</code>, which was previously obtained from the seed secret
+contained in the acknowledged message.</p>
+<p>Finally, it updates the ratchet for the sender of the <code>ack</code> and returns the
+resulting update secret.</p>
+<pre><code class="language-text">if (ackID, ackSeq) was a create / add / remove then
+op = ("ack", sender, seq, ackID, ackSeq)
+gamma.history = gamma.history + {op}`
+s = gamma.memberSecret[ackID, ackSeq, sender]
+gamma.memberSecret[ackID, ackSeq, sender] = empty_string
+if (s = empty_string) &amp; (dmsg = empty_string) then return (gamma, empty_string,
+empty_string, empty_string, empty_string)
+if (s = empty_string) then (gamma, s) = decrypt-from(gamma, sender, dmsg)
+(gamma, I) = update-ratchet(gamma, sender, s)
+return (gamma, empty_string, empty_string, I, empty_string)
+
+</code></pre>
+<p>The HKDF function MUST follow RFC 5869 using the hash function SHA256.</p>
+<h3 id="post-compromise-security-updates-and-group-member-removal"><a class="header" href="#post-compromise-security-updates-and-group-member-removal">Post-compromise security updates and group member removal</a></h3>
+<p>The functions <code>update</code> and <code>remove</code> share similarities with <code>create</code>:
+they both call the function <code>generate-seed</code> to encrypt a new seed secret for
+each group member.
+The distinction lies in the determination of the group members using <code>member view</code>.
+In the case of <code>remove</code>, the user being removed is excluded from the recipients
+of the seed secret.
+Additionally, the control message they construct is designated with type
+<code>update</code> or <code>remove</code> respectively.</p>
+<p>Likewise, <code>process-update</code> and <code>process-remove</code> are akin to <code>process-create</code>.
+The function <code>process-update</code> skips the update of <code>gamma.history</code>,
+whereas <code>process-remove</code> includes a removal operation in the history.</p>
+<h4 id="update"><a class="header" href="#update">update</a></h4>
+<pre><code class="language-text">control = ("update", ++gamma.mySeq, empty_string)
+recipients = member-view(gamma, gamma.myId) - {gamma.myId}
+(gamma, dmsgs) = generate-seed(gamma, recipients)
+(gamma, _, _, I , _) = process-update(gamma, gamma.myId, gamma.mySeq,
+empty_string, empty_string)
+return (gamma, control, dmsgs, I)
+
+</code></pre>
+<h4 id="remove"><a class="header" href="#remove">remove</a></h4>
+<pre><code class="language-text">control = ("remove", ++gamma.mySeq, empty)
+recipients = member-view(gamma, gamma.myId) - {ID, gamma.myId}
+(gamma, dmsgs) = generate-seed(gamma, recipients)
+(gamma, _, _, I , _) = process-update(gamma, gamma.myId, gamma.mySeq, ID,
+empty_string)
+return (gamma, control, dmsgs, I)
+
+</code></pre>
+<h4 id="process-update"><a class="header" href="#process-update">process-update</a></h4>
+<p><code>return process-seed(gamma, sender, seq, dmsg)</code></p>
+<h4 id="process-remove"><a class="header" href="#process-remove">process-remove</a></h4>
+<pre><code class="language-text">op = ("remove", sender, seq, removed)
+gamma.history = gamma.history + {op}
+return process-seed(gamma, sender, seq, dmsg)
+
+</code></pre>
+<h3 id="group-member-addition"><a class="header" href="#group-member-addition">Group member addition</a></h3>
+<h4 id="add"><a class="header" href="#add">add</a></h4>
+<p>When adding a new group member, an existing member initiates the process by
+invoking the <code>add</code> function and providing the ID of the user to be added.
+This function prepares a control message marked as <code>add</code> for broadcast to the
+group. Simultaneously, it creates a welcome message intended for the new member
+as a direct message.
+This <code>welcome</code> message includes the current state of the sender's KDF ratchet,
+encrypted using <code>2SM</code>, along with the history of group membership operations
+conducted so far.</p>
+<pre><code class="language-text">control = ("add", ++gamma.mySeq, ID)
+(gamma, c) = encrypt-to(gamma, ID, gamma.ratchet[gamma.myId])
+op = ("add", gamma.myId, gamma.mySeq, ID)
+welcome = (gamma.history + {op}, c)
+(gamma, _, _, I, _) = process-add(gamma, gamma.myId, gamma.mySeq, ID, empty_string)
+return (gamma, control, (ID, welcome), I)
+
+</code></pre>
+<h4 id="process-add"><a class="header" href="#process-add">process-add</a></h4>
+<p>This function is invoked by both the sender and each recipient of an <code>add</code>
+message, which includes the new group member. If the local user is the newly
+added member, the function proceeds to call <code>process-welcome</code> and then exits.
+Otherwise, it extends <code>gamma.history</code> with the <code>add</code> operation.</p>
+<p>Line 5 determines whether the local user was already a group member at the time
+the <code>add</code> message was sent; this condition is typically true but may be false
+if multiple users were added concurrently.</p>
+<p>On lines 6 to 8, the ratchet for the sender of the <em>add</em> message is updated
+twice. In both calls to <code>update-ratchet</code>, a constant string is used as the
+ratchet input instead of a random seed secret.</p>
+<p>The value returned by the first ratchet update is stored in
+<code>gamma.memberSecret</code> as the added user’s initial member secret. The result of
+the second ratchet update becomes <code>I_sender</code>, the update secret for the sender
+of the <code>add</code> message. On line 10, if the local user is the sender, the update
+secret is returned.</p>
+<p>If the local user is not the sender, an acknowledgment for the <code>add</code> message is
+required.
+Therefore, on line 11, a control message of type <code>add-ack</code> is constructed for
+broadcast.
+Subsequently, in line 12 the current ratchet state is encrypted using <code>2SM</code> to
+generate a direct message intended for the added user, allowing them to decrypt
+subsequent messages sent by the sender.
+Finally, in lines 13 to 15, <code>process-add-ack</code> is called to calculate the local
+user’s update secret (<code>I_me</code>), which is then returned along with <code>I_sender</code>.</p>
+<pre><code class="language-text">if added = gamma.myId then return process-welcome(gamma, sender, seq, dmsg)
+op = ("add", sender, seq, added)
+gamma.history = gamma.history + {op}
+if gamma.myId in member-view(gamma, sender) then
+    (gamma, s) = update-ratchet(gamma, sender, "welcome")
+    gamma.memberSecret[sender, seq, added] = s
+    (gamma, I_sender) = update-ratchet(gamma, sender, "add")
+    else I_sender = empty_string
+    if sender = gamma.myId then return (gamma, empty_string, empty_string,
+    I_sender, empty_string)
+    control = ("add-ack", ++gamma.mySeq, (sender, seq))
+    (gamma, c) = encrypt-to(gamma, added, ratchet[gamma.myId])
+    (gamma, _, _, I_me, _) = process-add-ack(gamma, gamma.myId, gamma.mySeq,
+    (sender, seq), empty_string)
+    return (gamma, control, {(added, c)}, I_sender, I_me)
+
+</code></pre>
+<h4 id="process-add-ack"><a class="header" href="#process-add-ack">process-add-ack</a></h4>
+<p>This function is invoked by both the sender and each recipient of an <code>add-ack</code>
+message, including the new group member. Upon lines 1–2, the acknowledgment is
+added to <code>gamma.history</code>, mirroring the process in <code>process-ack</code>.
+If the current user is the new group member, the <code>add-ack</code> message includes the
+direct message constructed in <code>process-add</code>; this direct message contains the
+encrypted ratchet state of the sender of the <code>add-ack</code>, then it is decrypted on
+lines 3–5.</p>
+<p>Upon line 6, a check is performed to check if the local user was already a
+group member at the time the <code>add-ack</code> was sent. If affirmative, a new update
+secret <code>I</code> for the sender of the <code>add-ack</code> is computed on line 7 by invoking
+<code>update-ratchet</code> with the constant string <code>add</code>.</p>
+<p>In the scenario involving the new member,  the ratchet state was recently
+initialized on line 5. This ratchet update facilitates all group members,
+including the new addition, to derive each member’s update by obtaining any
+update secret from before their inclusion.</p>
+<pre><code class="language-text">op = ("ack", sender, seq, ackID, ackSeq)
+gamma$.history = gamma.history + {op}
+if dmsg != empty_string then
+    (gamma, s) = decrypt-from(gamma, sender, dmsg)
+    gamma.ratchet[sender] = s
+if gamma.myId in member-view(gamma, sender) then
+    (gamma, I) = update-ratchet(gamma, sender, "add")
+    return (gamma, empty_string, empty_string, I, empty_string)
+else return (gamma, empty_string, empty_string, empty_string, empty_string)
+
+</code></pre>
+<h4 id="process-welcome"><a class="header" href="#process-welcome">process-welcome</a></h4>
+<p>This function serves as the second step called by a newly added group member.
+In this context, <code>adderHistory</code> represents the adding user’s copy of
+<code>gamma.history</code> sent in their welcome message, which is utilized to initialize
+the added user’s history.
+Here, <code>c</code> denotes the ciphertext of the adding user’s ratchet state, which is
+decrypted on line 2 using <code>decrypt-from</code>.</p>
+<p>Once <code>gamma.ratchet[sender]</code> is initialized, <code>update-ratchet</code> is invoked twice
+on lines 3 to 5 with the constant strings <code>welcome</code> and <code>add</code> respectively.
+These operations mirror the ratchet operations performed by every other group
+member in <code>process-add</code>.
+The outcome of the first <code>update-ratchet</code> call becomes the first member secret
+for the added user,
+while the second call returns <code>I_sender</code>, the update secret for the sender of
+the add operation.</p>
+<p>Subsequently, the new group member constructs an <em>ack</em> control message to
+broadcast on line 6 and calls <code>process-ack</code> to compute their initial update
+secret I_me. The function <code>process-ack</code> reads from <code>gamma.memberSecret</code> and
+passes it to <code>update-ratchet</code>. The previous ratchet state for the new member is
+the empty string <code>empty</code>, as established by <code>init</code>, thereby initializing the
+new member’s ratchet.
+Upon receiving the new member’s <code>ack</code>, every other group member initializes
+their copy of the new member’s ratchet in a similar manner.</p>
+<p>By the conclusion of <code>process-welcome</code>, the new group member has acquired
+update secrets for themselves and the user who added them.
+The ratchets for other group members are initialized by <code>process-add-ack</code>.</p>
+<pre><code class="language-text">gamma.history = adderHistory
+(gamma, gamma.ratchet[sender]) = decrypt-from(gamma, sender, c)
+(gamma, s) = update-ratchet(gamma, sender, "welcome")
+gamma.memberSecret[sender, seq, gamma.myId] = s
+(gamma, I_sender) = update-ratchet(gamma, sender, "add")
+control = ("ack", ++gamma.mySeq, (sender, seq))
+(gamma, _, _, I_me, _) = process-ack(gamma, gamma.myId, gamma.mySeq, (sender,
+seq), empty_string)
+return (gamma, control, empty_string , I_sender, I_me)
+
+</code></pre>
+<h2 id="privacy-considerations"><a class="header" href="#privacy-considerations">Privacy Considerations</a></h2>
+<h3 id="dependency-on-pki"><a class="header" href="#dependency-on-pki">Dependency on PKI</a></h3>
+<p>The <a href="https://eprint.iacr.org/2020/1281">DCGKA</a> proposal presents some
+limitations highlighted by the authors.
+Among these limitations one finds the requirement of a PKI (or a key server)
+mapping IDs to public keys.</p>
+<p>One method to overcome this limitation is adapting the protocol SIWE (Sign in
+with Ethereum) so a user <code>u_1</code> who wants to start a communication with a user
+<code>u_2</code> can interact with latter’s wallet to request a public key using an
+Ethereum address as <code>ID</code>.</p>
+<h4 id="siwe"><a class="header" href="#siwe">SIWE</a></h4>
+<p>The <a href="https://docs.login.xyz/general-information/siwe-overview">SIWE</a> (Sign In
+With Ethereum) proposal was a suggested standard for leveraging Ethereum to
+authenticate and authorize users on web3 applications.
+Its goal is to establish a standardized method for users to sign in to web3
+applications using their Ethereum address and private key,
+mirroring the process by which users currently sign in to web2 applications
+using their email and password.
+Below follows the required steps:</p>
+<ol>
+<li>A server generates a unique Nonce for each user intending to sign in.</li>
+<li>A user initiates a request to connect to a website using their wallet.</li>
+<li>The user is presented with a distinctive message that includes the Nonce and
+details about the website.</li>
+<li>The user authenticates their identity by signing in with their wallet.</li>
+<li>Upon successful authentication, the user's identity is confirmed or
+approved.</li>
+<li>The website grants access to data specific to the authenticated user.</li>
+</ol>
+<h4 id="our-approach"><a class="header" href="#our-approach">Our approach</a></h4>
+<p>The idea in the <a href="https://eprint.iacr.org/2020/1281">DCGKA</a> setting closely
+resembles the procedure outlined in SIWE. Here:</p>
+<ol>
+<li>The server corresponds to user D1,who initiates a request (instead of
+generating a nonce) to obtain the public key of user D2.</li>
+<li>Upon receiving the request, the wallet of D2 send the request to the user,</li>
+<li>User D2 receives the request from the wallet, and decides whether accepts or
+rejects.</li>
+<li>The wallet and responds with a message containing the requested public key
+in case of acceptance by D2.</li>
+</ol>
+<p>This message may be signed, allowing D1 to verify that the owner of the
+received public key is indeed D2.</p>
+<h3 id="multi-device-setting"><a class="header" href="#multi-device-setting">Multi-device setting</a></h3>
+<p>One may see the set of devices as a group and create a group key for internal
+communications.
+One may use treeKEM for instance, since it provides interesting properties like
+forward secrecy and post-compromise security.
+All devices share the same <code>ID</code>, which is held by one of them, and from other
+user’s point of view, they would look as a single user.</p>
+<p>Using servers, like in the paper
+<a href="https://eprint.iacr.org/2019/1363">Multi-Device for Signal</a>, should be
+avoided; but this would imply using a particular device as receiver and
+broadcaster within the group.
+There is an obvious drawback which is having a single device working as a
+“server”. Should this device be attacked or without connection, there should be
+a mechanism for its revocation and replacement.</p>
+<p>Another approach for communications between devices could be using the keypair
+of each device. This could open the door to use UPKE, since keypairs should be
+regenerated frequently.</p>
+<p>Each time a device sends a message, either an internal message or an external
+message, it needs to replicate and broadcast it to all devices in the group.</p>
+<p>The mechanism for the substitution of misbehaving leader devices follows:</p>
+<ol>
+<li>Each device within a group knows the details of other leader devices. This
+information may come from metadata in received messages, and is replicated by
+the leader device.</li>
+<li>To replace a leader, the user should select any other device within its
+group and use it to send a signed message to all other users.</li>
+<li>To get the ability to sign messages, this new leader should request the
+keypair associated to the ID to the wallet.</li>
+<li>Once the leader has been changed, it revocates access from DCGKA to the
+former leader using the DCGKA protocol.</li>
+<li>The new leader starts a key update in DCGKA.</li>
+</ol>
+<p>Not all devices in a group should be able to send messages to other users. Only
+the leader device should be in charge of sending and receiving messages.
+To prevent other devices from sending messages outside their group, a
+requirement should be signing each message. The keys associated to the <code>ID</code>
+should only be in control of the leader device.</p>
+<p>The leader device is in charge of setting the keys involved in the DCGKA. This
+information must be replicated within the group to make sure it is updated.</p>
+<p>To detect missing messages or potential misbehavior, messages must include a
+counter.</p>
+<h3 id="using-upke"><a class="header" href="#using-upke">Using UPKE</a></h3>
+<p>Managing the group of devices of a user can be done either using a group key
+protocol such as treeKEM or using the keypair of each device.
+Setting a common key for a group of devices under the control of the same actor
+might be excessive, furthermore it may imply some of the problems one can find
+in the usual setting of a group of different users;
+for example: one of the devices may not participate in the required updating
+processes, representing a threat for the group.</p>
+<p>The other approach to managing the group of devices is using each device’s
+keypair, but it would require each device updating these materia frequently,
+something that may not happens.</p>
+<p><a href="https://eprint.iacr.org/2022/068">UPKE</a> is a form of asymetric cryptography
+where any user can update any other user’s key pair by running an update
+algorithm with (high-entropy) private coins. Any sender can initiate a <em>key
+update</em> by sending a special update ciphertext.
+This ciphertext updates the receiver’s public key and also, once processed by
+the receiver, will update their secret key.</p>
+<p>To the best of my knowledge, there exists several efficient constructions both
+<a href="https://eprint.iacr.org/2019/1189">UPKE from ElGamal</a> (based in the DH
+assumption) and <a href="https://eprint.iacr.org/2023/1400">UPKE from Lattices</a>
+(based in lattices).
+None of them have been implemented in a secure messaging protocol, and this
+opens the door to some novel research.</p>
+<h2 id="copyright"><a class="header" href="#copyright">Copyright</a></h2>
+<p>Copyright and related rights waived via
+<a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>.</p>
+<h2 id="references"><a class="header" href="#references">References</a></h2>
+<ul>
+<li><a href="https://eprint.iacr.org/2020/1281">DCGKA</a></li>
+<li><a href="https://messaginglayersecurity.rocks">MLS</a></li>
+<li><a href="https://eprint.iacr.org/2022/251">CoCoa</a></li>
+<li><a href="https://mattweidner.com/assets/pdf/acs-dissertation.pdf">Causal TreeKEM</a></li>
+<li><a href="https://docs.login.xyz/general-information/siwe-overview">SIWE</a></li>
+<li><a href="https://eprint.iacr.org/2019/1363">Multi-device for Signal</a></li>
+<li><a href="https://eprint.iacr.org/2022/068">UPKE</a></li>
+<li><a href="https://eprint.iacr.org/2019/1189">UPKE from ElGamal</a></li>
+<li><a href="https://eprint.iacr.org/2023/1400">UPKE from Lattices</a></li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../anoncomms/raw/decentralized-mls-offchain-consensus.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../anoncomms/raw/eth-mls-onchain.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../anoncomms/raw/decentralized-mls-offchain-consensus.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../anoncomms/raw/eth-mls-onchain.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../../theme/katex/katex.min.js"></script>
+        <script src="../../theme/katex/auto-render.min.js"></script>
+        <script src="../../scripts/katex-render.js"></script>
+        <script src="../../scripts/logos-lips.js"></script>
+
+
+    </div>
+    </body>
+</html>

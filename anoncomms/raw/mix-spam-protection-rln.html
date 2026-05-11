@@ -1,0 +1,538 @@
+<!DOCTYPE HTML>
+<html lang="en" class="ayu" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>RLN DoS Protection for Mixnet - Logos LIP</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../highlight.css">
+        <link rel="stylesheet" href="../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../../theme/katex/katex.min.css">
+        <link rel="stylesheet" href="../../theme/fonts/fonts.css">
+        <link rel="stylesheet" href="../../theme/FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../custom.css">
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "ayu";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('ayu')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../../index.html">Introduction</a></li><li class="chapter-item expanded affix "><a href="../../about.html">About</a></li><li class="chapter-item expanded "><a href="../../messaging/index.html"><strong aria-hidden="true">1.</strong> Messaging</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/raw/index.html"><strong aria-hidden="true">1.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/raw/adversarial-models.html"><strong aria-hidden="true">1.1.1.</strong> ADVERSARIAL-MODELS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/chat-cast.html"><strong aria-hidden="true">1.1.2.</strong> CHAT-CAST</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/chatdefs.html"><strong aria-hidden="true">1.1.3.</strong> CHAT-DEFINITIONS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/dandelion.html"><strong aria-hidden="true">1.1.4.</strong> DANDELION</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/messaging-api.html"><strong aria-hidden="true">1.1.5.</strong> MESSAGING-API</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/opchan.html"><strong aria-hidden="true">1.1.6.</strong> OP-CHAN</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/relay-sharding.html"><strong aria-hidden="true">1.1.7.</strong> RELAY-SHARDING</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/relay-static-shard-alloc.html"><strong aria-hidden="true">1.1.8.</strong> RELAY-STATIC-SHARD-ALLOC</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/reliable-channel-api.html"><strong aria-hidden="true">1.1.9.</strong> RELIABLE-CHANNEL-API</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/lightpush.html"><strong aria-hidden="true">1.1.10.</strong> WAKU-LIGHTPUSH</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/mix.html"><strong aria-hidden="true">1.1.11.</strong> WAKU-MIX</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/p2p-reliability.html"><strong aria-hidden="true">1.1.12.</strong> WAKU-P2P-RELIABILITY</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/rendezvous.html"><strong aria-hidden="true">1.1.13.</strong> WAKU-RENDEZVOUS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/rln-keystore.html"><strong aria-hidden="true">1.1.14.</strong> WAKU-RLN-KEYSTORE</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/store-sync.html"><strong aria-hidden="true">1.1.15.</strong> WAKU-STORE-SYNC</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/sync.html"><strong aria-hidden="true">1.1.16.</strong> WAKU-SYNC</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/device-pairing.html"><strong aria-hidden="true">1.1.17.</strong> WAKU2-DEVICE-PAIRING</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/incentivization.html"><strong aria-hidden="true">1.1.18.</strong> WAKU2-INCENTIVIZATION</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/noise.html"><strong aria-hidden="true">1.1.19.</strong> WAKU2-NOISE</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/noise-sessions.html"><strong aria-hidden="true">1.1.20.</strong> WAKU2-NOISE-SESSIONS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/rln-contract.html"><strong aria-hidden="true">1.1.21.</strong> WAKU2-RLN-CONTRACT</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/draft/index.html"><strong aria-hidden="true">1.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/draft/3/remote-log.html"><strong aria-hidden="true">1.2.1.</strong> 3/REMOTE-LOG</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/4/mvds-meta.html"><strong aria-hidden="true">1.2.2.</strong> 4/MVDS-META</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/10/waku2.html"><strong aria-hidden="true">1.2.3.</strong> 10/WAKU2</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/12/filter.html"><strong aria-hidden="true">1.2.4.</strong> 12/WAKU2-FILTER</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/draft/12/previous-versions/00/filter.html"><strong aria-hidden="true">1.2.4.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/draft/13/store.html"><strong aria-hidden="true">1.2.5.</strong> 13/WAKU2-STORE</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/draft/13/previous-versions/00/store.html"><strong aria-hidden="true">1.2.5.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/draft/15/bridge.html"><strong aria-hidden="true">1.2.6.</strong> 15/WAKU-BRIDGE</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/17/rln-relay.html"><strong aria-hidden="true">1.2.7.</strong> 17/WAKU2-RLN-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/19/lightpush.html"><strong aria-hidden="true">1.2.8.</strong> 19/WAKU2-LIGHTPUSH</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/20/toy-eth-pm.html"><strong aria-hidden="true">1.2.9.</strong> 20/TOY-ETH-PM</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/22/toy-chat.html"><strong aria-hidden="true">1.2.10.</strong> 22/TOY-CHAT</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/23/topics.html"><strong aria-hidden="true">1.2.11.</strong> 23/WAKU2-TOPICS</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/26/payload.html"><strong aria-hidden="true">1.2.12.</strong> 26/WAKU2-PAYLOAD</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/27/peers.html"><strong aria-hidden="true">1.2.13.</strong> 27/WAKU2-PEERS</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/29/config.html"><strong aria-hidden="true">1.2.14.</strong> 29/WAKU2-CONFIG</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/30/adaptive-nodes.html"><strong aria-hidden="true">1.2.15.</strong> 30/ADAPTIVE-NODES</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/31/enr.html"><strong aria-hidden="true">1.2.16.</strong> 31/WAKU2-ENR</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/33/discv5.html"><strong aria-hidden="true">1.2.17.</strong> 33/WAKU2-DISCV5</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/34/peer-exchange.html"><strong aria-hidden="true">1.2.18.</strong> 34/WAKU2-PEER-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/36/bindings-api.html"><strong aria-hidden="true">1.2.19.</strong> 36/WAKU2-BINDINGS-API</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/53/x3dh.html"><strong aria-hidden="true">1.2.20.</strong> 53/WAKU2-X3DH</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/54/x3dh-sessions.html"><strong aria-hidden="true">1.2.21.</strong> 54/WAKU2-X3DH-SESSIONS</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/64/network.html"><strong aria-hidden="true">1.2.22.</strong> 64/WAKU2-NETWORK</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/66/metadata.html"><strong aria-hidden="true">1.2.23.</strong> 66/WAKU2-METADATA</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/stable/index.html"><strong aria-hidden="true">1.3.</strong> Stable</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/stable/2/mvds.html"><strong aria-hidden="true">1.3.1.</strong> 2/MVDS</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/6/waku1.html"><strong aria-hidden="true">1.3.2.</strong> 6/WAKU1</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/7/data.html"><strong aria-hidden="true">1.3.3.</strong> 7/WAKU-DATA</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/8/mail.html"><strong aria-hidden="true">1.3.4.</strong> 8/WAKU-MAIL</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/9/rpc.html"><strong aria-hidden="true">1.3.5.</strong> 9/WAKU-RPC</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/11/relay.html"><strong aria-hidden="true">1.3.6.</strong> 11/WAKU2-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/14/message.html"><strong aria-hidden="true">1.3.7.</strong> 14/WAKU2-MESSAGE</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/index.html"><strong aria-hidden="true">1.4.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/deprecated/5/waku0.html"><strong aria-hidden="true">1.4.1.</strong> 5/WAKU0</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/16/rpc.html"><strong aria-hidden="true">1.4.2.</strong> 16/WAKU2-RPC</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/18/swap.html"><strong aria-hidden="true">1.4.3.</strong> 18/WAKU2-SWAP</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/deleted/index.html"><strong aria-hidden="true">1.5.</strong> Deleted</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/deleted/fault-tolerant-store.html"><strong aria-hidden="true">1.5.1.</strong> 21/WAKU2-FAULT-TOLERANT-STORE</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/index.html"><strong aria-hidden="true">2.</strong> Blockchain</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/index.html"><strong aria-hidden="true">2.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-anonymous-leaders-reward.html"><strong aria-hidden="true">2.1.1.</strong> BEDROCK-ANONYMOUS-LEADERS-REWARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-architecture-overview.html"><strong aria-hidden="true">2.1.2.</strong> BEDROCK-ARCHITECTURE-OVERVIEW</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-genesis-block.html"><strong aria-hidden="true">2.1.3.</strong> BEDROCK-GENESIS-BLOCK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-declaration-protocol.html"><strong aria-hidden="true">2.1.4.</strong> BEDROCK-SERVICE-DECLARATION-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-reward-distribution.html"><strong aria-hidden="true">2.1.5.</strong> BEDROCK-SERVICE-REWARD-DISTRIBUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-block-construction.html"><strong aria-hidden="true">2.1.6.</strong> BEDROCK-V1-1-BLOCK-CONSTRUCTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-mantle-specification.html"><strong aria-hidden="true">2.1.7.</strong> BEDROCK-V1.1-MANTLE-SPECIFICATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/fork-choice.html"><strong aria-hidden="true">2.1.8.</strong> CRYPTARCHIA-FORK-CHOICE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-proof-of-leadership.html"><strong aria-hidden="true">2.1.9.</strong> CRYPTARCHIA-PROOF-OF-LEADERSHIP</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-total-stake-inference.html"><strong aria-hidden="true">2.1.10.</strong> CRYPTARCHIA-TOTAL-STAKE-INFERENCE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-v1-bootstr-sync.html"><strong aria-hidden="true">2.1.11.</strong> CRYPTARCHIA-V1-BOOTSTRAPPING-SYNCHRONIZATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-blend-protocol.html"><strong aria-hidden="true">2.1.12.</strong> NOMOS-BLEND-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-cryptarchia-v1-protocol.html"><strong aria-hidden="true">2.1.13.</strong> NOMOS-CRYPTARCHIA-V1-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomosda-network.html"><strong aria-hidden="true">2.1.14.</strong> NOMOS-DA-NETWORK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/digital-signature.html"><strong aria-hidden="true">2.1.15.</strong> NOMOS-DIGITAL-SIGNATURE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-key-types-and-generation.html"><strong aria-hidden="true">2.1.16.</strong> NOMOS-KEY-TYPES-GENERATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-encapsulation.html"><strong aria-hidden="true">2.1.17.</strong> NOMOS-MESSAGE-ENCAPSULATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-formatting.html"><strong aria-hidden="true">2.1.18.</strong> NOMOS-MESSAGE-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-payload-formatting.html"><strong aria-hidden="true">2.1.19.</strong> NOMOS-PAYLOAD-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-proof-of-quota.html"><strong aria-hidden="true">2.1.20.</strong> NOMOS-PROOF-OF-QUOTA</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-wallet-technical-standard.html"><strong aria-hidden="true">2.1.21.</strong> NOMOS-WALLET-TECHNICAL-STANDARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-cryptographic-protocol.html"><strong aria-hidden="true">2.1.22.</strong> NOMOSDA-CRYPTOGRAPHIC-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-rewarding.html"><strong aria-hidden="true">2.1.23.</strong> NOMOSDA-REWARDING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-hardware-requirements.html"><strong aria-hidden="true">2.1.24.</strong> P2P-HARDWARE-REQUIREMENTS</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-nat-solution.html"><strong aria-hidden="true">2.1.25.</strong> P2P-NAT-SOLUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-network-bootstrapping.html"><strong aria-hidden="true">2.1.26.</strong> P2P-NETWORK-BOOTSTRAPPING</a></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/draft/index.html"><strong aria-hidden="true">2.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/draft/p2p-network.html"><strong aria-hidden="true">2.2.1.</strong> NOMOS-P2P-NETWORK</a></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/deprecated/index.html"><strong aria-hidden="true">2.3.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/deprecated/claro.html"><strong aria-hidden="true">2.3.1.</strong> CONSENSUS-CLARO</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../storage/index.html"><strong aria-hidden="true">3.</strong> Storage</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/index.html"><strong aria-hidden="true">3.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/codex-block-exchange.html"><strong aria-hidden="true">3.1.1.</strong> CODEX-BLOCK-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/community-history.html"><strong aria-hidden="true">3.1.2.</strong> CODEX-COMMUNITY-HISTORY</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dht.html"><strong aria-hidden="true">3.1.3.</strong> CODEX-DHT</a></li><li class="chapter-item expanded "><a href="../../storage/raw/manifest.html"><strong aria-hidden="true">3.1.4.</strong> CODEX-MANIFEST</a></li><li class="chapter-item expanded "><a href="../../storage/raw/codex-store.html"><strong aria-hidden="true">3.1.5.</strong> CODEX-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dataset-store.html"><strong aria-hidden="true">3.1.6.</strong> DATASET-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/datasets.html"><strong aria-hidden="true">3.1.7.</strong> DATASETS</a></li></ol></li><li class="chapter-item expanded "><a href="../../storage/draft/index.html"><strong aria-hidden="true">3.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/draft/merkle-tree.html"><strong aria-hidden="true">3.2.1.</strong> MERKLE-TREE</a></li></ol></li><li class="chapter-item expanded "><a href="../../storage/deprecated/index.html"><strong aria-hidden="true">3.3.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/deprecated/erasure-coding.html"><strong aria-hidden="true">3.3.1.</strong> CODEX-ERASUE-CODING</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-marketplace.html"><strong aria-hidden="true">3.3.2.</strong> CODEX-MARKETPLACE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-merkle-tree.html"><strong aria-hidden="true">3.3.3.</strong> CODEX-MERKLE-TREE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-prover.html"><strong aria-hidden="true">3.3.4.</strong> CODEX-PROVER</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/slot-buIlder.html"><strong aria-hidden="true">3.3.5.</strong> CODEX-SLOT-BUILDER</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../anoncomms/index.html"><strong aria-hidden="true">4.</strong> AnonComms</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/raw/index.html"><strong aria-hidden="true">4.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/raw/decentralized-mls-offchain-consensus.html"><strong aria-hidden="true">4.1.1.</strong> DECENTRALIZED-MLS-OFFCHAIN-CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/decentralized-messaging-ethereum.html"><strong aria-hidden="true">4.1.2.</strong> ETH-DCGKA</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/eth-mls-onchain.html"><strong aria-hidden="true">4.1.3.</strong> ETH-MLS-ONCHAIN</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/extended-kad-disco.html"><strong aria-hidden="true">4.1.4.</strong> EXTENDED-KADEMLIA-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/extensible-peer-records.html"><strong aria-hidden="true">4.1.5.</strong> EXTENSIBLE-PEER-RECORDS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/gossipsub-tor-push.html"><strong aria-hidden="true">4.1.6.</strong> GOSSIPSUB-TOR-PUSH</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/consensus-hashgraphlike.html"><strong aria-hidden="true">4.1.7.</strong> HASHGRAPHLIKE CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/logos-service-discovery.html"><strong aria-hidden="true">4.1.8.</strong> LOGOS-SERVICE-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix.html"><strong aria-hidden="true">4.1.9.</strong> MIX</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix-cover-traffic.html"><strong aria-hidden="true">4.1.10.</strong> Mix Cover Traffic</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix-dos-protection.html"><strong aria-hidden="true">4.1.11.</strong> Mix DoS Protection</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/multi-message_id-burn-rln.html"><strong aria-hidden="true">4.1.12.</strong> Multi-message_id Burn RLN</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/noise-x3dh-double-ratchet.html"><strong aria-hidden="true">4.1.13.</strong> NOISE-X3DH-DOUBLE-RATCHET</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/payment-streams.html"><strong aria-hidden="true">4.1.14.</strong> PAYMENT-STREAMS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix-spam-protection-rln.html" class="active"><strong aria-hidden="true">4.1.15.</strong> RLN DoS Protection for Mixnet</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-interep-spec.html"><strong aria-hidden="true">4.1.16.</strong> RLN-INTEREP-SPEC</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-membership-service.html"><strong aria-hidden="true">4.1.17.</strong> RLN-MEMBERSHIP-SERVICE</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-stealth-commitments.html"><strong aria-hidden="true">4.1.18.</strong> RLN-STEALTH-COMMITMENTS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-v2.html"><strong aria-hidden="true">4.1.19.</strong> RLN-V2</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/sds.html"><strong aria-hidden="true">4.1.20.</strong> SDS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/service-discovery-api.html"><strong aria-hidden="true">4.1.21.</strong> SERVICE-DISCOVERY-API</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/status-rln-deployment.html"><strong aria-hidden="true">4.1.22.</strong> STATUS-RLN-DEPLOYMENT</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/zerokit-api.html"><strong aria-hidden="true">4.1.23.</strong> Zerokit API</a></li></ol></li><li class="chapter-item expanded "><a href="../../anoncomms/draft/index.html"><strong aria-hidden="true">4.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/draft/32/rln-v1.html"><strong aria-hidden="true">4.2.1.</strong> 32/RLN-V1</a></li></ol></li><li class="chapter-item expanded "><a href="../../anoncomms/deleted/index.html"><strong aria-hidden="true">4.3.</strong> Deleted</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/deleted/25/libp2p-dns-discovery.html"><strong aria-hidden="true">4.3.1.</strong> 25/LIBP2P-DNS-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../anoncomms/deleted/eth-secpm.html"><strong aria-hidden="true">4.3.2.</strong> ETH-SECPM</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../research/index.html"><strong aria-hidden="true">5.</strong> Research</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../research/draft/index.html"><strong aria-hidden="true">5.1.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../research/draft/1/coss.html"><strong aria-hidden="true">5.1.1.</strong> 1/COSS</a></li></ol></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Logos LIP</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/logos-co/logos-lips" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="rln-dos-protection-for-mixnet"><a class="header" href="#rln-dos-protection-for-mixnet">RLN DoS Protection for Mixnet</a></h1>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
+<tr><td>Name</td><td>RLN DoS Protection for Mixnet</td></tr>
+<tr><td>Slug</td><td>144</td></tr>
+<tr><td>Status</td><td>raw</td></tr>
+<tr><td>Category</td><td>Standards Track</td></tr>
+<tr><td>Editor</td><td>Prem Prathi <a href="mailto:prem@status.im">prem@status.im</a></td></tr>
+<tr><td>Contributors</td><td></td></tr>
+</tbody></table>
+</div><!-- timeline:start -->
+<h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
+<ul>
+<li><strong>2026-05-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/1ac7689ee3fe1665d5d5d1bf9c180ed951cc660d/docs/anoncomms/raw/mix-spam-protection-rln.md"><code>1ac7689</code></a> — chore: split ift ts specs (#334)</li>
+<li><strong>2026-04-15</strong> — <a href="https://github.com/logos-co/logos-lips/blob/5a3e844679a0ac60e6b4e945a64c2f7d8650cba5/docs/ift-ts/raw/mix-spam-protection-rln.md"><code>5a3e844</code></a> — Chore/move repo into logos co (#312)</li>
+<li><strong>2026-02-09</strong> — <a href="https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/ift-ts/raw/mix-spam-protection-rln.md"><code>afd94c8</code></a> — chore: add math support (#287)</li>
+<li><strong>2026-01-29</strong> — <a href="https://github.com/logos-co/logos-lips/blob/3cd2d090a4c8aa7a762dd9357d21cd73bb57cd15/docs/ift-ts/raw/mix-spam-protection-rln.md"><code>3cd2d09</code></a> — fix title of doc (#282)</li>
+<li><strong>2026-01-29</strong> — <a href="https://github.com/logos-co/logos-lips/blob/0e53ebb1b0d090d1d2957a0164c85c38d81560f8/docs/ift-ts/raw/mix-spam-protection-rln.md"><code>0e53ebb</code></a> — change header to new format (#279)</li>
+<li><strong>2026-01-24</strong> — <a href="https://github.com/logos-co/logos-lips/blob/ffca40abfa6b42f239439550cd2fc47fc802f22a/docs/ift-ts/raw/mix-spam-protection-rln.md"><code>ffca40a</code></a> — Mix spam and sybil protection protocol using RLN (#252)</li>
+</ul>
+<!-- timeline:end -->
+<h2 id="abstract"><a class="header" href="#abstract">Abstract</a></h2>
+<p>This document defines a spam and sybil protection protocol for <a href="https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md">libp2p mix</a> based mixnets.
+The protocol specifies how <a href="https://vac.dev/rln">Rate Limiting Nullifiers (RLN)</a> can be integrated into libp2p mix.
+RLN allows mix nodes to detect and drop spam without identifying legitimate users, addressing spam attacks.
+RLN requires membership for mix nodes to send or forward messages, addressing the sybil attack vector.
+RLN satisfies the spam protection <a href="https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md#91-spam-protection-mechanism-requirements">requirements</a> defined in the libp2p mix protocol.</p>
+<h2 id="background--rationale--motivation"><a class="header" href="#background--rationale--motivation">Background / Rationale / Motivation</a></h2>
+<p>Mixnets provide strong privacy guarantees by routing messages through multiple mix nodes using layered encryption and per-hop delays to obscure both routing paths and timing correlations. In order to have a production-ready mixnet using the <a href="https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md">libp2p mix</a>, two critical vulnerabilities must be addressed:</p>
+<ol>
+<li><strong>Spam attacks</strong>: An attacker can generate well-formed sphinx packets targeting mix nodes and can exhaust their resources.
+In case of mixnets, it is easy to attack a later hop in the mix path by choosing different first hop nodes.
+An attacker with minimal resources can launch spam/DoS attacks against individual mix nodes. By targeting all mix nodes in this manner, the attacker can render the entire mixnet unusable.</li>
+<li><strong>Sybil attacks</strong>: Adversaries operating multiple node identities can increase the probability of path compromise, enabling deanonymization through traffic correlation or timing analysis.</li>
+</ol>
+<p>The <a href="https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md">libp2p mix</a> protocol provides an extension for integrating spam protection mechanisms.
+This specification proposes to use <a href="https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/raw/rln-v2.md">Rate Limiting Nullifiers (RLN)</a> as the spam prevention and sybil protection mechanism.
+This approach introduces some trade-offs such as additional per-hop latency for proof generation which are discussed in the <a href="#tradeoffs">Tradeoffs</a> section.</p>
+<h2 id="terminology"><a class="header" href="#terminology">Terminology</a></h2>
+<p>The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”, “SHOULD”, “SHOULD NOT”, “RECOMMENDED”,
+“NOT RECOMMENDED”, “MAY”, and “OPTIONAL” in this document are to be interpreted as described in <a href="https://www.ietf.org/rfc/rfc2119.txt">RFC 2119</a>.</p>
+<h3 id="node-roles"><a class="header" href="#node-roles">Node Roles</a></h3>
+<p>Mix protocol defines 3 roles for the nodes in the mix network - sender, exit, intermediary.</p>
+<ul>
+<li>A sender node is the originator node of a message, i.e a node that wishes to originate/send messages using the mix network.</li>
+<li>An exit node is responsible for delivering messages to the destination protocol.</li>
+<li>An intermediary node is responsible for forwarding a mix packet to the next mix node in the path.</li>
+</ul>
+<h3 id="message"><a class="header" href="#message">Message</a></h3>
+<p>Message is the actual sphinx packet including headers and encrypted payload that is either originated or forwarded by a mix node.</p>
+<h3 id="messaging-rate"><a class="header" href="#messaging-rate">Messaging Rate</a></h3>
+<p>The messaging rate is defined as the number of messages that can be sent/forwarded per fixed unit of time, termed an <code>epoch</code>.
+Since we're using this as shorthand for the maximum allowable rate, this is also known as the <em>rate limit</em>.
+The length of each epoch is constant and defined as the <code>period</code>.</p>
+<p>We define an <code>epoch</code> as <span class="math-inline" data-tex="\lceil"></span> <code>unix_time</code> / <code>period</code> <span class="math-inline" data-tex="\rceil"></span>.
+For example, if <code>unix_time</code> is <code>1644810116</code> and we set <code>period</code> to <code>30</code>, then <code>epoch</code> is <span class="math-inline" data-tex="\lceil"></span> <code>(unix_time/period)</code> <span class="math-inline" data-tex="\rceil"></span> <code>= 54827004</code>.</p>
+<blockquote>
+<p><strong>NOTE:</strong> The <code>epoch</code> refers to the epoch in RLN and not Unix epoch.
+This means that no more messages than the registered rate limit can be sent per epoch, where the epoch length (<code>period</code>) is up to the application.</p>
+</blockquote>
+<p>See section <a href="#system-parameters">System Parameters</a> for details on the <code>period</code> parameter.</p>
+<h2 id="approach"><a class="header" href="#approach">Approach</a></h2>
+<h3 id="overview"><a class="header" href="#overview">Overview</a></h3>
+<p>The protocol implements RLN using a <a href="https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md#922-per-hop-generated-proofs">per-hop generated proof approach</a>, where each node in the mix path generates and verifies proofs.
+This enables network-wide spam protection while preserving user privacy.</p>
+<p>Each mix node MUST have an RLN group membership in order to send or forward messages in the mixnet.
+Each mix node in the path (except the sender) verifies the incoming RLN proof before processing the message.
+After verification, each node generates and attaches a new RLN proof before forwarding the message to the next hop.</p>
+<p>To effectively detect spam, mix nodes SHOULD identify when a node exceeds its <a href="#messaging-rate">messaging rate</a> by reusing the same nullifier across multiple messages within an epoch (known as "double signalling").
+Since a message does not traverse all the mix nodes in the network, a spammer could exploit different paths to avoid detection by any single mix node.
+To address this, intermediary and exit nodes SHOULD participate in a <a href="#coordination-layer">coordination layer</a> that indicates already seen <a href="#messaging-metadata">messaging metadata</a> across the mix nodes.
+This enables all participating mix nodes to detect double signalling across different paths, derive the spammer's private key, and initiate slashing.</p>
+<h3 id="rationale"><a class="header" href="#rationale">Rationale</a></h3>
+<p>RLN is well-suited for spam and sybil protection in libp2p mix based mixnets due to the following properties:</p>
+<ul>
+<li>
+<p>Sybil Resistance:</p>
+<ul>
+<li>Requiring membership for each mix node creates friction to participate in the mixnet to send or forward messages</li>
+<li>Operating multiple identities becomes costly, mitigating sybil attacks that could compromise mix path selection</li>
+</ul>
+</li>
+<li>
+<p>Privacy-Preserving Spam Protection:</p>
+<ul>
+<li>Uses zero-knowledge proofs to enforce rate limits without revealing sender identities</li>
+<li>Ties spam protection proof to the message content, making proofs non-reusable across messages</li>
+<li>Enables economic deterrence through slashing without compromising anonymity</li>
+</ul>
+</li>
+<li>
+<p>Network-Level Benefits:</p>
+<ul>
+<li>RLN enables setting a deterministic <a href="#messaging-rate">messaging rate</a> for the mixnet, which translates to predictable bandwidth requirements (messages per epoch × sphinx packet size).</li>
+<li>This makes it easier to provision and estimate resource usage for nodes participating in the mixnet.</li>
+<li>The rate limit creates a baseline traffic level that, when combined with cover traffic, helps maintain k-anonymity even during periods of low organic traffic.</li>
+</ul>
+</li>
+</ul>
+<h3 id="setup"><a class="header" href="#setup">Setup</a></h3>
+<p>Each mix node has an RLN key pair consisting of a secret key <code>sk</code> and public key <code>pk</code> as defined in <a href="https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md">RLN</a>.
+The secret key <code>sk</code> MUST be persisted securely by the mix node.</p>
+<p>A mixnet that is spam-protected requires all mix nodes in it to form an <a href="https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#flow">RLN group</a>.</p>
+<ul>
+<li>Mix nodes MUST be registered to the RLN group to be able to send or forward messages.</li>
+<li>Registration MAY be moderated through a smart contract deployed on a blockchain.</li>
+</ul>
+<p>Note: The criteria for membership is out of scope of the spec and should be implementation-specific (e.g requiring stake)</p>
+<p>The group membership data MUST be synchronized initially so that the mix node has the latest Merkle root in order to generate or verify RLN proofs.
+See <a href="#group-synchronization">Group Synchronization</a> for details on maintaining synchronization.</p>
+<p>Intermediary and exit mix nodes SHOULD subscribe to the coordination layer (defined <a href="#coordination-layer">below</a>) in order to detect rate limit violations collaboratively.
+This ensures that mix nodes can detect spam and trigger slashing.</p>
+<h3 id="sending-and-forwarding-messages"><a class="header" href="#sending-and-forwarding-messages">Sending and forwarding messages</a></h3>
+<p>In order to send/forward messages via mixnet, a mix node MUST include the <a href="#ratelimitproof">RateLimitProof</a> in the sphinx packet as <a href="https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md#922-per-hop-generated-proofs"><span class="math-inline" data-tex="\sigma"></span></a>.</p>
+<h4 id="proof-generation"><a class="header" href="#proof-generation">Proof Generation</a></h4>
+<p>When generating an RLN proof, the node MUST:</p>
+<ol>
+<li>Use its secret key <code>sk</code> and the current <code>epoch</code></li>
+<li>Obtain the current Merkle root and <a href="https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#obtaining-merkle-proof"><code>path_elements</code></a> from the synchronized membership tree</li>
+<li>Generate a keccak256 hash of all components of the <strong>outgoing</strong> sphinx packet <a href="https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md#81-packet-structure-overview">(α', β', γ', δ')</a> and set it as the proof signal. This prevents proof reuse across different messages.</li>
+</ol>
+<p><strong>Sender nodes</strong>:</p>
+<ul>
+<li>generate an RLN proof for the initial sphinx packet</li>
+<li>attach the proof to the packet before sending to the next hop</li>
+</ul>
+<p><strong>Intermediary and Exit nodes</strong>:</p>
+<p>MUST do the following for every incoming mix packet:</p>
+<ul>
+<li>verify the incoming packet's RLN proof (see <a href="#message-validation">Message validation</a>)</li>
+<li>process the sphinx packet according to the mix protocol</li>
+<li>generate a NEW RLN proof for the outgoing packet</li>
+<li>attach the new proof before forwarding to the next hop</li>
+</ul>
+<h3 id="group-synchronization"><a class="header" href="#group-synchronization">Group Synchronization</a></h3>
+<p>Proof generation relies on the knowledge of Merkle tree root <code>merkle_root</code> and <code>path_elements</code> (the authentication path in the Merkle proof as defined in <a href="https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#obtaining-merkle-proof">RLN</a>) which both require access to the membership Merkle tree.
+Proof verification also requires knowledge of the <code>merkle_root</code> to validate that the proof was generated against a valid membership tree state.
+The RLN membership group MUST be synchronized across all mix nodes to ensure the latest Merkle root is used for RLN proof generation and verification.
+Stale roots may cause legitimate proofs to be rejected.
+Using an old root can allow inference about the index of the user's <code>pk</code> in the membership tree hence compromising user privacy and breaking message unlinkability.</p>
+<p>In order to accommodate network delays, nodes MUST maintain a window of recent valid roots (see <code>acceptable_root_window_size</code> in <a href="#system-parameters">System Parameters</a>).
+We recommend <code>5</code> for <code>acceptable_root_window_size</code>.</p>
+<h3 id="coordination-layer"><a class="header" href="#coordination-layer">Coordination Layer</a></h3>
+<p>The coordination layer enables network-wide spam detection by preventing rate limit violations through nullifier reuse detection.
+The coordination layer SHOULD be used to broadcast <a href="#messaging-metadata">messaging metadata</a>.
+When a node detects spam, it can reconstruct the spammer's secret key using the shared key shares and initiate <a href="#spam-detection-and-slashing">slashing</a>.</p>
+<p>Intermediary and exit nodes that participate in the coordination layer MUST both subscribe to receive metadata and broadcast metadata from messages they process.
+Sender-only nodes need not participate in this coordination layer as they only originate messages and do not forward or validate messages from others.</p>
+<p>The coordination layer MUST have its own spam and sybil protection mechanism in order to prevent from these attacks.
+We recommend using <a href="https://github.com/logos-co/logos-lips/blob/72196d89c1084d625c22b1d5cb775ad7729ad577/waku/standards/core/17/rln-relay.md">WAKU-RLN-RELAY</a>
+In this case, the Messaging Metadata MUST be encoded as the Waku Message payload.
+We recommend using the <a href="https://github.com/logos-co/logos-lips/blob/72196d89c1084d625c22b1d5cb775ad7729ad577/waku/standards/core/64/network.md">public Waku Network</a> with a content topic agreed by all mix nodes.</p>
+<h3 id="message-validation"><a class="header" href="#message-validation">Message validation</a></h3>
+<p>A mix node MUST validate a received message using the below checks, discard the message and stop further checks or processing on failure.</p>
+<ol>
+<li>If the <code>epoch</code> in the received message differs from the mix node's current <code>epoch</code> by more than <code>max_epoch_gap</code>.</li>
+<li>If the <code>merkle_root</code> is NOT in the <code>acceptable_root_window_size</code> past roots of the mix node.</li>
+<li>If the zero-knowledge proof <code>proof</code> is valid. It does so by running the zk verification algorithm as explained in <a href="https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#verification-and-slashing">RLN</a>.</li>
+</ol>
+<p>If all checks pass, the node proceeds to <a href="#spam-detection-and-slashing">spam detection</a> before processing the message.</p>
+<h4 id="spam-detection-and-slashing"><a class="header" href="#spam-detection-and-slashing">Spam detection and Slashing</a></h4>
+<p>To enable local spam detection and slashing, mix nodes MUST store the <a href="#messaging-metadata">messaging metadata</a> in a local cache. This includes metadata from:</p>
+<ul>
+<li>messages processed locally by the mix layer</li>
+<li>messages received via the coordination layer</li>
+</ul>
+<p>The cache SHOULD be cleared for epoch data older than <code>max_epoch_gap</code>.
+To identify spam messages, the node checks whether a message with an identical <code>nullifier</code> is present in the epoch's cache.</p>
+<ol>
+<li>If no entry exists for this <code>nullifier</code>, the node stores the <a href="#messaging-metadata">messaging metadata</a> in the cache and proceeds to process the message normally.</li>
+<li>If an entry exists and its <code>share_x</code> and <code>share_y</code> components are different from the incoming message, then proceed with slashing.
+The mix node uses the <code>share_x</code> and <code>share_y</code> of the new message and the shares from the local cache to reconstruct the <code>sk</code> of the message owner.
+The <code>sk</code> then MUST be used to delete the spammer from the group and withdraw its staked funds.
+The node MUST discard the message and MUST NOT forward it.</li>
+<li>If the <code>share_x</code> and <code>share_y</code> fields in the local cache are identical to the incoming message, then the message is a duplicate and MUST be discarded.</li>
+</ol>
+<p>After successfully validating a message, intermediary and exit nodes SHOULD broadcast the <a href="#messaging-metadata">message's metadata</a> using the coordination layer to enable network-wide spam detection.
+The broadcast on the coordination layer MAY be batched atleast once per epoch to reduce constant traffic on coordination layer.</p>
+<h2 id="wire-format-specification--syntax"><a class="header" href="#wire-format-specification--syntax">Wire Format Specification / Syntax</a></h2>
+<h3 id="spam-protection-proof"><a class="header" href="#spam-protection-proof">Spam protection proof</a></h3>
+<p>The following <code>RateLimitProof</code> MUST be added to the sphinx packet as <span class="math-inline" data-tex="\sigma"></span> as explained in <a href="#sending-and-forwarding-messages">sending</a>.</p>
+<pre><code class="language-protobuf">syntax = "proto3";
+
+message RateLimitProof {
+   bytes proof = 1;
+   bytes merkle_root = 2;
+   bytes epoch = 3;
+   bytes share_x = 4;
+   bytes share_y = 5;
+   bytes nullifier = 6;
+}
+</code></pre>
+<h4 id="ratelimitproof"><a class="header" href="#ratelimitproof">RateLimitProof</a></h4>
+<p>Below is the description of the fields of <code>RateLimitProof</code> and their types.</p>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: right">Parameter</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td style="text-align: right"><code>proof</code></td><td>array of 128 bytes compressed</td><td>the zkSNARK proof as explained in the <a href="#sending-and-forwarding-messages">Sending process</a></td></tr>
+<tr><td style="text-align: right"><code>merkle_root</code></td><td>array of 32 bytes in little-endian order</td><td>the root of membership group Merkle tree at the time of sending the message</td></tr>
+<tr><td style="text-align: right"><code>epoch</code></td><td>array of 32 bytes</td><td>the current epoch at time of sending the message</td></tr>
+<tr><td style="text-align: right"><code>share_x</code> and <code>share_y</code></td><td>array of 32 bytes each</td><td>Shamir secret shares of the user's secret identity key <code>sk</code> . <code>share_x</code> is the hash of the message. <code>share_y</code> is calculated using <a href="https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md">Shamir secret sharing scheme</a></td></tr>
+<tr><td style="text-align: right"><code>nullifier</code></td><td>array of 32 bytes</td><td>internal nullifier derived from <code>epoch</code> and node's <code>sk</code> as explained in <a href="https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md">RLN construct</a></td></tr>
+</tbody></table>
+</div>
+<h3 id="messaging-metadata"><a class="header" href="#messaging-metadata">Messaging Metadata</a></h3>
+<p><a href="https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#notes-from-implementation">Messaging metadata</a> is metadata which is broadcasted via coordination layer and cached by mix nodes locally.
+This helps identify duplicate signalling in order to detect spam.</p>
+<pre><code class="language-protobuf">syntax = "proto3";
+
+message ExternalNullifier {
+   bytes internal_nullifier = 1;
+   repeated bytes x_shares = 2;
+   repeated bytes y_shares = 3;
+}
+
+message MessagingMetadata {
+   repeated ExternalNullifier nullifiers = 1;
+}
+</code></pre>
+<h3 id="system-parameters"><a class="header" href="#system-parameters">System Parameters</a></h3>
+<p>The system parameters are summarized in the following table.</p>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: right">Parameter</th><th>Description</th></tr></thead><tbody>
+<tr><td style="text-align: right"><code>period</code></td><td>the length of <code>epoch</code> in seconds</td></tr>
+<tr><td style="text-align: right"><code>staked_fund</code></td><td>the amount of funds to be staked by mix nodes at the registration</td></tr>
+<tr><td style="text-align: right"><code>max_epoch_gap</code></td><td>the maximum allowed gap between the <code>epoch</code> of a mix node and the incoming message</td></tr>
+<tr><td style="text-align: right"><code>acceptable_root_window_size</code></td><td>the maximum number of past Merkle roots to store</td></tr>
+</tbody></table>
+</div>
+<h2 id="securityprivacy-considerations"><a class="header" href="#securityprivacy-considerations">Security/Privacy Considerations</a></h2>
+<h3 id="known-attack-vectors-and-mitigations"><a class="header" href="#known-attack-vectors-and-mitigations">Known Attack Vectors and Mitigations</a></h3>
+<h4 id="sybil-attacks"><a class="header" href="#sybil-attacks">Sybil Attacks</a></h4>
+<ul>
+<li><strong>Attack</strong>: Adversary operates multiple node identities to increase path compromise probability</li>
+<li><strong>Limitation</strong>: Well-funded adversary can still acquire multiple memberships</li>
+<li><strong>Mitigation</strong>: Membership registration can consider other criteria along with stake to reduce chance of sybil identities.</li>
+</ul>
+<h4 id="coordination-layer-attacks"><a class="header" href="#coordination-layer-attacks">Coordination Layer Attacks</a></h4>
+<ul>
+<li><strong>Attack</strong>: Flood coordination layer with spam metadata to create DoS</li>
+<li><strong>Mitigation</strong>: Coordination layer MUST implement its own spam protection (line 156)</li>
+</ul>
+<h4 id="timing-attacks"><a class="header" href="#timing-attacks">Timing Attacks</a></h4>
+<ul>
+<li><strong>Attack</strong>: Correlate message timing across hops to deanonymize users</li>
+<li><strong>Mitigation</strong>: Mix protocol's per-hop delays provide timing obfuscation</li>
+<li><strong>Note</strong>: RLN metadata broadcast may create additional timing side-channels requiring analysis</li>
+</ul>
+<h3 id="privacy-considerations"><a class="header" href="#privacy-considerations">Privacy Considerations</a></h3>
+<h4 id="nullifier-linkability"><a class="header" href="#nullifier-linkability">Nullifier Linkability</a></h4>
+<ul>
+<li><strong>Concern</strong>: Nullifiers are broadcast via coordination layer, potentially enabling traffic analysis</li>
+<li><strong>Analysis</strong>: Nullifiers are derived from epoch and secret key, changing per epoch</li>
+<li><strong>Limitation</strong>: Within an epoch, multiple messages from same node share nullifier metadata structure</li>
+</ul>
+<h3 id="out-of-scope"><a class="header" href="#out-of-scope">Out of Scope</a></h3>
+<p>The following are explicitly out of scope for this specification and left to implementations:</p>
+<ul>
+<li>Specific membership criteria and stake amounts</li>
+<li>Coordination layer protocol selection and configuration</li>
+<li>Blockchain selection for RLN group management</li>
+</ul>
+<h2 id="tradeoffs"><a class="header" href="#tradeoffs">Tradeoffs</a></h2>
+<h3 id="additional-latency-due-to-proof-generation-in-every-hop"><a class="header" href="#additional-latency-due-to-proof-generation-in-every-hop">Additional Latency due to proof generation in every hop</a></h3>
+<p>Per-hop RLN proof generation introduces additional latency at each mix node in the path:</p>
+<ul>
+<li><strong>Proof generation time</strong>: Typically <code>100-500ms</code> per hop depending on hardware capabilities</li>
+<li><strong>End-to-end impact</strong>: For a <code>3-hop</code> path, this adds <code>300-1500ms</code> to total message delivery time</li>
+<li><strong>Comparison</strong>: This is significant compared to the mix protocol's per-hop delay</li>
+<li><strong>Mitigation</strong>: See <a href="#future-work">Future Work</a> for potential optimizations using pre-computed proofs</li>
+</ul>
+<p>This latency needs to be considered while deciding the approach to be used.</p>
+<h3 id="membership-registration-friction"><a class="header" href="#membership-registration-friction">Membership registration friction</a></h3>
+<p>Requiring RLN group membership for all mix nodes creates barriers to network participation:</p>
+<ul>
+<li><strong>Stake requirement</strong>: Nodes MUST stake funds to join, limiting casual participation</li>
+<li><strong>Registration overhead</strong>: On-chain registration adds complexity and potential costs (gas fees)</li>
+<li><strong>Benefit</strong>: This friction is intentional and necessary for sybil resistance</li>
+</ul>
+<p>The appropriate stake amount MUST balance accessibility against attack economics (see <a href="#system-parameters">System Parameters</a>).</p>
+<h3 id="cost-of-zk-proof-generation"><a class="header" href="#cost-of-zk-proof-generation">Cost of ZK Proof Generation</a></h3>
+<p>Zero-knowledge proof generation imposes computational costs on mix nodes. Proof generation is CPU-intensive, requiring modern processors. May be prohibitive for mobile or embedded devices.</p>
+<p><strong>Mitigation</strong>: See <a href="#future-work">Future Work</a> for potential research into using alternative proving systems.</p>
+<p>These costs must be factored into operational expenses and node requirements.</p>
+<h2 id="future-work"><a class="header" href="#future-work">Future Work</a></h2>
+<p>In order to reduce latency introduced at each hop:</p>
+<ul>
+<li>RLN can be used with pre-computed proofs as explained <a href="https://forum.vac.dev/t/rln-with-pre-computed-proofs/606">here</a>. This approach can be explored further and could potentially replace the current proposed RLN implementation.</li>
+<li>Research other proving systems that would generate faster ZK proofs.</li>
+</ul>
+<p>Additional sybil resistance mechanisms could augment RLN by incorporating reputation-based lists similar to Tor's "directory authorities".</p>
+<p>These help clients build circuits that are less likely to be entirely controlled by sybils through a range of techniques that limit nodes' possible influence based on trustworthiness metrics.</p>
+<h2 id="copyright"><a class="header" href="#copyright">Copyright</a></h2>
+<p>Copyright and related rights waived via <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>.</p>
+<h2 id="references"><a class="header" href="#references">References</a></h2>
+<ul>
+<li><a href="https://github.com/logos-co/logos-lips/blob/cfc08e9f0e51de20fc5f24b77ad01163c113706e/vac/raw/mix.md/">libp2p mix protocol</a></li>
+<li><a href="https://vac.dev/rln">Rate Limiting Nullifiers (RLN)</a></li>
+<li><a href="https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/raw/rln-v2.md">Rate Limiting Nullifiers v2</a></li>
+<li><a href="https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md">RLN v1</a></li>
+<li><a href="https://rfc.vac.dev/spec/11/">Waku-Relay</a></li>
+<li><a href="https://forum.vac.dev/t/rln-with-pre-computed-proofs/606">RLN with precomputed proofs</a></li>
+<li><a href="https://eprint.iacr.org/2019/458.pdf">Poseidon hash implementation</a></li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../anoncomms/raw/payment-streams.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../anoncomms/raw/rln-interep-spec.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../anoncomms/raw/payment-streams.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../anoncomms/raw/rln-interep-spec.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../../theme/katex/katex.min.js"></script>
+        <script src="../../theme/katex/auto-render.min.js"></script>
+        <script src="../../scripts/katex-render.js"></script>
+        <script src="../../scripts/logos-lips.js"></script>
+
+
+    </div>
+    </body>
+</html>

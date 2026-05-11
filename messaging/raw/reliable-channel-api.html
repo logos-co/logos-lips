@@ -1,0 +1,679 @@
+<!DOCTYPE HTML>
+<html lang="en" class="ayu" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>RELIABLE-CHANNEL-API - Logos LIP</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../highlight.css">
+        <link rel="stylesheet" href="../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../../theme/katex/katex.min.css">
+        <link rel="stylesheet" href="../../theme/fonts/fonts.css">
+        <link rel="stylesheet" href="../../theme/FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../custom.css">
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "ayu";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('ayu')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../../index.html">Introduction</a></li><li class="chapter-item expanded affix "><a href="../../about.html">About</a></li><li class="chapter-item expanded "><a href="../../messaging/index.html"><strong aria-hidden="true">1.</strong> Messaging</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/raw/index.html"><strong aria-hidden="true">1.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/raw/adversarial-models.html"><strong aria-hidden="true">1.1.1.</strong> ADVERSARIAL-MODELS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/chat-cast.html"><strong aria-hidden="true">1.1.2.</strong> CHAT-CAST</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/chatdefs.html"><strong aria-hidden="true">1.1.3.</strong> CHAT-DEFINITIONS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/dandelion.html"><strong aria-hidden="true">1.1.4.</strong> DANDELION</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/messaging-api.html"><strong aria-hidden="true">1.1.5.</strong> MESSAGING-API</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/opchan.html"><strong aria-hidden="true">1.1.6.</strong> OP-CHAN</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/relay-sharding.html"><strong aria-hidden="true">1.1.7.</strong> RELAY-SHARDING</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/relay-static-shard-alloc.html"><strong aria-hidden="true">1.1.8.</strong> RELAY-STATIC-SHARD-ALLOC</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/reliable-channel-api.html" class="active"><strong aria-hidden="true">1.1.9.</strong> RELIABLE-CHANNEL-API</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/lightpush.html"><strong aria-hidden="true">1.1.10.</strong> WAKU-LIGHTPUSH</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/mix.html"><strong aria-hidden="true">1.1.11.</strong> WAKU-MIX</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/p2p-reliability.html"><strong aria-hidden="true">1.1.12.</strong> WAKU-P2P-RELIABILITY</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/rendezvous.html"><strong aria-hidden="true">1.1.13.</strong> WAKU-RENDEZVOUS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/rln-keystore.html"><strong aria-hidden="true">1.1.14.</strong> WAKU-RLN-KEYSTORE</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/store-sync.html"><strong aria-hidden="true">1.1.15.</strong> WAKU-STORE-SYNC</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/sync.html"><strong aria-hidden="true">1.1.16.</strong> WAKU-SYNC</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/device-pairing.html"><strong aria-hidden="true">1.1.17.</strong> WAKU2-DEVICE-PAIRING</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/incentivization.html"><strong aria-hidden="true">1.1.18.</strong> WAKU2-INCENTIVIZATION</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/noise.html"><strong aria-hidden="true">1.1.19.</strong> WAKU2-NOISE</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/noise-sessions.html"><strong aria-hidden="true">1.1.20.</strong> WAKU2-NOISE-SESSIONS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/rln-contract.html"><strong aria-hidden="true">1.1.21.</strong> WAKU2-RLN-CONTRACT</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/draft/index.html"><strong aria-hidden="true">1.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/draft/3/remote-log.html"><strong aria-hidden="true">1.2.1.</strong> 3/REMOTE-LOG</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/4/mvds-meta.html"><strong aria-hidden="true">1.2.2.</strong> 4/MVDS-META</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/10/waku2.html"><strong aria-hidden="true">1.2.3.</strong> 10/WAKU2</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/12/filter.html"><strong aria-hidden="true">1.2.4.</strong> 12/WAKU2-FILTER</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/draft/12/previous-versions/00/filter.html"><strong aria-hidden="true">1.2.4.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/draft/13/store.html"><strong aria-hidden="true">1.2.5.</strong> 13/WAKU2-STORE</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/draft/13/previous-versions/00/store.html"><strong aria-hidden="true">1.2.5.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/draft/15/bridge.html"><strong aria-hidden="true">1.2.6.</strong> 15/WAKU-BRIDGE</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/17/rln-relay.html"><strong aria-hidden="true">1.2.7.</strong> 17/WAKU2-RLN-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/19/lightpush.html"><strong aria-hidden="true">1.2.8.</strong> 19/WAKU2-LIGHTPUSH</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/20/toy-eth-pm.html"><strong aria-hidden="true">1.2.9.</strong> 20/TOY-ETH-PM</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/22/toy-chat.html"><strong aria-hidden="true">1.2.10.</strong> 22/TOY-CHAT</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/23/topics.html"><strong aria-hidden="true">1.2.11.</strong> 23/WAKU2-TOPICS</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/26/payload.html"><strong aria-hidden="true">1.2.12.</strong> 26/WAKU2-PAYLOAD</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/27/peers.html"><strong aria-hidden="true">1.2.13.</strong> 27/WAKU2-PEERS</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/29/config.html"><strong aria-hidden="true">1.2.14.</strong> 29/WAKU2-CONFIG</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/30/adaptive-nodes.html"><strong aria-hidden="true">1.2.15.</strong> 30/ADAPTIVE-NODES</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/31/enr.html"><strong aria-hidden="true">1.2.16.</strong> 31/WAKU2-ENR</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/33/discv5.html"><strong aria-hidden="true">1.2.17.</strong> 33/WAKU2-DISCV5</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/34/peer-exchange.html"><strong aria-hidden="true">1.2.18.</strong> 34/WAKU2-PEER-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/36/bindings-api.html"><strong aria-hidden="true">1.2.19.</strong> 36/WAKU2-BINDINGS-API</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/53/x3dh.html"><strong aria-hidden="true">1.2.20.</strong> 53/WAKU2-X3DH</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/54/x3dh-sessions.html"><strong aria-hidden="true">1.2.21.</strong> 54/WAKU2-X3DH-SESSIONS</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/64/network.html"><strong aria-hidden="true">1.2.22.</strong> 64/WAKU2-NETWORK</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/66/metadata.html"><strong aria-hidden="true">1.2.23.</strong> 66/WAKU2-METADATA</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/stable/index.html"><strong aria-hidden="true">1.3.</strong> Stable</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/stable/2/mvds.html"><strong aria-hidden="true">1.3.1.</strong> 2/MVDS</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/6/waku1.html"><strong aria-hidden="true">1.3.2.</strong> 6/WAKU1</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/7/data.html"><strong aria-hidden="true">1.3.3.</strong> 7/WAKU-DATA</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/8/mail.html"><strong aria-hidden="true">1.3.4.</strong> 8/WAKU-MAIL</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/9/rpc.html"><strong aria-hidden="true">1.3.5.</strong> 9/WAKU-RPC</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/11/relay.html"><strong aria-hidden="true">1.3.6.</strong> 11/WAKU2-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/14/message.html"><strong aria-hidden="true">1.3.7.</strong> 14/WAKU2-MESSAGE</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/index.html"><strong aria-hidden="true">1.4.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/deprecated/5/waku0.html"><strong aria-hidden="true">1.4.1.</strong> 5/WAKU0</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/16/rpc.html"><strong aria-hidden="true">1.4.2.</strong> 16/WAKU2-RPC</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/18/swap.html"><strong aria-hidden="true">1.4.3.</strong> 18/WAKU2-SWAP</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/deleted/index.html"><strong aria-hidden="true">1.5.</strong> Deleted</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/deleted/fault-tolerant-store.html"><strong aria-hidden="true">1.5.1.</strong> 21/WAKU2-FAULT-TOLERANT-STORE</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/index.html"><strong aria-hidden="true">2.</strong> Blockchain</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/index.html"><strong aria-hidden="true">2.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-anonymous-leaders-reward.html"><strong aria-hidden="true">2.1.1.</strong> BEDROCK-ANONYMOUS-LEADERS-REWARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-architecture-overview.html"><strong aria-hidden="true">2.1.2.</strong> BEDROCK-ARCHITECTURE-OVERVIEW</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-genesis-block.html"><strong aria-hidden="true">2.1.3.</strong> BEDROCK-GENESIS-BLOCK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-declaration-protocol.html"><strong aria-hidden="true">2.1.4.</strong> BEDROCK-SERVICE-DECLARATION-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-reward-distribution.html"><strong aria-hidden="true">2.1.5.</strong> BEDROCK-SERVICE-REWARD-DISTRIBUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-block-construction.html"><strong aria-hidden="true">2.1.6.</strong> BEDROCK-V1-1-BLOCK-CONSTRUCTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-mantle-specification.html"><strong aria-hidden="true">2.1.7.</strong> BEDROCK-V1.1-MANTLE-SPECIFICATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/fork-choice.html"><strong aria-hidden="true">2.1.8.</strong> CRYPTARCHIA-FORK-CHOICE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-proof-of-leadership.html"><strong aria-hidden="true">2.1.9.</strong> CRYPTARCHIA-PROOF-OF-LEADERSHIP</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-total-stake-inference.html"><strong aria-hidden="true">2.1.10.</strong> CRYPTARCHIA-TOTAL-STAKE-INFERENCE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-v1-bootstr-sync.html"><strong aria-hidden="true">2.1.11.</strong> CRYPTARCHIA-V1-BOOTSTRAPPING-SYNCHRONIZATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-blend-protocol.html"><strong aria-hidden="true">2.1.12.</strong> NOMOS-BLEND-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-cryptarchia-v1-protocol.html"><strong aria-hidden="true">2.1.13.</strong> NOMOS-CRYPTARCHIA-V1-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomosda-network.html"><strong aria-hidden="true">2.1.14.</strong> NOMOS-DA-NETWORK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/digital-signature.html"><strong aria-hidden="true">2.1.15.</strong> NOMOS-DIGITAL-SIGNATURE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-key-types-and-generation.html"><strong aria-hidden="true">2.1.16.</strong> NOMOS-KEY-TYPES-GENERATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-encapsulation.html"><strong aria-hidden="true">2.1.17.</strong> NOMOS-MESSAGE-ENCAPSULATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-formatting.html"><strong aria-hidden="true">2.1.18.</strong> NOMOS-MESSAGE-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-payload-formatting.html"><strong aria-hidden="true">2.1.19.</strong> NOMOS-PAYLOAD-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-proof-of-quota.html"><strong aria-hidden="true">2.1.20.</strong> NOMOS-PROOF-OF-QUOTA</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-wallet-technical-standard.html"><strong aria-hidden="true">2.1.21.</strong> NOMOS-WALLET-TECHNICAL-STANDARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-cryptographic-protocol.html"><strong aria-hidden="true">2.1.22.</strong> NOMOSDA-CRYPTOGRAPHIC-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-rewarding.html"><strong aria-hidden="true">2.1.23.</strong> NOMOSDA-REWARDING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-hardware-requirements.html"><strong aria-hidden="true">2.1.24.</strong> P2P-HARDWARE-REQUIREMENTS</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-nat-solution.html"><strong aria-hidden="true">2.1.25.</strong> P2P-NAT-SOLUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-network-bootstrapping.html"><strong aria-hidden="true">2.1.26.</strong> P2P-NETWORK-BOOTSTRAPPING</a></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/draft/index.html"><strong aria-hidden="true">2.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/draft/p2p-network.html"><strong aria-hidden="true">2.2.1.</strong> NOMOS-P2P-NETWORK</a></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/deprecated/index.html"><strong aria-hidden="true">2.3.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/deprecated/claro.html"><strong aria-hidden="true">2.3.1.</strong> CONSENSUS-CLARO</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../storage/index.html"><strong aria-hidden="true">3.</strong> Storage</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/index.html"><strong aria-hidden="true">3.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/codex-block-exchange.html"><strong aria-hidden="true">3.1.1.</strong> CODEX-BLOCK-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/community-history.html"><strong aria-hidden="true">3.1.2.</strong> CODEX-COMMUNITY-HISTORY</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dht.html"><strong aria-hidden="true">3.1.3.</strong> CODEX-DHT</a></li><li class="chapter-item expanded "><a href="../../storage/raw/manifest.html"><strong aria-hidden="true">3.1.4.</strong> CODEX-MANIFEST</a></li><li class="chapter-item expanded "><a href="../../storage/raw/codex-store.html"><strong aria-hidden="true">3.1.5.</strong> CODEX-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dataset-store.html"><strong aria-hidden="true">3.1.6.</strong> DATASET-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/datasets.html"><strong aria-hidden="true">3.1.7.</strong> DATASETS</a></li></ol></li><li class="chapter-item expanded "><a href="../../storage/draft/index.html"><strong aria-hidden="true">3.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/draft/merkle-tree.html"><strong aria-hidden="true">3.2.1.</strong> MERKLE-TREE</a></li></ol></li><li class="chapter-item expanded "><a href="../../storage/deprecated/index.html"><strong aria-hidden="true">3.3.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/deprecated/erasure-coding.html"><strong aria-hidden="true">3.3.1.</strong> CODEX-ERASUE-CODING</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-marketplace.html"><strong aria-hidden="true">3.3.2.</strong> CODEX-MARKETPLACE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-merkle-tree.html"><strong aria-hidden="true">3.3.3.</strong> CODEX-MERKLE-TREE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-prover.html"><strong aria-hidden="true">3.3.4.</strong> CODEX-PROVER</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/slot-buIlder.html"><strong aria-hidden="true">3.3.5.</strong> CODEX-SLOT-BUILDER</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../anoncomms/index.html"><strong aria-hidden="true">4.</strong> AnonComms</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/raw/index.html"><strong aria-hidden="true">4.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/raw/decentralized-mls-offchain-consensus.html"><strong aria-hidden="true">4.1.1.</strong> DECENTRALIZED-MLS-OFFCHAIN-CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/decentralized-messaging-ethereum.html"><strong aria-hidden="true">4.1.2.</strong> ETH-DCGKA</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/eth-mls-onchain.html"><strong aria-hidden="true">4.1.3.</strong> ETH-MLS-ONCHAIN</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/extended-kad-disco.html"><strong aria-hidden="true">4.1.4.</strong> EXTENDED-KADEMLIA-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/extensible-peer-records.html"><strong aria-hidden="true">4.1.5.</strong> EXTENSIBLE-PEER-RECORDS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/gossipsub-tor-push.html"><strong aria-hidden="true">4.1.6.</strong> GOSSIPSUB-TOR-PUSH</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/consensus-hashgraphlike.html"><strong aria-hidden="true">4.1.7.</strong> HASHGRAPHLIKE CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/logos-service-discovery.html"><strong aria-hidden="true">4.1.8.</strong> LOGOS-SERVICE-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix.html"><strong aria-hidden="true">4.1.9.</strong> MIX</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix-cover-traffic.html"><strong aria-hidden="true">4.1.10.</strong> Mix Cover Traffic</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix-dos-protection.html"><strong aria-hidden="true">4.1.11.</strong> Mix DoS Protection</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/multi-message_id-burn-rln.html"><strong aria-hidden="true">4.1.12.</strong> Multi-message_id Burn RLN</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/noise-x3dh-double-ratchet.html"><strong aria-hidden="true">4.1.13.</strong> NOISE-X3DH-DOUBLE-RATCHET</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/payment-streams.html"><strong aria-hidden="true">4.1.14.</strong> PAYMENT-STREAMS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix-spam-protection-rln.html"><strong aria-hidden="true">4.1.15.</strong> RLN DoS Protection for Mixnet</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-interep-spec.html"><strong aria-hidden="true">4.1.16.</strong> RLN-INTEREP-SPEC</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-membership-service.html"><strong aria-hidden="true">4.1.17.</strong> RLN-MEMBERSHIP-SERVICE</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-stealth-commitments.html"><strong aria-hidden="true">4.1.18.</strong> RLN-STEALTH-COMMITMENTS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-v2.html"><strong aria-hidden="true">4.1.19.</strong> RLN-V2</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/sds.html"><strong aria-hidden="true">4.1.20.</strong> SDS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/service-discovery-api.html"><strong aria-hidden="true">4.1.21.</strong> SERVICE-DISCOVERY-API</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/status-rln-deployment.html"><strong aria-hidden="true">4.1.22.</strong> STATUS-RLN-DEPLOYMENT</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/zerokit-api.html"><strong aria-hidden="true">4.1.23.</strong> Zerokit API</a></li></ol></li><li class="chapter-item expanded "><a href="../../anoncomms/draft/index.html"><strong aria-hidden="true">4.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/draft/32/rln-v1.html"><strong aria-hidden="true">4.2.1.</strong> 32/RLN-V1</a></li></ol></li><li class="chapter-item expanded "><a href="../../anoncomms/deleted/index.html"><strong aria-hidden="true">4.3.</strong> Deleted</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/deleted/25/libp2p-dns-discovery.html"><strong aria-hidden="true">4.3.1.</strong> 25/LIBP2P-DNS-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../anoncomms/deleted/eth-secpm.html"><strong aria-hidden="true">4.3.2.</strong> ETH-SECPM</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../research/index.html"><strong aria-hidden="true">5.</strong> Research</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../research/draft/index.html"><strong aria-hidden="true">5.1.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../research/draft/1/coss.html"><strong aria-hidden="true">5.1.1.</strong> 1/COSS</a></li></ol></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Logos LIP</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/logos-co/logos-lips" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="reliable-channel-api"><a class="header" href="#reliable-channel-api">RELIABLE-CHANNEL-API</a></h1>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
+<tr><td>Name</td><td>Reliable Channel API definition</td></tr>
+<tr><td>Slug</td><td>173</td></tr>
+<tr><td>Status</td><td>raw</td></tr>
+<tr><td>Category</td><td>Standards Track</td></tr>
+<tr><td>Tags</td><td>reliability, application, api, sds, segmentation</td></tr>
+<tr><td>Editor</td><td>Ivan Folgueira Bande <a href="mailto:ivansete@status.im">ivansete@status.im</a></td></tr>
+<tr><td>Contributors</td><td>Jazz Turner-Baggs <a href="mailto:jazz@status.im">jazz@status.im</a>, Igor Sirotin <a href="mailto:sirotin@status.im">sirotin@status.im</a></td></tr>
+</tbody></table>
+</div><!-- timeline:start -->
+<h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
+<ul>
+<li><strong>2026-05-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/1ac7689ee3fe1665d5d5d1bf9c180ed951cc660d/docs/messaging/raw/reliable-channel-api.md"><code>1ac7689</code></a> — chore: split ift ts specs (#334)</li>
+<li><strong>2026-05-07</strong> — <a href="https://github.com/logos-co/logos-lips/blob/d3ee0346cb0ec0a29030f0c859ca3d104d65b0e4/docs/messaging/standards/application/reliable-channel-api.md"><code>d3ee034</code></a> — docs: add Reliable Channel API spec (#325)</li>
+</ul>
+<!-- timeline:end -->
+<h2 id="table-of-contents"><a class="header" href="#table-of-contents">Table of contents</a></h2>
+<!-- TOC -->
+<ul>
+<li><a href="#table-of-contents">Table of contents</a></li>
+<li><a href="#abstract">Abstract</a></li>
+<li><a href="#motivation">Motivation</a></li>
+<li><a href="#syntax">Syntax</a></li>
+<li><a href="#api-design">API design</a>
+<ul>
+<li><a href="#architectural-position">Architectural position</a></li>
+<li><a href="#idl">IDL</a></li>
+</ul>
+</li>
+<li><a href="#components">Components</a>
+<ul>
+<li><a href="#segmentation">Segmentation</a></li>
+<li><a href="#scalable-data-sync-sds">Scalable Data Sync (SDS)</a></li>
+<li><a href="#rate-limit-manager">Rate Limit Manager</a></li>
+<li><a href="#encryption-hook">Encryption Hook</a></li>
+</ul>
+</li>
+<li><a href="#procedures">Procedures</a>
+<ul>
+<li><a href="#node-initialization">Node initialization</a></li>
+<li><a href="#outgoing-message-processing">Outgoing message processing</a></li>
+<li><a href="#incoming-message-processing">Incoming message processing</a></li>
+<li><a href="#rate-limiting">Rate limiting</a></li>
+<li><a href="#encryption">Encryption</a></li>
+</ul>
+</li>
+<li><a href="#the-reliable-channel-api">The Reliable Channel API</a>
+<ul>
+<li><a href="#channel-lifecycle">Channel lifecycle</a></li>
+<li><a href="#channel-usage">Channel usage</a></li>
+<li><a href="#node-configuration">Node configuration</a></li>
+<li><a href="#type-definitions">Type definitions</a></li>
+</ul>
+</li>
+<li><a href="#securityprivacy-considerations">Security/Privacy Considerations</a></li>
+<li><a href="#copyright">Copyright</a></li>
+</ul>
+<!-- TOC -->
+<h2 id="abstract"><a class="header" href="#abstract">Abstract</a></h2>
+<p>This document specifies the <strong>Reliable Channel API</strong>,
+an application-level interface that sits between the application layer and the <a href="messaging-api.html">MESSAGING-API</a> plus <a href="p2p-reliability.html">P2P-RELIABILITY</a>, i.e., <code>application</code> &lt;-&gt; <strong>reliable-channel-api</strong> &lt;-&gt; <code>messaging-api/p2p-reliability</code>.</p>
+<p>It bundles segmentation, end-to-end reliability via <a href="https://lip.logos.co/anoncomms/raw/sds.html">Scalable Data Sync (SDS)</a>, rate limit management, and a pluggable encryption hook
+into a single interface for sending and receiving messages reliably.</p>
+<h2 id="motivation"><a class="header" href="#motivation">Motivation</a></h2>
+<p>The <a href="messaging-api.html">MESSAGING-API</a> provides peer-to-peer reliability via <a href="p2p-reliability.html">P2P-RELIABILITY</a>,
+but does not provide high end-to-end delivery guarantees from sender to recipient.</p>
+<p>This API addresses that gap by introducing:</p>
+<ul>
+<li><strong><a href="./segmentation.html">SEGMENTATION</a></strong> to handle large messages exceeding network size limits.</li>
+<li><strong><a href="https://lip.logos.co/anoncomms/raw/sds.html">SDS</a></strong> to provide causal-history-based end-to-end acknowledgement and retransmission.</li>
+<li><strong>Rate Limit Manager</strong> to comply with <a href="https://lip.logos.co/messaging/draft/17/rln-relay.html">RLN</a> constraints when sending segmented messages.</li>
+<li><strong>Encryption Hook</strong> to allow upper layers to provide a pluggable encryption mechanism. This enables applications to provide Confidentiality and Integrity if desired.</li>
+</ul>
+<p>The separation between Reliable Channels and encryption ensures the API remains agnostic to identity and key management concerns,
+which are handled by higher layers.</p>
+<h2 id="syntax"><a class="header" href="#syntax">Syntax</a></h2>
+<p>The keywords "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT",
+"RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in <a href="https://www.ietf.org/rfc/rfc2119.txt">RFC2119</a>.</p>
+<h2 id="api-design"><a class="header" href="#api-design">API design</a></h2>
+<h3 id="architectural-position"><a class="header" href="#architectural-position">Architectural position</a></h3>
+<p>The Reliable Channel API sits between the application layer and the Messaging API, as follows:</p>
+<pre><code class="language-text">┌────────────────────────────────────────────────────────────┐
+│                   Application Layer                        │
+└───────────────────────────┬────────────────────────────────┘
+                            │
+┌───────────────────────────▼────────────────────────────────┐
+│                 Reliable Channel API                       │
+│  ┌──────────────┐ ┌─────┐ ┌───────────────┐ ┌──────────┐   │
+│  │ Segmentation │ │ SDS │ │ Rate Limit Mgr│ │Encryption│   │
+│  │              │ │     │ │               │ │   Hook   │   │
+│  └──────────────┘ └─────┘ └───────────────┘ └──────────┘   │
+└───────────────────────────┬────────────────────────────────┘
+                            │
+┌───────────────────────────▼────────────────────────────────┐
+│                    Messaging API                           │
+│      (P2P Reliability, Relay, Filter, Lightpush, Store)    │
+└────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3 id="idl"><a class="header" href="#idl">IDL</a></h3>
+<p>A custom Interface Definition Language (IDL) in YAML is used, consistent with <a href="messaging-api.html">MESSAGING-API</a>.</p>
+<h2 id="components"><a class="header" href="#components">Components</a></h2>
+<h3 id="segmentation"><a class="header" href="#segmentation">Segmentation</a></h3>
+<p>A protocol that splits message payloads into smaller units during transmission and reassembles them upon reception. The component is instantiated by supplying the appropriate value to SegmentationConfig.</p>
+<p>See <a href="./segmentation.html">SEGMENTATION</a>.</p>
+<h3 id="scalable-data-sync-sds"><a class="header" href="#scalable-data-sync-sds">Scalable Data Sync (SDS)</a></h3>
+<p><a href="https://lip.logos.co/anoncomms/raw/sds.html">SDS</a> provides end-to-end delivery guarantees using causal history tracking.</p>
+<ul>
+<li>
+<p>Each new segment to be sent, requires the following data:</p>
+<ul>
+<li><code>MessageId</code>: a keccak-256(<a href="https://lip.logos.co/anoncomms/raw/sds.html#message">message</a>'s content) hex string (e.g. <code>4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45</code>), generated by the Reliable Channel API.</li>
+<li><code>ChannelId</code>: the <code>channelId</code> passed to <code>createReliableChannel</code>.</li>
+<li><code>Retrieval hint</code>: the transport <code>MessageHash</code> of previous segments, mentioned as <code>message_hash</code> in <a href="messaging-api.html">MESSAGING-API</a>, upon ``MessageSendPropagatedEvent<code>reception. The hint provider registered during [Node initialization](#node-initialization) performs this</code>MessageId → MessageHash<code>lookup. In turn, that mapping MUST be persisted by SDS using the</code>persistence<code>backend configured in</code>SdsConfig`.</li>
+</ul>
+</li>
+<li>
+<p>Each sent segment is added to an outgoing buffer.</p>
+</li>
+<li>
+<p>The recipient sends acknowledgements back to the sender upon receiving segments.</p>
+</li>
+<li>
+<p>The sender removes acknowledged segments from the outgoing buffer.</p>
+</li>
+<li>
+<p>Unacknowledged segments are retransmitted after <code>acknowledgementTimeoutMs</code>.</p>
+</li>
+<li>
+<p>SDS state MUST be persisted using the <code>persistence</code> backend configured in <code>SdsConfig</code>.</p>
+</li>
+</ul>
+<h3 id="rate-limit-manager"><a class="header" href="#rate-limit-manager">Rate Limit Manager</a></h3>
+<p>The Rate Limit Manager ensures compliance with <a href="https://lip.logos.co/messaging/draft/17/rln-relay.html">RLN</a> rate constraints.</p>
+<ul>
+<li>It tracks how many messages have been sent in the current epoch.</li>
+<li>When the limit is approached, segment dispatch MUST be delayed to the next epoch.</li>
+<li>The epoch size MUST match the <code>[epochPeriodSec](https://lip.logos.co/messaging/draft/17/rln-relay.html#epoch-length)</code> configured in <code>RateLimitConfig</code>.</li>
+</ul>
+<h3 id="encryption-hook"><a class="header" href="#encryption-hook">Encryption Hook</a></h3>
+<p>The Encryption Hook provides a pluggable interface for upper layers to inject encryption.</p>
+<ul>
+<li>The hook is optional; when not provided, messages are sent unencrypted.</li>
+<li>Encryption is applied per segment, after segmentation and SDS.</li>
+<li>Decryption is applied per segment before being processed by SDS.</li>
+<li>The <code>Encryption</code> interface MUST be implemented by the caller when the hook is provided.</li>
+<li>The Reliable Channel API MUST NOT impose any specific encryption scheme.</li>
+</ul>
+<h2 id="procedures"><a class="header" href="#procedures">Procedures</a></h2>
+<h3 id="node-initialization"><a class="header" href="#node-initialization">Node initialization</a></h3>
+<p>When a node is created via <code>createNode</code> (defined in <a href="messaging-api.html">MESSAGING-API</a>),
+the implementation MUST perform the following setup before the node is used:</p>
+<ol>
+<li><strong>Configure SDS persistence</strong>: Supply the <code>Persistence</code> backend from <code>SdsConfig</code> to the SDS module so that
+causal history and outgoing buffers survive restarts.</li>
+<li><strong>Configure SDS hint provider</strong>: Register a hint provider with the SDS module.
+The hint provider converts an SDS <code>MessageId</code> into its corresponding <code>MessageHash</code>.</li>
+<li><strong>Configure Segmentation persistence</strong>: Supply the <code>Persistence</code> backend from <code>SegmentationConfig</code> to the
+<a href="./segmentation.html">Segmentation</a> module so that partially reassembled messages survive restarts.</li>
+<li><strong>Fetch missed messages</strong>: Retrieve messages missed while offline as described in
+<a href="messaging-api.html#init-node-extended-definitions">MESSAGING-API — Fetching missed messages on startup</a>.</li>
+</ol>
+<h3 id="outgoing-message-processing"><a class="header" href="#outgoing-message-processing">Outgoing message processing</a></h3>
+<p>When <code>send</code> is called, the implementation MUST process <code>message</code> in the following order:</p>
+<ol>
+<li><strong>Segment</strong>: Split the payload into segments as defined in <a href="./segmentation.html">SEGMENTATION</a>.</li>
+<li><strong>Apply <a href="https://lip.logos.co/anoncomms/raw/sds.html">SDS</a></strong>: add each sds message to the SDS outgoing buffer (see <a href="#scalable-data-sync-sds">SDS</a> for parameter bindings).</li>
+<li><strong>Encrypt</strong>: If an <code>Encryption</code> implementation is provided, encrypt each segment before transmission.</li>
+<li><strong>Rate Limit</strong>: If <code>RateLimitConfig.enabled</code> is <code>true</code>, delay dispatch as needed to comply with <a href="https://lip.logos.co/messaging/draft/17/rln-relay.html">RLN</a> epoch constraints.</li>
+<li><strong>Dispatch</strong>: Send each segment via the underlying <a href="messaging-api.html">MESSAGING-API</a>.</li>
+</ol>
+<h3 id="incoming-message-processing"><a class="header" href="#incoming-message-processing">Incoming message processing</a></h3>
+<p>When a segment is received from the network, the implementation MUST process it in the following order:</p>
+<ol>
+<li><strong>Decrypt</strong>: If an <code>Encryption</code> implementation is provided, decrypt the segment.</li>
+<li><strong>Apply <a href="https://lip.logos.co/anoncomms/raw/sds.html">SDS</a></strong>: Deliver the segment to the SDS layer, which emits acknowledgements and detects gaps.
+<ul>
+<li><strong>Detect missing dependencies</strong>: If SDS detects a gap in the causal history, it MUST make a best-effort attempt to retrieve the missing message. The <code>Retrieval hint</code> (see <a href="#scalable-data-sync-sds">Scalable Data Sync (SDS)</a>) carried in each SDS message provides the transport <code>MessageHash</code> needed to query the store; without it, store retrieval is not possible. If the message cannot be retrieved, SDS MAY mark it as lost.</li>
+</ul>
+</li>
+<li><strong>Reassemble</strong>: Once all segments for a message have been received, reassemble and emit a <code>reliable:message:received</code> event.</li>
+</ol>
+<h3 id="rate-limiting"><a class="header" href="#rate-limiting">Rate limiting</a></h3>
+<p>When <code>RateLimitConfig.enabled</code> is <code>true</code>, the implementation MUST space segment transmissions
+to comply with the <a href="https://lip.logos.co/messaging/draft/17/rln-relay.html">RLN</a> epoch constraints defined in <code>[epochPeriodSec](https://lip.logos.co/messaging/draft/17/rln-relay.html#epoch-length)</code>.
+Segments MUST NOT be sent at a rate that would violate the RLN message rate limit for the active epoch.</p>
+<h3 id="encryption"><a class="header" href="#encryption">Encryption</a></h3>
+<p>The <code>encryption</code> parameter in <code>createReliableChannel</code> is intentionally optional.
+The Reliable Channel API is agnostic to encryption mechanisms.</p>
+<p>When an <code>Encryption</code> implementation is provided, it MUST be applied as described in <a href="#outgoing-message-processing">Outgoing message processing</a> and <a href="#incoming-message-processing">Incoming message processing</a>.</p>
+<h2 id="the-reliable-channel-api"><a class="header" href="#the-reliable-channel-api">The Reliable Channel API</a></h2>
+<p>This API considers the types defined by <a href="messaging-api.html">MESSAGING-API</a> plus the following.</p>
+<h3 id="channel-lifecycle"><a class="header" href="#channel-lifecycle">Channel lifecycle</a></h3>
+<p>This point assumes that a WakuNode instance is created beforehand. See <code>createNode</code> function
+in <a href="/standards/application/messaging-api.html">MESSAGING-API</a>.</p>
+<pre><code class="language-yaml">functions:
+
+  createReliableChannel:
+    description: "Creates a reliable channel over the given content topic. Sets up the required SDS state,
+    segmentation, and encryption, and subscribes to `contentTopic`."
+    parameters:
+      - name: node
+        type: WakuNode
+        description: "The underlying messaging node, as defined in [MESSAGING-API](messaging-api.md).
+        Used to send segments and to subscribe/unsubscribe to the content topics."
+      - name: channelId
+        type: string
+        description: "Unique identifier for this channel. Represents the reliable (SDS), segmented, and optionally-encrypted session."
+      - name: contentTopic
+        type: string
+        description: "The topic this channel listens and sends on. This has routing and filtering connotations."
+      - name: senderId
+        type: string
+        description: "An identifier for this sender. SHOULD be unique and persisted between sessions."
+      - name: encryption
+        type: optional&lt;Encryption&gt;
+        default: none
+        description: "Optional pluggable encryption implementation. If none, messages are sent unencrypted."
+    returns:
+      type: result&lt;ReliableChannel, error&gt;
+
+  closeChannel:
+    description: "Closes a reliable channel, releases all associated resources and internal state,
+    and unsubscribes from its content topic via the underlying [MESSAGING-API](messaging-api.md)."
+    parameters:
+      - name: channel
+        type: ReliableChannel
+        description: "The channel handle returned by `createReliableChannel`."
+    returns:
+      type: result&lt;void, error&gt;
+</code></pre>
+<h3 id="channel-usage"><a class="header" href="#channel-usage">Channel usage</a></h3>
+<pre><code class="language-yaml">functions:
+  send:
+    description: "Send a message through a reliable channel. The message is always segmented,
+    SDS-tracked, rate-limited (optional), and encrypted (optional)."
+    parameters:
+      - name: channel
+        type: ReliableChannel
+        description: "The channel handle returned by `createReliableChannel`."
+      - name: message
+        type: array&lt;byte&gt;
+        description: "The raw message payload to send."
+    returns:
+      type: result&lt;RequestId, error&gt;
+      description: "Returns a `RequestId` that callers can use to correlate subsequent `MessageSentEvent` or `MessageSendErrorEvent` events."
+</code></pre>
+<h3 id="node-configuration"><a class="header" href="#node-configuration">Node configuration</a></h3>
+<p>This spec extends <code>NodeConfig</code>, needed to create a node, which is
+defined in <a href="messaging-api.html">MESSAGING-API</a>,
+with <code>sds_config</code> and <code>rate_limit_config</code> fields.</p>
+<pre><code class="language-yaml">NodeConfig:  # Extends NodeConfig defined in MESSAGING-API
+  fields:
+    sds_config:
+      type: SdsConfig
+      description: "SDS configuration. See SdsConfig defined in this spec."
+    rate_limit_config:
+      type: RateLimitConfig
+      description: "See RateLimitConfig defined in this spec."
+    segmentation_config:
+      type: SegmentationConfig
+      description: "See SegmentationConfig defined in this spec."
+
+</code></pre>
+<h3 id="type-definitions"><a class="header" href="#type-definitions">Type definitions</a></h3>
+<pre><code class="language-yaml">types:
+
+  ReliableChannel:
+    type: object
+    description: "A handle representing an open reliable channel.
+    Returned by `createReliableChannel` and used to send messages and receive events.
+    Internal state (SDS, segmentation, encryption) is managed by the implementation."
+    events:
+      "reliable:message:received":
+        type: MessageReceivedEvent
+      "reliable:message:sent":
+        type: MessageSentEvent
+      "reliable:message:delivered":
+        type: MessageDeliveredEvent
+      "reliable:message:send-error":
+        type: MessageSendErrorEvent
+      "reliable:message:delivery-error":
+        type: MessageDeliveryErrorEvent
+
+  MessageReceivedEvent:
+    type: object
+    description: "Event emitted when a complete message has been received and reassembled."
+    fields:
+      message:
+        type: array&lt;byte&gt;
+        description: "The reassembled message payload."
+
+  MessageSentEvent:
+    type: object
+    description: "Event emitted when all segments of a message have been transmitted to the network.
+    This confirms network-level dispatch only; it does not guarantee the recipient has processed the message.
+    For end-to-end confirmation, listen for `MessageDeliveredEvent`."
+    fields:
+      requestId:
+        type: RequestId
+        description: "The identifier of the `send` operation whose segments have all been dispatched to the network."
+
+  MessageDeliveredEvent:
+    type: object
+    description: "Event emitted when the recipient has confirmed end-to-end receipt of a message via SDS acknowledgements.
+    This event is fired asynchronously after `MessageSentEvent`, once the SDS layer receives explicit acknowledgements from the recipient."
+    fields:
+      requestId:
+        type: RequestId
+        description: "The identifier of the `send` operation confirmed as delivered by the recipient."
+
+  MessageSendErrorEvent:
+    type: object
+    description: "Event emitted when one or more segments of a message could not be dispatched to the network.
+    This indicates a network-level failure; the message was never fully transmitted."
+    fields:
+      requestId:
+        type: RequestId
+        description: "The identifier of the `send` operation that failed to dispatch."
+      error:
+        type: string
+        description: "Human-readable description of the dispatch failure."
+
+  MessageDeliveryErrorEvent:
+    type: object
+    description: "Event emitted when end-to-end delivery could not be confirmed.
+    The message reached the network and there's no need to explicit re-send.
+    Fired after `maxRetransmissions` attempts have been exhausted without receiving an SDS acknowledgement from the recipient."
+    fields:
+      requestId:
+        type: RequestId
+        description: "The identifier of the `send` operation that was not acknowledged by the recipient."
+      error:
+        type: string
+        description: "Human-readable description of the delivery failure."
+
+  RequestId:
+    type: string
+    description: "Unique identifier for a single `send` operation on a reliable channel.
+    It groups all segments produced by segmenting one message, so callers can correlate
+    acknowledgement and error events back to the original send call.
+    Internally, each segment is dispatched as an independent [MESSAGING-API](messaging-api.md) call,
+    producing one `RequestId` (as defined in [MESSAGING-API](messaging-api.md)) per segment.
+    A single `RequestId` therefore maps to one or more underlying [MESSAGING-API](messaging-api.md)'s `RequestId` values,
+    one per segment sent.
+    For example, the `RequestId` `Req_a` yields these MESSAGING-API requests:
+    `Req_a:1`, `Req_a:2`, ..., `Req_a:N`, where `Req_a:k` represents the k-th
+    MESSAGING-API segment `RequestId`.
+    That is, `Req_a` is the `RequestId` from the RELIABLE-CHANNEL-API spec PoV,
+    whereas `Req_a:k` is the `RequestId` from the MESSAGING-API spec PoV.
+    "
+
+  SegmentationConfig:
+    type: object
+    fields:
+      enableReedSolomon:
+        type: bool
+        default: false
+        description: When enabled, the message sender adds parity (redundant) segments to allow recovery in case of data segment loss. See [SEGMENTATION](./segmentation.md).
+      segmentSizeBytes:
+        type: uint
+        default: 102400  # 100 KiB
+        description: "Maximum segment size in bytes.
+        Messages larger than this value are split before SDS processing."
+      persistence:
+        type: Persistence
+        description: "Backend for persisting partial reassembly state across restarts.
+        Implementations MUST use this backend to store received segments until all segments of a message have arrived and can be reassembled.
+        Refer to [SEGMENTATION](./segmentation.md) for the full definition of what state must be persisted."
+
+  SdsConfig:
+    type: object
+    description: Scalable Data Sync config items.
+    fields:
+      persistence:
+        type: Persistence
+        description: "Backend for persisting the SDS local history. Implementations MAY support custom backends."
+      acknowledgementTimeoutMs:
+        type: uint
+        default: 5000
+        description: "Time in milliseconds to wait for acknowledgement before retransmitting."
+      maxRetransmissions:
+        type: uint
+        default: 5
+        description: "Maximum number of retransmission attempts before considering delivery failed."
+      causalHistorySize:
+        type: uint
+        default: 2
+        description: "Number of message IDs to consider in the causal history. With longer value, a stronger correctness is guaranteed but it requires higher bandwidth and memory."
+
+  RateLimitConfig:
+    type: object
+    description: Rate limiting configuration, containing RLN-specific attributes.
+    fields:
+      enabled:
+        type: bool
+        default: false
+        description: "Whether rate limiting is enforced. SHOULD be true when RLN is active."
+      epochPeriodSec:
+        type: uint
+        default: 600  # 10 minutes
+        description: "The epoch size used by the RLN relay, in seconds."
+
+  Encryption:
+    type: object
+    description: "Interface for a pluggable encryption mechanism.
+    When provided as a parameter to `createReliableChannel`, the API consumer MUST implement both encrypt and decrypt operations.
+    Implementations MAY use different signatures than those described below, as long as each operation accepts a byte array and returns a byte array."
+    fields:
+      encrypt:
+        type: function
+        description: "Encrypts a byte payload. Returns the encrypted payload."
+        parameters:
+          - name: content
+            type: array&lt;byte&gt;
+        returns:
+          type: result&lt;array&lt;byte&gt;, error&gt;
+      decrypt:
+        type: function
+        description: "Decrypts a byte payload. Returns the decrypted payload."
+        parameters:
+          - name: payload
+            type: array&lt;byte&gt;
+        returns:
+          type: result&lt;array&lt;byte&gt;, error&gt;
+
+  Persistence:
+    type: object
+    description: "Interface for a pluggable SDS persistence backend.
+    Implementations MUST provide all functions required to save and retrieve SDS state per channel. Implementations MUST also provide the persistence method of interest, e.g., SQLite, custom encrypted storage, etc.
+    Refer to the [SDS spec](https://lip.logos.co/anoncomms/raw/sds.html) for the full definition of what state must be persisted."
+</code></pre>
+<h2 id="securityprivacy-considerations"><a class="header" href="#securityprivacy-considerations">Security/Privacy Considerations</a></h2>
+<ul>
+<li>This API does not provide confidentiality by default. An <code>Encryption</code> implementation MUST be supplied when confidentiality is required.</li>
+<li>Segment metadata (message ID, segment index, total segments) is visible to network observers unless encrypted by the hook.</li>
+<li>SDS acknowledgement messages are sent over the same content topic and are subject to the same confidentiality concerns.</li>
+<li>Rate limiting compliance is required to avoid exclusion from the network by RLN-enforcing relays.</li>
+</ul>
+<h2 id="copyright"><a class="header" href="#copyright">Copyright</a></h2>
+<p>Copyright and related rights waived via <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../messaging/raw/relay-static-shard-alloc.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../messaging/raw/lightpush.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../messaging/raw/relay-static-shard-alloc.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../messaging/raw/lightpush.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../../theme/katex/katex.min.js"></script>
+        <script src="../../theme/katex/auto-render.min.js"></script>
+        <script src="../../scripts/katex-render.js"></script>
+        <script src="../../scripts/logos-lips.js"></script>
+
+
+    </div>
+    </body>
+</html>

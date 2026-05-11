@@ -1,0 +1,506 @@
+<!DOCTYPE HTML>
+<html lang="en" class="ayu" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>RELAY-SHARDING - Logos LIP</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../highlight.css">
+        <link rel="stylesheet" href="../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../../theme/katex/katex.min.css">
+        <link rel="stylesheet" href="../../theme/fonts/fonts.css">
+        <link rel="stylesheet" href="../../theme/FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../custom.css">
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "ayu";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('ayu')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../../index.html">Introduction</a></li><li class="chapter-item expanded affix "><a href="../../about.html">About</a></li><li class="chapter-item expanded "><a href="../../messaging/index.html"><strong aria-hidden="true">1.</strong> Messaging</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/raw/index.html"><strong aria-hidden="true">1.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/raw/adversarial-models.html"><strong aria-hidden="true">1.1.1.</strong> ADVERSARIAL-MODELS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/chat-cast.html"><strong aria-hidden="true">1.1.2.</strong> CHAT-CAST</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/chatdefs.html"><strong aria-hidden="true">1.1.3.</strong> CHAT-DEFINITIONS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/dandelion.html"><strong aria-hidden="true">1.1.4.</strong> DANDELION</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/messaging-api.html"><strong aria-hidden="true">1.1.5.</strong> MESSAGING-API</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/opchan.html"><strong aria-hidden="true">1.1.6.</strong> OP-CHAN</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/relay-sharding.html" class="active"><strong aria-hidden="true">1.1.7.</strong> RELAY-SHARDING</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/relay-static-shard-alloc.html"><strong aria-hidden="true">1.1.8.</strong> RELAY-STATIC-SHARD-ALLOC</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/reliable-channel-api.html"><strong aria-hidden="true">1.1.9.</strong> RELIABLE-CHANNEL-API</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/lightpush.html"><strong aria-hidden="true">1.1.10.</strong> WAKU-LIGHTPUSH</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/mix.html"><strong aria-hidden="true">1.1.11.</strong> WAKU-MIX</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/p2p-reliability.html"><strong aria-hidden="true">1.1.12.</strong> WAKU-P2P-RELIABILITY</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/rendezvous.html"><strong aria-hidden="true">1.1.13.</strong> WAKU-RENDEZVOUS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/rln-keystore.html"><strong aria-hidden="true">1.1.14.</strong> WAKU-RLN-KEYSTORE</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/store-sync.html"><strong aria-hidden="true">1.1.15.</strong> WAKU-STORE-SYNC</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/sync.html"><strong aria-hidden="true">1.1.16.</strong> WAKU-SYNC</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/device-pairing.html"><strong aria-hidden="true">1.1.17.</strong> WAKU2-DEVICE-PAIRING</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/incentivization.html"><strong aria-hidden="true">1.1.18.</strong> WAKU2-INCENTIVIZATION</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/noise.html"><strong aria-hidden="true">1.1.19.</strong> WAKU2-NOISE</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/noise-sessions.html"><strong aria-hidden="true">1.1.20.</strong> WAKU2-NOISE-SESSIONS</a></li><li class="chapter-item expanded "><a href="../../messaging/raw/rln-contract.html"><strong aria-hidden="true">1.1.21.</strong> WAKU2-RLN-CONTRACT</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/draft/index.html"><strong aria-hidden="true">1.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/draft/3/remote-log.html"><strong aria-hidden="true">1.2.1.</strong> 3/REMOTE-LOG</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/4/mvds-meta.html"><strong aria-hidden="true">1.2.2.</strong> 4/MVDS-META</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/10/waku2.html"><strong aria-hidden="true">1.2.3.</strong> 10/WAKU2</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/12/filter.html"><strong aria-hidden="true">1.2.4.</strong> 12/WAKU2-FILTER</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/draft/12/previous-versions/00/filter.html"><strong aria-hidden="true">1.2.4.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/draft/13/store.html"><strong aria-hidden="true">1.2.5.</strong> 13/WAKU2-STORE</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/draft/13/previous-versions/00/store.html"><strong aria-hidden="true">1.2.5.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/draft/15/bridge.html"><strong aria-hidden="true">1.2.6.</strong> 15/WAKU-BRIDGE</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/17/rln-relay.html"><strong aria-hidden="true">1.2.7.</strong> 17/WAKU2-RLN-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/19/lightpush.html"><strong aria-hidden="true">1.2.8.</strong> 19/WAKU2-LIGHTPUSH</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/20/toy-eth-pm.html"><strong aria-hidden="true">1.2.9.</strong> 20/TOY-ETH-PM</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/22/toy-chat.html"><strong aria-hidden="true">1.2.10.</strong> 22/TOY-CHAT</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/23/topics.html"><strong aria-hidden="true">1.2.11.</strong> 23/WAKU2-TOPICS</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/26/payload.html"><strong aria-hidden="true">1.2.12.</strong> 26/WAKU2-PAYLOAD</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/27/peers.html"><strong aria-hidden="true">1.2.13.</strong> 27/WAKU2-PEERS</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/29/config.html"><strong aria-hidden="true">1.2.14.</strong> 29/WAKU2-CONFIG</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/30/adaptive-nodes.html"><strong aria-hidden="true">1.2.15.</strong> 30/ADAPTIVE-NODES</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/31/enr.html"><strong aria-hidden="true">1.2.16.</strong> 31/WAKU2-ENR</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/33/discv5.html"><strong aria-hidden="true">1.2.17.</strong> 33/WAKU2-DISCV5</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/34/peer-exchange.html"><strong aria-hidden="true">1.2.18.</strong> 34/WAKU2-PEER-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/36/bindings-api.html"><strong aria-hidden="true">1.2.19.</strong> 36/WAKU2-BINDINGS-API</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/53/x3dh.html"><strong aria-hidden="true">1.2.20.</strong> 53/WAKU2-X3DH</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/54/x3dh-sessions.html"><strong aria-hidden="true">1.2.21.</strong> 54/WAKU2-X3DH-SESSIONS</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/64/network.html"><strong aria-hidden="true">1.2.22.</strong> 64/WAKU2-NETWORK</a></li><li class="chapter-item expanded "><a href="../../messaging/draft/66/metadata.html"><strong aria-hidden="true">1.2.23.</strong> 66/WAKU2-METADATA</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/stable/index.html"><strong aria-hidden="true">1.3.</strong> Stable</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/stable/2/mvds.html"><strong aria-hidden="true">1.3.1.</strong> 2/MVDS</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/6/waku1.html"><strong aria-hidden="true">1.3.2.</strong> 6/WAKU1</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/7/data.html"><strong aria-hidden="true">1.3.3.</strong> 7/WAKU-DATA</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/8/mail.html"><strong aria-hidden="true">1.3.4.</strong> 8/WAKU-MAIL</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/9/rpc.html"><strong aria-hidden="true">1.3.5.</strong> 9/WAKU-RPC</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/11/relay.html"><strong aria-hidden="true">1.3.6.</strong> 11/WAKU2-RELAY</a></li><li class="chapter-item expanded "><a href="../../messaging/stable/14/message.html"><strong aria-hidden="true">1.3.7.</strong> 14/WAKU2-MESSAGE</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/index.html"><strong aria-hidden="true">1.4.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/deprecated/5/waku0.html"><strong aria-hidden="true">1.4.1.</strong> 5/WAKU0</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/16/rpc.html"><strong aria-hidden="true">1.4.2.</strong> 16/WAKU2-RPC</a></li><li class="chapter-item expanded "><a href="../../messaging/deprecated/18/swap.html"><strong aria-hidden="true">1.4.3.</strong> 18/WAKU2-SWAP</a></li></ol></li><li class="chapter-item expanded "><a href="../../messaging/deleted/index.html"><strong aria-hidden="true">1.5.</strong> Deleted</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../messaging/deleted/fault-tolerant-store.html"><strong aria-hidden="true">1.5.1.</strong> 21/WAKU2-FAULT-TOLERANT-STORE</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/index.html"><strong aria-hidden="true">2.</strong> Blockchain</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/index.html"><strong aria-hidden="true">2.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-anonymous-leaders-reward.html"><strong aria-hidden="true">2.1.1.</strong> BEDROCK-ANONYMOUS-LEADERS-REWARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-architecture-overview.html"><strong aria-hidden="true">2.1.2.</strong> BEDROCK-ARCHITECTURE-OVERVIEW</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-genesis-block.html"><strong aria-hidden="true">2.1.3.</strong> BEDROCK-GENESIS-BLOCK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-declaration-protocol.html"><strong aria-hidden="true">2.1.4.</strong> BEDROCK-SERVICE-DECLARATION-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-service-reward-distribution.html"><strong aria-hidden="true">2.1.5.</strong> BEDROCK-SERVICE-REWARD-DISTRIBUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-block-construction.html"><strong aria-hidden="true">2.1.6.</strong> BEDROCK-V1-1-BLOCK-CONSTRUCTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/bedrock-v1.1-mantle-specification.html"><strong aria-hidden="true">2.1.7.</strong> BEDROCK-V1.1-MANTLE-SPECIFICATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/fork-choice.html"><strong aria-hidden="true">2.1.8.</strong> CRYPTARCHIA-FORK-CHOICE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-proof-of-leadership.html"><strong aria-hidden="true">2.1.9.</strong> CRYPTARCHIA-PROOF-OF-LEADERSHIP</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-total-stake-inference.html"><strong aria-hidden="true">2.1.10.</strong> CRYPTARCHIA-TOTAL-STAKE-INFERENCE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/cryptarchia-v1-bootstr-sync.html"><strong aria-hidden="true">2.1.11.</strong> CRYPTARCHIA-V1-BOOTSTRAPPING-SYNCHRONIZATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-blend-protocol.html"><strong aria-hidden="true">2.1.12.</strong> NOMOS-BLEND-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-cryptarchia-v1-protocol.html"><strong aria-hidden="true">2.1.13.</strong> NOMOS-CRYPTARCHIA-V1-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomosda-network.html"><strong aria-hidden="true">2.1.14.</strong> NOMOS-DA-NETWORK</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/digital-signature.html"><strong aria-hidden="true">2.1.15.</strong> NOMOS-DIGITAL-SIGNATURE</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-key-types-and-generation.html"><strong aria-hidden="true">2.1.16.</strong> NOMOS-KEY-TYPES-GENERATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-encapsulation.html"><strong aria-hidden="true">2.1.17.</strong> NOMOS-MESSAGE-ENCAPSULATION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-message-formatting.html"><strong aria-hidden="true">2.1.18.</strong> NOMOS-MESSAGE-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-payload-formatting.html"><strong aria-hidden="true">2.1.19.</strong> NOMOS-PAYLOAD-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-proof-of-quota.html"><strong aria-hidden="true">2.1.20.</strong> NOMOS-PROOF-OF-QUOTA</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/nomos-wallet-technical-standard.html"><strong aria-hidden="true">2.1.21.</strong> NOMOS-WALLET-TECHNICAL-STANDARD</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-cryptographic-protocol.html"><strong aria-hidden="true">2.1.22.</strong> NOMOSDA-CRYPTOGRAPHIC-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/da-rewarding.html"><strong aria-hidden="true">2.1.23.</strong> NOMOSDA-REWARDING</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-hardware-requirements.html"><strong aria-hidden="true">2.1.24.</strong> P2P-HARDWARE-REQUIREMENTS</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-nat-solution.html"><strong aria-hidden="true">2.1.25.</strong> P2P-NAT-SOLUTION</a></li><li class="chapter-item expanded "><a href="../../blockchain/raw/p2p-network-bootstrapping.html"><strong aria-hidden="true">2.1.26.</strong> P2P-NETWORK-BOOTSTRAPPING</a></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/draft/index.html"><strong aria-hidden="true">2.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/draft/p2p-network.html"><strong aria-hidden="true">2.2.1.</strong> NOMOS-P2P-NETWORK</a></li></ol></li><li class="chapter-item expanded "><a href="../../blockchain/deprecated/index.html"><strong aria-hidden="true">2.3.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../blockchain/deprecated/claro.html"><strong aria-hidden="true">2.3.1.</strong> CONSENSUS-CLARO</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../storage/index.html"><strong aria-hidden="true">3.</strong> Storage</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/index.html"><strong aria-hidden="true">3.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/raw/codex-block-exchange.html"><strong aria-hidden="true">3.1.1.</strong> CODEX-BLOCK-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/community-history.html"><strong aria-hidden="true">3.1.2.</strong> CODEX-COMMUNITY-HISTORY</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dht.html"><strong aria-hidden="true">3.1.3.</strong> CODEX-DHT</a></li><li class="chapter-item expanded "><a href="../../storage/raw/manifest.html"><strong aria-hidden="true">3.1.4.</strong> CODEX-MANIFEST</a></li><li class="chapter-item expanded "><a href="../../storage/raw/codex-store.html"><strong aria-hidden="true">3.1.5.</strong> CODEX-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/dataset-store.html"><strong aria-hidden="true">3.1.6.</strong> DATASET-STORE</a></li><li class="chapter-item expanded "><a href="../../storage/raw/datasets.html"><strong aria-hidden="true">3.1.7.</strong> DATASETS</a></li></ol></li><li class="chapter-item expanded "><a href="../../storage/draft/index.html"><strong aria-hidden="true">3.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/draft/merkle-tree.html"><strong aria-hidden="true">3.2.1.</strong> MERKLE-TREE</a></li></ol></li><li class="chapter-item expanded "><a href="../../storage/deprecated/index.html"><strong aria-hidden="true">3.3.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../storage/deprecated/erasure-coding.html"><strong aria-hidden="true">3.3.1.</strong> CODEX-ERASUE-CODING</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-marketplace.html"><strong aria-hidden="true">3.3.2.</strong> CODEX-MARKETPLACE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-merkle-tree.html"><strong aria-hidden="true">3.3.3.</strong> CODEX-MERKLE-TREE</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/codex-prover.html"><strong aria-hidden="true">3.3.4.</strong> CODEX-PROVER</a></li><li class="chapter-item expanded "><a href="../../storage/deprecated/slot-buIlder.html"><strong aria-hidden="true">3.3.5.</strong> CODEX-SLOT-BUILDER</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../anoncomms/index.html"><strong aria-hidden="true">4.</strong> AnonComms</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/raw/index.html"><strong aria-hidden="true">4.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/raw/decentralized-mls-offchain-consensus.html"><strong aria-hidden="true">4.1.1.</strong> DECENTRALIZED-MLS-OFFCHAIN-CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/decentralized-messaging-ethereum.html"><strong aria-hidden="true">4.1.2.</strong> ETH-DCGKA</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/eth-mls-onchain.html"><strong aria-hidden="true">4.1.3.</strong> ETH-MLS-ONCHAIN</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/extended-kad-disco.html"><strong aria-hidden="true">4.1.4.</strong> EXTENDED-KADEMLIA-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/extensible-peer-records.html"><strong aria-hidden="true">4.1.5.</strong> EXTENSIBLE-PEER-RECORDS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/gossipsub-tor-push.html"><strong aria-hidden="true">4.1.6.</strong> GOSSIPSUB-TOR-PUSH</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/consensus-hashgraphlike.html"><strong aria-hidden="true">4.1.7.</strong> HASHGRAPHLIKE CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/logos-service-discovery.html"><strong aria-hidden="true">4.1.8.</strong> LOGOS-SERVICE-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix.html"><strong aria-hidden="true">4.1.9.</strong> MIX</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix-cover-traffic.html"><strong aria-hidden="true">4.1.10.</strong> Mix Cover Traffic</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix-dos-protection.html"><strong aria-hidden="true">4.1.11.</strong> Mix DoS Protection</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/multi-message_id-burn-rln.html"><strong aria-hidden="true">4.1.12.</strong> Multi-message_id Burn RLN</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/noise-x3dh-double-ratchet.html"><strong aria-hidden="true">4.1.13.</strong> NOISE-X3DH-DOUBLE-RATCHET</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/payment-streams.html"><strong aria-hidden="true">4.1.14.</strong> PAYMENT-STREAMS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/mix-spam-protection-rln.html"><strong aria-hidden="true">4.1.15.</strong> RLN DoS Protection for Mixnet</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-interep-spec.html"><strong aria-hidden="true">4.1.16.</strong> RLN-INTEREP-SPEC</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-membership-service.html"><strong aria-hidden="true">4.1.17.</strong> RLN-MEMBERSHIP-SERVICE</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-stealth-commitments.html"><strong aria-hidden="true">4.1.18.</strong> RLN-STEALTH-COMMITMENTS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/rln-v2.html"><strong aria-hidden="true">4.1.19.</strong> RLN-V2</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/sds.html"><strong aria-hidden="true">4.1.20.</strong> SDS</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/service-discovery-api.html"><strong aria-hidden="true">4.1.21.</strong> SERVICE-DISCOVERY-API</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/status-rln-deployment.html"><strong aria-hidden="true">4.1.22.</strong> STATUS-RLN-DEPLOYMENT</a></li><li class="chapter-item expanded "><a href="../../anoncomms/raw/zerokit-api.html"><strong aria-hidden="true">4.1.23.</strong> Zerokit API</a></li></ol></li><li class="chapter-item expanded "><a href="../../anoncomms/draft/index.html"><strong aria-hidden="true">4.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/draft/32/rln-v1.html"><strong aria-hidden="true">4.2.1.</strong> 32/RLN-V1</a></li></ol></li><li class="chapter-item expanded "><a href="../../anoncomms/deleted/index.html"><strong aria-hidden="true">4.3.</strong> Deleted</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../anoncomms/deleted/25/libp2p-dns-discovery.html"><strong aria-hidden="true">4.3.1.</strong> 25/LIBP2P-DNS-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../anoncomms/deleted/eth-secpm.html"><strong aria-hidden="true">4.3.2.</strong> ETH-SECPM</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../research/index.html"><strong aria-hidden="true">5.</strong> Research</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../research/draft/index.html"><strong aria-hidden="true">5.1.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../research/draft/1/coss.html"><strong aria-hidden="true">5.1.1.</strong> 1/COSS</a></li></ol></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Logos LIP</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/logos-co/logos-lips" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="relay-sharding"><a class="header" href="#relay-sharding">RELAY-SHARDING</a></h1>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
+<tr><td>Name</td><td>Waku v2 Relay Sharding</td></tr>
+<tr><td>Slug</td><td>178</td></tr>
+<tr><td>Status</td><td>raw</td></tr>
+<tr><td>Type</td><td>RFC</td></tr>
+<tr><td>Category</td><td>Standards Track</td></tr>
+<tr><td>Tags</td><td>waku/core</td></tr>
+<tr><td>Editor</td><td>Daniel Kaiser <a href="mailto:danielkaiser@status.im">danielkaiser@status.im</a></td></tr>
+<tr><td>Contributors</td><td>Simon-Pierre Vivier <a href="mailto:simvivier@status.im">simvivier@status.im</a></td></tr>
+</tbody></table>
+</div><!-- timeline:start -->
+<h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
+<ul>
+<li><strong>2026-05-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/1ac7689ee3fe1665d5d5d1bf9c180ed951cc660d/docs/messaging/raw/relay-sharding.md"><code>1ac7689</code></a> — chore: split ift ts specs (#334)</li>
+<li><strong>2026-05-07</strong> — <a href="https://github.com/logos-co/logos-lips/blob/48600b5b4fcdcb89f3d556ee0e4d417526f2919a/docs/messaging/standards/core/relay-sharding.md"><code>48600b5</code></a> — Migrate logos-messaging/specs into docs/messaging/ (#315)</li>
+</ul>
+<!-- timeline:end -->
+<h2 id="abstract"><a class="header" href="#abstract">Abstract</a></h2>
+<p>This document describes ways of sharding the <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/stable/11/relay.md">Waku relay</a> topic,
+allowing Waku networks to scale in the number of content topics.</p>
+<blockquote>
+<p><em>Note</em>: Scaling in the size of a single content topic is out of scope for this document.</p>
+</blockquote>
+<h2 id="background-and-motivation"><a class="header" href="#background-and-motivation">Background and Motivation</a></h2>
+<p><a href="https://en.wikipedia.org/wiki/Peer-to-peer#Unstructured_networks">Unstructured P2P networks</a>
+are more robust and resilient against DoS attacks compared to
+<a href="https://en.wikipedia.org/wiki/Peer-to-peer#Structured_networks">structured P2P networks</a>).
+However, they do not scale to large traffic loads.
+A single <a href="https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.0.md#gossipsub-the-gossiping-mesh-router">libp2p gossipsub mesh</a>,
+which carries messages associated with a single pubsub topic, can be seen as a separate unstructured P2P network
+(control messages go beyond these boundaries, but at its core, it is a separate P2P network).
+With this, the number of <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/stable/11/relay.md">Waku relay</a> content topics that can be carried over a pubsub topic is limited.
+This prevents app protocols that aim to span many multicast groups (realized by content topics) from scaling.</p>
+<p>This document specifies three pubsub topic sharding methods (with varying degrees of automation),
+which allow application protocols to scale in the number of content topics.
+This document also covers discovery of topic shards.</p>
+<h2 id="named-sharding"><a class="header" href="#named-sharding">Named Sharding</a></h2>
+<blockquote>
+<p><strong><em>Note:</em></strong> As of 2025-07-24 freely named sharding has been deprecated from all Waku implementations.
+It is still described here as background for static and automatic sharding.</p>
+</blockquote>
+<p><em>Named sharding</em> offers apps to freely choose pubsub topic names.
+It is RECOMMENDED for App protocols to follow the naming structure detailed in <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/draft/23/topics.md">23/WAKU2-TOPICS</a>.
+With named sharding, managing discovery falls into the responsibility of apps.
+For this reason it is NOT RECOMMENDED that app protocols and Waku implementations make use of named sharding.</p>
+<p>From an app protocol point of view, a subscription to a content topic <code>waku2/xxx</code> on a shard named /mesh/v1.1.1/xxx would look like:</p>
+<p><code>subscribe("/waku2/xxx", "/mesh/v1.1.1/xxx")</code></p>
+<h2 id="static-sharding"><a class="header" href="#static-sharding">Static Sharding</a></h2>
+<p><em>Static sharding</em> is an extension of named sharding that offers a set of shards with <em>fixed</em> names.
+Assigning content topics to specific shards is up to app protocols,
+but the discovery of these shards is managed by Waku.
+This is the RECOMMENDED default format for shards chosen by an app protocol.</p>
+<p>Static shards are managed in shard clusters of 1024 shards per cluster.
+Waku static sharding can manage <span class="math-inline" data-tex="2^{16}"></span> shard clusters.
+Each shard cluster is identified by its index (between <span class="math-inline" data-tex="0"></span> and <span class="math-inline" data-tex="2^{16}-1"></span>).</p>
+<p>It is RECOMMENDED that, for simplification of configuration and various APIs,
+all app-level protocols only interact with <code>cluster</code> and <code>shard</code>
+and never the fully-formed pubsub topic,
+which is a concern internal to the Waku implementation.</p>
+<p>A specific shard cluster is either globally available to all apps,
+specific for an app protocol,
+or reserved for automatic sharding (see next section).</p>
+<blockquote>
+<p><em>Note:</em> This leads to <span class="math-inline" data-tex="2^{16} * 1024 = 2^{26}"></span> shards for which Waku manages discovery.</p>
+</blockquote>
+<p>App protocols can either choose to use global shards, or app specific shards.</p>
+<p>Like the <a href="https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml">IANA ports</a>,
+shard clusters are divided into ranges:</p>
+<div class="table-wrapper"><table><thead><tr><th>index (range)</th><th>usage</th></tr></thead><tbody>
+<tr><td>0 - 15</td><td>reserved</td></tr>
+<tr><td>16 - 65535</td><td>app-defined networks</td></tr>
+</tbody></table>
+</div>
+<p>The informational RFC <a href="../../../informational/relay-static-shard-alloc.html">WAKU2-RELAY-STATIC-SHARD-ALLOC</a> lists the current index allocations.</p>
+<p>The global shard with index 0 and the "all app protocols" range are treated in the same way,
+but choosing shards in the global cluster has a higher probability of sharing the shard with other apps.
+This offers k-anonymity and better connectivity, but comes at a higher bandwidth cost.</p>
+<p>Since the introduction of <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/draft/64/network.md">the Waku Network</a>,
+it is RECOMMENDED that apps choose a cluster + shard within the defined range for that network.</p>
+<p>The name of the pubsub topic corresponding to a given static shard is specified as</p>
+<p><code>/waku/2/rs/&lt;cluster_id&gt;/&lt;shard_number&gt;</code>,</p>
+<p>an example for the 2nd shard in the global shard cluster:</p>
+<p><code>/waku/2/rs/0/2</code>.</p>
+<blockquote>
+<p><em>Note</em>: Because <em>all</em> shards distribute payload defined in <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/stable/14/message.md">14/WAKU2-MESSAGE</a> via <a href="https://developers.google.com/protocol-buffers/">protocol buffers</a>,
+the pubsub topic name does not explicitly add <code>/proto</code> to indicate protocol buffer encoding.
+We use <code>rs</code> to indicate these are <em>relay shard</em> clusters; further shard types might follow in the future.</p>
+</blockquote>
+<p>From an app point of view, a subscription to a content topic <code>waku2/xxx</code> on a static shard would look like:</p>
+<p><code>subscribe("/waku2/xxx", 16, 43)</code></p>
+<p>for shard 43 of the Status app (which has allocated index 16).</p>
+<h3 id="discovery"><a class="header" href="#discovery">Discovery</a></h3>
+<p>Waku v2 supports the discovery of peers within static shards,
+so app protocols do not have to implement their own discovery method.</p>
+<p>Nodes add information about their shard participation in their <a href="./enr.html">WAKU2-ENR</a>.
+Having a static shard participation indication as part of the ENR allows nodes
+to discover peers that are part of shards via <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/draft/33/discv5.md">33/WAKU2-DISCV5</a> as well as via DNS.</p>
+<blockquote>
+<p><em>Note:</em> In the current version of this document,
+sharding information is directly added to the ENR.
+(see Ethereum ENR sharding bit vector <a href="https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/p2p-interface.md#metadata">here</a>
+Static relay sharding supports 1024 shards per cluster, leading to a flag field of 128 bytes.
+This already takes half (including index and key) of the ENR space of 300 bytes.
+For this reason, the current specification only supports a single shard cluster per node.
+In future versions, we will add further (hierarchical) discovery methods.
+We will update <a href="./enr.html">WAKU2-ENR</a> accordingly, once this RFC moves forward.</p>
+</blockquote>
+<p>This document specifies two ways of indicating shard cluster participation.
+The index list SHOULD be used for nodes that participante in fewer than 64 shards,
+the bit vector representation SHOULD be used for nodes participating in 64 or more shards.
+Nodes MUST NOT use both index list (<code>rs</code>) and bit vector (<code>rsv</code>) in a single ENR.
+ENRs with both <code>rs</code> and <code>rsv</code> keys SHOULD be ignored.
+Nodes MAY interpret <code>rs</code> in such ENRs, but MUST ignore <code>rsv</code>.</p>
+<h4 id="index-list"><a class="header" href="#index-list">Index List</a></h4>
+<div class="table-wrapper"><table><thead><tr><th>key</th><th>value</th></tr></thead><tbody>
+<tr><td><code>rs</code></td><td>&lt;2-byte shard cluster index&gt; | &lt;1-byte length&gt; | &lt;2-byte shard index&gt; | ... | &lt;2-byte shard index&gt;</td></tr>
+</tbody></table>
+</div>
+<p>The ENR key is <code>rs</code>.
+The value is comprised of</p>
+<ul>
+<li>a two-byte shard cluster index in network byte order, concatenated with</li>
+<li>a one-byte length field holding the number of shards in the given shard cluster, concatenated with</li>
+<li>two-byte shard indices in network byte order</li>
+</ul>
+<p>Example:</p>
+<div class="table-wrapper"><table><thead><tr><th>key</th><th>value</th></tr></thead><tbody>
+<tr><td><code>rs</code></td><td>16u16 | 3u8 | 13u16 | 14u16 | 45u16</td></tr>
+</tbody></table>
+</div>
+<p>This example node is part of shards <code>13</code>, <code>14</code>, and <code>45</code> in the Status main-net shard cluster (index 16).</p>
+<h4 id="bit-vector"><a class="header" href="#bit-vector">Bit Vector</a></h4>
+<div class="table-wrapper"><table><thead><tr><th>key</th><th>value</th></tr></thead><tbody>
+<tr><td><code>rsv</code></td><td>&lt;2-byte shard cluster index&gt; | &lt;128-byte flag field&gt;</td></tr>
+</tbody></table>
+</div>
+<p>The ENR key is <code>rsv</code>.
+The value is comprised of a two-byte shard cluster index in network byte order concatenated with a 128-byte wide bit vector.
+The bit vector indicates which shards of the respective shard cluster the node is part of.
+The right-most bit in the bit vector represents shard <code>0</code>, the left-most bit represents shard <code>1023</code>.
+The representation in the ENR is inspired by <a href="https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/validator.md#sync-committee-subnet-stability">Ethereum shard ENRs</a>),
+and <a href="https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/validator.md#sync-committee-subnet-stability">this</a>).</p>
+<p>Example:</p>
+<div class="table-wrapper"><table><thead><tr><th>key</th><th>value</th></tr></thead><tbody>
+<tr><td><code>rsv</code></td><td>16u16 | <code>0x[...]0000100000003000</code></td></tr>
+</tbody></table>
+</div>
+<p>The <code>[...]</code> in the example indicates 120 <code>0</code> bytes.
+This example node is part of shards <code>13</code>, <code>14</code>, and <code>45</code> in the Status main-net shard cluster (index 16).
+(This is just for illustration purposes, a node that is only part of three shards should use the index list method specified above.)</p>
+<h2 id="automatic-sharding"><a class="header" href="#automatic-sharding">Automatic Sharding</a></h2>
+<p>Autosharding is an extension of static sharding,
+where shards can automatically be selected based on content topic.
+This is only possible in cases where there exists a clear definition of a "network" combining multiple shards
+with a predefined cluster ID and number of shards in the network (<code>number_of_shards_in_network</code>).
+An example is <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/draft/64/network.md">the Waku Network</a>.
+To use autosharding,
+the shards corresponding to the network definition MUST be numbered from <code>0</code> and monotonously increase to <code>number_of_shards_in_network - 1</code>.
+The Waku Network SHOULD be considered the default destination for all app-level protocols.
+In cases where the Waku Network is not used but autosharding is desired,
+the default number of shards in a network SHOULD be considered <code>1</code>.</p>
+<p>When using autosharding,
+shards (pubsub topics) MUST be computed from content topics with the procedure below.</p>
+<h3 id="algorithm"><a class="header" href="#algorithm">Algorithm</a></h3>
+<p>Hash using Sha2-256 the concatenation of
+the content topic <code>application</code> field (UTF-8 string of N bytes) and
+the <code>version</code> (UTF-8 string of N bytes).
+The shard to use is the modulo of the hash by the number of shards in the network.</p>
+<h3 id="example"><a class="header" href="#example">Example</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Value</th><th>Hex</th></tr></thead><tbody>
+<tr><td><code>application</code></td><td>"myapp"</td><td>0x6d79617070</td></tr>
+<tr><td><code>version</code></td><td>"1"</td><td>0x31</td></tr>
+<tr><td><code>network shards</code></td><td>8</td><td>0x8</td></tr>
+</tbody></table>
+</div>
+<ul>
+<li>SHA2-256 of <code>0x6d7961707031</code> is <code>0x8e541178adbd8126068c47be6a221d77d64837221893a8e4e53139fb802d4928</code></li>
+<li><code>0x8e541178adbd8126068c47be6a221d77d64837221893a8e4e53139fb802d4928</code> MOD <code>8</code> equals <code>0</code></li>
+<li>The shard to use has index 0</li>
+</ul>
+<h3 id="content-topics-format-for-autosharding"><a class="header" href="#content-topics-format-for-autosharding">Content Topics Format for Autosharding</a></h3>
+<p>Content topics MUST follow the format in <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/draft/23/topics.md#content-topic-format">23/WAKU2-TOPICS</a>.
+In addition, a generation prefix MAY be added to content topics.
+When omitted default values are used.
+Generation default value is <code>0</code>.</p>
+<ul>
+<li>The full length format is <code>/{generation}/{application-name}/{version-of-the-application}/{content-topic-name}/{encoding}</code></li>
+<li>The short length format is <code>/{application-name}/{version-of-the-application}/{content-topic-name}/{encoding}</code></li>
+</ul>
+<h4 id="example-1"><a class="header" href="#example-1">Example</a></h4>
+<ul>
+<li>Full length <code>/0/myapp/1/mytopic/cbor</code></li>
+<li>Short length <code>/myapp/1/mytopic/cbor</code></li>
+</ul>
+<h4 id="generation-and-scaling"><a class="header" href="#generation-and-scaling">Generation and scaling</a></h4>
+<p>The generation number monotonously increases and indirectly refers to the total number of shards of a defined network.
+In order to scale,
+each subsequent generation of a defined network can define a larger <code>number_of_shards_in_network</code>,
+with the content topics only sharded to the number of shards defined for the corresponding generation of the network.
+Generational autosharding MUST be clearly defined for each generation of a network.</p>
+<p>For example, consider a specific network defined as the 2 shards <code>0</code> and <code>1</code> in cluster <code>32</code>.
+This will automatically be assumed to be generation <code>0</code> of this network.
+All content topics in the format <code>/myapp/1/mytopic/cbor</code> defined for apps on this network will be autosharded to 1 of these 2 shards.
+If in future the specifiers of this network want to scale the network to 4 shards (i.e. shards <code>0</code> to <code>3</code> on cluster <code>32</code>),
+they MUST define a generation <code>1</code> version of the network with <code>number_of_shards_in_network = 4</code>.
+New content topics for apps on generation <code>1</code> of this network MUST be prefixed in the format <code>/1/myapp/1/mytopic/cbor</code> to be autosharded into all 4 shards.
+Legacy generation <code>0</code> content topics will still only be autosharded into the original 2 shards.</p>
+<!-- Create a new RFC for each generation spec. -->
+<h4 id="topic-design"><a class="header" href="#topic-design">Topic Design</a></h4>
+<p>Content topics have 2 purposes: filtering and routing.
+Filtering is done by changing the <code>{content-topic-name}</code> field.
+As this part is not hashed, it will not affect routing (shard selection).
+The <code>{application-name}</code> and <code>{version-of-the-application}</code> fields do affect routing.
+Using multiple content topics with different <code>{application-name}</code> field has advantages and disadvantages.
+It increases the traffic a relay node is subjected to when subscribed to all topics.
+It also allows relay and light nodes to subscribe to a subset of all topics.</p>
+<h3 id="problems"><a class="header" href="#problems">Problems</a></h3>
+<h4 id="hot-spots"><a class="header" href="#hot-spots">Hot Spots</a></h4>
+<p>Hot spots occur (similar to DHTs), when a specific mesh network (shard) becomes responsible for (several) large multicast groups (content topics).
+The opposite problem occurs when a mesh only carries multicast groups with very few participants: this might cause bad connectivity within the mesh.</p>
+<p>The current autosharding method does not solve this problem.</p>
+<blockquote>
+<p><em>Note:</em> Automatic sharding based on network traffic measurements to avoid hot spots in not part of this specification.</p>
+</blockquote>
+<h4 id="discovery-1"><a class="header" href="#discovery-1">Discovery</a></h4>
+<p>For the discovery of automatic shards this document specifies two methods (the second method will be detailed in a future version of this document).</p>
+<p>The first method uses the discovery introduced above in the context of static shards.</p>
+<p>The second discovery method will be a successor to the first method,
+but is planned to preserve the index range allocation.
+Instead of adding the data to the ENR, it will treat each array index as a capability,
+which can be hierarchical, having each shard in the indexed shard cluster as a sub-capability.
+When scaling to a very large number of shards, this will avoid blowing up the ENR size, and allows efficient discovery.
+We currently use <a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/draft/33/discv5.md">33/WAKU2-DISCV5</a> for discovery,
+which is based on Ethereum's <a href="https://github.com/ethereum/devp2p/blob/master/discv5/discv5.md">discv5</a>.
+While this allows to sample nodes from a distributed set of nodes efficiently and offers good resilience,
+it does not allow to efficiently discover nodes with specific capabilities within this node set.
+Our <a href="https://vac.dev/wakuv2-apd">research log post</a> explains this in more detail.
+Adding efficient (but still preserving resilience) capability discovery to discv5 is ongoing research.
+<a href="https://github.com/harnen/service-discovery-paper">A paper on this</a> has been completed,
+but the <a href="https://github.com/ethereum/devp2p/blob/master/discv5/discv5-theory.md">Ethereum discv5 specification</a>
+has yet to be updated.
+When the new capability discovery is available,
+this document will be updated with a specification of the second discovery method.
+The transition to the second method will be seamless and fully backwards compatible because nodes can still advertise and discover shard memberships in ENRs.</p>
+<h2 id="securityprivacy-considerations"><a class="header" href="#securityprivacy-considerations">Security/Privacy Considerations</a></h2>
+<p>See <a href="../../../informational/adversarial-models.html">WAKU2-ADVERSARIAL-MODELS</a>, especially the parts on k-anonymity.
+We will add more on security considerations in future versions of this document.</p>
+<h3 id="receiver-anonymity"><a class="header" href="#receiver-anonymity">Receiver Anonymity</a></h3>
+<p>The strength of receiver anonymity, i.e. topic receiver unlinkablity,
+depends on the number of content topics (<code>k</code>), as a proxy for the number of peers and messages, that get mapped onto a single pubsub topic (shard).
+For <em>named</em> and <em>static</em> sharding this responsibility is at the app protocol layer.</p>
+<h2 id="copyright"><a class="header" href="#copyright">Copyright</a></h2>
+<p>Copyright and related rights waived via <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>.</p>
+<h2 id="references"><a class="header" href="#references">References</a></h2>
+<ul>
+<li><a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/stable/11/relay.md">11/WAKU2-RELAY</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Peer-to-peer#Unstructured_networks">Unstructured P2P network</a></li>
+<li><a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/draft/33/discv5.md">33/WAKU2-DISCV5</a></li>
+<li><a href="./enr.html">WAKU2-ENR</a></li>
+<li><a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/draft/23/topics.md">23/WAKU2-TOPICS</a></li>
+<li><a href="https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/p2p-interface.md#metadata">Ethereum ENR sharding bit vector</a></li>
+<li><a href="https://github.com/ethereum/devp2p/blob/master/discv5/discv5-theory.md">Ethereum discv5 specification</a></li>
+<li><a href="https://vac.dev/wakuv2-apd">Research log: Waku Discovery</a></li>
+<li><a href="../../../informational/relay-static-shard-alloc.html">WAKU2-RELAY-STATIC-SHARD-ALLOC</a></li>
+<li><a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/stable/14/message.md">14/WAKU2-MESSAGE</a></li>
+<li><a href="https://github.com/logos-co/logos-lips/blob/master/docs/messaging/draft/64/network.md">64/WAKU2-NETWORK</a></li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../messaging/raw/opchan.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../messaging/raw/relay-static-shard-alloc.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../messaging/raw/opchan.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../messaging/raw/relay-static-shard-alloc.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../../theme/katex/katex.min.js"></script>
+        <script src="../../theme/katex/auto-render.min.js"></script>
+        <script src="../../scripts/katex-render.js"></script>
+        <script src="../../scripts/logos-lips.js"></script>
+
+
+    </div>
+    </body>
+</html>

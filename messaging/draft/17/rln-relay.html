@@ -1,0 +1,594 @@
+<!DOCTYPE HTML>
+<html lang="en" class="ayu" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>17/WAKU2-RLN-RELAY - Logos LIP</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../../favicon.svg">
+        <link rel="shortcut icon" href="../../../favicon.png">
+        <link rel="stylesheet" href="../../../css/variables.css">
+        <link rel="stylesheet" href="../../../css/general.css">
+        <link rel="stylesheet" href="../../../css/chrome.css">
+        <link rel="stylesheet" href="../../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../../highlight.css">
+        <link rel="stylesheet" href="../../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../../../theme/katex/katex.min.css">
+        <link rel="stylesheet" href="../../../theme/fonts/fonts.css">
+        <link rel="stylesheet" href="../../../theme/FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../../custom.css">
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "ayu";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('ayu')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../../../index.html">Introduction</a></li><li class="chapter-item expanded affix "><a href="../../../about.html">About</a></li><li class="chapter-item expanded "><a href="../../../messaging/index.html"><strong aria-hidden="true">1.</strong> Messaging</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../messaging/raw/index.html"><strong aria-hidden="true">1.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../messaging/raw/adversarial-models.html"><strong aria-hidden="true">1.1.1.</strong> ADVERSARIAL-MODELS</a></li><li class="chapter-item expanded "><a href="../../../messaging/raw/chat-cast.html"><strong aria-hidden="true">1.1.2.</strong> CHAT-CAST</a></li><li class="chapter-item expanded "><a href="../../../messaging/raw/chatdefs.html"><strong aria-hidden="true">1.1.3.</strong> CHAT-DEFINITIONS</a></li><li class="chapter-item expanded "><a href="../../../messaging/raw/dandelion.html"><strong aria-hidden="true">1.1.4.</strong> DANDELION</a></li><li class="chapter-item expanded "><a href="../../../messaging/raw/messaging-api.html"><strong aria-hidden="true">1.1.5.</strong> MESSAGING-API</a></li><li class="chapter-item expanded "><a href="../../../messaging/raw/opchan.html"><strong aria-hidden="true">1.1.6.</strong> OP-CHAN</a></li><li class="chapter-item expanded "><a href="../../../messaging/raw/relay-sharding.html"><strong aria-hidden="true">1.1.7.</strong> RELAY-SHARDING</a></li><li class="chapter-item expanded "><a href="../../../messaging/raw/relay-static-shard-alloc.html"><strong aria-hidden="true">1.1.8.</strong> RELAY-STATIC-SHARD-ALLOC</a></li><li class="chapter-item expanded "><a href="../../../messaging/raw/reliable-channel-api.html"><strong aria-hidden="true">1.1.9.</strong> RELIABLE-CHANNEL-API</a></li><li class="chapter-item expanded "><a href="../../../messaging/raw/lightpush.html"><strong aria-hidden="true">1.1.10.</strong> WAKU-LIGHTPUSH</a></li><li class="chapter-item expanded "><a href="../../../messaging/raw/mix.html"><strong aria-hidden="true">1.1.11.</strong> WAKU-MIX</a></li><li class="chapter-item expanded "><a href="../../../messaging/raw/p2p-reliability.html"><strong aria-hidden="true">1.1.12.</strong> WAKU-P2P-RELIABILITY</a></li><li class="chapter-item expanded "><a href="../../../messaging/raw/rendezvous.html"><strong aria-hidden="true">1.1.13.</strong> WAKU-RENDEZVOUS</a></li><li class="chapter-item expanded "><a href="../../../messaging/raw/rln-keystore.html"><strong aria-hidden="true">1.1.14.</strong> WAKU-RLN-KEYSTORE</a></li><li class="chapter-item expanded "><a href="../../../messaging/raw/store-sync.html"><strong aria-hidden="true">1.1.15.</strong> WAKU-STORE-SYNC</a></li><li class="chapter-item expanded "><a href="../../../messaging/raw/sync.html"><strong aria-hidden="true">1.1.16.</strong> WAKU-SYNC</a></li><li class="chapter-item expanded "><a href="../../../messaging/raw/device-pairing.html"><strong aria-hidden="true">1.1.17.</strong> WAKU2-DEVICE-PAIRING</a></li><li class="chapter-item expanded "><a href="../../../messaging/raw/incentivization.html"><strong aria-hidden="true">1.1.18.</strong> WAKU2-INCENTIVIZATION</a></li><li class="chapter-item expanded "><a href="../../../messaging/raw/noise.html"><strong aria-hidden="true">1.1.19.</strong> WAKU2-NOISE</a></li><li class="chapter-item expanded "><a href="../../../messaging/raw/noise-sessions.html"><strong aria-hidden="true">1.1.20.</strong> WAKU2-NOISE-SESSIONS</a></li><li class="chapter-item expanded "><a href="../../../messaging/raw/rln-contract.html"><strong aria-hidden="true">1.1.21.</strong> WAKU2-RLN-CONTRACT</a></li></ol></li><li class="chapter-item expanded "><a href="../../../messaging/draft/index.html"><strong aria-hidden="true">1.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../messaging/draft/3/remote-log.html"><strong aria-hidden="true">1.2.1.</strong> 3/REMOTE-LOG</a></li><li class="chapter-item expanded "><a href="../../../messaging/draft/4/mvds-meta.html"><strong aria-hidden="true">1.2.2.</strong> 4/MVDS-META</a></li><li class="chapter-item expanded "><a href="../../../messaging/draft/10/waku2.html"><strong aria-hidden="true">1.2.3.</strong> 10/WAKU2</a></li><li class="chapter-item expanded "><a href="../../../messaging/draft/12/filter.html"><strong aria-hidden="true">1.2.4.</strong> 12/WAKU2-FILTER</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../messaging/draft/12/previous-versions/00/filter.html"><strong aria-hidden="true">1.2.4.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../../messaging/draft/13/store.html"><strong aria-hidden="true">1.2.5.</strong> 13/WAKU2-STORE</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../messaging/draft/13/previous-versions/00/store.html"><strong aria-hidden="true">1.2.5.1.</strong> 00 (previous)</a></li></ol></li><li class="chapter-item expanded "><a href="../../../messaging/draft/15/bridge.html"><strong aria-hidden="true">1.2.6.</strong> 15/WAKU-BRIDGE</a></li><li class="chapter-item expanded "><a href="../../../messaging/draft/17/rln-relay.html" class="active"><strong aria-hidden="true">1.2.7.</strong> 17/WAKU2-RLN-RELAY</a></li><li class="chapter-item expanded "><a href="../../../messaging/draft/19/lightpush.html"><strong aria-hidden="true">1.2.8.</strong> 19/WAKU2-LIGHTPUSH</a></li><li class="chapter-item expanded "><a href="../../../messaging/draft/20/toy-eth-pm.html"><strong aria-hidden="true">1.2.9.</strong> 20/TOY-ETH-PM</a></li><li class="chapter-item expanded "><a href="../../../messaging/draft/22/toy-chat.html"><strong aria-hidden="true">1.2.10.</strong> 22/TOY-CHAT</a></li><li class="chapter-item expanded "><a href="../../../messaging/draft/23/topics.html"><strong aria-hidden="true">1.2.11.</strong> 23/WAKU2-TOPICS</a></li><li class="chapter-item expanded "><a href="../../../messaging/draft/26/payload.html"><strong aria-hidden="true">1.2.12.</strong> 26/WAKU2-PAYLOAD</a></li><li class="chapter-item expanded "><a href="../../../messaging/draft/27/peers.html"><strong aria-hidden="true">1.2.13.</strong> 27/WAKU2-PEERS</a></li><li class="chapter-item expanded "><a href="../../../messaging/draft/29/config.html"><strong aria-hidden="true">1.2.14.</strong> 29/WAKU2-CONFIG</a></li><li class="chapter-item expanded "><a href="../../../messaging/draft/30/adaptive-nodes.html"><strong aria-hidden="true">1.2.15.</strong> 30/ADAPTIVE-NODES</a></li><li class="chapter-item expanded "><a href="../../../messaging/draft/31/enr.html"><strong aria-hidden="true">1.2.16.</strong> 31/WAKU2-ENR</a></li><li class="chapter-item expanded "><a href="../../../messaging/draft/33/discv5.html"><strong aria-hidden="true">1.2.17.</strong> 33/WAKU2-DISCV5</a></li><li class="chapter-item expanded "><a href="../../../messaging/draft/34/peer-exchange.html"><strong aria-hidden="true">1.2.18.</strong> 34/WAKU2-PEER-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../../messaging/draft/36/bindings-api.html"><strong aria-hidden="true">1.2.19.</strong> 36/WAKU2-BINDINGS-API</a></li><li class="chapter-item expanded "><a href="../../../messaging/draft/53/x3dh.html"><strong aria-hidden="true">1.2.20.</strong> 53/WAKU2-X3DH</a></li><li class="chapter-item expanded "><a href="../../../messaging/draft/54/x3dh-sessions.html"><strong aria-hidden="true">1.2.21.</strong> 54/WAKU2-X3DH-SESSIONS</a></li><li class="chapter-item expanded "><a href="../../../messaging/draft/64/network.html"><strong aria-hidden="true">1.2.22.</strong> 64/WAKU2-NETWORK</a></li><li class="chapter-item expanded "><a href="../../../messaging/draft/66/metadata.html"><strong aria-hidden="true">1.2.23.</strong> 66/WAKU2-METADATA</a></li></ol></li><li class="chapter-item expanded "><a href="../../../messaging/stable/index.html"><strong aria-hidden="true">1.3.</strong> Stable</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../messaging/stable/2/mvds.html"><strong aria-hidden="true">1.3.1.</strong> 2/MVDS</a></li><li class="chapter-item expanded "><a href="../../../messaging/stable/6/waku1.html"><strong aria-hidden="true">1.3.2.</strong> 6/WAKU1</a></li><li class="chapter-item expanded "><a href="../../../messaging/stable/7/data.html"><strong aria-hidden="true">1.3.3.</strong> 7/WAKU-DATA</a></li><li class="chapter-item expanded "><a href="../../../messaging/stable/8/mail.html"><strong aria-hidden="true">1.3.4.</strong> 8/WAKU-MAIL</a></li><li class="chapter-item expanded "><a href="../../../messaging/stable/9/rpc.html"><strong aria-hidden="true">1.3.5.</strong> 9/WAKU-RPC</a></li><li class="chapter-item expanded "><a href="../../../messaging/stable/11/relay.html"><strong aria-hidden="true">1.3.6.</strong> 11/WAKU2-RELAY</a></li><li class="chapter-item expanded "><a href="../../../messaging/stable/14/message.html"><strong aria-hidden="true">1.3.7.</strong> 14/WAKU2-MESSAGE</a></li></ol></li><li class="chapter-item expanded "><a href="../../../messaging/deprecated/index.html"><strong aria-hidden="true">1.4.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../messaging/deprecated/5/waku0.html"><strong aria-hidden="true">1.4.1.</strong> 5/WAKU0</a></li><li class="chapter-item expanded "><a href="../../../messaging/deprecated/16/rpc.html"><strong aria-hidden="true">1.4.2.</strong> 16/WAKU2-RPC</a></li><li class="chapter-item expanded "><a href="../../../messaging/deprecated/18/swap.html"><strong aria-hidden="true">1.4.3.</strong> 18/WAKU2-SWAP</a></li></ol></li><li class="chapter-item expanded "><a href="../../../messaging/deleted/index.html"><strong aria-hidden="true">1.5.</strong> Deleted</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../messaging/deleted/fault-tolerant-store.html"><strong aria-hidden="true">1.5.1.</strong> 21/WAKU2-FAULT-TOLERANT-STORE</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../../blockchain/index.html"><strong aria-hidden="true">2.</strong> Blockchain</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../blockchain/raw/index.html"><strong aria-hidden="true">2.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../blockchain/raw/bedrock-anonymous-leaders-reward.html"><strong aria-hidden="true">2.1.1.</strong> BEDROCK-ANONYMOUS-LEADERS-REWARD</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/bedrock-architecture-overview.html"><strong aria-hidden="true">2.1.2.</strong> BEDROCK-ARCHITECTURE-OVERVIEW</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/bedrock-genesis-block.html"><strong aria-hidden="true">2.1.3.</strong> BEDROCK-GENESIS-BLOCK</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/bedrock-service-declaration-protocol.html"><strong aria-hidden="true">2.1.4.</strong> BEDROCK-SERVICE-DECLARATION-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/bedrock-service-reward-distribution.html"><strong aria-hidden="true">2.1.5.</strong> BEDROCK-SERVICE-REWARD-DISTRIBUTION</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/bedrock-v1.1-block-construction.html"><strong aria-hidden="true">2.1.6.</strong> BEDROCK-V1-1-BLOCK-CONSTRUCTION</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/bedrock-v1.1-mantle-specification.html"><strong aria-hidden="true">2.1.7.</strong> BEDROCK-V1.1-MANTLE-SPECIFICATION</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/fork-choice.html"><strong aria-hidden="true">2.1.8.</strong> CRYPTARCHIA-FORK-CHOICE</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/cryptarchia-proof-of-leadership.html"><strong aria-hidden="true">2.1.9.</strong> CRYPTARCHIA-PROOF-OF-LEADERSHIP</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/cryptarchia-total-stake-inference.html"><strong aria-hidden="true">2.1.10.</strong> CRYPTARCHIA-TOTAL-STAKE-INFERENCE</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/cryptarchia-v1-bootstr-sync.html"><strong aria-hidden="true">2.1.11.</strong> CRYPTARCHIA-V1-BOOTSTRAPPING-SYNCHRONIZATION</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/nomos-blend-protocol.html"><strong aria-hidden="true">2.1.12.</strong> NOMOS-BLEND-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/nomos-cryptarchia-v1-protocol.html"><strong aria-hidden="true">2.1.13.</strong> NOMOS-CRYPTARCHIA-V1-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/nomosda-network.html"><strong aria-hidden="true">2.1.14.</strong> NOMOS-DA-NETWORK</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/digital-signature.html"><strong aria-hidden="true">2.1.15.</strong> NOMOS-DIGITAL-SIGNATURE</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/nomos-key-types-and-generation.html"><strong aria-hidden="true">2.1.16.</strong> NOMOS-KEY-TYPES-GENERATION</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/nomos-message-encapsulation.html"><strong aria-hidden="true">2.1.17.</strong> NOMOS-MESSAGE-ENCAPSULATION</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/nomos-message-formatting.html"><strong aria-hidden="true">2.1.18.</strong> NOMOS-MESSAGE-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/nomos-payload-formatting.html"><strong aria-hidden="true">2.1.19.</strong> NOMOS-PAYLOAD-FORMATTING</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/nomos-proof-of-quota.html"><strong aria-hidden="true">2.1.20.</strong> NOMOS-PROOF-OF-QUOTA</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/nomos-wallet-technical-standard.html"><strong aria-hidden="true">2.1.21.</strong> NOMOS-WALLET-TECHNICAL-STANDARD</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/da-cryptographic-protocol.html"><strong aria-hidden="true">2.1.22.</strong> NOMOSDA-CRYPTOGRAPHIC-PROTOCOL</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/da-rewarding.html"><strong aria-hidden="true">2.1.23.</strong> NOMOSDA-REWARDING</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/p2p-hardware-requirements.html"><strong aria-hidden="true">2.1.24.</strong> P2P-HARDWARE-REQUIREMENTS</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/p2p-nat-solution.html"><strong aria-hidden="true">2.1.25.</strong> P2P-NAT-SOLUTION</a></li><li class="chapter-item expanded "><a href="../../../blockchain/raw/p2p-network-bootstrapping.html"><strong aria-hidden="true">2.1.26.</strong> P2P-NETWORK-BOOTSTRAPPING</a></li></ol></li><li class="chapter-item expanded "><a href="../../../blockchain/draft/index.html"><strong aria-hidden="true">2.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../blockchain/draft/p2p-network.html"><strong aria-hidden="true">2.2.1.</strong> NOMOS-P2P-NETWORK</a></li></ol></li><li class="chapter-item expanded "><a href="../../../blockchain/deprecated/index.html"><strong aria-hidden="true">2.3.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../blockchain/deprecated/claro.html"><strong aria-hidden="true">2.3.1.</strong> CONSENSUS-CLARO</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../../storage/index.html"><strong aria-hidden="true">3.</strong> Storage</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../storage/raw/index.html"><strong aria-hidden="true">3.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../storage/raw/codex-block-exchange.html"><strong aria-hidden="true">3.1.1.</strong> CODEX-BLOCK-EXCHANGE</a></li><li class="chapter-item expanded "><a href="../../../storage/raw/community-history.html"><strong aria-hidden="true">3.1.2.</strong> CODEX-COMMUNITY-HISTORY</a></li><li class="chapter-item expanded "><a href="../../../storage/raw/dht.html"><strong aria-hidden="true">3.1.3.</strong> CODEX-DHT</a></li><li class="chapter-item expanded "><a href="../../../storage/raw/manifest.html"><strong aria-hidden="true">3.1.4.</strong> CODEX-MANIFEST</a></li><li class="chapter-item expanded "><a href="../../../storage/raw/codex-store.html"><strong aria-hidden="true">3.1.5.</strong> CODEX-STORE</a></li><li class="chapter-item expanded "><a href="../../../storage/raw/dataset-store.html"><strong aria-hidden="true">3.1.6.</strong> DATASET-STORE</a></li><li class="chapter-item expanded "><a href="../../../storage/raw/datasets.html"><strong aria-hidden="true">3.1.7.</strong> DATASETS</a></li></ol></li><li class="chapter-item expanded "><a href="../../../storage/draft/index.html"><strong aria-hidden="true">3.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../storage/draft/merkle-tree.html"><strong aria-hidden="true">3.2.1.</strong> MERKLE-TREE</a></li></ol></li><li class="chapter-item expanded "><a href="../../../storage/deprecated/index.html"><strong aria-hidden="true">3.3.</strong> Deprecated</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../storage/deprecated/erasure-coding.html"><strong aria-hidden="true">3.3.1.</strong> CODEX-ERASUE-CODING</a></li><li class="chapter-item expanded "><a href="../../../storage/deprecated/codex-marketplace.html"><strong aria-hidden="true">3.3.2.</strong> CODEX-MARKETPLACE</a></li><li class="chapter-item expanded "><a href="../../../storage/deprecated/codex-merkle-tree.html"><strong aria-hidden="true">3.3.3.</strong> CODEX-MERKLE-TREE</a></li><li class="chapter-item expanded "><a href="../../../storage/deprecated/codex-prover.html"><strong aria-hidden="true">3.3.4.</strong> CODEX-PROVER</a></li><li class="chapter-item expanded "><a href="../../../storage/deprecated/slot-buIlder.html"><strong aria-hidden="true">3.3.5.</strong> CODEX-SLOT-BUILDER</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../../anoncomms/index.html"><strong aria-hidden="true">4.</strong> AnonComms</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../anoncomms/raw/index.html"><strong aria-hidden="true">4.1.</strong> Raw</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../anoncomms/raw/decentralized-mls-offchain-consensus.html"><strong aria-hidden="true">4.1.1.</strong> DECENTRALIZED-MLS-OFFCHAIN-CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/raw/decentralized-messaging-ethereum.html"><strong aria-hidden="true">4.1.2.</strong> ETH-DCGKA</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/raw/eth-mls-onchain.html"><strong aria-hidden="true">4.1.3.</strong> ETH-MLS-ONCHAIN</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/raw/extended-kad-disco.html"><strong aria-hidden="true">4.1.4.</strong> EXTENDED-KADEMLIA-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/raw/extensible-peer-records.html"><strong aria-hidden="true">4.1.5.</strong> EXTENSIBLE-PEER-RECORDS</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/raw/gossipsub-tor-push.html"><strong aria-hidden="true">4.1.6.</strong> GOSSIPSUB-TOR-PUSH</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/raw/consensus-hashgraphlike.html"><strong aria-hidden="true">4.1.7.</strong> HASHGRAPHLIKE CONSENSUS</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/raw/logos-service-discovery.html"><strong aria-hidden="true">4.1.8.</strong> LOGOS-SERVICE-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/raw/mix.html"><strong aria-hidden="true">4.1.9.</strong> MIX</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/raw/mix-cover-traffic.html"><strong aria-hidden="true">4.1.10.</strong> Mix Cover Traffic</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/raw/mix-dos-protection.html"><strong aria-hidden="true">4.1.11.</strong> Mix DoS Protection</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/raw/multi-message_id-burn-rln.html"><strong aria-hidden="true">4.1.12.</strong> Multi-message_id Burn RLN</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/raw/noise-x3dh-double-ratchet.html"><strong aria-hidden="true">4.1.13.</strong> NOISE-X3DH-DOUBLE-RATCHET</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/raw/payment-streams.html"><strong aria-hidden="true">4.1.14.</strong> PAYMENT-STREAMS</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/raw/mix-spam-protection-rln.html"><strong aria-hidden="true">4.1.15.</strong> RLN DoS Protection for Mixnet</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/raw/rln-interep-spec.html"><strong aria-hidden="true">4.1.16.</strong> RLN-INTEREP-SPEC</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/raw/rln-membership-service.html"><strong aria-hidden="true">4.1.17.</strong> RLN-MEMBERSHIP-SERVICE</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/raw/rln-stealth-commitments.html"><strong aria-hidden="true">4.1.18.</strong> RLN-STEALTH-COMMITMENTS</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/raw/rln-v2.html"><strong aria-hidden="true">4.1.19.</strong> RLN-V2</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/raw/sds.html"><strong aria-hidden="true">4.1.20.</strong> SDS</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/raw/service-discovery-api.html"><strong aria-hidden="true">4.1.21.</strong> SERVICE-DISCOVERY-API</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/raw/status-rln-deployment.html"><strong aria-hidden="true">4.1.22.</strong> STATUS-RLN-DEPLOYMENT</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/raw/zerokit-api.html"><strong aria-hidden="true">4.1.23.</strong> Zerokit API</a></li></ol></li><li class="chapter-item expanded "><a href="../../../anoncomms/draft/index.html"><strong aria-hidden="true">4.2.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../anoncomms/draft/32/rln-v1.html"><strong aria-hidden="true">4.2.1.</strong> 32/RLN-V1</a></li></ol></li><li class="chapter-item expanded "><a href="../../../anoncomms/deleted/index.html"><strong aria-hidden="true">4.3.</strong> Deleted</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../anoncomms/deleted/25/libp2p-dns-discovery.html"><strong aria-hidden="true">4.3.1.</strong> 25/LIBP2P-DNS-DISCOVERY</a></li><li class="chapter-item expanded "><a href="../../../anoncomms/deleted/eth-secpm.html"><strong aria-hidden="true">4.3.2.</strong> ETH-SECPM</a></li></ol></li></ol></li><li class="chapter-item expanded "><a href="../../../research/index.html"><strong aria-hidden="true">5.</strong> Research</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../research/draft/index.html"><strong aria-hidden="true">5.1.</strong> Draft</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../research/draft/1/coss.html"><strong aria-hidden="true">5.1.1.</strong> 1/COSS</a></li></ol></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Logos LIP</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/logos-co/logos-lips" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="17waku2-rln-relay"><a class="header" href="#17waku2-rln-relay">17/WAKU2-RLN-RELAY</a></h1>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
+<tr><td>Name</td><td>Waku v2 RLN Relay</td></tr>
+<tr><td>Slug</td><td>17</td></tr>
+<tr><td>Status</td><td>draft</td></tr>
+<tr><td>Type</td><td>RFC</td></tr>
+<tr><td>Category</td><td>Standards Track</td></tr>
+<tr><td>Editor</td><td>Alvaro Revuelta <a href="mailto:alvaro@status.im">alvaro@status.im</a></td></tr>
+<tr><td>Contributors</td><td>Oskar Thorén <a href="mailto:oskarth@titanproxy.com">oskarth@titanproxy.com</a>, Aaryamann Challani <a href="mailto:p1ge0nh8er@proton.me">p1ge0nh8er@proton.me</a>, Sanaz Taheri <a href="mailto:sanaz@status.im">sanaz@status.im</a>, Hanno Cornelius <a href="mailto:hanno@status.im">hanno@status.im</a></td></tr>
+</tbody></table>
+</div><!-- timeline:start -->
+<h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
+<ul>
+<li><strong>2026-05-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/1ac7689ee3fe1665d5d5d1bf9c180ed951cc660d/docs/messaging/draft/17/rln-relay.md"><code>1ac7689</code></a> — chore: split ift ts specs (#334)</li>
+<li><strong>2026-04-20</strong> — <a href="https://github.com/logos-co/logos-lips/blob/c3d15a9c7c24b4d6b0eb4fb578f9670ede6f69b0/docs/messaging/standards/core/17/rln-relay.md"><code>c3d15a9</code></a> — COSS overhaul: new statuses, CFR type, raw-spec leniency (#308)</li>
+<li><strong>2026-02-09</strong> — <a href="https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/messaging/standards/core/17/rln-relay.md"><code>afd94c8</code></a> — chore: add math support (#287)</li>
+<li><strong>2026-01-16</strong> — <a href="https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/standards/core/17/rln-relay.md"><code>f01d5b9</code></a> — chore: fix links (#260)</li>
+<li><strong>2026-01-16</strong> — <a href="https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/standards/core/17/rln-relay.md"><code>89f2ea8</code></a> — Chore/mdbook updates (#258)</li>
+<li><strong>2025-12-22</strong> — <a href="https://github.com/logos-co/logos-lips/blob/0f1855edcf68ef982c4ce478b67d660809aa9830/docs/waku/standards/core/17/rln-relay.md"><code>0f1855e</code></a> — Chore/fix headers (#239)</li>
+<li><strong>2025-12-22</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b1a578393edf8487ccc97a5f25b25af9bf41efb3/docs/waku/standards/core/17/rln-relay.md"><code>b1a5783</code></a> — Chore/mdbook updates (#237)</li>
+<li><strong>2025-12-18</strong> — <a href="https://github.com/logos-co/logos-lips/blob/d03e699084774ebecef9c6d4662498907c5e2080/docs/waku/standards/core/17/rln-relay.md"><code>d03e699</code></a> — ci: add mdBook configuration (#233)</li>
+<li><strong>2024-11-20</strong> — <a href="https://github.com/logos-co/logos-lips/blob/776c1b76cda73aa1feaf5746a4cdb56b6836b4be/waku/standards/core/17/rln-relay.md"><code>776c1b7</code></a> — rfc-index: Update (#110)</li>
+<li><strong>2024-09-13</strong> — <a href="https://github.com/logos-co/logos-lips/blob/3ab314d87d4525ff1296bf3d9ec634d570777b91/waku/standards/core/17/rln-relay.md"><code>3ab314d</code></a> — Fix Files for Linting (#94)</li>
+<li><strong>2024-08-05</strong> — <a href="https://github.com/logos-co/logos-lips/blob/eb25cd06d679e94409072a96841de16a6b3910d5/waku/standards/core/17/rln-relay.md"><code>eb25cd0</code></a> — chore: replace email addresses (#86)</li>
+<li><strong>2024-06-06</strong> — <a href="https://github.com/logos-co/logos-lips/blob/5064ded9982e8540a763afc7f698ead9eb9f9477/waku/standards/core/17/rln-relay.md"><code>5064ded</code></a> — Update 17/WAKU2-RLN-RELAY: Proof Size (#44)</li>
+<li><strong>2024-05-28</strong> — <a href="https://github.com/logos-co/logos-lips/blob/7b443c1aab627894e3f22f5adfbb93f4c4eac4f6/waku/standards/core/17/rln-relay.md"><code>7b443c1</code></a> — 17/WAKU2-RLN-RELAY: Update (#32)</li>
+<li><strong>2024-03-21</strong> — <a href="https://github.com/logos-co/logos-lips/blob/2eaa7949c4abe7d14e2b9560e8c045bf2e937c9a/waku/standards/core/17/rln-relay.md"><code>2eaa794</code></a> — Broken Links + Change Editors (#26)</li>
+<li><strong>2024-02-01</strong> — <a href="https://github.com/logos-co/logos-lips/blob/244ea554800c28ffe6ae2730729aa631863dbbc5/waku/standards/core/17/rln-relay.md"><code>244ea55</code></a> — Update and rename RLN-RELAY.md to rln-relay.md</li>
+<li><strong>2024-01-27</strong> — <a href="https://github.com/logos-co/logos-lips/blob/7bcefaca66451f555555c252a724889bd7d13d3f/waku/standards/core/17/RLN-RELAY.md"><code>7bcefac</code></a> — Rename README.md to RLN-RELAY.md</li>
+<li><strong>2024-01-27</strong> — <a href="https://github.com/logos-co/logos-lips/blob/eef961bfe3b1cf6aab66df5450555afd1d3543cb/waku/standards/core/17/README.md"><code>eef961b</code></a> — remove rfs folder</li>
+<li><strong>2024-01-26</strong> — <a href="https://github.com/logos-co/logos-lips/blob/1ed5919657475a66ca54cf8e2dc3c27208a5fc1a/waku/rfcs/standards/core/17/README.md"><code>1ed5919</code></a> — Update README.md</li>
+<li><strong>2024-01-25</strong> — <a href="https://github.com/logos-co/logos-lips/blob/4b3b4e30803638b48244b8029b7be5bbd3530ee7/waku/rfcs/standards/core/17/README.md"><code>4b3b4e3</code></a> — Create README.md</li>
+</ul>
+<!-- timeline:end -->
+<h2 id="abstract"><a class="header" href="#abstract">Abstract</a></h2>
+<p>This specification describes the <code>17/WAKU2-RLN-RELAY</code> protocol,
+which is an extension of <a href="../../stable/11/relay.html"><code>11/WAKU2-RELAY</code></a>
+to provide spam protection using <a href="../../../anoncomms/draft/32/rln-v1.html">Rate Limiting Nullifiers (RLN)</a>.</p>
+<p>The security objective is to contain spam activity in the <a href="../64/network.html">64/WAKU-NETWORK</a>
+by enforcing a global messaging rate to all the peers.
+Peers that violate the messaging rate are considered spammers and
+their message is considered spam.
+Spammers are also financially punished and removed from the system.</p>
+<h2 id="motivation"><a class="header" href="#motivation">Motivation</a></h2>
+<p>In open and anonymous p2p messaging networks,
+one big problem is spam resistance.
+Existing solutions, such as Whisper’s proof of work,
+are computationally expensive hence not suitable for resource-limited nodes.
+Other reputation-based approaches might not be desirable,
+due to issues around arbitrary exclusion and privacy.</p>
+<p>We augment the <a href="../../stable/11/relay.html"><code>11/WAKU2-RELAY</code></a> protocol
+with a novel construct of <a href="../../../anoncomms/draft/32/rln-v1.html">RLN</a>
+to enable an efficient economic spam prevention mechanism
+that can be run in resource-constrained environments.</p>
+<h2 id="specification"><a class="header" href="#specification">Specification</a></h2>
+<p>The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”, “SHOULD”,
+“SHOULD NOT”, “RECOMMENDED”, “MAY”, and
+“OPTIONAL” in this document are to be interpreted as described in <a href="https://www.ietf.org/rfc/rfc2119.txt">2119</a>.</p>
+<h3 id="flow"><a class="header" href="#flow">Flow</a></h3>
+<p>The messaging rate is defined by the <code>period</code>
+which indicates how many messages can be sent in a given period.
+We define an <code>epoch</code> as <span class="math-inline" data-tex="\lceil"></span> <code>unix_time</code> / <code>period</code> <span class="math-inline" data-tex="\rceil"></span>.
+For example, if <code>unix_time</code> is <code>1644810116</code> and we set <code>period</code> to <code>30</code>,
+then <code>epoch</code> is  <span class="math-inline" data-tex="\lceil"></span> <code>(unix_time/period)</code> <span class="math-inline" data-tex="\rceil"></span> <code>= 54827003</code>.</p>
+<blockquote>
+<p><strong>NOTE:</strong> The <code>epoch</code> refers to the epoch in RLN and not Unix epoch.
+This means a message can only be sent every period,
+where the <code>period</code> is up to the application.</p>
+</blockquote>
+<p>See section <a href="#recommended-system-parameters">Recommended System Parameters</a>
+for the RECOMMENDED method to set a sensible <code>period</code> value depending on the application.
+Peers subscribed to a spam-protected <code>pubsubTopic</code>
+are only allowed to send one message per <code>epoch</code>.
+The higher-level layers adopting <code>17/WAKU2-RLN-RELAY</code>
+MAY choose to enforce the messaging rate for <code>WakuMessages</code>
+with a specific <code>contentTopic</code> published on a <code>pubsubTopic</code>.</p>
+<h4 id="setup-and-registration"><a class="header" href="#setup-and-registration">Setup and Registration</a></h4>
+<p>A <code>pubsubTopic</code> that is spam-protected requires subscribed peers to form a <a href="../../../anoncomms/draft/32/rln-v1.html">RLN group</a>.</p>
+<ul>
+<li>Peers MUST be registered to the RLN group to be able to publish messages.</li>
+<li>Registration MAY be moderated through a smart contract
+deployed on the Ethereum blockchain.</li>
+</ul>
+<p>Each peer has an <a href="../../../anoncomms/draft/32/rln-v1.html">RLN key pair</a> denoted by <code>sk</code>
+and <code>pk</code>.</p>
+<ul>
+<li>The secret key <code>sk</code> is secret data and MUST be persisted securely by the peer.</li>
+<li>The state of the membership contract
+SHOULD contain a list of all registered members' public identity keys i.e., <code>pk</code>s.</li>
+</ul>
+<p>For registration,
+a peer MUST create a transaction to invoke the registration function on the contract,
+which registers its <code>pk</code> in the RLN group.</p>
+<ul>
+<li>The transaction MUST transfer additional tokens to the contract to be staked.
+This amount is denoted by <code>staked_fund</code> and is a system parameter.
+The peer who has the secret key <code>sk</code> associated with a registered <code>pk</code>
+would be able to withdraw a portion <code>reward_portion</code>
+of the staked fund by providing valid proof.</li>
+</ul>
+<p><code>reward_portion</code> is also a system parameter.</p>
+<blockquote>
+<p><strong>NOTE:</strong> Initially <code>sk</code> is only known to its owning peer however,
+it may get exposed to other peers in case the owner attempts spamming the system
+i.e., sending more than one message per <code>epoch</code>.</p>
+</blockquote>
+<p>An overview of registration is illustrated in Figure 1.</p>
+<p><img src="images/rln-relay.png" alt="Figure 1: Registration." /></p>
+<h4 id="publishing"><a class="header" href="#publishing">Publishing</a></h4>
+<p>To publish at a given <code>epoch</code>, the publishing peer proceeds
+based on the regular <a href="../../stable/11/relay.html"><code>11/WAKU2-RELAY</code></a> protocol.
+However, to protect against spamming, each <code>WakuMessage</code>
+(which is wrapped inside the <code>data</code> field of a PubSub message)
+MUST carry a <a href="#ratelimitproof"><code>RateLimitProof</code></a> with the following fields.
+Section <a href="#payloads">Payload</a> covers the details about the type and
+encoding of these fields.</p>
+<ul>
+<li>The <code>merkle_root</code> contains the root of the Merkle tree.</li>
+<li>The <code>epoch</code> represents the current epoch.</li>
+<li>The <code>nullifier</code> is an internal nullifier acting as a fingerprint
+that allows specifying whether two messages are published by the same peer
+during the same <code>epoch</code>.</li>
+<li>The <code>nullifier</code> is a deterministic value derived from <code>sk</code> and
+<code>epoch</code> therefore any two messages issued by the same peer
+(i.e., using the same <code>sk</code>)
+for the same <code>epoch</code> are guaranteed to have identical <code>nullifier</code>s.</li>
+<li>The <code>share_x</code> and
+<code>share_y</code> can be seen as partial disclosure of peer's <code>sk</code> for the intended <code>epoch</code>.
+They are derived deterministically from peer's <code>sk</code> and
+current <code>epoch</code> using <a href="../../../anoncomms/draft/32/rln-v1.html">Shamir secret sharing scheme</a>.</li>
+</ul>
+<p>If a peer discloses more than one such pair (<code>share_x</code>, <code>share_y</code>) for the same <code>epoch</code>,
+it would allow full disclosure of its  <code>sk</code> and
+hence get access to its staked fund in the membership contract.</p>
+<ul>
+<li>The <code>proof</code> field is a zero-knowledge proof signifying that:</li>
+</ul>
+<ol>
+<li>The message owner is the current member of the group i.e.,
+the peer's identity commitment key, <code>pk</code>,
+is part of the membership group Merkle tree with the root <code>merkle_root</code>.</li>
+<li><code>share_x</code> and <code>share_y</code> are correctly computed.</li>
+<li>The <code>nullifier</code> is constructed correctly.
+For more details about the proof generation check <a href="../../../anoncomms/draft/32/rln-v1.html">RLN</a>
+The proof generation relies on the knowledge of two pieces of private information
+i.e., <code>sk</code> and <code>authPath</code>.
+The <code>authPath</code> is a subset of Merkle tree nodes
+by which a peer can prove the inclusion of its <code>pk</code> in the group.</li>
+</ol>
+<!-- TODO refer to RLN RFC for authPath def -->
+<p>The proof generation also requires a set of public inputs which are:
+the Merkle tree root <code>merkle_root</code>, the current <code>epoch</code>, and
+the message for which the proof is going to be generated.
+In <code>17/WAKU2-RLN-RELAY</code>,
+the message is the concatenation of <code>WakuMessage</code>'s  <code>payload</code> filed and
+its <code>contentTopic</code> i.e., <code>payload||contentTopic</code>.</p>
+<h4 id="group-synchronization"><a class="header" href="#group-synchronization">Group Synchronization</a></h4>
+<p>Proof generation relies on the knowledge of Merkle tree root <code>merkle_root</code> and
+<code>authPath</code> which both require access to the membership Merkle tree.
+Getting access to the Merkle tree can be done in various ways:</p>
+<ol>
+<li>
+<p>Peers construct the tree locally.
+This can be done by listening to the registration and
+deletion events emitted by the membership contract.
+Peers MUST update the local Merkle tree on a per-block basis.
+This is discussed further
+in the <a href="#merkle-root-validation">Merkle Root Validation</a> section.</p>
+</li>
+<li>
+<p>For synchronizing the state of slashed <code>pk</code>s,
+disseminate such information through a <code>pubsubTopic</code> to which all peers are subscribed.
+A deletion transaction SHOULD occur on the membership contract.
+The benefit of an off-chain slashing
+is that it allows real-time removal of spammers as opposed to on-chain slashing
+in which peers get informed with a delay,
+where the delay is due to mining the slashing transaction.</p>
+</li>
+</ol>
+<p>For the group synchronization,
+one important security consideration is that peers MUST make sure they always use
+the most recent Merkle tree root in their proof generation.
+The reason is that using an old root can allow inference
+about the index of the user's <code>pk</code> in the membership tree
+hence compromising user privacy and breaking message unlinkability.</p>
+<h4 id="routing"><a class="header" href="#routing">Routing</a></h4>
+<p>Upon the receipt of a PubSub message via <a href="../../stable/11/relay.html"><code>11/WAKU2-RELAY</code></a> protocol,
+the routing peer parses the <code>data</code> field as a <code>WakuMessage</code> and
+gets access to the <code>RateLimitProof</code> field.<br />
+The peer then validates the <code>RateLimitProof</code>  as explained next.</p>
+<h5 id="epoch-validation"><a class="header" href="#epoch-validation">Epoch Validation</a></h5>
+<p>If the <code>epoch</code> attached to the <code>WakuMessage</code> is more than <code>max_epoch_gap</code>,
+apart from the routing peer's current <code>epoch</code>,
+then the <code>WakuMessage</code> MUST be discarded and considered invalid.
+This is to prevent a newly registered peer from spamming the system
+by messaging for all the past epochs.
+<code>max_epoch_gap</code> is a system parameter
+for which we provide some recommendations in section <a href="#recommended-system-parameters">Recommended System Parameters</a>.</p>
+<h5 id="merkle-root-validation"><a class="header" href="#merkle-root-validation">Merkle Root Validation</a></h5>
+<p>The routing peers MUST check whether the provided Merkle root
+in the <code>RateLimitProof</code> is valid.
+It can do so by maintaining a local set of valid Merkle roots,
+which consist of <code>acceptable_root_window_size</code> past roots.
+These roots refer to the final state of the Merkle tree
+after a whole block consisting of group changes is processed.
+The Merkle roots are updated on a per-block basis instead of a per-event basis.
+This is done because if Merkle roots are updated on a per-event basis,
+some peers could send messages with a root that refers to a Merkle tree state
+that might get invalidated while the message is still propagating in the network,
+due to many registrations happening during this time frame.
+By updating roots on a per-block basis instead,
+we will have only one root update per-block processed,
+regardless on how many registrations happened in a block, and
+peers will be able to successfully propagate messages in a time frame
+corresponding to roughly the size of the roots window times the block mining time.</p>
+<p>Atomic processing of the blocks are necessary
+so that even if the peer is unable to process one event,
+the previous roots remain valid, and can be used to generate valid RateLimitProof's.</p>
+<p>This also allows peers which are not well connected to the network
+to be able to send messages, accounting for network delay.
+This network delay is related to the nature of asynchronous network conditions,
+which means that peers see membership changes asynchronously, and
+therefore may have differing local Merkle trees.
+See <a href="#recommended-system-parameters">Recommended System Parameters</a>
+on choosing an appropriate <code>acceptable_root_window_size</code>.</p>
+<h5 id="proof-verification"><a class="header" href="#proof-verification">Proof Verification</a></h5>
+<p>The routing peers MUST check whether the zero-knowledge proof <code>proof</code> is valid.
+It does so by running the zk verification algorithm as explained in <a href="../../../anoncomms/draft/32/rln-v1.html">RLN</a>.
+If <code>proof</code> is invalid then the message MUST be discarded.</p>
+<h5 id="spam-detection"><a class="header" href="#spam-detection">Spam detection</a></h5>
+<p>To enable local spam detection and slashing,
+routing peers MUST record the <code>nullifier</code>, <code>share_x</code>, and <code>share_y</code>
+of incoming messages which are not discarded i.e.,
+not found spam or with invalid proof or epoch.
+To spot spam messages, the peer checks whether a message
+with an identical <code>nullifier</code> has already been relayed.</p>
+<ol>
+<li>If such a message exists and its <code>share_x</code> and <code>share_y</code>
+components are different from the incoming message, then slashing takes place.
+That is, the peer uses the  <code>share_x</code> and <code>share_y</code>
+of the new message and the <code>share'_x</code> and <code>share'_y</code>
+of the old record to reconstruct the <code>sk</code> of the message owner.
+The <code>sk</code> then MAY be used to delete the spammer from the group and
+withdraw a portion <code>reward_portion</code> of its staked funds.</li>
+<li>If the <code>share_x</code> and
+<code>share_y</code> fields of the previously relayed message are identical
+to the incoming message,
+then the message is a duplicate and MUST be discarded.</li>
+<li>If none is found, then the message gets relayed.</li>
+</ol>
+<p>An overview of the routing procedure and slashing is provided in Figure 2.</p>
+<p><img src="images/rln-message-verification.png" alt="Figure 2: Publishing, Routing and Slashing workflow." /></p>
+<hr />
+<h3 id="payloads"><a class="header" href="#payloads">Payloads</a></h3>
+<p>Payloads are protobuf messages implemented using <a href="https://developers.google.com/protocol-buffers/">protocol buffers v3</a>.
+Nodes MAY extend the <a href="../../stable/14/message.html">14/WAKU2-MESSAGE</a>
+with a <code>rate_limit_proof</code> field to indicate that their message is not spam.</p>
+<pre><code class="language-diff">
+syntax = "proto3";
+
+message RateLimitProof {
+  bytes proof = 1;
+  bytes merkle_root = 2;
+  bytes epoch = 3;
+  bytes share_x = 4;
+  bytes share_y = 5;
+  bytes nullifier = 6;
+}
+
+message WakuMessage {
+  bytes payload = 1;
+  string content_topic = 2;
+  optional uint32 version = 3;
+  optional sint64 timestamp = 10;
+  optional bool ephemeral = 31;
+  RateLimitProof rate_limit_proof = 21;
+}
+
+</code></pre>
+<h4 id="wakumessage"><a class="header" href="#wakumessage">WakuMessage</a></h4>
+<p><code>rate_limit_proof</code> holds the information required to prove that the message owner
+has not exceeded the message rate limit.</p>
+<h4 id="ratelimitproof"><a class="header" href="#ratelimitproof">RateLimitProof</a></h4>
+<p>Below is the description of the fields of <code>RateLimitProof</code> and their types.</p>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: right">Parameter</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td style="text-align: right"><code>proof</code></td><td>array of 256 bytes uncompressed or 128 bytes compressed</td><td>the zkSNARK proof as explained in the <a href="#publishing">Publishing process</a></td></tr>
+<tr><td style="text-align: right"><code>merkle_root</code></td><td>array of 32 bytes in little-endian order</td><td>the root of membership group Merkle tree at the time of publishing the message</td></tr>
+<tr><td style="text-align: right"><code>share_x</code> and <code>share_y</code></td><td>array of 32 bytes each</td><td>Shamir secret shares of the user's secret identity key <code>sk</code> . <code>share_x</code> is the Poseidon hash of the <code>WakuMessage</code>'s <code>payload</code> concatenated with its <code>contentTopic</code> . <code>share_y</code> is calculated using <a href="../../../anoncomms/draft/32/rln-v1.html">Shamir secret sharing scheme</a></td></tr>
+<tr><td style="text-align: right"><code>nullifier</code></td><td>array of 32 bytes</td><td>internal nullifier derived from <code>epoch</code> and peer's <code>sk</code> as explained in <a href="../../../anoncomms/draft/32/rln-v1.html">RLN construct</a></td></tr>
+</tbody></table>
+</div>
+<h3 id="recommended-system-parameters"><a class="header" href="#recommended-system-parameters">Recommended System Parameters</a></h3>
+<p>The system parameters are summarized in the following table,
+and the RECOMMENDED values for a subset of them are presented next.</p>
+<div class="table-wrapper"><table><thead><tr><th style="text-align: right">Parameter</th><th>Description</th></tr></thead><tbody>
+<tr><td style="text-align: right"><code>period</code></td><td>the length of <code>epoch</code> in seconds</td></tr>
+<tr><td style="text-align: right"><code>staked_fund</code></td><td>the amount of funds to be staked by peers at the registration</td></tr>
+<tr><td style="text-align: right"><code>reward_portion</code></td><td>the percentage of <code>staked_fund</code> to be rewarded to the slashers</td></tr>
+<tr><td style="text-align: right"><code>max_epoch_gap</code></td><td>the maximum allowed gap between the <code>epoch</code> of a routing peer and the incoming message</td></tr>
+<tr><td style="text-align: right"><code>acceptable_root_window_size</code></td><td>The maximum number of past Merkle roots to store</td></tr>
+</tbody></table>
+</div>
+<h4 id="epoch-length"><a class="header" href="#epoch-length">Epoch Length</a></h4>
+<p>A sensible value for the <code>period</code> depends on the application
+for which the spam protection is going to be used.
+For example, while the <code>period</code> of <code>1</code> second i.e.,
+messaging rate of <code>1</code> per second, might be acceptable for a chat application,
+might be too low for communication among Ethereum network validators.
+One should look at the desired throughput of the application
+to decide on a proper <code>period</code> value.</p>
+<h4 id="maximum-epoch-gap"><a class="header" href="#maximum-epoch-gap">Maximum Epoch Gap</a></h4>
+<p>We discussed in the <a href="#routing">Routing</a> section that the gap between the epoch
+observed by the routing peer and
+the one attached to the incoming message
+should not exceed a threshold denoted by <code>max_epoch_gap</code>.
+The value of <code>max_epoch_gap</code> can be measured based on the following factors.</p>
+<ul>
+<li>Network transmission delay <code>Network_Delay</code>:
+the maximum time that it takes for a message to be fully disseminated
+in the GossipSub network.</li>
+<li>Clock asynchrony <code>Clock_Asynchrony</code>:
+The maximum difference between the Unix epoch clocks perceived
+by network peers which can be due to clock drifts.</li>
+</ul>
+<p>With a reasonable approximation of the preceding values,
+one can set <code>max_epoch_gap</code> as</p>
+<p><code>max_epoch_gap</code>
+<span class="math-inline" data-tex="= \lceil \frac{\text{Network Delay} + \text{Clock Asynchrony}}{\text{Epoch Length}}\rceil"></span>
+where  <code>period</code>  is the length of the <code>epoch</code> in seconds.
+<code>Network_Delay</code> and <code>Clock_Asynchrony</code> MUST have the same resolution as  <code>period</code>.
+By this formulation, <code>max_epoch_gap</code> indeed measures the maximum number of <code>epoch</code>s
+that can elapse since a message gets routed from its origin
+to all the other peers in the network.</p>
+<p><code>acceptable_root_window_size</code> depends upon the underlying chain's average blocktime,
+<code>block_time</code></p>
+<p>The lower bound for the <code>acceptable_root_window_size</code> SHOULD be set as <span class="math-inline" data-tex="acceptable_root_window_size=(Network_Delay)/block_time"></span></p>
+<p><code>Network_Delay</code> MUST have the same resolution as <code>block_time</code>.</p>
+<p>By this formulation,
+<code>acceptable_root_window_size</code> will provide a lower bound
+of how many roots can be acceptable by a routing peer.</p>
+<p>The <code>acceptable_root_window_size</code> should indicate how many blocks may have been mined
+during the time it takes for a peer to receive a message.
+This formula represents a lower bound of the number of acceptable roots.</p>
+<h2 id="copyright"><a class="header" href="#copyright">Copyright</a></h2>
+<p>Copyright and related rights waived via <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a>.</p>
+<h2 id="references"><a class="header" href="#references">References</a></h2>
+<ol>
+<li><a href="../../stable/11/relay.html"><code>11/WAKU2-RELAY</code></a></li>
+<li><a href="../64/network.html">64/WAKU-NETWORK</a></li>
+<li><a href="../../../anoncomms/draft/32/rln-v1.html">RLN</a></li>
+<li><a href="../../stable/14/message.html">14/WAKU2-MESSAGE</a></li>
+<li><a href="https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view">RLN documentation</a></li>
+<li><a href="https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Public-Inputs">Public inputs to the RLN circuit</a></li>
+<li><a href="https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Linear-Equation-amp-SSS">Shamir secret sharing scheme used in RLN</a></li>
+<li><a href="https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Nullifiers">RLN internal nullifier</a></li>
+</ol>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../../messaging/draft/15/bridge.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../../messaging/draft/19/lightpush.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../../messaging/draft/15/bridge.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../../messaging/draft/19/lightpush.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../../elasticlunr.min.js"></script>
+        <script src="../../../mark.min.js"></script>
+        <script src="../../../searcher.js"></script>
+
+        <script src="../../../clipboard.min.js"></script>
+        <script src="../../../highlight.js"></script>
+        <script src="../../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../../../theme/katex/katex.min.js"></script>
+        <script src="../../../theme/katex/auto-render.min.js"></script>
+        <script src="../../../scripts/katex-render.js"></script>
+        <script src="../../../scripts/logos-lips.js"></script>
+
+
+    </div>
+    </body>
+</html>

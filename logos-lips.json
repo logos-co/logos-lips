@@ -1,5 +1,239 @@
 [
   {
+    "component": "anoncomms",
+    "slug": "100",
+    "title": "Interep as group management for RLN",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/rln-interep-spec.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "101",
+    "title": "Secure channel setup using decentralized MLS and Ethereum accounts",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/eth-mls-onchain.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "102",
+    "title": "RLN Stealth Commitment Usage",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/rln-stealth-commitments.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "103",
+    "title": "Decentralized Key and Session Setup for Secure Messaging over Ethereum",
+    "status": "raw",
+    "category": "informational",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/decentralized-messaging-ethereum.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "104",
+    "title": "Secure channel setup using decentralized MLS",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/decentralized-mls-offchain-consensus.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "105",
+    "title": "Gossipsub Tor Push",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/gossipsub-tor-push.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "106",
+    "title": "Rate Limit Nullifier V2",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/rln-v2.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "107",
+    "title": "Logos Service Discovery Protocol",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/logos-service-discovery.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "108",
+    "title": "Secure 1-to-1 channel setup using X3DH and the double ratchet",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/noise-x3dh-double-ratchet.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "109",
+    "title": "Scalable Data Sync protocol for distributed logs",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/sds.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "110",
+    "title": "Secure channel setup using Ethereum accounts",
+    "status": "deleted",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/deleted/eth-secpm.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "141",
+    "title": "Multi-message_id burn feature RLN",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/multi-message_id-burn-rln.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "142",
+    "title": "Zerokit API",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/zerokit-api.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "143",
+    "title": "Extended Kademlia Discovery with capability filtering",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/extended-kad-disco.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "144",
+    "title": "RLN DoS Protection for Mixnet",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/mix-spam-protection-rln.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "155",
+    "title": "Payment Streams Protocol for Logos Services",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/payment-streams.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "156",
+    "title": "RLN deployment to the Status network for gasless L2",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/status-rln-deployment.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "157",
+    "title": "Mix DoS Protection",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/mix-dos-protection.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "158",
+    "title": "RLN Membership Allocation",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/rln-membership-service.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "160",
+    "title": "Service Discovery API",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/service-discovery-api.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "161",
+    "title": "Mix Cover Traffic",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/mix-cover-traffic.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "25",
+    "title": "Libp2p Peer Discovery via DNS",
+    "status": "deleted",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/deleted/25/libp2p-dns-discovery.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "32",
+    "title": "Rate Limit Nullifier",
+    "status": "draft",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/draft/32/rln-v1.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "73",
+    "title": "Hashgraphlike Consensus Protocol",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/consensus-hashgraphlike.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "74",
+    "title": "Extensible Peer Records",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/extensible-peer-records.html"
+  },
+  {
+    "component": "anoncomms",
+    "slug": "99",
+    "title": "LIBP2P-MIX",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "anoncomms/raw/mix.html"
+  },
+  {
     "component": "blockchain",
     "slug": "134",
     "title": "Nomos P2P Network Bootstrapping Specification",
@@ -14,8 +248,8 @@
     "title": "Nomos P2P Network Specification",
     "status": "draft",
     "category": "networking",
-    "updated": "2026-04-20",
-    "path": "blockchain/raw/p2p-network.html"
+    "updated": "2026-05-11",
+    "path": "blockchain/draft/p2p-network.html"
   },
   {
     "component": "blockchain",
@@ -50,7 +284,7 @@
     "title": "Claro Consensus Protocol",
     "status": "deprecated",
     "category": "Standards Track",
-    "updated": "2026-04-20",
+    "updated": "2026-05-11",
     "path": "blockchain/deprecated/claro.html"
   },
   {
@@ -68,7 +302,7 @@
     "title": "Cryptarchia Fork Choice Rule",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-04-15",
+    "updated": "2026-05-11",
     "path": "blockchain/raw/fork-choice.html"
   },
   {
@@ -252,283 +486,13 @@
     "path": "blockchain/raw/bedrock-v1.1-mantle-specification.html"
   },
   {
-    "component": "ift-ts",
-    "slug": "1",
-    "title": "Consensus-Oriented Specification System",
-    "status": "draft",
-    "category": "Best Current Practice",
-    "updated": "2026-04-20",
-    "path": "ift-ts/raw/1/coss.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "100",
-    "title": "Interep as group management for RLN",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-04-15",
-    "path": "ift-ts/raw/rln-interep-spec.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "101",
-    "title": "Secure channel setup using decentralized MLS and Ethereum accounts",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-04-15",
-    "path": "ift-ts/raw/eth-mls-onchain.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "102",
-    "title": "RLN Stealth Commitment Usage",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-04-15",
-    "path": "ift-ts/raw/rln-stealth-commitments.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "103",
-    "title": "Decentralized Key and Session Setup for Secure Messaging over Ethereum",
-    "status": "raw",
-    "category": "informational",
-    "updated": "2026-04-15",
-    "path": "ift-ts/raw/decentralized-messaging-ethereum.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "104",
-    "title": "Secure channel setup using decentralized MLS",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-05-07",
-    "path": "ift-ts/raw/decentralized-mls-offchain-consensus.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "105",
-    "title": "Gossipsub Tor Push",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-04-15",
-    "path": "ift-ts/raw/gossipsub-tor-push.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "106",
-    "title": "Rate Limit Nullifier V2",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-04-15",
-    "path": "ift-ts/raw/rln-v2.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "107",
-    "title": "Logos Service Discovery Protocol",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-04-15",
-    "path": "ift-ts/raw/logos-service-discovery.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "108",
-    "title": "Secure 1-to-1 channel setup using X3DH and the double ratchet",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-04-15",
-    "path": "ift-ts/raw/noise-x3dh-double-ratchet.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "109",
-    "title": "Scalable Data Sync protocol for distributed logs",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-04-15",
-    "path": "ift-ts/raw/sds.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "110",
-    "title": "Secure channel setup using Ethereum accounts",
-    "status": "deleted",
-    "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "ift-ts/raw/deleted/eth-secpm.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "141",
-    "title": "Multi-message_id burn feature RLN",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-04-15",
-    "path": "ift-ts/raw/multi-message_id-burn-rln.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "142",
-    "title": "Zerokit API",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-04-15",
-    "path": "ift-ts/raw/zerokit-api.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "143",
-    "title": "Extended Kademlia Discovery with capability filtering",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-04-17",
-    "path": "ift-ts/raw/extended-kad-disco.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "144",
-    "title": "RLN DoS Protection for Mixnet",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-04-15",
-    "path": "ift-ts/raw/mix-spam-protection-rln.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "155",
-    "title": "Payment Streams Protocol for Logos Services",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-04-15",
-    "path": "ift-ts/raw/payment-streams.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "156",
-    "title": "RLN deployment to the Status network for gasless L2",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-04-15",
-    "path": "ift-ts/raw/status-rln-deployment.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "157",
-    "title": "Mix DoS Protection",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-05-11",
-    "path": "ift-ts/raw/mix-dos-protection.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "158",
-    "title": "RLN Membership Allocation",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-05-04",
-    "path": "ift-ts/raw/rln-membership-service.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "160",
-    "title": "Service Discovery API",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-05-07",
-    "path": "ift-ts/raw/service-discovery-api.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "161",
-    "title": "Mix Cover Traffic",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-05-11",
-    "path": "ift-ts/raw/mix-cover-traffic.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "2",
-    "title": "Minimum Viable Data Synchronization",
-    "status": "stable",
-    "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "ift-ts/raw/2/mvds.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "25",
-    "title": "Libp2p Peer Discovery via DNS",
-    "status": "deleted",
-    "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "ift-ts/raw/25/libp2p-dns-discovery.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "3",
-    "title": "Remote log specification",
-    "status": "draft",
-    "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "ift-ts/raw/3/remote-log.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "32",
-    "title": "Rate Limit Nullifier",
-    "status": "draft",
-    "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "ift-ts/raw/32/rln-v1.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "4",
-    "title": "MVDS Metadata Field",
-    "status": "draft",
-    "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "ift-ts/raw/4/mvds-meta.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "73",
-    "title": "Hashgraphlike Consensus Protocol",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-04-15",
-    "path": "ift-ts/raw/consensus-hashgraphlike.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "74",
-    "title": "Extensible Peer Records",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-04-15",
-    "path": "ift-ts/raw/extensible-peer-records.html"
-  },
-  {
-    "component": "ift-ts",
-    "slug": "99",
-    "title": "LIBP2P-MIX",
-    "status": "raw",
-    "category": "Standards Track",
-    "updated": "2026-05-11",
-    "path": "ift-ts/raw/mix.html"
-  },
-  {
     "component": "messaging",
     "slug": "10",
     "title": "Waku v2",
     "status": "draft",
     "category": "Standards Track",
-    "updated": "2026-05-08",
-    "path": "messaging/standards/core/10/waku2.html"
+    "updated": "2026-05-11",
+    "path": "messaging/draft/10/waku2.html"
   },
   {
     "component": "messaging",
@@ -536,8 +500,8 @@
     "title": "Waku v2 Relay",
     "status": "stable",
     "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "messaging/standards/core/11/relay.html"
+    "updated": "2026-05-11",
+    "path": "messaging/stable/11/relay.html"
   },
   {
     "component": "messaging",
@@ -545,8 +509,8 @@
     "title": "Waku v2 Filter",
     "status": "draft",
     "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "messaging/standards/core/12/filter.html"
+    "updated": "2026-05-11",
+    "path": "messaging/draft/12/filter.html"
   },
   {
     "component": "messaging",
@@ -554,8 +518,8 @@
     "title": "Waku Store Query",
     "status": "draft",
     "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "messaging/standards/core/13/store.html"
+    "updated": "2026-05-11",
+    "path": "messaging/draft/13/store.html"
   },
   {
     "component": "messaging",
@@ -563,8 +527,8 @@
     "title": "Waku v2 Message",
     "status": "stable",
     "category": "Standards Track",
-    "updated": "2026-05-08",
-    "path": "messaging/standards/core/14/message.html"
+    "updated": "2026-05-11",
+    "path": "messaging/stable/14/message.html"
   },
   {
     "component": "messaging",
@@ -572,8 +536,8 @@
     "title": "Waku Bridge",
     "status": "draft",
     "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "messaging/standards/core/15/bridge.html"
+    "updated": "2026-05-11",
+    "path": "messaging/draft/15/bridge.html"
   },
   {
     "component": "messaging",
@@ -581,7 +545,7 @@
     "title": "Waku v2 RPC API",
     "status": "deprecated",
     "category": "Standards Track",
-    "updated": "2026-04-20",
+    "updated": "2026-05-11",
     "path": "messaging/deprecated/16/rpc.html"
   },
   {
@@ -590,8 +554,8 @@
     "title": "Waku v2 Adversarial Models and Attack-based Threat List",
     "status": "raw",
     "category": "Informational",
-    "updated": "2026-05-07",
-    "path": "messaging/informational/adversarial-models.html"
+    "updated": "2026-05-11",
+    "path": "messaging/raw/adversarial-models.html"
   },
   {
     "component": "messaging",
@@ -599,8 +563,8 @@
     "title": "Roles and Entities Used in Chat Protocol Documentation",
     "status": "raw",
     "category": "Informational",
-    "updated": "2026-05-07",
-    "path": "messaging/informational/chat-cast.html"
+    "updated": "2026-05-11",
+    "path": "messaging/raw/chat-cast.html"
   },
   {
     "component": "messaging",
@@ -608,8 +572,8 @@
     "title": "Shared definitions for Chat Protocols",
     "status": "raw",
     "category": "Informational",
-    "updated": "2026-05-07",
-    "path": "messaging/informational/chatdefs.html"
+    "updated": "2026-05-11",
+    "path": "messaging/raw/chatdefs.html"
   },
   {
     "component": "messaging",
@@ -617,8 +581,8 @@
     "title": "Waku v2 Relay Static Shard Allocation",
     "status": "raw",
     "category": "Informational",
-    "updated": "2026-05-07",
-    "path": "messaging/informational/relay-static-shard-alloc.html"
+    "updated": "2026-05-11",
+    "path": "messaging/raw/relay-static-shard-alloc.html"
   },
   {
     "component": "messaging",
@@ -626,8 +590,8 @@
     "title": "Waku v2 Dandelion",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-05-07",
-    "path": "messaging/standards/application/dandelion.html"
+    "updated": "2026-05-11",
+    "path": "messaging/raw/dandelion.html"
   },
   {
     "component": "messaging",
@@ -635,8 +599,8 @@
     "title": "Device pairing and secure transfers with Noise",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-05-07",
-    "path": "messaging/standards/application/device-pairing.html"
+    "updated": "2026-05-11",
+    "path": "messaging/raw/device-pairing.html"
   },
   {
     "component": "messaging",
@@ -644,8 +608,8 @@
     "title": "Messaging API definition",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-05-07",
-    "path": "messaging/standards/application/messaging-api.html"
+    "updated": "2026-05-11",
+    "path": "messaging/raw/messaging-api.html"
   },
   {
     "component": "messaging",
@@ -653,8 +617,8 @@
     "title": "Session Management for Waku Noise",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-05-07",
-    "path": "messaging/standards/application/noise-sessions.html"
+    "updated": "2026-05-11",
+    "path": "messaging/raw/noise-sessions.html"
   },
   {
     "component": "messaging",
@@ -662,8 +626,8 @@
     "title": "Waku v2 RLN Relay",
     "status": "draft",
     "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "messaging/standards/core/17/rln-relay.html"
+    "updated": "2026-05-11",
+    "path": "messaging/draft/17/rln-relay.html"
   },
   {
     "component": "messaging",
@@ -671,8 +635,8 @@
     "title": "Noise Protocols for Waku Payload Encryption",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-05-07",
-    "path": "messaging/standards/application/noise.html"
+    "updated": "2026-05-11",
+    "path": "messaging/raw/noise.html"
   },
   {
     "component": "messaging",
@@ -680,8 +644,8 @@
     "title": "OpChan Decentralized Forum",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-05-07",
-    "path": "messaging/standards/application/opchan.html"
+    "updated": "2026-05-11",
+    "path": "messaging/raw/opchan.html"
   },
   {
     "component": "messaging",
@@ -689,8 +653,8 @@
     "title": "Waku P2P Reliability",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-05-07",
-    "path": "messaging/standards/application/p2p-reliability.html"
+    "updated": "2026-05-11",
+    "path": "messaging/raw/p2p-reliability.html"
   },
   {
     "component": "messaging",
@@ -698,8 +662,8 @@
     "title": "Reliable Channel API definition",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-05-07",
-    "path": "messaging/standards/application/reliable-channel-api.html"
+    "updated": "2026-05-11",
+    "path": "messaging/raw/reliable-channel-api.html"
   },
   {
     "component": "messaging",
@@ -707,8 +671,8 @@
     "title": "Waku RLN Keystore",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-05-07",
-    "path": "messaging/standards/application/rln-keystore.html"
+    "updated": "2026-05-11",
+    "path": "messaging/raw/rln-keystore.html"
   },
   {
     "component": "messaging",
@@ -716,8 +680,8 @@
     "title": "Incentivization for Waku Light Protocols",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-05-07",
-    "path": "messaging/standards/core/incentivization.html"
+    "updated": "2026-05-11",
+    "path": "messaging/raw/incentivization.html"
   },
   {
     "component": "messaging",
@@ -725,8 +689,8 @@
     "title": "Waku Light Push",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-05-07",
-    "path": "messaging/standards/core/lightpush.html"
+    "updated": "2026-05-11",
+    "path": "messaging/raw/lightpush.html"
   },
   {
     "component": "messaging",
@@ -734,8 +698,8 @@
     "title": "Waku Mix",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-05-07",
-    "path": "messaging/standards/core/mix.html"
+    "updated": "2026-05-11",
+    "path": "messaging/raw/mix.html"
   },
   {
     "component": "messaging",
@@ -743,8 +707,8 @@
     "title": "Waku v2 Relay Sharding",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-05-07",
-    "path": "messaging/standards/core/relay-sharding.html"
+    "updated": "2026-05-11",
+    "path": "messaging/raw/relay-sharding.html"
   },
   {
     "component": "messaging",
@@ -752,8 +716,8 @@
     "title": "Waku Rendezvous discovery",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-05-07",
-    "path": "messaging/standards/core/rendezvous.html"
+    "updated": "2026-05-11",
+    "path": "messaging/raw/rendezvous.html"
   },
   {
     "component": "messaging",
@@ -761,7 +725,7 @@
     "title": "Waku SWAP Accounting",
     "status": "deprecated",
     "category": "Standards Track",
-    "updated": "2026-04-20",
+    "updated": "2026-05-11",
     "path": "messaging/deprecated/18/swap.html"
   },
   {
@@ -770,8 +734,8 @@
     "title": "Waku2 RLN Contract Specification",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-05-07",
-    "path": "messaging/standards/core/rln-contract.html"
+    "updated": "2026-05-11",
+    "path": "messaging/raw/rln-contract.html"
   },
   {
     "component": "messaging",
@@ -779,8 +743,8 @@
     "title": "Waku Store Synchronization",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-05-07",
-    "path": "messaging/standards/core/store-sync.html"
+    "updated": "2026-05-11",
+    "path": "messaging/raw/store-sync.html"
   },
   {
     "component": "messaging",
@@ -788,8 +752,8 @@
     "title": "Waku Sync",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-05-07",
-    "path": "messaging/standards/core/sync.html"
+    "updated": "2026-05-11",
+    "path": "messaging/raw/sync.html"
   },
   {
     "component": "messaging",
@@ -797,8 +761,17 @@
     "title": "Waku v2 Light Push",
     "status": "draft",
     "category": "Standards Track",
-    "updated": "2026-05-08",
-    "path": "messaging/standards/core/19/lightpush.html"
+    "updated": "2026-05-11",
+    "path": "messaging/draft/19/lightpush.html"
+  },
+  {
+    "component": "messaging",
+    "slug": "2",
+    "title": "Minimum Viable Data Synchronization",
+    "status": "stable",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "messaging/stable/2/mvds.html"
   },
   {
     "component": "messaging",
@@ -806,8 +779,8 @@
     "title": "Toy Ethereum Private Message",
     "status": "draft",
     "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "messaging/standards/application/20/toy-eth-pm.html"
+    "updated": "2026-05-11",
+    "path": "messaging/draft/20/toy-eth-pm.html"
   },
   {
     "component": "messaging",
@@ -815,8 +788,8 @@
     "title": "Waku v2 Fault-Tolerant Store",
     "status": "deleted",
     "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "messaging/deprecated/fault-tolerant-store.html"
+    "updated": "2026-05-11",
+    "path": "messaging/deleted/fault-tolerant-store.html"
   },
   {
     "component": "messaging",
@@ -824,8 +797,8 @@
     "title": "Waku v2 Toy Chat",
     "status": "draft",
     "category": "Informational",
-    "updated": "2026-04-20",
-    "path": "messaging/informational/22/toy-chat.html"
+    "updated": "2026-05-11",
+    "path": "messaging/draft/22/toy-chat.html"
   },
   {
     "component": "messaging",
@@ -833,8 +806,8 @@
     "title": "Waku v2 Topic Usage Recommendations",
     "status": "draft",
     "category": "Informational",
-    "updated": "2026-05-08",
-    "path": "messaging/informational/23/topics.html"
+    "updated": "2026-05-11",
+    "path": "messaging/draft/23/topics.html"
   },
   {
     "component": "messaging",
@@ -842,8 +815,8 @@
     "title": "Waku Message Payload Encryption",
     "status": "draft",
     "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "messaging/standards/application/26/payload.html"
+    "updated": "2026-05-11",
+    "path": "messaging/draft/26/payload.html"
   },
   {
     "component": "messaging",
@@ -851,8 +824,8 @@
     "title": "Waku v2 Client Peer Management Recommendations",
     "status": "draft",
     "category": "Informational",
-    "updated": "2026-04-20",
-    "path": "messaging/informational/27/peers.html"
+    "updated": "2026-05-11",
+    "path": "messaging/draft/27/peers.html"
   },
   {
     "component": "messaging",
@@ -860,8 +833,17 @@
     "title": "Waku v2 Client Parameter Configuration Recommendations",
     "status": "draft",
     "category": "Informational",
-    "updated": "2026-04-20",
-    "path": "messaging/informational/29/config.html"
+    "updated": "2026-05-11",
+    "path": "messaging/draft/29/config.html"
+  },
+  {
+    "component": "messaging",
+    "slug": "3",
+    "title": "Remote log specification",
+    "status": "draft",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "messaging/draft/3/remote-log.html"
   },
   {
     "component": "messaging",
@@ -869,8 +851,8 @@
     "title": "Adaptive nodes",
     "status": "draft",
     "category": "Informational",
-    "updated": "2026-04-20",
-    "path": "messaging/informational/30/adaptive-nodes.html"
+    "updated": "2026-05-11",
+    "path": "messaging/draft/30/adaptive-nodes.html"
   },
   {
     "component": "messaging",
@@ -878,8 +860,8 @@
     "title": "Waku v2 usage of ENR",
     "status": "draft",
     "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "messaging/standards/core/31/enr.html"
+    "updated": "2026-05-11",
+    "path": "messaging/draft/31/enr.html"
   },
   {
     "component": "messaging",
@@ -887,8 +869,8 @@
     "title": "Waku v2 Discv5 Ambient Peer Discovery",
     "status": "draft",
     "category": "Standards Track",
-    "updated": "2026-05-08",
-    "path": "messaging/standards/core/33/discv5.html"
+    "updated": "2026-05-11",
+    "path": "messaging/draft/33/discv5.html"
   },
   {
     "component": "messaging",
@@ -896,8 +878,8 @@
     "title": "Waku2 Peer Exchange",
     "status": "draft",
     "category": "Standards Track",
-    "updated": "2026-05-08",
-    "path": "messaging/standards/core/34/peer-exchange.html"
+    "updated": "2026-05-11",
+    "path": "messaging/draft/34/peer-exchange.html"
   },
   {
     "component": "messaging",
@@ -905,8 +887,17 @@
     "title": "Waku v2 C Bindings API",
     "status": "draft",
     "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "messaging/standards/core/36/bindings-api.html"
+    "updated": "2026-05-11",
+    "path": "messaging/draft/36/bindings-api.html"
+  },
+  {
+    "component": "messaging",
+    "slug": "4",
+    "title": "MVDS Metadata Field",
+    "status": "draft",
+    "category": "Standards Track",
+    "updated": "2026-05-11",
+    "path": "messaging/draft/4/mvds-meta.html"
   },
   {
     "component": "messaging",
@@ -914,7 +905,7 @@
     "title": "Waku v0",
     "status": "deprecated",
     "category": "Standards Track",
-    "updated": "2026-04-20",
+    "updated": "2026-05-11",
     "path": "messaging/deprecated/5/waku0.html"
   },
   {
@@ -923,8 +914,8 @@
     "title": "X3DH usage for Waku payload encryption",
     "status": "draft",
     "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "messaging/standards/application/53/x3dh.html"
+    "updated": "2026-05-11",
+    "path": "messaging/draft/53/x3dh.html"
   },
   {
     "component": "messaging",
@@ -932,8 +923,8 @@
     "title": "Session management for Waku X3DH",
     "status": "draft",
     "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "messaging/standards/application/54/x3dh-sessions.html"
+    "updated": "2026-05-11",
+    "path": "messaging/draft/54/x3dh-sessions.html"
   },
   {
     "component": "messaging",
@@ -941,8 +932,8 @@
     "title": "Waku v1",
     "status": "stable",
     "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "messaging/standards/legacy/6/waku1.html"
+    "updated": "2026-05-11",
+    "path": "messaging/stable/6/waku1.html"
   },
   {
     "component": "messaging",
@@ -950,8 +941,8 @@
     "title": "Waku v2 Network",
     "status": "draft",
     "category": "Best Current Practice",
-    "updated": "2026-05-08",
-    "path": "messaging/standards/core/64/network.html"
+    "updated": "2026-05-11",
+    "path": "messaging/draft/64/network.html"
   },
   {
     "component": "messaging",
@@ -959,8 +950,8 @@
     "title": "Waku Metadata Protocol",
     "status": "draft",
     "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "messaging/standards/core/66/metadata.html"
+    "updated": "2026-05-11",
+    "path": "messaging/draft/66/metadata.html"
   },
   {
     "component": "messaging",
@@ -968,8 +959,8 @@
     "title": "Waku Envelope data field",
     "status": "stable",
     "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "messaging/standards/legacy/7/data.html"
+    "updated": "2026-05-11",
+    "path": "messaging/stable/7/data.html"
   },
   {
     "component": "messaging",
@@ -977,8 +968,8 @@
     "title": "Waku Mailserver",
     "status": "stable",
     "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "messaging/standards/legacy/8/mail.html"
+    "updated": "2026-05-11",
+    "path": "messaging/stable/8/mail.html"
   },
   {
     "component": "messaging",
@@ -986,8 +977,17 @@
     "title": "Waku RPC API",
     "status": "stable",
     "category": "Standards Track",
-    "updated": "2026-04-20",
-    "path": "messaging/standards/legacy/9/rpc.html"
+    "updated": "2026-05-11",
+    "path": "messaging/stable/9/rpc.html"
+  },
+  {
+    "component": "research",
+    "slug": "1",
+    "title": "Consensus-Oriented Specification System",
+    "status": "draft",
+    "category": "Best Current Practice",
+    "updated": "2026-05-11",
+    "path": "research/draft/1/coss.html"
   },
   {
     "component": "storage",
@@ -1013,7 +1013,7 @@
     "title": "Dataset Store",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-04-15",
+    "updated": "2026-05-11",
     "path": "storage/raw/dataset-store.html"
   },
   {
@@ -1031,8 +1031,8 @@
     "title": "Merkle Tree",
     "status": "draft",
     "category": "Standards Track",
-    "updated": "2026-04-28",
-    "path": "storage/raw/merkle-tree.html"
+    "updated": "2026-05-11",
+    "path": "storage/draft/merkle-tree.html"
   },
   {
     "component": "storage",
@@ -1049,7 +1049,7 @@
     "title": "Codex Community History",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-04-15",
+    "updated": "2026-05-11",
     "path": "storage/raw/community-history.html"
   },
   {
@@ -1058,7 +1058,7 @@
     "title": "Codex Storage Marketplace",
     "status": "deprecated",
     "category": "Standards Track",
-    "updated": "2026-04-20",
+    "updated": "2026-05-11",
     "path": "storage/deprecated/codex-marketplace.html"
   },
   {
@@ -1067,7 +1067,7 @@
     "title": "Codex Slot Builder",
     "status": "deprecated",
     "category": "Standards Track",
-    "updated": "2026-04-20",
+    "updated": "2026-05-11",
     "path": "storage/deprecated/slot-buIlder.html"
   },
   {
@@ -1076,7 +1076,7 @@
     "title": "Codex Erasue Coding",
     "status": "deprecated",
     "category": "Standards Track",
-    "updated": "2026-04-20",
+    "updated": "2026-05-11",
     "path": "storage/deprecated/erasure-coding.html"
   },
   {
@@ -1094,7 +1094,7 @@
     "title": "Codex Prover Module",
     "status": "deprecated",
     "category": "Standards Track",
-    "updated": "2026-04-20",
+    "updated": "2026-05-11",
     "path": "storage/deprecated/codex-prover.html"
   },
   {
@@ -1103,7 +1103,7 @@
     "title": "Codex Merkle Tree",
     "status": "deprecated",
     "category": "Standards Track",
-    "updated": "2026-04-20",
+    "updated": "2026-05-11",
     "path": "storage/deprecated/codex-merkle-tree.html"
   }
 ]
