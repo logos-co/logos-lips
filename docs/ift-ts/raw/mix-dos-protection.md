@@ -307,6 +307,23 @@ Verify that a DoS protection proof is valid and correctly bound to the provided 
 - For mechanisms that maintain global state (_e.g.,_ nullifier sets, rate-limit counters, membership trees), this procedure MUST update the internal state atomically when verification succeeds.
   State updates (_e.g.,_ recording nullifiers, updating rate-limit counters) and state cleanup (_e.g.,_ removing expired epochs, old nullifiers) are managed internally by the DoS protection mechanism.
 
+#### 8.2.3 Epoch Change Notification
+
+`OnEpochChange(callback) -> void`
+
+Register a callback to be invoked when the DoS protection mechanism detects an epoch transition.
+
+**Parameters**:
+
+- `callback`: A function invoked with the new `epoch` when an epoch boundary is detected.
+  The DoS protection mechanism MUST invoke this callback before accepting proofs for the new epoch.
+
+**Requirements**:
+
+- The DoS protection mechanism MUST notify registered callbacks at every epoch boundary.
+- Callbacks MUST be invoked before any packets are processed in the new epoch.
+- This enables pluggable components (_e.g.,_ cover traffic) to synchronize their internal state with epoch transitions.
+
 ### 8.3 Integration Points in Sphinx Processing
 
 The Mix Protocol invokes [DoS protection procedures](#82-interface-procedures) at specific points in Sphinx packet construction and processing:
