@@ -574,7 +574,7 @@ types:
     type: event_emitter
     description: "Event source for health-related events."
     events:
-      "health_connection_status_change":
+      "connection_status_change":
         type: EventConnectionStatusChange
       "health_content_topic_health_change":
         type: EventContentTopicHealthChange
