@@ -1337,7 +1337,7 @@ For each `service_id_hash`, the registrar MUST maintain:
 - `bound(service_id_hash)`: the last issued waiting time (`w_1`)
 - `timestamp(service_id_hash)`: the time at which `w_1` was issued (`t_1`)
 
-For each `IP` prefix in the IP tree, the registrar MUST maintain:
+For each `IP` in the IP tree, the registrar MUST maintain:
 
 - `bound(IP)`: the last issued waiting time (`w_1`)
 - `timestamp(IP)`: the time at which `w_1` was issued (`t_1`)
