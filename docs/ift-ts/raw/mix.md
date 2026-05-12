@@ -546,10 +546,16 @@ This section defines the cryptographic primitives used in Sphinx packet construc
   - **Construction**: SHA-256 hash with output truncated to $128$ bits.
   - **Key Derivation**: The KDF key separation labels (_e.g.,_ `"aes_key"`, `"mac_key"`) are fixed strings and MUST be agreed upon across implementations.
 
-- **Symmetric Encryption**: AES-128 in Counter Mode (AES-CTR)
+- **Header Encryption**: AES-128 in Counter Mode (AES-CTR)
 
-  - **Purpose**: To encrypt $β$ and $δ$ for each hop.
+  - **Purpose**: To encrypt the Sphinx routing header $β$ for each hop.
   - **Keys and IVs**: Each derived from the session key for the hop using the KDF.
+
+- **Payload Encryption**: LIONESS wide-block encryption
+
+  - **Purpose**: To encrypt and authenticate the fixed-size payload `$δ$` for each hop.
+  - **Construction**: Defined by the [LIONESS payload encryption specification](./mix-lioness.md).
+  - **Keys and IVs**: LIONESS internal round keys and IVs are derived from the per-hop session secret according to the [LIONESS payload encryption specification](./mix-lioness.md).
 
 - **Message Authentication Code (MAC)**:
   - **Construction**: HMAC-SHA-256 with output truncated to $128$ bits.
@@ -635,9 +641,6 @@ The recommended total packet size is $4608$ bytes, chosen to:
 - Allow inclusion of additional data such as SURBs without requiring fragmentation,
 - Maintain reasonable per-hop processing and bandwidth overhead.
 
-Note:
-When [DoS protection](#66-dos-protection) is enabled, the maximum packet size MUST be increased to accommodate the proof size of the chosen DoS protection mechanism.
-
 This recommended total packet size of $4608$ bytes yields:
 
 $`
@@ -647,8 +650,10 @@ Payload &= 4608 - 624 \\
 \end{aligned}
 `$
 
-Implementations MUST account for payload extensions, such as SURBs, when determining the maximum message size that can be encapsulated in a single Sphinx packet.
-Details on SURBs are defined in [Section 8.7.1](#871-surb-component-sizes).
+Implementations MUST account for the following when determining the maximum message size that can be encapsulated in a single Sphinx packet: 
+- the zero-prefix authentication added to the payload as defined in the [LIONESS specification](./mix-lioness.md)
+- payload extensions, such as SURBs (see [Section 8.7.1](#871-surb-component-sizes)).
+- the proofs for [DoS protection](#66-dos-protection) in case it is enabled. 
 
 The following subsection defines the padding and fragmentation requirements for ensuring this fixed-size constraint.
 
@@ -741,7 +746,7 @@ The construction MUST proceed as follows:
    Exit abuse prevention mechanisms are pluggable as defined in [Section 6.3](#63-exit-abuse-prevention).
    - Attach one or more SURBs, if required, following the steps in [Section 8.7.2](#872-surb-creation).
    - Append the origin protocol codec in a format that enables the exit node to reliably extract it during parsing. A recommended encoding approach is to prefix the codec string with its length, encoded as a compact varint field limited to two bytes. Regardless of the scheme used, implementations MUST agree on the format within a deployment to ensure deterministic decoding.
-   - Pad the result to the maximum application message length of $3968$ bytes using a deterministic padding scheme. This value is derived from the fixed payload size in [Section 8.3.2](#832-payload-size) ($3984$ bytes) minus the security parameter $κ = 16$ bytes defined in [Section 8.2](#82-cryptographic-primitives). The chosen scheme MUST yield a fixed-size padded output and MUST be consistent across all mix nodes to ensure correct interpretation during unpadding. For example, schemes that explicitly encode the padding length and prepend zero-valued padding bytes MAY be used.
+   - Pad the result to the maximum application message length of $3968$ bytes using a deterministic padding scheme. This value is derived from the fixed payload size in [Section 8.3.2](#832-payload-size) ($3984$ bytes) minus the payload zero-prefix with size equals to the security parameter $κ = 16$ bytes defined in [Section 8.2](#82-cryptographic-primitives). The chosen scheme MUST yield a fixed-size padded output and MUST be consistent across all mix nodes to ensure correct interpretation during unpadding. For example, schemes that explicitly encode the padding length and prepend zero-valued padding bytes MAY be used.
    - Let the resulting message be $m$.
 
 2. **Select A Mix Path**
@@ -878,29 +883,26 @@ The construction MUST proceed as follows:
 
    d. **Encrypt Payload**
    The encrypted payload $δ$ contains the message $m$ defined in step 1, prepended with a $κ$-byte string of zeros.
-   It is encrypted in layers such that each hop in the mix path removes exactly one layer using the per-hop session key.
+   It is encrypted in layers using the LIONESS wide-block encryption as defined in the [mix-lioness specification](./mix-lioness.md). Each hop in the mix path removes exactly one layer using the per-hop session key as the seed to derive all LIONESS internal round keys.
    This ensures that only the final hop (_i.e.,_ the exit node) can fully recover $m$, validate its integrity, and forward it to the destination.
    To compute the encrypted payload, perform the following steps for each hop $i = L-1$ down to $0$, recursively:
 
-   - Derive per-hop AES key and IV:
+   - Derive per-hop payload encryption key:
 
      $`
      \begin{array}{l}
-     δ_{\mathrm{aes\_key}_i} =
-     \mathrm{KDF}(\text{"δ\_aes\_key"} \mid s_i)\\
-     δ_{\mathrm{iv}_i} =
-     \mathrm{KDF}(\text{"δ\_iv"} \mid s_i)
+     δ_{\mathrm{key}_i} =
+     \mathrm{KDF}(\text{"delta\_key"} \mid s_i)\\
      \end{array}
      `$
 
-   - Using the derived keys, compute the encrypted payload $δ_i$:
+   - Apply the LIONESS payload encryption step defined by that specification to compute the encrypted payload $δ_i$:
 
      - If $i = L-1$ (_i.e.,_ exit node):
 
        $`
        \begin{array}{l}
-       δ_i = \mathrm{AES\text{-}CTR}\bigl(δ_{\mathrm{aes\_key}_i},
-       δ_{\mathrm{iv}_i}, 0_{κ} \mid m
+       δ_i = \mathrm{Lioness.Enc}\bigl(δ_{\mathrm{key}_i}, 0_{κ} \mid m
        \bigr)
        \end{array}
        `$
@@ -909,8 +911,8 @@ The construction MUST proceed as follows:
 
        $`
        \begin{array}{l}
-       δ_i = \mathrm{AES\text{-}CTR}\bigl(δ_{\mathrm{aes\_key}_i},
-       δ_{\mathrm{iv}_i}, δ_{i+1} \bigr)
+       δ_i = \mathrm{Lioness.Enc}\bigl(δ_{\mathrm{key}_i},
+        δ_{i+1} \bigr)
        \end{array}
        `$
 
@@ -1031,14 +1033,12 @@ After successful deserialization, the mix node performs the following steps:
 
 5. **Decrypt One Layer of the Payload**
 
-   - Derive the payload AES key and IV from the session secret $s$:
+   - Derive the payload encryption key from the session secret $s$:
 
      $`
      \begin{array}{l}
-     δ_{\mathrm{aes\_key}} =
-     \mathrm{KDF}(\text{"δ\_aes\_key"} \mid s)\\
-     δ_{\mathrm{iv}} =
-     \mathrm{KDF}(\text{"δ\_iv"} \mid s)
+     δ_{\mathrm{key}} =
+     \mathrm{KDF}(\text{"delta\_key"} \mid s)\\
      \end{array}
      `$
 
@@ -1046,8 +1046,7 @@ After successful deserialization, the mix node performs the following steps:
 
      $`
      \begin{array}{l}
-     δ' = \mathrm{AES\text{-}CTR}\bigl(δ_{\mathrm{aes\_key}},
-     δ_{\mathrm{iv}}, δ \bigr)
+     δ' = \mathrm{Lioness.Dec}\bigl(δ_{\mathrm{key}}, δ \bigr)
      \end{array}
      `$
 
@@ -1318,9 +1317,21 @@ Once the destination responds with a reply message, the Exit Layer MUST perform 
 
 2. **Encrypt Reply Payload**
 
-   Derive the AES key, IV, and compute the encrypted payload $δ$ following the same procedure in [Section 8.5.2](#852-construction-steps) Step 3.d for $i = L-1$, substituting $\tilde{k}$ for $s_{L-1}$.
-
-   Note: Unlike the forward path ([Section 8.5.2](#852-construction-steps) Step 3.d), the reply payload is encrypted only once&mdash;using $\tilde{k}$ alone. Each mix node on the return path will apply one additional layer during Sphinx processing ([Section 8.6.1](#861-shared-preprocessing) Step 5), resulting in $L + 1$ layers total that the initiating node must remove during reply recovery (see [Section 8.7.5](#875-reply-recovery)).
+   Unlike the forward path ([Section 8.5.2](#852-construction-steps) Step 3.d), the reply payload is encrypted only once using $\tilde{k}$ alone. Therefore, the mix node MUST perform the following steps:
+   - constructs the payload plaintext:
+    $`
+    B = 0_\kappa \parallel m
+    `$
+- Then it derives the reply payload encryption key:
+    $`
+    δ_{\mathrm{key}_{\tilde{k}}} = \mathrm{KDF}(\text{"delta\_key"} \mid \tilde{k})
+    `$
+- and computes:
+    $`
+    δ = \mathsf{Lioness.Enc}(δ_{key_{\tilde{k}}}, B)
+    `$
+   
+   Each mix node on the return path will apply one additional LIONESS decryption layer during Sphinx processing ([Section 8.6.1](#861-shared-preprocessing) Step 5), resulting in $L + 1$ layers in total that the initiating node must remove during reply recovery (see [Section 8.7.5](#875-reply-recovery)).
 
 3. **Assemble and Transmit Reply Packet**
 
@@ -1358,69 +1369,64 @@ When the Exit Layer receives decrypted payload $δ'$ and the SURB identifier $\m
 2. **Recover Padded Reply Message**
 
    The encrypted payload $δ'$ contains the padded reply message $m$ defined in [Section 8.7.3](#873-using-a-surb) Step 1, prepended with a $κ$-byte string of zeros.
-   It is encrypted in $L + 1$ layers&mdash;first using the reply key $\tilde{k}$, then with each hop on the return path adding exactly one layer using the per-hop session key $s_0, \ldots, s_{L-1}$.
-   To recover the padded reply message, perform the following steps for each layer $i = 0$ to $L$, recursively:
-
-   - Derive per-hop AES key and IV:
-
-     - If $i = 0$ (_i.e.,_ first layer):
-
+   It is transformed with a total of $L+1$ transformations: 
+   A first layer of LIONESS encryption using the reply key $\tilde{k}$, and 
+   $L$ layers of LIONESS decryption using per-hop session keys $s_0, \ldots, s_{L-1}$.
+   To recover the padded reply message, we must first remove all the decryption layers with a LIONESS encryption, and then remove the initial reply encryption (using $\tilde{k}$) with a decryption. Therefore, the we must perform the following two main steps: 
+   1. For each layer from $i = L-1$ down to $0$:
+   - Derive per-hop payload encryption key:
        $`
        \begin{array}{l}
-       δ_{\mathrm{aes\_key}_i} = \mathrm{KDF}(\text{"δ\_aes\_key"} \mid \tilde{k})\\
-       δ_{\mathrm{iv}_i} =
-       \mathrm{KDF}(\text{"δ\_iv"} \mid \tilde{k})
+       δ_{\mathrm{key}_i} = \mathrm{KDF}(\text{"delta\_key"} \mid s_{i})\\
        \end{array}
        `$
 
-     - If $i = 1$ to $L$ (_i.e.,_ all other layers):
+   - Using the derived keys, encrypt $δ'$ as specified in the [LIONESS specification](./mix-lioness.md):
+
+     - If $i = L-1$ (_i.e.,_ exit node layer):
 
        $`
        \begin{array}{l}
-       δ_{\mathrm{aes\_key}_i} = \mathrm{KDF}(\text{"δ\_aes\_key"} \mid s_{i-1})\\
-       δ_{\mathrm{iv}_i} =
-       \mathrm{KDF}(\text{"δ\_iv"} \mid s_{i-1})
-       \end{array}
-       `$
-
-   - Using the derived keys, decrypt $δ'$:
-
-     - If $i = 0$ (_i.e.,_ first layer):
-
-       $`
-       \begin{array}{l}
-       δ_i = \mathrm{AES\text{-}CTR}\bigl(δ_{\mathrm{aes\_key}_i},
-       δ_{\mathrm{iv}_i}, δ'
+       δ_i = \mathrm{Lioness.Enc}\bigl(δ_{\mathrm{key}_i}, δ'
        \bigr)
        \end{array}
        `$
 
-     - If $i = 1$ to $L$ (_i.e.,_ all other layers):
+     - Otherwise (_i.e.,_ all other layers):
 
        $`
        \begin{array}{l}
-       δ_i = \mathrm{AES\text{-}CTR}\bigl(δ_{\mathrm{aes\_key}_i},
-       δ_{\mathrm{iv}_i}, δ_{i-1} \bigr)
+       δ_i = \mathrm{Lioness.Enc}\bigl(δ_{\mathrm{key}_i}, δ_{i+1} \bigr)
        \end{array}
        `$
-
-   - Verify the decrypted payload $δ_{L}$:
+   2. derive the reply payload encryption key from the reply key $\tilde{k}$::
+       $`
+       \begin{array}{l}
+       δ_{\mathrm{key}_{\tilde{k}}} = \mathrm{KDF}(\text{"delta\_key"} \mid \tilde{k})\\
+       \end{array}
+       `$
+      and decrypt the final layer:
+      $`
+      B = \mathsf{Lioness.Dec}(δ_{\mathrm{key}_{\tilde{k}}}, δ_0)
+      `$
+   
+   - Verify the decrypted payload $B$:
 
      $`
      \begin{array}{l}
-     δ_L{}_{[0\ldots{κ} - 1]} \stackrel{?}{=} 0_{κ}
+     B{}_{[0\ldots{κ} - 1]} \stackrel{?}{=} 0_{κ}
      \end{array}
      `$
 
-     If the check fails, discard $δ_{L}$ and terminate processing.
+     If the check fails, discard $B$ and terminate processing.
 
 3. **Recover Reply Message**
 
-   - Extract rest of the bytes of $δ_{L}$ as the padded reply message $m$:
+   - Extract rest of the bytes of $B$ as the padded reply message $m$:
 
      $`
      \begin{array}{l}
-     m = δ_L{}_{[κ\ldots]}
+     m = B{}_{[κ\ldots]}
      \end{array}
      `$
 
@@ -1443,6 +1449,7 @@ The core Mix Protocol&mdash;comprising anonymous routing through a sequence of m
 - **Metadata protection**: All messages are fixed in size and indistinguishable on the wire. Sphinx packets reveal only the immediate next hop and delay to each mix node. No intermediate node learns its position in the path or the total path length.
 - **Traffic analysis resistance**: Continuous-time mixing with randomized per-hop delays reduces the risk of timing correlation and input-output linkage.
 - **Per-hop confidentiality and integrity**: Each hop decrypts only its assigned layer of the Sphinx packet and verifies header integrity via a per-hop MAC.
+- **Payload confidentiality and integrity**: Payload confidentiality and integrity are provided by the use of zero-prfix and the LIONESS wide-block encryption scheme. For more details see the [mix-lioness specification](./mix-lioness.md).
 - **No long-term state**: All routing is stateless. Mix nodes do not maintain per-message metadata, reducing the surface for correlation attacks.
 
 These guarantees hold only within the boundaries of the Mix Protocol.
