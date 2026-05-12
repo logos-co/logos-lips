@@ -978,6 +978,8 @@ After successful deserialization, the mix node performs the following steps:
    The table MAY be flushed when the node rotates its private key.
    Implementations SHOULD perform this cleanup securely and automatically.
 
+   Note: This check also enforces SURB single-use defined in [Section 8.7](#87-single-use-reply-blocks). A reused SURB produces a duplicate tag at the first return-path node and is discarded.
+
 3. **Check Header Integrity**
 
    - Derive the MAC key from the session secret $s$:
@@ -1225,7 +1227,7 @@ Once the node determines its role as an exit following the steps in [Section 8.6
 
 A Single-Use Reply Block (SURB) allows the recipient of a Sphinx packet to send a reply without learning the sender's identity, the return mix path, or any forwarding delays.
 
-A SURB MUST be used at most once. Reusing a SURB allows nodes on the return path to link multiple replies back to the original sender.
+The recipient MUST NOT use the same SURB more than once. Reusing a SURB would allow nodes on the return path to link multiple replies back to the original sender. The single-use requirement is enforced by the replay protection of [Section 8.6.1](#861-shared-preprocessing) Step 2.
 
 A SURB encodes a complete Sphinx header for a return path, a symmetric reply key, and a unique reply identifier. The initiating node constructs one or more SURBs and embeds them in the outgoing Sphinx packet payload. The recipient uses a SURB to reply — only the original sender can decrypt the reply.
 
@@ -1285,7 +1287,7 @@ To construct each SURB, the initiating node MUST perform the following steps:
    \begin{array}{l}
    β_{L-1} = \mathrm{AES\text{-}CTR}\bigl(β_{\mathrm{aes\_key}_{L-1}},
    β_{\mathrm{iv}_{L-1}},
-   0_{tκ} \mid \mathrm{id} \mid 0_{(((t+1)(r-L))+1)κ}
+   0_{tκ-2} \mid 0_2 \mid \mathrm{id} \mid 0_{(((t+1)(r-L))+1)κ}
    \bigr) \bigm| Φ_{L-1}
    \end{array}
    `$
@@ -1323,6 +1325,7 @@ Once the destination responds with a reply message, the Exit Layer MUST perform 
 3. **Assemble and Transmit Reply Packet**
 
    Assemble the Sphinx packet using the SURB header $(α, β, γ)$ and encrypted payload $δ$ from step 2, following the packet format defined in [Section 8.5.2](#852-construction-steps) Step 3.e. Serialize and transmit packet to $\mathrm{hop}_0$ (retrieved from the SURB) via a libp2p stream negotiated under the `"/mix/1.0.0"` protocol identifier.
+   Discard the SURB.
 
 #### 8.7.4 SURB Reply Processing
 
