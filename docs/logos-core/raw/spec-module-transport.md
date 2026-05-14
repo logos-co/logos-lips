@@ -43,9 +43,10 @@ semantics that would apply in direct mode.
 
 ## 1. Message Envelope
 
-All messages are CBOR-encoded maps, each wrapped in a CBOR tag that
-identifies the message type. Tags are in the range 100-109 (unassigned
-first-come-first-served range in the CBOR tag registry).
+All messages are CBOR-encoded maps.
+Each top-level message map carries a required compact message-kind field at
+integer key `0`.
+This field identifies the transport message type.
 
 ### 1.1 Primitive Types
 
@@ -62,20 +63,30 @@ call-id           = uint
 subscription-id   = uint
 capability-token  = bstr .size 16
 schema-version    = [uint, uint]           ; [major, minor]
+message-kind      = 0..7
+
+message-kind-hello       = 0
+message-kind-request     = 1
+message-kind-response    = 2
+message-kind-subscribe   = 3
+message-kind-unsubscribe = 4
+message-kind-event       = 5
+message-kind-error       = 6
+message-kind-cancel      = 7
 ```
 
 ### 1.2 Message Types
 
-| Tag | Type        | Direction        | Purpose                            |
-|-----|-------------|------------------|------------------------------------|
-| 100 | Hello       | Both             | Connection handshake               |
-| 101 | Request     | Caller -> Callee | Method invocation                  |
-| 102 | Response    | Callee -> Caller | Method result or error             |
-| 103 | Subscribe   | Caller -> Callee | Register for event notifications   |
-| 104 | Unsubscribe | Caller -> Callee | Cancel event subscription          |
-| 105 | Event       | Callee -> Caller | Async event notification           |
-| 106 | Error       | Either           | Protocol-level error               |
-| 107 | Cancel      | Caller -> Callee | Abort an in-flight request         |
+| Kind | Type        | Direction        | Purpose                            |
+|------|-------------|------------------|------------------------------------|
+| 0    | Hello       | Both             | Connection handshake               |
+| 1    | Request     | Caller -> Callee | Method invocation                  |
+| 2    | Response    | Callee -> Caller | Method result or error             |
+| 3    | Subscribe   | Caller -> Callee | Register for event notifications   |
+| 4    | Unsubscribe | Caller -> Callee | Cancel event subscription          |
+| 5    | Event       | Callee -> Caller | Async event notification           |
+| 6    | Error       | Either           | Protocol-level error               |
+| 7    | Cancel      | Caller -> Callee | Abort an in-flight request         |
 
 ### 1.3 Message Definitions
 
@@ -97,12 +108,13 @@ in section 10.2.
 ; -- Hello --
 ; Sent by caller after opening socket. Callee responds with its own Hello.
 
-hello = #6.100({
+hello = {
+    0:        message-kind-hello,
     protocol: protocol-version,
     module:   module-name,
     version:  schema-version,
     token:    capability-token,
-})
+}
 
 
 ; -- Request --
@@ -111,11 +123,12 @@ hello = #6.100({
 ; The transport layer uses a generic map type here; schema validation
 ; happens at the module layer against the concrete request type.
 
-request = #6.101({
+request = {
+    0:      message-kind-request,
     id:     call-id,
     method: method-name,
     params: { * tstr => any },
-})
+}
 
 
 ; -- Response --
@@ -126,14 +139,16 @@ request = #6.101({
 ; CDDL cannot express "exactly one of two optional fields" directly.
 ; We use two variants in a choice:
 
-response = #6.102(response-ok / response-err)
+response = response-ok / response-err
 
 response-ok = {
+    0:      message-kind-response,
     id:     call-id,
     result: { * tstr => any },
 }
 
 response-err = {
+    0:     message-kind-response,
     id:    call-id,
     error: error-payload,
 }
@@ -142,17 +157,19 @@ response-err = {
 ; -- Subscribe --
 ; Register interest in a named event.
 
-subscribe = #6.103({
+subscribe = {
+    0:     message-kind-subscribe,
     id:    subscription-id,
     event: event-name,
-})
+}
 
 
 ; -- Unsubscribe --
 
-unsubscribe = #6.104({
+unsubscribe = {
+    0:  message-kind-unsubscribe,
     id: subscription-id,
-})
+}
 
 
 ; -- Event --
@@ -160,29 +177,32 @@ unsubscribe = #6.104({
 ; concrete schema is defined by the module's .cddl file (see
 ; LOGOS-MODULE-INTERFACE section 1.4). Schema validation at module layer.
 
-event = #6.105({
+event = {
+    0:     message-kind-event,
     sub:   subscription-id,
     event: event-name,
     data:  { * tstr => any },
-})
+}
 
 
 ; -- Error --
 ; Protocol-level error (not tied to a specific request).
 
-protocol-error = #6.106({
+protocol-error = {
+    0:        message-kind-error,
     code:     error-code,
     message:  tstr,
     ? detail: bstr,
-})
+}
 
 
 ; -- Cancel --
 ; Abort an in-flight request.
 
-cancel = #6.107({
+cancel = {
+    0:  message-kind-cancel,
     id: call-id,
-})
+}
 
 
 ; -- Error codes --
@@ -249,8 +269,8 @@ fast synchronous call may return before a slow one started earlier).
 All messages MUST be encoded using deterministic CBOR (dCBOR) as specified
 in LOGOS-MODULE-INTERFACE section 4.5.
 The transport layer MUST validate the message envelope:
-frame length, deterministic CBOR, known transport tag, required envelope
-fields, and envelope field types.
+frame length, deterministic CBOR, known message-kind, required envelope fields,
+and envelope field types.
 
 The transport layer treats schema payload fields (`params`, `result`, and
 `data`) as opaque CBOR maps after envelope validation.
@@ -375,8 +395,8 @@ If the callee cannot process a request, it returns a Response with an
 
 ## 5. Event Subscriptions
 
-Message definitions: see section 1.3 (Subscribe tag 103, Unsubscribe tag
-104, Event tag 105).
+Message definitions: see section 1.3 (Subscribe kind 3, Unsubscribe kind 4,
+Event kind 5).
 
 ### 5.1 Subscription Lifecycle
 
@@ -409,10 +429,13 @@ The `sub` field is scoped to the connection that created the subscription.
 The `data` field is a CBOR map matching the event's `-event` schema
 (see LOGOS-MODULE-INTERFACE section 1.4).
 
-Events are a **narrow asynchronous notification mechanism**, not a second
-RPC channel. They are intended for progress, completion, state-change, and
-other one-way notifications. Methods remain request/response. A callee MUST
-NOT require an Event message as a reply path for a method invocation.
+Events are an asynchronous one-way notification mechanism with schema-defined
+payloads, not a second RPC channel.
+They are intended for progress, completion, state-change, and other one-way
+notifications.
+Methods remain request/response.
+A callee MUST NOT require an Event message as a reply path for a method
+invocation.
 
 ### 5.3 Async Operations Pattern
 
@@ -429,7 +452,7 @@ Events are orthogonal.
 
 ## 6. Cancellation
 
-Message definition: see section 1.3 (Cancel tag 107).
+Message definition: see section 1.3 (Cancel kind 7).
 
 A caller may cancel an in-flight request by sending Cancel with the
 request's `id`. The callee SHOULD attempt to stop the operation, send a
@@ -504,7 +527,7 @@ All incoming CBOR MUST be validated before processing:
 - Reject messages exceeding the size limit with `INVALID_PARAMS`
 - Reject non-deterministic envelope CBOR (unsorted keys, non-shortest integers)
   with `INVALID_PARAMS`
-- Reject unknown or unallocated transport tags with `INVALID_PARAMS`
+- Reject unknown or unallocated message-kind values with `INVALID_PARAMS`
 - Validate required envelope fields and envelope field types
 
 The runtime MUST NOT be required to validate `params`, `result`, or `data`
@@ -583,19 +606,16 @@ offered version that cannot negotiate to 1.
 ### 10.2 Future Versions
 
 New protocol versions MAY add:
-- New message types (new tags)
+- New message kinds
 - New fields in existing message types (existing fields MUST remain)
 - New error codes
 
 Implementations MUST ignore unknown fields in known message maps.
 This is the forward-compatibility mechanism for future envelope extensions.
 
-Tags 100 through 109 are reserved for the LOGOS-MODULE-TRANSPORT protocol
-family.
-Tags 108 and 109 are unallocated in transport version 1 and reserved for
-future versions of this specification.
-Receiving an unallocated reserved tag in transport version 1 MUST yield a
-protocol error with code `INVALID_PARAMS`.
+Message-kind values 0 through 7 are allocated in transport version 1.
+Receiving an unknown or unallocated message-kind value in transport version 1
+MUST yield a protocol error with code `INVALID_PARAMS`.
 
 New protocol versions MUST NOT:
 - Remove existing message types

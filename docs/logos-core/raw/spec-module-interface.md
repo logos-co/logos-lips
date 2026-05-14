@@ -157,11 +157,14 @@ event receives it whenever the module publishes it. Event subscription is
 managed by the runtime (see LOGOS-MODULE-RUNTIME section 4) and the transport
 protocol (see LOGOS-MODULE-TRANSPORT section 5).
 
-Events are a **narrow asynchronous notification mechanism**. They are used for
-progress updates, completion notifications, state changes, and similar
-one-way signals. They are NOT a second method system: events do not return
-values, do not carry per-call correlation semantics beyond subscription, and
-MUST NOT be used as a general replacement for request/response methods.
+Events are an asynchronous one-way notification mechanism with schema-defined
+payloads.
+They are used for progress updates, completion notifications, state changes,
+and similar one-way signals.
+They are NOT a second method system:
+events do not return values, do not carry per-call correlation semantics
+beyond subscription, and MUST NOT be used as a general replacement for
+request/response methods.
 
 ### 1.5 Custom Types
 
@@ -996,7 +999,7 @@ Module C function returns logos_result_t with code != LOGOS_OK
 _dispatch() encodes error as dCBOR error-payload: {code, message, ?detail}
     |
     v
-Module host wraps in Transport Response: #6.102({id, error: {code, message, ?detail}})
+Module host wraps in Transport Response: {0: 2, id, error: {code, message, ?detail}}
     |
     v
 Caller's handle decodes Response, reconstructs logos_result_t
@@ -1009,8 +1012,9 @@ Per-method C function on caller side returns logos_result_t with the error
 `logos_result_t` directly. No encoding, no transport, no dispatch. The error
 code passes through unchanged.
 
-**Protocol-level errors** (tag 106) are distinct from method errors. Protocol
-errors indicate connection/framing problems (malformed dCBOR, unknown tag).
+**Protocol-level errors** are distinct from method errors.
+Protocol errors indicate connection/framing problems, such as malformed dCBOR
+or an unknown transport message kind.
 Method errors are carried in Response messages with the `error` field. A
 module returning `LOGOS_ERR_METHOD_NOT_FOUND` produces a Response error, not
 a protocol error.
@@ -1310,30 +1314,15 @@ instead of `logos_module_handle_t*`.
 `call_user_data` follows the same process-local callback context rules as
 the runtime-provided call-module hook.
 
-### 7.6 Generated Qt/QML Bindings
+### 7.6 Framework-Specific UI Bindings
 
-For UI modules, a codegen tool MAY produce Qt-facing bindings derived from
-the same CDDL schema. These bindings are a thin adapter layer for QML.
+A codegen tool MAY produce UI-framework-facing bindings derived from the same
+CDDL schema.
+Such bindings are derived views over the canonical module contract, not
+parallel interfaces.
 
-If generated, the bindings follow these rules:
-
-- `Q_INVOKABLE` methods are thin adapters over normal Logos
-  request/response method calls.
-- Request/response remains the primary interaction model for QML.
-- `Q_PROPERTY` declarations, if generated, are optional UI glue for reactive
-  state and are driven by normal Logos events rather than a separate UI-only
-  protocol.
-- The generated Qt layer is derived mechanically from the schema in the same
-  way as C headers, dispatch code, and client stubs.
-
-The CDDL schema remains the canonical interface definition. Qt/QML bindings
-are generated views of that schema for UI integration.
-
-The exact Qt/QML mapping is out of scope for this specification.
-This specification only requires that any generated Qt-facing layer be a
-derived view over the canonical module contract.
-Framework-specific binding details belong in downstream specifications or
-framework-specific documents, not in this core interface spec.
+The CDDL schema remains the canonical interface definition.
+Framework-specific binding details are out of scope for this specification.
 
 ### 7.7 Integration with logos-module-builder
 

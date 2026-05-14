@@ -14,7 +14,7 @@
 This specification defines how Logos modules are loaded, discovered,
 connected, and managed at runtime. It covers:
 
-- The plugin loading mechanism (replacing Qt's `QPluginLoader`)
+- The dynamic module loading mechanism
 - The service registry (how the runtime knows which modules exist)
 - Module routing (how a call from module A reaches module B)
 - Event subscription (how modules publish and receive events)
@@ -108,25 +108,24 @@ runtime loads modules using the platform's dynamic linker:
 - Linux/macOS: `dlopen(path, RTLD_NOW | RTLD_LOCAL)`
 - Windows: `LoadLibrary(path)`
 
-After loading, the runtime looks up the required symbols:
+When the runtime already knows the module name from a manifest, command-line
+argument, package metadata, or another host record, it constructs the
+module-prefixed symbol names directly:
 
 ```c
 void* lib = dlopen("storage_module.so", RTLD_NOW | RTLD_LOCAL);
 
-/* Look up the name function to identify the module */
-typedef const char* (*name_fn)(void);
-name_fn get_name = (name_fn)dlsym(lib, "logos_storage_module_name");
-const char* name = get_name();  /* "storage_module" */
-
-/* Look up remaining lifecycle symbols */
+/* Known-name load path: storage_module is already known. */
 typedef const char* (*schema_fn)(void);
 schema_fn get_schema = (schema_fn)dlsym(lib, "logos_storage_module_schema");
 
-/* ... etc for _version, _init, _destroy, _dispatch */
+/* ... etc for _name, _version, _init, _destroy, _dispatch */
 ```
 
 If any required symbol is missing, the module MUST be rejected with a
 descriptive error.
+If the runtime does not know the module name before loading, it uses the
+bootstrap strategy in section 2.2.
 
 ### 2.2 Symbol Discovery Convention
 
@@ -362,9 +361,10 @@ for each .so file in plugin_dir:
     6. dlclose(handle)  -- module is not loaded yet, only discovered
 ```
 
-This self-describing scan path has no dependency on Qt's `QPluginLoader` or
-embedded JSON metadata. Any shared library that exports `logos_module_name()`
-is discoverable without knowing its module name in advance.
+This self-describing scan path has no dependency on application-framework
+plugin loaders or embedded JSON metadata.
+Any shared library that exports `logos_module_name()` is discoverable without
+knowing its module name in advance.
 
 **The bootstrap symbol `logos_module_name()` is the sole requirement for
 self-describing discovery.** Version and schema symbols are optional at
@@ -445,7 +445,7 @@ transport configurations:
 | Caller | Callee | Mode | Notes |
 |--------|--------|------|-------|
 | (any) | storage_module | socket | Default: separate process |
-| qml_ui | storage_module | direct | Mobile: same process |
+| presenter | storage_module | direct | Mobile: same process |
 | (any) | capability_module | direct | Always in-process for security |
 
 The routing table is populated from configuration. The runtime MAY change
@@ -531,9 +531,10 @@ In **direct mode**, the module publishes events by calling a runtime-provided
 publish function. The runtime delivers to local subscribers by invoking their
 handlers directly.
 
-In **socket mode**, subscriptions are translated to Subscribe messages (tag
-103) per LOGOS-MODULE-TRANSPORT. Incoming Event messages (tag 105) are decoded
-and delivered to the handler.
+In **socket mode**, subscriptions are translated to Subscribe messages
+(message kind 3) per LOGOS-MODULE-TRANSPORT.
+Incoming Event messages (message kind 5) are decoded and delivered to the
+handler.
 
 The codegen tool MAY generate typed event subscription helpers that decode
 the CBOR and call a typed callback:
@@ -630,9 +631,9 @@ Event handlers (registered via `logos_runtime_subscribe`) are called on an
 unspecified thread. Handlers MUST be thread-safe. Handlers MUST NOT block
 for extended periods (they run on the runtime's event delivery thread).
 
-For UI integration (Qt, etc.), the runtime provides a mechanism to marshal
-event delivery to the UI thread. This is runtime-specific and not part of
-this spec.
+For host applications with a dedicated UI thread, the runtime MAY provide a
+mechanism to marshal event delivery to that thread.
+The integration mechanism is framework-specific and not part of this spec.
 
 ### 6.4 Direct Mode Concurrency
 
@@ -653,9 +654,10 @@ The runtime provides an event loop that:
 - Delivers events from modules to subscribers
 - Handles module lifecycle transitions (start, stop, crash recovery)
 
-For Qt-based UI applications, the runtime event loop integrates with Qt's
-event loop (`QCoreApplication::exec()`). For non-Qt applications, the
-runtime provides its own event loop based on `poll()`/`epoll()`/`kqueue()`.
+The runtime event loop MAY integrate with an event loop owned by the host
+application.
+The integration mechanism is framework-specific and not part of this spec.
+When no host event loop is provided, the runtime provides its own event loop.
 
 ### 7.2 Module Event Loop
 
@@ -687,14 +689,17 @@ CDDL, for example `storage.started-event` or
 
 The runtime delivers the event to all subscribers (local or remote). In
 socket mode, the module host translates `logos_publish_fn` calls into Event
-messages (tag 105) on all connections with matching subscriptions.
+messages (message kind 5) on all connections with matching subscriptions.
 If multiple caller connections have matching subscriptions, each connection
 MUST receive an Event message for its own matching subscription IDs.
 
-This publish path is for **narrow asynchronous notifications** only. Modules
-use it for progress, completion, and state-change signals. It is not a
-general outbound method mechanism and does not replace normal
+This publish path is for asynchronous one-way notifications with
+schema-defined event payloads.
+Modules use it for progress, completion, state-change, and similar signals.
+It is not a general outbound method mechanism and does not replace normal
 request/response dispatch.
+Publishing an event does not create a response obligation for subscribers, and
+modules MUST NOT model request/reply flows through events.
 
 ### 7.4 How Modules Receive the Publish Function
 
@@ -927,9 +932,9 @@ modules.
 
 ---
 
-## 11. CBOR-to-Qt Bridge (UI Modules)
+## 11. UI Bridge (UI Modules)
 
-Qt/QML bridge details are out of scope for this specification.
+UI bridge details are out of scope for this specification.
 They belong in downstream specifications or framework-specific documents.
 
 The only runtime-level requirement is that any such bridge preserve the
