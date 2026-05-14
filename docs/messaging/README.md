@@ -3,7 +3,7 @@
 Logos Messaging builds a family of privacy-preserving,
 censorship-resistant communication protocols for web3 applications.
 
-Contributors can visit [Messaging LIPs](https://github.com/waku-org/specs)
+Contributors can visit [Messaging LIPs](https://github.com/logos-co/logos-lips)
 for new Messaging specifications under discussion.
 
 <div class="landing-hero">

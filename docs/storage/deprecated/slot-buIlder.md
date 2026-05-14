@@ -14,6 +14,7 @@
 
 ## Timeline
 
+- **2026-04-20** — [`c3d15a9`](https://github.com/logos-co/logos-lips/blob/c3d15a9c7c24b4d6b0eb4fb578f9670ede6f69b0/docs/storage/deprecated/slot-buIlder.md) — COSS overhaul: new statuses, CFR type, raw-spec leniency (#308)
 - **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/storage/deprecated/slot-buIlder.md) — chore: add math support (#287)
 - **2026-01-22** — [`e356a07`](https://github.com/logos-co/logos-lips/blob/e356a076aea06653764515babc71c8d69b26358d/docs/storage/deprecated/slot-buIlder.md) — Chore/add makefile (#271)
 - **2026-01-22** — [`af45aae`](https://github.com/logos-co/logos-lips/blob/af45aae01271637142fa931e673dc7c8627f480e/docs/storage/deprecated/slot-buIlder.md) — chore: deprecate Marketplace-related specs (#268)
@@ -51,7 +52,7 @@ The prepared dataset is presented to storage providers in the form of slots.
 A slot represents the location of a data block cell with an open storage contract.
 Storage providers SHOULD be able to locate a specific data block and
 all the details of the storage contract.
-See, the [CODEX-MARKETPLACE](./codex-marketplace.md) specification.
+See, the [CODEX-MARKETPLACE](codex-marketplace.md) specification.
 
 ### Construct a Slot Tree
 
@@ -144,5 +145,5 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 ## References
 
 - [CODEX-ERASURE-CODING](erasure-coding.md)
-- [CODEX-MARKETPLACE](./codex-marketplace.md)
+- [CODEX-MARKETPLACE](codex-marketplace.md)
 - [Poseidon2](https://eprint.iacr.org/2023/323)

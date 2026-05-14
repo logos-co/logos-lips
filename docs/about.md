@@ -1,7 +1,7 @@
 # About
 
-The Logos LIP Index collects specifications maintained by IFT-TS across Messaging, Blockchain,
-and Storage. Each RFC documents a protocol, process, or system in a
+The Logos LIP Index collects specifications maintained by Logos Research across Messaging, Blockchain,
+Storage, and AnonComms. Each RFC documents a protocol, process, or system in a
 consistent, reviewable format.
 
 This site is generated with mdBook from the repository:
@@ -21,6 +21,6 @@ pull requests.
 
 ## Links
 
-- IFT-TS: <https://vac.dev>
+- Logos Research: <https://vac.dev>
 - IETF RFC Series: <https://www.rfc-editor.org/>
 - Repository: <https://github.com/logos-co/logos-lips>
