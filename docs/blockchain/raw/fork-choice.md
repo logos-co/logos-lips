@@ -127,19 +127,19 @@ since online nodes will be rejecting any fork that diverges before their $k$-dee
 1. $\textbf{CommonPrefixDepth}(b_1, b_2) = (0, 4)$
    implies that $b_2$ is ahead of $b_1$ by 4 blocks.
 
-![CommonPrefixDepth Example 1](./images/image1.jpeg)
+![CommonPrefixDepth Example 1](images/image1.jpeg)
 
 1. $\textbf{CommonPrefixDepth}(b_2, b_5) = (2, 3)$
    would represent a forking tree like the one illustrated below:
 
-![CommonPrefixDepth Example 2](./images/commonprefix2.jpeg)
+![CommonPrefixDepth Example 2](images/commonprefix2.jpeg)
 
 1. $\textbf{density}(b_i, d, s_{gen})$
    returns the number of blocks produced in the $s_{gen}$ slots following block $b_{i-d}$.
    For example, in the following diagram,
    count the number of blocks produced in the $s_{gen}$ slots of the highlighted area.
 
-![Density Example](./images/density.jpeg)
+![Density Example](images/density.jpeg)
 
 ### Bootstrap Fork Choice Rule
 

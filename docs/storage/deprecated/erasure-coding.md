@@ -13,6 +13,7 @@
 
 ## Timeline
 
+- **2026-04-20** — [`c3d15a9`](https://github.com/logos-co/logos-lips/blob/c3d15a9c7c24b4d6b0eb4fb578f9670ede6f69b0/docs/storage/deprecated/erasure-coding.md) — COSS overhaul: new statuses, CFR type, raw-spec leniency (#308)
 - **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/storage/deprecated/erasure-coding.md) — chore: add math support (#287)
 - **2026-01-22** — [`e356a07`](https://github.com/logos-co/logos-lips/blob/e356a076aea06653764515babc71c8d69b26358d/docs/storage/deprecated/erasure-coding.md) — Chore/add makefile (#271)
 - **2026-01-22** — [`af45aae`](https://github.com/logos-co/logos-lips/blob/af45aae01271637142fa931e673dc7c8627f480e/docs/storage/deprecated/erasure-coding.md) — chore: deprecate Marketplace-related specs (#268)
@@ -120,7 +121,7 @@ The content of the protected manifest below, see CODEX-MANIFEST for more informa
 ```
 
 After the encoding process,
-is ready to be stored on the network via the [CODEX-MARKETPLACE](./codex-marketplace.md).
+is ready to be stored on the network via the [CODEX-MARKETPLACE](codex-marketplace.md).
 The Merkle tree root SHOULD be included in the manifest so other nodes are able to locate and
 reconstruct a dataset from the erasure encoded blocks.
 
@@ -132,7 +133,7 @@ reconstruct the merkle tree.
 When a missing branch of the tree is not retrievable from an SP, data repair will be REQUIRED.
 The validator will open a request for a new SP to reconstruct the Merkle tree and
 store the missing data blocks.
-The validator role is described in the [CODEX-MARKETPLACE](./codex-marketplace.md) specification.
+The validator role is described in the [CODEX-MARKETPLACE](codex-marketplace.md) specification.
 
 ### Decode Data
 
@@ -172,4 +173,4 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 
 - [Leapard Codec](https://github.com/catid/leopard)
 - CODEX-MANIFEST
-- [CODEX-MARKETPLACE](./codex-marketplace.md)
+- [CODEX-MARKETPLACE](codex-marketplace.md)

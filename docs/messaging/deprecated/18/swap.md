@@ -13,6 +13,7 @@
 
 ## Timeline
 
+- **2026-04-20** — [`c3d15a9`](https://github.com/logos-co/logos-lips/blob/c3d15a9c7c24b4d6b0eb4fb578f9670ede6f69b0/docs/messaging/deprecated/18/swap.md) — COSS overhaul: new statuses, CFR type, raw-spec leniency (#308)
 - **2026-02-09** — [`afd94c8`](https://github.com/logos-co/logos-lips/blob/afd94c8bc1420376ae9af7e14a4feb246f2ed621/docs/messaging/deprecated/18/swap.md) — chore: add math support (#287)
 - **2026-01-16** — [`f01d5b9`](https://github.com/logos-co/logos-lips/blob/f01d5b9d9f2ef977b8c089d616991b24f2ee4efe/docs/messaging/deprecated/18/swap.md) — chore: fix links (#260)
 - **2026-01-16** — [`89f2ea8`](https://github.com/logos-co/logos-lips/blob/89f2ea89fc1d69ab238b63c7e6fb9e4203fd8529/docs/messaging/deprecated/18/swap.md) — Chore/mdbook updates (#258)
@@ -234,7 +235,7 @@ peers. No disconnect or sending of cheques is performed at this tage.
 
 SWAP protocol is performed in conjunction with another request-reply protocol
 to account for its usage.
-It SHOULD be done for [13/WAKU2-STORE](../../standards/core/13/store.md)
+It SHOULD be done for [13/WAKU2-STORE](../../draft/13/store.md)
 and it MAY be done for other request/reply protocols.
 
 A client SHOULD log accounting state per peer
@@ -268,7 +269,7 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 1. [Prisoner's Dilemma](https://en.wikipedia.org/wiki/Prisoner%27s_dilemma)
 2. [Axelrod - Evolution of Cooperation (book)](https://en.wikipedia.org/wiki/The_Evolution_of_Cooperation)
 3. [Book of Swarm](https://web.archive.org/web/20210126130038/https://gateway.ethswarm.org/bzz/latest.bookofswarm.eth)
-4. [13/WAKU2-STORE](../../standards/core/13/store.md)
+4. [13/WAKU2-STORE](../../draft/13/store.md)
 
 <!--
 

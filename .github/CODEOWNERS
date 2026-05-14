@@ -1,1 +1,4 @@
 * @Cofson @fbarbu15
+
+# Raw specs do not require CODEOWNER review.
+/docs/**/raw/
