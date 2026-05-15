@@ -6,8 +6,8 @@
 | Slug | 148 |
 | Status | raw |
 | Category | Standards Track |
-| Editor | Mehmet Gonen <mehmet@status.im> |
-| Contributors | Álvaro Castro-Castilla <alvaro@status.im>, Thomas Lavaur <thomaslavaur@status.im>, Daniel Kashepava <danielkashepava@status.im>, Marcin Pawlowski <marcin@status.im>, Daniel Sanchez Quiros <danielsq@status.im>, Filip Dimitrijevic <filip@status.im> |
+| Editor | Mehmet Gonen <mehmet@logos.co> |
+| Contributors | Álvaro Castro-Castilla <alvaro@logos.co>, Thomas Lavaur <thomaslavaur@logos.co>, Daniel Kashepava <danielkashepava@logos.co>, Marcin Pawlowski <marcin@logos.co>, Daniel Sanchez Quiros <danielsq@logos.co>, Filip Dimitrijevic <filip@logos.co> |
 
 <!-- timeline:start -->
 

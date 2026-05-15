@@ -6,8 +6,8 @@
 | Slug | 149 |
 | Status | raw |
 | Category | Standards Track |
-| Editor | Marcin Pawlowski <marcin@status.im> |
-| Contributors | Alexander Mozeika <alexander.mozeika@status.im>, Mehmet Gonen <mehmet@status.im>, Daniel Sanchez Quiros <danielsq@status.im>, Álvaro Castro-Castilla <alvaro@status.im>, Filip Dimitrijevic <filip@status.im> |
+| Editor | Marcin Pawlowski <marcin@logos.co> |
+| Contributors | Alexander Mozeika <alexander.mozeika@logos.co>, Mehmet Gonen <mehmet@logos.co>, Daniel Sanchez Quiros <danielsq@logos.co>, Álvaro Castro-Castilla <alvaro@logos.co>, Filip Dimitrijevic <filip@logos.co> |
 
 <!-- timeline:start -->
 

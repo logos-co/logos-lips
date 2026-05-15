@@ -6,8 +6,8 @@
 | Slug | 134 |
 | Status | raw |
 | Category | networking |
-| Editor | Daniel Sanchez-Quiros <danielsq@status.im> |
-| Contributors | Álvaro Castro-Castilla <alvaro@status.im>, Petar Radovic <petar@status.im>, Gusto Bacvinka <augustinas@status.im>, Antonio Antonino <antonio@status.im>, Youngjoon Lee <youngjoon@status.im>, Filip Dimitrijevic <filip@status.im> |
+| Editor | Daniel Sanchez-Quiros <danielsq@logos.co> |
+| Contributors | Álvaro Castro-Castilla <alvaro@logos.co>, Petar Radovic <petar@logos.co>, Gusto Bacvinka <augustinas@logos.co>, Antonio Antonino <antonio@logos.co>, Youngjoon Lee <youngjoon@logos.co>, Filip Dimitrijevic <filip@logos.co> |
 
 <!-- timeline:start -->
 

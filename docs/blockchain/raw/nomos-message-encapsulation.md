@@ -7,7 +7,7 @@
 | Status | raw |
 | Category | Standards Track |
 | Editor | Marcin Pawlowski |
-| Contributors | Youngjoon Lee <youngjoon@status.im>, Alexander Mozeika <alexander.mozeika@status.im>, Mehmet Gonen <mehmet@status.im>, Álvaro Castro-Castilla <alvaro@status.im>, Daniel Kashepava <danielkashepava@status.im>, Daniel Sanchez Quiros <danielsq@status.im>, Filip Dimitrijevic <filip@status.im> |
+| Contributors | Youngjoon Lee <youngjoon@logos.co>, Alexander Mozeika <alexander.mozeika@logos.co>, Mehmet Gonen <mehmet@logos.co>, Álvaro Castro-Castilla <alvaro@logos.co>, Daniel Kashepava <danielkashepava@logos.co>, Daniel Sanchez Quiros <danielsq@logos.co>, Filip Dimitrijevic <filip@logos.co> |
 
 <!-- timeline:start -->
 

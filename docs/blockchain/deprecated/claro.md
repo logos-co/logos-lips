@@ -7,7 +7,7 @@
 | Status | deprecated |
 | Type | RFC |
 | Category | Standards Track |
-| Editor | Corey Petty <corey@status.im> |
+| Editor | Corey Petty <corey@logos.co> |
 | Contributors | Álvaro Castro-Castilla, Mark Evenson |
 
 <!-- timeline:start -->

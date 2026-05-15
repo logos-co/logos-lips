@@ -6,8 +6,8 @@
 | Slug | 96 |
 | Status | raw |
 | Category | Standards Track |
-| Editor | Youngjoon Lee <youngjoon@status.im> |
-| Contributors | David Rusu <david@status.im>, Giacomo Pasini <giacomo@status.im>, Álvaro Castro-Castilla <alvaro@status.im>, Daniel Sanchez Quiros <daniel@status.im>, Filip Dimitrijevic <filip@status.im> |
+| Editor | Youngjoon Lee <youngjoon@logos.co> |
+| Contributors | David Rusu <david@logos.co>, Giacomo Pasini <giacomo@logos.co>, Álvaro Castro-Castilla <alvaro@logos.co>, Daniel Sanchez Quiros <daniel@logos.co>, Filip Dimitrijevic <filip@logos.co> |
 
 <!-- timeline:start -->
 

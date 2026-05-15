@@ -6,8 +6,8 @@
 | Slug | 94 |
 | Status | raw |
 | Category | Standards Track |
-| Editor | David Rusu <davidrusu@status.im> |
-| Contributors | Alexander Mozeika <alexander.mozeika@status.im>, Daniel Kashepava <danielkashepava@status.im>, Filip Dimitrijevic <filip@status.im> |
+| Editor | David Rusu <davidrusu@logos.co> |
+| Contributors | Alexander Mozeika <alexander.mozeika@logos.co>, Daniel Kashepava <danielkashepava@logos.co>, Filip Dimitrijevic <filip@logos.co> |
 
 <!-- timeline:start -->
 

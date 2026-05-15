@@ -6,8 +6,8 @@
 | Slug | 147 |
 | Status | raw |
 | Category | Standards Track |
-| Editor | David Rusu <davidrusu@status.im> |
-| Contributors | Jimmy Debe <jimmy@status.im>, Filip Dimitrijevic <filip@status.im> |
+| Editor | David Rusu <davidrusu@logos.co> |
+| Contributors | Jimmy Debe <jimmy@logos.co>, Filip Dimitrijevic <filip@logos.co> |
 
 <!-- timeline:start -->
 

@@ -6,8 +6,8 @@
 | Slug | 97 |
 | Status | raw |
 | Category | Standards Track |
-| Editor | Marcin Pawlowski <marcin@status.im> |
-| Contributors | Youngjoon Lee <youngjoon@status.im>, Alexander Mozeika <alexander.mozeika@status.im>, Álvaro Castro-Castilla <alvaro@status.im>, Filip Dimitrijevic <filip@status.im> |
+| Editor | Marcin Pawlowski <marcin@logos.co> |
+| Contributors | Youngjoon Lee <youngjoon@logos.co>, Alexander Mozeika <alexander.mozeika@logos.co>, Álvaro Castro-Castilla <alvaro@logos.co>, Filip Dimitrijevic <filip@logos.co> |
 
 <!-- timeline:start -->
 

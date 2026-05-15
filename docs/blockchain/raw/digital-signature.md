@@ -6,8 +6,8 @@
 | Slug | 150 |
 | Status | raw |
 | Category | Standards Track |
-| Editor | Jimmy Debe <jimmy@status.im> |
-| Contributors | Filip Dimitrijevic <filip@status.im> |
+| Editor | Jimmy Debe <jimmy@logos.co> |
+| Contributors | Filip Dimitrijevic <filip@logos.co> |
 
 <!-- timeline:start -->
 

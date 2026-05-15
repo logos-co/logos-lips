@@ -6,8 +6,8 @@
 | Slug | 146 |
 | Status | raw |
 | Category | Informational |
-| Editor | David Rusu <davidrusu@status.im> |
-| Contributors | Álvaro Castro-Castilla <alvaro@status.im>, Daniel Kashepava <danielkashepava@status.im>, Filip Dimitrijevic <filip@status.im> |
+| Editor | David Rusu <davidrusu@logos.co> |
+| Contributors | Álvaro Castro-Castilla <alvaro@logos.co>, Daniel Kashepava <danielkashepava@logos.co>, Filip Dimitrijevic <filip@logos.co> |
 
 <!-- timeline:start -->
 
