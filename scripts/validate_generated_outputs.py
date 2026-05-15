@@ -16,7 +16,7 @@ from validate_metadata import DOCS, ROOT, discover_docs, read_doc
 SUMMARY = DOCS / "SUMMARY.md"
 INDEX = DOCS / "logos-lips.json"
 EXCLUDE_INDEX_PARTS = {"previous-versions"}
-SUMMARY_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+\.md(?:#[^)]+)?)\)")
+SUMMARY_LINK_RE = re.compile(r"\[(?:\\.|[^\]\\])+\]\(([^)]+\.md(?:#[^)]+)?)\)")
 
 
 def parse_summary_links() -> Tuple[set[Path], List[str]]:
