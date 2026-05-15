@@ -1324,41 +1324,126 @@ send `ads` for random services or from diverse IPs.
 
 To prevent "ticket grinding" attacks where advertisers
 repeatedly request new tickets hoping for better waiting times,
-registrars MUST enforce lower bounds:
+registrars MUST enforce lower bounds.
 
-Invariant: A new waiting time `w_2` at time `t_2`
-cannot be smaller than a previous waiting time `w_1` at time `t_1`
-(where `t_1 < t_2`) by more than the elapsed time:
+Invariant: a newly issued waiting time at time `t_current`
+MUST NOT be smaller than a previously issued waiting time
+by more than the elapsed time since that waiting time was issued.
+
+Formally:
 
 ```text
-w_2 ≥ w_1 - (t_2 - t_1)
+w_new ≥ w_previous - (t_current - t_previous)
 ```
 
-Thus registrars MUST maintain lower bound state for:
+For each `service_id_hash`, the registrar MUST maintain:
 
-- Each service in the cache: `bound(service_id_hash)` and `timestamp(service_id_hash)`
-- Each IP prefix in the IP tree: `bound(IP)` and `timestamp(IP)`
+- `bound(service_id_hash)`: the last issued waiting time
+- `timestamp(service_id_hash)`: the time at which the waiting time was issued
 
-The total waiting time will respect the lower bound if lower bound is enforced on these.
-These two sets have a bounded size as number of `ads` present in the `ad_cache`
-at a time is bounded by the cache capacity `C`.
+For each `IP` in the IP tree, the registrar MUST maintain:
 
-**How SHOULD lower bound be calculated for service IDs:**
+- `bound(IP)`: the last issued waiting time
+- `timestamp(IP)`: the time at which the waiting time was issued
 
-When new `service_id_hash` enters the cache, `bound(service_id_hash)` is set to `0`,
-and a `timestamp(service_id_hash)` is set to the current time.
-When a new ticket request arrives for the same `service_id_hash`,
-the registrar calculates the service waiting time `w_s` and then applies the lower-bound rule:
+The final waiting time respects the lower bound only if
+both service-level and IP-level bounds are enforced.
 
-`w_s = max(w_s, bound(service_id_hash) - timestamp(service_id_hash))`
+Service-level entries are bounded by the number of distinct
+`service_id_hash` values currently tracked in the registrar state.
 
-The values `bound(service_id_hash)` and `timestamp(service_id_hash)`
-are updated whenever a new `ticket` is issued
-and the condition `w_s > (bound(service_id_hash) - timestamp(service_id_hash))`is satisfied.
+IP-level entries are bounded by the number of distinct `IPs`
+present in advertisements currently tracked in the registrar state.
 
-**How SHOULD lower bound be calculated for IPs:**
-Registrars enforce lower-bound state for the advertiser’s IP address using IP tree
-(refer to the [IP Similarity Score section](#ip-similarity-score)).
+**Lower bounds SHOULD be calculated as follows:**
+
+When a `service_id_hash` first enters the registrar state,
+the registrar sets:
+
+```text
+bound(service_id_hash) = 0
+timestamp(service_id_hash) = current_time
+```
+
+When an IP first enters the registrar state,
+the registrar sets:
+
+```text
+bound(IP) = 0
+timestamp(IP) = current_time
+```
+
+When a new ticket request arrives at time `t_current`,
+the registrar first calculates the base waiting time `w_base`
+using the [waiting time formula](#formula).
+
+For the corresponding `service_id_hash`,
+the registrar calculates the elapsed time since the bound
+was last updated:
+
+```text
+elapsed_service_time =
+  t_current - timestamp(service_id_hash)
+```
+
+It then calculates the remaining service-level lower bound:
+
+```text
+remaining_service_bound =
+  bound(service_id_hash) - elapsed_service_time
+```
+
+`remaining_service_bound` MAY be negative if the elapsed time
+exceeds the previous bound. This is expected and MUST NOT
+be clamped to zero.
+
+The service-level waiting time is then calculated as:
+
+```text
+w_service =
+  max(w_base, remaining_service_bound)
+```
+
+After the ticket is issued, the registrar updates the
+service-level lower-bound state only if the base waiting time
+exceeds the remaining service-level bound:
+
+```text
+if w_base > remaining_service_bound:
+  bound(service_id_hash) = w_service
+  timestamp(service_id_hash) = t_current
+```
+
+The same logic is applied for each IP associated with
+the advertisement:
+
+```text
+elapsed_ip_time =
+  t_current - timestamp(IP)
+
+remaining_ip_bound =
+  bound(IP) - elapsed_ip_time
+
+w_ip =
+  max(w_base, remaining_ip_bound)
+
+if w_base > remaining_ip_bound:
+  bound(IP) = w_ip
+  timestamp(IP) = t_current
+```
+
+The final waiting time issued in the ticket is the maximum
+of the service-level and IP-level waiting times:
+
+```text
+w_final = max(w_service, w_ip_1, w_ip_2, ...)
+```
+
+The lower-bound state is removed when the corresponding
+entry expires.
+
+This ensures that the final issued waiting time respects
+both the service-level and IP-level lower-bound rules.
 
 ## Implementation Notes
 
