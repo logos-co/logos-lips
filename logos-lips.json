@@ -757,6 +757,15 @@
   },
   {
     "component": "messaging",
+    "slug": "183",
+    "title": "ConversationTypes",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-05-14",
+    "path": "messaging/raw/conversationtypes.html"
+  },
+  {
+    "component": "messaging",
     "slug": "19",
     "title": "Waku v2 Light Push",
     "status": "draft",
