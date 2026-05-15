@@ -6,8 +6,8 @@
 | Slug | 136 |
 | Status | raw |
 | Category | Standards Track |
-| Editor | Daniel Sanchez Quiros <danielsq@status.im> |
-| Contributors | Álvaro Castro-Castilla <alvaro@status.im>, Daniel Kashepava <danielkashepava@status.im>, Gusto Bacvinka <augustinas@status.im>, Filip Dimitrijevic <filip@status.im> |
+| Editor | Daniel Sanchez Quiros <danielsq@logos.co> |
+| Contributors | Álvaro Castro-Castilla <alvaro@logos.co>, Daniel Kashepava <danielkashepava@logos.co>, Gusto Bacvinka <augustinas@logos.co>, Filip Dimitrijevic <filip@logos.co> |
 
 <!-- timeline:start -->
 

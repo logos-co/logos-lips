@@ -6,8 +6,8 @@
 | Slug | 90 |
 | Status | raw |
 | Category | Standards Track |
-| Editor | David Rusu <davidrusu@status.im> |
-| Contributors | Hong-Sheng Zhou, Thomas Lavaur <thomaslavaur@status.im>, Marcin Pawlowski <marcin@status.im>, Mehmet Gonen <mehmet@status.im>, Álvaro Castro-Castilla <alvaro@status.im>, Daniel Sanchez Quiros <danielsq@status.im>, Filip Dimitrijevic <filip@status.im> |
+| Editor | David Rusu <davidrusu@logos.co> |
+| Contributors | Hong-Sheng Zhou, Thomas Lavaur <thomaslavaur@logos.co>, Marcin Pawlowski <marcin@logos.co>, Mehmet Gonen <mehmet@logos.co>, Álvaro Castro-Castilla <alvaro@logos.co>, Daniel Sanchez Quiros <danielsq@logos.co>, Filip Dimitrijevic <filip@logos.co> |
 
 <!-- timeline:start -->
 

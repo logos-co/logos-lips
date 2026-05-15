@@ -7,8 +7,8 @@
 | Status | draft |
 | Type | RFC |
 | Category | networking |
-| Editor | Daniel Sanchez-Quiros <danielsq@status.im> |
-| Contributors | Filip Dimitrijevic <filip@status.im> |
+| Editor | Daniel Sanchez-Quiros <danielsq@logos.co> |
+| Contributors | Filip Dimitrijevic <filip@logos.co> |
 
 <!-- timeline:start -->
 

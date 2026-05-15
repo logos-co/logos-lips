@@ -6,8 +6,8 @@
 | Slug | 88 |
 | Status | raw |
 | Category | Standards Track |
-| Editor | Mehmet Gonen <mehmet@status.im> |
-| Contributors | Marcin Pawlowski <marcin@status.im>, Thomas Lavaur <thomaslavaur@status.im>, Youngjoon Lee <youngjoon@status.im>, David Rusu <davidrusu@status.im>, Álvaro Castro-Castilla <alvaro@status.im>, Filip Dimitrijevic <filip@status.im> |
+| Editor | Mehmet Gonen <mehmet@logos.co> |
+| Contributors | Marcin Pawlowski <marcin@logos.co>, Thomas Lavaur <thomaslavaur@logos.co>, Youngjoon Lee <youngjoon@logos.co>, David Rusu <davidrusu@logos.co>, Álvaro Castro-Castilla <alvaro@logos.co>, Filip Dimitrijevic <filip@logos.co> |
 
 <!-- timeline:start -->
 

@@ -7,8 +7,8 @@
 | Status | raw |
 | Category | Standards Track |
 | Tags | wallet, key derivation, HD wallet, mnemonic, BIP-32, BIP-39, Poseidon2 |
-| Editor | Giacomo Pasini <giacomo@status.im> |
-| Contributors | Thomas Lavaur <thomas@status.im>, Mehmet Gonen <mehmet@status.im>, Daniel Sanchez Quiros <daniel@status.im>, Alvaro Castro-Castilla <alvaro@status.im>, Filip Dimitrijevic <filip@status.im> |
+| Editor | Giacomo Pasini <giacomo@logos.co> |
+| Contributors | Thomas Lavaur <thomas@logos.co>, Mehmet Gonen <mehmet@logos.co>, Daniel Sanchez Quiros <daniel@logos.co>, Alvaro Castro-Castilla <alvaro@logos.co>, Filip Dimitrijevic <filip@logos.co> |
 
 <!-- timeline:start -->
 
