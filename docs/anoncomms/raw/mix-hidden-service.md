@@ -1,4 +1,4 @@
-# HIDDEN-SERVICES-OVER-MiX
+# MiX-HIDDEN-SERVICES
 
 Field | Value
 --- | ---
@@ -28,6 +28,8 @@ Hidden services extend normal mixnet communication by providing anonymity to bot
 
 The main additional property of hidden services is that it allows a service to stay anonymous, meaning that an adversary cannot reliably link a content/dataset identifier (e.g. CID) to the network identity (peerId/multiaddr/IP) of the node(s) serving it.
 
+The main additional property of a hidden service is that it allows a service to be reachable without exposing its network location. More specifically, an adversary should not be able to reliably link a service identifier or descriptor to the network identity of the node or nodes operating that service.
+
 An adversary may:
 - Observe some of the network traffic,
 - Control some fraction of peers/providers,
@@ -50,9 +52,7 @@ An adversary may:
 **4.3 Assumptions**
 For the remainder of this document we will assume the existence of the following:
 
-(1) A [transport layer over mix](https://hackmd.io/@bkomuves/BkU0yrgsbe) which gives us the following:
-- An anonymous way to send data of any size over mix with integrity and some reliability guarantees (through acks and EC redundancy). 
-- A way to encode SURBS in the anonymous message payload for the recipient to reply, as well as a way to encode requests for more SURBs from the other party. Note here that the request for more SURBs can be from both sender and reciever.
+(1) A [transport layer over mix](https://hackmd.io/@bkomuves/BkU0yrgsbe) which gives us socket-like abstraction with bidirectional, ordered, and reliable streams between two anonymous endpoints. It allows parties to send data of arbitrary size over the mixnet with integrity protection and reliability mechanisms such as acks and erasure-code redundancy.
 
 (2) An Anonymous discovery with the following properties:
 - An anonymous way to query the DHT, i.e. the ability to find and retrieve a `value` that corresponds to the query `key` anonymously.
@@ -62,7 +62,6 @@ For the remainder of this document we will assume the existence of the following
 
 **4.4 Out of Scope**
 - Query privacy (hiding what dataset/block is requested) is not currently required.
-- Low latency may be relaxed for stronger anonymity guarantees. 
 
 ## 5. Background
 
@@ -111,6 +110,7 @@ $$
 $$
 
 This is usually instantiated as:
+
 $$
 \begin{aligned}
 sk &\xleftarrow{$} \mathbb{Z}_q \\
@@ -152,7 +152,7 @@ The signature scheme with key blinding must satisfy two main security requiremen
 - Without $sk'$, it is infeasible to forge signatures that verify under $pk'$.
 - Different values of $r$ yield different blinded keys, except with negligible probability.
 
-For more in-depth discussion and analysis of the security requirements for signature schemes with key blinding, refer to [Eaton et al.](https://eprint.iacr.org/2023/380.pdf) and [Celi et al.](https://eprint.iacr.org/2023/1524.pdf) In [the appendix](#appendix), we provide a concrete construction of a signature scheme with key blinding based on ECDSA, and Ed25519. 
+For more in-depth discussion and analysis of the security requirements for signature schemes with key blinding, refer to [Eaton et al.](https://eprint.iacr.org/2023/380.pdf) and [Celi et al.](https://eprint.iacr.org/2023/1524.pdf) In [the appendix](#appendix), we provide a concrete construction of a signature scheme with key blinding based on Ed25519. 
 
 **Hash Function**
 Let $H(\cdot)$ be a *preimage resistant*, *second-preimage resistant*, and *collision resistant* cryptographic hash function:
@@ -381,8 +381,6 @@ Without a MAC derived from a unique session key, an attacker could:
 - Replay the exact same signed `EstablishIntro` on a different intro point leading to unauthorized registration of introduction points.
 - Cause clients to use attacker-controlled or invalid introduction points. 
 
-**Bandwidth Optimization**
-An optimization to reduce bandwidth (although slightly) is to remove the `auth_mac` from the `EstablishIntro` message. The intro point can compute `auth_mac` from the message content and the shared secret/key. Then, the signature can be checked against the concatenation of message content and the computed `auth_mac`. Therefore, the `EstablishIntro` message in this case would only contain `auth_key` and `signature` (slightly) reducing the size of the message. Unless bandwidth is especially constrained, keeping auth_mac explicit is preferred.
 
 **`EstablishIntro` message extensions**
 Note that the above content can be extended to support the following:
@@ -393,7 +391,7 @@ Note that the above content can be extended to support the following:
 
 
 ### 7.2 Processing `EstablishIntro` by intro points
-On receiving an EetablishIntro message, the mix node will verify the signature `sig` using `auth_key`, and verify the MAC `auth_mac` using the shared key `s`. The mix node must reject the `EstablishIntro` message and drop the received packet in the following cases:
+On receiving an `EstablishIntro` message, the mix node will verify the signature `sig` using `auth_key`, and verify the MAC `auth_mac` using the shared key `s`. The mix node must reject the `EstablishIntro` message and drop the received packet in the following cases:
 - The key `auth_key` or signature `sig` are malformed or unsupported.
 - The signature is invalid.
 - The MAC `auth_mac` is invalid.
@@ -459,23 +457,70 @@ Optionally, the human-readable string `.mix` may be appended:
 ```
 
 ### 8.2 Periodic descriptor publication
-Descriptors must be published periodically to the discovery/DHT network. Every time a hidden service publishes its descriptor, it sets a `validity` time e.g. 60 minutes. After that `validity` time window, the hidden service needs to republish its descriptor to discovery/DHT. 
+Descriptors must be published periodically to the discovery/DHT network. Every time a hidden service publishes its descriptor, it sets a `validity` time e.g. 180 minutes (3 hours). The purpose of periodic publication is to ensure that the descriptor is "fresh". Before that `validity` time window, the hidden service needs to republish its descriptor to discovery/DHT.
 
-The purpose of periodic publication is to ensure that the descriptor is stored at different locations over time, so that the same small set of discovery nodes does not remain responsible for the service indefinitely. This makes targeted denial-of-service (DOS) attacks against the hidden service more difficult.
+Aside from this validity time window, we have epochs which decide where the descritor is stored in the DHT. I.e., the descriptor is stored at different locations over time, so that the same small set of discovery nodes does not remain responsible for the service indefinitely. This makes targeted denial-of-service (DOS) attacks against the hidden service more difficult.
 
-Discovery provides a `key -> value` mapping, where the `key` determines the region of the DHT in which the mapping is stored. Only discovery nodes whose identifiers are close to that key (in the DHT space) are expected to store the descriptor. Therefore, that `key` must be different on each republication. 
+Discovery provides a `key -> value` mapping, where the `key` determines the region of the DHT in which the mapping is stored. Only discovery nodes whose identifiers are close to that key (in the DHT space) are expected to store the descriptor. Therefore, that `key` must be different on each `epoch`. 
 
 The `key -> value` mapping in this protocol:
 - the **value** is the hidden-service descriptor.
-- the **discovery key** (`disc_key`) is a deterministic epoch-specific value derived from `hs_id`, the current epoch (`epoch_i`), and a public epoch-specific randomness value (`e_i`).
+- the **discovery key** (`disc_key`) is a deterministic epoch-specific value derived from `hs_id`, the current epoch (`epoch`), and a public epoch-specific randomness value (`e`). See section 8.4 for how this key is derived.
 
-Observe that in our setting, the discovery key `disc_key` does *not* describe the contents of the descriptor in the content-addressed sense. Instead, it identifies the service and the epoch for which the descriptor is valid. This differs from CID-based discovery systems, where the key usually identifies the content itself. This is not an issue for our protocol since the `disc_key` describes the key used to sign the `value` (descriptor). 
+Observe that in our setting, the discovery key `disc_key` does *not* describe the contents of the descriptor in the content-addressed sense. Instead, it identifies the service and the epoch for which the descriptor is valid.
 
-### 8.3 Epoch-specific blinded keys
-The descriptor requires an epoch-specific discovery key (`disc_key`), but it also requires the descriptor to be authenticated in a way that is bound both to the service identity (`hs_id`) and to the current epoch. Our protocol uses **epoch-specific blinded signing keys (`bk_i`)** derived from the long-term service identity key (`hs_id`) using key blinding (see section 5.4 for security properties). 
+### 8.3 Epochs and Descriptor Lifetime
+Hidden-service descriptors are bound to two related but distinct time mechanisms:
+
+- **Descriptor epoch:** determines which blinded service keys `bk` and `disc_key` locations are used.
+- **Descriptor lifetime:** determines how long a published descriptor remains usable in the DHT before it must be refreshed or republished.
+
+#### Descriptor Epoch
+Each epoch is identified by `interval_num` and `length`.
+
+The default length is:
+
+```
+length = 86400 seconds  // 1 day
+```
+
+The `interval_num` is derived from Unix time. Let `L` be the period `length` in seconds, and let `t` be the current Unix timestamp in seconds. The current `interval_num` is:
+
+```text
+interval_num = floor(t / L)
+```
+
+Therefore `interval_num` covers the time interval:
+
+```text
+[interval_num * L, (interval_num + 1) * L)
+```
+
+#### Descriptor Lifetime
+
+The descriptor lifetime controls how long a published descriptor remains usable in the DHT cache. After this lifetime expires, DHT nodes should treat the descriptor as expired and no longer return it to clients.
+
+By default, the descriptor lifetime is:
+
+```text
+10800 seconds = 180 minutes
+```
+
+Services must periodically refresh/republish descriptors before they expire. Republishing a descriptor does not necessarily change its epoch, it only refreshes the descriptor's availability in the DHT. To do this, the service samples a random time value between 60 to 120 minutes, and republishes the descriptor to the DHT.
+
+
+#### Descriptor Overlap
+
+To tolerate network delays, and clients using slightly different views of time, services should publish descriptors for overlapping epochs. This overlap ensures that a service remains reachable.
+
+Services should publish descriptors for current and next epoch.
+clients should download the descriptor for the current epoch.
+
+### 8.4 Epoch-specific blinded keys
+The descriptor requires an epoch-specific discovery key (`disc_key`), but it also requires the descriptor to be authenticated in a way that is bound to both the service identity (`hs_id`) and to the current epoch. Our protocol uses **epoch-specific blinded signing keys (`bk`)** derived from the long-term service identity key (`hs_id`) using key blinding (see section 5.4 for security properties). 
 
 **Blinded keys**
-Let `epoch_i` denote the current time period. The service performs key blinding as follows:
+Let `epoch_i` denote the current epoch. The service performs key blinding as follows:
 
 ```=
 (sk, pk) = Sig.KeyGen()
@@ -500,7 +545,7 @@ The epoch-specific discovery key `disc_key` is derived from the blinded public k
 
 ```=
 e = get_public_entropy(epoch_i)
-disc_key = H("discovery key" || bk_i || e)
+disc_key = H("discovery key" || bk_i || e_i)
 ```
 where `e` is public epoch-specific entropy, for example a randomness beacon, block hash, or other agreed public entropy source. Including the public entropy `e` ensures that descriptor placement is not determined solely by public long-term service identity and epoch. This makes the storage location less predictable in advance and reduces the risk that an attacker can precompute and target the responsible discovery/DHT nodes for a future epoch.
 
@@ -517,23 +562,36 @@ As previously mentioned, we require a signature for the descriptor. One could us
     ```
     (desc_sk_i, desc_pk_i) = Sig.KeyGen()
     ```
-3. Use the set of blinded keys `bk_i` to create key certificates `key_cert` for the descriptor ephemeral signing keys `desc_key`. The content of such `key_cert` is as follows:
+3. Use the set of blinded keys `bk_i` to create key certificates `KeyCert` for the descriptor ephemeral signing keys `desc_key`. The content of such `KeyCert` is as follows:
     ```
     KeyCert {
+        cert_type: CertType
         epoch: bytes
-        certified_key: bytes
+        certified_key: CertifiedKey
         signing_key: bytes
         signature: bytes
     }
+    
+    enum CertType {
+        DescriptorSigningKey,
+        IntroAuthenticationKey,
+        ServiceEncryptionKey
+    }
+    
+    enum CertifiedKey {
+        Ed25519,
+        X25519
+    }
     ```
     where:
+    - `cert_type` is the type of certificated which in here is `DescriptorSigningKey`.
     - `epoch` is the epoch/time period on which this certificate is valid. 
-    - `certified_key` is the descriptor ephemeral signing keys `desc_key`. 
+    - `certified_key` is the descriptor ephemeral `Ed25519` signing keys `desc_key`. 
     - `signing_key` is the key used to sign this certificate, i.e. this is the blinded key `bk_i`
     - `signature` is a signature using `bk_i` over all previous fields in the certificate. 
 4. Store the hidden service identity key `hs_id` and all blinded keys `bk_i` offline. Keep the certificates and descriptor keys `desc_key` online. 
-5. At each upcoming epoch, use the corresponding `key_cert` and `desc_key`. 
-6. Create new `key_cert` and `desc_key` once you run out by following the previous steps, starting from step 2.
+5. At each upcoming epoch, use the corresponding `KeyCert` and `desc_key`. 
+6. Create new `KeyCert` and `desc_key` once you run out by following the previous steps, starting from step 2.
 
 **Summary**
 This design provides the following properties:
@@ -545,21 +603,25 @@ This design provides the following properties:
 - Knowledge of `hs_id` is sufficient for clients to derive the epoch-specific `disc_key` for the descriptor and query the discovery/DHT. 
 - The secret material for the long-term identity key `hs_id` remains offline while epoch-specific signing material are generated in advance. This helps lower the risk of compromise (depending on how many signing keys were generated in advance) and it is a good practice in general.
 
-### 8.4 Descriptor components
+### 8.5 Descriptor components
 The descriptor is split into two main parts:
 
 **(1) Outer Layer**
 Contains metadata needed for discovery/DHT nodes to validate it before storing it. This outer layer of the descriptor contains the following fields:
-- `validity`: an unsigned integer specifying how long the descriptor should remain valid. 
+- `validity`: an unsigned integer specifying how long (in seconds) the descriptor should remain valid. 
 - `desc_key_cert`: a certificate (in the format described earlier) containing the descriptor signing key `desc_key`, the blinding key `bk_i`, and a signature by the blinded key `bk_i` for the current epoch `i`. 
 - `revision_counter`: version counter for the descriptor. Allows the service to revise the descriptor. If discovery/DHT receives multiple descriptors for the same key, it keeps the one with the higher revision counter.
 - `inner_layer`: An encrypted blob data type containing salt, encrypted data, and MAC. 
-- `signature`: A signature over all previous fields, made using the descriptor signing key (`desc_key`) listed in `desc_key_cert`. 
+- `signature`: A signature over all previous fields, made using the descriptor signing key (`desc_key`) listed in `desc_key_cert`:
+    ```
+    signature = Sig.Sign(desc_key.sk, "mix-hs-desc-outer" || validity || desc_key_cert || revision_counter || inner_layer)
+    ```
 
+We can summarize the content of the outerlayer as follows:
 ```
 OuterLayer {
     validity: uint
-    desc_key_cert: key_cert
+    desc_key_cert: KeyCert
     revision_counter: uint
     inner_layer: EncryptedBlob
     signature: bytes
@@ -577,20 +639,22 @@ See below for how `EncryptedBlob` is created and what its contents are.
 An encrypted data blob `EncryptedBlob` containing the actual connection details needed to reach the service. The encryption provides confidentiality against entities that don't know the identity key of the hidden service (`hs_id`) such as the discovery/DHT nodes.
 
 To encrypt the inner layer, we first need to derive a symmetric encryption (stream cipher) key, IV, and MAC key from information known to both the service and client. 
-First, we use both `hs_id` and `bk_i` to create a shared secret input:
+First, we generate a random salt and then use it with `hs_id`, `bk_i`, and `revision_counter` to create a shared secret input:
 
 ```
-secret_input = "inner layer" || hs_id || bk_i || revision_counter
+secret_input = "inner layer" || salt || hs_id || bk_i || revision_counter
 ```
 
-Then we use a key derivation function (KDF) to generate the needed key materials. Once we have the key material, we can encrypt with a stream cipher e.g. `AES-128-CTR`, and create a MAC e.g. with `HMAC-SHA-256`. These schemes are already used by the Mix protocol and can work here as well. 
+Then we use a key derivation function (KDF) to generate the needed key materials. For KDF, we use domain-separated SHA256 with the output truncated to 128-bits. Once we have the key material, we can encrypt with a stream cipher e.g. `AES-128-CTR`, and create a MAC e.g. with `HMAC-SHA-256`. These schemes are already used by the Mix protocol and can work here as well. 
 
 We can summarize the steps to encrypt the inner layer (i.e. the `EncryptedBlob`) as follows:
 
 ```=
-secret_input = "inner layer" || hs_id || bk_i || revision_counter
-(enc_key, enc_iv, mac_key) = KDF(secret_input)
 salt = random()
+secret_input = "inner layer" || salt || hs_id || bk_i || revision_counter
+enc_key = SHA256("blob encryption key" || secret_input)
+enc_iv = SHA256("blob iv" || secret_input)
+mac_key = SHA256("blob mac key" || secret_input)
 blob = streamcipher.enc(inner_layer, enc_key, enc_iv)
 mac = mac(salt || blob, mac_key)
 encrypted_blob = EncryptedBlob.new(salt, blob, mac)
@@ -600,7 +664,7 @@ The plaintext of this inner layer contains the following fields:
 - `intro_points`: A list of intro point objects `IntroPoint`, each containing:
     - `info`: A `MixPubInfo` object containing mix routing information and public key for the intro point. The contents of this object depends on how mix routing is implemented, but in general it should contain sufficient information to create a sphinx packet with the intro point as the exit.
     - `auth_key_cert`: a key certificate `KeyCert` in the same for shown earlier and includes `auth_key` the authentication key for clients to use at this intro point. Note that here we require `signing_key = auth_key` and `certified_key = desc_key`. This is to cross-link ownership of these keys.
-    - `service_key_cert`: a key certificate `KeyCert` for an encryption key `service_key` for clients to use to encrypt requests for the service, routed through the intro point. here we have `signing_key = service_key` and `certified_key = desc_key`
+    - `service_key_cert`: a key certificate `KeyCert` for an encryption key `service_key` for clients to use to encrypt requests for the service, routed through the intro point. Here we have `signing_key = service_key` and `certified_key = desc_key`. Note that `service_key` is an encryption key not a signing key therefore, we convert it to Ed25519 (TODO: specify this in the appendix).
 - `dos_params`: an optional DOS protection params/proofs. 
 
 
@@ -624,7 +688,7 @@ MixPubInfo {
 
 ```
 
-### 8.5 Creating descriptors
+### 8.6 Creating descriptors
 To publish a hidden service descriptor, the service will follow these steps:
 1. Determine the current `epoch`, and the `validity` time period for the descriptors.
 2. Create a hidden service public identity `hs_id` and derive the mix address. 
@@ -639,13 +703,13 @@ To publish a hidden service descriptor, the service will follow these steps:
 8. After `k` epochs, repeat the process, starting from step 3.
 
 
-*Note: Hidden services periodically publish their descriptor, and must keep two active descriptors at any time/epoch. Services need to upload their descriptors to the discovery/DHT before the beginning of each upcoming epoch, so that they are available for clients to fetch them. Therefore, overlapping descriptors might happen and services must maintain both descriptors so they can be reachable to clients with older or newer descriptors.*
+*Note: Hidden services periodically publish their descriptor as described in section 8.3, and must keep two active descriptors at any time/epoch. Therefore, overlapping descriptors might happen and services must maintain both descriptors so they can be reachable to clients with older or newer descriptors.*
 
 ### Discovery Node Processing
 Upon receiving a hidden service descriptor publish request, discovery/DHT nodes MUST check the following:
 - Deserialize, extract the outer layer, and check if the outer layer is well-formed. 
 - If the node has a descriptor for this hidden service (i.e. same `disc_key`), the `revision_counter` of the uploaded descriptor must be greater than the `revision_counter` of the stored one.
-- The descriptor epoch (`validity`) is current.
+- The descriptor epoch (`validity`) is within the acceptable range of 30 - 720 minutes.
 - The descriptor signing key certificate `desc_key_cert` is valid.
 - The discovery key `disc_key` is derived correctly from the blinded key in `desc_key_cert`. 
 - The descriptor outer layer signature is valid.
@@ -737,7 +801,7 @@ To bootstrap a connection to a hidden service, the client first fetches and vali
 
 The client then proceeds as follows:
 1. Select a random intro point from the list. Clients must select an intro point at random to distribute load and reduce linkability.
-2. Generate a fresh client encryption key `client_key`. The client must create a different `client_key` for every introduction attempt.
+2. Generate a fresh client encryption key `client_key`. The client MUST sample `client_key` uniformly at random for every introduction attempt.
 3. Derive the shared secret `s_intro` using the fresh `client_key` and the `service_key` for that intro point. 
     ```
     s_intro = DH.SharedKey(client_key, service_key)
@@ -767,11 +831,11 @@ The mix node after accepting the role of being an intro point must maintains a s
 - transport layer session/state to forward requests that the intro point recieves.
 
 The intro point will then act only as a forwarding node:
-1. check for replays (see section 9.4)
+1. check for replays (see section 9.5)
 2. uses `auth_key` to forward incoming requests to an active hidden-service state using the transport layer state for that service. If `auth_key` is not found or expired, then request is dropped.
 3. maintain a short-lived transport layer session/state with the client and send an acknowledgement (`IntroduceAck`) to the client. 
 
-### 9.3 Service behaviour
+### 9.4 Service behaviour
 A hidden service accepts intro requests only for intro points that it has previously established as described in Section 7. For each intro point the service must maintain the following:
 - authentication key `auth_key`
 - service key `service_key`
@@ -779,7 +843,7 @@ A hidden service accepts intro requests only for intro points that it has previo
 - transport layer session/state to recieve requests routed through the intro point.
 
 When the hidden service receives an `Introduce2` message from an introduction point, it processes it as follows:
-1. check for replays (see section 9.4)
+1. check for replays (see section 9.5)
 2. Validate that the `auth_key` matches the intro point's assigned `auth_key`. If not, drop request.
 3. Validate that the `client_key` is well-formed, and derive the shared secret `s_intro` in the same way as stated in the previous section.
 4. Derive `enc_key`, `enc_iv`, and `mac_key` in the same way as stated in the previous section.
@@ -787,7 +851,7 @@ When the hidden service receives an `Introduce2` message from an introduction po
 6. decrypt the encrypted payload `enc_payload` and process the plaintext first by the transport layer, creating a session/state for subsequent communication.
 7. Pass the request plaintext to the local service for further processing. 
 
-### 9.4 Replay resistance
+### 9.5 Replay resistance
 Replay resistance is required to prevent an adversary from resending previously valid intro messages in order to:
 - DOS/spam the service by repeatedly sending a valid looking intro request message, and possibly consuming all SURBs stored at the intro point (this is dependent on how the transport layer manages SURBs).
 - DOS/spam the service by triggering repeated processing of the packet at the hidden service. 
@@ -796,7 +860,7 @@ Replay resistance is required to prevent an adversary from resending previously 
 
 In this protocol, replay resistance is achieved by the following:
 - *Binding to `auth_key`*: the MAC in `Introduce1` is computed over `auth_key || client_key || enc_payload`, therefore, an attacker cannot move a valid encrypted intro payload from one intro point to another or change `auth_key` without invalidating MAC. 
-- *Client tags*: The intro point and service must maintain replay cache/table of previously seen client tags for each service-intro session/state. These client tags are computed as `client_tag = H(node_key)`. When a request is received by either the intro point or service, they will check the existence of such tag in the local cache/table. If not present, record the tag in the cache/table and continue processing. If present, the request must be dropped with no further processing. The local cache for each service-intro session can be flushed with it expires or gets terminated (i.e. when `auth_key` is no longer assigned to a service/intro). 
+- *Client tags*: The intro point and service must maintain replay cache/table of previously seen client tags for each service-intro session/state. These client tags are computed as `client_tag = H(client_key)`. When a request is received by either the intro point or service, they will check the existence of such tag in the local cache/table. If not present, record the tag in the cache/table and continue processing. If present, the request must be dropped with no further processing. The local cache for each service-intro session can be flushed with it expires or gets terminated (i.e. when `auth_key` is no longer assigned to a service/intro). 
 
 
 *Note: these replay preventions are not suffcient for DOS/spam prevention. An additional (pluggable) component is needed for DOS/spam prevention. This will be specified in the future.*
@@ -833,6 +897,7 @@ In the appendix, we provide concrete construction for a signature scheme with ke
 For a more detailed description of the the clamp function, see: [An Explainer On Ed25519 Clamping](https://jcraige.com/an-explainer-on-ed25519-clamping).
 #### Key generation ($\mathsf{Sig.KeyGen}$)
 The normal Ed25519 key generation algorithm is:
+
 $$
 \begin{aligned}
 \mathsf{Sig.KeyGen}(\lambda):\quad
@@ -902,7 +967,7 @@ $$
 
 The returned $sk'$ is sufficient to sign messages for the epoch under $pk'$. 
 
-*Note: Since $r$ is public in this protocol, compromise of $x'$ also compromises the long-term signing scalar $x$.*
+Note: Since $r$ is public in this protocol, compromise of $x'$ also compromises the long-term signing scalar $x$.
 
 $$
 \begin{aligned}
@@ -911,7 +976,7 @@ x = z^{-1} x' \bmod \ell
 \end{aligned}
 $$
 
-*For this reason, the protocol uses blinded keys mainly to "certify" short-term descriptor signing keys, and keeps the long-term identity key and precomputed blinded signing material offline.*
+For this reason, the protocol uses blinded keys mainly to "certify" short-term descriptor signing keys, and keeps the long-term identity key and precomputed blinded signing material offline.
 
 #### Sign a message ($\mathsf{Sig.Sign}$)
 Once $sk'$ has been generated by $\mathsf{Sig.BlindKey}$, signing is a normal Ed25519-style signing operation under the blinded key, which works as follows:
