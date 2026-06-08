@@ -431,8 +431,7 @@ At a high level, the descriptor requires the following:
 
 The following subsections describe these requirements in more detail and specify how the descriptor is constructed and published. However, as can be observed, we require multiple keys, therefore, we first summarize their definitions and uses in the following:
 - **Identity key (`hs_id`):** A "master" signing keypair used as the long-term identity for a hidden service. This key is not used on its own to sign anything, and only used to generate blinded keys. The public part of this key is encoded in the hidden service identifier (the `.mix` address). 
-- **Blinded keys (`bk`):** A signing keypair derived from `hs_id` and used to certify the descriptor signing keys. For each epoch `i` a different blinded key `bk_i` is generated. The key requires the security properties defined in section 5.4. Additionally, this key is used in creating the index (`disc_key`) in the discovery/DHT. 
-- **Descriptor signing key (`desc_key`):** A signing key used to sign the descriptor. This key is certified/signed by `bk_i` and only valid for the epoch `i` in which `bk_i` is valid. The public part of this key is included in the outer layer (unencrypted) part of the descriptors. Unlike `hs_id` and `bk_i`, the secret part of this key needs be stored online by hidden services for signing.
+- **Blinded keys (`bk`):** A signing keypair derived from `hs_id` and used to as the descriptor signing key. For each epoch `i` a different blinded key `bk_i` is generated. The key requires the security properties defined in section 5.4. Additionally, this key is used in creating the index (`disc_key`) in the discovery/DHT. 
 - **Discovery key (`disc_key`):** An index in the DHT or DHT-like discovery which maps (`disc_key -> value`). It is derived from `bk_i`, epoch `i`, and public entropy `e`.
 - **Intro authentication key (`auth_key`):** A short-term signing keypair created by the service for each intro point. It is used to sign the request to establish an intro point and intro points use it to map requests to services. Client must also use it when establishing connections via an intro point so that their requests are mapped correctly. 
 - **Service encryption key (`service_key`):** A short-term encryption keypair created by the service for each intro point and included in the descriptor. It is used by the client to encrypt requests toward the service via an intro point.
@@ -542,7 +541,7 @@ r_i = H("key blinding" || hs_id || epoch_i)
 bk_i = Sig.BlindPk(hs_id, r_i)
 ```
 
-Since `epoch_i` is predictable, blinded signing keys `bk_i` can be generated in advance. This allows the long-term identity key `sk` to remain offline.
+Since `epoch_i` is predictable, blinded signing keys `bk_i` can be generated in advance.
 
 **Discovery keys**
 The epoch-specific discovery key `disc_key` is derived from the blinded public key `bk_i`, the current epoch, and a public epoch-specific randomness value:
@@ -555,59 +554,15 @@ where `e` is public epoch-specific entropy, for example a randomness beacon, blo
 
 The `disc_key` will then be used to publish or retrieve the descriptor from discovery/DHT. More details on discovery and client behaviour is discussed in the next sections. 
 
-**Descriptor keys**
-As previously mentioned, we require a signature for the descriptor. One could use the blinded keys `bk_i` to sign the descriptor directly, however, this would require these keys to be online and frequently accessed. This would mean exposing the secret part of the service identity key `hs_id` ( because you can derive `sk` from blinded `sk'`). Ideally, we would like `hs_id` and all pre-computed `bk_i` to stay offline and only expose short-term descriptor signing keys. To achieve this, the descriptor signing processing works as follows:
-
-1. Precompute a set of blinded keys `bk_i`:
-    ```
-    (pk_i, sk_i) = Sig.BlindKey(pk, sk, r_i)
-    ```
-2. Precompute a set of descriptor ephemeral signing keys `desc_key`:
-    ```
-    (desc_sk_i, desc_pk_i) = Sig.KeyGen()
-    ```
-3. Use the set of blinded keys `bk_i` to create key certificates `KeyCert` for the descriptor ephemeral signing keys `desc_key`. The content of such `KeyCert` is as follows:
-    ```
-    KeyCert {
-        cert_type: CertType
-        epoch: bytes
-        certified_key: CertifiedKey
-        signing_key: bytes
-        signature: bytes
-    }
-    
-    enum CertType {
-        DescriptorSigningKey,
-        IntroAuthenticationKey,
-        ServiceEncryptionKey
-    }
-    
-    enum CertifiedKey {
-        Ed25519,
-        X25519
-    }
-    ```
-    where:
-    - `cert_type` is the type of certificated which in here is `DescriptorSigningKey`.
-    - `epoch` is the epoch/time period on which this certificate is valid. 
-    - `certified_key` is the descriptor ephemeral `Ed25519` signing keys `desc_key`. 
-    - `signing_key` is the key used to sign this certificate, i.e. this is the blinded key `bk_i`
-    - `signature` is a signature using `bk_i` over all previous fields in the certificate. 
-4. Store the hidden service identity key `hs_id` and all blinded keys `bk_i` offline. Keep the certificates and descriptor keys `desc_key` online. 
-5. At each upcoming epoch, use the corresponding `KeyCert` and `desc_key`. 
-6. Create new `KeyCert` and `desc_key` once you run out by following the previous steps, starting from step 2.
-
-*Note: keeping keys offline is essentially a Tor requirement, however, if we decide that such requirement is not needed for Mix, we can simplify this and sign the descriptor with the blinded key.*
-
 **Summary**
 This design provides the following properties:
 - Periodic re-publication of the descriptor with a unique epoch-specific `disc_key` to avoid DoS attacks (different descriptor location in each epoch).
 - `disc_key` is bound to a signing key (`bk_i`) used to sign the descriptor. 
-- The descriptor is signed using `desc_key_i` and valid only for epoch `i`. 
-- `desc_key_i` is bound to `bk_i` with a `key_cert_i`. 
+- The descriptor is signed using `bk_i` and valid only for epoch `i`. 
 - `bk_i` is be bound to `hs_id` through key blinding, i.e. ownership of `hs_id` implies ownership of `bk_i`.
 - Knowledge of `hs_id` is sufficient for clients to derive the epoch-specific `disc_key` for the descriptor and query the discovery/DHT. 
-- The secret material for the long-term identity key `hs_id` remains offline while epoch-specific signing material are generated in advance. This helps lower the risk of compromise (depending on how many signing keys were generated in advance) and it is a good practice in general.
+
+*Note: if we care about keeping keys offline we can add an additional descriptor signing keys in the same way as Tor. For now we can simply sign the descriptor with the blinded key.*
 
 ### 8.5 Descriptor components
 The descriptor is split into two main parts:
@@ -615,22 +570,26 @@ The descriptor is split into two main parts:
 **(1) Outer Layer**
 Contains metadata needed for discovery/DHT nodes to validate it before storing it. This outer layer of the descriptor contains the following fields:
 - `validity`: an unsigned integer specifying how long (in seconds) the descriptor should remain valid. 
-- `desc_key_cert`: a certificate (in the format described earlier) containing the descriptor signing key `desc_key`, the blinding key `bk_i`, and a signature by the blinded key `bk_i` for the current epoch `i`. 
 - `revision_counter`: version counter for the descriptor. Allows the service to revise the descriptor. If discovery/DHT receives multiple descriptors for the same key, it keeps the one with the higher revision counter.
 - `inner_layer`: An encrypted blob data type containing salt, encrypted data, and MAC. 
-- `signature`: A signature over all previous fields, made using the descriptor signing key (`desc_key`) listed in `desc_key_cert`:
+- `signature`: A signature over all previous fields, made using the blinded signing key `bk_i` for the current epoch `i`. `signature` should is a tuple containing the pk used to sign and the signature:
     ```
-    signature = Sig.Sign(desc_key.sk, "mix-hs-desc-outer" || validity || desc_key_cert || revision_counter || inner_layer)
+    sig = Sig.Sign(bk_i.sk, "mix-hs-desc-outer" || validity || revision_counter || inner_layer)
+    signature = Signature.new(bk_i.pk, sig)
+    
+    Signature {
+        signing_key: bytes
+        sig: bytes
+    }
     ```
 
 We can summarize the content of the outerlayer as follows:
 ```
 OuterLayer {
     validity: uint
-    desc_key_cert: KeyCert
     revision_counter: uint
     inner_layer: EncryptedBlob
-    signature: bytes
+    signature: Signature
 }
 
 EncryptedBlob {
@@ -669,21 +628,19 @@ encrypted_blob = EncryptedBlob.new(salt, blob, mac)
 The plaintext of this inner layer contains the following fields:
 - `intro_points`: A list of intro point objects `IntroPoint`, each containing:
     - `info`: A `MixPubInfo` object containing mix routing information and public key for the intro point. The contents of this object depends on how mix routing is implemented, but in general it should contain sufficient information to create a sphinx packet with the intro point as the exit.
-    - `auth_key_cert`: a key certificate `KeyCert` in the same for shown earlier and includes `auth_key` the authentication key for clients to use at this intro point. Note that here we require `signing_key = auth_key` and `certified_key = desc_key`. This is to cross-link ownership of these keys.
-    - `service_key_cert`: a key certificate `KeyCert` for an encryption key `service_key` for clients to use to encrypt requests for the service, routed through the intro point. Here we have `signing_key = service_key` and `certified_key = desc_key`. Note that `service_key` is an encryption key not a signing key therefore, we convert it to Ed25519 (TODO: specify this in the appendix).
-- `dos_params`: an optional DOS protection params/proofs. 
+    - `auth_key`: the authentication key for clients to use at this intro point.
+    - `service_key`: an encryption key `service_key` for clients to use to encrypt requests for the service, routed through the intro point.
 
 
 ```
 InnerLayer {
     intro_points: seq[IntroPoint]
-    dos_params: bytes
 }
 
 IntroPoint {
     info: MixPubInfo
-    auth_key_cert: KeyCert
-    service_key_cert: KeyCert
+    auth_key: bytes
+    service_key: bytes
 }
 
 MixPubInfo {
@@ -698,15 +655,11 @@ MixPubInfo {
 To publish a hidden service descriptor, the service will follow these steps:
 1. Determine the current `epoch`, and the `validity` time period for the descriptors.
 2. Create a hidden service public identity `hs_id` and derive the mix address. 
-3. Use `hs_id` to create `k` blinded keys for `k` upcoming `epoch`s taking into account the current `epoch`, and the descriptor `validity`. 
-4. Generate `k` descriptor signing key pairs `desc_key` to be used later for signing descriptors.
-5. Create `k` certificates `desc_key_cert` for the `k` descriptor keys. 
-6. Store (the secret parts) `hs_id` and all `bk_i`s offline, keep all `desc_key` and `desc_key_cert` online. 
-7. For each upcoming `k` epochs:
-    (a) Create a descriptor object following section 8.4 using intro point information and the generated keys. 
-    (b) derive the discovery key `disc_key`. 
-    \(c\) publish the descriptor anonymously to discovery/DHT. 
-8. After `k` epochs, repeat the process, starting from step 3.
+3. Use `hs_id` to create the blinded key `bk_i` for the current `epoch`. 
+4. Create a descriptor object following section 8.4 using intro point information. 
+5. derive the discovery key `disc_key`. 
+6. publish the descriptor anonymously to discovery/DHT. 
+7. Before the descriptor validity period expires, republish the descriptor. When the epoch changes, derive the new `bk_i` and `disc_key`, starting from step 3.
 
 
 *Note: Hidden services periodically publish their descriptor as described in section 8.3, and must keep two active descriptors at any time/epoch. Therefore, overlapping descriptors might happen and services must maintain both descriptors so they can be reachable to clients with older or newer descriptors.*
@@ -715,10 +668,9 @@ To publish a hidden service descriptor, the service will follow these steps:
 Upon receiving a hidden service descriptor publish request, discovery/DHT nodes MUST check the following:
 - Deserialize, extract the outer layer, and check if the outer layer is well-formed. 
 - If the node has a descriptor for this hidden service (i.e. same `disc_key`), the `revision_counter` of the uploaded descriptor must be greater than the `revision_counter` of the stored one.
-- The descriptor epoch (`validity`) is within the acceptable range of 30 - 720 minutes.
-- The descriptor signing key certificate `desc_key_cert` is valid.
-- The discovery key `disc_key` is derived correctly from the blinded key in `desc_key_cert`. 
-- The descriptor outer layer signature is valid.
+- The descriptor (`validity`) is within the acceptable range of 30 - 720 minutes.
+- The discovery key `disc_key` is derived correctly from the blinded key in `signature`. 
+- The descriptor outer layer `signature` is valid.
 
 If any of these outer layer validity checks fail, the discovery/DHT node MUST reject the descriptor. The descriptor is only stored for the `validity` time period specified in the descriptor.
 
@@ -737,10 +689,10 @@ The process can be summarized as follows:
 - Query the discovery/DHT using `disc_key` to retrieve the descriptor.
 - Validate the returned descriptor by:
     - Validate the outer layer in the same way as a discovery/DHT node (see "Discovery Node Processing" section above). 
+    - Check that `signature.signing_key == bk_i`
     - Derive the secret_input for the inner layer
     - Use KDF to generate inner layer decryption keys (stream cipher key, IV, MAC key). 
     - Decrypt the inner layer data blob, and check its MAC. 
-    - Parse the list of intro point information, validating the certificates (`auth_key_cert` and `service_key_cert`) included for each intro.
 - Proceed with the intro protocol to establish a connection to the hidden service.
 
 ### Client Authorization / Restricted discovery mode
@@ -879,49 +831,25 @@ After the bootstrap step described in Section 9, the client and hidden service c
 
 To describe this, we can abstract the mix connections as three types of connections, each with different addressing and anonymity properties:
 
-1. **Forward connection**
-2. **SURB-reply connection**
-3. **SURB-rend connection**
+1. **Forward connection**: provides sender anonymity but doesn't hide the destination from the sender.
+2. **SURB-reply connection**: provides anonymity to the SURB creator not the SURB user.
+3. **SURB-rend connection**: provides anonymity to both the SURB creator and the user.
 
-This hidden service protocol relies on the transport layer over Mix to provide session-like communication over these three type of connections. Additionally, we assumes that the transport layer specifies the exact encoding of requests for additional SURBs, acknowledgement messages, fragmentation, retransmission, and reliability.
+The Mix protocol already supports both 1 and 2 above.
 
-### 10.1 Forward Connection
-A **forward connection** is a connection mode in which packets are sent as normal forward Sphinx messages to a known destination. The sender chooses a mix path ending at the destination, or ending at an exit node that can forward the message to the destination.
-
-This connection mode provides sender anonymity but doesn't hide the destination from the sender, because the sender must know where to send the message.
-
-This is suitable for contacting public mix nodes such as:
-- discovery/DHT nodes
-- introduction points
-- rendezvous points
-
-This type of connection is already supported in Mix and the exit node can identify this from sphinx header. See packet processing in the [Mix specification](./mix)
-
-
-### 10.2 SURB-reply Connection
-A **SURB-reply connection** is a connection mode in which packets are sent using Single-Use Reply Blocks (SURBs) created by the receiver. The SURB user can send payloads to the SURB creator without learning the SURB creator's network address.
-
-In this mode, the SURB creator chooses the mix path and gives the resulting SURB to the SURB user. A SURB reply connection provides receiver anonymity for the SURB creator not the SURB user. This is because the mix path of the SURB is chosen by the SURB creator. If the SURB user sends the packet directly in the SURB path and the SURB's first hop is maliciously chosen by the SURB creator, then the first hop of that path observes the SURB user's network address.
-
-This mode is useful when the SURB creator needs to receive a reply anonymously:
-- replying to anonymous descriptor queries
-- replying to anonymous intro-point requests
-- sending acks
-
-This type/mode of connection is also supported, see the [Mix specification](./mix).
-
-### 10.3 SURB-rend Connection
+### 10.1 SURB-rend Connection
 A **SURB-rend connection** is a connection mode in which packets are sent using another party's SURB, but only after the sender first routes the SURB packet through a sender-chosen mix prefix path.
 
 To illustrate this better, let's denote the sender (SURB user) `S` and reciever/exit (SURB creator) `E`.
 - `S` choose a random mix node as a rendezvous point `R` and build a mix path to it and prepares a Sphinx packet `P1`. 
-- `S` places both the SURB and the message (encrypted) intended for `E` in the payload of `P1`, adds a flag to indicate that the packet is `SURB-rend` (we'll discuss this later), and sends the Sphinx packet.
+- `S` places both the SURB and the message (encrypted with a shared secret `z`) intended for `E` in the payload of `P1`, adds a flag to indicate that the packet is `SURB-rend` (we'll discuss this later), and sends the Sphinx packet.
 - `R` receives the payload and see the `SURB-rend` flag, so it parses the payload to get the SURB and message. 
-- `R` uses the SURB to create a Sphinx packet with the given message as its payload, and sends the packet. 
-- `E` receives the packet and recognizes the packet since it created the SURB and processes it as normal SURB-reply. 
+- `R` uses the SURB to create a Sphinx packet with the given message as its payload, pad it (since it would be smaller than a sphinx payload), and sends the packet. 
+- `E` receives the packet and recognizes the packet since it created the SURB and processes it as normal SURB-reply. The result would be an encrypted message under `z` + padding. 
+- `E` removes the padding and decrypts using `z`.
 
 
-*Note: in this mode, we use one-time rendezvous points unlike Tor which maintain a circuit with the rendezvous points.*
+*Note: in here, rendezvous points can used once, or multiple times which would then be similar to Tor which maintain a circuit tor the rendezvous points. Although in here, the client and service would have different rendezvous points.*
 
 This type of connection is not yet supported and so we don't have a flag for it to indicate how an exit (rendezvous points) should proccess it. In the future we will likely have a better way to encode packet processing behaviour in the Sphinx header. However, for now we can rely on the reserved internal hidden service protocol codec (see section 6.5) as described in the following.
 
@@ -952,6 +880,7 @@ This state must be maintained in order to create packets and process incoming pa
 To send a message `m` (a Sphinx payload) to `E` using a `SURB` created by `E`, the mix node must:
 - Choose a random mix node (rendezvous point) `R` (must not be `E`), creates a mix path and prepares a Sphinx packet `P`.
 - Use the internal hidden service protocol codec (see section 6.5) as the codec for the payload. 
+- Pad `m` to a fixed size `j` so that `inner_payload` has fixed pre-defined size.
 - Apply one layer of encryption to `m` using a shared secret `s` between sender and `E`. This layer of encryption can be thought as a "virtual hop" where you take `m` as the sphinx payload ( i.e., $\delta$) and apply one LIONESS encryption using the shared secret `s`.
 - Place the `SURB` and the encrypted `m` in the message type:
     ```
@@ -970,20 +899,19 @@ For an exit which in this case is a rendezvous point to process a `SURB-rend` pa
 
 Then the exit node must:
 - use the `SURB` to create a Sphinx header.
-- use the payload in the `Rendezvous` message as the Sphinx payload.
+- use the `inner_payload` in the `Rendezvous` message + padding (to Sphinx payload size) as the Sphinx payload.
 - send the Sphinx packet.
 
 **Receiver processing behaviour**
 A mix node that receives a SURB reply must map that SURB to an existing `SURB-rend` connection. If non exist, drop the packet. 
 If a `SURB-rend` connection exists, then:
-- use the stored shared secret to apply one layer of decryption.
-- pass the payload to the application layer to process it.
+- start with normal SURB processing.
+- take the first j bytes as the `inner_payload` and drop the rest (the padding).
+- use the stored shared secret to apply one layer of decryption to `inner_payload`.
+- pass the message to the application layer to process it.
 
-### 10.4 Client-Service communication over SURB-rend
+### 10.2 Client-Service communication over SURB-rend
 Once the client and service follow the intro protocol in section 9, they have SURBs and a shared secret from each other. They can then simply use these to create a `SURB-rend` connection and exchange messages. 
-
-## 11. Security Considerations
-*[TODO ...]* 
 
 ## Appendix
 
@@ -1084,7 +1012,7 @@ x = z^{-1} x' \bmod \ell
 \end{aligned}
 $$
 
-For this reason, the protocol uses blinded keys mainly to "certify" short-term descriptor signing keys, and keeps the long-term identity key and precomputed blinded signing material offline.
+For this reason, the Tor protocol uses blinded keys mainly to "certify" short-term descriptor signing keys, and keeps the long-term identity key and precomputed blinded signing material offline.
 
 #### Sign a message ($\mathsf{Sig.Sign}$)
 Once $sk'$ has been generated by $\mathsf{Sig.BlindKey}$, signing is a normal Ed25519-style signing operation under the blinded key, which works as follows:
