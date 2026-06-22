@@ -22,6 +22,7 @@
 | Version | Changes | Date |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-24 |
+| 1.1.0 | Changing from burning/minting to pooling/distributing | 2026-06-22 |
 
 > Disclamer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -36,7 +37,7 @@ This document outlines the specifications for Logos Blockchain's block rewards m
 
 The objective is to develop a block rewards system that addresses key challenges specific to Logos Blockchain's architecture, including the unlinkability between block proposal and reward collection, and the inability to directly allocate transaction fees to specific block proposers. These constraints necessitate a carefully designed economic incentive structure.
 
-Building on previous work in blockchain economics, this specification proposes a dynamic token emission system that calibrates LGO issuance according to network Key Performance Indicators (KPIs). The system uses two primary metrics: inferred total stake (as a security indicator) and average burning rate (to maintain supply equilibrium).
+Building on previous work in blockchain economics, this specification proposes a dynamic token emission system that calibrates LGO issuance according to network Key Performance Indicators (KPIs). The system uses two primary metrics: inferred total stake (as a security indicator) and average pooling rate (to maintain supply equilibrium).
 
 The document references internal mathematical models and simulations that demonstrate how the proposed mechanism would behave under various conditions. Key parameters include maximum annual emission rate ($1\%$), control responsiveness factors, and target metrics for network security.
 
@@ -58,14 +59,14 @@ The Logos Blockchain block rewards mechanism is a KPI-based dynamic token emissi
 The design of the rewards system reflects three architectural constraints unique to Logos Blockchain:
 
 - Unlinkability: Block proposal and reward collection are intentionally decoupled for privacy, meaning rewards cannot be assigned to a single proposer.
-- Fee burning: All transaction fees (execution base fees and permanent storage fees) are burned, rather than directly given to block proposers.
+- Fee pooling: All transaction fees (execution base fees and permanent storage fees) are collected into a rewards pool, rather than directly given to block proposers.
 - Global metrics over local signals: Rewards are computed from network-wide KPIs at block production time, rather than from easily manipulated per-block data.
 
 These principles ensure that the system is censorship-resistant, manipulation-resistant, and aligned with long-term network incentives.
 
 ## Requirements
 
-Building upon the requirements for Logos Blockchain's block rewards system, the implementation will establish that all transaction fees are burned while block rewards are tied to measurable global metrics that reflect network health and security. This mechanism ensures that if network activity surges substantially, the accelerated burning of tokens will be balanced by compensatory emissions over time.
+Building upon the requirements for Logos Blockchain's block rewards system, the implementation will establish that all transaction fees are pooled while block rewards are tied to measurable global metrics that reflect network health and security. This mechanism ensures that if network activity surges substantially, the accelerated pooling of tokens will be balanced by compensatory distribution over time.
 
 For optimal functionality, block rewards should be anchored to specific observable metrics rather than arbitrary values. Block numbers simply track time passage without indicating chain state. Transaction counts per block are vulnerable to manipulation. On the other hand, tracking the number of Blend nodes or inferring total stake provide more robust information about the chain state, specially when they can be compared with targets that are considered “healthy”.
 
@@ -76,19 +77,19 @@ Crucially, any metric-pegged reward system should aim toward a target value or e
 The system dynamically adjusts token emission based on two primary KPIs:
 
 - Inferred Total Stake: Measures network security by tracking the total amount staked against a target threshold (e.g., $30\%$ of TGE supply).
-- Average Burning Rate: Tracks transaction fees (both Execution base fees and Permanent Storage) burned to maintain supply equilibrium.
+- Average Pooling Rate: Tracks transaction fees (both Execution base fees and Permanent Storage) routed to the pool to maintain supply equilibrium.
 
 A control function combines these KPIs to determine the emission rate factor, bounded between a minimum and maximum annual issuance. This ensures that:
 
 - When security participation is below target, higher issuance attracts more validators.
-- As usage increases and fees are burned, emissions adjust downward to stabilize supply.
+- As usage increases and fees are pooled, issuance adjusts downward and distribution from the pool rises to stabilize circulating supply.
 
 ![Block rewards high-level system design](block-rewards/assets/high-level-system-design.svg)
 
 The equation that defines the amount of block rewards is given by:
 
 $$
-A_t \cdot \dfrac{I_{max} \cdot S_{tge} \cdot \Delta_t}{f} + (1-A_t) \cdot R_\text{block}
+A_t \cdot \dfrac{I_{max} \cdot S_{tge} \cdot \Delta_t}{f} + (1-A_t) \cdot \bar{R}_t
 $$
 
 where:
@@ -98,23 +99,24 @@ where:
 - $`S_{tge}`$ denotes the token supply at Token Generation Event (TGE).
 - $`\Delta_t`$ denotes the fraction of year in one time step per e.g., epoch, block, or day.
 - $f$ be the average number of block proposal within $`\Delta_{t}`$ units.
-- $`R_\text{block}`$ denotes the total amount of Execution base fees and Permanent Storage fees that are burned when the block is proposed.
+- $`R_\text{block}`$ denotes the total amount of Execution base fees and Permanent Storage fees that are routed to the pool when the block is proposed.
+- $`\bar{R}_t`$ denotes the average pooled reward: the moving average of $`R_\text{block}`$ over the look-back window $`T`$.
 
 ## Lifecycle Phases
 
 The system is designed to evolve through different phases:
 
 - Bootstrap Phase: Initially higher emission rates (up to $1\%$ annually) to incentivize network participation when stake is below target. As it is explained below, this is viable even when Logos Blockchain experiences low activity because the level of activity only plays a role when the network participation gets close to the predefined target.
-- Stabilization Phase: As Proof-of-Stake (PoS) participation approaches target levels, emission becomes primarily driven by burning rate.
-- Equilibrium Phase: Supply stabilizes with issuance matching burned fees.
-- High-Adoption Phase: If burning exceeds maximum emission, supply becomes deflationary.
+- Stabilization Phase: As Proof-of-Stake (PoS) participation approaches target levels, emission becomes primarily driven by the pooling rate.
+- Equilibrium Phase: Circulating supply stabilizes as distribution from the pool matches pooled fees and issuance approaches zero.
+- High-Adoption Phase: If the pooling rate exceeds maximum issuance, circulating supply contracts as the reserve accumulates faster than tokens are issued. Total supply does not decrease.
 
 ## Benefits
 
 This KPI-based approach delivers several advantages:
 
 - Self-regulating mechanism that automatically adjusts to network conditions.
-- Long-term sustainability with projected total inflation of just $1.33\%$ after $10$ years (assuming constant burning rate of $0.5\%$ per year).
+- Long-term sustainability with projected net circulating-supply growth of just $1.33\%$ after $10$ years (assuming constant pooling rate of $0.5\%$ per year).
 - Built-in safeguards against manipulation through moving averages and bounded functions.
 - Predictable economic model that balances security incentives with controlled supply.
 
@@ -148,18 +150,20 @@ The following variables are input to the model:
 Let us define the following variables:
 
 - $`S_t`$ denotes the token circulating supply at time $t$.
+- $`P_t`$ denotes the rewards pool balance at time $t$. It collects the pooled fees and funds the distributed portion of the reward.
 - $`A_t \in [0,1]`$ denotes the emission rate factor on a per year basis.
     - This implies that $`A_t \cdot I_{max} \cdot \Delta_t`$ denotes the emission within the time-step.
 - $`D_{i,t}`$ denotes the $i$-th key performance indicator at time $t$ (e.g., TVL, staked amount, active users).
-- $`R_\text{block}`$ denotes the total amount of Execution Gas and Permanent Storage fees burnt in a block. Refer to [🔀\[1.0.0\] Execution Market](execution-market.md) and [🔀\[1.0.0\] Storage Markets](storage-markets.md) for how to compute $`R_{block}`$.
+- $`R_\text{block}`$ denotes the total amount of Execution Gas and Permanent Storage fees routed to the rewards pool in a block. Refer to [🔀\[1.0.0\] Execution Market](execution-market.md) and [🔀\[1.0.0\] Storage Markets](storage-markets.md) for how to compute $`R_{block}`$.
+- $`\bar{R}_t = \dfrac{1}{T} \sum_{\tau=t-T+1}^{t} D_{1,\tau}`$ denotes the average pooled reward: the moving average of $`R_\text{block}`$ over the look-back window $`T`$. It is the base distributed each block, topped up by issuance.
 
 ## Parametrization
 
 | Symbol | Definition | Default Value | Explanation |
 | --- | --- | --- | --- |
 | $`S_{tge}`$​ | Token supply at TGE | 10 billion LGO | N.A. |
-| $T$​ | The number of periods in the look-back window for the moving average. | $120$​ | As the system is expected to mint 1 block every 30 seconds, this look-back window defines that the minting averages the fees burned in the last hour. |
-| $`\alpha_a`$​ | Denotes the control responsiveness to KPI average metrics. | $1$​ | This parameter drives the token emission from the burn rate. It must be one-to-one. |
+| $T$​ | The number of periods in the look-back window for the moving average. | $120$​ | As the system is expected to produce 1 block every 30 seconds, this look-back window defines that the reward averages the fees pooled in the last hour. |
+| $`\alpha_a`$​ | Denotes the control responsiveness to KPI average metrics. | $1$​ | This parameter scales the issuance response to the pooling rate. It must be one-to-one. |
 | $`\alpha_d`$​ | Denotes the control responsiveness to KPI deviation metrics. | $1/4$​ | See [\[1.0.0\]\[Analysis\] Block Reward Parameter Calibration](analysis-block-reward-parameter-calibration.md), for details. |
 | $`w_i`$​ | Denotes the weight of the $i$-th KPI in the normalized deviation from target | $1$​ | There's only one KPI of this type in our system. |
 | $`D_{0,target}`$​ | Denotes the target value for the first KPI based on stake. | 3 billion LOGOS | $30\%$ of the token supply. |
@@ -173,26 +177,26 @@ The calibration of these parameters can be found in [🔀\[1.0.0\]\[Analysis\] B
 
 ## Block Rewards
 
-The amount of tokens to be rewarded in a block depends on the emission rate factor $`A_t`$. This controls how much is minted from inflation and how much is diverted from transaction fees. The following behavior is expected:
+The amount of tokens rewarded in a block is anchored on the average pooled reward and topped up by new issuance. The emission rate factor $`A_t`$ sets the size of the top-up: it controls how much of the reward is newly issued and how much is the recycled average of pooled fees. The following behavior is expected:
 
-- When the aggregate KPI is far from the target, $`A_t \rightarrow 1`$, then the emission of new tokens  (inflation) is maximized, and most of the transaction fees aren't minted back. The amount of tokens burned does not impact the block rewards in this situation. This means that the system can burn more tokens than it mints.
-- When the aggregate KPI is close to the target, $`A_t \rightarrow 0`$, then the emission from inflation is minimized, and most of $`R_{block}`$ is minted back for leaders and Blend nodes.
+- When the aggregate KPI is far from the target, $`A_t \rightarrow 1`$, the issuance top-up is maximized: new issuance tops up the average pooled reward $`\bar{R}_t`$, raising the reward toward the per-block issuance cap $`\frac{I_{max} \cdot S_{tge} \cdot \Delta_t}{f}`$. The fees collected in this regime are retained and accumulate in the pool.
+- When the aggregate KPI is close to the target, $`A_t \rightarrow 0`$, the top-up vanishes and the reward settles at the average pooled reward $`\bar{R}_t`$, funded by recycling the pooled fees to leaders and Blend nodes.
 
-That is, what drives the source of minting is the KPI: if far from the target, the system mints new tokens; if close to the target, the system mints exactly what was burned (up to $`I_{max}`$ of TGE).
+That is, the KPI sets the issuance top-up over a base equal to the average pooled reward $`\bar{R}_t`$: far from the target, new issuance tops up the reward toward the cap; close to the target, the top-up vanishes and the reward equals $`\bar{R}_t`$. The top-up is bounded by $`I_{max}`$ of TGE.
 
-The emission from inflation within the time step $`\Delta_t`$ is given by
+The issuance within the time step $`\Delta_t`$ is given by
 
 $$
 A_t \cdot I_{max} \cdot S_{tge} \cdot \Delta_t.
 $$
 
-The actual amount of tokens minted per block (because of inflation) also depends on how many blocks are expected to be proposed between $`\Delta_{t-1}`$ and $`\Delta_{t}`$. This is expressed by the factor $f$, as defined [above](#core-variables).
+The actual amount of tokens issued per block also depends on how many blocks are expected to be proposed between $`\Delta_{t-1}`$ and $`\Delta_{t}`$. This is expressed by the factor $f$, as defined [above](#core-variables).
 
 The equation that implements the behavior above in terms of $`A_t`$ is given by:
 
 $$
 \begin{equation}
-A_t \cdot \dfrac{I_{max} \cdot S_{tge} \cdot \Delta_t}{f} + (1-A_t) \cdot R_\text{block}
+R_t = A_t \cdot \dfrac{I_{max} \cdot S_{tge} \cdot \Delta_t}{f} + (1-A_t) \cdot \bar{R}_t
 \end{equation}
 $$
 
@@ -203,25 +207,65 @@ where:
 - $`S_{tge}`$ denotes the token supply at Token Generation Event (TGE).
 - $`\Delta_t`$ denotes the fraction of year in one time step per e.g., epoch, block, or day.
 - $f$ be the average number of block proposal within $`\Delta_{t}`$ units.
-- $`R_\text{block} = D_{1,t}`$ denotes the total amount of Execution base fees and Storage fees that are burned when the block is proposed.
+- $`R_\text{block} = D_{1,t}`$ denotes the per-block Execution base fees and Storage fees routed to the pool when the block is proposed.
+- $`\bar{R}_t = \dfrac{1}{T} \sum_{\tau=t-T+1}^{t} D_{1,\tau}`$ denotes the average pooled reward: the moving average of $`R_\text{block}`$ over the look-back window $`T`$.
+
+The recycled component distributes the average pooled reward $`\bar{R}_t`$, rather than the single-block fee $`R_\text{block}`$, which smooths it across the window $`T`$. Rearranging equation (1) isolates the role of issuance:
+
+$$
+\bar{R}_t + A_t \cdot \left( \dfrac{I_{max} \cdot S_{tge} \cdot \Delta_t}{f} - \bar{R}_t \right).
+$$
+
+The base distributed every block is the average pooled reward $`\bar{R}_t`$. The second term is the issuance top-up: when the aggregate KPI is far from the target, $`A_t \rightarrow 1`$ and new issuance tops up the reward from $`\bar{R}_t`$ toward the per-block issuance cap $`\frac{I_{max} \cdot S_{tge} \cdot \Delta_t}{f}`$. In the bootstrap regime, where activity is low and $`\bar{R}_t < \frac{I_{max} \cdot S_{tge} \cdot \Delta_t}{f}`$, the top-up is positive, so issuance raises the reward above the average pooled reward. If the average pooled reward already exceeds the issuance cap, the second term is non-positive, and therefore less tokens are released as rewards.
 
 ```python
 def block_rewards(
-        S_tge:float,
-    emission_rate_factor:float,
-    I_max:float,
-    Delta_t:float,
-    f:float,
-    D_1_t: float
+    S_tge: float,
+    emission_rate_factor: float,
+    I_max: float,
+    Delta_t: float,
+    f: float,
+    R_bar_t: float,
 ) -> float:
-"""
-            Calculate the rewards per block.
-            It implements equation (1).
-        """
-    emission_from_inflation = emission_rate_factor * I_max * S_tge * Delta_t / f
-    emission_from_rewards = (1. - emission_rate_fator) * R_block_cur
-    return emission_from_inflation + emission_from_rewards
+    """
+    Calculate the rewards distributed per block.
+    It implements equation (1). R_bar_t is the average pooled reward:
+    the moving average of the per-block pooled fees over the look-back window T.
+    """
+    issuance = emission_rate_factor * I_max * S_tge * Delta_t / f
+    pool_distribution = (1.0 - emission_rate_factor) * R_bar_t
+    return issuance + pool_distribution
 ```
+
+## Pool Accounting and Supply Dynamics
+
+The mechanism routes all transaction fees into a rewards pool. Let $`P_t`$ denote the pool balance at time $t$ and $`\bar{R}_t = \frac{1}{T}\sum_{\tau=t-T+1}^{t} D_{1,\tau}`$ the average pooled reward over the look-back window. Each block routes its fees into the pool and distributes the average pooled reward, recycled in proportion $`(1 - A_t)`$. New tokens, minted when the emission factor calls for them, top up this distribution.
+
+The inflows and the outflow at step $t$ are:
+
+- Fee inflow: $`R_\text{block} = D_{1,t}`$.
+- Issuance top-up: $`\iota_t = A_t \cdot \dfrac{I_{max} \cdot S_{tge} \cdot \Delta_t}{f}`$, minted and added to the payout.
+- Distribution outflow, equal to the block reward: $`R_t = (1 - A_t) \cdot \bar{R}_t + \iota_t`$.
+
+The pool collects every fee and pays out only the recycled component, so its balance evolves as
+
+$$
+P_t = P_{t-1} + R_\text{block} - (1 - A_t) \cdot \bar{R}_t.
+$$
+
+The increment $`R_\text{block} - (1 - A_t)\bar{R}_t`$ can take either sign. Near target ($`A_t \rightarrow 0`$) the pool pays the average and banks the difference $`D_{1,t} - \bar{R}_t`$, acting as a buffer that smooths fee fluctuations; far from target ($`A_t \rightarrow 1`$) it retains the full fee while issuance carries the reward. The pool is a redistributable reserve, subject to $`P_t \geq 0`$.
+
+Let total supply be $`S_t^{tot} = S_t + P_t`$, with $`S_t`$ the circulating supply. Per step:
+
+$$
+\Delta S_t = R_t - R_\text{block} = (1 - A_t) \cdot \bar{R}_t + A_t \cdot \dfrac{I_{max} \cdot S_{tge} \cdot \Delta_t}{f} - D_{1,t},
+$$
+
+$$
+\Delta S_t^{tot} = \iota_t = A_t \cdot \dfrac{I_{max} \cdot S_{tge} \cdot \Delta_t}{f} \geq 0.
+$$
+
+Total supply is non-decreasing: only issuance creates tokens, while routing fees and recycling them transfers tokens between circulation and the reserve. Circulating supply contracts whenever the fee inflow exceeds the distributed reward, $`D_{1,t} > R_t`$, when tokens enter the reserve faster than they are paid out and issued. This removes tokens from circulation, not from existence, and reverses if the reserve is later released.
 
 ## Emission Rate Factor Function
 
@@ -335,7 +379,7 @@ The weighted average metric features:
 - $`\gamma_t = 0`$ → should not change the token emission.
 - $`\gamma_t \lt 0`$ → should reduce the token emission by a factor of $`\alpha_a \gamma_t`$.
 
-> To measure the average, only the average burning rate KPI is used in this part of the computation
+> To measure the average, only the average pooling rate KPI is used in this part of the computation
 
 ## Key Performance Indicator(s)
 
@@ -362,22 +406,24 @@ $$
 \text{Security Level} = \dfrac{D_{0,target}}{S_{tge}}.
 $$
 
-### KPI 2 - The Average Burning Rate
+### KPI 2 - The Average Pooling Rate
 
-In the long run, Logos Blockchain should mint only enough tokens to compensate for the burned transaction fees.
+In the long run, Logos Blockchain should issue only enough tokens to complement the pooled transaction fees, so that block rewards are funded primarily by distribution from the pool.
 
 Let
 
-- $`D_{1,t}`$ denote the amount of Storage fees and Execution base fees burned since $t-1$.
+- $`D_{1,t}`$ denote the amount of Storage fees and Execution base fees pooled since $t-1$.
 - $`D_{1,target}=S_{tge}`$ denote the "normalizing factor" (it is the TGE supply, in this case).
 
-This choice of "target" implies that $`\gamma_t`$ evaluates the annualized average burning rate with respect to the TGE supply. This makes the equation [above](#emission-rate-factor-function) consistent.
+This choice of "target" implies that $`\gamma_t`$ evaluates the annualized average pooling rate with respect to the TGE supply. This makes the equation [above](#emission-rate-factor-function) consistent.
 
 # Float Precision for Implementation
 
 Because block rewards affect consensus state, the implementation must be fully deterministic across all nodes. For that reason, the normative implementation of the reward function should not rely on floating-point arithmetic, machine-dependent rounding behavior, or comparisons against machine epsilon. Earlier sections use real-valued formulas to explain the mechanism and its economic meaning, but the consensus rule itself should be defined only in terms of integer arithmetic. This is especially important because the current document already notes floating-point concerns in the KPI helper functions and then introduces a final integer rewrite for the reward computation. The issue is therefore not whether integers should be used, but how to present that integer formulation in a way that remains auditable and clearly derived from the protocol parameters.
 
-The goal of this section is not to change the reward mechanism. It is only to restate the already-specified mechanism in a canonical deterministic form with explicit named constants. In particular, the reward logic remains driven by the same two KPI components described previously: the inferred total stake relative to its target, and the moving average of burned fees over the look-back window. Likewise, the reward still interpolates between inflationary issuance and burned-fee compensation through the emission factor $`A_t`$.
+The goal of this section is not to change the reward mechanism. It is only to restate the already-specified mechanism in a canonical deterministic form with explicit named constants. In particular, the reward logic remains driven by the same two KPI components described previously: the inferred total stake relative to its target, and the moving average of pooled fees over the look-back window. Likewise, the reward still interpolates between new issuance and distribution from the pool through the emission factor $`A_t`$.
+
+> Rederivation required: the integer steps below were written for the earlier reward equation, whose recycled term used the single-block pooled fee $`R_\text{block} = D_{1,t}`$. Equation (1) now distributes the average pooled reward $`\bar{R}_t = \frac{1}{T}\sum_{\tau=t-T+1}^{t} D_{1,\tau}`$ in the recycled term. To match the current model, replace $`(1-A_t)\cdot D_{1,t}`$ by $`(1-A_t)\cdot \bar{R}_t`$, reusing the window sum already maintained for $`\gamma_t`$ (the Rust reference already accumulates it as the fee window, so $`\bar{R}_t`$ is that sum divided by $`T`$). The derivation of $`A_t`$ and of the issuance term is unaffected.
 
 $$
 A_t = \min \lbrace 1, \max \lbrace 0, \dfrac{ \alpha_d \cdot \delta_t + \alpha_a \cdot \gamma_t + I_{min}}{I_{max}} \rbrace \rbrace.
@@ -480,16 +526,16 @@ const INFLATION_NUM: u128 = 62_500; // numerator of I_max * S_TGE * DELTA_t / f
 const INFLATION_DEN: u128 = 657; // denominator of I_max * S_TGE * DELTA_t / f
 const FEE_AVG_NUM: u128 = 10_512; // numerator of 1/(I_max * D1_target * Delta_t * T) 
 const STAKE_TARGET: u128 = 3e9;
-fn block_reward(total_stake: u64, burned_fees_window: [u64; 120]) -> (u64, u64) {
-    let sum_fees: u128 = burned_fees_window.iter().map(|x| *x as u128).sum();
-    let last_burned_fee: u128 = *burned_fees_window.last().unwrap() as u128;
+fn block_reward(total_stake: u64, pooled_fees_window: [u64; 120]) -> (u64, u64) {
+    let sum_fees: u128 = pooled_fees_window.iter().map(|x| *x as u128).sum();
+    let last_pooled_fee: u128 = *pooled_fees_window.last().unwrap() as u128;
     let a_num = STAKE_TARGET
         .saturating_add(FEE_AVG_NUM.saturating_mul(sum_fees))
         .saturating_sub(total_stake as u128)
         .min(A_SCALE);
     let reward_num =
         INFLATION_NUM * a_num
-        + INFLATION_DEN * (A_SCALE - a_num) * last_burned_fee;
+        + INFLATION_DEN * (A_SCALE - a_num) * last_pooled_fee;
     let reward_den = INFLATION_DEN * A_SCALE;
     // 60% Blend, 40% leader, with truncation applied only once per share
     let blend_reward = (reward_num * 6 / (reward_den * 10)) as u64;
