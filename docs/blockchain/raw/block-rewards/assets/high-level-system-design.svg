@@ -23,7 +23,7 @@
   <text class="label" x="169" y="310">Inferred Total Stake</text>
 
   <rect class="node" x="64" y="382" width="210" height="72"/>
-  <text class="label" x="169" y="418">Transaction Fee Burning</text>
+  <text class="label" x="169" y="418">Transaction Fee Pooling</text>
 
   <rect class="node" x="326" y="328" width="220" height="72"/>
   <text class="label" x="436" y="364">KPI Measurement</text>
