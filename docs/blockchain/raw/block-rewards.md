@@ -22,7 +22,7 @@
 | Version | Changes | Date |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-24 |
-| 1.1.0 | Changing from burning/minting to pooling/distributing | 2026-06-22 |
+| 1.1.0 | Changing from burning/minting to pooling/distributing, removing S_{tge} | 2026-06-22 |
 
 > Disclamer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -76,7 +76,7 @@ Crucially, any metric-pegged reward system should aim toward a target value or e
 
 The system dynamically adjusts token emission based on two primary KPIs:
 
-- Inferred Total Stake: Measures network security by tracking the total amount staked against a target threshold (e.g., $30\%$ of TGE supply).
+- Inferred Total Stake: Measures network security by tracking the total amount staked against a target threshold (e.g., $30\%$ of the maximum supply).
 - Average Pooling Rate: Tracks transaction fees (both Execution base fees and Permanent Storage) routed to the pool to maintain supply equilibrium.
 
 A control function combines these KPIs to determine the emission rate factor, bounded between a minimum and maximum annual issuance. This ensures that:
@@ -89,14 +89,14 @@ A control function combines these KPIs to determine the emission rate factor, bo
 The equation that defines the amount of block rewards is given by:
 
 $$
-A_t \cdot \dfrac{I_{max} \cdot S_{tge} \cdot \Delta_t}{f} + (1-A_t) \cdot \bar{R}_t
+A_t \cdot \dfrac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f} + (1-A_t) \cdot \bar{R}_t
 $$
 
 where:
 
 - $`A_t`$ is the emission rate factor on a per year basis.
 - $`I_{max}`$ is the maximum emission rate per year.
-- $`S_{tge}`$ denotes the token supply at Token Generation Event (TGE).
+- $`S_{cap}`$ denotes the maximum allowable token supply (hard cap).
 - $`\Delta_t`$ denotes the fraction of year in one time step per e.g., epoch, block, or day.
 - $f$ be the average number of block proposal within $`\Delta_{t}`$ units.
 - $`R_\text{block}`$ denotes the total amount of Execution base fees and Permanent Storage fees that are routed to the pool when the block is proposed.
@@ -130,8 +130,7 @@ The proposed mechanism implements a dynamic token emission system that precisely
 
 The following variables are input to the model:
 
-- $`S_{tge}`$ denotes the token supply at Token Generation Event (TGE).
-- $`S_{cap}`$ denotes the maximum allowable token supply (hard cap), if any.
+- $`S_{cap}`$ denotes the maximum allowable token supply (hard cap).
 - $`\Delta_t`$ denotes the fraction of year in one time step per e.g., epoch, block, or day:
     - if the time step is 1 day, then $`\Delta_t = 1/365`$.
     - if the time step is 1 block every $30$ seconds, then $`\Delta_t = 1/(365 \times 2880)`$.
@@ -161,12 +160,12 @@ Let us define the following variables:
 
 | Symbol | Definition | Default Value | Explanation |
 | --- | --- | --- | --- |
-| $`S_{tge}`$​ | Token supply at TGE | 10 billion LGO | N.A. |
+| $`S_{cap}`$​ | Maximum token supply (hard cap) | 10 billion LGO | N.A. |
 | $T$​ | The number of periods in the look-back window for the moving average. | $120$​ | As the system is expected to produce 1 block every 30 seconds, this look-back window defines that the reward averages the fees pooled in the last hour. |
 | $`\alpha_a`$​ | Denotes the control responsiveness to KPI average metrics. | $1$​ | This parameter scales the issuance response to the pooling rate. It must be one-to-one. |
 | $`\alpha_d`$​ | Denotes the control responsiveness to KPI deviation metrics. | $1/4$​ | See [\[1.0.0\]\[Analysis\] Block Reward Parameter Calibration](analysis-block-reward-parameter-calibration.md), for details. |
 | $`w_i`$​ | Denotes the weight of the $i$-th KPI in the normalized deviation from target | $1$​ | There's only one KPI of this type in our system. |
-| $`D_{0,target}`$​ | Denotes the target value for the first KPI based on stake. | 3 billion LOGOS | $30\%$ of the token supply. |
+| $`D_{0,target}`$​ | Denotes the target value for the first KPI based on stake. | 3 billion LOGOS | $30\%$ of the maximum supply. |
 | $`D_{1,target}`$​ | Denotes the target value for the second KPI based on fees. | $10$ billon LOGOS | In the context of this KPI, this value behaves as a normalizer |
 | $`I_{max}`$​ | The maximum emission rate per year | $1\%$​ | This value guarantees that, when the total inferred stake reaches $`D_{0,target}`$, then the APY for validation is ~3.33%. |
 | $`I_{min}`$​ | The minimum emission rate per year | $0\%$​ | This avoids inflationary token emissions. |
@@ -179,15 +178,15 @@ The calibration of these parameters can be found in [🔀\[1.0.0\]\[Analysis\] B
 
 The amount of tokens rewarded in a block is anchored on the average pooled reward and topped up by new issuance. The emission rate factor $`A_t`$ sets the size of the top-up: it controls how much of the reward is newly issued and how much is the recycled average of pooled fees. The following behavior is expected:
 
-- When the aggregate KPI is far from the target, $`A_t \rightarrow 1`$, the issuance top-up is maximized: new issuance tops up the average pooled reward $`\bar{R}_t`$, raising the reward toward the per-block issuance cap $`\frac{I_{max} \cdot S_{tge} \cdot \Delta_t}{f}`$. The fees collected in this regime are retained and accumulate in the pool.
+- When the aggregate KPI is far from the target, $`A_t \rightarrow 1`$, the issuance top-up is maximized: new issuance tops up the average pooled reward $`\bar{R}_t`$, raising the reward toward the per-block issuance cap $`\frac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f}`$. The fees collected in this regime are retained and accumulate in the pool.
 - When the aggregate KPI is close to the target, $`A_t \rightarrow 0`$, the top-up vanishes and the reward settles at the average pooled reward $`\bar{R}_t`$, funded by recycling the pooled fees to leaders and Blend nodes.
 
-That is, the KPI sets the issuance top-up over a base equal to the average pooled reward $`\bar{R}_t`$: far from the target, new issuance tops up the reward toward the cap; close to the target, the top-up vanishes and the reward equals $`\bar{R}_t`$. The top-up is bounded by $`I_{max}`$ of TGE.
+That is, the KPI sets the issuance top-up over a base equal to the average pooled reward $`\bar{R}_t`$: far from the target, new issuance tops up the reward toward the cap; close to the target, the top-up vanishes and the reward equals $`\bar{R}_t`$. The top-up is bounded by $`I_{max}`$ of the cap.
 
 The issuance within the time step $`\Delta_t`$ is given by
 
 $$
-A_t \cdot I_{max} \cdot S_{tge} \cdot \Delta_t.
+A_t \cdot I_{max} \cdot S_{cap} \cdot \Delta_t.
 $$
 
 The actual amount of tokens issued per block also depends on how many blocks are expected to be proposed between $`\Delta_{t-1}`$ and $`\Delta_{t}`$. This is expressed by the factor $f$, as defined [above](#core-variables).
@@ -196,7 +195,7 @@ The equation that implements the behavior above in terms of $`A_t`$ is given by:
 
 $$
 \begin{equation}
-R_t = A_t \cdot \dfrac{I_{max} \cdot S_{tge} \cdot \Delta_t}{f} + (1-A_t) \cdot \bar{R}_t
+R_t = A_t \cdot \dfrac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f} + (1-A_t) \cdot \bar{R}_t
 \end{equation}
 $$
 
@@ -204,7 +203,7 @@ where:
 
 - $`A_t`$ is the emission rate factor on a per year basis.
 - $`I_{max}`$ is the maximum emission rate per year.
-- $`S_{tge}`$ denotes the token supply at Token Generation Event (TGE).
+- $`S_{cap}`$ denotes the maximum allowable token supply (hard cap).
 - $`\Delta_t`$ denotes the fraction of year in one time step per e.g., epoch, block, or day.
 - $f$ be the average number of block proposal within $`\Delta_{t}`$ units.
 - $`R_\text{block} = D_{1,t}`$ denotes the per-block Execution base fees and Storage fees routed to the pool when the block is proposed.
@@ -213,14 +212,14 @@ where:
 The recycled component distributes the average pooled reward $`\bar{R}_t`$, rather than the single-block fee $`R_\text{block}`$, which smooths it across the window $`T`$. Rearranging equation (1) isolates the role of issuance:
 
 $$
-\bar{R}_t + A_t \cdot \left( \dfrac{I_{max} \cdot S_{tge} \cdot \Delta_t}{f} - \bar{R}_t \right).
+\bar{R}_t + A_t \cdot \left( \dfrac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f} - \bar{R}_t \right).
 $$
 
-The base distributed every block is the average pooled reward $`\bar{R}_t`$. The second term is the issuance top-up: when the aggregate KPI is far from the target, $`A_t \rightarrow 1`$ and new issuance tops up the reward from $`\bar{R}_t`$ toward the per-block issuance cap $`\frac{I_{max} \cdot S_{tge} \cdot \Delta_t}{f}`$. In the bootstrap regime, where activity is low and $`\bar{R}_t < \frac{I_{max} \cdot S_{tge} \cdot \Delta_t}{f}`$, the top-up is positive, so issuance raises the reward above the average pooled reward. If the average pooled reward already exceeds the issuance cap, the second term is non-positive, and therefore less tokens are released as rewards.
+The base distributed every block is the average pooled reward $`\bar{R}_t`$. The second term is the issuance top-up: when the aggregate KPI is far from the target, $`A_t \rightarrow 1`$ and new issuance tops up the reward from $`\bar{R}_t`$ toward the per-block issuance cap $`\frac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f}`$. In the bootstrap regime, where activity is low and $`\bar{R}_t < \frac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f}`$, the top-up is positive, so issuance raises the reward above the average pooled reward. If the average pooled reward already exceeds the issuance cap, the second term is non-positive, and therefore less tokens are released as rewards.
 
 ```python
 def block_rewards(
-    S_tge: float,
+    S_cap: float,
     emission_rate_factor: float,
     I_max: float,
     Delta_t: float,
@@ -232,7 +231,7 @@ def block_rewards(
     It implements equation (1). R_bar_t is the average pooled reward:
     the moving average of the per-block pooled fees over the look-back window T.
     """
-    issuance = emission_rate_factor * I_max * S_tge * Delta_t / f
+    issuance = emission_rate_factor * I_max * S_cap * Delta_t / f
     pool_distribution = (1.0 - emission_rate_factor) * R_bar_t
     return issuance + pool_distribution
 ```
@@ -244,7 +243,7 @@ The mechanism routes all transaction fees into a rewards pool. Let $`P_t`$ denot
 The inflows and the outflow at step $t$ are:
 
 - Fee inflow: $`R_\text{block} = D_{1,t}`$.
-- Issuance top-up: $`\iota_t = A_t \cdot \dfrac{I_{max} \cdot S_{tge} \cdot \Delta_t}{f}`$, minted and added to the payout.
+- Issuance top-up: $`\iota_t = A_t \cdot \dfrac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f}`$, minted and added to the payout.
 - Distribution outflow, equal to the block reward: $`R_t = (1 - A_t) \cdot \bar{R}_t + \iota_t`$.
 
 The pool collects every fee and pays out only the recycled component, so its balance evolves as
@@ -258,11 +257,11 @@ The increment $`R_\text{block} - (1 - A_t)\bar{R}_t`$ can take either sign. Near
 Let total supply be $`S_t^{tot} = S_t + P_t`$, with $`S_t`$ the circulating supply. Per step:
 
 $$
-\Delta S_t = R_t - R_\text{block} = (1 - A_t) \cdot \bar{R}_t + A_t \cdot \dfrac{I_{max} \cdot S_{tge} \cdot \Delta_t}{f} - D_{1,t},
+\Delta S_t = R_t - R_\text{block} = (1 - A_t) \cdot \bar{R}_t + A_t \cdot \dfrac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f} - D_{1,t},
 $$
 
 $$
-\Delta S_t^{tot} = \iota_t = A_t \cdot \dfrac{I_{max} \cdot S_{tge} \cdot \Delta_t}{f} \geq 0.
+\Delta S_t^{tot} = \iota_t = A_t \cdot \dfrac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f} \geq 0.
 $$
 
 Total supply is non-decreasing: only issuance creates tokens, while routing fees and recycling them transfers tokens between circulation and the reserve. Circulating supply contracts whenever the fee inflow exceeds the distributed reward, $`D_{1,t} > R_t`$, when tokens enter the reserve faster than they are paid out and issued. This removes tokens from circulation, not from existence, and reverses if the reserve is later released.
@@ -385,12 +384,12 @@ The weighted average metric features:
 
 ### KPI 1 - The Inferred Total Stake
 
-Given the privacy features of Logos Blockchain and the fact that the token TGE supply is known, the inferred total stake is the most appropriate indicator of the system's security.
+Given the privacy features of Logos Blockchain and the fact that the token's maximum supply is known, the inferred total stake is the most appropriate indicator of the system's security.
 
 Let:
 
 - $`D_{0,t}`$ denotes the evolution of the inferred total stake.
-- $`D_{0,target}`$ denotes the total stake that is considered secure. For the blockchain to be secure, we aim for $30\%$ of the TGE supply.
+- $`D_{0,target}`$ denotes the total stake that is considered secure. For the blockchain to be secure, we aim for $30\%$ of the maximum supply.
 
 The inferred total stake affects the emission rate through the "normalized deviation from target." The deviation implied by this KPI is characterized by the plot below.
 
@@ -403,7 +402,7 @@ This happens because, when the blockchain starts, $`D_{0,t} \vert_{t=0}`$ is ver
 Let the Logos Blockchain’s security level be defined by:
 
 $$
-\text{Security Level} = \dfrac{D_{0,target}}{S_{tge}}.
+\text{Security Level} = \dfrac{D_{0,target}}{S_{cap}}.
 $$
 
 ### KPI 2 - The Average Pooling Rate
@@ -413,9 +412,9 @@ In the long run, Logos Blockchain should issue only enough tokens to complement 
 Let
 
 - $`D_{1,t}`$ denote the amount of Storage fees and Execution base fees pooled since $t-1$.
-- $`D_{1,target}=S_{tge}`$ denote the "normalizing factor" (it is the TGE supply, in this case).
+- $`D_{1,target}=S_{cap}`$ denote the "normalizing factor" (it is the maximum supply, in this case).
 
-This choice of "target" implies that $`\gamma_t`$ evaluates the annualized average pooling rate with respect to the TGE supply. This makes the equation [above](#emission-rate-factor-function) consistent.
+This choice of "target" implies that $`\gamma_t`$ evaluates the annualized average pooling rate with respect to the maximum supply. This makes the equation [above](#emission-rate-factor-function) consistent.
 
 # Float Precision for Implementation
 
@@ -438,7 +437,7 @@ I_{\max}=10^{-2},\qquad
 T=120,\quad
 f=1,\quad R_\text{block} = D_{1,t}\\
 D_{0,\mathrm{target}}=3\cdot 10^9,\qquad
-D_{1,\mathrm{target}}=S_{\mathrm{tge}}=10^{10},\qquad
+D_{1,\mathrm{target}}=S_{\mathrm{cap}}=10^{10},\qquad
 \Delta_t=\frac{1}{365\cdot 2880},
 $$
 
@@ -499,14 +498,14 @@ $$
 We can compute the block reward using only integers:
 
 $$
-\text{Rewards}_t= A_t \cdot \dfrac{I_{max} \cdot S_{tge} \cdot \Delta_t}{f} + (1-A_t) \cdot R_\text{block} =\\
-\frac{A_t'}{12\cdot 10^7} \cdot \dfrac{I_{max} \cdot S_{tge} \cdot \Delta_t}{f} + (1-\frac{A_t'}{12\cdot 10^7}) \cdot D_{1,t}
+\text{Rewards}_t= A_t \cdot \dfrac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f} + (1-A_t) \cdot R_\text{block} =\\
+\frac{A_t'}{12\cdot 10^7} \cdot \dfrac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f} + (1-\frac{A_t'}{12\cdot 10^7}) \cdot D_{1,t}
 $$
 
 and
 
 $$
-\frac{I_{\max} \cdot S_{\mathrm{tge}}\cdot \Delta_t}{f}=\frac{10^{-2}\cdot 10^{10}}{365\cdot 2880}=\frac{10^8}{1051200}=\frac{62500}{657}.
+\frac{I_{\max} \cdot S_{\mathrm{cap}}\cdot \Delta_t}{f}=\frac{10^{-2}\cdot 10^{10}}{365\cdot 2880}=\frac{10^8}{1051200}=\frac{62500}{657}.
 $$
 
 So:
@@ -522,8 +521,8 @@ So we propose a reference implementation that uses integers:
 
 ```rust
 const A_SCALE: u128 = 120_000_000; // denominator of 1/(I_max * D1_target * Delta_t * T) 
-const INFLATION_NUM: u128 = 62_500; // numerator of I_max * S_TGE * DELTA_t / f
-const INFLATION_DEN: u128 = 657; // denominator of I_max * S_TGE * DELTA_t / f
+const INFLATION_NUM: u128 = 62_500; // numerator of I_max * S_CAP * DELTA_t / f
+const INFLATION_DEN: u128 = 657; // denominator of I_max * S_CAP * DELTA_t / f
 const FEE_AVG_NUM: u128 = 10_512; // numerator of 1/(I_max * D1_target * Delta_t * T) 
 const STAKE_TARGET: u128 = 3e9;
 fn block_reward(total_stake: u64, pooled_fees_window: [u64; 120]) -> (u64, u64) {
