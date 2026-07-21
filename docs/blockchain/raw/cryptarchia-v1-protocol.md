@@ -243,7 +243,7 @@ Every header carries an `epoch_state_root`. It commits the settled state produce
 The computation is deterministic, so every node derives the same root. We use two kinds of commitment:
 
 - The note and voucher trees (`notes`, `C_LEAD`, `voucher_root`) reuse the existing depth-32 [Ledger Root](cryptarchia-proof-of-leadership.md#ledger-root); their current values are included as-is.
-- The other collections (`channels`, `locked_notes`, `declarations`, `declarations_snapshot`, and the voucher nullifier set) are committed through their own Merkle tree root over domain-separated leaves, sorted into a canonical order by their identifier compared as a little-endian integer — `channels` by `ChannelId`, `locked_notes` by `NoteId`, `declarations` and `declarations_snapshot` by `DeclarationId`, and the voucher nullifier set by nullifier value — where each element is hashed by the dedicated function below.
+- The other collections (`channels`, `service_notes`, `declarations`, `declarations_snapshot`, and the voucher nullifier set) are committed through their own Merkle tree root over domain-separated leaves, sorted into a canonical order by their identifier compared as a little-endian integer — `channels` by `ChannelId`, `service_notes` by `NoteId`, `declarations` and `declarations_snapshot` by `DeclarationId`, and the voucher nullifier set by nullifier value — where each element is hashed by the dedicated function below.
 
 The Epoch State Root commits **two SDP registries**:
 
@@ -281,7 +281,7 @@ def sdp_declaration_info_hash(declaration: DeclarationInfo) -> hash:
         h.update(locator.to_byte())
     h.update(declaration.provider_id.compressed())
     h.update(declaration.zk_id)
-    h.update(declaration.locked_note_id)
+    h.update(declaration.service_note_id)
     h.update(declaration.created.to_bytes(8, byteorder='little'))
     h.update(declaration.active.to_bytes(8, byteorder='little'))
     h.update(declaration.withdraw_at.to_bytes(8, byteorder='little'))
@@ -293,17 +293,17 @@ def declarations_root(declarations: dict[DeclarationID, DeclarationInfo]) -> has
     return [hash(b"DECLARATION_HASH_V1", declaration_id, sdp_declaration_info_hash(declarations[declaration_id]))
             for declaration_id in sorted(declarations)].root()
 
-def sdp_locked_note_hash(locked_note: LockedNote) -> hash:
+def sdp_service_note_hash(service_note: ServiceNote) -> hash:
     h = Hasher()
-    h.update(b"LOCKED_NOTE_HASH_V1")
-    for declaration_id in locked_note.declarations:
+    h.update(b"SERVICE_NOTE_HASH_V1")
+    for declaration_id in service_note.declarations:
         h.update(declaration_id)
     return h.digest()
 
-def locked_notes_root(locked_notes: dict[NoteId, LockedNote]) -> hash:
+def service_notes_root(service_notes: dict[NoteId, ServiceNote]) -> hash:
     # sorted by NoteId (little-endian) in increasing order
-    return [hash(b"LOCKED_NOTE_DICT_HASH_V1", note_id, sdp_locked_note_hash(locked_notes[note_id]))
-            for note_id in sorted(locked_notes)].root()
+    return [hash(b"SERVICE_NOTE_DICT_HASH_V1", note_id, sdp_service_note_hash(service_notes[note_id]))
+            for note_id in sorted(service_notes)].root()
 
 def voucher_nullifiers_root(voucher_nullifiers: set[Nullifier]) -> hash:
     # sorted by nullifier value (little-endian) in increasing order
@@ -315,7 +315,7 @@ def get_epoch_state_root(state) -> hash:
     h.update(state.notes.root())                            # latest unspent notes
     h.update(state.aged_notes_root)                         # C_LEAD (Ledger Root)
     h.update(channels_root(state.channels))
-    h.update(locked_notes_root(state.locked_notes))
+    h.update(service_notes_root(state.service_notes))
     h.update(declarations_root(state.declarations))          # mutable SDP registry
     h.update(declarations_root(state.declarations_snapshot)) # immutable SDP snapshot, as of last block of two epochs before
     h.update(state.min_stake.stake_threshold.to_bytes(8))    # current minimum stake

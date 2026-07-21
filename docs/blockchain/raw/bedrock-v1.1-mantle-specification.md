@@ -54,7 +54,7 @@ Logos Blockchain features are exposed through Mantle Operations, which can be co
 
 ## Mantle Ledger
 
-The Mantle Ledger enables asset transfers using a transparent UTXO model. While a Transfer Operation can consume more tokens than it creates, the Mantle Transaction excess balance must exactly pay for the fees. The ledger tracks three kinds of notes: regular notes, locked notes (collateral for service declarations) and channel notes (channel bridge funds eligible for PoS participation only).
+The Mantle Ledger enables asset transfers using a transparent UTXO model. While a Transfer Operation can consume more tokens than it creates, the Mantle Transaction excess balance must exactly pay for the fees. The ledger tracks three kinds of notes: regular notes, service notes (collateral for service declarations) and channel notes (channel bridge funds eligible for PoS participation only).
 
 ## Transaction Fees
 
@@ -947,10 +947,10 @@ These Operations implement the [Service Declaration Protocol](bedrock-service-de
 Validators must keep the following state when implementing SDP Operations:
 
 ```python
-locked_notes: dict[NoteID, LockedNote]
+service_notes: dict[NoteID, ServiceNote]
 declarations: dict[DeclarationID, DeclarationInfo]
 
-class LockedNote:
+class ServiceNote:
     declarations: set[DeclarationID]
 ```
 
@@ -978,7 +978,7 @@ class DeclarationInfo:
     locators: list[Locator]
     provider_id: Ed25519PublicKey
     zk_id: ZkPublicKey
-    locked_note_id: NoteId
+    service_note_id: NoteId
     created: EpochNumber
     active: EpochNumber | None
     withdraw_at: EpochNumber | None
@@ -998,17 +998,17 @@ class DeclarationMessage:
     locators: list[Locator]
     provider_id: Ed25519PublicKey
     zk_id: ZkPublicKey
-    locked_note_id: NoteId
+    service_note_id: NoteId
 ```
 
-Locked notes are introduced in [Locked notes](#locked-notes) and serve as Service collaterals. They cannot be spent before the owner withdraw its participation from the declared service(s).
+Service notes are introduced in [Service notes](#service-notes) and serve as Service collaterals. They cannot be spent before the owner withdraw its participation from the declared service(s).
 
 #### Proof
 
 ```python
 class DeclarationProof:
     zk_sig: ZkSignature             # signature proving ownership over
-                                    # locked note and zk_id
+                                    # service note and zk_id
     provider_sig: Ed25519Signature  # signature proving ownership of provider key
 ```
 
@@ -1029,7 +1029,7 @@ proof: DeclarationProof
 
 min_stake: MinStake      # the (global) minimum stake setting
 ledger: Ledger           # the set of unspent notes
-locked_notes: dict[NoteId, LockedNote]
+service_notes: dict[NoteId, ServiceNote]
 declarations: dict[NoteId, DeclarationInfo]
 ```
 
@@ -1037,7 +1037,7 @@ declarations: dict[NoteId, DeclarationInfo]
 
   The declaration is verified according to [Declare](bedrock-service-declaration-protocol.md#declare).
 
-  1. Ensure ownership over the locked note, `zk_id` and `provider_id`.
+  1. Ensure ownership over the service note, `zk_id` and `provider_id`.
       ```python
       assert ZkSignature_verify(
           txhash, proof.zk_sig, [note.public_key, declaration.zk_id]
@@ -1056,18 +1056,18 @@ declarations: dict[NoteId, DeclarationInfo]
       assert len(declaration.locators) <= 8
       ```
 
-  4. Ensure the locked note exists and its value is sufficient for joining the service.
+  4. Ensure the service note exists and its value is sufficient for joining the service.
       ```python
-      assert ledger.is_unspent(declaration.locked_note_id)
-      note = ledger.get_note(declaration.locked_note_id)
+      assert ledger.is_unspent(declaration.service_note_id)
+      note = ledger.get_note(declaration.service_note_id)
       assert note.value >= min_stake.stake_threshold
       ```
 
-  5. Ensure the note has not already been locked for this service.
+  5. Ensure the note has not already been used for this service.
       ```python
-      if declaration.locked_note in locked_notes:
-          locked_note = locked_notes[declaration.locked_note]
-          services = [declarations[declare_id] for declare_id in locked_note.declarations]
+      if declaration.service_note in service_notes:
+          service_note = service_notes[declaration.service_note]
+          services = [declarations[declare_id] for declare_id in service_note.declarations]
           assert declaration.service_type not in services
       ```
 
@@ -1078,23 +1078,23 @@ declarations: dict[NoteId, DeclarationInfo]
 ```python
 declaration: DeclarationMessage # the declaration we are executing
 current_epoch: EpochNumber
-locked_notes : dict[NoteId, LockedNote]
+service_notes : dict[NoteId, ServiceNote]
 ```
 
   *Execute*
 
-  1. Create the locked note state if it doesn't already exist.
+  1. Create the service note state if it doesn't already exist.
       ```python
-      if declaration.locked_note not in locked_notes:
-          locked_notes[declaration.locked_note_id] = LockedNote(declarations=set())
+      if declaration.service_note not in service_notes:
+          service_notes[declaration.service_note_id] = ServiceNote(declarations=set())
 
-      locked_note = locked_notes[declaration.locked_note_id]
+      service_note = service_notes[declaration.service_note_id]
       ```
 
-  2. Add this declaration to the locked note.
+  2. Add this declaration to the service note.
       ```python
       declare_id = declaration_id(declaration)
-      locked_note.declarations.add(declare_id)
+      service_note.declarations.add(declare_id)
       ```
 
   3. Store the declaration as explained in [**Declaration Storage**](bedrock-service-declaration-protocol.md#declaration-storage).
@@ -1104,7 +1104,7 @@ locked_notes : dict[NoteId, LockedNote]
           locators: declaration.locators
           provider_id: declaration.provider_id
           zk_id: declaration.zk_id
-          locked_note_id: declaration.locked_note_id
+          service_note_id: declaration.service_note_id
           declaration,
           created=current_epoch,
           active=None,
@@ -1129,7 +1129,7 @@ declaration=DeclarationMessage(
     locators=["/ip4/203.0.113.10/tcp/4001/p2p"],
     provider_id=alice_provider_pk,
     zk_id=alice_pk_2,
-    locked_note_id=alice_note.id()
+    service_note_id=alice_note.id()
 )
 
 # Build the transfer operation to pay the fees
@@ -1164,13 +1164,13 @@ The service withdrawal follows the definition given in [Withdraw Message](bedroc
 ```python
 class WithdrawMessage:
     declaration: DeclarationID
-    locked_note_id: NoteId
+    service_note_id: NoteId
     nonce: int
 ```
 
 #### Proof
 
-  A signature from the `zk_id` and the locked note `pk` attached to the declaration is required for withdrawing from a service, (see [Zero Knowledge Signature Scheme (ZkSignature)](#zero-knowledge-signature-scheme-zksignature)).
+  A signature from the `zk_id` and the service note `pk` attached to the declaration is required for withdrawing from a service, (see [Zero Knowledge Signature Scheme (ZkSignature)](#zero-knowledge-signature-scheme-zksignature)).
 
 ```python
 ZkSignature
@@ -1190,20 +1190,20 @@ withdraw: WithdrawMessage
 signature: ZkSignature
 
 ledger: Ledger
-locked_notes: dict[NoteId, LockedNote]
+service_notes: dict[NoteId, ServiceNote]
 declarations: dict[DeclarationID, DeclarationInfo]
 ```
 
   *Validate*
 
-  1. Ensure that the locked note exists, is locked and bound to this declaration.
+  1. Ensure that the service note exists and bound to this declaration.
       ```python
-      assert ledger.is_unspent(withdraw.locked_note_id)
-      assert withdraw.locked_note_id in locked_notes
+      assert ledger.is_unspent(withdraw.service_note_id)
+      assert withdraw.service_note_id in service_notes
 
-      locked_note = locked_notes[withdraw.locked_note_id]
+      service_note = service_notes[withdraw.service_note_id]
 
-      assert withdraw.declaration in locked_note.declarations
+      assert withdraw.declaration in service_note.declarations
       ```
 
   2. Validate SDP withdrawal according to [**Withdraw**](bedrock-service-declaration-protocol.md#withdraw).
@@ -1216,10 +1216,10 @@ declarations: dict[DeclarationID, DeclarationInfo]
           ```python
           assert declare_info.withdraw_at is None
           ```
-      3. Ensure locked note `pk` and `zk_id` attached to this declaration authorized this Operation.
+      3. Ensure service note `pk` and `zk_id` attached to this declaration authorized this Operation.
           ```python
-          locked_note = ledger[withdraw.locked_note_id]
-          assert ZkSignature_verify(txhash, signature, [locked_note.pk, declare_info.zk_id])
+          service_note = ledger[withdraw.service_note_id]
+          assert ZkSignature_verify(txhash, signature, [service_note.pk, declare_info.zk_id])
           ```
       4. Ensure that the nonce is greater than the previous one.
           ```python
@@ -1236,7 +1236,7 @@ signature: ZkSignature
 
 current_epoch: EpochNumber # current epoch
 ledger: Ledger
-locked_notes: dict[NoteId, LockedNote]
+service_notes: dict[NoteId, ServiceNote]
 declarations: dict[DeclarationID, DeclarationInfo]
 ```
 
@@ -1262,12 +1262,12 @@ declarations: dict[DeclarationID, DeclarationInfo]
 ```python
 withdraw=Withdraw(
     declaration=alice_declaration_id,
-    locked_note_id=alices_locked_note_id
+    service_note_id=alices_service_note_id
     nonce=1579532
 )
 
 # Build the transfer operation to pay the fees
-transfer = Transfer(inputs=[alices_locked_note_id],
+transfer = Transfer(inputs=[alices_service_note_id],
                     outputs=[Note(100, alice_note_pk)])
 
 tx = MantleTx(
@@ -1301,7 +1301,7 @@ by the same step, so their stake is always released.
 
 ```python
 current_epoch: EpochNumber
-locked_notes: dict[NoteId, LockedNote]
+service_notes: dict[NoteId, ServiceNote]
 declarations: dict[DeclarationID, DeclarationInfo]
 ```
 
@@ -1310,10 +1310,10 @@ declarations: dict[DeclarationID, DeclarationInfo]
   For every `declare_id`, `declare_info` in `declarations` where
   `declare_info.withdraw_at is not None and declare_info.withdraw_at <= current_epoch - 2`:
 
-  1. Remove the declaration from its locked note.
+  1. Remove the declaration from its service note.
       ```python
-      locked_note = locked_notes[declare_info.locked_note_id]
-      locked_note.declarations.remove(declare_id)
+      service_note = service_notes[declare_info.service_note_id]
+      service_note.declarations.remove(declare_id)
       ```
 
   2. Remove the declaration.
@@ -1323,8 +1323,8 @@ declarations: dict[DeclarationID, DeclarationInfo]
 
   3. Unlock the note once it is no longer bound to any declaration.
       ```python
-      if len(locked_note.declarations) == 0:
-          del locked_notes[declare_info.locked_note_id]
+      if len(service_note.declarations) == 0:
+          del service_notes[declare_info.service_note_id]
       ```
 
 ### SDP_ACTIVE
@@ -1645,13 +1645,13 @@ def derive_note_id(op_id: Hash, output_number: int, note: Note) -> NoteId:
 
 These note identifiers uniquely define notes in the system and cannot be chosen by the user. Nodes maintain the set of notes through a dictionary mapping the NoteId to the note.
 
-### Locked notes
+### Service notes
 
-Locked notes are special notes in Mantle that serve as collateral for Service Declarations. A note can become locked after executing a Declare Operation, preventing it from being spent until explicitly released through a Withdraw Operation. The system maintains a mapping of locked note IDs to their supporting declarations. Though locked, these notes remain in the Ledger and can still participate in Proof of Stake. When service providers withdraw all their declarations, the associated note(s) become unlocked and available for spending again.
+Service notes are special notes in Mantle that serve as collateral for Service Declarations. A note can become a service note after being locked by executing a Declare Operation, preventing it from being spent until explicitly released through a Withdraw Operation. The system maintains a mapping of service note IDs to their supporting declarations. Though locked, these notes remain in the Ledger and can still participate in Proof of Stake. When service providers withdraw all their declarations, the associated note(s) become unlocked and available for spending again.
 
 ### Channel Notes
 
-Channel notes are on-ledger notes minted to represent channel funds. They are distinct from Locked Notes as they can’t be used to declare a service. However, they follow the same ageing rule as ordinary notes since they are part of the ledger and can be used for PoL creation once aged enough.
+Channel notes are on-ledger notes minted to represent channel funds. They are distinct from Service Notes as they can’t be used to declare a service. However, they follow the same ageing rule as ordinary notes since they are part of the ledger and can be used for PoL creation once aged enough.
 
 The system maintains a `channel_notes` set in the Ledger tracking all active channel `NoteId` and their respective `ChannelId`.
 
@@ -1660,13 +1660,13 @@ The system maintains a `channel_notes` set in the Ledger tracking all active cha
 ```python
 class Ledger:
     notes: list[Note]
-    locked_notes: dict[NoteId, LockedNote]
+    service_notes: dict[NoteId, ServiceNote]
     channel_notes: dict[NoteId, ChannelId]
 ```
 
 ### Input Notes Spendability Validation
 
-A note is spendable if and only if it exists, it is not spent or locked. The following function validates that an input of notes can be consumed:
+A note is spendable if and only if it exists, it is not spent or a service note. The following function validates that an input of notes can be consumed:
 
 ```python
 class Ledger:
@@ -1674,10 +1674,10 @@ class Ledger:
         ## Check there is no duplicate
         assert len(inputs) == len(set(inputs))
 
-            # Check that each note is individualy not locked, for the correct channel and unspent
+            # Check that each note is individualy not a service note, for the correct channel and unspent
             for note_id in inputs:
                 assert ledger.is_unspent(note_id)
-                assert note_id not in locked_notes
+                assert note_id not in service_notes
                 if channel_id is None:
                 	assert note_id not in ledger.channel_notes
                 else:

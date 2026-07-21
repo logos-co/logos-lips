@@ -30,7 +30,7 @@
 
 # Introduction
 
-This document defines a mechanism enabling validators to declare their participation in specific protocols that require a known and agreed-upon list of participants. One example of this is the Blend Network. We create a single repository of identifiers which is used to establish secure communication between validators and provide services. Before being admitted to the repository, the validator proves that it locked at least a minimum stake.
+This document defines a mechanism enabling validators to declare their participation in specific protocols that require a known and agreed-upon list of participants. One example of this is the Blend Network. We create a single repository of identifiers which is used to establish secure communication between validators and provide services. Before being admitted to the repository, the validator proves that it locked at least a minimum stake through a service note.
 
 ## Requirements
 
@@ -47,7 +47,7 @@ The SDP enables nodes to declare their eligibility to provide a specific service
 
 The protocol defines the following actions:
 
-- **Declare:** A node sends a declaration that confirms its willingness to provide a specific service, which is confirmed by locking a stake above a certain threshold.
+- **Declare:** A node sends a declaration that confirms its willingness to provide a specific service, which is confirmed by locking a stake above a certain threshold in a service note.
 - **Active:** A node marks that its participation in the protocol is active according to the service-specific activity logic. This action enables the protocol to monitor the node’s activity. We utilize this as a non-intrusive differentiator of node activity. It is crucial to exclude inactive nodes from the set of active nodes, as it enhances the stability of services.
 - **Withdraw:** A node withdraws its declaration and stops providing a service.
 
@@ -154,7 +154,7 @@ class DeclarationMessage:
     service_type: ServiceType
     locators: list[Locator]
     provider_id: Ed25519PublicKey
-    locked_note_id: NoteId
+    service_note_id: NoteId
     zk_id: ZkPublicKey
 ```
 
@@ -162,7 +162,7 @@ The `locators` list must be non-empty and its length must be limited to reduce t
 
 The message must be signed by the `provider_id` key to prove ownership of the key that is used for network-level authentication of the validator.
 
-The `locked_note_id` points to a locked note used for minimum stake threshold verification purposes.
+The `service_note_id` points to a service note used for minimum stake threshold verification purposes.
 
 The message is also signed by the `zk_id` key.
 
@@ -174,7 +174,7 @@ Only valid declaration messages can be stored on the ledger. We define the `Decl
 class DeclarationInfo:
     service: ServiceType
     provider_id: Ed25519PublicKey
-    locked_note_id: NoteId
+    service_note_id: NoteId
     zk_id: ZkPublicKey
     locators: list[Locator]
     created: EpochNumber
@@ -187,7 +187,7 @@ Where:
 
 - `service` defines the service type of the declaration;
 - `provider_id` is an `Ed25519PublicKey` used to sign the message by the validator;
-- `locked_note_id` is a `NoteId` used for minimum stake threshold verification purposes;
+- `service_note_id` is a `NoteId` used for minimum stake threshold verification purposes;
 - `zk_id` is used for zero-knowledge operations by the validator that includes rewarding;
 - `locators` is a copy of the `locators` from the `DeclarationMessage`;
 - `created` refers to the epoch number of the block that contained the declaration;
@@ -246,13 +246,13 @@ The construction of the withdraw message is as follows:
 ```python
 class WithdrawMessage:
     declaration_id: DeclarationId
-    locked_note_id: NoteId
+    service_note_id: NoteId
     nonce: Nonce
 ```
 
 The message must be signed by the `zk_id` key from the `declaration_id`.
 
-The `locked_note_id` is a `NoteId` that was used for minimum stake threshold verification purposes and will be unlocked after withdrawal.
+The `service_note_id` is a `NoteId` that was used for minimum stake threshold verification purposes and will be unlocked after withdrawal.
 
 The `nonce` must increase monotonically by every message sent for the `declaration_id`.
 
@@ -280,7 +280,7 @@ The Declare action associates a validator with a service it wants to provide. It
 
 The declaration message is considered valid when all of the following are met:
 
-- The sender meets the stake requirements and its `locked_note_id` is valid.
+- The sender meets the stake requirements and its `service_note_id` is valid.
 - The `declaration_id` is unique.
 - The `provider_id` and the `zk_id` are each unique in the context of the `service` (as defined in [Identifier Uniqueness](#identifier-uniqueness)).
 - The sender knows the secret behind the `provider_id` identifier.
@@ -320,7 +320,7 @@ The logic of the withdraw action is:
     4. The `nonce` increases monotonically.
 3. If any of the above is not correct, then discard the message and stop.
 4. Set the `withdraw_at` from the `DeclarationInfo` to the current epoch number (the withdrawal epoch `e`).
-5. The `DeclarationInfo` is removed and the stake unlocked (releasing the `locked_note_id`) at epoch `e+2` by the Mantle epoch finalization step, right after the final reward is paid out.
+5. The `DeclarationInfo` is removed and the stake unlocked (releasing the `service_note_id`) at epoch `e+2` by the Mantle epoch finalization step, right after the final reward is paid out.
 
 ### Query
 
