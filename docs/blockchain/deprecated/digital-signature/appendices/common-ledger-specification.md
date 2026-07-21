@@ -1,7 +1,7 @@
 # Common Ledger Specification
 
 **Owners:** Thomas Lavaur David Rusu
-**Reviewers:**  🟢Giacomo Pasini 🟢Mehmet 🟢Álvaro Castro-Castilla
+**Reviewers:**  Giacomo Pasini Mehmet Álvaro Castro-Castilla
 ## Introduction
 
 Unlike a typical blockchain, where a single ledger would track all notes, Logos Blockchain partitions the ledger across zones. The partitioned ledgers will be maintained locally by Native zones, but enforced globally as a common format to enable certain properties and functionalities otherwise not possible (such as PACTs, see  ). Each Native zone manages its own ledger partition and defines its own application. Despite this separation, global ledger rules ensure zones can confidently process notes originating from other ledger partitions. The common ledger is also directly used by the Mantle through the Mantle ledger. The Mantle ledger enforces additional constraints and restrains interactions on its partition of the ledger, favoring efficiency while keeping the model described in this document.

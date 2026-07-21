@@ -4,7 +4,7 @@
 
 ## Motivation
 
-In [[1.3.0] Mantle](../../../deprecated/v1.2.0-mantle.md), the NoteId is derived from the Transfer Operation that mints it:
+In [Mantle](../../../deprecated/v1.2.0-mantle.md), the NoteId is derived from the Transfer Operation that mints it:
 The introduction of `LEADER_CLAIM` and `CHANNEL_WITHDRAW` operations creates a collision risk in `NoteId` derivation. Both operations allow a Mantle transaction to be balanced without consuming any note as input, breaking the hash chain that previously guaranteed `NoteId` uniqueness. As a result, two distinct Mantle transactions can produce notes with identical `NoteId`s whenever their `TRANSFER` operations share the same output value and public key and carry no inputs.
 ## Proposal
 
@@ -17,8 +17,8 @@ So instead of using
 ```python
 # v 1.3
 def derive_note_id(transfer_hash: zkhash, output_number: int, note: Note) -> NoteId:
-   return zkhash(
-     FiniteField(b"NOTE_ID_V1", byte_order="little", modulus= p)
+    return zkhash(
+        FiniteField(b"NOTE_ID_V1", byte_order="little", modulus= p)
         transfer_hash,
         FiniteField(output_number, byte_order="little", modulus= p)
         FiniteField(note.value, byte_order="little", modulus= p)
@@ -46,7 +46,7 @@ The `transfer_id` is not derived using a specific `transfer_hash`function anymor
 ```python
 # v1.3
 def transfer_hash(tx: LedgerTx) -> ZkHash:
-  tx_bytes = encode(tx)
+    tx_bytes = encode(tx)
 
     h = Hasher() # /!\ This is a classic hash not a ZkHash /!\
     h.update(b"TRANSFER_HASH_V1")
@@ -64,7 +64,7 @@ We would use:
 ```python
 # new version
 def derive_op_id(operation: Op) -> Hash:
-  op_bytes = encode(op)
+    op_bytes = encode(op)
     h = Hasher() # /!\ This is a classic hash not a ZkHash /!\
     h.update(b"OPERATION_ID_V1")
     h.update(op_bytes)
@@ -78,13 +78,13 @@ Now the Operations changed from
 ```python
 # v 1.3
 class ChannelDeposit:
-  channel: ChannelId
-  amount: TokenValue
-  metadata: bytes
+    channel: ChannelId
+    amount: TokenValue
+    metadata: bytes
 
 class ChannelWithdraw:
-  channel: ChannelId
-  amount: TokenValue
+    channel: ChannelId
+    amount: TokenValue
 
 class ClaimRequest:
     rewards_root: zkhash # Merkle root used in the proof for voucher membership
@@ -95,14 +95,14 @@ to
 ```python
 # new version
 class ChannelDeposit:
-  channel: ChannelId
-   inputs: list[NoteId]  # the list of consumed note identifiers
-  metadata: bytes
+    channel: ChannelId
+    inputs: list[NoteId]  # the list of consumed note identifiers
+    metadata: bytes
 
 class ChannelWithdraw:
-  channel: ChannelId
-  outputs: list[Note]
-  withdrawal_nonce: u32
+    channel: ChannelId
+    outputs: list[Note]
+    withdrawal_nonce: u32
 
 class ClaimRequest:
     rewards_root: zkhash # Merkle root used in the proof for voucher membership
@@ -135,21 +135,21 @@ tx_fee = gas_fees(signed_tx)  # Not an unsigned int
 assert tx_fee == get_transaction_balance(signed_tx)
 
 def get_transaction_balance(signed_tx: SignedMantleTx) -> int:
-  balance = 0   # It's important to not use unsigned int here to avoid
-         # overflow vulnerabilities
-  for op in signed_tx.tx.ops:
--    if op.opcode == LEADER_CLAIM:
--      balance += get_leader_reward()
--    if op.opcode == CHANNEL_DEPOSIT:
--      balance -= get_channel_deposit_amount(op)
--    if op.opcode == CHANNEL_WITHDRAW:
--      balance += get_channel_withdrawal_amount(op)
-    if op.opcode == TRANSFER:
-      for inp in op.inputs:
-        balance += get_value_from_note_id(inp)
-      for out in op.outputs:
-        balance -= out.value
-  return balance
+    balance = 0   # It's important to not use unsigned int here to avoid
+                  # overflow vulnerabilities
+    for op in signed_tx.tx.ops:
+-       if op.opcode == LEADER_CLAIM:
+-           balance += get_leader_reward()
+-       if op.opcode == CHANNEL_DEPOSIT:
+-           balance -= get_channel_deposit_amount(op)
+-       if op.opcode == CHANNEL_WITHDRAW:
+-           balance += get_channel_withdrawal_amount(op)
+        if op.opcode == TRANSFER:
+            for inp in op.inputs:
+                balance += get_value_from_note_id(inp)
+            for out in op.outputs:
+                balance -= out.value
+    return balance
 ```
 
 #### Channel Operations
@@ -172,8 +172,8 @@ class ChannelState:
     # Decentralized Sequencing
     tip_slot: Slot
     tip_sequencer: u16      # indicating the actual
-                # sequencer position in the list of accredited keys
-  tip_sequencer_starting_slot: Slot
+                            # sequencer position in the list of accredited keys
+    tip_sequencer_starting_slot: Slot
     posting_timeframe: u32  # number of slots (0 = infinity)
     posting_timeout: u32    # number of slots (0 = no timeout)
 
@@ -185,18 +185,18 @@ class ChannelState:
 
 def default_channel(block_slot: Slot, keys: list[Ed25519PublicKey])
                             -> ChannelState:
-  return ChannelState(
-    tip_hash = ZERO,
-    tip_slot = block_slot,
-    accredited_keys = keys,
-    tip_sequencer = 0,
-    tip_sequencer_starting_slot = block_slot,
-    posting_timeframe = 0,
-    posting_timeout = 0,
-    configuration_threshold = 1,
-    balance = 0,
-+    withdrawal_nonce = 0,
-    withdraw_threshold = 1)
+    return ChannelState(
+        tip_hash = ZERO,
+        tip_slot = block_slot,
+        accredited_keys = keys,
+        tip_sequencer = 0,
+        tip_sequencer_starting_slot = block_slot,
+        posting_timeframe = 0,
+        posting_timeout = 0,
+        configuration_threshold = 1,
+        balance = 0,
++       withdrawal_nonce = 0,
+        withdraw_threshold = 1)
 ```
 
 The withdraw nonce is incremented by one during `CHANNEL_WITHDRAW` execution: Increase the channel withdrawal_nonce.
@@ -207,10 +207,10 @@ The withdraw nonce is incremented by one during `CHANNEL_WITHDRAW` execution: In
 The `CHANNEL_DEPOSIT` Operation now takes a list of inputs to consume. The consume notes replace the amount because it’s directly derived from the consume notes.
 ```text
 class ChannelDeposit:
-  channel: ChannelId
--  amount: TokenValue
+    channel: ChannelId
+-   amount: TokenValue
 +   inputs: list[NoteId]  # the list of consumed note identifiers
-  metadata: bytes
+    metadata: bytes
 ```
 
 #### Proof
@@ -292,7 +292,7 @@ for note_id in deposit.inputs:
   2. Increase the balance of the channel
 ```text
 for inp in deposit.inputs:
-  channels[deposit.channel].balance += inp.value
+    channels[deposit.channel].balance += inp.value
 channels[deposit.channel].balance += deposit.amount
 ```
 
@@ -301,10 +301,10 @@ channels[deposit.channel].balance += deposit.amount
 We need to update the example because the payload was modified:
 ```text
 deposit = ChannelDeposit(
-  channel=ZONE_A,
--  amount=50,
-+  inputs=[alice_deposit_note_id]    # This is a note of 50 tokens
-  metadata=b"deposit to address: 0x..."
+    channel=ZONE_A,
+-   amount=50,
++   inputs=[alice_deposit_note_id]    # This is a note of 50 tokens
+    metadata=b"deposit to address: 0x..."
 )
 ```
 
@@ -315,9 +315,9 @@ deposit = ChannelDeposit(
 We redefine the Payload to take notes as output instead of an amount:
 ```text
 class ChannelWithdraw:
-  channel: ChannelId
--  amount: TokenValue
-+  outputs: list[Note]
+    channel: ChannelId
+-   amount: TokenValue
++   outputs: list[Note]
 +   withdrawal_nonce: u32
 ```
 
@@ -351,7 +351,7 @@ assert len(proof.indexes) == len(set(proof.indexes))
 
 # Check the signatures
 for sig, idx in zip(proof.signatures, proof.indexes):
-  assert Ed25519_verify(txhash, chan.accredited_keys[idx], sig)
+    assert Ed25519_verify(txhash, chan.accredited_keys[idx], sig)
 ```
 
 #### Execution
@@ -362,8 +362,8 @@ We update the execution to remove notes from the ledger and updated the way the 
   1. Decrease the balance of the Channel
 ```text
 for output in withdrawal.outputs:
-  channels[withdrawal.channel].balance -= output.value
-  channels[withdrawal.channel].balance -= withdrawal.amount
+    channels[withdrawal.channel].balance -= output.value
+    channels[withdrawal.channel].balance -= withdrawal.amount
 ```
 
   2. Add outputs to the ledger.
@@ -385,9 +385,9 @@ The example needs an update to match the new payload
 ```text
 # Sequencer encodes his withdrawal
 withdrawal = ChannelWithdraw(
-  channel=ZONE_A,
-+  outputs=[Note(pk=alice, value=50)]
--  amount=50
+    channel=ZONE_A,
++   outputs=[Note(pk=alice, value=50)]
+-   amount=50
 )
 ```
 
@@ -425,8 +425,8 @@ leader_reward: TokenValue     # The amount one leader can claim
   3. Denoting by `leader_reward` the amount defined for leader rewards in Leaders Reward, construct a single output note with value leader_reward under the public key defined in the payload, and insert it into the Ledger:
 ```text
 output_note = Note(
-  value = leader_reward
-  public_key = claim.public_key,
+    value = leader_reward
+    public_key = claim.public_key,
 )
 claim_id = derive_op_id(claim)
 output_note_id = derive_note_id(claim_id, 0, output_note)
@@ -453,8 +453,8 @@ claim=ClaimRequest(
 We added an enforcement in the comment to say that the list of inputs must be at least 1
 ```python
 class Transfer:
-   inputs: list[NoteId]  # the non-empty list of consumed note identifiers
-   outputs: list[Note]
+    inputs: list[NoteId]  # the non-empty list of consumed note identifiers
+    outputs: list[Note]
 ```
 
 #### Transfer Hash
@@ -492,7 +492,7 @@ The NoteId Section also needs an update to include the new `OpId` derivation. We
 
 ```text
 + def derive_op_id(operation: Op) -> Hash:
-+   op_bytes = encode(op)
++     op_bytes = encode(op)
 +     h = Hasher() # /!\ This is a classic hash not a ZkHash /!\
 +     h.update(b"OPERATION_ID_V1")
 +     h.update(op_bytes)
@@ -500,8 +500,8 @@ The NoteId Section also needs an update to include the new `OpId` derivation. We
 
 - def derive_note_id(transfer_hash: zkhash, output_number: int, note: Note) -> NoteId:
 + def derive_note_id(op_id: Hash, output_number: int, note: Note) -> NoteId:
-   return zkhash(
-     FiniteField(b"NOTE_ID_V1", byte_order="little", modulus= p),
+    return zkhash(
+        FiniteField(b"NOTE_ID_V1", byte_order="little", modulus= p),
 -       transfer_hash,
 +       FiniteField(op_id, byte_order="little", modulus= p),
         FiniteField(output_number, byte_order="little", modulus= p),
@@ -551,9 +551,9 @@ LEADER_CLAIM_GAS       = 580
 We add the derivation of the outputs `NoteId` in the cost of a `TRANSFER`
 ```text
 Execution: negligible.
-  - Verification of the output validity: negligible.
-  - Insertion of the note in the ledger: negligible.
-+  - Derivation of the note identifiers: negligible
+    - Verification of the output validity: negligible.
+    - Insertion of the note in the ledger: negligible.
++   - Derivation of the note identifiers: negligible
 ```
 
 #### Channel Deposit
@@ -648,16 +648,16 @@ This document needs only a small fix in the Atomic transfer between two zones ex
 ```text
 # Sequencer of Zone A encodes the withdrawal from Zone A
 withdrawal = ChannelWithdraw(
-  channel=CHANNEL_ZONE_A,
-+  outputs=[temporary_transfer_note]
--  amount=5
+    channel=CHANNEL_ZONE_A,
++   outputs=[temporary_transfer_note]
+-   amount=5
 )
 
 # Sequencer of zone B encodes the deposit to Zone B
 deposit = ChannelDeposit(
-  channel=CHANNEL_ZONE_B,
-+  inputs=[temporary_transfer_note],
--  amount=5
+    channel=CHANNEL_ZONE_B,
++   inputs=[temporary_transfer_note],
+-   amount=5
 )
 ```
 
@@ -688,9 +688,9 @@ to
 
 ### Deprecated
 
-[[1.3.0] Mantle](../../../deprecated/v1.2.0-mantle.md)
-[[1.3.0] [Analysis] Gas Cost Determination](../../../deprecated/v1.4.0-analysis-gas-cost-determination.md)
-[[1.2.0] Mantle Transaction Encoding](../../../deprecated/v1.1.0-mantle-transaction-encoding.md)
-[[1.0.0] [Template] Cross-Channel Messaging](../../../deprecated/v1.1.0-template-cross-channel-messaging.md)
-[[1.1.0] Service Reward Distribution Protocol](../../../deprecated/v1.0.0-bedrock-service-reward-distribution.md)
+[Mantle](../../../deprecated/v1.2.0-mantle.md)
+[[Analysis] Gas Cost Determination](../../../deprecated/v1.4.0-analysis-gas-cost-determination.md)
+[Mantle Transaction Encoding](../../../deprecated/v1.1.0-mantle-transaction-encoding.md)
+[[Template] Cross-Channel Messaging](../../../deprecated/v1.1.0-template-cross-channel-messaging.md)
+[Service Reward Distribution Protocol](../../../deprecated/v1.0.0-bedrock-service-reward-distribution.md)
 ### Retired

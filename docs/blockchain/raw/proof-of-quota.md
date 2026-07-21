@@ -26,6 +26,8 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-09 |
 | 1.0.1 | Remove the protection against adaptive adversary from PoL. It impacts the PoL section of PoQ. Update the performance according to the new circuit. Remove old project name from DSTs | 2026-04-09 |
+| 1.1.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
+
 
 # Introduction
 
@@ -52,18 +54,17 @@ A proof attesting that for the following public values derived from blockchain p
 
 ```python
 class ProofOfQuotaPublic:
-        session: int          # Session number (uint64)
-        core_quota: int       # Allowed messages per session for core nodes (20 bits)
-        leader_quota: int     # Allowed messages per session for potential leaders (20 bits)
-        core_root: zkhash     # Merkle root of zk_id of the core nodes
-        K_part_one: int       # First part of the signature public key (16 bytes)
-        K_part_two: int       # Second part of the signature public key (16 bytes)
-        pol_epoch_nonce: int  # PoL Epoch nonce
-        pol_t0: int           # PoL constant t0
-        pol_t1: int           # PoL constant t1
-        pol_ledger_aged: zkhash # Merkle root of the PoL eligible notes
-        # Outputs:
-        key_nullifier: zkhash   # derived from session, private index and private sk
+    core_quota: int       # Allowed messages per epoch for core nodes (20 bits)
+    leader_quota: int     # Allowed messages per epoch for potential leaders (20 bits)
+    core_root: zkhash     # Merkle root of zk_id of the core nodes
+    K_part_one: int       # First part of the signature public key (16 bytes)
+    K_part_two: int       # Second part of the signature public key (16 bytes)
+    pol_epoch_nonce: int  # PoL Epoch nonce
+    pol_t0: int           # PoL constant t0
+    pol_t1: int           # PoL constant t1
+    pol_ledger_aged: zkhash # Merkle root of the PoL eligible notes
+    # Outputs:
+    key_nullifier: zkhash   # derived from epoch, private index and private sk
 ```
 
 ### Witness
@@ -72,20 +73,20 @@ The prover knows a witness:
 
 ```python
 class ProofOfQuotaWitness:
-        index: int                            # This is the index of the generated key. Limiting this index limits the maximum number of key generated. (20 bits)
-        selector: bool                        # Indicates if it's a leader (=1) or a core node (=0)
-        # This part is filled randomly by potential leaders
-        core_sk: zkhash                       # sk corresponding to the zk_id of the core node
-        core_path: list[zkhash]               # Merkle path proving zk_id membership (len = 20)
-        core_path_selectors: list[bool]       # Indicates how to read the core_path (if Merkle nodes are left or right in the path)
-        # This part is filled randomly by core nodes
-        pol_sl: int                           # PoL slot
-        pol_secret_key: int                   # PoL note secret key
-        pol_note_value: int                   # PoL note value
-        pol_note_tx_hash: zkhash              # PoL note transaction
-        pol_note_output_number: int           # PoL note transaction output number
-        pol_noteid_path: list[zkhash]         # PoL Merkle path proving noteID membership in ledger aged (len = 32)
-        pol_noteid_path_selectors: list[bool] # Indicates how to read the note_path (if Merkle nodes are left or right in the path)
+    index: int                            # This is the index of the generated key. Limiting this index limits the maximum number of key generated. (20 bits)
+    selector: bool                        # Indicates if it's a leader (=1) or a core node (=0)
+    # This part is filled randomly by potential leaders
+    core_sk: zkhash                       # sk corresponding to the zk_id of the core node
+    core_path: list[zkhash]               # Merkle path proving zk_id membership (len = 20)
+    core_path_selectors: list[bool]       # Indicates how to read the core_path (if Merkle nodes are left or right in the path)
+    # This part is filled randomly by core nodes
+    pol_sl: int                           # PoL slot
+    pol_secret_key: int                   # PoL note secret key
+    pol_note_value: int                   # PoL note value
+    pol_note_tx_hash: zkhash              # PoL note transaction
+    pol_note_output_number: int           # PoL note transaction output number
+    pol_noteid_path: list[zkhash]         # PoL Merkle path proving noteID membership in ledger aged (len = 32)
+    pol_noteid_path_selectors: list[bool] # Indicates how to read the note_path (if Merkle nodes are left or right in the path)
 ```
 
 Note that every inputs and outputs of zero-knowledge proofs are all scalar field elements.
@@ -94,11 +95,11 @@ Note that every inputs and outputs of zero-knowledge proofs are all scalar field
 
 Such that the following constraints hold:
 
-**Step 1**: The prover selects an `index` for the chosen key. This index must be lower than the allowed quota and not already used. This index is used to derive the key nullifier in step 4. Limiting the possible values of this index also limit the possible nullifier created which produce the desired effect: limiting the generation of keys to a certain quota. `index` will be on 20 bits enabling up to $`2^{20}`$ messages per node per `session`.
+**Step 1**: The prover selects an `index` for the chosen key. This index must be lower than the allowed quota and not already used. This index is used to derive the key nullifier in step 4. Limiting the possible values of this index also limit the possible nullifier created which produce the desired effect: limiting the generation of keys to a certain quota. `index` will be on 20 bits enabling up to $`2^{20}`$ messages per node per `epoch`.
 
 **Step 2:**  If the prover indicated that the node is a core node for the proof, the proof checks that:
 
-  1. The core node is registered in the set `N = SDP(session)`. This is proven by demonstrating knowledge of a `core_sk` that corresponds to a declared `zk_id`, which is a valid SDP registry for the current `session`. The `zk_id` values are stored in a Merkle tree with a fixed depth of 20, with the root provided as a public input. To build the Merkle tree, `zk_id` are ordered from the smallest to the biggest (when seen as natural numbers between 0 and $`p`$) and remaining empty leaves are represented by the `0` after the sorting (appended at the end of the vector). This structure supports up to 1M validators.
+  1. The core node is registered in the set `N = SDP(epoch)`. This is proven by demonstrating knowledge of a `core_sk` that corresponds to a declared `zk_id`, which is a valid SDP registry for the current `epoch`. The `zk_id` values are stored in a Merkle tree with a fixed depth of 20, with the root provided as a public input. To build the Merkle tree, `zk_id` are ordered from the smallest to the biggest (when seen as natural numbers between 0 and $`p`$) and remaining empty leaves are represented by the `0` after the sorting (appended at the end of the vector). This structure supports up to 1M validators.
   2. The index is valid: `index < core_quota`.
 
 **Step 3:** If the prover indicated that the node is a potential leader node for the proof, the proof checks that:
@@ -106,10 +107,10 @@ Such that the following constraints hold:
   1. The leader node possesses a note that would win a slot in the consensus lottery. Unlike leadership conditions, the proof of quota doesn't verify that the note is unspent. This enables potential provers to generate the PoQ well in advance. All other lottery constraints are the same as in [Circuit Constraints](cryptarchia-proof-of-leadership.md#circuit-constraints).
   2. The index is valid: `index < leader_quota`.
 
-**Step 4:** The prover derives a `key_nullifier` maintained by blend nodes during the session for message deduplication purpose.
+**Step 4:** The prover derives a `key_nullifier` maintained by blend nodes during the epoch for message deduplication purpose.
 
 ```python
-selection_randomness = zkhash(b"SELECTION_RANDOMNESS_V1", sk, index, validity_period)
+selection_randomness = zkhash(b"SELECTION_RANDOMNESS_V1", sk, index, period_nonce)
 key_nullifier = zkhash(b"KEY_NULLIFIER_V1", selection_randomness)
 ```
 
@@ -118,9 +119,9 @@ key_nullifier = zkhash(b"KEY_NULLIFIER_V1", selection_randomness)
   - The `core_sk` as defined in the [Mantle specification](bedrock-v1.1-mantle-specification.md) if the node is a core node.
   - The secret key of the PoL note if it’s a leader node.
 
-  and `validity_period` is:
+  and `period_nonce` is:
 
-  - The `session` if the node is a core node.
+  - The `pol_epoch_nonce` if the node is a core node.
   - The winning slot of the PoL if it’s a leader node.
 
   Here we use two hashes because the selection randomness is used in the Proof of Selection in order to prove the ownership of a valid PoQ (see [Proof of Selection](blend-protocol.md#proof-of-selection)).
@@ -164,7 +165,7 @@ selection_randomness = zkhash(
         b"SELECTION_RANDOMNESS_V1",
         selector * (pol_secret_key - core_sk) + core_sk,
         index,
-        selector * (pol_sl - session) + session)
+        selector * (pol_sl - pol_epoch_nonce) + pol_epoch_nonce)
 key_nullifier = zkhash(b"KEY_NULLIFIER_V1", selection_randomness)
 ```
 
@@ -174,9 +175,9 @@ The proof confirming that the PoQ is correct must be compressed to a size of 128
 
 ```python
 class UncompressedProof:
-   pi_a: G1 # BN256 element
-   pi_b: G2 # BN256 element
-   pi_c: G1 # BN256 element
+    pi_a: G1 # BN256 element
+    pi_b: G2 # BN256 element
+    pi_c: G1 # BN256 element
 ```
 
 ## Proof Serialization
@@ -185,8 +186,8 @@ The `ProofOfQuota` structure contains `key_nullifier` and the compressed `proof`
 
 ```python
 class ProofOfQuota:
-  key_nullifier: zkhash # 32 bytes
-  proof: bytes # 128 bytes
+    key_nullifier: zkhash # 32 bytes
+    proof: bytes # 128 bytes
 ```
 
 # Appendix

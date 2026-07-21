@@ -10,7 +10,7 @@ This RFC follows an older schema and will be updated when time allows.
 
 ## Motivation
 
-In [[1.2.0] Mantle](../../../deprecated/v1.2.0-mantle.md), the Ledger Transaction is modeled as a special, mandatory component of every Mantle Transaction. Each Mantle Transaction must include exactly one Ledger Transaction, which is validated and executed separately from the rest of the transaction:
+In [Mantle](../../../deprecated/v1.2.0-mantle.md), the Ledger Transaction is modeled as a special, mandatory component of every Mantle Transaction. Each Mantle Transaction must include exactly one Ledger Transaction, which is validated and executed separately from the rest of the transaction:
 ```python
 # v1.2
 class MantleTx:

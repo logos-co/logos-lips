@@ -27,10 +27,11 @@
 | 1.3.0 | [\[RFC\] Enforce NoteId uniqueness](mantle-transaction-encoding/appendices/rfc-enforce-noteid-uniqueness.md) | 2026-04-24 |
 | 1.4.0 | [\[RFC\] Simplify Mantle Transaction and Refactor Ledger Operations](mantle-transaction-encoding/appendices/rfc-simplify-mantle-transaction-and-refactor-ledger-operations.md) | 2026-05-06 |
 | 1.4.1 | Removed mention of DA. Updated KeyCount from Byte to UINT16 to follow Mantle. | 2026-05-21 |
+| 1.5.0 | Introduce the new Operation `CHANNEL_STAKE_ASSIGNATION` and update of the channel operations to reflect changes in Mantle | 2026-06-24 |
 
 # Introduction
 
-This document specifies the canonical encoding of Mantle transactions (see [\[1.5.0\] Mantle - Mantle Transaction](bedrock-v1.1-mantle-specification.md)) and its sub-components. Transactions sent through the mempool and included in blocks use this encoding.
+This document specifies the canonical encoding of Mantle transactions (see [Mantle - Mantle Transaction](bedrock-v1.1-mantle-specification.md)) and its sub-components. Transactions sent through the mempool and included in blocks use this encoding.
 
 # Overview
 
@@ -66,6 +67,7 @@ OpPayload = Transfer /
             ChannelConfig /
             ChannelDeposit /
             ChannelWithdraw /
+            ChannelTransfer /
             SDPDeclare /
             SDPWithdraw /
             SDPActive /
@@ -76,28 +78,30 @@ OpPayload = Transfer /
 
 ```schema
 ChannelInscribe = ChannelId Inscription Parent Signer
-Inscription      = UINT32 *BYTE 
+Inscription     = UINT32 *BYTE 
 
-ChannelConfig     = ChannelId KeyCount *Signer PostingTimeframe PostingTimeout ConfigThreshold WithdrawThreshold
-KeyCount          = UINT16
-PostingTimeframe  = UINT32
-PostingTimeout    = UINT32
-ConfigThreshold   = UINT16
-WithdrawThreshold = UINT16
+ChannelConfig     = ChannelId KeyCount *Signer PostingTimeframe PostingTimeout ConfigThreshold TransferThreshold
+KeyCount                   = UINT16
+PostingTimeframe           = UINT32
+PostingTimeout             = UINT32
+ConfigThreshold            = UINT16
+TransferThreshold          = UINT16
 
 ChannelDeposit    = ChannelId Inputs Metadata
 Inputs            = InputCount *NoteId
 InputCount        = Byte
 Metadata          = UINT32 *BYTE
 
-ChannelWithdraw   = ChannelId Outputs WithdrawNonce
-Outputs           = OutputCount *Note
-OutputCount       = Byte
-WithdrawNonce     = UINT32
+ChannelTransfer = ChannelId Inputs Outputs
+
+ChannelWithdraw   = ChannelId Inputs
 
 ChannelId         = Hash32
 Parent            = Hash32
 Signer            = Ed25519PublicKey
+Outputs           = OutputCount *Note
+OutputCount       = Byte
+Inputs            = InputCount *NoteId
 ```
 
 ### SDP Operations

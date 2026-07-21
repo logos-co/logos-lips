@@ -23,7 +23,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-24 |
 
-> Disclamer:
+> Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
 >
 > All information regarding project details, token design, distribution mechanisms, technical parameters, and any forward-looking statements is preliminary and subject to change without notice. No representations or warranties are made as to the completeness or accuracy of the information herein. 
@@ -100,7 +100,7 @@ In addition, we assume the following behavior of the system:
 
 - The simulation runs for $10$ years.
 - The volatility of the inferred total stake deviation is $10\%$.
-- The deviation between the inferred total stake and the target takes $2$ years to stabilize within $`(\delta_{t} - I_{max}, \delta_{t} + I_{max})`$. Note that this differs from the intrinsic convergence property of the inferred total stake algorithm that needs only one epoch to approximate the true value of the stake (see [\[1.0.0\]\[Analysis\] Total Stake Inference](analysis-total-stake-inference.md) for further details).
+- The deviation between the inferred total stake and the target takes $2$ years to stabilize within $`(\delta_{t} - I_{max}, \delta_{t} + I_{max})`$. Note that this differs from the intrinsic convergence property of the inferred total stake algorithm that needs only one epoch to approximate the true value of the stake (see [\[Analysis\] Total Stake Inference](analysis-total-stake-inference.md) for further details).
 - The burn rate converges to $0.5\%$ after $2$ years, with volatility $10\%$.
 
 The figure below shows the evolution of the inferred total stake deviation and the burn rate, given the parametrization above.

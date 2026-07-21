@@ -45,7 +45,7 @@ This document provides an analysis of the Cryptarchia total stake inference algo
 
 ## Total Stake Inference Process
 
-The inference algorithm is described in [🔀\[1.0.0\] Total Stake Inference - Algorithm](cryptarchia-total-stake-inference.md). In order to analyze the properties of this algorithm, we model it analytically as the following sequence $`\{D_\ell\}_{\ell=0}^\infty`$. We then verify that this model aligns with the algorithm to ensure that the analysis accurately reflects the actual process.
+The inference algorithm is described in [Total Stake Inference - Algorithm](cryptarchia-total-stake-inference.md). In order to analyze the properties of this algorithm, we model it analytically as the following sequence $`\{D_\ell\}_{\ell=0}^\infty`$. We then verify that this model aligns with the algorithm to ensure that the analysis accurately reflects the actual process.
 
 $$
 D_{\ell+1}=D_{\ell}-\frac{\beta}{f}D_\ell\left[f-\frac{\sum_{t=1}^T \mathbf{1}\left[\sum_{i=1}^N s^\ell_i(t)\geq1\right] - n(\ell)}{T}\right]
@@ -62,7 +62,7 @@ where,
 - $`s^\ell_i(t)\in \{0,1\}`$ is the lottery result of node $i$ at slot $t$, in epoch $\ell$; here, 1 signals a win, and 0 signals a loss;
 - $`n(\ell) \in \lbrace 0,1,...,\sum_{t=1}^T \mathbf{1}\left[\left(\sum_{i=1}^N s^\ell_i(t)\right)\geq1\right] \rbrace`$ is the number of slots in epoch $\ell$ that could have extended the honest chain but instead were wasted on orphaned blocks.
 
-We note that the form above captures how the protocol updates its estimate of the total active stake based on observed network activity, and the actual inference process is described at: [🔀\[1.0.0\] Total Stake Inference - Algorithm](cryptarchia-total-stake-inference.md). Specifically, at each epoch $\ell$, the estimate $`D_\ell`$ is adjusted according to the difference between the target slot occupancy rate $f$ and the observed average fraction of slots with at least one block extending the honest chain (after accounting for wasted slots, $n(\ell)$). The learning rate $\beta$ and normalization by $f$ control how aggressively the estimate is updated.
+We note that the form above captures how the protocol updates its estimate of the total active stake based on observed network activity, and the actual inference process is described at: [Total Stake Inference - Algorithm](cryptarchia-total-stake-inference.md). Specifically, at each epoch $\ell$, the estimate $`D_\ell`$ is adjusted according to the difference between the target slot occupancy rate $f$ and the observed average fraction of slots with at least one block extending the honest chain (after accounting for wasted slots, $n(\ell)$). The learning rate $\beta$ and normalization by $f$ control how aggressively the estimate is updated.
 
 # Analysis
 

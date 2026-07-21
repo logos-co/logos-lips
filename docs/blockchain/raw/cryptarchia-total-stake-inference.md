@@ -36,7 +36,7 @@ The total active stake can be inferred by observing the slot occupancy rate: a h
 
 The stake inference algorithm adjusts the previous total stake estimate based on the difference between the empirical slot activation rate (measured as the growth rate of the honest chain) and the expected slot activation rate. A large difference serves as an indicator that the total stake estimate is not accurate and must be adjusted.
 
-This algorithm has been analyzed and shown to have good accuracy, precision and convergence speed. A caveat to note is that accuracy decreases with increased network delays. The analysis can be found in [\[1.0.0\]\[Analysis\] Total Stake Inference](analysis-total-stake-inference.md).
+This algorithm has been analyzed and shown to have good accuracy, precision and convergence speed. A caveat to note is that accuracy decreases with increased network delays. The analysis can be found in [\[Analysis\] Total Stake Inference](analysis-total-stake-inference.md).
 
 # Construction
 
@@ -84,4 +84,4 @@ fn total_stake_inference(total_stake_estimate: u64, epoch_slot: u64) -> u64 {
 
 # Annex
 
-[\[1.0.0\]\[Analysis\] Total Stake Inference](analysis-total-stake-inference.md)
+[\[Analysis\] Total Stake Inference](analysis-total-stake-inference.md)

@@ -8,8 +8,8 @@
 
 ## Motivation
 
-[[1.1.0] Mantle Transaction Encoding](../../../deprecated/v1.1.0-mantle-transaction-encoding.md) does not cover channel deposit and withdraw operations, even though they have been already added to the [[1.3.0] Mantle](../../../deprecated/v1.2.0-mantle.md).
-This RFC proposes adding the encoding format of channel deposit and withdraw operations and their proofs to the [[1.1.0] Mantle Transaction Encoding](../../../deprecated/v1.1.0-mantle-transaction-encoding.md).
+[Mantle Transaction Encoding](../../../deprecated/v1.1.0-mantle-transaction-encoding.md) does not cover channel deposit and withdraw operations, even though they have been already added to the [Mantle](../../../deprecated/v1.2.0-mantle.md).
+This RFC proposes adding the encoding format of channel deposit and withdraw operations and their proofs to the [Mantle Transaction Encoding](../../../deprecated/v1.1.0-mantle-transaction-encoding.md).
 ## Proposal
 
 We adapt the Mantle Transaction Encoding to include the Channel Deposit and Channel Withdraw operations as defined below:
@@ -18,15 +18,15 @@ We adapt the Mantle Transaction Encoding to include the Channel Deposit and Chan
 We add  `ChannelDeposit` and `ChannelWithdraw` to [Operations:](../../mantle-transaction-encoding.md)
 ```text
 OpPayload = Transfer /
-      ChannelInscribe /
-            ChannelBlob /
-            ChannelSetKeys /
-+           ChannelDeposit /
-+           ChannelWithdraw /
-            SDPDeclare /
-            SDPWithdraw /
-            SDPActive /
-            LeaderClaim
+    ChannelInscribe /
+    ChannelBlob /
+    ChannelSetKeys /
++   ChannelDeposit /
++   ChannelWithdraw /
+    SDPDeclare /
+    SDPWithdraw /
+    SDPActive /
+    LeaderClaim
 ```
 
 Then define the structures in [Channel Operations](../../mantle-transaction-encoding.md):
@@ -40,9 +40,9 @@ Then define the structures in [Channel Operations](../../mantle-transaction-enco
 
 +   ChannelWithdraw = ChannelId Amount
 
-   ChannelId = Hash32
-   Parent    = Hash32
-   Signer    = Ed25519PublicKey
+    ChannelId = Hash32
+    Parent    = Hash32
+    Signer    = Ed25519PublicKey
 ```
 
 Next we add `ChannelWithdrawOpProof` to [Op Proofs:](../../mantle-transaction-encoding.md)
@@ -52,10 +52,10 @@ OpsProofs  = *OpProof ; 1. Lenth must equal OpCount
                       ;    That is, type(OpProofs[i]) == ProofFor(Op[i])
 
 OpProof  =  Ed25519SigProof /
-            ZkSigProof /
-            ZkAndEd25519SigsProof /
-+           ChannelWithdrawOpProof /
-            ProofOfClaimProof
+    ZkSigProof /
+    ZkAndEd25519SigsProof /
++   ChannelWithdrawOpProof /
+    ProofOfClaimProof
 
 Ed25519SigProof        = Ed25519Signature
 ZkSigProof             = ZkSignature
@@ -91,7 +91,7 @@ Byte      = OCTET
 
 ## Justification
 
-[[1.1.0] Mantle Transaction Encoding](../../../deprecated/v1.1.0-mantle-transaction-encoding.md) does not cover channel deposit and withdraw operations, even though they have been already added to the [[1.3.0] Mantle](../../../deprecated/v1.2.0-mantle.md).
+[Mantle Transaction Encoding](../../../deprecated/v1.1.0-mantle-transaction-encoding.md) does not cover channel deposit and withdraw operations, even though they have been already added to the [Mantle](../../../deprecated/v1.2.0-mantle.md).
 ## Specifications Update
 
 - [v1.2] Mantle Transaction Encoding

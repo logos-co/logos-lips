@@ -32,7 +32,7 @@ When a new node joins the network or a previously-bootstrapped node has been off
 
 This document specifies a protocol for nodes to bootstrap with the honest chain efficiently while mitigating long range attacks. It also defines how to handle the case which the node falls behind after the bootstrapping is complete.
 
-This protocol adheres to the key invariant: We never roll back blocks that are deeper than the latest immutable block $`B_\text{imm}`$ in the local chain $`c_{loc}`$, as defined in [[1.0.2] Cryptarchia Protocol](cryptarchia-v1-protocol.md) .
+This protocol adheres to the key invariant: We never roll back blocks that are deeper than the latest immutable block $`B_\text{imm}`$ in the local chain $`c_{loc}`$, as defined in [Cryptarchia Protocol](cryptarchia-v1-protocol.md) .
 
 # Overview
 
@@ -132,10 +132,10 @@ Blocks are downloaded in parent-to-child order, as defined in the [Downloading B
 
 ```python
 def initial_block_download(peers, local_tree):
-  # Skip IBD if no peer is set.
-  # For example, genesis nodes should be able to skip IBD.
-  if len(peers) == 0:
-      return
+    # Skip IBD if no peer is set.
+    # For example, genesis nodes should be able to skip IBD.
+    if len(peers) == 0:
+        return
 
     # In real implementation, these downloadings can be run in parallel.
     # Also, any optimization can be applied to minimize downloadings, such as grouping peers by tip.
@@ -146,7 +146,7 @@ def initial_block_download(peers, local_tree):
 
     # If none of download succeeds (e.g. network errors or invalid blocks),
     # IBD is considered failed.
-    if num_success == 0
+    if num_success == 0:
         raise IBDFailure
 ```
 
@@ -214,16 +214,16 @@ class DownloadBlocksRequest:
     # Ask blocks up to the target block.
     # The response may not contain the target block if the responder limits the number of blocks returned.
     # In that case, the requester must repeat the request.
-  target_block: BlockId
-  # To allow the peer to determine the starting block to return.
-  known_blocks: KnownBlocks
+    target_block: BlockId
+    # To allow the peer to determine the starting block to return.
+    known_blocks: KnownBlocks
 
 class KnownBlocks:
-  local_tip: BlockId
-  latest_immutable_block: BlockId
-  # Additional known blocks.
-  # A responder will reject a request if this list contains more than 5.
-  additional_blocks: list[BlockId]
+    local_tip: BlockId
+    latest_immutable_block: BlockId
+    # Additional known blocks.
+    # A responder will reject a request if this list contains more than 5.
+    additional_blocks: list[BlockId]
 
 class DownloadBlocksResponse:
     # A stream of blocks in parent-to-child order.
@@ -244,11 +244,11 @@ The requesting node should repeat `DownloadBlocksRequest`s by updating the `Know
 def download_blocks(local_tree: Tree, peer: Node, target_block: Optional[BlockId]):
     latest_downloaded: Optional[Block] = None
     while True:
-      # Fetch the peer's tip if target is not specified.
-         target_block = target_block if target_block is not None else peer.tip()
-      # Don't start downloading if target is already in local.
-      if local_tree.has(target_block):
-          return
+        # Fetch the peer's tip if target is not specified.
+        target_block = target_block if target_block is not None else peer.tip()
+        # Don't start downloading if target is already in local.
+        if local_tree.has(target_block):
+            return
 
         req = DownloadBlocksRequest(
             # If target_block is None, specify the current peer's tip each time when we build DownloadBlocksRequest,

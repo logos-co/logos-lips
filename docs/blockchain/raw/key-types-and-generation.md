@@ -7,7 +7,7 @@
 | Status | raw |
 | Category | Standards Track |
 | Editor | Mehmet Gonen <mehmet@logos.co> |
-| Contributors | Marcin Pawlowski <marcin@logos.co>, Youngjoon Lee <youngjoon@logos.co>, Alexander Mozeika <alexander@logos.co>, Thomas Lavaur <thomaslavaur@logos.co>, Álvaro Castro-Castilla <alvaro@logos.co>, Filip Dimitrijevic <filip@logos.co> |
+| Contributors | Marcin Pawlowski <marcin@logos.co>, Youngjoon Lee <youngjoon@logos.co>, Alexander Mozeika <alexander@logos.co>, Thomas Lavaur <thomas@logos.co>, Álvaro Castro-Castilla <alvaro@logos.co>, Filip Dimitrijevic <filip@logos.co> |
 
 <!-- timeline:start -->
 
@@ -25,6 +25,7 @@
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-09 |
+| 1.0.1 | [RFC] Remove Concept of a Session | 2026-06-22 |
 
 # Introduction
 
@@ -44,21 +45,21 @@ This document ensures that the keys are used and generated in a common manner, w
 
 ## Non-ephemeral Quota Key
 
-A node generates a Non-ephemeral Quota Key (NQK) that is a ZkSignature ([Zero Knowledge Signature Scheme (ZkSignature)](bedrock-v1.1-mantle-specification.md#zero-knowledge-signature-scheme-zksignature)). The NQK is stored on the ledger as the `zk_id` field in the `DeclarationInfo` of the node’s outcome of the participation in the Service Declaration Protocol (SDP — [[1.0.0] Service Declaration Protocol](bedrock-service-declaration-protocol.md)).
+A node generates a Non-ephemeral Quota Key (NQK) that is a ZkSignature ([Zero Knowledge Signature Scheme (ZkSignature)](bedrock-v1.1-mantle-specification.md#zero-knowledge-signature-scheme-zksignature)). The NQK is stored on the ledger as the `zk_id` field in the `DeclarationInfo` of the node’s outcome of the participation in the Service Declaration Protocol (SDP — [Service Declaration Protocol](bedrock-service-declaration-protocol.md)).
 
 The NQK is used to prove that the node is part of the set of core nodes as indicated through the SDP.
 
 ## Non-ephemeral Signing Key
 
-A node generates a Non-ephemeral Signing Key (NSK) that is a Ed25519 key. The NSK is stored on the ledger as the `provider_id` field in the `DeclarationInfo` of the node’s outcome of the participation in the Service Declaration Protocol (SDP — [[1.0.0] Service Declaration Protocol](bedrock-service-declaration-protocol.md)).
+A node generates a Non-ephemeral Signing Key (NSK) that is a Ed25519 key. The NSK is stored on the ledger as the `provider_id` field in the `DeclarationInfo` of the node’s outcome of the participation in the Service Declaration Protocol (SDP — [Service Declaration Protocol](bedrock-service-declaration-protocol.md)).
 
 The NSK is used to authenticate the node on the network level and to derive Non-ephemeral Encryption Key.
 
 ## Ephemeral Signing Key
 
-A node generates Ephemeral Signing Keys (ESK) that are proved to be limited in number by the Proof of Quota (PoQ — [[1.0.1] Proof of Quota](proof-of-quota.md)). The PoQ for core nodes requires a valid NQK for the session for which the PoQ is generated.
+A node generates Ephemeral Signing Keys (ESK) that are proved to be limited in number by the Proof of Quota (PoQ — [Proof of Quota](proof-of-quota.md)). The PoQ for core nodes requires a valid NQK for the epoch for which the PoQ is generated.
 
-A unique signing key must be generated for every encapsulation as required by the [[1.0.0] Message Encapsulation Mechanism](message-encapsulation.md).
+A unique signing key must be generated for every encapsulation as required by the [Message Encapsulation Mechanism](message-encapsulation.md).
 
 The key must not be reused. Otherwise, the messages that reuse the same key can be linked together. The node is responsible for not reusing the key.
 
@@ -72,7 +73,7 @@ The NEK key is used for deriving a shared secret (alongside EEK defined below) f
 
 A node derives an Ephemeral Encryption Key (EEK) pair using the X25519 curve from the ESK.
 
-A unique encryption key must be generated for every encapsulation as required by the [[1.0.0] Message Encapsulation Mechanism](message-encapsulation.md).
+A unique encryption key must be generated for every encapsulation as required by the [Message Encapsulation Mechanism](message-encapsulation.md).
 
 The derivation of a shared secret for the encryption of an encapsulated message requires using the EEK of the sender and the derived X25519 key from the NEK of the recipient.
 

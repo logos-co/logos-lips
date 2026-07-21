@@ -151,29 +151,29 @@ The code which computes above probabilities is given below
 
 ```python
 def Prob_b(K, L, qF):
-"""
- Compute the probability of broadcast failure.
- Formula: (1 - (1 - qF)^L)^K
- """
-return (1 - (1 - qF) ** L) ** K
+    """
+    Compute the probability of broadcast failure.
+    Formula: (1 - (1 - qF)^L)^K
+    """
+    return (1 - (1 - qF) ** L) ** K
 
 def Prob_ab(K, L, qF, qA):
-"""
- Compute the probability of adversarial broadcast failure.
- Formula: (1 - ((1 - qF)^L * (1 - qA)^L))^K - (1 - (1 - qF)^L)^K
- """
- term1 = (1 - qF) ** L
- term2 = (1 - qA) ** L
- return (1 - (term1 * term2)) ** K - (1 - term1) ** K
+    """
+    Compute the probability of adversarial broadcast failure.
+    Formula: (1 - ((1 - qF)^L * (1 - qA)^L))^K - (1 - (1 - qF)^L)^K
+    """
+    term1 = (1 - qF) ** L
+    term2 = (1 - qA) ** L
+    return (1 - (term1 * term2)) ** K - (1 - term1) ** K
 
 def Prob_a(K, L, qF, qA):
-"""
- Compute the probability of anonymity failure.
- Formula: 1 - (1 - ((1 - qF)^L * qA^L))^K
- """
- term1 = (1 - qF) ** L
- term2 = qA ** L
- return 1 - (1 - (term1 * term2)) ** K
+    """
+    Compute the probability of anonymity failure.
+    Formula: 1 - (1 - ((1 - qF)^L * qA^L))^K
+    """
+    term1 = (1 - qF) ** L
+    term2 = qA ** L
+    return 1 - (1 - (term1 * term2)) ** K
 ```
 
 ## Inference of relative stake
@@ -210,25 +210,25 @@ The code which computes adversarial “confidence” is given below
 
 ```python
 def phi(alpha, f):
-return 1 - (1 - f) ** alpha
+    return 1 - (1 - f) ** alpha
 
 def dphi(alpha, f):
-return -((1 - f) ** alpha) * log(1 - f)
+    return -((1 - f) ** alpha) * log(1 - f)
 def Prob2(alpha, epsilon, T, q):
     sqrt2 = sqrt(2.0)
- phi_alpha = phi(alpha, f)
-# Denominator term
- denominator = (
-                                 erf((phi_alpha - 1) * sqrt2 / (2 * sqrt(phi_alpha * (1 - phi_alpha) / (T * q))))
-- erf(phi_alpha * sqrt2 / (2 * sqrt(phi_alpha * (1 - phi_alpha) / (T * q))))
-)
-# Numerator term
- numerator = -2.0 * erf(
-                             sqrt2 * epsilon / (2 * sqrt(phi_alpha * (1 - phi_alpha) / (T * q)))
-)
-# Final result
-return numerator / denominator
- 
+    phi_alpha = phi(alpha, f)
+    # Denominator term
+    denominator = (
+        erf((phi_alpha - 1) * sqrt2 / (2 * sqrt(phi_alpha * (1 - phi_alpha) / (T * q))))
+        - erf(phi_alpha * sqrt2 / (2 * sqrt(phi_alpha * (1 - phi_alpha) / (T * q))))
+    )
+    # Numerator term
+    numerator = -2.0 * erf(
+        sqrt2 * epsilon / (2 * sqrt(phi_alpha * (1 - phi_alpha) / (T * q)))
+    )
+    # Final result
+    return numerator / denominator
+
 # Compute epsilon = dphi(alpha) * alpha * gamma
 epsilon = dphi(alpha, f) * alpha * gamma
 
@@ -243,18 +243,18 @@ T0 = T # One epoch
 T1 = 730 * T # 10 years
 dT = 10**3 # Step size
 if Prob2_t < delta:
-# Increase T until Prob2_result >= delta
+    # Increase T until Prob2_result >= delta
     t = T0
- while t <= T1 and Prob2_t < delta:
-     Prob2_t = Prob2(alpha, epsilon, t, result3)
- t += dT
- 
+    while t <= T1 and Prob2_t < delta:
+        Prob2_t = Prob2(alpha, epsilon, t, result3)
+        t += dT
+
 else:
-# Decrease T until Prob2_result <= delta
- t = T
- while t >= 100 and Prob2_t > delta:
-     Prob2_t = Prob2(alpha, epsilon, t, result3)
- t -= dT 
+    # Decrease T until Prob2_result <= delta
+    t = T
+    while t >= 100 and Prob2_t > delta:
+        Prob2_t = Prob2(alpha, epsilon, t, result3)
+        t -= dT
 ```
 
 ### Adversarial Confidence as a Measure of Statistical “Noise”
@@ -352,25 +352,25 @@ The code which computes $t(\theta)$ is given below
 
 ```python
 def phi(alpha, f):
-return 1 - (1 - f) ** alpha
+    return 1 - (1 - f) ** alpha
 
 def calculate_t(qA, L, K, alpha, f, C, nA, theta):
-#compute prob. Pa
- x = 1 - pow(qA, L)
- Pa = (1 - pow(x, K))
-#compute prob. Pan
- p = 1 - qA
- Pan = 0
-for n in range(nA, C + 1):
- Pan += comb(C, n) * (p ** (C - n)) * (qA ** n)
-#compute prod. of prob.
- Prob = Pan * Pa
- 
- #compute t
- numerator = log(1 - theta)
- denominator = log(1 - phi(alpha, f) * Prob)
- t = ceil(numerator / denominator)
-return t
+    #compute prob. Pa
+    x = 1 - pow(qA, L)
+    Pa = (1 - pow(x, K))
+    #compute prob. Pan
+    p = 1 - qA
+    Pan = 0
+    for n in range(nA, C + 1):
+        Pan += comb(C, n) * (p ** (C - n)) * (qA ** n)
+    #compute prod. of prob.
+    Prob = Pan * Pa
+
+    #compute t
+    numerator = log(1 - theta)
+    denominator = log(1 - phi(alpha, f) * Prob)
+    t = ceil(numerator / denominator)
+    return t
 ```
 
 ## Design of the “Calculator”

@@ -29,7 +29,7 @@
 
 This document outlines the cross-channel messaging framework. A channel is a reserved identifier where only authorized keys can post messages on-chain, while anyone can read them. Cross-channel messaging allows different channels (including channels representing a Zone) to communicate and coordinate actions (such as Zone state transitions), enabling interoperability while maintaining security and decentralization.
 
-## Reference: [\[1.5.0\] Mantle](bedrock-v1.1-mantle-specification.md).
+## Reference: [Mantle](bedrock-v1.1-mantle-specification.md).
 
 ## Objectives
 
@@ -181,38 +181,38 @@ receiving = Inscription(
 )
 # Sequencer of Zone A encodes the withdrawal from Zone A
 withdrawal = ChannelWithdraw(
-        channel=CHANNEL_ZONE_A,
-        outputs=[temporary_transfer_note]
+    channel=CHANNEL_ZONE_A,
+    outputs=[temporary_transfer_note]
 )
 # Sequencer of zone B encodes the deposit to Zone B
 deposit = ChannelDeposit(
-        channel=CHANNEL_ZONE_B,
-        inputs=[temporary_transfer_note],
+    channel=CHANNEL_ZONE_B,
+    inputs=[temporary_transfer_note],
 )
 # Transfer
 Trasfer = Transfer(
-        inputs=[<sequencer_zone_a_note_id>],
-        outputs=[<change_note>]
+    inputs=[<sequencer_zone_a_note_id>],
+    outputs=[<change_note>]
 )
 # Wrap it in a transaction
 tx = MantleTx(
     ops=[Op(opcode=CHANNEL_INSCRIBE, payload=encode(sending)),
-               Op(opcode=CHANNEL_INSCRIBE, payload=encode(receiving)),
-               Op(opcode=CHANNEL_WITHDRAW, payload=encode(withdrawal)),
-               Op(opcode=CHANNEL_DEPOSIT, payload=encode(deposit)),
-               Op(opcode=TRANSFER, payload=encode(transfer))],
+         Op(opcode=CHANNEL_INSCRIBE, payload=encode(receiving)),
+         Op(opcode=CHANNEL_WITHDRAW, payload=encode(withdrawal)),
+         Op(opcode=CHANNEL_DEPOSIT, payload=encode(deposit)),
+         Op(opcode=TRANSFER, payload=encode(transfer))],
 )
 # Sign the transaction
 signed_tx = SignedMantleTx(
     tx=tx,
-# Sequencer A is responsible for Zone A so it signs the 
-# Inscription and Withdraw of Zone A while Sequencer B, who signs the 
-# Inscription and the Deposit, doesn't require a proof
-# Note that the withdraw OpProof has a ChannelWitdrawOpProof structure
+    # Sequencer A is responsible for Zone A so it signs the 
+    # Inscription and Withdraw of Zone A while Sequencer B, who signs the 
+    # Inscription and the Deposit, doesn't require a proof
+    # Note that the withdraw OpProof has a ChannelWitdrawOpProof structure
     op_proofs=[Ed25519_sign(mantle_txhash(tx), sequencer_of_zone_a_sk),
                Ed25519_sign(mantle_txhash(tx), sequencer_of_zone_b_sk),
-[[Ed25519_sign(mantle_txhash(tx), sequencer_of_zone_a_sk)],[0]],
-None,
+               [[Ed25519_sign(mantle_txhash(tx), sequencer_of_zone_a_sk)],[0]],
+               None,
                transfer.prove(sequencer_of_zone_a_sk)]
 )
 # Send the transaction to the mempool

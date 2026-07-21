@@ -294,7 +294,7 @@ sims = [Sim(
     network=network
 ) for block_time in np.array([30]).repeat(PATHS)]
 for i, sim in enumerate(sims):
-print(f"simulating {i+1}/{len(sims)}")
+    print(f"simulating {i+1}/{len(sims)}")
     sim.run(seed=i)
 print("finished simulation, starting analysis")
 advs = [sim.adverserial_analysis() for sim in sims]
@@ -309,7 +309,7 @@ cardano_sims = [Sim(
     network=replace(network, blend_hops=0)
 ) for _ in range(PATHS)]
 for i, sim in enumerate(cardano_sims):
-print(f"simulating {i+1}/{len(cardano_sims)}")
+    print(f"simulating {i+1}/{len(cardano_sims)}")
     sim.run(seed=i)
 
 cardano_advs = [sim.adverserial_analysis() for sim in cardano_sims]

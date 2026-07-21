@@ -84,7 +84,7 @@ Network Address Translation (NAT) poses a common challenge in peer-to-peer netwo
 
 To achieve this, the Logos Blockchain employs a tailored set of solutions adapted to the user's specific configuration. Comprehensive details are provided in the NAT Solution Specification.
 
-[[1.0.1] P2P Nat Solution](../raw/p2p-nat-solution.md)
+[P2P Nat Solution](../raw/p2p-nat-solution.md)
 
 ## Gossiping
 
@@ -101,10 +101,10 @@ Logos Blockchain gossiping uses two major topics. One dedicated to *mempool* and
 
 The Logos Blockchain P2P network is engineered for simplicity and ease of use. Upon initial connection, nodes in the network connect to publicly designated nodes to acquire the essential information required to become fully operational. Further details regarding this process are elaborated in the bootstrapping specification.
 
-[[1.0.1] P2P Network Bootstrapping](../raw/p2p-network-bootstrapping.md)
+[P2P Network Bootstrapping](../raw/p2p-network-bootstrapping.md)
 
 ## Message Encoding
 
 Messages that goes through wire follow a specific encoding scheme defined in the following specification.
 
-[[1.0.1] Network Wire Format](../raw/network-wire-format.md)
+[Network Wire Format](../raw/network-wire-format.md)

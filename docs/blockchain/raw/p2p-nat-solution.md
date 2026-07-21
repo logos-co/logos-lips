@@ -83,28 +83,28 @@ In the future the NAT traversal protocol will most likely be using its own strea
 
 ```mermaid
 graph TD
-  Start@{shape: circle, label: "Start"} -->|Preconfigured public IP or port mapping| StaticPublic[Statically configured as<br/>**Public**]
-  subgraph Phase 0
-  Start -->|Default configuration| Boot
-  end
-  subgraph Phase 1
-  Boot[Bootstrap and discover AutoNAT servers]--> Inspect
-  Inspect[Inspect own IP addresses]-->|At least 1 IP address in the public range| ConfirmPublic[AutoNAT]
-  end
-  subgraph Phase 2
-  Inspect -->|No IP addresses in the public range| MapPorts[Port Mapping Client<br/>UPnP/NAT-PMP/PCP]
-  MapPorts -->|Successful port map| ConfirmMapPorts[AutoNAT]
-  end
-  ConfirmPublic -->|Node's IP address reachable by AutoNAT server| Public[**Public** Node]
-  ConfirmPublic -->|Node's IP address not reachable by AutoNAT server or Timeout| MapPorts
-  ConfirmMapPorts -->|Mapped IP address and port reachable by AutoNAT server| Public
-  ConfirmMapPorts -->|Mapped IP address and port not reachable by AutoNAT server or Timeout| Private
-  MapPorts -->|Failure or Timeout| Private[**Private** Node]
-  subgraph Phase 3
-  Public -->Monitor
-  Private --> Monitor
-  end
-  Monitor[Network Monitoring] -->|Restart| Inspect
+    Start@{shape: circle, label: "Start"} -->|Preconfigured public IP or port mapping| StaticPublic[Statically configured as<br/>**Public**]
+    subgraph Phase 0
+        Start -->|Default configuration| Boot
+    end
+    subgraph Phase 1
+        Boot[Bootstrap and discover AutoNAT servers]--> Inspect
+        Inspect[Inspect own IP addresses]-->|At least 1 IP address in the public range| ConfirmPublic[AutoNAT]
+    end
+    subgraph Phase 2
+        Inspect -->|No IP addresses in the public range| MapPorts[Port Mapping Client<br/>UPnP/NAT-PMP/PCP]
+        MapPorts -->|Successful port map| ConfirmMapPorts[AutoNAT]
+    end
+    ConfirmPublic -->|Node's IP address reachable by AutoNAT server| Public[**Public** Node]
+    ConfirmPublic -->|Node's IP address not reachable by AutoNAT server or Timeout| MapPorts
+    ConfirmMapPorts -->|Mapped IP address and port reachable by AutoNAT server| Public
+    ConfirmMapPorts -->|Mapped IP address and port not reachable by AutoNAT server or Timeout| Private
+    MapPorts -->|Failure or Timeout| Private[**Private** Node]
+    subgraph Phase 3
+        Public -->Monitor
+        Private --> Monitor
+    end
+    Monitor[Network Monitoring] -->|Restart| Inspect
 ```
 
 ## Phases
@@ -113,7 +113,7 @@ graph TD
 
 If the node is statically configured by the operator to be Public, the procedure is stopped.
 
-The node utilizes bootstrapping (see [[1.0.1] P2P Network Bootstrapping](p2p-network-bootstrapping.md)) and discovery (see [[1.0.1] P2P Network](../draft/p2p-network.md)) to find other Public nodes. The [Identify](https://github.com/libp2p/specs/blob/master/identify/README.md) protocol is used to confirm which of the detected Public nodes support [AutoNAT v2](https://github.com/libp2p/specs/blob/master/autonat/autonat-v2.md).
+The node utilizes bootstrapping (see [P2P Network Bootstrapping](p2p-network-bootstrapping.md)) and discovery (see [P2P Network](../draft/p2p-network.md)) to find other Public nodes. The [Identify](https://github.com/libp2p/specs/blob/master/identify/README.md) protocol is used to confirm which of the detected Public nodes support [AutoNAT v2](https://github.com/libp2p/specs/blob/master/autonat/autonat-v2.md).
 
 The node then moves to the next phase.
 
@@ -142,7 +142,7 @@ def try_port_mapping():
     # Step 4: Try mapping with PCP first, because it's the most reliable
     mapping = try_pcp_mapping(local_ip, gateway_ip)
     if mapping:
-          return mapping
+        return mapping
 
     # Step 5: Try NAT-PMP if PCP failed, because it's the second most reliable
     mapping = try_nat_pmp_mapping(local_ip, gateway_ip)
@@ -167,31 +167,31 @@ Finally, the node continues to the next phase.
 ```mermaid
 sequenceDiagram
     box Node
-         participant AutoNAT Client
-         participant NAT State Machine
-         participant Port Mapping Client
+        participant AutoNAT Client
+        participant NAT State Machine
+        participant Port Mapping Client
     end
-        participant Router
-        alt Mapping is successful
-              Note left of AutoNAT Client: Phase 2
-                Port Mapping Client ->> +Router: Requests new mapping
-                Router ->> Port Mapping Client: Confirms new mapping
-              Port Mapping Client ->> NAT State Machine: Mapping secured
-              NAT State Machine ->> AutoNAT Client: Requests confirmation<br/>that mapped address<br/>is publicly reachable
-              alt Node asserts Public status
-                     AutoNAT Client ->> NAT State Machine: Mapped address<br/>is publicly reachable
-                    Note left of AutoNAT Client: Phase 3<br/>Network Monitoring
-              else Node asserts Private status
-                     AutoNAT Client ->> NAT State Machine: Mapped address<br/>is not publicly reachable
-                      Note left of AutoNAT Client: Phase 3<br/>Network Monitoring
-              end
-      else Mapping fails, node asserts Private status
-            Note left of AutoNAT Client: Phase 2
-              Port Mapping Client ->> Router: Requests new mapping
-            Router ->> Port Mapping Client: Refuses new mapping or Timeout
-              Port Mapping Client ->> NAT State Machine: Mapping failed
-              Note left of AutoNAT Client: Phase 3<br/>Network Monitoring
+    participant Router
+    alt Mapping is successful
+        Note left of AutoNAT Client: Phase 2
+        Port Mapping Client ->> +Router: Requests new mapping
+        Router ->> Port Mapping Client: Confirms new mapping
+        Port Mapping Client ->> NAT State Machine: Mapping secured
+        NAT State Machine ->> AutoNAT Client: Requests confirmation<br/>that mapped address<br/>is publicly reachable
+        alt Node asserts Public status
+            AutoNAT Client ->> NAT State Machine: Mapped address<br/>is publicly reachable
+            Note left of AutoNAT Client: Phase 3<br/>Network Monitoring
+        else Node asserts Private status
+            AutoNAT Client ->> NAT State Machine: Mapped address<br/>is not publicly reachable
+            Note left of AutoNAT Client: Phase 3<br/>Network Monitoring
         end
+    else Mapping fails, node asserts Private status
+        Note left of AutoNAT Client: Phase 2
+        Port Mapping Client ->> Router: Requests new mapping
+        Router ->> Port Mapping Client: Refuses new mapping or Timeout
+        Port Mapping Client ->> NAT State Machine: Mapping failed
+        Note left of AutoNAT Client: Phase 3<br/>Network Monitoring
+    end
 ```
 
 <a id="phase-3-network-monitoring"></a>
@@ -207,38 +207,38 @@ A Public node must do this when:
 
 ```mermaid
 sequenceDiagram
-         participant AutoNAT Server
+    participant AutoNAT Server
     box Node
-         participant AutoNAT Client
-         participant NAT State Machine
-         participant Port Mapping Client
+        participant AutoNAT Client
+        participant NAT State Machine
+        participant Port Mapping Client
     end
-        participant Router
+    participant Router
 
 
-                    Note left of AutoNAT Server: Phase 3<br/>Network Monitoring
-                    par Refresh mapping and monitor changes
-                          loop periodically refreshes mapping
-                            Port Mapping Client ->> Router: Requests refresh
-                                 Router ->> Port Mapping Client: Confirms mapping refresh
-                                 end
-                                 break Mapping is lost, the node loses Public status
-                                  Router ->> Port Mapping Client: Refresh failed or mapping dropped
-                                  Port Mapping Client ->> NAT State Machine: Mapping lost
-                                  NAT State Machine ->> NAT State Machine: Restart
-                                 end
-                         and Monitor public reachability of mapped addresses
-                          loop periodically checks public reachability
-                            AutoNAT Client ->> AutoNAT Server: Requests dialback
-                                 AutoNAT Server ->> AutoNAT Client: Dialback successful
-                                 end
-                                 break
-                                         AutoNAT Server ->> AutoNAT Client: Dialback failed or Timeout
-                                  AutoNAT Client ->> NAT State Machine: Public reachability lost
-                                  NAT State Machine ->> NAT State Machine: Restart
-                                 end
-                        end
-                        Note left of AutoNAT Server: Phase 1
+    Note left of AutoNAT Server: Phase 3<br/>Network Monitoring
+    par Refresh mapping and monitor changes
+        loop periodically refreshes mapping
+            Port Mapping Client ->> Router: Requests refresh
+            Router ->> Port Mapping Client: Confirms mapping refresh
+        end
+        break Mapping is lost, the node loses Public status
+            Router ->> Port Mapping Client: Refresh failed or mapping dropped
+            Port Mapping Client ->> NAT State Machine: Mapping lost
+            NAT State Machine ->> NAT State Machine: Restart
+        end
+    and Monitor public reachability of mapped addresses
+        loop periodically checks public reachability
+            AutoNAT Client ->> AutoNAT Server: Requests dialback
+            AutoNAT Server ->> AutoNAT Client: Dialback successful
+        end
+        break
+            AutoNAT Server ->> AutoNAT Client: Dialback failed or Timeout
+            AutoNAT Client ->> NAT State Machine: Public reachability lost
+            NAT State Machine ->> NAT State Machine: Restart
+        end
+    end
+    Note left of AutoNAT Server: Phase 1
 ```
 
 A Private node must do this when:

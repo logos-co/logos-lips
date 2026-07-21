@@ -122,7 +122,7 @@ def bootstrap_fork_choice(c_local, forks, k, s_gen):
             # It's unsafe to use longest chain here, instead we check the density
             # of blocks immediately after the divergence.
             if density(c_max, depth_max, s_gen) < density(c_fork, depth_fork, s_gen):
-                    # The denser chain immediately after the divergence wins.
+                # The denser chain immediately after the divergence wins.
                 c_max = c_fork
 ```
 

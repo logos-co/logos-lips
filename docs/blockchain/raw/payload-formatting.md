@@ -42,8 +42,8 @@ The `Payload` is a structure that contains a `header` and a `body`.
 
 ```python
 class Payload:
-      header: Header,
-      body: bytes
+    header: Header,
+    body: bytes
 ```
 
 ## Header
@@ -52,8 +52,8 @@ The `header` is a structure that contains a `body_type` and a `body_length`.
 
 ```python
 class Header:
-      body_type: byte,
-      body_length: uint16
+    body_type: byte,
+    body_length: uint16
 ```
 
 ### Type

@@ -44,7 +44,7 @@ Below, we present a high-level description of the block lifecycle. The main focu
 1. A leader is selected. The leader becomes a block builder.
 2. The block builder **constructs** a block proposal.
 1. The block builder selects the latest block (parent) as the reference point for the chain state update.
-2. The block builder selects valid Mantle Transactions (as defined in [[1.5.0] Mantle](bedrock-v1.1-mantle-specification.md)) from its mempool and includes references to them in the proposal.
+2. The block builder selects valid Mantle Transactions (as defined in [Mantle](bedrock-v1.1-mantle-specification.md)) from its mempool and includes references to them in the proposal.
 3. The block builder populates the block header of the block proposal.
 
 3. The block proposer sends the block proposal to the Blend network.
@@ -55,9 +55,9 @@ Below, we present a high-level description of the block lifecycle. The main focu
 3. They validate each transaction included in the block.
 
 6. The validators **execute** the block proposal.
-1. They derive the new blockchain state from the previous one by executing transactions as defined in [[1.5.0] Mantle](bedrock-v1.1-mantle-specification.md).
+1. They derive the new blockchain state from the previous one by executing transactions as defined in [Mantle](bedrock-v1.1-mantle-specification.md).
 2. They update the different variables that need to be maintained over time.
-3. They execute the [**[1.2.1] Service Reward Distribution Protocol**](bedrock-service-reward-distribution.md) to generate reward notes locally.
+3. They execute the [**Service Reward Distribution Protocol**](bedrock-service-reward-distribution.md) to generate reward notes locally.
 
 # Constructions
 
@@ -73,9 +73,9 @@ We define the following message structure:
 
 ```python
 class Proposal:                              # 33129 bytes
-      header: Header                           # 297 bytes
-      references: References                   # 32768 bytes
-      signature: Ed25519Signature              # 64 bytes
+    header: Header                           # 297 bytes
+    references: References                   # 32768 bytes
+    signature: Ed25519Signature              # 64 bytes
 ```
 
 Where:
@@ -90,17 +90,17 @@ Where:
 
 ```python
 class Header:                                # 297 bytes
-      bedrock_version: byte                    # 1 byte
-      parent_block: hash                       # 32 bytes
-      slot: SlotNumber                         # 8 bytes
-      block_root: hash                         # 32 bytes
-      proof_of_leadership: ProofOfLeadership   # 224 bytes
+    bedrock_version: byte                    # 1 byte
+    parent_block: hash                       # 32 bytes
+    slot: SlotNumber                         # 8 bytes
+    block_root: hash                         # 32 bytes
+    proof_of_leadership: ProofOfLeadership   # 224 bytes
 ```
 
 Where:
 
 - `bedrock_version` is the version of the proposal message structure that supports other protocols defined in linked reference; its size is 1 byte and is fixed to `0x01`.
-- `parent_block` is the block ID ([[1.0.2] Cryptarchia Protocol](cryptarchia-v1-protocol.md)) of the parent block, validated and accepted by the block builder. It is used for the derivation of the `AgedLedger` and `LatestLedger` values necessary for validating the PoL; the size of the `hash` is 32 bytes.
+- `parent_block` is the block ID ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)) of the parent block, validated and accepted by the block builder. It is used for the derivation of the `AgedLedger` and `LatestLedger` values necessary for validating the PoL; the size of the `hash` is 32 bytes.
 - `slot` is the consensus slot number; the size of the `SlotNumber` type is 8 bytes.
 - `block_root` is the root of the Merkle tree constructed from transaction hashes (defined in [Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction)) used for constructing the `references` list in the `mempool_ransactions`; the size of the `hash` is 32 bytes.
 - `proof_of_leadership` is the proof confirming that the sender is the leader; defined below: [Proof of Leadership](#proof-of-leadership).
@@ -118,10 +118,10 @@ Where `mempool_transactions` is a set of up to 1024 references to transactions o
 
 ```python
 class ProofOfLeadership:                     # 224 bytes
-      leader_voucher: RewardVoucher            # 32 bytes
-      entropy_contribution: zkhash             # 32 bytes
-      proof: ProofOfLeadership                 # 128 bytes
-      leader_key: Ed25519PublicKey             # 32 bytes
+    leader_voucher: RewardVoucher            # 32 bytes
+    entropy_contribution: zkhash             # 32 bytes
+    proof: ProofOfLeadership                 # 128 bytes
+    leader_key: Ed25519PublicKey             # 32 bytes
 ```
 
 Where:
@@ -146,7 +146,7 @@ Before constructing the proposal, the block builder must:
 3. Select a valid unspent note winning the PoL.
 4. Generate a valid PoL proving leadership eligibility for `(Epoch, Slot)` based on the selected note. Attach the PoL to a one-time Ed25519 public key used to sign the block proposal.
 
-Only after the PoL is generated can the block proposal be constructed (see [[1.1.0] Proof of Leadership](cryptarchia-proof-of-leadership.md)).
+Only after the PoL is generated can the block proposal be constructed (see [Proof of Leadership](cryptarchia-proof-of-leadership.md)).
 
 ### Construction Procedure
 
@@ -166,7 +166,7 @@ Only after the PoL is generated can the block proposal be constructed (see [[1.1
 1. Select Mantle transactions:
     - Choose up to `1024` valid `SignedMantleTx` from the local mempool.
     - Ensure each transaction:
-      - Is valid according to [[1.5.0] Mantle](bedrock-v1.1-mantle-specification.md).
+      - Is valid according to [Mantle](bedrock-v1.1-mantle-specification.md).
       - Has no conflicts with others (e.g., two transactions trying to spend the same note).
 
 3. Derive references values:
@@ -183,9 +183,9 @@ signature = Ed25519.sign(leader_secret_key, header)
 6. Assemble the block proposal.
 ```python
 proposal = Proposal(
-  header,
-  references,
-  signature
+    header,
+    references,
+    signature
 )
 ```
 
@@ -227,7 +227,7 @@ Given a `proposal`, a proposed block consisting of a `header` and `references`. 
   The `references` must refer to existing `mempool_transaction` entries that are retrievable from the node's local mempool.
 
 3. **Mempool Transactions Validation**
-  `mempool_transactions` must refer to a valid sequence of Mantle Transactions from the mempool. Each transaction must be valid according to the rules defined in the [[1.5.0] Mantle](bedrock-v1.1-mantle-specification.md). In order to verify ZK proofs, they are batched for verification as explained in [Batch verification of ZK proofs](#batch-verification-of-zk-proofs) to get better performance.
+  `mempool_transactions` must refer to a valid sequence of Mantle Transactions from the mempool. Each transaction must be valid according to the rules defined in the [Mantle](bedrock-v1.1-mantle-specification.md). In order to verify ZK proofs, they are batched for verification as explained in [Batch verification of ZK proofs](#batch-verification-of-zk-proofs) to get better performance.
 
 If any of the above checks fail, the block proposal must be rejected.
 
@@ -238,8 +238,8 @@ This section specifies how a Logos Blockchain node executes a valid block propos
 Given a `ValidBlock` that has successfully passed proposal validation, the node must:
 
 1. Append the `leader_voucher` contained in the block to the set of reward vouchers **when the following epoch starts**.
-2. Execute the reward distribution protocol defined in [**[1.2.1] Service Reward Distribution Protocol**](bedrock-service-reward-distribution.md) to generate reward notes locally and include them in the ledger.
-3. Execute the Mantle Transactions included in the block sequentially, using the execution rules defined in the [[1.5.0] Mantle](bedrock-v1.1-mantle-specification.md).
+2. Execute the reward distribution protocol defined in [**Service Reward Distribution Protocol**](bedrock-service-reward-distribution.md) to generate reward notes locally and include them in the ledger.
+3. Execute the Mantle Transactions included in the block sequentially, using the execution rules defined in the [Mantle](bedrock-v1.1-mantle-specification.md).
 
 # Annex
 

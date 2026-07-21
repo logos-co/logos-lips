@@ -64,7 +64,7 @@ Working to give leaders confidence in this statement has had ripple effects thro
 
 - **The block proposals should not be linkable to a leader**. An adversary should not be able to connect together the block proposals of a leader in order to build a profile. In particular, one should not be able to infer a proposer's stake from their past on-chain activity.
 - **Cryptarchia must not reveal the stake of the leader** - that is, it must be a Private Proof of Stake (PPoS) protocol. If the activity of the leader reveals their stake values (e.g. through weighted voting), then this value can be used to reduce the anonymity set for the leader by bucketing the leader as high/low stake and can open him up to targeting.
-- **Leaders should be protected against network triangulation attacks**. This is outside of the scope of this document, but it suffices to say that in-protocol cryptographic privacy is not sufficient to guarantee a leader's privacy. This topic is dealt with directly in [[1.0.0] Blend Protocol](blend-protocol.md).
+- **Leaders should be protected against network triangulation attacks**. This is outside of the scope of this document, but it suffices to say that in-protocol cryptographic privacy is not sufficient to guarantee a leader's privacy. This topic is dealt with directly in [Blend Protocol](blend-protocol.md).
 
 ## Limitations of Cryptarchia V1
 
@@ -113,7 +113,7 @@ The latest immutable block $`B_\text{imm}`$ is the most recent block considered 
 
 This is maintained locally by the [Chain Maintenance](#chain-maintenance) procedure. When the [Online fork choice rule](fork-choice.md) is in use, $`B_\text{imm}`$ corresponds to the $`k`$-deep block. However, it may be deeper than the $`k`$-deep block if the fork choice rule has been switched from Online to [Bootstrap](fork-choice.md). Unlike the $`k`$-deep block, $`B_\text{imm}`$ does not advance as new blocks are added unless the Online fork choice rule is used.
 
-The details of fork choice rule transitions are defined in the bootstrap spec: [[1.0.0] Cryptarchia Bootstrapping & Synchronization](cryptarchia-v1-bootstr-sync.md)
+The details of fork choice rule transitions are defined in the bootstrap spec: [Cryptarchia Bootstrapping & Synchronization](cryptarchia-v1-bootstr-sync.md)
 
 ## Slot
 
@@ -175,7 +175,7 @@ $$
 \eta_{B} = \mathrm{zkHASH}(D_{\mathrm{epoch}}\mathbin{\|}\eta_{\mathrm{parent}}\mathbin{\|}\rho_{\mathrm{LEAD}}\mathbin{\|}\mathrm{Fr}(sl))
 $$
 
-where $`D_{\mathrm{epoch}}`$ is the domain separator `EPOCH_NONCE_V1`, $`\mathrm{Fr}(sl)`$ maps the slot number to the corresponding scalser in Poseidon’s scalar field and $`\mathrm{zkHASH}(..)`$ is Poseidon2 as specified in [[1.0.2] Common Cryptographic Components](common-cryptographic-components.md) .
+where $`D_{\mathrm{epoch}}`$ is the domain separator `EPOCH_NONCE_V1`, $`\mathrm{Fr}(sl)`$ maps the slot number to the corresponding scalser in Poseidon’s scalar field and $`\mathrm{zkHASH}(..)`$ is Poseidon2 as specified in [Common Cryptographic Components](common-cryptographic-components.md) .
 
 The epoch nonce used in the next epoch is $`\eta_{B'}`$ where $`B'`$ is the last block before the start of the “Lottery Constants Finalization” phase in the epoch schedule.
 
@@ -183,7 +183,7 @@ The epoch nonce used in the next epoch is $`\eta_{B'}`$ where $`B'`$ is the last
 
 Given that stake is private in Cryptarchia, and that we want to maintain an approximately constant block rate, we must therefore adjust the difficulty of the slot lottery somehow based on the level of participation. The details can be found in the following document:
 
-[[1.0.0] Total Stake Inference](cryptarchia-total-stake-inference.md)
+[Total Stake Inference](cryptarchia-total-stake-inference.md)
 
 ### Epoch State Pseudocode
 
@@ -233,7 +233,7 @@ The specifications of how a leader can prove that they have won the lottery are 
 
 ### Leader Rewards
 
-As an incentive for producing blocks, leaders are rewarded with every block proposal. The rewarding protocol is specified in [**[1.0.0] Anonymous Leaders Reward Protocol**](bedrock-anonymous-leaders-reward.md).
+As an incentive for producing blocks, leaders are rewarded with every block proposal. The rewarding protocol is specified in [**Anonymous Leaders Reward Protocol**](bedrock-anonymous-leaders-reward.md).
 
 ## Block Chain
 
@@ -245,11 +245,11 @@ During bootstrapping, we must be resilient to malicious peers feeding us false c
 
 After bootstrapping we commit to the most honest looking chain we found and switch to a fork choice rule that rejects chains that diverge by more than $`k`$ blocks
 
-[[1.0.0] Cryptarchia Fork Choice Rule](fork-choice.md)
+[Cryptarchia Fork Choice Rule](fork-choice.md)
 
 ### Block ID
 
-Block ID is defined by the hash of the block header [Block Header](#block-header), where `hash` is Blake2b as specified in [[1.0.2] Common Cryptographic Components](common-cryptographic-components.md)
+Block ID is defined by the hash of the block header [Block Header](#block-header), where `hash` is Blake2b as specified in [Common Cryptographic Components](common-cryptographic-components.md)
 
 ```python
 def block_id(header: Header) -> hash
@@ -271,22 +271,22 @@ def block_id(header: Header) -> hash
 
 ```python
 class Header:                                # 297 bytes
-      bedrock_version: byte                    # 1 bytes
-      parent_block: hash                       # 32 bytes
-      slot: int                                # 8 bytes
-      block_root: hash                         # 32 bytes
-      proof_of_leadership: ProofOfLeadership   # 224 bytes
+    bedrock_version: byte                    # 1 bytes
+    parent_block: hash                       # 32 bytes
+    slot: int                                # 8 bytes
+    block_root: hash                         # 32 bytes
+    proof_of_leadership: ProofOfLeadership   # 224 bytes
 
 class ProofOfLeadership:                     # 224 bytes
-      leader_voucher: zkhash                   # 32 bytes
-      entropy_contribution: zkhash             # 32 bytes
-      proof: Groth16Proof                      # 128 bytes
-      leader_key: Ed25519PublicKey             # 32 bytes
+    leader_voucher: zkhash                   # 32 bytes
+    entropy_contribution: zkhash             # 32 bytes
+    proof: Groth16Proof                      # 128 bytes
+    leader_key: Ed25519PublicKey             # 32 bytes
 ```
 
 ### Block
 
-[[1.1.1] Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md)
+[Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md)
 
 ### Block Header Validation
 
@@ -307,7 +307,7 @@ We say $`\textbf{valid\_header}(B)`$ returns True if all of the following constr
   Ensure the number of transactions in the block is below the limit
 
 4. $`\textbf{merkle\_root}(transactions) = header.\text{block\_root}`$
-  Ensure block root is over the transaction list. Compute the block root by using transaction hashes (see 🔀[1.5.0] Mantle - Mantle Transaction Hash) as leaves, and `0` to represent the hash of an empty transaction, padding leaves to the closest power of two.
+  Ensure block root is over the transaction list. Compute the block root by using transaction hashes (see Mantle - Mantle Transaction Hash) as leaves, and `0` to represent the hash of an empty transaction, padding leaves to the closest power of two.
 
 5. $`header.\text{slot} \gt \textbf{fetch\_header}(header.\text{parent\_block}).\text{slot}`$
   Ensure the block’s slot comes after the parent block’s slot.
@@ -324,7 +324,7 @@ We say $`\textbf{valid\_header}(B)`$ returns True if all of the following constr
 9. Verify the leader’s right to propose and ensure it is the one proposing this block:
   Given leadership proof $`\pi_\text{LEAD} = (\pi_\text{PoL},P_\text{LEAD},\sigma)`$, where
 
-  - $`\pi_\text{PoL}`$ is the slot lottery win proof as defined in [[1.1.0] Proof of Leadership](cryptarchia-proof-of-leadership.md)
+  - $`\pi_\text{PoL}`$ is the slot lottery win proof as defined in [Proof of Leadership](cryptarchia-proof-of-leadership.md)
   - $`P_\text{LEAD}`$ is the public key committed to in $`\pi_\text{PoL}`$.
   - $`\sigma`$ is a signature.
 
@@ -432,3 +432,13 @@ Cryptarchia depends on honest nodes having relatively in-sync clocks. We are cur
 
 1. Ouroboros Crypsinous: Privacy-Preserving Proof-of-Stake [eprint.iacr.org](https://eprint.iacr.org/2018/1132.pdf)
 2. Ouroboros Chronos: Permissionless Clock Synchronization via Proof-of-Stake  [eprint.iacr.org](https://eprint.iacr.org/2019/838.pdf)
+
+## Test Vectors
+
+The operations used to derive the `block_root` are the same as those defined in Test Vectors.
+
+| Input | Output |
+|-|-|
+| empty block (no transaction) | `block_root`: 0x0000000000000000000000000000000000000000000000000000000000000000 |
+| one transaction per operation kind: <br />- `leaf[0]`: 0x6ab0046084f3ce8dad90eb28afe5692ad92d5d0588a4e868ad38d0d841d7a60e (Transfer)<br />- `leaf[1]`: 0xd3a1aa9d2df8383e389dba072b1397f5e7fc290f884e04147c787619f60493cf (ChannelConfig) <br />- `leaf[2]`: 0x50e5674eea7fa17f531a51159ea7c3cab843fb1c8e8bf9bd5518a8aad08865d3 (ChannelInscribe)<br />- `leaf[3]`: 0xd52da59d9db42391363d6c4f96447536e5dfff747b91b88320310b07581a8dee (ChannelDeposit)<br />- `leaf[4]`: 0x6f57c77dc872cc3f01380fbd57a97e9f7998a1cd8b24e84594ceba796cfa0822 (ChannelWithdraw)<br />- `leaf[5]`: 0x2c04be946507e2b8c239b85b03cf476a8be5af8e4de853660d0447a46ea460fc (ChannelTransfer)<br />- `leaf[6]`: 0x9ce9fa694b4c801eca6c9a1d3dca6401952404bda8c144fb16e03e3872fd475e (SDPDeclare)<br />- `leaf[7]`: 0x3555b3d8f5d05ea5d69efb17aab7639474738bcb4bfee8d354107433d781ef9c (SDPWithdraw)<br />- `leaf[8]`: 0x0a91ab8271016f212061e6b45ea35c95cfa0f9a70c5225508f284b2657f4d931 (SDPActive)<br />- `leaf[9]`: 0xc992f1a63a7ea665a3766fae6b032df3db12ef386caf0ef1f3654afedbc51c6c (LeaderClaim) | `block_root`: 0xcfbf83500e534669d039d09ec9ada459970610bb03b2ce06f944df72833c7de3 |
+| `Header`:<br />- `bedrock_version`: 0x01<br />- `parent_block`: 0x1111111111111111111111111111111111111111111111111111111111111111<br />- `slot`: 0x42<br />- `block_root`: 0xcfbf83500e534669d039d09ec9ada459970610bb03b2ce06f944df72833c7de3 <br />- `leader_voucher`: 0x4444000000000000000000000000000000000000000000000000000000000000<br />- `entropy_contribution`: 0x5555000000000000000000000000000000000000000000000000000000000000<br />- `proof`: 0x2222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222<br />- `leader_key`: 0x17cb79fb2b4120f2b1ec65e4198d6e08b28e813feb01e4a400839b85e18080ce | `block_id`: 0x ec351be5585023f3e96140b8903baba40028f222037b1dd12e1dbc1884788071 |

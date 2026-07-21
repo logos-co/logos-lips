@@ -24,7 +24,7 @@
 | 1.0.0 | Initial revision. | 2026-04-24 |
 | 1.1.0 | Changing from burning/minting to pooling/distributing/releasing, removing S_{tge} | 2026-06-22 |
 
-> Disclamer:
+> Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
 >
 > All information regarding project details, token design, distribution mechanisms, technical parameters, and any forward-looking statements is preliminary and subject to change without notice. No representations or warranties are made as to the completeness or accuracy of the information herein. 
@@ -175,7 +175,7 @@ Let us define the following variables:
 | $f$​ | The average number of block proposal within $`\Delta_{t}`$ units | $1$​ | The time step $`\Delta_t`$ was chosen so that $f$ equals to $1$. |
 | $`\Delta_t`$​ | Time step, the fraction of year in one time step (per e.g., epoch, block, or day) | $1/(365 \times 2880)$​ | The time step is 1 block every $30$ seconds; there are 2880 blocks of 30 seconds in a day. |
 
-The calibration of these parameters can be found in [🔀\[1.0.0\]\[Analysis\] Block Reward Parameter Calibration](analysis-block-reward-parameter-calibration.md).
+The calibration of these parameters can be found in [\[Analysis\] Block Reward Parameter Calibration](analysis-block-reward-parameter-calibration.md).
 
 ## Block Rewards
 
@@ -302,18 +302,18 @@ All terms are displayed in annualized form to ease comparison.
 
 ```python
 def calculate_emission_rate_factor(
-        alpha_dev:float,
+    alpha_dev:float,
     weighted_target_deviation: float,
-    alpha_avg:float
+    alpha_avg:float,
     weighted_avg: float,
     i_min: float = 0.0,
     i_max: float = 0.01
 ) -> float:
-"""It calculates the current emission rate factor"""
+    """It calculates the current emission rate factor"""
     emission_rate:float = alpha_dev * weighted_target_deviation + alpha_avg * weighted_avg + i_min
     emission_rate_factor:float = emission_rate / i_max
     emission_rate_factor = min(1.0, max(emission_rate_factor, 0.0))
-return emission_rate_factor
+    return emission_rate_factor
 ```
 
 ### KPI Deviation from Target
@@ -330,7 +330,7 @@ def weighted_deviation_from_target(
     kpi_weights: List[float],
     kpi_deviations: List[float]
 ) -> float:
-"""
+    """
     Calculate the normalized deviation (delta_t).
     Inputs:
     * kpi_weights: constant list of floats
@@ -338,10 +338,10 @@ def weighted_deviation_from_target(
     Returns:
     * a normalized annualized KPI in units of %.
     """
-assert len(kpi_weights) == len(kpi_deviations)
-    
+    assert len(kpi_weights) == len(kpi_deviations)
+
     weighted_target_deviation:float = 0.0
-for deviation, weight in zip(kpi_deviations, kpi_weights):
+    for deviation, weight in zip(kpi_deviations, kpi_weights):
         weighted_target_deviation += weight * deviation value
 
     return weighted_target_deviation
@@ -373,15 +373,15 @@ def weighted_average(
     kpi_weights: List[float],
     kpi_average: List[float]
 ) -> float:
-"""
+    """
     Calculate the weighted average metric (gamma_t)
     * kpi_weights: constant list of floats
     * kpi_average: for each KPI, it contains the results of "average_kpi"
     """
-assert len(kpi_weights) == len(kpi_deviations)
-    
+    assert len(kpi_weights) == len(kpi_deviations)
+
     weighted_avg:float = 0.0
-for avg, weight in zip(kpi_average, kpi_weights):
+    for avg, weight in zip(kpi_average, kpi_weights):
         weighted_avg += weight * avg
 
     return weighted_avg

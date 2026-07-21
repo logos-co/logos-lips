@@ -7,7 +7,7 @@
 | Status | raw |
 | Category | Informational |
 | Editor | Juan Pablo Madrigal-Cianci <jp@logos.co> |
-| Contributors | Frederico Teixeira <frederico@logos.co>, Filip Dimitrijevic <filip@logos.co> |
+| Contributors | Frederico Teixeira <frederico@logos.co>, Filip Dimitrijevic <filip@logos.co>, Marcin Pawlowski <marcin@logos.co> |
 
 <!-- timeline:start -->
 
@@ -22,8 +22,9 @@
 | Version | Changes | Date |
 | --- | --- | --- |
 | 1.0.0 | Initial revision | 2026-04-24 |
+| 1.0.1 | [RFC] Remove Concept of a Session | 2026-06-22 |
 
-> Disclamer:
+> **Disclaimer:**
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
 >
 > All information regarding project details, token design, distribution mechanisms, technical parameters, and any forward-looking statements is preliminary and subject to change without notice. No representations or warranties are made as to the completeness or accuracy of the information herein. 
@@ -113,7 +114,7 @@ $$
 
 The term on the left is the price elasticity of demand at equilibrium.
 
-Conclusion: The system is guaranteed to be stable if the elasticity of demand is not excessively high (see the stability condition above), i.e., if the market is so sensitive that a small price increase to curb overuse causes a demand crash so severe that the system begins to oscillate uncontrollably.  The parameters $`{1-w}`$ and $\beta$ directly contribute to stability; higher values (stronger anchor, faster EMA) relax the stability condition, making the system robust against a wider range of market behaviors. The clamping factor $`{\alpha}`$ provides an additional, powerful guarantee of stability by bounding the adjustment step, ensuring that even under extreme demand shocks, the price cannot diverge uncontrollably.
+**Conclusion:** The system is guaranteed to be stable if the elasticity of demand is not excessively high (see the stability condition above), i.e., if the market is so sensitive that a small price increase to curb overuse causes a demand crash so severe that the system begins to oscillate uncontrollably.  The parameters $`{1-w}`$ and $\beta$ directly contribute to stability; higher values (stronger anchor, faster EMA) relax the stability condition, making the system robust against a wider range of market behaviors. The clamping factor $`{\alpha}`$ provides an additional, powerful guarantee of stability by bounding the adjustment step, ensuring that even under extreme demand shocks, the price cannot diverge uncontrollably.
 
 > If the stability condition wouldn’t hold, this just cause price to become more unpredictable. That said, we have the levers of $w$, $\beta$ and $\alpha$ to adjust should this be the case. Specifically,  $\alpha$ privdes a hard limit in the amount that these storage fees can increase and decrease by, hence reducing this unpredictability.
 
@@ -121,12 +122,12 @@ Conclusion: The system is guaranteed to be stable if the elasticity of demand is
 
 Consider a permanent upward shift in demand, where a new demand curve $`\tilde{C}(P)`$ replaces $C(P)$ such that $`\tilde{C}(P) \gt C(P)`$ for all $P$.
 
-Immediately after the shift, usage will be consistently above the effective target. The price update rule will cause $`P_s`$ to increase in each timeframe. At the end of this first high-usage session, the protocol observes the overuse. This single event triggers two parallel responses:
+Immediately after the shift, usage will be consistently above the effective target. The price update rule will cause $`P_s`$ to increase in each timeframe. At the end of this first high-usage epoch, the protocol observes the overuse. This single event triggers two parallel responses:
 
 1. Usage $`\tilde{C}(P_s)`$ will begin to decrease due to the higher price.
-1. The usage EMA, $`T_{\text{RA},s}`$, will rise, pulling the effective target $`T_{\text{effective},s}`$ upwards.
+2. The usage EMA, $`T_{\text{RA},s}`$, will rise, pulling the effective target $`T_{\text{effective},s}`$ upwards.
 
-This begins a "chasing" dynamic across subsequent sessions. As long as the new, higher demand persists, usage will likely remain above the (now rising) effective target. Each session's high usage continues to send the same two signals to the protocol: "increase the price" and "increase the EMA." The system will seek a new equilibrium price $`\tilde{P}^*`$ where $`\tilde{C}(\tilde{P}^*) = T_{\text{base}}`$. Since $`\tilde{C} \gt C \text{ and } T_{\text{base}}`$ is constant, it must be that $`\tilde{P}^* \gt P^{\ast}.`$
+This begins a "chasing" dynamic across subsequent epochs. As long as the new, higher demand persists, usage will likely remain above the (now rising) effective target. Each epoch's high usage continues to send the same two signals to the protocol: "increase the price" and "increase the EMA." The system will seek a new equilibrium price $`\tilde{P}^*`$ where $`\tilde{C}(\tilde{P}^*) = T_{\text{base}}`$. Since $`\tilde{C} \gt C \text{ and } T_{\text{base}}`$ is constant, it must be that $`\tilde{P}^* \gt P^{\ast}.`$
 
 The anchor weight $`{w}`$ is critical here. If $w=0$ (no anchor), the equilibrium condition becomes $`C(P^{\ast}) = T_{\text{RA}}`$, which means the target would simply follow the demand, and the price would not effectively respond to the new normal. The non-zero anchor weight $w$ ensures the system always feels a "pull" back towards the governance-set target $`T_{\text{base}}`$, forcing the price to adjust until usage realigns with this long-term policy goal.
 

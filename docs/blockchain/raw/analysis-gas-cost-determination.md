@@ -19,13 +19,14 @@
 
 # Revisions History
 
-| Version | Changes |
-| --- | --- |
-| 1.0.0 | Initial revision. |
-| 1.2.0 | Removed DA, included Execution Gas determination for channel deposits and withdraws. Updated the Execution Gas of the Channel config. |
-| 1.3.0 | [\[RFC\] Make Ledger Transaction an Operation](mantle-transaction-encoding/appendices/rfc-make-ledger-transaction-an-operation.md). Updated project references to Logos Blockchain |
-| 1.4.0 | [\[RFC\] Enforce NoteId uniqueness](mantle-transaction-encoding/appendices/rfc-enforce-noteid-uniqueness.md)​ |
-| 1.4.1 | [\[RFC\] Simplify Mantle Transaction and Refactor Ledger Operations](mantle-transaction-encoding/appendices/rfc-simplify-mantle-transaction-and-refactor-ledger-operations.md) |
+| Version | Changes | Date |
+| --- | --- | --- |
+| 1.0.0 | Initial revision. | N/A |
+| 1.2.0 | Removed DA, included Execution Gas determination for channel deposits and withdraws. Updated the Execution Gas of the Channel config. | N/A |
+| 1.3.0 | [\[RFC\] Make Ledger Transaction an Operation](mantle-transaction-encoding/appendices/rfc-make-ledger-transaction-an-operation.md). Updated project references to Logos Blockchain | N/A |
+| 1.4.0 | [\[RFC\] Enforce NoteId uniqueness](mantle-transaction-encoding/appendices/rfc-enforce-noteid-uniqueness.md)​ | N/A |
+| 1.4.1 | [\[RFC\] Simplify Mantle Transaction and Refactor Ledger Operations](mantle-transaction-encoding/appendices/rfc-simplify-mantle-transaction-and-refactor-ledger-operations.md) | N/A |
+| 1.5.0 | Introduce the new Operation `CHANNEL_STAKE_ASSIGNATION` and update of the channel operations to reflect changes in Mantle | 2026-06-24 |
 
 # Introduction
 
@@ -46,7 +47,7 @@ Our methodology involved measuring execution complexity and defining how gas is 
 
 ## Permanent Storage Gas
 
-Permanent Storage is paid directly for the entire signed Mantle Transaction. The Permanent Storage Gas price is derived from [🔀\[1.0.0\] Storage Markets](storage-markets.md) and is used to determine the Permanent Storage fee. 1 Permanent Storage Gas corresponds to 1 byte.
+Permanent Storage is paid directly for the entire signed Mantle Transaction. The Permanent Storage Gas price is derived from [Storage Markets](storage-markets.md) and is used to determine the Permanent Storage fee. 1 Permanent Storage Gas corresponds to 1 byte.
 
 ```python
 permanent_storage_fee = len(encode(tx_signed)) * permanent_storage_gas_price
@@ -54,7 +55,7 @@ permanent_storage_fee = len(encode(tx_signed)) * permanent_storage_gas_price
 
 ## Execution Gas
 
-Execution is a second general market that represents how costly an Operation is to execute. This cost can be fixed or variable based on the content of the Operation. The Execution Gas base price is derived from [🔀\[1.0.0\] Execution Market](execution-market.md) and each Operation defines its execution gas amount. 1 Execution Gas corresponds to 1,000 CPU cycles.
+Execution is a second general market that represents how costly an Operation is to execute. This cost can be fixed or variable based on the content of the Operation. The Execution Gas base price is derived from [Execution Market](execution-market.md) and each Operation defines its execution gas amount. 1 Execution Gas corresponds to 1,000 CPU cycles.
 
 ```python
 execution_base_fee = tx.ops.get_summed_gas() * execution_gas_base_price
@@ -63,15 +64,16 @@ execution_base_fee = tx.ops.get_summed_gas() * execution_gas_base_price
 The gas derivation of each Operation are:
 
 ```python
-TRANSFER_GAS = 590
-CHANNEL_INSCRIBE_GAS   = 56
-CHANNEL_CONFIG_GAS     = 56 * configuration_threshold
-CHANNEL_DEPOSIT_GAS    = 590
-CHANNEL_WITHDRAW_GAS   = 56 * withdraw_threshold
-SDP_DECLARE_GAS        = 646
-SDP_WITHDRAW_GAS       = 590
-SDP_ACTIVE_GAS         = 590
-LEADER_CLAIM_GAS       = 580
+TRANSFER_GAS                  = 590
+CHANNEL_INSCRIBE_GAS          = 56
+CHANNEL_CONFIG_GAS            = 56 * configuration_threshold
+CHANNEL_DEPOSIT_GAS           = 590
+CHANNEL_TRANSFER_GAS          = 56 * stake_manipulation_threshold
+CHANNEL_WITHDRAW_GAS          = 56 * stake_manipulation_threshold
+SDP_DECLARE_GAS               = 646
+SDP_WITHDRAW_GAS              = 590
+SDP_ACTIVE_GAS                = 590
+LEADER_CLAIM_GAS              = 580
 ```
 
 and come from our implementation observations as described in [Gas determination from measures](#gas-determination-from-measures).  To get these numbers, we based our calculations on the following measures:
@@ -128,16 +130,31 @@ Execution: ~590k CPU cycles.
 - Verification of the ZK signature: 590,000 cycles.
 - Verification that the notes are in the ledger: negligible.
 - Verification that the notes are unlocked: negligible.
-- Increase of the channel balance: negligible
+- Marking of the notes as channel notes: negligible.
 
 ## Channel Withdraw
 
-The validation process requires verifying multiple Eddsa25519 signatures, and updating the balance of the channel. The execution require deriving note Id and adding notes to the ledger.
+The validation process requires verifying multiple Eddsa25519 signatures.
+The execution require consuming the channel notes, deriving note Id and adding notes to the ledger.
 
-Execution: ~56k CPU cycles * withdraw_threshold.
+Execution: ~56k CPU cycles * transfer_threshold.
 
-- Verification of `withdraw_threshold` Ed25519Signatures: 56,000 cycles per signature.
-- Decrease of the channel balance: negligible.
+- Verification of `transfer_threshold` Ed25519Signatures: 56,000 cycles per signature.
+- Verification that the notes are in the ledger: negligible.
+- Verification that the notes are in the channel: negligible.
+- Removing the notes from channel notes: negligible.
+
+## Channel Stake Assignation
+
+The validation process requires verifying multiple Eddsa25519 signatures, and managing the channel notes.
+The execution require deriving note Id and adding notes to the ledger.
+
+Execution: ~56k CPU cycles * transfer_threshold.
+
+- Verification of `transfer_threshold` Ed25519Signatures: 56,000 cycles per signature.
+- Verification that the notes are in the ledger: negligible.
+- Verification that the notes are in the channel: negligible.
+- Removing of the note from the ledger: negligible.
 - Verification of the output validity: negligible.
 - Insertion of the note in the ledger: negligible.
 - Derivation of the note identifiers: negligible

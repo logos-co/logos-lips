@@ -36,7 +36,7 @@ The Genesis Block defines the starting state for the Bedrock chain, including th
 
 The Genesis Block establishes the initializing values for the various protocols and services. This includes the initial token distribution, initial nodes participating in Blend Network and the result of running the epoch nonce ceremony.
 
-The block body is a single Mantle Transaction (see [[1.5.0] Mantle](bedrock-v1.1-mantle-specification.md)) containing a Transfer Operation distributing the notes to initial token holders. The bedrock services are initialized through `SDP_DECLARE` Operations embedded in the Mantle Transaction’s Operations list and protocol initializing constants are encoded through a `CHANNEL_INSCRIBE` Operation also embedded in the Operations list.
+The block body is a single Mantle Transaction (see [Mantle](bedrock-v1.1-mantle-specification.md)) containing a Transfer Operation distributing the notes to initial token holders. The bedrock services are initialized through `SDP_DECLARE` Operations embedded in the Mantle Transaction’s Operations list and protocol initializing constants are encoded through a `CHANNEL_INSCRIBE` Operation also embedded in the Operations list.
 
 Not all protocol constants are encoded in the Genesis block. The principle we use to decide whether a value should be in the Genesis block or not is whether it is a value that is derived from blockchain activity or whether it is updated through a protocol update (hard / soft fork). For example, the epoch nonce is updated through normal blockchain Operations and therefore it should be specified in the Genesis block. Gas constants are only changed through protocol updates and hard forks and therefore they will be hardcoded in the node implementation.
 
@@ -56,13 +56,13 @@ The initial state of the Ledger will be derived through normal execution of this
 
 ```python
 STAKE_DISTRIBUTION = Transfer(
-  inputs=[],
-  outputs=[
-    Note(value=1000, public_key=STAKE_HOLDER_0_PK),
-    Note(value=2000, public_key=STAKE_HOLDER_1_PK),
-    Note(value=1500, public_key=STAKE_HOLDER_2_PK),
-    # ...
-  ]
+    inputs=[],
+    outputs=[
+        Note(value=1000, public_key=STAKE_HOLDER_0_PK),
+        Note(value=2000, public_key=STAKE_HOLDER_1_PK),
+        Note(value=1500, public_key=STAKE_HOLDER_2_PK),
+        # ...
+    ]
 )
 ```
 
@@ -77,10 +77,10 @@ Blend enforces a minimal network size for the service to be active. Thus, in ord
 ```python
 BLEND_DECLARATIONS = [
     Declaration(
-      msg=DeclarationMessage(
-        ServiceType.BLEND, ["ip://1.1.1.1:3000"], PROVIDER_ID_0, ZK_ID_0
-      ),
-      locked_note_id=STAKE_DISTRIBUTION_TX.output_note_id(0)
+        msg=DeclarationMessage(
+            ServiceType.BLEND, ["ip://1.1.1.1:3000"], PROVIDER_ID_0, ZK_ID_0
+        ),
+        locked_note_id=STAKE_DISTRIBUTION_TX.output_note_id(0)
     ),
     # ... 32 total declarations
 ]
@@ -123,10 +123,10 @@ inscription = chain_id_len + chain_id_enc + genesis_time + genesis_epoch_nonce
 # '0d000000000000006e6f6d6f732d6d61696e6e6574030f5c6900000000abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
 
 CRYPTARCHIA_INSCRIPTION = Inscribe(
-  channel=bytes(32),
-  inscription=inscription
-  parent=bytes(32),
-  signer=Ed25519PublicKey_ZERO,
+    channel=bytes(32),
+    inscription=inscription
+    parent=bytes(32),
+    signer=Ed25519PublicKey_ZERO,
 )
 ```
 
@@ -165,7 +165,7 @@ The initial stake distribution, service declarations and Cryptarchia inscription
 
 ```python
 GENESIS_MANTLE_TX = MantleTx(
-  ops=[STAKE_DISTRIBUTION, CRYPTARCHIA_INSCRIPTION] + SERVICE_DECLARATIONS,
+    ops=[STAKE_DISTRIBUTION, CRYPTARCHIA_INSCRIPTION] + SERVICE_DECLARATIONS,
 )
 ```
 
@@ -192,10 +192,10 @@ GENESIS_HEADER = Header(
     slot=0,
     block_root=block_merkle_root([GENESIS_MANTLE_TX]),
     proof_of_leadership=ProofOfLeadership(
-      leader_voucher=bytes(32),
-      entropy_contribution=bytes(32),
-      proof=Groth16Proof(G1_ZERO, G2_ZERO, G1_ZERO),
-      leader_key=Ed25519PublicKey_ZERO,
+        leader_voucher=bytes(32),
+        entropy_contribution=bytes(32),
+        proof=Groth16Proof(G1_ZERO, G2_ZERO, G1_ZERO),
+        leader_key=Ed25519PublicKey_ZERO,
     )
 )
 ```
@@ -203,13 +203,13 @@ GENESIS_HEADER = Header(
 ```python
 # distribute NMO to all stakeholders
 STAKE_DISTRIBUTION = Transfer(
-  inputs=[],
-  outputs=[
-    Note(value=1000, public_key=STAKE_HOLDER_0_PK),
-    Note(value=2000, public_key=STAKE_HOLDER_1_PK),
-    Note(value=1500, public_key=STAKE_HOLDER_2_PK),
-    # ...
-  ]
+    inputs=[],
+    outputs=[
+        Note(value=1000, public_key=STAKE_HOLDER_0_PK),
+        Note(value=2000, public_key=STAKE_HOLDER_1_PK),
+        Note(value=1500, public_key=STAKE_HOLDER_2_PK),
+        # ...
+    ]
 )
 
 # set Cryptarchia parameters
@@ -220,17 +220,17 @@ CRYPTARCHIA_PARAMS = {
 }
 
 CRYPTARCHIA_INSCRIPTION = Inscribe(
-  channel=bytes(32),
-  inscription=json.dumps(CRYPTARCHIA_PARAMS).encode("utf-8"),
-  parent=bytes(32),
-  signer=Ed25519PublicKey_ZERO,
+    channel=bytes(32),
+    inscription=json.dumps(CRYPTARCHIA_PARAMS).encode("utf-8"),
+    parent=bytes(32),
+    signer=Ed25519PublicKey_ZERO,
 )
 
 # service declarations
 BLEND_DECLARATIONS = [
     Declaration(
-      msg=DeclarationMessage(ServiceType.BLEND, ["ip://1.1.1.1:3000"], PROVIDER_ID_0, ZK_ID_0),
-      locked_note_id=STAKE_DISTRIBUTION.output_note_id(0)
+        msg=DeclarationMessage(ServiceType.BLEND, ["ip://1.1.1.1:3000"], PROVIDER_ID_0, ZK_ID_0),
+        locked_note_id=STAKE_DISTRIBUTION.output_note_id(0)
     ),
     # ... more declarations
 ]
@@ -238,20 +238,20 @@ SERVICE_DECLARATIONS = BLEND_DECLARATIONS
 
 # build the genesis Mantle Transaction
 GENESIS_MANTLE_TX = MantleTx(
-  ops=[STAKE_DISTRIBUTION, CRYPTARCHIA_INSCRIPTION] + SERVICE_DECLARATIONS,
+    ops=[STAKE_DISTRIBUTION, CRYPTARCHIA_INSCRIPTION] + SERVICE_DECLARATIONS,
 )
 
 GENESIS_HEADER = Header(
-  bedrock_version=1,
-  parent_block=bytes(32),
-  slot=0,
-  block_root=block_merkle_root([GENESIS_MANTLE_TX]),
-  proof_of_leadership=ProofOfLeadership(
-    leader_voucher=bytes(32),
-    entropy_contribution=bytes(32),
-    proof=Groth16Proof(G1.ZERO, G2.ZERO, G1.ZERO),
-    leader_key=Ed25519PublicKey_ZERO,
-  )
+    bedrock_version=1,
+    parent_block=bytes(32),
+    slot=0,
+    block_root=block_merkle_root([GENESIS_MANTLE_TX]),
+    proof_of_leadership=ProofOfLeadership(
+        leader_voucher=bytes(32),
+        entropy_contribution=bytes(32),
+        proof=Groth16Proof(G1.ZERO, G2.ZERO, G1.ZERO),
+        leader_key=Ed25519PublicKey_ZERO,
+    )
 )
 
 GENESIS_BLOCK = (GENESIS_HEADER, [GENESIS_MANTLE_TX])

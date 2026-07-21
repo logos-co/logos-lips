@@ -50,7 +50,7 @@ The table below summarizes the recommended component for each context:
 | ZK Hashing | [Poseidon2](#poseidon2-zk-friendly-hash-function) |
 | General Hashing & PRNG | [BLAKE2b](#blake2bgeneral-purpose-hashing) |
 | General Signatures | [EdDSA](#eddsa) |
-| ZK Signatures | [ZkSignature](#zksignature-zero-knowledge-signature) (see [🔀\[1.5.0\] Mantle - Zero Knowledge Signature Scheme (ZkSignature)](bedrock-v1.1-mantle-specification.md)) |
+| ZK Signatures | [ZkSignature](#zksignature-zero-knowledge-signature) (see [Mantle - Zero Knowledge Signature Scheme (ZkSignature)](bedrock-v1.1-mantle-specification.md)) |
 | Proof System (SNARK) | [Groth16](#groth16-zk-snark) |
 
 # 1. Hash Functions
@@ -250,7 +250,7 @@ Security Considerations:
 - IETF RFC for EdDSA: [https://datatracker.ietf.org/doc/html/rfc8032](https://datatracker.ietf.org/doc/html/rfc8032)
 - EdDSA original paper: High-speed high-security signatures. Daniel J. Bernstein, Niels Duif, Tanja Lange, Peter Schwabe, Bo-Yin Yang.  [https://eprint.iacr.org/2011/368](https://eprint.iacr.org/2011/368)
 - Curve25519: [https://iacr.org/archive/pkc2006/39580209/39580209.pdf](https://iacr.org/archive/pkc2006/39580209/39580209.pdf)
-- ZkSignature: [🔀\[1.5.0\] Mantle - Zero Knowledge Signature Scheme (ZkSignature)](bedrock-v1.1-mantle-specification.md)​
+- ZkSignature: [Mantle - Zero Knowledge Signature Scheme (ZkSignature)](bedrock-v1.1-mantle-specification.md)​
 
 # 3. Proof Systems
 
@@ -277,7 +277,7 @@ Rationale for Use:
 
 Security Considerations:
 
-- Groth16 is a zk-SNARK in the Common Reference String (CRS) model. Its knowledge soundness is proved in the generic bilinear group model, under the assumption that the structured CRS was generated honestly and that the trapdoor was destroyed. In practice, producing such a CRS via a one-time multi-party trusted setup ceremony (see [🔀\[1.0.1\] Trusted Setup Ceremony](trusted-setup-ceremony.md)) relies on standard hardness assumptions for the chosen pairing groups and on the at-least-one-honest-participant with secure erasure.
+- Groth16 is a zk-SNARK in the Common Reference String (CRS) model. Its knowledge soundness is proved in the generic bilinear group model, under the assumption that the structured CRS was generated honestly and that the trapdoor was destroyed. In practice, producing such a CRS via a one-time multi-party trusted setup ceremony (see [Trusted Setup Ceremony](trusted-setup-ceremony.md)) relies on standard hardness assumptions for the chosen pairing groups and on the at-least-one-honest-participant with secure erasure.
 - Groth16’s security has been thoroughly analyzed in the literature, and the protocol is widely used in production zk-blockchain stacks.
 
 ## References

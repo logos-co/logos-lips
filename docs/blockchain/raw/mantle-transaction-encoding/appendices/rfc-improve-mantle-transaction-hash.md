@@ -14,12 +14,12 @@ As Mantle Transactions grow (notably with large `CHANNEL_INSCRIBE` Operations), 
 
 ## Proposal
 
-In version [[1.2.0] Mantle](../../../deprecated/v1.2.0-mantle.md), the Mantle Transaction hash is defined as the `ZkHash` of the entire Mantle Transaction, excluding the Ledger Transaction proof and the Operation proofs.
+In version [Mantle](../../../deprecated/v1.2.0-mantle.md), the Mantle Transaction hash is defined as the `ZkHash` of the entire Mantle Transaction, excluding the Ledger Transaction proof and the Operation proofs.
 Currently we perform a zero-knowledge hashing on a Mantle Transaction (without proofs):
 `tx_hash = ZkHash(mantle_tx_without_proofs)`.
-However, execution of this hashing algorithm is time consuming and grows with the size of the input. Therefore, we propose instead hashing the Mantle Transaction using the classic hash defined in [[1.0.2] Common Cryptographic Components](../../common-cryptographic-components.md), then hashing the result with `ZkHash`:
+However, execution of this hashing algorithm is time consuming and grows with the size of the input. Therefore, we propose instead hashing the Mantle Transaction using the classic hash defined in [Common Cryptographic Components](../../common-cryptographic-components.md), then hashing the result with `ZkHash`:
 `tx_hash = ZkHash(classic_hash(mantle_tx_without_proofs))`,
-where `classic_hash()` is the classic hash defined in [[1.0.2] Common Cryptographic Components](../../common-cryptographic-components.md).
+where `classic_hash()` is the classic hash defined in [Common Cryptographic Components](../../common-cryptographic-components.md).
 
 ## Justification
 

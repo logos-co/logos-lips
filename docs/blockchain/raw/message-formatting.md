@@ -44,23 +44,23 @@ The `Message` is a structure that contains a `public_header`, `private_header` a
 
 ```python
 class Message:
-      public_header: PublicHeader,
-      private_header: Private_Header,
-      payload: bytes
+    public_header: PublicHeader,
+    private_header: Private_Header,
+    payload: bytes
 ```
 
 ### Public Header
 
-The `public_header` must be generated as the outcome of the [[1.0.0] Message Encapsulation Mechanism](message-encapsulation.md).
+The `public_header` must be generated as the outcome of the [Message Encapsulation Mechanism](message-encapsulation.md).
 
 The `public_header` is defined as follows:
 
 ```python
 class PublicHeader:
-        version: byte,
-      public_key: PublicKey,
-      proof_of_quota: ProofOfQuota,
-      signature: Signature
+    version: byte,
+    public_key: PublicKey,
+    proof_of_quota: ProofOfQuota,
+    signature: Signature
 ```
 
 Where:
@@ -72,7 +72,7 @@ Where:
 
 ### Private Header
 
-The `private_header` must be generated as the outcome of the [[1.0.0] Message Encapsulation Mechanism](message-encapsulation.md).
+The `private_header` must be generated as the outcome of the [Message Encapsulation Mechanism](message-encapsulation.md).
 
 The private header contains a set of encrypted blending headers $`\mathbf h = (\mathbf b_1,...,\mathbf b_{h_{max}})`$.
 
@@ -86,11 +86,11 @@ The `BlendingHeader` ($`\mathbf b_l`$) is defined as follows:
 
 ```python
 class BlendingHeader:
-      public_key: PublicKey,
-      proof_of_quota: ProofOfQuota,
-      signature: Signature,
-      proof_of_selection: ProofOfSelection
-      is_last: byte
+    public_key: PublicKey,
+    proof_of_quota: ProofOfQuota,
+    signature: Signature,
+    proof_of_selection: ProofOfSelection
+    is_last: byte
 ```
 
 Where:
@@ -103,8 +103,8 @@ Where:
 
 ### Payload
 
-The `payload` must be formatted according to the [[1.0.0] Payload Formatting](payload-formatting.md). The formatted `payload` must be generated as the outcome of the [[1.0.0] Message Encapsulation Mechanism](message-encapsulation.md).
+The `payload` must be formatted according to the [Payload Formatting](payload-formatting.md). The formatted `payload` must be generated as the outcome of the [Message Encapsulation Mechanism](message-encapsulation.md).
 
 ## Maximum Payload Length
 
-The `Max_Payload_Length` parameter defines the maximum length of the `payload`, which for version 1 of the Blend Protocol is fixed as `Max_Payload_Length=34003`. That is, 34kB for the payload body (`Max_Body_Length`) and 3 bytes for the payload header. More information about payload formatting can be found in [[1.0.0] Payload Formatting](payload-formatting.md).
+The `Max_Payload_Length` parameter defines the maximum length of the `payload`, which for version 1 of the Blend Protocol is fixed as `Max_Payload_Length=34003`. That is, 34kB for the payload body (`Max_Body_Length`) and 3 bytes for the payload header. More information about payload formatting can be found in [Payload Formatting](payload-formatting.md).

@@ -26,6 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-12-09 |
 | 1.1.0 | Remove the protection against adaptive adversary from PoL removing a non-enforced feature, simplifying work for engineers, improving UX and performances of PoL and PoQ. Update the performance according to the new circuit. Remove the notion of NOMOS in DSTs | 2026-01-29 |
+| 1.1.1 | Introduced a discussion for when the value of a participating note is way higher than the total estimated stake | 2026-06-24 |
 
 # Introduction
 
@@ -38,7 +39,7 @@ This document extends the work presented in the [Ouroboros Crypsinous paper](htt
 
 ## References
 
-- [[1.0.2] Cryptarchia Protocol](cryptarchia-v1-protocol.md).
+- [Cryptarchia Protocol](cryptarchia-v1-protocol.md).
 
 # Overview
 
@@ -60,17 +61,17 @@ Our description differs from the original paper proposition, proving that a note
 
 ### Advantages
 
-    1. The ledger isn’t required to be private using shielded notes.
-      - Validators don’t need to maintain a nullifier list.
-      - Leaders keep their privacy unlinking their stake, block and PoL.
+1. The ledger isn’t required to be private using shielded notes.
+	- Validators don’t need to maintain a nullifier list.
+	- Leaders keep their privacy unlinking their stake, block and PoL.
 
-    2. There is no leader note evolution mechanism anymore ([see the paper](https://eprint.iacr.org/2018/1132.pdf) for details)
-      - There are no orphan proofs anymore, removing the need to include valid PoL proofs from abandoned forks.
-      - Crypsinous forced us to maintain a parallel note commitment set integrating evolving notes over time. This requirement is removed now
+2. There is no leader note evolution mechanism anymore ([see the paper](https://eprint.iacr.org/2018/1132.pdf) for details)
+	- There are no orphan proofs anymore, removing the need to include valid PoL proofs from abandoned forks.
+	- Crypsinous forced us to maintain a parallel note commitment set integrating evolving notes over time. This requirement is removed now
 
 ### Disadvantages
 
-    1. We cannot compute the PoL far in advance because the leader must know the latest ledger state of Mantle.
+1. We cannot compute the PoL far in advance because the leader must know the latest ledger state of Mantle.
 
 # Protocol
 
@@ -80,47 +81,47 @@ In order to prove that the winning note exists in the ledger and existed at the 
 
 ```python
 def insert_new_note(note_set: list[NoteId], new_note: NoteId):
-        i = 0
-        while i < len(note_set) and note_set[i] != 0:
-                i += 1
-        if i < len(note_set):
-                note_set[i] = new_note
-        else:
-                note_set.append(new_note)
-        return note_set
+    i = 0
+    while i < len(note_set) and note_set[i] != 0:
+        i += 1
+    if i < len(note_set):
+        note_set[i] = new_note
+    else:
+        note_set.append(new_note)
+    return note_set
 
 def delete_note(note_set: list[NodeId], note: NoteId):
-        i = 0
-        while i < len(note_set) and note_set[i] != note:
-                i += 1
+    i = 0
+    while i < len(note_set) and note_set[i] != note:
+        i += 1
 
-        if i == len(note_set):
-            # note not in the set
-            return note_set
-
-        note_set[i] = 0
+    if i == len(note_set):
+        # note not in the set
         return note_set
 
+    note_set[i] = 0
+    return note_set
+
 def empty_tree_root(depth: int):
-        root = 0
-        for i in range(depth):
-                h = hasher()   # zk hash
-                h.update(root)
-                h.update(root)
-                root = h.digest()
-        return root
+    root = 0
+    for i in range(depth):
+        h = hasher()   # zk hash
+        h.update(root)
+        h.update(root)
+        root = h.digest()
+    return root
 
 def get_ledger_root(note_set: list[NoteId]):
-        assert(len(note_set) < 2**32)
-        ledger_root = get_merkle_root(note_set)  # return the Merkle root of the set
-                                                 # padded with 0 to next power of 2
-        ledger_root_height = len(note_set).bit_length()
-        for height in range(ledger_root_height, 32):
-                h= Hasher()    # zk hash
-                h.update(ledger_root)
-                h.update(empty_tree_root(height))
-                ledger_root = h.digest()
-        return ledger_root
+    assert(len(note_set) < 2**32)
+    ledger_root = get_merkle_root(note_set)  # return the Merkle root of the set
+                                             # padded with 0 to next power of 2
+    ledger_root_height = len(note_set).bit_length()
+    for height in range(ledger_root_height, 32):
+        h= Hasher()    # zk hash
+        h.update(ledger_root)
+        h.update(empty_tree_root(height))
+        ledger_root = h.digest()
+    return ledger_root
 ```
 
   The ledger root may not be unique because the note Ids set can cycle. Indeed, even if it’s not possible to insert the same note Id twice, it’s possible to cycle on a previous set state by removing notes. However, note Ids uniqueness guarantees protection against attacks on note aging.
@@ -135,39 +136,39 @@ The prover (the leader) and the verifiers (nodes of the chain) must agree on the
 
 1. The slot number: $`sl`$.
 2. The epoch nonce: $`\eta`$.
-  - For details see [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce).
+	- For details see [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce).
 
 3. The lottery function constants: $`t_0 = -\frac{\text{VRF}\_order \ln(1-f)}{\text{inferred\_total\_stake}}`$ and $`t_1=- \frac{\text{VRF}\_order\ln^2(1-f)}{2 \cdot \text{inferred\_total\_stake}^2}`$.
-  - For details see [Lottery Approximation](#lottery-approximation).
-  - These numbers must be computed with high precision outside the proof.
+	- For details see [Lottery Approximation](#lottery-approximation).
+	- These numbers must be computed with high precision outside the proof.
 
 4. The root of the note Merkle tree when the stake distribution was frozen $`ledger_\text{AGED}`$.
-  - For details see [Epoch State Pseudocode](cryptarchia-v1-protocol.md#epoch-state-pseudocode).
+	- For details see [Epoch State Pseudocode](cryptarchia-v1-protocol.md#epoch-state-pseudocode).
 
 5. The latest root of the note Merkle tree: $`ledger_\text{LATEST}`$.
-  - Used to ensure the leadership note has not been spent.
+	- Used to ensure the leadership note has not been spent.
 
 6. The leader's one-time public key $`P_\text{LEAD}`$ represented by 2 public inputs, each of 16 bytes in little endian. This key is needed to sign the proposed block.
-  - For details see [Linking the Proof of Leadership to a Block](#linking-the-proof-of-leadership-to-a-block).
+	- For details see [Linking the Proof of Leadership to a Block](#linking-the-proof-of-leadership-to-a-block).
 
 7. The entropy contribution $`\rho_{LEAD}`$ verified to be correctly derived.
-  - This is the epoch nonce entropy contribution. See [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce).
+	- This is the epoch nonce entropy contribution. See [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce).
 
 ### Circuit Private Inputs
 
 The prover has to provide these values, but they remain secret:
 
 1. The eligible note and its related information used to derive the [Note Id](bedrock-v1.1-mantle-specification.md#note-id):
-  - The note secret key: $`sk`$.
-  - The note value: $`v`$.
-  - The note transaction zk hash: $`note\_tx\_hash`$.
-  - The note outputs number: $`note\_output\_number`$.
+	- The note secret key: $`sk`$.
+	- The note value: $`v`$.
+	- The note transaction zk hash: $`note\_tx\_hash`$.
+	- The note outputs number: $`note\_output\_number`$.
 
 2. The proof of membership of the note identifier in the zone ledgers $`ledger_{AGED}`$ and $`ledger_{LATEST}`$. This is done by providing the complementary Merkle nodes and indicating whether they are left (0) or right (1) through boolean selectors:
-  - The aged ledger complementary nodes: $`noteid\_aged\_path`$.
-  - The aged ledger complementary node selectors: $`note\_id\_aged\_selectors`$.
-  - The latest ledger complementary nodes: $`noteid\_latest\_path`$.
-  - The latest ledger complementary node selectors: $`note\_id\_latest\_selectors`$.
+	- The aged ledger complementary nodes: $`noteid\_aged\_path`$.
+	- The aged ledger complementary node selectors: $`note\_id\_aged\_selectors`$.
+	- The latest ledger complementary nodes: $`noteid\_latest\_path`$.
+	- The latest ledger complementary node selectors: $`note\_id\_latest\_selectors`$.
 
 ### Circuit Constraints
 
@@ -278,6 +279,40 @@ print(f"t_1_constant = {t_1_constant:#x}")
 | 90% | 2.33% | -0.0359% |
 | 95% | 2.46% | -0.0406% |
 | 100% | 2.59% | -0.0444% |
+
+### Corner Case: Note Value Exceeding Inferred Total Stake
+The lottery threshold approximation relies on a second-order Taylor expansion of $`\phi_f(α)=1−(1−f)^\alpha`$, 
+which is only accurate when $`\alpha=v/\text{inferred\_total\_stake}≪1`$.
+Under normal operation this holds trivially, since no single note can hold a significant fraction of the total stake.
+However, a pathological regime exists where this assumption breaks down.
+
+#### Scenario
+
+Suppose the chain halts and only a small fraction of the original stakers come back online to restart it. 
+The `inferred_total_stake` parameter, which is derived from recent epoch snapshots, may lag far behind the actual participating stake. 
+A note with value $v$ could then satisfy $`v≫\text{inferred\_total\_stake}`$, placing it well outside the valid domain of the approximation.
+
+#### What happens
+The threshold $`t:=v(t0+t1⋅v)t := v(t_0 + t_1 \cdot v)`$ is a downward-opening parabola in the reals.
+It peaks near $`v \approx 29 \cdot \text{inferred\_total\_stake}`$ and crosses zero again near 
+$`v \approx 58 \cdot \text{inferred\_total\_stake}`$.
+Past the peak, the real-valued threshold becomes negative.
+In $`\mathbb{F}_p`$ this wraps to a large value close to $`p`$, meaning the lottery ticket is almost certain to be below the threshold.
+The note wins nearly every slot.
+Past the second zero crossing, the threshold wraps back toward zero and the behavior becomes an oscillation between near-certain win and near-certain loss depending on the exact ratio $`v/\text{inferred\_total\_stake}`$
+
+#### Severity
+
+This cannot be triggered by a rational adversary under normal conditions, since it requires `inferred_total_stake` to be severely underestimated relative to individual note values. 
+Several scenarios can produce this regime:
+- Chain halt and partial restart: only a fraction of original stakers come back online, so `inferred_total_stake` lags the actual participating stake by a large factor.
+- Mass unstaking: a large coordinated withdrawal in a short period (confidence crisis, protocol migration) deflates `inferred_total_stake` while large notes remain in circulation.
+- Early bootstrap: at genesis or in the first epochs, total stake has not built up yet but individual notes may already carry significant value.
+- Estimation failure: a bug or manipulation in the `inferred_total_stake` derivation mechanism produces a value far below reality.
+
+In all these cases the effect on liveness is arguably beneficial: large-stake notes winning aggressively helps the chain find leaders and recover from the depressed-stake regime.
+Once epochs progress and `inferred_total_stake` converges back toward reality, the lottery returns to its normal operating range.
+No circuit-level mitigation is strictly necessary given the above.
 
 ## Benchmarks
 

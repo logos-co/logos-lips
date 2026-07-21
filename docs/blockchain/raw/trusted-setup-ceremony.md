@@ -26,7 +26,7 @@
 
 # Introduction
 
-The Logos Blockchain utilizes zero-knowledge proof systems not only to ensure strong privacy and security guarantees across its decentralized architecture, but also to reduce the computational burden on validators by compressing execution into succinct proofs. Some of the Logos Blockchain's cryptographic applications specifically use Groth16 (see [🔀\[1.0.2\] Common Cryptographic Components - Groth16 (zk-SNARK)](common-cryptographic-components.md#groth16-zk-snark)), a proof system renowned for its succinctness and efficient verification.
+The Logos Blockchain utilizes zero-knowledge proof systems not only to ensure strong privacy and security guarantees across its decentralized architecture, but also to reduce the computational burden on validators by compressing execution into succinct proofs. Some of the Logos Blockchain's cryptographic applications specifically use Groth16 (see [Common Cryptographic Components - Groth16 (zk-SNARK)](common-cryptographic-components.md#groth16-zk-snark)), a proof system renowned for its succinctness and efficient verification.
 
 A critical requirement of Groth16 is the secure generation of a Common Reference String (CRS) through a one-time cryptographic ceremony, commonly known as a Trusted Setup Ceremony. This ceremony ensures that cryptographic parameters are generated in a decentralized manner, such that no individual participant can later compromise the security or privacy guarantees of the system.
 

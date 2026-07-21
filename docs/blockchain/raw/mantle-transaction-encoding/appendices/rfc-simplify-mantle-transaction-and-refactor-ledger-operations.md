@@ -39,7 +39,7 @@ At the same time we add inputs uniqueness check to prevent double spending. **Th
 
 ```python
 class Ledger:
-  notes: list[Note]
+    notes: list[Note]
     locked_notes: dict[NoteId, LockedNote]
 ```
 
@@ -48,14 +48,14 @@ class Ledger:
   A note is spendable if and only if it exists, it is not spent or locked. The following function validates that an input of notes can be consumed:
 ```python
 class Ledger:
-  def assert_spendable(inputs: list[NoteId]):
-    ## Check there is no duplicate
-    assert len(inputs) == len(set(inputs))
+    def assert_spendable(inputs: list[NoteId]):
+        ## Check there is no duplicate
+        assert len(inputs) == len(set(inputs))
 
-    # Check that each note is individualy not locked and unspent
-    for note_id in inputs:
-      assert ledger.is_unspent(note_id)
-      assert note_id not in locked_notes
+        # Check that each note is individually not locked and unspent
+        for note_id in inputs:
+            assert ledger.is_unspent(note_id)
+            assert note_id not in locked_notes
 ```
 
 #### Output Notes Validation
@@ -63,10 +63,10 @@ class Ledger:
   Before an output of notes can be inserted into the Ledger, every note field must satisfy the following constraints:
 ```python
 class Ledger:
-  def assert_valid_output(outputs: list[Note]):
-    for note in outputs:
-      assert note.value > 0
-      assert note.value <= 2**64-1
+    def assert_valid_output(outputs: list[Note]):
+        for note in outputs:
+            assert note.value > 0
+            assert note.value <= 2**64-1
 ```
 
 #### Consuming Input Notes Execution
@@ -74,11 +74,11 @@ class Ledger:
   Consuming a set of notes removes them from the Ledger’s Merkle tree and recycles their leaf indices:
 ```python
 class Ledger:
-  def execute_spending(inputs: list[NoteId]):
-    for note_id in inputs:
-      # updates the merkle tree to zero out the leaf for this entry
-        # and adds that leaf index to the list of unused leaves
-        ledger.remove(note_id)
+    def execute_spending(inputs: list[NoteId]):
+        for note_id in inputs:
+            # updates the merkle tree to zero out the leaf for this entry
+            # and adds that leaf index to the list of unused leaves
+            ledger.remove(note_id)
 ```
 
 #### Creating Output Notes Execution
@@ -86,11 +86,11 @@ class Ledger:
   Creating notes derives their `NoteId` from the Operation’s `OpId` and insert them in the Ledger:
 ```python
 class Ledger:
-  def execute_adding(op_id: Hash,
-            outputs: list[Note]):
-    for (output_index, output_note) in enumerate(outputs):
-      output_note_id = derive_note_id(op_id, output_index, output_note)
-        ledger.add(output_note_id)
+    def execute_adding(op_id: Hash,
+                       outputs: list[Note]):
+        for (output_index, output_note) in enumerate(outputs):
+            output_note_id = derive_note_id(op_id, output_index, output_note)
+            ledger.add(output_note_id)
 ```
 
 #### Updating Operations
@@ -162,9 +162,9 @@ assert len(proof.indexes) == len(set(proof.indexes))
 7. Check the signatures
 ```text
 for sig, idx in zip(proof.signatures, proof.indexes):
-  assert Ed25519_verify(txhash,
-      channels[withdrawal.channel].accredited_keys[idx],
-      sig)
+    assert Ed25519_verify(txhash,
+        channels[withdrawal.channel].accredited_keys[idx],
+        sig)
 ```
 
 ```text
@@ -193,7 +193,7 @@ assert len(proof.indexes) == len(set(proof.indexes))
 
 # Check the signatures
 for sig, idx in zip(proof.signatures, proof.indexes):
-  assert Ed25519_verify(txhash, chan.accredited_keys[idx], sig)
+    assert Ed25519_verify(txhash, chan.accredited_keys[idx], sig)
 ```
 
 #### Channel Withdraw Execution
@@ -209,11 +209,11 @@ for sig, idx in zip(proof.signatures, proof.indexes):
 #### Leader Claim Execution
 
 ```text
-  output_note=Note(
+output_note=Note(
     value = leader_reward
     public_key = claim.public_key,
-  )
-  claim_id = derive_op_id(claim)
+)
+claim_id = derive_op_id(claim)
 + ledger.execute_adding(claim_id, [output_note])
 - output_note_id = derive_note_id(claim_id, 0, output_note)
 - ledger.add(output_note_id)
@@ -249,17 +249,17 @@ for output in transfer.outputs:
 ```text
 + ledger.execute_spending(transfer.inputs)
 - for note_id in transfer.inputs:
--     # updates the merkle tree to zero out the leaf for this entry
--     # and adds that leaf index to the list of unused leaves
--     ledger.remove(note_id)
+-    # updates the merkle tree to zero out the leaf for this entry
+-    # and adds that leaf index to the list of unused leaves
+-    ledger.remove(note_id)
 ```
 
 ```text
-  transfer_id = derive_operation_id(transfer)
+transfer_id = derive_operation_id(transfer)
 + ledger.execute_adding(transfer_id, transfer.outputs)
 - for (output_number, output_note) in enumerate(transfer.outputs):
--     output_note_id = derive_note_id(transfer_id, output_number, output_note)
--     ledger.add(output_note_id)
+-    output_note_id = derive_note_id(transfer_id, output_number, output_note)
+-    ledger.add(output_note_id)
 ```
 
 ### Simplify `mantle_tx_hash`
@@ -269,20 +269,20 @@ for output in transfer.outputs:
 ```text
 - def mantle_txhash(tx: MantleTx) -> ZkHash:
 + def mantle_txhash(tx: MantleTx) -> Hash:
-      tx_bytes = encode(tx)
+    tx_bytes = encode(tx)
 
--     h = Hasher() # /!\ This is a classic hash not a ZkHash /!\
-+     h = Hasher()
-      h.update(b"MANTLE_TXHASH_V1")
-      h.update(tx_bytes)
-+     return h.digest()
--     classic_digest = h.digest()
+-   h = Hasher() # /!\ This is a classic hash not a ZkHash /!\
++   h = Hasher()
+    h.update(b"MANTLE_TXHASH_V1")
+    h.update(tx_bytes)
++   return h.digest()
+-   classic_digest = h.digest()
 
--     zkh = ZkHasher() # /!\ This is a ZkHash not a classic hash /!\
--     zkh.update(FiniteField(classic_digest[0:16], bytes_order="little", modulus = p))
--     zkh.update(FiniteField(classic_digest[16:32], bytes_order="little", modulus = p))
+-   zkh = ZkHasher() # /!\ This is a ZkHash not a classic hash /!\
+-   zkh.update(FiniteField(classic_digest[0:16], bytes_order="little", modulus = p))
+-   zkh.update(FiniteField(classic_digest[16:32], bytes_order="little", modulus = p))
 
--     return zkh.digest()
+-   return zkh.digest()
 ```
 
 In the Mantle Transaction section explaining that ZK proofs are linked to Mantle Transaction Hash:
@@ -318,10 +318,10 @@ and in the last bullet point of the proof constraints:
 In the public values:
 ```text
 class ProofOfClaimPublic:
- voucher_root: zkhash # Merkle root of the reward_voucher maintained by everyone
- voucher_nullifier: zkhash
-- mantle_tx_hash: zkhash # attached hash
-+ mantle_tx_hash_fr: zkhash # attached hash reduced modulo p
+    voucher_root: zkhash # Merkle root of the reward_voucher maintained by everyone
+    voucher_nullifier: zkhash
+-   mantle_tx_hash: zkhash # attached hash
++   mantle_tx_hash_fr: zkhash # attached hash reduced modulo p
 ```
 
 and in the last bullet point of the proof constraint:
@@ -349,7 +349,7 @@ We removed the callout:
 
 ```text
 class MantleTx:
-   ops: list[Op]
+    ops: list[Op]
 -   permanent_storage_gas_price: TokenValue      # See the note section
 -   execution_gas_price: TokenValue
 ```
@@ -360,39 +360,39 @@ class MantleTx:
 
 ### Mantle Transaction Fee
 
-  The transaction mandatory fee is a sum of two components: the multiplication of the total Execution Gas by the `execution_``base_fee`~~`gas_price`~~, and the total size of the encoded signed Mantle Transaction multiplied by the `permanent_storage_gas_price`. The execution base fee and the permanent storage gas price are protocol-determined values that are the same for every Mantle Transaction in a block. They are derived following [[1.0.0] Execution Market](../../analysis-execution-market.md) and [[1.0.0] Storage Markets](../../storage-markets.md).
+  The transaction mandatory fee is a sum of two components: the multiplication of the total Execution Gas by the `execution_``base_fee`~~`gas_price`~~, and the total size of the encoded signed Mantle Transaction multiplied by the `permanent_storage_gas_price`. The execution base fee and the permanent storage gas price are protocol-determined values that are the same for every Mantle Transaction in a block. They are derived following [Execution Market](../../analysis-execution-market.md) and [Storage Markets](../../storage-markets.md).
 
 We replaced this **old code:**
 ```python
 def gas_fees(signed_tx: SignedMantleTx) -> int:
     mantle_tx = signed_tx.tx
-  permanent_storage_fees = len(encode(signed_mantle_tx)) * mantle_tx.permanent_storage_gas_price
-  execution_fees = 0
+    permanent_storage_fees = len(encode(signed_mantle_tx)) * mantle_tx.permanent_storage_gas_price
+    execution_fees = 0
 
-  for op in mantle_tx.ops:
-    # Compute the execution gas of this operation as defined
-    # in the gas cost determination specification.
-    execution_fees += execution_gas(op) * mantle_tx.execution_gas_price
+    for op in mantle_tx.ops:
+        # Compute the execution gas of this operation as defined
+        # in the gas cost determination specification.
+        execution_fees += execution_gas(op) * mantle_tx.execution_gas_price
 
-  return execution_fees + permanent_storage_fees
+    return execution_fees + permanent_storage_fees
 ```
 
 by this **new code**:
 ```python
 def mandatory_fees(signed_tx: SignedMantleTx,
-          permanent_storage_gas_price: TokenValue, # Given by Storage Market
-          execution_gas_base_price: TokenValue) -> int:  # Given by Execution Market
-  mantle_tx = signed_tx.tx
-  permanent_storage_fees = len(encode(signed_mantle_tx)) * permanent_storage_gas_price
-  tx_execution_gas = 0
+                   permanent_storage_gas_price: TokenValue, # Given by Storage Market
+                   execution_gas_base_price: TokenValue) -> int:  # Given by Execution Market
+    mantle_tx = signed_tx.tx
+    permanent_storage_fees = len(encode(signed_mantle_tx)) * permanent_storage_gas_price
+    tx_execution_gas = 0
 
-  for op in mantle_tx.ops:
-    # Compute how much execution gas of this operation as defined
-    # in the gas determination Appendix
-    tx_execution_gas += execution_gas(op)
-  execution_base_fees = tx_execution_gas * execution_gas_base_price
+    for op in mantle_tx.ops:
+        # Compute how much execution gas of this operation as defined
+        # in the gas determination Appendix
+        tx_execution_gas += execution_gas(op)
+    execution_base_fees = tx_execution_gas * execution_gas_base_price
 
-  return execution_base_fees + permanent_storage_fees
+    return execution_base_fees + permanent_storage_fees
 ```
 
 >
@@ -435,11 +435,11 @@ SignedMantleTx(
 
 #### [Gas Determination Storage Definition](../../analysis-gas-cost-determination.md)
 
-> Permanent Storage is paid directly for the entire signed Mantle Transaction. The Permanent Storage Gas price is derived from [[1.0.0] Storage Markets](../../storage-markets.md) ~~included in the Mantle Transaction structure~~ and is used to determine the Permanent Storage fee. 1 Permanent Storage Gas corresponds to 1 byte.
+> Permanent Storage is paid directly for the entire signed Mantle Transaction. The Permanent Storage Gas price is derived from [Storage Markets](../../storage-markets.md) ~~included in the Mantle Transaction structure~~ and is used to determine the Permanent Storage fee. 1 Permanent Storage Gas corresponds to 1 byte.
 
 #### [Gas Determination Execution Definition](../../analysis-gas-cost-determination.md)
 
-> Execution is a second general market that represents how costly an Operation is to execute. This cost can be fixed or variable based on the content of the Operation. The Execution Gas base price is derived from [[1.0.0] Execution Market](../../analysis-execution-market.md) ~~contained in the Mantle Transaction structure ~~and each Operation defines its execution gas amount. 1 Execution Gas corresponds to 1,000 CPU cycles.
+> Execution is a second general market that represents how costly an Operation is to execute. This cost can be fixed or variable based on the content of the Operation. The Execution Gas base price is derived from [Execution Market](../../analysis-execution-market.md) ~~contained in the Mantle Transaction structure ~~and each Operation defines its execution gas amount. 1 Execution Gas corresponds to 1,000 CPU cycles.
 
 ```text
 execution_base_fee = tx.ops.get_summed_gas() * execution_gas_base_price
@@ -484,7 +484,7 @@ Every examples including a Mantle Transaction need an update to remove the price
 ```text
 tx = MantleTx(
     ops=[Op(opcode=CHANNEL_INSCRIBE, payload=encode(greeting)),
-       Op(opcode=TRANSFER, payload=encode(transfer)],
+         Op(opcode=TRANSFER, payload=encode(transfer)],
 -   permanent_storage_gas_price=150,
 -   execution_gas_price=70,
 )
@@ -511,24 +511,24 @@ WithdrawThreshold = UINT16
 
 ### Update
 
-- [1.5.0] Mantle
+- Mantle
 
-- \[1.4.1\]\[Analysis\] Gas Cost Determination
+- \[Analysis\] Gas Cost Determination
 
-- [1.4.0] Mantle Transaction Encoding
+- Mantle Transaction Encoding
 
-- \[1.1.1\]\[Template\] Cross-Channel Messaging
+- \[Template\] Cross-Channel Messaging
 
-- [1.1.1] Block Construction, Validation and Execution
+- Block Construction, Validation and Execution
 
-- [1.1.0] Bedrock Genesis Block
+- Bedrock Genesis Block
 
 ### Deprecate
 
-[[1.4.0] Mantle](../../../deprecated/v1.2.0-mantle.md)
-[\[1.4.0\]\[Analysis\] Gas Cost Determination](../../../deprecated/v1.4.0-analysis-gas-cost-determination.md)
-[[1.3.0] Mantle Transaction Encoding](../../../deprecated/v1.1.0-mantle-transaction-encoding.md)
-[\[1.1.0\]\[Template\] Cross-Channel Messaging](../../../deprecated/v1.1.0-template-cross-channel-messaging.md)
-[[1.1.0] Block Construction, Validation and Execution](../../../deprecated/v1.0.0-bedrock-block-construction.md)
-[[1.1.0] Bedrock Genesis Block](../../../deprecated/v1.0.0-bedrock-genesis-block.md)
+[Mantle](../../../deprecated/v1.2.0-mantle.md)
+[\[Analysis\] Gas Cost Determination](../../../deprecated/v1.4.0-analysis-gas-cost-determination.md)
+[Mantle Transaction Encoding](../../../deprecated/v1.1.0-mantle-transaction-encoding.md)
+[\[Template\] Cross-Channel Messaging](../../../deprecated/v1.1.0-template-cross-channel-messaging.md)
+[Block Construction, Validation and Execution](../../../deprecated/v1.0.0-bedrock-block-construction.md)
+[Bedrock Genesis Block](../../../deprecated/v1.0.0-bedrock-genesis-block.md)
 ### Retire
