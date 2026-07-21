@@ -232,8 +232,8 @@ channels: dict[ChannelId, ChannelState] # ChannelId is 32 bytes
 class ChannelState:
     # Channel Configuration
     accredited_keys: list[Ed25519PublicKey]  # limited to 65 535 keys
-    configuration_threshold: u16  # indicating how many keys are
-                                  # required to update the configuration
+    config_required_sigs: u16     			 # indicating how many keys are
+                                  			 # required to update the configuration
 
     # Message Ordering
     tip_hash: hash
@@ -247,8 +247,8 @@ class ChannelState:
     posting_timeout: u32    # number of slots (0 = no timeout)
 
     # Bridging
-    transfer_threshold: u16  # indicating how many keys are
-                             # required to transfer or withdraw funds from the channel
+    transfer_required_sigs: u16  # indicating how many keys are
+                             	 # required to transfer or withdraw funds from the channel
 
 def default_channel(block_slot: Slot, keys: list[Ed25519PublicKey]) -> ChannelState:
     return ChannelState(
@@ -259,8 +259,8 @@ def default_channel(block_slot: Slot, keys: list[Ed25519PublicKey]) -> ChannelSt
         tip_sequencer_starting_slot = block_slot,
         posting_timeframe = 0,
         posting_timeout = 0,
-        configuration_threshold = 1,
-        transfer_threshold = 1)
+        config_required_sigs = 1,
+        transfer_required_sigs = 1)
 ```
 
 Note that the user chooses the ChannelId mapping to the ChannelState (but it’s restricted to 32 bytes). We don't currently impose restrictions on it, but we may do so in the future to prevent undesirable behaviors.
@@ -461,17 +461,17 @@ class ChannelConfig:
     keys: list[Ed25519PublicKey]
     posting_timeframe: u32
     posting_timeout: u32
-    configuration_threshold: u16
-    transfer_threshold: u16
+    config_required_sigs: u16
+    transfer_required_sigs: u16
 ```
 
 #### Proof
 
-A Channel Config is authorized by a threshold of the channel's accredited keys using [Multiple Ed25519 Signatures Verification](#multiple-ed25519-signatures-verification).
+A Channel Config is authorized by several channel's accredited keys using [Multiple Ed25519 Signatures Verification](#multiple-ed25519-signatures-verification).
 
 ```python
 class ChannelConfigOpProof:
-    signatures: list[Ed25519Signature] # signatures from configuration_threshold
+    signatures: list[Ed25519Signature] # signatures from config_required_sigs
     indexes: list[u16]  # signatures of accredited keys with their index.
                         # indexes must be ordered from smallest to
                         # biggest without duplication
@@ -479,7 +479,7 @@ class ChannelConfigOpProof:
 
 #### Execution Gas
 
-  Channel Config Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_CONFIG_GAS * configuration_threshold`. See [Gas Determination](#gas-determination) for the Execution Gas values.
+  Channel Config Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_CONFIG_GAS * config_required_sigs`. See [Gas Determination](#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -495,22 +495,22 @@ channels: dict[ChannelId, ChannelState]
   *Validate*
 
 ```python
-assert config.configuration_threshold > 0
-assert config.transfer_threshold > 0
+assert config.config_required_sigs > 0
+assert config.transfer_required_sigs > 0
 assert len(config.keys) > 0
 assert len(config.keys) < 2^16
-# The configuration threshold must be reachable with the accredited keys,
+# The config_required_sigs must be reachable with the accredited keys,
 # otherwise the channel would be locked out of any future reconfiguration
-assert config.configuration_threshold <= len(config.keys)
+assert config.config_required_sigs <= len(config.keys)
 
 if config.channel in channels:
     chan = channels[config.channel]
-    # Verify the configuration_threshold signatures (see Appendix)
+    # Verify the config_required_sigs signatures (see Appendix)
     MultiEd25519_verify(txhash,
                         proof.signatures,
                         proof.indexes,
                         chan.accredited_keys,
-                        chan.configuration_threshold)
+                        chan.config_required_sigs)
 ```
 
 #### Execution
@@ -540,7 +540,7 @@ block_slot: Slot
 
       # Update Channel Configuration Parameters
       chan.accredited_keys = config.keys
-      chan.configuration_threshold = config.configuration_threshold
+      chan.config_required_sigs = config.config_required_sigs
 
       # Update Decentralized Sequencing Parameters
       chan.tip_sequencer = 0
@@ -549,7 +549,7 @@ block_slot: Slot
       chan.posting_timeout = config.posting_timeout
 
       # Update Bridging Parameters
-      chan.transfer_threshold = config.transfer_threshold
+      chan.transfer_required_sigs = config.transfer_required_sigs
       ```
 
   3. Update the channel tip.
@@ -574,8 +574,8 @@ config = ChannelConfig(
     keys=[old_sequencer_pk, new_sequencer_pk],
     posting_timeframe = 5000,
     posting_timeout = 500,
-    configuration_threshold = 2,
-    transfer_threshold = 1
+    config_required_sigs = 2,
+    transfer_required_sigs = 1
 )
 
 # Build the transfer operation to pay the fees
@@ -719,11 +719,11 @@ class ChannelWithdraw:
 
 #### Proof
 
-A Channel Withdraw is authorized by a threshold of the channel's accredited keys using [Multiple Ed25519 Signatures Verification](#multiple-ed25519-signatures-verification).
+A Channel Withdraw is authorized by several channel's accredited keys using [Multiple Ed25519 Signatures Verification](#multiple-ed25519-signatures-verification).
 
 ```python
 class ChannelWithdrawOpProof:
-    signatures: list[Ed25519Signature] # exactly transfer_threshold signatures
+    signatures: list[Ed25519Signature] # exactly transfer_required_sigs signatures
     indexes: list[int]    # signatures of accredited keys with their index
                           # indexes must be ordered from smallest to
                           # biggest without duplication
@@ -731,7 +731,7 @@ class ChannelWithdrawOpProof:
 
 #### Execution Gas
 
-  Channel Withdraw Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_WITHDRAW_GAS * transfer_threshold`. See [Gas Determination](#gas-determination) for the Execution Gas values.
+  Channel Withdraw Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_WITHDRAW_GAS * transfer_required_sigs`. See [Gas Determination](#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -828,14 +828,14 @@ class ChannelTransfer:
 
 ```python
 class ChannelTransferOpProof:
-    signatures: list[Ed25519Signature] # signature from transfer_threshold keys
+    signatures: list[Ed25519Signature] # signature from transfer_required_sigs keys
     indexes: list[int]    # signatures of accredited keys with their index.
                           # indexes must be ordered from smallest to biggest without duplication
 ```
 
 #### Execution Gas
 
-`CHANNEL_TRANSFER` Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_TRANSFER_GAS * transfer_threshold`. See [Gas Determination](#gas-determination) for the Execution Gas values.
+`CHANNEL_TRANSFER` Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_TRANSFER_GAS * transfer_required_sigs`. See [Gas Determination](#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -1797,7 +1797,7 @@ The material used for the benchmarks is the following:
 ## Multiple Ed25519 Signatures Verification
 
 Several operations (e.g. [Channel Configuration](#channel-configuration) and
-[Channel Withdraw](#channel-withdraw)) authorize an action with a threshold of
+[Channel Withdraw](#channel-withdraw)) authorize an action with a required number of
 Ed25519 signatures produced by a list of accredited keys. Each signature comes
 with the index, in the accredited keys list, of the key that produced it. The
 verification is factored out in the following routine:
@@ -1810,18 +1810,18 @@ signatures: list[Ed25519Signature]
 indexes: list[u16]                 # for each signature, the index in `keys` of
                                    # the signing key
 keys: list[Ed25519PublicKey]       # the accredited keys
-threshold: u16                     # the number of required signatures
+required_sigs: u16                 # the number of required signatures
 ```
 
 *Verify*
 
 ```python
-def MultiEd25519_verify(msg, signatures, indexes, keys, threshold):
+def MultiEd25519_verify(msg, signatures, indexes, keys, required_sigs):
     # There must be exactly one index per signature
     assert len(signatures) == len(indexes)
 
-    # There must be exactly `threshold` signatures
-    assert len(signatures) == threshold
+    # There must be exactly `required_sigs` signatures
+    assert len(signatures) == required_sigs
 
     # Indexes must be ordered from smallest to biggest without duplication.
     # Being strictly increasing rejects duplicates and, since `idx` is used to
