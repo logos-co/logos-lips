@@ -95,8 +95,20 @@ The following terms are used throughout this specification:
   The Entry Layer is external to the Mix Protocol.
 
 - **Mix Exit Layer**
-  A component that receives decrypted messages from a Mix Protocol instance and delivers them to the appropriate origin protocol instance at the destination.
+  A component that receives decrypted messages from a Mix Protocol instance and delivers them according to the selected delivery mode.
+  For forwarded destinations, it opens a client-only connection to the destination origin protocol instance.
+  For destination-as-final-hop delivery, it invokes the destination node's local origin protocol handler.
   Like the Entry Layer, it is external to the Mix Protocol.
+
+- **Delivery Mode**
+  The per-message choice of how the final decrypted message is delivered after mix routing.
+  In **forwarded-destination** mode, the final mix node is an exit that forwards the message to an external destination address.
+  In **destination-as-final-hop** mode, the selected destination node is itself the final mix node and processes the message locally.
+
+- **Read Specification**
+  Sender-provided metadata that tells an exit how to read a response from a forwarded destination before returning it using a SURB.
+  It is required only when forwarded-destination delivery expects a response.
+  It is not used for destination-as-final-hop delivery, because the final node's local protocol handler writes any response directly.
 
 - **Mixnet or Mix Network**
   A decentralized overlay network formed by all nodes that support the Mix Protocol.
@@ -235,7 +247,8 @@ libp2p protocols that wish to anonymize messages MUST do so by integrating with 
 
 - The **Mix Entry Layer** receives messages to be _mixified_ from an origin protocol and forwards them to the local Mix Protocol instance.
 
-- The **Mix Exit Layer** receives the final decrypted message from a Mix Protocol instance and forwards it to the appropriate origin protocol instance at the destination over a client-only connection.
+- The **Mix Exit Layer** receives the final decrypted message from a Mix Protocol instance and delivers it according to the selected delivery mode.
+  It either forwards the message to an external destination over a client-only connection, or dispatches it to a local origin protocol handler when the final mix node is the destination.
 
 This integration is external to the Mix Protocol and is not handled by mix nodes themselves.
 
@@ -279,7 +292,8 @@ The entry-side and exit-side integration steps are handled externally by the Mix
 1. **Entry-side Integration (Mix Entry Layer):**
 
    - The origin protocol generates a message and sets the `mixify` flag.
-   - The message is passed to the Mix Entry Layer, which invokes the local Mix Protocol instance with the message, destination, and origin protocol codec as input.
+   - The message is passed to the Mix Entry Layer, which invokes the local Mix Protocol instance with the message, destination, delivery mode, and origin protocol codec as input.
+   - If forwarded-destination delivery expects a response, the sender also supplies a read specification describing how the exit reads that response.
 
 2. **Anonymous Routing (Core Mix Protocol):**
 
@@ -287,14 +301,16 @@ The entry-side and exit-side integration steps are handled externally by the Mix
    - Each mix node along the path:
      - Processes the Sphinx packet by removing one encryption layer.
      - Applies a delay and forwards the packet to the next hop.
-   - The final node in the path (exit node) decrypts the final layer, extracting the original plaintext message, destination, and origin protocol codec.
+   - The final node in the path decrypts the final layer, extracting the original plaintext message, delivery metadata, and origin protocol codec.
 
 3. **Exit-side Integration (Mix Exit Layer):**
 
-   - The Mix Exit Layer receives the plaintext message, destination, and origin protocol codec.
-   - It routes the message to the destination origin protocol instance using a client-only connection.
+   - The Mix Exit Layer receives the plaintext message, destination, delivery metadata, and origin protocol codec.
+   - In forwarded-destination mode, it routes the message to the external destination origin protocol instance using a client-only connection.
+   - In destination-as-final-hop mode, it dispatches the message to the final node's local origin protocol handler.
 
-The destination node does not need to support the Mix Protocol to receive or respond to anonymous messages.
+Forwarded destinations do not need to support the Mix Protocol to receive or respond to anonymous messages.
+Destination-as-final-hop delivery requires the destination to support the Mix Protocol, but removes the separate forwarding exit from the delivery path.
 
 The behavior described above represents the core Mix Protocol.
 In addition, the protocol supports a set of pluggable components that extend its functionality.
@@ -374,10 +390,10 @@ Delay strategies SHOULD introduce enough uncertainty to prevent adversaries from
 ### 6.3 Exit Abuse Prevention
 
 The Mix Protocol supports optional exit abuse prevention mechanisms to defend
-exits against flooding attacks routed through them.
-These mechanisms are validated at the exit node, which is the final node in the mix path before the message is delivered to its destination via the respective libp2p protocol.
+final-hop delivery against flooding attacks routed through the mixnet.
+These mechanisms are validated at the final hop before the message is delivered according to the selected delivery mode.
 
-Exit nodes that enforce exit abuse prevention MUST validate the attached proof before forwarding the message.
+Nodes that enforce exit abuse prevention MUST validate the attached proof before delivering the message.
 If validation fails, the message MUST be discarded.
 
 Common strategies include Proof of Work (PoW), Verifiable Delay Functions (VDFs), and Rate-limiting Nullifiers (RLNs).
@@ -481,7 +497,7 @@ A mix node that receives a Sphinx packet is oblivious to its position in the pat
 The first hop is indistinguishable from other intermediary hops in terms of processing and behavior.
 
 After decrypting one layer of the Sphinx packet, the node MUST inspect the routing information.
-If this layer indicates that the next hop is the final destination, the packet MUST be processed as an exit.
+If this layer indicates that there is no next mix hop, the packet MUST be processed as an exit.
 Otherwise, it MUST be processed as an intermediary.
 
 #### 7.3.1 Intermediary Processing
@@ -501,7 +517,7 @@ To process a Sphinx packet as an exit, a mix node MUST:
 - Extract the plaintext message from the final decrypted packet.
 - Validate any attached exit abuse prevention proof.
 - Discard the message if validation fails.
-- Forward the valid message to the Mix Exit Layer for delivery to the destination origin protocol instance.
+- Forward the valid message and delivery metadata to the Mix Exit Layer for delivery according to the selected delivery mode.
 
 The node MUST NOT retain decrypted content after forwarding.
 
@@ -513,7 +529,7 @@ The next section specifies their structure, cryptographic components, and constr
 The Mix Protocol uses the Sphinx packet format to enable unlinkable, multi-hop message routing with per-hop confidentiality and integrity.
 Each message transmitted through the mix network is encapsulated in a Sphinx packet constructed by the initiating mix node.
 The packet is encrypted in layers such that each hop in the mix path can decrypt exactly one layer and obtain the next-hop routing information and forwarding delay, without learning the complete path or the message origin.
-Only the final hop learns the destination, which is encoded in the innermost routing layer.
+Only the final hop learns the final routing target, which is encoded in the innermost routing layer.
 
 Sphinx packets are self-contained and indistinguishable on the wire, providing strong metadata protection.
 Mix nodes forward packets without retaining state or requiring knowledge of the source or destination beyond their immediate routing target.
@@ -534,13 +550,13 @@ Each Sphinx packet consists of three fixed-length header fields&mdash; $α$, $β
 Together, these components enable per-hop message processing with strong confidentiality and integrity guarantees in a stateless and unlinkable manner.
 
 - **$α$ (Alpha)**: An ephemeral public value. Each mix node uses its private key and $α$ to derive a shared session key for that hop. This session key is used to decrypt and process one layer of the packet.
-- **$β$ (Beta)**: The nested encrypted routing information. It encodes the next hop address, the forwarding delay, integrity check $γ$ for the next hop, and the $β$ for subsequent hops. At the final hop, $β$ encodes the destination address and fixed-length zero padding to preserve uniform size.
+- **$β$ (Beta)**: The nested encrypted routing information. It encodes the next hop address, the forwarding delay, integrity check $γ$ for the next hop, and the $β$ for subsequent hops. At the final hop, $β$ encodes the final routing target selected by the delivery mode and fixed-length zero padding to preserve uniform size.
 - **$γ$ (Gamma)**: A message authentication code computed over $β$ using the session key derived from $α$. It ensures header integrity at each hop.
 - **$δ$ (Delta)**: The encrypted payload. It consists of the message padded to a fixed maximum length and encrypted in layers corresponding to each hop in the mix path.
 
 At each hop, the mix node derives the session key from $α$, verifies the header integrity using $γ$, decrypts one layer of $β$ to extract the next hop and delay, and decrypts one layer of $δ$.
 It then constructs a new packet with updated values of $α$, $β$, $γ$, and $δ$, and forwards it to the next hop.
-At the final hop, the mix node decrypts the innermost layer of $β$ and $δ$, which yields the destination address and the original application message respectively.
+At the final hop, the mix node decrypts the innermost layer of $β$ and $δ$, which yields the final routing target and the original application message respectively.
 
 All Sphinx packets are fixed in size and indistinguishable on the wire.
 This uniform format, combined with layered encryption and per-hop integrity protection, ensures unlinkability, tamper resistance, and robustness against correlation attacks.
@@ -623,7 +639,7 @@ The header consists of the fields $α$, $β$, and $γ$, totaling a fixed size pe
   - **Per-hop $γ$ size ($κ$)** (defined below): Accounts for the integrity tag included with each hop's routing information.
 
   Using the recommended value of $r=5$ and $t=6$, the resulting $β$ size is $576$ bytes.
-  At the final hop, $β$ encodes the destination address in the first $tκ-2$ bytes and the remaining bytes are zero-padded.
+  At the final hop, $β$ encodes the final routing target in the first $tκ-2$ bytes and the remaining bytes are zero-padded.
 
 - **$γ$ (Gamma)**: $16$ bytes
   The size of $γ$ equals the security parameter $κ$, providing a $κ$-bit integrity tag at each hop.
@@ -701,11 +717,13 @@ Similarly, parameters such as $r$ and $t$ are configurable.
 Changes to these parameters affect header size and therefore impact payload size if the total packet size remains fixed.
 However, if such changes alter the total packet size on the wire, the same anonymity set considerations apply.
 
-The following subsection defines how the next-hop or destination address and forwarding delay are encoded within $β$ to enable correct routing and mixing behavior.
+The following subsection defines how the next-hop address, final routing target, and forwarding delay are encoded within $β$ to enable correct routing and mixing behavior.
 
 ### 8.4 Address and Delay Encoding
 
-Each hop's $β$ includes a fixed-size block containing the next-hop address and the forwarding delay, except for the final hop, which encodes the destination address and a delay-sized zero padding.
+Each hop's $β$ includes a fixed-size block containing the next-hop address and the forwarding delay, except for the final hop, which encodes the final routing target and a delay-sized zero padding.
+For forwarded-destination delivery, this target is the external destination address.
+For destination-as-final-hop delivery, this target is the selected destination mix node.
 This section defines the structure and encoding of that block.
 
 The combined address and delay block MUST be exactly $tκ$ bytes in length, as defined in [Section 8.3.1](#831-header-field-sizes), regardless of the actual address or delay values.
@@ -717,7 +735,7 @@ The encoding format MUST be interpreted consistently by all nodes within a deplo
 
 For interoperability, a recommended default encoding format involves:
 
-- Encoding the next-hop or destination address as a libp2p multi-address:
+- Encoding the next-hop address or final routing target as a libp2p multiaddress:
 
   - To keep the address block compact while allowing relay connectivity, each mix node is limited to one IPv4 circuit relay multiaddress. This ensures that most nodes can act as mix nodes, including those behind NATs or firewalls.
   - In libp2p terms, this combines transport addresses with multiple peer identities to form an address that describes a relay circuit:
@@ -757,9 +775,11 @@ To initiate the Mix Protocol, the origin protocol instance submits a message to 
 This layer forwards it to the local Mix Protocol instance, which constructs a Sphinx packet using the following REQUIRED inputs:
 
 - **Application message**: The serialized message provided by the origin protocol instance. The Mix Protocol instance applies any configured exit abuse prevention mechanism and attaches one or two SURBs prior to encapsulating the message in the Sphinx packet. The initiating node MUST ensure that the resulting payload size does not exceed the maximum supported size defined in [Section 8.3.2](#832-payload-size).
-- **Origin protocol codec**: The libp2p protocol string corresponding to the origin protocol instance. This is included in the payload so that the exit node can route the message to the intended destination protocol after decryption.
+- **Origin protocol codec**: The libp2p protocol string corresponding to the origin protocol instance. This is included in the payload so that the final hop can route the message to the intended destination protocol after decryption.
+- **Delivery mode**: A per-message selection of either forwarded-destination delivery or destination-as-final-hop delivery.
+- **Read specification**: Sender-provided response-reading metadata. It is REQUIRED when forwarded-destination delivery expects a response, and MUST be ignored for destination-as-final-hop delivery.
 - **Mix Path length $L$**: The number of mix nodes to include in the path. The mix path MUST consist of at least three hops, each representing a distinct mix node.
-- **Destination address $Δ$**: The routing address of the intended recipient of the message. This address is encoded in $(tκ - 2)$ bytes as defined in [Section 8.4](#84-address-and-delay-encoding) and revealed only at the last hop.
+- **Final routing target $Δ$**: The routing target revealed only at the final hop. For forwarded-destination delivery, $Δ$ is the external destination address. For destination-as-final-hop delivery, $Δ$ identifies the destination mix node selected as the final hop. This target is encoded in $(tκ - 2)$ bytes as defined in [Section 8.4](#84-address-and-delay-encoding).
 
 #### 8.5.2 Construction Steps
 
@@ -773,7 +793,11 @@ The construction MUST proceed as follows:
    - Apply any configured exit abuse prevention mechanism (_e.g.,_ PoW, VDF, RLN) to the serialized message.
    Exit abuse prevention mechanisms are pluggable as defined in [Section 6.3](#63-exit-abuse-prevention).
    - Attach one or more SURBs, if required, following the steps in [Section 8.7.2](#872-surb-creation).
-   - Append the origin protocol codec in a format that enables the exit node to reliably extract it during parsing. A recommended encoding approach is to prefix the codec string with its length, encoded as a compact varint field limited to two bytes. Regardless of the scheme used, implementations MUST agree on the format within a deployment to ensure deterministic decoding.
+   - Append the origin protocol codec and read specification in a format that enables the final hop to reliably extract them during parsing.
+     The current interoperable encoding is:
+     `[LEB128(codec.len)][codec bytes][1 byte: readMethod][LEB128(readLimit)][LEB128(separator.len)][separator bytes][application message bytes]`.
+     `readMethod` currently supports `ReadExactly`, `ReadLp`, and `ReadLine`.
+     Regardless of the scheme used, implementations MUST agree on the format within a deployment to ensure deterministic decoding.
    - Pad the result to the maximum application message length of $3968$ bytes using a deterministic padding scheme. This value is derived from the fixed payload size in [Section 8.3.2](#832-payload-size) ($3984$ bytes) minus the payload integrity prefix, which is set to $16$ bytes to match the security parameter $κ$ defined in [Section 8.2](#82-cryptographic-primitives). The chosen padding scheme MUST yield a fixed-size padded output and MUST be consistent across all mix nodes to ensure correct interpretation during unpadding. For example, schemes that explicitly encode the padding length and prepend zero-valued padding bytes MAY be used.
    - Let the resulting message be $m$.
 
@@ -781,6 +805,8 @@ The construction MUST proceed as follows:
 
    - First obtain an unbiased random sample of live, routable mix nodes using some discovery mechanism. The choice of discovery mechanism is deployment-specific as defined in [Section 6.1](#61-discovery). The discovery mechanism MUST be unbiased and provide, at a minimum, the multiaddress and X25519 public key of each mix node.
    - From this sample, choose a random mix path of length $L \geq 3$. As defined in [Section 2](#2-terminology), a mix path is a non-repeating sequence of mix nodes.
+     In forwarded-destination mode, the final hop is a randomly selected exit node that is distinct from the external destination.
+     In destination-as-final-hop mode, the destination mix node MUST be selected as the final hop.
    - For each hop $i \in \{0 \ldots L-1\}$:
      - Retrieve the multiaddress and corresponding X25519 public key $y_i$ of the $i$-th mix node.
      - Encode the multiaddress in $(tκ - 2)$ bytes as defined in [Section 8.4](#84-address-and-delay-encoding). Let the resulting encoded multiaddress be $\mathrm{addr\_i}$.
@@ -874,7 +900,7 @@ The construction MUST proceed as follows:
 
    - Using the derived keys and encoded forwarding delay, compute the nested encrypted routing information $β_i$:
 
-     - If $i = L-1$ (_i.e.,_ exit node):
+      - If $i = L-1$ (_i.e.,_ final hop):
 
        $`
        \begin{array}{l}
@@ -912,7 +938,7 @@ The construction MUST proceed as follows:
    d. **Encrypt Payload**
    The encrypted payload $δ$ contains the message $m$ defined in step 1, prepended with the payload integrity prefix of size $κ$.
    It is encrypted in layers using the LIONESS wide-block encryption (defined in the [LIONESS specification](./mix-lioness.md)) such that each hop in the mix path removes exactly one layer using the per-hop session key.
-   This ensures that only the final hop (_i.e.,_ the exit node) can fully recover $m$, validate its integrity, and forward it to the destination.
+   This ensures that only the final hop can fully recover $m$, validate its integrity, and deliver it according to the selected delivery mode.
    To compute the encrypted payload, perform the following steps for each hop $i = L-1$ down to $0$, recursively:
 
    - Derive per-hop payload encryption key:
@@ -926,7 +952,7 @@ The construction MUST proceed as follows:
 
    - Using the derived keys, compute the encrypted payload $δ_i$ using LIONESS encryption (see [LIONESS specification](./mix-lioness.md)):
 
-     - If $i = L-1$ (_i.e.,_ exit node):
+      - If $i = L-1$ (_i.e.,_ final hop):
 
        $`
        \begin{array}{l}
@@ -1195,7 +1221,7 @@ Once the node determines its role as an exit following the steps in [Section 8.6
 
    Parse the routing block $B$ according to the $β_i$, $i = L - 1$ construction defined in [Section 8.5.2](#852-construction-steps) Step 3.c.:
 
-   - Extract the first $(tκ - 2)$ bytes of $B$ as the destination address $Δ$
+   - Extract the first $(tκ - 2)$ bytes of $B$ as the final routing target $Δ$
 
      $`
      \begin{array}{l}
@@ -1233,12 +1259,13 @@ Once the node determines its role as an exit following the steps in [Section 8.6
 
    - Next, parse the unpadded message deterministically to extract:
 
-     - optional exit abuse prevention proof
-     - zero or more SURBs
-     - the origin protocol codec
-     - the serialized application message
+      - optional exit abuse prevention proof
+      - zero or more SURBs
+      - the origin protocol codec
+      - the read specification
+      - the serialized application message
 
-   - Parse and deserialize the metadata fields required for exit abuse prevention validation, SURB extraction, and protocol codec identification, consistent with the format and extensions applied by the initiating node.
+   - Parse and deserialize the metadata fields required for exit abuse prevention validation, SURB extraction, protocol codec identification, and response reading, consistent with the format and extensions applied by the initiating node.
      The application message itself MUST remain serialized.
 
    - If parsing fails at any stage, discard $m$ and terminate processing.
@@ -1255,10 +1282,16 @@ Once the node determines its role as an exit following the steps in [Section 8.6
 
 5. **Handoff to Exit Layer**
 
-   - Hand off the serialized application message, the origin protocol codec, destination address $Δ$ (extracted in step 1.), and any SURBs extracted in step 3. to the local Exit Layer for further processing and delivery.
+   - Hand off the serialized application message, the origin protocol codec, final routing target $Δ$ (extracted in step 1.), the selected delivery mode, the read specification, and any SURBs extracted in step 3. to the local Exit Layer for further processing and delivery.
 
-   - The Exit Layer is responsible for establishing a client-only connection and forwarding the message to the destination. Implementations MAY reuse an existing stream to the destination, if doing so does not introduce any observable linkability between forwarded messages.
-     It is also responsible for storing any received SURBs and routing responses from the destination using them (see [Section 8.7.3](#873-using-a-surb)).
+   - In forwarded-destination mode, the Exit Layer is responsible for establishing a client-only connection and forwarding the message to the destination. Implementations MAY reuse an existing stream to the destination, if doing so does not introduce any observable linkability between forwarded messages.
+     If a response is expected, the Exit Layer MUST use the sender-provided read specification to read the destination response before routing it back with a SURB.
+
+   - In destination-as-final-hop mode, the Exit Layer is responsible for dispatching the message to the local origin protocol handler identified by the codec.
+     The read specification is unused in this mode.
+     Any response is produced by the local handler and routed back with a SURB if one is available.
+
+   - The Exit Layer is responsible for storing any received SURBs and routing responses using them (see [Section 8.7.3](#873-using-a-surb)).
 
 ### 8.7 Single-Use Reply Blocks
 
@@ -1268,7 +1301,7 @@ The recipient MUST NOT use the same SURB more than once. Reusing a SURB would al
 
 A SURB encodes a complete Sphinx header for a return path, a symmetric reply key, and a unique reply identifier. The initiating node constructs one or more SURBs and embeds them in the outgoing Sphinx packet payload. The recipient uses a SURB to reply — only the original sender can decrypt the reply.
 
-This section defines SURB component sizes and total size ([Section 8.7.1](#871-surb-component-sizes)), how SURBs are created ([Section 8.7.2](#872-surb-creation)), used by the recipient ([Section 8.7.3](#873-using-a-surb)), processed by the exit node ([Section 8.7.4](#874-surb-reply-processing)), and recovered by the Exit Layer ([Section 8.7.5](#875-reply-recovery)).
+This section defines SURB component sizes and total size ([Section 8.7.1](#871-surb-component-sizes)), how SURBs are created ([Section 8.7.2](#872-surb-creation)), used by the recipient ([Section 8.7.3](#873-using-a-surb)), processed at the final hop ([Section 8.7.4](#874-surb-reply-processing)), and recovered by the Exit Layer ([Section 8.7.5](#875-reply-recovery)).
 
 #### 8.7.1 SURB Component Sizes
 
@@ -1345,13 +1378,17 @@ To construct each SURB, the initiating node MUST perform the following steps:
 
 #### 8.7.3 Using a SURB
 
-When the Exit Layer receives any SURBs as part of the handoff defined in [Section 8.6.4](#864-exit-processing) Step 4, it MUST retain them for routing the destination's responses back to the sender.
+When the Exit Layer receives any SURBs as part of the handoff defined in [Section 8.6.4](#864-exit-processing) Step 5, it MUST retain them for routing responses back to the sender.
+
+For forwarded-destination delivery, if a response is expected, the Exit Layer MUST read the response according to the sender-provided read specification before using a SURB.
+Supported read methods include reading exactly a specified number of bytes, reading one length-prefixed message with a configured maximum size, or reading until a configured line separator is observed.
+For destination-as-final-hop delivery, the read specification is not used; the local origin protocol handler produces the response directly.
 
 If no response arrives within a configurable timeout, the Exit Layer SHOULD drop the SURBs.
 
 Note: Each retained SURB consists of the hop address of the first node in the return path, a pre-computed Sphinx header, and a reply key, as defined in [Section 8.7.1](#871-surb-component-sizes).
 
-Once the destination responds with a reply message, the Exit Layer MUST perform the following steps to use a SURB $(\mathrm{hop}_0, (α, β, γ), \tilde{k})$:
+Once a reply message is available, the Exit Layer MUST perform the following steps to use a SURB $(\mathrm{hop}_0, (α, β, γ), \tilde{k})$:
 
 1. **Prepare Reply Message**
 
@@ -1452,8 +1489,8 @@ When the Exit Layer receives decrypted payload $δ'$ and the SURB identifier $\m
 
 This section describes the security guarantees and limitations of the Mix Protocol.
 It begins by outlining the anonymity properties provided by the core protocol when routing messages through the mix network.
-It then discusses the trust assumptions required at the edges of the network, particularly at the final hop.
-Finally, it presents an alternative trust model for destinations that support Mix Protocol directly, followed by a summary of broader limitations and areas that may be addressed in future iterations.
+It then discusses the trust assumptions required at the edges of the network, particularly at the final hop, for each supported delivery mode.
+Finally, it summarizes broader limitations and areas that may be addressed in future iterations.
 
 ### 9.1 Security Guarantees of the Core Mix Protocol
 
@@ -1464,24 +1501,24 @@ The core Mix Protocol&mdash;comprising anonymous routing through a sequence of m
 - **Traffic analysis resistance**: Continuous-time mixing with randomized per-hop delays reduces the risk of timing correlation and input-output linkage.
 - **Per-hop header confidentiality and integrity**: Each hop decrypts only its assigned layer of the Sphinx packet and verifies header integrity via a per-hop MAC.
 - **Per-hop payload confidentiality**: Each hop removes only one layer of encryption, so intermediate hops cannot recover the plaintext.
-- **End-to-end payload integrity**: The exit node verifies the payload integrity prefix after fully decrypting the payload. For more details see the [LIONESS specification](./mix-lioness.md).
+- **End-to-end payload integrity**: The final hop verifies the payload integrity prefix after fully decrypting the payload. For more details see the [LIONESS specification](./mix-lioness.md).
 - **No long-term state**: All routing is stateless. Mix nodes do not maintain per-message metadata, reducing the surface for correlation attacks.
 
 These guarantees hold only within the boundaries of the Mix Protocol.
-Additional trust assumptions are introduced at the edges, particularly at the final hop, where the decrypted message is handed off to the Mix Exit Layer for delivery to the destination outside the mixnet.
+Additional trust assumptions are introduced at the edges, particularly at the final hop, where the decrypted message is handed off to the Mix Exit Layer for delivery.
 The next subsection discusses these trust assumptions in detail.
 
 ### 9.2 Exit Node Trust Model
 
 The Mix Protocol ensures strong sender anonymity and metadata protection between the Mix Entry and Exit layers.
 However, once a Sphinx packet is decrypted at the final hop, additional trust assumptions are introduced.
-The node processing the final layer of encryption is trusted to forward the correct message to the destination and return any reply using the provided reply key.
+The node processing the final layer of encryption is trusted to deliver the correct message according to the selected delivery mode and return any reply using the provided reply key.
 This section outlines the resulting trust boundaries.
 
 #### 9.2.1 Message Delivery and Origin Trust
 
-At the final hop, the decrypted Sphinx packet reveals the plaintext message and destination address.
-The exit node is then trusted to deliver this message to the destination application, and&mdash;if a reply is expected&mdash;to return the response using the embedded reply key.
+At the final hop, the decrypted Sphinx packet reveals the plaintext message and final routing target.
+In forwarded-destination mode, the exit node is then trusted to deliver this message to the destination application, read any expected response according to the sender-provided read specification, and return the response using the embedded reply key.
 
 In this model, the exit node becomes a privileged middleman.
 It has full visibility into the decrypted payload.
@@ -1490,8 +1527,8 @@ Specifically, the exit node could tamper with either direction of communication 
 - It may alter or drop the forwarded message.
 - It may fabricate a reply instead of forwarding the actual response from the destination.
 
-This limitation is consistent with the broader mixnet trust model.
-While intermediate nodes are constrained by layered encryption, edge nodes&mdash;specifically the initiating and the exit nodes in the path&mdash;are inherently more privileged and operate outside the cryptographic protections of the mixnet.
+This limitation is consistent with the broader mixnet trust model for forwarded destinations.
+While intermediate nodes are constrained by layered encryption, edge nodes&mdash;specifically the initiating node and the final-hop node in the path&mdash;are inherently more privileged and operate outside the cryptographic protections of the mixnet.
 
 In systems like Tor, such exit-level tampering is mitigated by long-lived circuits that allow endpoints to negotiate shared session keys (_e.g.,_ via TLS).
 A malicious exit cannot forge a valid forward message or response without access to these session secrets.
@@ -1499,7 +1536,7 @@ A malicious exit cannot forge a valid forward message or response without access
 The Mix Protocol, by contrast, is stateless and message-based.
 Each message is routed independently, with no persistent circuit or session context.
 As a result, endpoints cannot correlate messages, establish session keys, or validate message origin.
-That is, the exit remains a necessary point of trust for message delivery and response handling.
+That is, the forwarding exit remains a necessary point of trust for message delivery and response handling.
 
 The next subsection describes a related limitation:
 the exit's ability to pose as a legitimate client to the destination's origin protocol, and how that can be abused to bypass application-layer expectations.
@@ -1521,13 +1558,12 @@ This results in protocol misuse, targeted disruption, or spoofed message injecti
 Despite these limitations, this model is compatible with legacy protocols and destinations that do not support the Mix Protocol.
 It allows applications to preserve sender anonymity without requiring any participation from the recipient.
 
-However, in scenarios that demand stronger end-to-end guarantees&mdash;such as verifiable message delivery, origin authentication, or control over client access&mdash;it may be beneficial for the destination itself to operate a Mix instance.
-This alternative model is described in the next subsection.
+However, in scenarios that demand stronger end-to-end guarantees&mdash;such as verifiable message delivery, origin authentication, or control over client access&mdash;the sender can select destination-as-final-hop delivery when the destination operates a Mix instance.
+This delivery mode is described in the next subsection.
 
 ### 9.3 Destination as Final Hop
 
-In some deployments, it may be desirable for the destination node to participate in the Mix Protocol directly.
-In this model, the destination operates its own Mix instance and is selected as the final node in the mix path.
+In destination-as-final-hop delivery, the destination operates its own Mix instance and is selected as the final node in the mix path for that message.
 The decrypted message is then delivered by the Mix Exit Layer directly to the destination's local origin protocol instance, without relying on a separate exit node.
 
 From a security standpoint, this model provides end-to-end integrity guarantees.
@@ -1539,13 +1575,13 @@ This model also avoids client role abuse.
 Since the Mix Exit Layer delivers the message locally, the destination need not accept arbitrary inbound connections from external clients.
 This removes the risk of an adversarial exit posing as a peer and injecting protocol-compliant but unauthorized messages.
 
-This approach does require the destination to support the Mix Protocol.
+This delivery mode does require the destination to support the Mix Protocol.
 However, this requirement can be minimized by supporting a lightweight mode in which the destination only sends and receives messages via Mix, without participating in message routing for other nodes.
 This is similar to the model adopted by Waku, where edge nodes are not required to relay traffic but still interact with the network.
 In practice, this tradeoff is often acceptable.
 
-The core Mix Protocol does not mandate destination participation.
-However, implementations MAY support this model as an optional mode for use in deployments that require stronger end-to-end security guarantees.
+The core Mix Protocol does not mandate destination participation for all messages.
+However, implementations SHOULD support selecting the delivery mode per request so that forwarded-destination and destination-as-final-hop delivery can coexist in the same deployment.
 The discovery mechanism MAY include a flag to advertise support for routing versus receive-only participation.
 Additional details on discovery configurations are out of scope for this specification.
 
