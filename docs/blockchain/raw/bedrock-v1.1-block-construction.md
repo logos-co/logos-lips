@@ -29,10 +29,11 @@
 | 1.1.0 | Removed `service_rewards` due to updated [SERVICE-REWARD-DISTRIBUTION-PROTOCOL](bedrock-service-reward-distribution.md). Extended the [Block Execution](#block-execution) logic with rewards distribution due to updated [SERVICE-REWARD-DISTRIBUTION-PROTOCOL](bedrock-service-reward-distribution.md). Removed **Block Samples** subsection of the [Batch verification of ZK proofs](#batch-verification-of-zk-proofs) from the [Annex](#annex). Reordered the [Block Execution](#block-execution) steps to enable immediate use of reward notes as inputs for transactions included in the proposal. | 2026-03-27 |
 | 1.1.1 | [[RFC] Simplify Mantle Transaction and Refactor Ledger Operations](mantle-transaction-encoding/appendices/rfc-simplify-mantle-transaction-and-refactor-ledger-operations.md) | 2026-05-06 |
 | 1.1.2 | Precise that the maximum block size applies to the block body only. | 2026-07-27 |
+| 1.2.0 | Compressed Block Proposal: reference transactions by an 8-byte prefix of the transaction hash instead of the full 32-byte hash and add a `num_references` header field, reducing the proposal from 33,129 to 8,555 bytes. | 2026-07-31 |
 
 # Introduction
 
-In this document, we present the specification defining the construction of the block proposal, its validation, and execution. We define the block proposal construction that contains references to transactions (from the mempool) instead of a complete transaction to limit its length. The raw block body increases with the size of transactions it contains up to `MAX_BLOCK_SIZE`, which is 1 MB and covers the transactions only, and the proposal compresses its size down to 33 kB, which saves the bandwidth necessary to broadcast new blocks.
+In this document, we present the specification defining the construction of the block proposal, its validation, and execution. We define the block proposal construction that contains references to transactions (from the mempool) instead of a complete transaction to limit its length. The raw block body increases with the size of transactions it contains up to `MAX_BLOCK_SIZE`, which is 1 MB and covers the transactions only, and the proposal compresses its size down to ≈8.5 kB (8,555 bytes), which saves the bandwidth necessary to broadcast new blocks.
 
 # Overview
 
@@ -68,21 +69,21 @@ We are using two hashing algorithms that have the same output length of 256 bits
 
 ## Block Proposal
 
-A block proposal, instead of containing complete Mantle Transactions of an unlimited size, contains references of fixed size to the transactions. Therefore, the size of the proposal is constant and it is 33129 bytes.
+A block proposal, instead of containing complete Mantle Transactions of an unlimited size, contains references of fixed size to the transactions. Therefore, the size of the proposal is constant and it is 8,555 bytes.
 
 We define the following message structure:
 
 ```python
-class Proposal:                              # 33129 bytes
-    header: Header                           # 297 bytes
-    references: References                   # 32768 bytes
+class Proposal:                              # 8555 bytes
+    header: Header                           # 299 bytes
+    references: References                   # 8192 bytes
     signature: Ed25519Signature              # 64 bytes
 ```
 
 Where:
 
 - `header` is the header of the proposal; defined below: [Header](#header).
-- `references` is a set of 1024 references to transactions of a `hash` type; the size of the `hash` type is 32 bytes and is the transaction hash as defined in [Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction).
+- `references` is a set of 1024 references to transactions, each being an 8-byte (`REFERENCE_PREFIX_LENGTH`) prefix of the transaction hash defined in [Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction).
 - `signature` is the signature of the complete `header` using the `leader_key` from the `ProofOfLeadership`; the size of the `Ed25519Signature` type is 64 bytes.
 
   The length of the `references` list must be preserved to maintain the message’s indistinguishability in the Blend protocol. Therefore, the list must be padded with zeros when necessary.
@@ -90,11 +91,12 @@ Where:
 ### Header
 
 ```python
-class Header:                                # 297 bytes
+class Header:                                # 299 bytes
     bedrock_version: byte                    # 1 byte
     parent_block: hash                       # 32 bytes
     slot: SlotNumber                         # 8 bytes
     block_root: hash                         # 32 bytes
+    num_references: uint16                   # 2 bytes
     proof_of_leadership: ProofOfLeadership   # 224 bytes
 ```
 
@@ -103,17 +105,27 @@ Where:
 - `bedrock_version` is the version of the proposal message structure that supports other protocols defined in linked reference; its size is 1 byte and is fixed to `0x01`.
 - `parent_block` is the block ID ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)) of the parent block, validated and accepted by the block builder. It is used for the derivation of the `AgedLedger` and `LatestLedger` values necessary for validating the PoL; the size of the `hash` is 32 bytes.
 - `slot` is the consensus slot number; the size of the `SlotNumber` type is 8 bytes.
-- `block_root` is the root of the Merkle tree constructed from transaction hashes (defined in [Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction)) used for constructing the `references` list in the `mempool_ransactions`; the size of the `hash` is 32 bytes.
+- `block_root` is the root of the Merkle tree constructed from the **full** transaction hashes (defined in [Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction)) used for constructing the `mempool_transactions` references list, built over exactly `num_references` leaves; the size of the `hash` is 32 bytes. Because `block_root` commits to the full hashes, it uniquely binds the proposal to a specific ordered transaction selection even when two transactions share the same `references` prefix.
+- `num_references` is the number of real transaction references, stored at the front of `references`; the remaining `1024 - num_references` entries are zero padding. Its size (`uint16`) is 2 bytes and it must not exceed 1024.
 - `proof_of_leadership` is the proof confirming that the sender is the leader; defined below: [Proof of Leadership](#proof-of-leadership).
 
 ### References
 
+Each reference is a fixed-length prefix of the transaction hash rather than the full hash. The prefix length is the protocol parameter `REFERENCE_PREFIX_LENGTH = 8` bytes, and the prefix is taken by:
+
 ```python
-class References:                            # 32768 bytes
-    mempool_transactions: list[hash]         # 1024 * 32 bytes
+REFERENCE_PREFIX_LENGTH = 8   # bytes
+
+def prefix(hash_input: bytes, length: int) -> bytes:
+    return hash_input[:length]
 ```
 
-Where `mempool_transactions` is a set of up to 1024 references to transactions of a `hash` type; the size of the `hash` type is 32 bytes and is the transaction hash as defined in [Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction).
+```python
+class References:                            # 8192 bytes
+    mempool_transactions: list[bytes]        # 1024 * REFERENCE_PREFIX_LENGTH bytes
+```
+
+Where `mempool_transactions` is a set of up to 1024 references to transactions, each being `prefix(mantle_txhash(tx), REFERENCE_PREFIX_LENGTH)` of the transaction hash defined in [Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction).
 
 ### Proof of Leadership
 
@@ -157,6 +169,7 @@ Only after the PoL is generated can the block proposal be constructed (see [Proo
     - `parent_block`
     - `slot`
     - `block_root`
+    - `num_references`
     - `proof_of_leadership`:
       - `leader_voucher`
       - `entropy_contribution`
@@ -172,10 +185,11 @@ Only after the PoL is generated can the block proposal be constructed (see [Proo
 
 3. Derive references values:
 ```python
-references: list[hash] = [mantle_txhash(tx) for tx in mempool_transactions]
+references: list[bytes] = [prefix(mantle_txhash(tx), REFERENCE_PREFIX_LENGTH)
+                           for tx in mempool_transactions]
 ```
 
-4. Compute the `header.block_root` as the root of the Merkle tree constructed from the `mempool_transactions` transactions used to build `references`.
+4. Set `header.num_references` to the number of selected transactions, compute the `header.block_root` as the root of the Merkle tree constructed over those `num_references` full transaction hashes used to build `references`, and pad `references` with zero entries to its fixed length of 1024.
 5. Sign the block proposal header.
 ```text
 signature = Ed25519.sign(leader_secret_key, header)
@@ -211,9 +225,32 @@ The process works as follows:
 5. Block builder constructs a block proposal with references to selected transactions.
 6. Block proposal is sent through the Blend Network, which requires multiple rounds of gossiping. This introduces a delay that ensures the transaction has reached most of the network participants' mempools.
 7. Block proposal is received by validators.
-8. Validators check their local mempools for all referenced transactions from the proposal.
-9. If any transaction is missing, the entire proposal is rejected.
-10. If all transactions are present, the block proposal is reconstructed and proceeds to further validation steps.
+8. Validators match each of the first `num_references` reference prefixes against the transactions in their local mempool.
+9. If any reference matches no local transaction, the entire proposal is rejected.
+10. If every reference matches, the block proposal is reconstructed (resolving any prefix collisions as described below) and proceeds to further validation steps.
+
+### Prefix Collision Resolution
+
+Because a reference is only an 8-byte (`REFERENCE_PREFIX_LENGTH`) prefix of the transaction hash, a single reference may match more than one transaction in a validator's mempool. The full-hash Merkle commitment in `header.block_root` still uniquely binds the proposal to one ordered transaction selection, so collisions affect only reconstruction cost, not correctness. Reconstruction is bounded by two parameters:
+
+```python
+MAX_CANDIDATES_PER_REFERENCE = 8    # maximum candidates allowed for one reference
+MAX_RECONSTRUCTION_COMBINATIONS = 32  # maximum candidate combinations to try
+```
+
+Reconstruction considers only the first `header.num_references` entries of `references`; the remaining entries are zero padding and are skipped (a proposal with `header.num_references > 1024` is rejected). For each such reference `i`, the validator collects the candidate set of local mempool transactions whose hash prefix equals `references[i]`:
+
+```python
+C_i = [tx for tx in mempool if prefix(mantle_txhash(tx), REFERENCE_PREFIX_LENGTH) == references[i]]
+```
+
+The proposal is rejected if:
+
+- any `C_i` is empty (a referenced transaction is missing), or
+- any `len(C_i) > MAX_CANDIDATES_PER_REFERENCE`, or
+- the number of candidate combinations `N_comb = product(len(C_i) for all i)` exceeds `MAX_RECONSTRUCTION_COMBINATIONS`.
+
+Otherwise the validator tries each combination (one candidate per reference) and reconstruction succeeds for the combination whose full transaction hashes reproduce `header.block_root`. If no combination reproduces `header.block_root`, the proposal is rejected.
 
 ## Block Proposal Validation
 
@@ -225,7 +262,7 @@ Given a `proposal`, a proposed block consisting of a `header` and `references`. 
   The `proposal` must satisfy the rules defined in [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation).
 
 2. **Block Proposal Reconstruction**
-  The `references` must refer to existing `mempool_transaction` entries that are retrievable from the node's local mempool.
+  The `references` prefixes must resolve to a candidate combination of local mempool transactions that reproduces `header.block_root`, within the branching bounds defined in [Prefix Collision Resolution](#prefix-collision-resolution).
 
 3. **Mempool Transactions Validation**
   `mempool_transactions` must refer to a valid sequence of Mantle Transactions from the mempool. Each transaction must be valid according to the rules defined in the [Mantle](bedrock-v1.1-mantle-specification.md). In order to verify ZK proofs, they are batched for verification as explained in [Batch verification of ZK proofs](#batch-verification-of-zk-proofs) to get better performance.
