@@ -226,8 +226,7 @@ The process works as follows:
 6. Block proposal is sent through the Blend Network, which requires multiple rounds of gossiping. This introduces a delay that ensures the transaction has reached most of the network participants' mempools.
 7. Block proposal is received by validators.
 8. Validators match each of the first `num_references` reference prefixes against the transactions in their local mempool.
-9. If any reference matches no local transaction, the entire proposal is rejected.
-10. If every reference matches, the block proposal is reconstructed (resolving any prefix collisions as described below) and proceeds to further validation steps.
+9. If every reference matches, the block proposal is reconstructed (resolving any prefix collisions as described below) and proceeds to further validation steps; otherwise the entire proposal is rejected.
 
 ### Prefix Collision Resolution
 
@@ -238,7 +237,7 @@ MAX_CANDIDATES_PER_REFERENCE = 8    # maximum candidates allowed for one referen
 MAX_RECONSTRUCTION_COMBINATIONS = 32  # maximum candidate combinations to try
 ```
 
-Reconstruction considers only the first `header.num_references` entries of `references`; the remaining entries are zero padding and are skipped (a proposal with `header.num_references > 1024` is rejected). For each such reference `i`, the validator collects the candidate set of local mempool transactions whose hash prefix equals `references[i]`:
+Reconstruction considers only the first `header.num_references` entries of `references`; any remaining entries are padding and are discarded regardless of their content — they are not required to be zero and do not affect reconstruction or validation, since only `header` (not `references`) is signed and committed by `block_id`. A proposal with `header.num_references > 1024` is rejected. For each such reference `i`, the validator collects the candidate set of local mempool transactions whose hash prefix equals `references[i]`:
 
 ```python
 C_i = [tx for tx in mempool if prefix(mantle_txhash(tx), REFERENCE_PREFIX_LENGTH) == references[i]]
