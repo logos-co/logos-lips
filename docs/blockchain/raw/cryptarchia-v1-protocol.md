@@ -260,7 +260,6 @@ def block_id(header: Header) -> hash
         header.parent_block,
         header.slot.to_bytes(8, byteorder='little'),
         header.block_root,
-        header.num_references.to_bytes(2, byteorder='little'),
         # PoL fields
         header.proof_of_leadership.leader_voucher,
         header.proof_of_leadership.entropy_contribution,
@@ -272,20 +271,21 @@ def block_id(header: Header) -> hash
 ### Block Header
 
 ```python
-class Header:                                # 299 bytes
+class Header:                                # 297 bytes
     bedrock_version: byte                    # 1 bytes
     parent_block: hash                       # 32 bytes
     slot: int                                # 8 bytes
     block_root: hash                         # 32 bytes
-    num_references: uint16                   # 2 bytes
     proof_of_leadership: ProofOfLeadership   # 224 bytes
 
 class ProofOfLeadership:                     # 224 bytes
-    leader_voucher: zkhash                   # 32 bytes
-    entropy_contribution: zkhash             # 32 bytes
     proof: Groth16Proof                      # 128 bytes
+    entropy_contribution: zkhash             # 32 bytes
     leader_key: Ed25519PublicKey             # 32 bytes
+    leader_voucher: zkhash                   # 32 bytes
 ```
+
+The field order above is the wire order defined in [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding). The [Block ID](#block-id) preimage above absorbs the same `ProofOfLeadership` fields in a different order; that is deliberate, since the preimage is a domain-separated enumeration of header fields rather than a re-serialization of the header.
 
 ### Block
 
