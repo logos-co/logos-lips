@@ -22,7 +22,7 @@
 | Version | Changes | Date |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-24 |
-| 1.1.0 | Changing from burning/minting to pooling/distributing/releasing, removing S_{tge} | 2026-06-22 |
+| 1.1.0 | Changing from burning/minting to pooling/distributing/releasing, removing $S_{tge}$ | 2026-06-22 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
