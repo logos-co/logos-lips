@@ -27,6 +27,7 @@
 | 1.4.0 | [\[RFC\] Enforce NoteId uniqueness](mantle-transaction-encoding/appendices/rfc-enforce-noteid-uniqueness.md)​ | N/A |
 | 1.4.1 | [\[RFC\] Simplify Mantle Transaction and Refactor Ledger Operations](mantle-transaction-encoding/appendices/rfc-simplify-mantle-transaction-and-refactor-ledger-operations.md) | N/A |
 | 1.5.0 | Introduce the new Operation `CHANNEL_STAKE_ASSIGNATION` and update of the channel operations to reflect changes in Mantle | 2026-06-24 |
+| 1.5.1 | Reflect Channel Deposit execution modification. It now consumes inputs to update their NoteId | 2026-07-27 |
 
 # Introduction
 
@@ -130,7 +131,9 @@ Execution: ~590k CPU cycles.
 - Verification of the ZK signature: 590,000 cycles.
 - Verification that the notes are in the ledger: negligible.
 - Verification that the notes are unlocked: negligible.
-- Marking of the notes as channel notes: negligible.
+- Removing of the note from the ledger: negligible.
+- Insertion of the note in the ledger: negligible.
+- Derivation of the note identifiers: negligible
 
 ## Channel Withdraw
 

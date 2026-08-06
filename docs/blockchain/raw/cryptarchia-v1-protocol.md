@@ -27,6 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-01-20 |
 | 1.0.1 | Replaced Logos Blockchain name with Logos Blockchain | 2026-04-17 |
 | 1.0.2 | Added details for block root computation | 2026-05-26 |
+| 1.1.0 | Precise and make clearer that the max block size is the max body size, and fix the verification of the number of transaction per block to be <= 1024 | 2026-07-27 |
 
 # Introduction
 
@@ -300,11 +301,11 @@ We say $`\textbf{valid\_header}(B)`$ returns True if all of the following constr
 1. $`header.\text{version}.\text{bedrock\_version} = 1`$
   Ensure bedrock version number.
 
-2. $`\textbf{bytes}(transactions) \lt \text{MAX\_BLOCK\_SIZE}`$
-  Ensure block size is smaller than the maximum allowed block size
+2. $`\textbf{bytes}(transactions) \le \text{MAX\_BLOCK\_SIZE}`$
+  Ensure the block body, i.e. the serialized sequence of transactions, does not exceed the maximum allowed size. The header is not part of the body and does not count towards this limit.
 
-3. $`\textbf{length}(transactions) \lt \text{MAX\_BLOCK\_TXS}`$
-  Ensure the number of transactions in the block is below the limit
+3. $`\textbf{length}(transactions) \le \text{MAX\_BLOCK\_TXS}`$
+  Ensure the number of transactions in the block does not exceed the limit.
 
 4. $`\textbf{merkle\_root}(transactions) = header.\text{block\_root}`$
   Ensure block root is over the transaction list. Compute the block root by using transaction hashes (see Mantle - Mantle Transaction Hash) as leaves, and `0` to represent the hash of an empty transaction, padding leaves to the closest power of two.

@@ -24,6 +24,7 @@
 | 1.0.0 | Initial version. | 2026-03-31 |
 | 1.1.0 | [\[RFC\] Enforce NoteId uniqueness](mantle-transaction-encoding/appendices/rfc-enforce-noteid-uniqueness.md). | 2026-04-24 |
 | 1.1.1 | [\[RFC\] Simplify Mantle Transaction and Refactor Ledger Operations](mantle-transaction-encoding/appendices/rfc-simplify-mantle-transaction-and-refactor-ledger-operations.md) | 2026-05-06 |
+| 1.2.0 | Align the atomic transfer example with the `CHANNEL_DEPOSIT` execution consuming its inputs and re-creating them in the destination channel. | 2026-07-27 |
 
 # Introduction
 
@@ -157,7 +158,7 @@ Synchronous messaging enables atomic cross-channel operations by including multi
 
 The atomicity property is crucial for use cases that require coordinated changes across multiple channels. Examples include:
 
-- Atomic swaps: Trading assets between two zones where both transfers must succeed or both must fail. It involves executing a CHANNEL_WITHDRAW, a CHANNEL_DEPOSIT and two state transitions encoded as CHANNEL_INSCRIPTION.
+- Atomic swaps: Trading assets between two zones where both transfers must succeed or both must fail. It involves executing a CHANNEL_WITHDRAW, a CHANNEL_DEPOSIT and two state transitions encoded as CHANNEL_INSCRIBE.
 - Cross-channel funds transfers: Moving assets from one channel to another with guarantees that the asset is directly deposited to the other channel.
 
 Without atomicity, these operations would be vulnerable to partial failures, leading to inconsistent global state.
@@ -166,35 +167,39 @@ Without atomicity, these operations would be vulnerable to partial failures, lea
 
 ```python
 # Build the inscription that sends a transfer from Zone A to Zone B
-sending = Inscription(
+sending = Inscribe(
     channel=CHANNEL_ZONE_A,
     inscription=b"Alice burns 5 tokens to send to Bob in Zone B",
-    parent=hash(PREVIOUS_ZONE_A_INSCRIPTION)
+    parent=hash(PREVIOUS_ZONE_A_INSCRIPTION),
     signer=sequencer_of_zone_a
 )
 # Build the inscription that receives the transfer from Zone A to Zone B
-receiving = Inscription(
+receiving = Inscribe(
     channel=CHANNEL_ZONE_B,
     inscription=b"Bob mints 5 tokens, received from Alice in Zone A",
-    parent=hash(PREVIOUS_ZONE_B_INSCRIPTION)
+    parent=hash(PREVIOUS_ZONE_B_INSCRIPTION),
     signer=sequencer_of_zone_b
 )
-# Sequencer of Zone A encodes the withdrawal from Zone A
+# Sequencer of Zone A encodes the withdrawal from Zone A. The note leaves the
+# channel keeping its NoteId, its value and its ZkPublicKey
 withdrawal = ChannelWithdraw(
     channel=CHANNEL_ZONE_A,
-    outputs=[temporary_transfer_note]
+    inputs=[zone_a_channel_note_id]
 )
-# Sequencer of zone B encodes the deposit to Zone B
+# The withdrawn note is deposited to Zone B, where it is consumed and
+# re-created as a channel note under a new NoteId
 deposit = ChannelDeposit(
     channel=CHANNEL_ZONE_B,
-    inputs=[temporary_transfer_note],
+    inputs=[zone_a_channel_note_id],
+    metadata=b"transfer from Zone A"
 )
-# Transfer
-Trasfer = Transfer(
+# Build the transfer operation to pay the fees
+transfer = Transfer(
     inputs=[<sequencer_zone_a_note_id>],
     outputs=[<change_note>]
 )
-# Wrap it in a transaction
+# Wrap it in a transaction. Operations are executed sequentially, so the
+# withdrawal must precede the deposit for the note to be spendable
 tx = MantleTx(
     ops=[Op(opcode=CHANNEL_INSCRIBE, payload=encode(sending)),
          Op(opcode=CHANNEL_INSCRIBE, payload=encode(receiving)),
@@ -205,19 +210,22 @@ tx = MantleTx(
 # Sign the transaction
 signed_tx = SignedMantleTx(
     tx=tx,
-    # Sequencer A is responsible for Zone A so it signs the 
-    # Inscription and Withdraw of Zone A while Sequencer B, who signs the 
-    # Inscription and the Deposit, doesn't require a proof
-    # Note that the withdraw OpProof has a ChannelWitdrawOpProof structure
+    # Sequencer A is responsible for Zone A so it signs the Inscription and the
+    # Withdraw of Zone A, and proves ownership of the deposited note. Sequencer B
+    # only signs the Inscription of Zone B, as a Deposit is authorized by the
+    # owner of the notes it consumes and not by the destination channel.
+    # Note that the withdraw OpProof has a ChannelWithdrawOpProof structure
     op_proofs=[Ed25519_sign(mantle_txhash(tx), sequencer_of_zone_a_sk),
                Ed25519_sign(mantle_txhash(tx), sequencer_of_zone_b_sk),
                [[Ed25519_sign(mantle_txhash(tx), sequencer_of_zone_a_sk)],[0]],
-               None,
+               deposit.prove(zone_a_note_zk_sk),
                transfer.prove(sequencer_of_zone_a_sk)]
 )
 # Send the transaction to the mempool
 mempool.push(signed_tx)
 ```
+
+The withdrawn note keeps the `ZkPublicKey` it carried while it was a channel note of Zone A, and the Deposit proves ownership of that key. Zone A must therefore control it when the transaction is built, either because the note was already assigned to one of its keys or by reassigning it with a `CHANNEL_TRANSFER` placed before the withdrawal in the same Mantle Transaction.
 
 ### Signature Coordination
 

@@ -27,6 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-04-09 |
 | 1.1.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.2.0 | [RFC] Per-service uniqueness of `provider_id` and `zk_id` | 2026-07-08 |
+| 1.3.0 | Length-prefix the `locators` list in the `declaration_id` preimage | 2026-07-30 |
 
 # Introduction
 
@@ -145,6 +146,8 @@ The length of the `Locator` is restricted to 329 characters.
 
 **The common formatting of every** `Locator` **must be applied to maintain its unambiguity, to make deterministic ID generation work consistently.** The `Locator` must at least contain only lowercase letters and every part of the address must be explicit (no implicit defaults).
 
+Canonical formatting makes a single `Locator` unambiguous, but it does not make a *list* of them unambiguous. The byte form of a multiaddr is self-describing, so concatenating two `Locator`s yields the byte form of a single longer one: `[/ip4/203.0.113.10/tcp/4001]` and `[/ip4/203.0.113.10, /tcp/4001]` are the same byte string. Wherever a list of `Locator`s is hashed it must therefore be serialized as the [Mantle Transaction Encoding](mantle-transaction-encoding.md) defines it, prefixed with its element count and with each element prefixed by its byte length.
+
 ### **Declaration Message**
 
 The construction of the declaration message is as follows.
@@ -201,6 +204,8 @@ We also define the `declaration_id` (of a `DeclarationId` type) that is the uniq
 declaration_id = Hash(service||provider_id||zk_id||locators)
 ```
 
+`locators` is serialized as its element count followed by each `Locator` prefixed with its byte length. Concatenating the locators without those lengths would leave the `declaration_id` not binding the locator list, for the reason given in [Locators](#locators).
+
 The `declaration_id` is not stored as part of the `DeclarationInfo` but it is used to index it.
 
 All `DeclarationInfo` references are stored in the `declarations` and are indexed by `declaration_id`.
@@ -213,7 +218,7 @@ declarations: list[declaration_id]
 
 The SDP is responsible for enforcing the uniqueness of the `provider_id` and the `zk_id` in the context of a service. This means that, for a given `service`, each `provider_id` and each `zk_id` must appear in at most one active `DeclarationInfo` at a time.
 
-The `declaration_id` uniqueness alone is insufficient to guarantee this property. Because `declaration_id = Hash(service||provider_id||zk_id||locators)`, two declarations for the same `service` that reuse the same `provider_id` (or the same `zk_id`) but differ in any other component would produce distinct `declaration_id`s and would therefore not collide. The SDP must reject such declarations regardless.
+The `declaration_id` uniqueness alone is insufficient to guarantee this property. Because `declaration_id = Hash(service||provider_id||zk_id||locators)`, two declarations for the same `service` that reuse the same `provider_id` (or the same `zk_id`) but differ in any other component would produce distinct `declaration_id`s and would therefore not collide. This holds only because each component is committed under an encoding that determines it uniquely: without the length prefixing defined above, two declarations differing only in how the same locator bytes are split across the list would share a `declaration_id`. The SDP must reject such declarations regardless.
 
 Consequently, within a single `service`:
 

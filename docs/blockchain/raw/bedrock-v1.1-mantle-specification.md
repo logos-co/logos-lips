@@ -33,6 +33,8 @@
 | 1.6.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.7.0 | Factor out the multi eddsa threshold verification and added a validation step in channel config to check the new config threshold is lower or equal than the number of accredited keys | 2026-06-25 |
 | 1.8.0 | [RFC] Update channels to support proof of stake participation and test vectors for OpId and Mantle Transaction Hash | 2026-07-06 |
+| 1.9.0 | Update the execution of `CHANNEL_DEPOSIT` to consume the inputs and recreate them in the channel, updating their NoteId avoid replay attacks in case of withdraw after a deposit | 2026-07-27 |
+| 1.9.1 | Rename the excess balance left after the mandatory fees into `tx_priority_tip` and convert it back into a `TokenValue` explicitly | 2026-08-05 |
 
 # Introduction
 
@@ -166,7 +168,9 @@ Mantle validators will ensure the following:
     tx_mandatory_fee = mandatory_gas_fees(signed_tx)  # Not an unsigned int
     tx_balance = get_transaction_balance(signed_tx)
     assert tx_mandatory_fee <= tx_balance
-    tx_execution_tip = tx_balance - tx_mandatory_fee
+    tx_priority_tip = TokenValue(tx_balance - tx_mandatory_fee)  # The assertion
+                      # above makes the difference non negative, so it can be
+                      # converted back into a TokenValue
 
     def get_transaction_balance(signed_tx: SignedMantleTx) -> int:
         balance = 0   # It's important to not use unsigned int here to avoid
@@ -301,17 +305,19 @@ def round_robin(block_slot: Slot, channel: ChannelState) -> (u16, u64):
 
 ### Bridging
 
-Channels let their bridged funds keep participating in Proof of Stake. When a user deposits funds into a channel, the deposited notes are not removed from the ledger and are not turned into inert collateral. They become channel notes that continue to count toward Proof of Stake and can still be used to create PoLs (see [Channel Notes](#channel-notes)). Two goals motivate this design:
+Channels let their bridged funds keep participating in Proof of Stake. When a user deposits funds into a channel, the deposited notes stay on the ledger and are not turned into inert collateral. They are consumed and immediately re-created as channel notes that continue to count toward Proof of Stake and can still be used to create PoLs (see [Channel Notes](#channel-notes)). Two goals motivate this design:
 
 - **More PoS participation, stronger security.** Funds deposited into a channel would otherwise leave the staking set. Keeping them as channel notes means the capital backing the application layer also backs consensus security, so bridging does not shrink the stake that secures the chain.
 - **No split between security and application.** A user no longer has to choose between staking funds or using them in a channel. The same funds do both at once. They stay usable inside the channel while still earning Proof of Leadership rewards, so capital is never fragmented between the two.
 
 **Ownership vs. staking power.** A `CHANNEL_DEPOSIT` separates the two rights that a normal note bundles together:
 
-- *Ownership* moves to the channel. The note is registered in the ledger's `channel_notes` set with the channel as its owner, and the channel keeps full control over it. The deposited notes are neither consumed nor re-created. They keep their `NoteId`, value and `ZkPublicKey`, and are simply re-registered as channel-owned. The channel is now the party responsible for the note.
+- *Ownership* moves to the channel. The note is registered in the ledger's `channel_notes` set with the channel as its owner, and the channel keeps full control over it. The deposited notes are consumed and re-created identically: they keep their value and `ZkPublicKey`, receive a new `NoteId` derived from the deposit's `OpId`, and are registered as channel-owned. The channel is now the party responsible for the note.
 - *Staking power* stays with the `ZkPublicKey` carried by the note. That key does not confer ownership. It only delegates the note's value for PoL creation. Whoever controls the key is the one allowed to turn the note into a PoL and collect the resulting rewards. On deposit this key is still the depositor's, so the user keeps the PoS participation power they had before bridging.
 
 Because the channel owns the note but does not hold the delegated key, the note earns rewards for the key holder, never for the channel itself.
+
+**Ageing.** Because the deposit re-creates the notes under a new `NoteId`, a deposited note restarts the ageing process and must age again before it can create a PoL. Bridged funds still count toward Proof of Stake, so the goals above hold, but the participation is not continuous across the deposit.
 
 **What each party can do.**
 
@@ -595,20 +601,20 @@ signed_tx = SignedMantleTx(
 
 ### CHANNEL_DEPOSIT
 
-Deposit notes to a channel.
+Deposit notes to a channel. The inputs are consumed and re-created as channel notes under a new `NoteId`, which resets their ageing and prevents the deposit from being replayed after a withdrawal.
 
 #### Payload
 
 ```python
 class ChannelDeposit:
     channel: ChannelId
-    inputs: list[NoteId]  # the notes to be marked as channel notes
+    inputs: list[NoteId]  # the notes to be consumed and re-created as channel notes
     metadata: bytes
 ```
 
 #### Proof
 
-  A Channel Deposit proves the ownership of the notes being marked as channel notes using a [Zero Knowledge Signature Scheme (ZkSignature)](#zero-knowledge-signature-scheme-zksignature).
+  A Channel Deposit proves the ownership of the notes being consumed using a [Zero Knowledge Signature Scheme (ZkSignature)](#zero-knowledge-signature-scheme-zksignature).
 
 ```python
 ZkSignature
@@ -665,10 +671,18 @@ ledger: Ledger
 
   *Execute*
 
-Mark the inputs as channel notes owned by the channel. The notes are neither consumed nor re-created: they keep their `NoteId`, value and `ZkPublicKey`, and are simply registered in the `channel_notes` set.
+Consume the inputs and create the same Note with new NoteId as channel notes owned by the channel.
+
 ```python
-for note_id in deposit.inputs:
-	ledger.channel_notes[note_id] = deposit.channel
+# read the notes that are being moved into the channel
+notes_to_add = [ledger[input_note_id] for input_note_id in deposit.inputs]
+
+# consume the inputs, which are regular notes and not registered in channel_notes
+ledger.execute_spending(deposit.inputs)
+
+# re-create them as channel notes under a new NoteId
+deposit_id = derive_op_id(deposit)
+ledger.execute_adding(deposit_id, notes_to_add, deposit.channel)
 ```
 
 #### Example
@@ -703,7 +717,7 @@ A Zone that credits a deposit in its own state must be sure the deposit really l
 - Wait for the deposit to be finalized before interpreting it, at the cost of the finalization delay.
 - Make the inscription conditional on the deposit, by including a `CHANNEL_TRANSFER` that consumes the deposited note in the same Mantle Transaction as the inscription. Mantle Transactions execute atomically, so the inscription is included only if the deposited note exists and is consumed. This removes the waiting period entirely.
 
-The second option resets the ageing of the value. A `CHANNEL_TRANSFER` consumes its inputs and creates new notes, so the resulting note starts the ageing process again and must age before it can create a PoL. `CHANNEL_DEPOSIT` and `CHANNEL_WITHDRAW` keep the `NoteId` of the notes they touch and therefore never reset ageing.
+The second option resets the ageing of the value. A `CHANNEL_TRANSFER` consumes its inputs and creates new notes, so the resulting note starts the ageing process again and must age before it can create a PoL. A `CHANNEL_DEPOSIT` resets ageing for the same reason, since it consumes its inputs and re-creates them under a new `NoteId`. A `CHANNEL_WITHDRAW` keeps the `NoteId` of the notes it releases and therefore never resets ageing.
 
 ### CHANNEL_WITHDRAW
 
@@ -1615,7 +1629,7 @@ Notes are composed of two fields representing their value and their owner:
 
 ```python
 class Note:
-    value: TokenValue   # u64
+    value: TokenValue   # uint64
     public_key: ZkPublicKey # 32 bytes
 ```
 

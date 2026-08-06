@@ -22,7 +22,9 @@
 | Version | Changes | Date |
 | --- | --- | --- |
 | 1.0.0 | Initial revision | 2026-04-24 |
-| 1.1.0 | Changing from burning/minting to pooling/distributing | 2026-06-22 |
+| 1.0.1 | Fix base fee constants in pseudocode based on the correct $`G_{\mathrm{target}}`$ | 2026-07-27 |
+| 1.1.0 | Round the base fee update upwards | 2026-07-28 |
+| 1.2.0 | Changing from burning/minting to pooling/distributing | 2026-08-06 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -176,22 +178,33 @@ $$
 \end{align*}
 $$
 
+The integer base fee is obtained by rounding this quantity upwards, while the smoothed average $`G_\text{avg}[s]`$ is rounded downwards:
+
+$$
+b_\text{exec}[s+1] = \left\lceil b_\text{exec}[s] \cdot \frac{7 \cdot G_\text{target} + G_\text{avg}[s]}{8 \cdot G_\text{target}} \right\rceil,\qquad G_\text{avg}[s] = \left\lfloor \frac{G[s] + 9 \cdot G_\text{avg}[s-1]}{10} \right\rfloor
+$$
+
 And so we propose the following code reference:
 
 ```python
 EMA_DENOMINATOR = 10  # from q = 9/10
 EMA_PREV_WEIGHT = 9  # from q = 9/10
-BASE_FEE_NUMERATOR = 11_176_760  # = 7 * G_target
-BASE_FEE_DENOMINATOR = 12_773_440  # = 8 * G_target
+BASE_FEE_NUMERATOR = 11_177_110  # = 7 * G_target
+BASE_FEE_DENOMINATOR = 12_773_840  # = 8 * G_target
 
-def update_g_avg_num(prev_g_avg_num: int, block_gas_used: int) -> int:
-    numerator = block_gas_used + EMA_PREV_WEIGHT * prev_g_avg_num
+def ceil_div(numerator: int, denominator: int) -> int:
+    return (numerator + denominator - 1) // denominator
+
+def update_g_avg(prev_g_avg: int, block_gas_used: int) -> int:
+    numerator = block_gas_used + EMA_PREV_WEIGHT * prev_g_avg
     return numerator // EMA_DENOMINATOR
 
 def update_base_fee(base_fee: int, g_avg: int) -> int:
     numerator = base_fee * (BASE_FEE_NUMERATOR + g_avg)
-    return numerator // BASE_FEE_DENOMINATOR
+    return ceil_div(numerator, BASE_FEE_DENOMINATOR)
 ```
+
+The two rounding directions are not interchangeable. The base fee is multiplied by a factor smaller than one whenever the smoothed average is below the target, so rounding it downwards would make 0 an absorbing state: a base fee of 1 would be mapped to 0 by the first downward update, and every subsequent update would keep it at 0, making execution permanently free. Rounding upwards makes 1 the effective floor of the base fee and leaves the mechanism unchanged at every other price level, as the rounding error is at most one unit against an adjustment of up to $\pm 12.5\%$. The smoothed average is a measurement rather than a price and is not subject to this failure mode, as it is additive and recovers from 0 as soon as demand resumes. Rounding it upwards would instead pin it at 1 once it has been positive, reporting residual demand on an idle network.
 
 ### Fee Distribution
 
