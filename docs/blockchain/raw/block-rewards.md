@@ -77,7 +77,7 @@ Crucially, any metric-pegged reward system should aim toward a target value or e
 The system dynamically adjusts token emission based on two primary KPIs:
 
 - Inferred Total Stake: Measures network security by tracking the total amount staked against a target threshold (e.g., $30\%$ of the maximum supply).
-- Average Pooling Rate: Tracks transaction fees (both Execution base fees and Permanent Storage) routed to the pool to maintain supply equilibrium.
+- Average Pooling Rate: Tracks transaction fees (both Execution base fees and Permanent Storage) routed to the pending reward pool to maintain supply equilibrium.
 
 A control function combines these KPIs to determine the emission rate factor, bounded between a minimum and maximum annual reserve release. This ensures that:
 
@@ -99,7 +99,7 @@ where:
 - $`S_{cap}`$ denotes the maximum allowable token supply (hard cap).
 - $`\Delta_t`$ denotes the fraction of year in one time step per e.g., epoch, block, or day.
 - $f$ be the average number of block proposal within $`\Delta_{t}`$ units.
-- $`R_\text{block}`$ denotes the total amount of Execution base fees and Permanent Storage fees that are routed to the pool when the block is proposed.
+- $`R_\text{block}`$ denotes the total amount of Execution base fees and Permanent Storage fees that are routed to the pending reward pool when the block is proposed.
 - $`\bar{R}_t`$ denotes the average pooled reward: the moving average of $`R_\text{block}`$ over the look-back window $`T`$.
 
 ## Lifecycle Phases
