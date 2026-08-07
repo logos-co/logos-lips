@@ -190,7 +190,7 @@ $$
 A_t \cdot I_{max} \cdot S_{cap} \cdot \Delta_t.
 $$
 
-The actual amount of tokens released per block also depends on how many blocks are expected to be proposed between $`\Delta_{t-1}`$ and $`\Delta_{t}`$. This is expressed by the factor $f$, as defined [above](#core-variables).
+The actual amount of tokens released from the reserve per block also depends on how many blocks are expected to be proposed between $`\Delta_{t-1}`$ and $`\Delta_{t}`$. This is expressed by the factor $f$, as defined [above](#core-variables).
 
 The equation that implements the behavior above in terms of $`A_t`$ is given by:
 
