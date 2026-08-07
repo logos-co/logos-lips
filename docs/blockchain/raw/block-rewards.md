@@ -59,7 +59,7 @@ The Logos Blockchain block rewards mechanism is a KPI-based dynamic token emissi
 The design of the rewards system reflects three architectural constraints unique to Logos Blockchain:
 
 - Unlinkability: Block proposal and reward collection are intentionally decoupled for privacy, meaning rewards cannot be assigned to a single proposer.
-- Fee pooling: All transaction fees (execution base fees and permanent storage fees) are collected into a rewards pool, rather than directly given to block proposers.
+- Fee pooling: All transaction fees (execution base fees and permanent storage fees) are collected into a pending rewards pool, rather than directly given to block proposers.
 - Global metrics over local signals: Rewards are computed from network-wide KPIs at block production time, rather than from easily manipulated per-block data.
 
 These principles ensure that the system is censorship-resistant, manipulation-resistant, and aligned with long-term network incentives.
