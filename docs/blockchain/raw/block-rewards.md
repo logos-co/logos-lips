@@ -216,7 +216,7 @@ $$
 \bar{R}_t + A_t \cdot \left( \dfrac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f} - \bar{R}_t \right).
 $$
 
-The base distributed every block is the average pooled reward $`\bar{R}_t`$. The second term is the reserve release: when the aggregate KPI is far from the target, $`A_t \rightarrow 1`$ and the reserve release tops up the reward from $`\bar{R}_t`$ toward the per-block release cap $`\frac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f}`$. In the bootstrap regime, where activity is low and $`\bar{R}_t < \frac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f}`$, the top-up is positive, so the reserve release raises the reward above the average pooled reward. If the average pooled reward already exceeds the release cap, the second term is non-positive, and therefore less tokens are released as rewards.
+The base distributed every block is the average pooled fees $`\bar{R}_t`$. The second term is the reserve release: when the aggregate KPI is far from the target, $`A_t \rightarrow 1`$ and the reserve release tops up the reward from $`\bar{R}_t`$ toward the per-block release cap $`\frac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f}`$. In the bootstrap regime, where activity is low and $`\bar{R}_t < \frac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f}`$, the top-up is positive, so the reserve release raises the reward above the average pooled fees. If the average pooled fees already exceeds the release cap, the second term is non-positive, and therefore less tokens are released from the average pooled fees as rewards.
 
 ```python
 def block_rewards(
