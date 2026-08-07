@@ -431,7 +431,7 @@ This choice of "target" implies that $`\gamma_t`$ evaluates the annualized avera
 
 Because block rewards affect consensus state, the implementation must be fully deterministic across all nodes. For that reason, the normative implementation of the reward function should not rely on floating-point arithmetic, machine-dependent rounding behavior, or comparisons against machine epsilon. Earlier sections use real-valued formulas to explain the mechanism and its economic meaning, but the consensus rule itself should be defined only in terms of integer arithmetic. This is especially important because the current document already notes floating-point concerns in the KPI helper functions and then introduces a final integer rewrite for the reward computation. The issue is therefore not whether integers should be used, but how to present that integer formulation in a way that remains auditable and clearly derived from the protocol parameters.
 
-The goal of this section is not to change the reward mechanism. It is only to restate the already-specified mechanism in a canonical deterministic form with explicit named constants. In particular, the reward logic remains driven by the same two KPI components described previously: the inferred total stake relative to its target, and the moving average of pooled fees over the look-back window. Likewise, the reward still interpolates between the reserve release and distribution from the pool through the emission factor $`A_t`$.
+The goal of this section is not to change the reward mechanism. It is only to restate the already-specified mechanism in a canonical deterministic form with explicit named constants. In particular, the reward logic remains driven by the same two KPI components described previously: the inferred total stake relative to its target, and the moving average of pooled fees over the look-back window. Likewise, the reward still interpolates between the reserve release and distribution from the pooled fees through the emission factor $`A_t`$.
 
 > Rederivation required: the integer steps below were written for the earlier reward equation, whose recycled term used the single-block pooled fee $`R_\text{block} = D_{1,t}`$. Equation (1) now distributes the average pooled reward $`\bar{R}_t = \frac{1}{T}\sum_{\tau=t-T+1}^{t} D_{1,\tau}`$ in the recycled term. To match the current model, replace $`(1-A_t)\cdot D_{1,t}`$ by $`(1-A_t)\cdot \bar{R}_t`$, reusing the window sum already maintained for $`\gamma_t`$ (the Rust reference already accumulates it as the fee window, so $`\bar{R}_t`$ is that sum divided by $`T`$). The derivation of $`A_t`$ and of the reserve-release term is unaffected.
 
@@ -530,26 +530,28 @@ $$
 
 So we propose a reference implementation that uses integers:
 
-```rust
-const A_SCALE: u128 = 120_000_000; // denominator of 1/(I_max * D1_target * Delta_t * T) 
-const INFLATION_NUM: u128 = 62_500; // numerator of I_max * S_CAP * DELTA_t / f
-const INFLATION_DEN: u128 = 657; // denominator of I_max * S_CAP * DELTA_t / f
-const FEE_AVG_NUM: u128 = 10_512; // numerator of 1/(I_max * D1_target * Delta_t * T) 
-const STAKE_TARGET: u128 = 3e9;
-fn block_reward(total_stake: u64, pooled_fees_window: [u64; 120]) -> (u64, u64) {
-    let sum_fees: u128 = pooled_fees_window.iter().map(|x| *x as u128).sum();
-    let last_pooled_fee: u128 = *pooled_fees_window.last().unwrap() as u128;
-    let a_num = STAKE_TARGET
-        .saturating_add(FEE_AVG_NUM.saturating_mul(sum_fees))
-        .saturating_sub(total_stake as u128)
-        .min(A_SCALE);
-    let reward_num =
-        INFLATION_NUM * a_num
-        + INFLATION_DEN * (A_SCALE - a_num) * last_pooled_fee;
-    let reward_den = INFLATION_DEN * A_SCALE;
-    // 60% Blend, 40% leader, with truncation applied only once per share
-    let blend_reward = (reward_num * 6 / (reward_den * 10)) as u64;
-    let leader_reward = (reward_num * 4 / (reward_den * 10)) as u64;
-    (blend_reward, leader_reward)
-}
+```python
+A_SCALE = 120_000_000            # denominator of 1/(I_max * D1_target * Delta_t * T) 
+INFLATION_NUMERATOR = 62_500     # numerator of I_max * S_CAP * DELTA_t / f
+INFLATION_DENOMINATOR = 657      # denominator of I_max * S_CAP * DELTA_t / f
+FEE_AVG_NUMERATOR = 10_512       # numerator of 1/(I_max * D1_target * Delta_t * T) 
+STAKE_TARGET = int(3e9)
+
+def block_reward(total_stake: int, burned_fees_window: list[int]) -> tuple[int, int]:
+    sum_fees = sum(burned_fees_window)
+    last_burned_fee = burned_fees_window[-1]
+
+    a_numerator = min(
+        max(STAKE_TARGET + FEE_AVG_NUMERATOR * sum_fees - total_stake, 0),
+        A_SCALE
+    )
+
+    reward_numerator = INFLATION_NUMERATOR * a_numerator
+									   + INFLATION_DENOMINATOR * (A_SCALE - a_num) * last_burned_fee
+    reward_denominator = INFLATION_DENOMINATOR * A_SCALE
+
+    blend_reward = reward_numerator * 6 // (reward_denominator * 10)
+    leader_reward = reward_numerator * 4 // (reward_denominator * 10)
+
+    return blend_reward, leader_reward
 ```
