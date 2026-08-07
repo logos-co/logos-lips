@@ -25,6 +25,7 @@
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-09 |
+| 1.0.1 | Corrected `Max_Payload_Length` to 34577 bytes, so that it again matches the `Max_Body_Length` of [Payload Formatting](payload-formatting.md) plus the 3-byte payload header. | 2026-08-06 |
 
 # Introduction
 
@@ -107,4 +108,4 @@ The `payload` must be formatted according to the [Payload Formatting](payload-fo
 
 ## Maximum Payload Length
 
-The `Max_Payload_Length` parameter defines the maximum length of the `payload`, which for version 1 of the Blend Protocol is fixed as `Max_Payload_Length=34003`. That is, 34kB for the payload body (`Max_Body_Length`) and 3 bytes for the payload header. More information about payload formatting can be found in [Payload Formatting](payload-formatting.md).
+The `Max_Payload_Length` parameter defines the maximum length of the `payload`, which for version 1 of the Blend Protocol is fixed as `Max_Payload_Length=34577`. That is, 34574 bytes for the payload body (`Max_Body_Length`) and 3 bytes for the payload header. More information about payload formatting can be found in [Payload Formatting](payload-formatting.md).

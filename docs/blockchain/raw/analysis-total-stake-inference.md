@@ -25,6 +25,8 @@
 
 # Introduction
 
+> **Note:** This analysis covers the total stake inference design without [uncle references](cryptarchia-v1-protocol.md#uncle-references). The analyzed block count includes only the blocks of the honest chain and does not include the referenced uncles that were later added to [Total Stake Inference](cryptarchia-total-stake-inference.md). Therefore, the results below apply to the design without uncle references. Re-analyzing the algorithm with the block count that includes referenced uncles is an open task.
+
 Cryptarchia consensus leadership is determined by a lottery in which the chances of winning are higher for eligible nodes with a greater stake relative to the total active stake. At the same time, the true total active stake cannot be known by participants due to the privacy properties of Logos Blockchain notes. This tension is resolved in Cryptarchia by having the network estimate the total active stake based on the observed activity of the network.
 
 ## Goals

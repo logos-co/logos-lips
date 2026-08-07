@@ -28,6 +28,7 @@
 | 1.1.0 | [[RFC] Make Ledger Transaction an Operation](mantle-transaction-encoding/appendices/rfc-make-ledger-transaction-an-operation.md) Renamed Nomos to Logos Blockchain Remove notions of DA Minor fix in gas price | 2026-03-27 |
 | 1.1.1 | [[RFC] Simplify Mantle Transaction and Refactor Ledger Operations](mantle-transaction-encoding/appendices/rfc-simplify-mantle-transaction-and-refactor-ledger-operations.md) | 2026-05-06 |
 | 1.1.2 | Encode `genesis_time` as a u32 unix timestamp instead of an ISO 8601 datetime. Encode the `chain_id` length prefix as a u8 instead of a u64. | 2026-07-06 |
+| 1.1.3 | Replaced the `block_root` header field with `body_root`, taken over an empty uncle header list and the initial transaction, due to updated [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md). | 2026-08-06 |
 
 # Introduction
 
@@ -176,7 +177,7 @@ The Genesis Block header fields are set to the following values:
 - `bedrock_version`: Protocol version (e.g., 1).
 - `parent_block`: 0 (as this is the first block).
 - `slot`: 0 (the Genesis slot).
-- `block_root`: Block Merkle root over the (single) initial transaction.
+- `body_root`: the body commitment over an empty `uncle_headers` list (as the Genesis Block references no uncle, it encodes as a zero element count) and the Merkle root over the (single) initial transaction.
 - `proof_of_leadership`: Stubbed leadership proof.
   - `leader_voucher`: 0 (as there is no leader block reward for the initial block).
   - `entropy_contribution`: 0 (no entropy is provided through the initial PoL).
@@ -190,7 +191,7 @@ GENESIS_HEADER = Header(
     bedrock_version=1,
     parent_block=0,
     slot=0,
-    block_root=block_merkle_root([GENESIS_MANTLE_TX]),
+    body_root=body_root([], [GENESIS_MANTLE_TX]),
     proof_of_leadership=ProofOfLeadership(
         leader_voucher=bytes(32),
         entropy_contribution=bytes(32),
@@ -251,7 +252,7 @@ GENESIS_HEADER = Header(
     bedrock_version=1,
     parent_block=bytes(32),
     slot=0,
-    block_root=block_merkle_root([GENESIS_MANTLE_TX]),
+    body_root=body_root([], [GENESIS_MANTLE_TX]),
     proof_of_leadership=ProofOfLeadership(
         leader_voucher=bytes(32),
         entropy_contribution=bytes(32),
