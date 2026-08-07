@@ -50,7 +50,7 @@ The design is founded on a target-based mechanism, philosophically aligned with 
 
 To further enhance security, this specification addresses a known vulnerability in the classic EIP-1559 design. As demonstrated by recent research ([Cachin et al., 2023](https://arxiv.org/pdf/2304.11478)), EIP-1559 is susceptible to base fee manipulation by rational, non-myopic block builders. Our design incorporates a direct mitigation for this threat, as proposed in [Cachin et al., 2023](https://arxiv.org/pdf/2304.11478): an Exponential Moving Average (EMA) based update rule for the base fee. Given the EMA nature of this update, these enhancements smooth fluctuations in execution gas consumption, making the protocol significantly more resilient to strategic manipulation without compromising its core benefits of responsiveness and predictability
 
-Furthermore, as opposed to the standard EIP-1559 mechanism, where the base fee is burned and tips are immediately given to miners, in our setting we route fees into a rewards pool, and later we distribute rewards from that pool, to which we add tips, given to the block builders at a later block through the [\[1.0.0\] Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md), for privacy preservation.
+Furthermore, as opposed to the standard EIP-1559 mechanism, where the base fee is burned and tips are immediately given to miners, in our setting we route fees into a rewards pool, and later we distribute rewards from that pool given to the block builders at a later block through the [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md), for privacy preservation.
 
 # Overview
 
@@ -60,7 +60,7 @@ The mechanism operates on four core principles:
 
 - Dynamic Base Fee: A protocol-defined base_fee for Execution Gas must be paid for a transaction to be included in a block. This fee adjusts automatically based on a smoothed average of recent network demand relative to a predefined capacity target, ensuring sustainable network load. This base_fee is the minimal threshold to be paid for the transaction to be accepted by the block builder.
 - Priority Fee (Tip): To incentivize faster inclusion by block builders, users add a priority_fee on top of the base fee. This creates a simple and transparent auction for block space during periods of high demand. The proceeds of this goes to the block builder.
-- Fee Splitting and Pooling: The two fee components are treated differently. The entire base_fee is routed to the rewards pool, removing it from circulation. This creates a direct link between network activity and the circulating supply of the native token: as usage grows, more base fees are routed to the pool and removed from circulation. The priority_fee is not immediately distributed to the block builder (to preserve privacy), but instead it is directed into the block builders reward stream. 40% of the rewards will be allocated to block builders and the remaining 60% to Blend nodes. Rewards are privacy-preserving via [\[1.0.0\] Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md).
+- Fee Splitting and Pooling: The two fee components are treated differently. The entire base_fee is routed to the rewards pool, removing it from circulation. As usage grows, more base fees are routed to the pool and removed from circulation, which creates a direct link between network activity and the circulating supply of the native token. The priority_fee is not immediately distributed to the block builder (to preserve privacy), but instead it is directed into the block builders reward stream. 40% of the rewards will be allocated to block builders and the remaining 60% to Blend nodes. Rewards are privacy-preserving via [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md).
 
 The entire lifecycle can be visualized in the following flow:
 
@@ -74,7 +74,7 @@ The entire lifecycle can be visualized in the following flow:
 ## Economic Properties
 
 - Sustainable Resource Management: The TFM automatically steers network usage toward the target ($`G_\text{target}`$). By increasing the cost of Execution Gas during high demand, the protocol prevents network overload. This protects the ability of nodes with modest hardware to participate, safeguarding decentralization.
-- Circulating-Supply Pressure: Routing the base_fee to the rewards pool (and later distributing a proportion of it back as rewards, cf [\[1.0.0\] Block Rewards](block-rewards.md)) establishes a direct link between network activity and the circulating supply of the Logos Blockchain token. As usage grows, the rate at which base fees enter the pool increases, applying downward pressure on circulating supply. Because the pool is a redistributable reserve, this pressure acts on tokens in circulation, not on total supply.
+- Circulating-Supply Pressure: Routing the base_fee to the rewards pool (and later distributing a proportion of it back as rewards, cf [Block Rewards](block-rewards.md)) establishes a direct link between network activity and the circulating supply of the Logos Blockchain token. As usage grows, the rate at which base fees enter the pool increases, applying downward pressure on circulating supply. Because the pool is a redistributable reserve, this pressure acts on tokens in circulation, not on total supply.
 
 ## Security Properties: Mitigation of Base Fee Manipulation
 
@@ -227,4 +227,4 @@ $$
 = \sum_{t \in \mathcal{B}_s} \bigl(g_t \cdot b_{\mathrm{exec}}[s]\bigr).
 $$
 
-This pooled quantity is then used as an input for the computation of the block rewards. It is the Execution-market component of the per-block pool inflow $`R_{block}`$, as described in [\[1.0.0\] Block Rewards](block-rewards.md).
+This pooled quantity is then used as an input for the computation of the block rewards. It is the Execution-market component of the per-block pool inflow $`R_{block}`$, as described in [Block Rewards](block-rewards.md).
