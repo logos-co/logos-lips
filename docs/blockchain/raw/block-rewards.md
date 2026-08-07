@@ -150,7 +150,7 @@ The following variables are input to the model:
 Let us define the following variables:
 
 - $`S_t`$ denotes the token circulating supply at time $t$.
-- $`P_t`$ denotes the rewards pool balance at time $t$. It collects the pooled fees and funds the distributed portion of the reward.
+- $`P_t`$ denotes the pending rewards pool balance at time $t$. It collects the pooled fees and funds the distributed portion of the reward.
 - $`B_t`$ denotes the rewards reserve balance at time $t$. It holds the pre-allocated tokens drawn down by the reserve release $`\iota_t`$, with initial size $`B_0 = I_{max} \cdot S_{cap} \cdot Y`$.
 - $`A_t \in [0,1]`$ denotes the emission rate factor on a per year basis.
     - This implies that $`A_t \cdot I_{max} \cdot \Delta_t`$ denotes the emission within the time-step.
