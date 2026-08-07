@@ -179,7 +179,7 @@ The calibration of these parameters can be found in [\[Analysis\] Block Reward P
 
 ## Block Rewards
 
-The amount of tokens rewarded in a block is anchored on the average pooled reward and topped up by the reserve release. The emission rate factor $`A_t`$ sets the size of the top-up: it controls how much of the reward is newly released and how much is the recycled average of pooled fees. The following behavior is expected:
+The amount of tokens rewarded in a block is anchored on the average pooled fees and topped up by the reserve release. The emission rate factor $`A_t`$ sets the size of the top-up: it controls how much of the reward is newly released and how much is the recycled average of pooled fees. The following behavior is expected:
 
 - When the aggregate KPI is far from the target, $`A_t \rightarrow 1`$, the reserve release is maximized: it tops up the average pooled reward $`\bar{R}_t`$, raising the reward toward the per-block release cap $`\frac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f}`$. The fees collected in this regime are retained and accumulate in the pool.
 - When the aggregate KPI is close to the target, $`A_t \rightarrow 0`$, the top-up vanishes and the reward settles at the average pooled reward $`\bar{R}_t`$, funded by recycling the pooled fees to leaders and Blend nodes.
