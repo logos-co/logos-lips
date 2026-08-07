@@ -28,6 +28,7 @@
 | 1.4.0 | [\[RFC\] Simplify Mantle Transaction and Refactor Ledger Operations](mantle-transaction-encoding/appendices/rfc-simplify-mantle-transaction-and-refactor-ledger-operations.md) | 2026-05-06 |
 | 1.4.1 | Removed mention of DA. Updated KeyCount from Byte to UINT16 to follow Mantle. | 2026-05-21 |
 | 1.5.0 | Introduce the new Operation `CHANNEL_STAKE_ASSIGNATION` and update of the channel operations to reflect changes in Mantle | 2026-06-24 |
+| 1.6.0 | Added the `Parent` of the `ChannelConfig` to follow Mantle | 2026-08-05 |
 
 # Introduction
 
@@ -80,7 +81,7 @@ OpPayload = Transfer /
 ChannelInscribe = ChannelId Inscription Parent Signer
 Inscription     = UINT32 *BYTE 
 
-ChannelConfig     = ChannelId KeyCount *Signer PostingTimeframe PostingTimeout ConfigThreshold TransferThreshold
+ChannelConfig     = ChannelId Parent KeyCount *Signer PostingTimeframe PostingTimeout ConfigThreshold TransferThreshold
 KeyCount                   = UINT16
 PostingTimeframe           = UINT32
 PostingTimeout             = UINT32
