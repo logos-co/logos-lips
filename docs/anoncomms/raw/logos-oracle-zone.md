@@ -495,6 +495,43 @@ LEZ contract verifies it and sees it should have been included.
 The `round` field prevents a proposer from claiming a valid observation arrived too late.
 Completeness therefore reduces to the same one-of-many honest assumption as the optimistic path.
 
+## Dispute Detection
+
+Every indexer runs the same loop each round for catching wrong attestations.
+This section specifies that loop.
+
+Correctness of the feed is guaranteed by the dispute detection mechanism.
+On the optimistic path the LEZ contract only stores what the proposer wrote, without any verification.
+A wrong value is caught only if at least one indexer runs this loop and raises a dispute within the window.
+
+### The loop
+
+After each round closes, every indexer runs these steps.
+
+1. **Read.** An indexer follows every new Bedrock block
+and caches its `PriceObservation` inscriptions in canonical order,
+so once a round closes the cache already holds every observation for it.
+2. **Recompute.** Run the aggregation over the cached observations and produce the indexer's own attested price.
+This is the deterministic median logic described in [Aggregation](#aggregation).
+3. **Fetch.** Once round `round` closes in Bedrock, poll the LEZ contract for the accepted attestation.
+Polling every few seconds through `W_dispute` is enough; there is no need to read every LEZ block.
+4. **Compare.** If the fetched value equals the recomputed one, do nothing.
+If they differ, raise a dispute before `W_dispute` closes.
+
+### Raising a dispute
+
+The dispute mechanism requires all observations of the round to be delivered to LEZ,
+assuming a majority of indexers is honest.
+Since one transaction cannot hold and verify the full set at once,
+the delivery is split across multiple transactions inside `W_dispute`.
+
+At least `N` indexers submit the observations it has for the round.
+Once the window closes, LEZ deduplicates the collected set by `oracle_id` and `round`,
+since the same observation is immutable regardless of who carried it.
+LEZ then verifies each unique observation once, requires at least `N` valid ones,
+computes the median over the valid set, and compares it to the proposer's written value.
+See [Slashing](#slashing) for verification, comparison, and fault definitions.
+
 ## Future Work
 
 This section records design directions deferred beyond this version.
