@@ -43,7 +43,7 @@ The document references internal mathematical models and simulations that demons
 
 The conclusion of our analysis indicates that this KPI-based emission model should achieve several important outcomes:
 
-- Initially higher emission rates (capped at $1\%$ annually) to bootstrap network participation.
+- Initially higher emission rates (capped at $1\%$ of the max supply annually) to bootstrap network participation.
 - Gradual stabilization of token supply as the system matures, with our baseline simulation showing just $1.33\%$ total inflation after $10$ years.
 - Self-regulating mechanism where the reserve release naturally adjusts to complement pooled transaction fees.
 - Built-in safeguards against manipulation through moving averages and bounded functions.
