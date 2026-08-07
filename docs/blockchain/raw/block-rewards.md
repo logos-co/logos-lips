@@ -228,9 +228,7 @@ def block_rewards(
     R_bar_t: float,
 ) -> float:
     """
-    Calculate the rewards distributed per block.
-    It implements equation (1). R_bar_t is the average pooled reward:
-    the moving average of the per-block pooled fees over the look-back window T.
+    Calculate the rewards distributed per block. It implements equation (1).
     """
     reserve_release = emission_rate_factor * I_max * S_cap * Delta_t / f
     pool_distribution = (1.0 - emission_rate_factor) * R_bar_t
