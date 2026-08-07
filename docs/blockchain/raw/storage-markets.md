@@ -25,6 +25,7 @@
 | 1.0.1 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.0.2 | Fix invalid python indentation due to github migration | 2026-07-27 | 
 | 1.1.0   | Round the price update upwards and align the reference code with the zero target guard | 2026-07-28 |
+| 1.1.1   | Document the low-price behavior of the upward-rounded price update | 2026-08-04 |
 
 > **Disclaimer:**
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -221,7 +222,7 @@ def update_storage_fee(total_gas_consumed: int, prev_price: int, prev_usage: int
     return price, usage
 ```
 
-The two rounding directions are not interchangeable. The price is multiplied by a factor smaller than one whenever usage falls below the target, so rounding it downwards would make 0 an absorbing state: the initial price $`P_{\mathrm{STR}}(0)=1`$ would be mapped to 0 by the first downward adjustment, and every subsequent update would keep it at 0, making Permanent Storage permanently free. Rounding upwards makes 1 LGO per Permanent Storage Gas the effective floor of the price and leaves the mechanism unchanged at every other price level, as the rounding error is at most one unit against an adjustment of up to $\pm 12.5\%$. The usage EMA is a measurement rather than a price and is not subject to this failure mode, as it is additive and recovers from 0 as soon as usage resumes. Rounding it upwards would instead pin it at 1 once it has been positive, reporting residual demand on an idle market.
+The two rounding directions are not interchangeable. The price is multiplied by a factor smaller than one whenever usage falls below the target, so rounding it downwards would make 0 an absorbing state: the initial price $`P_{\mathrm{STR}}(0)=1`$ would be mapped to 0 by the first downward adjustment, and every subsequent update would keep it at 0, making Permanent Storage permanently free. Rounding upwards makes 1 LGO per Permanent Storage Gas the effective floor of the price: no price $\geq 1$ can reach 0. Two qualifications apply. First, the downward step $`\lceil P \cdot 7/8 \rceil`$ has fixed points at every $`P \in \{1,\dots,7\}`$, so under sustained downward adjustments the price comes to rest at 7 rather than returning to the floor; at every higher price level the mechanism is unchanged, as the rounding error is at most one unit against an adjustment of up to $\pm 12.5\%$, though every rounding error is upward, giving the rule a small upward bias relative to the real-valued mechanism. Second, $\lceil 0 \cdot x \rceil = 0$: zero remains absorbing in principle, so the genesis price and any future minimum must stay $\geq 1$. The usage EMA is a measurement rather than a price and is not subject to this failure mode, as it is additive and recovers from 0 as soon as usage resumes. Rounding it upwards would instead pin it at 1 once it has been positive, reporting residual demand on an idle market.
 
 ### Genesis State
 
