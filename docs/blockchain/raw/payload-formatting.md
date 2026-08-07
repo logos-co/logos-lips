@@ -71,7 +71,7 @@ We define the `body_length` as uint16 (encoded as little-endian). Therefore, the
 
 ## Body
 
-The `Max_Body_Length` parameter defines the maximum length of the `body`. Currently, we assume that the maximal length of a raw data message is 33129 ([Block Proposal](bedrock-v1.1-block-construction.md#block-proposal)), so the `Max_Body_Length=33129`.
+The `Max_Body_Length` parameter defines the maximum length of the `body`. Currently, we assume that the maximal length of a raw data message is 8555 ([Block Proposal](bedrock-v1.1-block-construction.md#block-proposal)), so the `Max_Body_Length=8555`.
 
 The `body` length is fixed to `Max_Body_Length` bytes. Therefore, if the length of the raw message is shorter than the `Max_Body_Length`, then it must be padded with random data.
 

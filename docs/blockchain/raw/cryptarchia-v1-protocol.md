@@ -279,11 +279,13 @@ class Header:                                # 297 bytes
     proof_of_leadership: ProofOfLeadership   # 224 bytes
 
 class ProofOfLeadership:                     # 224 bytes
-    leader_voucher: zkhash                   # 32 bytes
-    entropy_contribution: zkhash             # 32 bytes
     proof: Groth16Proof                      # 128 bytes
+    entropy_contribution: zkhash             # 32 bytes
     leader_key: Ed25519PublicKey             # 32 bytes
+    leader_voucher: zkhash                   # 32 bytes
 ```
+
+The field order above is the wire order defined in [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding). The [Block ID](#block-id) preimage above absorbs the same `ProofOfLeadership` fields in a different order; that is deliberate, since the preimage is a domain-separated enumeration of header fields rather than a re-serialization of the header.
 
 ### Block
 
