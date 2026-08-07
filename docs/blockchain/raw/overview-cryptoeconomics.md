@@ -196,7 +196,7 @@ The rewards for Blend are given to nodes on the basis of a lottery system where 
 
 ### Service Rewards Distribution Protocol
 
-The [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md) defines how service rewards are distributed from the pool and inserted in the Ledger and how active service nodes receive their rewards. When a new service epoch $e$ starts, rewards for the previous epoch $e-1$ are calculated and directly inserted in the ledger. The reward amount is calculated as the sum of service block rewards from the previous epoch $e-1$.
+The [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md) defines how service rewards are distributed from the pending rewards pool and inserted in the Ledger and how active service nodes receive their rewards. When a new service epoch $e$ starts, rewards for the previous epoch $e-1$ are calculated and directly inserted in the ledger. The reward amount is calculated as the sum of service block rewards from the previous epoch $e-1$.
 
 # Further Details
 
