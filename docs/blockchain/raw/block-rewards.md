@@ -184,8 +184,6 @@ The amount of tokens rewarded in a block is anchored on the average pooled fees 
 - When the aggregate KPI is far from the target, $`A_t \rightarrow 1`$, the reserve release is maximized: it tops up the average pooled reward $`\bar{R}_t`$, raising the reward toward the per-block release cap $`\frac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f}`$.
 - When the aggregate KPI is close to the target, $`A_t \rightarrow 0`$, the top-up vanishes and the reward settles at the average pooled fees $`\bar{R}_t`$, funded by recycling the pooled fees to leaders and Blend nodes.
 
-That is, the KPI sets the reserve release over a base equal to the average pooled reward $`\bar{R}_t`$: far from the target, the reserve release tops up the reward toward the cap; close to the target, the top-up vanishes and the reward equals $`\bar{R}_t`$. The top-up is bounded by $`I_{max}`$ of the cap.
-
 The reserve release within the time step $`\Delta_t`$ is given by
 
 $$
