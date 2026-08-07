@@ -155,7 +155,7 @@ Let us define the following variables:
 - $`A_t \in [0,1]`$ denotes the emission rate factor on a per year basis.
     - This implies that $`A_t \cdot I_{max} \cdot \Delta_t`$ denotes the emission within the time-step.
 - $`D_{i,t}`$ denotes the $i$-th key performance indicator at time $t$ (e.g., TVL, staked amount, active users).
-- $`R_\text{block}`$ denotes the total amount of Execution Gas and Permanent Storage fees routed to the rewards pool in a block. Refer to [🔀\Execution Market](execution-market.md) and [🔀\Storage Markets](storage-markets.md) for how to compute $`R_{block}`$.
+- $`R_\text{block}`$ denotes the total amount of Execution Gas and Permanent Storage fees routed to the rewards pool in a block. Refer to [Execution Market](execution-market.md) and [Storage Markets](storage-markets.md) for how to compute $`R_{block}`$.
 - $`\bar{R}_t = \dfrac{1}{T} \sum_{\tau=t-T+1}^{t} D_{1,\tau}`$ denotes the average pooled reward: the moving average of $`R_\text{block}`$ over the look-back window $`T`$. It is the base distributed each block, topped up by the reserve release.
 
 ## Parametrization
