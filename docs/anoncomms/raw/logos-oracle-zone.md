@@ -312,6 +312,146 @@ During aggregation, every indexer discards observations whose `membership_proof`
 so observations from non-members never enter the median.
 On the dispute path the LEZ contract checks the same proofs against its own membership root,
 so only registered nodes count toward the disputed value.
+For proposer rotation the LEZ contract uses the root frozen at the cycle start, [see Indexer Proposing section](#indexer-proposing). 
+
+## Indexer Proposing
+
+Each round, only one indexer MUST propose the attestation to LEZ.
+This section specifies how an indexer can be chosen among all indexers.
+Since an optimistic approach is used here, correctness does not depend on who proposes.
+So a simple round-robin-ish rotation mechanism is enough.
+
+Each round has three eligible writers enforced by the LEZ contract,
+a primary and two backups, derived from a formula every indexer computes off-chain.
+Three is an optimum balance.
+Fewer writers put liveness at risk, since one or two offline nodes can leave a round with no writer.
+No enforcement at all opens the whole set to a race,
+since any node could write and gas is the only thing separating the winner from the rest.
+In practice, all three candidates can write the attestation,
+but the reward is arranged so the primary earns more, to encourage it to write first.
+
+### Rotation cycle
+
+A rotation cycle consists of `AOS_cycle` rounds.
+That is one full turn over the indexer set.
+
+```protobuf
+syntax = "proto3";
+
+message RotationState {
+  bytes  root_cycle        = 1;  // 32 bytes, membership root frozen for the cycle
+  uint32 seed_cycle         = 2;  // permutation seed for the cycle
+  uint32 permA              = 3;  // permutation multiplier, coprime with AOS_cycle
+  uint32 AOS_cycle          = 4;  // set size frozen for the cycle
+  int64  cycleStartRound    = 5;  // first round of the current cycle and assigned zero (0) when it is deployed 
+  int64  lastAcceptedRound  = 6;  // last round written
+}
+```
+
+At the start of a cycle the contract freezes three values.
+
+- `AOS_cycle`, the number of registered indexers.
+- `root_cycle`, the membership root.
+- `permA`, the permutation multiplier, derived below.
+
+```
+slot    = (round - cycleStartRound) mod AOS_cycle
+primary = (permA * slot + seed_cycle) mod AOS_cycle
+backup1 = (primary + 1) mod AOS_cycle
+backup2 = (primary + 2) mod AOS_cycle
+```
+
+`primary`, `backup1`, `backup2` are indices into `root_cycle`.
+
+Cycle opening, run once when a new cycle starts:
+
+```
+AOS_cycle   = current registered indexer count
+root_cycle  = current membership root
+seed_cycle  = SHA-256(cycleStartRound, root_cycle) mod AOS_cycle
+permA       = smallest k >= 1 such that
+              k >= SHA-256(cycleStartRound, root_cycle, "permA") mod AOS_cycle
+              and gcd(k, AOS_cycle) == 1
+              (search upward, wrap to 1 if it exceeds AOS_cycle)
+```
+
+Note that `permA` MUST be coprime with `AOS_cycle`.
+If they are not coprime, some indices repeat and others never appear,
+so some nodes would be primary more than once per cycle and others never.
+The `gcd(k, AOS_cycle) == 1` check in the formula above is exactly what prevents this.
+
+The hash type is SHA-256 over the byte concatenation of the arguments in listed order,
+where `cycleStartRound` is encoded as an 8-byte big-endian integer, `root_cycle` as its raw 32 bytes,
+and the string tag `"permA"` as its UTF-8 bytes.
+The 256-bit output is interpreted as a big-endian unsigned integer before the `mod AOS_cycle` reduction.
+
+### Write path, checks in order on LEZ Contract
+
+A writing message from proposer to LEZ contract carries the `round`,
+the attested price, the observations with their membership proofs,
+and the sender's own membership proof.
+Then, LEZ contract does these checks and computations.
+
+- **Cycle.** `cycleStartRound + AOS_cycle` is the round the current cycle ends at.
+If `round` has reached or passed it, the cycle is over: set `cycleStartRound = round`,
+and recompute `AOS_cycle`, `root_cycle`, `seed_cycle`, `permA` as above.
+- **Membership.** Verify sender's proof against `root_cycle`, recover `index`. Fail and revert.
+- **Freshness.** Require `round > lastAcceptedRound`. Fail and revert.
+- **Turn.** Compute `primary`, `backup1`, `backup2` for `round`.
+Require `index` equals one of the three. Fail and revert.
+- **Accept.** Store `AttestedPrice`. Set `lastAcceptedRound = round`.
+Open `W_dispute`.
+
+### Offchain Calculations for Indexers
+
+Each indexer computes as follows:
+
+- Compute `slot`, `primary`, `backup1`, `backup2` for the current round.
+This is the same formula the contract uses in the write path,
+over the same `cycleStartRound`, `AOS_cycle`, `seed_cycle`, and `permA`.
+- If primary: write immediately.
+- If backup1: wait 2 LEZ blocks, read `lastAcceptedRound`, write only if still `< round`.
+- If backup2: wait 4 LEZ blocks, same check.
+- If none of the three: do not write.
+
+Note that the LEZ block time is around one second.
+Also, these waiting times are not enforced directly by the contract.
+In the next section, the reward adjustment is what tries to prioritize the primary first, then backup1, then backup2.
+This is a trade-off between fairness, liveness and DoS protection.
+
+### Reward Partition
+
+The reward computed by the mechanism in [Rewards and Revenue](#rewards-and-revenue)
+is adjusted here to discourage racing.
+The adjustment depends on which of the three wrote the round.
+
+| Writer | Share |
+| --- | --- |
+| `primary` | 100% |
+| `backup1` | 75% |
+| `backup2` | 50% |
+
+The contract already knows which one.
+So the share costs nothing extra to apply.
+
+The wait is a convention, not something the contract checks.
+A backup that skips the wait and writes immediately is still accepted,
+since the contract only checks that the sender is one of the three eligible indices.
+Doing this repeatedly is visible off-chain, since who wrote each round and at what share is public.
+The share is recorded per round when the dispute window closes and the attestation is finalized.
+The recorded share is applied at the epoch boundary
+when the indexer builds the reward table committed to the LEZ settlement contract.
+
+### Edge cases
+
+- **Two writes race:** contract takes the first by transaction order,
+rejects the rest so they still pay gas.
+- **All three miss:** no price for `round`.
+Next round proceeds normally by iterating primary.
+This round stays empty until the next Bedrock block arrives.
+- **Node registers mid-cycle:** excluded from `root_cycle` until next cycle opens.
+- **Node unbonds mid-cycle:** still included in `root_cycle`, may still be scheduled,
+backups cover if it does not write.
 
 ## Incentivization
 
@@ -381,6 +521,9 @@ The number of observations finalized in a round is fixed and provable from the i
 so a challenger proves that fewer than `N` observations existed when the proposer attested.
 The fault is objective and cheaply proven.
 The proposed price is rejected and the proposer is slashed.
+This also covers a round number far ahead of the current one.
+No oracle node can have signed observations for a round that has not happened yet,
+so the count for such a round is trivially below `N`.
 
 4. **Wrong median.** A proposer attests a value that is not the median of the valid observations of the round,
 where valid means correctly signed and from a registered member.
