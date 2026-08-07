@@ -27,13 +27,14 @@ while `allocation` caps how much funds may accrue to a provider.
 
 On chain, users deposit funds into vaults
 and allocate streams from which funds accrue to providers at a configured rate.
-The chain enforces allocation accounting and lazy accrual on each stream-touching operation
+The chain enforces allocation accounting and lazy accrual on each stream operation
 using a monotonic timestamp.
 Stream lifecycle covers create, pause, resume, top-up, close, and claim.
 
 Off chain, the protocol extends the incentivization request-response envelope with
 `VaultProof`, `StreamProposal`, and `StreamProof`.
-Providers advertise a policy, verify proofs against vault and stream state,
+Providers advertise a policy,
+verify proofs against vault and stream state,
 and grant service when a signed proposal satisfies that policy
 and an on-chain stream matching the accepted `StreamParams` backs the session.
 
@@ -112,10 +113,21 @@ On chain, the user authorized to operate a vault is the vault owner
 The protocol uses a two-level architecture
 of vaults and streams.
 
-A vault holds a user's deposit in the vault token.
+A vault holds a user's deposit.
 The user is designated as the vault's owner.
 A user MAY own multiple vaults.
 One vault MAY back multiple streams, possibly to different providers.
+
+Each vault uses exactly one token (the vault token)
+for its balance and for every stream it backs.
+Rate, `allocation`, `accrued`, and claims
+MUST use the vault token.
+The vault token MAY be the chain native token
+or a non-native fungible token.
+At initialization the vault MUST record
+the vault token identity in chain-specific encoding.
+Each chain integration MUST define the encoding of the chain native token.
+Later operations MUST NOT change that identity.
 
 A stream represents an individual flow of funds from a vault to one provider.
 Each stream MUST belong to exactly one vault.
@@ -125,10 +137,8 @@ a byte string designating the party authorized to claim accrued funds.
 Each chain integration MUST define that encoding
 and its mapping to the on-chain account authorized to claim those funds.
 
-In the base protocol, vault funds are denominated in the chain native token.
-Each stream MUST specify a positive accrual rate in tokens per time unit.
-This specification does not fix the time unit;
-each chain integration MUST define the time unit used by rates and accrual.
+Each stream MUST specify a positive accrual rate per time unit.
+Each chain integration MUST define the time unit used by rates and accrual.
 
 To start using the protocol,
 the user MUST deposit funds into a vault.
@@ -151,9 +161,8 @@ allocation = accrued + unaccrued
 
 Vault operations include:
 
-- Initialize: create an empty vault.
-  Chain integrations MAY attach privacy or metadata fields at initialization
-  (see [Security and privacy considerations](#security-and-privacy-considerations)).
+- Initialize: create an empty vault and record the vault token identity.
+  Chain integrations MAY set other metadata at initialization.
 - Deposit: increase `balance` and `unallocated`.
 - Withdraw: decrease `balance` by at most `unallocated`.
 
@@ -190,7 +199,8 @@ Stream operations include:
 - Resume: resume fund accrual on a non-depleted `PAUSED` stream.
 - Top-up: increase the stream's `allocation`.
 - Close: release remaining `unaccrued` to vault `unallocated` and mark the stream `CLOSED`.
-- Claim: transfer all `accrued` funds to the provider; set `accrued` to zero and
+- Claim: transfer all `accrued` funds to the provider.
+  Set `accrued` to zero and
   decrease `allocation` and the vault's `total_allocated` by the claimed amount.
 
 The user MAY create a stream if the vault has `unallocated` funds.
@@ -311,20 +321,6 @@ the activation MUST fail.
 
 Providers MAY also mitigate pause-and-resume attacks through off-chain policy.
 
-#### Multi-Token Vaults
-
-In the base streams protocol,
-the vault token is the chain native token
-and needs no on-chain identity field.
-
-The multi-token vaults extension allows support for other tokens.
-Each vault MUST record exactly one token identity in chain-specific form.
-Every stream in that vault MUST denominate
-rate, `allocation`, `accrued`, and claims in that vault's token.
-A vault MUST NOT mix multiple token types.
-If a provider accepts multiple tokens,
-its stream policy advertisements MUST list accepted tokens.
-
 #### Delivery Receipts
 
 In the base streams protocol,
@@ -380,8 +376,8 @@ The protocol consists of the following stages:
   that proposals MUST satisfy before acceptance.
   Discovery mechanics are out of scope for this specification.
 - Initial request-response exchange.
-  The user sends a `StreamProposal` in the first `ServiceRequest`;
-  the provider MAY accept and serve the first unit.
+  The user sends a `StreamProposal` in the first `ServiceRequest`.
+  The provider MAY accept and serve the first unit.
 - Stream-proof-backed request-response.
   Each further `ServiceRequest` carries a `StreamProof`.
 - Termination.
@@ -448,8 +444,8 @@ Stream-backed eligibility uses the following `EligibilityStatus.status_code` val
 | `status_code` | Name | Meaning |
 | --- | --- | --- |
 | 0 | `OK` | Request served. |
-| 1 | `PARAMS_REJECTED` | Proposal does not satisfy a policy, the on-chain stream does not match accepted `StreamParams`, or `create_stream_deadline` obligations were missed. User MAY retry with adjusted parameters. |
-| 2 | `PROOF_INVALID` | Malformed proof, failed signature, or failed cryptographic verification. |
+| 1 | `PARAMS_REJECTED` | Proposal fails a policy check (including vault token acceptance), the on-chain stream fails to match accepted `StreamParams`, or `create_stream_deadline` obligations were missed. User MAY retry with adjusted parameters. |
+| 2 | `PROOF_INVALID` | Malformed proof, failed signature, failed cryptographic verification, or `VaultProof.token_id` mismatch. |
 | 3 | `STREAM_NOT_ACTIVE` | No on-chain stream for `stream_id`, or stream lifecycle state is not `ACTIVE`. |
 
 #### `EligibilityProof`
@@ -475,9 +471,7 @@ message StreamProposal {
 }
 ```
 
-`public_key` is the session key for `StreamProof` signatures.
-
-The session key is the key pair committed in `public_key`.
+`public_key` commits the session key pair used for `StreamProof` signatures.
 The user signs each `StreamProof` with the session key private key.
 
 #### `StreamProof`
@@ -517,6 +511,7 @@ message VaultProof {
   bytes provider_id = 2;
   bytes owner_public_key = 3;
   bytes owner_signature = 4;
+  bytes token_id = 5;
 }
 ```
 
@@ -530,14 +525,15 @@ and separately map that identity to the chain account that receives stream claim
 `owner_public_key` is the key used to verify `owner_signature`.
 Chain integrations MUST define how `owner_public_key`
 cryptographically binds to the vault owner stored on-chain.
+`token_id` is REQUIRED.
+It MUST equal the on-chain vault token identity
+in chain-specific encoding.
 `owner_signature` authorizes the proposed stream session.
-It MUST cover at least the other `VaultProof` fields,
+It MUST cover the other `VaultProof` fields,
 the accompanying `StreamParams`,
 and `StreamProposal.public_key`.
-This prevents a valid vault proof from being recombined
-with different stream parameters or a different session key.
 Chain integrations MUST document the canonical signed payload.
-LEZ defines vault-owner authorization in [Vault owner authorization](#vault-owner-authorization-vaultproofowner_signature).
+LEZ defines vault-owner authorization under Off-chain bytes below.
 
 #### `StreamParams`
 
@@ -550,37 +546,50 @@ message StreamParams {
 }
 ```
 
-`create_stream_deadline` is the latest chain time by which the stream MUST exist on-chain.
-
 `StreamParams` holds the proposed stream fields for one `StreamProposal`.
 `service_id` is an opaque byte string that identifies the request-response service for the stream session.
 The provider assigns or advertises acceptable `service_id` values via discovery.
 The user MUST set `service_id` to a value the provider accepts for that session.
+`create_stream_deadline` is the latest chain time by which the stream MUST exist on-chain.
 
 For a service session, an on-chain stream matches accepted `StreamParams`
 when the chain integration reports exact equality on every comparable field.
 
 #### `StreamProviderPolicy`
 
-The provider advertises a policy as the following message:
+The provider advertises a policy as the following message.
 
 ```protobuf
+message TokenStreamPolicy {
+  bytes token_id = 1;
+  uint64 min_rate = 2;
+  uint64 min_allocation = 3;
+}
+
 message StreamProviderPolicy {
-  uint64 min_rate = 1;
-  uint64 min_allocation = 2;
-  uint64 max_create_stream_deadline_delay = 3;
-  uint64 vault_proof_max_response_bytes = 4;
+  uint64 max_create_stream_deadline_delay = 1;
+  uint64 vault_proof_max_response_bytes = 2;
+  repeated TokenStreamPolicy accepted_tokens = 3;
 }
 ```
 
-Allocation caps on-chain payment exposure but does not attest to service quality;
-providers MAY adjust serving policy when users abuse pause, resume, or request patterns.
+`accepted_tokens` MUST contain at least one entry
+and MUST NOT contain duplicate `token_id` values.
+Each `TokenStreamPolicy` entry sets thresholds for one vault token
+in that token's base units.
+`TokenStreamPolicy.token_id` uses the same encoding as `VaultProof.token_id`.
+The RECOMMENDED maximum length of `accepted_tokens` is 16.
 
-A `StreamProposal` satisfies a policy at verification time `t`
-when the policy is a `StreamProviderPolicy` and:
+Allocation caps on-chain payment exposure.
+Providers MAY adjust serving policy when users abuse pause, resume, or request patterns.
 
-- `stream_params.stream_rate` MUST be greater than or equal to `min_rate`
-- `stream_params.allocation` MUST be greater than or equal to `min_allocation`
+Let `T` be `VaultProof.token_id`
+after the on-chain equality check.
+A `StreamProposal` satisfies a policy at verification time `t` when:
+
+- The policy MUST contain a `TokenStreamPolicy` whose `token_id` equals `T`.
+- `stream_params.stream_rate` MUST be greater than or equal to that entry's `min_rate`.
+- `stream_params.allocation` MUST be greater than or equal to that entry's `min_allocation`.
 - `stream_params.create_stream_deadline` MUST be greater than or equal to `t`
   and MUST be less than or equal to `t` plus `max_create_stream_deadline_delay`
 
@@ -588,6 +597,7 @@ RECOMMENDED default for `max_create_stream_deadline_delay`: 300 seconds.
 
 `vault_proof_max_response_bytes` sets the per-response byte limit for `response_data`
 when the provider serves the initial vault-proof-backed request.
+Deadline and byte-cap fields are policy-global.
 
 #### `ServiceTermination`
 
@@ -648,7 +658,7 @@ A service session is the provider's off-chain state for one accepted proposal.
 On acceptance the provider MUST record accepted `StreamParams`,
 the policy pinned at acceptance,
 `StreamProposal.public_key` as the session key,
-and `vault_id`, `provider_id`, and `owner_public_key` from the vault proof.
+and `vault_id`, `provider_id`, `owner_public_key`, and `token_id` from the vault proof.
 Later stream-proof verification MUST use that pinned policy and session record.
 
 After acceptance the user MUST create an on-chain stream that matches the
@@ -759,36 +769,63 @@ The payment-streams guest program maps vault and stream state to
 
 #### Account types
 
-`VaultConfig` holds `total_allocated`, `owner`, and an immutable privacy tier
-(`Public` or `PseudonymousFunder`) set at initialization.
+`VaultConfig` holds `total_allocated`, `owner`,
+privacy tier (`Public` or `PseudonymousFunder`),
+and `token_id`, all set at initialization.
 For `PseudonymousFunder` vaults,
 `owner` MUST be an identifier derived from a nullifier public key.
 
-`VaultHolding` holds vault token balance and a version byte in application data.
-The guest MUST reject instructions when version bytes across
-`VaultConfig`, `VaultHolding`, and `StreamConfig` for a vault do not match.
-The reference guest uses version `1` on the demo network.
+`token_id` is the LEZ encoding of the vault token.
+It is exactly 32 octets.
+All-zeroes denotes the LEZ native token.
+Any other value MUST be a fungible Token program definition `AccountId`.
 
 Per-stream state is stored in `StreamConfig`.
+
+The vault holding PDA carries vault liquidity.
+For a native vault, that is native `Account.balance` on the PDA.
+For a non-native vault,
+the PDA is a Token program holding for `token_id`,
+and liquidity is `TokenHolding.balance` in account data.
+The guest MUST reject instructions when version bytes across
+`VaultConfig`, vault holding application data, and `StreamConfig`
+for a vault are unequal.
+The reference guest uses version `1` on the demo network.
 
 #### PDA derivation
 
 `VaultConfig` is a PDA from the owner account identifier
 and a user-chosen vault identifier.
-`VaultHolding` is derived from the `VaultConfig` address.
+`VaultHolding` is a PDA from the `VaultConfig` address and `token_id`
+(32 raw octets, all-zeroes for native).
 `StreamConfig` is a PDA from the `VaultConfig` address
 and the stream identifier assigned sequentially on stream creation.
 `StreamConfig.provider` is stored in account data, not in the stream PDA seeds.
 
 Off-chain vault resolution derives the same `VaultConfig` PDA from
 `VaultProof.vault_id` and the LEZ account identifier for
-`VaultProof.owner_public_key` (see [Vault owner authorization](#vault-owner-authorization-vaultproofowner_signature)).
+`VaultProof.owner_public_key`.
 
-#### Deposit path
+#### Deposit and claim asset paths
 
-On deposit, the guest validates vault ownership and amount,
-then invokes the platform authenticated-transfer program
-to move native balance into `VaultHolding`.
+On deposit, the guest validates vault ownership and amount.
+
+For a native vault,
+deposit chains into the authenticated-transfer program
+to move native balance into the vault holding PDA.
+
+For a non-native vault,
+deposit chains into the Token program
+to transfer fungible units from the owner's Token holding
+into the vault holding PDA.
+Withdraw and claim chain Token transfers out of the vault holding,
+using PDA seeds to authorize the vault holding as sender.
+Solvency checks read `TokenHolding.balance` on the vault holding.
+
+The deployed Token program `ProgramId` is pinned by the network
+and the reference integration.
+Exact account lists and instruction words follow that deployment
+and its published test vectors.
 
 ### Guest instructions
 
@@ -825,8 +862,8 @@ Each id is a UTF-8 string of seven decimal digits, zero-padded
 
 Each account stores Borsh `ClockAccountData { timestamp }`.
 The guest rejects unknown clock account ids and malformed payloads.
-The caller passes one clock account per instruction;
-any id in the table is valid when its timestamp is monotonic for the
+The caller passes one clock account per instruction.
+Any id in the table is valid when its timestamp is monotonic for the
 transaction.
 
 ### Off-chain bytes
@@ -840,6 +877,8 @@ transaction.
 | `VaultProof.provider_id` | Exactly 32 octets, LEZ `AccountId` of the stream provider. |
 | `VaultProof.owner_public_key` | Exactly 32 octets, x-only secp256k1 public key. |
 | `VaultProof.owner_signature` | Exactly 64 octets, Schnorr signature over the vault-owner digest. |
+| `VaultProof.token_id` | Exactly 32 octets. All-zeroes for native. Otherwise Token definition `AccountId`. |
+| `TokenStreamPolicy.token_id` | Same as `VaultProof.token_id`. |
 | `StreamProposal.public_key` | Exactly 32 octets, session key for `StreamProof.signature`. |
 | `StreamProof.signature` | Exactly 64 octets, Schnorr signature over the Store eligibility digest. |
 | `StreamParams.service_id` | UTF-8, no NUL terminator. Max length 128. |
@@ -875,6 +914,7 @@ Domain prefix (32 bytes):
 | `provider_id` | 32 raw bytes (LEZ `AccountId`) |
 | `owner_public_key` | 32 raw bytes (x-only secp256k1 public key) |
 | `service_id` | Borsh `string` (4-byte LE length + UTF-8) |
+| `token_id` | 32 raw bytes (all-zeroes for native, else Token definition `AccountId`) |
 | `rate` | `u64` LE |
 | `allocation` | `u128` LE |
 | `create_stream_deadline` | `u64` LE |
@@ -882,6 +922,7 @@ Domain prefix (32 bytes):
 
 `VaultProof.owner_public_key` MUST bind to `VaultConfig.owner`
 via the LEZ account-identifier derivation in the reference implementation.
+Updated reference test vectors MUST cover this body layout.
 
 #### Store eligibility signature
 
@@ -985,7 +1026,8 @@ and in deposit architectures
 
 This appendix provides an illustrative EVM-based implementation outline.
 The actual implementation will target LEZ.
-The sketch uses one vault per contract and omits multi-vault support from the main protocol.
+The sketch uses one vault per contract and one vault token,
+and omits multi-vault support from the main protocol.
 
 ### A.1 Contract Structure
 
@@ -994,7 +1036,6 @@ contract PaymentVault {
     enum StreamState { ACTIVE, PAUSED, CLOSED }
 
     struct Stream {
-        address token;
         address provider;
         uint128 ratePerSecond;
         uint128 allocation;
@@ -1004,7 +1045,8 @@ contract PaymentVault {
     }
 
     address public user;
-    mapping(address token => uint256) public vaultBalance;
+    address public token;
+    uint256 public vaultBalance;
     uint256 public nextStreamId;
     mapping(uint256 => Stream) public streams;
 }
@@ -1013,11 +1055,11 @@ contract PaymentVault {
 ### A.2 Vault Operations
 
 ```solidity
-event Deposited(address indexed token, uint256 amount);
-event Withdrawn(address indexed token, uint256 amount, address indexed to);
+event Deposited(uint256 amount);
+event Withdrawn(uint256 amount, address indexed to);
 
-function deposit(address token, uint256 amount) external;
-function withdraw(address token, uint256 amount, address to) external;
+function deposit(uint256 amount) external;
+function withdraw(uint256 amount, address to) external;
 ```
 
 ### A.3 Stream Lifecycle
@@ -1026,7 +1068,6 @@ function withdraw(address token, uint256 amount, address to) external;
 event StreamCreated(
     uint256 indexed streamId,
     address indexed provider,
-    address indexed token,
     uint128 ratePerSecond,
     uint128 allocation
 );
@@ -1040,7 +1081,6 @@ event Claimed(uint256 indexed streamId, address indexed provider, uint128 amount
 /// @dev MUST revert if allocation exceeds available vault balance
 function createStream(
     address provider,
-    address token,
     uint128 ratePerSecond,
     uint128 allocation
 ) external returns (uint256 streamId);

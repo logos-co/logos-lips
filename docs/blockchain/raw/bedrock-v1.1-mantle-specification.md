@@ -35,6 +35,7 @@
 | 1.8.0 | [RFC] Update channels to support proof of stake participation and test vectors for OpId and Mantle Transaction Hash | 2026-07-06 |
 | 1.9.0 | Update the execution of `CHANNEL_DEPOSIT` to consume the inputs and recreate them in the channel, updating their NoteId avoid replay attacks in case of withdraw after a deposit | 2026-07-27 |
 | 1.9.1 | Rename the excess balance left after the mandatory fees into `tx_priority_tip` and convert it back into a `TokenValue` explicitly | 2026-08-05 |
+| 1.9.2 | Required checked arithmetic for all token value, balance, gas, and fee computations. | 2026-08-06 |
 
 # Introduction
 
@@ -109,6 +110,26 @@ mantle_txhash_fr = FiniteField(mantle_txhash, byte_order="little", modulus = p)
 
   `mantle_txhash` is a classical 256-bit hash digest and must be reduced to a field element before being passed to any ZkHasher or used as a ZK public input. We apply a direct modular reduction mod $`p`$ (via `FiniteField(..., modulus=p)`). Since $`p \approx 2^{254}`$, the reduction is slightly non-uniform. This is inconsequential in practice as the collision probability remains around $`2^{-254}`$, and proof binding is derived from the collision-resistance of the classic hash, not from uniformity over $`F_p`$.
 
+## Arithmetic
+
+All arithmetic in this specification is checked. Every addition, subtraction, and multiplication over token values, balances, gas amounts, and fees is performed on the stated integer type, and a Mantle Transaction is invalid if any intermediate or final result cannot be represented in that type; results must never silently wrap around or saturate. Token value computations use the precision of `TokenValue` (see the [Notes](#notes) section). The transaction balance uses a signed 128-bit integer: it can be legitimately negative before the fee check.
+
+The pseudocode expresses these checks with the following helpers; a failed check makes the Mantle Transaction invalid:
+
+```python
+UINT64_MAX = 2**64 - 1
+INT128_MIN = -2**127
+INT128_MAX = 2**127 - 1
+
+def checked_uint64(value: int) -> TokenValue:
+        assert 0 <= value <= UINT64_MAX
+        return value
+
+def checked_int128(value: int) -> int:
+        assert INT128_MIN <= value <= INT128_MAX
+        return value
+```
+
 ## Mantle Transaction Fee
 
 The transaction mandatory fee is a sum of two components: the multiplication of the total Execution Gas by the `execution_base_fee`, and the total size of the encoded signed Mantle Transaction multiplied by the `permanent_storage_gas_price`. The execution base fee and the permanent storage gas price are protocol-determined values that are the same for every Mantle Transaction in a block. They are derived following [[Execution Market](execution-market.md) and [Storage Markets](storage-markets.md).
@@ -116,18 +137,18 @@ The transaction mandatory fee is a sum of two components: the multiplication of 
 ```python
 def mandatory_fees(signed_tx: SignedMantleTx,
                    permanent_storage_gas_price: TokenValue, # Given by Storage Market
-                   execution_gas_base_price: TokenValue) -> int:  # Given by Execution Market
+                   execution_gas_base_price: TokenValue) -> uint64:  # Given by Execution Market
     mantle_tx = signed_tx.tx
-    permanent_storage_fees = len(encode(signed_mantle_tx)) * permanent_storage_gas_price
+    permanent_storage_fees = checked_uint64(len(encode(signed_mantle_tx)) * permanent_storage_gas_price)
     tx_execution_gas = 0
 
     for op in mantle_tx.ops:
         # Compute how much execution gas of this operation as defined
         # in the gas determination Appendix
         tx_execution_gas += execution_gas(op)
-    execution_base_fees = tx_execution_gas * execution_gas_base_price
+    execution_base_fees = checked_uint64(tx_execution_gas * execution_gas_base_price)
 
-    return execution_base_fees + permanent_storage_fees
+    return checked_uint64(execution_base_fees + permanent_storage_fees)
 ```
 
 If the Mantle Transaction is unbalanced (meaning that the Transaction consume more value than it creates) and that the leftover balance cover more than the mandatory fees, the remaining is treated as execution tip fees.
@@ -165,22 +186,19 @@ Mantle validators will ensure the following:
 
 3. The Mantle Transaction excess balance pays least the mandatory fees.
     ```python
-    tx_mandatory_fee = mandatory_gas_fees(signed_tx)  # Not an unsigned int
-    tx_balance = get_transaction_balance(signed_tx)
+    tx_mandatory_fee = mandatory_gas_fees(signed_tx)  # int128
+    tx_balance = get_transaction_balance(signed_tx)   # int128
     assert tx_mandatory_fee <= tx_balance
-    tx_priority_tip = TokenValue(tx_balance - tx_mandatory_fee)  # The assertion
-                      # above makes the difference non negative, so it can be
-                      # converted back into a TokenValue
+    tx_priority_tip = checked_uint64(tx_balance - tx_mandatory_fee)
 
-    def get_transaction_balance(signed_tx: SignedMantleTx) -> int:
-        balance = 0   # It's important to not use unsigned int here to avoid
-                      # overflow vulnerabilities
+    def get_transaction_balance(signed_tx: SignedMantleTx) -> int128:
+        balance = 0   # Signed 128-bit accumulator: the balance can be legitimately negative
         for op in signed_tx.tx.ops:
             if op.opcode == TRANSFER:
                 for inp in op.inputs:
-                    balance += get_value_from_note_id(inp)
+                    balance = checked_int128(balance + get_value_from_note_id(inp))
                 for out in op.outputs:
-                    balance -= out.value
+                    balance = checked_int128(balance - out.value)
         return balance
     ```
 
@@ -887,8 +905,8 @@ ledger.assert_spendable(chan_transfer.inputs, chan_transfer.channel)
 4. Check the balance
 
 ```python
-input_amount = sum(ledger.get_note(input).value for input in chan_transfer.inputs)
-output_amount = sum(output.value for output in chan_transfer.outputs)
+input_amount = checked_uint64(sum(ledger.get_note(input).value for input in chan_transfer.inputs))
+output_amount = checked_uint64(sum(output.value for output in chan_transfer.outputs))
 assert input_amount == output_amount
 ```
 

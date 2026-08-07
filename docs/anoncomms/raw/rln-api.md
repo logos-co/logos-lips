@@ -14,7 +14,7 @@ This document specifies the RLN Module:
 a registry-agnostic API that manages
 [RLN](https://lip.logos.co/anoncomms/raw/rln-v2.html) memberships —
 registration, persistence, and lifecycle state —
-and generates and verifies RLN proofs
+and generates and validates RLN proofs
 on behalf of consuming services.
 Registries are identified by
 [CAIP-10](https://standards.chainagnostic.org/CAIPs/caip-10) account identifiers
@@ -47,7 +47,7 @@ that consuming services do not themselves implement.
 This document defines that Module, so that:
 
 - the registry backing a deployment is selected by configuration, not by code;
-- a consumer manages memberships and generates and verifies proofs
+- a consumer manages memberships and generates and validates proofs
   through one stable interface,
   independent of how the Module packages its internals;
 - payment and account handling remain below the Module,
@@ -65,7 +65,7 @@ are to be interpreted as described in [RFC 2119](https://www.ietf.org/rfc/rfc211
 | --- | --- |
 | Module | The component implementing this interface. Exposes a membership-management portion and a rate-limiting portion. |
 | Consumer | The component calling this interface — e.g. a relay node implementing [WAKU2-RLN-RELAY](https://lip.logos.co/messaging/core/draft/17/rln-relay.html), a mix node, or a light client. |
-| Application | A network or protocol deployment that verifies RLN proofs against a registry, identified by an `rln_identifier`. |
+| Application | A network or protocol deployment that validates RLN proofs against a registry, identified by an `rln_identifier`. |
 | Registry | A membership set — a Merkle tree of rate commitments — identified by a CAIP-10 `registry_id`; a smart contract, an on-chain program, or any other service maintaining such a tree. Internal registry access is the Module's concern. |
 | `registry_id` | `<namespace>:<reference>:<account_address>`, e.g. `eip155:59144:0xb9cd…` or `logos:testnet:<64 lowercase hex>`. MUST be canonicalized before comparison or hashing. |
 | `rln_identifier` | A 32-byte per-application identifier ([32/RLN-V1](https://github.com/logos-co/logos-lips/blob/master/docs/anoncomms/draft/32/rln-v1.md)), mixed into the external nullifier so one membership can serve several applications. |
@@ -108,13 +108,31 @@ It exposes two portions:
   registers its rate commitment,
   persists it,
   and tracks the membership's lifecycle in the registry.
-- **Rate limiting** — proof generation and verification
+- **Rate limiting** — proof generation and validation
   over state the Module maintains itself:
   the current epoch, message-id allocation,
   the membership's Merkle proof path, the valid-root window,
   and the nullifier log for double-signalling detection.
 
-The consumer supplies only scopes, signals, and proofs.
+Rate limiting divides time into fixed-length epochs:
+a timestamp, in Unix-epoch seconds,
+falls in the epoch `epoch_index = timestamp / epoch_size`.
+A proof is generated from a registry root at a specific point in time;
+because the registry's tree may update as members join and leave,
+validators accept a proof against any root in the *valid-root window*
+(a bounded set of the most recent roots),
+so a proof is not rejected because the tree moved
+between generation and validation.
+The epoch size, the valid-root window length, and the maximum epoch gap
+are configured per registry,
+and proof generators and validators of a registry
+MUST use the same values
+(see [`validate_proof`](#rate-limiting)).
+The mechanism for multiple configurations (of multiple memberships) 
+is out of scope for this document.
+
+The consumer supplies only scopes, signals, timestamps,
+and received proofs for validation.
 Registry access and payment — the latter via an accounts module beneath the Module —
 are internal to the Module and out of scope here.
 Identity credentials never leave the Module:
@@ -168,7 +186,7 @@ typedef struct { const RegistryOption* ptr; size_t len; } RegistryOptions;
 
 // A consistent snapshot of one scope's rate-limit budget.
 typedef struct {
-    uint64_t epoch_index;  // current epoch
+    uint64_t epoch_index;  // the queried epoch, from the timestamp
     uint64_t rate_limit;   // messages the epoch grants the membership;
                            // zero when the scope has no usable membership
     uint64_t remaining;    // messages still unspent in this epoch
@@ -188,7 +206,9 @@ typedef enum {
     MEMBERSHIP_GRACE_PERIOD,              // still usable, but approaching expiry
     MEMBERSHIP_EXPIRED,                   // validity period lapsed
     MEMBERSHIP_ERASED_AWAITS_WITHDRAWAL,  // removed; deposit still recoverable
-    MEMBERSHIP_ERASED                     // removed; nothing left to recover
+    MEMBERSHIP_ERASED,                    // removed; nothing left to recover
+    MEMBERSHIP_SLASHED                    // removed by slashing; identity secret
+                                          // publicly revealed
 } MembershipStatus;
 
 // Membership metadata. The identity credential backing it is generated,
@@ -212,6 +232,7 @@ A membership belongs to exactly one registry
 and carries no application association:
 it MAY back any application whose scope names its registry,
 which is why a `MembershipScope` pairs the `registry_id` with an `rln_identifier`.
+The Module resolves a scope's membership by its `registry_id` alone.
 
 `PENDING` and `FAILED` are Module-local states:
 accepting a submission confirms the registry received the registration,
@@ -228,10 +249,15 @@ Where a registry implements slashing —
 which removes the leaf and publicly reveals the identity secret
 ([32/RLN-V1](https://github.com/logos-co/logos-lips/blob/master/docs/anoncomms/draft/32/rln-v1.md)) —
 an `ACTIVE` membership can disappear at any time.
+A removal whose cause the registry exposes as slashing
+SHALL be reported `SLASHED`;
+a removal whose cause is not observable is reported `ERASED`,
+which therefore covers both.
 A registry that erases all record of a membership on removal
 makes `ERASED` indistinguishable from never-registered in a raw read,
 so the Module infers erasure from its own records.
-A membership reported `ERASED` or `UNKNOWN` no longer backs proof generation:
+A membership reported `SLASHED`, `ERASED`, or `UNKNOWN`
+no longer backs proof generation:
 [`generate_proof`](#rate-limiting) requires a usable membership.
 
 The `membership_hash` is derived deterministically from
@@ -262,9 +288,9 @@ typedef struct {
 } RateLimitProof;
 
 typedef enum {
-    PROOF_VALID,                // all verification conditions hold
-    PROOF_INVALID,              // a verification condition fails
-    PROOF_DUPLICATE,            // a proof for a signal already verified
+    PROOF_VALID,                // all validation conditions hold
+    PROOF_INVALID,              // a validation condition fails
+    PROOF_DUPLICATE,            // a proof for a signal already validated
     PROOF_RATE_LIMIT_VIOLATION  // nullifier reuse with a different signal
 } ProofVerdict;
 
@@ -273,18 +299,18 @@ typedef struct {
     uint8_t      recovered_secret[32];  // the double-signaller's identity secret,
                                         // reconstructed from the colliding shares;
                                         // set only on PROOF_RATE_LIMIT_VIOLATION
-} VerificationResult;
+} ValidationResult;
 
 ```
 
 A `RateLimitProof` is opaque to the consumer,
 which passes it from [`generate_proof`](#rate-limiting) to
-[`verify_proof`](#rate-limiting) unchanged;
+[`validate_proof`](#rate-limiting) unchanged;
 its fields follow [RLN](https://lip.logos.co/anoncomms/raw/rln-v2.html).
 Two proofs that share an external nullifier and message id
 expose `share_x`/`share_y` pairs that reconstruct the identity secret —
 the mechanism the rate limit rests on.
-`verify_proof` performs that reconstruction when it detects the collision
+`validate_proof` performs that reconstruction when it detects the collision
 and reports the secret in its result.
 The `recovered_secret` is the violator's,
 revealed by their own double-signalling —
@@ -311,7 +337,7 @@ loads persisted memberships (see [Persistence](#persistence)),
 and starts the tasks that maintain the Module's local registry view:
 the valid-root window, each membership's Merkle proof path, and each membership's state.
 The Module does not require a membership to start:
-a Module started without one serves [`verify_proof`](#rate-limiting)
+a Module started without one serves [`validate_proof`](#rate-limiting)
 from its registry view alone.
 
 #### `stop()`
@@ -343,19 +369,19 @@ for example, selecting delegated registration through the
 [RLN Membership Allocation Protocol](https://lip.logos.co/anoncomms/raw/rln-membership-service.html)
 rather than direct registration from a funded account.
 
-`register` is idempotent for a scope:
-if the scope already has a membership that is `PENDING`, `ACTIVE`,
+`register` is idempotent for a registry:
+if the scope's registry already has a membership that is `PENDING`, `ACTIVE`,
 or in its `GRACE_PERIOD`,
 the function SHALL return that membership
 rather than generate a second credential or double-register,
 and its `rate_limit` MAY differ from any requested value.
 A membership in a terminal state — `FAILED`, `EXPIRED`,
-`ERASED_AWAITS_WITHDRAWAL`, or `ERASED` —
+`ERASED_AWAITS_WITHDRAWAL`, `ERASED`, or `SLASHED` —
 does not block registration:
-the function SHALL register a fresh membership for the scope,
+the function SHALL register a fresh membership for the registry,
 and a prior recoverable deposit remains claimable through
 [withdrawal](#optional-extensions).
-Holding more than one live membership for a scope is an
+Holding more than one live membership for a registry is an
 [optional extension](#optional-extensions).
 
 Registration is not instantaneous — on some registries confirmation takes minutes —
@@ -379,8 +405,10 @@ The reported status is the registry's view overlaid on the Module's local record
 a submission the registry does not yet know about
 is reported `PENDING` or `FAILED` rather than `UNKNOWN`,
 and — symmetrically — a membership the Module has previously observed in the set
-that the registry no longer reports is `ERASED` rather than `UNKNOWN`.
-`UNKNOWN` is returned only when no membership exists for the scope,
+that the registry no longer reports is `ERASED` —
+or `SLASHED`, where the registry exposes slashing as the cause —
+rather than `UNKNOWN`.
+`UNKNOWN` is returned only when no membership exists for the scope's registry,
 in this run or in persistence.
 
 ### Persistence
@@ -411,52 +439,78 @@ the current epoch, message-id allocation within the rate limit,
 the membership's Merkle proof path, the valid-root window,
 and the nullifier log for double-signalling detection —
 is maintained inside the Module;
-the consumer supplies only the scope and the signal.
+the consumer supplies only the scope, the signal,
+and the message's timestamp.
 A membership is required only to generate proofs:
-verification runs against the registry view alone,
+validation runs against the registry view alone,
 so a consumer that only validates messages never registers.
 Detecting double-signalling across messages —
 two proofs sharing a nullifier within one epoch —
 is the Module's responsibility:
 it keeps a log of the nullifiers it has verified, with their shares,
 recovers the identity secret two colliding proofs reveal,
-and reports it in the verification result.
+and reports it in the validation result.
 
-#### `Result<EpochQuota> get_epoch_quota(MembershipScope scope)`
+#### `Result<EpochQuota> get_epoch_quota(MembershipScope scope, uint64_t timestamp)`
 
-Return the scope's current epoch index,
+Return the epoch of `timestamp`,
+`epoch_index = timestamp / epoch_size`,
 the membership's `rate_limit` for it,
-and the budget still unspent in it,
+and the scope's remaining budget in that epoch,
 for consumer-side send scheduling:
 rolling a metering window on the epoch boundary,
 parking traffic when the budget is spent,
 and releasing it when the epoch advances.
-All fields SHALL derive from one observation of the epoch:
-a `remaining` computed in one epoch MUST NOT be paired
-with the index of another,
-so a read taken across an epoch rollover reflects
-either the old epoch or the new one, never a mixture.
+The queried epoch is fixed by `timestamp`,
+so `remaining` SHALL be a single consistent observation of that epoch.
 The read is advisory:
 allocation happens in [`generate_proof`](#rate-limiting),
 which remains the authority and fails with `RLN_ERR_BUDGET_EXHAUSTED`
 when the budget is spent between a read and a proof.
+When the epoch of `timestamp` lies outside
+the configured maximum epoch gap of the Module's current epoch —
+so [`generate_proof`](#rate-limiting) would reject it —
+the read SHALL fail with `RLN_ERR_PERMANENT`,
+letting a consumer test a timestamp before committing to it.
 A scope without a usable membership — `ACTIVE` or `GRACE_PERIOD` — has no budget:
-the read SHALL return the current `epoch_index`
+the read SHALL return the epoch of `timestamp`
 with `rate_limit` and `remaining` both zero.
 A `rate_limit` of zero therefore indicates the absence of a usable membership,
 never an exhausted budget,
 and the consumer resolves which through
 [`get_membership_state`](#registration).
 
-#### `Result<RateLimitProof> generate_proof(MembershipScope scope, Bytes signal)`
+#### `Result<RateLimitProof> generate_proof(MembershipScope scope, Bytes signal, uint64_t timestamp)`
 
 Generate an RLN proof that `signal` was produced by the holder of the scope's membership
-within its rate limit for the current epoch.
-The Module determines the epoch,
-allocates the next unused `message_id` within the membership's `rate_limit`,
+within its rate limit for the epoch of `timestamp`.
+The consumer supplies `timestamp` — the message's timestamp, Unix-epoch seconds —
+and the Module derives the epoch from it,
+`epoch_index = timestamp / epoch_size`,
+so the message and its proof agree on one time
+regardless of when the proof is generated.
+The Module allocates the next unused `message_id`
+within the membership's `rate_limit` for that epoch and scope,
 and binds the proof to the external nullifier
 `poseidon(hash_to_field_le(epoch), hash_to_field_le(rln_identifier))`.
-The Module SHALL NOT issue two proofs for the same `(epoch, message_id)` pair:
+Allocation is per scope:
+the external nullifier binds each proof to one `(epoch, rln_identifier)` pair,
+so a membership backing several applications
+holds an independent budget of `rate_limit` messages
+per epoch in each.
+Before returning, the Module SHALL validate the generated proof
+against the conditions [`validate_proof`](#rate-limiting) requires for `PROOF_VALID` —
+in particular that the derived epoch falls within
+the configured maximum epoch gap of the Module's current epoch —
+and SHALL fail with `RLN_ERR_PERMANENT`,
+rather than return a proof validators would reject,
+when the `timestamp` lies outside that window.
+This self-check evaluates only those stateless conditions;
+it neither consults nor updates the nullifier log,
+so a generator never records its own proof
+and cannot later report its own message a duplicate.
+The Module SHALL NOT issue two proofs for the same
+`(scope, epoch, message_id)` triple:
 doing so reveals the identity secret.
 When the epoch's budget is exhausted,
 the function SHALL fail with `RLN_ERR_BUDGET_EXHAUSTED`;
@@ -464,13 +518,16 @@ allocation resets at the next epoch.
 The membership MUST be usable — `ACTIVE` or `GRACE_PERIOD` —
 for proof generation to succeed.
 
-#### `Result<VerificationResult> verify_proof(MembershipScope scope, Bytes signal, RateLimitProof proof)`
+#### `Result<ValidationResult> validate_proof(MembershipScope scope, Bytes signal, uint64_t timestamp, RateLimitProof proof)`
 
-Verify an RLN proof for `signal`.
+Validate an RLN proof for `signal` against the message's `timestamp`.
 The following MUST hold for the verdict to be `PROOF_VALID`:
 
-- the proof is valid;
+- the zero-knowledge proof verifies;
 - `proof.root` is within the Module's current valid-root window;
+- `proof.epoch` equals the epoch derived from `timestamp`,
+  `epoch_index = timestamp / epoch_size`,
+  so the budget the proof spends belongs to the epoch the message claims;
 - `proof.epoch` is within a configured maximum gap of the Module's current epoch,
   so a newly registered member cannot publish into past epochs;
 - `proof.external_nullifier` matches the value recomputed from
@@ -483,28 +540,33 @@ A proof that fails any of these is `PROOF_INVALID` —
 a verdict, not an error:
 the error channel is reserved for calls the Module cannot judge,
 e.g. `RLN_ERR_NOT_READY` before its registry view is warm.
+A proof that passes them and whose `nullifier` the epoch's log
+does not yet hold is `PROOF_VALID`,
+and the Module records its `nullifier` and `share_x` there —
+the record subsequent proofs are checked against.
 A proof that passes them
-but whose `nullifier` is already in the epoch's log
+but whose `nullifier` is already logged
 is judged by its `share_x` against the recorded one:
-the same value is a retransmission of a message already verified,
+the same value is a retransmission of a message already validated,
 reported `PROOF_DUPLICATE`;
 a different value is double-signalling,
 and the Module SHALL reconstruct the identity secret from the two shares
 and report `PROOF_RATE_LIMIT_VIOLATION` with `recovered_secret` set.
-The nullifier log is verification state local to the Module,
+Only `validate_proof` writes the nullifier log.
+The nullifier log is validation state local to the Module,
 retained per epoch for at least the maximum epoch gap
 within which proofs are accepted.
-Verification is on the message hot path —
+Validation is on the message hot path —
 it runs for every message a validator receives —
 so the Module SHALL serve it from its locally maintained registry state
-and SHALL NOT perform registry access on the verification path.
+and SHALL NOT perform registry access on the validation path.
 The valid-root window is maintained asynchronously as the registry changes,
 and SHOULD be maintained timely enough
 that a proof generated against a newly published root is not falsely rejected.
 The epoch size, the window's length, and the maximum epoch gap
-are configuration parameters of the Module —
-the registry does not enforce them;
-validators of an application MUST use the same values,
+are the per-registry configuration named in [The Module](#the-module):
+the registry does not enforce them,
+so proof generators and validators MUST use the same values,
 or a proof accepted at one node is rejected at another.
 
 ## Optional extensions
@@ -515,7 +577,7 @@ and a Module SHALL fail a call to an extension it does not provide
 with `RLN_ERR_PERMANENT`.
 
 - **Multiple memberships** —
-  holding more than one membership for a scope.
+  holding more than one membership for a registry.
   A Module that does so MUST require the consumer to select one explicitly —
   for example by `membership_hash` —
   and MUST NOT choose silently among candidates.
@@ -531,9 +593,9 @@ with `RLN_ERR_PERMANENT`.
   when a proof was generated but its message was never published.
 - **Proof staleness check** —
   a lightweight check that a held proof would still pass
-  [`verify_proof`](#rate-limiting) —
+  [`validate_proof`](#rate-limiting) —
   its root still current, its epoch within tolerance —
-  without performing full verification,
+  without performing full validation,
   so a consumer retrying a long-parked message can refresh its proof
   before resending rather than after a rejection.
 - **Registry parameters read** —
@@ -556,7 +618,8 @@ The rate limit rests on a single secret:
 two proofs that reuse an `(epoch, message_id)` pair under one external nullifier
 expose Shamir shares that reconstruct the identity secret,
 which on registries implementing slashing burns the credential
-(see [Rate-limit proof](#rate-limit-proof)).
+(see [Rate-limit proof](#rate-limit-proof)),
+the membership thereafter reported `SLASHED`.
 The Module owns `message_id` allocation for its memberships,
 so a single Module never reuses a pair.
 This safety holds only within one Module:
