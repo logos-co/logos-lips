@@ -138,9 +138,9 @@ The following variables are input to the model:
 - $f$ be the average number of block proposal within $`\Delta_{t}`$ units:
     - if the time step is 1 day and blocks are proposed every 30 seconds, then $f=2880$ (the number of 30 seconds intervals in 1 day).
     - if the time step is 1 epoch, which lasts 7.5 days, and blocks are processed every 30 seconds, then $f = 7.5 \times 2880 = 21600$ (the number of 30 seconds intervals in 7.5 day).
-- $`I_{min}`$ is the minimum emission rate per year (default: $0\%$ of $`S_{cap}`$).
-- $`I_{max}`$ is the maximum emission rate per year (default: $1\%$ of $`S_{cap}`$).
-- $`Y`$ denotes the lifetime, in years, of the rewards reserve at the maximum release rate $`I_{max}`$ of $`S_{cap}`$ per year (default: $10$ years).
+- $`I_{min}`$ is the minimum emission rate per year ($`I_{min} = 0\%`$ of $`S_{cap}`$).
+- $`I_{max}`$ is the maximum emission rate per year ($`I_{min} = 1\%`$ of $`S_{cap}`$).
+- $`Y`$ denotes the lifetime, in years, of the rewards reserve at the maximum release rate $`I_{max}`$ of $`S_{cap}`$ per year ($`Y = 10`$ years).
 - $`D_{i,target}`$ denotes the target value for the $i$-th KPI.
 - $`w_i`$ denotes the weight of the $i$-th KPI in the normalized deviation from target or in the normalized average; it satisfies $`\sum_i w_i = 1`$.
 - $`\alpha_d \gt 0`$ denotes the control responsiveness to KPI deviation metrics.
