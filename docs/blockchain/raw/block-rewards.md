@@ -109,7 +109,7 @@ The system is designed to evolve through different phases:
 - Bootstrap Phase: Initially higher emission rates (up to $1\%$ annually) to incentivize network participation when stake is below target. As it is explained below, this is viable even when Logos Blockchain experiences low activity because the level of activity only plays a role when the network participation gets close to the predefined target.
 - Stabilization Phase: As Proof-of-Stake (PoS) participation approaches target levels, emission becomes primarily driven by the fee pooling rate.
 - Equilibrium Phase: Circulating supply stabilizes as distribution from the pool matches pooled fees and the reserve release approaches zero.
-- High-Adoption Phase: If the pooling rate exceeds the maximum reserve release, circulating supply contracts as the pool accumulates faster than tokens are released. Total supply is unchanged.
+- High-Adoption Phase: If the fee pooling rate exceeds the maximum reserve release rate, circulating supply contracts as the pool accumulates faster than tokens are released. Total supply is unchanged.
 
 ## Benefits
 
