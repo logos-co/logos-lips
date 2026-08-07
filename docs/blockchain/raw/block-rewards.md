@@ -207,7 +207,7 @@ where:
 - $`S_{cap}`$ denotes the maximum allowable token supply (hard cap).
 - $`\Delta_t`$ denotes the fraction of year in one time step per e.g., epoch, block, or day.
 - $f$ be the average number of block proposal within $`\Delta_{t}`$ units.
-- $`R_\text{block} = D_{1,t}`$ denotes the per-block Execution base fees and Storage fees routed to the pool when the block is proposed.
+- $`R_\text{block} = D_{1,t}`$ denotes the per-block Execution base fees and Storage fees collected in the block and routed to the pool when the block is proposed.
 - $`\bar{R}_t = \dfrac{1}{T} \sum_{\tau=t-T+1}^{t} D_{1,\tau}`$ denotes the average pooled reward: the moving average of $`R_\text{block}`$ over the look-back window $`T`$.
 
 The recycled component distributes the average pooled reward $`\bar{R}_t`$, rather than the single-block fee $`R_\text{block}`$, which smooths it across the window $`T`$. Rearranging equation (1) isolates the role of the reserve release:
