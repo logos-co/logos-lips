@@ -66,7 +66,7 @@ These principles ensure that the system is censorship-resistant, manipulation-re
 
 ## Requirements
 
-Building upon the requirements for Logos Blockchain's block rewards system, the implementation will establish that all transaction fees are pooled while block rewards are tied to measurable global metrics that reflect network health and security. This mechanism ensures that if network activity surges substantially, the accelerated pooling of tokens will be balanced by compensatory distribution over time.
+Building upon the requirements for Logos Blockchain's block rewards system, the implementation will establish that all transaction fees are pooled while block rewards are tied to measurable global metrics that reflect network health and security. This mechanism ensures that if network activity surges substantially, the accelerated pooling of tokens will be balanced by complementary distribution from the reserve over time.
 
 For optimal functionality, block rewards should be anchored to specific observable metrics rather than arbitrary values. Block numbers simply track time passage without indicating chain state. Transaction counts per block are vulnerable to manipulation. On the other hand, tracking the number of Blend nodes or inferring total stake provide more robust information about the chain state, specially when they can be compared with targets that are considered “healthy”.
 
