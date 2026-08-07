@@ -95,7 +95,7 @@ $$
 
 ### Fee Routing
 
-Each Logos Blockchain Storage fee $`F_{\text{STR}}`$ is routed in full into the network's shared rewards pool at the moment its transaction is included, rather than paid to any participant or removed from supply. This is the same pool fed by the Execution market and drawn down to pay leaders and Blend nodes.
+Each Logos Blockchain Storage fee $`F_{\text{STR}}`$ is routed in full into the network's shared rewards pool at the moment its transaction is included, rather than paid to any participant or removed from supply. This is the same pool fed by the [Execution Market](execution-market.md) and drawn down to pay leaders and Blend nodes.
 
 Aggregated over a block, the Storage fees of its transactions form the Storage-market component of the per-block pool inflow $`R_{block}`$ used to compute block rewards:
 
@@ -103,7 +103,7 @@ $$
 \hat{R}_{\text{STR}} = \sum_{t \in \mathcal{B}} S_{\text{gas}}(t) \cdot P_{\text{STR}}(s) = P_{\text{STR}}(s) \sum_{t \in \mathcal{B}} S_{\text{gas}}(t),
 $$
 
-where $`\mathcal{B}`$ is the set of transactions in the block, $`S_{\text{gas}}(t)`$ is the Logos Blockchain Storage Gas consumed by transaction $t$, and $`P_{\text{STR}}(s)`$ is the fixed price of the enclosing timeframe $s$. The Execution market contributes the remaining component of $`R_{block}`$, the pooled base fees $`\hat{R}_{\text{pooled}}`$ (cf. [\[1.0.0\] Execution Market](execution-market.md)), giving $`R_{block} = \hat{R}_{\text{STR}} + \hat{R}_{\text{pooled}}`$. This pooled inflow is distributed to leaders and Blend nodes through the reward mechanism of [\[1.0.0\] Block Rewards](block-rewards.md). The Storage market governs only the price $`P_{\text{STR}}(s)`$; the routing and subsequent distribution of the resulting fee are defined by the block-reward mechanism.
+where $`\mathcal{B}`$ is the set of transactions in the block, $`S_{\text{gas}}(t)`$ is the Logos Blockchain Storage Gas consumed by transaction $t$, and $`P_{\text{STR}}(s)`$ is the fixed price of the enclosing timeframe $s$. The Execution market contributes the remaining component of $`R_{block}`$, the pooled base fees $`\hat{R}_{\text{pooled}}`$ (cf. [Execution Market](execution-market.md)), giving $`R_{block} = \hat{R}_{\text{STR}} + \hat{R}_{\text{pooled}}`$. This pooled inflow is distributed to leaders and Blend nodes through the reward mechanism of [Block Rewards](block-rewards.md). The Storage market governs only the price $`P_{\text{STR}}(s)`$; the routing and subsequent distribution of the resulting fee are defined by the block-reward mechanism.
 
 ### Protocol Constants
 
