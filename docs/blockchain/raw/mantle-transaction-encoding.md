@@ -28,6 +28,7 @@
 | 1.4.0 | [\[RFC\] Simplify Mantle Transaction and Refactor Ledger Operations](mantle-transaction-encoding/appendices/rfc-simplify-mantle-transaction-and-refactor-ledger-operations.md) | 2026-05-06 |
 | 1.4.1 | Removed mention of DA. Updated KeyCount from Byte to UINT16 to follow Mantle. | 2026-05-21 |
 | 1.5.0 | Introduce the new Operation `CHANNEL_STAKE_ASSIGNATION` and update of the channel operations to reflect changes in Mantle | 2026-06-24 |
+| 1.6.0 | [RFC] One canonical encoding for `ServiceType` and `Locator`: pin `Locator` bytes to the multiaddr binary form | 2026-08-14 |
 
 # Introduction
 
@@ -110,7 +111,7 @@ Inputs            = InputCount *NoteId
 SDPDeclare    = ServiceType LocatorCount *Locator ProviderId ZkId LockedNoteId
 ServiceType   = Byte          ; 0 = BN
 LocatorCount  = Byte          ; Max 8
-Locator       = 2Byte *BYTE   ; Max 329 bytes, multiaddr format
+Locator       = 2Byte *BYTE   ; Max 329 bytes, multiaddr binary form (never the string form)
 ProviderId    = Ed25519PublicKey
 ZkId          = ZkPublicKey
 LockedNoteId  = NoteId

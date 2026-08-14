@@ -28,6 +28,7 @@
 | 1.1.0 | Removed references to DA Replaced references to Nomos with Logos Blockchain | 2026-04-17 |
 | 1.2.1 | [[RFC] Enforce NoteId uniqueness](mantle-transaction-encoding/appendices/rfc-enforce-noteid-uniqueness.md). | 2026-04-24 |
 | 1.3.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
+| 1.4.0 | [RFC] One canonical encoding for `ServiceType` and `Locator` | 2026-08-14 |
 
 # Introduction
 
@@ -77,7 +78,7 @@ Where $`Rewards\_Epoch`$ are the total rewards of epoch **N**. The $`Rewards\_Ep
 
 ## Service Reward Distribution
 
-Starting immediately after epoch **N+1**, service rewards are distributed in the first block of epoch **N+2.** The rewards are inserted directly in the ledger without triggering any Mantle validation. The `NoteId` is computed using the result of `hash(`[`ServiceType`](bedrock-service-declaration-protocol.md)`|| epoch_number)` as the `op_id`. The output number corresponds to the position of the `zk_id` when sorted in ascending order.
+Starting immediately after epoch **N+1**, service rewards are distributed in the first block of epoch **N+2.** The rewards are inserted directly in the ledger without triggering any Mantle validation. The `NoteId` is computed using the result of `hash(`[`ServiceType`](bedrock-service-declaration-protocol.md)`|| epoch_number)` as the `op_id`, where `ServiceType` is serialized as its canonical one-byte discriminant ([Service Types](bedrock-service-declaration-protocol.md#service-types)). The output number corresponds to the position of the `zk_id` when sorted in ascending order.
 
 The reward must:
 

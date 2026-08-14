@@ -28,6 +28,7 @@
 | 1.1.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.2.0 | [RFC] Per-service uniqueness of `provider_id` and `zk_id` | 2026-07-08 |
 | 1.3.0 | Length-prefix the `locators` list in the `declaration_id` preimage | 2026-07-30 |
+| 1.4.0 | [RFC] One canonical encoding for `ServiceType` and `Locator` | 2026-08-14 |
 
 # Introduction
 
@@ -78,10 +79,12 @@ We define the following service type:
 
 ```python
 class ServiceType(Enum):
-    BN="BN" # Blend Network
+    BN=0 # Blend Network
 ```
 
 A declaration can be generated for any of the services above. Any declaration that is not one of the above must be rejected. The number of services might grow in the future.
+
+Each service type is assigned a one-byte discriminant, given by the enum value above. This byte is the canonical encoding of a `ServiceType`: wherever a `ServiceType` is serialized or hashed — the transaction wire form ([Mantle Transaction Encoding](mantle-transaction-encoding.md)), the `declaration_id` preimage ([Declaration Storage](#declaration-storage)), and the reward `op_id` preimage ([Service Reward Distribution](bedrock-service-reward-distribution.md)) — this single byte is used. The service name (`"BN"`) is presentational only and must never appear in an encoding.
 
 ### Minimum Stake
 
@@ -142,11 +145,13 @@ A `Locator` is the address of a validator which is used to establish secure comm
 
 The `provider_id` must be used as the node identity. Therefore, the `Locator` must be completed by adding the `provider_id` at the end of it, which makes the `Locator` usable in the context of libp2p.
 
-The length of the `Locator` is restricted to 329 characters.
+The canonical form of a `Locator` is the multiaddr **binary (byte) form**. Wherever a `Locator` is serialized or hashed — the transaction wire form ([Mantle Transaction Encoding](mantle-transaction-encoding.md)) and the `declaration_id` preimage ([Declaration Storage](#declaration-storage)) — its binary form is used. The human-readable string form (e.g. `/ip4/203.0.113.10/tcp/4001`) is presentational only and must never appear in an encoding.
 
-**The common formatting of every** `Locator` **must be applied to maintain its unambiguity, to make deterministic ID generation work consistently.** The `Locator` must at least contain only lowercase letters and every part of the address must be explicit (no implicit defaults).
+The length of the binary form of a `Locator` is restricted to 329 bytes.
 
-Canonical formatting makes a single `Locator` unambiguous, but it does not make a *list* of them unambiguous. The byte form of a multiaddr is self-describing, so concatenating two `Locator`s yields the byte form of a single longer one: `[/ip4/203.0.113.10/tcp/4001]` and `[/ip4/203.0.113.10, /tcp/4001]` are the same byte string. Wherever a list of `Locator`s is hashed it must therefore be serialized as the [Mantle Transaction Encoding](mantle-transaction-encoding.md) defines it, prefixed with its element count and with each element prefixed by its byte length.
+**The canonical form makes deterministic ID generation work consistently.** The binary form carries no letter case and no textual shorthand, so two equal multiaddrs always share one byte representation; the string-form ambiguities (case, implicit defaults) cannot arise. Implementations that accept the string form as input must parse it into the binary form before any serialization or hashing, and every part of the address must be explicit (no implicit defaults).
+
+The canonical form makes a single `Locator` unambiguous, but it does not make a *list* of them unambiguous. The byte form of a multiaddr is self-describing, so concatenating two `Locator`s yields the byte form of a single longer one: `[/ip4/203.0.113.10/tcp/4001]` and `[/ip4/203.0.113.10, /tcp/4001]` are the same byte string. Wherever a list of `Locator`s is hashed it must therefore be serialized as the [Mantle Transaction Encoding](mantle-transaction-encoding.md) defines it, prefixed with its element count and with each element prefixed by its byte length.
 
 ### **Declaration Message**
 
@@ -204,7 +209,7 @@ We also define the `declaration_id` (of a `DeclarationId` type) that is the uniq
 declaration_id = Hash(service||provider_id||zk_id||locators)
 ```
 
-`locators` is serialized as its element count followed by each `Locator` prefixed with its byte length. Concatenating the locators without those lengths would leave the `declaration_id` not binding the locator list, for the reason given in [Locators](#locators).
+Each component of the preimage is serialized in its canonical encoding: `service` as the one-byte `ServiceType` discriminant ([Service Types](#service-types)), and `locators` as its element count followed by each `Locator`'s binary form prefixed with its byte length ([Locators](#locators)). Concatenating the locators without those lengths would leave the `declaration_id` not binding the locator list, for the reason given in [Locators](#locators).
 
 The `declaration_id` is not stored as part of the `DeclarationInfo` but it is used to index it.
 
