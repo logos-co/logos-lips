@@ -209,7 +209,7 @@ We also define the `declaration_id` (of a `DeclarationId` type) that is the uniq
 declaration_id = Hash(service||provider_id||zk_id||locators)
 ```
 
-Each component of the preimage is serialized in its canonical encoding: `service` as the one-byte `ServiceType` discriminant ([Service Types](#service-types)), and `locators` as its element count followed by each `Locator`'s binary form prefixed with its byte length ([Locators](#locators)). Concatenating the locators without those lengths would leave the `declaration_id` not binding the locator list, for the reason given in [Locators](#locators).
+Each component of the preimage is serialized in its canonical encoding, as defined by the [Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations) for the `SDP_DECLARE` operation: `service` as the one-byte `ServiceType` discriminant ([Service Types](#service-types)), and `locators` as its element count followed by each `Locator`'s binary form prefixed with its byte length ([Locators](#locators)). Concatenating the locators without those lengths would leave the `declaration_id` not binding the locator list, for the reason given in [Locators](#locators).
 
 The `declaration_id` is not stored as part of the `DeclarationInfo` but it is used to index it.
 
