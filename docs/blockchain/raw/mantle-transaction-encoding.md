@@ -111,7 +111,7 @@ Inputs            = InputCount *NoteId
 SDPDeclare    = ServiceType LocatorCount *Locator ProviderId ZkId LockedNoteId
 ServiceType   = Byte          ; 0 = BN
 LocatorCount  = Byte          ; Max 8
-Locator       = 2Byte *BYTE   ; Max 329 bytes, multiaddr binary form (never the string form)
+Locator       = 2Byte *BYTE   ; Max 329 bytes, multiaddr binary form
 ProviderId    = Ed25519PublicKey
 ZkId          = ZkPublicKey
 LockedNoteId  = NoteId
