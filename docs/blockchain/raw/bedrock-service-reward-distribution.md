@@ -28,7 +28,7 @@
 | 1.1.0 | Removed references to DA Replaced references to Nomos with Logos Blockchain | 2026-04-17 |
 | 1.2.1 | [[RFC] Enforce NoteId uniqueness](mantle-transaction-encoding/appendices/rfc-enforce-noteid-uniqueness.md). | 2026-04-24 |
 | 1.3.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
-| 1.4.0 | [RFC] One canonical encoding for `ServiceType` and `Locator` | 2026-08-14 |
+| 1.3.1 | [RFC] One canonical encoding for `ServiceType` and `Locator` | 2026-08-14 |
 
 # Introduction
 
