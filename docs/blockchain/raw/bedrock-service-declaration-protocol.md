@@ -84,7 +84,7 @@ class ServiceType(Enum):
 
 A declaration can be generated for any of the services above. Any declaration that is not one of the above must be rejected. The number of services might grow in the future.
 
-Each service type is assigned a one-byte discriminant, given by the enum value above. This byte is the canonical encoding of a `ServiceType`: wherever a `ServiceType` is serialized or hashed — the transaction wire form ([Mantle Transaction Encoding](mantle-transaction-encoding.md)), the `declaration_id` preimage ([Declaration Storage](#declaration-storage)), and the reward `op_id` preimage ([Service Reward Distribution](bedrock-service-reward-distribution.md))
+Each service type is assigned a one-byte discriminant, given by the enum value above. This byte is the canonical encoding of a `ServiceType`: wherever a `ServiceType` is serialized or hashed — the transaction wire form ([Mantle Transaction Encoding](mantle-transaction-encoding.md)), the `declaration_id` preimage ([Declaration Storage](#declaration-storage)), and the reward `op_id` preimage ([Service Reward Distribution](bedrock-service-reward-distribution.md)) — this single byte is used.
 
 ### Minimum Stake
 
