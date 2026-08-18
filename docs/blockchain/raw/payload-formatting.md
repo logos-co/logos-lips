@@ -25,6 +25,7 @@
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-09 |
+| 1.1.0 | Add the transaction `body_type`, bound a carried transaction to `Max_Body_Length`, and state the fixed-length padding cost it inherits | 2026-08-11 |
 
 # Introduction
 
@@ -61,9 +62,14 @@ class Header:
 We define the following values of the `body_type`:
 
 - `body_type=0x00`, informs that the `body` contains a cover message.
-- `body_type=0x01`, informs that the `body` contains a data message.
+- `body_type=0x01`, informs that the `body` contains a data message carrying a block proposal.
+- `body_type=0x02`, informs that the `body` contains a data message carrying a Mantle transaction.
 
 Any other value of type means that the message was not decapsulated correctly and must be discarded.
+
+The `body_type` determines where the content is delivered once a message is fully decapsulated, as defined in the [Blend Protocol](blend-protocol.md#processing): a block proposal is broadcast, and a transaction is both submitted to the node's mempool and broadcast.
+
+Because any unrecognised value must be discarded, the set of values above is closed and a node that does not know a value drops the message rather than ignoring the field. Introducing a new `body_type` is therefore a change to what the network accepts, not only to how a payload is encoded, and nodes must recognise a value before any node emits it.
 
 ### Length
 
@@ -73,6 +79,15 @@ We define the `body_length` as uint16 (encoded as little-endian). Therefore, the
 
 The `Max_Body_Length` parameter defines the maximum length of the `body`. Currently, we assume that the maximal length of a raw data message is 33129 ([Block Proposal](bedrock-v1.1-block-construction.md#block-proposal)), so the `Max_Body_Length=33129`.
 
+**A transaction carried over the Blend network must not exceed `Max_Body_Length` once encoded.** The body is a fixed-size field, so a longer payload cannot be represented at all: there is no fragmentation across messages and no larger body type. A transaction that does not fit is not sendable over this protocol and must reach the network by other means. A node must check the encoded length before constructing the message rather than discovering the limit at encapsulation, and must discard on receipt any payload whose `body_length` exceeds `Max_Body_Length`, since a well-formed message can never carry one.
+
+
+The limit is not restrictive in practice: `Max_Body_Length` is derived from the size of a block proposal, which is far larger than any single transaction, and a transaction is separately bounded by the block it must eventually fit into.
+
 The `body` length is fixed to `Max_Body_Length` bytes. Therefore, if the length of the raw message is shorter than the `Max_Body_Length`, then it must be padded with random data.
 
 If the `body` length is less than the `Max_Body_Length`, then the last `Max_Body_Length - len(Raw_Message)` bytes must be filled with random data.
+
+The fixed length is what makes payloads of different types indistinguishable on the wire, and it is the reason a cover message costs exactly as much to send as a block proposal. It applies equally to transactions, which are typically far smaller than the block proposal the parameter is derived from: **every transaction sent through the Blend network occupies a full `Max_Body_Length` payload regardless of its own size.** A node sending transactions this way therefore pays the bandwidth of a block proposal per transaction, and the network's bandwidth cost scales with the number of payloads carried rather than with the number of bytes those payloads contain. Any estimate of the cost of routing transactions through this protocol must use `Max_Body_Length`, not the encoded size of a transaction.
+
+Note also that `body_length` is a `uint16` while `Max_Body_Length` is 33129, so the field can express any permitted length with room to spare. A future payload type larger than 65535 bytes would require widening the field, and therefore a change to the `Header` structure, not only to `Max_Body_Length`.

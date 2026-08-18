@@ -23,6 +23,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2025-09-04 |
 | 1.0.1 | Renamed Nomos to Logos Blockchain. Removed mentions of DA. | 2026-04-23 |
+| 1.1.0 | State that amending a circuit requires a fresh Phase 2, and that the Proof of Quota proof of work branch is such an amendment | 2026-08-10 |
 
 # Introduction
 
@@ -64,6 +65,10 @@ Let N denote the total number of contributors participating in the ceremony. The
 The security of Groth16-based zero-knowledge proofs in the Logos Blockchain critically depends on a sound and verifiable trusted setup. Each participant contributes to the CRS without revealing their secret randomness, and public proofs guarantee the correctness of every transformation. The procedure applies to all required secret scalars, $\tau, \alpha, \beta, \gamma, \delta$, ensuring that all toxic waste is handled consistently and securely. Furthermore, the Logos Blockchain builds its Powers-of-Tau ceremony on top of an existing, already-audited CRS instead of starting from scratch, providing greater confidence in its security. This trusted setup process forms a foundational cryptographic pillar for ensuring privacy, integrity, and long-term resilience in the Logos architecture.
 
 We have two phases for the ceremony. Phase 1 is circuit-independent and involves generating elliptic curve encodings of powers of a toxic waste scalar $\tau$. This enables polynomial commitments up to a certain degree and can be reused across any circuit of bounded size. Phase 2 is circuit-specific and requires knowledge of the exact constraint system. It introduces four additional toxic waste scalars $\alpha, \beta, \gamma, \delta$, which are used to encode the circuit's polynomials and, crucially, compute the $`K_i`$ elements in the verification key. These $`K_i`$ terms represent compressed combinations of public input polynomials and must be computed for each unique circuit. As a result, while Phase 1 can be performed once and reused broadly, Phase 2 must be securely executed for every new circuit.
+
+This requirement applies to any change in a circuit's constraint system, not only to the introduction of an entirely new circuit. Amending an existing circuit produces a different constraint system, so the proving and verification keys derived for its previous form no longer apply and a fresh Phase 2 must be run before the amended circuit can be used. A change that alters the number of public inputs additionally changes how many $`K_i`$ elements the verification key contains, so the previous key is not merely stale but structurally incompatible.
+
+Adding the proof of work branch to the [Proof of Quota](proof-of-quota.md) is such a change: it alters the constraint system and raises the number of public inputs. A Phase 2 ceremony for the amended circuit is therefore a prerequisite for deploying it, and because a ceremony requires co-ordinating independent participants it should be planned well in advance of the point at which the branch is needed.
 
 ## Curve Selection and Parameter Structure
 

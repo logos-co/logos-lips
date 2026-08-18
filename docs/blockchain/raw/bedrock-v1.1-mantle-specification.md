@@ -37,6 +37,7 @@
 | 1.9.1 | Rename the excess balance left after the mandatory fees into `tx_priority_tip` and convert it back into a `TokenValue` explicitly | 2026-08-05 |
 | 1.9.2 | Required checked arithmetic for all token value, balance, gas, and fee computations. | 2026-08-06 |
 | 1.10.0| Enforce non empty inputs for every operation not only transfer moving the assertion in the validation of input spendability | 2026-08-11 |
+| 1.11.0 | Add the `CLAIM_POW_REWARD` Operation, the proof of work reward pool and its difficulty retargeting, and interleave Operation validation with execution so a note created by one Operation can be spent by a later one in the same transaction | 2026-08-11 |
 
 # Introduction
 
@@ -131,6 +132,10 @@ def checked_int128(value: int) -> int:
         return value
 ```
 
+Proof of work targets are the deliberate exception. `PowTarget` values are field-sized, and the two difficulty controllers multiply them before dividing: the reward retarget's intermediate product reaches about $`2^{261}`$, and the Blend retarget's radicand about $`2^{487}`$. Those computations are specified over **arbitrary-precision integers** — a big-integer type in practice: the field element is converted to its canonical integer representative, all arithmetic is performed in the big-integer type, and only the capped result is converted back. The checked fixed-width bounds above do not apply to them. What is bounded instead is each controller's *result*, which is capped below the field modulus so that it remains a meaningful threshold and converts back without reduction.
+
+Token values need no such exception, including where this specification sums fees over whole epochs: conservation bounds every such aggregate, since no set of transactions can pay more in fees than the tokens that exist, and the supply of $`10^{19}`$ lepta is below the `uint64` maximum. The checked arithmetic above is therefore sufficient for every token-denominated quantity, and a violation of it indicates a fault rather than a foreseeable overflow.
+
 ## Mantle Transaction Fee
 
 The transaction mandatory fee is a sum of two components: the multiplication of the total Execution Gas by the `execution_base_fee`, and the total size of the encoded signed Mantle Transaction multiplied by the `permanent_storage_gas_price`. The execution base fee and the permanent storage gas price are protocol-determined values that are the same for every Mantle Transaction in a block. They are derived following [[Execution Market](execution-market.md) and [Storage Markets](storage-markets.md).
@@ -172,36 +177,52 @@ Mantle validators will ensure the following:
     assert len(op_proofs) == len(ops)
     ```
 
-2. Each Operation is valid.
+2. Each Operation is valid, and is executed before the next one is validated.
     ```python
+    balance = 0   # Signed 128-bit accumulator: the balance can be legitimately negative
+
     for op, op_proof in zip(ops, op_proofs):
         assert op.opcode in MANTLE_OPCODES
-        validate_mantle_op(mantle_txhash(tx), op.opcode, op.payload, op_proof)
+        # Validated against the state left by the Operations before it.
+        validate_mantle_op(mantle_txhash(tx), op.opcode, op.payload, op_proof, state)
+        balance = accumulate_balance(balance, op, state)
+        execute_mantle_op(op, state)
 
-    def validate_mantle_op(txhash, opcode, payload, op_proof):
+    def validate_mantle_op(txhash, opcode, payload, op_proof, state):
         if opcode == CHANNEL_INSCRIBE:
-            validate_channel_inscribe(txhash, payload, op_proof)
+            validate_channel_inscribe(txhash, payload, op_proof, state)
         # elif opcode == ...
         #    ...
-    ```
 
-3. The Mantle Transaction excess balance pays least the mandatory fees.
-    ```python
-    tx_mandatory_fee = mandatory_gas_fees(signed_tx)  # int128
-    tx_balance = get_transaction_balance(signed_tx)   # int128
-    assert tx_mandatory_fee <= tx_balance
-    tx_priority_tip = checked_uint64(tx_balance - tx_mandatory_fee)
-
-    def get_transaction_balance(signed_tx: SignedMantleTx) -> int128:
-        balance = 0   # Signed 128-bit accumulator: the balance can be legitimately negative
-        for op in signed_tx.tx.ops:
-            if op.opcode == TRANSFER:
-                for inp in op.inputs:
-                    balance = checked_int128(balance + get_value_from_note_id(inp))
-                for out in op.outputs:
-                    balance = checked_int128(balance - out.value)
+    def accumulate_balance(balance: int128, op, state) -> int128:
+        if op.opcode == TRANSFER:
+            for inp in op.inputs:
+                balance = checked_int128(balance + get_value_from_note_id(inp, state))
+            for out in op.outputs:
+                balance = checked_int128(balance - out.value)
         return balance
     ```
+
+3. The Mantle Transaction excess balance pays at least the mandatory fees.
+    ```python
+    tx_mandatory_fee = mandatory_gas_fees(signed_tx)  # int128
+    assert tx_mandatory_fee <= balance
+    tx_priority_tip = checked_uint64(balance - tx_mandatory_fee)
+    ```
+
+Validation and execution are **interleaved**: each Operation is validated, its contribution to the balance accumulated, and then executed, before the next Operation is validated. Earlier versions of this specification validated every Operation against the pre-transaction state and only then executed them all.
+
+The reason for the change is that a note created by one Operation must be spendable by a later Operation in the same transaction. Under the previous ordering such a note did not exist at the time any Operation was validated, so it could not be referenced, and an Operation that issues a note could not have that note spent to pay the transaction's own fee. Interleaving is what makes that possible, and it is a general property of Mantle rather than one specific to any single Operation.
+
+Interleaving has a second effect, distinct from the one it was introduced for: an Operation validated against a protocol-maintained reserve sees that reserve as the Operations before it have left it. A transaction carrying several claims against the proof of work reward pool therefore has each of them checked against the pool net of its predecessors, rather than all of them checked against the pool as it stood before the transaction began. Under the previous ordering every such claim would have passed a check the pool could not actually satisfy, and the shortfall would have surfaced only as a failed subtraction during execution. This is a consequence of interleaving rather than a reason for it, but it is what makes the pool guard in [CLAIM_POW_REWARD](#claim_pow_reward) sound within a transaction as well as between them.
+
+Two further consequences follow, and both are load-bearing.
+
+The first is that the balance must be **accumulated as the Operations execute** rather than computed from the ledger afterwards. A `TRANSFER` consumes its input notes when it executes, so by the time the last Operation has run those notes are gone and their values can no longer be looked up. Computing the balance after the fact would therefore fail for every transaction that spends anything, not merely for those that spend a note created within the transaction.
+
+The second is an **ordering rule**: a note created by Operation $`i`$ is spendable only by Operations $`j \gt i`$ in the same transaction. An Operation cannot consume a note created later in the same transaction, because it does not yet exist when that Operation is validated, and it cannot consume its own output.
+
+Atomicity is unaffected. The interleaving changes only what each Operation can see; if any Operation fails validation, or the fee check at the end does not hold, the whole transaction is rejected and none of its effects are applied.
 
 ## Execution
 
@@ -214,7 +235,7 @@ SignedMantleTx(
 )
 ```
 
-Mantle Validators execute sequentially each Operation in `ops` according to its opcode.
+Mantle Validators execute each Operation in `ops` according to its opcode, in order, interleaved with validation as described above. An Operation is executed only once the Operations before it have been validated and executed.
 
 # Operations
 
@@ -233,9 +254,11 @@ Mantle Validators execute sequentially each Operation in `ops` according to its 
 | SDP_DECLARE | 0x20 | Declare intention to participate as a node in a Bedrock Service, locking funds as collateral. |
 | SDP_WITHDRAW | 0x21 | Withdraw participation from a Bedrock Service, unlocking your funds in the process. |
 | SDP_ACTIVE | 0x22 | Signal that you are still an active participant of a Bedrock Service. |
-| *RESERVED* | *0x23 - 0xFF* |  |
+| *RESERVED* | *0x23 - 0x2F* |  |
 | LEADER_CLAIM | 0x30 | Claim leader reward anonymously. |
-| *RESERVED* | *0x31 - 0xFF* |  |
+| *RESERVED* | *0x31 - 0x3F* |  |
+| CLAIM_POW_REWARD | 0x40 | Claim a reward from the proof of work reward pool. |
+| *RESERVED* | *0x41 - 0xFF* |  |
 
 ## Channel Operations
 
@@ -1538,6 +1561,450 @@ SignedMantleTx(
 )
 ```
 
+## Proof of Work Operations
+
+Validators must maintain the following state to process proof of work Operations:
+
+```python
+pow_reward_pool: TokenValue      # Reserve the rewards are paid from
+epoch_pow_reward: TokenValue     # sigma_e: reward per claim, fixed for the epoch
+difficulty_reward: PowTarget     # d_reward: the reward threshold, retargeted every block
+pow_nullifiers: set[zkhash]      # Spent solutions, retained for the acceptance window
+block_slots: dict[hash, SlotNumber]  # Slots of recently seen blocks, for the window check
+```
+
+`PowTarget` is a scalar field element, and every operation on one is defined over its **canonical integer representative** in $`[0, p-1]`$. A field has no order and no floor division, so neither the comparison below nor the controller arithmetic in [Reward Difficulty](#reward-difficulty) and [Blend Difficulty](#blend-difficulty) is field arithmetic: a ticket is accepted when its representative is strictly below the target's, targets are multiplied and floor-divided as arbitrary-precision integers in accordance with [Arithmetic](#arithmetic), and each controller caps its result below $`p`$, so the representative converts back to a field element without modular reduction ever occurring. A **smaller** target is a **harder** puzzle.
+
+The reward pool is a reserve of tokens the protocol pays claims from. It is seeded once at genesis and refilled at each epoch boundary from a share of the fees collected over the previous epoch, as specified in [Reward Pool](#reward-pool). It is not minted on demand: a claim transfers tokens that already exist into circulation, and cannot be executed if the pool cannot cover it.
+
+### Window of Acceptance
+
+A claim references a recent block by hash. The reference is checked against the slot of the block including the claim, so that a solution cannot be presented arbitrarily long after it was found:
+
+```python
+EXPECTED_BLOCKS_PER_WINDOW: uint64 = 10   # W_b: window depth, in expected blocks
+
+def accept_claim_pow_op(claim: ClaimPowRewardOp, current_slot: SlotNumber) -> bool:
+    block = get_block_from_hash(claim.block_hash)   # None if unknown or not canonical
+    if block is None:
+        return False
+    return 0 <= current_slot - block.slot <= WINDOW
+```
+
+The window is measured in slots, but it is **specified in blocks** and derived from the slot activation coefficient $`f`$ given in [Constants](cryptarchia-v1-protocol.md#constants):
+
+$$
+\mathrm{WINDOW} = \left\lfloor \frac{W_b}{f} \right\rfloor
+$$
+
+With $`W_b = 10`$ and $`f = 1/30`$ this is $`300`$ slots.
+
+The derivation matters more than the number. What the window bounds is staleness, and staleness is a property of how far the chain has moved on, not of elapsed time. Only $`f`$ relates the two: a slot count fixed independently of it would silently come to mean a different number of blocks whenever the block rate were retuned, tightening or loosening the check without anyone changing it. Expressing the window as a block depth keeps its meaning stable under that change, and states the quantity a reader actually needs — how many blocks deep a claim's anchor may be — rather than one they would have to convert.
+
+Because block production is a lottery, $`W_b`$ is an expectation rather than a bound. A run of empty slots means fewer than $`W_b`$ blocks fall inside the window, and a dense run means more.
+
+The window also bounds how long nullifiers must be retained. A solution referencing a block that has aged out of the window is rejected by this check regardless of whether its nullifier is still held, so nullifier entries may be discarded once their referenced block leaves the window. Retention is therefore proportional to $`W_b`$, and enlarging the window enlarges every validator's nullifier set in proportion.
+
+Because `get_block_from_hash` resolves against the canonical chain, a claim whose referenced block is reorganised out becomes invalid. A claim already propagated but not yet included may therefore stop being includable, and must be re-mined against a block that is still canonical. Note that $`W_b`$ is far shallower than the security parameter $`k`$, so a block inside the window is not yet immutable and this case is expected rather than exceptional.
+
+### CLAIM_POW_REWARD
+
+This Operation claims a reward from the proof of work reward pool by presenting a puzzle solution.
+
+#### Payload
+
+```python
+class ClaimPowRewardOp:
+    epoch_nonce: zkhash        # Epoch nonce the solution was found against
+    block_hash: hash           # Recent canonical block the solution is anchored to
+    public_key: ZkPublicKey    # Key the reward note is paid to
+```
+
+The puzzle ticket is derived from the payload:
+
+```python
+def get_puzzle_ticket(claim: ClaimPowRewardOp) -> zkhash:
+    return zkhash(
+        claim.epoch_nonce,
+        FiniteField(claim.block_hash, byte_order="little", modulus=p),
+        claim.public_key,
+    )
+```
+
+where $`p`$ is the scalar field modulus given in [Common Cryptographic Components](common-cryptographic-components.md). A miner searches for a `public_key` whose ticket falls below the reward threshold; the corresponding secret key is what allows the reward note to be spent afterwards. The secret key must be sampled with full entropy rather than enumerated, because it both remains secret and authorises spending the reward.
+
+Note that this derivation carries no domain separation tag.
+
+#### Proof
+
+  `None`. This Operation carries no signature and no zero-knowledge proof. The authorisation is the puzzle solution itself, which is re-derived from the payload and checked during validation. The corresponding entry in `op_proofs` is `None`.
+
+#### Execution gas
+
+  Claim Operations have a fixed Execution Gas cost of `EXECUTION_CLAIM_POW_REWARD_GAS`. See [Gas Determination](#gas-determination) for the Execution Gas values. It is paid as part of the transaction's normal fee, which is typically settled from the reward note itself.
+
+#### Validation
+
+  *Given*
+
+```python
+claim: ClaimPowRewardOp            # the CLAIM_POW_REWARD payload
+                                   # op_proof is None for this Operation
+
+current_slot: SlotNumber           # slot of the block including this claim
+difficulty_reward: PowTarget       # d_reward, retargeted every block
+pow_nullifiers: set[zkhash]        # spent solutions, retained for WINDOW
+pow_reward_pool: TokenValue
+epoch_pow_reward: TokenValue       # sigma_e
+```
+
+  *Validate*
+
+```python
+# 1. Claiming must be enabled for this block: the pool must be able to cover a reward.
+assert epoch_pow_reward > 0
+assert pow_reward_pool >= epoch_pow_reward
+
+# 2. The referenced block must be canonical and within the acceptance window.
+assert accept_claim_pow_op(claim, current_slot)
+
+# 3. The solution must have been found against the current epoch.
+assert claim.epoch_nonce == get_current_epoch_nonce()   # the Cryptarchia epoch nonce
+
+# 4. The ticket must satisfy the reward threshold.
+puzzle_ticket = get_puzzle_ticket(claim)
+assert puzzle_ticket < difficulty_reward
+
+# 5. The solution must not have been claimed before. The nullifier is the ticket,
+#    so the value computed in step 4 is reused.
+assert puzzle_ticket not in pow_nullifiers
+```
+
+  The nullifier of a claim is its puzzle ticket, which is determined by the payload and unique to a winning key:
+
+```python
+def pow_nullifier(claim: ClaimPowRewardOp) -> zkhash:
+    return get_puzzle_ticket(claim)
+```
+
+  This Operation performs no fee or balance check of its own. The transaction's fee is settled at the transaction level as normal.
+
+  The first condition is what prevents the pool being drawn negative, and its two clauses fail in different circumstances. `epoch_pow_reward > 0` fails once the pool has fallen, over many epochs, below the point where the division in [Reward Pool](#reward-pool) rounds down to zero. `pow_reward_pool >= epoch_pow_reward` fails when the pool has been drained within a single epoch to less than one reward, which is possible because the reward is held fixed for the epoch while the pool it is paid from shrinks with every claim. Both are evaluated per claim, against the pool as it stands at that point in the block, so claiming stops the moment either fails and resumes only when the condition holds again. [Reward Pool](#reward-pool) sets out what each requires and how claiming recovers.
+
+  The epoch nonce in step 3 is the Cryptarchia epoch nonce $`\eta`$ defined in [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce), the same value the consensus lottery uses. A claim built against any other epoch is rejected, so a solution is usable only within the epoch it was found in and must be re-mined afterwards.
+
+  Note that this does not make a solution unpredictable in advance. The epoch nonce is fixed part way through the *preceding* epoch and is public from that moment, so solutions for an epoch can be computed before it begins. What bounds a solution's age is the acceptance window on `block_hash`, which is $`W_b`$ blocks deep and therefore far tighter than an epoch.
+
+#### Execution
+
+  *Given*
+
+```python
+claim: ClaimPowRewardOp
+
+ledger: Ledger
+pow_reward_pool: TokenValue
+epoch_pow_reward: TokenValue       # sigma_e, fixed for the epoch
+pow_nullifiers: set[zkhash]
+```
+
+  *Execution*
+
+  1. Add `pow_nullifier(claim)` to the `pow_nullifiers` set, so the solution cannot be claimed again. The entry is retained until the claim's referenced block leaves the acceptance window.
+  2. Construct a single output note of value `epoch_pow_reward` under the public key given in the payload, and insert it into the Ledger:
+      ```python
+      output_note = Note(
+          value = epoch_pow_reward,
+          public_key = claim.public_key,
+      )
+      claim_id = derive_op_id(claim)
+      ledger.execute_adding(claim_id, [output_note])
+      ```
+
+  3. Reduce the `pow_reward_pool` by the same amount:
+      ```python
+      pow_reward_pool = checked_uint64(pow_reward_pool - epoch_pow_reward)
+      ```
+
+  This mirrors `LEADER_CLAIM`: a single output note of a protocol-determined value, inserted with no zero-knowledge proof of any input, with the source pool decremented by the same amount.
+
+#### Example
+
+A miner searches for a key whose ticket clears the reward threshold, then spends the resulting note to pay the fee of the very transaction that creates it. No tokens are required beforehand.
+
+```python
+# Mine against a recent canonical block and the current epoch nonce.
+block_hash   = recent_canonical_block_hash()
+epoch_nonce  = get_current_epoch_nonce()
+reward_sk, reward_pk = pow_search(block_hash, epoch_nonce, difficulty_reward)
+
+claim = ClaimPowRewardOp(
+    epoch_nonce=epoch_nonce,
+    block_hash=block_hash,
+    public_key=reward_pk,
+)
+
+# The reward note's id is known before submission, because epoch_pow_reward is
+# fixed for the epoch and the payload determines the Operation id.
+claim_id       = derive_op_id(claim)
+reward_note    = Note(value=epoch_pow_reward, public_key=reward_pk)
+reward_note_id = derive_note_id(claim_id, 0, reward_note)
+
+# A following TRANSFER spends that note to pay the fee and keep the change.
+transfer = Transfer(inputs=[reward_note_id], outputs=[change_note])
+
+tx = MantleTx(
+    ops=[Op(opcode=CLAIM_POW_REWARD, payload=encode(claim)),
+         Op(opcode=TRANSFER,         payload=encode(transfer))],
+)
+
+SignedMantleTx(
+    tx=tx,
+    op_proofs=[None,                       # authorisation is the solution in the payload
+               transfer.prove(reward_sk)],
+)
+```
+
+This is what makes a claim **self-funding**, and it works only because of two properties established elsewhere in this specification. The reward amount is fixed for the whole epoch, so the note's value — and therefore its identifier — can be computed before the transaction is submitted. And validation is interleaved with execution, so by the time the `TRANSFER` is validated the note it spends already exists.
+
+Both properties are required. If the reward varied within the epoch the wallet could not name the note in advance, and if validation ran entirely before execution the note would not exist when the `TRANSFER` was checked.
+
+### Reward Pool
+
+The reward per claim is a fixed fraction of the pool, divided by the number of claims an epoch is expected to accept:
+
+```python
+EPOCH_POW_DISTRIBUTION_RATE_NUM: uint64 = 1     # rho, as a fraction NUM / DEN
+EPOCH_POW_DISTRIBUTION_RATE_DEN: uint64 = 200
+TARGET_CLAIMS_PER_BLOCK: uint64 = 10      # T
+EXPECTED_BLOCKS_PER_EPOCH: uint64 = 21_600      # N_b, derived below
+
+def compute_epoch_pow_reward(pow_reward_pool: TokenValue) -> TokenValue:
+    denominator = (EPOCH_POW_DISTRIBUTION_RATE_DEN
+                   * TARGET_CLAIMS_PER_BLOCK
+                   * EXPECTED_BLOCKS_PER_EPOCH)
+    return (pow_reward_pool * EPOCH_POW_DISTRIBUTION_RATE_NUM) // denominator
+```
+
+`EXPECTED_BLOCKS_PER_EPOCH` is not a free choice and is not defined here: it is the **expected number of blocks in an epoch** defined in [Cryptarchia](cryptarchia-v1-protocol.md#epoch-schedule) — the epoch length times the slot activation rate, which reduces to $`10k = 21{,}600`$. The value is restated as a constant because this is where it enters consensus arithmetic, and a change to Cryptarchia's epoch length or activation rate changes it here identically. More generally, the constant values throughout this section are **mainnet values**; a test network may substitute values sized to its expected activity, provided the relations this section derives between them are preserved.
+
+The division rounds down, and what the flooring withholds is not lost: it simply remains in the pool, to be counted again at the next boundary. `TARGET_CLAIMS_PER_BLOCK` is the same value the reward difficulty steers toward, so the two uses are consistent by construction: the reward is sized for the rate the controller is targeting.
+
+Its value does not determine how much an epoch distributes. As shown below, an epoch running at the target rate pays out the fraction $`\rho`$ of the pool whatever the target is, so the target divides a fixed amount into a chosen number of parts rather than setting the amount. What it determines is how much of that amount survives being divided.
+
+Every claim pays a transaction fee out of the reward it receives, so of the amount an epoch distributes, a part equal to the target times the fee is immediately returned as fees and only the remainder reaches a claimant. Writing $`\beta`$ for the pool's share of the fees collected and $`n`$ for the transactions a block carries, the amount an epoch delivers net of those fees is proportional to $`\beta n - T`$. **The target subtracts from what the mechanism delivers, at whatever share is chosen.** Raising it does not spread the same benefit more widely; it spreads a smaller benefit more widely, and at $`T = \beta n`$ the reward per claim falls to the fee, nothing reaches anyone, and claiming stops.
+
+The target is therefore set as low as the remaining consideration allows, which is variance. The relative variation in a Poisson count of `T` is $`1/\sqrt{T}`$, so a low target makes the number of claims a given block carries erratic. That variation is absorbed by the difficulty controller and affects which blocks carry claims rather than what a claim is worth: the per-claim reward is fixed for the whole epoch and does not depend on how many claims any one block happens to contain.
+
+The target is set to 10, at which a block's claim count varies by about a third. At the specified share of a tenth of the fees collected, on a block of six hundred transactions, this leaves about four fifths of the distribution reaching claimants; the same share at a target of 50 would sit at break-even, with the claims' own fees consuming essentially all of it. Claims occupy roughly one percent of a full block at this target, so they do not compete for block space with ordinary traffic.
+
+It is stated as an absolute count rather than as a proportion of the transactions a block actually carries. A proportion would let claim throughput follow demand, and would keep the reward per claim in a fixed relation to the fee at any level of usage; it would also make the target vary block by block, which the reward computation above and the controller below both assume it does not. The absolute form is specified here.
+
+At each epoch boundary, before any block of the new epoch is processed, the pool is credited with the refill accrued over the previous epoch and the per-claim reward is then recomputed from the refilled pool:
+
+```python
+POW_SHARE: uint64 = 10                    # beta, as the fraction POW_SHARE / SHARE_DEN
+SHARE_DEN: uint64 = 100
+
+def on_epoch_boundary(epoch_blocks: list[Block]):
+    pow_reward_pool = checked_uint64(pow_reward_pool + get_pow_pool_refill(epoch_blocks))
+    epoch_pow_reward = compute_epoch_pow_reward(pow_reward_pool)
+```
+
+`get_pow_pool_refill` sums, over the blocks of the epoch that just ended, the fraction `POW_SHARE / SHARE_DEN` of the fees each block collected, as specified in [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool). Those tokens are diverted from the fee burn rather than minted, so refilling the pool never adds to the supply; who bears the cost of the diversion is set out in that section, and depends on where the emission model's blend of minting and recycling sits.
+
+The share is set to a tenth, and it is bounded from both directions. From below, the reward must exceed the fee by enough margin that a claim is worth making and that the tip a block builder recovers on its own claims is not a material advantage, which by the relation above requires the share to be at least twice the target claim rate divided by the transactions a block carries. From above, [Cryptoeconomics](overview-cryptoeconomics.md#who-bears-the-cost-of-the-diversion) shows that in the mature network the diversion is borne by the Blend service and the leaders, so the share is a claim on the funding of the privacy layer and consensus, and proof of work is intended to be an entry path rather than a competitive alternative to them. A tenth leaves the mining share at rather less than a third of the leader share while giving a reward several times the fee at the traffic levels the fee market is designed around. Setting it to zero disables refilling and leaves the pool to run down from its genesis seed alone.
+
+All arithmetic here is checked, in accordance with [Arithmetic](#arithmetic). The pool must not saturate: saturating at the maximum representable value would create tokens that were never allocated, which is precisely the failure the checked-arithmetic rule exists to prevent.
+
+Fixing the reward for the whole epoch is what allows a wallet to compute a reward note's identifier before submitting a claim, and therefore what makes a self-funding claim possible at all. The pool is drawn down by claims within the epoch, but the per-claim value is not recomputed until the next boundary.
+
+#### Exhaustion within an epoch
+
+**The distribution rate is not a spending cap.** $`\rho`$ divides the pool by the number of claims an epoch is *expected* to accept; it does not limit how many are accepted. Nothing stops a block from carrying more claims than the target, and nothing stops an epoch from paying out more than the fraction $`\rho`$ of its pool. Claims are paid, one after another, for as long as the pool can cover the next one, and are rejected from the moment it cannot.
+
+The rejection is not a special case. It is the first condition of [Validation](#claim_pow_reward) above, evaluated for every claim against the pool as it stands at that point in the block, so a block may contain claims that were accepted followed by claims that were rejected, and a claim that fails only because the pool is exhausted is simply an invalid Operation and its transaction is rejected whole.
+
+Exhausting the pool this way requires the claim rate to exceed the target by a factor of $`1/\rho`$ for a whole epoch, because a claim pays $`\rho`$ of the pool divided by the target claim count. At the values specified here that is `TARGET_CLAIMS_PER_BLOCK` divided by $`\rho`$, or two thousand claims in every block for seven and a half days, against a `MAX_BLOCK_TXS` of 1024. **It is therefore impossible by construction**: no sequence of valid blocks can carry the required rate, whatever happens to the reward difficulty controller — which continues to hold the actual rate two orders of magnitude below even the old threshold, as defence in depth rather than as the load-bearing guarantee. The condition nevertheless remains, so that if a future change to `MAX_BLOCK_TXS` or to these constants ever reopened the path, the result would be that claiming stops, rather than that the pool goes negative or the protocol pays out tokens it does not hold.
+
+Claiming recovers by itself. At the next epoch boundary the refill is credited and `epoch_pow_reward` is recomputed from the refilled pool, so a pool that was drained to a fraction of one reward yields a correspondingly smaller reward in the epoch that follows, and claiming resumes at that lower value. The mechanism degrades to a smaller reward rather than stopping permanently, and it stops permanently only when the pool falls so far that the recomputed reward rounds down to zero.
+
+Because the payout at the target claim rate is $`T \cdot N_b \cdot \sigma_e`$, and $`\sigma_e`$ is the pool's fraction $`\rho`$ divided by $`T \cdot N_b`$, an epoch running at the target rate distributes exactly the fraction $`\rho`$ of the pool, whatever the target rate is set to. The target claim rate therefore governs how many participants share the epoch's distribution and how much each receives, not how much is distributed in total.
+
+`EPOCH_POW_DISTRIBUTION_RATE` is set to a two-hundredth. It does not determine the reward: as shown below, the level the reward settles at contains no $`\rho`$ at all. What it sets is **the size of the standing reserve**, because the pool settles where the refill and the payout balance, which is at $`1/\rho`$ epochs' worth of distribution. A two-hundredth therefore means the pool holds about two hundred epochs of distribution — some four years — permanently, an amount that at the settled token precision is on the order of $`10^{-7}`$ of the supply.
+
+Three things once argued for a larger $`\rho`$ and one for a smaller, and the balance between them moved when the token's unit system was settled. Larger reduces the reserve held out of circulation and the endowment floor — but at the settled precision both are on the order of $`10^{-7}`$ of the supply at either candidate value, so neither discriminates any longer. Larger also shortens the lag with which the reward follows fee revenue; that cost is real, but it binds only once the pool is fee-funded, which at the genesis endowment specified below is decades away — through the whole bootstrap era the reward is set by the endowment's decay, which a smaller $`\rho`$ makes slower and less profligate, halving the opening over-payment and reducing what an adversarial miner can accumulate while the network's stake is still thin. Against that, a smaller $`\rho`$ widens the margin on the within-epoch drain, which by [Exhaustion within an epoch](#exhaustion-within-an-epoch) takes `TARGET_CLAIMS_PER_BLOCK` divided by $`\rho`$ claims in every block: at a two-hundredth that is two thousand claims per block against a `MAX_BLOCK_TXS` of 1024 — **impossible by construction rather than merely prevented**, and remaining so up to a doubling of the block capacity. A hundredth left the same margin at a thousand against 1024, thin and resting on the difficulty controller; a fiftieth would put the drain within reach of blocks half full of claims, which is not acceptable. A two-hundredth is where the pressures now meet, and is the value specified.
+
+`POW_REWARD_POOL_GENESIS` is set to **five thousandths of the supply at network launch**. Its constraints and the relationship the three parameters must satisfy are given below and in [Genesis](#genesis).
+
+The relationship the three must satisfy is that a claim's reward exceeds its fee. Two of them fix where the reward settles, and the third fixes how long it takes to get there.
+
+Left alone, the pool converges: each epoch it gains the refill and loses the fraction $`\rho`$ it distributes, so it approaches the level at which the two balance, and there the reward per claim is simply the refill divided by the number of claims the epoch is expected to accept. Since the refill is the share $`\beta`$ of the fees the epoch collected, and those fees are the number of transactions times the fee each pays, the settled reward per claim is $`\beta`$ times the fees one block collects, divided by `TARGET_CLAIMS_PER_BLOCK`. The distribution rate $`\rho`$ cancels out of this: it sets how fast the pool converges and how much of the pool is paid out in any one epoch, not the level the reward settles at.
+
+Comparing that against the fee a claim itself pays, and taking every transaction in a block to pay a comparable fee, the reward covers the fee once a block carries at least `TARGET_CLAIMS_PER_BLOCK` divided by $`\beta`$ transactions. At the specified target of 10 and share of a tenth, that point is about one hundred and twenty transactions per block, and the reward is twice the fee at about two hundred and forty and five times the fee at six hundred.
+
+**The share and the claim target are not independent**: holding the margin fixed, the share required is proportional to the target. They must be chosen together against the traffic the network is expected to sustain, and the target should be chosen first and low, because for any given share it subtracts directly from what the mechanism delivers.
+
+Below that level of traffic the pool pays out more than it takes in and draws down toward the settled level from above. Starting it above that level is what the genesis endowment is for: it buys a period during which the reward exceeds the fee even though the fee inflow alone would not sustain it. `POW_REWARD_POOL_GENESIS` and $`\rho`$ together set how long that period lasts.
+
+### Genesis
+
+The pool is seeded once, at genesis, with `POW_REWARD_POOL_GENESIS`, as specified in [Bedrock Genesis Block](bedrock-genesis-block.md). After that it changes only through the epoch-boundary refill and through claims.
+
+The seed is **five thousandths of the supply at network launch**. Two floors bound it from below. The first is the pool size at which a claim stops covering its own fee, which is the fee multiplied by the target claim rate and the blocks in an epoch, divided by $`\rho`$; nothing smaller is a working endowment at all. The second is larger and is what actually decides the value: the pool must stay above that floor for as long as it takes the fee inflow to grow into sustaining the reward by itself, and since the pool drains at $`\rho`$ throughout that period, a slower arrival of traffic costs disproportionately more. How long the seed lasts depends on the fee level the markets discover, because the floor it must stay above is proportional to the fee: while prices sit near their lepton-denominated floor the seed would sustain claiming for decades with no traffic at all, and the constraint tightens only as discovered prices rise toward the ceiling below.
+
+It is stated as a fraction of the launch supply rather than as a count of lepta because that is the form in which it is a decision about how the initial supply is divided, which is what it is. The opening reward per claim follows from the fraction, $`\rho`$ and the target claim rate alone.
+
+Whether that reward is generous enough is a separate question, and it is settled by the **price level the two fee markets discover**, since the fee a claim pays is its size and gas multiplied by those prices. A seed of five thousandths yields an opening reward that exceeds twice the claim's fee for as long as the fee is at or below $`1.157 \times 10^{-10}`$ of the launch supply; the constraint is stated as a fraction of supply so that it is independent of the unit. At the markets' resting floor a claim's fee is under $`10^{-15}`$ of supply — 6,664 lepta against $`10^{19}`$ — so the ceiling binds only if discovered prices rise some five orders of magnitude above the floor. It is a bound on how far price discovery can run before claiming stops paying for itself, not a launch-day check. A larger seed relaxes it in proportion.
+
+The seed is drawn from the initial token distribution rather than minted. This is what keeps claiming outside the protocol's emission envelope: the seed consists of tokens that exist from genesis, and the refill of fees that were paid and would otherwise have been burnt, so claiming redirects tokens rather than creating them. It never raises issuance above what the emission model would otherwise allow.
+
+### Reward Difficulty
+
+`difficulty_reward` is part of consensus state and is updated **every block**, steering the number of accepted claims toward `TARGET_CLAIMS_PER_BLOCK`. It is independent of the Blend threshold used by [Proof of Quota](proof-of-quota.md), which is a per-epoch value and is never evaluated here.
+
+```python
+EMA_SMOOTHING_FACTOR: uint64 = 9      # F, the weight given to the previous estimate
+EMA_SMOOTHING_PRECISION: uint64 = 10  # P, the scale F is expressed against; F < P
+
+def compute_new_reward_difficulty(claims_in_block: uint64,
+                                  current_target: PowTarget) -> PowTarget:
+    # `current_target` and the result are canonical integer representatives of
+    # their field elements; the arithmetic is over arbitrary-precision integers per
+    # [Arithmetic], and the capped result converts back without reduction.
+    # The demand implied by this block, reconstructed from the target that
+    # produced it, then smoothed against the target rate. Floored at 1 so the
+    # division below is always defined, including when no claims arrived.
+    demand = max(1, (EMA_SMOOTHING_PRECISION - EMA_SMOOTHING_FACTOR) * claims_in_block
+                    + EMA_SMOOTHING_FACTOR * TARGET_CLAIMS_PER_BLOCK)
+    new_target = (TARGET_CLAIMS_PER_BLOCK * current_target
+                  * EMA_SMOOTHING_PRECISION) // demand
+    # Capped so that converting back into the field cannot reduce modulo p and
+    # turn a very easy target into a very hard one.
+    return min(new_target, p - 1)
+```
+
+The ordering is part of consensus. Every claim in a block is validated against the target produced by the previous block's update; the update from a block's own accepted count is applied after the block is processed and governs the next block. Genesis supplies the value the first block is validated against.
+
+The controller holds no state of its own beyond the current target. Rather than remembering a running estimate of demand, it reconstructs one from the target in force, on the assumption that the target was calibrated to the intended rate. This is what keeps it a single value in consensus state.
+
+Two properties follow, and both matter for its safety. When a block accepts exactly the target number of claims the target is unchanged, so the intended rate is a fixed point. When a block accepts none, the numerator is floored at 1 and the target moves up by a factor of $`P/F`$ — bounded, and in the direction of making claiming easier, so a period without claims cannot lock the mechanism. The smoothing means a single unusual block moves the target only slightly, so no separate per-block clamp is required.
+
+The rate the controller observes is the rate of claims **included in blocks**, not the rate at which solutions are found. Solutions that are never included, because a block builder declined to include them or because block space was exhausted, are invisible to it. Difficulty therefore tracks accepted demand rather than offered demand, and the two diverge when block space is contended.
+
+A block builder may include its own claims. The controller makes this self-correcting: claims a builder awards itself raise the observed rate like any other, which tightens the target and raises the work required for every subsequent claim, including the builder's own.
+
+#### Choosing the smoothing and the genesis target
+
+The smoothing is nine parts in ten, matching the exponential moving average the execution market uses for the same reason. Equivalently: normalize each block's count by the target that produced it (an estimate of demand), smooth that estimate with an EMA of weight $`F/P`$, and set the next target so the smoothed demand yields the target count — the retarget above is that controller with the smoothed estimate stored inside the target itself (the invariant is that the estimate equals `TARGET_CLAIMS_PER_BLOCK` divided by the current target), which is why no second state variable appears and only one rounding site exists. The two constants are therefore a single ratio; `EMA_SMOOTHING_PRECISION` is exactly what its name says. The ratio is what sets both of the properties above: at the target rate the response has slope $`F/P`$, which is below one and therefore stable, with a time constant of about ten blocks; at zero claims it has slope $`P/F`$, which is above one, so the no-claims state pushes away rather than trapping. Any pair with $`F \lt P`$ preserves both signs, so the choice sets how fast the controller responds rather than whether it is stable, and nine in ten places the response an order of magnitude slower than the block rate — fast enough to track a change in hashrate within minutes, slow enough that one unusual block barely moves the target.
+
+`difficulty_reward` is set at genesis to the scalar field modulus divided by $`2^{26}`$. Note that a reward candidate costs more than a Blend candidate: the claim's ticket is bound to a public key, so each candidate derives a key and then a ticket, where the Blend puzzle hashes a bare nonce. The value matters much less than it appears to, because it is only the seed of a controller that re-derives the target every block, and **its error is asymmetric**. Setting it too permissive over-pays: the first blocks accept more than the target, and the excess is bounded by how quickly the controller tightens, which for an initial value a hundredfold too permissive comes to some twelve hundred extra claims over about twenty blocks — in aggregate about three thousandths of one percent of the genesis pool. Setting it too hard costs only time: with no claims arriving the target rises by a factor of $`P/F`$ each block, so an initial value a hundredfold too hard corrects itself within an hour and nothing is lost.
+
+Since being wrong in one direction costs tokens and in the other costs minutes, the genesis value is chosen on the hard side. At $`2^{26}`$ a solution is around three hours of work on one core of the target machine, so reaching the target claim rate requires a few thousand cores of honest mining across the whole network — deliberately more than a launch is likely to attract, so that the controller's first move is to loosen. It is set independently of the Blend threshold, and more conservatively, because the two answer different questions: one is the price of a message, the other only the seed of a controller that will correct it within the hour.
+
+### Blend Difficulty
+
+`difficulty_blend` is the threshold used by the proof of work branch of [Proof of Quota](proof-of-quota.md) to admit messages to the Blend network. It is consensus state and is maintained here, alongside the reward difficulty, because it must be agreed by every node and is derived from on-chain observations. It is never evaluated by any Operation.
+
+The two difficulties are independent. They gate different things, are computed from different observations, and neither implies the other: a solution may satisfy one, both, or neither. Coupling them would force one objective to distort the other, since they are steering unrelated quantities.
+
+Unlike the reward difficulty, `difficulty_blend` is recomputed **once per epoch** and held fixed for the whole epoch. This is required rather than a simplification: the value is a public input to the proof, so a value that changed within an epoch would partition that epoch's proofs into distinguishable classes and leak which participants produced which messages.
+
+**When it is computed matters as much as how.** The value for epoch $`N`$ is fixed at the same moment as epoch $`N`$'s nonce — the lottery-constants snapshot taken during epoch $`N-1`$, as specified in [Epoch](cryptarchia-v1-protocol.md#epoch) — and its input is the transaction load of epoch $`N-2`$, the last epoch complete at that snapshot. Fixing it at the boundary instead, from epoch $`N-1`$'s full load, would leave the [precomputation window](proof-of-quota.md#precomputation-of-proof-of-work-solutions) that the epoch nonce deliberately opens without one of its public inputs: a prover can grind solutions for an epoch from the moment its nonce is public, and can do so only if the threshold those solutions must meet is public at the same moment. The price is one further epoch of lag in the controller's input, which the per-epoch clamp makes immaterial — the response was already gradual by design. For the first two epochs no complete input epoch exists, so `difficulty_blend` is `BLEND_DIFFICULTY_BASE` for epochs 0 and 1, and the schedule begins with epoch 2, computed during epoch 1 from epoch 0's load.
+
+The control objective is transaction load, for the anonymity-set reason given in [Blend Difficulty](blend-protocol.md#blend-difficulty). At the reference load the threshold sits at a baseline; above it admission tightens, below it admission loosens.
+
+```python
+BLEND_DIFFICULTY_BASE: PowTarget = p // 2**19   # Threshold at the reference load
+TARGET_TXS_PER_BLOCK: uint64 = 512              # Reference transactions per block
+BLEND_DAMPING_NUM: uint64 = 1                   # a, where the exponent is alpha = a / b
+BLEND_DAMPING_DEN: uint64 = 2                   # b, with 0 < a <= b so that alpha <= 1
+BLEND_MAX_STEP: uint64 = 2                      # Max factor the threshold may move per epoch
+
+def compute_epoch_blend_difficulty(epoch_blocks: list[Block],   # the blocks of epoch N-2
+                                   previous: PowTarget) -> PowTarget:  # d_blend of epoch N-1
+    # All quantities here are canonical integer representatives of their field
+    # elements; the arithmetic is over arbitrary-precision integers per [Arithmetic], and
+    # the capped result converts back to a field element without reduction.
+    # Observed load as an exact ratio, never divided: num == den at the reference load.
+    num = sum(num_transactions(b) for b in epoch_blocks)
+    den = TARGET_TXS_PER_BLOCK * len(epoch_blocks)
+
+    lo = previous // BLEND_MAX_STEP
+    # Capped below the field modulus for the same reason as the reward retarget:
+    # a target at or above p is no threshold at all, since every ticket is a
+    # field element and would satisfy it.
+    hi = min(previous * BLEND_MAX_STEP, p - 1)
+
+    if num == 0:
+        return hi   # No load observed: as permissive as this epoch's clamp allows.
+
+    # A smaller target is harder, so load divides the baseline:
+    #     target = BASE / load ** alpha
+    # Every quantity is an integer and only the final root is floored, so the
+    # result is at most one unit away from the exact value.
+    a, b = BLEND_DAMPING_NUM, BLEND_DAMPING_DEN
+    # The radicand reaches roughly 2**487 and is computed over unbounded
+    # integers, per [Arithmetic]; no fixed-width type can carry it.
+    radicand = (BLEND_DIFFICULTY_BASE ** b * den ** a) // num ** a
+    return clamp(integer_nth_root(radicand, b), lo, hi)
+
+def integer_nth_root(x: int, n: int) -> int:
+    # The floor of the real n-th root: the largest integer r with r**n <= x.
+    # Any exact method serves; this reference is a binary search over
+    # arbitrary-precision integers.
+    lo, hi = 0, 1 << (x.bit_length() // n + 1)   # hi**n > x by construction
+    while lo < hi - 1:
+        mid = (lo + hi) // 2
+        if mid ** n <= x:
+            lo = mid
+        else:
+            hi = mid
+    return lo
+```
+
+The clamp interval is never empty: every stored value is capped below $`p`$, so `previous` is at most $`p-1`$ and `lo = previous // BLEND_MAX_STEP` is at most $`(p-1)/2`$, strictly below the $`p-1`$ ceiling of `hi`.
+
+Computed once per epoch at the nonce snapshot of the preceding epoch, and applied from the first block of its epoch. `previous` is the value computed one snapshot earlier, so the chain of values is well defined without reference to any boundary state.
+
+The upper clamp is capped at $`p-1`$ in addition to the per-epoch step bound. Without the cap, an idle network — every epoch observing no load and returning `hi` — would double the threshold each epoch and pass the field modulus after a few months of empty epochs, at which point every ticket would satisfy it and admission would be free. The reward controller bounds its result for the same reason, and the two failure modes are the same one.
+
+Raising `difficulty_blend` shrinks the anonymity set, so an adversary able to drive it up could degrade privacy for everyone. Three properties bound that.
+
+The input is the **mean over a whole epoch**, so moving it requires paying fees to inflate transaction counts across every block of the epoch rather than spiking one. The response is **sub-linear**: with $`\alpha \le 1`$, and at $`\alpha = 1/2`$ in particular, quadrupling the load only doubles the threshold, so each additional attacker-funded transaction buys less effect than the last while costing the same. And the **per-epoch clamp** bounds movement to a factor of `BLEND_MAX_STEP` in either direction, so even sustained pressure moves the value gradually and honest participants have at least an epoch to react.
+
+The attack must therefore be paid for continuously while its effect stays bounded and gradual. This is the opposite trade-off from the reward difficulty, which may move every block precisely because its input is cheap to measure, self-correcting, and carries no privacy consequence.
+
+Note what this controller cannot see. Its input is transactions included in blocks, so messages that are never included — including messages sent purely to consume Blend capacity — do not raise it. It regulates admission against observed chain load, not against network load, and is therefore not by itself a defence against flooding the Blend network with messages that never reach a block.
+
+#### Choosing the four constants
+
+`TARGET_TXS_PER_BLOCK` is the load at which the threshold sits at its baseline, and is set to half of `MAX_BLOCK_TXS`. This mirrors the execution market, which steers toward half its per-block gas limit: a block at the fee market's own target is the natural definition of ordinary load, and defining the reference any other way would leave the two markets disagreeing about what busy means.
+
+The damping exponent is a half, as one over two. The argument for it is the one given above — quadrupling the load only doubles the threshold, so each additional attacker-funded transaction buys less effect than the last while costing the same as the first.
+
+`BLEND_MAX_STEP` is two. At a damping exponent of a half, a factor of two in the threshold corresponds to a factor of four in load, so the clamp does not bind on ordinary variation and engages only on swings larger than that within a single epoch. A sustained hundredfold change in load is tracked over four epochs, which is a month; that is slow enough that participants can react and fast enough that the threshold is not left badly wrong for long.
+
+`BLEND_DIFFICULTY_BASE` is the one with no anchor elsewhere in this specification tree, because it fixes what a message ought to *cost*, and nothing states that. It is therefore set from the work itself, against a measurement of that work.
+
+A candidate solution is a single `zkhash` invocation over three inputs — the puzzle's domain separation tag, the epoch nonce, and the candidate nonce. The sponge absorbs each input and a padding element, so a candidate is four permutations — or two, if a miner precomputes the state after the two constant inputs, which are fixed for the whole epoch. **Measured on the target hardware itself** — a Raspberry Pi 5, one pinned core, six runs across two sessions with spreads under a tenth of a percent and no thermal throttling — a candidate costs about ninety-four microseconds, and precomputing the prefix improves it to about forty-eight, an algorithmic headroom of roughly a factor of two.
+
+**The reference basis is one core.** A Pi 5 has four, and a participant devoting the whole board works four times faster, but every cost statement in this specification is per core of the target machine: it is the conservative reading for a participant whose remaining cores run the node itself, and the board-level figure follows by division.
+
+At a threshold of the scalar field modulus divided by $`2^{19}`$, one solution is about half a million candidates, which is around fifty seconds of a single core of the target machine. Since one solution admits exactly one message, a participant with a single core and no stake can send on the order of seventeen hundred messages a day, and needs no tokens to do it. Below about $`2^{17}`$ the work ceases to be a meaningful cost; above about $`2^{23}`$ that same participant manages a message every quarter of an hour, which is not an on-ramp. The chosen value sits between those.
+
+For reference, the same benchmark on a current desktop-class core runs about six times faster; the threshold is deliberately not calibrated against such machines, and a participant using one simply mines that much faster than the reference.
+
+Two limits on the measurement remain. It was taken against an implementation that uses no assembly and no batching, so a determined miner using a faster one should expect a lower cost by an amount that has not been measured; the factor-of-two figure above bounds only the *algorithmic* headroom, not the implementation headroom.
+
+`difficulty_blend` is set to `BLEND_DIFFICULTY_BASE` at genesis, so the network begins at its reference load rather than at a guess about the first epoch's traffic.
+
+#### What the threshold does not bound
+
+It sets a price per message; it does not set a ceiling on the rate. A participant able to bring a large amount of computation to bear obtains solutions in proportion to it, and at any threshold cheap enough to serve as an on-ramp that rate exceeds the honest one by orders of magnitude. Raising the threshold to prevent this would put the on-ramp out of reach of the participants it exists for, and would still not bound an adversary willing to spend more.
+
+What bounds the damage is elsewhere: verification of the proof of quota before relaying rather than after, so an invalid message is dropped at the first hop rather than propagated; the nullifier cache, which must be sized against $`d_{blend}`$ rather than against a count of registered nodes; and the fact that the work must be paid for continuously, in energy, for as long as the flood is to be sustained. The threshold is one term in that, not the whole of it.
+
 ## TRANSFER
 
 Transactions must prove the ownership of spent notes. In classical blockchains, this is done through a signature. To stay compatible with our architecture, the signature is done by a ZK proof (see [Zero Knowledge Signature Scheme (ZkSignature)](#zero-knowledge-signature-scheme-zksignature)), proving the knowledge of the secret key associated with the public key.
@@ -1646,6 +2113,16 @@ class Note:
     value: TokenValue   # uint64
     public_key: ZkPublicKey # 32 bytes
 ```
+
+### Denomination
+
+**The indivisible unit is the lepton, and one LGO is $`10^{9}`$ lepta.** `TokenValue` counts lepta: every quantity of that type — note values, balances, fees, prices and pool balances — is an integer number of lepta, and no representable amount is smaller than one lepton. The unit system, its derivation and the canonical naming are specified by *Logos Token: Units and Precision*, which this document defers to; amounts written in LGO here are a display convenience for $`10^{9}`$ lepta.
+
+The precision is the unique value admitted by two opposing constraints. Representability bounds it from above: the supply of $`10^{10}`$ LGO expressed in lepta is $`10^{19}`$, which the largest `TokenValue`, $`2^{64}-1 \approx 1.84 \times 10^{19}`$, exceeds by a factor of only $`1.84`$ — one more decimal digit of precision would be unrepresentable. Price resolution bounds it from below: both fee markets price in whole lepta per unit of gas and can never go below one, so a coarser unit would price permanent storage above its target at plausible token prices. The derivation is in *Units and Precision*; this specification inherits its result.
+
+Two consequences for the arithmetic here. The maximum minted block reward derived in [Block Rewards](block-rewards.md) is $`62500/657`$ LGO, which is not a whole number of lepta either; where an integer is required it is rounded down, losing less than one lepton per block. And because the fee floor is one lepton rather than one LGO, the floor is a safeguard against a zero price becoming absorbing, several orders of magnitude below any price the markets would discover — not an economically meaningful price itself.
+
+The genesis reward pool is given as a fraction of the launch supply in [Genesis](#genesis), so that it is independent of the unit in which the pool is counted.
 
 ### Note Id
 
@@ -1775,6 +2252,11 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_SDP_WITHDRAW_GAS | 590 |
 | EXECUTION_SDP_ACTIVE_GAS | 590 |
 | EXECUTION_LEADER_CLAIM_GAS | 580 |
+| EXECUTION_CLAIM_POW_REWARD_GAS | 56 |
+
+`EXECUTION_CLAIM_POW_REWARD_GAS` is the cost of an Operation that verifies no proof and no signature: it re-derives a hash, compares it against a threshold, and performs a few lookups and insertions. It is priced with the other Operations whose cost is a single signature verification, which is a conservative over-estimate here, and is derived in [\[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md).
+
+The value bounds the fee a claim transaction must pay, and therefore bears on whether a claim is worth making at all: a claim whose fee exceeds its reward is never submitted.
 
 ## Zero Knowledge Signature Scheme (ZkSignature)
 

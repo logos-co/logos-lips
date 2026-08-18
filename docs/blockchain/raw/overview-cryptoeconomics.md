@@ -25,6 +25,7 @@
 | 1.0.1 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.1.0   | Reflect the upward rounding of the fee market price updates | 2026-07-28 |
 | 1.2.0 | Reflect the downward rounding of the leader share | 2026-08-05 |
+| 1.3.0 | Add the proof of work reward pool, funded by diverting a share of the collected fees from the burn | 2026-08-10 |
 
 > **Disclaimer**:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -57,7 +58,7 @@ In this section we present an overview of the cryptoeconomical aspects of the Lo
 - Transactions may incur up to two types of fees:
     - Execution fee: covers the computational resources consumed by the transaction.
     - Permanent Storage fee: covers the permanent Ledger storage resources consumed by the transaction.
-- All fees are burned for each block.
+- All fees are burned for each block, except for the share diverted to the [Proof of Work Reward Pool](#proof-of-work-reward-pool).
 - Rewards are distributed on an epoch basis:
     - Leaders (block proposers) include Mantle Transactions in every block. Each transaction pays Permanent Storage and Execution fees, which are burnt. For each block, a reward is calculated following the [Block Rewards](block-rewards.md). Additionally, a portion of the Execution fees is minted back for leaders according to the [Execution Market](execution-market.md). These two sources determine the total rewards allocated to leaders, as explained in [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders), which correspond to tips from the Execution market and 40% of block rewards. For anonymity reasons, block proposers don't receive rewards directly. Instead, leader rewards accumulate in a single pool that increases on an epoch basis rather than per block (see [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md)). When a new epoch begins, the pool increases by the total leader rewards from all blocks in the previous epoch. Simultaneously, leaders from the previous epoch can start claiming their rewards, with each unclaimed reward (since genesis) representing one equal share of the pool.
     - Blend nodes provide Blend service to the network for at least one epoch. Using the same [Block Rewards](block-rewards.md), the protocol determines the total rewards allocated to the Blend network, as explained in [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders) which correspond to 60% of the block rewards. 
@@ -170,6 +171,34 @@ def update_leader_rewards(e: epoch, # rewards for the epoch e
         leader_rewards += get_execution_market_tips(b) # get Execution market tips
     return leader_rewards
 ```
+
+### Proof of Work Reward Pool
+
+The [Proof of Work Operations](bedrock-v1.1-mantle-specification.md#proof-of-work-operations) pay their claims from a third reward pool, which is funded from the fees themselves rather than from the block reward computed out of them. A fixed share of the fees a block collects is credited to that pool instead of being burnt, and the remainder is burnt as before:
+
+```python
+def get_pow_pool_refill(e: epoch): # refill for the epoch e
+    refill = 0
+    for b in e.blocks: # for each block of the previous epoch
+        refill += get_collected_fees(b) * POW_SHARE // SHARE_DEN
+    return refill
+```
+
+where `get_collected_fees(b)` is the total Execution base fees and Permanent Storage fees paid by the transactions of block `b`, and `POW_SHARE / SHARE_DEN` is the fraction diverted. The share is computed with integer division, which rounds down, so the amount diverted is never more than the stated fraction; the sub-lepton residue of each flooring stays with the remainder and is burnt.
+
+Fees rather than block rewards, because the two scale differently with usage. The block reward is governed by the emission model of [Block Rewards](block-rewards.md), which caps it whatever the level of activity; the fees a block collects have no such cap and grow with the traffic it carries. A share of the block reward would therefore hold the reward per claim near a fixed ceiling however busy the network became, while the fee a claim must itself pay would keep rising with that traffic — and above some level of usage the claim would cost more than it pays. A share of the fees moves with the same quantity that sets the fee, so the ratio between the two is a function of the parameters rather than of how busy the network happens to be.
+
+### Who bears the cost of the diversion
+
+The answer is not the same at every point in the network's life, and both cases are worth stating because the parameter is one choice with two consequences.
+
+The emission model measures the fees that are actually burnt and mints against them, so diverting a share before the burn reduces that measurement by the same share. When emission is dominated by minting — early, while staking is far below its target — the amount burnt does not feed into the block reward at all, so the block reward is unchanged and the Blend service and the leaders receive exactly what they would have received. What changes is that the diverted tokens are not destroyed, so the supply is larger than it would otherwise have been. **The cost falls on the supply.**
+
+When emission is dominated by recycling — the design's stated long-run behaviour, where the protocol mints back what was burnt — the block reward is the amount burnt, so reducing that amount reduces the block reward in the same proportion. The supply is unaffected, because as many tokens are left unburnt as are left unminted. **The cost falls on the Blend service and the leaders**, in the 60/40 proportion in which they divide the block reward.
+
+In neither case does the protocol issue more than its emission cap allows, and in neither case are tokens created to fill the pool. But the pool is a genuine third claim on the same flow that funds the privacy layer and consensus, and `POW_SHARE` must be chosen on that basis rather than as a charge against the burn alone.
+
+The split between the Blend service and the leader is itself unchanged: they continue to divide the block reward 60/40, on whatever the block reward turns out to be.
 
 ## Reward Distribution Protocols
 

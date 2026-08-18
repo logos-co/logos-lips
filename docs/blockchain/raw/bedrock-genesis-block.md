@@ -28,6 +28,7 @@
 | 1.1.0 | [[RFC] Make Ledger Transaction an Operation](mantle-transaction-encoding/appendices/rfc-make-ledger-transaction-an-operation.md) Renamed Nomos to Logos Blockchain Remove notions of DA Minor fix in gas price | 2026-03-27 |
 | 1.1.1 | [[RFC] Simplify Mantle Transaction and Refactor Ledger Operations](mantle-transaction-encoding/appendices/rfc-simplify-mantle-transaction-and-refactor-ledger-operations.md) | 2026-05-06 |
 | 1.1.2 | Encode `genesis_time` as a u32 unix timestamp instead of an ISO 8601 datetime. Encode the `chain_id` length prefix as a u8 instead of a u64. | 2026-07-06 |
+| 1.2.0 | Seed the proof of work reward pool at genesis from the initial token distribution | 2026-08-10 |
 
 # Introduction
 
@@ -66,6 +67,25 @@ STAKE_DISTRIBUTION = Transfer(
     ]
 )
 ```
+
+## Initial Proof of Work Reward Pool
+
+The proof of work reward pool is seeded once, at genesis, with a fixed quantity of tokens:
+
+```python
+POW_REWARD_POOL_GENESIS: TokenValue   # Initial balance of the proof of work reward pool
+                                      # = 5/1000 of the supply at network launch
+```
+
+The seed is **five thousandths of the supply at network launch**. It is stated as a fraction of that supply because that is the form in which it is a decision about how the initial supply is divided: the reward the pool yields per claim follows from the fraction, the distribution rate and the target claim rate alone. Whether that reward is generous enough depends on the price level the fee markets are initialised at, not on the seed, and the constraint that places on genesis governance is given in [Genesis](bedrock-v1.1-mantle-specification.md#genesis) along with the reasoning behind the size.
+
+This allocation is **drawn from the initial token distribution**, not minted in addition to it. The tokens exist from genesis and the seed determines how many of them are held in the pool rather than distributed to stakeholders directly. This is what keeps claiming outside the protocol's emission envelope, as described in [Reward Pool](bedrock-v1.1-mantle-specification.md#reward-pool), and it means the seed is a decision about how the initial supply is divided rather than about how much supply exists.
+
+The pool holds a balance rather than notes, so unlike the stakeholder allocations above it does not appear as an output of the initial Transfer Operation. It is consensus state maintained by Mantle, and after genesis it changes only through the epoch-boundary refill and through claims.
+
+The seed is not part of the Cryptarchia parameter inscription, because it is not a Cryptarchia parameter. It is established during [Mantle Ledger Initialization](#mantle-ledger-initialization).
+
+Its size governs how generous claiming is during the network's earliest epochs, and therefore how quickly a participant with no tokens can accumulate a usable balance.
 
 ## Initial Service Declarations
 
@@ -272,6 +292,13 @@ Bedrock is initialized by executing the Mantle Transaction without validating th
 ## Mantle Ledger Initialization
 
 The Transfer Operation should be executed without checking that the transaction is balanced. However, other validations are checked, e.g. that output note values are positive and smaller than the maximum allowed value. The result of normal transfer execution adds all outputs to the Ledger.
+
+The proof of work reward pool is initialized at the same time:
+
+1. `pow_reward_pool` is set to `POW_REWARD_POOL_GENESIS`, as described in [Initial Proof of Work Reward Pool](#initial-proof-of-work-reward-pool).
+2. `epoch_pow_reward` is derived from it by the computation given in [Reward Pool](bedrock-v1.1-mantle-specification.md#reward-pool), so that claiming is productive from the first epoch rather than waiting for the first refill.
+3. `difficulty_blend` is set to `BLEND_DIFFICULTY_BASE` for **epochs 0 and 1**, as given in [Blend Difficulty](bedrock-v1.1-mantle-specification.md#blend-difficulty): the value for an epoch is fixed at the preceding epoch's nonce snapshot from the load of the epoch before that, and no complete input epoch exists before epoch 2. The schedule begins with epoch 2's value, computed during epoch 1 from epoch 0's load.
+4. `difficulty_reward` is set to the genesis value given in [Reward Difficulty](bedrock-v1.1-mantle-specification.md#reward-difficulty), which is deliberately on the hard side so that the controller's first correction loosens rather than tightens, and `pow_nullifiers` is empty.
 
 ## Cryptarchia Initialization
 
