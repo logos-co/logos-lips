@@ -28,6 +28,7 @@
 | 1.1.0 | Removed references to DA Replaced references to Nomos with Logos Blockchain | 2026-04-17 |
 | 1.2.1 | [[RFC] Enforce NoteId uniqueness](mantle-transaction-encoding/appendices/rfc-enforce-noteid-uniqueness.md). | 2026-04-24 |
 | 1.3.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
+| 1.4.0 | [RFC] Exactly one reward note per `zk_id`; a repeated `zk_id` is invalid rather than summed | 2026-08-19 |
 
 # Introduction
 
@@ -83,7 +84,7 @@ The reward must:
 
   - Transfer the correct reward amount according to [Service Reward Calculation](#service-reward-calculation).2
   - Be sent to the public key `zk_id` of the validator registered during [declaration of the service](bedrock-service-declaration-protocol.md).
-  - Be distributed into a single note if several rewards share the same `zk_id`.
+  - Be distributed as exactly one note per rewarded `zk_id`. A distribution covers a single service, and the [Service Declaration Protocol](bedrock-service-declaration-protocol.md#identifier-uniqueness) binds a `zk_id` to at most one declaration within a service, so two rewards in the same distribution can never share a `zk_id`. Rewards are consequently never summed or merged into a shared note. A repeated `zk_id` in the set being rewarded is an invalid state that the declaration protocol prevents, and nodes must treat it as such rather than reconciling it.
   - Be executed identically by every node processing the first block of epoch N+2. This happens by inserting notes in the ledger in ascending order of `zk_id`.
 
 Nodes indirectly verify the correct inclusion of rewards because all consensus-validating nodes must maintain the same ledger view to derive the latest ledger root, which serves as input for verifying the [Proof of Leadership](cryptarchia-proof-of-leadership.md).
