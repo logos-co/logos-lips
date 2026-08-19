@@ -28,6 +28,7 @@
 | 1.1.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.2.0 | [RFC] Per-service uniqueness of `provider_id` and `zk_id` | 2026-07-08 |
 | 1.3.0 | Length-prefix the `locators` list in the `declaration_id` preimage | 2026-07-30 |
+| 1.4.0 | [RFC] Identifier uniqueness covers every stored declaration and binds reward distribution | 2026-08-19 |
 
 # Introduction
 
@@ -216,7 +217,7 @@ declarations: list[declaration_id]
 
 ### Identifier Uniqueness
 
-The SDP is responsible for enforcing the uniqueness of the `provider_id` and the `zk_id` in the context of a service. This means that, for a given `service`, each `provider_id` and each `zk_id` must appear in at most one active `DeclarationInfo` at a time.
+The SDP is responsible for enforcing the uniqueness of the `provider_id` and the `zk_id` in the context of a service. This means that, for a given `service`, each `provider_id` and each `zk_id` must be bound to at most one `DeclarationInfo` held in `declarations` at any point in time. The scope is every stored declaration, not only the ones whose `active` field is set: a declaration that has been withdrawn but not yet removed still holds its identifiers, and a declaration that has gone inactive still holds them too.
 
 The `declaration_id` uniqueness alone is insufficient to guarantee this property. Because `declaration_id = Hash(service||provider_id||zk_id||locators)`, two declarations for the same `service` that reuse the same `provider_id` (or the same `zk_id`) but differ in any other component would produce distinct `declaration_id`s and would therefore not collide. This holds only because each component is committed under an encoding that determines it uniquely: without the length prefixing defined above, two declarations differing only in how the same locator bytes are split across the list would share a `declaration_id`. The SDP must reject such declarations regardless.
 
@@ -226,6 +227,10 @@ Consequently, within a single `service`:
 - A `zk_id` must not be bound to more than one `DeclarationInfo`.
 
 The uniqueness is scoped per-service: the same `provider_id` or `zk_id` may be reused across different services, but never more than once within the same service. A `provider_id` or `zk_id` becomes available for reuse in a service only once its previous `DeclarationInfo` for that service has been withdrawn and removed (see [Withdraw](#withdraw)).
+
+This uniqueness is a protocol invariant that the rest of the system builds on, not a convenience. Within one service, the `zk_id` is the key under which downstream protocols index per-provider state: the [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md) maps a service's epoch rewards by `zk_id` and derives each reward note's position from the ascending order of those `zk_id`s, and the [Proof of Quota](proof-of-quota.md) builds the core Merkle tree over the same values, sorted, one per leaf. Both constructions require the set to be duplicate-free, and neither defines a meaning for a repeated key.
+
+Two declarations for the same `service` sharing a `zk_id` are therefore an invalid state rather than a case to be reconciled downstream. The second such declaration must be rejected at validation time (see [Declare](#declare)), which is what keeps the state unreachable; consumers of the registry must not attempt to merge, sum, or otherwise collapse entries that share a `zk_id`.
 
 ### Active Message
 
