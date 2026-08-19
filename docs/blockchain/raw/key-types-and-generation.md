@@ -26,6 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-09 |
 | 1.0.1 | [RFC] Remove Concept of a Session | 2026-06-22 |
+| 1.0.2 | The NQK is the key of the declaration entry rather than a field of it | 2026-08-19 |
 
 # Introduction
 
@@ -45,7 +46,7 @@ This document ensures that the keys are used and generated in a common manner, w
 
 ## Non-ephemeral Quota Key
 
-A node generates a Non-ephemeral Quota Key (NQK) that is a ZkSignature ([Zero Knowledge Signature Scheme (ZkSignature)](bedrock-v1.1-mantle-specification.md#zero-knowledge-signature-scheme-zksignature)). The NQK is stored on the ledger as the `zk_id` field in the `DeclarationInfo` of the node’s outcome of the participation in the Service Declaration Protocol (SDP — [Service Declaration Protocol](bedrock-service-declaration-protocol.md)).
+A node generates a Non-ephemeral Quota Key (NQK) that is a ZkSignature ([Zero Knowledge Signature Scheme (ZkSignature)](bedrock-v1.1-mantle-specification.md#zero-knowledge-signature-scheme-zksignature)). The NQK is stored on the ledger as the `zk_id` under which the node’s `DeclarationInfo` is held, being the outcome of its participation in the Service Declaration Protocol (SDP — [Service Declaration Protocol](bedrock-service-declaration-protocol.md)).
 
 The NQK is used to prove that the node is part of the set of core nodes as indicated through the SDP.
 

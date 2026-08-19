@@ -37,6 +37,7 @@
 | 1.9.1 | Rename the excess balance left after the mandatory fees into `tx_priority_tip` and convert it back into a `TokenValue` explicitly | 2026-08-05 |
 | 1.9.2 | Required checked arithmetic for all token value, balance, gas, and fee computations. | 2026-08-06 |
 | 1.10.0| Enforce non empty inputs for every operation not only transfer moving the assertion in the validation of input spendability | 2026-08-11 |
+| 1.11.0| [RFC] Key SDP declarations by `zk_id` and hold per-service state in them | 2026-08-19 |
 
 # Introduction
 
@@ -981,10 +982,10 @@ Validators must keep the following state when implementing SDP Operations:
 
 ```python
 locked_notes: dict[NoteID, LockedNote]
-declarations: dict[DeclarationID, DeclarationInfo]
+declarations: dict[ZkPublicKey, DeclarationInfo]
 
 class LockedNote:
-    declarations: set[DeclarationID]
+    declarations: set[ZkPublicKey]
 ```
 
 ### Common SDP Structures
@@ -1007,17 +1008,21 @@ class ServiceParameters:
     epoch: EpochNumber                # epoch number at which the Service Parameters were set
 
 class DeclarationInfo:
-    service: ServiceType
     locators: list[Locator]
     provider_id: Ed25519PublicKey
-    zk_id: ZkPublicKey
     locked_note_id: NoteId
     created: EpochNumber
-    active: EpochNumber | None
-    withdraw_at: EpochNumber | None
     # SDP ops updating a declaration must use monotonically increasing nonces
     nonce: int
+    # a service is enabled for this declaration iff it is a key of this map
+    services: dict[ServiceType, ServiceState]
+
+class ServiceState:
+    active: EpochNumber | None
+    withdraw_at: EpochNumber | None
 ```
+
+A `DeclarationInfo` is held in `declarations` under the `zk_id` of its validator, so the `zk_id` is not one of its fields. See [**Declaration Storage**](bedrock-service-declaration-protocol.md#declaration-storage).
 
 ### SDP_DECLARE
 
@@ -1063,7 +1068,7 @@ proof: DeclarationProof
 min_stake: MinStake      # the (global) minimum stake setting
 ledger: Ledger           # the set of unspent notes
 locked_notes: dict[NoteId, LockedNote]
-declarations: dict[NoteId, DeclarationInfo]
+declarations: dict[ZkPublicKey, DeclarationInfo]
 ```
 
   *Validate*
@@ -1078,9 +1083,12 @@ declarations: dict[NoteId, DeclarationInfo]
       assert Ed25519_verify(txhash, proof.provider_sig, provider_id)
       ```
 
-  2. Ensure declaration does not already exist.
+  2. Ensure neither identifier is already registered. The `zk_id` keys the
+     declaration, and the `provider_id` is unique across the registry (see
+     [Identifier Uniqueness](bedrock-service-declaration-protocol.md#identifier-uniqueness)).
       ```python
-      assert declaration_id(declaration) not in declarations
+      assert declaration.zk_id not in declarations
+      assert all(d.provider_id != declaration.provider_id for d in declarations.values())
       ```
 
   3. Ensure the locators list is non-empty and has no more than 8 entries.
@@ -1096,12 +1104,13 @@ declarations: dict[NoteId, DeclarationInfo]
       assert note.value >= min_stake.stake_threshold
       ```
 
-  5. Ensure the note has not already been locked for this service.
+  5. Ensure the note has not already been locked for this service by another
+     declaration it backs.
       ```python
-      if declaration.locked_note in locked_notes:
-          locked_note = locked_notes[declaration.locked_note]
-          services = [declarations[declare_id] for declare_id in locked_note.declarations]
-          assert declaration.service_type not in services
+      if declaration.locked_note_id in locked_notes:
+          locked_note = locked_notes[declaration.locked_note_id]
+          for zk_id in locked_note.declarations:
+              assert declaration.service_type not in declarations[zk_id].services
       ```
 
 #### Execution
@@ -1126,23 +1135,20 @@ locked_notes : dict[NoteId, LockedNote]
 
   2. Add this declaration to the locked note.
       ```python
-      declare_id = declaration_id(declaration)
-      locked_note.declarations.add(declare_id)
+      locked_note.declarations.add(declaration.zk_id)
       ```
 
-  3. Store the declaration as explained in [**Declaration Storage**](bedrock-service-declaration-protocol.md#declaration-storage).
+  3. Store the declaration as explained in [**Declaration Storage**](bedrock-service-declaration-protocol.md#declaration-storage), with the declared service as its single enabled service.
       ```python
-      declarations[declare_id] = DeclarationInfo(
-          service: declaration.service
-          locators: declaration.locators
-          provider_id: declaration.provider_id
-          zk_id: declaration.zk_id
-          locked_note_id: declaration.locked_note_id
-          declaration,
+      declarations[declaration.zk_id] = DeclarationInfo(
+          locators=declaration.locators,
+          provider_id=declaration.provider_id,
+          locked_note_id=declaration.locked_note_id,
           created=current_epoch,
-          active=None,
-          withdraw_at=None
-          nonce=0
+          nonce=0,
+          services={
+              declaration.service_type: ServiceState(active=None, withdraw_at=None)
+          },
       )
       ```
 
@@ -1196,10 +1202,13 @@ The service withdrawal follows the definition given in [Withdraw Message](bedroc
 
 ```python
 class WithdrawMessage:
-    declaration: DeclarationID
+    zk_id: ZkPublicKey
+    service: ServiceType
     locked_note_id: NoteId
     nonce: int
 ```
+
+The `service` names the service being withdrawn from; the declaration's other services are unaffected.
 
 #### Proof
 
@@ -1224,7 +1233,7 @@ signature: ZkSignature
 
 ledger: Ledger
 locked_notes: dict[NoteId, LockedNote]
-declarations: dict[DeclarationID, DeclarationInfo]
+declarations: dict[ZkPublicKey, DeclarationInfo]
 ```
 
   *Validate*
@@ -1236,18 +1245,19 @@ declarations: dict[DeclarationID, DeclarationInfo]
 
       locked_note = locked_notes[withdraw.locked_note_id]
 
-      assert withdraw.declaration in locked_note.declarations
+      assert withdraw.zk_id in locked_note.declarations
       ```
 
   2. Validate SDP withdrawal according to [**Withdraw**](bedrock-service-declaration-protocol.md#withdraw).
       1. Ensure declaration exists.
           ```python
-          assert withdraw.declaration in declarations
-          declare_info = declarations[withdraw.declaration]
+          assert withdraw.zk_id in declarations
+          declare_info = declarations[withdraw.zk_id]
           ```
-      2. Ensure the declaration is not already scheduled for withdrawal.
+      2. Ensure the service is enabled and not already scheduled for withdrawal.
           ```python
-          assert declare_info.withdraw_at is None
+          assert withdraw.service in declare_info.services
+          assert declare_info.services[withdraw.service].withdraw_at is None
           ```
       3. Ensure locked note `pk` and `zk_id` attached to this declaration authorized this Operation.
           ```python
@@ -1270,32 +1280,34 @@ signature: ZkSignature
 current_epoch: EpochNumber # current epoch
 ledger: Ledger
 locked_notes: dict[NoteId, LockedNote]
-declarations: dict[DeclarationID, DeclarationInfo]
+declarations: dict[ZkPublicKey, DeclarationInfo]
 ```
 
   *Execute*
 
   Executes the withdrawal protocol [**Withdraw**](bedrock-service-declaration-protocol.md#withdraw).
 
-  Withdrawal only records the intent: `withdraw_at` is set to the current
-  (withdrawal) epoch `e`, the node's last rewardable epoch. The declaration is
-  removed and its stake unlocked at epoch `e+2` by the
+  Withdrawal only records the intent: the `withdraw_at` of the named service is
+  set to the current (withdrawal) epoch `e`, the node's last rewardable epoch for
+  it. The service is disabled at epoch `e+2` by the
   [SDP Epoch Finalization](#sdp-epoch-finalization) step, right after the final
-  reward is paid out.
+  reward is paid out; the declaration and its stake are released only once no
+  enabled service remains.
 
-  1. Update the declaration info with the nonce and the withdrawal epoch.
+  1. Update the declaration info with the nonce and the service withdrawal epoch.
       ```python
-      declare_info = declarations[withdraw.declaration]
+      declare_info = declarations[withdraw.zk_id]
       declare_info.nonce = withdraw.nonce
-      declare_info.withdraw_at = current_epoch
+      declare_info.services[withdraw.service].withdraw_at = current_epoch
       ```
 
 #### Example
 
 ```python
 withdraw=Withdraw(
-    declaration=alice_declaration_id,
-    locked_note_id=alices_locked_note_id
+    zk_id=alice_pk_2,
+    service=ServiceType.BN,
+    locked_note_id=alices_locked_note_id,
     nonce=1579532
 )
 
@@ -1318,40 +1330,53 @@ SignedMantleTx(
 
 ### SDP Epoch Finalization
 
-Withdrawn declarations are removed by Mantle as part of the epoch transition,
-not when the `WithdrawMessage` is processed. A node that withdrew in epoch `e`
-has `withdraw_at == e`, and its last rewardable epoch is `e`; the epoch-`e`
-rewards are distributed in the first block of epoch `e+2` (see
+Withdrawn services are disabled by Mantle as part of the epoch transition, not
+when the `WithdrawMessage` is processed. A node that withdrew from a service in
+epoch `e` has `withdraw_at == e` for it, and its last rewardable epoch for that
+service is `e`; the epoch-`e` rewards are distributed in the first block of epoch
+`e+2` (see
 [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md)).
 In that same first block, **after** the rewards have been distributed, every
-declaration whose final reward has been paid out (`withdraw_at <= current_epoch - 2`)
-is removed and its stake unlocked. Performing the removal after the reward
-distribution guarantees a declaration is never removed before its final reward
-is paid. Declarations that withdrew without earning a final reward are removed
-by the same step, so their stake is always released.
+service whose final reward has been paid out (`withdraw_at <= current_epoch - 2`)
+is disabled. Performing this after the reward distribution guarantees a service is
+never disabled before its final reward is paid. Services withdrawn without earning
+a final reward are disabled by the same step.
+
+A declaration is removed, and its stake unlocked, once it has no enabled service
+left. Because the stake is shared by every service of a declaration, it is
+released only when the validator has withdrawn from all of them, so a validator
+that leaves one service and keeps another keeps its declaration and its lock.
 
   *Given*
 
 ```python
 current_epoch: EpochNumber
 locked_notes: dict[NoteId, LockedNote]
-declarations: dict[DeclarationID, DeclarationInfo]
+declarations: dict[ZkPublicKey, DeclarationInfo]
 ```
 
   *Execute*
 
-  For every `declare_id`, `declare_info` in `declarations` where
-  `declare_info.withdraw_at is not None and declare_info.withdraw_at <= current_epoch - 2`:
-
-  1. Remove the declaration from its locked note.
+  1. Disable every service whose final reward has been paid out.
       ```python
-      locked_note = locked_notes[declare_info.locked_note_id]
-      locked_note.declarations.remove(declare_id)
+      for declare_info in declarations.values():
+          withdrawn = [
+              service
+              for service, state in declare_info.services.items()
+              if state.withdraw_at is not None
+              and state.withdraw_at <= current_epoch - 2
+          ]
+          for service in withdrawn:
+              del declare_info.services[service]
       ```
 
-  2. Remove the declaration.
+  2. For every `zk_id`, `declare_info` in `declarations` where
+     `len(declare_info.services) == 0`, remove the declaration from its locked
+     note and from the registry.
       ```python
-      del declarations[declare_id]
+      locked_note = locked_notes[declare_info.locked_note_id]
+      locked_note.declarations.remove(zk_id)
+      del declarations[zk_id]
       ```
 
   3. Unlock the note once it is no longer bound to any declaration.
@@ -1368,10 +1393,15 @@ The service active action follows the definition given in [Active Message](bedro
 
 ```python
 class Active:
-    declaration: DeclarationID
+    zk_id: ZkPublicKey
+    service: ServiceType
     nonce: int
     metadata: bytes # a service-specific node activeness metadata
 ```
+
+The `service` names the service the activity is being reported for. The `zk_id`
+identifies the declaration but not which of its services is active, so the
+operation carries it explicitly.
 
 #### Proof
 
@@ -1392,29 +1422,32 @@ txhash: zkhash # Mantle transaction hash of the tx containing this operation
 active: Active
 signature: ZkSignature
 
-declarations: dict[DeclarationID, DeclarationInfo]
+declarations: dict[ZkPublicKey, DeclarationInfo]
 ```
 
   *Validate*
 
 ```python
-assert active.declaration in declarations
-declaration_info = declarations[active.declaration]
+assert active.zk_id in declarations
+declaration_info = declarations[active.zk_id]
+
+assert active.service in declaration_info.services
 
 assert active.nonce > declaration_info.nonce
 
-assert ZkSignature_verify(txhash, signature, declaration_info.zk_id)
+assert ZkSignature_verify(txhash, signature, active.zk_id)
 ```
 
 #### Execution
 
-  Executes the active protocol [Active](bedrock-service-declaration-protocol.md#active). The activation, i.e. setting the `declaration.active`, is handled by the service-specific logic.
+  Executes the active protocol [Active](bedrock-service-declaration-protocol.md#active). The activation, i.e. setting the `active` of `declaration_info.services[active.service]`, is handled by the service-specific logic.
 
 #### Example
 
 ```python
 active=Active(
-    declaration=alice_declaration_id,
+    zk_id=alice_pk_2,
+    service=ServiceType.BN,
     nonce=1579532,
     metadata=b"Look, I am still doing my job"
 )
