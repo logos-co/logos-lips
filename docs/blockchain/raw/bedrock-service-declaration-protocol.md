@@ -215,9 +215,7 @@ Each `locked_note_id` backs at most one declaration. A note that already collate
 
 The `provider_id` must be unique across the whole registry. A `DeclarationMessage` whose `provider_id` is already bound to a declaration must be rejected, whichever service it names.
 
-The `provider_id` is the network identity of the validator: it is appended to each `Locator` of its declaration to form a usable libp2p address, and the Non-ephemeral Encryption Key is derived from it. Every `Locator` list therefore belongs to exactly one `provider_id`. Were the same `provider_id` bound to two declarations, each carrying its own `locators`, the registry would advertise two different address sets for one peer identity, and a node resolving that peer would have no basis for choosing between them. Reusing one static key across two services would also make a single compromise cover both, and would link the two participations to one another on the ledger.
-
-A validator providing two services therefore presents a distinct network identity for each, alongside the distinct `zk_id` and locked note it already needs.
+The `provider_id` is the network identity of the validator: it is appended to each `Locator` of its declaration to form a usable libp2p address, and the Non-ephemeral Encryption Key is derived from it. Binding one `provider_id` to two declarations, each carrying its own `locators`, would advertise two different address sets for a single peer identity. A validator providing two services therefore presents a distinct network identity for each, alongside the distinct `zk_id` and locked note it already needs.
 
 All three identifiers are unique across the registry, are held for the entire lifetime of the declaration, and become available for reuse only once it has been removed after its final reward has been paid (see [**Withdraw**](#withdraw)).
 
@@ -249,13 +247,10 @@ The construction of the withdraw message is as follows:
 ```python
 class WithdrawMessage:
     zk_id: ZkPublicKey
-    locked_note_id: NoteId
     nonce: Nonce
 ```
 
 The message must be signed by the `zk_id` key.
-
-The `locked_note_id` is a `NoteId` that was used for minimum stake threshold verification purposes and will be unlocked after withdrawal. It is the note the declaration locked, since a declaration locks exactly one.
 
 The `nonce` must increase monotonically by every message sent for the `zk_id`.
 

@@ -1185,7 +1185,6 @@ The service withdrawal follows the definition given in [Withdraw Message](bedroc
 ```python
 class WithdrawMessage:
     zk_id: ZkPublicKey
-    locked_note_id: NoteId
     nonce: int
 ```
 
@@ -1217,28 +1216,27 @@ declarations: dict[ZkPublicKey, DeclarationInfo]
 
   *Validate*
 
-  1. Ensure that the locked note exists, is locked and bound to this declaration.
+  1. Ensure the declaration exists, and take the note it locked.
       ```python
-      assert ledger.is_unspent(withdraw.locked_note_id)
-      assert withdraw.locked_note_id in locked_notes
-
-      assert locked_notes[withdraw.locked_note_id] == withdraw.zk_id
+      assert withdraw.zk_id in declarations
+      declare_info = declarations[withdraw.zk_id]
+      locked_note_id = declare_info.locked_note_id
       ```
 
   2. Validate SDP withdrawal according to [**Withdraw**](bedrock-service-declaration-protocol.md#withdraw).
-      1. Ensure declaration exists.
+      1. Ensure that note is still present and locked to this declaration.
           ```python
-          assert withdraw.zk_id in declarations
-          declare_info = declarations[withdraw.zk_id]
+          assert ledger.is_unspent(locked_note_id)
+          assert locked_notes[locked_note_id] == withdraw.zk_id
           ```
       2. Ensure the declaration is not already scheduled for withdrawal.
           ```python
           assert declare_info.withdraw_at is None
           ```
-      3. Ensure locked note `pk` and `zk_id` attached to this declaration authorized this Operation.
+      3. Ensure locked note `pk` and the `zk_id` of this declaration authorized this Operation.
           ```python
-          locked_note = ledger[withdraw.locked_note_id]
-          assert ZkSignature_verify(txhash, signature, [locked_note.pk, declare_info.zk_id])
+          locked_note = ledger[locked_note_id]
+          assert ZkSignature_verify(txhash, signature, [locked_note.pk, withdraw.zk_id])
           ```
       4. Ensure that the nonce is greater than the previous one.
           ```python
@@ -1281,7 +1279,6 @@ declarations: dict[ZkPublicKey, DeclarationInfo]
 ```python
 withdraw=Withdraw(
     zk_id=alice_pk_2,
-    locked_note_id=alices_locked_note_id,
     nonce=1579532
 )
 
