@@ -1083,15 +1083,11 @@ declarations: dict[ZkPublicKey, DeclarationInfo]
   2. Ensure no identifier is already taken (see
      [Identifier Uniqueness](bedrock-service-declaration-protocol.md#identifier-uniqueness)).
      The `zk_id` keys the declaration, the note backs exactly one declaration, and the
-     `provider_id` is unique within a service.
+     `provider_id` is one peer identity.
       ```python
       assert declaration.zk_id not in declarations
       assert declaration.locked_note_id not in locked_notes
-      assert not any(
-          d.provider_id == declaration.provider_id
-          and d.service == declaration.service_type
-          for d in declarations.values()
-      )
+      assert all(d.provider_id != declaration.provider_id for d in declarations.values())
       ```
 
   3. Ensure the locators list is non-empty and has no more than 8 entries.

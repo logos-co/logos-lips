@@ -205,7 +205,7 @@ declarations: dict[ZkPublicKey, DeclarationInfo]
 
 The `zk_id` is not stored as a field of the `DeclarationInfo` because it is the key under which the entry is held.
 
-A declaration is a self-contained unit: one service, one `zk_id`, one locked note. A validator that provides two services holds two independent declarations, each with its own `zk_id` and its own locked note, and each declared, activated, and withdrawn on its own. Nothing is shared between them except, optionally, the `provider_id`.
+A declaration is a self-contained unit: one service, one `zk_id`, one `provider_id`, one locked note. A validator that provides two services holds two fully independent declarations, each declared, activated, and withdrawn on its own, sharing nothing with the other.
 
 ### Identifier Uniqueness
 
@@ -213,9 +213,13 @@ Each `zk_id` identifies at most one declaration. This holds structurally rather 
 
 Each `locked_note_id` backs at most one declaration. A note that already collateralizes a declaration must not be offered as collateral again, so the minimum stake is met independently for every service a validator provides rather than a single locked value counting towards several. A `DeclarationMessage` whose `locked_note_id` is already locked must be rejected.
 
-The `provider_id` must be unique in the context of a service: within a given `service`, it must be bound to at most one `DeclarationInfo`. It is scoped this way, rather than across the whole registry, because it is the network identity of the validator, and a validator that provides two services is one peer that may present the same identity in both. Two declarations for the *same* service sharing a `provider_id`, on the other hand, are two validators claiming to be the same peer, and must be rejected.
+The `provider_id` must be unique across the whole registry. A `DeclarationMessage` whose `provider_id` is already bound to a declaration must be rejected, whichever service it names.
 
-All three identifiers are held for the entire lifetime of the declaration, and become available for reuse only once it has been removed after its final reward has been paid (see [**Withdraw**](#withdraw)).
+The `provider_id` is the network identity of the validator: it is appended to each `Locator` of its declaration to form a usable libp2p address, and the Non-ephemeral Encryption Key is derived from it. Every `Locator` list therefore belongs to exactly one `provider_id`. Were the same `provider_id` bound to two declarations, each carrying its own `locators`, the registry would advertise two different address sets for one peer identity, and a node resolving that peer would have no basis for choosing between them. Reusing one static key across two services would also make a single compromise cover both, and would link the two participations to one another on the ledger.
+
+A validator providing two services therefore presents a distinct network identity for each, alongside the distinct `zk_id` and locked note it already needs.
+
+All three identifiers are unique across the registry, are held for the entire lifetime of the declaration, and become available for reuse only once it has been removed after its final reward has been paid (see [**Withdraw**](#withdraw)).
 
 The `zk_id` uniqueness is a protocol invariant that the rest of the system builds on, not a convenience. It is the key under which downstream protocols index per-provider state: the [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md) maps a service's epoch rewards by `zk_id` and derives each reward note's position from the ascending order of those `zk_id`s, and the [Proof of Quota](proof-of-quota.md) builds the core Merkle tree over the same values, sorted, one per leaf. Both constructions require the set to be duplicate-free, and neither defines a meaning for a repeated key.
 
@@ -282,7 +286,7 @@ The declaration message is considered valid when all of the following are met:
 - The sender meets the stake requirements and its `locked_note_id` is valid.
 - The `zk_id` is not already registered in `declarations`.
 - The `locked_note_id` does not already back another declaration.
-- The `provider_id` is not already bound to a declaration for the same `service` (as defined in [Identifier Uniqueness](#identifier-uniqueness)).
+- The `provider_id` is not already bound to another declaration (as defined in [Identifier Uniqueness](#identifier-uniqueness)).
 - The sender knows the secret behind the `provider_id` identifier.
 - The `locators` list is non-empty and not longer than 8 entries.
 
@@ -332,7 +336,7 @@ The protocol must enable querying the ledger in at least the following manner:
 - `GetAllDeclarationInfo(epoch)`, returns all `DeclarationInfo` entries associated with the `epoch`.
 - `GetAllDeclarationInfoSince(epoch)`, returns all `DeclarationInfo` entries since the `epoch`.
 - `GetDeclarationInfo(zk_id)`, returns the `DeclarationInfo` entry identified by the `zk_id`.
-- `GetDeclarationInfo(provider_id, service_type)`, returns the `DeclarationInfo` entry for that `provider_id` in that `service_type`. The service must be given because a `provider_id` is unique only within a service.
+- `GetDeclarationInfo(provider_id)`, returns the `DeclarationInfo` entry whose `provider_id` matches. The answer is unique because the `provider_id` is unique across the registry.
 - `GetAllServiceParameters(epoch)`, returns all entries of the `ServiceParameters` store for the requested `epoch`.
 - `GetAllServiceParametersSince(epoch)`, returns all entries of the `ServiceParameters` store since the requested `epoch`.
 - `GetServiceParameters(service_type, epoch)`, returns the service parameter entry from the `ServiceParameters` store of a `service_type` for a specified `epoch`.
