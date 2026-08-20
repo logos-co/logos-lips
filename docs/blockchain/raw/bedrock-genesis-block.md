@@ -29,6 +29,7 @@
 | 1.1.1 | [[RFC] Simplify Mantle Transaction and Refactor Ledger Operations](mantle-transaction-encoding/appendices/rfc-simplify-mantle-transaction-and-refactor-ledger-operations.md) | 2026-05-06 |
 | 1.1.2 | Encode `genesis_time` as a u32 unix timestamp instead of an ISO 8601 datetime. Encode the `chain_id` length prefix as a u8 instead of a u64. | 2026-07-06 |
 | 1.1.3 | Replaced the `block_root` header field with `body_root`, taken over an empty uncle header list and the initial transaction, due to updated [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md). | 2026-08-06 |
+| 1.1.4 | Align the initial service declarations with the Service Declaration Protocol: the `BN` service type, the full `DeclarationMessage` shape, and multiaddr locators | 2026-08-20 |
 
 # Introduction
 
@@ -78,17 +79,20 @@ Blend enforces a minimal network size for the service to be active. Thus, in ord
 
 ```python
 BLEND_DECLARATIONS = [
-    Declaration(
-        msg=DeclarationMessage(
-            ServiceType.BLEND, ["ip://1.1.1.1:3000"], PROVIDER_ID_0, ZK_ID_0
-        ),
-        locked_note_id=STAKE_DISTRIBUTION_TX.output_note_id(0)
-    ),
+    Op(opcode=SDP_DECLARE, payload=encode(DeclarationMessage(
+        service_type=ServiceType.BN,
+        locators=["/ip4/1.1.1.1/tcp/3000"],
+        provider_id=PROVIDER_ID_0,
+        locked_note_id=STAKE_DISTRIBUTION_TX.output_note_id(0),
+        zk_id=ZK_ID_0,
+    ))),
     # ... 32 total declarations
 ]
 
 SERVICE_DECLARATIONS = BLEND_DECLARATIONS
 ```
+
+Each declaration is stored under its `zk_id`, so every genesis declaration must carry a distinct `zk_id`, a distinct `provider_id`, and a distinct locked note, as required by [Identifier Uniqueness](bedrock-service-declaration-protocol.md#identifier-uniqueness).
 
 ## Cryptarchia Parameters
 
@@ -235,10 +239,13 @@ CRYPTARCHIA_INSCRIPTION = Inscribe(
 
 # service declarations
 BLEND_DECLARATIONS = [
-    Declaration(
-        msg=DeclarationMessage(ServiceType.BLEND, ["ip://1.1.1.1:3000"], PROVIDER_ID_0, ZK_ID_0),
-        locked_note_id=STAKE_DISTRIBUTION.output_note_id(0)
-    ),
+    Op(opcode=SDP_DECLARE, payload=encode(DeclarationMessage(
+        service_type=ServiceType.BN,
+        locators=["/ip4/1.1.1.1/tcp/3000"],
+        provider_id=PROVIDER_ID_0,
+        locked_note_id=STAKE_DISTRIBUTION.output_note_id(0),
+        zk_id=ZK_ID_0,
+    ))),
     # ... more declarations
 ]
 SERVICE_DECLARATIONS = BLEND_DECLARATIONS

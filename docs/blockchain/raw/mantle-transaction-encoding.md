@@ -28,6 +28,7 @@
 | 1.4.0 | [\[RFC\] Simplify Mantle Transaction and Refactor Ledger Operations](mantle-transaction-encoding/appendices/rfc-simplify-mantle-transaction-and-refactor-ledger-operations.md) | 2026-05-06 |
 | 1.4.1 | Removed mention of DA. Updated KeyCount from Byte to UINT16 to follow Mantle. | 2026-05-21 |
 | 1.5.0 | Introduce the new Operation `CHANNEL_STAKE_ASSIGNATION` and update of the channel operations to reflect changes in Mantle | 2026-06-24 |
+| 1.6.0 | [RFC] SDP operations address a declaration by `ZkId` instead of `DeclarationId`, and `SDPWithdraw` drops the redundant `LockedNoteId` | 2026-08-19 |
 
 # Introduction
 
@@ -115,11 +116,10 @@ ProviderId    = Ed25519PublicKey
 ZkId          = ZkPublicKey
 LockedNoteId  = NoteId
 
-SDPWithdraw   = DeclarationId Nonce LockedNoteId
-DeclarationId = Hash32
+SDPWithdraw   = ZkId Nonce
 Nonce         = UINT64
 
-SDPActive     = DeclarationId Nonce Metadata
+SDPActive     = ZkId Nonce Metadata
 Metadata      = UINT32 *BYTE  ; Service-specific node activeness metadata
 ```
 

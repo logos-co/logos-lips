@@ -37,6 +37,7 @@
 | 1.9.1 | Rename the excess balance left after the mandatory fees into `tx_priority_tip` and convert it back into a `TokenValue` explicitly | 2026-08-05 |
 | 1.9.2 | Required checked arithmetic for all token value, balance, gas, and fee computations. | 2026-08-06 |
 | 1.10.0| Enforce non empty inputs for every operation not only transfer moving the assertion in the validation of input spendability | 2026-08-11 |
+| 1.11.0| [RFC] Key SDP declarations by `zk_id` and bind each to a single locked note | 2026-08-19 |
 
 # Introduction
 
@@ -980,12 +981,12 @@ These Operations implement the [Service Declaration Protocol](bedrock-service-de
 Validators must keep the following state when implementing SDP Operations:
 
 ```python
-locked_notes: dict[NoteID, LockedNote]
-declarations: dict[DeclarationID, DeclarationInfo]
-
-class LockedNote:
-    declarations: set[DeclarationID]
+locked_notes: dict[NoteId, ZkPublicKey]
+declarations: dict[ZkPublicKey, DeclarationInfo]
 ```
+
+A locked note backs exactly one declaration, so `locked_notes` maps the note to the
+`zk_id` of that declaration. There is no per-note set of declarations to maintain.
 
 ### Common SDP Structures
 
@@ -1010,14 +1011,15 @@ class DeclarationInfo:
     service: ServiceType
     locators: list[Locator]
     provider_id: Ed25519PublicKey
-    zk_id: ZkPublicKey
     locked_note_id: NoteId
-    created: EpochNumber
-    active: EpochNumber | None
+    # the first epoch this declaration can appear in a snapshot
+    active: EpochNumber
     withdraw_at: EpochNumber | None
     # SDP ops updating a declaration must use monotonically increasing nonces
     nonce: int
 ```
+
+A `DeclarationInfo` is held in `declarations` under the `zk_id` of its validator, so the `zk_id` is not one of its fields. See [**Declaration Storage**](bedrock-service-declaration-protocol.md#declaration-storage).
 
 ### SDP_DECLARE
 
@@ -1062,8 +1064,8 @@ proof: DeclarationProof
 
 min_stake: MinStake      # the (global) minimum stake setting
 ledger: Ledger           # the set of unspent notes
-locked_notes: dict[NoteId, LockedNote]
-declarations: dict[NoteId, DeclarationInfo]
+locked_notes: dict[NoteId, ZkPublicKey]
+declarations: dict[ZkPublicKey, DeclarationInfo]
 ```
 
   *Validate*
@@ -1078,9 +1080,14 @@ declarations: dict[NoteId, DeclarationInfo]
       assert Ed25519_verify(txhash, proof.provider_sig, provider_id)
       ```
 
-  2. Ensure declaration does not already exist.
+  2. Ensure no identifier is already taken (see
+     [Identifier Uniqueness](bedrock-service-declaration-protocol.md#identifier-uniqueness)).
+     The `zk_id` keys the declaration, the note backs exactly one declaration, and the
+     `provider_id` is one peer identity.
       ```python
-      assert declaration_id(declaration) not in declarations
+      assert declaration.zk_id not in declarations
+      assert declaration.locked_note_id not in locked_notes
+      assert all(d.provider_id != declaration.provider_id for d in declarations.values())
       ```
 
   3. Ensure the locators list is non-empty and has no more than 8 entries.
@@ -1096,14 +1103,6 @@ declarations: dict[NoteId, DeclarationInfo]
       assert note.value >= min_stake.stake_threshold
       ```
 
-  5. Ensure the note has not already been locked for this service.
-      ```python
-      if declaration.locked_note in locked_notes:
-          locked_note = locked_notes[declaration.locked_note]
-          services = [declarations[declare_id] for declare_id in locked_note.declarations]
-          assert declaration.service_type not in services
-      ```
-
 #### Execution
 
   *Given*
@@ -1111,38 +1110,26 @@ declarations: dict[NoteId, DeclarationInfo]
 ```python
 declaration: DeclarationMessage # the declaration we are executing
 current_epoch: EpochNumber
-locked_notes : dict[NoteId, LockedNote]
+locked_notes : dict[NoteId, ZkPublicKey]
 ```
 
   *Execute*
 
-  1. Create the locked note state if it doesn't already exist.
+  1. Lock the note to this declaration.
       ```python
-      if declaration.locked_note not in locked_notes:
-          locked_notes[declaration.locked_note_id] = LockedNote(declarations=set())
-
-      locked_note = locked_notes[declaration.locked_note_id]
+      locked_notes[declaration.locked_note_id] = declaration.zk_id
       ```
 
-  2. Add this declaration to the locked note.
+  2. Store the declaration as explained in [**Declaration Storage**](bedrock-service-declaration-protocol.md#declaration-storage).
       ```python
-      declare_id = declaration_id(declaration)
-      locked_note.declarations.add(declare_id)
-      ```
-
-  3. Store the declaration as explained in [**Declaration Storage**](bedrock-service-declaration-protocol.md#declaration-storage).
-      ```python
-      declarations[declare_id] = DeclarationInfo(
-          service: declaration.service
-          locators: declaration.locators
-          provider_id: declaration.provider_id
-          zk_id: declaration.zk_id
-          locked_note_id: declaration.locked_note_id
-          declaration,
-          created=current_epoch,
-          active=None,
-          withdraw_at=None
-          nonce=0
+      declarations[declaration.zk_id] = DeclarationInfo(
+          service=declaration.service_type,
+          locators=declaration.locators,
+          provider_id=declaration.provider_id,
+          locked_note_id=declaration.locked_note_id,
+          active=current_epoch + 2,
+          withdraw_at=None,
+          nonce=0,
       )
       ```
 
@@ -1196,8 +1183,7 @@ The service withdrawal follows the definition given in [Withdraw Message](bedroc
 
 ```python
 class WithdrawMessage:
-    declaration: DeclarationID
-    locked_note_id: NoteId
+    zk_id: ZkPublicKey
     nonce: int
 ```
 
@@ -1223,36 +1209,33 @@ withdraw: WithdrawMessage
 signature: ZkSignature
 
 ledger: Ledger
-locked_notes: dict[NoteId, LockedNote]
-declarations: dict[DeclarationID, DeclarationInfo]
+locked_notes: dict[NoteId, ZkPublicKey]
+declarations: dict[ZkPublicKey, DeclarationInfo]
 ```
 
   *Validate*
 
-  1. Ensure that the locked note exists, is locked and bound to this declaration.
+  1. Ensure the declaration exists, and take the note it locked.
       ```python
-      assert ledger.is_unspent(withdraw.locked_note_id)
-      assert withdraw.locked_note_id in locked_notes
-
-      locked_note = locked_notes[withdraw.locked_note_id]
-
-      assert withdraw.declaration in locked_note.declarations
+      assert withdraw.zk_id in declarations
+      declare_info = declarations[withdraw.zk_id]
+      locked_note_id = declare_info.locked_note_id
       ```
 
   2. Validate SDP withdrawal according to [**Withdraw**](bedrock-service-declaration-protocol.md#withdraw).
-      1. Ensure declaration exists.
+      1. Ensure that note is still present and locked to this declaration.
           ```python
-          assert withdraw.declaration in declarations
-          declare_info = declarations[withdraw.declaration]
+          assert ledger.is_unspent(locked_note_id)
+          assert locked_notes[locked_note_id] == withdraw.zk_id
           ```
       2. Ensure the declaration is not already scheduled for withdrawal.
           ```python
           assert declare_info.withdraw_at is None
           ```
-      3. Ensure locked note `pk` and `zk_id` attached to this declaration authorized this Operation.
+      3. Ensure locked note `pk` and the `zk_id` of this declaration authorized this Operation.
           ```python
-          locked_note = ledger[withdraw.locked_note_id]
-          assert ZkSignature_verify(txhash, signature, [locked_note.pk, declare_info.zk_id])
+          locked_note = ledger[locked_note_id]
+          assert ZkSignature_verify(txhash, signature, [locked_note.pk, withdraw.zk_id])
           ```
       4. Ensure that the nonce is greater than the previous one.
           ```python
@@ -1269,8 +1252,8 @@ signature: ZkSignature
 
 current_epoch: EpochNumber # current epoch
 ledger: Ledger
-locked_notes: dict[NoteId, LockedNote]
-declarations: dict[DeclarationID, DeclarationInfo]
+locked_notes: dict[NoteId, ZkPublicKey]
+declarations: dict[ZkPublicKey, DeclarationInfo]
 ```
 
   *Execute*
@@ -1279,13 +1262,13 @@ declarations: dict[DeclarationID, DeclarationInfo]
 
   Withdrawal only records the intent: `withdraw_at` is set to the current
   (withdrawal) epoch `e`, the node's last rewardable epoch. The declaration is
-  removed and its stake unlocked at epoch `e+2` by the
+  removed and its note unlocked at epoch `e+2` by the
   [SDP Epoch Finalization](#sdp-epoch-finalization) step, right after the final
   reward is paid out.
 
   1. Update the declaration info with the nonce and the withdrawal epoch.
       ```python
-      declare_info = declarations[withdraw.declaration]
+      declare_info = declarations[withdraw.zk_id]
       declare_info.nonce = withdraw.nonce
       declare_info.withdraw_at = current_epoch
       ```
@@ -1294,8 +1277,7 @@ declarations: dict[DeclarationID, DeclarationInfo]
 
 ```python
 withdraw=Withdraw(
-    declaration=alice_declaration_id,
-    locked_note_id=alices_locked_note_id
+    zk_id=alice_pk_2,
     nonce=1579532
 )
 
@@ -1325,39 +1307,36 @@ rewards are distributed in the first block of epoch `e+2` (see
 [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md)).
 In that same first block, **after** the rewards have been distributed, every
 declaration whose final reward has been paid out (`withdraw_at <= current_epoch - 2`)
-is removed and its stake unlocked. Performing the removal after the reward
+is removed and its note unlocked. Performing the removal after the reward
 distribution guarantees a declaration is never removed before its final reward
 is paid. Declarations that withdrew without earning a final reward are removed
-by the same step, so their stake is always released.
+by the same step, so their note is always released.
+
+Because a declaration locks exactly one note and the note backs exactly that
+declaration, removing the declaration releases the note outright — there is no
+reference count to check.
 
   *Given*
 
 ```python
 current_epoch: EpochNumber
-locked_notes: dict[NoteId, LockedNote]
-declarations: dict[DeclarationID, DeclarationInfo]
+locked_notes: dict[NoteId, ZkPublicKey]
+declarations: dict[ZkPublicKey, DeclarationInfo]
 ```
 
   *Execute*
 
-  For every `declare_id`, `declare_info` in `declarations` where
+  For every `zk_id`, `declare_info` in `declarations` where
   `declare_info.withdraw_at is not None and declare_info.withdraw_at <= current_epoch - 2`:
 
-  1. Remove the declaration from its locked note.
+  1. Unlock the note the declaration held.
       ```python
-      locked_note = locked_notes[declare_info.locked_note_id]
-      locked_note.declarations.remove(declare_id)
+      del locked_notes[declare_info.locked_note_id]
       ```
 
   2. Remove the declaration.
       ```python
-      del declarations[declare_id]
-      ```
-
-  3. Unlock the note once it is no longer bound to any declaration.
-      ```python
-      if len(locked_note.declarations) == 0:
-          del locked_notes[declare_info.locked_note_id]
+      del declarations[zk_id]
       ```
 
 ### SDP_ACTIVE
@@ -1368,10 +1347,13 @@ The service active action follows the definition given in [Active Message](bedro
 
 ```python
 class Active:
-    declaration: DeclarationID
+    zk_id: ZkPublicKey
     nonce: int
     metadata: bytes # a service-specific node activeness metadata
 ```
+
+The `zk_id` determines the declaration, and the declaration determines the
+service, so the operation does not name one.
 
 #### Proof
 
@@ -1392,29 +1374,29 @@ txhash: zkhash # Mantle transaction hash of the tx containing this operation
 active: Active
 signature: ZkSignature
 
-declarations: dict[DeclarationID, DeclarationInfo]
+declarations: dict[ZkPublicKey, DeclarationInfo]
 ```
 
   *Validate*
 
 ```python
-assert active.declaration in declarations
-declaration_info = declarations[active.declaration]
+assert active.zk_id in declarations
+declaration_info = declarations[active.zk_id]
 
 assert active.nonce > declaration_info.nonce
 
-assert ZkSignature_verify(txhash, signature, declaration_info.zk_id)
+assert ZkSignature_verify(txhash, signature, active.zk_id)
 ```
 
 #### Execution
 
-  Executes the active protocol [Active](bedrock-service-declaration-protocol.md#active). The activation, i.e. setting the `declaration.active`, is handled by the service-specific logic.
+  Executes the active protocol [Active](bedrock-service-declaration-protocol.md#active). The activation, i.e. setting the `active` of the `DeclarationInfo`, is handled by the service-specific logic.
 
 #### Example
 
 ```python
 active=Active(
-    declaration=alice_declaration_id,
+    zk_id=alice_pk_2,
     nonce=1579532,
     metadata=b"Look, I am still doing my job"
 )
@@ -1675,7 +1657,7 @@ These note identifiers uniquely define notes in the system and cannot be chosen 
 
 ### Locked notes
 
-Locked notes are special notes in Mantle that serve as collateral for Service Declarations. A note can become locked after executing a Declare Operation, preventing it from being spent until explicitly released through a Withdraw Operation. The system maintains a mapping of locked note IDs to their supporting declarations. Though locked, these notes remain in the Ledger and can still participate in Proof of Stake. When service providers withdraw all their declarations, the associated note(s) become unlocked and available for spending again.
+Locked notes are special notes in Mantle that serve as collateral for Service Declarations. A note can become locked after executing a Declare Operation, preventing it from being spent until explicitly released through a Withdraw Operation. A note backs at most one declaration, so the system maintains a mapping of each locked note ID to the declaration it supports. Though locked, these notes remain in the Ledger and can still participate in Proof of Stake. When a service provider withdraws its declaration, the note it locked becomes unlocked and available for spending again.
 
 ### Channel Notes
 
@@ -1688,7 +1670,7 @@ The system maintains a `channel_notes` set in the Ledger tracking all active cha
 ```python
 class Ledger:
     notes: list[Note]
-    locked_notes: dict[NoteId, LockedNote]
+    locked_notes: dict[NoteId, ZkPublicKey]
     channel_notes: dict[NoteId, ChannelId]
 ```
 
