@@ -83,6 +83,8 @@ Logos Blockchain messages are encoded using bincode - a compact binary serializa
 
 The complete specification can be found in the [official documentation](https://docs.rs/bincode/latest/bincode/).
 
+This applies to transport-level message framing. Consensus structures that must be byte-identical across implementations define their own canonical encoding instead, and where they do, that encoding takes precedence: see [Mantle Transaction Encoding](mantle-transaction-encoding.md) for transactions and [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding) for the block proposal.
+
 # Reference
 
 - [C structure layout](https://www.gnu.org/software/c-intro-and-ref/manual/html_node/Structure-Layout.html)

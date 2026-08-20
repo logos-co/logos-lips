@@ -26,6 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-09 |
 | 1.0.1 | Corrected `Max_Payload_Length` to 34577 bytes, so that it again matches the `Max_Body_Length` of [Payload Formatting](payload-formatting.md) plus the 3-byte payload header. | 2026-08-06 |
+| 1.0.2 | Expressed `Max_Payload_Length` as `Max_Body_Length + 3` rather than a literal, so that it tracks the payload body size automatically; it is 18195 bytes at the `Max_Body_Length` that follows from the compressed transaction references of [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md). | 2026-08-18 |
 
 # Introduction
 
@@ -108,4 +109,8 @@ The `payload` must be formatted according to the [Payload Formatting](payload-fo
 
 ## Maximum Payload Length
 
-The `Max_Payload_Length` parameter defines the maximum length of the `payload`, which for version 1 of the Blend Protocol is fixed as `Max_Payload_Length=34577`. That is, 34574 bytes for the payload body (`Max_Body_Length`) and 3 bytes for the payload header. More information about payload formatting can be found in [Payload Formatting](payload-formatting.md).
+The `Max_Payload_Length` parameter defines the maximum length of the `payload`. It is not an independent parameter: a payload is a 3-byte header followed by a body of exactly `Max_Body_Length` bytes, so
+
+&nbsp;&nbsp;&nbsp;&nbsp;`Max_Payload_Length = Max_Body_Length + 3`
+
+which is 18195 bytes at the `Max_Body_Length` of 18192 currently set by [Payload Formatting](payload-formatting.md). Stating it as a derived value rather than a literal means that a change to the maximum block proposal size — which is what sets `Max_Body_Length` — reaches this parameter without an edit here. More information about payload formatting can be found in [Payload Formatting](payload-formatting.md).
