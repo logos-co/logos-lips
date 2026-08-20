@@ -1012,7 +1012,6 @@ class DeclarationInfo:
     locators: list[Locator]
     provider_id: Ed25519PublicKey
     locked_note_id: NoteId
-    created: EpochNumber
     active: EpochNumber | None
     withdraw_at: EpochNumber | None
     # SDP ops updating a declaration must use monotonically increasing nonces
@@ -1127,7 +1126,6 @@ locked_notes : dict[NoteId, ZkPublicKey]
           locators=declaration.locators,
           provider_id=declaration.provider_id,
           locked_note_id=declaration.locked_note_id,
-          created=current_epoch,
           active=None,
           withdraw_at=None,
           nonce=0,

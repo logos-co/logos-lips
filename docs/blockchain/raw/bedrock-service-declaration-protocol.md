@@ -59,7 +59,7 @@ The logic of the protocol is straightforward.
 2. The declaration is registered on the Ledger, and the node can commence its service according to the service-specific service logic.
 3. After a service-specific service-providing time, the node confirms its activity.
 4. The node must confirm its activity with a service-specific minimum frequency; otherwise, its declaration is inactive.
-5. After the service-specific locking period, the node can send a withdrawal message, and its declaration is removed from the Ledger, which means that the node will no longer provide the service.
+5. The node can send a withdrawal message at any time. Its declaration is removed from the Ledger, and the note it locked is released, two epochs later — once the node can no longer appear in an active snapshot — from which point it no longer provides the service.
 
 > The protocol messages are subject to a finality that means messages become part of the immutable ledger after a delay. The delay at which it happens is defined by the consensus. Therefore, the protocol’s progress must be tracked from the perspective of the latest finalized block, not the tip of the chain. Otherwise, the protocol and services using it would need to handle chain reorganizations, which we must avoid due to their potential to break services. Hence, the services must use a snapshot from a fully finalized epoch: `finalized_epoch = current_epoch - 2`. For more details about finalization, refer to [Cryptarchia Protocol](cryptarchia-v1-protocol.md).
 
@@ -180,7 +180,6 @@ class DeclarationInfo:
     provider_id: Ed25519PublicKey
     locators: list[Locator]
     locked_note_id: NoteId
-    created: EpochNumber
     active: EpochNumber | None
     withdraw_at: EpochNumber | None
     nonce: Nonce
@@ -192,7 +191,6 @@ Where:
 - `provider_id` is an `Ed25519PublicKey` used to sign the message by the validator;
 - `locators` is a copy of the `locators` from the `DeclarationMessage`;
 - `locked_note_id` is a `NoteId` used for minimum stake threshold verification purposes;
-- `created` refers to the epoch number of the block that contained the declaration;
 - `active` refers to the latest epoch number for which the active message was sent (it is set to `None` by default);
 - `withdraw_at` refers to the epoch number for which the service declaration will be withdrawn (it is set to `None` by default);
 - The `nonce` must be set to 0 for the declaration message and must increase monotonically by every message sent for the `zk_id`.

@@ -28,6 +28,7 @@
 | 1.4.1 | [\[RFC\] Simplify Mantle Transaction and Refactor Ledger Operations](mantle-transaction-encoding/appendices/rfc-simplify-mantle-transaction-and-refactor-ledger-operations.md) | N/A |
 | 1.5.0 | Introduce the new Operation `CHANNEL_STAKE_ASSIGNATION` and update of the channel operations to reflect changes in Mantle | 2026-06-24 |
 | 1.5.1 | Reflect Channel Deposit execution modification. It now consumes inputs to update their NoteId | 2026-07-27 |
+| 1.5.2 | [RFC] Align the SDP costs with declarations keyed by `zk_id`: no lock-period check, and a note backs one declaration | 2026-08-20 |
 
 # Introduction
 
@@ -182,26 +183,24 @@ Execution: ~ 646k CPU cycles.
 - Verification of locator length: negligible.
 - Verification of locked note existence: negligible.
 - Verification of locked note value: negligible.
-- Verification that the note isn’t already locked for the service: negligible.
+- Verification that the note isn’t already locked: negligible.
 - Locking the note: negligible.
 ## SDP Withdraw
 
-This gas covers a verification process that includes: confirming ownership of the zk_id through ZkSignature verification, validating the existence of the locked note, verifying that the note has exceeded its lock period, and confirming that the declaration exists and has not been previously withdrawn. The validation process also ensures that the withdrawal message's nonce is greater than any previous nonce, preventing replay attacks. During execution, the system updates the declaration's status to withdrawn, removes the declaration from the locked note's associated declarations, and—if the note has no remaining declarations—removes it from the locked notes dictionary.
+This gas covers a verification process that includes: confirming ownership of the zk_id through ZkSignature verification, confirming that the declaration exists and has not been previously withdrawn, and validating that the note it locked is still locked to it. The validation process also ensures that the withdrawal message's nonce is greater than any previous nonce, preventing replay attacks. During execution, the system records the withdrawal epoch on the declaration; the declaration is removed and its note unlocked at the epoch transition two epochs later.
 
 Execution: ~ 590k CPU cycles.
 
 - Verification that the note exists, is locked and bound to the declaration: negligible.
-- Verification that the note can be unlocked: negligible.
 - Verification that the declaration exist: negligible.
 - Verification of the ZK signature: 590,000 cycles.
 - Verification that the declaration wasn’t already withdrawn: negligible.
 - Verification of nonce incrementation: negligible.
 - Update declaration: negligible.
-- Remove declaration from locked note: negligible.
-- Unlock the note if not linked to any declaration: negligible.
+- Remove the declaration and unlock its note: negligible.
 ## SDP Activation
 
-This gas funds the verification of the zk_id signature through the ZkSignature verification process, validates the existence of the declaration in the system, and ensures that the activation message's nonce is greater than any previous nonce to prevent replay attacks. The validation includes confirming that the declaration ID is present in the declarations dictionary and that the signature corresponds to the declaration's registered zk_id public key.
+This gas funds the verification of the zk_id signature through the ZkSignature verification process, validates the existence of the declaration in the system, and ensures that the activation message's nonce is greater than any previous nonce to prevent replay attacks. The validation includes confirming that the `zk_id` is present in the declarations dictionary and that the signature corresponds to it.
 
 - Execution: ~590k CPU cycles.
     - Verification that the declaration exist: negligible.
