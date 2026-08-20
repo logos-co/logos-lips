@@ -130,6 +130,17 @@ Each snapshot updates the common view of the registry. Changes to the declaratio
 
 Epochs 0 and 1 read the snapshot at the genesis block, because the chain has not yet progressed far enough to provide a later finalized block. While at epoch 2, the last block of epoch 0 is read, and so forth according to the above logic.
 
+### Active Set
+
+A snapshot holds every declaration stored at the block it was taken from, which is not the same as the set of validators providing the service. The **active set** for an epoch $`n`$ is derived from the snapshot by keeping the declarations for which both of the following hold:
+
+- activity has been reported recently enough: `active + inactivity_period >= n`;
+- the withdrawal has not taken effect: `withdraw_at` is `None`, or `n < withdraw_at + 2`.
+
+Both conditions are evaluated against the epoch $`n`$ the set is being derived for, not against the epoch the snapshot was taken in. This is what keeps membership and collateral aligned. A declaration withdrawn in epoch `e` is removed, and its note unlocked, at epoch `e+2` (see [**Withdraw**](#withdraw)); the second condition drops it from the active set at that same epoch, even though the snapshot it came from was read from an earlier block in which it was still stored and not yet withdrawn. There is therefore no epoch in which a validator is in the active set without a locked note backing it.
+
+Deriving the set from the stored declarations alone, without re-evaluating these conditions against $`n`$, would admit exactly that: a validator whose note has already been released would remain in the set for as long as the snapshot lag, able to provide the service and to prove membership in it with no stake at risk.
+
 ### Identifiers
 
 We define the following set of identifiers which are used for service-specific cryptographic operations:
@@ -180,7 +191,7 @@ class DeclarationInfo:
     provider_id: Ed25519PublicKey
     locators: list[Locator]
     locked_note_id: NoteId
-    active: EpochNumber | None
+    active: EpochNumber
     withdraw_at: EpochNumber | None
     nonce: Nonce
 ```
@@ -191,7 +202,7 @@ Where:
 - `provider_id` is an `Ed25519PublicKey` used to sign the message by the validator;
 - `locators` is a copy of the `locators` from the `DeclarationMessage`;
 - `locked_note_id` is a `NoteId` used for minimum stake threshold verification purposes;
-- `active` refers to the latest epoch number for which the active message was sent (it is set to `None` by default);
+- `active` refers to the latest epoch number for which the active message was accepted. It is initialised to the epoch of the block that contained the declaration plus two — the first epoch for which the declaration can appear in a snapshot — so a new declaration carries the same inactivity grace as one that has just reported activity, and does not expire before it has had a chance to be active;
 - `withdraw_at` refers to the epoch number for which the service declaration will be withdrawn (it is set to `None` by default);
 - The `nonce` must be set to 0 for the declaration message and must increase monotonically by every message sent for the `zk_id`.
 
