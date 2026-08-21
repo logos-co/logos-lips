@@ -30,6 +30,7 @@
 | 1.1.0 | Precise and make clearer that the max block size is the max body size, and fix the verification of the number of transaction per block to be <= 1024 | 2026-07-27 |
 | 1.1.1 | Corrected `MAX_BLOCK_SIZE` to 2 MiB, to match the implementation. | 2026-08-05 |
 | 1.2.0 | Added [uncle references](#uncle-references): a block carries the signed headers of the fork blocks it references, every carried entry must be valid for the block itself to be valid, and the [Total Stake Inference](#total-stake-inference) counts their slots. Replaced `block_root` with `body_root`, which commits to those headers as well as to the transactions. | 2026-08-06 |
+| 1.2.1 | Noted in [Privacy](#privacy) that chain synchronization discloses only publicly disseminated blocks, due to updated [Cryptarchia Bootstrapping & Synchronization](cryptarchia-v1-bootstr-sync.md) (sync view). | 2026-08-21 |
 
 # Introduction
 
@@ -67,7 +68,7 @@ Working to give leaders confidence in this statement has had ripple effects thro
 
 - **The block proposals should not be linkable to a leader**. An adversary should not be able to connect together the block proposals of a leader in order to build a profile. In particular, one should not be able to infer a proposer's stake from their past on-chain activity.
 - **Cryptarchia must not reveal the stake of the leader** - that is, it must be a Private Proof of Stake (PPoS) protocol. If the activity of the leader reveals their stake values (e.g. through weighted voting), then this value can be used to reduce the anonymity set for the leader by bucketing the leader as high/low stake and can open him up to targeting.
-- **Leaders should be protected against network triangulation attacks**. This is outside of the scope of this document, but it suffices to say that in-protocol cryptographic privacy is not sufficient to guarantee a leader's privacy. This topic is dealt with directly in [Blend Protocol](blend-protocol.md).
+- **Leaders should be protected against network triangulation attacks**. This is outside of the scope of this document, but it suffices to say that in-protocol cryptographic privacy is not sufficient to guarantee a leader's privacy. This topic is dealt with directly in [Blend Protocol](blend-protocol.md). The same requirement binds every other protocol a node speaks over an attributable channel: while a proposal traverses the Blend network, only its author holds the block, so chain synchronization discloses only blocks that are already public ([Sync View](cryptarchia-v1-bootstr-sync.md#sync-view)).
 
 ## Limitations of Cryptarchia V1
 
