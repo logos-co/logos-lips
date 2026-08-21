@@ -24,6 +24,7 @@
 | 1.0.0 | Initial revision | 2026-04-24 |
 | 1.0.1 | Fix base fee constants in pseudocode based on the correct $`G_{\mathrm{target}}`$ | 2026-07-27 |
 | 1.1.0 | Round the base fee update upwards | 2026-07-28 |
+| 1.2.0 | Cap the base fee at MAX_PRICE and require widened arithmetic for the update product | 2026-08-04 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -180,8 +181,10 @@ $$
 The integer base fee is obtained by rounding this quantity upwards, while the smoothed average $`G_\text{avg}[s]`$ is rounded downwards:
 
 $$
-b_\text{exec}[s+1] = \left\lceil b_\text{exec}[s] \cdot \frac{7 \cdot G_\text{target} + G_\text{avg}[s]}{8 \cdot G_\text{target}} \right\rceil,\qquad G_\text{avg}[s] = \left\lfloor \frac{G[s] + 9 \cdot G_\text{avg}[s-1]}{10} \right\rfloor
+b_\text{exec}[s+1] = \min\!\left(\mathrm{MAX\_PRICE},\ \left\lceil b_\text{exec}[s] \cdot \frac{7 \cdot G_\text{target} + G_\text{avg}[s]}{8 \cdot G_\text{target}} \right\rceil\right),\qquad G_\text{avg}[s] = \left\lfloor \frac{G[s] + 9 \cdot G_\text{avg}[s-1]}{10} \right\rfloor
 $$
+
+with $`\mathrm{MAX\_PRICE} = \left\lfloor (2^{64}-1)/G_\text{max} \right\rfloor = 5{,}776{,}413{,}067{,}240`$, justified in [Range Limits](#range-limits) below.
 
 And so we propose the following code reference:
 
@@ -190,20 +193,43 @@ EMA_DENOMINATOR = 10  # from q = 9/10
 EMA_PREV_WEIGHT = 9  # from q = 9/10
 BASE_FEE_NUMERATOR = 11_177_110  # = 7 * G_target
 BASE_FEE_DENOMINATOR = 12_773_840  # = 8 * G_target
+MAX_PRICE = 5_776_413_067_240  # = (2^64 - 1) // G_max
 
 def ceil_div(numerator: int, denominator: int) -> int:
     return (numerator + denominator - 1) // denominator
 
+# All arguments and return values are uint64. The numerator is bounded by
+# 10 * G_max and stays in uint64.
 def update_g_avg(prev_g_avg: int, block_gas_used: int) -> int:
     numerator = block_gas_used + EMA_PREV_WEIGHT * prev_g_avg
     return numerator // EMA_DENOMINATOR
 
+# All arguments and return values are uint64. The numerator MUST be computed
+# in uint128: it exceeds 2^64 for base_fee > 1_283_647_348_274 (see Range
+# Limits).
 def update_base_fee(base_fee: int, g_avg: int) -> int:
     numerator = base_fee * (BASE_FEE_NUMERATOR + g_avg)
-    return ceil_div(numerator, BASE_FEE_DENOMINATOR)
+    return min(MAX_PRICE, ceil_div(numerator, BASE_FEE_DENOMINATOR))
 ```
 
-The two rounding directions are not interchangeable. The base fee is multiplied by a factor smaller than one whenever the smoothed average is below the target, so rounding it downwards would make 0 an absorbing state: a base fee of 1 would be mapped to 0 by the first downward update, and every subsequent update would keep it at 0, making execution permanently free. Rounding upwards makes 1 the effective floor of the base fee and leaves the mechanism unchanged at every other price level, as the rounding error is at most one unit against an adjustment of up to $\pm 12.5\%$. The smoothed average is a measurement rather than a price and is not subject to this failure mode, as it is additive and recovers from 0 as soon as demand resumes. Rounding it upwards would instead pin it at 1 once it has been positive, reporting residual demand on an idle network.
+The two rounding directions are not interchangeable. The base fee is multiplied by a factor smaller than one whenever the smoothed average is below the target, so rounding it downwards would make 0 an absorbing state: a base fee of 1 would be mapped to 0 by the first downward update, and every subsequent update would keep it at 0, making execution permanently free. A downward-rounded rule would reach 0 *even under full congestion*: the smoothed average is seeded at 0 and needs approximately 7 full blocks to cross $`G_\text{target}`$, so the first updates of a fresh chain are downward whatever the load, and $`\lfloor 1 \cdot x \rfloor = 0`$ for every $x \lt 1$.
+
+Rounding upwards makes 1 the effective floor of the base fee: whenever $`G_\text{avg}[s] \lt G_\text{target}`$, the update satisfies $`\lceil b \cdot (7 G_\text{target} + G_\text{avg}) / (8 G_\text{target}) \rceil = b`$ exactly for $`b \lt 8 G_\text{target} / (G_\text{target} - G_\text{avg})`$, so no price $\geq 1$ can ever reach 0. Three qualifications apply:
+
+1. Decay from above comes to rest at 7 on an idle network ($`G_\text{avg} = 0`$, where the bound above equals 8), and slightly higher under residual background load, rather than returning to the genesis price of 1. At every higher price level the mechanism is unchanged, as the rounding error is at most one unit against an adjustment of up to $\pm 12.5\%$, though every rounding error is upward, giving the rule a small upward bias relative to the real-valued mechanism.
+2. $\lceil 0 \cdot x \rceil = 0$: zero remains an absorbing state in principle. Rounding upwards makes it unreachable from any positive price, not harmless — the genesis price and any future minimum must stay $\geq 1$.
+3. The EMA warm-up is unaffected by the rounding direction: the base fee cannot rise during the first $\approx 7$ blocks of a fresh chain even under sustained maximum congestion, because the update factor only exceeds 1 once $`G_\text{avg}[s] \gt G_\text{target}`$. Congestion-response tests must sustain above-target load across multiple blocks to observe any upward movement.
+
+The smoothed average is a measurement rather than a price and is not subject to this failure mode, as it is additive and recovers from 0 as soon as demand resumes. Rounding it upwards would instead pin it at 1 once it has been positive, reporting residual demand on an idle network.
+
+### Range Limits
+
+Every quantity in the fee mechanism is an unsigned 64-bit integer, but the update itself is multiplicative and unbounded above: under sustained full blocks the base fee grows by a factor approaching $9/8$ per block. Two rules keep the base fee and every intermediate product inside their declared ranges:
+
+1. The numerator $`b_\text{exec}[s] \cdot (7 G_\text{target} + G_\text{avg}[s]) + 8 G_\text{target} - 1`$ is computed in uint128, and only the quotient is stored back into a uint64. It exceeds $`2^{64}`$ for a base fee above $`1{,}283{,}647{,}348{,}274`$, so it does not fit in the width that holds the base fee itself.
+2. The quotient is clamped to $`\mathrm{MAX\_PRICE} = \lfloor (2^{64}-1)/G_\text{max} \rfloor = 5{,}776{,}413{,}067{,}240`$, the largest base fee for which a full block's fee $`G_\text{max} \cdot b_\text{exec}[s]`$ still fits in uint64.
+
+Neither bound is reachable in practice, because raising the base fee means burning fees at every step of the climb: reaching a base fee $b$ along the $9/8$ ramp burns $`\sum_i G_\text{max} \cdot b \cdot (8/9)^i \approx 9 \cdot G_\text{max} \cdot b`$, so burning a whole $`2^{64}`$ supply reaches only $`\mathrm{MAX\_PRICE}/9`$. The two rules are specified so that the absence of overflow follows from the update function alone, and does not have to be re-derived from the supply cap whenever the gas constants or the token denomination change.
 
 ### Fee Distribution
 
