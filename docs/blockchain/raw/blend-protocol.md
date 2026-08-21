@@ -27,6 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-04-09 |
 | 1.1.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.1.1 | Updated the block proposal message size to 34574 bytes in the encapsulation-overhead calculation, following the addition of carried uncle headers in [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md). | 2026-08-06 |
+| 1.2.0 | [RFC] Detect the failure of the Blend network to deliver block proposals and react to it, by re-routing around the nodes that fail, shortening the blending path, and bypassing the network while the chain starves. | 2026-08-21 |
 
 # Introduction
 
@@ -96,6 +97,8 @@ To have a **truly privacy-preserving system, we need to apply both techniques si
 - *Broadcasting* is the process of sending a data message payload (block proposal) to all Logos Blockchain nodes.
 - *Disseminating* is the process of relaying messages by core nodes through the network to edge and core nodes.
 - *Communication failure* is an event when a message that is disseminated through the network is not finally broadcast. The communication failure might be due to lazy, malicious, or unresponsive nodes.
+- *Broadcast failure* is an event when every message that carries a given block proposal suffers a communication failure, so the proposal never reaches the Logos Blockchain broadcasting channel.
+- *Bypassing* is the act of broadcasting a block proposal directly to the Logos Blockchain broadcasting channel, without passing it through the Blend network. A bypassed proposal is not protected by the protocol: its sender is linkable to it.
 - *Anonymity failure* is an event when an adversary can link the sender to the broadcast message.
 
 ## Time
@@ -155,7 +158,9 @@ The calculations supporting this requirement are provided in the [Releasing](#re
 
 ### Fallback
 
-If the minimal network size is not reached, nodes must not use the Blend protocol. In such cases, nodes must broadcast data messages directly, bypassing the Blend network.
+If the minimal network size is not reached, nodes must not use the Blend protocol. In such cases, nodes must broadcast data messages directly, bypassing the Blend network. The size this rule is keyed to is the declared one — the number of `ProviderId`s in the SDP snapshot — which every node reads identically from the same finalized state, so all nodes reach the same conclusion at the same time.
+
+A network that is large enough on paper can still fail to deliver, because the nodes carrying a message can be unresponsive, lazy or malicious. That failure does not show in the declared size; detecting it and reacting to it is specified in [Detection](#detection) and [Reaction](#reaction). How many core nodes a node can actually reach is a local observation ([Effective Network Size](#effective-network-size)), and on its own it is deliberately not a reason to leave the Blend network.
 
 ### Maintenance
 
@@ -225,6 +230,25 @@ A message is relayed according to the following logic.
 ### Broadcasting
 
 Broadcasting is a process of delivering a block proposal extracted from a data message to the entire Logos Blockchain network by the core node that received it. Only block proposals that are constructed correctly can be broadcast. Any badly constructed block proposal must be rejected. The logic behind the verification of the block proposal is out of the scope of the Blend protocol. It is defined by the Logos Blockchain Bedrock ([\[Overview\] Bedrock Architecture](bedrock-architecture-overview.md)).
+
+## Failure Detection and Reaction
+
+Every node that carries a message can fail to pass it on. An unresponsive node fails by accident, a lazy node fails to save bandwidth, and a malicious node fails on purpose; the result is the same [communication failure](#networking), and the message is gone. The protocol has no acknowledgements, so nothing in the [Message Lifecycle](#message-lifecycle) notices the loss.
+
+The chain notices it. Every block proposal travels through the Blend network, so proposals that are dropped are blocks that are never produced, and a Blend network that stops delivering stops the chain. Consensus does not repair this on its own: the difficulty of the leadership lottery is calibrated from the slot occupancy observed over an entire epoch ([Total Stake Inference](cryptarchia-total-stake-inference.md)), so proposals lost today are compensated no earlier than the next epoch, days later. **The Blend protocol must therefore detect that it is failing and route around itself, within minutes, using only what a node can observe on its own.**
+
+Two properties of the protocol shape that reaction:
+
+- **Suppressing block proposals is either indiscriminate or confined to the exit.** Data and cover messages are indistinguishable until the last decapsulation. A node that wants to suppress proposals must therefore either drop every message it handles — which also destroys the cover traffic that its neighbors measure, and is what [Connectivity Maintenance](#connectivity-maintenance) already watches for — or drop only the payloads it is the last to decapsulate, which reaches only the messages that happen to end at it.
+- **A sender knows which nodes carry its message.** The blend nodes of a message are the ones selected by the keys used to build it ([Proof of Selection](#proof-of-selection)). A sender can therefore send a proposal again through a different set of nodes, and can hold the nodes of a path that failed responsible for the failure.
+
+The reaction is a ladder. Each step buys a better chance of delivery with a measure of anonymity, and no step is taken before the previous one is known to have failed:
+
+1. **The message was lost.** A core node follows its own message through the network. It computed every encapsulation, so it knows what the message looks like after each blend node has processed it, and since every message is relayed to every core node it sees those forms go past — or sees that they do not, within a few rounds, which tells it both that the message is lost and which node lost it. An edge node holds no connections into the network and sees none of this; it can only watch the broadcasting channel for its proposal and conclude that the message is lost when the proposal has not appeared within the delivery deadline. Either way, the proposer sends the proposal again — through nodes that were not on the paths that already failed, and with fewer blending operations on each further attempt, since every hop removed is a hop that cannot drop the message. The whole ladder fits within the leadership quota of a single lottery win, so nothing is borrowed from any other message, and while the network works, the ladder costs nothing at all: the first attempt succeeds and the remaining quota is never spent.
+2. **The network around the node is failing.** A node that cannot keep the minimum number of healthy connections, or that measures a collapse in the traffic its neighbors send it, must repair its own view of the network — replacing neighbors, opening connections to other core nodes, and refusing to route through nodes it has seen fail. It must **not** conclude from this alone that the Blend network is unusable. A local measurement is exactly what an adversary sitting on the node's connections can forge, and bypassing the network on forged evidence is precisely the deanonymization such an adversary is after.
+3. **The chain is starving.** When almost no blocks are produced over a window long enough to make chance an implausible explanation, while the broadcasting channel is otherwise healthy, block proposals are not reaching the network and the chain is halting. This is the one signal that every node reads from the same source — the chain itself — so all nodes reach it together without exchanging a single message. It opens the bypass: proposals are broadcast directly, unprotected, until the Blend network is observed to carry traffic normally again.
+
+Bypassing sacrifices what the protocol exists to provide, so it is the last step and never the first, and it is reverted as soon as the network recovers. It is nevertheless the correct final step: an unlinkable proposal that is never delivered protects nobody, because a chain that does not grow has no proposers left to protect.
 
 ## Rewarding
 
@@ -422,6 +446,62 @@ Every payload that is added to the broadcasting queue is processed as follows:
 
 For a complete description of the processing logic, refer to [Broadcasting](#broadcasting).
 
+## Failure Detection and Reaction
+
+This section defines how a node detects that the Blend network is not delivering messages and how it reacts. Every signal is derived from what the node observes on its own; no new message type, no coordination between nodes and no consensus rule is involved. The reaction changes only how a block proposal is transported, never whether it is valid, so nodes that react differently still accept exactly the same blocks and the network cannot fork over it.
+
+### Detection
+
+A node uses three signals.
+
+**Delivery failure.** A message that is not delivered is detected end to end, and how quickly depends on what the sender can see of the network.
+
+- A **core node** follows its own message hop by hop ([Progress Observation](#progress-observation)). It must treat an attempt as failed at the first step it does not observe within the progress deadline $`T_H`$, and it learns from that step which node failed it.
+- An **edge node** sees none of the traffic of the network. It knows the identifier of the block it proposed, and every Logos Blockchain node observes the broadcasting channel, so it must treat a message as lost when the proposal has not been broadcast within the delivery deadline $`T_D`$ ([Delivery Deadline](#delivery-deadline)), counted from the round in which the message was released. A core node applies the same deadline as a backstop.
+
+This signal is what sees a node which relays and processes messages correctly but discards the payloads it is the last to decapsulate: such a node damages no cover traffic and is invisible to every traffic measurement.
+
+**Network health.** A core node already measures the frequency $`F_1^W`$ of the messages received on each connection and marks a connection unhealthy when it carries fewer messages than $`\lfloor F_1 \rfloor^W`$ ([Connectivity Maintenance](#connectivity-maintenance)). Three further conditions must be tracked:
+
+1. The share of the messages the node generates that it observes progressing past their first blend node ([Progress Observation](#progress-observation)). Cover messages serve here exactly as data messages do, so a core node measures the network continuously, at no cost and without emitting anything it would not emit anyway.
+2. The number of core nodes the node can reach — the effective network size $`N_{eff}`$ ([Effective Network Size](#effective-network-size)). It is measured from the connection attempts the node makes anyway while maintaining its connections; no scanning of the SDP set is required.
+3. Whether the minimum peering degree $`\Phi_{CC}^{Min}`$ can be restored with healthy connections at all.
+
+**Chain starvation.** A node counts the slots of the last $`W_S`$ slots that are occupied by at least one valid block it has received, on any branch it holds ([Chain Starvation](#chain-starvation)). The chain is starving when that count is at most $`\theta_S`$ while the broadcasting channel is healthy — the node holds its target number of peers on it and other traffic, transactions in particular, keeps arriving. The node must be in the `ONLINE` fork choice mode ([Cryptarchia Bootstrapping and Synchronization](cryptarchia-v1-bootstr-sync.md)); a node that is still synchronizing observes the past and must not evaluate this signal.
+
+### Reaction
+
+**A lost message is sent again.** When a data message is lost, the block proposer must encapsulate the proposal into a new message and release it, following the reaction ladder $`\Lambda`$ ([Reaction Ladder](#reaction-ladder)), which sets how many blending operations each attempt uses. Each attempt is released as soon as the previous one is known to have failed — for a core node at the first step it does not observe, for an edge node at the delivery deadline. Every attempt must carry the identical proposal, and therefore the identical block identifier: rebuilding the proposal would place two different blocks in the same slot under one proof of leadership, which is an equivocation and forks the network by itself. Each attempt:
+
+1. must use keys that no previous attempt used, which is what makes it a different message travelling through different nodes;
+2. must avoid every node that carried an attempt already made for this proposal, and every suspect node ([Suspect Nodes](#suspect-nodes)), as far as the available keys allow — two different keys can select the same node, so using unused keys is not on its own enough to change the path;
+3. must cancel one scheduled cover message, exactly as the first attempt did ([Releasing](#releasing)), so that the emission rate of a core node does not change while it is retrying. An edge node has no cover schedule to draw on, so its retries are visible as additional messages to the core nodes it sends them to — a consequence of the lower level of privacy the protocol provides to edge nodes;
+4. must be sent to core nodes that were not used as entry points by the previous attempt, in the case of an edge node ([Edge Network](#edge-network)); a core node releases every attempt to all of its neighbors, as it does any generated message.
+
+The ladder ends when the proposal is observed on the broadcasting channel, when the leadership quota for that lottery win is exhausted, or when the proposal is bypassed. A node must not spend the quota of one lottery win on the proposal of another. A proposal whose ladder is exhausted while the chain is not starving is abandoned: the slot is lost, and the privacy of the node that won it is not.
+
+**A failed path makes its nodes suspect.** After a delivery failure, a core node must record a failure against the node its observation identified, and an edge node, which cannot tell which node failed, against every node selected by the keys of that message. A node that accumulates $`S_{min}`$ failures becomes suspect and must be avoided when constructing paths, while remaining a neighbor: dropping the connection is what an adversary that has silenced an honest node would want, and it is already excluded by [Connectivity Maintenance](#connectivity-maintenance) for the same reason. Suspicion is bounded and forgetful ([Suspect Nodes](#suspect-nodes)) so that an adversary cannot use it to push senders onto the nodes it controls.
+
+**A collapsing local view is repaired, not escaped.** When the node cannot restore $`\Phi_{CC}^{Min}`$ healthy connections, or when $`N_{eff}`$ falls below the minimal network size, the node must:
+
+1. continue to open connections with other randomly selected core nodes, at the rate allowed by [Connectivity Maintenance](#connectivity-maintenance);
+2. keep generating cover messages, so that its own neighbors do not observe a collapse caused by it;
+3. record the condition in the logs for the operator.
+
+The node must **not** bypass the Blend network on this evidence. The declared network size is read from the SDP snapshot and is the same for every node, so acting on it is safe ([Fallback](#fallback)); the effective network size is a local measurement, and an adversary able to block the node's connections can set it to any value it likes.
+
+**A starving chain opens the bypass.** While the chain is starving, a node must enter bypass mode ([Bypass Mode](#bypass-mode)) and broadcast its block proposals directly to the Logos Blockchain broadcasting channel. It leaves bypass mode when the traffic it receives from the Blend network is normal again.
+
+### Bypass Mode
+
+In bypass mode:
+
+1. Block proposals are broadcast directly to the Logos Blockchain broadcasting channel, without encapsulation and without delay. Such a proposal carries no protection: its sender is linkable to it.
+2. A proposal must only reference transactions that entered the mempool of the proposer at least $`T_D`$ earlier, which preserves the transaction maturity that the delay of the Blend network otherwise provides ([Block Proposal Reconstruction](bedrock-v1.1-block-construction.md#block-proposal-reconstruction)). A proposal built before bypass mode was entered has already waited at least that long and needs no further delay.
+3. Everything else in the protocol continues unchanged: the node relays, processes and broadcasts the messages of other nodes, and keeps generating cover messages on schedule. This preserves the anonymity pool for the nodes that are still using the network, and it is what allows the node to observe that the network has recovered.
+
+A node leaves bypass mode when its connections have carried normal traffic for the duration of the hold-down $`H_B`$, after an additional random delay ([Entering and Leaving Bypass Mode](#entering-and-leaving-bypass-mode)). The random delay staggers the return: if the network is still broken, the nodes that return discover it one at a time instead of the whole network flapping between the two modes together.
+
 ## Rewarding
 
 Every active core node receives a reward. The activity of a node is verified in a probabilistic manner, where a more active node has higher chances of getting a reward and a premium reward. To claim a reward, the node must do the following:
@@ -463,6 +543,14 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\mathcal{N} = \text{SDP}(s)`$ denote a set of core nodes providing the Blend service for the epoch $`e`$ returned by the SDP protocol ([Service Declaration Protocol](bedrock-service-declaration-protocol.md));
 - $`N = |\mathcal N|`$ denote a number of core nodes providing the Blend service;
 - $`\text {CSPRNG}()`$ is a cryptographically secure pseudo-random number generator, implemented as a [BLAKE2b-Based PRNG Construction](common-cryptographic-components.md#blake2b-based-prng-construction);
+- $`T_D`$ denotes the delivery deadline, the time a block proposer waits for its proposal to be broadcast before treating the message that carried it as lost;
+- $`T_H`$ denotes the progress deadline, the time within which the sender of a message must observe the next form of it in the network;
+- $`d`$ denotes the network dissemination delay, the time for a released message to cross the core network, and $`D`$ the number of relaying hops it crosses;
+- $`\Lambda=(h_1,...,h_{|\Lambda|})`$ denotes the reaction ladder, where $`h_j \le \beta_{max}`$ is the number of blending operations used by the $`j`$-th attempt to deliver a proposal;
+- $`N_{eff}`$ denotes the effective network size, the estimated number of core nodes that a node can reach;
+- $`S_{min}`$ denotes the number of failed deliveries a node must be involved in before it is treated as suspect, and $`S_{max}`$ the maximum number of suspect nodes held at a time;
+- $`W_S`$ denotes the starvation window, expressed in slots, and $`\theta_S`$ the number of occupied slots at or below which the chain is starving;
+- $`H_B`$ denotes the hold-down that must pass before a node leaves bypass mode, and $`J_B`$ the maximum of the random delay added to it;
 
 ## Global Parameters
 
@@ -474,6 +562,13 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`W=10 \cdot \Delta_{max}=30`$, the observation window is $`30`$ rounds.
 - $`\lceil F_1 \rceil^W = W \cdot \mu=30 \cdot \mu`$, the maximum number of messages per-connection during the observation window is a function of the $`\mu`$, which is defined in the [Releasing](#releasing)  section.
 - $`\lfloor F_1 \rfloor^W = 3 \cdot \mu`$, the minimum number of messages per-connection during observation is a function of the $`\mu`$, which is defined in the [Releasing](#releasing) section.
+- $`R_D=2`$, the redundancy parameter for data messages, which sets the leadership quota to $`Q_L = \beta_D + \beta_D \cdot R_D = 9`$ blending operations for a single proposal: the $`6`$ the [Reaction Ladder](#reaction-ladder) consumes, and $`3`$ left to route around the nodes that fail.
+- $`T_H=\lceil \Delta_{max}+2d \rceil=4`$ rounds for a network of the minimal size, the progress deadline, as derived in the [Progress Observation](#progress-observation) section. It is a function of the network and should be measured rather than assumed.
+- $`T_D=15`$ rounds, the delivery deadline, as derived in the [Delivery Deadline](#delivery-deadline) section.
+- $`\Lambda=(3,2,1)`$, the reaction ladder, as defined in the [Reaction Ladder](#reaction-ladder) section.
+- $`S_{min}=2`$ and $`S_{max}=\lfloor N/10 \rfloor`$, as defined in the [Suspect Nodes](#suspect-nodes) section.
+- $`W_S=600`$ slots and $`\theta_S=2`$ occupied slots, as derived in the [Chain Starvation](#chain-starvation) section.
+- $`H_B=300`$ rounds and $`J_B=300`$ rounds, as defined in the [Entering and Leaving Bypass Mode](#entering-and-leaving-bypass-mode) section.
 
 ### Core Node Parameters
 
@@ -933,6 +1028,157 @@ Every payload that is added to the broadcasting queue is processed as follows:
 
 The broadcasting happens through an independent protocol. All Logos Blockchain nodes form the broadcasting network, which means that it is larger than the blend network.
 
+## Failure Detection and Reaction
+
+### Progress Observation
+
+Every message is relayed to every core node, so a core node sees the traffic of the whole network. A sender also knows what its own message looks like at every stage of its journey: it computed each encapsulation, and the fill of the unused blending headers is reconstructable from the shared keys ([Message Initialization](message-encapsulation.md#message-initialization)), so the form the message takes after each decapsulation is determined at the moment it is built. The public header of the message released by the $`j`$-th blend node carries the PoQ nullifier of the key the sender used for that layer, and the sender knows every one of them.
+
+A core node therefore follows its own message hop by hop. It matches the nullifiers of the traffic it relays against the $`h-1`$ values it expects — a lookup in the cache it already keeps for duplicate detection ([Relaying](#relaying)) — and each match tells it that one more blend node has processed and released the message. The observation is passive, costs nothing and reveals nothing: the sender learns only what it chose itself, because it selected those nodes when it selected the keys ([Proof of Selection](#proof-of-selection)). No other node can follow a message this way, since linking one encapsulation to the next is precisely what [Processing](#processing) destroys.
+
+The deadline for each step is
+
+$$
+T_H = \left\lceil \Delta_{max} + 2d \right\rceil,
+$$
+
+the time for the message to reach the node that must process it, to be held there for at most the maximal blending delay, and for the result to travel back to the sender. The sender starts the deadline when it releases the message and restarts it at each observation. A data message has one step beyond the last intermediate form: the proposal must appear on the broadcasting channel, which costs the same delay at the last blend node plus the dissemination of the broadcast, and so the same $`T_H`$. An attempt of $`h`$ blending operations is therefore decided in at most $`h \cdot T_H`$ rounds instead of the $`T_D`$ an edge node must wait.
+
+The dissemination delay $`d`$ is not a protocol constant. A message reaches the node that processes it by being relayed across the core network, so $`d`$ is the number of relaying hops between two nodes multiplied by what a hop costs:
+
+$$
+d \approx D \cdot (t_v + t_l + t_x), \qquad D \approx \log_{\Phi_{CC}-1} N,
+$$
+
+where $`D`$ is the distance across the core network — a random regular graph of degree $`\Phi_{CC}`$, whose diameter and average distance both grow with the logarithm of its size — $`t_v`$ is the time a node needs to check the public header before forwarding, $`t_l`$ is the link latency and $`t_x`$ the time to put a message of `Max_Body_Length` bytes on the wire. Measurements put $`t_v`$ at $`10`$ to $`20`$ ms. It stays that small because the forwarding path verifies only the PoQ nullifier and the signature ([Relaying](#relaying)); the proof of quota is verified on the [Processing](#processing) path, which runs concurrently and does not hold the message up.
+
+| $`N`$ | $`\Phi_{CC}`$ | $`D`$ | $`d`$ at $`80`$ ms per hop | $`d`$ at $`150`$ ms per hop | $`T_H`$ |
+| --- | --- | --- | --- | --- | --- |
+| $`32`$ | $`4`$ | $`3.2`$ | $`0.25`$ | $`0.47`$ | $`4`$ |
+| $`1024`$ | $`4`$ | $`6.3`$ | $`0.50`$ | $`0.95`$ | $`5`$ |
+| $`1024`$ | $`8`$ | $`3.6`$ | $`0.28`$ | $`0.53`$ | $`4`$ … $`5`$ |
+| $`10000`$ | $`8`$ | $`4.7`$ | $`0.38`$ | $`0.71`$ | $`4`$ … $`5`$ |
+
+The blending delay dominates, so the deadline is $`4`$ rounds for a network of the minimal size and never more than $`5`$ across three orders of magnitude of growth. That is what makes a fixed default defensible; it is not what makes it correct.
+
+**A node should measure $`T_H`$ rather than assume it.** It knows the round in which it released each of its own messages and the round in which each following form appeared, and every cover message it generates adds a sample. A high quantile of that distribution — the $`99`$th, say — folds in both the dissemination delay and the blending delay that cannot be observed apart from it, and tracks the deployment as it grows, as the set of core nodes changes and as the node's own connectivity changes. The value computed above is the default for a node that has not yet collected a sample. $`T_H`$ must never exceed $`T_D`$, beyond which the end-to-end deadline decides in any case.
+
+**A step that passes unobserved names the node that failed it**: the node selected by the key of the layer that was never released. This is what makes the evidence of a core node exact, and it holds for the last hop as well, where a proposal that is never broadcast although its last intermediate form was observed identifies the exit node that discarded the payload.
+
+A missed observation is not a proof of failure — the sender can lose the message on its own connections while the message travels on — but the cost of being wrong is one further attempt and the quota it consumes, and the ladder ends the moment the proposal appears on the broadcasting channel, however many attempts are in flight.
+
+The same observation applies to the cover messages a core node generates. It knows their intermediate forms as it knows those of its data messages, so every cover message it emits measures, at no cost and without a single extra message, whether the network is still carrying traffic. A cover message can be followed as far as the release of its last intermediate form — the message its final blend node receives — but no further, since that node discards the payload instead of broadcasting it. The exit hop of a cover message is therefore not probed, which is the reason exit censorship is caught by data messages alone. This is what a core node uses to judge the health of the network and to decide that it has recovered.
+
+### Delivery Deadline
+
+The delivery deadline $`T_D`$ is the time a sender waits for its proposal to appear on the Logos Blockchain broadcasting channel before treating the message that carried it as lost. It is counted from the round in which the message was released. It is the only detection an edge node has, and the backstop of a core node, which reaches the same verdict sooner and more precisely through [Progress Observation](#progress-observation).
+
+A message that is not lost is broadcast within the bound derived for the [Transition Period](#transition-period),
+
+$$
+(\Delta_{max} +d)\cdot \beta_{max} +d = (3+0.5)\cdot3+0.5 = 11 \text{ rounds},
+$$
+
+to which the dissemination of the broadcast back to the proposer adds one further $`d`$. A deadline shorter than that bound guarantees false detections, and every false detection spends quota and sends a message that the network did not need. A deadline much longer than the bound delays every reaction for no gain. Therefore $`T_D=15`$ rounds, which is the bound plus a margin of roughly a third, and a node must not use a value below $`12`$ rounds — the bound of $`11`$, the return dissemination, rounded up.
+
+That bound is $`\beta_{max} \cdot \Delta_{max} + (\beta_{max}+2)d = 9+5d`$ once $`d`$ is left as the variable it is ([Progress Observation](#progress-observation)), so $`T_D=15`$ holds as long as $`d \lt 1.2`$ rounds. A deployment whose measured dissemination delay approaches that value must recompute $`T_D`$, and the [Transition Period](#transition-period) with it, although the latter is rounded up so generously that it holds to $`d \le 5.25`$.
+
+### Reaction Ladder
+
+The reaction ladder $`\Lambda`$ defines the attempts a block proposer makes for one proposal. Attempt $`j`$ uses $`h_j`$ blending operations and is released as soon as attempt $`j-1`$ is known to have failed:
+
+| Attempt | Released | Blending operations $`h_j`$ | Blending operations used |
+| --- | --- | --- | --- |
+| 1 | on generation | $`3`$ | $`3`$ |
+| 2 | on the failure of attempt 1 | $`2`$ | $`5`$ |
+| 3 | on the failure of attempt 2 | $`1`$ | $`6`$ |
+
+$$
+\Lambda=(3,2,1)
+$$
+
+The ladder is bounded by the leadership quota, and deliberately does not exhaust it. A single lottery win entitles a node to $`Q_L = \beta_D + \beta_D \cdot R_D`$ blending operations ([Leadership Quota](#leadership-quota)), which is $`9`$ with $`R_D=2`$, against the $`6`$ the ladder consumes. The remaining $`3`$ are what makes the avoidance rules of the ladder implementable: a key selects the node that will process it, so a sender can only route around a node by leaving the key that selects it unused, and a ladder that spent the whole quota would leave no key to substitute. A node may spend the remainder on further attempts instead. A core node may go beyond its leadership quota using keys from its core quota, at the cost of one cover message per key ([Quota Application](#quota-application)); an edge node has no core quota and cannot.
+
+The ladder of a proposal must end no later than the end of the [Transition Period](#transition-period) that follows the epoch its keys were issued for. After that period the proofs of the past epoch are no longer accepted, so an attempt released with them would be discarded by the first node that received it.
+
+Attempts $`3`$ and $`4`$ use fewer blending operations than $`\beta_{max}`$. This requires nothing new: the private header always holds $`\beta_{max}`$ blending headers, the unused ones are filled with pseudo-random values and encrypted so that the number of encapsulations does not leak ([Message Initialization](message-encapsulation.md#message-initialization)), and the last flag $`\Omega`$ marks where the encapsulation ends. A message with one blending operation is the same size and shape as a message with three, and only the node that decapsulates it learns that it is last.
+
+Shortening the path is what makes the later attempts more likely to arrive. A path of $`h`$ nodes delivers only if none of its nodes fails, so with a fraction $`q_F`$ of nodes failing to pass messages on, each attempt delivers with probability $`(1-q_F)^{h_j}`$, and the ladder delivers with probability
+
+$$
+1-\prod_{j}\left[1-(1-q_F)^{h_j}\right],
+$$
+
+which is the complement of the broadcast failure probability $`\mathrm{P}_b`$ of [\[Analysis\] Resilience and Anonymity](analysis-resilience-and-anonymity.md#communication-on-linear-trees) evaluated over paths of different lengths. The cost of a shorter path is that fewer nodes have to be adversarial for the whole path to be adversarial; the resulting trade is quantified in [Resilience of the Reaction Ladder](#resilience-of-the-reaction-ladder).
+
+How long the ladder takes depends on how the sender detects a failure. A core node decides an attempt of $`h_j`$ operations within $`h_j \cdot T_H`$ rounds ([Progress Observation](#progress-observation)), so its ladder is exhausted after at most $`(3+2+1) \cdot T_H = 24`$ rounds and usually much sooner, since a message that dies at its first hop is detected in $`4`$. An edge node waits $`T_D`$ for each attempt and is exhausted after $`3 \cdot T_D = 45`$ rounds. Both are inside one and a half expected block intervals at $`f=1/30`$. A proposal that late rarely wins the fork race, and this is not a loss: while the chain is healthy, the block it lost to exists and the chain has advanced; while the chain is starving, there is nothing for it to lose to. Either way the slot is not wasted, because a block that loses the race can still be referenced as an uncle for $`W \cdot f^{-1}=360`$ slots and its slot still counts toward the [Total Stake Inference](cryptarchia-total-stake-inference.md).
+
+### Suspect Nodes
+
+A sender knows which nodes carry each of its messages, because each key it uses selects one ([Proof of Selection](#proof-of-selection)). A core node also knows which of them dropped a lost message ([Progress Observation](#progress-observation)); an edge node does not, and must spread the blame across the path. In both cases only repetition is treated as evidence:
+
+1. On a delivery failure, a core node increments a failure counter for the node selected by the key of the layer that was never released. An edge node increments the counter of each of the $`h_j`$ nodes selected by the keys of that attempt.
+2. A node whose counter reaches $`S_{min}=2`$ is *suspect*.
+3. The sender must not use keys that select a suspect node while it holds other keys, and must fall back to the keys it has when a path cannot be built without a suspect.
+4. At most $`S_{max}=\lfloor N/10 \rfloor`$ nodes may be suspect at a time. When more qualify, the ones with the lowest counters are forgotten first, ties broken by age.
+5. All counters are cleared at the start of each epoch, together with the key pool and the node selection it induces.
+
+A core node collects this evidence from every message it generates, cover messages included, so it accumulates at the rate at which the node emits messages rather than the rate at which it proposes blocks, and each entry names one node rather than a path. For an edge node the evidence is both rare and coarse, since it comes only from its own proposals. What protects a single proposal in either case is the immediate rule of the [Reaction Ladder](#reaction-ladder): the nodes of an attempt that failed are excluded from the attempts that follow it, whether or not they are suspect.
+
+Suspicion never affects connections, relaying or processing: a suspect node is served exactly like any other. Isolating it would hand an adversary a way to have honest nodes disconnected by silencing them, which is the same reason [Connectivity Maintenance](#connectivity-maintenance) keeps unhealthy connections open. The cap and the epoch reset bound the opposite abuse: an adversary that makes honest nodes look unresponsive can push a sender away from at most a tenth of the network, and only until the epoch ends.
+
+The mechanism is also what gives the relaying incentive its teeth. [Motivations](#motivations) assumes that a node which does not relay processed messages loses the senders that address messages to it; suspicion is how a sender acts on that, and a node that drops messages loses the blending tokens it would have collected from the senders that stop selecting it.
+
+### Effective Network Size
+
+The declared network size $`N`$ counts the nodes that promised the service in the SDP snapshot. The effective network size estimates how many of them answer:
+
+$$
+N_{eff} = N \cdot \dfrac{A_{ok}}{A}
+$$
+
+where $`A`$ is the number of distinct core nodes the node has tried to connect to during the current epoch — after $`\Omega_C`$ retries each — and $`A_{ok}`$ the number of those that completed the [Neighbor Distinction Process](#neighbor-distinction-process). The estimate is meaningful only once $`A \ge 8`$, and it needs no probing of its own: the connection attempts of [Connectivity Maintenance](#connectivity-maintenance) provide the sample.
+
+$`N_{eff}`$ is a local observation and must be treated as one. It informs the operator and drives the repair of the node's own view of the network; it must not by itself take a node out of the Blend network, because an adversary positioned on the connections of that node can set it to any value. The [Fallback](#fallback) rule remains keyed to the declared size, which every node reads identically from the same snapshot.
+
+### Chain Starvation
+
+A slot is *occupied*, for this purpose, if the node has received at least one valid block whose header carries that slot, on any branch it holds — the fork choice is irrelevant here, only whether proposals are arriving at all. The chain is starving when
+
+$$
+\sum_{s=c-W_S}^{c-1}\text{occupied}(s) \le \theta_S
+$$
+
+for the current slot $`c`$, with a starvation window of $`W_S = 600`$ slots and a threshold of $`\theta_S=2`$ occupied slots, and when both of the following hold:
+
+- the node is in the `ONLINE` fork choice mode ([Cryptarchia Bootstrapping and Synchronization](cryptarchia-v1-bootstr-sync.md)); a synchronizing node is observing the past;
+- the broadcasting channel is healthy — the node holds its target number of peers on it and other traffic, transactions in particular, is still arriving. Missing blocks amid normal traffic point at the Blend network; missing traffic points at the node's own connectivity, which bypassing would not repair.
+
+At $`f=1/30`$ a window of $`600`$ slots is expected to hold $`20`$ occupied slots, and a healthy chain produces $`\theta_S`$ or fewer with probability
+
+$$
+\sum_{i=0}^{\theta_S}\binom{W_S}{i}f^i(1-f)^{W_S-i}=3.45\cdot10^{-7},
+$$
+
+which is one false detection per $`55`$ years of continuous operation. The window bounds the detection latency: a Blend network that stops delivering is detected within $`10`$ minutes.
+
+Both bounds follow from $`f`$ alone, so the signal costs nothing to maintain, is identical for every synchronized node, and cannot be produced by an adversary that does not hold enough stake to produce blocks itself.
+
+### Entering and Leaving Bypass Mode
+
+A node enters bypass mode as soon as it detects [chain starvation](#chain-starvation).
+
+It leaves when both of the following have held continuously for the hold-down $`H_B=300`$ rounds — ten observation windows $`W`$:
+
+1. at least $`\Phi_{CC}^{Min}`$ of its connections with core nodes are healthy, and at least half of the messages it generated during the hold-down were observed to progress past their first blend node ([Progress Observation](#progress-observation)) — which is why cover messages must keep being generated throughout;
+2. the chain is no longer starving.
+
+It then waits a further delay drawn uniformly from $`(0, J_B)`$ with $`J_B=300`$ rounds before leaving. Without this delay every node would return to the Blend network in the same round, and if the network were still broken the chain would starve again and the whole network would oscillate between the two modes together. Staggered returns let a few nodes discover a network that is still broken while the rest continue to produce blocks.
+
+An edge node keeps no connections with core nodes and cannot measure the first condition; it leaves on the second alone, after the same hold-down and the same random delay.
+
+Each further entry into bypass mode within the same epoch doubles the hold-down, up to $`8 \cdot H_B`$. A network that keeps failing therefore settles into bypass mode instead of flapping, and one that recovers is rejoined after a single hold-down.
+
 ## Rewarding
 
 To better understand the context of the constructions defined in this section refer to the overview of the [Mechanics](#mechanics), and for the motivation of the processing of messages in [Motivations](#motivations).
@@ -1153,3 +1399,45 @@ TV&=\frac{1}{2} \left( r \cdot \left( \frac{1}{R} - \frac{r}{NR} \right) + (N-r)
 $$
 
 So the distribution deviation is less than $`\frac{N}{R}`$ which is cryptographically negligible when $`\frac{N}{R} \leq 2^{-128}`$. Since $`R=2^{256} \implies N \leq 2^{128}`$. Since the number of nodes participating in Blend is expected to be less than 10 million (less than $`N=2^{24}`$) we can safely skip the rejection process necessary to draw random numbers uniformly in $`\{0,1,\ldots,N-1\}`$.
+
+## Resilience of the Reaction Ladder
+
+We evaluate the [Reaction Ladder](#reaction-ladder) $`\Lambda=(3,2,1)`$ against the two ways in which block proposals can be suppressed, using the model of [\[Analysis\] Resilience and Anonymity](analysis-resilience-and-anonymity.md#communication-on-linear-trees): paths are sampled uniformly from the core nodes, $`q_F`$ is the fraction of nodes that fail to pass a message on — through malfunction, laziness or malice — and $`q_A`$ is the fraction controlled by an adversary.
+
+**Indiscriminate dropping.** A node that wants to suppress block proposals without being able to recognize them must drop everything it handles. An attempt of $`h_j`$ blending operations then survives with probability $`(1-q_F)^{h_j}`$ and the ladder delivers with probability $`1-\prod_j[1-(1-q_F)^{h_j}]`$.
+
+**Exit censorship.** The node that performs the last decapsulation reads the payload type and can drop data payloads while relaying and processing everything else faithfully. It destroys no cover traffic and no connection measurement can see it. Since the exit node of each attempt is adversarial with probability $`q_A`$, an attempt survives with probability $`1-q_A`$ regardless of its length, and the ladder delivers with probability $`1-q_A^{|\Lambda|}`$.
+
+| $`q_F=q_A`$ | Indiscriminate, 1 attempt | Indiscriminate, ladder | Exit censorship, 1 attempt | Exit censorship, ladder |
+| --- | --- | --- | --- | --- |
+| $`0.1`$ | $`72.9\%`$ | $`99.5\%`$ | $`90.0\%`$ | $`99.90\%`$ |
+| $`0.2`$ | $`51.2\%`$ | $`96.5\%`$ | $`80.0\%`$ | $`99.20\%`$ |
+| $`0.3`$ | $`34.3\%`$ | $`89.9\%`$ | $`70.0\%`$ | $`97.30\%`$ |
+| $`0.5`$ | $`12.5\%`$ | $`67.2\%`$ | $`50.0\%`$ | $`87.50\%`$ |
+| $`0.7`$ | $`2.7\%`$ | $`38.0\%`$ | $`30.0\%`$ | $`65.70\%`$ |
+
+The exit censor is the cheaper adversary and the invisible one, and it is the reason detection is end to end rather than a traffic measurement. It is also an adversary that does not stay invisible for long. A core node sees the last intermediate form of its message go past and then sees no broadcast, which names the exit node exactly, on every attempt and for every message it sends ([Progress Observation](#progress-observation)); an edge node pins it only on the one-hop attempt, where a single node carries the whole path. An exit censor therefore accumulates failures against itself at the rate at which the network sends messages through it, and is excluded from the paths of the senders that observed it.
+
+**How fast it reacts.** A core node decides an attempt within $`h_j \cdot T_H`$ rounds and a message that dies at its first hop within $`T_H=4`$, so its whole ladder is exhausted in at most $`24`$ rounds; an edge node, which can only wait for the broadcast, needs up to $`3 \cdot T_D=45`$. The difference decides whether a recovered proposal still matters: at $`f=1/30`$ a block re-sent within a few rounds competes on almost equal terms, while one re-sent after a block interval has probably already lost the slot to another leader, and is worth only the uncle reference it can still earn.
+
+**What the ladder costs.** The attempts beyond the first are made only after the previous one is known to have failed, so a healthy network pays nothing. The expected number of blending operations per proposal, and the probability of an anonymity failure — at least one attempt travelling a path whose nodes are all adversarial, $`1-\prod_j\left[1-[(1-q_F)q_A]^{h_j}\right]`$, evaluated for the worst case in which all three attempts are made — are:
+
+| $`q_F=q_A`$ | Expected blending operations | Anonymity failure, healthy network | Anonymity failure, all three attempts |
+| --- | --- | --- | --- |
+| $`0.1`$ | $`3.6`$ | $`0.07\%`$ | $`9.8\%`$ |
+| $`0.2`$ | $`4.2`$ | $`0.41\%`$ | $`18.5\%`$ |
+| $`0.3`$ | $`4.6`$ | $`0.93\%`$ | $`25.2\%`$ |
+| $`0.5`$ | $`5.4`$ | $`1.56\%`$ | $`30.8\%`$ |
+| $`0.7`$ | $`5.8`$ | $`0.93\%`$ | $`25.2\%`$ |
+
+The expected cost stays inside the $`6`$ operations the ladder reserves at every failure rate, and well inside the $`9`$ the leadership quota allows, so the ladder is affordable by construction and leaves the remainder for routing around the nodes that fail. The anonymity it spends is spent only where the alternative is losing the proposal altogether, and the last column is the honest upper bound of that trade: a proposal that has to be retried twice through a network where a third of the nodes are adversarial is unlinkable with probability $`75\%`$ rather than $`99\%`$. Bypassing it would make it unlinkable with probability $`0`$.
+
+**Forcing the bypass.** The bypass is opened only by [chain starvation](#chain-starvation), which requires the number of occupied slots in $`W_S=600`$ slots to fall to $`\theta_S=2`$ — that is, more than $`90\%`$ of all proposals in the network must be suppressed, continuously, for ten minutes. Against the ladder that demands $`q_F \ge 0.91`$ for an indiscriminate adversary or $`q_A \ge 0.97`$ for an exit censor. Both are beyond the point where the core network has ceased to function as a network at all: with a peering degree of $`\Phi_{CC}=4`$ the site percolation threshold is $`q_F(C)=(C-2)/(C-1)=2/3`$, above which the graph is disconnected with high probability. An adversary can therefore not use the bypass as a deanonymization tool — by the time nodes bypass, the Blend network is not delivering anything for anybody, which is exactly the condition the bypass exists for.
+
+**What the bypass costs when it does open.** Every proposal broadcast during a bypass is linkable to the node that sent it, and an adversary observing that period can attribute blocks to nodes and estimate stake from the rate at which they appear. This is the price of the chain not halting, it is paid by every node at once rather than by a node the adversary has singled out, and the hold-down of [Entering and Leaving Bypass Mode](#entering-and-leaving-bypass-mode) keeps it no longer than the recovery of the network requires.
+
+**Residual risks.** Three remain and are not addressed by this mechanism:
+
+- A node whose peers on the Logos Blockchain broadcasting channel are all adversarial can be shown a chain that appears to starve while the real chain grows, and will bypass. This is an eclipse of the node at the consensus layer — a problem intrinsic to distributed systems, not to this mechanism — under which its proposals are already suppressed and its view of the chain is already controlled; the Blend protocol cannot repair it.
+- A node that is isolated inside the Blend network — every path from it held by an adversary — is censored while the chain keeps growing, and the mechanism deliberately keeps it censored rather than letting it reveal itself. Its proposals are lost, its privacy is intact, and the condition is logged for its operator, who can decide otherwise. This too is intrinsic: no protocol can force delivery through an adversary that holds every path while keeping the sender hidden.
+- A retry is released the moment a failure is detected, so its timing is correlated with the drop that caused it. Cancelling a scheduled cover message keeps the sender's emission *rate* unchanged, but this one emission happens at a reactive time rather than a scheduled one, and the node that dropped the message knows the drop time. One event says little — the network generates about one message per round, the flood hides the origin of a release, and an intermediate dropper cannot even tell whether what it dropped was data — but an exit censor knows it dropped a data payload and can accumulate the correlation across events. It is also the node the ladder identifies exactly and excludes first, which bounds how many events any one of its nodes gets. Exploiting the correlation is moreover a joint event: the adversary must both hold the drop — be the exit of the randomly selected path, probability $`q_A`$ — and observe the sender, by being one of its randomly selected neighbors, probability $`1-(1-q_A)^{\Phi_{CC}}`$, or by tapping its links. Per failed attempt that is $`q_A \cdot \left[1-(1-q_A)^{\Phi_{CC}}\right]`$: $`\approx 3\%`$ at $`q_A=0.1`$, $`\approx 12\%`$ at $`0.2`$, $`\approx 23\%`$ at $`0.3`$, with $`\Phi_{CC}=4`$ — and each such event yields one sample that places the sender in a candidate set alongside every other observed node that emitted in the same few rounds, not a link.
