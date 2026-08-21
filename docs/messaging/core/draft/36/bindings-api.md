@@ -644,7 +644,7 @@ Get the peer ID of the waku node.
 
 Parameters
 
-1. `WakuCallBack onOkCb`: callback to be executed if the function is succesful
+1. `WakuCallBack onOkCb`: callback to be executed if the function is successful
 2. `WakuCallBack onErrCb`: callback to be executed if the function fails
 
 Returns
@@ -668,7 +668,7 @@ Get the multiaddresses the Waku node is listening to.
 
 Parameters
 
-1. `WakuCallBack onOkCb`: callback to be executed if the function is succesful
+1. `WakuCallBack onOkCb`: callback to be executed if the function is successful
 2. `WakuCallBack onErrCb`: callback to be executed if the function fails
 
 Returns
@@ -705,7 +705,7 @@ Parameters
 
 1. `char* address`: A multiaddress (with peer id) to reach the peer being added.
 2. `char* protocolId`: A protocol we expect the peer to support.
-3. `WakuCallBack onOkCb`: callback to be executed if the function is succesful
+3. `WakuCallBack onOkCb`: callback to be executed if the function is successful
 4. `WakuCallBack onErrCb`: callback to be executed if the function fails
 
 Returns
@@ -805,7 +805,7 @@ Get number of connected peers.
 
 Parameters
 
-1. `WakuCallBack onOkCb`: callback to be executed if the function is succesful
+1. `WakuCallBack onOkCb`: callback to be executed if the function is successful
 2. `WakuCallBack onErrCb`: callback to be executed if the function fails
 
 Returns
@@ -828,7 +828,7 @@ Retrieve the list of peers known by the Waku node.
 
 Parameters
 
-1. `WakuCallBack onOkCb`: callback to be executed if the function is succesful
+1. `WakuCallBack onOkCb`: callback to be executed if the function is successful
 2. `WakuCallBack onErrCb`: callback to be executed if the function fails
 
 Returns
@@ -876,7 +876,7 @@ Parameters
 2. `unsigned int applicationVersion`
 3. `char* contentTopicName`
 4. `char* encoding`: depending on the payload, use `proto`, `rlp` or `rfc26`
-5. `WakuCallBack onOkCb`: callback to be executed if the function is succesful
+5. `WakuCallBack onOkCb`: callback to be executed if the function is successful
 
 Returns
 
@@ -900,7 +900,7 @@ Parameters
 
 1. `char* name`
 2. `char* encoding`: depending on the payload, use `proto`, `rlp` or `rfc26`
-3. `WakuCallBack onOkCb`: callback to be executed if the function is succesful
+3. `WakuCallBack onOkCb`: callback to be executed if the function is successful
 
 Returns
 
@@ -923,7 +923,7 @@ defined in [RFC 10](../10/waku2.md).
 
 Parameters
 
-1. `WakuCallBack onOkCb`: callback to be executed if the function is succesful
+1. `WakuCallBack onOkCb`: callback to be executed if the function is successful
 
 Returns
 
@@ -953,7 +953,7 @@ as [`JsonMessage`](#jsonmessage-type).
    If the function execution takes longer than this value,
    the execution will be canceled and an error returned.
    Use `0` for no timeout.
-4. `WakuCallBack onOkCb`: callback to be executed if the function is succesful
+4. `WakuCallBack onOkCb`: callback to be executed if the function is successful
 5. `WakuCallBack onErrCb`: callback to be executed if the function fails
 
 If the execution is successful, the `result` field contains the message ID.
@@ -980,7 +980,7 @@ Parameters
 
 1. `char* pubsubTopic`: Pubsub topic to verify.
    If `NULL`, it verifies the number of peers in the default pubsub topic.
-2. `WakuCallBack onOkCb`: callback to be executed if the function is succesful
+2. `WakuCallBack onOkCb`: callback to be executed if the function is successful
 3. `WakuCallBack onErrCb`: callback to be executed if the function fails
 
 Returns
@@ -1077,7 +1077,7 @@ Get the list of subscribed pubsub topics in Waku Relay.
 
 Parameters
 
-1. `WakuCallBack onOkCb`: callback to be executed if the function is succesful
+1. `WakuCallBack onOkCb`: callback to be executed if the function is successful
 2. `WakuCallBack onErrCb`: callback to be executed if the function fails
 
 Returns
@@ -1115,7 +1115,7 @@ to subscribe to.
    If the function execution takes longer than this value,
    the execution will be canceled and an error returned.
    Use `0` for no timeout.
-4. `WakuCallBack onOkCb`: callback to be executed if the function is succesful
+4. `WakuCallBack onOkCb`: callback to be executed if the function is successful
 5. `WakuCallBack onErrCb`: callback to be executed if the function fails
 
 Returns
@@ -1245,7 +1245,7 @@ Parameters
    If the function execution takes longer than this value,
    the execution will be canceled and an error returned.
    Use `0` for no timeout.
-3. `WakuCallBack onOkCb`: callback to be executed if the function is succesful
+3. `WakuCallBack onOkCb`: callback to be executed if the function is successful
 4. `WakuCallBack onErrCb`: callback to be executed if the function fails
 
 Returns
@@ -1260,7 +1260,7 @@ with information about the state of each unsubscription attempt (one per peer)
 [
   {
     "peerID": ....,
-    "error": "" // Empty if succesful
+    "error": "" // Empty if successful
   },
   ...
 ]
@@ -1384,7 +1384,7 @@ JSON string containing the [Waku Message](../../stable/14/message.md) as [`JsonM
    If the function execution takes longer than this value,
    the execution will be canceled and an error returned.
    Use `0` for no timeout.
-5. `WakuCallBack onOkCb`: callback to be executed if the function is succesful
+5. `WakuCallBack onOkCb`: callback to be executed if the function is successful
 6. `WakuCallBack onErrCb`: callback to be executed if the function fails
 
 Note: `messageJson.version` is overwritten to `0`.
@@ -1427,7 +1427,7 @@ Parameters
    If the function execution takes longer than this value,
    the execution will be canceled and an error returned.
    Use `0` for no timeout.
-4. `WakuCallBack onOkCb`: callback to be executed if the function is succesful
+4. `WakuCallBack onOkCb`: callback to be executed if the function is successful
 5. `WakuCallBack onErrCb`: callback to be executed if the function fails
 
 Returns
@@ -1462,7 +1462,7 @@ Parameters
    If the function execution takes longer than this value,
    the execution will be canceled and an error returned.
    Use `0` for no timeout.
-3. `WakuCallBack onOkCb`: callback to be executed if the function is succesful
+3. `WakuCallBack onOkCb`: callback to be executed if the function is successful
 4. `WakuCallBack onErrCb`: callback to be executed if the function fails
 
 Returns
@@ -1490,7 +1490,7 @@ Parameters
 JSON string containing the [Waku Message](../../stable/14/message.md) as [`JsonMessage`](#jsonmessage-type).
 2. `char* symmetricKey`: hex encoded secret key to be used for encryption.
 3. `char* optionalSigningKey`: hex encoded private key to be used to sign the message.
-4. `WakuCallBack onOkCb`: callback to be executed if the function is succesful
+4. `WakuCallBack onOkCb`: callback to be executed if the function is successful
 5. `WakuCallBack onErrCb`: callback to be executed if the function fails
 
 Note: `messageJson.version` is overwritten to `1`.
@@ -1520,7 +1520,7 @@ Parameters
 JSON string containing the [Waku Message](../../stable/14/message.md) as [`JsonMessage`](#jsonmessage-type).
 2. `char* publicKey`: hex encoded public key to be used for encryption.
 3. `char* optionalSigningKey`: hex encoded private key to be used to sign the message.
-4. `WakuCallBack onOkCb`: callback to be executed if the function is succesful
+4. `WakuCallBack onOkCb`: callback to be executed if the function is successful
 5. `WakuCallBack onErrCb`: callback to be executed if the function fails
 
 Note: `messageJson.version` is overwritten to `1`.
@@ -1551,7 +1551,7 @@ Parameters
 1. `char* messageJson`:
 JSON string containing the [Waku Message](../../stable/14/message.md) as [`JsonMessage`](#jsonmessage-type).
 2. `char* symmetricKey`: 32 byte symmetric key hex encoded.
-3. `WakuCallBack onOkCb`: callback to be executed if the function is succesful
+3. `WakuCallBack onOkCb`: callback to be executed if the function is successful
 4. `WakuCallBack onErrCb`: callback to be executed if the function fails
 
 Note: `messageJson.version` is expected to be `1`.
@@ -1589,7 +1589,7 @@ Parameters
 1. `char* messageJson`:
 JSON string containing the [Waku Message](../../stable/14/message.md) as [`JsonMessage`](#jsonmessage-type).
 2. `char* privateKey`: secp256k1 private key hex encoded.
-3. `WakuCallBack onOkCb`: callback to be executed if the function is succesful
+3. `WakuCallBack onOkCb`: callback to be executed if the function is successful
 4. `WakuCallBack onErrCb`: callback to be executed if the function fails
 
 Note: `messageJson.version` is expected to be `1`.
@@ -1633,7 +1633,7 @@ Parameters
    If the function execution takes longer than this value,
    the execution will be canceled and an error returned.
    Use `0` for no timeout.
-4. `WakuCallBack onOkCb`: callback to be executed if the function is succesful
+4. `WakuCallBack onOkCb`: callback to be executed if the function is successful
 5. `WakuCallBack onErrCb`: callback to be executed if the function fails
 
 Returns
