@@ -26,6 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.0.1 | Noted that a streamed `Block` carries the signed headers of the uncles it references, which is what lets a synchronizing node validate those blocks and reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) without ever seeing their proposals, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
+| 1.0.2 | Restricted every chain sync disclosure to the [Sync View](#sync-view), so that a node does not identify itself as a block's proposer by advertising or serving that block before the [Blend Protocol](blend-protocol.md) has released it. Made the tip request explicit as `GetTipRequest`. | 2026-08-21 |
 
 # Introduction
 
@@ -50,6 +51,7 @@ The protocol consists of the following key components:
 - Determining the fork choice rule ([Bootstrap Fork Choice Rule](fork-choice.md#bootstrap-fork-choice-rule) or [Online Fork Choice Rule](fork-choice.md#online-fork-choice-rule)) at startup
 - Switching the fork choice rule from Bootstrap to Online
 - Downloading blocks from peers
+- Restricting what a node discloses to its sync peers, so that answering them does not reveal which blocks it proposed
 
 The details are described in the [Protocol](#protocol). This section provides only a high-level overview.
 
@@ -92,11 +94,13 @@ flowchart TD
 
 Upon startup, a node **determines the fork choice rule**, as defined in [Setting the Fork Choice Rule](#setting-the-fork-choice-rule). If the Bootstrap rule is selected, it is maintained for the [Prolonged Bootstrap Period](#prolonged-bootstrap-period), after which the node switches to the Online rule.
 
-Using the fork choice rule chosen, the node **downloads blocks** to catch up with the tip of the local chain $`c_{loc}`$ of each peer.
+Using the fork choice rule chosen, the node **downloads blocks** to catch up with the tip that each peer advertises.
 
 After downloading is done, the node starts **listening for new blocks.** Upon receiving a new block, the node validates and adds it to its local block tree. If the ancestors of the block are missing from the local block tree, the node downloads missing ancestors using the same mechanism as above.
 
 The node can **propose blocks** after switching to the Online fork choice rule.
+
+Throughout, the node answers its sync peers — and phrases its own requests to them — from its **sync view**, the part of its block tree that is already public, rather than from the whole of it. A block proposer holds the block it built well before the [Blend Protocol](blend-protocol.md) has carried the proposal to anyone else, so a node that disclosed its full block tree over chain sync would identify itself as the proposer to whoever asked. This is defined in [Sync View](#sync-view) and analysed in [Proposer Privacy in Chain Sync](#proposer-privacy-in-chain-sync).
 
 # Protocol
 
@@ -127,7 +131,7 @@ Upon startup, a node sets the fork choice rule to the **Bootstrap** rule in one 
 
 ## Initial Block Download
 
-If peers for Initial Block Download (IBD) are configured, a node performs IBD by downloading blocks to catch up with the tip of the local chain $`c_{loc}`$ of each peer using the fork choice rule chosen in [Setting the Fork Choice Rule](#setting-the-fork-choice-rule). If no peer is configured, the node skips IBD. For example, genesis nodes will configure no IBD peer because they have to build a chain from scratch.
+If peers for Initial Block Download (IBD) are configured, a node performs IBD by downloading blocks, using the fork choice rule chosen in [Setting the Fork Choice Rule](#setting-the-fork-choice-rule), to catch up with the tip each peer advertises. What a peer advertises is its sync tip, which differs from the tip of its local chain $`c_{loc}`$ only while it is holding back a block it proposed itself, as defined in [Sync View](#sync-view). If no peer is configured, the node skips IBD. For example, genesis nodes will configure no IBD peer because they have to build a chain from scratch.
 
 Blocks are downloaded in parent-to-child order, as defined in the [Downloading Blocks](#downloading-blocks) mechanism. This mechanism applies not only when a node starts from the Genesis block, but also when it already has the local block tree (or a checkpoint block)
 
@@ -201,9 +205,46 @@ def listen_and_process_new_blocks(fork_choice: ForkChoice, local_tree: Tree, pee
             download_blocks(local_tree, random.choice(peers), target_block=block.id)
 ```
 
+## Sync View
+
+Chain synchronization is a direct, non-anonymous exchange: whoever answers a request reveals its network address to the requester. Block proposals travel the opposite way, through the [Blend Protocol](blend-protocol.md), which exists precisely so that a proposal cannot be traced back to the node that built it. A node that answered sync requests from its full local block tree would undo that separation, because it holds the block it proposed from the moment it builds it, while every other node learns of that block only once the proposal has traversed the Blend network and been released to the broadcast channel. For the whole of that interval, being able to name or serve the block identifies the proposer. The attack and its consequences are analysed in [Proposer Privacy in Chain Sync](#proposer-privacy-in-chain-sync).
+
+To close this, a node answers chain sync — and phrases its own requests — from a restricted view of its block tree rather than from the whole of it.
+
+A block $`B`$ in the local block tree $`T`$ is **publicly disseminated**, from the point of view of the node holding it, if any of the following holds:
+
+- $`B`$ is the Genesis block, or a checkpoint block imported from a trusted provider ([Bootstrapping from Checkpoint](#bootstrapping-from-checkpoint)). Either is public by construction, so the sync view is never empty.
+- The node obtained $`B`$ from another node: from the broadcast channel that the Blend network releases proposals to ([Blend Protocol](blend-protocol.md)), or from a sync peer.
+- The node itself released $`B`$ to the broadcast channel: as the Blend node completing the release or, when the Blend protocol is bypassed for insufficient network size ([Minimal Network Size](blend-protocol.md#minimal-network-size)), as the proposer broadcasting directly. The release is the moment $`B`$ becomes public, so no further wait is required — and in the bypass case the broadcast itself already names the proposer, so there is nothing left for withholding to protect.
+- The node holds a publicly disseminated block that descends from $`B`$, or that references $`B`$ as an uncle ([Uncle References](cryptarchia-v1-protocol.md#uncle-references)). Some other node built on $`B`$, so $`B`$ was public before that block was.
+
+Every block a node did not build itself satisfies the *obtained from another node* condition the instant it enters the block tree. A block the node proposed itself is **not** publicly disseminated until one of the conditions above is met independently of its authorship. A node must be able to make this distinction after a restart as well, so it persists it alongside the block tree; a block it proposed moments before restarting is still private afterwards.
+
+The **sync view** $`T_\text{sync} \subseteq T`$ is the set of publicly disseminated blocks of the local block tree $`T`$. The *descendant or uncle* condition makes $`T_\text{sync}`$ closed under taking ancestors, so it is itself a tree with the same root as $`T`$, and any block it contains can be served in parent-to-child order.
+
+The **sync chain** $`c_\text{sync}`$ is the chain that the node's fork choice rule selects over $`T_\text{sync}`$, and the **sync tip** is its tip. Equivalently, it is the chain the node would be following had it never built the blocks it is withholding.
+
+It is maintained exactly as $`c_{loc}`$ is, by feeding each block to the fork choice rule as that block enters $`T_\text{sync}`$ — in the order blocks become publicly disseminated to this node, never in the order they entered $`T`$. The two orders differ precisely for the blocks the node built, and the difference is not cosmetic: the fork choice rule leaves the incumbent chain in place on a tie ([Online Fork Choice Rule](fork-choice.md#online-fork-choice-rule)), so a block that re-entered the ordering at the moment the node built it would take $`c_\text{sync}`$ back onto the node's own block and restore the leak. Entering at the moment it became public instead leaves $`c_\text{sync}`$ on whichever chain a peer that first saw the block then would be following.
+
+The sync tip is not obtained by walking back from $`c_{loc}`$ to the first publicly disseminated block, and the difference matters. No other node can build on a block that is still in transit through the Blend network, so a block proposed elsewhere while a node's own block $`B`$ is in transit is a *sibling* of $`B`$, never a descendant — and with a block expected every $`f^{-1}=30`$ slots against a Blend transit of roughly a third of that, such a sibling $`B'`$ arrives often. The fork choice rule breaks ties in favour of the first-seen chain ([Online Fork Choice Rule](fork-choice.md#online-fork-choice-rule)), and the proposer saw $`B`$ first, so its $`c_{loc}`$ stays on $`B`$ while every other node follows $`B'`$. Walking back from $`c_{loc}`$ would leave the proposer advertising the parent of both, alone among its peers in not advertising $`B'`$ — which announces that it is holding something at that height. Running the fork choice over $`T_\text{sync}`$ instead selects $`B'`$, exactly as every other node does.
+
+$`c_\text{sync}`$ differs from $`c_{loc}`$ only while the node is withholding a block of its own, which cannot happen before it has begun proposing ([Proposing New Blocks](#proposing-new-blocks)). For a node that does not propose, and for a proposing node at every other moment, the two coincide and no second fork choice evaluation is needed.
+
+A node observes the following rules:
+
+- It advertises its sync tip, never $`c_{loc}`$, in a `GetTipResponse`.
+- It builds the `KnownBlocks` of a `DownloadBlocksRequest` from $`T_\text{sync}`$ only: `local_tip` is the sync tip, and every entry of `additional_blocks` is in $`T_\text{sync}`$. The latest immutable block $`B_\text{imm}`$ is in $`T_\text{sync}`$ by construction, since the blocks that make it immutable descend from it and are themselves publicly disseminated.
+- It serves a `DownloadBlocksRequest` from $`T_\text{sync}`$ only. A block outside $`T_\text{sync}`$ is treated as absent: it is never streamed, and it is not a candidate latest common ancestor. A request whose `target_block` is outside the responder's sync view is answered exactly as one naming a block the responder has never seen.
+
+The restriction governs only what a node discloses to sync peers. The fork choice rule, [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance) and block proposal continue to operate on the full block tree $`T`$, so a node never delays building on, or committing to, a block it proposed.
+
+The sync tip catches up without any timer. A proposal is broadcast to the entire network at the end of its Blend transit, so the proposer receives its own block back on the broadcast channel at the same time as everyone else and admits it to $`T_\text{sync}`$ then; implementations must not suppress that delivery for a node's own proposal. Should the delivery be missed anyway, the block enters $`T_\text{sync}`$ as soon as any block that builds on it, or references it as an uncle, arrives from a peer. Until either happens the node advertises the tip of $`c_\text{sync}`$, which is what every node that has not yet seen the block advertises, so nothing distinguishes the proposer from them.
+
 ## Downloading Blocks
 
-For performing [Initial Block Download](#initial-block-download) and handling orphan blocks while [Listening for New Blocks](#listening-for-new-blocks), a node sends a `DownloadBlocksRequest` to a peer, which must respond with blocks in parent-to-child order. This communication should be implemented based on the [Libp2p streaming](https://github.com/libp2p/rust-libp2p/tree/master/protocols/stream).
+For performing [Initial Block Download](#initial-block-download) and handling orphan blocks while [Listening for New Blocks](#listening-for-new-blocks), a node sends a `DownloadBlocksRequest` to a peer, which must respond with blocks in parent-to-child order. When it needs a peer's tip as the download target, it sends a `GetTipRequest` first. This communication should be implemented based on the [Libp2p streaming](https://github.com/libp2p/rust-libp2p/tree/master/protocols/stream).
+
+Both requests are answered from the responder's [Sync View](#sync-view), not from its full block tree.
 
 **Libp2p Protocol ID**
 
@@ -211,6 +252,18 @@ For performing [Initial Block Download](#initial-block-download) and handling or
 - Testnet: `/logos-blockchain-testnet/cryptarchia/sync/1.0.0`
 
 ```python
+class GetTipRequest:
+    # Ask for the tip to download up to. Carries no fields.
+    pass
+
+class GetTipResponse:
+    # The responder's sync tip: the tip of the chain its fork choice rule
+    # selects over its sync view. It is not necessarily the tip of its local
+    # chain: a block the responder proposed itself is withheld until the Blend
+    # network has released it, so that answering this request does not identify
+    # the responder as its proposer.
+    tip: BlockId
+
 class DownloadBlocksRequest:
     # Ask blocks up to the target block.
     # The response may not contain the target block if the responder limits the number of blocks returned.
@@ -220,6 +273,9 @@ class DownloadBlocksRequest:
     known_blocks: KnownBlocks
 
 class KnownBlocks:
+    # All of these are drawn from the requester's sync view, for the same reason
+    # that GetTipResponse.tip is: naming a block that only the requester holds
+    # would tell the responder who proposed it.
     local_tip: BlockId
     latest_immutable_block: BlockId
     # Additional known blocks.
@@ -237,7 +293,7 @@ Each streamed `Block` carries the signed headers of the uncles it references, in
 
 The responding peer uses `KnownBlocks` to determine the optimal starting block for the response stream, aiming to minimize the number of blocks to be returned. The requesting node can include any block it believes could assist in this process to the `KnownBlocks.additional_blocks`. To avoid spamming responders, the size of `KnownBlocks.additional_blocks` is limited to 5.
 
-The responding peer finds the latest common ancestor (i.e. LCA) between the `target_block` and each of the known blocks. Then, it returns a stream of blocks, starting from the highest LCA. To mitigate malicious downloading requests, the peer limits the number of blocks to be returned. The detailed implementation is up to implementers, depending on their internal architecture (e.g. storage design).
+The responding peer finds the latest common ancestor (i.e. LCA) between the `target_block` and each of the known blocks, considering only blocks in its [Sync View](#sync-view). Then, it returns a stream of blocks, starting from the highest LCA. To mitigate malicious downloading requests, the peer limits the number of blocks to be returned. The detailed implementation is up to implementers, depending on their internal architecture (e.g. storage design).
 
 ![Diagram](cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-8138-b041-c737c9e0071c.png)
 
@@ -247,8 +303,8 @@ The requesting node should repeat `DownloadBlocksRequest`s by updating the `Know
 def download_blocks(local_tree: Tree, peer: Node, target_block: Optional[BlockId]):
     latest_downloaded: Optional[Block] = None
     while True:
-        # Fetch the peer's tip if target is not specified.
-        target_block = target_block if target_block is not None else peer.tip()
+        # Fetch the peer's sync tip if target is not specified.
+        target_block = target_block if target_block is not None else send_request(peer, GetTipRequest()).tip
         # Don't start downloading if target is already in local.
         if local_tree.has(target_block):
             return
@@ -258,7 +314,9 @@ def download_blocks(local_tree: Tree, peer: Node, target_block: Optional[BlockId
             # so that we can catch up with the most recent peer's tip.
             target_block=target_block,
             known_blocks=KnownBlocks(
-                local_tip=local_tree.tip().id,
+                # The sync tip, not local_tree.tip(): a block this node proposed
+                # itself is withheld until it is publicly disseminated.
+                local_tip=local_tree.sync_tip().id,
                 latest_immutable_block=local_tree.latest_immutable_block().id,
                 # Provide the latest downloaded block as well
                 # to avoid downloading duplicate blocks
@@ -291,6 +349,8 @@ If the requesting node is downloading blocks up to the peer’s tip $`c_{loc}`$ 
 
 Unlike [Listening for New Blocks](#listening-for-new-blocks), a node can start proposing blocks after [Prolonged Bootstrap Period](#prolonged-bootstrap-period) is complete. In other words, the node should not propose blocks before switching to the Online fork choice rule.
 
+A block the node proposes extends its local chain $`c_{loc}`$ immediately, but stays out of what the node discloses to its sync peers until the Blend network has released it, as defined in [Sync View](#sync-view).
+
 ## Bootstrapping from Checkpoint
 
 Instead of bootstrapping from the Genesis block or from the local block tree, a node can choose to bootstrap the honest chain starting from a checkpoint block obtained from a trusted checkpoint provider. In this case, the node fully trusts the checkpoint provider and considers blocks deeper than the checkpoint block as immutable (including the checkpoint block itself).
@@ -306,6 +366,28 @@ If it turns out that none of the peers’ local chains are connected to the chec
 ![Diagram](cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-8138-99a6-eab12e93aeb6.png)
 
 # Details
+
+## Proposer Privacy in Chain Sync
+
+A block spends a substantial interval known to its proposer and to nobody else. The proposer holds it as soon as it builds it; the proposal then has to traverse the [Blend Protocol](blend-protocol.md) before it is released to the broadcast channel, which for the Blend parameters takes on the order of 11 rounds of one second each. Slots are one second long and a block is expected every $`f^{-1}=30`$ slots ([Constants](cryptarchia-v1-protocol.md#constants)), so for roughly a third of every block interval exactly one node in the network holds the new block, and that node is its author. Chain sync runs over direct libp2p streams, so anything a node discloses there is attributable to its network address.
+
+Two probes exploit this if a node answers sync requests from its full block tree.
+
+- **Tip polling.** The adversary opens sync streams to as many nodes as it can reach and sends a `GetTipRequest` to each of them every slot. A node that has just proposed a block answers with a block ID no other node can yet return; every other node still answers with an earlier block. One request per peer per slot suffices, and the adversary already knows the address of the peer that answered. No triangulation and no statistical inference are involved.
+- **Availability probing.** The adversary waits until it learns a new block $`B`$ from the broadcast channel, then asks every peer to download $`B`$. Nodes close to the Blend node that released $`B`$ hold it too, so a single observation is inconclusive. But the proposer is in the "already holds it" set for every block it proposes and only at the network's base rate for blocks it does not, so a few dozen blocks separate the proposer from its neighbours.
+
+Either probe links block proposals to a stable network identity, and thereby to each other. That contradicts the first two privacy goals of [Cryptarchia](cryptarchia-v1-protocol.md#privacy): proposals must not be linkable to a leader, and the protocol must not reveal a leader's stake. The two collapse into one here, because the number of blocks a node is observed to propose over enough slots is a direct estimator of its relative stake — see the [inference of relative stake](analysis-cryptarchia-de-anonymisation-of-relative-stake.md) analysis. An adversary running either probe obtains exactly the per-node win counts that analysis assumes, without holding any stake itself.
+
+The [Sync View](#sync-view) removes the distinguisher in both windows rather than shrinking it:
+
+- While a self-proposed block is outside the sync view, the proposer's answer to either probe is byte-for-byte the answer of a node that has not seen the block. This is why the sync tip is recomputed over the sync view rather than truncated from $`c_{loc}`$: withholding a block must not itself be visible in the tip, which it would be whenever a sibling block is in play, as [Sync View](#sync-view) sets out. There is nothing left to observe, so the adversary gains nothing by polling faster or by connecting to more peers.
+- Once the block enters the sync view, it has been released to the whole network, and every honest node holding it answers the same way whether or not it proposed it.
+
+The cost is that, for the duration of the Blend transit after it proposes, the chain a node advertises does not yet include the block it just proposed. It never falls behind what its peers advertise, because they have not seen the block either, so a peer syncing from it during that window misses nothing that any other peer could have given it. A node's own fork choice, commit and proposal logic run on the unrestricted block tree, so consensus is unaffected, and the overhead applies only to the small fraction of blocks a given node proposes.
+
+One consequence is worth stating plainly: a node cannot rescue its own proposal by serving it. If a proposal never reaches the network, its author is the only node that can supply it, and supplying it is exactly the disclosure this rule exists to prevent — so a block the node built on top of that proposal is lost along with it. This costs a block only when a node wins two slots inside a single Blend transit and the first of the two proposals is lost, and it costs no block that the network could have obtained from anyone else.
+
+Two further limits are worth stating. First, this covers the chain sync protocol only: a node that exposes its block tree through some other interface, such as an operator RPC or a mempool query, reopens the same leak there. Second, it does not address the timing of a proposal's entry into the Blend network, which is the concern of the [Blend Protocol](blend-protocol.md), nor the tagging attack of [Limitations of Cryptarchia V1](cryptarchia-v1-protocol.md#limitations-of-cryptarchia-v1), in which a leader is identified by the contents of the block rather than by when it holds it.
 
 ## Offline Grace Period
 
