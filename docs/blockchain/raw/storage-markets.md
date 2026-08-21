@@ -24,7 +24,7 @@
 | 1.0.0 | Initial revision. | 2026-04-24 |
 | 1.0.1 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.0.2 | Fix invalid python indentation due to github migration | 2026-07-27 | 
-| 1.1.0   | Round the price update upwards and align the reference code with the zero target guard | 2026-07-28 |
+| 1.1.0 | Round the price update upwards and align the reference code with the zero target guard | 2026-07-28 |
 
 > **Disclaimer:**
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -35,7 +35,7 @@
 
 # Introduction
 
-This document provides the formal specification for the fee collection mechanism of the Permanent Storage market. The primary objective is to define a system that is robust, predictable, and economically sustainable. This mechanism is a critical component of the overall Permanent Storage Market Transaction Fee Mechanism (TFM), which is designed as a self-contained, usage-driven market, economically decoupled from the protocol's core consensus and privacy services.
+This document provides the formal specification for the fee collection mechanism of the Permanent Storage market. The primary objective is to define a system that is robust, predictable, and economically sustainable. This mechanism is a critical component of the overall Permanent Storage Market Transaction Fee Mechanism (TFM), a usage-driven market whose price formation is self-contained and independent of the protocol's core consensus and privacy services. The fees it collects are routed into the shared rewards pool that funds leader and Blend rewards, as detailed in [Fee Routing](#fee-routing) below.
 
 In what follows, Logos Blockchain Storage refers to the Permanent Storage markets and Logos Blockchain Storage Gas refers to the Permanent Storage Gas respectively.
 
@@ -54,7 +54,7 @@ Justification. As will be discussed later, the tradeoff between adaptability and
 
 The proposed fee mechanism operates on a simple but powerful principle: the price for Logos Blockchain Storage is fixed and predictable within a given timeframe (epoch for Permanent Storage), but it adjusts smoothly between timeframes based on observed network usage.
 
-When a user submits data, a fee is calculated based on the Logos Blockchain Storage Gas consumption. This fee is determined by a price per Gas, $`P_{STR}`$, which is known in advance for the entire timeframe.
+When a user submits data, a fee is calculated based on the Logos Blockchain Storage Gas consumption. This fee is determined by a price per Gas, $`P_{STR}`$, which is known in advance for the entire timeframe. The collected fee is routed in full into the network's shared rewards pool, the same pool that funds block rewards (see [Fee Routing](#fee-routing)).
 
 At the end of each timeframe, the protocol tallies the total amount of Logos Blockchain Storage Gas that was stored. It compares this actual usage to an adaptive target a "healthy" usage level that is itself a dynamic blend of a long-term policy goal and recent historical usage. Based on whether the actual usage was above or below this target, the price $`P_{STR}`$ for the next timeframe is adjusted slightly up or down.
 
@@ -92,6 +92,18 @@ F_\text{STR}^\text{exp}&=\exp(\alpha S_\text{gas})\cdot P_\text{STR}\quad \alpha
 F_\text{poly}^\text{exp}&=S^\beta_\text{gas}\cdot P_\text{STR},\quad \beta>1\\
 \end{align*}
 $$
+
+### Fee Routing
+
+Each Logos Blockchain Storage fee $`F_{\text{STR}}`$ is routed in full into the network's shared rewards pool at the moment its transaction is included, rather than paid to any participant or removed from supply. This is the same pool fed by the [Execution Market](execution-market.md) and drawn down to pay leaders and Blend nodes.
+
+Aggregated over a block, the Storage fees of its transactions form the Storage-market component of the per-block pool inflow $`R_{block}`$ used to compute block rewards:
+
+$$
+\hat{R}_{\text{STR}} = \sum_{t \in \mathcal{B}} S_{\text{gas}}(t) \cdot P_{\text{STR}}(s) = P_{\text{STR}}(s) \sum_{t \in \mathcal{B}} S_{\text{gas}}(t),
+$$
+
+where $`\mathcal{B}`$ is the set of transactions in the block, $`S_{\text{gas}}(t)`$ is the Logos Blockchain Storage Gas consumed by transaction $t$, and $`P_{\text{STR}}(s)`$ is the fixed price of the enclosing timeframe $s$. The Execution market contributes the remaining component of $`R_{block}`$, the pooled base fees $`\hat{R}_{\text{pooled}}`$ (cf. [Execution Market](execution-market.md)), giving $`R_{block} = \hat{R}_{\text{STR}} + \hat{R}_{\text{pooled}}`$. This pooled inflow is distributed to leaders and Blend nodes through the reward mechanism of [Block Rewards](block-rewards.md). The Storage market governs only the price $`P_{\text{STR}}(s)`$; the routing and subsequent distribution of the resulting fee are defined by the block-reward mechanism.
 
 ### Protocol Constants
 
