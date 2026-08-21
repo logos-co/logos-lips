@@ -27,6 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-04-09 |
 | 1.1.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.1.1 | Updated the block proposal message size to 34574 bytes in the encapsulation-overhead calculation, following the addition of carried uncle headers in [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md). | 2026-08-06 |
+| 1.2.0 | Define the token evaluation under a low core quota, and specify the Active Message metadata layout. | 2026-08-19 |
 
 # Introduction
 
@@ -579,7 +580,7 @@ The quota limits the number of messages that can be generated during an epoch. T
 The core quota ($`Q_C`$) defines the messaging allowance that can be used by a core node during a single epoch. **The purpose of** $`Q_C`$ **is to limit the number of cover messages and the number of blending operations that can be used for a single message.** We assume that the core quota is used for generating cover messages, but the core node is not limited by this assumption. We define it as follows:
 
 $$
-Q_C = \left\lfloor \dfrac{C \cdot (\beta_C+R_C \cdot \beta_C)}{N} \right\rfloor
+Q_C = \left\lceil \dfrac{C \cdot (\beta_C+R_C \cdot \beta_C)}{N} \right\rceil
 $$
 
 Where:
@@ -589,11 +590,17 @@ Where:
 - $`R_C`$ denotes a redundancy parameter for cover messages, increasing the number of core node messages a node can send;
 - $`N`$ denote a number of core nodes providing the Blend service for the epoch returned by the SDP protocol ([Service Declaration Protocol](bedrock-service-declaration-protocol.md)).
 
+The division must be rounded **up**. Rounding down would collapse $`Q_C`$ to $`0`$ as soon as $`N > C \cdot (\beta_C + R_C \cdot \beta_C)`$ — that is, as soon as the network outgrows the expected number of blending operations for cover messages. Every core node would then be issued an empty key pool and cover traffic would stop entirely, removing the protocol's anonymity guarantee exactly when the network is largest. Rounding up costs at most $`N-1`$ additional messages network-wide per epoch.
+
+The parameters must additionally satisfy $`C \cdot \beta_C > 0`$. Together with rounding up, this guarantees $`Q_C \geq 1`$ for every epoch.
+
 Additionally, we introduce the total core quota, which defines the total number of generated cover messages that the whole network can emit (independently of the number of nodes):
 
 $$
-Q^{Total}_C = N \cdot Q_C = C \cdot (\beta_C+R_C \cdot \beta_C)
+Q^{Total}_C = N \cdot Q_C \geq C \cdot (\beta_C+R_C \cdot \beta_C)
 $$
+
+The equality holds only when $`N`$ divides $`C \cdot (\beta_C + R_C \cdot \beta_C)`$; otherwise rounding up makes the total larger by at most $`N-1`$ messages. From $`Q_C \geq 1`$ it also follows that $`Q^{Total}_C \geq N`$, which is relied upon by the [Activity Proof](#activity-proof) and the [Activity Threshold](#activity-threshold).
 
 ### Leadership Quota
 
@@ -952,9 +959,9 @@ In other words, the activity proof is $`\text{true}`$ when:
   - [Proof of Selection](#proof-of-selection) $`\pi^{K^{n}_l,l}_{S} \in t`$ is true assuming epoch $`e`$.
   - $`K^{n}_l`$, a public key from the set $`\mathbf K^n_h`$, that is used to verify the above proofs.
 
-- The Hamming distance ($`\Delta_{\mathcal H}(a,b)`$ — returns the number of different bits between $`a`$ and $`b`$ binary strings) between the blending token $`t`$ and the next epoch randomness $`R_{e+1}`$ is smaller than the node activity threshold $`\mathcal A _{\epsilon}`$. That is:
+- The Hamming distance ($`\Delta_{\mathcal H}(a,b)`$ — returns the number of different bits between $`a`$ and $`b`$ binary strings) between the blending token $`t`$ and the next epoch randomness $`R_{e+1}`$ is not greater than the node activity threshold $`\mathcal A _{\epsilon}`$. That is:
 $$
-\Delta_{\mathcal H}(H(t)_{\epsilon},H(R_{e+1})_{\epsilon}) < {\mathcal A}_{\epsilon}
+\Delta_{\mathcal H}(H(t)_{\epsilon},H(R_{e+1})_{\epsilon}) \leq {\mathcal A}_{\epsilon}
 $$
 
   Where:
@@ -965,6 +972,10 @@ $$
 $$
 \epsilon = \left\lceil \log_2(Q_C^{Total}+1) \over 8\right\rceil\cdot8
 $$
+
+  The comparison is inclusive: a token whose distance equals $`{\mathcal A}_{\epsilon}`$ satisfies the proof. The difficulty of the lottery is tuned through the sensitivity parameter $`\theta`$ of the [Activity Threshold](#activity-threshold), not through the choice of comparison operator.
+
+  The requirement $`C \cdot \beta_C > 0`$ (see [Core Quota](#core-quota)) guarantees $`Q_C \geq 1`$ and therefore $`Q^{Total}_C \geq N \geq 1`$. It follows that $`\log_2(Q^{Total}_C+1) \geq 1`$ and hence $`\epsilon \geq 8`$: the digest is always at least one byte wide, which the `blake2b` algorithm requires.
 
 The Hamming distance verification prevents nodes from the grinding or pre-computation attacks due to the unpredictability of the randomness of the next epoch. Even if a node knows the value of the randomness in advance, it will not increase its chance for getting a reward as the node does not control the process of generating blending tokens. However, a dishonest node could use that knowledge to refrain from sending a message with a token that has a potential (probabilistic, not deterministic) of granting a premium reward for the recipient blend node.
 
@@ -985,29 +996,50 @@ Where:
 - `ProofOfSelection` is defined in [Proof of Selection](#proof-of-selection).
 - `SigningKey` is the key used to sign the `ProofOfQuota`.
 
+The serialized form of these fields, together with the two header bytes that precede them, is defined in [Active Message](#active-message).
+
 ### Activity Threshold
 
-The activity threshold $`{\mathcal A}_{\epsilon}`$ defines the expected maximal Hamming distance from the epoch randomness to the blending token expressed as an integer smaller or equal $`\epsilon`$.
+The activity threshold $`{\mathcal A}_{\epsilon}`$ defines the expected maximal Hamming distance from the epoch randomness to the blending token expressed as a non-negative integer smaller or equal $`\epsilon`$.
 
 We define the activity threshold as follows:
 
 $$
-{\mathcal A}_{\epsilon} = \chi - \nu- \theta
+{\mathcal A}_{\epsilon} = \max(0, \chi - \nu - \theta)
 $$
 
 Where:
 
 - $`\nu=\left\lceil \log_2(N + 1) \right\rceil`$ represents the number of bits that are needed to express the number of nodes in the network $`N`$, it makes the lottery difficulty a function of the network size;
-- $`\chi=\left\lceil\log_2(Q_C^{Total}+1)\right\rceil`$ represents the number of bits needed to express all blending tokens generated during an epoch, where $`Q_C^{Total}`$ is the total number of cover messages generated by the network during an epoch (as defined [here](blend-protocol.md));
+- $`\chi=\left\lceil\log_2(Q_C^{Total}+1)\right\rceil`$ represents the number of bits needed to express all blending tokens generated during an epoch, where $`Q_C^{Total}`$ is the total number of cover messages generated by the network during an epoch (as defined [here](#core-quota));
 - $`\theta=1`$ represents a sensitivity parameter that controls the winning conditions of the lottery.
 
 We assume that setting $`\theta = 1`$ is enough to eliminate nodes that have not been active enough without too aggressively eliminating nodes that worked but had less luck with the lottery. However, we are going to revise this parameter in the future version of the protocol.
 
+The difference $`\chi - \nu - \theta`$ is negative whenever $`\chi \leq \nu + \theta`$, which happens when the total number of blending tokens is small relative to the network size. Because $`\chi \approx \log_2(Q^{Total}_C)`$ and $`\nu \approx \log_2(N)`$, this regime is reached when the per-node quota $`Q_C`$ is of the order of $`2^{\theta}`$ or smaller. A negative value is not a meaningful Hamming distance, so the threshold is clamped at $`0`$: the lottery becomes maximally difficult instead of undefined. At $`{\mathcal A}_{\epsilon} = 0`$ an activity proof is still attainable, but only for a blending token whose $`\epsilon`$-bit digest matches the digest of the epoch randomness exactly.
+
+The clamped regime is a degenerate operating point rather than a target: it makes rewards nearly unreachable for honest nodes and, in the limit, admits every node at once. Parameters should therefore be chosen so that $`\chi > \nu + \theta`$, which holds comfortably for the expected deployment values.
+
 ### Active Message
 
-A node $`l`$ for every epoch must construct an active message $`M_A= \{l, t, e, \pi_{A}^{l,t,e} \}`$, which must follow the [Active Message](bedrock-service-declaration-protocol.md#active-message).
+A node $`l`$ for every epoch must construct an active message, which must follow the [Active Message](bedrock-service-declaration-protocol.md#active-message) and is carried on the wire by the `SDP_ACTIVE` operation ([Mantle Transaction Encoding](mantle-transaction-encoding.md)). The envelope fields (`declaration_id`, `nonce`) and their encoding are defined by those documents and are not restated here. This section defines only the service-specific `metadata` payload for the Blend service, which carries the [Activity Proof](#activity-proof) $`\pi_{A}^{l,t,e}`$ for a blending token $`t`$ and an epoch $`e`$.
 
-The active message `metadata` field must start with a header that contains a one byte `version` field which is fixed to `0x01` value, the rest of the `metadata` is populated by the [Activity Proof](#activity-proof).
+The `metadata` field is the concatenation of the following fields, in order:
+
+| Field | Size (bytes) | Value |
+| --- | --- | --- |
+| `metadata_type` | 1 | `0x01`, identifying the payload as Blend service activity metadata |
+| `version` | 1 | `0x01`, the version of the Blend [Activity Proof](#activity-proof) format |
+| `epoch_number` | 4 | the epoch $`e`$ the proof attests to, encoded as little-endian |
+| `signing_key` | 32 | the public key $`K^{n}_{l}`$ used to verify the two proofs below |
+| `proof_of_quota` | 160 | $`\pi_{Q}^{K^{n}_{l}}`$, serialized as defined in [Proof of Quota](proof-of-quota.md) |
+| `proof_of_selection` | 32 | $`\pi_{S}^{K^{n}_{l},l}`$ |
+
+The total size of the `metadata` field is therefore $`230`$ bytes.
+
+The two leading bytes serve distinct purposes and must not be conflated. The `metadata_type` byte selects how the service-specific `metadata` field is interpreted, so that the SDP active message can carry activity metadata for services other than Blend. The `version` byte versions the Blend Activity Proof format itself, independently of that selector.
+
+The `metadata_type` must be equal to `0x01`; if not, then discard the message. The `version` must be equal to `0x01`; if not, then discard the message.
 
 The active message is stored on the ledger.
 
@@ -1053,7 +1085,7 @@ The reward is paid out to the node $`n`$ based on the node's activity declaratio
 
 The rewards are distributed according to [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md). Here we are briefly sketching the main idea of the reward distribution protocol. For more details refer to the above document.
 
-1. To receive a reward, a node must send an Active Message as described in the [Active Message](bedrock-service-declaration-protocol.md#active-message), where the `Metadata` field consists of a node activity proof. The node must point to a single declaration (`declaration_id`) and use a single provider identity (`provider_id`) for constructing the Active Message. Any reuse of the `provider_id` must make the Active Message invalid.
+1. To receive a reward, a node must send an Active Message as described in the [Active Message](bedrock-service-declaration-protocol.md#active-message), where the `metadata` field is encoded as defined in [Active Message](#active-message). The node must point to a single declaration (`declaration_id`) and use a single provider identity (`provider_id`) for constructing the Active Message. Any reuse of the `provider_id` must make the Active Message invalid.
 2. The Active Message must be sent after the end of an epoch ($`e`$), that is, during the next epoch ($`e+1`$), and after the epoch transition period as defined in the [Transition Period](#transition-period) section. The delay allows nodes to include blending tokens collected during the epoch transition period for rewarding purposes.
 3. When the following epoch begins ($`e+2`$) Mantle distributes rewards ([Service Reward Distribution Protocol](bedrock-service-reward-distribution.md)). This delay is required to calculate the partition of rewards as defined in the above section.
 4. If a node does not send the Active Message on time, then it will not receive a reward.
