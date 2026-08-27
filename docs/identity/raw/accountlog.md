@@ -64,8 +64,11 @@ are to be interpreted as described in [RFC 2119](https://datatracker.ietf.org/do
   and so the only party that can extend the log.
   An owner is also a consumer of its own log:
   it must fetch and validate the current log before extending it.
-- **Context** — a short label naming what an endorsement is *for*.
+- **Context** — a short ASCII string naming what an endorsement is *for*,
+  composed as `<namespace>.<label>`.
   Every `Add` carries one, whatever it endorses.
+- **Namespace** — the first component of a context, up to its first `.`.
+  It names the specification that defines the context.
 
 ## Motivation
 
@@ -221,17 +224,14 @@ Ed25519Key([u8; 32])   an Ed25519 verifying key
 Text(String)           a UTF-8 record
 ```
 
-Every `Add` carries a **context**: a short label naming what the endorsement is for.
+Every `Add` carries a **context**: a short ASCII string naming what the endorsement is for,
+composed as `<namespace>.<label>`.
 For a key it says what the key may be used for;
 for a record it says what the record means.
 The context belongs to the endorsement rather than to the data,
 so it applies uniformly to keys, records,
 and to any data type later added.
 
-This document allocates no context.
-Which contexts exist, and what their values mean,
-is defined by the protocols built on the AccountLog;
-the AccountLog defines only that every endorsement has one and how it is encoded.
 
 **Requirements:**
 
@@ -256,23 +256,42 @@ the AccountLog defines only that every endorsement has one and how it is encoded
 
 #### Context Namespacing
 
-A context's **first segment** is the part before its first `.`.
-The first segment names the specification that defines the context:
-`chat.messaging` is defined by whatever owns `chat`,
-`profile.displayname` by whatever owns `profile`.
+This document allocates no context.
+Which contexts exist, and what their values mean,
+is defined by the protocols built on the AccountLog;
+the AccountLog defines only that every endorsement has one and how it is encoded.
+
+
+A context is composed of two components, divided by its first `.`:
+
+```text
+context   := <namespace> "." <label>
+
+namespace : everything before the first `.`
+label     : everything after it
+```
+
+The **namespace** names the specification that defines the context.
+The **label** names one defined item within that namespace.
+`chat.messaging` is the label `messaging` in the namespace `chat`,
+defined by the specification that defines `chat`;
+
+Only the first `.` divides; how to handle any further `.`'s are defined in the specifications which define the namespace.
 
 This document defines no context.
 There is no registry and no allocator:
-a specification picks its own first segment.
+a specification picks its own namespace.
 The AccountLog provides the ability to define contexts; it does not exercise it.
-
-Contexts with an empty first segment are reserved for future use by this document.
 
 **Requirements:**
 
-- A consumer MUST reject a context that does not begin with
+- A consumer MUST reject a context whose namespace does not begin with
   a character in `a`-`z`.
-- A consumer MUST reject a context containing no `.`.
+- A consumer MUST reject a context containing no `.`,
+  and so carrying no namespace boundary.
+- A consumer MUST reject a context containing any byte outside
+  `a`-`z`, `0`-`9`, `.`, `-`, `_`;
+  see [Wire Format Specification / Syntax](#wire-format-specification--syntax).
 
 #### Selecting by Context
 
@@ -721,7 +740,7 @@ An `Add` body carries the context first, then a tagged data variant:
 Add body := ctx_len || context || data_tag || data_body
 
 ctx_len  : u8      length of `context` in bytes, 1-255
-context  : ASCII   what this endorsement is for
+context  : ASCII   what this endorsement is for, `<namespace>.<label>`
 data_tag : u8      selects the variant below
 data_body: variant, to the end of the entry body
 ```
@@ -1185,7 +1204,7 @@ signature: 9bc59f4e2928a474af39caa45b379486554fa94a158ca78e27ace1b97a5727aa
            6c66fd954b01d956ee501af2d463226977b98b9499496fd7fabb939a1cbf600d
 ```
 
-**N10 context has no dot** — no '.' present
+**N10 context has no namespace boundary** — no '.' present
 
 ```text
 payload:   6c6f676f733a6163636f756e74733a3100012b00096d6573736167696e67013d
@@ -1194,7 +1213,7 @@ signature: 09457e5c68e846f1362343e4eaa7dd5371d48359328ec9987ffc80ad5d7d3a18
            ae46232bc4515d3584f541af36c27dfab077b1192030ce9f425e6792064c4b09
 ```
 
-**N11 context does not begin with a letter** — leading digit
+**N11 namespace does not begin with a letter** — leading digit
 
 ```text
 payload:   6c6f676f733a6163636f756e74733a31000131000f31636861742e6d65737361
