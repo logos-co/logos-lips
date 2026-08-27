@@ -27,6 +27,7 @@
 | 1.1.0 | Round the price update upwards and align the reference code with the zero target guard | 2026-07-28 |
 | 1.1.1 | Changing from burning/minting to pooling/distributing/releasing | 2026-08-25 |
 | 1.2.0 | The storage fee is routed to the rewards pool less the share diverted to the proof of work reward pool | 2026-08-31 |
+| 1.2.1 | Align every block-reward reference with [Block Rewards](block-rewards.md) 1.2.0: fees pass through in full and settle at the epoch boundary, the rewards pool accrues rather than funds, notation harmonised to $`R^{\text{block}}`$. No change to the price mechanism. | 2026-10-06 |
 
 > **Disclaimer:**
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -99,7 +100,7 @@ $$
 
 Each Logos Blockchain Storage fee $`F_{\text{storage}}`$ is routed into the network's shared rewards pool at the moment its transaction is included, less the fixed share diverted to the [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool), rather than paid to any participant or removed from supply. This is the same pool fed by the [Execution Market](execution-market.md) and drawn down to pay leaders and Blend nodes.
 
-Aggregated over a block, the Storage fees of its transactions form the Storage-market component of the per-block pool inflow $`R_{block}`$ used to compute block rewards:
+Aggregated over a block, the Storage fees of its transactions form the Storage-market component of that block's gross fee inflow $`R^{\text{block}}`$, the quantity carried into the block reward by [Block Rewards](block-rewards.md):
 
 $$
 \hat{R}_{\text{storage}} = \sum_{t \in \mathcal{B}} S_{\text{gas}}(t) \cdot P_{\text{storage}}(s) = P_{\text{storage}}(s) \sum_{t \in \mathcal{B}} S_{\text{gas}}(t),
