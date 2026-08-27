@@ -43,7 +43,7 @@ The design holds the token supply fixed. Block rewards are not minted. The fee c
 
 The released component is anchored to one measured indicator, the inferred total stake, compared against a target. A block height tracks time but says nothing about chain state, and a per-transaction count is manipulable by the proposer. The release depends on nothing else. Fee revenue passes through the mechanism to the recipients without altering it, and the reserve balance enters only at the solvency boundary, where it bounds what can be released.
 
-Fee computation and stake inference are out of scope. Refer to [Execution Market](execution-market.md) and [Storage Markets](storage-markets.md) for the fee amount, and to [Total Stake Inference](cryptarchia-total-stake-inference.md) for the stake estimate. Distribution to individual recipients is also out of scope. Refer to [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md) for how the leader share is held and claimed, and to [Blend Protocol](blend-protocol.md) and [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md) for the Blend share. This document only defines the amount transferred at each epoch boundary and its split between the two recipient classes.
+Fee computation and stake inference are out of scope. Refer to [Execution Market](execution-market.md) and [Storage Markets](storage-markets.md) for the fee amount, and to [Total Stake Inference](cryptarchia-total-stake-inference.md) for the stake estimate. Distribution to individual recipients is also out of scope. Refer to [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md) for how the leader share is held and claimed, and to [Blend Protocol](blend-protocol.md) and [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md) for the Blend share. This document only defines the amount transferred at each epoch boundary and its split between the two recipient classes. The Execution priority fee is outside that amount. It is routed in full to the leader class through the leader reward accumulator of the [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md).
 
 The properties this mechanism satisfies, its behaviour across the range of its state variables, the incentives it creates, its failure modes, and the trade-offs taken are derived in [\[Analysis\] Block Rewards](analysis_block_rewards_specs.md), revised to 1.1.0 alongside this document. Results proved there are referenced from this document by the labels P for derived properties, S for scenarios, I for incentive results, and F for failure modes. That document also records which results of revision 1.0.0 were replaced, reversed or withdrawn by this revision.
 
@@ -56,7 +56,7 @@ The word "reward" denotes three distinct quantities in this document. Each is na
 | Term | Symbol | Definition |
 | --- | --- | --- |
 | Block reward | $`R_t`$ | The total amount accrued at block $`t`$. The outcome of the mechanism, and the sum of the two quantities below. |
-| Block fees | $`R^{\text{block}}_t`$ | The gross Execution base fees and Permanent Storage fees collected in block $`t`$, passed through in full. |
+| Block fees | $`R^{\text{block}}_t`$ | The gross Execution base fees and Permanent Storage fees collected in block $`t`$, passed through in full. Execution priority fees are excluded. |
 | Released rewards | $`\iota_t`$ | The part drawn from the reserve pool, which is allocated at genesis out of the hard cap. |
 
 $$
@@ -111,7 +111,7 @@ The mechanism controls three token stocks:
 * a reserve pool $`B_t`$ allocated at genesis, and
 * a rewards pool $`P_t`$ that accrues the obligation within an epoch.
 
-Every block, the block's fees move in full from circulation into the rewards pool, and the reserve pool releases $`\iota_t`$ into the rewards pool. At each epoch boundary the rewards pool is emptied into the distribution protocols. No other flows exist, so $`S_t + P_t + B_t`$ is invariant.
+Every block, the block's Execution base fees and Permanent Storage fees move in full from circulation into the rewards pool, and the reserve pool releases $`\iota_t`$ into the rewards pool. At each epoch boundary the rewards pool is emptied into the distribution protocols. These are the only flows this mechanism applies, so $`S_t + P_t + B_t`$ is invariant under them. The Execution priority fee moves along a separate edge, from the payer to the leader reward accumulator.
 
 ![Block reward token flows](new-block-rewards/assets/token-flows.png)
 
@@ -199,7 +199,7 @@ Under a leader lottery the realized block count in an epoch is a random variable
 - $`B_t`$ is the reserve pool balance. It funds every released reward and receives nothing.
 - $`P_t`$ is the rewards pool balance. It accrues the block reward obligation within an epoch and is emptied at the boundary.
 - $`D_t`$ is the inferred total stake at time $`t`$, the key performance indicator.
-- $`R^{\text{block}}_t`$ is the gross amount of Execution base fees and Permanent Storage fees collected in block $`t`$.
+- $`R^{\text{block}}_t`$ is the gross amount of Execution base fees and Permanent Storage fees collected in block $`t`$. Execution priority fees are not included.
 
 Consensus state read by this mechanism is $`(B_{t-1}, D_t, R^{\text{block}}_t)`$ to compute the block reward, and $`(P_{t-1}, t \bmod L)`$ to accrue and settle it. No window or fee history is required.
 
