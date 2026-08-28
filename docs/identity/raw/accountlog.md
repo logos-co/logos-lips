@@ -233,6 +233,8 @@ These rules correspond to `ed25519-dalek`'s `verify_strict` and
 to libsodium's `crypto_sign_verify_detached`.
 Implementations MUST NOT use a permissive `verify` path.
 
+### Log Data Model
+
 A log is an ordered sequence of entries, numbered from zero by position.
 An entry either endorses data under the account
 or withdraws an endorsement made earlier in the log, and does nothing else:
@@ -249,22 +251,14 @@ Ed25519Key([u8; 32])   an Ed25519 verifying key
 Text(String)           a UTF-8 record
 ```
 
-Every `Add` carries a **context**: a short ASCII string naming what the endorsement is for,
-composed as `<namespace>.<label>`.
-For a key it says what the key may be used for;
-for a record it says what the record means.
-The context belongs to the endorsement rather than to the data,
-so it applies uniformly to keys, records,
-and to any data type later added.
-
 **Requirements:**
 
 - A consumer MUST derive an entry's index from its position in the log.
   An index is never stored or transmitted separately.
-- Every `Add` carries a context; there is no un-scoped form.
-- A consumer SHOULD select endorsements by matching context.
-  entries are scoped to a specific context and consumers SHOULD NOT act on a key whose context
-  it does not recognize.
+- Entries MUST NOT be deleted, reordered, or rewritten.
+  A log is only ever extended.
+
+
 ### Contexts
 
 All entry_data in an AccountLog carries a **context**: a short string naming what the endorsement
@@ -346,67 +340,6 @@ that old consumers will ignore;
 freezing an account means removing everything.
 In each case the lever is `Remove`, which every consumer understands by construction.
 
-### Signing and Verification
-
-```text
-signature := Ed25519_sign(account_signing_key, payload)
-```
-
-The signature and payload travel together as one artifact;
-see [Signed Log](#signed-log) for its layout.
-
-The domain prefix provides domain separation:
-the account key may live in an external signer (wallet, enclave) that signs other things,
-and the prefix stops a signature obtained for another purpose from
-being replayed as an account-log signature, and vice-versa.
-The trailing NUL keeps the domain from being a prefix of any other domain.
-
-**Requirements:**
-
-- An owner MUST sign the exact payload bytes it transmits,
-  and a consumer MUST verify over the exact bytes it received.
-  There is no re-serialization on either side.
-- A consumer MUST verify the signature under the address it holds for
-  the account it intends to reach; see [Account Address](#account-address).
-  A validly-signed log for account A cannot then be passed off as account B's.
-- A consumer MUST verify the signature **before** decoding the payload,
-  so that decoding is never applied to unauthenticated bytes.
-
-#### Ed25519 Verification Profile
-
-[RFC 8032](https://datatracker.ietf.org/doc/html/rfc8032) permits
-both cofactored and cofactorless verification and
-is silent on several encoding edge cases,
-so two conformant implementations can disagree on whether the *same* signature verifies.
-For this structure that disagreement is not academic:
-one consumer honors a log another rejects,
-which is the same fail-open outcome that whole-log rejection
-(see [Validity and Replay](#validity-and-replay)) exists to prevent.
-The profile is therefore pinned.
-
-**Requirements:**
-
-- A consumer MUST use cofactorless verification.
-- A consumer MUST reject a signature whose scalar component `S` is not canonically reduced,
-  i.e. `S` MUST satisfy `0 <= S < L`.
-- A consumer MUST reject a non-canonical encoding of the account key `A` or
-  of the commitment `R`.
-- A consumer MUST reject a small-order `A` or `R`.
-
-These rules correspond to `ed25519-dalek`'s `verify_strict` and
-to libsodium's `crypto_sign_verify_detached`.
-Implementations MUST NOT use a permissive `verify` path.
-
-`Ed25519Key` entries are subject to the same concern.
-
-**Requirements:**
-
-- A consumer MUST reject an `Ed25519Key` whose 32 bytes are not
-  a canonical compressed Edwards point encoding.
-- A consumer MUST reject a small-order `Ed25519Key`.
-
-Without these, one implementation admits a key to the live set that another rejects,
-and the two derive different live sets from identical signed bytes.
 
 ### Log Updates
 
