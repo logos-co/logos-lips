@@ -177,54 +177,61 @@ and belongs to the protocol that makes it.
 Anyone holding an address can fetch the log at any time.
 No entry is confidential. See [Privacy](#privacy).
 
+
 ### Account Address
 
-An account address is the account's Ed25519 verifying key: 32 bytes.
+Every account is backed by an Ed25519 signing key, and the address is its Ed25519 verifying key.
 
-A consumer verifies a log against the address it already holds
-for the account it intends to reach;
-how it came to hold that address is out of scope (see [Assumptions](#assumptions)).
+A consumer uses the address to verify the log's signature, and ensure it belongs to the account.
+How it came to hold that address is out of scope (see [Assumptions](#assumptions)).
 
 **Requirements:**
 
-- A consumer MUST verify a log against the address it holds
-  for the account it intends to reach,
-  and MUST reject a log that does not verify under it.
 - A consumer MUST NOT use an address until it has established that
-  the address belongs to the account it intends to reach;
-  how that is established is out of scope.
+  the address belongs to the account it intends to reach.
   An address obtained from the same source that supplied the log
-  has not been established, and MUST NOT be used to verify it.
-- A consumer MUST reject an address that is not a canonical Ed25519 verifying key,
-  per [Ed25519 Verification Profile](#ed25519-verification-profile).
-- A consumer MUST accept an address in string form only as
-  64 lowercase hexadecimal characters, without a prefixed,
-  and MUST reject any other form, including uppercase and prefixed variants.
+  has not been established.
 
-### Contexts
-
-All entry_data in an AccountLog carries a **context**: a short string naming what the endorsement
-is for and how it can be used.
+### Signing and Verification
 
 ```text
-context   := <namespace> "." <label>
+signature := Ed25519_sign(account_signing_key, payload)
 ```
 
-The **namespace**, up to the first `.`, names the specification that defines
-the context. The **label** is the rest, and names one context within that
-namespace. Any further `.` are part of the label. The context `chat.messaging` is the
-label `messaging` in the namespace `chat`.
-
-A consumer selects data it needs by its context and ignores the rest, including contexts it does not recognize.
-
-This document defines and allocates no context. There is no registry —
-a specification defines its own namespace.
+The signature and payload travel together as one artifact;
+see [Signed Log](#signed-log) for its layout.
 
 **Requirements:**
 
-- A consumer MUST only use a key or record for the purpose defined by its context specification.
+- An owner MUST sign the exact payload bytes it transmits,
+  and a consumer MUST verify over the exact bytes it received.
+  There is no re-serialization on either side.
+- A consumer MUST verify the signature under the address it holds for
+  the account it intends to reach; see [Account Address](#account-address).
+  A validly-signed log for account A cannot then be passed off as account B's.
+- A consumer MUST verify the signature **before** decoding the payload,
+  so that decoding is never applied to unauthenticated bytes.
 
-### Data Model
+#### Ed25519 Verification Profile
+
+[RFC 8032](https://datatracker.ietf.org/doc/html/rfc8032) permits both
+cofactored and cofactorless verification and is silent on several encoding
+edge cases, so two conformant implementations can disagree on whether the
+same signature verifies. The profile is therefore pinned.
+
+**Requirements:**
+
+- A consumer MUST use cofactorless verification.
+- A consumer MUST reject a signature whose scalar component `S` is not
+  canonically reduced, i.e. `S` MUST satisfy `0 <= S < L`.
+- A consumer MUST reject any Ed25519 point that is not a canonical compressed
+  Edwards point encoding, or that is small-order.
+  This covers the account address, the commitment `R`, and every
+  `Ed25519Key` in the log.
+
+These rules correspond to `ed25519-dalek`'s `verify_strict` and
+to libsodium's `crypto_sign_verify_detached`.
+Implementations MUST NOT use a permissive `verify` path.
 
 A log is an ordered sequence of entries, numbered from zero by position.
 An entry either endorses data under the account
@@ -258,6 +265,29 @@ and to any data type later added.
 - A consumer SHOULD select endorsements by matching context.
   entries are scoped to a specific context and consumers SHOULD NOT act on a key whose context
   it does not recognize.
+### Contexts
+
+All entry_data in an AccountLog carries a **context**: a short string naming what the endorsement
+is for and how it can be used.
+
+```text
+context   := <namespace> "." <label>
+```
+
+The **namespace**, up to the first `.`, names the specification that defines
+the context. The **label** is the rest, and names one context within that
+namespace. Any further `.` are part of the label. The context `chat.messaging` is the
+label `messaging` in the namespace `chat`.
+
+A consumer selects data it needs by its context and ignores the rest, including contexts it does not recognize.
+
+This document defines and allocates no context. There is no registry —
+a specification defines its own namespace.
+
+**Requirements:**
+
+- A consumer MUST only use a key or record for the purpose defined by its context specification.
+
 
 ### Unknown Entries
 
