@@ -448,11 +448,27 @@ The version is reserved for changes to the payload or entry *framing* itself.
 
 ## Wire Format Specification / Syntax
 
-The encoding has three layers:
-the **signed log** is the artifact that is stored and transmitted,
-the **log encoding** frames a sequence of entries within it,
-and the **entry encoding** defines the bytes of a single entry.
+This section defines four encodings:
+the **account address**, the identifier used to refer to the account;
+the **signed log**, the artifact that is stored and transmitted;
+the **log encoding**, which frames a sequence of entries within it;
+and the **entry encoding**, which defines the bytes of a single entry.
 All integers are little-endian.
+
+### Address Encoding
+
+```text
+address := 32 bytes, an Ed25519 verifying key
+```
+
+An address is transmitted and stored in binary. Where it appears in text —
+a URI, a config file, a log line — it is 64 lowercase hexadecimal characters
+with no prefix.
+
+**Requirements:**
+
+- A consumer MUST accept an address in string form only as 64 lowercase
+  hexadecimal characters with no prefix, and MUST reject any other form.
 
 ### Signed Log
 
@@ -474,8 +490,6 @@ and a payload of the wrong extent fails verification anyway.
 
 - A consumer MUST reject an artifact shorter than 65 bytes:
   64 for the signature and at least the domain.
-- A consumer MUST verify the signature over the payload exactly as received,
-  before decoding any of it.
 
 ### Log Encoding
 
@@ -488,6 +502,12 @@ domain : "logos:accounts:1\0"   constant prefix; the segment after the
                                 second colon is the encoding version
 entry* : zero or more entries, concatenated, filling the payload exactly
 ```
+
+The domain provides domain separation: the account key may live in an external
+signer (wallet, enclave) that signs other things, and the prefix stops a
+signature obtained for another purpose from being replayed as an account-log
+signature, and vice-versa. The trailing NUL keeps the domain from being a
+prefix of any other domain.
 
 There is no entry count.
 Entries are self-delimiting, so a consumer parses until the payload is exhausted;
@@ -507,6 +527,8 @@ This is what makes an unrecognized entry skippable rather than fatal
 
 ### Entry Encoding
 
+#### Entry
+
 Every entry is an opcode byte, a body length, and a body:
 
 ```text
@@ -517,6 +539,18 @@ len    : u16 LE  length of `body` in bytes
 body   : exactly `len` bytes
 ```
 
+**Requirements:**
+
+- A consumer MUST reject a payload in which an entry's `len`
+  runs past the end of the payload.
+- A consumer MUST reject an entry whose opcode byte has any of its
+  high four bits set.
+- Trailing bytes inside an entry are not permitted.
+- An owner MUST produce exactly the layout above;
+  there is no alternative serialization of the same entry.
+
+#### Opcodes
+
 ```text
  7 6 5 4   3 2 1 0
 +---------+---------+
@@ -524,29 +558,19 @@ body   : exactly `len` bytes
 +---------+---------+
 ```
 
-`len` is what makes this format extensible.
-It lets a consumer find where an entry ends without understanding what the entry is,
-so an opcode allocated after a consumer was written is skippable rather than fatal
-(see [Unknown Entries](#unknown-entries)).
-
 The high nibble is reserved against a future need for
 per-entry flags alongside the opcode.
 Sixteen opcodes is more than this format is expected to allocate;
 recovering those bits later would require a new encoding version, so they are held now.
 
-Allocated opcodes:
-
 | `opcode` | Operation | `body` |
 | --- | --- | --- |
-| `0x01` | Add | a context and tagged data (below) |
+| `0x01` | Add | a context and tagged data |
 | `0x02` | Remove | `u32 LE` index of the target entry |
 
-`Remove` is the only operation that withdraws an endorsement,
-and it is the only one there will ever be under this encoding version.
-Every opcode allocated in future is additive:
-it endorses something, and a consumer that does not recognize it
-simply endorses nothing on its behalf.
-That is what makes skipping an unknown entry safe without any flag saying so.
+Opcodes not assigned above are reserved.
+
+#### Add
 
 An `Add` body carries the context first, then a tagged data variant:
 
@@ -559,73 +583,49 @@ data_tag : u8      selects the variant below
 data_body: variant, to the end of the entry body
 ```
 
-Context precedes `data_tag` so that a consumer parses it uniformly
-before dispatching on type,
-and so that a future data variant carries a context without restating the field.
-
 | `data_tag` | Data | `data_body` |
 | --- | --- | --- |
 | `0x01` | Ed25519Key | 32 bytes, fixed width |
 | `0x02` | Text | UTF-8 value, to the end of the entry body |
 
-`ctx_len` is not redundant with the entry's `len`:
-the entry length bounds the body, the context length splits it.
-
-Expanded, the three encodable entries are:
-
 ```text
 0x01 <len> <u8 ctx_len> <context> 0x01 <32 bytes>   Add(Ed25519Key)
 0x01 <len> <u8 ctx_len> <context> 0x02 <value>      Add(Text), UTF-8
-0x02 <len=0x0004> <u32 LE index>                    Remove
 ```
 
 The two tag spaces are independent:
 `data_tag` is only read after an `Add` opcode,
 so a future data variant and a future operation are separate allocations.
-Opcodes and `data_tag` values not assigned above are reserved.
+`data_tag` values not assigned above are reserved.
 
 **Requirements:**
 
-- A consumer MUST reject a payload in which an entry's `len`
-  runs past the end of the payload.
-- A consumer MUST reject an entry whose opcode byte has any of its
-  high four bits set.
-- For a *known* opcode, a consumer MUST reject a `len` that does not match
-  the body the operation requires:
-  exactly `2 + ctx_len + 32` for `Add(Ed25519Key)`, exactly 4 for `Remove`.
-  Trailing bytes inside an entry are not permitted.
-- A consumer MUST reject a `Text` whose `value` is not valid UTF-8.
-  A `Text` with an empty `value` is permitted and means the record is present but blank.
 - A consumer MUST reject an `Add` whose `ctx_len` is zero,
   or whose `context` extends to or past the end of the entry body,
   leaving no room for `data_tag`.
   A context is at most 255 bytes; `ctx_len` cannot express more.
-- A consumer MUST reject a `context` containing any byte outside
-  `a`-`z`, `0`-`9`, `.`, `-`, `_`.
-  The restriction exists to make contexts comparable by raw bytes:
-  permitting general UTF-8 would admit Unicode normalization forms and
-  case folding as sources of disagreement,
-  so that two implementations could differ on whether two records share a context.
-  That is the same fail-open divergence that whole-log rejection avoids elsewhere.
-- A consumer MUST compare contexts as raw bytes,
-  and MUST NOT normalize, case-fold, or otherwise transform
-  a context before comparing it.
-- An owner MUST produce exactly the layout above;
-  there is no alternative serialization of the same entry.
 - A consumer MUST reject a `context` whose namespace does not begin with
   a character in `a`-`z`, that contains no `.`,
   or that contains any byte outside `a`-`z`, `0`-`9`, `.`, `-`, `_`.
 - A consumer MUST compare contexts as raw bytes.
+- A consumer MUST reject a `Text` whose `value` is not valid UTF-8.
+  A `Text` with an empty `value` is permitted and means the record is present but blank.
 
-Every entry is explicitly length-prefixed, every field within a known body is
-fixed-width or runs to a known end, and entries fill the payload exactly:
-every byte string parses exactly one way,
-and encoding is the inverse of parsing (the format is bijective).
+#### Remove
 
-Note that `Text` no longer carries its own length prefix.
-The entry `len` already bounds it,
-and two lengths for one string is exactly the kind of stored-derivable fact
-that can disagree with the data.
+```text
+Remove body := index
+
+index : u32 LE   position of the target entry
+```
+
+```text
+0x02 <len=0x0004> <u32 LE index>                    Remove
+```
+
+**Requirements:**
+
+- A consumer MUST reject a `Remove` whose `len` is not 4.
 
 ### Resource Limits
 
