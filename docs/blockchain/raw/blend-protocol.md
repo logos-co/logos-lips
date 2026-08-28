@@ -509,9 +509,9 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`F_D=1/30`$, the network generates one data message every $`30`$ rounds on average, which is the rate at which a slot has an elected leader in the [Cryptarchia Protocol](cryptarchia-v1-protocol.md).
 - $`R_C=0`$ and $`R_D=0`$, no replication of cover or data messages is used in this version of the protocol.
 - $`\Phi_{CC}=6`$, the peering degree every core node maintains with other core nodes.
-- $`\lceil M_1 \rceil=8`$ messages per round, the maximum a node may send to one neighbor in a round, as derived in [Expected Connection Traffic](#expected-connection-traffic).
-- $`\lceil M_N \rceil = (6+1) \cdot 8 = 56`$ messages per round, the budget of a whole node.
-- $`\Lambda_E=8`$ edge nodes per round, the share of $`\lceil M_N \rceil`$ reserved for them.
+- $`\lceil M_1 \rceil=12`$ messages per round, the maximum a node may send to one neighbor in a round, as derived in [Expected Connection Traffic](#expected-connection-traffic).
+- $`\lceil M_N \rceil = (6+1) \cdot 12 = 84`$ messages per round, the budget of a whole node.
+- $`\Lambda_E=12`$ edge nodes per round, the share of $`\lceil M_N \rceil`$ reserved for them.
 - $`\lfloor M_1 \rfloor^W = \lceil F_1 \cdot W / 10 \rceil = 10`$, the minimum number of messages per connection during an observation window, as derived in [Expected Connection Traffic](#expected-connection-traffic).
 - $`T_E=1`$ round, the time an edge node is given to send its message, as derived in [Connectivity Maintenance](#connectivity-maintenance).
 
@@ -576,7 +576,7 @@ The minimum is deliberately set an order of magnitude below the expected traffic
 **Maximum**
 
 $$
-\lceil M_1 \rceil = 8 \qquad \lceil M_N \rceil = (\Phi_{CC} + 1) \cdot \lceil M_1 \rceil = 56
+\lceil M_1 \rceil = 12 \qquad \lceil M_N \rceil = (\Phi_{CC} + 1) \cdot \lceil M_1 \rceil = 84
 $$
 
 The maximum is not a threshold that honest traffic is expected to approach and occasionally cross. It is a limit a node applies to **itself**: it is a protocol constant, every node computes the same value, and a node with more than $`\lceil M_1 \rceil`$ messages for one neighbor in a round holds the excess back for a later round rather than sending it ([Releasing](#releasing)). A count above it therefore cannot arise from an unlucky round. It is a node declining to comply, and it is treated exactly as a message whose header fails to verify is treated: as misbehavior established by the observation itself, not as evidence to be weighed against a distribution.
@@ -585,9 +585,25 @@ This is why the limit must be fixed by the protocol rather than chosen by an ope
 
 The budget of a node is divided into $`\Phi_{CC}+1`$ equal shares: one for each neighbor it owes traffic to, and one for the edge nodes it serves. That last share is what $`\Lambda_E`$ names. Edge messages are block proposals and so are already counted in $`F_D`$ — they add nothing to what the network carries — but a node that happens to be the entry point for several of them in one round would otherwise have to spend a neighbor's allowance on them, so the share is held separately.
 
-The value of $`\lceil M_1 \rceil`$ follows from the traffic a connection carries and from how often the sender would have to hold a message back. Against the $`F_1 = 3.1`$ messages a connection is expected to carry per round, a limit of $`8`$ leaves a factor of $`2.6`$. Treating the arrivals as a Poisson process, a round exceeds it about $`0.5\%`$ of the time, and then usually by a single message deferred to the next round. A tighter limit defers far more often — $`3.9\%`$ of rounds at $`6`$, $`9.4\%`$ at $`5`$ — which is paid for in the latency of the block proposals being carried, while a looser one buys nothing and costs verification work.
+The value of $`\lceil M_1 \rceil`$ follows from the traffic a connection carries and from how often the sender would have to hold a message back. A node holding messages back does not breach the limit — it delays — so the value is chosen against latency and against the margin discussed under [Dependency on the Proposal Rate](#dependency-on-the-proposal-rate), not against any risk of a false accusation.
 
-That work is the check on the value, not its source. Every message counted against the budget costs one public header verification ([Relaying](#relaying)), so $`\lceil M_N \rceil = 56`$ per round is $`56`$ verifications per second at a one-second round. A Raspberry Pi 5 verifies $`157`$ public headers per second on a single core, measured on the `verify_public_header` benchmark with the CPU governor at `ondemand`, so the budget occupies about a third of one core and leaves the rest of the board to the other work of a node. Deriving the limit from that capacity instead would put it near $`22`$ messages per neighbor and allow an adversary to saturate a core while remaining within the contract; the limit is therefore taken from the traffic and checked against the hardware, never the other way round.
+Against the $`F_1 = 3.1`$ messages a connection is expected to carry per round, a limit of $`12`$ leaves a factor of $`3.9`$, and a round has to defer once in forty thousand. What decides the value is the other regime: while the total stake cannot be reliably inferred, $`F_D`$ rises towards $`F_C`$ and a connection carries about $`6`$ messages per round. At $`12`$ that defers in $`0.9\%`$ of rounds and never by more than a single round in simulation, where a limit of $`8`$ would defer in $`22\%`$ of them and by up to three rounds, each of which is added to the delivery of a block proposal at every hop it takes.
+
+That verification work is the check on the value, not its source. Every message counted against the budget costs one public header verification ([Relaying](#relaying)), so $`\lceil M_N \rceil = 84`$ per round is $`84`$ verifications per second at a one-second round. A Raspberry Pi 5 verifies $`157`$ public headers per second on one core and $`626`$ across its four, measured on the `verify_public_header` benchmark with the CPU governor at `ondemand`. The budget is therefore $`54\%`$ of one core, or $`13\%`$ of the board, and it is a ceiling rather than a load: the work actually performed is about $`19`$ verifications per second in the steady state and $`36`$ while bootstrapping. A node may spend more than one core on it when the traffic warrants, which is what makes the ceiling affordable. Deriving the limit from single-core capacity instead would put it near $`22`$ messages per neighbor and let an adversary saturate that core while remaining within the contract; the limit is taken from the traffic and checked against the hardware, never the other way round.
+
+### Dependency on the Proposal Rate
+
+The limit bounds what a node may send. It cannot bound what the network produces, and the difference between the two is carried by the sender's queue. That queue is stable only while the traffic a connection carries stays below the limit:
+
+$$
+F_1 = (F_C + F_D) \cdot \beta_{max} \lt \lceil M_1 \rceil
+$$
+
+With the values of this specification that holds while $`F_D \lt 3`$, ninety times its nominal value. Beyond it the queue grows without bound, and it does so at every node at once, since every connection in the network carries the same traffic. The network then stops delivering rather than degrading: the approach is steep, with a mean queue of two messages at $`F_D=1.3`$, of ten at $`1.55`$, and of several thousand and still growing at $`1.75`$.
+
+**This is a requirement Blend places on consensus.** [Cryptarchia](cryptarchia-v1-protocol.md) must bound the number of block proposals admitted per slot, or $`\lceil M_1 \rceil`$ must be raised to cover the worst case it allows. The bound cannot be met by treating proposals differently from cover messages, because the two are indistinguishable on the wire, which is the property the protocol exists to provide.
+
+The requirement binds hardest while the network is bootstrapping. $`F_D`$ is the rate at which a slot has an elected leader, but the traffic follows the number of proposals, and while the total stake is underestimated more than one leader wins each slot. The [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) counts occupied slots, and the lottery activates a slot with probability $`f`$ however many leaders win it, so the estimate does not respond to the number of proposals per slot. The overshoot that costs Blend the most is therefore the one the correction is least sensitive to, and the margin between the estimated bootstrapping rate and the point at which the queue diverges is what protects the network in the meantime.
 
 > **Proof-of-work traffic:** this specification carries proof-of-stake traffic only. A future revision that admits messages authorized by proof of work must give that traffic a share of $`\lceil M_N \rceil`$ of its own, in the way the edge nodes have one. Such traffic cannot be bounded globally, as it depends on the message-solving capacity of the whole network, so the share is what bounds the work it can impose on any one node.
 
@@ -1063,7 +1079,7 @@ The process of releasing messages involves the following steps:
 
 The cover and data message generation processes are **independent**, and there is a non-zero probability that more than one message will be scheduled for the same round. The number of messages released **to a single neighbor** during one round is nevertheless restricted to $`\lceil M_1 \rceil`$ ([Expected Connection Traffic](#expected-connection-traffic)). A node holding more than that for a neighbor releases $`\lceil M_1 \rceil`$ of them, chosen at random from those due, and carries the remainder into the following round. The choice is random so that deferral does not impose an order an observer could exploit.
 
-Applying this limit is not optional and is not merely polite: a neighbor counts what it receives in each round and treats a count above $`\lceil M_1 \rceil`$ as misbehavior, so a node that does not hold messages back will be disconnected and blacklisted by the neighbors it oversends to. At the expected traffic the limit binds in roughly one round in two hundred, and then usually by a single message.
+Applying this limit is not optional and is not merely polite: a neighbor counts what it receives in each round and treats a count above $`\lceil M_1 \rceil`$ as misbehavior, so a node that does not hold messages back will be disconnected and blacklisted by the neighbors it oversends to. At the expected traffic the limit binds in roughly one round in forty thousand, and while the network is bootstrapping in about one in a hundred, in both cases by a single message deferred by a single round.
 
 A message deferred this way is released later than the round the [Delaying](#delaying) logic chose for it. This is the one case in which the upper bound on delay that section describes does not hold, and it is the price of making the maximum a limit that can be enforced against its sender rather than a threshold to be inferred from a distribution.
 
