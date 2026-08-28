@@ -23,7 +23,7 @@ Keys are added as installations come and go, and revoked when one is lost.
 Anyone reaching the account needs to know which keys are currently good.
 
 This document specifies the **AccountLog**: an append-only list of entries that an account signs and publishes.
-Anyone can verify the log independently, to prove it is valid
+Anyone can verify the log independently, to prove it is valid.
 An account is an Ed25519 keypair and its verifying key is the account address.
 
 A consumer verifies the log against the address it already holds and reads off
@@ -41,7 +41,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
 "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document
 are to be interpreted as described in [RFC 2119](https://datatracker.ietf.org/doc/html/rfc2119).
 
-- **Account** — an Ed25519 keypair. 
+- **Account** — an Ed25519 keypair.
 - **Account Address** — an account's Ed25519 verifying key;
   see [Account Address](#account-address).
 - **Account Log** — the append-only list of entries an account has signed.
@@ -121,7 +121,7 @@ two versions of one account's log stand in a single correct relation:
 the older is a byte-prefix of the newer.
 Anything longer that is not an extension is a divergent branch,
 refused rather than adopted —
-see [Freshness and Extension](#freshness-and-extension).
+see [Log Updates](#log-updates).
 
 ### Assumptions
 
@@ -154,7 +154,6 @@ This document begins once a consumer holds an address it trusts.
 **The log is public.**
 Anyone holding an address can fetch the log at any time.
 No entry is confidential. See [Privacy](#privacy).
-
 
 ### Account Address
 
@@ -236,7 +235,6 @@ Text(String)           a UTF-8 record
 - Entries MUST NOT be deleted, reordered, or rewritten.
   A log is only ever extended.
 
-
 ### Contexts
 
 All entry_data in an AccountLog carries a **context**: a short string naming what the endorsement
@@ -260,7 +258,6 @@ a specification defines its own namespace.
 
 - A consumer MUST only use a key or record for the purpose defined by its context specification.
 
-
 ### Unknown Entries
 
 A consumer must be able to skip an entry it does not recognize, or the first
@@ -280,7 +277,7 @@ something, and a consumer that ignores it acts on less authority, never more.
 - A future opcode MUST only add. There will never be an operation other than
   `Remove` that takes something away, because an old consumer would skip it
   and go on trusting what it was meant to withdraw.
-  To change what an old consumer honours, remove the entry and add a new one
+  To change what an old consumer honors, remove the entry and add a new one
   under a different context.
 
 The last requirement is a constraint on this document's future editors.
@@ -332,7 +329,7 @@ consumer understands.
 - Only this document states what makes a log invalid.
   A specification built on the AccountLog MUST NOT add a condition,
   and a consumer MUST ignore an entry it cannot use rather than reject the log.
-  
+
 ### Versioning
 
 The encoding version lives in the domain string (`logos:accounts:1`).
@@ -567,6 +564,7 @@ and nothing in this document recovers the space.
   re-signs, and retries.
 - Endorse a key under one context only. Nothing here rejects a key live under
   two, but a key serving two purposes is one whose compromise costs both.
+
 ## Security/Privacy Considerations
 
 ### Security
@@ -659,7 +657,7 @@ signature: d58b9c39e92232bfa686a6b60b445168162a11ea8a47730289085f51ac161f4b
            b57bda68f65eb0f7e7c5dd8345fb6fb5375a65d4086385da76a383213800940e
 ```
 
-**V2 — one EndorsedKey** under `chat.messaging`
+**V2 — one `Add(Ed25519Key)`** under `chat.messaging`
 
 ```text
 payload:   6c6f676f733a6163636f756e74733a3100
@@ -669,7 +667,7 @@ signature: a2b0384fc0b3b738e830f86ecd5b34c8139f9d0c2084ff57fee84e71ad1b47aa
            83b5ec9f7c38403234390c86be534349d07a045a5e239c6f9c648a262e9a9f04
 ```
 
-**V3 — two EndorsedKeys**, same context (strictly extends V2)
+**V3 — two `Add(Ed25519Key)`**, same context (strictly extends V2)
 
 ```text
 payload:   6c6f676f733a6163636f756e74733a3100
@@ -681,7 +679,7 @@ signature: 18ca203291c5f9ad74142635174113a4619f125ca05d4d0dafda46081096ddae
            bc10c05d10ddf29caa5e444bd975f2f0cc05dca9b34e3ea18d2e21fda5c85a02
 ```
 
-**V4 — first EndorsedKey revoked** (`Remove { index: 0 }`)
+**V4 — first key revoked** (`Remove { index: 0 }`)
 
 ```text
 payload:   6c6f676f733a6163636f756e74733a3100
@@ -694,7 +692,7 @@ signature: 060ec48ee5c7d245417c5af6a433b7451cd325ab80547bd377b070b54871a5f6
            8e3b207e3ea678408ff9ace88caa1cfd774cb2bdb45f27b3091fd02387fc4501
 ```
 
-**V5 — EndorsedKey plus a record** under `profile.displayname`, value `alice`
+**V5 — key plus a `Text` record** under `profile.displayname`, value `alice`
 
 ```text
 payload:   6c6f676f733a6163636f756e74733a3100
