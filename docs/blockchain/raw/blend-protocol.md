@@ -450,6 +450,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\lceil M_1 \rceil^W`$ denote the maximal number of messages a single connection may carry during an observation window $`W`$;
 - $`\lfloor M_1 \rfloor^W`$ denote the minimal number of messages a single connection must carry during an observation window $`W`$ to be counted as healthy;
 - $`\kappa_{max}`$ denote the divergence controller, which relaxes the expected traffic into the maximum above;
+- $`\Lambda_E`$ denote the maximum number of connections with edge nodes a core node accepts per round;
 - $`F_C`$ denote a frequency at which cover messages are generated per round;
 - $`F_D`$ denote a frequency at which data messages are generated per round;
 - $`C = E \cdot F_C`$ denote the expected number of cover messages that are generated during an epoch by the core nodes;
@@ -475,6 +476,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\kappa_{max}=6`$, the divergence controller, as derived in [Expected Connection Traffic](#expected-connection-traffic).
 - $`\lceil M_1 \rceil^W = \kappa_{max} \cdot F_1 \cdot W = 558`$ and $`\lfloor M_1 \rfloor^W = \lceil F_1 \cdot W / 10 \rceil = 10`$, the maximum and the minimum number of messages per connection during the observation window, as derived in [Expected Connection Traffic](#expected-connection-traffic).
 - $`T_E=1`$ round, the time an edge node is given to send its message, as derived in [Connectivity Maintenance](#connectivity-maintenance).
+- $`\Lambda_E=8`$ connections per round, the rate at which edge connections are accepted, as derived in [Connectivity Maintenance](#connectivity-maintenance).
 
 ### Core Node Parameters
 
@@ -485,6 +487,7 @@ A core node maintains the following set of parameters:
 - $`\Phi_{CE}^{Max}`$ denotes the maximum number of connections with edge nodes. It is set by the core node individually.
 - $`\Omega_C`$ denotes the maximum number of retries a core node will do to connect with another core node.
 - $`T_E`$ denotes the time a core node gives an edge node to send its message before closing the connection.
+- $`\Lambda_E`$ denotes the maximum number of connections with edge nodes the core node accepts per round. It bounds the verification work edge traffic can impose, independently of how many identities an adversary uses.
 
 Implementations should choose a default based on the deployment they operate in, and users can override these defaults before joining.
 
@@ -512,7 +515,7 @@ The Neighbor Distinction Process (NDP) enables the core node to distinguish betw
 
 ### Expected Connection Traffic
 
-The thresholds that drive the [Connectivity Maintenance](#connectivity-maintenance) logic are derived from the traffic that a single connection is expected to carry. A received message is released to all neighbors ([Releasing](#releasing)), and a duplicate is recognized only after it has been received, so every connection carries, in expectation, every message that the network emits.
+The thresholds that drive the [Connectivity Maintenance](#connectivity-maintenance) logic are derived from the traffic that a single connection is expected to carry. A received message is released to every neighbor except the one it came from ([Releasing](#releasing)), and a duplicate is recognized only after it has been received, so a connection carries, in expectation, every message that the network emits, less the fraction its neighbor first received from this node. That fraction is $`1/\Phi_{CC}`$ for a neighbor whose connections are as numerous as this node's, so the estimate below is an upper bound, which is the safe direction for a minimum that must not be crossed by an honest connection.
 
 The number of messages a single connection is expected to carry per round is:
 
@@ -534,7 +537,7 @@ $$
 \lfloor M_1 \rfloor^W = \left\lceil \dfrac{F_1 \cdot W}{10} \right\rceil = 10
 $$
 
-The minimum is deliberately set an order of magnitude below the expected traffic, which at $`W=30`$ is three rounds worth of messages, and no penalty is attached to falling below it. A tighter minimum cannot be set safely, because the traffic a connection carries depends on the topology of the network and on the position of the node within it. A healthy node may stay silent by chance for an extended period, for instance when every one of its neighbors has already forwarded to it the messages it would otherwise have relayed back to them, and messages are emitted at random times by random nodes. The probability of such an event decreases as the observation window grows, but it is not bounded by any parameter the protocol controls. The minimum is therefore a signal to add connections, never evidence of misbehavior.
+The minimum is deliberately set an order of magnitude below the expected traffic, which at $`W=30`$ is about three rounds worth of messages, and no penalty is attached to falling below it. The fraction is chosen to sit far outside ordinary variation rather than to detect anything: against an expected $`93`$ messages with a standard deviation of $`\sqrt{93} \approx 10`$, a minimum of $`10`$ is more than $`8`$ standard deviations below the mean, so an honest connection does not reach it by chance. A tighter minimum cannot be set safely, because the traffic a connection carries depends on the topology of the network and on the position of the node within it. A healthy node may stay silent by chance for an extended period, for instance when every one of its neighbors has already forwarded to it the messages it would otherwise have relayed back to them, and messages are emitted at random times by random nodes. The probability of such an event decreases as the observation window grows, but it is not bounded by any parameter the protocol controls. The minimum is therefore a signal to add connections, never evidence of misbehavior.
 
 **Maximum**
 
@@ -544,7 +547,7 @@ $$
 
 Two effects push the traffic of an honest connection above $`F_1 \cdot W`$, and they compound with each other. Some duplication is expected at the connection level, because a message can reach the same neighbor over more than one path before deduplication takes effect, which alone accounts for twice the expected traffic. During consensus bootstrapping, when the total stake cannot be reliably inferred, the observed $`F_D`$ is expected to significantly exceed its nominal value, likely matching $`F_C`$, which raises $`F_1`$ to $`1 \cdot 3 + 1 \cdot 3 = 6`$, a further factor of $`1.94`$. Their product, $`3.87`$, is a floor on $`\kappa_{max}`$ and not a usable value for it: at $`\kappa_{max}=3.87`$ the threshold sits exactly on the mean of honest bootstrapping traffic and half of all honest connections cross it.
 
-The margin above that floor absorbs the message spikes described above. Treating the arrivals of a connection as a Poisson process, honest bootstrapping traffic of $`2 \cdot 6 \cdot 30 = 360`$ messages per window has a standard deviation of $`\sqrt{360} \approx 19`$, so $`\kappa_{max}=6`$ places the threshold about $`10`$ standard deviations above the mean and makes an honest connection crossing it a negligible event over the $`E`$ rounds of an epoch.
+The margin above that floor absorbs the message spikes described above. Honest bootstrapping traffic is $`2 \cdot 6 \cdot 30 = 360`$ messages per window, but its spread is not that of a Poisson count of $`360`$: the duplication does not generate independent arrivals, it delivers each message twice. The count is therefore $`2`$ copies of a Poisson count of $`180`$, whose standard deviation is $`2\sqrt{180} \approx 27`$ rather than $`\sqrt{360} \approx 19`$. At $`\kappa_{max}=6`$ the threshold still sits about $`7`$ standard deviations above the mean, which makes an honest connection crossing it a negligible event over the $`E`$ rounds of an epoch.
 
 Raising $`\kappa_{max}`$ further reduces the sensitivity of the spam classification, and the relaxation is paid for in bandwidth and in the verification work of [Relaying](#relaying), since every counted message costs a public header verification. The upper bound on $`\kappa_{max}`$ is therefore the rate at which the slowest node the protocol targets can verify public headers, and the value above must be confirmed by measurement on that hardware before this revision is considered final. If the observed $`F_D`$ exceeds $`F_C`$, then $`\kappa_{max}`$ must be updated accordingly. Alternatively, $`\lceil M_1 \rceil^W`$ can be derived at runtime from the observed block proposal frequency, which removes the need for a static $`F_D`$, at the cost of a computation that must still account for the duplication described above.
 
@@ -554,12 +557,14 @@ Raising $`\kappa_{max}`$ further reduces the sensitivity of the spam classificat
 
 A core node keeps the connections with its neighbors healthy and watches each of them for misbehavior. Two principles govern the logic below.
 
-- **A ban requires attribution.** A neighbor is disconnected and blacklisted only for misbehavior its authenticated identity is responsible for: a message that fails header verification, a failure of the transport itself, or a message count above the maximum, all observed on its own connection. The node can act on any of them with high confidence, as the TLS protocol identifies the neighbor as the true source of everything its connection carries, which rules out a replay by a third party. Traffic below the minimum never leads to a ban, as the neighbor may itself be under a denial-of-service or a censoring attack. That attack is not attributable, since an adversary can mount it without controlling either end of the connection, so acting on it would let the adversary have honest nodes excluded by the rest of the network.
+- **A ban requires attribution.** A neighbor is disconnected and blacklisted only for misbehavior its authenticated identity is responsible for: a message that fails header verification, a failure of the authenticated stream itself, or a message count above the maximum, all observed on its own connection. A failure of the authenticated stream means a TLS record that fails authentication, or a violation of the framing of the stream; it does not mean the loss of the connection. A connection that simply drops is not attributable, as any network between the two ends can cause it, and it is treated as silence rather than as misbehavior. The node can act on any of them with high confidence, as the TLS protocol identifies the neighbor as the true source of everything its connection carries, which rules out a replay by a third party. Traffic below the minimum never leads to a ban, as the neighbor may itself be under a denial-of-service or a censoring attack. That attack is not attributable, since an adversary can mount it without controlling either end of the connection, so acting on it would let the adversary have honest nodes excluded by the rest of the network.
 - **The connection cap is hard.** The number of connections with core nodes never exceeds $`\Phi_{CC}^{Max}`$, including the connections whose handshake is still in progress. This bounds the bandwidth an adversary can force on the node. A node that has reached the cap opens no further connections, and refuses incoming ones, until a slot is released.
 
 **Counting**
 
 A node counts, for each of its connections with a core node, the messages received during the trailing observation window $`W`$. This count is $`M_1^W`$. Every received message is counted, including one that is later discarded as a duplicate, so that a neighbor flooding duplicates is bounded by the same maximum as any other neighbor.
+
+The count is kept against the **authenticated identity of the neighbor** for the epoch, not against the connection. A neighbor that disconnects and reconnects resumes the count and the window it had already accumulated. Were the window tied to the connection, a neighbor could reset its own observation at will by reconnecting, and never accumulate a full window to be judged on. The node therefore retains the counts of the identities it has been connected to during the current epoch; the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) bounds that set to the $`N`$ core nodes of the epoch, and it is discarded when the epoch ends.
 
 **Classification**
 
@@ -569,17 +574,23 @@ A connection is classified from $`M_1^W`$ as follows:
 2. It is **healthy** when $`\lfloor M_1 \rfloor^W \le M_1^W \le \lceil M_1 \rceil^W`$. Only healthy connections count towards the healthy peering degree $`h(\Phi_{CC})`$.
 3. It is **unhealthy** when $`M_1^W \lt \lfloor M_1 \rfloor^W`$, which includes a connection that has carried no message at all.
 
-The classification follows the observation window as it advances, so a connection returns to healthy as soon as its count is back within the bounds, without any marking to remove. A connection that has been open for less than $`W`$ rounds counts as healthy until its first window completes, so that connections opened to make up for a shortage are not immediately counted as unhealthy. The spammy condition is checked on every counted message and applies at any age of a connection.
+The classification follows the observation window as it advances, so a connection returns to healthy as soon as its count is back within the bounds, without any marking to remove. The spammy condition is checked on every counted message and applies from the first message a connection carries.
+
+A neighbor whose accumulated observation is shorter than $`W`$ counts as healthy until its first window completes, so that connections opened to make up for a shortage are not immediately counted as unhealthy. Because the observation accumulates against the identity rather than the connection, this grace is granted once per identity per epoch: a neighbor that reconnects resumes where it left off and does not receive it again. Otherwise a neighbor could hold a connection slot indefinitely, and stay out of reach of both the unhealthy classification and the replacement of rule 5, by disconnecting and reconnecting just before each window completed.
 
 **Reaction**
 
 1. A spammy connection is closed and its neighbor is blacklisted. A blacklisted identity must not be selected again, and must be refused on both outgoing and incoming connections. An entry added to the blacklist during an epoch $`n`$ expires when the epoch $`n+2`$ begins.
-2. A connection with a core node that fails at the transport level, or that carries a message failing header verification, is closed and its neighbor is blacklisted. This is what marking a neighbor as malicious entails in the [Relaying](#relaying) logic. A message failing verification on a connection with an edge node closes that connection only, as covered by rule 7.
+2. A connection with a core node whose authenticated stream fails, or that carries a message failing header verification, is closed and its neighbor is blacklisted. This is what marking a neighbor as malicious entails in the [Relaying](#relaying) logic. A message failing verification on a connection with an edge node is covered by rule 9 instead.
 3. An unhealthy connection is never closed for being unhealthy, and its neighbor is never blacklisted. It stops counting towards $`h(\Phi_{CC})`$, which makes the node compensate for it through rule 4.
 4. When $`h(\Phi_{CC}) \lt \Phi_{CC}^{Min}`$, the node opens connections with core nodes selected uniformly at random, and without replacement, from the set returned by the SDP protocol, excluding itself, blacklisted identities and its current neighbors, until the minimum is restored or the cap is reached.
-5. When the node is at the cap and still below the minimum, it may replace its least active connection. The replacement is selected first, then the connection with the lowest $`M_1^W`$ among those that have completed an observation window is closed without a ban, and the replacement takes the released slot. Ties are broken uniformly at random. At most one connection is replaced per observation window, and a connection is never closed this way unless a replacement candidate is available.
+5. When the node is at the cap and still below the minimum, it may replace its least active connection. The replacement is selected first, then the connection with the lowest $`M_1^W`$ among those whose neighbor has completed an observation window is closed without a ban, and the replacement takes the released slot. Ties are broken uniformly at random. At most one connection is replaced per observation window, and a connection is never closed this way unless a replacement candidate is available.
 6. A node that can neither open nor replace a connection logs that it is running below the minimum peering degree and continues with the connections it has. Reaching the cap may be a sign that the node is under attack, and the reaction to it is a matter of the privacy requirements of the operator, so the protocol keeps the cap and informs the operator rather than lifting it.
-7. A connection with an edge node is closed as soon as the edge node has sent its message, or once $`T_E`$ has elapsed without it. Edge connections are counted separately, against $`\Phi_{CE}^{Max}`$, and are never blacklisted, as an edge node is closed by design rather than classified.
+7. A connection with an edge node is closed as soon as the edge node has sent its message, or once $`T_E`$ has elapsed without it. Edge connections are counted separately, against $`\Phi_{CE}^{Max}`$, and are not classified, as an edge node is closed by design.
+8. A core node accepts at most $`\Lambda_E`$ connections with edge nodes per round. Connections offered above that rate are refused without a ban. The limit is on the rate of acceptance rather than on the identity offering it, because an edge node is not in the set returned by the SDP protocol and its identity is ephemeral: an adversary can present a new one for every connection, so only a limit that ignores identity bounds the work it can impose.
+9. An edge node whose message fails header verification has its connection closed and its identity blacklisted until the end of the epoch. An adversary that rotates its identity evades this, which is why rule 8 and not this rule is what bounds the load; the entry is kept because it is cheap and it stops an adversary that does not rotate. The number of retained edge identities is bounded by the node, which discards the oldest first, so the blacklist cannot be made to grow without limit.
+
+The verification work a node must sustain follows from these limits. Its core neighbors can deliver at most $`\Phi_{CC}^{Max} \cdot \lceil M_1 \rceil^W / W = 8 \cdot 558 / 30 \approx 149`$ messages per round between them, and edge nodes at most $`\Lambda_E=8`$, so a node must verify about $`157`$ public headers per round in the worst case against roughly $`25`$ in expectation. $`\Lambda_E`$ must be chosen, together with $`\kappa_{max}`$, so that this worst case stays within the rate at which the slowest targeted node can verify public headers. Without rule 8 the edge term would instead be $`\Phi_{CE}^{Max}`$ per $`T_E`$ — with the values above, $`300`$ headers per round from a source that is neither counted nor attributable.
 
 > **Edge Timeout Calculation:** a block proposal message of $`34574`$ bytes ([Payload Formatting](payload-formatting.md)) takes $`34574 \cdot 8 / 10^6 \approx 0.28`$ s to transmit over a $`1`$ Mbit/s link. Allowing $`20\%`$ for framing and retransmission, and $`0.5`$ s for latency and jitter, gives $`1.2 \cdot 0.28 + 0.5 \approx 0.83`$ s, which is rounded up to $`T_E=1`$ round.
 
@@ -944,7 +955,7 @@ However, the release round selection must work independently of the queue state.
 
 The process of releasing messages involves the following steps:
 
-- Upon **receiving** a message, it is immediately released to all neighboring.
+- Upon **receiving** a message, it is immediately released to all neighboring nodes, except the one it was received from. Returning it to its sender would only be discarded there as a duplicate, while still being counted by the [Connectivity Maintenance](#connectivity-maintenance) logic against the node that returned it.
 - All **processed** messages are queued and released at the next release round determined by the [Delaying](#delaying) logic.
 - Every **generated** message is released at the beginning of the next round after its generation.
 - As soon as a **data** message is generated, one random unreleased (future) **cover** message must be removed from the release schedule to maintain the node’s statistical indistinguishability.
