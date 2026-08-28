@@ -64,11 +64,7 @@ are to be interpreted as described in [RFC 2119](https://datatracker.ietf.org/do
   and so the only party that can extend the log.
   An owner is also a consumer of its own log:
   it must fetch and validate the current log before extending it.
-- **Context** — a short ASCII string naming what an endorsement is *for*,
-  composed as `<namespace>.<label>`.
-  Every `Add` carries one, whatever it endorses.
-- **Namespace** — the first component of a context, up to its first `.`.
-  It names the specification that defines the context.
+- **Context** — a short ASCII string naming what an endorsement is *for*.
 
 ## Motivation
 
@@ -205,6 +201,29 @@ how it came to hold that address is out of scope (see [Assumptions](#assumptions
   64 lowercase hexadecimal characters, without a prefixed,
   and MUST reject any other form, including uppercase and prefixed variants.
 
+### Contexts
+
+All entry_data in an AccountLog carries a **context**: a short string naming what the endorsement
+is for and how it can be used.
+
+```text
+context   := <namespace> "." <label>
+```
+
+The **namespace**, up to the first `.`, names the specification that defines
+the context. The **label** is the rest, and names one context within that
+namespace. Any further `.` are part of the label. The context `chat.messaging` is the
+label `messaging` in the namespace `chat`.
+
+A consumer selects data it needs by its context and ignores the rest, including contexts it does not recognize.
+
+This document defines and allocates no context. There is no registry —
+a specification defines its own namespace.
+
+**Requirements:**
+
+- A consumer MUST only use a key or record for the purpose defined by its context specification.
+
 ### Data Model
 
 A log is an ordered sequence of entries, numbered from zero by position.
@@ -239,84 +258,6 @@ and to any data type later added.
 - A consumer SHOULD select endorsements by matching context.
   entries are scoped to a specific context and consumers SHOULD NOT act on a key whose context
   it does not recognize.
-
-#### Context Namespacing
-
-This document allocates no context.
-Which contexts exist, and what their values mean,
-is defined by the protocols built on the AccountLog;
-the AccountLog defines only that every endorsement has one and how it is encoded.
-
-
-A context is composed of two components, divided by its first `.`:
-
-```text
-context   := <namespace> "." <label>
-
-namespace : everything before the first `.`
-label     : everything after it
-```
-
-The **namespace** names the specification that defines the context.
-The **label** names one defined item within that namespace.
-`chat.messaging` is the label `messaging` in the namespace `chat`,
-defined by the specification that defines `chat`;
-
-Only the first `.` divides; how to handle any further `.`'s are defined in the specifications which define the namespace.
-
-This document defines no context.
-There is no registry and no allocator:
-a specification picks its own namespace.
-The AccountLog provides the ability to define contexts; it does not exercise it.
-
-**Requirements:**
-
-- A consumer MUST reject a context whose namespace does not begin with
-  a character in `a`-`z`.
-- A consumer MUST reject a context containing no `.`,
-  and so carrying no namespace boundary.
-- A consumer MUST reject a context containing any byte outside
-  `a`-`z`, `0`-`9`, `.`, `-`, `_`;
-  see [Wire Format Specification / Syntax](#wire-format-specification--syntax).
-
-#### Selecting by Context
-
-A consumer working under some context selects, from the live set,
-every entry bearing that context, in log order.
-That is all the AccountLog does with a context: it matches, and nothing else.
-
-What those entries *mean* is another matter.
-Whether a context holds one value or many,
-which of several live values is current,
-and what it means for none to be live
-are all defined by the specification that defines the context.
-
-This separates two judgements.
-Whether a log is valid is settled by this document —
-framing, structure, and replay.
-Whether the values selected from a valid log are well-formed
-is settled by the context's own specification.
-A log bearing three live `profile.displayname` entries is a valid log;
-whether that account has a usable display name is a question for
-whatever defines `profile.displayname`.
-
-**Requirements:**
-
-- A consumer MUST select every live entry bearing the context it is working under,
-  in log order, and MUST interpret those entries
-  as the specification defining that context says.
-- A protocol defining a context MUST state how its entries are interpreted:
-  how many are expected to be live,
-  which value is current where several are,
-  and what it means for none to be.
-  A consumer MUST NOT act on a context whose interpretation is unstated.
-- A consumer MUST NOT reject a log because a context bears
-  more or fewer live entries than its specification expects,
-  or because the values borne are not well-formed by that specification.
-  Other consumers will have accepted that log,
-  so the owner cannot withdraw it without forking them,
-  and a consumer that rejects on a record-level condition is stuck permanently.
-  Log-level validity is settled only by this document.
 
 ### Unknown Entries
 
@@ -708,6 +649,10 @@ Opcodes and `data_tag` values not assigned above are reserved.
   a context before comparing it.
 - An owner MUST produce exactly the layout above;
   there is no alternative serialization of the same entry.
+- A consumer MUST reject a `context` whose namespace does not begin with
+  a character in `a`-`z`, that contains no `.`,
+  or that contains any byte outside `a`-`z`, `0`-`9`, `.`, `-`, `_`.
+- A consumer MUST compare contexts as raw bytes.
 
 Every entry is explicitly length-prefixed, every field within a known body is
 fixed-width or runs to a known end, and entries fill the payload exactly:
