@@ -333,67 +333,28 @@ and adopting it changes nothing.
 - A protocol MAY provide an out-of-band check that two parties hold the same
   log for an account. This document defines none.
 
-
-### Validity and Replay
+### Validity and the Live Set
 
 A log is valid when every `Remove` targets a strictly earlier, still-live `Add`.
-Anything else — a forward or self reference, removing a `Remove`,
-removing the same entry twice, or targeting an index at or beyond the entry count —
-makes the *whole log* invalid.
-The target may be an entry the consumer does not understand.
-That is fine: every opcode other than `Remove` is additive,
-so an unrecognized entry is a removable slot by construction.
+Any other `Remove` makes the whole log invalid.
 
-Rejection is total by design:
-a specified skip-the-bad-entry rule would be deterministic on paper,
-but under implementation divergence it fails open —
-two consumers silently derive different live sets from the same signed bytes,
-and honoring an EndorsedKey the owner believed revoked
-is the one failure this structure cannot afford.
-Whole-log rejection fails closed:
-a divergent implementation refuses the log instead.
-
-Replay: walk the log in order, marking each `Remove`'s target as dead.
-The live set is every unmarked `Add`, in log order,
-including opaque slots the consumer could not decode.
-The *typed* live set — the EndorsedKeys and records an application acts on —
-is the live set restricted to entries the consumer understands.
+To derive the live set, walk the log in order and mark each `Remove`'s target
+as dead. The live set is every unmarked `Add`, in log order, including opaque
+slots the consumer could not decode. The *typed* live set — the keys and
+records an application acts on — is the live set restricted to entries the
+consumer understands.
 
 **Requirements:**
 
-- A consumer MUST reject a log containing any invalid `Remove`;
-  partial acceptance is not permitted.
-  Retaining an unrecognized entry as an opaque slot is not partial acceptance:
-  the entry is fully validated as a frame, only its body is uninterpreted.
+- A consumer MUST reject the whole log if any part of it is invalid.
+- A consumer MUST reject a `Remove` whose index is at or after its own position.
+- A consumer MUST reject a `Remove` targeting an entry that is not an `Add`.
+- A consumer MUST reject a `Remove` targeting an entry already removed.
 - An owner MUST validate a log before signing it.
 - Only this document states what makes a log invalid.
   A specification built on the AccountLog MUST NOT add a condition,
   and a consumer MUST ignore an entry it cannot use rather than reject the log.
-
-An invalid log is recoverable.
-No consumer accepts it, so none holds it,
-and an owner that signs one discards it and extends the last valid log instead —
-which is what consumers still hold, so they accept the result.
-Validating before signing matters for a different reason.
-Nothing about the account looks broken afterwards —
-consumers carry on with the last valid log —
-so an owner that skips validation may never learn
-that the update it intended, possibly a revocation, never took effect.
-
-### Append-Only, No Compaction
-
-Removals are tombstone appends; entries are never dropped or reordered.
-This is what makes length a sound freshness marker and the prefix rule sound.
-Log growth is bounded in practice by update economics:
-key updates are expected to be rare.
-
-**Requirements:**
-
-- An owner MUST NOT compact, reorder, or rewrite a published log.
-  The only permitted change is appending entries.
-- A consumer MUST reject a replacement log that is not an extension
-  of the one it holds; see [Freshness and Extension](#freshness-and-extension).
-
+  
 ### Versioning
 
 The encoding version lives in the domain string (`logos:accounts:1`).
