@@ -552,40 +552,21 @@ and nothing in this document recovers the space.
 
 ## Implementation Suggestions
 
-- Validate in one pass.
-  Because `Remove.index < position` is required,
-  a single forward walk carrying a liveness bitmap suffices;
-  no second pass or backpatching is needed.
-- Keep the verified payload, not the decoded log, as the retained per-account state.
-  The extension check operates on bytes,
-  and storing the bytes means the retained copy cannot drift from what was signed.
-- Expose key selection as `keys_for(context)` and provide no `keys()`.
-  The scoping guarantee is a property of how callers reach the live set,
-  so an API that can return every live key will eventually be used that way,
-  and the reason the caller was wrong will not be visible at the call site.
-- Signal freshness with the entry count.
-  It is monotonic, non-secret, and derivable from any log a consumer holds,
-  so a protocol can carry the count it last saw alongside its own messages,
-  and a consumer holding fewer entries than claimed re-fetches.
-  Act on such a claim only when it exceeds what you hold:
-  a higher claim is safe even unauthenticated, since inflating it
-  gains an attacker nothing but a needless fetch,
-  while an equal or lower claim is exactly what a revoked key would send
-  to stop you looking.
-- Expect publish races. Where two publishes extend the same log, at most one lands.
-  An owner whose publish is refused re-fetches, re-applies its intended entries
-  to the log it received, re-signs, and retries. This is a lost race, not a fork.
-- Represent an opaque slot explicitly in the decoded log —
-  an `Unknown { opcode, body }` variant, not a hole or a `None`.
-  Replay has to count it, and a representation that can lose it
-  reintroduces the index-shift bug the framing exists to prevent.
-- Treat "fork detected" as a distinct error type all the way up the stack.
-  Collapsing it into a generic verification failure loses the one signal
-  this design exists to produce.
-- Endorse a key under one context only.
-  Nothing here rejects a log with the same key live for two different purposes, 
-  but that ought to be avoided for good key hygiene. 
-
+- Validate in one pass. A `Remove` can only target an earlier entry,
+  so a single forward walk carrying a liveness bitmap suffices.
+- Keep the verified payload, not the decoded log, as the retained per-account
+  state. Storing the bytes means the retained copy cannot drift from what was signed.
+- Signal freshness with the entry count. It is monotonic and non-secret, so a
+  protocol can carry the count it last saw alongside its own messages, and a
+  consumer holding fewer entries re-fetches. Act on such a claim only when it
+  exceeds what you hold: an inflated claim costs an attacker nothing but a
+  needless fetch, while an equal or lower claim is what a revoked key would
+  send to stop you looking.
+- Expect publish races. Where two publishes extend the same log, at most one
+  lands. An owner whose publish is refused re-fetches, re-applies its entries,
+  re-signs, and retries.
+- Endorse a key under one context only. Nothing here rejects a key live under
+  two, but a key serving two purposes is one whose compromise costs both.
 ## Security/Privacy Considerations
 
 ### Security
