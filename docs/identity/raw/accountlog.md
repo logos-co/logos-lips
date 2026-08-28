@@ -114,8 +114,8 @@ signed log      64-byte signature, then the payload it signs
 └── payload     the canonical wire encoding (see Wire Format)
     └── log     the decoded sequence of entries
         └── entry    opcode + length + body; body is
-                     Add { context, data } | Remove { index }
-            └── data     Ed25519Key | Text
+                     Add { context, entry_data } | Remove { index }
+            └── entry_data     Ed25519Key | Text
 ```
 
 Two things the log determines rather than stores:
@@ -238,11 +238,11 @@ An entry either endorses data under the account
 or withdraws an endorsement made earlier in the log, and does nothing else:
 
 ```text
-Add { context, data }  endorse `data` under this account, for `context`
-Remove { index: u32 }  tombstone the Add at position `index`
+Add { context, entry_data }   endorse `entry_data` under `context`
+Remove { index: u32 }         tombstone the Add at position `index`
 ```
 
-`data` is one of:
+`entry_data` is one of:
 
 ```text
 Ed25519Key([u8; 32])   an Ed25519 verifying key
