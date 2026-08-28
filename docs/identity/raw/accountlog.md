@@ -692,18 +692,7 @@ signature: 060ec48ee5c7d245417c5af6a433b7451cd325ab80547bd377b070b54871a5f6
            8e3b207e3ea678408ff9ace88caa1cfd774cb2bdb45f27b3091fd02387fc4501
 ```
 
-**V5 — key plus a `Text` record** under `profile.displayname`, value `alice`
-
-```text
-payload:   6c6f676f733a6163636f756e74733a3100
-           0130000e636861742e6d6573736167696e6701
-           3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c
-           011a001370726f66696c652e646973706c61796e616d6502616c696365
-signature: 9f23adb7cdc9da09b5831f86707888fcfedc884def1c148cf41efe73095168ca
-           9c3f19fa29e6acc1a2d2601670dd5fe5c65c11e9df56048e93cd7a823c82830b
-```
-
-**V6 — unknown entry, skipped** (opcode `0x0f`)
+**V5 — unknown entry, skipped** (opcode `0x0f`)
 
 A v1 consumer does not know opcode 15.
 It is not `Remove`, so it is additive:
@@ -723,7 +712,7 @@ signature: f8e9e2a71ea777f111f3ccd84f6429493101de77d65b4baa3450bb1d45c591e5
            2e100bdc7ef6b9ba8d035e464c656d21dccbfee97f52a66f9cb94c9b2cf05d00
 ```
 
-**V7 — two live entries sharing one context** (`profile.displayname`)
+**V6 — two live entries sharing one context** (`profile.displayname`)
 
 Both are live; neither is removed.
 A consumer working under `profile.displayname` selects both, in log order:
@@ -741,11 +730,14 @@ signature: 744f0eef44732a307ea89c784d04fa34d43f0c6314c2ec5222e5c7db81a4380b
            a5d3326c4c25f4163432d4a267f40a9e4c2071e90308a5976f6ec897587a5f08
 ```
 
-**V8 — two key contexts** (`chat.messaging` and `storage.vault`)
+**V7 — two different keys, two contexts** (`chat.messaging` and `storage.vault`)
 
 Both keys are live. A consumer working under `chat.messaging` selects key 1 only;
 key 2 does not match and MUST NOT be used for messaging.
 A consumer that knows neither context selects nothing and rejects nothing.
+Endorsing the *same* key under both contexts is likewise a valid log that a
+consumer MUST NOT reject; [Implementation Suggestions](#implementation-suggestions)
+advises owners against it, which is advice rather than a rule for consumers.
 
 ```text
 payload:   6c6f676f733a6163636f756e74733a3100
@@ -755,6 +747,22 @@ payload:   6c6f676f733a6163636f756e74733a3100
            fc51cd8e6218a1a38da47ed00230f0580816ed13ba3303ac5deb911548908025
 signature: b5a0171ebd934937724db4a8385021f53a2552c5b00a0c2e0da496ee76c1c821
            ec24e7de828fcf784d2dbc6b6303cb01a82f0555dfefbbb32936788067cd9f03
+```
+
+**V8 — unknown `data_tag`, retained** (`data_tag` `0x7f`)
+
+The companion to V5: there the opcode was unrecognized, here the opcode is
+`Add` and the *data variant* is not one a v1 consumer knows.
+Index 1 is retained as an opaque live slot rather than rejected,
+so the live set is both entries and the typed live set is key 1 alone.
+
+```text
+payload:   6c6f676f733a6163636f756e74733a3100
+           0130000e636861742e6d6573736167696e6701
+           3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c
+           0114000e636861742e6d6573736167696e677fdeadbeef
+signature: 8d7535a8595fdeb8c391043ecc1a2481afe9efe02dc6072dd1bea2ad58de916e
+           2d501be2c97a93f6375652f384c50b7aa507a5960caee2ea488cafd10bf1670c
 ```
 
 Payload hex is line-wrapped and internally spaced for presentation only;
@@ -781,14 +789,19 @@ signature: 66001bafa87f11b844ef6d10f6f685d5cbb87e052c2a1c93eea806b60ef2c250
            f1f8c177eac8a650d65479470b9b87e67b03c326302d4eb641674e48cc462d00
 ```
 
-**N2 last entry ends before payload does** — final entry len=48, only 10 bytes follow
+**N2 small-order `Ed25519Key`** — the key is the identity element
+
+The encoding is canonical, so this is caught by the small-order check rather
+than the encoding check; see
+[Ed25519 Verification Profile](#ed25519-verification-profile).
+The log's own signature verifies — it is the endorsed key that is rejected.
 
 ```text
 payload:   6c6f676f733a6163636f756e74733a31000130000e636861742e6d6573736167
-           696e67013d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f1
-           2af4660c01300000000000000000000000
-signature: 21f218241cba752ccaab652261620e279413df561f68e3133fb6f44f96234ca5
-           cd2d1240b284784e703339be28ecfbbce5fed4bf752718f19227ae3b001b0c0f
+           696e670101000000000000000000000000000000000000000000000000000000
+           00000000
+signature: e486e78cf17eb20d67ebc3a54db0d6dde9980a0903b5c38b05bf5420e0c8e5dd
+           417ceaef61bf31b1e578f2a93830c1ab6fea319382b986dcfabf81cd4e74ad04
 ```
 
 **N3 trailing bytes after last entry** — two bytes remain, not a parseable entry
@@ -913,17 +926,6 @@ payload:   6c6f676f733a6163636f756e74733a31000130000e636861742e6d6573736167
            2af4660c0204000000000002040001000000
 signature: 1904b4216f8eee78035951706be188bbdd8d3250d37f2015cb81e9bc60dfa826
            1b152ea351d672108e22c14703fd4d3f0e3439ad68c093c5e7e69764749c5200
-```
-
-**N16 same key live twice** — K1 live under two contexts
-
-```text
-payload:   6c6f676f733a6163636f756e74733a31000130000e636861742e6d6573736167
-           696e67013d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f1
-           2af4660c012f000d73746f726167652e7661756c74013d4017c3e843895a92b7
-           0aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c
-signature: 9c16135b9414ee4302d15fa274c4616f43a88668d7d7efa0de07c6b7cc8ed5f5
-           5dd1134534ef56aeb1a37a1cc98eb3be80c10745a94896b406a24dbd0f6fbd07
 ```
 
 Two further cases are not payloads and so have no vector here:
