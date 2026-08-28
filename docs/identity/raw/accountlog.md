@@ -18,28 +18,22 @@
 
 ## Abstract
 
-An account is used from more than one place — a phone, a laptop,
-a second application — and each of them needs a key of its own.
-Keys get added as installations come and go, and revoked when one is lost.
-Anyone who wants to reach the account needs to know which keys are currently good,
-and needs to be sure that list really came from the account.
+An account is used from more than one place, and each place needs its own key.
+Keys are added as installations come and go, and revoked when one is lost.
+Anyone reaching the account needs to know which keys are currently good.
 
-This document specifies the **AccountLog**: a list of keys and records
-an account signs and publishes, which anyone can fetch and check.
+This document specifies the **AccountLog**: an append-only list of entries that an account signs and publishes.
+Anyone can verify the log independently, to prove it is valid
+An account is an Ed25519 keypair and its verifying key is the account address.
 
-An account is an Ed25519 keypair, and its verifying key is the account address.
-The account signs the whole list every time it changes.
-A consumer fetches it, checks the signature against the address it already has,
-and reads off the keys that are still valid.
-
-Each key is endorsed for a stated purpose,
-so an application takes the keys meant for it and ignores the rest.
+A consumer verifies the log against the address it already holds and reads off
+what is still live. Each entry is endorsed under a context saying what it is
+for, so an application takes what is meant for it and ignores the rest.
 Revoking one key leaves the others alone.
 
-The list only ever grows — revoking appends a tombstone rather than deleting.
-That means that an updated log must be prefixed with
-a byte for byte copy of the previous,
-which ensures that the log's history is not re-written.
+The log only grows — revoking appends a tombstone. An update therefore begins
+with a byte-for-byte copy of what came before, which is how a consumer checks
+that the history has not been rewritten.
 
 ## Terminology
 
