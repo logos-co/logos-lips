@@ -512,7 +512,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\lceil M_1 \rceil=12`$ messages per round, the maximum a node may send to one neighbor in a round, as derived in [Expected Connection Traffic](#expected-connection-traffic).
 - $`\lceil M_N \rceil = (6+1) \cdot 12 = 84`$ messages per round, the budget of a whole node.
 - $`\Lambda_E=12`$ edge nodes per round, the share of $`\lceil M_N \rceil`$ reserved for them.
-- $`\lfloor M_1 \rfloor^W = \lceil F_1 \cdot W / 10 \rceil = 10`$, the minimum number of messages per connection during an observation window, as derived in [Expected Connection Traffic](#expected-connection-traffic).
+- $`\lfloor M_1 \rfloor^W = \lceil F_1 \cdot W / 10 \rceil = 9`$, the minimum number of messages per connection during an observation window, as derived in [Expected Connection Traffic](#expected-connection-traffic).
 - $`T_E=1`$ round, the time an edge node is given to send its message, as derived in [Connectivity Maintenance](#connectivity-maintenance).
 
 ### Core Node Parameters
@@ -554,24 +554,26 @@ The thresholds that drive the [Connectivity Maintenance](#connectivity-maintenan
 The number of messages a single connection is expected to carry per round is:
 
 $$
-F_1 = F_C \cdot (1 + R_C) \cdot \beta_C + F_D \cdot (1 + R_D) \cdot \beta_D
+F_1 = \max(F_C,\ F_D) \cdot (1 + R) \cdot \beta_{max}
 $$
 
-where $`(1+R_C)`$ and $`(1+R_D)`$ count a message together with its replications ([Quota](#quota)), and $`\beta_C`$ and $`\beta_D`$ are the numbers of blending operations each message undergoes, every one of which puts that message on the wire again. With the [Global Parameters](#global-parameters) of this specification, and with redundancy disabled ($`R_C=R_D=0`$):
+The two rates are **not added**. Cover traffic is noise that data traffic replaces: as soon as a data message is generated, one unreleased cover message is removed from the release schedule ([Releasing](#releasing)), so that a node which wins a leadership does not emit more than one which does not. Its emission rate is what hides the win, and it would not hide it if a proposal were added to the schedule rather than substituted into it.
+
+The traffic a connection carries is therefore governed by the larger of the two rates, not their sum, and it stays flat as $`F_D`$ rises until the cover schedule is exhausted. Only beyond $`F_D = F_C`$, when a node has no remaining cover message to give up, does further data traffic add to the total. The factor $`(1+R)`$ counts a message together with its replications ([Quota](#quota)), and $`\beta_{max}`$ is the number of blending operations it undergoes, every one of which puts it on the wire again. With the [Global Parameters](#global-parameters) of this specification, and with redundancy disabled ($`R_C=R_D=0`$):
 
 $$
-F_1 = 1 \cdot 3 + \dfrac{1}{30} \cdot 3 = 3.1
+F_1 = 1 \cdot 3 = 3.0
 $$
 
-A connection is therefore expected to carry $`F_1 \cdot W = 93`$ messages during an observation window. The load a node carries from its core neighbors is this figure multiplied by its peering degree, $`F_1 \cdot \Phi_{CC} = 18.6`$ messages per round. Edge connections are not part of this figure, as each of them carries a single message and is then closed. Message spikes occur due to the probabilistic nature of the system, therefore the observation window must be large enough to average them out.
+A connection is therefore expected to carry $`F_1 \cdot W = 90`$ messages during an observation window. The load a node carries from its core neighbors is this figure multiplied by its peering degree, $`F_1 \cdot \Phi_{CC} = 18`$ messages per round. Edge connections are not part of this figure, as each of them carries a single message and is then closed. Message spikes occur due to the probabilistic nature of the system, therefore the observation window must be large enough to average them out.
 
 **Minimum**
 
 $$
-\lfloor M_1 \rfloor^W = \left\lceil \dfrac{F_1 \cdot W}{10} \right\rceil = 10
+\lfloor M_1 \rfloor^W = \left\lceil \dfrac{F_1 \cdot W}{10} \right\rceil = 9
 $$
 
-The minimum is deliberately set an order of magnitude below the expected traffic, which at $`W=30`$ is about three rounds worth of messages, and no penalty is attached to falling below it. The fraction is chosen to sit far outside ordinary variation rather than to detect anything: against an expected $`93`$ messages with a standard deviation of $`\sqrt{93} \approx 10`$, a minimum of $`10`$ is more than $`8`$ standard deviations below the mean, so an honest connection does not reach it by chance. A tighter minimum cannot be set safely, because the traffic a connection carries depends on the topology of the network and on the position of the node within it. A healthy node may stay silent by chance for an extended period, for instance when every one of its neighbors has already forwarded to it the messages it would otherwise have relayed back to them, and messages are emitted at random times by random nodes. The probability of such an event decreases as the observation window grows, but it is not bounded by any parameter the protocol controls. The minimum is therefore a signal to add connections, never evidence of misbehavior.
+The minimum is deliberately set an order of magnitude below the expected traffic, which at $`W=30`$ is about three rounds worth of messages, and no penalty is attached to falling below it. The fraction is chosen to sit far outside ordinary variation rather than to detect anything: against an expected $`90`$ messages with a standard deviation of $`\sqrt{90} \approx 9.5`$, a minimum of $`9`$ is more than $`8`$ standard deviations below the mean, so an honest connection does not reach it by chance. A tighter minimum cannot be set safely, because the traffic a connection carries depends on the topology of the network and on the position of the node within it. A healthy node may stay silent by chance for an extended period, for instance when every one of its neighbors has already forwarded to it the messages it would otherwise have relayed back to them, and messages are emitted at random times by random nodes. The probability of such an event decreases as the observation window grows, but it is not bounded by any parameter the protocol controls. The minimum is therefore a signal to add connections, never evidence of misbehavior.
 
 **Maximum**
 
@@ -587,7 +589,9 @@ The budget of a node is divided into $`\Phi_{CC}+1`$ equal shares: one for each 
 
 The value of $`\lceil M_1 \rceil`$ follows from the traffic a connection carries and from how often the sender would have to hold a message back. A node holding messages back does not breach the limit — it delays — so the value is chosen against latency and against the margin discussed under [Dependency on the Proposal Rate](#dependency-on-the-proposal-rate), not against any risk of a false accusation.
 
-Against the $`F_1 = 3.1`$ messages a connection is expected to carry per round, a limit of $`12`$ leaves a factor of $`3.9`$, and a round has to defer once in forty thousand. What decides the value is the other regime: while the total stake cannot be reliably inferred, $`F_D`$ rises towards $`F_C`$ and a connection carries about $`6`$ messages per round. At $`12`$ that defers in $`0.9\%`$ of rounds and never by more than a single round in simulation, where a limit of $`8`$ would defer in $`22\%`$ of them and by up to three rounds, each of which is added to the delivery of a block proposal at every hop it takes.
+Against the $`F_1 = 3.0`$ messages a connection is expected to carry per round, a limit of $`12`$ leaves a factor of $`4`$, and a round has to defer about once in eighty thousand. Deferral is not what decides the value, because substitution keeps the traffic flat: it is $`3.0`$ in the steady state and still $`3.0`$ while the total stake cannot be reliably inferred, since the additional proposals displace cover messages rather than joining them. A limit of $`8`$ would defer in $`0.4\%`$ of rounds and never by more than one, which would also be tolerable.
+
+What the value buys is the margin described under [Dependency on the Proposal Rate](#dependency-on-the-proposal-rate). The traffic only grows once the cover schedule is exhausted, so the limit is chosen for how far past that point the network can go before the queue stops draining: $`12`$ tolerates a proposal rate of four times the cover rate, where $`8`$ tolerates $`2.7`$ times it. Since the quantity being hedged against is not bounded by anything this specification controls, and the verification work is a small fraction of what the target hardware sustains, the margin is worth more than the saving.
 
 That verification work is the check on the value, not its source. Every message counted against the budget costs one public header verification ([Relaying](#relaying)), so $`\lceil M_N \rceil = 84`$ per round is $`84`$ verifications per second at a one-second round. A Raspberry Pi 5 verifies $`157`$ public headers per second on one core and $`625`$ across its four, a single verification taking $`6.4`$ ms, measured on the `verify_public_header` benchmark. The figure is the sustained rate of the hardware rather than a floor: it is unchanged between the `ondemand` and `performance` CPU governors, verification being a continuous load that holds the clock at its maximum either way, and it scales at $`3.99\times`$ across four cores, so the work is bound by computation and not by memory. The budget is therefore $`54\%`$ of one core, or $`13\%`$ of the board, and it is a ceiling rather than a load: the work actually performed is about $`19`$ verifications per second in the steady state and $`36`$ while bootstrapping. A node may spend more than one core on it when the traffic warrants, which is what makes the ceiling affordable. Deriving the limit from single-core capacity instead would put it near $`22`$ messages per neighbor and let an adversary saturate that core while remaining within the contract; the limit is taken from the traffic and checked against the hardware, never the other way round.
 
@@ -596,14 +600,16 @@ That verification work is the check on the value, not its source. Every message 
 The limit bounds what a node may send. It cannot bound what the network produces, and the difference between the two is carried by the sender's queue. That queue is stable only while the traffic a connection carries stays below the limit:
 
 $$
-F_1 = (F_C + F_D) \cdot \beta_{max} \lt \lceil M_1 \rceil
+F_1 = \max(F_C,\ F_D) \cdot \beta_{max} \lt \lceil M_1 \rceil
 $$
 
-With the values of this specification that holds while $`F_D \lt 3`$, ninety times its nominal value. Beyond it the queue grows without bound, and it does so at every node at once, since every connection in the network carries the same traffic. The network then stops delivering rather than degrading: the approach is steep, with a mean queue of two messages at $`F_D=1.3`$, of ten at $`1.55`$, and of several thousand and still growing at $`1.75`$.
+Substitution is what makes this bearable. While $`F_D \le F_C`$ the traffic does not grow at all as the proposal rate rises: each additional proposal takes the place of a cover message that would have been sent anyway, so a connection carries $`3`$ messages per round whether one slot in thirty has a leader or every slot does. The queue is untouched by anything within that range.
 
-**This is a requirement Blend places on consensus.** [Cryptarchia](cryptarchia-v1-protocol.md) must bound the number of block proposals admitted per slot, or $`\lceil M_1 \rceil`$ must be raised to cover the worst case it allows. The bound cannot be met by treating proposals differently from cover messages, because the two are indistinguishable on the wire, which is the property the protocol exists to provide.
+Beyond it the cover schedule is exhausted, there is nothing left to substitute, and further proposals add to the total. With the values of this specification the queue drains while the proposal rate stays under four times the cover rate, and the approach to that point is steep rather than gradual: a mean queue of under one message at three times the cover rate, of two at $`3.5`$ times, of eighteen at $`3.9`$, and unbounded at $`4.2`$. It diverges at every node at once, since every connection in the network carries the same traffic, so the network stops delivering rather than degrading.
 
-The requirement binds hardest while the network is bootstrapping. $`F_D`$ is the rate at which a slot has an elected leader, but the traffic follows the number of proposals, and while the total stake is underestimated more than one leader wins each slot. The [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) counts occupied slots, and the lottery activates a slot with probability $`f`$ however many leaders win it, so the estimate does not respond to the number of proposals per slot. The overshoot that costs Blend the most is therefore the one the correction is least sensitive to, and the margin between the estimated bootstrapping rate and the point at which the queue diverges is what protects the network in the meantime.
+**This is a requirement Blend places on consensus.** [Cryptarchia](cryptarchia-v1-protocol.md) must bound the number of block proposals admitted per slot, or $`\lceil M_1 \rceil`$ must be raised to cover the worst case it allows. The bound cannot be met by treating proposals differently from cover messages, because the two are indistinguishable on the wire, which is the property the protocol exists to provide — and it is that same indistinguishability, enforced by substitution, that gives the protocol its tolerance up to $`F_C`$ in the first place.
+
+The margin beyond $`F_C`$ is what protects the network while the total stake cannot be reliably inferred. In that period more than one leader wins each slot, and the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) does not respond: it counts occupied slots, and the lottery activates a slot with probability $`f`$ however many leaders win it. The estimate is therefore insensitive to the quantity that drives the traffic, so nothing in consensus pulls the proposal rate back down on account of Blend. What bounds it is whatever bounds the misestimation of the total stake, and that is not a quantity this specification controls.
 
 > **Proof-of-work traffic:** this specification carries proof-of-stake traffic only. A future revision that admits messages authorized by proof of work must give that traffic a share of $`\lceil M_N \rceil`$ of its own, in the way the edge nodes have one. Such traffic cannot be bounded globally, as it depends on the message-solving capacity of the whole network, so the share is what bounds the work it can impose on any one node.
 
@@ -1000,7 +1006,7 @@ The node must cache the PoQ nullifiers ($`\nu_i`$) of every message it relays �
 
 $$
 \begin{aligned}
-(E + \mathrm{TP})\cdot (F_C +F_D + F_W) \cdot \beta_{max} \cdot |\nu_i|
+(E + \mathrm{TP})\cdot \left( \max\left(F_C \cdot (1+R_C),\ F_D \cdot (1+R_D)\right) + F_W \right) \cdot \beta_{max} \cdot |\nu_i|
 \end{aligned}
 $$
 
