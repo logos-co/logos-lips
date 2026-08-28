@@ -285,30 +285,11 @@ a specification defines its own namespace.
 
 ### Unknown Entries
 
-The log is append-only and never compacted,
-so the first time an account appends an entry a consumer does not recognize,
-that consumer is locked out of the account permanently unless it can skip the entry.
-An extension mechanism is therefore not optional here;
-without one, any future opcode allocation is a hard fork per account.
-
-Two properties make skipping safe.
-
-**An entry's extent is knowable without understanding it,** from `len`.
-The consumer can pass over the body and, critically, still count the entry.
-The entry keeps its index; positions never shift,
-or every subsequent `Remove` retargets.
-
-**Every future opcode is additive.**
-`Remove` is the only subtractive operation under this encoding version.
-An unrecognized entry can therefore only be endorsing something,
-and a consumer that ignores it ends up acting on less authority, never more.
-An operation that withdrew something could not be skipped safely —
-so no such operation will be allocated.
-
-The same reasoning covers the two levels below the opcode.
-An unrecognized `data_tag` is an endorsement of a kind the consumer cannot read,
-and an unrecognized context is an endorsement not meant for it.
-Both are ignored, and ignoring both fails closed.
+A consumer must be able to skip an entry it does not recognize, or the first
+unrecognized entry locks it out of the account permanently. An entry's `len`
+gives its extent without the consumer understanding it, and `Remove` is the
+only subtractive operation — so an unrecognized entry can only be endorsing
+something, and a consumer that ignores it acts on less authority, never more.
 
 **Requirements:**
 
@@ -318,28 +299,15 @@ Both are ignored, and ignoring both fails closed.
   It MUST NOT reject the log.
 - A consumer that does not recognize an `Add`'s `data_tag`
   MUST retain the entry as an opaque live slot rather than reject it.
-- A consumer that does not recognize an `Add`'s context
-  MUST ignore that endorsement and MUST NOT reject the log.
-  Contexts are allocated by the protocols above this one,
-  so a consumer will routinely encounter contexts that are not its own;
-  an unknown context is an ordinary condition, not an error.
-  The entry is still decoded, still counted, and still removable.
-- A consumer MUST NOT treat an opaque live slot as an EndorsedKey
-  or as any other typed record.
-- A protocol allocating a future opcode MUST make it additive.
-  A change to how existing endorsements are honored MUST be expressed
-  by removing them and re-endorsing under a new context,
-  not by an operation that alters an entry a consumer already understands.
+- A future opcode MUST only add. There will never be an operation other than
+  `Remove` that takes something away, because an old consumer would skip it
+  and go on trusting what it was meant to withdraw.
+  To change what an old consumer honours, remove the entry and add a new one
+  under a different context.
 
-The last requirement is what the rest rests on,
-and it is a constraint on this document's future editors rather than on implementations.
-A consumer acts only on entries it understands,
-so the way to change what an old consumer does is to remove the thing it understands.
-Restricting a key means removing it and re-endorsing under a context
-that old consumers will ignore;
-freezing an account means removing everything.
-In each case the lever is `Remove`, which every consumer understands by construction.
-
+The last requirement is a constraint on this document's future editors.
+A consumer acts only on entries it understands, so the only way to change what
+an old consumer does is `Remove`, which every consumer understands by construction.
 
 ### Log Updates
 
