@@ -161,8 +161,7 @@ An EndorsedKey may be compromised, and revocation is the response.
 **The owner keeps one history.**
 An account extends a single log rather than maintaining several.
 Conflicting versions do occur — an old backup, a stale copy,
-two publishes without a re-fetch in between —
-but they are mistakes, not an account deliberately showing
+two publishes without a re-fetch in between. AccountLogs that different at the end are considered mistakes, not an account deliberately showing
 different histories to different readers.
 
 **Account logs reach consumers somehow.**
@@ -232,26 +231,13 @@ The context belongs to the endorsement rather than to the data,
 so it applies uniformly to keys, records,
 and to any data type later added.
 
-
 **Requirements:**
 
 - A consumer MUST derive an entry's index from its position in the log.
   An index is never stored or transmitted separately.
 - Every `Add` carries a context; there is no un-scoped form.
-- A consumer MUST reject a log in which one `Ed25519Key` is live more than once,
-  whatever contexts the occurrences carry.
-  A key is endorsed for exactly one purpose;
-  an installation serving two purposes holds two keys.
-  Several *distinct* keys under one context is the ordinary case,
-  one per installation, and is not a duplicate.
-  A key MAY be re-added after the earlier occurrence has been removed.
-- `Text` carries no such restriction.
-  Whether an account should hold several live records under one context,
-  or the same value under several, is a record-level question —
-  see [Selecting by Context](#selecting-by-context).
-- A consumer MUST select endorsements by matching context.
-  It MUST NOT treat the set of all live `Ed25519Key` entries as
-  usable for its own purpose, and MUST NOT act on a key whose context
+- A consumer SHOULD select endorsements by matching context.
+  entries are scoped to a specific context and consumers SHOULD NOT act on a key whose context
   it does not recognize.
 
 #### Context Namespacing
@@ -451,107 +437,30 @@ Implementations MUST NOT use a permissive `verify` path.
 Without these, one implementation admits a key to the live set that another rejects,
 and the two derive different live sets from identical signed bytes.
 
-### Freshness and Extension
+### Log Updates
 
-There is no sequence number — a longer log is a newer log.
-Log B *strictly extends* log A when A's payload is a proper byte-prefix of B's.
+The history of an AccountLog cannot be rewritten.
+Every update appends to the end of the log, and a new version cannot differ
+from a previous version except for at the end.
 
-Comparison on raw bytes is sound because the encoding is bijective and
-entries are self-delimiting (see [Wire Format](#wire-format-specification--syntax)):
-a payload prefix that ends on an entry boundary decodes to exactly
-a prefix of the entry sequence, so byte-extension and entry-extension coincide.
-Implementations MAY compare decoded entries instead;
-the result is identical.
+A consumer checks this on every fetch: it only adopts a newly fetched candidate
+payload if its bytes start with the same bytes of the one it currently holds.
+Where the bytes match the fetched log is a continuation and is the newer of the two.
+Where the bytes do not match, the two are different histories —
+the account has equivocated.
 
-A sequence number would not catch a divergent branch.
-Two branches would carry the same counter, or the higher counter would simply win,
-and the consumer would adopt a history it had never seen the middle of.
-The prefix relation turns that from an undetectable state divergence into a refusal,
-and it costs nothing:
-the comparison is on bytes the consumer has already retained.
-
-Under the [Assumptions](#assumptions), a divergent branch is an accident
-rather than an attack — a restored backup, a stale replica, a lost publish race —
-but it is an accident that silently changes
-which EndorsedKeys a consumer believes are live.
+A fetched payload identical to the one held is a valid candidate that adds nothing,
+and adopting it changes nothing.
 
 **Requirements:**
 
-- A consumer SHOULD retain the last verified payload per account and
-  MUST NOT accept a replacement that does not strictly extend it.
-- A consumer MUST treat a longer log that is not an extension as a fork
-  and refuse it, rather than silently adopting it.
-- On detecting a fork, a consumer MUST surface the condition to
-  the application layer as a distinct, actionable error.
-  It MUST NOT silently fall back to its cached log and continue.
-  Fork detection is the primary security property of this structure;
-  a consumer that swallows the signal does not realise it.
-#### Empty Logs
+- A consumer MUST retain the latest verified payload.
+- A consumer MUST verify that the retained payload is a byte-prefix of any new
+  candidate; if not the candidate MUST be discarded.
+- A longer log is a newer log. A consumer MUST use the newest log it has seen.
+- A protocol MAY provide an out-of-band check that two parties hold the same
+  log for an account. This document defines none.
 
-A payload consisting of the domain alone is well-formed and carries an empty live set.
-It is the identity element of the extension relation:
-every log strictly extends it.
-
-**Requirements:**
-
-- An owner SHOULD NOT publish an empty log;
-  it establishes an account with no usable EndorsedKey.
-- A consumer MUST treat an account whose live set contains no `Ed25519Key`
-  as having no live EndorsedKeys, and MUST NOT fall back to any earlier live set.
-
-#### First Contact
-
-A consumer with no previously verified payload for an address
-has no freshness guarantee whatsoever.
-It can verify only that the log was signed by the expected account key,
-not that it is the most recent one.
-Whatever serves the log can hand it an old one —
-including one from before a revocation —
-and the consumer has nothing to compare it against.
-
-Two consumers holding different logs for one account is not by itself a fork.
-Where one joined later, it holds a prefix of what the other holds,
-which is the correct relation between any two versions of a log.
-
-Fork detection is likewise unavailable here.
-Extension is a relation between two logs, not a property of one,
-so a log that rewrote history is internally valid on its own
-and a first-time consumer has nothing to compare it against.
-Detecting a fork requires having seen an earlier version.
-
-**Requirements:**
-
-- A consumer MUST NOT treat a first fetch as evidence that an EndorsedKey is currently live.
-- A protocol requiring revocation freshness at first contact
-  MUST obtain it by other means; this document does not provide it.
-
-#### Freshness Signalling
-
-The AccountLog makes a revocation detectable; it does not deliver it.
-Nothing here tells a consumer that an account's log has advanced,
-and silence is not evidence that it has not.
-An attacker holding a revoked EndorsedKey keeps presenting the key
-and says nothing about the log,
-which looks exactly like an account that has not changed.
-
-A verified log is always authentic: the account endorsed everything in it.
-What is never established is that it is the *latest* —
-the log carries no time, and whatever served it may have served an older copy.
-A consumer can trust what an account endorsed;
-it cannot conclude that nothing has changed since.
-
-Closing that gap means re-fetching on some policy,
-and the policy belongs to the protocol the consumer is part of.
-
-**Requirements:**
-
-- A protocol whose security depends on revocation MUST specify how its consumers
-  learn that a log has advanced, and MUST state the timeliness that provides.
-
-None of this helps a consumer that has stopped listening.
-One in active correspondence learns of revocations from traffic;
-one that has not heard from an account in months learns nothing,
-and acting on a long-cached EndorsedKey remains unsafe regardless.
 
 ### Validity and Replay
 
@@ -585,8 +494,9 @@ is the live set restricted to entries the consumer understands.
   Retaining an unrecognized entry as an opaque slot is not partial acceptance:
   the entry is fully validated as a frame, only its body is uninterpreted.
 - An owner MUST validate a log before signing it.
-Requiring `Remove.index < position` makes single-pass validation sufficient;
-implementations SHOULD exploit this.
+- Only this document states what makes a log invalid.
+  A specification built on the AccountLog MUST NOT add a condition,
+  and a consumer MUST ignore an entry it cannot use rather than reject the log.
 
 An invalid log is recoverable.
 No consumer accepts it, so none holds it,
@@ -857,6 +767,9 @@ and nothing in this document recovers the space.
 - Treat "fork detected" as a distinct error type all the way up the stack.
   Collapsing it into a generic verification failure loses the one signal
   this design exists to produce.
+- Endorse a key under one context only.
+  Nothing here rejects a log with the same key live for two different purposes, 
+  but that ought to be avoided for good key hygiene. 
 
 ## Security/Privacy Considerations
 
