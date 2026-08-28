@@ -612,109 +612,55 @@ and nothing in this document recovers the space.
 
 ### Security
 
-- **Fork detection guards against owner inconsistency, not attack.**
-  Under the [Assumptions](#assumptions) the account key is trusted,
-  so a divergent branch is not something an adversary can produce.
-  What it does catch is accidental equivocation —
-  a restored backup, a stale replica, a lost publish race —
-  which would otherwise silently change which EndorsedKeys a consumer believes are live.
-  Consumers that retain last-seen payloads turn that from
-  undetectable state divergence into an explicit refusal.
-- **The property does not extend to a compromised account key.**
-  An attacker in possession of it can extend the log arbitrarily —
-  revoking every legitimate EndorsedKey and endorsing its own —
-  without ever forking, because a clean extension is exactly what
-  a legitimate owner produces.
-  Consumers would accept it as a normal update.
-  Detection of account key compromise is out of scope;
-  it is not a property this design provides and
-  no consumer behavior described here approximates one.
-- **First contact is unprotected.**
-  A consumer with no retained payload can detect neither staleness nor a fork —
-  see [First Contact](#first-contact).
-  The guarantee is relative to what a consumer has already seen, never absolute.
-- **A wrong address is undetectable.**
-  Every guarantee in this document is relative to the consumer
-  holding the right address for the account it means to reach.
-  A consumer given an attacker's address gets a log that verifies,
-  replays cleanly, extends correctly, and forks never —
-  because it is a genuine log, of the wrong account.
-  This is not a weakness of the structure;
-  it is the boundary of what the structure can do,
-  and it is why address exchange is the system's only trust decision
-  (see [Assumptions](#assumptions)).
-- **Whatever serves logs cannot forge them.**
-  It holds no signing key, so it cannot fabricate or modify a log undetectably.
-  Its remaining powers — staleness and withholding — are assumed, not defended against;
-  see [Assumptions](#assumptions).
-- **An invalid log has no effect, which is the danger.**
-  Every consumer rejects it, so all of them go on using the last valid log
-  and the account keeps working normally.
-  What is lost is the update:
-  if it carried a revocation, the revocation did not happen,
-  and nothing about the account looks wrong.
-  Owner-side validation exists so that an owner finds out at signing time
-  rather than not at all.
-- **Record-level rejection would be permanent.**
-  A log that is valid here but rejected by one consumer for a record-level reason
-  is a different matter: other consumers will have accepted it,
-  so the owner cannot withdraw it without forking them,
-  and the rejecting consumer is stuck for good.
-  This is why record-level conditions never invalidate a log —
-  see [Selecting by Context](#selecting-by-context).
-- **Resource exhaustion** is addressed by the payload limit in
-  [Resource Limits](#resource-limits);
-  a consumer that omits it is remotely exhaustible by design.
-- **Signature verification divergence** is addressed by the pinned profile in
-  [Ed25519 Verification Profile](#ed25519-verification-profile).
-  Left unpinned, it reintroduces exactly the fail-open split
-  that whole-log rejection was chosen to avoid.
-- **Extension is fail-closed by construction.**
-  `Remove` is the only subtractive operation, so every future opcode is additive
-  and an unrecognized entry is never surfaced.
-  A consumer running an older version of this specification
-  can lag the account's true state but cannot be induced to
-  honor something the owner revoked.
-- **Purpose scoping fails closed, but only if consumers select by context.**
-  A key endorsed for a context a consumer does not serve produces no match,
-  so an unrecognized purpose yields under-selection rather than over-trust.
-  The format cannot enforce this:
-  it cannot tell a consumer that selected by context
-  from one that took every live key.
+- **No account key rotation or recovery.**
+  There is no mechanism to rotate an account key.
+  Both compromise and loss are permanent for the lifetime of the address.
+- **No identity binding.**
+  An account is just a keypair, so anyone can make one and publish a log under
+  it. Nothing here says whose account it is.
+  A log fetched under the wrong address verifies and replays cleanly, because
+  it is a real log — of someone else's account.
+  Until you have established that an address belongs to the person you mean,
+  the log tells you nothing about them (see [Assumptions](#assumptions)).
+- **A compromised account key defeats every check.**
+  An attacker holding it extends the log arbitrarily — revoking every
+  legitimate key and endorsing its own — without ever diverging from the
+  history consumers hold, because a clean extension is exactly what a
+  legitimate owner produces. Consumers accept it as a normal update.
 - **A consumer can never know its log is the most recent.**
-  The log carries no time, and whatever served it may have served an older copy,
-  so currency is not something this construction establishes —
-  only something a consumer bounds by checking again.
-  An attacker holding a revoked EndorsedKey exploits exactly this:
-  it keeps presenting the key and says nothing about the log,
-  which is indistinguishable from an account that has not changed.
-  Whatever closes this gap is the business of the protocol above —
-  see [Freshness Signalling](#freshness-signalling).
-- **No Account key rotation or recovery.**
-  There is no mechanism to succeed an account key.
-  Both compromise and loss are permanent for the lifetime of the address,
-  and both are out of scope —
-  the first because nothing detects it, the second because nothing repairs it.
-  This is the largest single limitation of this document.
+  The log carries no time, and whatever served it may have served an older copy.
+  An attacker holding a revoked key exploits this: it keeps presenting the key
+  and says nothing about the log, which is indistinguishable from an account
+  that has not changed.
+  A protocol whose security depends on revocation must specify how its
+  consumers learn that a log has advanced.
+- **First contact is unprotected.**
+  A consumer with no retained payload has nothing to compare against,
+  so it can detect neither staleness nor a rewritten history.
+  The guarantee is relative to what a consumer has already seen, never absolute.
+- **Key Context Binding in Consumers**
+  A consumer that accepts any live key, rather than the ones endorsed for what
+  it is doing, gives an attacker who has stolen one key access to everything
+  that consumer does. The context is what limits the damage,
+  and only the consumer can apply it.
 
 ### Privacy
 
 - **Revocation is a tombstone, not an erasure.**
-  Revoked EndorsedKeys remain visible in the log forever.
+  Revoked keys remain visible in the log forever.
   This is deliberate — history is the audit trail —
   but it publishes the account's full endorsement history to anyone who can fetch it.
 - **The log is a linkable, pollable, permanent record.**
   Anyone holding an address can fetch it repeatedly and observe,
   without any interaction with the user:
-  how many EndorsedKeys are live, under which purposes, when each was endorsed,
+  how many keys are live, under which purposes, when each was endorsed,
   when each was retired (and therefore when a device was lost or replaced),
   and the history of any `Text` records such as display names.
   Entry count alone fingerprints an account across observations.
 - **Interaction with sender anonymity.**
-  Where this structure is deployed alongside a protocol
-  that provides sender unlinkability,
-  the AccountLog is a per-account identifier that
-  is by design long-lived and publicly accessible.
+  Where this is deployed alongside a protocol providing sender unlinkability,
+  the AccountLog is a per-account identifier that is by design long-lived and
+  publicly accessible.
   Deployments MUST consider whether fetch patterns against whatever serves logs
   reintroduce linkability that the messaging layer removes.
 
