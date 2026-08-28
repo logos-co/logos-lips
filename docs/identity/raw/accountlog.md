@@ -41,24 +41,15 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
 "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document
 are to be interpreted as described in [RFC 2119](https://datatracker.ietf.org/doc/html/rfc2119).
 
-- **Account** — an Ed25519 keypair. The verifying key is the account's identity.
-- **Account Address** — the identifier an account's log is published and fetched under;
+- **Account** — an Ed25519 keypair. 
+- **Account Address** — an account's Ed25519 verifying key;
   see [Account Address](#account-address).
 - **Account Log** — the append-only list of entries an account has signed.
-- **Entry** — one operation in the log: an addition of data, or the removal of an earlier addition.
-- **Live Entry** — an `Add` entry that no valid `Remove` targets.
-- **EndorsedKey** — an Ed25519 verifying key that the account has endorsed
-  by signing it into the log. An EndorsedKey is *live* while no `Remove` targets it,
-  and *revoked* once one does.
-- **Live Set** — the ordered sequence of live entries; the account's current state.
-- **Consumer** — any party that reads an account's log:
-  fetching it, verifying it, decoding it, replaying it,
-  and taking from it what it needs.
+- **Consumer** — any party that reads an account's log.
 - **Owner** — the party holding the account signing key,
   and so the only party that can extend the log.
-  An owner is also a consumer of its own log:
-  it must fetch and validate the current log before extending it.
-- **Context** — a short ASCII string naming what an endorsement is *for*.
+- **Live Set** — the entries in a log that no `Remove` targets;
+  the account's current state.
 
 ## Motivation
 
@@ -112,7 +103,7 @@ signed log      64-byte signature, then the payload it signs
             └── entry_data     Ed25519Key | Text
 ```
 
-Two things the log determines rather than stores:
+Three things the log determines rather than stores:
 
 - **No entry count.**
   Entries are self-delimiting, so a consumer parses until the payload runs out.
@@ -141,8 +132,8 @@ a deployment that cannot meet one is out of scope.
 It is under the sole control of its owner and remains available to that owner
 for the life of the account. Neither compromise nor loss is in scope.
 
-**EndorsedKeys are not trusted.**
-An EndorsedKey may be compromised, and revocation is the response.
+**Keys in the log are not trusted.**
+A key endorsed in an entry may be compromised, and revocation is the response.
 
 **The owner keeps one history.**
 An account extends a single log rather than maintaining several.
