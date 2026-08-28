@@ -4,7 +4,7 @@
 | --- | --- |
 | Name | AccountLog |
 | Slug | TODO (assigned on promotion to draft) |
-| Status | draft |
+| Status | raw |
 | Type | RFC |
 | Category | Standards Track |
 | Tags | logos-chat, identity |
@@ -218,7 +218,7 @@ or withdraws an endorsement made earlier in the log, and does nothing else:
 
 ```text
 Add { context, entry_data }   endorse `entry_data` under `context`
-Remove { index: u32 }         tombstone the Add at position `index`
+Remove { index: u32 }         tombstone the entry at position `index`
 ```
 
 `entry_data` is one of:
@@ -310,12 +310,12 @@ and adopting it changes nothing.
 
 ### Validity and the Live Set
 
-A log is valid when every `Remove` targets a strictly earlier, still-live `Add`.
-Any other `Remove` makes the whole log invalid.
+A log is valid when every `Remove` targets a strictly earlier, still-live entry
+that is not itself a `Remove`. Any other `Remove` makes the whole log invalid.
 
 To derive the live set, walk the log in order and mark each `Remove`'s target
-as dead. The live set is every unmarked `Add`, in log order, including opaque
-slots the consumer could not decode. The *typed* live set — the keys and
+as dead. The live set is every unmarked entry that is not a `Remove`, in log
+order, including opaque slots the consumer could not decode. The *typed* live set — the keys and
 records an application acts on — is the live set restricted to entries the
 consumer understands.
 
@@ -323,7 +323,9 @@ consumer understands.
 
 - A consumer MUST reject the whole log if any part of it is invalid.
 - A consumer MUST reject a `Remove` whose index is at or after its own position.
-- A consumer MUST reject a `Remove` targeting an entry that is not an `Add`.
+- A consumer MUST reject a `Remove` targeting a `Remove`.
+  Every other entry is an endorsement, including an unrecognized one,
+  and is a valid target.
 - A consumer MUST reject a `Remove` targeting an entry already removed.
 - An owner MUST validate a log before signing it.
 - Only this document states what makes a log invalid.
@@ -390,10 +392,9 @@ No length is carried.
 A length would sit outside the signature and could disagree with it,
 and a payload of the wrong extent fails verification anyway.
 
-**Requirements:**
-
-- A consumer MUST reject an artifact shorter than 65 bytes:
-  64 for the signature and at least the domain.
+An artifact too short to hold a payload needs no rule of its own:
+it either cannot yield a 64-byte signature at all,
+or leaves a remainder that fails the domain compare below.
 
 ### Log Encoding
 
@@ -449,7 +450,7 @@ body   : exactly `len` bytes
   runs past the end of the payload.
 - A consumer MUST reject an entry whose opcode byte has any of its
   high four bits set.
-- Trailing bytes inside an entry are not permitted.
+- A consumer MUST reject an entry with bytes left over after its body is decoded.
 - An owner MUST produce exactly the layout above;
   there is no alternative serialization of the same entry.
 
@@ -928,9 +929,8 @@ signature: 1904b4216f8eee78035951706be188bbdd8d3250d37f2015cb81e9bc60dfa826
            1b152ea351d672108e22c14703fd4d3f0e3439ad68c093c5e7e69764749c5200
 ```
 
-Two further cases are not payloads and so have no vector here:
-an artifact shorter than 65 bytes, which carries no room for a payload,
-and a replacement log that does not extend the one a consumer holds,
+One further case is not a payload and so has no vector here:
+a replacement log that does not extend the one a consumer holds,
 which is a relation between two logs rather than a property of one.
 
 ## Copyright
