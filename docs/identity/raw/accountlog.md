@@ -144,34 +144,27 @@ Each of the following is relied on;
 a deployment that cannot meet one is out of scope.
 
 **The account key is trusted.**
-It is under the sole control of its owner
-and remains available to that owner for the life of the account.
-Neither compromise nor loss is in scope —
-the first because nothing here detects it,
-the second because nothing here repairs it,
-and under loss the account is frozen with its EndorsedKeys permanently irrevocable.
+It is under the sole control of its owner and remains available to that owner
+for the life of the account. Neither compromise nor loss is in scope.
 
 **EndorsedKeys are not trusted.**
 An EndorsedKey may be compromised, and revocation is the response.
 
 **The owner keeps one history.**
 An account extends a single log rather than maintaining several.
-Conflicting versions do occur — an old backup, a stale copy,
-two publishes without a re-fetch in between. AccountLogs that different at the end are considered mistakes, not an account deliberately showing
-different histories to different readers.
+Conflicting versions do occur — an old backup, a stale copy, two publishes
+without a re-fetch in between — but they are mistakes,
+not an account deliberately showing different histories to different readers.
 
 **Account logs reach consumers somehow.**
-Some means exists to publish a signed log and fetch one by address.
+Some means exists to publish a signed log and fetch one by address at any time.
 This document neither specifies it nor depends on it:
 a signed log is self-contained, so how its bytes were obtained changes nothing.
 
-**Addresses are exchanged out of band.**
-How a consumer comes to hold an address is out of scope;
-this document begins once it holds one.
-Every guarantee here is relative to that address being the right one,
-and nothing in the log corrects a wrong one.
-Address exchange is therefore the system's only trust decision,
-and belongs to the protocol that makes it.
+**Identity binding happens out of band.**
+How a consumer comes to hold an address, and how it establishes whose account
+that address is, are both out of scope.
+This document begins once a consumer holds an address it trusts.
 
 **The log is public.**
 Anyone holding an address can fetch the log at any time.
