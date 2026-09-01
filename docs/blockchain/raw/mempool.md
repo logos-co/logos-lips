@@ -24,6 +24,15 @@ The mempool is a node's store of Mantle Transactions that have been submitted bu
 | Constant | Name | Description | Value |
 | --- | --- | --- | --- |
 | `TRANSACTION_TTL` | Transaction Time To Live | How long a transaction may stay pending before it is retired. | 24 hours |
+| `PULL_PROTOCOL` | Pull Protocol | The libp2p request-response protocol carrying confirmation queries. | `/logos-blockchain/mempool-pull/{version}` for mainnet, `/logos-blockchain-testnet/mempool-pull/{version}` for testnet |
+| `PULL_DELAY` | Pull Delay | How long a transaction must have been pending before a node queries about it. | 10 seconds |
+| `PULL_INTERVAL` | Pull Interval | The period between confirmation rounds. | 2 seconds |
+| `PULL_SAMPLE_SIZE` | Pull Sample Size | Providers queried per round. | 32 |
+| `PULL_MAX_BATCH` | Pull Batch Size | The most transactions one query may name. | 1024 |
+| `PULL_MAX_ROUNDS` | Maximum Pull Rounds | Rounds a node spends on one transaction. | 8 |
+| `PULL_CONFIRMATIONS` | Confirmation Threshold | Distinct providers that must attest before a transaction is confirmed. | 133 |
+
+`PULL_SAMPLE_SIZE`, `PULL_MAX_ROUNDS` and `PULL_CONFIRMATIONS` are calibrated together. Raising `PULL_SAMPLE_SIZE * PULL_MAX_ROUNDS` without raising `PULL_CONFIRMATIONS` weakens the mechanism.
 
 # Mempool State
 
@@ -33,6 +42,11 @@ class Mempool:
     bodies: Map[TxHash, SignedMantleTx] # transaction bodies
     admitted_at: Map[TxHash, Timestamp] # admission time, per pending transaction
     by_prefix: Map[bytes, Set[TxHash]]  # pending hashes, keyed by reference prefix
+    commitment: Map[TxHash, Hash]            # body commitment, computed at admission
+    attesters: Map[TxHash, Set[ProviderId]]  # providers that attested to holding it
+    queried: Map[TxHash, Set[ProviderId]]    # providers asked about it, answered or not
+    received_from: Map[TxHash, Set[PeerId]]  # peers the transaction arrived from
+    rounds: Map[TxHash, uint8]               # confirmation rounds spent
 ```
 
 A transaction is keyed by `mantle_txhash(tx)`, defined in [Mantle](bedrock-v1.1-mantle-specification.md#mantle-transaction-hash).
@@ -40,6 +54,10 @@ A transaction is keyed by `mantle_txhash(tx)`, defined in [Mantle](bedrock-v1.1-
 `by_prefix` maps `prefix(hash, REFERENCE_PREFIX_LENGTH)` to the pending hashes carrying that prefix, where `REFERENCE_PREFIX_LENGTH` is defined in [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md#references).
 
 `pending` holds each hash once, ordered by admission time. `insert_by` places a hash at the position its admission time gives it, which is not the end when a [Reorganisation](#reorganisation) re-admits a transaction.
+
+A transaction is **confirmed** when `len(attesters[key]) >= PULL_CONFIRMATIONS`. `queried` records every provider asked about a transaction, whatever it answered.
+
+A node keeps its outstanding queries outside `Mempool`: the nonce of each query in flight, the provider it went to, and the transactions it named. A restart discards them.
 
 # Transaction Admission
 
@@ -65,6 +83,7 @@ def admit(mempool, encoded: bytes, at: Timestamp = None) -> Result:
     mempool.admitted_at[key] = at if at is not None else now()
     mempool.pending.insert_by(key, mempool.admitted_at[key])
     mempool.by_prefix[prefix(key, REFERENCE_PREFIX_LENGTH)].add(key)
+    mempool.commitment[key] = H("LOGOS_MEMPOOL_BODY_V1" || encoded)
     return Accept(key)
 ```
 
@@ -105,6 +124,65 @@ A node relays a received message to its mesh neighbours on receipt, before admis
 
 A node broadcasts a transaction it admits by local submission or by re-insertion. It does not broadcast a transaction it received by gossip.
 
+# Confirmation
+
+A node confirms a transaction by asking sampled providers whether they hold it.
+
+## Attesters
+
+The attesters are the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) declarations active in the current epoch snapshot. A declaration supplies the `provider_id` and `locators` a querier uses to reach the provider.
+
+## The Pull Exchange
+
+```python
+class PullQuery:
+    nonce: bytes32                  # fresh, chosen by the querier
+    tx_hashes: list[TxHash]         # at most PULL_MAX_BATCH entries
+
+class PullResponse:
+    nonce: bytes32
+    held: bitmap                    # one bit per queried hash, in query order
+    witness: hash
+    provider_id: Ed25519PublicKey
+    signature: Ed25519Signature
+```
+
+```python
+witness = H("LOGOS_MEMPOOL_PULL_WITNESS_V1"
+            || nonce
+            || uint16(count(held))
+            || concat(commitment[tx] for tx in query.tx_hashes where held))
+
+signature = Ed25519.sign(provider_sk,
+                         H("LOGOS_MEMPOOL_PULL_RESPONSE_V1"
+                           || nonce || held || witness))
+```
+
+A querier accepts a response as an attestation for a transaction when all of the following hold:
+
+1. `provider_id` is the queried provider, and was active in the snapshot the query sampled it from.
+2. `nonce` matches an outstanding query, and no response to that query has been accepted.
+3. `signature` verifies under `provider_id`.
+4. `witness` equals the value recomputed from the querier's own copies of the marked transactions.
+5. The bit for that transaction is set.
+
+A provider that does not hold a queried transaction answers that it does not. It must not request the transaction, and the querier must not send it.
+
+A provider rate-limits queries per peer and may decline to answer.
+
+## Confirmation Rounds
+
+Every `PULL_INTERVAL`, a node:
+
+1. Collects every pending transaction that is unconfirmed, has been pending for at least `PULL_DELAY`, and has spent fewer than `PULL_MAX_ROUNDS` rounds. If more than `PULL_MAX_BATCH` qualify, it takes the oldest by admission time.
+2. Samples `PULL_SAMPLE_SIZE` providers uniformly at random from the active snapshot, excluding itself. The sample must be drawn from local randomness and never from a chain-derived seed.
+3. Sends each sampled provider a query with a fresh nonce, naming the collected transactions for which that provider is in neither `queried` nor `received_from`. It sends no query to a provider excluded by every transaction in the batch.
+4. Adds each provider to the `queried` set of every transaction its query named, and adds it to `attesters` for each transaction its response attests to.
+
+A node must not exclude the union of `queried` across the batch. Exclusions apply per transaction.
+
+An accepted attestation stays valid while the transaction is pending, and is not re-evaluated against a later snapshot.
+
 # Block Building View
 
 The mempool supplies the bodies of every pending transaction in admission order.
@@ -119,7 +197,9 @@ A leader makes two determinations over that view.
 
 No block limit applies to this computation. A transaction that never applies is retired, as specified in [Inapplicability](#inapplicability).
 
-**Selection.** The leader fills the block from the applicable transactions in the same order, stopping at the first transaction that would exceed `MAX_BLOCK_TXS` or `MAX_BLOCK_SIZE`, both defined in [Cryptarchia Protocol](cryptarchia-v1-protocol.md#constants). A transaction left unselected is not retired.
+**Selection.** The leader fills the block from the applicable transactions that are confirmed, in the same order, stopping at the first transaction that would exceed `MAX_BLOCK_TXS` or `MAX_BLOCK_SIZE`, both defined in [Cryptarchia Protocol](cryptarchia-v1-protocol.md#constants). A transaction left unselected is not retired.
+
+Confirmation governs selection only. Applicability, retirement and [Reference Resolution](#reference-resolution) must not read it.
 
 # Reference Resolution
 
@@ -157,13 +237,13 @@ A pending transaction whose age exceeds `TRANSACTION_TTL` is retired.
 
 ## Effects of Retirement
 
-Retirement removes the hash from `pending` and from `by_prefix`, and discards its `admitted_at` entry and its body.
+Retirement removes the hash from `pending` and from `by_prefix`, and discards its `admitted_at`, `attesters`, `queried`, `received_from` and `rounds` entries, its body and its `commitment`.
 
 A retired transaction that is gossiped again is admitted again.
 
 # Persistence and Recovery
 
-A node persists the pending hashes, their admission timestamps, and the transaction bodies.
+A node persists the pending hashes, their admission timestamps, their `attesters`, `queried`, `received_from` and `rounds` entries, the body commitments, and the transaction bodies. It persists these for every pending transaction, confirmed or not.
 
 A node does not persist `by_prefix`. It rebuilds the index from the recovered pending set.
 
@@ -175,8 +255,8 @@ A node exposes the mempool to local clients. These endpoints are operational and
 | --- | --- |
 | Submit transaction | Admit a transaction by local submission and broadcast it. Returns the outcome of [Transaction Admission](#transaction-admission). |
 | View | The hashes of the pending transactions. |
-| Status | For each queried hash, whether the transaction is pending or unknown to this node. |
-| Metrics | The number of pending transactions and the time of the most recent admission. |
+| Status | For each queried hash, whether the transaction is unknown to this node, pending, or pending and confirmed. |
+| Metrics | The number of pending transactions, how many are confirmed, and the time of the most recent admission. |
 
 # References
 
@@ -185,4 +265,5 @@ A node exposes the mempool to local clients. These endpoints are operational and
 - [Mantle](bedrock-v1.1-mantle-specification.md)
 - [Mantle Transaction Encoding](mantle-transaction-encoding.md)
 - [Network Wire Format](network-wire-format.md)
+- [Service Declaration Protocol](bedrock-service-declaration-protocol.md)
 - [P2P Network](../draft/p2p-network.md)
