@@ -1,5 +1,4 @@
 # MEMPOOL
-
 | Field | Value |
 | --- | --- |
 | Name | Mempool |
@@ -12,7 +11,6 @@
 <!-- timeline:start -->
 
 ## Timeline
-
 - **2026-09-04** — [`5de1e93`](https://github.com/logos-co/logos-lips/blob/5de1e9348b010157222d99fbac2649e5e68aa278/docs/blockchain/raw/mempool.md) — docs(blockchain): retire on joining the chain, not on becoming the tip
 - **2026-09-02** — [`15e9269`](https://github.com/logos-co/logos-lips/blob/15e92695a7a5b3c23b0b1528a2dd33beb42eceb9/docs/blockchain/raw/mempool.md) — docs(blockchain): drop mempool state that nothing reads
 - **2026-09-01** — [`6a9d9c9`](https://github.com/logos-co/logos-lips/blob/6a9d9c98df738c49489a1911abff1741fb5d1ae0/docs/blockchain/raw/mempool.md) — docs(blockchain): remove restated and non-normative text
@@ -21,7 +19,6 @@
 <!-- timeline:end -->
 
 # Revision History
-
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-01 |
@@ -37,21 +34,32 @@ Each node keeps its own mempool. Nodes admit and retire independently, so their 
 A transaction is admitted, disseminated, offered to block building, and retired.
 
 # Construction
-
 ## Constants
-
 | Constant | Name | Description | Value |
 | --- | --- | --- | --- |
 | `TRANSACTION_TTL` | Transaction Time To Live | How long a transaction may stay pending before it is retired. | 24 hours |
+| `PULL_PROTOCOL` | Pull Protocol | The libp2p request-response protocol carrying confirmation queries. | `/logos-blockchain/mempool-pull/{version}` for mainnet, `/logos-blockchain-testnet/mempool-pull/{version}` for testnet |
+| `PULL_DELAY` | Pull Delay | How long a transaction must have been pending before a node queries about it. | 10 seconds |
+| `PULL_INTERVAL` | Pull Interval | The period between confirmation rounds. | 2 seconds |
+| `PULL_SAMPLE_SIZE` | Pull Sample Size | Providers queried per round. | 32 |
+| `PULL_MAX_BATCH` | Pull Batch Size | The most transactions one query may name. | 1024 |
+| `PULL_MAX_ROUNDS` | Maximum Pull Rounds | Rounds a node spends on one transaction. | 8 |
+| `PULL_CONFIRMATIONS` | Confirmation Threshold | Distinct providers that must attest before a transaction is confirmed. | 133 |
+
+`PULL_SAMPLE_SIZE`, `PULL_MAX_ROUNDS` and `PULL_CONFIRMATIONS` are calibrated together. Raising `PULL_SAMPLE_SIZE * PULL_MAX_ROUNDS` without raising `PULL_CONFIRMATIONS` weakens the mechanism.
 
 ## Mempool State
-
 ```python
 class Mempool:
     pending: TimeOrderedSet[TxHash]     # admitted, not yet retired, in admission order
     bodies: Map[TxHash, SignedMantleTx] # transaction bodies
     admitted_at: Map[TxHash, Timestamp] # admission time, per pending transaction
     by_prefix: Map[bytes, Set[TxHash]]  # pending hashes, keyed by reference prefix
+    commitment: Map[TxHash, Hash]            # body commitment, computed at admission
+    attesters: Map[TxHash, Set[ProviderId]]  # providers that attested to holding it
+    queried: Map[TxHash, Set[ProviderId]]    # providers asked about it, answered or not
+    received_from: Map[TxHash, Set[PeerId]]  # peers the transaction arrived from
+    rounds: Map[TxHash, uint8]               # confirmation rounds spent
 ```
 
 A transaction is keyed by `mantle_txhash(tx)`, defined in [Mantle](bedrock-v1.1-mantle-specification.md#mantle-transaction-hash).
@@ -60,8 +68,11 @@ A transaction is keyed by `mantle_txhash(tx)`, defined in [Mantle](bedrock-v1.1-
 
 `insert_by` places a hash at the position its admission time gives it, which is not the end when a [Reorganisation](#reorganisation) re-admits a transaction.
 
-## Transaction Admission
+A transaction is **confirmed** when `len(attesters[key]) >= PULL_CONFIRMATIONS`. `queried` records every provider asked about a transaction, whatever it answered.
 
+A node keeps its outstanding queries outside `Mempool`: the nonce of each query in flight, the provider it went to, and the transactions it named. A restart discards them.
+
+## Transaction Admission
 A transaction reaches the mempool by local submission through the [Node API](#node-api), by gossip on the mempool topic, or by re-insertion after a [Reorganisation](#reorganisation). All three follow this procedure.
 
 ```python
@@ -84,6 +95,7 @@ def admit(mempool, encoded: bytes, at: Timestamp = None) -> Result:
     mempool.admitted_at[key] = at if at is not None else now()
     mempool.pending.insert_by(key, mempool.admitted_at[key])
     mempool.by_prefix[prefix(key, REFERENCE_PREFIX_LENGTH)].add(key)
+    mempool.commitment[key] = H("LOGOS_MEMPOOL_BODY_V1" || encoded)
     return Accept(key)
 ```
 
@@ -92,11 +104,9 @@ Admission reads the transaction and the mempool, and no other state. A node must
 `MAX_BLOCK_SIZE` is defined in [Cryptarchia Protocol](cryptarchia-v1-protocol.md#constants).
 
 ### Decoding
-
 The payload is the canonical encoding defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md), carried in the envelope defined in [Network Wire Format](network-wire-format.md). Decoding must consume the payload exactly.
 
 ### Stateless Validation
-
 `preverify` applies the subset of the [Mantle validation rules](bedrock-v1.1-mantle-specification.md#validation) that reads no ledger state:
 
 1. The transaction carries one proof entry per operation, which may be the `None` entry where the opcode admits one.
@@ -108,7 +118,6 @@ The payload is the canonical encoding defined in [Mantle Transaction Encoding](m
 When a fork switch displaces blocks from the canonical chain, the node re-admits the transactions they carried that the blocks now in the canonical chain do not carry. It re-admits each with its original admission time.
 
 ### Duplicates
-
 `admit` reports a duplicate. The caller decides what follows:
 
 - A duplicate received by gossip is dropped.
@@ -124,8 +133,62 @@ A node relays a received message to its mesh neighbours on receipt, before admis
 
 A node broadcasts a transaction it admits by local submission or by re-insertion. It does not broadcast a transaction it received by gossip.
 
-## Block Building View
+## Confirmation
+A node confirms a transaction by asking sampled providers whether they hold it.
 
+### Attesters
+The attesters are the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) declarations active in the current epoch snapshot. A declaration supplies the `provider_id` and `locators` a querier uses to reach the provider.
+
+### The Pull Exchange
+```python
+class PullQuery:
+    nonce: bytes32                  # fresh, chosen by the querier
+    tx_hashes: list[TxHash]         # at most PULL_MAX_BATCH entries
+
+class PullResponse:
+    nonce: bytes32
+    held: bitmap                    # one bit per queried hash, in query order
+    witness: hash
+    provider_id: Ed25519PublicKey
+    signature: Ed25519Signature
+```
+
+```python
+witness = H("LOGOS_MEMPOOL_PULL_WITNESS_V1"
+            || nonce
+            || uint16(count(held))
+            || concat(commitment[tx] for tx in query.tx_hashes where held))
+
+signature = Ed25519.sign(provider_sk,
+                         H("LOGOS_MEMPOOL_PULL_RESPONSE_V1"
+                           || nonce || held || witness))
+```
+
+A querier accepts a response as an attestation for a transaction when all of the following hold:
+
+1. `provider_id` is the queried provider, and was active in the snapshot the query sampled it from.
+2. `nonce` matches an outstanding query, and no response to that query has been accepted.
+3. `signature` verifies under `provider_id`.
+4. `witness` equals the value recomputed from the querier's own copies of the marked transactions.
+5. The bit for that transaction is set.
+
+A provider that does not hold a queried transaction answers that it does not. It must not request the transaction, and the querier must not send it.
+
+A provider rate-limits queries per peer and may decline to answer.
+
+### Confirmation Rounds
+Every `PULL_INTERVAL`, a node:
+
+1. Collects every pending transaction that is unconfirmed, has been pending for at least `PULL_DELAY`, and has spent fewer than `PULL_MAX_ROUNDS` rounds. If more than `PULL_MAX_BATCH` qualify, it takes the oldest by admission time.
+2. Samples `PULL_SAMPLE_SIZE` providers uniformly at random from the active snapshot, excluding itself. The sample must be drawn from local randomness and never from a chain-derived seed.
+3. Sends each sampled provider a query with a fresh nonce, naming the collected transactions for which that provider is in neither `queried` nor `received_from`. It sends no query to a provider excluded by every transaction in the batch.
+4. Adds each provider to the `queried` set of every transaction its query named, and adds it to `attesters` for each transaction its response attests to.
+
+A node must not exclude the union of `queried` across the batch. Exclusions apply per transaction.
+
+An accepted attestation stays valid while the transaction is pending, and is not re-evaluated against a later snapshot.
+
+## Block Building View
 The mempool supplies the bodies of every pending transaction in admission order.
 
 **Applicability.** The leader determines which transactions apply:
@@ -139,7 +202,6 @@ No block limit applies to this computation.
 **Selection.** The leader fills the block from the applicable transactions in the same order, stopping at the first transaction that would exceed `MAX_BLOCK_TXS` or `MAX_BLOCK_SIZE`, both defined in [Cryptarchia Protocol](cryptarchia-v1-protocol.md#constants).
 
 ## Reference Resolution
-
 A block proposal carries a `REFERENCE_PREFIX_LENGTH`-byte prefix of each transaction hash, as defined in [References](bedrock-v1.1-block-construction.md#references). A validator resolves each reference against the mempool.
 
 ```python
@@ -157,30 +219,24 @@ Resolution reads the proposal, `by_prefix` and `bodies`, and nothing else.
 How a validator uses the result, and what a failure to resolve establishes about the block, are specified in [Block Proposal Reconstruction](bedrock-v1.1-block-construction.md#block-proposal-reconstruction) and [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation).
 
 ## Retirement
-
 A transaction leaves `pending` for one of three reasons.
 
 ### Inclusion in a Canonical Block
-
 When a block enters the node's canonical chain, the transactions it carries are retired.
 
 ### Inapplicability
-
 A transaction that the applicability determination of [Block Building View](#block-building-view) never applies is retired.
 
 ### Expiry
-
 A pending transaction whose age exceeds `TRANSACTION_TTL` is retired.
 
 ### Effects of Retirement
-
-Retirement removes the hash from `pending` and from `by_prefix`, and discards its `admitted_at` entry and its body.
+Retirement removes the hash from `pending` and from `by_prefix`, and discards its `admitted_at`, `attesters`, `queried`, `received_from` and `rounds` entries, its body and its `commitment`.
 
 A retired transaction that is gossiped again is admitted again.
 
 ## Persistence and Recovery
-
-A node persists the pending hashes, their admission timestamps, and the transaction bodies.
+A node persists the pending hashes, their admission timestamps, their `attesters`, `queried`, `received_from` and `rounds` entries, the body commitments, and the transaction bodies. It persists these for every pending transaction, confirmed or not.
 
 A node does not persist `by_prefix`. It rebuilds the index from the recovered pending set.
 
@@ -192,14 +248,14 @@ A node exposes the mempool to local clients through endpoints that carry no cons
 | --- | --- |
 | Submit transaction | Admit a transaction by local submission and broadcast it. Returns the outcome of [Transaction Admission](#transaction-admission). |
 | View | The hashes of the pending transactions. |
-| Status | For each queried hash, whether the transaction is pending or unknown to this node. |
-| Metrics | The number of pending transactions and the time of the most recent admission. |
+| Status | For each queried hash, whether the transaction is unknown to this node, pending, or pending and confirmed. |
+| Metrics | The number of pending transactions, how many are confirmed, and the time of the most recent admission. |
 
 # References
-
 - [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md)
 - [Cryptarchia Protocol](cryptarchia-v1-protocol.md)
 - [Mantle](bedrock-v1.1-mantle-specification.md)
 - [Mantle Transaction Encoding](mantle-transaction-encoding.md)
 - [Network Wire Format](network-wire-format.md)
+- [Service Declaration Protocol](bedrock-service-declaration-protocol.md)
 - [P2P Network](../draft/p2p-network.md)
