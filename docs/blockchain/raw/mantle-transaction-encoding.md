@@ -31,6 +31,7 @@
 | 1.5.1 | [RFC] One canonical encoding for `ServiceType` and `Locator`: pin `Locator` bytes to the multiaddr binary form | 2026-08-14 |
 | 1.6.0 | Added the `Parent` of the `ChannelConfig` to follow Mantle | 2026-08-27 |
 | 1.6.1 | Renamed the `LockedNoteId` production of the SDP Operations into `ServiceNoteId` | 2026-08-27 |
+| 1.7.0 | Added the `ExpirySlot` field to `MantleTx`. | 2026-09-01 |
 
 # Introduction
 
@@ -55,8 +56,9 @@ SignedMantleTx = MantleTx OpsProofs
 ## Mantle Tx
 
 ```schema
-MantleTx = OpCount *Op
-OpCount  = Byte
+MantleTx   = ExpirySlot OpCount *Op
+ExpirySlot = UINT64            ; last slot at which a block may include this transaction
+OpCount    = Byte
 ```
 
 ## Operations
