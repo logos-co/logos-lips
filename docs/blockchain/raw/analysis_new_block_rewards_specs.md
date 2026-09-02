@@ -123,6 +123,10 @@ $`r^{\iota}`$ is strictly decreasing in $`D_t`$ on $`(0, D_{target})`$ and conti
 - The reference base for a full release is the saturation boundary $`D_{target} - \Lambda`$, not the target. There the release is still at $`c`$ and the yield takes its minimum over the saturated region, $`I_{max} S_{cap} / (D_{target} - \Lambda)`$, which is $`4.0\%`$ on a base of $`2.5 \cdot 10^9`$ LGO at the adopted parameters. Quoting the release yield at $`D_{target}`$ instead is misleading: at the target $`A_t = 0`$, the release is zero, and the block reward is pure fee recycling. Quoting it against $`\Lambda`$ is also wrong, since $`\Lambda`$ is a shortfall rather than a staked base, and $`I_{max} S_{cap} / \Lambda = 20\%`$ is the yield on a base of a $`5\%`$ security level, which is not a distinguished point of the mechanism.
 - Across the proportional band the yield falls from $`4.0\%`$ to zero, so the band is where the subsidy is withdrawn rather than where it is delivered.
 
+![Release-funded yield against the security level](analysis_new_block_rewards_specs/assets/release-yield.png)
+
+> <sub>Figure 2. The release-funded yield $`r^{\iota}`$ against the security level $`\theta = D_t / S_{cap}`$. The left panel covers the full range, the right panel resolves the proportional band. Fee revenue is not included.</sub>
+
 $`r^{\iota}`$ is also the quantity that vanishes at reserve exhaustion. The cliff is the whole of $`r^{\iota}(D_t)`$ lost in one block, and the $`4.00\%`$ row of that table is this corollary evaluated at the saturation boundary.
 
 ## P4. The two components are additively separable
@@ -213,9 +217,9 @@ $$
 | $`0.25`$ | $`2.5 \cdot 10^7`$ LGO | $`40.0`$ yr | $`4.20 \cdot 10^7`$ |
 | $`0.10`$ | $`1.0 \cdot 10^7`$ LGO | $`100.0`$ yr | $`1.05 \cdot 10^8`$ |
 
-![Reserve horizon and release path](analysis-block-rewards/assets/reserve-horizon.png)
+![Reserve horizon and release path](analysis_new_block_rewards_specs/assets/reserve-horizon.png)
 
-> <sub>Figure 2. Reserve balance and released rewards for several values of the time-averaged controller. Fee revenue does not enter either panel.</sub>
+> <sub>Figure 3. Reserve balance and released rewards for several values of the time-averaged controller. Fee revenue does not enter either panel.</sub>
 
 Fee revenue does not move the horizon. Only the security state does, through $`\bar{A}`$.
 
@@ -354,16 +358,19 @@ There are four possible mitigations:
 Assume the reserve is empty and the annual fee flow is $`\Phi_{fee} = u \cdot I_{max} S_{cap}`$. The block reward is $`R^{\text{block}}_t`$. Let $`r_{req}`$ be the reservation yield of a marginal staker. The equilibrium stake solves $`\Phi_{fee} / D^\ast = r_{req}`$, hence
 
 $$
-D^\ast = \frac{u \cdot I_{max} \cdot S_{cap}}{r_{req}} .
+\theta^\ast = \frac{D^\ast}{S_{cap}} = \frac{u \cdot I_{max}}{r_{req}} .
 $$
 
-| $`u`$ | $`D^\ast`$ | $`\theta^\ast`$ |
-| --- | --- | --- |
-| $`0.25`$ | $`7.5 \cdot 10^8`$ | $`7.5\%`$ |
-| $`0.50`$ | $`1.5 \cdot 10^9`$ | $`15.0\%`$ |
-| $`1.00`$ | $`3.0 \cdot 10^9`$ | $`30.0\%`$ |
-| $`1.50`$ | $`4.5 \cdot 10^9`$ | $`45.0\%`$ |
-| $`2.00`$ | $`6.0 \cdot 10^9`$ | $`60.0\%`$ |
+| $`u`$ | $`\theta^\ast`$ |
+| --- | --- |
+| $`0.01`$ | $`0.3\%`$ |
+| $`0.05`$ | $`1.5\%`$ |
+| $`0.10`$ | $`3.0\%`$ |
+| $`0.25`$ | $`7.5\%`$ |
+| $`0.50`$ | $`15.0\%`$ |
+| $`1.00`$ | $`30.0\%`$ |
+| $`1.50`$ | $`45.0\%`$ |
+| $`2.00`$ | $`60.0\%`$ |
 
 at $`r_{req} = 3.33\%`$.
 
@@ -377,12 +384,14 @@ The unsaturated form should not be read far past $`u \approx 1.5`$. The specific
 
 $`\Lambda`$ sets the width of the proportional band and is the only parameter shaping the emission path.
 
-| $`\Lambda`$ | $`\delta^\ast`$ | band width | taper begins at $`\theta`$ |
-| --- | --- | --- | --- |
-| $`1.2 \cdot 10^8`$ | $`0.040`$ | $`4.0\%`$ | $`28.8\%`$ |
-| $`3.0 \cdot 10^8`$ | $`0.100`$ | $`10.0\%`$ | $`27.0\%`$ |
-| $`5.0 \cdot 10^8`$ | $`0.167`$ | $`16.7\%`$ | $`25.0\%`$ |
-| $`9.0 \cdot 10^8`$ | $`0.300`$ | $`30.0\%`$ | $`21.0\%`$ |
+| $`\Lambda / S_{cap}`$ | $`\delta^\ast`$ | taper begins at $`\theta`$ |
+| --- | --- | --- |
+| $`1.2\%`$ | $`0.040`$ | $`28.8\%`$ |
+| $`3.0\%`$ | $`0.100`$ | $`27.0\%`$ |
+| $`5.0\%`$ | $`0.167`$ | $`25.0\%`$ |
+| $`9.0\%`$ | $`0.300`$ | $`21.0\%`$ |
+
+The band runs from the taper point to $`\theta_{target} = 30\%`$, so its width in $`\theta`$ is exactly $`\Lambda / S_{cap}`$, the first column.
 
 A small $`\Lambda`$ holds $`A_t = 1`$ across nearly the whole approach to target, which maximizes both the bootstrap incentive and $`\bar{A}`$, and therefore minimizes the horizon of [P8](#p8-reserve-horizon). A large $`\Lambda`$ starts the taper early, lowers $`\bar{A}`$ and lengthens the horizon, at the cost of a weaker bootstrap incentive.
 
