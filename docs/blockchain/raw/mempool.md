@@ -32,21 +32,26 @@ The mempool is a node's store of Mantle Transactions that have been submitted bu
 | `PULL_MAX_ROUNDS` | Maximum Pull Rounds | Rounds a node spends on one transaction. | 8 |
 | `PULL_CONFIRMATIONS` | Confirmation Threshold | Distinct providers that must attest before a transaction is confirmed. | 133 |
 
-`PULL_SAMPLE_SIZE`, `PULL_MAX_ROUNDS` and `PULL_CONFIRMATIONS` are calibrated together. Raising `PULL_SAMPLE_SIZE * PULL_MAX_ROUNDS` without raising `PULL_CONFIRMATIONS` weakens the mechanism.
+`PULL_SAMPLE_SIZE * PULL_MAX_ROUNDS` is the most providers one transaction is asked about. Two constraints bind it:
+
+- `PULL_CONFIRMATIONS` must not exceed it. A larger threshold confirms nothing, and no transaction is ever selected.
+- The active [attester](#attesters) set must be large enough that `PULL_SAMPLE_SIZE * PULL_MAX_ROUNDS` draws reach `PULL_CONFIRMATIONS` distinct providers that hold the transaction. A sample drawn from a small set repeats providers already in `queried`, which the round then omits from the query, so the reachable count falls below the draw count. The values above are calibrated for 5000 active declarations and an adversary holding one third of them.
+
+Raising `PULL_SAMPLE_SIZE * PULL_MAX_ROUNDS` without raising `PULL_CONFIRMATIONS` gives an adversary more draws against the same threshold.
 
 # Mempool State
 
 ```python
 class Mempool:
-    pending: TimeOrderedSet[TxHash]     # admitted, not yet retired, in admission order
-    bodies: Map[TxHash, SignedMantleTx] # transaction bodies
-    admitted_at: Map[TxHash, Timestamp] # admission time, per pending transaction
-    by_prefix: Map[bytes, Set[TxHash]]  # pending hashes, keyed by reference prefix
-    commitment: Map[TxHash, Hash]            # body commitment, computed at admission
-    attesters: Map[TxHash, Set[ProviderId]]  # providers that attested to holding it
-    queried: Map[TxHash, Set[ProviderId]]    # providers asked about it, answered or not
-    received_from: Map[TxHash, Set[PeerId]]  # peers the transaction arrived from
-    rounds: Map[TxHash, uint8]               # confirmation rounds spent
+    pending: TimeOrderedSet[TxHash]              # admitted, not yet retired, in admission order
+    bodies: Map[TxHash, SignedMantleTx]          # transaction bodies
+    admitted_at: Map[TxHash, Timestamp]          # admission time, per pending transaction
+    by_prefix: Map[bytes, Set[TxHash]]           # pending hashes, keyed by reference prefix
+    commitment: Map[TxHash, Hash]                # body commitment, computed at admission
+    attesters: Map[TxHash, Set[ProviderId]]      # providers that attested to holding it
+    queried: Map[TxHash, Set[ProviderId]]        # providers that answered a query about it
+    received_from: Map[TxHash, Set[ProviderId]]  # providers the transaction arrived from
+    rounds: Map[TxHash, uint8]                   # confirmation rounds spent
 ```
 
 A transaction is keyed by `mantle_txhash(tx)`, defined in [Mantle](bedrock-v1.1-mantle-specification.md#mantle-transaction-hash).
@@ -55,7 +60,11 @@ A transaction is keyed by `mantle_txhash(tx)`, defined in [Mantle](bedrock-v1.1-
 
 `pending` holds each hash once, ordered by admission time. `insert_by` places a hash at the position its admission time gives it, which is not the end when a [Reorganisation](#reorganisation) re-admits a transaction.
 
-A transaction is **confirmed** when `len(attesters[key]) >= PULL_CONFIRMATIONS`. `queried` records every provider asked about a transaction, whatever it answered.
+A transaction is **confirmed** when `len(attesters[key]) >= PULL_CONFIRMATIONS`.
+
+`queried` records a provider once it answers a query naming the transaction, whether it answered yes or no. A provider that does not answer is not recorded, and a later round may sample and ask it again.
+
+A node adds a provider to `received_from` when a copy of the transaction arrives from it by gossip. A provider's `provider_id` is its node identity, as required by [Locators](bedrock-service-declaration-protocol.md#locators), so the peer a message arrives from is a provider exactly when that identity is in the active snapshot. A peer that is not is never sampled and is not recorded.
 
 A node keeps its outstanding queries outside `Mempool`: the nonce of each query in flight, the provider it went to, and the transactions it named. A restart discards them.
 
@@ -83,7 +92,7 @@ def admit(mempool, encoded: bytes, at: Timestamp = None) -> Result:
     mempool.admitted_at[key] = at if at is not None else now()
     mempool.pending.insert_by(key, mempool.admitted_at[key])
     mempool.by_prefix[prefix(key, REFERENCE_PREFIX_LENGTH)].add(key)
-    mempool.commitment[key] = H("LOGOS_MEMPOOL_BODY_V1" || encoded)
+    mempool.commitment[key] = Hash("LOGOS_MEMPOOL_BODY_V1" || encode(tx.tx))
     return Accept(key)
 ```
 
@@ -130,7 +139,7 @@ A node confirms a transaction by asking sampled providers whether they hold it.
 
 ## Attesters
 
-The attesters are the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) declarations active in the current epoch snapshot. A declaration supplies the `provider_id` and `locators` a querier uses to reach the provider.
+The attesters are the Blend Network (`BN`) declarations active in the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) snapshot of the current epoch, defined in [Snapshots](bedrock-service-declaration-protocol.md#snapshots). A declaration supplies the `provider_id` and `locators` a querier uses to reach the provider.
 
 ## The Pull Exchange
 
@@ -142,29 +151,29 @@ class PullQuery:
 class PullResponse:
     nonce: bytes32
     held: bitmap                    # one bit per queried hash, in query order
-    witness: hash
-    provider_id: Ed25519PublicKey
     signature: Ed25519Signature
 ```
 
+`held` carries one bit per entry of `tx_hashes`, in query order, packed least significant bit first and padded with zero bits to a whole number of bytes. `Hash` is the general-purpose hash function of [Common Cryptographic Components](common-cryptographic-components.md).
+
 ```python
-witness = H("LOGOS_MEMPOOL_PULL_WITNESS_V1"
+witness = Hash("LOGOS_MEMPOOL_PULL_WITNESS_V1"
             || nonce
             || uint16(count(held))
             || concat(commitment[tx] for tx in query.tx_hashes where held))
 
 signature = Ed25519.sign(provider_sk,
-                         H("LOGOS_MEMPOOL_PULL_RESPONSE_V1"
+                         Hash("LOGOS_MEMPOOL_PULL_RESPONSE_V1"
                            || nonce || held || witness))
 ```
 
+The witness is not carried in the response. The querier recomputes it from its own copies of the marked transactions, and a provider that does not hold one of them cannot produce a signature over the value the querier recomputes.
+
 A querier accepts a response as an attestation for a transaction when all of the following hold:
 
-1. `provider_id` is the queried provider, and was active in the snapshot the query sampled it from.
-2. `nonce` matches an outstanding query, and no response to that query has been accepted.
-3. `signature` verifies under `provider_id`.
-4. `witness` equals the value recomputed from the querier's own copies of the marked transactions.
-5. The bit for that transaction is set.
+1. `nonce` matches an outstanding query, and no response to that query has been accepted.
+2. `signature` verifies, under the `provider_id` that query was sent to, over the value recomputed from `nonce`, `held` and the querier's own copies of the marked transactions.
+3. The bit for that transaction is set.
 
 A provider that does not hold a queried transaction answers that it does not. It must not request the transaction, and the querier must not send it.
 
@@ -177,7 +186,8 @@ Every `PULL_INTERVAL`, a node:
 1. Collects every pending transaction that is unconfirmed, has been pending for at least `PULL_DELAY`, and has spent fewer than `PULL_MAX_ROUNDS` rounds. If more than `PULL_MAX_BATCH` qualify, it takes the oldest by admission time.
 2. Samples `PULL_SAMPLE_SIZE` providers uniformly at random from the active snapshot, excluding itself. The sample must be drawn from local randomness and never from a chain-derived seed.
 3. Sends each sampled provider a query with a fresh nonce, naming the collected transactions for which that provider is in neither `queried` nor `received_from`. It sends no query to a provider excluded by every transaction in the batch.
-4. Adds each provider to the `queried` set of every transaction its query named, and adds it to `attesters` for each transaction its response attests to.
+4. Increments `rounds` for every transaction it collected in step 1.
+5. On each response whose signature verifies, adds the provider to the `queried` set of every transaction that query named, and to `attesters` for every transaction whose bit is set.
 
 A node must not exclude the union of `queried` across the batch. Exclusions apply per transaction.
 
@@ -200,6 +210,8 @@ No block limit applies to this computation. A transaction that never applies is 
 **Selection.** The leader fills the block from the applicable transactions that are confirmed, in the same order, stopping at the first transaction that would exceed `MAX_BLOCK_TXS` or `MAX_BLOCK_SIZE`, both defined in [Cryptarchia Protocol](cryptarchia-v1-protocol.md#constants). A transaction left unselected is not retired.
 
 Confirmation governs selection only. Applicability, retirement and [Reference Resolution](#reference-resolution) must not read it.
+
+Confirmation is not a condition of block validity. A block carrying an unconfirmed transaction is valid, and a validator must not evaluate confirmation when it validates one.
 
 # Reference Resolution
 
@@ -261,6 +273,7 @@ A node exposes the mempool to local clients. These endpoints are operational and
 # References
 
 - [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md)
+- [Common Cryptographic Components](common-cryptographic-components.md)
 - [Cryptarchia Protocol](cryptarchia-v1-protocol.md)
 - [Mantle](bedrock-v1.1-mantle-specification.md)
 - [Mantle Transaction Encoding](mantle-transaction-encoding.md)
