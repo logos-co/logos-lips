@@ -35,7 +35,7 @@
 | 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, add a transaction as a data message payload, and align the nullifier retention period | 2026-09-08 |
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
 | 1.4.0 | [RFC] Detect the failure of the Blend network to deliver block proposals and react to it, by directly broadcasting any proposal the network has not delivered within a fixed deadline, and by routing around the nodes seen to fail. | 2026-09-01 |
-| 1.3.0 | Replaced the per-window statistical threshold on a connection with a per-round limit that a node applies to itself and its neighbors enforce. Moved verification of the proof of quota onto the relay path, so a message is relayed only after its public header is verified. Counted traffic against the neighbor's authenticated identity for the epoch rather than against the connection. Bounded the rate at which edge nodes are served. Allowed the slot held by an unhealthy connection to be reclaimed. | 2026-09-02 |
+| 1.5.0 | Replaced the per-window statistical threshold on a connection with a per-round limit that a node applies to itself and its neighbors enforce. Moved verification of the proof of quota onto the relay path, so a message is relayed only after its public header is verified. Counted traffic against the neighbor's authenticated identity for the epoch rather than against the connection. Bounded the rate at which edge nodes are served. Allowed the slot held by an unhealthy connection to be reclaimed. | 2026-09-02 |
 
 # Introduction
 
@@ -557,7 +557,7 @@ $`\lceil M_1 \rceil`$ is a protocol constant. A node holds back anything above i
 
 The value follows from $`F_1`$ and from the margin the network needs above it. At $`12`$ a connection carrying its expected $`3.0`$ messages per round defers about once in sixty thousand rounds. The margin also sets how far the network can move before the queue of a sender stops draining, which is four times the rate a connection carries today.
 
-$`\lceil M_N \rceil`$ is what a node may receive in a round on average, measured over the same $`\Delta_{max}`$ rounds as the maximum. It is divided into $`\Phi_{CC}^{Max}+1`$ shares. One share belongs to each neighbor it may hold. The last share is $`\Lambda_E`$, and it serves the edge nodes.
+$`\lceil M_N \rceil`$ is what a node may receive in a round on average. Arrivals bunched by the network can exceed it in one round, by the allowance the spam test grants each connection. It is divided into $`\Phi_{CC}^{Max}+1`$ shares. One share belongs to each neighbor it may hold. The last share is $`\Lambda_E`$, and it serves the edge nodes.
 
 The queue of a sender drains only while $`F_1 \lt \lceil M_1 \rceil`$. [Cryptarchia](cryptarchia-v1-protocol.md) must bound the number of block proposals admitted per slot so that this holds, or $`\lceil M_1 \rceil`$ must be raised to cover the worst case it admits.
 
@@ -577,7 +577,7 @@ The counts are kept against the authenticated identity of the neighbor, for the 
 
 **Classification**
 
-1. A connection is **spammy** when its count over any $`\Delta_{max}`$ consecutive rounds exceeds $`\Delta_{max} \cdot \lceil M_1 \rceil`$. The count spans several rounds because a node sends on its own clock and its neighbor counts on arrival.
+1. A connection is **spammy** when $`M_1 \gt (1+\eta) \cdot \lceil M_1 \rceil`$ in any round. A message arrives at most $`\eta`$ rounds after its release, so one round of arrivals carries the releases of at most $`1+\eta`$ rounds. A count above that is possible only for a sender that exceeded its limit.
 2. It is **healthy** when it is not spammy and $`M_1^W \ge \lfloor M_1 \rfloor^W`$. Only healthy connections count towards $`h(\Phi_{CC})`$.
 3. It is **unhealthy** when $`M_1^W \lt \lfloor M_1 \rfloor^W`$.
 
