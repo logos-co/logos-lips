@@ -41,6 +41,7 @@
 | 1.10.2| Precise the state validation reads: the Operations of a Mantle Transaction are validated and executed one after the other in the order they appear, each against the state the preceding ones left, and a Mantle Transaction against the state the transactions preceding it in the block left. Accumulated the transaction balance along that pass, replacing `get_transaction_balance` | 2026-08-24 |
 | 1.11.0 | Track the configuration lineage of a channel: `ChannelState` gains `config_tip_hash` and the `CHANNEL_CONFIG` payload carries the `parent` configuration it extends, ordering configurations and preventing their replay | 2026-08-27 |
 | 1.11.1 | Renamed locked notes into service notes: `service_notes`, `ServiceNote` and `service_note_id` replace their locked counterparts, and the note kind is named after the role it plays rather than after the state it is left in | 2026-08-27 |
+| 1.12.0 | Removed the `None` case of `op_proofs`, every Operation carrying exactly one proof. A `CHANNEL_CONFIG` creating a channel is verified against a threshold of `0` and its proof carries no signature and no index. Execution Gas is derived from the Operation and the state it is validated against, the thresholds pricing the channel Operations being the ones held in the channel state | 2026-08-31 |
 
 # Introduction
 
@@ -104,7 +105,7 @@ A Mantle Transaction must include all relevant signatures and proofs for each Op
 ```python
 class SignedMantleTx:
     tx: MantleTx
-    op_proofs: list[OpProof | None] # each Op has at most 1 associated proof
+    op_proofs: list[OpProof] # each Op has exactly 1 associated proof
 ```
 
 Each proof (op proof and signature) must be cryptographically bound to the `MantleTx` through the `mantle_txhash` to prevent replay attacks. This binding is achieved by including the `MantleTx` hash reduced modulo $`p`$ as a public input in every ZK proof.
@@ -141,6 +142,8 @@ The transaction mandatory fee is a sum of two components: the multiplication of 
 
 ```python
 def mandatory_fees(signed_tx: SignedMantleTx,
+                   ledger: Ledger,
+                   channels: dict[ChannelId, ChannelState],
                    permanent_storage_gas_price: TokenValue, # Given by Storage Market
                    execution_gas_base_price: TokenValue) -> uint64:  # Given by Execution Market
     mantle_tx = signed_tx.tx
@@ -149,12 +152,15 @@ def mandatory_fees(signed_tx: SignedMantleTx,
 
     for op in mantle_tx.ops:
         # Compute how much execution gas of this operation as defined
-        # in the gas determination Appendix
-        tx_execution_gas += execution_gas(op)
+        # in the gas determination Appendix, against the state this
+        # Operation is validated against
+        tx_execution_gas += execution_gas(op, ledger, channels)
     execution_base_fees = checked_uint64(tx_execution_gas * execution_gas_base_price)
 
     return checked_uint64(execution_base_fees + permanent_storage_fees)
 ```
+
+The Execution Gas of an Operation is deterministically derived from that Operation and the state it is validated against.
 
 If the Mantle Transaction is unbalanced (meaning that the Transaction consume more value than it creates) and that the leftover balance cover more than the mandatory fees, the remaining is treated as execution tip fees.
 
@@ -178,7 +184,7 @@ Atomicity is what a failed check means, not simultaneity. If any of the checks b
 
 Mantle validators will ensure the following:
 
-1. We have a proof or a `None` value for each operation.
+1. We have exactly one proof for each Operation, of the variant that Operation requires.
     ```python
     assert len(op_proofs) == len(ops)
     ```
@@ -524,7 +530,7 @@ class ChannelConfigOpProof:
 
 #### Execution Gas
 
-  Channel Config Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_CONFIG_GAS * configuration_threshold`. See [Gas Determination](#gas-determination) for the Execution Gas values.
+  Channel Config Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_CONFIG_GAS * configuration_threshold`, where `configuration_threshold` is the one held in the channel state, and `0` for a channel that does not exist yet. See [Gas Determination](#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -565,6 +571,14 @@ else:
     # Channel will be created automatically upon execution
     # Ensure that this configuration is the genesis configuration
     assert config.parent == ZERO
+
+    # No key is accredited yet, so the threshold to verify against is 0
+    # and the proof must carry no signature and no index (see Appendix)
+    MultiEd25519_verify(txhash,
+                        proof.signatures,
+                        proof.indexes,
+                        [],
+                        0)
 ```
 
 #### Execution
@@ -644,7 +658,7 @@ tx = MantleTx(
 
 signed_tx = SignedMantleTx(
     tx=tx,
-    op_proofs=[[Ed25519_sign(mantle_txhash(tx), old_sequencer_sk)], [0]],
+    op_proofs=[[[Ed25519_sign(mantle_txhash(tx), old_sequencer_sk)], [0]],
                transfer.prove(old_sequencer_sk)]
 )
 ```
@@ -795,7 +809,7 @@ class ChannelWithdrawOpProof:
 
 #### Execution Gas
 
-  Channel Withdraw Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_WITHDRAW_GAS * transfer_threshold`. See [Gas Determination](#gas-determination) for the Execution Gas values.
+  Channel Withdraw Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_WITHDRAW_GAS * transfer_threshold`, where `transfer_threshold` is the one held in the channel state. See [Gas Determination](#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -899,7 +913,7 @@ class ChannelTransferOpProof:
 
 #### Execution Gas
 
-`CHANNEL_TRANSFER` Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_TRANSFER_GAS * transfer_threshold`. See [Gas Determination](#gas-determination) for the Execution Gas values.
+`CHANNEL_TRANSFER` Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_TRANSFER_GAS * transfer_threshold`, where `transfer_threshold` is the one held in the channel state. See [Gas Determination](#gas-determination) for the Execution Gas values.
 
 #### Validation
 
