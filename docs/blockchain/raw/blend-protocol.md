@@ -35,7 +35,7 @@
 | 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, and add transactions as a data message payload; re-derive the nullifier cache bound and align the nullifier retention period | 2026-09-04 |
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
 | 1.4.0 | [RFC] Detect the failure of the Blend network to deliver block proposals and react to it, by directly broadcasting any proposal the network has not delivered within a fixed deadline, and by routing around the nodes seen to fail. | 2026-09-01 |
-| 1.3.0 | Restated the connectivity maintenance logic around two principles: a ban requires misbehavior attributable to an authenticated identity, and the connection cap is hard. The maximum a connection may carry is now a per-round limit that a node applies to itself and that its neighbors enforce, derived from a fixed peering degree and divided into one share per neighbor plus one for edge nodes, rather than a statistical threshold over an observation window; the minimum keeps the window, since silence cannot be observed in one round. Verification of the proof of quota moved onto the relay path, so a message is relayed only after its public header is verified; traffic is counted against the neighbor's authenticated identity for the epoch rather than against the connection; the number of edge nodes served per round is bounded, their identities being ephemeral and their messages costing a proof verification; and the slot held by an unhealthy connection can be reclaimed at the cap. | 2026-08-26 |
+| 1.3.0 | Replaced the per-window statistical threshold on a connection with a per-round limit that a node applies to itself and its neighbors enforce. Moved verification of the proof of quota onto the relay path, so a message is relayed only after its public header is verified. Counted traffic against the neighbor's authenticated identity for the epoch rather than against the connection. Bounded the rate at which edge nodes are served. Allowed the slot held by an unhealthy connection to be reclaimed. | 2026-09-02 |
 
 # Introduction
 
@@ -88,8 +88,8 @@ To have a **truly privacy-preserving system, we need to apply both techniques si
 
 - *Honest node* is a node that follows the protocol fully.
 - *Lazy node* is a node that does not follow the protocol due to a lack of incentives and only takes part in the protocol when it is directly beneficial to the node.
-- *Spammy node* is a node that does not follow the protocol and emits more messages than the protocol expects. In other words, it is a spamming node.
-- *Unhealthy node* is a node that emits fewer messages than the protocol expects. We cannot assume that this node is misbehaving deliberately, as it can be under an attack.
+- *Spammy node* is a node whose connection is classified spammy in [Connectivity Maintenance](#connectivity-maintenance).
+- *Unhealthy node* is a node whose connection is classified unhealthy in [Connectivity Maintenance](#connectivity-maintenance).
 - *Malicious node* is a node that does not follow the protocol regardless of incentives.
 - *Unresponsive node* is a node that does not follow the protocol due to technical reasons, such as a lack of connectivity or malfunction.
 
@@ -308,9 +308,9 @@ The bootstrapping defines the process of creating the network, which happens at 
             2. The neighbor learns that the node is a core node.
             3. The node stops connecting to selected peer after reaching the maximum number of tries ($`\Omega_C`$ parameter: [Core Node Parameters](#core-node-parameters)). Then a new random peer is selected.
 
-    3. It repeats the above steps until it reaches the peering degree $`\Phi_{CC}`$ fixed in [Global Parameters](#global-parameters). Both incoming and outgoing connections count toward it.
+    3. It repeats the above steps until it holds $`\Phi_{CC}^{Min}`$ connections.
 4. It starts accepting incoming connections and maintaining all connections as defined in **Maintenance**.
-    1. It maintains exactly $`\Phi_{CC}`$ connections with core nodes. A node that has initiated fewer than that may accept the remainder as incoming connections; one already at the degree refuses them.
+    1. It opens connections until it holds $`\Phi_{CC}^{Min}`$ of them, and accepts incoming connections until it holds $`\Phi_{CC}^{Max}`$. Both incoming and outgoing connections count towards each.
     2. It accepts connections with edge nodes at the rate $`\Lambda_E`$ fixed in [Global Parameters](#global-parameters).
 5. If two nodes open two connections with each other, so that both have incoming and outgoing connections to the same neighbor (core node), then:
     1. The node with the lower public key value (`provider_id` from SDP) must close the outgoing connection to the node with the higher public key value.
@@ -328,7 +328,7 @@ A core node maintains its connections during the epoch as defined in [Connectivi
 
 The edge network is maintained by core nodes because edge nodes can only establish connections with core nodes.
 
-Each core node defines individually the maximum number of edge connections allowed. Therefore, every core node is a potential entry point to the network, but not every node is connectable.
+A core node accepts edge connections at the rate $`\Lambda_E`$ fixed in [Global Parameters](#global-parameters). Therefore, every core node is a potential entry point to the network, but not every node is connectable.
 
 The bootstrapping logic of an edge node:
 
@@ -340,7 +340,7 @@ The bootstrapping logic of an edge node:
     2. It identifies itself and authenticates using the [Neighbor Distinction Process](#neighbor-distinction-process).
         1. A core node learns that the neighbor is an edge node.
         2. An edge node confirms that the neighbor is a core node.
-        3. A core node might drop the connection if the maximum number of edge connections, defined by the core node, is reached.
+        3. A core node closes the connection if it has already accepted $`\Lambda_E`$ connections with edge nodes this round ([Connectivity Maintenance](#connectivity-maintenance)).
         4. An edge node must drop the connection if the neighbor is not the intended core node. Please note that technically it is done during TLS handshake, where the handshake will fail if the core node is using a different key than provided in the SDP declaration.
 5. When the connection is established, it sends the message and closes the connection.
 6. Concurrently to the above, it repeats steps 4 and 5 until it is sends the message to a number of nodes equal to the communication redundancy number defined by the edge node. It stops connecting to each node after a certain number of tries, which is defined by the edge node.
@@ -452,7 +452,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 
 ## Notation
 
-- $`\Phi_{CC}`$ denotes the peering degree of a core node: the number of connections it maintains with other core nodes. It is fixed by the protocol, since a limit derived from it must be the same for every node;
+- $`\Phi_{CC}`$ denotes the number of connections a core node holds with other core nodes;
 - $`h(\Phi_{CC})`$ denotes the number of healthy connections of the core node with other core nodes, as classified in [Connectivity Maintenance](#connectivity-maintenance). Only core-to-core connections are classified, so healthiness is defined for them alone;
 - $`\Delta_{max}`$ denotes a maximal delay time between two release rounds;
 - $`\beta_{max}`$ denotes a maximum number of processing rounds for a single message;
@@ -463,7 +463,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`M_1^W`$ denote the number of messages counted on a single connection during an observation window $`W`$;
 - $`\lceil M_1 \rceil`$ denote the maximal number of messages a node may send to a single neighbor during one round;
 - $`M_1`$ denote the number of messages counted on a single connection during one round;
-- $`\lceil M_N \rceil = (\Phi_{CC} + 1) \cdot \lceil M_1 \rceil`$ denote the resulting budget of a whole node for one round, one share for each of its neighbors and one for the edge nodes it serves;
+- $`\lceil M_N \rceil = (\Phi_{CC}^{Max} + 1) \cdot \lceil M_1 \rceil`$ denote the resulting budget of a whole node for one round, one share for each neighbor it may hold and one for the edge nodes it serves;
 - $`\lfloor M_1 \rfloor^W`$ denote the minimal number of messages a single connection must carry during an observation window $`W`$ to be counted as healthy;
 - $`\Lambda_E`$ denote the number of edge nodes a core node may serve during one round, which is the share of $`\lceil M_N \rceil`$ that is not owed to a neighbor;
 - $`F_C`$ denote a frequency at which cover messages are generated per round;
@@ -471,7 +471,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`C = E \cdot F_C`$ denote the expected number of cover messages that are generated during an epoch by the core nodes;
 - $`R_C`$ denote a redundancy parameter for cover messages, defining the number of “replications” of the same message;
 - $`R_D`$ denote a redundancy parameter for data messages, defining the number of “replications” of the same message;
-- $`\mathcal{N} = \text{SDP}(s)`$ denote a set of core nodes providing the Blend service for the epoch $`e`$ returned by the SDP protocol ([Service Declaration Protocol](bedrock-service-declaration-protocol.md));
+- $`\mathcal{N} = \text{SDP}(e)`$ denote a set of core nodes providing the Blend service for the epoch $`e`$ returned by the SDP protocol ([Service Declaration Protocol](bedrock-service-declaration-protocol.md));
 - $`N = |\mathcal N|`$ denote a number of core nodes providing the Blend service;
 - $`\text {CSPRNG}()`$ is a cryptographically secure pseudo-random number generator, implemented as a [ChaCha20-Based PRNG Construction](common-cryptographic-components.md#chacha20-based-prng-construction);
 - $`\eta`$ denotes the network absorption, the time a message spends crossing the network on one hop;
@@ -490,9 +490,9 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`F_C=1`$, the network generates one cover message per round on average.
 - $`F_D=1/30`$, the network generates one data message every $`30`$ rounds on average, which is the rate at which a slot has an elected leader in the [Cryptarchia Protocol](cryptarchia-v1-protocol.md).
 - $`R_C=0`$ and $`R_D=0`$, no replication of cover or data messages is used in this version of the protocol.
-- $`\Phi_{CC}=6`$, the peering degree every core node maintains with other core nodes.
+- $`\Phi_{CC}^{Min}=6`$ and $`\Phi_{CC}^{Max}=8`$, the peering degree a core node maintains with other core nodes. A node opens connections until it holds $`\Phi_{CC}^{Min}`$ healthy ones, and accepts connections until it holds $`\Phi_{CC}^{Max}`$. The range is what lets every node reach the minimum: a connection occupies a slot at both of its ends, so a network in which every node refused at a single fixed degree could leave nodes unable to place their last connections.
 - $`\lceil M_1 \rceil=12`$ messages per round, the maximum a node may send to one neighbor in a round, as derived in [Expected Connection Traffic](#expected-connection-traffic).
-- $`\lceil M_N \rceil = (6+1) \cdot 12 = 84`$ messages per round, the budget of a whole node.
+- $`\lceil M_N \rceil = (8+1) \cdot 12 = 108`$ messages per round, the budget of a whole node.
 - $`\Lambda_E=12`$ edge nodes per round, the share of $`\lceil M_N \rceil`$ reserved for them.
 - $`\lfloor M_1 \rfloor^W = \lceil F_1 \cdot W / 10 \rceil = 9`$, the minimum number of messages per connection during an observation window, as derived in [Expected Connection Traffic](#expected-connection-traffic).
 - $`T_E=1`$ round, the time an edge node is given to send its message, as derived in [Connectivity Maintenance](#connectivity-maintenance).
@@ -505,7 +505,7 @@ A core node maintains the following set of parameters:
 
 Implementations should choose a default based on the deployment they operate in, and users can override this default before joining.
 
-The peering degree $`\Phi_{CC}`$, the per-round maximum $`\lceil M_1 \rceil`$, the node budget $`\lceil M_N \rceil`$ and the edge share $`\Lambda_E`$ are **not** among these: they are fixed by the protocol in [Global Parameters](#global-parameters). A node is judged against $`\lceil M_1 \rceil`$ by its neighbors, so every node must compute the same value, and $`\lceil M_1 \rceil`$ is derived from $`\Phi_{CC}`$. Were either left to the operator, a node could widen the limit it is held to by declaring a larger degree.
+The per-round maximum $`\lceil M_1 \rceil`$ and the edge share $`\Lambda_E`$ are **not** among these. They are fixed by the protocol in [Global Parameters](#global-parameters). A node is judged against $`\lceil M_1 \rceil`$ by its neighbors, so every node must hold it to the same value.
 
 ### Edge Node Parameters
 
@@ -549,12 +549,14 @@ A connection below the minimum carries no penalty for its neighbor. The traffic 
 **Maximum**
 
 $$
-\lceil M_1 \rceil = 12 \qquad \lceil M_N \rceil = (\Phi_{CC} + 1) \cdot \lceil M_1 \rceil = 84
+\lceil M_1 \rceil = 12 \qquad \lceil M_N \rceil = (\Phi_{CC}^{Max} + 1) \cdot \lceil M_1 \rceil = 108
 $$
 
 $`\lceil M_1 \rceil`$ is a protocol constant. A node holds back anything above it rather than sending it ([Releasing](#releasing)), so a count above it is misbehavior and not an unlucky round.
 
-$`\lceil M_N \rceil`$ is what a node may receive in a round. It is divided into $`\Phi_{CC}+1`$ shares. One share belongs to each neighbor. The last share is $`\Lambda_E`$, and it serves the edge nodes.
+The value follows from $`F_1`$ and from the margin the network needs above it. At $`12`$ a connection carrying its expected $`3.0`$ messages per round defers about once in sixty thousand rounds. The margin also sets how far the network can move before the queue of a sender stops draining, which is four times the rate a connection carries today.
+
+$`\lceil M_N \rceil`$ is what a node may receive in a round. It is divided into $`\Phi_{CC}^{Max}+1`$ shares. One share belongs to each neighbor it may hold. The last share is $`\Lambda_E`$, and it serves the edge nodes.
 
 The queue of a sender drains only while $`F_1 \lt \lceil M_1 \rceil`$. [Cryptarchia](cryptarchia-v1-protocol.md) must bound the number of block proposals admitted per slot so that this holds, or $`\lceil M_1 \rceil`$ must be raised to cover the worst case it admits.
 
@@ -562,17 +564,19 @@ The queue of a sender drains only while $`F_1 \lt \lceil M_1 \rceil`$. [Cryptarc
 
 A core node blacklists a neighbor only for misbehavior that its authenticated identity is responsible for. There are three kinds: a message that fails header verification, a failure of the authenticated stream, and a message count above $`\lceil M_1 \rceil`$. A failure of the authenticated stream is a TLS record that fails authentication, or a violation of the framing of the stream. The loss of a connection is not one of them, and counts as silence.
 
-The number of connections with core nodes never exceeds $`\Phi_{CC}`$. Connections whose handshake is in progress count towards it.
+The number of connections with core nodes never exceeds $`\Phi_{CC}^{Max}`$. A connection whose handshake is in progress counts towards it once the [Neighbor Distinction Process](#neighbor-distinction-process) has identified the neighbor as a core node. A handshake that has not completed within $`T_E`$ is abandoned and its slot released.
 
 **Counting**
 
-A node counts the messages it receives on each connection with a core node. $`M_1`$ is the count for the current round. $`M_1^W`$ is the count over the trailing observation window $`W`$. A duplicate is counted.
+A node counts the messages it receives on each connection with a core node. $`M_1`$ is the count for the current round. It includes duplicates, so that a neighbor sending the same message repeatedly is bounded by the maximum.
+
+$`M_1^W`$ is the count over the trailing observation window $`W`$ of the messages whose nullifier the node had not already seen. Duplicates are excluded from it. A duplicate costs its sender nothing, and a neighbor that returns the traffic it was sent would otherwise meet the minimum without relaying anything. A node records the nullifiers of the messages it generates as well as those it relays, so a message returned to it is recognised as a duplicate.
 
 The counts are kept against the authenticated identity of the neighbor, for the epoch. A neighbor that reconnects resumes them. The window advances only while the neighbor is connected.
 
 **Classification**
 
-1. A connection is **spammy** when $`M_1 \gt \lceil M_1 \rceil`$ in any round.
+1. A connection is **spammy** when its count over any $`\Delta_{max}`$ consecutive rounds exceeds $`\Delta_{max} \cdot \lceil M_1 \rceil`$. The count is taken over several rounds because a node sends within a round of its own clock and its neighbor counts on arrival. Transport delay moves a message across a round boundary, and a single round would convict a sender for it.
 2. It is **healthy** when it is not spammy and $`M_1^W \ge \lfloor M_1 \rfloor^W`$. Only healthy connections count towards $`h(\Phi_{CC})`$.
 3. It is **unhealthy** when $`M_1^W \lt \lfloor M_1 \rfloor^W`$.
 
@@ -583,16 +587,16 @@ A neighbor whose accumulated observation is shorter than $`W`$ counts as healthy
 1. A spammy connection is closed and its neighbor is added to the **blacklist**. A blacklisted identity must not be selected again, and must be refused on incoming and on outgoing connections. An entry added during an epoch $`n`$ expires when the epoch $`n+2`$ begins.
 2. A connection with a core node whose authenticated stream fails, or that carries a message failing header verification, is closed and its neighbor is added to the blacklist.
 3. An unhealthy connection is not closed as a penalty, and its neighbor is not blacklisted.
-4. When $`h(\Phi_{CC}) \lt \Phi_{CC}`$, the node opens connections with core nodes. It draws them uniformly at random and without replacement from the set returned by the SDP protocol, excluding itself, blacklisted identities and its current neighbors.
-5. When the node holds $`\Phi_{CC}`$ connections and any of them is unhealthy, it may replace one. It selects the replacement first. It then closes the unhealthy connection with the lowest $`M_1^W`$, among those whose neighbor has completed an observation window, and gives the released slot to the replacement. Ties are broken uniformly at random. A healthy connection is never displaced. At most one connection is replaced per observation window. No connection is closed this way unless a replacement is available.
-6. A node that can neither open nor replace a connection logs that it holds fewer than $`\Phi_{CC}`$ healthy connections.
-7. A connection with an edge node is closed once the edge node has sent its message, or once $`T_E`$ has elapsed.
+4. When $`h(\Phi_{CC}) \lt \Phi_{CC}^{Min}`$, the node opens connections with core nodes. It draws them uniformly at random and without replacement from the set returned by the SDP protocol, excluding itself, blacklisted identities and its current neighbors.
+5. When the node holds $`\Phi_{CC}^{Max}`$ connections and any of them is unhealthy, it may replace one. It selects the replacement first. It then closes the unhealthy connection with the lowest $`M_1^W`$, among those whose neighbor has completed an observation window, and gives the released slot to the replacement. Ties are broken uniformly at random. A healthy connection is never displaced. At most one connection is replaced per observation window. No connection is closed this way unless a replacement is available.
+6. A node that can neither open nor replace a connection logs that it holds fewer than $`\Phi_{CC}^{Min}`$ healthy connections.
+7. A connection with an edge node is closed once the edge node has sent its message, or once $`T_E`$ has elapsed. $`T_E`$ covers the transmission of one message: a block proposal of $`34574`$ bytes ([Payload Formatting](payload-formatting.md)) takes $`0.28`$ s over a $`1`$ Mbit/s link, and $`T_E`$ allows a fifth again for framing and half a second for latency.
 8. A core node accepts at most $`\Lambda_E`$ connections with edge nodes per round. They are counted once the [Neighbor Distinction Process](#neighbor-distinction-process) has identified the neighbor as an edge node. A connection offered above that rate is closed.
-9. An edge node whose message fails header verification has its connection closed, and its identity added to the **edge quarantine**. A quarantined identity is refused while its entry is held. An entry expires at the end of the epoch. The quarantine has a fixed size, and the oldest entry is discarded when it is full.
+9. An edge node whose message fails header verification has its connection closed, and its identity added to the **edge quarantine**. A quarantined identity is refused while its entry is held. The refusal does not consume the acceptance rate of rule 8. An entry expires at the end of the epoch. The quarantine has a fixed size, and the oldest entry is discarded when it is full.
 
 **Logging**
 
-A node logs every connection it closes, every addition to and expiry from the blacklist and the quarantine, every replacement, and every period during which it holds fewer than $`\Phi_{CC}`$ healthy connections. Each entry carries the identity of the neighbor, the reason, and the count where one applies.
+A node logs every connection it closes, every addition to and expiry from the blacklist and the quarantine, every replacement, and every period during which it holds fewer than $`\Phi_{CC}^{Min}`$ healthy connections. Each entry carries the identity of the neighbor, the reason, and the count where one applies.
 
 ### Transition Period
 
@@ -619,7 +623,7 @@ When a new **epoch** begins:
 - The node validates message proofs against both new and past epoch-related public input for the duration of TP. This allows past-epoch messages to safely transit through the network, as their validity is bound to the epoch in which they were generated.
 - This includes the Blend threshold $`d_{blend}`$: a proof is accepted if it satisfies the threshold of the epoch whose public inputs it was generated against. A message from the past epoch is therefore judged against the past epoch's threshold and not the new one, which is required for correctness — a message that was valid when it was sent must not become invalid in flight merely because the threshold tightened at the boundary. The consequence is that during the Transition Period the network admits messages meeting either threshold, so the more permissive of the two governs for its duration. Since TP is $`30`$ rounds against an epoch of $`648000`$, and the threshold is bounded in how far it may move at a boundary, this widening is short and small.
 - The node must open new connections to process new messages for the new epoch.
-- The node needs to maintain old connections and process all messages received from these connections for the duration of TP.
+- The node needs to maintain old connections and process all messages received from these connections for the duration of TP. A connection held for the past epoch does not count towards $`\Phi_{CC}^{Max}`$, and the messages it carries are not counted against $`\lceil M_1 \rceil`$. Without this a node could not hold both generations of connections at once, and the cap and this section would require opposite behaviour at every epoch boundary.
 
 ## Quota
 
@@ -854,7 +858,9 @@ def modular_bytes(data: bytes, modulus: int) -> int:
 
 Generation of cover messages is handled by each core node individually. The only protocol-enforced limitation is through the [Core Quota](#core-quota) ($`Q_C`$), which limits the number of messages a node can generate.
 
-To protect its own privacy, a core node should emit cover messages in a fully random manner to ensure that the cover messages are evenly distributed across the duration of an epoch.
+A core node draws its cover message schedule uniformly at random over the epoch. It places at most one message in a round.
+
+The per-round limit is what keeps the quota from arriving at once. $`Q_C`$ bounds an epoch, and a node that emitted its whole quota in one round would exceed the rate every other node can forward. A node may not defer its way around this: a message it cannot place in a round is not generated.
 
 ### **Message Structure**
 
@@ -1013,9 +1019,9 @@ The process of releasing messages involves the following steps:
 - As soon as a **data** message is generated, one random unreleased (future) **cover** message must be removed from the release schedule to maintain the node’s statistical indistinguishability.
 - If more than one message needs to be released for the same round, they must be randomly shuffled before release.
 
-The cover and data message generation processes are **independent**, and there is a non-zero probability that more than one message will be scheduled for the same round. The number of messages released **to a single neighbor** during one round is nevertheless restricted to $`\lceil M_1 \rceil`$ ([Expected Connection Traffic](#expected-connection-traffic)). A node holding more than that for a neighbor releases $`\lceil M_1 \rceil`$ of them, chosen at random from those due, and carries the remainder into the following round. The choice is random so that deferral does not impose an order an observer could exploit.
+The cover and data message generation processes are **independent**, and there is a non-zero probability that more than one message will be scheduled for the same round. The number of messages released **to a single neighbor** during one round is nevertheless restricted to $`\lceil M_1 \rceil`$ ([Expected Connection Traffic](#expected-connection-traffic)). A node holding more than that for a neighbor releases $`\lceil M_1 \rceil`$ of them, chosen at random from those due, and carries the remainder into the following round. A message is never carried past the end of the [Transition Period](#transition-period) of the epoch it was generated for. A node discards it instead, because a neighbor receiving it after that point can no longer validate it and would treat its sender as malicious.
 
-Applying this limit is not optional and is not merely polite: a neighbor counts what it receives in each round and treats a count above $`\lceil M_1 \rceil`$ as misbehavior, so a node that does not hold messages back will be disconnected and blacklisted by the neighbors it oversends to. At the expected traffic the limit binds in roughly one round in forty thousand, and while the network is bootstrapping in about one in a hundred, in both cases by a single message deferred by a single round.
+Applying this limit is not optional and is not merely polite: a neighbor counts what it receives in each round and treats a count above $`\lceil M_1 \rceil`$ as misbehavior, so a node that does not hold messages back will be disconnected and blacklisted by the neighbors it oversends to.
 
 A message deferred this way is released later than the round the [Delaying](#delaying) logic chose for it. This is the one case in which the upper bound on delay that section describes does not hold, and it is the price of making the maximum a limit that can be enforced against its sender rather than a threshold to be inferred from a distribution.
 
