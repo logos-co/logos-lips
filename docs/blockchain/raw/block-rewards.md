@@ -45,7 +45,7 @@ The released component is anchored to one measured indicator, the inferred total
 
 Fee computation and stake inference are out of scope. Refer to [Execution Market](execution-market.md) and [Storage Markets](storage-markets.md) for the fee amount, and to [Total Stake Inference](cryptarchia-total-stake-inference.md) for the stake estimate. Distribution to individual recipients is also out of scope. Refer to [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md) for how the leader share is held and claimed, and to [Blend Protocol](blend-protocol.md) and [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md) for the Blend share. This document only defines the amount transferred at each epoch boundary and its split between the two recipient classes. The Execution priority fee is outside that amount. It is routed in full to the leader class through the leader reward accumulator of the [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md).
 
-The properties this mechanism satisfies, its behaviour across the range of its state variables, the incentives it creates, its failure modes, and the trade-offs taken are derived in [\[Analysis\] Block Rewards](analysis_block_rewards_specs.md), revised to 1.1.0 alongside this document. Results proved there are referenced from this document by the labels P for derived properties, S for scenarios, I for incentive results, and F for failure modes. That document also records which results of revision 1.0.0 were replaced, reversed or withdrawn by this revision.
+The properties this mechanism satisfies, its behaviour across the range of its state variables, the incentives it creates, its failure modes, and the trade-offs taken are derived in [\[Analysis\] Block Rewards](analysis-block-rewards.md). Results proved there are referenced from this document by the labels P for derived properties, S for scenarios, I for incentive results, and F for failure modes.
 
 # Overview
 
@@ -65,7 +65,7 @@ $$
 
 The distinction is economic, and it is also a difference in provenance. Block fees move from circulation into the rewards pool directly, recycling tokens the block itself collected. Released rewards move from the reserve pool into the rewards pool, drawing down an allocation made at genesis and expanding the circulating supply. The two components arrive at the same destination along different edges, as Figure 1 shows.
 
-Neither component creates tokens, which is why [Derived Property P1](analysis_new_block_rewards_specs.md#p1-conservation) holds.
+Neither component creates tokens, which is why [Derived Property P1](analysis-block-rewards.md#p1-conservation) holds.
 
 Two neighbouring terms are not rewards:
 
@@ -85,21 +85,21 @@ The block reward is therefore an obligation accrued at block time and discharged
 
 ## Requirements
 
-The mechanism is specified to satisfy the following requirements. Each is discharged by a numbered result in [\[Analysis\] Block Rewards](analysis_new_block_rewards_specs.md). The requirement is normative here; the proof that the mechanism meets it is in that document.
+The mechanism is specified to satisfy the following requirements. Each is discharged by a numbered result in [\[Analysis\] Block Rewards](analysis-block-rewards.md). The requirement is normative here; the proof that the mechanism meets it is in that document.
 
 | | Requirement | Discharged by |
 | --- | --- | --- |
-| R1 | The token supply is fixed. The mechanism never mints. The stocks it controls are conserved under every state transition. | [Derived Property P1](analysis_new_block_rewards_specs.md#p1-conservation) |
+| R1 | The token supply is fixed. The mechanism never mints. The stocks it controls are conserved under every state transition. | [Derived Property P1](analysis-block-rewards.md#p1-conservation) |
 | R2 | The released component responds to measured network state instead of elapsed time. A larger deviation of the key performance indicator from its target produces a larger draw on the pre-allocated reserve. | [Key Performance Indicator](#key-performance-indicator), [Security Controller](#security-controller) |
-| R3 | Released rewards are strictly positive whenever the security shortfall is positive **and the reserve is non-empty**. | [Derived Property P3](analysis_new_block_rewards_specs.md#p3-block-reward-bounds-and-monotonicity), scoped by [Derived Property P7](analysis_new_block_rewards_specs.md#p7-the-reserve-reaches-zero-in-finite-time) |
-| R4 | The block reward is a continuous function of the state. No threshold produces a jump in the amount paid. | [Derived Property P6](analysis_new_block_rewards_specs.md#p6-the-reserve-pool-covers-every-released-reward) |
-| R5 | Gross emission into circulation is bounded per block and per year, in every state, independently of fee revenue. | [Derived Property P3](analysis_new_block_rewards_specs.md#p3-block-reward-bounds-and-monotonicity) |
-| R6 | No stock accumulates without a release rule. Any token withheld from a block reward is held in an account the mechanism can later draw on. | [Derived Property P2](analysis_new_block_rewards_specs.md#p2-the-rewards-pool-accrues-within-an-epoch-and-discharges-at-the-boundary) |
-| R7 | No participant profits from inflating the fees in a block. | [Incentive Analysis I1](analysis_new_block_rewards_specs.md#i1-inflating-fees-is-not-profitable-but-is-no-longer-bounded-in-effect). Weakened relative to revision 1.0.0; see [Open Items](#open-items). |
+| R3 | Released rewards are strictly positive whenever the security shortfall is positive **and the reserve is non-empty**. | [Derived Property P3](analysis-block-rewards.md#p3-block-reward-bounds-and-monotonicity), scoped by [Derived Property P7](analysis-block-rewards.md#p7-the-reserve-reaches-zero-in-finite-time) |
+| R4 | The block reward is a continuous function of the state. No threshold produces a jump in the amount paid. | [Derived Property P6](analysis-block-rewards.md#p6-the-reserve-pool-covers-every-released-reward) |
+| R5 | Gross emission into circulation is bounded per block and per year, in every state, independently of fee revenue. | [Derived Property P3](analysis-block-rewards.md#p3-block-reward-bounds-and-monotonicity) |
+| R6 | No stock accumulates without a release rule. Any token withheld from a block reward is held in an account the mechanism can later draw on. | [Derived Property P2](analysis-block-rewards.md#p2-the-rewards-pool-accrues-within-an-epoch-and-discharges-at-the-boundary) |
+| R7 | No participant profits from inflating the fees in a block. | [Incentive Analysis I1](analysis-block-rewards.md#i1-inflating-fees-is-not-profitable-but-its-effect-is-unbounded) |
 | R8 | The consensus rule is integer-valued and deterministic across nodes. | [Float Precision for Implementation](#float-precision-for-implementation) |
-| R9 | The obligation accrued over an epoch is discharged in full at the epoch boundary. The rewards pool retains no balance across epochs. | [Derived Property P2](analysis_new_block_rewards_specs.md#p2-the-rewards-pool-accrues-within-an-epoch-and-discharges-at-the-boundary) |
+| R9 | The obligation accrued over an epoch is discharged in full at the epoch boundary. The rewards pool retains no balance across epochs. | [Derived Property P2](analysis-block-rewards.md#p2-the-rewards-pool-accrues-within-an-epoch-and-discharges-at-the-boundary) |
 
-R3 is the requirement this revision satisfies only over a bounded horizon. The reserve has no inflow, so a shortfall that persists long enough exhausts it and the released component goes to zero permanently. R3 is therefore a statement about the reserve's lifetime, not about all future states.
+R3 holds only over a bounded horizon. The reserve has no inflow, so a shortfall that persists long enough exhausts it and the released component goes to zero permanently. R3 is therefore a statement about the reserve's lifetime, not about all future states.
 
 R9 separates accrual from payment. Without it the rewards pool balance would be a free variable and the conservation argument would not close at any single point in time.
 
@@ -113,7 +113,7 @@ The mechanism controls three token stocks:
 
 Every block, the block's Execution base fees and Permanent Storage fees move in full from circulation into the rewards pool, and the reserve pool releases $`\iota_t`$ into the rewards pool. At each epoch boundary the rewards pool is emptied into the distribution protocols. These are the only flows this mechanism applies, so $`S_t + P_t + B_t`$ is invariant under them. The Execution priority fee moves along a separate edge, from the payer to the leader reward accumulator.
 
-![Block reward token flows](new-block-rewards/assets/token-flows.png)
+![Block reward token flows](block-rewards/assets/token-flows.png)
 
 > <sub>Figure 1. Token flows. Every edge is a transfer between existing stocks. Flows 1 and 2 occur at every block; flow 3 occurs only at an epoch boundary, when the rewards pool is emptied. The reserve pool has no inflow.</sub>
 
@@ -132,12 +132,12 @@ The two components are independent. Fees do not displace the release, and the re
 
 ## Lifecycle Phases
 
-Let $`\theta_t`$ denote the security level. The regimes are keyed on $`\theta_t`$ and on the reserve balance. Fee revenue no longer selects a regime; it scales the reward within one. Each is evaluated in full in [Scenario Analysis](analysis_new_block_rewards_specs.md#scenario-analysis).
+Let $`\theta_t`$ denote the security level. The regimes are keyed on $`\theta_t`$ and on the reserve balance. Fee revenue no longer selects a regime; it scales the reward within one. Each is evaluated in full in [Scenario Analysis](analysis-block-rewards.md#scenario-analysis).
 
-- **Bootstrap.** $`\theta_t \le 25\%`$, so $`A_t = 1`$. The release is at $`c`$ every block, the reserve drains at its maximum rate, and the staking yield against a small base is high. [Scenario S1](analysis_new_block_rewards_specs.md#s1-bootstrap)
-- **Stabilization.** $`\theta_t \in (25\%, 30\%)`$. $`A_t`$ falls linearly with the shortfall, the release shrinks, and a growing share of the block reward is fees. [Scenario S3](analysis_new_block_rewards_specs.md#s3-proportional-band)
-- **Self-sustaining.** $`\theta_t \ge 30\%`$, so $`A_t = 0`$. Nothing is released, the reward is fees alone, and the reserve is frozen at its current balance rather than drained. The mechanism spends the reserve only in the states that call for it. [Scenario S2](analysis_new_block_rewards_specs.md#s2-target-reached-no-usage), [Scenario S4](analysis_new_block_rewards_specs.md#s4-high-adoption)
-- **Terminal.** $`B_{t-1} = 0`$. The reserve is spent and the reward is fees alone from that block onward, whatever the security state. This state is absorbing: there is no inflow that can restore the reserve. [Scenario S5](analysis_new_block_rewards_specs.md#s5-depleted-reserve-security-below-target), [Failure Mode F1](analysis_new_block_rewards_specs.md#f1-terminal-reserve-exhaustion-and-the-yield-cliff)
+- **Bootstrap.** $`\theta_t \le 25\%`$, so $`A_t = 1`$. The release is at $`c`$ every block, the reserve drains at its maximum rate, and the staking yield against a small base is high. [Scenario S1](analysis-block-rewards.md#s1-bootstrap)
+- **Stabilization.** $`\theta_t \in (25\%, 30\%)`$. $`A_t`$ falls linearly with the shortfall, the release shrinks, and a growing share of the block reward is fees. [Scenario S3](analysis-block-rewards.md#s3-proportional-band)
+- **Self-sustaining.** $`\theta_t \ge 30\%`$, so $`A_t = 0`$. Nothing is released, the reward is fees alone, and the reserve is frozen at its current balance rather than drained. The mechanism spends the reserve only in the states that call for it. [Scenario S2](analysis-block-rewards.md#s2-target-reached-no-usage), [Scenario S4](analysis-block-rewards.md#s4-high-adoption)
+- **Terminal.** $`B_{t-1} = 0`$. The reserve is spent and the reward is fees alone from that block onward, whatever the security state. This state is absorbing: there is no inflow that can restore the reserve. [Scenario S5](analysis-block-rewards.md#s5-depleted-reserve-security-below-target), [Failure Mode F1](analysis-block-rewards.md#f1-terminal-reserve-exhaustion-and-the-yield-cliff)
 
 The self-sustaining regime is reversible and the terminal regime is not. The difference between them is the subject of [Reserve Horizon and Terminal State](#reserve-horizon-and-terminal-state).
 
@@ -145,15 +145,15 @@ The self-sustaining regime is reversible and the terminal regime is not. The dif
 
 Each claim below is a result proved in the analysis document.
 
-- **Conservation.** $`S_t + P_t + B_t`$ is invariant at every block. The mechanism never mints. [Derived Property P1](analysis_new_block_rewards_specs.md#p1-conservation)
-- **Epoch discharge.** The rewards pool accrues within an epoch and returns to zero at the boundary. [Derived Property P2](analysis_new_block_rewards_specs.md#p2-the-rewards-pool-accrues-within-an-epoch-and-discharges-at-the-boundary)
-- **Bounded emission.** Released rewards are at most $`c`$ per block, that is $`I_{max} S_{cap}`$ per year, in every state and at any fee level. The bound is unconditional on fees rather than mediated by the fee gap. [Derived Property P3](analysis_new_block_rewards_specs.md#p3-block-reward-bounds-and-monotonicity)
-- **Unbounded block reward.** $`R_t`$ has no upper bound, since it contains the block's fees uncapped. The bound of revision 1.0.0, $`R_t \le c`$, no longer holds and must not be assumed by downstream protocols. [Derived Property P3](analysis_new_block_rewards_specs.md#p3-block-reward-bounds-and-monotonicity), [Failure Mode F5](analysis_new_block_rewards_specs.md#f5-the-settled-reward-is-no-longer-a-bounded-signal)
-- **Separability.** The fee component and the released component are additively separable, with zero cross-partial. Fee revenue neither displaces nor triggers a release. [Derived Property P4](analysis_new_block_rewards_specs.md#p4-the-two-components-are-additively-separable)
-- **Monotone supply.** Circulating supply is non-decreasing epoch over epoch, and strictly increasing whenever $`A_t > 0`$ over the epoch. The contraction regime of revision 1.0.0 does not exist. [Derived Property P5](analysis_new_block_rewards_specs.md#p5-closed-form-for-the-stock-dynamics)
-- **Reserve solvency.** Released rewards never exceed the reserve pool balance, by the clamp in equation (2). [Derived Property P6](analysis_new_block_rewards_specs.md#p6-the-reserve-pool-covers-every-released-reward)
-- **Finite reserve horizon.** The reserve reaches zero in finite time under a persistent shortfall, and the terminal state is absorbing. [Derived Property P7](analysis_new_block_rewards_specs.md#p7-the-reserve-reaches-zero-in-finite-time), [Derived Property P8](analysis_new_block_rewards_specs.md#p8-reserve-horizon)
-- **Manipulation resistance.** Inflating the fees in a block is never profitable for a participant whose combined share of the epoch settlement is below one. The per-block absolute bound of revision 1.0.0 is gone; the recovered fraction is now constant in the fee paid. [Incentive Analysis I1](analysis_new_block_rewards_specs.md#i1-inflating-fees-is-not-profitable-but-is-no-longer-bounded-in-effect)
+- **Conservation.** $`S_t + P_t + B_t`$ is invariant at every block. The mechanism never mints. [Derived Property P1](analysis-block-rewards.md#p1-conservation)
+- **Epoch discharge.** The rewards pool accrues within an epoch and returns to zero at the boundary. [Derived Property P2](analysis-block-rewards.md#p2-the-rewards-pool-accrues-within-an-epoch-and-discharges-at-the-boundary)
+- **Bounded emission.** Released rewards are at most $`c`$ per block, that is $`I_{max} S_{cap}`$ per year, in every state and at any fee level. The bound is unconditional on fees rather than mediated by the fee gap. [Derived Property P3](analysis-block-rewards.md#p3-block-reward-bounds-and-monotonicity)
+- **Unbounded block reward.** $`R_t`$ has no upper bound, since it contains the block's fees uncapped. No ceiling on $`R_t`$ may be assumed by downstream protocols. [Derived Property P3](analysis-block-rewards.md#p3-block-reward-bounds-and-monotonicity), [Failure Mode F5](analysis-block-rewards.md#f5-the-settled-reward-is-not-a-bounded-signal)
+- **Separability.** The fee component and the released component are additively separable, with zero cross-partial. Fee revenue neither displaces nor triggers a release. [Derived Property P4](analysis-block-rewards.md#p4-the-two-components-are-additively-separable)
+- **Monotone supply.** Circulating supply is non-decreasing epoch over epoch, and strictly increasing whenever $`A_t > 0`$ over the epoch. No fee level contracts it. [Derived Property P5](analysis-block-rewards.md#p5-closed-form-for-the-stock-dynamics)
+- **Reserve solvency.** Released rewards never exceed the reserve pool balance, by the clamp in equation (2). [Derived Property P6](analysis-block-rewards.md#p6-the-reserve-pool-covers-every-released-reward)
+- **Finite reserve horizon.** The reserve reaches zero in finite time under a persistent shortfall, and the terminal state is absorbing. [Derived Property P7](analysis-block-rewards.md#p7-the-reserve-reaches-zero-in-finite-time), [Derived Property P8](analysis-block-rewards.md#p8-reserve-horizon)
+- **Manipulation resistance.** Inflating the fees in a block is never profitable for a participant whose combined share of the epoch settlement is below one. The recovered fraction is constant in the fee paid. [Incentive Analysis I1](analysis-block-rewards.md#i1-inflating-fees-is-not-profitable-but-its-effect-is-unbounded)
 - **Minimal consensus state.** The rule reads the reserve pool balance, the stake estimate, the block's fees, the rewards pool balance and the epoch position. No fee window or history is maintained.
 
 # Construction
@@ -179,7 +179,7 @@ $$
 c = \frac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f} .
 $$
 
-$`c`$ has a single role in this revision: it is the maximum draw on the reserve in one block. It is not applied to fees.
+$`c`$ has a single role: it is the maximum draw on the reserve in one block. It is not applied to fees.
 
 Its calibration is a yield statement, but the reference base is the saturation boundary and not the target. The release is at $`c`$ only while $`A_t = 1`$, that is while $`D_t \le D_{target} - \Lambda`$. At $`D_t = D_{target}`$ the controller is zero, nothing is released, and the block reward is pure fee recycling, so no release-funded yield can be quoted there at all. The largest staked base still receiving the full release is therefore $`D_{target} - \Lambda`$, and over the saturated region the release-funded annual yield is
 
@@ -187,7 +187,7 @@ $$
 r^{\iota}(D_t) = \frac{I_{max} S_{cap}}{D_t} \;\ge\; \frac{I_{max} S_{cap}}{D_{target} - \Lambda} ,
 $$
 
-which at the adopted parameters is at least $`4.0\%`$, on a base of $`2.5 \cdot 10^9`$ LGO, and rises without bound as the staked base falls. Across the proportional band the release-funded yield is $`A_t I_{max} S_{cap} / D_t`$, which falls monotonically from $`4.0\%`$ at $`\theta = 25\%`$ to zero at $`\theta = 30\%`$. [Failure Mode F1](analysis_new_block_rewards_specs.md#f1-terminal-reserve-exhaustion-and-the-yield-cliff) tabulates $`r^{\iota}`$ across the range.
+which at the adopted parameters is at least $`4.0\%`$, on a base of $`2.5 \cdot 10^9`$ LGO, and rises without bound as the staked base falls. Across the proportional band the release-funded yield is $`A_t I_{max} S_{cap} / D_t`$, which falls monotonically from $`4.0\%`$ at $`\theta = 25\%`$ to zero at $`\theta = 30\%`$. [Failure Mode F1](analysis-block-rewards.md#f1-terminal-reserve-exhaustion-and-the-yield-cliff) tabulates $`r^{\iota}`$ across the range.
 
 Epochs are indexed by $`e`$, and epoch $`e`$ spans the blocks $`t \in (T_{e-1}, T_e]`$ with $`T_e = e L`$.
 
@@ -222,7 +222,7 @@ Consensus state read by this mechanism is $`(B_{t-1}, D_t, R^{\text{block}}_t)`$
 | $`f`$ | Block proposals per time step | $`1`$ | $`\Delta_t`$ chosen so $`f = 1`$. |
 | $`c`$ | Per-block release cap | $`62500/657 \approx 95.129`$ LGO | Derived from the four rows above. |
 | $`D_{target}`$ | Target inferred total stake | $`3 \cdot 10^9`$ LGO | $`\theta_{target} = 30\%`$. Chains with utility exhibit a negative relation between usage and staking ratio, so a target above $`50\%`$ is not appropriate; the lower end of the observed $`30\%`$ to $`50\%`$ band stops the release sooner. |
-| $`\Lambda`$ | Stake shortfall at controller saturation | $`5 \cdot 10^8`$ LGO | Equivalently $`\delta^\ast = \Lambda / D_{target} = 1/6`$, so $`A_t = 1`$ below $`\theta = 25\%`$ and the proportional band runs from there to $`30\%`$. Jointly with $`I_{max}`$ it fixes the release-funded yield floor, since the base at saturation is $`D_{target} - \Lambda`$. See [Open Items](#open-items). |
+| $`\Lambda`$ | Stake shortfall at controller saturation | $`5 \cdot 10^8`$ LGO | Equivalently $`\delta^\ast = \Lambda / D_{target} = 1/6`$, so $`A_t = 1`$ below $`\theta = 25\%`$ and the proportional band runs from there to $`30\%`$. Jointly with $`I_{max}`$ it fixes the release-funded yield floor, since the base at saturation is $`D_{target} - \Lambda`$. |
 | $`L`$ | Blocks per epoch | $`21600`$ | $`7.5`$ days at one block every 30 seconds. Sets the reserve-funded settlement float at $`L c = 2.055 \cdot 10^6`$ LGO, $`0.02\%`$ of $`S_{cap}`$. The fee-funded part of the float is unbounded by the protocol. |
 
 ## Key Performance Indicator
@@ -327,9 +327,9 @@ $$
 B_t = B_0 - \sum_{s \le t} \iota_s , \qquad \sum_{s} \iota_s \;\le\; B_0 = I_{max} S_{cap} Y .
 $$
 
-Under a saturated controller, $`A_t = 1`$ at every block, the horizon is exactly $`B_0 / c = 1.0512 \cdot 10^7`$ blocks, that is $`Y = 10`$ years. Under a mean controller value $`\bar{A}`$ over the interval, the horizon is $`Y / \bar{A}`$ years, tabulated in [Derived Property P8](analysis_new_block_rewards_specs.md#p8-reserve-horizon). The reserve is spent only in the states that call for it, so a chain that reaches its stake target early conserves the balance indefinitely; a chain that never reaches it spends the reserve in ten years.
+Under a saturated controller, $`A_t = 1`$ at every block, the horizon is exactly $`B_0 / c = 1.0512 \cdot 10^7`$ blocks, that is $`Y = 10`$ years. Under a mean controller value $`\bar{A}`$ over the interval, the horizon is $`Y / \bar{A}`$ years, tabulated in [Derived Property P8](analysis-block-rewards.md#p8-reserve-horizon). The reserve is spent only in the states that call for it, so a chain that reaches its stake target early conserves the balance indefinitely; a chain that never reaches it spends the reserve in ten years.
 
-Once $`B_t = 0`$ the state is absorbing, per [Derived Property P7](analysis_new_block_rewards_specs.md#p7-the-reserve-reaches-zero-in-finite-time). Released rewards are zero from that block onward, the block reward is fees alone, and the mechanism has no instrument left if the stake subsequently falls below target. The release also stops abruptly rather than tapering: it falls from $`A_t c`$ to zero across two consecutive blocks, removing up to $`I_{max} S_{cap} / D_t`$ of annual staking yield at that instant. [Failure Mode F1](analysis_new_block_rewards_specs.md#f1-terminal-reserve-exhaustion-and-the-yield-cliff) quantifies the cliff and evaluates the available mitigations.
+Once $`B_t = 0`$ the state is absorbing, per [Derived Property P7](analysis-block-rewards.md#p7-the-reserve-reaches-zero-in-finite-time). Released rewards are zero from that block onward, the block reward is fees alone, and the mechanism has no instrument left if the stake subsequently falls below target. The release also stops abruptly rather than tapering: it falls from $`A_t c`$ to zero across two consecutive blocks, removing up to $`I_{max} S_{cap} / D_t`$ of annual staking yield at that instant. [Failure Mode F1](analysis-block-rewards.md#f1-terminal-reserve-exhaustion-and-the-yield-cliff) quantifies the cliff and evaluates the available mitigations.
 
 ## Accounting and Supply Dynamics
 
@@ -396,7 +396,7 @@ $`\Pi^{blend}_e`$ passes to the Blend distribution and $`\Pi^{leader}_e`$ to the
 
 Splitting at the epoch aggregate rather than per block reduces the truncation residual from one base unit per block to one per epoch, a factor of $`L`$.
 
-Immediately after settlement $`P_{T_e} = 0`$. This is the only instant at which the rewards pool balance is known without reference to the epoch's history, and it is the point at which the three-stock identity reduces to two, per [Derived Property P2](analysis_new_block_rewards_specs.md#p2-the-rewards-pool-accrues-within-an-epoch-and-discharges-at-the-boundary).
+Immediately after settlement $`P_{T_e} = 0`$. This is the only instant at which the rewards pool balance is known without reference to the epoch's history, and it is the point at which the three-stock identity reduces to two, per [Derived Property P2](analysis-block-rewards.md#p2-the-rewards-pool-accrues-within-an-epoch-and-discharges-at-the-boundary).
 
 # Float Precision for Implementation
 
@@ -410,7 +410,7 @@ c^{\ast} = \left\lfloor \frac{62500 \cdot 10^{d}}{657} \right\rfloor, \quad
 M = 2^{32} .
 $$
 
-$`M`$ is the fixed-point scale of the controller. $`c^{\ast}`$ replaces the exact rational $`c`$; the truncation is below one base unit, that is $`10^{-18}`$ LGO. The throttle constant $`\Phi = \beta^\ast B_0`$ of revision 1.0.0 is removed.
+$`M`$ is the fixed-point scale of the controller. $`c^{\ast}`$ replaces the exact rational $`c`$; the truncation is below one base unit, that is $`10^{-18}`$ LGO.
 
 ## Rule
 
@@ -452,13 +452,13 @@ The rewards pool accumulator is no longer bounded by a protocol constant, becaus
 A full chain of $`20`$ epochs of $`L = 21600`$ blocks, $`432000`$ blocks in total, was simulated against exact rational arithmetic with $`D_t \in [0, 4 \cdot 10^9]`$ LGO and $`R^{\text{block}}_t \in [0, 3c]`$ drawn independently at each block. The run was repeated with the reserve initialized at $`2 \cdot 10^6`$ LGO so that the clamp binds. The differential test is `new-block-rewards/assets/reference_implementation.py`.
 
 - worst absolute deviation from the exact block reward: $`2.22 \cdot 10^{-8}`$ LGO per block, that is $`0.023`$ LGO per year against a maximum annual release of $`10^8`$ LGO, a relative error of $`2.3 \cdot 10^{-10}`$ on the annual emission. Identical in both runs, since the fee term is exact and the clamp does not add error.
-- $`R^{\text{block}}_t \le R_t \le R^{\text{block}}_t + c^{\ast}`$: holds at every block, confirming [Derived Property P3](analysis_new_block_rewards_specs.md#p3-block-reward-bounds-and-monotonicity) and R5.
-- $`\iota_t \le B_{t-1}`$: holds at every block, in both runs, confirming [Derived Property P6](analysis_new_block_rewards_specs.md#p6-the-reserve-pool-covers-every-released-reward).
-- $`B_t = \max \lbrace 0, B_0 - \sum_{s \le t} \lfloor A_s c^{\ast} \rfloor \rbrace`$: exact at every block in both runs, including through exhaustion, confirming the closed form of [Derived Property P5](analysis_new_block_rewards_specs.md#p5-closed-form-for-the-stock-dynamics).
+- $`R^{\text{block}}_t \le R_t \le R^{\text{block}}_t + c^{\ast}`$: holds at every block, confirming [Derived Property P3](analysis-block-rewards.md#p3-block-reward-bounds-and-monotonicity) and R5.
+- $`\iota_t \le B_{t-1}`$: holds at every block, in both runs, confirming [Derived Property P6](analysis-block-rewards.md#p6-the-reserve-pool-covers-every-released-reward).
+- $`B_t = \max \lbrace 0, B_0 - \sum_{s \le t} \lfloor A_s c^{\ast} \rfloor \rbrace`$: exact at every block in both runs, including through exhaustion, confirming the closed form of [Derived Property P5](analysis-block-rewards.md#p5-closed-form-for-the-stock-dynamics).
 - $`B_t \ge 0`$ with exact termination: in the near-empty run the reserve reached exactly zero at block $`30648`$ and stayed there, with the release identically zero thereafter and the block reward equal to the fees.
-- $`S_t + B_t + P_t`$ constant: checked at every block, including boundaries, confirming [Derived Property P1](analysis_new_block_rewards_specs.md#p1-conservation) at integer precision.
-- $`P_{T_e} = 0`$ at all $`20`$ boundaries, confirming [Derived Property P2](analysis_new_block_rewards_specs.md#p2-the-rewards-pool-accrues-within-an-epoch-and-discharges-at-the-boundary) and R9.
-- $`\Pi^{blend}_e + \Pi^{leader}_e = \Pi_e`$: exact. Computing the two components with independent floor divisions would lose up to one base unit per settlement and break [Derived Property P1](analysis_new_block_rewards_specs.md#p1-conservation); assigning the residual to the leader share removes the loss.
+- $`S_t + B_t + P_t`$ constant: checked at every block, including boundaries, confirming [Derived Property P1](analysis-block-rewards.md#p1-conservation) at integer precision.
+- $`P_{T_e} = 0`$ at all $`20`$ boundaries, confirming [Derived Property P2](analysis-block-rewards.md#p2-the-rewards-pool-accrues-within-an-epoch-and-discharges-at-the-boundary) and R9.
+- $`\Pi^{blend}_e + \Pi^{leader}_e = \Pi_e`$: exact. Computing the two components with independent floor divisions would lose up to one base unit per settlement and break [Derived Property P1](analysis-block-rewards.md#p1-conservation); assigning the residual to the leader share removes the loss.
 - peak rewards pool balance: $`4.51 \cdot 10^6`$ LGO, against a reserve-funded component of at most $`L c = 2.05 \cdot 10^6`$ LGO. The excess is fee-driven and scales with fee volume, which is the observable consequence of the accumulator no longer having a protocol bound.
 
 ## Reference
