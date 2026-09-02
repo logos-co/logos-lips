@@ -552,17 +552,17 @@ $$
 \lceil M_1 \rceil = 12 \qquad \lceil M_N \rceil = (\Phi_{CC}^{Max} + 1) \cdot \lceil M_1 \rceil = 108
 $$
 
-$`\lceil M_1 \rceil`$ is a protocol constant. A node holds back anything above it rather than sending it ([Releasing](#releasing)), so a count above it is misbehavior and not an unlucky round.
+$`\lceil M_1 \rceil`$ is a protocol constant. A node holds back anything above it rather than sending it ([Releasing](#releasing)), so a neighbor that exceeds it is not doing so by accident.
 
 The value follows from $`F_1`$ and from the margin the network needs above it. At $`12`$ a connection carrying its expected $`3.0`$ messages per round defers about once in sixty thousand rounds. The margin also sets how far the network can move before the queue of a sender stops draining, which is four times the rate a connection carries today.
 
-$`\lceil M_N \rceil`$ is what a node may receive in a round. It is divided into $`\Phi_{CC}^{Max}+1`$ shares. One share belongs to each neighbor it may hold. The last share is $`\Lambda_E`$, and it serves the edge nodes.
+$`\lceil M_N \rceil`$ is what a node may receive in a round on average, measured over the same $`\Delta_{max}`$ rounds as the maximum. It is divided into $`\Phi_{CC}^{Max}+1`$ shares. One share belongs to each neighbor it may hold. The last share is $`\Lambda_E`$, and it serves the edge nodes.
 
 The queue of a sender drains only while $`F_1 \lt \lceil M_1 \rceil`$. [Cryptarchia](cryptarchia-v1-protocol.md) must bound the number of block proposals admitted per slot so that this holds, or $`\lceil M_1 \rceil`$ must be raised to cover the worst case it admits.
 
 ### Connectivity Maintenance
 
-A core node blacklists a neighbor only for misbehavior that its authenticated identity is responsible for. There are three kinds: a message that fails header verification, a failure of the authenticated stream, and a message count above $`\lceil M_1 \rceil`$. A failure of the authenticated stream is a TLS record that fails authentication, or a violation of the framing of the stream. The loss of a connection is not one of them, and counts as silence.
+A core node blacklists a neighbor only for misbehavior that its authenticated identity is responsible for. There are three kinds: a message that fails header verification, a failure of the authenticated stream, and a connection classified spammy. A failure of the authenticated stream is a TLS record that fails authentication, or a violation of the framing of the stream. The loss of a connection is not one of them, and counts as silence.
 
 The number of connections with core nodes never exceeds $`\Phi_{CC}^{Max}`$. A connection whose handshake is in progress counts towards it once the [Neighbor Distinction Process](#neighbor-distinction-process) has identified the neighbor as a core node. A handshake that has not completed within $`T_E`$ is abandoned and its slot released.
 
@@ -570,7 +570,9 @@ The number of connections with core nodes never exceeds $`\Phi_{CC}^{Max}`$. A c
 
 A node counts the messages it receives on each connection with a core node. $`M_1`$ is the count for the current round. It includes duplicates, so that a neighbor sending the same message repeatedly is bounded by the maximum.
 
-$`M_1^W`$ is the count over the trailing observation window $`W`$ of the messages whose nullifier the node had not already seen. Duplicates are excluded from it. A duplicate costs its sender nothing, and a neighbor that returns the traffic it was sent would otherwise meet the minimum without relaying anything. A node records the nullifiers of the messages it generates as well as those it relays, so a message returned to it is recognised as a duplicate.
+$`M_1^W`$ is the count over the trailing observation window $`W`$ of the messages the node had not itself released on that connection. Returning a message to the node it came from costs the neighbor nothing, and a neighbor that returned the traffic it was sent would otherwise meet the minimum while relaying nothing. Every other message counts, including one the node already holds from another neighbor. A node records the nullifiers it releases on each connection so that a return is recognised.
+
+Only the return is excluded. A node deduplicates across all of its connections, so each message it receives is new on one connection and already held on the others. Excluding every duplicate would leave each connection credited with only its share of the traffic, which is $`F_1 \cdot W / \Phi_{CC}^{Max}`$ and below the minimum.
 
 The counts are kept against the authenticated identity of the neighbor, for the epoch. A neighbor that reconnects resumes them. The window advances only while the neighbor is connected.
 
@@ -623,7 +625,7 @@ When a new **epoch** begins:
 - The node validates message proofs against both new and past epoch-related public input for the duration of TP. This allows past-epoch messages to safely transit through the network, as their validity is bound to the epoch in which they were generated.
 - This includes the Blend threshold $`d_{blend}`$: a proof is accepted if it satisfies the threshold of the epoch whose public inputs it was generated against. A message from the past epoch is therefore judged against the past epoch's threshold and not the new one, which is required for correctness — a message that was valid when it was sent must not become invalid in flight merely because the threshold tightened at the boundary. The consequence is that during the Transition Period the network admits messages meeting either threshold, so the more permissive of the two governs for its duration. Since TP is $`30`$ rounds against an epoch of $`648000`$, and the threshold is bounded in how far it may move at a boundary, this widening is short and small.
 - The node must open new connections to process new messages for the new epoch.
-- The node needs to maintain old connections and process all messages received from these connections for the duration of TP. A connection held for the past epoch does not count towards $`\Phi_{CC}^{Max}`$, and the messages it carries are not counted against $`\lceil M_1 \rceil`$. Without this a node could not hold both generations of connections at once, and the cap and this section would require opposite behaviour at every epoch boundary.
+- The node needs to maintain old connections and process all messages received from these connections for the duration of TP. A connection held for the past epoch does not count towards $`\Phi_{CC}^{Max}`$. Without this a node could not hold both generations of connections at once, and the cap and this section would require opposite behaviour at every epoch boundary. The maximum still applies to it: what the boundary needs relaxed is the number of connections, not the rate any one of them may carry.
 
 ## Quota
 
@@ -919,7 +921,7 @@ When this happens, a number of messages (limited by the [Quota](#quota)) are gen
 The relaying logic is defined as follows:
 
 1. The node checks the header of the message that was received from its neighbor, according to the [Message Formatting](message-formatting.md).
-    1. If the neighbor is a core node, then update the message counter for the neighbor, as defined in the [Connectivity Maintenance](#connectivity-maintenance). Every received message is counted, including one that is discarded by the steps below.
+    1. If the neighbor is a core node, then update the counts for the neighbor, as defined in the [Connectivity Maintenance](#connectivity-maintenance). A message discarded by the steps below is still counted.
     2. If the neighbor is an edge node, then close the connection with the neighbor.
     3. If the header of the message is incorrect, then discard the message and mark the neighbor as malicious and close the connection. We assume that an adversary cannot inject any spoofed message to the connection.
     4. If the PoQ nullifier $`\nu_i \in \mathbf H`$ from the public header of the message is already in the nullifier cache, then the message is a duplicate and must be discarded. This step only reads the cache: the nullifier is inserted only after steps 1.5 and 1.6 have both passed, at the moment the message is accepted for relaying. Cached entries are retained for the duration of the current epoch and the [Transition Period](#transition-period).
@@ -1021,7 +1023,7 @@ The process of releasing messages involves the following steps:
 
 The cover and data message generation processes are **independent**, and there is a non-zero probability that more than one message will be scheduled for the same round. The number of messages released **to a single neighbor** during one round is nevertheless restricted to $`\lceil M_1 \rceil`$ ([Expected Connection Traffic](#expected-connection-traffic)). A node holding more than that for a neighbor releases $`\lceil M_1 \rceil`$ of them, chosen at random from those due, and carries the remainder into the following round. A message is never carried past the end of the [Transition Period](#transition-period) of the epoch it was generated for. A node discards it instead, because a neighbor receiving it after that point can no longer validate it and would treat its sender as malicious.
 
-Applying this limit is not optional and is not merely polite: a neighbor counts what it receives in each round and treats a count above $`\lceil M_1 \rceil`$ as misbehavior, so a node that does not hold messages back will be disconnected and blacklisted by the neighbors it oversends to.
+Applying this limit is not optional and is not merely polite: a neighbor counts what it receives and classifies the connection spammy if the count exceeds the maximum ([Connectivity Maintenance](#connectivity-maintenance)), so a node that does not hold messages back will be disconnected and blacklisted by the neighbors it oversends to.
 
 A message deferred this way is released later than the round the [Delaying](#delaying) logic chose for it. This is the one case in which the upper bound on delay that section describes does not hold, and it is the price of making the maximum a limit that can be enforced against its sender rather than a threshold to be inferred from a distribution.
 
