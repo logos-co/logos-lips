@@ -277,7 +277,7 @@ $`A_t = 0`$, so $`\iota_t = 0`$ and $`R_t = 3c`$. The whole fee flow reaches rec
 | Removed from circulation | $`0`$ |
 | Reserve at the end | $`B_0`$ |
 
-Fee revenue above the security budget is income to be distributed, not surplus to be captured.
+Fee revenue above the security budget is income to be distributed.
 
 Assume the security level later falls. Then $`A_t > 0`$ and the release resumes, against a balance of at most $`B_0`$. There is no counter-cyclical buffer: the reserve cannot grow during high usage, so no value accumulated in the good states is available when security has to be repurchased.
 
@@ -358,10 +358,10 @@ There are four possible mitigations:
 Assume the reserve is empty and the annual fee flow is $`\Phi_{fee} = u \cdot I_{max} S_{cap}`$. The block reward is $`R^{\text{block}}_t`$. Let $`r_{req}`$ be the reservation yield of a marginal staker. The equilibrium stake solves $`\Phi_{fee} / D^\ast = r_{req}`$, hence
 
 $$
-\theta^\ast = \frac{D^\ast}{S_{cap}} = \frac{u \cdot I_{max}}{r_{req}} .
+\frac{D^\ast}{S_{cap}} = \frac{u \cdot I_{max}}{r_{req}} .
 $$
 
-| $`u`$ | $`\theta^\ast`$ |
+| $`u`$ | $`D^\ast/S_{cap}`$ |
 | --- | --- |
 | $`0.01`$ | $`0.3\%`$ |
 | $`0.05`$ | $`1.5\%`$ |
@@ -378,7 +378,7 @@ The reachable equilibrium security level is proportional to fee coverage, and no
 
 The equilibrium is not capped at the target. Since the fee term enters the reward uncapped, a chain with fee revenue at twice the security budget sustains a $`60\%`$ security level rather than stalling at $`\theta_{target}`$.
 
-The unsaturated form should not be read far past $`u \approx 1.5`$. The specification's own rationale for $`D_{target}`$ notes that chains with utility exhibit a negative relation between usage and staking ratio, so a high-$`u`$ chain is unlikely to sustain a high $`\theta^\ast`$ in practice, and the table's upper rows are an upper bound.
+The unsaturated form should not be read far past $`u \approx 1.5`$. The specification's own rationale for $`D_{target}`$ notes that chains with utility exhibit a negative relation between usage and staking ratio, so a high-$`u`$ chain is unlikely to sustain a high $`D^\ast/S_{cap}`$ in practice, and the table's upper rows are an upper bound.
 
 ## F3. Sensitivity to the saturation shortfall
 
@@ -395,11 +395,11 @@ The band runs from the taper point to $`\theta_{target} = 30\%`$, so its width i
 
 A small $`\Lambda`$ holds $`A_t = 1`$ across nearly the whole approach to target, which maximizes both the bootstrap incentive and $`\bar{A}`$, and therefore minimizes the horizon of [P8](#p8-reserve-horizon). A large $`\Lambda`$ starts the taper early, lowers $`\bar{A}`$ and lengthens the horizon, at the cost of a weaker bootstrap incentive.
 
-The calibration is load-bearing for a reason that is not about sensitivity. Through $`\bar{A}`$ and $`T_{ex} = Y / \bar{A}`$, $`\Lambda`$ sets the date of an absorbing failure. The unresolved ambiguity between expressing the parameter as a token shortfall $`\Lambda`$ and as a dimensionless gain, recorded as open item 1 in the specification, is correspondingly serious.
+The calibration is not about sensitivity. Through $`\bar{A}`$ and $`T_{ex} = Y / \bar{A}`$, $`\Lambda`$ sets the date of an absorbing failure.
 
 ## F4. No fee capture, and a monotone supply path
 
-The reserve has no inflow, so circulating supply is non-decreasing at every epoch boundary, per [P5](#p5-closed-form-for-the-stock-dynamics). No fee level contracts it. Value accrual through fee capture is not a property of this mechanism.
+The reserve has no inflow, so circulating supply is non-decreasing at every epoch boundary, per [P5](#p5-closed-form-for-the-stock-dynamics). Value accrual through fee capture is not a property of this mechanism.
 
 Total net emission over the chain's life is bounded by $`B_0`$, that is $`10\%`$ of $`S_{cap}`$, and reaches that bound exactly when the shortfall persists for the full horizon. A chain that meets its security target early emits less and strands the remainder in the reserve permanently, since no rule releases a balance under a satisfied target and no rule returns it to circulation.
 
