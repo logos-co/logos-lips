@@ -113,15 +113,17 @@ tx.expiry_slot % TX_EXPIRY_QUANTUM == 0
 s <= tx.expiry_slot <= s + TX_VALIDITY_WINDOW
 ```
 
-`expiry_slot` is a `UINT64`. An implementation must evaluate the window as the addition written above. It must not compute `expiry_slot - TX_VALIDITY_WINDOW`, which wraps for any deadline below `TX_VALIDITY_WINDOW`.
+Evaluate the window as the addition written above. The algebraically equivalent `expiry_slot - TX_VALIDITY_WINDOW` underflows for any deadline below `TX_VALIDITY_WINDOW`, and [Arithmetic](#arithmetic) makes that an error rather than a wrap, so the two forms do not agree on the blocks they accept.
 
-A transaction builder sets `expiry_slot`:
+A transaction builder must set `expiry_slot` to:
 
 ```python
 def next_expiry_slot() -> SlotNumber:
     horizon = current_slot() + TX_VALIDITY_WINDOW
     return horizon - (horizon % TX_EXPIRY_QUANTUM)
 ```
+
+This is a builder rule, not a validity condition: a transaction carrying any other legal multiple is valid, and only its builder is distinguished by it.
 
 Both constants are fixed per protocol version. A validator replaying history evaluates each block against the values in force at that block's slot. Changing either constant is a versioned consensus change, governed by [Versioning and Protocol Upgrades](cryptarchia-v1-protocol.md#versioning-and-protocol-upgrades).
 
@@ -145,7 +147,7 @@ mantle_txhash_fr = FiniteField(mantle_txhash, byte_order="little", modulus = p)
 
 ## Arithmetic
 
-All arithmetic in this specification is checked. Every addition, subtraction, and multiplication over token values, balances, gas amounts, and fees is performed on the stated integer type, and a Mantle Transaction is invalid if any intermediate or final result cannot be represented in that type; results must never silently wrap around or saturate. Token value computations use the precision of `TokenValue` (see the [Notes](#notes) section). The transaction balance uses a signed 128-bit integer: it can be legitimately negative before the fee check.
+All arithmetic in this specification is checked. Every addition, subtraction, and multiplication over token values, balances, gas amounts, fees, and slot numbers is performed on the stated integer type, and a Mantle Transaction is invalid if any intermediate or final result cannot be represented in that type; results must never silently wrap around or saturate. Token value computations use the precision of `TokenValue` (see the [Notes](#notes) section). The transaction balance uses a signed 128-bit integer: it can be legitimately negative before the fee check.
 
 The pseudocode expresses these checks with the following helpers; a failed check makes the Mantle Transaction invalid:
 

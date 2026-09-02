@@ -19,12 +19,6 @@
 
 The mempool is a node's store of Mantle Transactions that have been submitted but are not yet in the canonical chain. It disseminates those transactions, supplies them to block building, and resolves the references a block proposal carries in place of transaction bodies.
 
-# Constants
-
-| Constant | Name | Description | Value |
-| --- | --- | --- | --- |
-| `TRANSACTION_TTL` | Transaction Time To Live | How long a transaction may stay pending before it is retired, regardless of its validity window. | 24 hours |
-
 # Mempool State
 
 ```python
@@ -94,7 +88,7 @@ The payload is the canonical encoding defined in [Mantle Transaction Encoding](m
 
 ## Reorganisation
 
-When a fork switch displaces blocks from the canonical chain, the node re-admits the transactions they carried that the blocks now in the canonical chain do not carry, and broadcasts them. It re-admits each with its original admission time. It does not re-admit a transaction whose `expiry_slot` has passed.
+When a fork switch displaces blocks from the canonical chain, the node re-admits the transactions they carried that the blocks now in the canonical chain do not carry, and broadcasts them. It re-admits each with its original admission time.
 
 ## Duplicates
 
@@ -162,8 +156,6 @@ A transaction that the applicability determination of [Block Building View](#blo
 ## Expiry
 
 A pending transaction is retired when the current slot passes its `expiry_slot`. A node evaluates this on the slot clock, not on block arrival.
-
-A pending transaction whose age exceeds `TRANSACTION_TTL` is retired.
 
 ## Effects of Retirement
 
