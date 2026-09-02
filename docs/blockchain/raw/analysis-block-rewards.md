@@ -32,11 +32,11 @@
 
 # Scope
 
-This document analyses the mechanism specified in [Block Rewards](new_block_rewards_specs.md). It derives the properties that mechanism satisfies, evaluates it across the range of its state variables, examines the incentives it creates, identifies the conditions under which it fails, and states the trade-offs taken.
+This document analyses the mechanism specified in [Block Rewards](block-rewards.md). It derives the properties that mechanism satisfies, evaluates it across the range of its state variables, examines the incentives it creates, identifies the conditions under which it fails, and states the trade-offs taken.
 
-It defines no mechanism of its own. Every symbol, equation, and parameter used here is defined in [Block Rewards](new_block_rewards_specs.md).
+It defines no mechanism of its own. Every symbol, equation, and parameter used here is defined in [Block Rewards](block-rewards.md).
 
-Labels of the form R1 to R9 refer to the numbered rows of [Design Requirements](new_block_rewards_specs.md#requirements). Results established here are labelled P for derived properties, S for scenarios, I for incentive results, and F for failure modes, and are referenced by those labels from the specification.
+Labels of the form R1 to R9 refer to the numbered rows of [Design Requirements](block-rewards.md#requirements). Results established here are labelled P for derived properties, S for scenarios, I for incentive results, and F for failure modes, and are referenced by those labels from the specification.
 
 # Derived Properties
 
@@ -123,7 +123,7 @@ $`r^{\iota}`$ is strictly decreasing in $`D_t`$ on $`(0, D_{target})`$ and conti
 - The reference base for a full release is the saturation boundary $`D_{target} - \Lambda`$, not the target. There the release is still at $`c`$ and the yield takes its minimum over the saturated region, $`I_{max} S_{cap} / (D_{target} - \Lambda)`$, which is $`4.0\%`$ on a base of $`2.5 \cdot 10^9`$ LGO at the adopted parameters. Quoting the release yield at $`D_{target}`$ instead is misleading: at the target $`A_t = 0`$, the release is zero, and the block reward is pure fee recycling. Quoting it against $`\Lambda`$ is also wrong, since $`\Lambda`$ is a shortfall rather than a staked base, and $`I_{max} S_{cap} / \Lambda = 20\%`$ is the yield on a base of a $`5\%`$ security level, which is not a distinguished point of the mechanism.
 - Across the proportional band the yield falls from $`4.0\%`$ to zero, so the band is where the subsidy is withdrawn rather than where it is delivered.
 
-![Release-funded yield against the security level](analysis_new_block_rewards_specs/assets/release-yield.png)
+![Release-funded yield against the security level](analysis-block-rewards/assets/release-yield.png)
 
 > <sub>Figure 2. The release-funded yield $`r^{\iota}`$ against the security level $`\theta = D_t / S_{cap}`$. The left panel covers the full range, the right panel resolves the proportional band. Fee revenue is not included.</sub>
 
@@ -217,7 +217,7 @@ $$
 | $`0.25`$ | $`2.5 \cdot 10^7`$ LGO | $`40.0`$ yr | $`4.20 \cdot 10^7`$ |
 | $`0.10`$ | $`1.0 \cdot 10^7`$ LGO | $`100.0`$ yr | $`1.05 \cdot 10^8`$ |
 
-![Reserve horizon and release path](analysis_new_block_rewards_specs/assets/reserve-horizon.png)
+![Reserve horizon and release path](analysis-block-rewards/assets/reserve-horizon.png)
 
 > <sub>Figure 3. Reserve balance and released rewards for several values of the time-averaged controller. Fee revenue does not enter either panel.</sub>
 
