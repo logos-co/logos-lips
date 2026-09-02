@@ -455,7 +455,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`F_C=1`$, the network generates one cover message per round on average.
 - $`F_D=1/30`$, the network generates one data message every $`30`$ rounds on average, which is the rate at which a slot has an elected leader in the [Cryptarchia Protocol](cryptarchia-v1-protocol.md).
 - $`R_C=0`$ and $`R_D=0`$, no replication of cover or data messages is used in this version of the protocol.
-- $`\Phi_{CC}^{Min}=6`$ and $`\Phi_{CC}^{Max}=8`$, the peering degree a core node maintains with other core nodes. A node opens connections until it holds $`\Phi_{CC}^{Min}`$ healthy ones, and accepts connections until it holds $`\Phi_{CC}^{Max}`$. The range is what lets every node reach the minimum: a connection occupies a slot at both of its ends, so a network in which every node refused at a single fixed degree could leave nodes unable to place their last connections.
+- $`\Phi_{CC}^{Min}=6`$ and $`\Phi_{CC}^{Max}=8`$, the peering degree a core node maintains with other core nodes. A node opens connections until it holds $`\Phi_{CC}^{Min}`$ healthy ones, and accepts connections until it holds $`\Phi_{CC}^{Max}`$.
 - $`\lceil M_1 \rceil=12`$ messages per round, the maximum a node may send to one neighbor in a round, as derived in [Expected Connection Traffic](#expected-connection-traffic).
 - $`\lceil M_N \rceil = (8+1) \cdot 12 = 108`$ messages per round, the budget of a whole node.
 - $`\Lambda_E=12`$ edge nodes per round, the share of $`\lceil M_N \rceil`$ reserved for them.
@@ -517,7 +517,7 @@ $$
 \lceil M_1 \rceil = 12 \qquad \lceil M_N \rceil = (\Phi_{CC}^{Max} + 1) \cdot \lceil M_1 \rceil = 108
 $$
 
-$`\lceil M_1 \rceil`$ is a protocol constant. A node holds back anything above it rather than sending it ([Releasing](#releasing)), so a neighbor that exceeds it is not doing so by accident.
+$`\lceil M_1 \rceil`$ is a protocol constant. A node holds back anything above it rather than sending it ([Releasing](#releasing)).
 
 The value follows from $`F_1`$ and from the margin the network needs above it. At $`12`$ a connection carrying its expected $`3.0`$ messages per round defers about once in sixty thousand rounds. The margin also sets how far the network can move before the queue of a sender stops draining, which is four times the rate a connection carries today.
 
@@ -533,17 +533,15 @@ The number of connections with core nodes never exceeds $`\Phi_{CC}^{Max}`$. A c
 
 **Counting**
 
-A node counts the messages it receives on each connection with a core node. $`M_1`$ is the count for the current round. It includes duplicates, so that a neighbor sending the same message repeatedly is bounded by the maximum.
+A node counts the messages it receives on each connection with a core node. $`M_1`$ is the count for the current round. It includes duplicates.
 
-$`M_1^W`$ is the count over the trailing observation window $`W`$ of the messages the node had not itself released on that connection. Returning a message to the node it came from costs the neighbor nothing, and a neighbor that returned the traffic it was sent would otherwise meet the minimum while relaying nothing. Every other message counts, including one the node already holds from another neighbor. A node records the nullifiers it releases on each connection so that a return is recognised.
-
-Only the return is excluded. A node deduplicates across all of its connections, so each message it receives is new on one connection and already held on the others. Excluding every duplicate would leave each connection credited with only its share of the traffic, which is $`F_1 \cdot W / \Phi_{CC}^{Max}`$ and below the minimum.
+$`M_1^W`$ is the count over the trailing observation window $`W`$ of the messages the node had not itself released on that connection. Every other message counts towards it, including one the node already holds from another neighbor. A node records the nullifiers it releases on each connection so that a return is recognised.
 
 The counts are kept against the authenticated identity of the neighbor, for the epoch. A neighbor that reconnects resumes them. The window advances only while the neighbor is connected.
 
 **Classification**
 
-1. A connection is **spammy** when its count over any $`\Delta_{max}`$ consecutive rounds exceeds $`\Delta_{max} \cdot \lceil M_1 \rceil`$. The count is taken over several rounds because a node sends within a round of its own clock and its neighbor counts on arrival. Transport delay moves a message across a round boundary, and a single round would convict a sender for it.
+1. A connection is **spammy** when its count over any $`\Delta_{max}`$ consecutive rounds exceeds $`\Delta_{max} \cdot \lceil M_1 \rceil`$. The count spans several rounds because a node sends on its own clock and its neighbor counts on arrival.
 2. It is **healthy** when it is not spammy and $`M_1^W \ge \lfloor M_1 \rfloor^W`$. Only healthy connections count towards $`h(\Phi_{CC})`$.
 3. It is **unhealthy** when $`M_1^W \lt \lfloor M_1 \rfloor^W`$.
 
@@ -563,7 +561,14 @@ A neighbor whose accumulated observation is shorter than $`W`$ counts as healthy
 
 **Logging**
 
-A node logs every connection it closes, every addition to and expiry from the blacklist and the quarantine, every replacement, and every period during which it holds fewer than $`\Phi_{CC}^{Min}`$ healthy connections. Each entry carries the identity of the neighbor, the reason, and the count where one applies.
+A node logs:
+
+- every connection it closes;
+- every addition to and expiry from the blacklist and the quarantine;
+- every replacement;
+- every period during which it holds fewer than $`\Phi_{CC}^{Min}`$ healthy connections.
+
+Each entry carries the identity of the neighbor, the reason, and the count where one applies.
 
 ### Transition Period
 
@@ -595,7 +600,7 @@ When a new **epoch** begins:
 
 - The node validates message proofs against both new and past epoch-related public input for the duration of TP. This allows past-epoch messages to safely transit through the network, as their validity is bound to the epoch in which they were generated.
 - The node must open new connections to process new messages for the new epoch.
-- The node needs to maintain old connections and process all messages received from these connections for the duration of TP. A connection held for the past epoch does not count towards $`\Phi_{CC}^{Max}`$. Without this a node could not hold both generations of connections at once, and the cap and this section would require opposite behaviour at every epoch boundary. The maximum still applies to it: what the boundary needs relaxed is the number of connections, not the rate any one of them may carry.
+- The node needs to maintain old connections and process all messages received from these connections for the duration of TP. A connection held for the past epoch does not count towards $`\Phi_{CC}^{Max}`$. The maximum still applies to the messages it carries.
 
 ## Quota
 
@@ -785,9 +790,7 @@ def modular_bytes(data: bytes, modulus: int) -> int:
 
 Generation of cover messages is handled by each core node individually. The only protocol-enforced limitation is through the [Core Quota](#core-quota) ($`Q_C`$), which limits the number of messages a node can generate.
 
-A core node draws its cover message schedule uniformly at random over the epoch. It places at most one message in a round.
-
-The per-round limit is what keeps the quota from arriving at once. $`Q_C`$ bounds an epoch, and a node that emitted its whole quota in one round would exceed the rate every other node can forward. A node may not defer its way around this: a message it cannot place in a round is not generated.
+A core node draws its cover message schedule uniformly at random over the epoch. It places at most one message in a round. A message it cannot place in a round is not generated.
 
 ### **Message Structure**
 
@@ -926,7 +929,7 @@ The process of releasing messages involves the following steps:
 - As soon as a **data** message is generated, one random unreleased (future) **cover** message must be removed from the release schedule to maintain the node’s statistical indistinguishability.
 - If more than one message needs to be released for the same round, they must be randomly shuffled before release.
 
-The cover and data message generation processes are **independent**, and there is a non-zero probability that more than one message will be scheduled for the same round. The number of messages released **to a single neighbor** during one round is nevertheless restricted to $`\lceil M_1 \rceil`$ ([Expected Connection Traffic](#expected-connection-traffic)). A node holding more than that for a neighbor releases $`\lceil M_1 \rceil`$ of them, chosen at random from those due, and carries the remainder into the following round. A message is never carried past the end of the [Transition Period](#transition-period) of the epoch it was generated for. A node discards it instead, because a neighbor receiving it after that point can no longer validate it and would treat its sender as malicious.
+The cover and data message generation processes are **independent**, and there is a non-zero probability that more than one message will be scheduled for the same round. The number of messages released **to a single neighbor** during one round is nevertheless restricted to $`\lceil M_1 \rceil`$ ([Expected Connection Traffic](#expected-connection-traffic)). A node holding more than that for a neighbor releases $`\lceil M_1 \rceil`$ of them, chosen at random from those due, and carries the remainder into the following round. A message is never carried past the end of the [Transition Period](#transition-period) of the epoch it was generated for. A node discards it instead.
 
 Applying this limit is not optional and is not merely polite: a neighbor counts what it receives and classifies the connection spammy if the count exceeds the maximum ([Connectivity Maintenance](#connectivity-maintenance)), so a node that does not hold messages back will be disconnected and blacklisted by the neighbors it oversends to.
 
