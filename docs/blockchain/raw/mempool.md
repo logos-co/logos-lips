@@ -34,10 +34,6 @@ Each node keeps its own mempool. Nodes admit and retire independently, so their 
 A transaction is admitted, disseminated, offered to block building, and retired.
 
 # Construction
-## Constants
-| Constant | Name | Description | Value |
-| --- | --- | --- | --- |
-| `TRANSACTION_TTL` | Transaction Time To Live | How long a transaction may stay pending before it is retired, regardless of its validity window. | 24 hours |
 
 ## Mempool State
 ```python
@@ -163,8 +159,6 @@ A transaction that the applicability determination of [Block Building View](#blo
 
 ### Expiry
 A pending transaction is retired when the current slot passes its `expiry_slot`. A node evaluates this on the slot clock, not on block arrival.
-
-A pending transaction whose age exceeds `TRANSACTION_TTL` is retired.
 
 ### Effects of Retirement
 Retirement removes the hash from `pending` and from `by_prefix`, and discards its `admitted_at` entry and its body.

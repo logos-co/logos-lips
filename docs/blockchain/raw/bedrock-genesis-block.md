@@ -31,6 +31,7 @@
 | 1.1.3 | Replaced the `block_root` header field with `body_root`, taken over an empty uncle header list and the initial transaction, due to updated [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md). | 2026-08-06 |
 | 1.1.4 | Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy. | 2026-08-25 |
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
+| 1.1.6 | The Genesis Mantle Transaction carries `expiry_slot = 0` and is evaluated against the Genesis slot, due to updated [Mantle](bedrock-v1.1-mantle-specification.md) (transaction validity window). | 2026-09-01 |
 
 # Introduction
 
@@ -168,9 +169,12 @@ The initial stake distribution, service declarations and Cryptarchia inscription
 
 ```python
 GENESIS_MANTLE_TX = MantleTx(
+    expiry_slot=0,
     ops=[STAKE_DISTRIBUTION, CRYPTARCHIA_INSCRIPTION] + SERVICE_DECLARATIONS,
 )
 ```
+
+`expiry_slot` is `0`, which is a multiple of `TX_EXPIRY_QUANTUM` and satisfies the [Transaction Validity Window](bedrock-v1.1-mantle-specification.md#transaction-validity-window) for the Genesis slot. Rule 4 of [Validation](bedrock-v1.1-mantle-specification.md#validation) reads that slot, `0`, as `s`.
 
 ## Block Header Fields
 
@@ -247,6 +251,7 @@ SERVICE_DECLARATIONS = BLEND_DECLARATIONS
 
 # build the genesis Mantle Transaction
 GENESIS_MANTLE_TX = MantleTx(
+    expiry_slot=0,
     ops=[STAKE_DISTRIBUTION, CRYPTARCHIA_INSCRIPTION] + SERVICE_DECLARATIONS,
 )
 
