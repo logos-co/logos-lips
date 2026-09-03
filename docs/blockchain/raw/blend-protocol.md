@@ -88,8 +88,6 @@ To have a **truly privacy-preserving system, we need to apply both techniques si
 
 - *Honest node* is a node that follows the protocol fully.
 - *Lazy node* is a node that does not follow the protocol due to a lack of incentives and only takes part in the protocol when it is directly beneficial to the node.
-- *Spammy node* is a node whose connection is classified spammy in [Connectivity Maintenance](#connectivity-maintenance).
-- *Unhealthy node* is a node whose connection is classified unhealthy in [Connectivity Maintenance](#connectivity-maintenance).
 - *Malicious node* is a node that does not follow the protocol regardless of incentives.
 - *Unresponsive node* is a node that does not follow the protocol due to technical reasons, such as a lack of connectivity or malfunction.
 
@@ -463,9 +461,8 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`M_1^W`$ denote the number of messages counted on a single connection during an observation window $`W`$;
 - $`M_1^{Max}`$ denote the maximal number of messages a node may send to a single neighbor during one round;
 - $`M_1`$ denote the number of messages counted on a single connection during one round;
-- $`M_N^{Max} = (\Phi_{CC}^{Max} + 1) \cdot M_1^{Max}`$ denote the resulting budget of a whole node for one round, one share for each neighbor it may hold and one for the edge nodes it serves;
 - $`M_1^{Min}`$ denote the minimal number of messages a single connection must carry during an observation window $`W`$ to be counted as healthy;
-- $`\Lambda_E`$ denote the number of edge nodes a core node may serve during one round, which is the share of $`M_N^{Max}`$ that is not owed to a neighbor;
+- $`\Lambda_E`$ denote the number of edge nodes a core node may serve during one round;
 - $`F_C`$ denote a frequency at which cover messages are generated per round;
 - $`F_D`$ denote a frequency at which data messages are generated per round;
 - $`C = E \cdot F_C`$ denote the expected number of cover messages that are generated during an epoch by the core nodes;
@@ -492,8 +489,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`R_C=0`$ and $`R_D=0`$, no replication of cover or data messages is used in this version of the protocol.
 - $`\Phi_{CC}^{Min}=6`$ and $`\Phi_{CC}^{Max}=8`$, the smallest and the largest number of connections a core node holds with other core nodes ([Connectivity Maintenance](#connectivity-maintenance)).
 - $`M_1^{Max}=12`$ messages per round, the maximum a node may send to one neighbor in a round, as derived in [Expected Connection Traffic](#expected-connection-traffic).
-- $`M_N^{Max} = (8+1) \cdot 12 = 108`$ messages per round, the budget of a whole node.
-- $`\Lambda_E=12`$ edge nodes per round, the share of $`M_N^{Max}`$ reserved for them.
+- $`\Lambda_E = M_1^{Max} = 12`$ edge nodes per round: the edge nodes together receive the allowance of one neighbor.
 - $`M_1^{Min} = \lceil F_1 \cdot W / 10 \rceil = 9`$, the minimum number of messages per connection during an observation window, as derived in [Expected Connection Traffic](#expected-connection-traffic).
 - $`T_E=1`$ round, the time an edge node is given to send its message, as derived in [Connectivity Maintenance](#connectivity-maintenance).
 
@@ -544,19 +540,17 @@ $$
 M_1^{Min} = \left\lceil \dfrac{F_1 \cdot W}{10} \right\rceil = 9
 $$
 
-A connection below the minimum carries no penalty for its neighbor. The traffic a connection carries depends on the topology of the network. It also depends on the position of the node within it. A connection can therefore fall below the minimum without its neighbor having done anything.
+A connection below the minimum carries no penalty for its neighbor.
 
 **Maximum**
 
 $$
-M_1^{Max} = 12 \qquad M_N^{Max} = (\Phi_{CC}^{Max} + 1) \cdot M_1^{Max} = 108
+M_1^{Max} = 12
 $$
 
 $`M_1^{Max}`$ is a protocol constant. A node holds back anything above it rather than sending it ([Releasing](#releasing)).
 
-The value follows from $`F_1`$ and from the margin the network needs above it. At $`12`$ a connection carrying its expected $`3.0`$ messages per round defers about once in sixty thousand rounds. The margin also sets how far the network can move before the queue of a sender stops draining, which is four times the rate a connection carries today.
-
-$`M_N^{Max}`$ is what a node may receive in a round on average. Arrivals bunched by the network can exceed it in one round, by the allowance the spam test grants each connection. It is divided into $`\Phi_{CC}^{Max}+1`$ shares. One share belongs to each neighbor it may hold. The last share is $`\Lambda_E`$, and it serves the edge nodes.
+The value follows from $`F_1`$ and from the margin the network needs above it. The margin sets how far the network can move before the queue of a sender stops draining, which is four times the rate a connection carries today.
 
 The queue of a sender drains only while $`F_1 \lt M_1^{Max}`$. [Cryptarchia](cryptarchia-v1-protocol.md) must bound the number of block proposals admitted per slot so that this holds, or $`M_1^{Max}`$ must be raised to cover the worst case it admits.
 
@@ -576,7 +570,7 @@ The counts are kept against the authenticated identity of the neighbor, for the 
 
 **Classification**
 
-1. A connection is **spammy** when $`M_1 \gt (1+\eta) \cdot M_1^{Max}`$ in any round. A message arrives at most $`\eta`$ rounds after its release, so one round of arrivals carries the releases of at most $`1+\eta`$ rounds. A count above that is possible only for a sender that exceeded its limit.
+1. A connection is **spammy** when $`M_1 \gt (1+\eta) \cdot M_1^{Max}`$ in any round. A message arrives at most $`\eta`$ rounds after its release, so one round of arrivals carries the releases of at most $`1+\eta`$ rounds.
 2. It is **healthy** when it is not spammy and $`M_1^W \ge M_1^{Min}`$. Only healthy connections count towards $`h(\Phi_{CC})`$.
 3. It is **unhealthy** when $`M_1^W \lt M_1^{Min}`$.
 
@@ -924,7 +918,7 @@ When this happens, a number of messages (limited by the [Quota](#quota)) are gen
 The relaying logic is defined as follows:
 
 1. The node checks the header of the message that was received from its neighbor, according to the [Message Formatting](message-formatting.md).
-    1. If the neighbor is a core node, then update the counts for the neighbor, as defined in the [Connectivity Maintenance](#connectivity-maintenance). A message discarded by the steps below is still counted.
+    1. If the neighbor is a core node, then update the counts for the neighbor, as defined in the [Connectivity Maintenance](#connectivity-maintenance).
     2. If the neighbor is an edge node, then close the connection with the neighbor.
     3. If the header of the message is incorrect, then discard the message and mark the neighbor as malicious and close the connection. We assume that an adversary cannot inject any spoofed message to the connection.
     4. If the PoQ nullifier $`\nu_i \in \mathbf H`$ from the public header of the message is already in the nullifier cache, then the message is a duplicate and must be discarded. This step only reads the cache: the nullifier is inserted only after steps 1.5 and 1.6 have both passed, at the moment the message is accepted for relaying. Cached entries are retained for the duration of the current epoch and the [Transition Period](#transition-period).
@@ -999,7 +993,7 @@ The purpose of message delaying is to hide timing correlations between incoming 
 
 The message anonymity pool is the total number of messages that have been seen by the node between two subsequent message release events. The set of seen messages does not necessarily include a message that the node is the recipient of.
 
-**The key design objective is to release messages with an upper bound on the delay.** Therefore, the design assumes that there is a $`\Delta_{max}`$ maximum delay between two subsequent message release attempts that define the longest waiting time for message release. This also defines the maximal message anonymity pool (assuming a single message is released in a round by the network).
+The design assumes a maximum delay $`\Delta_{max}`$ between two subsequent message release attempts, which defines the longest waiting time for message release. A message deferred by the release limit is the one exception ([Releasing](#releasing)). This also defines the maximal message anonymity pool (assuming a single message is released in a round by the network).
 
 Now we can define the delaying logic:
 
