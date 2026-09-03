@@ -461,11 +461,11 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`W`$ denote the observation window expressed in the number of rounds;
 - $`F_1`$ denote the number of messages a single connection is expected to carry per round;
 - $`M_1^W`$ denote the number of messages counted on a single connection during an observation window $`W`$;
-- $`\lceil M_1 \rceil`$ denote the maximal number of messages a node may send to a single neighbor during one round;
+- $`M_1^{Max}`$ denote the maximal number of messages a node may send to a single neighbor during one round;
 - $`M_1`$ denote the number of messages counted on a single connection during one round;
-- $`\lceil M_N \rceil = (\Phi_{CC}^{Max} + 1) \cdot \lceil M_1 \rceil`$ denote the resulting budget of a whole node for one round, one share for each neighbor it may hold and one for the edge nodes it serves;
-- $`\lfloor M_1 \rfloor^W`$ denote the minimal number of messages a single connection must carry during an observation window $`W`$ to be counted as healthy;
-- $`\Lambda_E`$ denote the number of edge nodes a core node may serve during one round, which is the share of $`\lceil M_N \rceil`$ that is not owed to a neighbor;
+- $`M_N^{Max} = (\Phi_{CC}^{Max} + 1) \cdot M_1^{Max}`$ denote the resulting budget of a whole node for one round, one share for each neighbor it may hold and one for the edge nodes it serves;
+- $`M_1^{Min}`$ denote the minimal number of messages a single connection must carry during an observation window $`W`$ to be counted as healthy;
+- $`\Lambda_E`$ denote the number of edge nodes a core node may serve during one round, which is the share of $`M_N^{Max}`$ that is not owed to a neighbor;
 - $`F_C`$ denote a frequency at which cover messages are generated per round;
 - $`F_D`$ denote a frequency at which data messages are generated per round;
 - $`C = E \cdot F_C`$ denote the expected number of cover messages that are generated during an epoch by the core nodes;
@@ -491,10 +491,10 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`F_D=1/30`$, the network generates one data message every $`30`$ rounds on average, which is the rate at which a slot has an elected leader in the [Cryptarchia Protocol](cryptarchia-v1-protocol.md).
 - $`R_C=0`$ and $`R_D=0`$, no replication of cover or data messages is used in this version of the protocol.
 - $`\Phi_{CC}^{Min}=6`$ and $`\Phi_{CC}^{Max}=8`$, the smallest and the largest number of connections a core node holds with other core nodes ([Connectivity Maintenance](#connectivity-maintenance)).
-- $`\lceil M_1 \rceil=12`$ messages per round, the maximum a node may send to one neighbor in a round, as derived in [Expected Connection Traffic](#expected-connection-traffic).
-- $`\lceil M_N \rceil = (8+1) \cdot 12 = 108`$ messages per round, the budget of a whole node.
-- $`\Lambda_E=12`$ edge nodes per round, the share of $`\lceil M_N \rceil`$ reserved for them.
-- $`\lfloor M_1 \rfloor^W = \lceil F_1 \cdot W / 10 \rceil = 9`$, the minimum number of messages per connection during an observation window, as derived in [Expected Connection Traffic](#expected-connection-traffic).
+- $`M_1^{Max}=12`$ messages per round, the maximum a node may send to one neighbor in a round, as derived in [Expected Connection Traffic](#expected-connection-traffic).
+- $`M_N^{Max} = (8+1) \cdot 12 = 108`$ messages per round, the budget of a whole node.
+- $`\Lambda_E=12`$ edge nodes per round, the share of $`M_N^{Max}`$ reserved for them.
+- $`M_1^{Min} = \lceil F_1 \cdot W / 10 \rceil = 9`$, the minimum number of messages per connection during an observation window, as derived in [Expected Connection Traffic](#expected-connection-traffic).
 - $`T_E=1`$ round, the time an edge node is given to send its message, as derived in [Connectivity Maintenance](#connectivity-maintenance).
 
 ### Core Node Parameters
@@ -505,7 +505,7 @@ A core node maintains the following set of parameters:
 
 Implementations should choose a default based on the deployment they operate in, and users can override this default before joining.
 
-The per-round maximum $`\lceil M_1 \rceil`$ and the edge share $`\Lambda_E`$ are **not** among these. They are fixed by the protocol in [Global Parameters](#global-parameters). A node is judged against $`\lceil M_1 \rceil`$ by its neighbors, so every node must hold it to the same value.
+The per-round maximum $`M_1^{Max}`$ and the edge share $`\Lambda_E`$ are **not** among these. They are fixed by the protocol in [Global Parameters](#global-parameters). A node is judged against $`M_1^{Max}`$ by its neighbors, so every node must hold it to the same value.
 
 ### Edge Node Parameters
 
@@ -541,7 +541,7 @@ $$
 **Minimum**
 
 $$
-\lfloor M_1 \rfloor^W = \left\lceil \dfrac{F_1 \cdot W}{10} \right\rceil = 9
+M_1^{Min} = \left\lceil \dfrac{F_1 \cdot W}{10} \right\rceil = 9
 $$
 
 A connection below the minimum carries no penalty for its neighbor. The traffic a connection carries depends on the topology of the network. It also depends on the position of the node within it. A connection can therefore fall below the minimum without its neighbor having done anything.
@@ -549,16 +549,16 @@ A connection below the minimum carries no penalty for its neighbor. The traffic 
 **Maximum**
 
 $$
-\lceil M_1 \rceil = 12 \qquad \lceil M_N \rceil = (\Phi_{CC}^{Max} + 1) \cdot \lceil M_1 \rceil = 108
+M_1^{Max} = 12 \qquad M_N^{Max} = (\Phi_{CC}^{Max} + 1) \cdot M_1^{Max} = 108
 $$
 
-$`\lceil M_1 \rceil`$ is a protocol constant. A node holds back anything above it rather than sending it ([Releasing](#releasing)).
+$`M_1^{Max}`$ is a protocol constant. A node holds back anything above it rather than sending it ([Releasing](#releasing)).
 
 The value follows from $`F_1`$ and from the margin the network needs above it. At $`12`$ a connection carrying its expected $`3.0`$ messages per round defers about once in sixty thousand rounds. The margin also sets how far the network can move before the queue of a sender stops draining, which is four times the rate a connection carries today.
 
-$`\lceil M_N \rceil`$ is what a node may receive in a round on average. Arrivals bunched by the network can exceed it in one round, by the allowance the spam test grants each connection. It is divided into $`\Phi_{CC}^{Max}+1`$ shares. One share belongs to each neighbor it may hold. The last share is $`\Lambda_E`$, and it serves the edge nodes.
+$`M_N^{Max}`$ is what a node may receive in a round on average. Arrivals bunched by the network can exceed it in one round, by the allowance the spam test grants each connection. It is divided into $`\Phi_{CC}^{Max}+1`$ shares. One share belongs to each neighbor it may hold. The last share is $`\Lambda_E`$, and it serves the edge nodes.
 
-The queue of a sender drains only while $`F_1 \lt \lceil M_1 \rceil`$. [Cryptarchia](cryptarchia-v1-protocol.md) must bound the number of block proposals admitted per slot so that this holds, or $`\lceil M_1 \rceil`$ must be raised to cover the worst case it admits.
+The queue of a sender drains only while $`F_1 \lt M_1^{Max}`$. [Cryptarchia](cryptarchia-v1-protocol.md) must bound the number of block proposals admitted per slot so that this holds, or $`M_1^{Max}`$ must be raised to cover the worst case it admits.
 
 ### Connectivity Maintenance
 
@@ -576,9 +576,9 @@ The counts are kept against the authenticated identity of the neighbor, for the 
 
 **Classification**
 
-1. A connection is **spammy** when $`M_1 \gt (1+\eta) \cdot \lceil M_1 \rceil`$ in any round. A message arrives at most $`\eta`$ rounds after its release, so one round of arrivals carries the releases of at most $`1+\eta`$ rounds. A count above that is possible only for a sender that exceeded its limit.
-2. It is **healthy** when it is not spammy and $`M_1^W \ge \lfloor M_1 \rfloor^W`$. Only healthy connections count towards $`h(\Phi_{CC})`$.
-3. It is **unhealthy** when $`M_1^W \lt \lfloor M_1 \rfloor^W`$.
+1. A connection is **spammy** when $`M_1 \gt (1+\eta) \cdot M_1^{Max}`$ in any round. A message arrives at most $`\eta`$ rounds after its release, so one round of arrivals carries the releases of at most $`1+\eta`$ rounds. A count above that is possible only for a sender that exceeded its limit.
+2. It is **healthy** when it is not spammy and $`M_1^W \ge M_1^{Min}`$. Only healthy connections count towards $`h(\Phi_{CC})`$.
+3. It is **unhealthy** when $`M_1^W \lt M_1^{Min}`$.
 
 A neighbor whose accumulated observation is shorter than $`W`$ counts as healthy. Each identity is granted this once per epoch.
 
@@ -1024,7 +1024,7 @@ The process of releasing messages involves the following steps:
 - As soon as a **data** message is generated, one random unreleased (future) **cover** message must be removed from the release schedule to maintain the node’s statistical indistinguishability.
 - If more than one message needs to be released for the same round, they must be randomly shuffled before release.
 
-The cover and data message generation processes are **independent**, and there is a non-zero probability that more than one message will be scheduled for the same round. The number of messages released **to a single neighbor** during one round is nevertheless restricted to $`\lceil M_1 \rceil`$ ([Expected Connection Traffic](#expected-connection-traffic)). A node holding more than that for a neighbor releases $`\lceil M_1 \rceil`$ of them, chosen at random from those due, and carries the remainder into the following round. A message is never carried past the end of the [Transition Period](#transition-period) of the epoch it was generated for. A node discards it instead.
+The cover and data message generation processes are **independent**, and there is a non-zero probability that more than one message will be scheduled for the same round. The number of messages released **to a single neighbor** during one round is nevertheless restricted to $`M_1^{Max}`$ ([Expected Connection Traffic](#expected-connection-traffic)). A node holding more than that for a neighbor releases $`M_1^{Max}`$ of them, chosen at random from those due, and carries the remainder into the following round. A message is never carried past the end of the [Transition Period](#transition-period) of the epoch it was generated for. A node discards it instead.
 
 The limit is enforced by the receiving neighbor ([Connectivity Maintenance](#connectivity-maintenance)).
 
