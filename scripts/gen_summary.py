@@ -22,7 +22,7 @@ BLOCKCHAIN_TREE_JSON = DOCS / "blockchain-structure.json"
 SKIP_FILES = {"README.md", "SUMMARY.md"}
 AUXILIARY_DIR_NAMES = ("appendices", "appendix")
 
-TOP_LEVEL = ["messaging", "blockchain", "storage", "anoncomms", "research"]
+TOP_LEVEL = ["messaging", "blockchain", "storage", "anoncomms", "research", "logos-core"]
 
 LABEL_OVERRIDES = {
     "anoncomms": "AnonComms",
