@@ -555,6 +555,8 @@ The value follows from $`F_1`$ and from the margin the network needs above it. T
 
 The queue of a sender drains only while $`F_1 \lt M_1^{Max}`$. [Cryptarchia](cryptarchia-v1-protocol.md) must bound the number of block proposals admitted per slot so that this holds, or $`M_1^{Max}`$ must be raised to cover the worst case it admits.
 
+The constants must keep $`(\Phi_{CC}^{Max} + 1) \cdot M_1^{Max}`$ public header verifications per round within the rate of the slowest node the protocol targets ([Relaying](#relaying)). Above it, a node may receive more than it can verify.
+
 ### Connectivity Maintenance
 
 A core node blacklists a neighbor only for misbehavior that its authenticated identity is responsible for. There are three kinds: a message that fails header verification, a failure of the authenticated stream, and a connection classified spammy. A failure of the authenticated stream is a TLS record that fails authentication, or a violation of the framing of the stream. The loss of a connection is not one of them, and counts as silence.
