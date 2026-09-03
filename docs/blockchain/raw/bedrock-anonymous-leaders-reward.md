@@ -26,6 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-03-30 |
 | 1.1.0 | Round the leader share downwards and align the voucher commitment and nullifier domain separation tags with Mantle | 2026-08-05 |
+| 1.1.1 | Allowed the voucher secret to be derived from the wallet seed per the Wallet Technical Standard instead of drawn at random, and required that a voucher secret is never reused | 2026-09-03 |
 
 # Introduction
 
@@ -60,7 +61,7 @@ In parallel, the blockchain maintains the value `leaders_rewards` accumulating t
 
 When producing a block, a leader performs the following:
 
-1. Generate a one-time random secret $`voucher \overset{\$}{\leftarrow} \mathbb F_p`$.
+1. Obtain a one-time secret $`voucher \in \mathbb F_p`$, either drawn uniformly at random or derived from the wallet seed as specified in the [Wallet Technical Standard](wallet-technical-standard.md#voucher-secret-derivation), which makes it recoverable. A voucher secret MUST NOT be used for more than one block.
 2. Compute the commitment:
 ```python
 voucher_cm = zkhash(
@@ -99,7 +100,7 @@ $$
 
 The division is the integer division over `TokenValue`, so the share is a whole number of tokens and its computation is deterministic for every node. Rounding down guarantees that $`share \times (|voucher\_cm| - |voucher\_nf|) \leq leader\_rewards`$, an inequality that every claim preserves since it decreases both sides by one share and one voucher respectively. The pool can therefore never be overdrawn and every unclaimed voucher remains payable.
 
-This amount is almost stable through an epoch because when a leader withdraws, both the pool value and the number of unclaimed vouchers decrease proportionally, so the exact price per share remains unchanged and only its rounding may move. Writing $`leader\_rewards = q \times n + r`$ at the start of the epoch, where $`n`$ is the number of unclaimed vouchers and $`r < n`$ the remainder of the division, the first $`n-r`$ leaders to claim receive $`q`$ and the last $`r`$ receive $`q+1`$. Two leaders claiming during the same epoch therefore never differ by more than one token, which is small enough not to justify freezing the share for the duration of the epoch. Nothing is lost to the rounding either: the remainder stays in `leader_rewards` until it is claimed or aggregated with the rewards of the next epoch. The marginally larger reward of the late claimants also mildly encourages leaders to spread their claims over time, which keeps the set of unclaimed vouchers large. However, the share value will vary across epochs if the leader rewards are variable.
+This amount is almost stable through an epoch because when a leader withdraws, both the pool value and the number of unclaimed vouchers decrease proportionally, so the exact price per share remains unchanged and only its rounding may move. Writing $`leader\_rewards = q \times n + r`$ at the start of the epoch, where $`n`$ is the number of unclaimed vouchers and $`r \lt n`$ the remainder of the division, the first $`n-r`$ leaders to claim receive $`q`$ and the last $`r`$ receive $`q+1`$. Two leaders claiming during the same epoch therefore never differ by more than one token, which is small enough not to justify freezing the share for the duration of the epoch. Nothing is lost to the rounding either: the remainder stays in `leader_rewards` until it is claimed or aggregated with the rewards of the next epoch. The marginally larger reward of the late claimants also mildly encourages leaders to spread their claims over time, which keeps the set of unclaimed vouchers large. However, the share value will vary across epochs if the leader rewards are variable.
 
 ## Validation
 
