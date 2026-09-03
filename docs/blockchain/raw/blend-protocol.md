@@ -490,7 +490,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`F_C=1`$, the network generates one cover message per round on average.
 - $`F_D=1/30`$, the network generates one data message every $`30`$ rounds on average, which is the rate at which a slot has an elected leader in the [Cryptarchia Protocol](cryptarchia-v1-protocol.md).
 - $`R_C=0`$ and $`R_D=0`$, no replication of cover or data messages is used in this version of the protocol.
-- $`\Phi_{CC}^{Min}=6`$ and $`\Phi_{CC}^{Max}=8`$, the peering degree a core node maintains with other core nodes. A node opens connections until it holds $`\Phi_{CC}^{Min}`$ healthy ones, and accepts connections until it holds $`\Phi_{CC}^{Max}`$.
+- $`\Phi_{CC}^{Min}=6`$ and $`\Phi_{CC}^{Max}=8`$, the smallest and the largest number of connections a core node holds with other core nodes ([Connectivity Maintenance](#connectivity-maintenance)).
 - $`\lceil M_1 \rceil=12`$ messages per round, the maximum a node may send to one neighbor in a round, as derived in [Expected Connection Traffic](#expected-connection-traffic).
 - $`\lceil M_N \rceil = (8+1) \cdot 12 = 108`$ messages per round, the budget of a whole node.
 - $`\Lambda_E=12`$ edge nodes per round, the share of $`\lceil M_N \rceil`$ reserved for them.
@@ -1026,9 +1026,9 @@ The process of releasing messages involves the following steps:
 
 The cover and data message generation processes are **independent**, and there is a non-zero probability that more than one message will be scheduled for the same round. The number of messages released **to a single neighbor** during one round is nevertheless restricted to $`\lceil M_1 \rceil`$ ([Expected Connection Traffic](#expected-connection-traffic)). A node holding more than that for a neighbor releases $`\lceil M_1 \rceil`$ of them, chosen at random from those due, and carries the remainder into the following round. A message is never carried past the end of the [Transition Period](#transition-period) of the epoch it was generated for. A node discards it instead.
 
-Applying this limit is not optional and is not merely polite: a neighbor counts what it receives and classifies the connection spammy if the count exceeds the maximum ([Connectivity Maintenance](#connectivity-maintenance)), so a node that does not hold messages back will be disconnected and blacklisted by the neighbors it oversends to.
+The limit is enforced by the receiving neighbor ([Connectivity Maintenance](#connectivity-maintenance)).
 
-A message deferred this way is released later than the round the [Delaying](#delaying) logic chose for it. This is the one case in which the upper bound on delay that section describes does not hold, and it is the price of making the maximum a limit that can be enforced against its sender rather than a threshold to be inferred from a distribution.
+A message deferred this way is released later than the round the [Delaying](#delaying) logic chose for it. The upper bound on delay that section states does not hold for it.
 
 However, a node can calculate the expected number of messages to be released per release round. This depends on the value of $`\Delta_{max}`$, the network size (number of core nodes), and the generation quota.
 
