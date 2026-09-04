@@ -32,6 +32,7 @@
 | 1.2.1 | Pointed the `EpochNumber` of the activity proof at its definition in [Epoch](cryptarchia-v1-protocol.md#epoch) | 2026-08-25 |
 | 1.3.0 | [RFC] Replace the BLAKE2b-Based PRNG with ChaCha20 (ChaCha20Rng) | 2026-08-28 |
 | 1.3.1 | Judged the active message window by the epoch of the including block, made the one-message-per-epoch rule per attested epoch, and made the transition-period delay a release constraint | 2026-09-02 |
+| 1.4.0 | Versioned by eras: the message and Activity Proof `version` bytes carry the era number, and the libp2p protocol name carries the era ([Bedrock Eras](bedrock-eras.md)). | 2026-09-04 |
 
 # Introduction
 
@@ -388,7 +389,7 @@ For a complete description of the generation logic, refer to [Generation](#gener
 When a node receives a message from one of its neighbors, it does the following:
 
 1. Checks the public header of the message, that is:
-    1. The version of the message must be equal to `0x01`; if not, then discard the message.
+    1. The version of the message must be equal to the number of the era in force ([Bedrock Eras](bedrock-eras.md#era-schedule)); if not, then discard the message. During the [Era Transition Period](bedrock-eras.md#era-transition-period), the previous era's number is also accepted.
     2. The proof of quota nullifier must be unique; if not, then discard the message.
     3. The signature must be valid; if not, then discard the message.
 2. The message is released to the network as defined in the [Releasing](#releasing) section.
@@ -504,7 +505,7 @@ Implementations should choose a default based on the deployment they operate in,
 
 ### Connection Details
 
-The connections are established using libp2p with TLS version 1.3 (not older). The cryptographic scheme is Ed25519 with ephemeral keys**.** The libp2p protocol name is `/logos-blockchain/blend/1.0.0` for mainnet and `/logos-blockchain-testnet/blend/1.0.0` for testnet.
+The connections are established using libp2p with TLS version 1.3 (not older). The cryptographic scheme is Ed25519 with ephemeral keys**.** The libp2p protocol name is `/logos-blockchain/blend/<era>` for mainnet and `/logos-blockchain-testnet/blend/<era>` for testnet ([Network Protocol Identity](bedrock-eras.md#network-protocol-identity)).
 
 ### Neighbor Distinction Process
 
@@ -574,6 +575,8 @@ When a new **epoch** begins:
 - The node validates message proofs against both new and past epoch-related public input for the duration of TP. This allows past-epoch messages to safely transit through the network, as their validity is bound to the epoch in which they were generated.
 - The node must open new connections to process new messages for the new epoch.
 - The node needs to maintain old connections and process all messages received from these connections for the duration of TP.
+
+At an era boundary, the [Era Transition Period](bedrock-eras.md#era-transition-period) also applies.
 
 ## Quota
 
@@ -1033,7 +1036,7 @@ The `metadata` field is the concatenation of the following fields, in order:
 | Field | Size (bytes) | Value |
 | --- | --- | --- |
 | `metadata_type` | 1 | `0x01`, identifying the payload as Blend service activity metadata |
-| `version` | 1 | `0x01`, the version of the Blend [Activity Proof](#activity-proof) format |
+| `version` | 1 | The era number, versioning the Blend [Activity Proof](#activity-proof) format |
 | `epoch_number` | 4 | the epoch $`e`$ the proof attests to, encoded as little-endian |
 | `signing_key` | 32 | the public key $`K^{n}_{l}`$ used to verify the two proofs below |
 | `proof_of_quota` | 160 | $`\pi_{Q}^{K^{n}_{l}}`$, serialized as defined in [Proof of Quota](proof-of-quota.md) |
@@ -1043,7 +1046,7 @@ The total size of the `metadata` field is therefore $`230`$ bytes.
 
 The two leading bytes serve distinct purposes and must not be conflated. The `metadata_type` byte selects how the service-specific `metadata` field is interpreted, so that the SDP active message can carry activity metadata for services other than Blend. The `version` byte versions the Blend Activity Proof format itself, independently of that selector.
 
-The `metadata_type` must be equal to `0x01`; if not, then discard the message. The `version` must be equal to `0x01`; if not, then discard the message.
+The `metadata_type` must be equal to `0x01`; if not, then discard the message. The `version` must be equal to the era number of the including block's slot ([Bedrock Eras](bedrock-eras.md#era-schedule)); if not, then discard the message.
 
 The active message is stored on the ledger.
 

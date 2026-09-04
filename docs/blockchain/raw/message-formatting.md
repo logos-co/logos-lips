@@ -27,6 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-04-09 |
 | 1.0.1 | Corrected `Max_Payload_Length` to 34577 bytes, so that it again matches the `Max_Body_Length` of [Payload Formatting](payload-formatting.md) plus the 3-byte payload header. | 2026-08-06 |
 | 1.0.2 | Expressed `Max_Payload_Length` as `Max_Body_Length + 3` rather than a literal, so that it tracks the payload body size automatically; it is 18195 bytes at the `Max_Body_Length` that follows from the compressed transaction references of [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md). | 2026-08-18 |
+| 1.1.0 | The `version` byte carries the era number ([Bedrock Eras](bedrock-eras.md)). | 2026-09-04 |
 
 # Introduction
 
@@ -67,7 +68,7 @@ class PublicHeader:
 
 Where:
 
-- `version=0x01` is version of the protocol.
+- `version` is the era number of the epoch in which the message is generated ([Bedrock Eras](bedrock-eras.md#era-schedule)).
 - `public_key` is $`K^{n}_i`$, a public key from the set $`\mathbf K^n_h`$ as defined in the [Message Encapsulation](message-encapsulation.md) spec.
 - `proof_of_quota` is $`\pi^{K^{n}_i}_{Q}`$, a corresponding proof of quota for the key $`K^{n}_i`$ from the $`\mathbf K^n_h`$ it also contains the key nullifier.
 - `signature` is $`\sigma_{K^{n}_{i}}(\mathbf {h|P}_i)`$, a signature of the concatenation of the $`i`$-th encapsulation of the payload $`\mathbf P`$ and the private header $`\mathbf h`$, that can be verified by the public key $`K^{n}_{i}`$.

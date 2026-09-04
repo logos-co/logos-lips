@@ -26,6 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.0.1 | Noted that a streamed `Block` carries the signed headers of the uncles it references, which is what lets a synchronizing node validate those blocks and reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) without ever seeing their proposals, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
+| 1.1.0 | The sync protocol ID carries the era number ([Bedrock Eras](bedrock-eras.md)). | 2026-09-04 |
 
 # Introduction
 
@@ -207,8 +208,10 @@ For performing [Initial Block Download](#initial-block-download) and handling or
 
 **Libp2p Protocol ID**
 
-- Mainnet: `/logos-blockchain/cryptarchia/sync/1.0.0`
-- Testnet: `/logos-blockchain-testnet/cryptarchia/sync/1.0.0`
+- Mainnet: `/logos-blockchain/cryptarchia/sync/<era>`
+- Testnet: `/logos-blockchain-testnet/cryptarchia/sync/<era>`
+
+`<era>` is the era number ([Network Protocol Identity](bedrock-eras.md#network-protocol-identity)).
 
 ```python
 class DownloadBlocksRequest:
