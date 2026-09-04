@@ -356,7 +356,7 @@ The bootstrapping logic of an edge node:
         3. A core node might drop the connection if the maximum number of edge connections, defined by the core node, is reached.
         4. An edge node must drop the connection if the neighbor is not the intended core node. Please note that technically it is done during TLS handshake, where the handshake will fail if the core node is using a different key than provided in the SDP declaration.
 5. When the connection is established, it sends the message and closes the connection.
-6. Concurrently to the above, it repeats steps 4 and 5 until it is sends the message to a number of nodes equal to the communication redundancy number defined by the edge node. It stops connecting to each node after a certain number of tries, which is defined by the edge node.
+6. Concurrently to the above, it repeats steps 4 and 5 until it has sent the message to $`\Phi_{EC}^{Min}`$ core nodes. It stops connecting to a node after $`\Omega_E`$ tries.
 
 ## Message Lifecycle
 
@@ -451,7 +451,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\Phi_{EC}`$ denotes the actual number of connections of the edge node with core nodes;
 - $`h(x)`$ denotes a function that returns the number of healthy connections of a given type, where type is: $`x \in \{ \Phi_{CC}, \Phi_{CE}, \Phi_{EC} \}`$;
 - $`\Delta_{max}`$ denotes a maximal delay time between two release rounds;
-- $`\beta_{max}`$ denotes a maximum number of processing rounds for a single message;
+- $`\beta_{max}`$ denotes a maximum number of blending operations of a single message;
 - $`\mu`$ denotes the upper bound on the number of messages to be released during a single release round;
 - $`E`$ denotes a number of rounds in an epoch;
 - $`W`$ denote the observation window expressed in the number of rounds;
@@ -495,7 +495,7 @@ Implementations should choose a default based on the deployment they operate in,
 
 An edge node maintains the following parameters:
 
-- $`\Phi_{EC}`$ denotes the connection redundancy number for the edge node. A node must send a single message that needs to be blended to this number of core nodes.
+- $`\Phi_{EC}^{Min}`$ denotes the number of core nodes an edge node sends each message to. It is set by the edge node individually.
 - $`\Omega_E`$ denotes the maximum number of retries an edge node will do to establish a connection with a core node.
 
 Implementations should choose a default based on the deployment they operate in, and users can override these defaults before joining.
@@ -619,22 +619,6 @@ where:
 - $`\beta_D`$ denotes the expected number of blending operations for each data message;
 - $`R_D`$ denotes a redundancy parameter for data messages, defining the number of “replications” of the same message.
 
-We can calculate an average data message number ($`D_{Avg}`$) which informs us about the average number of data messages generated per epoch:
-
-$$
-D_{Avg} = L_{Avg} \cdot Q_L
-$$
-
-where $`L_{Avg}`$ is the average number of leaders per epoch.
-
-The $`L_{Avg}`$ depends on the consensus leader election algorithm, which at the time of writing can be estimated as follows:
-
-$$
-L_{Avg} = E \cdot F_D = \dfrac{648000}{30} = 21600,
-$$
-
-where $`E=648000`$ and $`F_D=1/30`$ are taken from the [Cryptarchia Protocol](cryptarchia-v1-protocol.md). This is equivalent to the average rate of a slot having an elected leader.
-
 Finally, let us define the leadership quota for node $`n`$ ($`Q^{n}_L`$), which can **only** be calculated by the node $`n`$:
 
 $$
@@ -659,7 +643,7 @@ $$
 which describes a collection of $`q`$ key pairs for a node $`n`$ with proofs of quota for the epoch $`e`$, where $`K_{i}^{n}`$ is the $`i`$-th public key, $`k_{i}^{n}`$ is its corresponding private key, and $`\pi_{Q}^{K_{i}^{n}}`$ is its proof of quota. Additionally:
 
 - $`q=Q_C + Q_L^n`$ is the sum of core quota and leadership quota for the node $`n`$.
-- $`\pi_{Q}^{K_{i}^{n}}`$ is a proof of quota which confirms that $`i \lt h`$ for every key $`K^{n}_{i}`$ from the key pool $`\mathbf K^{n,e}_h`$ of a node, without disclosing the identity of the node $`n`$.
+- $`\pi_{Q}^{K_{i}^{n}}`$ is a proof of quota which confirms that $`i \lt q`$ for every key $`K^{n}_{i}`$ from the key pool $`\mathbf K^{n,e}_q`$ of a node, without disclosing the identity of the node $`n`$.
 
 ### Keys Generation
 
@@ -667,7 +651,7 @@ This protocol uses multiple types of keys that are described in the following sp
 
 ### Proof of Quota
 
-One of the key ideas behind the Proof of Quota (PoQ — [[Proof of Quota](proof-of-quota.md)) is to guarantee that honestly generated messages are relayed and will be disseminated to the entire network. This is because an honestly generated message uses a unique identifier; otherwise, the network will eventually flag the message as duplicated and halt its dissemination.
+One of the key ideas behind the Proof of Quota (PoQ — [Proof of Quota](proof-of-quota.md)) is to guarantee that honestly generated messages are relayed and will be disseminated to the entire network. This is because an honestly generated message uses a unique identifier; otherwise, the network will eventually flag the message as duplicated and halt its dissemination.
 
 If two messages use the same identifier, then the network does not guarantee that the message will be relayed. In such a case, any node that observes the second message with the same identifier will drop it.
 
@@ -678,7 +662,7 @@ The PoQ is constructed from two parts.
 The first part of the PoQ is dedicated to the core quota. We define the proof of core quota ($`\pi^{K_{a}^{n}}_{Q_C}`$) as true when all of the following conditions are met:
 
 - $`n \in \mathcal{N} = \text{SDP}(e)`$: there exists a node $`n`$ that is part of the set of registered nodes $`\mathcal{N}`$, which is retrieved from the SDP protocol for the epoch $`e`$. The value identifying the node $`n`$ must be hidden.
-- $`K_{a}^{n} \in \mathbf K^{n,e}_h`$: the public key $`K_{a}^{n}`$ is generated by the node $`n`$ for the epoch $`e`$.
+- $`K_{a}^{n} \in \mathbf K^{n,e}_q`$: the public key $`K_{a}^{n}`$ is generated by the node $`n`$ for the epoch $`e`$.
 - $`a \lt Q_C`$: the number (index) $`a`$ of proof nullifiers that limits the number of proof of quotas a core node can generate in one epoch.
 
 The proof of the core quota assumes:
@@ -692,7 +676,7 @@ Where $`\nu_e`$ is a PoQ nullifier and uniquely identifies the PoQ.
 The second part of the PoQ is dedicated to the leadership quota. The proof of the leadership quota ($`\pi^{K_{b}^{n}}_{Q_L}`$) is true when all of the following conditions are met:
 
 - $`\exists~\pi^{n,e}_{L}`$: there exists a valid proof of leadership for node $`n`$ valid for epoch $`e`$.
-- $`K_{b}^{n} \in \mathbf K^{n,e}_h`$: the key $`K_{b}^{n}`$ is generated by the node $`n`$ for the epoch $`e`$.
+- $`K_{b}^{n} \in \mathbf K^{n,e}_q`$: the key $`K_{b}^{n}`$ is generated by the node $`n`$ for the epoch $`e`$.
 - $`b \lt Q_L^n`$: the number $`b`$ of key nullifiers that limits the number of proof of quotas a leader can generate per won slot.
 
 The proof of the leadership quota assumes:
@@ -774,13 +758,13 @@ A node $`n`$ constructs a message $`\mathbf M = (\mathbf H, \mathbf h, \mathbf P
 ![Diagram](blend-protocol/assets/215261aa-09df-817f-bf34-d640e8cbcd5e.jpg)
 
 1. $`\mathbf H`$ is a public header:
-    1. $`K^{n}_i`$, a public key from the set $`\mathbf K^n_h`$.
-    2. $`\pi^{K^{n}_i}_{Q}`$, a corresponding proof of quota for the key $`K^{n}_i`$ from the $`\mathbf K^n_h`$ and contains its PoQ nullifier $`\nu_i`$.
+    1. $`K^{n}_i`$, a public key from the set $`\mathbf K^n_q`$.
+    2. $`\pi^{K^{n}_i}_{Q}`$, a corresponding proof of quota for the key $`K^{n}_i`$ from the $`\mathbf K^n_q`$ and contains its PoQ nullifier $`\nu_i`$.
     3. $`\sigma_{K^{n}_{i}}(\mathbf P_i)`$, a signature of the $`i`$-th encapsulation of the payload $`\mathbf P`$, that can be verified by the public key $`K^{n}_{i}`$.
 
 2. $`\mathbf h = (\mathbf b_1,...,\mathbf b_{\beta_{max}})`$ is an encrypted private header $`\mathbf b_l`$, which contains:
-    1. $`K^{n}_{l}`$, a public key from the set $`\mathbf K^n_h`$.
-    2. $`\pi^{K^{n}_{l}}_{Q}`$, a corresponding proof of quota for the key $`K^{n}_l`$ from the $`\mathbf K^n_h`$ and contains its PoQ nullifier $`\nu_l`$.
+    1. $`K^{n}_{l}`$, a public key from the set $`\mathbf K^n_q`$.
+    2. $`\pi^{K^{n}_{l}}_{Q}`$, a corresponding proof of quota for the key $`K^{n}_l`$ from the $`\mathbf K^n_q`$ and contains its PoQ nullifier $`\nu_l`$.
     3. $`\sigma_{K^{n}_{l}}(\mathbf P_l)`$, a signature of the $`l`$-th encapsulation of the payload $`\mathbf P`$, that can be verified by the public key $`K^{n}_{l}`$.
     4. $`\pi^{K^{n}_{l+1},m_{l+1}}_{S}`$, a proof of selection of the node index $`m_{l+1}`$ assuming a public key $`K^{n}_{l+1}`$.
     5. $`\Omega`$, a flag that indicates that this is the last blending header.
@@ -865,7 +849,7 @@ When a message $`\mathbf M`$ is received by the node, then it is processed by th
         3. Attempt a subsequent decapsulation to validate whether the node is the recipient (return to step 1). This must be done recursively to remove all consecutive encapsulation layers where the node is the intended recipient.
         4. If the decapsulation fails (meaning no more layers remain), randomly delay the message and release the formatted message according to the [Releasing](#releasing) logic.
 
-  4. If decapsulation fails, return the appropriate decapsulation failure message.
+4. If decapsulation fails, return the appropriate decapsulation failure message.
 
 Blending tokens are stored by the node for rewarding purposes, as they prove that the node processed the message. The blending tokens are stored alongside context information such as the epoch number. We denote the set of blending tokens from an epoch $`e`$ stored by a node $`l`$ as $`\mathcal{T}^{l,e}`$.
 
@@ -961,7 +945,7 @@ In other words, the activity proof is $`\text{true}`$ when:
 - A node $`l`$ has a [blending token](blend-protocol.md#activity-proof) $`t \in \mathcal{T}^{l,s}`$ collected during epoch $`e`$, and that:
   - [Proof of Quota](#proof-of-quota) $`\pi^{K^{n}_l}_{Q} \in t`$ is true assuming epoch $`e`$.
   - [Proof of Selection](#proof-of-selection) $`\pi^{K^{n}_l,l}_{S} \in t`$ is true assuming epoch $`e`$.
-  - $`K^{n}_l`$, a public key from the set $`\mathbf K^n_h`$, that is used to verify the above proofs.
+  - $`K^{n}_l`$, a public key from the set $`\mathbf K^n_q`$, that is used to verify the above proofs.
 
 - The Hamming distance ($`\Delta_{\mathcal H}(a,b)`$ — returns the number of different bits between $`a`$ and $`b`$ binary strings) between the blending token $`t`$ and the next epoch randomness $`R_{e+1}`$ is not greater than the node activity threshold $`\mathcal A _{\epsilon}`$. That is:
 $$
@@ -1063,7 +1047,7 @@ The ledger must only accept a single active message per node per attested epoch.
 
 ### Reward Calculation
 
-The node rewards for epoch $`s`$ are calculated according to the following schema:
+The node rewards for epoch $`e`$ are calculated according to the following schema:
 
 1. Rewards are not calculated if the number of nodes (unique `ProviderId`s from declarations) retrieved from the SDP protocol is lower than the [Minimal Network Size](#minimal-network-size).
 
@@ -1077,7 +1061,7 @@ The node rewards for epoch $`s`$ are calculated according to the following schem
 
 4. Calculate the base reward:
     $$R = {I \over B + P}$$
-    where $`I`$ is the value of income for the Blend Network service for the epoch $`s`$.  For more details about the income calculation, refer to linked reference.
+    where $`I`$ is the value of income for the Blend Network service for the epoch $`e`$.
 
 5. Calculate the reward of the node $`n`$:
     $$R(n) = R \cdot [\mathrm{true}(\pi_{A}^{i,t,e}) + \min_{\Delta_{\mathcal H}}(\mathrm{true}(\pi_{A}^{i,t,e}))]$$
