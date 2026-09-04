@@ -33,10 +33,11 @@
 | 1.2.0 | Added the `uncle_headers` field — the signed headers of the referenced uncles — to the [Proposal](#block-proposal) and to the newly defined [Block](#block), and replaced `block_root` with `body_root` in the [Header](#header), which commits to them, signatures included, as well as to the transactions. Due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
 | 1.2.1 | Precise the state each transaction of a block is validated against: the transactions are validated and executed one after the other in the order they appear, each against the state the preceding ones left, which makes block validity order-dependent. Precise that a block whose validation fails at any point is not executed at all. | 2026-08-24 |
 | 1.3.0 | Compressed Block Proposal: 16-byte transaction reference prefixes and a variable-length `references` list, reducing the proposal from 34,574 bytes to at most 18,192. Added the [Canonical Encoding](#canonical-encoding) section. | 2026-08-18 |
+| 1.4.0 | Removed the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)): the header is 296 bytes, a signed header 360, and the maximum proposal 18,187 bytes. | 2026-09-04 |
 
 # Introduction
 
-In this document, we present the specification defining the construction of the block proposal, its validation, and execution. We define the block proposal construction that contains references to transactions (from the mempool) instead of a complete transaction to limit its length. The raw block body increases with the size of transactions it contains up to `MAX_BLOCK_SIZE`, which is 2 MiB and covers the transactions only, and the proposal compresses its size down to at most ≈18.2 kB (18,192 bytes), which saves the bandwidth necessary to broadcast new blocks.
+In this document, we present the specification defining the construction of the block proposal, its validation, and execution. We define the block proposal construction that contains references to transactions (from the mempool) instead of a complete transaction to limit its length. The raw block body increases with the size of transactions it contains up to `MAX_BLOCK_SIZE`, which is 2 MiB and covers the transactions only, and the proposal compresses its size down to at most ≈18.2 kB (18,187 bytes), which saves the bandwidth necessary to broadcast new blocks.
 
 # Overview
 
@@ -72,26 +73,26 @@ We are using two hashing algorithms that have the same output length of 256 bits
 
 ## Block Proposal
 
-A block proposal, instead of containing complete Mantle Transactions of an unlimited size, contains short fixed-size references to the transactions. It also carries the full signed headers of the uncles it references, so that every node holding the block holds those headers as well. Its size therefore varies with both the number of referenced transactions and the number of referenced uncles: from 364 bytes, up to the maximum of 18,192 bytes at `MAX_BLOCK_TXS` references and `MAX_UNCLES` uncles. The indistinguishability of proposals required by the [Blend Protocol](blend-protocol.md) is provided at the message layer: every dispersed proposal is padded up to the maximum payload size `Max_Body_Length = 18192` bytes — set from the maximum proposal size — by [Payload Formatting](payload-formatting.md).
+A block proposal, instead of containing complete Mantle Transactions of an unlimited size, contains short fixed-size references to the transactions. It also carries the full signed headers of the uncles it references, so that every node holding the block holds those headers as well. Its size therefore varies with both the number of referenced transactions and the number of referenced uncles: from 363 bytes, up to the maximum of 18,187 bytes at `MAX_BLOCK_TXS` references and `MAX_UNCLES` uncles. The indistinguishability of proposals required by the [Blend Protocol](blend-protocol.md) is provided at the message layer: every dispersed proposal is padded up to the maximum payload size `Max_Body_Length = 18187` bytes — set from the maximum proposal size — by [Payload Formatting](payload-formatting.md).
 
 We define the following message structure:
 
 ```python
-class Proposal:                              # 364..18192 bytes
-    header: Header                           # 297 bytes
-    uncle_headers: list[SignedHeader]        # 1 + u * 361 bytes, u <= MAX_UNCLES
+class Proposal:                              # 363..18187 bytes
+    header: Header                           # 296 bytes
+    uncle_headers: list[SignedHeader]        # 1 + u * 360 bytes, u <= MAX_UNCLES
     references: References                   # 2..16386 bytes (2-byte count + entries)
     signature: Ed25519Signature              # 64 bytes
 
-class SignedHeader:                          # 361 bytes
-    header: Header                           # 297 bytes
+class SignedHeader:                          # 360 bytes
+    header: Header                           # 296 bytes
     signature: Ed25519Signature              # 64 bytes
 ```
 
 Where:
 
 - `header` is the header of the proposal; defined below: [Header](#header).
-- `uncle_headers` is a variable-size list carrying the full signed headers of the referenced uncles, with at most `MAX_UNCLES` entries. Each entry holds an uncle block header together with the signature of that header under its `leader_key` — the header and signature as originally received with the uncle's own proposal. This list *is* the reference: the block ID ([Cryptarchia Protocol](cryptarchia-v1-protocol.md#block-id)) of an uncle is derived from its carried header and is not recorded separately. Like every list, it is serialized as a 1-byte little-endian element count followed by that many entries, and a decoder must reject a count exceeding `MAX_UNCLES`. The `uncles` field having been removed from the [Header](#header), each entry is a fixed 361 bytes — a 297-byte header plus a 64-byte signature — so the list of carried headers parses unambiguously from its element count alone. The whole list, signatures included, is committed by `header.body_root` and therefore by the block ID, so no two blocks sharing an ID can differ in a carried signature. The proposal length reveals how many uncles are referenced — proposal indistinguishability is provided by the message-layer padding of [Payload Formatting](payload-formatting.md), not by the encoding. The proposer chooses which uncles to reference according to [Uncle Selection](cryptarchia-v1-protocol.md#uncle-selection), and every entry must satisfy the validity rules of [Uncle References](cryptarchia-v1-protocol.md#uncle-references) or the block is rejected. The same list is carried over into the reconstructed [Block](#block), which is what makes every referenced uncle structurally available: those rules can be evaluated by any node holding the chain, including nodes bootstrapping from genesis that never receive the proposal.
+- `uncle_headers` is a variable-size list carrying the full signed headers of the referenced uncles, with at most `MAX_UNCLES` entries. Each entry holds an uncle block header together with the signature of that header under its `leader_key` — the header and signature as originally received with the uncle's own proposal. This list *is* the reference: the block ID ([Cryptarchia Protocol](cryptarchia-v1-protocol.md#block-id)) of an uncle is derived from its carried header and is not recorded separately. Like every list, it is serialized as a 1-byte little-endian element count followed by that many entries, and a decoder must reject a count exceeding `MAX_UNCLES`. The `uncles` field having been removed from the [Header](#header), each entry is a fixed 360 bytes — a 296-byte header plus a 64-byte signature — so the list of carried headers parses unambiguously from its element count alone. The whole list, signatures included, is committed by `header.body_root` and therefore by the block ID, so no two blocks sharing an ID can differ in a carried signature. The proposal length reveals how many uncles are referenced — proposal indistinguishability is provided by the message-layer padding of [Payload Formatting](payload-formatting.md), not by the encoding. The proposer chooses which uncles to reference according to [Uncle Selection](cryptarchia-v1-protocol.md#uncle-selection), and every entry must satisfy the validity rules of [Uncle References](cryptarchia-v1-protocol.md#uncle-references) or the block is rejected. The same list is carried over into the reconstructed [Block](#block), which is what makes every referenced uncle structurally available: those rules can be evaluated by any node holding the chain, including nodes bootstrapping from genesis that never receive the proposal.
 - `references` is a variable-length list of up to `MAX_BLOCK_TXS` [references](#references) to transactions, each being a 16-byte (`REFERENCE_PREFIX_LENGTH`) prefix of the transaction hash defined in [Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction).
 - `signature` is the signature of the complete `header` using the `leader_key` from the `ProofOfLeadership`; the size of the `Ed25519Signature` type is 64 bytes.
 
@@ -102,8 +103,7 @@ Note that this makes the random-padding requirement of [Payload Formatting](payl
 ### Header
 
 ```python
-class Header:                                # 297 bytes
-    bedrock_version: byte                    # 1 byte
+class Header:                                # 296 bytes
     parent_block: hash                       # 32 bytes
     slot: SlotNumber                         # 8 bytes
     body_root: hash                          # 32 bytes
@@ -112,10 +112,9 @@ class Header:                                # 297 bytes
 
 Where:
 
-- `bedrock_version` is the version of the proposal message structure that supports other protocols defined in linked reference; its size is 1 byte and is fixed to `0x01`.
 - `parent_block` is the block ID ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)) of the parent block, validated and accepted by the block builder. It is used for the derivation of the `AgedLedger` and `LatestLedger` values necessary for validating the PoL; the size of the `hash` is 32 bytes.
 - `slot` is the consensus slot number; the size of the `SlotNumber` type is 8 bytes.
-- `body_root` is the commitment to the block body — both the carried `uncle_headers` and the transactions. It is computed as defined in step 4 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation), which combines the serialized `uncle_headers` list with the root of the Merkle tree constructed from the **full** transaction hashes (defined in [Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction)) — the same hashes used for constructing the `mempool_transactions` references list; the size of the `hash` is 32 bytes. Because that Merkle root is taken over the full hashes, `body_root` uniquely binds the proposal to a specific ordered transaction selection even when two transactions share the same `references` prefix, and it also binds the *number* of references; see [Binding of the reference list](#binding-of-the-reference-list). Since the block ID is taken over the header, committing the uncle headers here is what makes two blocks with the same ID identical byte for byte.
+- `body_root` is the commitment to the block body — both the carried `uncle_headers` and the transactions. It is computed as defined in step 3 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation), which combines the serialized `uncle_headers` list with the root of the Merkle tree constructed from the **full** transaction hashes (defined in [Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction)) — the same hashes used for constructing the `mempool_transactions` references list; the size of the `hash` is 32 bytes. Because that Merkle root is taken over the full hashes, `body_root` uniquely binds the proposal to a specific ordered transaction selection even when two transactions share the same `references` prefix, and it also binds the *number* of references; see [Binding of the reference list](#binding-of-the-reference-list). Since the block ID is taken over the header, committing the uncle headers here is what makes two blocks with the same ID identical byte for byte.
 - `proof_of_leadership` is the proof confirming that the sender is the leader; defined below: [Proof of Leadership](#proof-of-leadership).
 
 ### References
@@ -173,8 +172,7 @@ The encoding is canonical: every valid proposal has exactly one byte representat
 ```schema
 Proposal          = Header UncleHeaders References Ed25519Signature
 
-Header            = Version ParentBlock Slot BodyRoot ProofOfLeadership
-Version           = Byte            ; fixed to 0x01
+Header            = ParentBlock Slot BodyRoot ProofOfLeadership
 ParentBlock       = Hash32
 Slot              = UINT64
 BodyRoot          = Hash32
@@ -199,14 +197,14 @@ This yields the following sizes, where `n` is the number of references:
 
 | Structure | Encoded size | Minimum | Maximum |
 | --- | --- | --- | --- |
-| `Header` | `1 + 32 + 8 + 32 + 224` | 297 | 297 |
+| `Header` | `32 + 8 + 32 + 224` | 296 | 296 |
 | `ProofOfLeadership` | `128 + 32 + 32 + 32` | 224 | 224 |
-| `SignedHeader` | `297 + 64` | 361 | 361 |
-| `UncleHeaders` | `1 + 361u` | 1 | 1,445 |
+| `SignedHeader` | `296 + 64` | 360 | 360 |
+| `UncleHeaders` | `1 + 360u` | 1 | 1,441 |
 | `References` | `2 + 16n` | 2 | 16,386 |
-| `Proposal` | `297 + (1 + 361u) + (2 + 16n) + 64` | 364 | 18,192 |
+| `Proposal` | `296 + (1 + 360u) + (2 + 16n) + 64` | 363 | 18,187 |
 
-The maximum of 18,192 bytes, at `n = MAX_BLOCK_TXS` references and `u = MAX_UNCLES` uncles, is what [Payload Formatting](payload-formatting.md#body) uses as `Max_Body_Length`.
+The maximum of 18,187 bytes, at `n = MAX_BLOCK_TXS` references and `u = MAX_UNCLES` uncles, is what [Payload Formatting](payload-formatting.md#body) uses as `Max_Body_Length`.
 
 ## Block
 
@@ -214,16 +212,16 @@ A **block** is what a proposal becomes once its references have been resolved ag
 
 ```python
 class Block:
-    header: Header                           # 297 bytes
+    header: Header                           # 296 bytes
     signature: Ed25519Signature              # 64 bytes
-    uncle_headers: list[SignedHeader]        # 1 + n × 361 bytes, n <= MAX_UNCLES
+    uncle_headers: list[SignedHeader]        # 1 + n × 360 bytes, n <= MAX_UNCLES
     transactions: list[SignedMantleTx]       # up to MAX_BLOCK_SIZE
 ```
 
 Where:
 
 - `header` is the header of the proposal the block was reconstructed from, unchanged; defined above: [Header](#header).
-- `signature` is the proposal signature over that `header`, carried over unchanged. It is retained because `block_id` commits to the header alone and therefore does not cover the signature, so a node that receives the block without ever seeing the proposal — as happens during synchronization — would otherwise have nothing to check against step 9 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation); the size of the `Ed25519Signature` type is 64 bytes.
+- `signature` is the proposal signature over that `header`, carried over unchanged. It is retained because `block_id` commits to the header alone and therefore does not cover the signature, so a node that receives the block without ever seeing the proposal — as happens during synchronization — would otherwise have nothing to check against step 8 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation); the size of the `Ed25519Signature` type is 64 bytes.
 - `uncle_headers` is the list carried over verbatim from the proposal, defined above: [Block Proposal](#block-proposal). It is committed by `header.body_root`, so it cannot be altered, reordered or truncated without changing the block ID, and every entry must satisfy the validity rules of [Uncle References](cryptarchia-v1-protocol.md#uncle-references) for the block to be valid.
 - `transactions` is the sequence of Mantle Transactions resolved from `references` during [Block Proposal Reconstruction](#block-proposal-reconstruction).
 
@@ -252,7 +250,6 @@ Only after the PoL is generated can the block proposal be constructed (see [Proo
 
 1. Initialize proposal metadata with the last known state of the blockchain. Set the:
   - `header`:
-    - `bedrock_version`
     - `parent_block`
     - `slot`
     - `body_root` — left unset here; it is computed in step 4, once both parts of the body are known
@@ -276,8 +273,8 @@ references: list[bytes] = [prefix(mantle_txhash(tx), REFERENCE_PREFIX_LENGTH)
                            for tx in mempool_transactions]
 ```
 
-4. Compute the `header.body_root` over both parts of the body, as defined in step 4 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation): the serialized `uncle_headers` list from step 1, combined with the root of the Merkle tree constructed over the full transaction hashes of the selected transactions used to build `references`. The `references` list is left exactly as long as the selection; it is not padded. This step therefore comes after both uncle selection and transaction selection.
-5. Sign the block proposal header, where `header` is its canonical encoding as defined in [Canonical Encoding](#canonical-encoding) — the 297 bytes of the header alone, without `uncle_headers`, without `references` and without the signature itself.
+4. Compute the `header.body_root` over both parts of the body, as defined in step 3 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation): the serialized `uncle_headers` list from step 1, combined with the root of the Merkle tree constructed over the full transaction hashes of the selected transactions used to build `references`. The `references` list is left exactly as long as the selection; it is not padded. This step therefore comes after both uncle selection and transaction selection.
+5. Sign the block proposal header, where `header` is its canonical encoding as defined in [Canonical Encoding](#canonical-encoding) — the 296 bytes of the header alone, without `uncle_headers`, without `references` and without the signature itself.
 ```text
 signature = Ed25519.sign(leader_secret_key, header)
 ```
@@ -331,7 +328,7 @@ A reference resolves only when the match is unique. Zero matches means the trans
 
 Reconstruction considers every entry of `references`; the list has no padding. Nothing in the encoding forbids the same reference appearing more than once: each occurrence resolves independently to the same transaction, the reconstructed sequence contains that transaction more than once, and `header.body_root` decides — as for any sequence — whether that is what the proposer committed to. Whether such a sequence is *valid* is not a reconstruction question; it is decided by [Mantle](bedrock-v1.1-mantle-specification.md) transaction validation and execution, where a repeated transaction conflicts with itself, spending the same notes twice. A proposal whose reference count exceeds `MAX_BLOCK_TXS` is rejected at decode time, as specified in [References](#references). The proposal is reconstructed when every reference resolves to a transaction and the body root over the carried `uncle_headers` and the resolved transactions' full hashes reproduces `header.body_root`; otherwise it is rejected. Resolution is a function of the proposal and the validator's mempool alone, so two validators holding the same mempool always reach the same decision.
 
-A reference resolving to no local transaction means the referenced transaction has not reached this validator's mempool, which the transaction maturity assumption above is designed to prevent. The validator rejects the proposal and does not build on it. It **must not** record that outcome as a verdict on `block_id`: the block may be received again, in full, through chain synchronisation, and is then validated on its merits. This is unlike a failure implied by the header bytes alone — a wrong version, an invalid proof of leadership — which condemns the block the header names, identically at every node, and is final. Note that not every mempool-independent failure is of that kind: a frame that does not decode or a bad `signature` condemns only the received copy, because the bytes at fault lie outside the header that `block_id` is computed from. [Block Proposal Validation](#block-proposal-validation) states the full classification.
+A reference resolving to no local transaction means the referenced transaction has not reached this validator's mempool, which the transaction maturity assumption above is designed to prevent. The validator rejects the proposal and does not build on it. It **must not** record that outcome as a verdict on `block_id`: the block may be received again, in full, through chain synchronisation, and is then validated on its merits. This is unlike a failure implied by the header bytes alone — an invalid proof of leadership — which condemns the block the header names, identically at every node, and is final. Note that not every mempool-independent failure is of that kind: a frame that does not decode or a bad `signature` condemns only the received copy, because the bytes at fault lie outside the header that `block_id` is computed from. [Block Proposal Validation](#block-proposal-validation) states the full classification.
 
 The `header.body_root` check is what makes resolution safe against the residual, cryptographically-negligible case of a prefix matching the wrong transaction: a mismatched set never reproduces the root.
 
@@ -341,7 +338,7 @@ Neither the reference entries nor their count are covered by `signature` or by `
 
 Two operational consequences follow:
 
-- Tampered copies of a genuine proposal are cheap to produce, since `references` is unauthenticated. `block_id` is computable from the 297-byte header alone and is shared by every variant of one proposal, which cuts both ways: once a copy has been **accepted**, every later copy carrying that `block_id` can be dropped at a glance, collapsing all tampered variants into a single unit of reconstruction work — but a *rejected* copy must not suppress later ones, or the first tampered variant to arrive would censor the genuine proposal behind it. Duplicate suppression on `block_id` is therefore keyed on acceptance, never on receipt.
+- Tampered copies of a genuine proposal are cheap to produce, since `references` is unauthenticated. `block_id` is computable from the 296-byte header alone and is shared by every variant of one proposal, which cuts both ways: once a copy has been **accepted**, every later copy carrying that `block_id` can be dropped at a glance, collapsing all tampered variants into a single unit of reconstruction work — but a *rejected* copy must not suppress later ones, or the first tampered variant to arrive would censor the genuine proposal behind it. Duplicate suppression on `block_id` is therefore keyed on acceptance, never on receipt.
 - Reconstruction must not be the first expensive step. It is a mempool scan, so it should follow signature and PoL verification, and an unauthenticated proposal must be discarded before any mempool scanning takes place.
 
 Reconstruction assembles the [Block](#block) from the proposal's `header` and `signature`, its `uncle_headers` copied over verbatim, and the transactions resolved from `references` in the order the references appear. The `uncle_headers` list is retained rather than discarded: it is not recoverable from the mempool, it is committed by `header.body_root` and so cannot be dropped without invalidating the block, and once the proposal has been consumed the block is the only carrier of the signed uncle headers that [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) and the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) need.
@@ -355,19 +352,19 @@ Given a `proposal`, a proposed block consisting of a `header`, `uncle_headers`, 
 The order is constrained as well as economical. [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) is defined over a block $`B = (header, transactions)`$, but a proposal carries `references` rather than transactions, so the rules that range over `transactions` cannot be evaluated until reconstruction has produced them. They are therefore applied in the step where their operand exists, and each is named below.
 
 1. **Decoding**
-  The received bytes must decode to a `proposal` under [Canonical Encoding](#canonical-encoding): the frame must be consumed exactly, with no trailing bytes, the `references` element count must not exceed `MAX_BLOCK_TXS`, and the `uncle_headers` element count must not exceed `MAX_UNCLES`. These checks precede any allocation proportional to a count and any mempool lookup. Because reconstruction produces exactly one transaction per reference, the first of them also discharges rule 3 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation), `length(transactions) <= MAX_BLOCK_TXS`.
+  The received bytes must decode to a `proposal` under [Canonical Encoding](#canonical-encoding): the frame must be consumed exactly, with no trailing bytes, the `references` element count must not exceed `MAX_BLOCK_TXS`, and the `uncle_headers` element count must not exceed `MAX_UNCLES`. These checks precede any allocation proportional to a count and any mempool lookup. Because reconstruction produces exactly one transaction per reference, the first of them also discharges rule 2 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation), `length(transactions) <= MAX_BLOCK_TXS`.
 
 2. **Header Validation**
-  The `header` must satisfy the rules of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) that range over the header and the block tree alone: the bedrock version, the slot ordering against the parent, the wallclock check, the presence of the parent in the block tree, the height against the latest immutable block, and the leader's right to propose — that is, rules 1 and 5 through 9. These need no mempool access, and rule 9 covers `signature` and the proof of leadership, so an unauthenticated proposal is discarded here, before any mempool scanning.
+  The `header` must satisfy the rules of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) that range over the header and the block tree alone: the slot ordering against the parent, the wallclock check, the presence of the parent in the block tree, the height against the latest immutable block, and the leader's right to propose — that is, rules 4 through 8. These need no mempool access, and rule 8 covers `signature` and the proof of leadership, so an unauthenticated proposal is discarded here, before any mempool scanning.
 
 3. **Uncle Validation**
-  Every entry of `uncle_headers` must be a valid uncle of the block, which is rule 10 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) (see [Uncle References](cryptarchia-v1-protocol.md#uncle-references)). Like the previous step this reads only the chain being extended and the carried entry, so it needs no mempool access and precedes reconstruction. At this point the carried entries are not yet authenticated: `signature` does not cover them, and they are bound to the header only by `header.body_root`, which is not checked until the next step. A failure here therefore condemns the received copy, not the block — it is handled exactly like a reconstruction failure, with no verdict recorded against `block_id`. A finding that the *block* carries an invalid uncle requires entries whose binding has been confirmed: a full block obtained through chain synchronisation, whose `body_root` is checkable immediately, is judged by rule 10 on its merits.
+  Every entry of `uncle_headers` must be a valid uncle of the block, which is rule 9 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) (see [Uncle References](cryptarchia-v1-protocol.md#uncle-references)). Like the previous step this reads only the chain being extended and the carried entry, so it needs no mempool access and precedes reconstruction. At this point the carried entries are not yet authenticated: `signature` does not cover them, and they are bound to the header only by `header.body_root`, which is not checked until the next step. A failure here therefore condemns the received copy, not the block — it is handled exactly like a reconstruction failure, with no verdict recorded against `block_id`. A finding that the *block* carries an invalid uncle requires entries whose binding has been confirmed: a full block obtained through chain synchronisation, whose `body_root` is checkable immediately, is judged by rule 9 on its merits.
 
 4. **Block Proposal Reconstruction**
-  Every `references` prefix must resolve to a local mempool transaction, as defined in [Reference Resolution](#reference-resolution), and the body root computed over the carried `uncle_headers` and the resolved transactions must equal `header.body_root`. This step produces `transactions` and discharges rule 4 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation). A mismatch here means the message was corrupted in transit or malformed by its proposer, not that the block it names is invalid. Corruption of the header itself cannot reach this step — it would have failed the signature check in step 2 — so a mismatching copy has a genuine header over a tampered or damaged body, and carries the **same** `block_id` as the block it names. When that block is genuine, its well-formed bytes are held by the proposer and by every node that accepted it, and the proposal may be re-requested from any of them. That shared identity is exactly why no verdict about the block may be recorded from the mismatch: condemning the `block_id` of a corrupted copy would condemn the genuine block with it.
+  Every `references` prefix must resolve to a local mempool transaction, as defined in [Reference Resolution](#reference-resolution), and the body root computed over the carried `uncle_headers` and the resolved transactions must equal `header.body_root`. This step produces `transactions` and discharges rule 3 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation). A mismatch here means the message was corrupted in transit or malformed by its proposer, not that the block it names is invalid. Corruption of the header itself cannot reach this step — it would have failed the signature check in step 2 — so a mismatching copy has a genuine header over a tampered or damaged body, and carries the **same** `block_id` as the block it names. When that block is genuine, its well-formed bytes are held by the proposer and by every node that accepted it, and the proposal may be re-requested from any of them. That shared identity is exactly why no verdict about the block may be recorded from the mismatch: condemning the `block_id` of a corrupted copy would condemn the genuine block with it.
 
 5. **Block Body Validation**
-  With `transactions` now available, the remaining rule of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) applies: rule 2, `bytes(transactions) <= MAX_BLOCK_SIZE`.
+  With `transactions` now available, the remaining rule of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) applies: rule 1, `bytes(transactions) <= MAX_BLOCK_SIZE`.
 
 6. **Mempool Transactions Validation**
   `mempool_transactions` must refer to a valid sequence of Mantle Transactions from the mempool. The transactions are validated in the order the `references` resolve them, against a state that advances with them: each transaction is validated against the state the transactions preceding it left, the first one against the state the block inherits once the steps of [Block Execution](#block-execution) that precede it have been applied. Each transaction must be valid in that state according to the rules defined in the [Mantle](bedrock-v1.1-mantle-specification.md#validation), which validates and executes its Operations along that same progression. Validation and execution are therefore one pass over one state, not two.
@@ -376,7 +373,7 @@ The order is constrained as well as economical. [Block Header Validation](crypta
 
   In order to verify ZK proofs, they are batched for verification as explained in [Batch verification of ZK proofs](#batch-verification-of-zk-proofs) to get better performance. Batching covers the proof checks alone and does not change the state a transaction is validated in: the public inputs of every proof are taken from the state its transaction is reached in, and the state-dependent assertions still run in sequence.
 
-If any of the above checks fail, the block proposal must be rejected. What the rejection establishes depends on which bytes the failed check read. `block_id` is computed from the 297-byte header alone, so every byte outside the header — `uncle_headers`, `references`, `signature`, trailing bytes — can be altered in a copy without changing the `block_id` it names, and none of those bytes are authenticated until `header.body_root` is confirmed in step 4. A failure detected in them is a property of the received copy, not of the block: a frame that does not decode (step 1), a bad `signature` (step 2), an invalid uncle entry (step 3) and a failure to reconstruct (step 4) each discard the copy **without** recording a verdict against `block_id`. Only a failure implied by the header bytes themselves — a wrong version, an invalid proof of leadership — condemns the block the header names, identically at every node. Treating any of the former as final would let an attacker censor a genuine block by circulating tampered copies of it: one flipped bit in the trailing `signature`, or one substituted uncle entry, leaves `block_id` unchanged. The mempool-dependence of step 4 adds one further distinction — a reference that fails to resolve locally may resolve at another node — described in [Reference Resolution](#reference-resolution). Independently of what a rejection establishes about the block, **nothing of the proposal is executed**. The state progression the pass builds is a working one, adopted as the new chain state only once the last transaction of the block has validated: a single failed check anywhere in the block, in any transaction, in any Operation of any transaction, invalidates the whole block, so a node rejecting it holds exactly the state it held before it started processing it.
+If any of the above checks fail, the block proposal must be rejected. What the rejection establishes depends on which bytes the failed check read. `block_id` is computed from the 296-byte header alone, so every byte outside the header — `uncle_headers`, `references`, `signature`, trailing bytes — can be altered in a copy without changing the `block_id` it names, and none of those bytes are authenticated until `header.body_root` is confirmed in step 4. A failure detected in them is a property of the received copy, not of the block: a frame that does not decode (step 1), a bad `signature` (step 2), an invalid uncle entry (step 3) and a failure to reconstruct (step 4) each discard the copy **without** recording a verdict against `block_id`. Only a failure implied by the header bytes themselves — an invalid proof of leadership — condemns the block the header names, identically at every node. Treating any of the former as final would let an attacker censor a genuine block by circulating tampered copies of it: one flipped bit in the trailing `signature`, or one substituted uncle entry, leaves `block_id` unchanged. The mempool-dependence of step 4 adds one further distinction — a reference that fails to resolve locally may resolve at another node — described in [Reference Resolution](#reference-resolution). Independently of what a rejection establishes about the block, **nothing of the proposal is executed**. The state progression the pass builds is a working one, adopted as the new chain state only once the last transaction of the block has validated: a single failed check anywhere in the block, in any transaction, in any Operation of any transaction, invalidates the whole block, so a node rejecting it holds exactly the state it held before it started processing it.
 
 This ordering is specific to the proposal path. A block received in full through chain synchronisation carries its transactions from the start, so [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) applies to it as written, with no ordering constraint.
 
@@ -410,7 +407,7 @@ Write $`b = 8 \cdot`$ `REFERENCE_PREFIX_LENGTH` for the prefix length in bits, s
 
 The self-collision cost is the one that governs the parameter, because it is the cheaper of the two and it is what an attacker needs to force reconstruction failures. At the 8-byte prefix of an earlier revision ($`b = 64`$) it was only ≈ $`2^{32}`$ — under a second of GPU hashing — which is why that revision needed a construction-side ambiguity bound and a validator-side reconstruction cap to survive grindable collisions. At 16 bytes the birthday cost is ≈ $`2^{64}`$: about 58 years on one GPU at $`10^{10}`$ hashes per second, and still ~214 days against a 100× adversary. Manufacturing even a single ambiguous pair is therefore infeasible, and the whole class of grinding attacks disappears along with the machinery that managed it. Every reference resolves to exactly one transaction, reconstruction is a deterministic lookup, and `header.body_root` remains the backstop for the residual, cryptographically-negligible random collision.
 
-The cost is that references are twice as long as at 8 bytes, so the maximum proposal grows by 8,192 bytes. That still leaves it at 18,192 bytes against the 34,574 of a full-hash layout carrying the same uncles — a ≈1.9× reduction — and it buys reconstruction that no adversary can perturb — for a consensus structure, the stronger property is worth the bytes.
+The cost is that references are twice as long as at 8 bytes, so the maximum proposal grows by 8,192 bytes. That still leaves it at 18,187 bytes against the 34,569 of a full-hash layout carrying the same uncles — a ≈1.9× reduction — and it buys reconstruction that no adversary can perturb — for a consensus structure, the stronger property is worth the bytes.
 
 ## Why `body_root` alone binds the reference list
 

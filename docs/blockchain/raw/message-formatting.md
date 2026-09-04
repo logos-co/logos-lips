@@ -28,6 +28,7 @@
 | 1.0.1 | Corrected `Max_Payload_Length` to 34577 bytes, so that it again matches the `Max_Body_Length` of [Payload Formatting](payload-formatting.md) plus the 3-byte payload header. | 2026-08-06 |
 | 1.0.2 | Expressed `Max_Payload_Length` as `Max_Body_Length + 3` rather than a literal, so that it tracks the payload body size automatically; it is 18195 bytes at the `Max_Body_Length` that follows from the compressed transaction references of [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md). | 2026-08-18 |
 | 1.1.0 | The `version` byte carries the era number ([Bedrock Eras](bedrock-eras.md)). | 2026-09-04 |
+| 1.1.1 | Followed `Max_Payload_Length` to 18190 bytes after the removal of the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)). | 2026-09-04 |
 
 # Introduction
 
@@ -114,4 +115,4 @@ The `Max_Payload_Length` parameter defines the maximum length of the `payload`. 
 
 &nbsp;&nbsp;&nbsp;&nbsp;`Max_Payload_Length = Max_Body_Length + 3`
 
-which is 18195 bytes at the `Max_Body_Length` of 18192 currently set by [Payload Formatting](payload-formatting.md). Stating it as a derived value rather than a literal means that a change to the maximum block proposal size — which is what sets `Max_Body_Length` — reaches this parameter without an edit here. More information about payload formatting can be found in [Payload Formatting](payload-formatting.md).
+which is 18190 bytes at the `Max_Body_Length` of 18187 currently set by [Payload Formatting](payload-formatting.md). Stating it as a derived value rather than a literal means that a change to the maximum block proposal size — which is what sets `Max_Body_Length` — reaches this parameter without an edit here. More information about payload formatting can be found in [Payload Formatting](payload-formatting.md).

@@ -27,6 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-04-09 |
 | 1.1.0 | Updated `Max_Body_Length` to 34574 bytes, the maximum block proposal size once a proposal carries the signed headers of the uncles it references (see [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md)). | 2026-08-06 |
 | 1.1.1 | Updated `Max_Body_Length` to 18192 bytes, following the compression of transaction references to 16-byte prefixes and their encoding as a variable-length list (see [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md)). | 2026-08-18 |
+| 1.1.2 | Updated `Max_Body_Length` to 18187 bytes, following the removal of the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)). | 2026-09-04 |
 
 # Introduction
 
@@ -73,7 +74,7 @@ We define the `body_length` as uint16 (encoded as little-endian). Therefore, the
 
 ## Body
 
-The `Max_Body_Length` parameter defines the maximum length of the `body`. The maximal length of a raw data message is the maximum size of a [Block Proposal](bedrock-v1.1-block-construction.md#block-proposal) — 18192 bytes, reached when the proposal carries `MAX_UNCLES` signed uncle headers and references `MAX_BLOCK_TXS` transactions — so the `Max_Body_Length=18192`. Because the padding below fixes every `body` to this length, the variable size of a proposal (which depends on the number of referenced uncles and transactions) is not observable on the wire, which is what preserves the indistinguishability of proposals required by the [Blend Protocol](blend-protocol.md).
+The `Max_Body_Length` parameter defines the maximum length of the `body`. The maximal length of a raw data message is the maximum size of a [Block Proposal](bedrock-v1.1-block-construction.md#block-proposal) — 18187 bytes, reached when the proposal carries `MAX_UNCLES` signed uncle headers and references `MAX_BLOCK_TXS` transactions — so the `Max_Body_Length=18187`. Because the padding below fixes every `body` to this length, the variable size of a proposal (which depends on the number of referenced uncles and transactions) is not observable on the wire, which is what preserves the indistinguishability of proposals required by the [Blend Protocol](blend-protocol.md).
 
 The `body` length is fixed to `Max_Body_Length` bytes. Therefore, if the length of the raw message is shorter than the `Max_Body_Length`, then it must be padded with random data.
 
