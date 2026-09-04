@@ -292,6 +292,45 @@ Security Considerations:
 
 - Groth16: [https://eprint.iacr.org/2016/260.pdf](https://eprint.iacr.org/2016/260.pdf)
 
+# 4. Client Puzzles
+
+## [Equi-X](https://github.com/tevador/equix) [(Asymmetric Client Puzzle)](https://spec.torproject.org/hspow-spec/index.html)
+
+Description:
+
+Equi-X is an asymmetric proof of work: finding a solution for a challenge is expensive, and verifying one is cheap and independent of the difficulty. It is [Equihash](https://eprint.iacr.org/2015/946) with parameters $`n=60`$, $`k=3`$ over [HashX](https://github.com/tevador/hashx), a per-input pseudo-random hash function, as used by the Tor onion-service proof of work ([proposal 327](https://spec.torproject.org/hspow-spec/index.html)).
+
+Technical Details:
+
+- Puzzle input: $`C \| nonce`$, where $`C`$ is the challenge, a byte string set by the verifier, and $`nonce`$ is $`8`$ bytes, little-endian.
+- Solution: $`8`$ indices of $`16`$ bits, serialized as each index in little-endian, $`16`$ bytes in total. A solution is valid for a puzzle input when Equi-X verification accepts it for that input.
+- Achieved effort: $`\text{effort}(C, nonce, sol) = \lfloor (2^{32}-1) / h_{32} \rfloor`$, where $`h_{32}`$ is the first $`4`$ bytes, big-endian, of the unkeyed BLAKE2b-256 of $`C \| nonce \| sol`$; when $`h_{32} = 0`$ the effort is $`2^{32}-1`$.
+- Token: the pair $`(nonce, sol)`$, serialized as the nonce followed by the solution, $`24`$ bytes. A token satisfies an effort target $`d`$ for a challenge $`C`$ when its solution is valid for $`C \| nonce`$ and $`\text{effort}(C, nonce, sol) \geq d`$.
+- The expected cost of producing a satisfying token grows linearly with $`d`$. The cost and the size of verifying one are independent of $`d`$.
+- Solving needs about $`2`$ MB of working memory per instance; verification does not.
+
+Use in the Logos Blockchain:
+
+Equi-X prices admission at the edge of the Blend network: a core node sets the effort target an edge node must satisfy to be served ([Blend Protocol](blend-protocol.md)).
+
+Rationale for Use:
+
+- Verification runs in microseconds and does not grow with the target, so a node under load can raise the price of admission at no cost to itself.
+- HashX generates a fresh random program per nonce, so fixed-function hardware cannot bake the hash in; solving remains CPU-bound.
+- The token is $`24`$ bytes at every target, so difficulty has no bandwidth consequence.
+
+Security Considerations:
+
+- The puzzle is stateless and nothing in it prevents replay of a valid token. Single-use enforcement is an obligation of the protocol consuming the token.
+- Published solve rates are CPU measurements; a deployment must assume headroom for better-optimized solvers.
+
+## References
+
+- [Equi-X reference implementation](https://github.com/tevador/equix)
+- [HashX reference implementation](https://github.com/tevador/hashx)
+- [Tor onion-service proof of work (proposal 327)](https://spec.torproject.org/hspow-spec/index.html)
+- [Equihash](https://eprint.iacr.org/2015/946)
+
 # Annex
 
 ## Poseidon2 Test Values
