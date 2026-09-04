@@ -25,6 +25,7 @@
 | 1.1.0 | [\[RFC\] Enforce NoteId uniqueness](mantle-transaction-encoding/appendices/rfc-enforce-noteid-uniqueness.md). | 2026-04-24 |
 | 1.1.1 | [\[RFC\] Simplify Mantle Transaction and Refactor Ledger Operations](mantle-transaction-encoding/appendices/rfc-simplify-mantle-transaction-and-refactor-ledger-operations.md) | 2026-05-06 |
 | 1.2.0 | Align the atomic transfer example with the `CHANNEL_DEPOSIT` execution consuming its inputs and re-creating them in the destination channel. | 2026-07-27 |
+| 1.2.1 | The example transaction sets `expiry_slot`, due to updated [Mantle](bedrock-v1.1-mantle-specification.md) (transaction validity window). | 2026-09-01 |
 
 # Introduction
 
@@ -201,6 +202,7 @@ transfer = Transfer(
 # Wrap it in a transaction. Operations are executed sequentially, so the
 # withdrawal must precede the deposit for the note to be spendable
 tx = MantleTx(
+    expiry_slot=next_expiry_slot(),
     ops=[Op(opcode=CHANNEL_INSCRIBE, payload=encode(sending)),
          Op(opcode=CHANNEL_INSCRIBE, payload=encode(receiving)),
          Op(opcode=CHANNEL_WITHDRAW, payload=encode(withdrawal)),

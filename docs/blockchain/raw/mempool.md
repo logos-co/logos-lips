@@ -19,12 +19,6 @@
 
 The mempool is a node's store of Mantle Transactions that have been submitted but are not yet in the canonical chain. It disseminates those transactions, supplies them to block building, and resolves the references a block proposal carries in place of transaction bodies.
 
-# Constants
-
-| Constant | Name | Description | Value |
-| --- | --- | --- | --- |
-| `TRANSACTION_TTL` | Transaction Time To Live | How long a transaction may stay pending before it is retired. | 24 hours |
-
 # Mempool State
 
 ```python
@@ -57,6 +51,12 @@ def admit(mempool, encoded: bytes, at: Timestamp = None) -> Result:
     if not preverify(tx):
         return Reject(FailedStatelessValidation)
 
+    s = current_slot()
+    if tx.expiry_slot % TX_EXPIRY_QUANTUM != 0:
+        return Reject(UnquantizedDeadline)
+    if not (s <= tx.expiry_slot <= s + TX_VALIDITY_WINDOW):
+        return Reject(OutsideValidityWindow)
+
     key = mantle_txhash(tx)
     if key in mempool.pending:
         return Duplicate(key)
@@ -68,9 +68,11 @@ def admit(mempool, encoded: bytes, at: Timestamp = None) -> Result:
     return Accept(key)
 ```
 
-Admission reads the transaction and the mempool. It must not read ledger state. A node must not treat membership of the mempool as evidence that a transaction can be applied.
+Admission reads the transaction, the mempool and the current slot. It must not read ledger state. A node must not treat membership of the mempool as evidence that a transaction can be applied.
 
 `MAX_BLOCK_SIZE` is defined in [Cryptarchia Protocol](cryptarchia-v1-protocol.md#constants).
+
+The validity window is defined in [Mantle](bedrock-v1.1-mantle-specification.md#transaction-validity-window). Admission applies it with the current slot in place of a block slot.
 
 ## Decoding
 
@@ -153,7 +155,7 @@ A transaction that the applicability determination of [Block Building View](#blo
 
 ## Expiry
 
-A pending transaction whose age exceeds `TRANSACTION_TTL` is retired.
+A pending transaction is retired when the current slot passes its `expiry_slot`. A node evaluates this on the slot clock, not on block arrival.
 
 ## Effects of Retirement
 
@@ -166,6 +168,13 @@ A retired transaction that is gossiped again is admitted again.
 A node persists the pending hashes, their admission timestamps, and the transaction bodies.
 
 A node does not persist `by_prefix`. It rebuilds the index from the recovered pending set.
+
+# Note Release
+
+A wallet that has submitted a transaction spending a note must not spend that note in another transaction until one of the following holds:
+
+1. A transaction spending the note is included at or below the latest immutable block, defined in [Cryptarchia Protocol](cryptarchia-v1-protocol.md#latest-immutable-block).
+2. The slot of the latest immutable block exceeds the transaction's `expiry_slot`.
 
 # Node API
 
