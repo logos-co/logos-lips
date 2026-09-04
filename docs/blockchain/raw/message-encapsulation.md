@@ -27,6 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-04-09 |
 | 1.0.1 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.1.0 | [RFC] Replace the BLAKE2b-Based PRNG with ChaCha20 (ChaCha20Rng) | 2026-08-28 |
+| 1.2.0 | The header `version` carries the era number ([Bedrock Eras](bedrock-eras.md)). | 2026-09-04 |
 
 # Introduction
 
@@ -175,7 +176,7 @@ class Message:
 ```
 
 1. $`\mathbf H`$ is a public header:
-    1. $`V`$, version of the header, it is set to $`1`$.
+    1. $`V`$, version of the header, set to the era number of the epoch in which the message is generated ([Bedrock Eras](bedrock-eras.md#era-schedule)).
     2. $`K^{n}_i`$, a public key from the set $`\mathbf K^n_h`$.
     3. $`\pi^{K^{n}_i}_{Q}`$, a corresponding proof of quota for the key $`K^{n}_i`$ from the set $`\mathbf K^n_h`$ and contains its proof nullifier.
     4. $`\sigma_{K^{n}_{i}}(\mathbf {h|P}_i)`$, a signature of the concatenation of the $`i`$-th encapsulation of the payload $`\mathbf P`$ and the private header $`\mathbf h`$, that can be verified by the public key $`K^{n}_{i}`$.
@@ -185,7 +186,7 @@ class Message:
     SIGNATURE_SIZE = 64
 
     class PublicHeader:
-        version: int = 1  # u8
+        version: int  # u8, the era number
         signing_public_key: Ed25519PublicKey
         proof_of_quota: ProofOfQuota
         signature: Signature
@@ -434,7 +435,8 @@ def encapsulate(
         payload: Payload,
         shared_keys: List[SharedKeys],
         key_collection: List[KeyPair],
-        list_of_pos: List[ProofOfSelection]
+        list_of_pos: List[ProofOfSelection],
+        era: int
 ) -> bytes:
     # Step 1 ~ 6: Encapsulate private header and payload
     prev_keypair = KeyPair.random()
@@ -458,7 +460,7 @@ def encapsulate(
         prev_keypair.signing_public_key,
         prev_keypair.proof_of_quota,
         signature=sign(private_part, prev_keypair.signing_private_key),
-        version=1,
+        version=era,
     )
 
     return public_header.bytes() + b"".join(private_headers) + payload
@@ -590,7 +592,7 @@ def decapsulate(
         first_blending_header.signing_public_key,
         first_blending_header.proof_of_quota,
         first_blending_header.signature,
-        version= 1,
+        version=public_header.version,
     )
 
     # Step 5: Decrypt the payload
@@ -631,7 +633,7 @@ def decapsulate(
 
 ## **Example**
 
-Let us look at an example of the above mechanism. Let us assume that $`\beta_{max}=4,h=3`$. We are omitting protocol version in the header for simplicity.
+Let us look at an example of the above mechanism. Let us assume that $`\beta_{max}=4,h=3`$. We are omitting the header version field for simplicity.
 
 ### **Initialization**
 

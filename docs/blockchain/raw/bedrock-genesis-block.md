@@ -31,6 +31,7 @@
 | 1.1.3 | Replaced the `block_root` header field with `body_root`, taken over an empty uncle header list and the initial transaction, due to updated [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md). | 2026-08-06 |
 | 1.1.4 | Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy. | 2026-08-25 |
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
+| 1.2.0 | Removed the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)). | 2026-09-04 |
 
 # Introduction
 
@@ -42,7 +43,7 @@ The Genesis Block establishes the initializing values for the various protocols 
 
 The block body is a single Mantle Transaction (see [Mantle](bedrock-v1.1-mantle-specification.md)) containing a Transfer Operation distributing the notes to initial token holders. The bedrock services are initialized through `SDP_DECLARE` Operations embedded in the Mantle Transaction’s Operations list and protocol initializing constants are encoded through a `CHANNEL_INSCRIBE` Operation also embedded in the Operations list.
 
-Not all protocol constants are encoded in the Genesis block. The principle we use to decide whether a value should be in the Genesis block or not is whether it is a value that is derived from blockchain activity or whether it is updated through a protocol update (hard / soft fork). For example, the epoch nonce is updated through normal blockchain Operations and therefore it should be specified in the Genesis block. Gas constants are only changed through protocol updates and hard forks and therefore they will be hardcoded in the node implementation.
+Not all protocol constants are encoded in the Genesis block. The principle we use to decide whether a value should be in the Genesis block or not is whether it is a value that is derived from blockchain activity or whether it is updated through an era change ([Bedrock Eras](bedrock-eras.md)). For example, the epoch nonce is updated through normal blockchain Operations and therefore it should be specified in the Genesis block. Gas constants are only changed through an era change and therefore they will be hardcoded in the node implementation.
 
 # Genesis Block Data Structure
 
@@ -176,7 +177,6 @@ GENESIS_MANTLE_TX = MantleTx(
 
 The Genesis Block header fields are set to the following values:
 
-- `bedrock_version`: Protocol version (e.g., 1).
 - `parent_block`: 0 (as this is the first block).
 - `slot`: 0 (the Genesis slot).
 - `body_root`: the body commitment over an empty `uncle_headers` list (as the Genesis Block references no uncle, it encodes as a zero element count) and the Merkle root over the (single) initial transaction.
@@ -190,7 +190,6 @@ The Genesis Block header fields are set to the following values:
 
 ```python
 GENESIS_HEADER = Header(
-    bedrock_version=1,
     parent_block=0,
     slot=0,
     body_root=body_root([], [GENESIS_MANTLE_TX]),
@@ -251,7 +250,6 @@ GENESIS_MANTLE_TX = MantleTx(
 )
 
 GENESIS_HEADER = Header(
-    bedrock_version=1,
     parent_block=bytes(32),
     slot=0,
     body_root=body_root([], [GENESIS_MANTLE_TX]),
