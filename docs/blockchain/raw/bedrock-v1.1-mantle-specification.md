@@ -42,6 +42,7 @@
 | 1.11.0 | Track the configuration lineage of a channel: `ChannelState` gains `config_tip_hash` and the `CHANNEL_CONFIG` payload carries the `parent` configuration it extends, ordering configurations and preventing their replay | 2026-08-27 |
 | 1.11.1 | Renamed locked notes into service notes: `service_notes`, `ServiceNote` and `service_note_id` replace their locked counterparts, and the note kind is named after the role it plays rather than after the state it is left in | 2026-08-27 |
 | 1.12.0 | Specified the `SDP_ACTIVE` execution effects, matching the implementation: `active` is set to the epoch of the including block, and a message the activity logic rejects makes the Operation invalid. Set `withdraw_at` to `current_epoch + 2`, the epoch at which the node stops providing the service, and removed declarations at `withdraw_at` | 2026-09-02 |
+| 1.13.0 | Moved SDP declaration removal to `withdraw_at + 1`; the last served epoch's reward is paid in the same first block, before removal | 2026-09-03 |
 
 # Introduction
 
@@ -1348,11 +1349,11 @@ SignedMantleTx(
 
 Withdrawn declarations are removed by Mantle as part of the epoch transition,
 not when the `WithdrawMessage` is processed. The rewards of epoch
-`withdraw_at - 2` ([Withdraw](bedrock-service-declaration-protocol.md#withdraw))
-are distributed in the first block of epoch `withdraw_at` (see
+`withdraw_at - 1` ([Withdraw](bedrock-service-declaration-protocol.md#withdraw))
+are distributed in the first block of epoch `withdraw_at + 1` (see
 [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md)).
 In that same block, after the rewards have been distributed, every declaration
-with `withdraw_at <= current_epoch` is removed and its stake unlocked.
+with `withdraw_at + 1 <= current_epoch` is removed and its stake unlocked.
 Declarations that withdrew without earning a final reward are removed by the
 same step.
 
@@ -1367,7 +1368,7 @@ declarations: dict[DeclarationID, DeclarationInfo]
   *Execute*
 
   For every `declare_id`, `declare_info` in `declarations` where
-  `declare_info.withdraw_at is not None and declare_info.withdraw_at <= current_epoch`:
+  `declare_info.withdraw_at is not None and declare_info.withdraw_at + 1 <= current_epoch`:
 
   1. Remove the declaration from its service note.
       ```python
