@@ -34,6 +34,7 @@
 | 1.2.2 | Precise, in [Chain Maintenance](#chain-maintenance), that the execution layer validates the block by applying its transactions in the order they appear starting from the parent block's execution state. | 2026-08-25 |
 | 1.2.3 | Update the test vectors to reflect the parent added in the `CHANNEL_CONFIG` payload | 2026-08-27 |
 | 1.2.4 | Reordered the `ProofOfLeadership` fields to the wire order defined by the [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding), and noted that the [Block ID](#block-id) preimage absorbs the same fields in a different order by design. The `Header` layout and the `block_id` preimage are otherwise unchanged. | 2026-08-28 |
+| 1.3.0 | Versioning and upgrade activation moved to eras, and uncles restricted to the era of the referencing block ([Bedrock Eras](bedrock-eras.md)). | 2026-09-04 |
 
 # Introduction
 
@@ -324,6 +325,7 @@ An entry $`(U, \sigma_U)`$ of the `uncle_headers` list of a block $`A`$ is **val
 - The parent of the uncle is part of the chain of the referencing block: $`U.\text{parent\_block} \in \textbf{ancestors}(A)`$. Hence the uncle is the **first block of its fork**, and its chain is a prefix of the chain of $`A`$. Blocks deeper in a fork branch cannot be referenced: verifying their Proof of Leadership requires the ledger state of the fork branch, which cannot be reconstructed from the chain of $`A`$ (see the verification rule below).
 - The uncle itself is not part of the chain of the referencing block: $`\lnot\,\textbf{is\_ancestor}(U, A)`$ — equivalently, $`U`$ is not the block of the chain of $`A`$ at slot $`sl_U`$.
 - The uncle precedes the referencing block, and the **parent** of the uncle lies within the uncle reference window (see [Constants](#constants)): $`sl_A \gt sl_U`$ and $`sl_A - sl_{\textbf{parent}(U)} \le W\cdot f^{-1}`$. The window is anchored to the parent rather than to the uncle itself because the parent is the block whose historical state the remaining checks need: $`ledger_\text{LATEST}`$ as of $`U.\text{parent\_block}`$ is required to verify the Proof of Leadership below, and anchoring here bounds how far back the chain of $`A`$ must be retained to supply it. Anchoring to $`sl_U`$ would not bound it: a leader may build on a stale tip, so $`sl_U - sl_{\textbf{parent}(U)}`$ is unbounded and a block could demand a ledger root arbitrarily deep in the chain. The anchor also matches [Fork Pruning](#fork-pruning), which prunes by divergence depth — and the parent of a first-fork block is exactly that divergence point. Since $`sl_U \gt sl_{\textbf{parent}(U)}`$ by step 5 of [Block Header Validation](#block-header-validation), this rule implies $`0 \lt sl_A - sl_U \lt W\cdot f^{-1}`$: the uncle's own slot falls inside the window as a consequence, not as a separate condition.
+- The uncle lies in the same era as the referencing block: $`\textbf{era}(sl_U) = \textbf{era}(sl_A)`$ ([Bedrock Eras](bedrock-eras.md#era-schedule)).
 - The [Proof of Leadership](cryptarchia-proof-of-leadership.md) of $`U`$ verifies against public inputs derived from the chain of $`A`$: the slot, $`P_\text{LEAD}`$ and $`\rho_\text{LEAD}`$ taken from the header of $`U`$; the epoch state $`(\mathbb{C}_\text{LEAD}, \eta, D)`$ of the epoch of $`sl_U`$ as derived on the chain of $`A`$; and $`ledger_\text{LATEST}`$ as of $`U.\text{parent\_block}`$, which is a historical ledger root of the chain of $`A`$ because the parent lies on that chain. Since the chain of the uncle is a prefix of the chain of $`A`$, a genuine fork win was proven against exactly these values and verifies; a fabricated header does not. These are the same inputs a node derives to validate the Proofs of Leadership of the canonical blocks themselves; in particular $`ledger_\text{LATEST}`$ is a function of the **executed** chain, so this check requires a full node's possession of the chain — headers alone do not suffice, exactly as they do not suffice to validate canonical blocks.
 - The carried signature verifies over the header of $`U`$: $`\textbf{verify\_signature}(U, \sigma_U, P_\text{LEAD})=True`$, with $`P_\text{LEAD}`$ taken from that header — the same binding required of a canonical proposal by step 9 of [Block Header Validation](#block-header-validation). This ensures the uncle is a block authorized by the leader who won the lottery, not a fabricated header wrapped around a replayed proof.
 
@@ -354,6 +356,7 @@ def uncle_candidates(B) -> Set[Block]:
                and not is_ancestor(U, B)          # a fork, not on B's chain
                and sl_B > sl_U                    # the uncle precedes B
                and sl_B - sl_parent(U) <= W / f   # its parent is within the uncle window
+               and era(sl_U) == era(sl_B)         # same era as the referencing block
                and sl_U not in occupied           # its slot is not already occupied on B's chain
            }
 ```
@@ -449,7 +452,7 @@ We say $`\textbf{valid\_header}(B)`$ returns True if all of the following constr
     Ensure that the leader who won the lottery is actually proposing this block since PoL’s are not bound to blocks directly.
 
 10. $`\forall\,(U, \sigma_U) \in uncle\_headers:\ \textbf{valid\_uncle}(U, \sigma_U, B) = True`$
-  Ensure every carried uncle is valid, as defined by the rules of [Uncle References](#uncle-references): the parent of $`U`$ lies on the chain of $`B`$, $`U`$ itself does not, $`U`$ precedes $`B`$ and the slot of its parent precedes $`sl_B`$ by at most $`W\cdot f^{-1}`$, its Proof of Leadership verifies against inputs derived from the chain of $`B`$, and $`\sigma_U`$ verifies over $`U`$ under the $`P_\text{LEAD}`$ of that header. A block carrying an entry that fails any of these is rejected.
+  Ensure every carried uncle is valid, as defined by the rules of [Uncle References](#uncle-references). A block carrying an entry that fails any of them is rejected.
 
   The list bound `len(uncle_headers) <= MAX_UNCLES` is a constraint of the serialization schema, rejected at decode time (a block that does not parse is no block), and so is not restated here. Duplicate entries are permitted: each is validated independently and a repeat passes exactly as the first occurrence does.
 
@@ -537,7 +540,7 @@ $`\text{define } \textbf{prune\_blocks}(B_\text{new}, B_\text{old}, T)\to T':`$
 
 ### Versioning and Protocol Upgrades
 
-Protocol versions are signalled through the `bedrock_version` field of the block header. Protocol upgrades need to be co-ordinated well in advance to ensure that node operators have enough time to update their node. We will use block height to schedule the activation of protocol updates. E.g. bedrock version 35 will be active after block height 32000.
+Protocol versioning and upgrade activation are defined by eras ([Bedrock Eras](bedrock-eras.md)).
 
 # Annexes
 
