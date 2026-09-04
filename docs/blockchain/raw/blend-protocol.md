@@ -491,7 +491,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\Lambda_E = M_1^{Max} = 12`$ edge nodes accepted per round.
 - $`M_1^{Min} = \lceil F_1 \cdot W / 10 \rceil = 9`$, the minimum number of messages per connection during an observation window, as derived in [Expected Connection Traffic](#expected-connection-traffic).
 - $`T_E=1`$ round, the time an edge node is given to send its message, as derived in [Connectivity Maintenance](#connectivity-maintenance).
-- $`\ell^* = 4`$, the load set point, in the quantization levels of [Load](#load) ([Blend Difficulty](#blend-difficulty)).
+- $`\ell^* = 3`$, the load set point: the level of [Load](#load) that the sized traffic $`\Phi_{CC}^{Max} \cdot (F_1 + F_W \cdot \beta_{max}) + \Lambda_E = 60`$ arrivals per round occupies at the verification rate of the slowest node the protocol targets ([Expected Connection Traffic](#expected-connection-traffic)). It is read by [Blend Difficulty](#blend-difficulty) and [Edge Difficulty](#edge-difficulty).
 - $`T_R = 600`$ rounds, the challenge rotation period ([Edge Admission](#edge-admission)). $`T_R`$ must divide $`E`$, so that a window lies in exactly one epoch; a window that straddled two epochs would have no single epoch randomness.
 - $`G = 60`$ rounds, the price grace window ([Edge Admission](#edge-admission)). $`G`$ must be at least the p95 solving time at $`d_{edge}^{Max}`$ on the slowest targeted edge device; below that, a solver that began against a quoted target can be refused on completion.
 - $`d_{edge}^{Min} = 300`$ and $`d_{edge}^{Max} = 1000`$, the bounds of the edge effort target ([Edge Difficulty](#edge-difficulty)).
@@ -560,7 +560,7 @@ $$
 \ell_n = \dfrac{A_n}{V_n \cdot r_n}
 $$
 
-where $`A_n`$ is the number of messages the node received on its connections with core nodes during those rounds, plus the number of **priced** edge connections ([Edge Admission](#edge-admission)), and $`r_n`$ is the number of those rounds during which the node provided the service. Every received message counts, including those later discarded. An edge connection whose token fails does not count: a connection must cost work to move the load.
+where $`A_n`$ is the number of messages the node received on its connections with core nodes during those rounds, plus the number of **priced** edge connections ([Edge Admission](#edge-admission)), and $`r_n`$ is the number of those rounds during which the node provided the service. Every received message counts, including those later discarded. An edge connection whose token fails does not count.
 
 A node reports its load quantized to sixteen levels:
 
@@ -580,7 +580,7 @@ $$
 
 where $`H`$ is Hash ([BLAKE2b](common-cryptographic-components.md#blake2bgeneral-purpose-hashing), 32-byte output) with the leading domain separation tag, $`provider\_id_n`$ is the node's `provider_id` as its 32 bytes, $`R_e`$ is the epoch randomness of the epoch $`e`$ the window lies in ([Epoch Randomness](#epoch-randomness)), and $`w`$ is encoded as 8 bytes little-endian. Every input is public, so an edge node derives the challenge and solves without a connection.
 
-On identifying an edge neighbor ([Neighbor Distinction Process](#neighbor-distinction-process)) whose identity is not quarantined ([Connectivity Maintenance](#connectivity-maintenance)), the node sends its **door quote**: $`d_{edge}^n`$ as 4 bytes little-endian, then $`w`$ as 8 bytes little-endian. The edge node then sends its token — 24 bytes, serialized as defined in [Equi-X](common-cryptographic-components.md#4-client-puzzles) — followed by its message. An edge node holding no satisfying token closes the connection, and connects again once it holds one.
+On identifying an edge neighbor ([Neighbor Distinction Process](#neighbor-distinction-process)) whose identity is not quarantined ([Connectivity Maintenance](#connectivity-maintenance)), the node sends its **door quote**: $`d_{edge}^n`$ as 4 bytes little-endian, then $`w`$ as 8 bytes little-endian. The edge node sends its token — 24 bytes, serialized as defined in [Equi-X](common-cryptographic-components.md#4-client-puzzles) — followed by its message; it need not await the quote, which prices the retry of a token that falls short. An edge node holding no satisfying token closes the connection, and connects again once it holds one.
 
 The node accepts the token when all of the following hold, checked in this order:
 
@@ -599,9 +599,11 @@ The spent-token cache holds the pairs of the current and the previous window and
 
 Each core node sets $`d_{edge}^n`$ for itself. It starts at $`d_{edge}^{Min}`$ and is retargeted every $`W`$ rounds against the arrivals $`A_n`$ counted by [Load](#load) over those rounds:
 
-1. If $`8 \cdot A_n \gt (\ell^*+1) \cdot V_n \cdot W`$, then $`d_{edge}^n \leftarrow \min(2 \cdot d_{edge}^n,\ d_{edge}^{Max})`$.
-2. If $`8 \cdot A_n \lt (\ell^*-1) \cdot V_n \cdot W`$, then $`d_{edge}^n \leftarrow \max(\lfloor 3 \cdot d_{edge}^n / 4 \rfloor,\ d_{edge}^{Min})`$.
+1. If $`8 \cdot A_n \gt (\ell^*+2) \cdot V_n \cdot W`$, then $`d_{edge}^n \leftarrow \min(2 \cdot d_{edge}^n,\ d_{edge}^{Max})`$.
+2. If $`8 \cdot A_n \lt (\ell^*+1) \cdot V_n \cdot W`$, then $`d_{edge}^n \leftarrow \max(\lfloor 3 \cdot d_{edge}^n / 4 \rfloor,\ d_{edge}^{Min})`$.
 3. Otherwise it is unchanged.
+
+Both thresholds must exceed $`\ell^*`$. [Blend Difficulty](#blend-difficulty) steers the median load to $`\ell^*`$; a door whose decay threshold sat at or below it would hold its price at that equilibrium.
 
 $`d_{edge}^{Max}`$ must keep the time to solve $`\Phi_{EC}`$ tokens on the target machine within the expected interval between blocks, $`1/F_D = 30`$ rounds; above it, an edge node that wins a leader election and must solve at its slot either loses the slot to on-time proposals or falls back to a direct broadcast ([Direct Broadcast](#direct-broadcast)). At $`1000`$, the measured mean on a Raspberry Pi 5 is $`2.4`$ s per token, about $`7`$ s for three.
 
