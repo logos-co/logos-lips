@@ -560,7 +560,7 @@ $$
 \ell_n = \dfrac{A_n}{V_n \cdot r_n}
 $$
 
-where $`A_n`$ is the number of messages the node received on its connections with core nodes during those rounds, plus the number of connections edge nodes offered to it, and $`r_n`$ is the number of those rounds during which the node provided the service. Every received message and every offered connection counts, including those later discarded or refused.
+where $`A_n`$ is the number of messages the node received on its connections with core nodes during those rounds, plus the number of **priced** edge connections ([Edge Admission](#edge-admission)), and $`r_n`$ is the number of those rounds during which the node provided the service. Every received message counts, including those later discarded. An edge connection whose token fails does not count: a connection must cost work to move the load.
 
 A node reports its load quantized to sixteen levels:
 
@@ -584,10 +584,12 @@ On identifying an edge neighbor ([Neighbor Distinction Process](#neighbor-distin
 
 The node accepts the token when all of the following hold, checked in this order:
 
-1. Fewer than $`\Lambda_E`$ edge connections have been accepted in the current round ([Connectivity Maintenance](#connectivity-maintenance)).
-2. The token verifies against $`C_n^w`$ or $`C_n^{w-1}`$.
-3. Its achieved effort is at least the lowest value $`d_{edge}^n`$ took during the past $`G`$ rounds.
-4. The pair of the token's challenge and nonce is not in the spent-token cache.
+1. The token verifies against $`C_n^w`$ or $`C_n^{w-1}`$.
+2. Its achieved effort is at least the lowest value $`d_{edge}^n`$ took during the past $`G`$ rounds.
+3. The pair of the token's challenge and nonce is not in the spent-token cache.
+4. Fewer than $`\Lambda_E`$ edge connections have been accepted in the current round ([Connectivity Maintenance](#connectivity-maintenance)).
+
+A connection passing checks 1 to 3 is **priced** whether or not check 4 accepts it; [Load](#load) counts priced connections.
 
 On acceptance, the node inserts the pair into the spent-token cache, counts the connection against $`\Lambda_E`$, and receives the message. On any failure, the node closes the connection; a failure consumes no part of $`\Lambda_E`$, and the identity is not quarantined.
 
