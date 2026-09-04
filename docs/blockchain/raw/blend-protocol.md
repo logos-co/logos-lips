@@ -483,6 +483,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`W=10 \cdot \Delta_{max}=30`$, the observation window is $`30`$ rounds.
 - $`F_C=1`$, the network generates one cover message per round on average.
 - $`F_D=1/30`$, the network generates one data message every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)).
+- $`F_W=1`$, the proof of work message rate the network is sized to carry ([Expected Connection Traffic](#expected-connection-traffic)).
 - $`R_C=0`$ and $`R_D=0`$, no replication of cover or data messages is used in this version of the protocol.
 - $`\Phi_{CC}^{Min}=6`$ and $`\Phi_{CC}^{Max}=8`$, the smallest and the largest number of connections a core node holds with other core nodes ([Connectivity Maintenance](#connectivity-maintenance)).
 - $`M_1^{Max}=12`$ messages per round, the maximum a node may send to one neighbor in a round ([Releasing](#releasing)).
@@ -544,7 +545,7 @@ $$
 M_1^{Max} = 12
 $$
 
-The queue of a sender drains only while $`F_1 + F_W \cdot \beta_{max} \lt M_1^{Max}`$. $`F_D`$ follows from the number of block proposals [Cryptarchia](cryptarchia-v1-protocol.md) admits per slot, and $`F_W`$ from the threshold $`d_{blend}`$ of [Blend Difficulty](#blend-difficulty). Both must be set so that the inequality holds.
+The queue of a sender drains only while $`F_1 + F_W \cdot \beta_{max} \lt M_1^{Max}`$: at the values of [Global Parameters](#global-parameters), $`3.0 + 3 \lt 12`$. $`F_D`$ follows from the number of block proposals [Cryptarchia](cryptarchia-v1-protocol.md) admits per slot. The realized proof of work rate is steered toward $`F_W`$ by [Blend Difficulty](#blend-difficulty), which tightens admission while the median load exceeds $`\ell^*`$; within an epoch, releases above $`M_1^{Max}`$ defer within the delay window or are discarded ([Releasing](#releasing)).
 
 The constants must keep $`\Phi_{CC}^{Max} \cdot M_1^{Max} + \Lambda_E`$ public header verifications per round within the rate of the slowest node the protocol targets ([Relaying](#relaying)). Above it, a node may receive more than it can verify.
 
@@ -1003,9 +1004,7 @@ The added per-hop verification latency lies within the delay budget of [Delaying
 
 Deduplication by nullifier, step 1.4, remains before this check, but only as a lookup: insertion happens strictly after the proof has verified, so a cache entry attests that a fully verified message already used that nullifier and a lookup hit is a true duplicate. The lookup runs first because reading the cache is cheap and a hit makes the expensive verification unnecessary.
 
-What this ordering does **not** address is a flood of messages whose proofs are valid. Such messages pass every check in step 1 and are relayed normally, so verifying earlier does not reduce their cost; it only ensures the network carries messages that someone genuinely paid to create. The [Blend Difficulty](#blend-difficulty) controller responds to them only at its lag: its input is the load reported three epochs earlier, so admission does not tighten within the epoch however many are sent. Verifying before relaying therefore bounds the amplification an invalid proof can achieve, and does not by itself bound the volume a determined participant can generate.
-
-Closing that gap requires an admission cost each node can raise on its own in response to the resources it is actually spending, rather than one derived from a value the whole network agrees on and which lags what any individual node observes. Such a mechanism is not specified here.
+A flood of messages whose proofs are valid passes every check in step 1 and is relayed normally. Two mechanisms respond to it: [Blend Difficulty](#blend-difficulty) tightens admission at its lag, and [Edge Admission](#edge-admission) raises the price of each node's own door within the epoch.
 
 The node must cache the PoQ nullifiers ($`\nu_i`$) of every message it relays — and only of messages it relays — for a duration of a single epoch plus the [Transition Period](#transition-period) (TP). Then the node can clear the cache.  That means that the size of the cache must be at least:
 
@@ -1015,17 +1014,13 @@ $$
 \end{aligned}
 $$
 
-Taking $`F_W = 0`$ recovers the figure for a network without the proof of work branch:
+At the values of [Global Parameters](#global-parameters):
 
 $$
 \begin{aligned}
-(648000 + 30) \cdot 1 \cdot 3 \cdot 32 = 62210880 \approx 62\,\mathrm{MB}
+(648000 + 30) \cdot (1 + 1) \cdot 3 \cdot 32 = 124421760 \approx 124\,\mathrm{MB}
 \end{aligned}
 $$
-
-That figure is not an upper bound once the proof of work branch is in use. The $`F_C`$ and $`F_D`$ terms are bounded by quantities the protocol knows: the number of declared core nodes, published by the SDP, and the rate of leader elections, fixed by the consensus parameters. $`F_W`$ has no such bound. It is determined by how much work participants choose to perform and by $`Q_W`$, neither of which the protocol constrains, so the cache size becomes a function of the Blend threshold $`d_{blend}`$ rather than of a count of registered nodes.
-
-A node therefore cannot size this cache from protocol constants alone. Two consequences follow. First, $`d_{blend}`$ must be set with the resulting memory cost in mind, not only with the admission objective of [Blend Difficulty](#blend-difficulty). Second, a node must bound the cache by its own resources rather than assuming the derived figure will hold, and the behaviour when that bound is reached is not specified here.
 
 ### Processing
 
