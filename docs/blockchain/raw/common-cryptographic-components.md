@@ -25,6 +25,7 @@
 | 1.0.1 | Renamed Nomos to Logos Blockchain | 2026-04-23 |
 | 1.0.2 | Clarification of the Poseidon2 function Add test values | 2026-05-07 |
 | 1.1.0 | [RFC] Replace the BLAKE2b-Based PRNG with ChaCha20 (ChaCha20Rng) | 2026-08-28 |
+| 1.2.0 | Add Equi-X, the asymmetric client puzzle, with its token serialization and effort function | 2026-09-04 |
 
 # Introduction
 

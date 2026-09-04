@@ -32,6 +32,7 @@
 | 1.1.4 | Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy. | 2026-08-25 |
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
 | 1.2.0 | Seed the proof of work reward pool at genesis from the initial token distribution | 2026-08-31 |
+| 1.3.0 | Removed the `difficulty_blend` initialization; the value is no longer consensus state | 2026-09-04 |
 
 # Introduction
 

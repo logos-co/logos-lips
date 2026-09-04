@@ -29,6 +29,7 @@
 | 1.1.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.2.0 | Add the proof of work branch: third selector value, `pow_quota` and `pow_blend_difficulty` public inputs, `pow_sk` witness, Lagrange branch selection, and the binding and precomputation properties | 2026-08-31 |
 | 1.3.0 | Replace the proof of work secret key and its key derivation with a single private nonce, and give the puzzle ticket a domain separation tag | 2026-09-04 |
+| 1.3.1 | Repointed the provenance of `pow_blend_difficulty` to the Blend Protocol; its availability follows the SDP snapshot, before the epoch nonce | 2026-09-04 |
 
 
 # Introduction

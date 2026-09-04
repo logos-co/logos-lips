@@ -35,6 +35,7 @@
 | 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, and add transactions as a data message payload; re-derive the nullifier cache bound and align the nullifier retention period | 2026-09-04 |
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
 | 1.6.0 | Replaced the per-window statistical threshold on a connection with a per-round limit that a node applies to itself and that its neighbors enforce. Counted traffic against the neighbor's authenticated identity for the epoch rather than against the connection. Bounded the rate at which edge nodes are served. Allowed the slot held by an unhealthy connection to be reclaimed. | 2026-09-02 |
+| 1.7.0 | Derived the Blend difficulty from the median load reported in active messages, priced edge admission with an Equi-X proof of work each core node sets for itself, and sized the proof of work rate and the nullifier cache at the load set point. | 2026-09-04 |
 
 # Introduction
 
@@ -583,7 +584,7 @@ On identifying an edge neighbor ([Neighbor Distinction Process](#neighbor-distin
 
 The node accepts the token when all of the following hold, checked in this order:
 
-1. Fewer than $`\Lambda_E`$ edge connections have been accepted in the current round.
+1. Fewer than $`\Lambda_E`$ edge connections have been accepted in the current round ([Connectivity Maintenance](#connectivity-maintenance)).
 2. The token verifies against $`C_n^w`$ or $`C_n^{w-1}`$.
 3. Its achieved effort is at least the lowest value $`d_{edge}^n`$ took during the past $`G`$ rounds.
 4. The pair of the token's challenge and nonce is not in the spent-token cache.
