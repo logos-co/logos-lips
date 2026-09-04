@@ -600,6 +600,10 @@ Each core node sets $`d_{edge}^n`$ for itself. It starts at $`d_{edge}^{Min}`$ a
 2. If $`8 \cdot A_n \lt (\ell^*-1) \cdot V_n \cdot W`$, then $`d_{edge}^n \leftarrow \max(\lfloor 3 \cdot d_{edge}^n / 4 \rfloor,\ d_{edge}^{Min})`$.
 3. Otherwise it is unchanged.
 
+$`d_{edge}^{Max}`$ must keep the time to solve $`\Phi_{EC}`$ tokens on the target machine within the expected interval between blocks, $`1/F_D = 30`$ rounds; above it, an edge node that wins a leader election and must solve at its slot either loses the slot to on-time proposals or falls back to a direct broadcast ([Direct Broadcast](#direct-broadcast)). At $`1000`$, the measured mean on a Raspberry Pi 5 is $`2.4`$ s per token, about $`7`$ s for three.
+
+$`d_{edge}^{Min}`$ is calibrated so that holding one door at its acceptance rate $`\Lambda_E`$ costs about ten cores of the fastest measured solver: at $`300`$, one token costs $`0.79`$ s on such a core.
+
 ### Connectivity Maintenance
 
 A core node blacklists a neighbor for exactly three causes: a message that fails the header checks of [Relaying](#relaying), a failure of the authenticated stream, and a connection classified spammy. A failure of the authenticated stream is a TLS record that fails authentication, or a violation of the framing of the stream. The loss of a connection is not one of them.
