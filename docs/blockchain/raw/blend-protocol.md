@@ -792,7 +792,9 @@ def d_blend(s: EpochNumber) -> PowTarget:
         return previous
     load = sorted(reports)[(len(reports) - 1) // 2]   # lower median
     lo = previous // BLEND_MAX_STEP
-    hi = min(previous * BLEND_MAX_STEP, p - 1)  # at or above p, every ticket satisfies it
+    # Never past the level-1 fixed point: a sustained median of 0 would
+    # otherwise double every epoch until every ticket satisfies the threshold.
+    hi = min(previous * BLEND_MAX_STEP, l_star * BLEND_DIFFICULTY_BASE)
     if load == 0:
         return hi
     return clamp((BLEND_DIFFICULTY_BASE * l_star) // load, lo, hi)
