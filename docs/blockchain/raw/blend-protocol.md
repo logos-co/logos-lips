@@ -546,7 +546,7 @@ $$
 M_1^{Max} = 12
 $$
 
-The queue of a sender drains only while $`F_1 + F_W \cdot \beta_{max} \lt M_1^{Max}`$: at the values of [Global Parameters](#global-parameters), $`3.0 + 3 \lt 12`$. $`F_D`$ follows from the number of block proposals [Cryptarchia](cryptarchia-v1-protocol.md) admits per slot. The realized proof of work rate is steered toward $`F_W`$ by [Blend Difficulty](#blend-difficulty), which tightens admission while the median load exceeds $`\ell^*`$; within an epoch, releases above $`M_1^{Max}`$ defer within the delay window or are discarded ([Releasing](#releasing)).
+The queue of a sender drains only while $`F_1 + F_W \cdot \beta_{max} \lt M_1^{Max}`$: at the values of [Global Parameters](#global-parameters), $`3.0 + 3 \lt 12`$. $`F_D`$ follows from the number of block proposals [Cryptarchia](cryptarchia-v1-protocol.md) admits per slot. The realized proof of work rate is steered by [Blend Difficulty](#blend-difficulty), which tightens admission while the median load exceeds $`\ell^*`$; within an epoch, releases above $`M_1^{Max}`$ defer within the delay window or are discarded ([Releasing](#releasing)).
 
 The constants must keep $`\Phi_{CC}^{Max} \cdot M_1^{Max} + \Lambda_E`$ public header verifications per round within the rate of the slowest node the protocol targets ([Relaying](#relaying)). Above it, a node may receive more than it can verify.
 
@@ -557,10 +557,10 @@ $`V_n`$ is the number of public header verifications per round that the node $`n
 The load of a core node over a set of rounds is:
 
 $$
-\ell_n = \dfrac{A_n}{V_n \cdot r}
+\ell_n = \dfrac{A_n}{V_n \cdot r_n}
 $$
 
-where $`A_n`$ is the number of messages the node received on its connections with core nodes during those rounds, plus the number of connections edge nodes offered to it, and $`r`$ is the number of those rounds during which the node provided the service. Every received message and every offered connection counts, including those later discarded or refused.
+where $`A_n`$ is the number of messages the node received on its connections with core nodes during those rounds, plus the number of connections edge nodes offered to it, and $`r_n`$ is the number of those rounds during which the node provided the service. Every received message and every offered connection counts, including those later discarded or refused.
 
 A node reports its load quantized to sixteen levels:
 
@@ -572,13 +572,13 @@ $$
 
 A core node prices its edge service with an [Equi-X](common-cryptographic-components.md#4-client-puzzles) effort target $`d_{edge}^n`$, set by the node as defined in [Edge Difficulty](#edge-difficulty).
 
-The challenge of the node $`n`$ for the window $`w = \lfloor r / T_R \rfloor`$, where $`r`$ is the current round:
+The challenge of the node $`n`$ for the window $`w = \lfloor r / T_R \rfloor`$, where $`r`$ is the current round, counted from genesis:
 
 $$
-C_n^w = H(\text{"BLEND\_EDGE\_V1"} \| provider\_id_n \| R \| w)
+C_n^w = H(\text{"BLEND\_EDGE\_V1"} \| provider\_id_n \| R_e \| w)
 $$
 
-where $`H`$ is Hash ([BLAKE2b](common-cryptographic-components.md#blake2bgeneral-purpose-hashing), 32-byte output) with the leading domain separation tag, $`provider\_id_n`$ is the node's `provider_id` as its 32 bytes, $`R`$ is the epoch randomness of the epoch the window lies in ([Epoch Randomness](#epoch-randomness)), and $`w`$ is encoded as 8 bytes little-endian. Every input is public, so an edge node derives the challenge and solves without a connection.
+where $`H`$ is Hash ([BLAKE2b](common-cryptographic-components.md#blake2bgeneral-purpose-hashing), 32-byte output) with the leading domain separation tag, $`provider\_id_n`$ is the node's `provider_id` as its 32 bytes, $`R_e`$ is the epoch randomness of the epoch $`e`$ the window lies in ([Epoch Randomness](#epoch-randomness)), and $`w`$ is encoded as 8 bytes little-endian. Every input is public, so an edge node derives the challenge and solves without a connection.
 
 On identifying an edge neighbor ([Neighbor Distinction Process](#neighbor-distinction-process)) whose identity is not quarantined ([Connectivity Maintenance](#connectivity-maintenance)), the node sends its **door quote**: $`d_{edge}^n`$ as 4 bytes little-endian, then $`w`$ as 8 bytes little-endian. The edge node then sends its token — 24 bytes, serialized as defined in [Equi-X](common-cryptographic-components.md#4-client-puzzles) — followed by its message. An edge node holding no satisfying token closes the connection, and connects again once it holds one.
 
@@ -783,7 +783,7 @@ def d_blend(s: EpochNumber) -> PowTarget:
     # a smaller target is a harder puzzle, and the result stays below p.
     if s < 3:
         return BLEND_DIFFICULTY_BASE      # No attested epoch exists yet.
-    reports = loads(s - 3)                # the load values of the accepted active
+    reports = reported_loads(s - 3)       # the load values of the accepted active
                                           # messages attesting epoch s-3
     previous = d_blend(s - 1)
     if len(reports) == 0:
