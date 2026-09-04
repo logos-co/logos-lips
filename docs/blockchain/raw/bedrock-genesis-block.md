@@ -31,6 +31,7 @@
 | 1.1.3 | Replaced the `block_root` header field with `body_root`, taken over an empty uncle header list and the initial transaction, due to updated [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md). | 2026-08-06 |
 | 1.1.4 | Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy. | 2026-08-25 |
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
+| 1.1.6 | Align the initial service declarations with the Service Declaration Protocol: the `BN` service type, the full `DeclarationMessage` shape, and multiaddr locators | 2026-09-01 |
 
 # Introduction
 
@@ -80,12 +81,13 @@ Blend enforces a minimal network size for the service to be active. Thus, in ord
 
 ```python
 BLEND_DECLARATIONS = [
-    Declaration(
-        msg=DeclarationMessage(
-            ServiceType.BLEND, ["ip://1.1.1.1:3000"], PROVIDER_ID_0, ZK_ID_0
-        ),
-        service_note_id=STAKE_DISTRIBUTION_TX.output_note_id(0)
-    ),
+    Op(opcode=SDP_DECLARE, payload=encode(DeclarationMessage(
+        service_type=ServiceType.BN,
+        locators=["/ip4/1.1.1.1/tcp/3000"],
+        provider_id=PROVIDER_ID_0,
+        service_note_id=STAKE_DISTRIBUTION_TX.output_note_id(0),
+        zk_id=ZK_ID_0,
+    ))),
     # ... 32 total declarations
 ]
 
@@ -237,10 +239,13 @@ CRYPTARCHIA_INSCRIPTION = Inscribe(
 
 # service declarations
 BLEND_DECLARATIONS = [
-    Declaration(
-        msg=DeclarationMessage(ServiceType.BLEND, ["ip://1.1.1.1:3000"], PROVIDER_ID_0, ZK_ID_0),
-        service_note_id=STAKE_DISTRIBUTION.output_note_id(0)
-    ),
+    Op(opcode=SDP_DECLARE, payload=encode(DeclarationMessage(
+        service_type=ServiceType.BN,
+        locators=["/ip4/1.1.1.1/tcp/3000"],
+        provider_id=PROVIDER_ID_0,
+        service_note_id=STAKE_DISTRIBUTION.output_note_id(0),
+        zk_id=ZK_ID_0,
+    ))),
     # ... more declarations
 ]
 SERVICE_DECLARATIONS = BLEND_DECLARATIONS

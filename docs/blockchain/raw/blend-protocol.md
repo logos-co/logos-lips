@@ -32,6 +32,7 @@
 | 1.2.1 | Pointed the `EpochNumber` of the activity proof at its definition in [Epoch](cryptarchia-v1-protocol.md#epoch) | 2026-08-25 |
 | 1.3.0 | [RFC] Replace the BLAKE2b-Based PRNG with ChaCha20 (ChaCha20Rng) | 2026-08-28 |
 | 1.3.1 | Judged the active message window by the epoch of the including block, made the one-message-per-epoch rule per attested epoch, and made the transition-period delay a release constraint | 2026-09-02 |
+| 1.3.2 | An Active Message points to a declaration by `zk_id` | 2026-09-03 |
 
 # Introduction
 
@@ -152,7 +153,7 @@ At the beginning of an epoch, all core nodes retrieve a fresh set of core nodesâ
 
 ### Minimal Network Size
 
-The minimal network size is $`32`$. This is the minimum number of nodes (unique `ProviderId`s from declarations) that must be retrieved from the SDP to consider the Blend protocol safe to use.
+The minimal network size is $`32`$. This is the minimum number of nodes (`ProviderId`s from declarations) that must be retrieved from the SDP to consider the Blend protocol safe to use.
 
 This minimal size of $`32`$ nodes allows the network to release, on average, a single message per round under the assumption of $`50\%`$ unresponsive nodes. With fewer nodes, the network would need to either release more messages per round or queue them. This would increase the time messages take to traverse the network, potentially compromising the safety of the consensus.
 
@@ -1026,7 +1027,7 @@ The clamped regime is not a target: at $`{\mathcal A}_{\epsilon} = 0`$ rewards a
 
 ### Active Message
 
-A node $`l`$ for every epoch must construct an active message, which must follow the [Active Message](bedrock-service-declaration-protocol.md#active-message) and is carried on the wire by the `SDP_ACTIVE` operation ([Mantle Transaction Encoding](mantle-transaction-encoding.md)). The envelope fields (`declaration_id`, `nonce`) and their encoding are defined by those documents and are not restated here. This section defines only the service-specific `metadata` payload for the Blend service, which carries the [Activity Proof](#activity-proof) $`\pi_{A}^{l,t,e}`$ for a blending token $`t`$ and an epoch $`e`$.
+A node $`l`$ for every epoch must construct an active message, which must follow the [Active Message](bedrock-service-declaration-protocol.md#active-message) and is carried on the wire by the `SDP_ACTIVE` operation ([Mantle Transaction Encoding](mantle-transaction-encoding.md)). The envelope fields (`zk_id`, `nonce`) and their encoding are defined by those documents and are not restated here. This section defines only the service-specific `metadata` payload for the Blend service, which carries the [Activity Proof](#activity-proof) $`\pi_{A}^{l,t,e}`$ for a blending token $`t`$ and an epoch $`e`$.
 
 The `metadata` field is the concatenation of the following fields, in order:
 
@@ -1065,7 +1066,7 @@ The ledger must only accept a single active message per node per attested epoch.
 
 The node rewards for epoch $`s`$ are calculated according to the following schema:
 
-1. Rewards are not calculated if the number of nodes (unique `ProviderId`s from declarations) retrieved from the SDP protocol is lower than the [Minimal Network Size](#minimal-network-size).
+1. Rewards are not calculated if the number of nodes (`ProviderId`s from declarations) retrieved from the SDP protocol is lower than the [Minimal Network Size](#minimal-network-size).
 
 2. Count the number of true activity proofs registered on the ledger:
     $$B = \sum_{i=1}^{N}\mathrm{true}(\pi_{A}^{i,t,e})$$
@@ -1089,7 +1090,7 @@ The reward is paid out to the node $`n`$ based on the node's activity declaratio
 
 The rewards are distributed according to [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md). Here we are briefly sketching the main idea of the reward distribution protocol. For more details refer to the above document.
 
-1. To receive a reward, a node must send an Active Message as described in the [Active Message](bedrock-service-declaration-protocol.md#active-message), where the `metadata` field is encoded as defined in [Active Message](#active-message). The node must point to a single declaration (`declaration_id`) and use a single provider identity (`provider_id`) for constructing the Active Message. Any reuse of the `provider_id` must make the Active Message invalid.
+1. To receive a reward, a node must send an Active Message as described in the [Active Message](bedrock-service-declaration-protocol.md#active-message), where the `metadata` field is encoded as defined in [Active Message](#active-message). The node must point to a single declaration (`zk_id`) and use a single provider identity (`provider_id`) for constructing the Active Message. Any reuse of the `provider_id` must make the Active Message invalid.
 2. The Active Message must not be released before the epoch transition period of epoch $`e+1`$ has elapsed ([Transition Period](#transition-period)).
 3. When the following epoch begins ($`e+2`$) Mantle distributes rewards ([Service Reward Distribution Protocol](bedrock-service-reward-distribution.md)). This delay is required to calculate the partition of rewards as defined in the above section.
 4. If a node does not send the Active Message on time, then it will not receive a reward.

@@ -31,6 +31,7 @@
 | 1.5.1 | [RFC] One canonical encoding for `ServiceType` and `Locator`: pin `Locator` bytes to the multiaddr binary form | 2026-08-14 |
 | 1.6.0 | Added the `Parent` of the `ChannelConfig` to follow Mantle | 2026-08-27 |
 | 1.6.1 | Renamed the `LockedNoteId` production of the SDP Operations into `ServiceNoteId` | 2026-08-27 |
+| 1.7.0 | [RFC] SDP Operations address a declaration by `ZkId` instead of `DeclarationId`, and `SDPWithdraw` drops the redundant `ServiceNoteId` | 2026-09-01 |
 
 # Introduction
 
@@ -119,11 +120,10 @@ ProviderId    = Ed25519PublicKey
 ZkId          = ZkPublicKey
 ServiceNoteId = NoteId
 
-SDPWithdraw   = DeclarationId Nonce ServiceNoteId
-DeclarationId = Hash32
+SDPWithdraw   = ZkId Nonce
 Nonce         = UINT64
 
-SDPActive     = DeclarationId Nonce Metadata
+SDPActive     = ZkId Nonce Metadata
 Metadata      = UINT32 *BYTE  ; Service-specific node activeness metadata
 ```
 
