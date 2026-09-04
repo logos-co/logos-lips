@@ -34,8 +34,7 @@
 | 1.3.1 | Judged the active message window by the epoch of the including block, made the one-message-per-epoch rule per attested epoch, and made the transition-period delay a release constraint | 2026-09-02 |
 | 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, add a transaction as a data message payload, and align the nullifier retention period | 2026-09-08 |
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
-| 1.4.0 | [RFC] Detect the failure of the Blend network to deliver block proposals and react to it, by directly broadcasting any proposal the network has not delivered within a fixed deadline, and by routing around the nodes seen to fail. | 2026-09-01 |
-| 1.5.0 | Replaced the per-window statistical threshold on a connection with a per-round limit that a node applies to itself and its neighbors enforce. Moved verification of the proof of quota onto the relay path, so a message is relayed only after its public header is verified. Counted traffic against the neighbor's authenticated identity for the epoch rather than against the connection. Bounded the rate at which edge nodes are served. Allowed the slot held by an unhealthy connection to be reclaimed. | 2026-09-02 |
+| 1.6.0 | Replaced the per-window statistical threshold on a connection with a per-round limit that a node applies to itself and its neighbors enforce. Moved verification of the proof of quota onto the relay path, so a message is relayed only after its public header is verified. Counted traffic against the neighbor's authenticated identity for the epoch rather than against the connection. Bounded the rate at which edge nodes are served. Allowed the slot held by an unhealthy connection to be reclaimed. | 2026-09-02 |
 
 # Introduction
 
@@ -553,7 +552,7 @@ $`M_1^{Max}`$ is a protocol constant. A node holds back anything above it rather
 
 The value follows from $`F_1`$ and from the margin the network needs above it. The margin sets how far the network can move before the queue of a sender stops draining, which is four times the rate a connection carries today.
 
-The queue of a sender drains only while $`F_1 \lt M_1^{Max}`$. [Cryptarchia](cryptarchia-v1-protocol.md) must bound the number of block proposals admitted per slot so that this holds, or $`M_1^{Max}`$ must be raised to cover the worst case it admits.
+The queue of a sender drains only while $`F_1 + F_W \lt M_1^{Max}`$. $`F_W`$, the rate of messages admitted by the proof of work quota ([Relaying](#relaying)), adds to the traffic without substituting, and [Blend Difficulty](#blend-difficulty) is what bounds it. [Cryptarchia](cryptarchia-v1-protocol.md) must bound the number of block proposals admitted per slot so that this holds, or $`M_1^{Max}`$ must be raised to cover the worst case it admits.
 
 The constants must keep $`(\Phi_{CC}^{Max} + 1) \cdot M_1^{Max}`$ public header verifications per round within the rate of the slowest node the protocol targets ([Relaying](#relaying)). Above it, a node may receive more than it can verify.
 
