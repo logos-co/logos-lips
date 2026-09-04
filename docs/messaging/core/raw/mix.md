@@ -59,7 +59,7 @@ The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL 
 
 Waku Mix creates an `overlay network` of all the Waku nodes that support the `mix` protocol.
 
-Nodes with `mix` protocol mounted SHOULD advertise that they support `mix` protocol via their their chosen discovery method.
+Nodes with `mix` protocol mounted SHOULD advertise that they support `mix` protocol via their chosen discovery method.
 They MAY do so by updating their [ENR](#enr-updates) and using one of the ENR based discovery methods.
 
 Nodes that want higher anonymity while publishing a message via [lightpush](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/core/draft/19/lightpush.md) or performing a [store](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/core/draft/13/store.md) query SHOULD use the `mix` protocol to route their messages to the destination.
