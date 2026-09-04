@@ -137,7 +137,7 @@ def checked_int128(value: int) -> int:
         return value
 ```
 
-Proof of work targets are the deliberate exception. `PowTarget` values are field-sized, and the two difficulty controllers multiply them before dividing: the reward retarget's intermediate product reaches about $`2^{261}`$, and the Blend retarget's radicand about $`2^{487}`$. Those computations are specified over **arbitrary-precision integers** — a big-integer type in practice: the field element is converted to its canonical integer representative, all arithmetic is performed in the big-integer type, and only the capped result is converted back. The checked fixed-width bounds above do not apply to them. What is bounded instead is each controller's *result*, which is capped below the field modulus so that it remains a meaningful threshold and converts back without reduction.
+Proof of work targets are the deliberate exception. `PowTarget` values are field-sized, and the reward difficulty retarget multiplies them before dividing: its intermediate product reaches about $`2^{261}`$. That computation is specified over **arbitrary-precision integers** — a big-integer type in practice: the field element is converted to its canonical integer representative, all arithmetic is performed in the big-integer type, and only the capped result is converted back. The checked fixed-width bounds above do not apply to it. What is bounded instead is the controller's *result*, which is capped below the field modulus so that it remains a meaningful threshold and converts back without reduction.
 
 Token values need no such exception, including where this specification sums fees over whole epochs: conservation bounds every such aggregate, since no set of transactions can pay more in fees than the tokens that exist, and the supply of $`10^{19}`$ lepta is below the `uint64` maximum. The checked arithmetic above is therefore sufficient for every token-denominated quantity, and a violation of it indicates a fault rather than a foreseeable overflow.
 
@@ -1603,7 +1603,7 @@ pow_nullifiers: set[zkhash]      # Spent solutions, retained for the acceptance 
 block_slots: dict[hash, SlotNumber]  # Slots of recently seen blocks, for the window check
 ```
 
-`PowTarget` is a scalar field element, and every operation on one is defined over its **canonical integer representative** in $`[0, p-1]`$. A field has no order and no floor division, so neither the comparison below nor the controller arithmetic in [Reward Difficulty](#reward-difficulty) and [Blend Difficulty](#blend-difficulty) is field arithmetic: a ticket is accepted when its representative is strictly below the target's, targets are multiplied and floor-divided as arbitrary-precision integers in accordance with [Arithmetic](#arithmetic), and each controller caps its result below $`p`$, so the representative converts back to a field element without modular reduction ever occurring. A **smaller** target is a **harder** puzzle.
+`PowTarget` is a scalar field element, and every operation on one is defined over its **canonical integer representative** in $`[0, p-1]`$. A field has no order and no floor division, so neither the comparison below nor the controller arithmetic in [Reward Difficulty](#reward-difficulty) is field arithmetic: a ticket is accepted when its representative is strictly below the target's, targets are multiplied and floor-divided as arbitrary-precision integers in accordance with [Arithmetic](#arithmetic), and the controller caps its result below $`p`$, so the representative converts back to a field element without modular reduction ever occurring. A **smaller** target is a **harder** puzzle.
 
 The reward pool is a reserve of tokens the protocol pays claims from. It is seeded once at genesis and refilled at each epoch boundary from a share of the fees collected over the previous epoch, as specified in [Reward Pool](#reward-pool). It is not created on demand: a claim transfers tokens that already exist into circulation, and cannot be executed if the pool cannot cover it.
 
@@ -1867,7 +1867,7 @@ The seed is drawn from the initial token distribution rather than created for th
 
 ### Reward Difficulty
 
-`difficulty_reward` is part of consensus state and is updated **every block**, steering the number of accepted claims toward `TARGET_CLAIMS_PER_BLOCK`. It is independent of the Blend threshold used by [Proof of Quota](proof-of-quota.md), which is a per-epoch value and is never evaluated here.
+`difficulty_reward` is part of consensus state and is updated **every block**, steering the number of accepted claims toward `TARGET_CLAIMS_PER_BLOCK`. It is independent of the Blend threshold used by [Proof of Quota](proof-of-quota.md), a per-epoch value derived in [Blend Difficulty](blend-protocol.md#blend-difficulty) and never evaluated here.
 
 ```python
 EMA_SMOOTHING_FACTOR: uint64 = 9      # F, the weight given to the previous estimate
@@ -1901,82 +1901,9 @@ Two properties follow, and both matter for its safety. When a block accepts exac
 
 Both ends of the update are clamped, and the two clamps guard against different failures. The cap at $`p-1`$ keeps a run of empty blocks from pushing the representative out of the field. The floor guards the other end: the update is multiplicative in the current target, so **zero is absorbing twice over** — arithmetically, every subsequent update multiplies by it, and physically, no ticket lies strictly below a zero target, so the claims whose absence would ease it can never arrive — and the easing that exists to revive a too-hard target is the branch that multiplies by the stuck value. Nor would a floor of one suffice: under floor division the empty-block easing $`\lfloor t \cdot P/F \rfloor`$ returns $`t`$ unchanged for every $`t \lt F/(P-F)`$, so flooring at one would replace an absorbing point with an absorbing band. `REWARD_TARGET_FLOOR` is the smallest value the easing strictly lifts, $`\lceil F/(P-F) \rceil = 9`$ at the specified smoothing.
 
-The [Blend Difficulty](#blend-difficulty) controller needs no such floor: it is recomputed from `BLEND_DIFFICULTY_BASE` every epoch, and its clamp only bounds the step away from the previous value, so there is no multiplicative state for a collapse to absorb.
-
 The rate the controller observes is the rate of claims **included in blocks**, not the rate at which solutions are found. Solutions that are never included, because a block builder declined to include them or because block space was exhausted, are invisible to it. Difficulty therefore tracks accepted demand rather than offered demand, and the two diverge when block space is contended.
 
 `difficulty_reward` is set at genesis to the scalar field modulus divided by $`2^{26}`$ — deliberately on the hard side, so that the controller's first move is to loosen: a genesis value too hard costs only the time the per-block easing takes to correct it, where one too permissive over-pays claims.
-
-### Blend Difficulty
-
-`difficulty_blend` is the threshold used by the proof of work branch of [Proof of Quota](proof-of-quota.md) to admit messages to the Blend network. It is consensus state and is maintained here, alongside the reward difficulty, because it must be agreed by every node and is derived from on-chain observations. It is never evaluated by any Operation.
-
-The two difficulties are independent. They gate different things, are computed from different observations, and neither implies the other: a solution may satisfy one, both, or neither. Coupling them would force one objective to distort the other, since they are steering unrelated quantities.
-
-Unlike the reward difficulty, `difficulty_blend` is recomputed **once per epoch** and held fixed for the whole epoch. This is required rather than a simplification: the value is a public input to the proof, so a value that changed within an epoch would partition that epoch's proofs into distinguishable classes and leak which participants produced which messages.
-
-The value for epoch $`N`$ is fixed at the same moment as epoch $`N`$'s nonce — the lottery-constants snapshot taken during epoch $`N-1`$, as specified in [Epoch](cryptarchia-v1-protocol.md#epoch) — and its input is the transaction load of epoch $`N-2`$, the last epoch complete at that snapshot; publishing it with the nonce keeps the [precomputation window](proof-of-quota.md#precomputation-of-proof-of-work-solutions) usable. For the first two epochs no complete input epoch exists, so `difficulty_blend` is `BLEND_DIFFICULTY_BASE` for epochs 0 and 1, and the schedule begins with epoch 2, computed during epoch 1 from epoch 0's load. The same value applies at genesis: the network begins at `BLEND_DIFFICULTY_BASE` rather than at a guess about the first epoch's traffic.
-
-The control objective is transaction load, for the anonymity-set reason given in [Blend Difficulty](blend-protocol.md#blend-difficulty). At the reference load the threshold sits at a baseline; above it admission tightens, below it admission loosens.
-
-```python
-BLEND_DIFFICULTY_BASE: PowTarget = p // 2**19   # Threshold at the reference load
-TARGET_TXS_PER_BLOCK: uint64 = 512              # Reference transactions per block
-BLEND_DAMPING_NUM: uint64 = 1                   # a, where the exponent is alpha = a / b
-BLEND_DAMPING_DEN: uint64 = 2                   # b, with 0 < a <= b so that alpha <= 1
-BLEND_MAX_STEP: uint64 = 2                      # Max factor the threshold may move per epoch
-
-def compute_epoch_blend_difficulty(epoch_blocks: list[Block],   # the blocks of epoch N-2
-                                   previous: PowTarget) -> PowTarget:  # d_blend of epoch N-1
-    # All quantities here are canonical integer representatives of their field
-    # elements; the arithmetic is over arbitrary-precision integers per [Arithmetic], and
-    # the capped result converts back to a field element without reduction.
-    # Observed load as an exact ratio, never divided: num == den at the reference load.
-    num = sum(num_transactions(b) for b in epoch_blocks)
-    den = TARGET_TXS_PER_BLOCK * len(epoch_blocks)
-
-    lo = previous // BLEND_MAX_STEP
-    # Capped below the field modulus for the same reason as the reward retarget:
-    # a target at or above p is no threshold at all, since every ticket is a
-    # field element and would satisfy it.
-    hi = min(previous * BLEND_MAX_STEP, p - 1)
-
-    if num == 0:
-        return hi   # No load observed: as permissive as this epoch's clamp allows.
-
-    # A smaller target is harder, so load divides the baseline:
-    #     target = BASE / load ** alpha
-    # Every quantity is an integer and only the final root is floored, so the
-    # result is at most one unit away from the exact value.
-    a, b = BLEND_DAMPING_NUM, BLEND_DAMPING_DEN
-    # The radicand reaches roughly 2**487 and is computed over unbounded
-    # integers, per [Arithmetic]; no fixed-width type can carry it.
-    radicand = (BLEND_DIFFICULTY_BASE ** b * den ** a) // num ** a
-    return clamp(integer_nth_root(radicand, b), lo, hi)
-
-def integer_nth_root(x: int, n: int) -> int:
-    # The floor of the real n-th root: the largest integer r with r**n <= x.
-    # Any exact method serves; this reference is a binary search over
-    # arbitrary-precision integers.
-    lo, hi = 0, 1 << (x.bit_length() // n + 1)   # hi**n > x by construction
-    while lo < hi - 1:
-        mid = (lo + hi) // 2
-        if mid ** n <= x:
-            lo = mid
-        else:
-            hi = mid
-    return lo
-```
-
-The clamp interval is never empty: every stored value is capped below $`p`$, so `previous` is at most $`p-1`$ and `lo = previous // BLEND_MAX_STEP` is at most $`(p-1)/2`$, strictly below the $`p-1`$ ceiling of `hi`.
-
-Computed once per epoch at the nonce snapshot of the preceding epoch, and applied from the first block of its epoch. `previous` is the value computed one snapshot earlier, so the chain of values is well defined without reference to any boundary state.
-
-The upper clamp is capped at $`p-1`$ in addition to the per-epoch step bound. Without the cap, an idle network — every epoch observing no load and returning `hi` — would double the threshold each epoch and pass the field modulus after a few months of empty epochs, at which point every ticket would satisfy it and admission would be free. The reward controller bounds its result for the same reason, and the two failure modes are the same one.
-
-Note what this controller cannot see. Its input is transactions included in blocks, so messages that are never included — including messages sent purely to consume Blend capacity — do not raise it. It regulates admission against observed chain load, not against network load, and is therefore not by itself a defence against flooding the Blend network with messages that never reach a block.
-
-`BLEND_DIFFICULTY_BASE` is calibrated against a measurement of the work itself: about fifty seconds per solution on one core of the target machine, a Raspberry Pi 5, measured on that hardware.
 
 ## TRANSFER
 

@@ -488,6 +488,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\Lambda_E = M_1^{Max} = 12`$ edge nodes accepted per round.
 - $`M_1^{Min} = \lceil F_1 \cdot W / 10 \rceil = 9`$, the minimum number of messages per connection during an observation window, as derived in [Expected Connection Traffic](#expected-connection-traffic).
 - $`T_E=1`$ round, the time an edge node is given to send its message, as derived in [Connectivity Maintenance](#connectivity-maintenance).
+- $`\ell^* = 4`$, the load set point, in the quantization levels of [Load](#load) ([Blend Difficulty](#blend-difficulty)).
 
 ### Core Node Parameters
 
@@ -713,7 +714,7 @@ where $`y`$ is the number of distinct solutions held by the node $`n`$ that sati
 
 Setting $`Q_W = \beta_{max}`$ makes one solution sufficient for exactly one message. A quota unit is one blending operation, not one message: a message carries $`\beta_{max}`$ blending operations and therefore consumes $`\beta_{max}`$ keys, one per encapsulation. Expressing the quota as a multiple of $`\beta_{max}`$ rather than as a bare number keeps that relationship correct if the number of blending operations per message ever changes, and makes the messages-per-solution figure explicit rather than something a reader must derive.
 
-This is the quota that admits participants holding neither stake nor a declaration: the cost of reaching the Blend network without a prior relationship to the protocol is one puzzle solution per message, set by $`d_{blend}`$, whose baseline is chosen in [Blend Difficulty](bedrock-v1.1-mantle-specification.md#blend-difficulty).
+This is the quota that admits participants holding neither stake nor a declaration: the cost of reaching the Blend network without a prior relationship to the protocol is one puzzle solution per message, set by $`d_{blend}`$ ([Blend Difficulty](#blend-difficulty)).
 
 The puzzle is not the only per message cost: each of the $`\beta_{max}`$ encapsulations carries its own proof, generated whatever the quota is.
 
@@ -723,11 +724,36 @@ The rate at which this branch admits messages cannot be bounded in the way the o
 
 $`d_{blend}`$ is the threshold a puzzle ticket must fall below to satisfy the proof of work branch of the [Proof of Quota](#proof-of-quota). Because a smaller threshold admits a smaller fraction of tickets, a smaller $`d_{blend}`$ makes admission harder.
 
-It is a per epoch value, held constant for the whole epoch and identical for every proof produced within it. Both properties are required rather than incidental: the threshold is a public input to the proof, so a value that varied between provers, or within an epoch, would partition proofs into distinguishable classes and reveal which participants had produced which messages. Holding it constant for the epoch keeps the proof of work branch indistinguishable from the other two.
+It is a per epoch value, held constant for the whole epoch and identical for every proof produced within it, as a public input to the [Proof of Quota](proof-of-quota.md).
 
-The control objective for $`d_{blend}`$ belongs to this protocol, because what it regulates is the health of the anonymity set. When genuine traffic is plentiful the network already provides a large set to hide in, so permissionless admission can be restricted more tightly without harming privacy; when traffic is thin, admission should be made easier so that proof of work backed messages contribute to the set rather than being excluded from it. A threshold that is too tight starves the anonymity set; one that is too loose exposes the network to flooding by participants who need no stake to send.
+Every node derives the value for an epoch from the same SDP snapshot that yields the core node set $`\mathcal N`$ ([Snapshots](bedrock-service-declaration-protocol.md#snapshots)). The snapshot's source block is final during the preceding epoch, before that epoch's nonce is fixed, so the value is available to provers no later than the other public inputs of the proof.
 
-The value itself is a consensus quantity: it must be agreed by every node, so it is derived from on-chain observations and held in consensus state. It is fixed at the same snapshot as the epoch's nonce, during the preceding epoch, as specified in [Blend Difficulty](bedrock-v1.1-mantle-specification.md#blend-difficulty), which gives the load it is computed from and the bounds that make it resistant to manipulation. Publishing it together with the nonce keeps the proof precomputation window usable, since both are public inputs to the same proof.
+The input is the load reported in the Blend active messages that attest the epoch three epochs before the one the value applies to ([Active Message](#active-message)). The value for epoch $`s`$ is `d_blend(s)`:
+
+```python
+BLEND_DIFFICULTY_BASE: PowTarget = p // 2**19  # Threshold at the load set point
+BLEND_MAX_STEP: uint64 = 2                     # Max factor the threshold may move per epoch
+
+def d_blend(s: EpochNumber) -> PowTarget:
+    # PowTarget arithmetic is over canonical integer representatives
+    # ([Proof of Work Operations](bedrock-v1.1-mantle-specification.md#proof-of-work-operations)):
+    # a smaller target is a harder puzzle, and the result stays below p.
+    if s < 3:
+        return BLEND_DIFFICULTY_BASE      # No attested epoch exists yet.
+    reports = loads(s - 3)                # the load values of the accepted active
+                                          # messages attesting epoch s-3
+    previous = d_blend(s - 1)
+    if len(reports) == 0:
+        return previous
+    load = sorted(reports)[(len(reports) - 1) // 2]   # lower median
+    lo = previous // BLEND_MAX_STEP
+    hi = min(previous * BLEND_MAX_STEP, p - 1)  # at or above p, every ticket satisfies it
+    if load == 0:
+        return hi
+    return clamp((BLEND_DIFFICULTY_BASE * l_star) // load, lo, hi)
+```
+
+`l_star` is the load set point $`\ell^*`$ ([Global Parameters](#global-parameters)). `BLEND_DIFFICULTY_BASE` is calibrated against a measurement of the work: about fifty seconds per solution on one core of the target machine, a Raspberry Pi 5.
 
 ### Quota Application
 
@@ -940,7 +966,7 @@ The added per-hop verification latency lies within the delay budget of [Delaying
 
 Deduplication by nullifier, step 1.4, remains before this check, but only as a lookup: insertion happens strictly after the proof has verified, so a cache entry attests that a fully verified message already used that nullifier and a lookup hit is a true duplicate. The lookup runs first because reading the cache is cheap and a hit makes the expensive verification unnecessary.
 
-What this ordering does **not** address is a flood of messages whose proofs are valid. Such messages pass every check in step 1 and are relayed normally, so verifying earlier does not reduce their cost; it only ensures the network carries messages that someone genuinely paid to create. Nor does the [Blend Difficulty](#blend-difficulty) controller respond to them: it is driven by transactions that reach a block, and messages sent only to consume capacity never do, so admission does not tighten however many are sent. Verifying before relaying therefore bounds the amplification an invalid proof can achieve, and does not by itself bound the volume a determined participant can generate.
+What this ordering does **not** address is a flood of messages whose proofs are valid. Such messages pass every check in step 1 and are relayed normally, so verifying earlier does not reduce their cost; it only ensures the network carries messages that someone genuinely paid to create. The [Blend Difficulty](#blend-difficulty) controller responds to them only at its lag: its input is the load reported three epochs earlier, so admission does not tighten within the epoch however many are sent. Verifying before relaying therefore bounds the amplification an invalid proof can achieve, and does not by itself bound the volume a determined participant can generate.
 
 Closing that gap requires an admission cost each node can raise on its own in response to the resources it is actually spending, rather than one derived from a value the whole network agrees on and which lags what any individual node observes. Such a mechanism is not specified here.
 
@@ -962,7 +988,7 @@ $$
 
 That figure is not an upper bound once the proof of work branch is in use. The $`F_C`$ and $`F_D`$ terms are bounded by quantities the protocol knows: the number of declared core nodes, published by the SDP, and the rate of leader elections, fixed by the consensus parameters. $`F_W`$ has no such bound. It is determined by how much work participants choose to perform and by $`Q_W`$, neither of which the protocol constrains, so the cache size becomes a function of the Blend threshold $`d_{blend}`$ rather than of a count of registered nodes.
 
-A node therefore cannot size this cache from protocol constants alone. Two consequences follow. First, $`d_{blend}`$ must be set with the resulting memory cost in mind, not only with the anonymity-set objective of [Blend Difficulty](#blend-difficulty). Second, a node must bound the cache by its own resources rather than assuming the derived figure will hold, and the behaviour when that bound is reached is not specified here.
+A node therefore cannot size this cache from protocol constants alone. Two consequences follow. First, $`d_{blend}`$ must be set with the resulting memory cost in mind, not only with the admission objective of [Blend Difficulty](#blend-difficulty). Second, a node must bound the cache by its own resources rather than assuming the derived figure will hold, and the behaviour when that bound is reached is not specified here.
 
 ### Processing
 
