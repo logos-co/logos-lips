@@ -33,6 +33,7 @@
 | 1.3.0 | [RFC] Replace the BLAKE2b-Based PRNG with ChaCha20 (ChaCha20Rng) | 2026-08-28 |
 | 1.3.1 | Judged the active message window by the epoch of the including block, made the one-message-per-epoch rule per attested epoch, and made the transition-period delay a release constraint | 2026-09-02 |
 | 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, and add transactions as a data message payload; re-derive the nullifier cache bound and align the nullifier retention period | 2026-09-04 |
+| 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
 
 # Introduction
 
@@ -234,6 +235,10 @@ Broadcasting is a process of delivering the content extracted from a data messag
 
 A transaction is additionally submitted to the mempool of the broadcasting node, so that it can be included in a block. Broadcasting alone would deliver it to the network but would not make it available to the node that received it for block building.
 
+## Failure Detection and Reaction
+
+A payload the Blend network fails to deliver is broadcast directly by its sender, without the unlinkability the network provides.
+
 ## Rewarding
 
 A node must be encouraged to follow the protocol, which means that it must be rewarded for the contribution it is making. Otherwise, honest nodes might become lazy nodes, nodes that are not motivated to follow the protocol due to a lack of incentives. In simple terms, a lazy node will not work until it gets paid. Therefore, we motivate the following set of protocol actions:
@@ -433,6 +438,22 @@ Every payload that is added to the broadcasting queue is processed as follows:
 
 For a complete description of the processing logic, refer to [Broadcasting](#broadcasting).
 
+## Failure Detection and Reaction
+
+This section defines how a node detects that the Blend network is not delivering its data messages and how it should react.
+
+### Detection
+
+**Delivery failure.** The sender of a data message knows its payload: the identifier of the block it proposed, or the hash of the transaction it submitted. If the sender does not observe that payload on the broadcasting channel within the message traversal time $`T_M`$ ([Transition Period](#transition-period)), counted from the round in which the message was released, it must treat the message as lost.
+
+### Direct Broadcast
+
+Nodes that value privacy above block rewards should disable this fallback and abstain from participation until Blend recovers.
+
+When a sender **detects** a Blend network failure to broadcast, the sender broadcasts the payload directly to the Logos Blockchain broadcasting channel.
+
+The deadline is the message traversal time, so a directly broadcast payload never reaches the network earlier than a delivered one. [Block Proposal Reconstruction](bedrock-v1.1-block-construction.md#block-proposal-reconstruction) assumes that delay for the transactions a proposal references.
+
 ## Rewarding
 
 Every active core node receives a reward. The activity of a node is verified in a probabilistic manner, where a more active node has higher chances of getting a reward and a premium reward. To claim a reward, the node must do the following:
@@ -474,6 +495,8 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\mathcal{N} = \text{SDP}(s)`$ denote a set of core nodes providing the Blend service for the epoch $`e`$ returned by the SDP protocol ([Service Declaration Protocol](bedrock-service-declaration-protocol.md));
 - $`N = |\mathcal N|`$ denote a number of core nodes providing the Blend service;
 - $`\text {CSPRNG}()`$ is a cryptographically secure pseudo-random number generator, implemented as a [ChaCha20-Based PRNG Construction](common-cryptographic-components.md#chacha20-based-prng-construction);
+- $`\eta`$ denotes the network absorption, the time a message spends crossing the network on one hop;
+- $`T_M`$ denotes the message traversal time, the time a message takes to cross the network;
 
 ## Global Parameters
 
@@ -482,6 +505,8 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\beta_{max} = 3`$, the maximum number of blending operations of a single message.
 - $`\beta_C=3`$, the expected number of blending operations for each cover message;
 - $`\beta_D=3`$, the expected number of blending operations for each data message;
+- $`\eta=2`$ rounds, the network absorption of one hop.
+- $`T_M = 15`$ rounds, the message traversal time, as derived in the [Transition Period](#transition-period) section.
 - $`W=10 \cdot \Delta_{max}=30`$, the observation window is $`30`$ rounds.
 - $`\lceil F_1 \rceil^W = W \cdot \mu=30 \cdot \mu`$, the maximum number of messages per-connection during the observation window is a function of the $`\mu`$, which is defined in the [Releasing](#releasing)  section.
 - $`\lfloor F_1 \rfloor^W = 3 \cdot \mu`$, the minimum number of messages per-connection during observation is a function of the $`\mu`$, which is defined in the [Releasing](#releasing) section.
@@ -553,27 +578,21 @@ However, this must also be carefully engineered as the number of connections mus
 
 When a new epoch begins, the set of public information checked against proofs embedded in messages changes, which renders some messages invalid. However, these messages may still contain valid payloads that must reach their destination. Therefore, we implement a Transition Period (TP, $`T`$) during which the network can gracefully react to the change and allow these messages to safely exit the network.
 
-The duration of the TP is calculated as follows:
+A message crosses $`\beta_{max}`$ blend nodes, each holding it for at most $`\Delta_{max}`$ and the network carrying it for $`\eta`$:
 
 $$
-T = (\Delta_{max} +d)\cdot \beta_{max} +d
+T_M = \beta_{max} \cdot (\Delta_{max} + \eta) = 3 \cdot (3 + 2) = 15 \text{ rounds}
 $$
 
 where:
 
 - $`\Delta_{max} = 3`$ defines the maximal blending delay;
-- $`d`$ defines the network dissemination delay;
+- $`\eta = 2`$ defines the network absorption of one hop ([Global Parameters](#global-parameters));
 - $`\beta_{max}=3`$ defines maximum number of blending operations of a single message.
 
-We assume that $`d=0.5`$ is an average message dissemination delay, then:
+After $`T_M`$ rounds, all messages for the past epoch should have been processed and disseminated. To provide an additional safety buffer, we round the transition period up to $`T=30`$ rounds. After this period, all old connections can be safely terminated, and messages for the past epoch must not be processed anymore.
 
-$$
-T = (3 + 0.5)\cdot 3 + 0.5= 11
-$$
-
-That means that after $`11`$ rounds, all messages for the past epoch should have been processed and disseminated.
-
-However, to provide an additional safety buffer, we round up the transition period to $`T=30`$ rounds. After this period, all old connections can be safely terminated, and messages for the past epoch must not be processed anymore.
+The transition period must not be shorter than the message traversal time. A node that stopped processing past-epoch messages before $`T_M`$ would discard messages that are still crossing the network, and their senders would wait for a delivery that can no longer happen ([Detection](#detection)).
 
 When a new **epoch** begins:
 
@@ -922,9 +941,9 @@ When a message $`\mathbf M`$ is received by the node, then it is processed by th
 3. If the decapsulation is successful, then:
     1. If the proof of selection ($`\pi^{K^{n}_l,l}_{S} \in \mathbf b_1`$) is invalid, then the message is discarded. A valid proof of selection points to the index of the node $`l`$ in the list of nodes returned from the SDP.
     2. Store the blending token which is the collection of the proof of quota from the header ($`\pi^{K^{n}_l}_{Q} \in \mathbf H`$), and the proof of selection from the private header ($`\pi^{K^{n}_l,l}_{S} \in \mathbf b_1 \in \mathbf h`$):
-    $$
-    t = ( \pi^{K^{n}_l}_{Q} \in \mathbf H, \pi^{K^{n}_l,l}_{S} \in \mathbf b_1 \in \mathbf h).
-    $$
+       $$
+       t = ( \pi^{K^{n}_l}_{Q} \in \mathbf H, \pi^{K^{n}_l,l}_{S} \in \mathbf b_1 \in \mathbf h).
+       $$
 
     3. If the last flag is set ($`\Omega == 1`$) then examine the header type of the payload as defined in the [Payload Formatting](payload-formatting.md), then:
         1. If the payload is a block proposal, then the payload structure is verified and broadcast, as defined in the [Broadcasting](#broadcasting) section.
