@@ -1653,13 +1653,15 @@ The puzzle ticket is derived from the payload:
 ```python
 def get_puzzle_ticket(claim: ClaimPowRewardOp) -> zkhash:
     return zkhash(
-        claim.public_key,
-        FiniteField(claim.block_hash, byte_order="little", modulus=p),
         claim.epoch_nonce,
+        FiniteField(claim.block_hash, byte_order="little", modulus=p),
+        claim.public_key,
     )
 ```
 
 where `zkhash` is Poseidon2 and $`p`$ is the scalar field modulus, both given in [Common Cryptographic Components](common-cryptographic-components.md). A miner searches for a `public_key` whose ticket falls below the reward threshold; the corresponding secret key signs the claim and later spends the reward note. The secret key must be sampled with full entropy rather than enumerated, because it remains secret and authorises both.
+
+The input order places the stable inputs first, which is what makes mining cheap. Absorbing one element costs one Poseidon2 permutation, so a miner precomputes the sponge state through `epoch_nonce` once per epoch and through `block_hash` once per block, and each attempt then costs three permutations — deriving `public_key` from a fresh secret key, absorbing it, and the padding block — instead of the five a full evaluation takes.
 
 This derivation carries no domain separation tag.
 

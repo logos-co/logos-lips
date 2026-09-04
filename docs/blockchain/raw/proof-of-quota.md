@@ -207,7 +207,7 @@ is_leader = would_win_leadership(pol_epoch_nonce,
 # Check if it's a valid proof of work solution. The ticket is derived directly
 # from the private nonce under its own domain separation tag, and the comparison
 # is over the whole scalar field rather than a truncation of it.
-pow_ticket = zkhash(b"BLEND_POW_V1", pow_nonce, pol_epoch_nonce)
+pow_ticket = zkhash(b"BLEND_POW_V1", pol_epoch_nonce, pow_nonce)
 is_winning_pow = pow_ticket < pow_blend_difficulty
 
 # Verify that it's a core node, a leader, or a valid proof of work solution.
@@ -244,6 +244,8 @@ The proof of work branch places no bound on how old a solution may be. The only 
 That value does not become known when its epoch starts. It is fixed at the beginning of the lottery constants finalization phase of the *preceding* epoch, as specified in [Epoch](cryptarchia-v1-protocol.md#epoch), and is public from that moment. An epoch is $`10\lfloor k/f \rfloor`$ slots and the nonce is fixed $`6\lfloor k/f \rfloor`$ slots into the preceding epoch, so it is known for the final $`4\lfloor k/f \rfloor`$ slots of that epoch — with the parameters in [Cryptarchia](cryptarchia-v1-protocol.md#constants), roughly three days of a seven and a half day epoch.
 
 `pow_blend_difficulty` for the epoch is fixed at the same snapshot as the nonce, as specified in [Blend Difficulty](bedrock-v1.1-mantle-specification.md#blend-difficulty), so the whole window has every public input of the proof available, and complete proofs — not only solutions — may be prepared ahead of the epoch; the reward path's freshness is enforced independently by its own acceptance window. A prover may therefore mine solutions for an epoch throughout that window and hold them until the epoch opens. Admission to the Blend network over the proof of work branch is consequently limited by the total work a prover can perform in that window and by `pow_quota`, rather than by any rate at which solutions may be presented.
+
+The ticket's input order places the stable inputs first, which is what makes mining cheap. The sponge state after absorbing the domain separation tag is a constant, and the state after the epoch nonce is computed once per epoch, so each attempt costs two Poseidon2 permutations — absorbing `pow_nonce` and the padding block — instead of the four a full evaluation takes.
 
 ## Proof Compression
 

@@ -934,11 +934,10 @@ A node therefore cannot size this cache from protocol constants alone. Two conse
 
 ### Processing
 
-When a message $`\mathbf M`$ is received by the node, then it is processed by this logic:
+When a message $`\mathbf M`$ has passed the [Relaying](#relaying) checks, it is processed by this logic:
 
-1. If the proof $`\pi^{K^{n}_i}_{Q} \in \mathbf H`$ from the public header of the message is not correct, then the message must be discarded.
-2. Decapsulate the message as defined in the decapsulation section of the [Message Encapsulation Mechanism](message-encapsulation.md).
-3. If the decapsulation is successful, then:
+1. Decapsulate the message as defined in the decapsulation section of the [Message Encapsulation Mechanism](message-encapsulation.md).
+2. If the decapsulation is successful, then:
     1. If the proof of selection ($`\pi^{K^{n}_l,l}_{S} \in \mathbf b_1`$) is invalid, then the message is discarded. A valid proof of selection points to the index of the node $`l`$ in the list of nodes returned from the SDP.
     2. Store the blending token which is the collection of the proof of quota from the header ($`\pi^{K^{n}_l}_{Q} \in \mathbf H`$), and the proof of selection from the private header ($`\pi^{K^{n}_l,l}_{S} \in \mathbf b_1 \in \mathbf h`$):
        $$
@@ -959,7 +958,7 @@ When a message $`\mathbf M`$ is received by the node, then it is processed by th
         3. Attempt a subsequent decapsulation to validate whether the node is the recipient (return to step 1). This must be done recursively to remove all consecutive encapsulation layers where the node is the intended recipient.
         4. If the decapsulation fails (meaning no more layers remain), randomly delay the message and release the formatted message according to the [Releasing](#releasing) logic.
 
-  4. If decapsulation fails, return the appropriate decapsulation failure message.
+  3. If decapsulation fails, return the appropriate decapsulation failure message.
 
 Blending tokens are stored by the node for rewarding purposes, as they prove that the node processed the message. The blending tokens are stored alongside context information such as the epoch number. We denote the set of blending tokens from an epoch $`e`$ stored by a node $`l`$ as $`\mathcal{T}^{l,e}`$.
 
