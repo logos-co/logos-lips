@@ -26,6 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.0.1 | Noted that a streamed `Block` carries the signed headers of the uncles it references, which is what lets a synchronizing node validate those blocks and reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) without ever seeing their proposals, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
+| 1.1.0 | Restricted every chain sync disclosure to the [Sync View](#sync-view); made the tip request explicit as `GetTipRequest`. | 2026-09-02 |
 
 # Introduction
 
@@ -50,6 +51,7 @@ The protocol consists of the following key components:
 - Determining the fork choice rule ([Bootstrap Fork Choice Rule](fork-choice.md#bootstrap-fork-choice-rule) or [Online Fork Choice Rule](fork-choice.md#online-fork-choice-rule)) at startup
 - Switching the fork choice rule from Bootstrap to Online
 - Downloading blocks from peers
+- Restricting chain sync disclosures to the [sync view](#sync-view)
 
 The details are described in the [Protocol](#protocol). This section provides only a high-level overview.
 
@@ -92,7 +94,7 @@ flowchart TD
 
 Upon startup, a node **determines the fork choice rule**, as defined in [Setting the Fork Choice Rule](#setting-the-fork-choice-rule). If the Bootstrap rule is selected, it is maintained for the [Prolonged Bootstrap Period](#prolonged-bootstrap-period), after which the node switches to the Online rule.
 
-Using the fork choice rule chosen, the node **downloads blocks** to catch up with the tip of the local chain $`c_{loc}`$ of each peer.
+Using the fork choice rule chosen, the node **downloads blocks** to catch up with the tip that each peer advertises.
 
 After downloading is done, the node starts **listening for new blocks.** Upon receiving a new block, the node validates and adds it to its local block tree. If the ancestors of the block are missing from the local block tree, the node downloads missing ancestors using the same mechanism as above.
 
@@ -127,7 +129,7 @@ Upon startup, a node sets the fork choice rule to the **Bootstrap** rule in one 
 
 ## Initial Block Download
 
-If peers for Initial Block Download (IBD) are configured, a node performs IBD by downloading blocks to catch up with the tip of the local chain $`c_{loc}`$ of each peer using the fork choice rule chosen in [Setting the Fork Choice Rule](#setting-the-fork-choice-rule). If no peer is configured, the node skips IBD. For example, genesis nodes will configure no IBD peer because they have to build a chain from scratch.
+If peers for Initial Block Download (IBD) are configured, a node performs IBD by downloading blocks to catch up with the sync tip each peer advertises ([Sync View](#sync-view)) using the fork choice rule chosen in [Setting the Fork Choice Rule](#setting-the-fork-choice-rule). If no peer is configured, the node skips IBD. For example, genesis nodes will configure no IBD peer because they have to build a chain from scratch.
 
 Blocks are downloaded in parent-to-child order, as defined in the [Downloading Blocks](#downloading-blocks) mechanism. This mechanism applies not only when a node starts from the Genesis block, but also when it already has the local block tree (or a checkpoint block)
 
@@ -177,7 +179,7 @@ Once [Initial Block Download](#initial-block-download) is complete and [Prolonge
 
 Upon receiving a new block, the node tries to validate and add it to its local block tree, as defined in [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance).
 
-If the parent of the block is missing from the local block tree, the block cannot be fully validated and added. These blocks are called *orphan blocks*. To handle an orphan block, the node downloads missing blocks from a randomly selected peer, as described in [Downloading Blocks](#downloading-blocks). If the request fails, the node may retry with different peers before abandoning the orphan block. The retry policy can be configured by implementers.
+If the parent of the block is missing from the local block tree, the block cannot be fully validated and added. These blocks are called *orphan blocks*. To handle an orphan block, the node downloads missing blocks from a randomly selected peer, as described in [Downloading Blocks](#downloading-blocks). If the request fails, the node may retry with different peers before abandoning the orphan block. The retry policy can be configured by implementers, but retries should span at least the worst-case Blend transit of 11 rounds ([Blend Protocol](blend-protocol.md)).
 
 Note that downloading missing blocks does not need to be triggered if it is clear that the orphan block is in a fork diverged before the latest immutable (committed) block, as the node should never revert immutable blocks.
 
@@ -201,9 +203,34 @@ def listen_and_process_new_blocks(fork_choice: ForkChoice, local_tree: Tree, pee
             download_blocks(local_tree, random.choice(peers), target_block=block.id)
 ```
 
+## Sync View
+
+A node answers sync requests, and builds its own requests, from its **sync view**, so that it does not reveal which blocks it proposed.
+
+A block $`B`$ in the local block tree $`T`$ is **publicly disseminated** for the node holding it if any of the following holds:
+
+- $`B`$ is the Genesis block, or a checkpoint block imported from a trusted provider ([Bootstrapping from Checkpoint](#bootstrapping-from-checkpoint)).
+- The node obtained $`B`$ from another node: from the broadcast channel ([Blend Protocol](blend-protocol.md)), or from a sync peer.
+- The node itself released $`B`$ to the broadcast channel, as the Blend node completing the release or as the proposer broadcasting directly when the Blend protocol is bypassed ([Minimal Network Size](blend-protocol.md#minimal-network-size)).
+- The node holds a publicly disseminated block that descends from $`B`$, or that references $`B`$ as an uncle ([Uncle References](cryptarchia-v1-protocol.md#uncle-references)).
+
+A proposal the node decapsulates as the Blend exit node is not publicly disseminated until its release. Which blocks are publicly disseminated is node-local state, persisted with the block tree no later than the blocks themselves; a block with no record is not publicly disseminated.
+
+The **sync view** $`T_\text{sync} \subseteq T`$ is the set of publicly disseminated blocks of $`T`$.
+
+The **sync chain** $`c_\text{sync}`$ is the chain the node's fork choice rule selects over $`T_\text{sync}`$; the **sync tip** is its tip. $`c_\text{sync}`$ is maintained like $`c_{loc}`$: each block is fed to the fork choice rule when it enters $`T_\text{sync}`$. It must not be computed by feeding blocks in the order they entered $`T`$, nor by truncating $`c_{loc}`$ to its public prefix. Blocks that become publicly disseminated together are fed in parent-to-child order.
+
+A node observes the following rules:
+
+- It advertises its sync tip, never $`c_{loc}`$, in a `GetTipResponse`.
+- It builds the `KnownBlocks` of a `DownloadBlocksRequest` from $`T_\text{sync}`$ only; `local_tip` is the sync tip, and `latest_immutable_block` is the latest immutable block of $`c_\text{sync}`$.
+- It serves a `DownloadBlocksRequest` from $`T_\text{sync}`$ only: a block outside it is treated as absent — not streamed and not a latest-common-ancestor candidate — and a `target_block` outside it is answered the same way as a block the responder does not have.
+
+The fork choice rule, [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance) and block proposal operate on the full block tree $`T`$. A block received from the broadcast channel is marked publicly disseminated even when it is already in $`T`$ and its application is skipped.
+
 ## Downloading Blocks
 
-For performing [Initial Block Download](#initial-block-download) and handling orphan blocks while [Listening for New Blocks](#listening-for-new-blocks), a node sends a `DownloadBlocksRequest` to a peer, which must respond with blocks in parent-to-child order. This communication should be implemented based on the [Libp2p streaming](https://github.com/libp2p/rust-libp2p/tree/master/protocols/stream).
+For performing [Initial Block Download](#initial-block-download) and handling orphan blocks while [Listening for New Blocks](#listening-for-new-blocks), a node sends a `DownloadBlocksRequest` to a peer, which must respond with blocks in parent-to-child order. When it needs a peer's tip as the download target, it sends a `GetTipRequest` first. This communication should be implemented based on the [Libp2p streaming](https://github.com/libp2p/rust-libp2p/tree/master/protocols/stream). A request is sent as the `SyncRequest` union, encoded as a bincode enum ([Network Wire Format](network-wire-format.md)).
 
 **Libp2p Protocol ID**
 
@@ -211,6 +238,16 @@ For performing [Initial Block Download](#initial-block-download) and handling or
 - Testnet: `/logos-blockchain-testnet/cryptarchia/sync/1.0.0`
 
 ```python
+SyncRequest = GetTipRequest | DownloadBlocksRequest
+
+class GetTipRequest:
+    pass
+
+class GetTipResponse:
+    tip: BlockId
+    slot: Slot     # of the tip
+    height: u64    # of the tip
+
 class DownloadBlocksRequest:
     # Ask blocks up to the target block.
     # The response may not contain the target block if the responder limits the number of blocks returned.
@@ -247,8 +284,8 @@ The requesting node should repeat `DownloadBlocksRequest`s by updating the `Know
 def download_blocks(local_tree: Tree, peer: Node, target_block: Optional[BlockId]):
     latest_downloaded: Optional[Block] = None
     while True:
-        # Fetch the peer's tip if target is not specified.
-        target_block = target_block if target_block is not None else peer.tip()
+        # Fetch the peer's sync tip if target is not specified.
+        target_block = target_block if target_block is not None else send_request(peer, GetTipRequest()).tip
         # Don't start downloading if target is already in local.
         if local_tree.has(target_block):
             return
@@ -258,8 +295,8 @@ def download_blocks(local_tree: Tree, peer: Node, target_block: Optional[BlockId
             # so that we can catch up with the most recent peer's tip.
             target_block=target_block,
             known_blocks=KnownBlocks(
-                local_tip=local_tree.tip().id,
-                latest_immutable_block=local_tree.latest_immutable_block().id,
+                local_tip=local_tree.sync_tip().id,
+                latest_immutable_block=local_tree.sync_latest_immutable_block().id,
                 # Provide the latest downloaded block as well
                 # to avoid downloading duplicate blocks
                 additional_blocks=[latest_downloaded.id] if latest_downloaded is not None else [],
@@ -283,7 +320,7 @@ If the node is continuing from a previous `DownloadBlocksRequest`, it is importa
 
 ![Diagram](cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-81c8-b0ff-c858bf97c965.png)
 
-If the requesting node is downloading blocks up to the peer’s tip $`c_{loc}`$ (e.g. [Initial Block Download](#initial-block-download)) by repeating `DownloadBlocksRequest`s, the $`c_{loc}`$ may switch between requests. The algorithm described above also handles this case by specifying the most recent peer’s tip each time when a `DownloadBlocksRequest` is constructed.
+If the requesting node is downloading blocks up to the tip a peer advertises (e.g. [Initial Block Download](#initial-block-download)) by repeating `DownloadBlocksRequest`s, that tip may switch between requests. The algorithm described above also handles this case by specifying the most recently advertised tip each time when a `DownloadBlocksRequest` is constructed.
 
 ![Diagram](cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-8157-b410-e2246d81a3fb.png)
 
@@ -297,11 +334,11 @@ Instead of bootstrapping from the Genesis block or from the local block tree, a 
 
 A trusted checkpoint provider exposes a HTTP endpoint, allowing nodes to download the checkpoint block and the corresponding ledger state. The details are defined in [Checkpoint Provider HTTP API](#checkpoint-provider-http-api).
 
-The bootstrapping node imports the downloaded checkpoint block and ledger state before starting bootstrapping. The imported checkpoint block is used as the latest immutable block $`B_{imm}`$ and the local chain tip $`c_{loc}`$. Starting from the checkpoint block, the same [Initial Block Download](#initial-block-download) is used to downloads blocks up to the tip of the local chain of each peer. As defined in [Setting the Fork Choice Rule](#setting-the-fork-choice-rule), the Bootstrap fork choice rule must be used upon startup.
+The bootstrapping node imports the downloaded checkpoint block and ledger state before starting bootstrapping. The imported checkpoint block is used as the latest immutable block $`B_{imm}`$ and the local chain tip $`c_{loc}`$. Starting from the checkpoint block, the same [Initial Block Download](#initial-block-download) is used to downloads blocks up to the tip each peer advertises. As defined in [Setting the Fork Choice Rule](#setting-the-fork-choice-rule), the Bootstrap fork choice rule must be used upon startup.
 
 ![Diagram](cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-817b-883e-df4c9ca6ae54.png)
 
-If it turns out that none of the peers’ local chains are connected to the checkpoint block, the node is terminated with an error, allowing the node operator to select a new checkpoint.
+If it turns out that none of the chains the peers serve are connected to the checkpoint block, the node is terminated with an error, allowing the node operator to select a new checkpoint.
 
 ![Diagram](cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-8138-99a6-eab12e93aeb6.png)
 
