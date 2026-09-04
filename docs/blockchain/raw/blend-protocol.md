@@ -155,9 +155,7 @@ At the beginning of an epoch, all core nodes retrieve a fresh set of core nodesâ
 
 The minimal network size is $`32`$. This is the minimum number of nodes (unique `ProviderId`s from declarations) that must be retrieved from the SDP to consider the Blend protocol safe to use.
 
-This minimal size of $`32`$ nodes allows the network to release, on average, a single message per round under the assumption of $`50\%`$ unresponsive nodes. With fewer nodes, the network would need to either release more messages per round or queue them. This would increase the time messages take to traverse the network, potentially compromising the safety of the consensus.
-
-The calculations supporting this requirement are provided in the [Releasing](#releasing) section, where the number of $`16`$ nodes has been estimated without assuming any unresponsive nodes. Therefore, we have doubled that value to accommodate the potential $`50\%`$ unresponsive nodes.
+In a network of $`N`$ core nodes, a node releases $`\left\lceil \Delta_{max} \cdot \beta_{max} / N \right\rceil`$ messages per release round. Sixteen nodes hold that at one message per round, and the minimum doubles it to tolerate $`50\%`$ unresponsive nodes.
 
 ### Fallback
 
