@@ -453,7 +453,6 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`h(\Phi_{CC})`$ denotes the number of healthy connections of the core node with other core nodes, as classified in [Connectivity Maintenance](#connectivity-maintenance). Only core-to-core connections are classified, so healthiness is defined for them alone;
 - $`\Delta_{max}`$ denotes a maximal delay time between two release rounds;
 - $`\beta_{max}`$ denotes a maximum number of processing rounds for a single message;
-- $`\mu`$ denotes the upper bound on the number of messages to be released during a single release round;
 - $`E`$ denotes a number of rounds in an epoch;
 - $`W`$ denote the observation window expressed in the number of rounds;
 - $`F_1`$ denote the number of messages a single connection is expected to carry per round;
@@ -484,11 +483,11 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`T_M = 15`$ rounds, the message traversal time, as derived in the [Transition Period](#transition-period) section.
 - $`W=10 \cdot \Delta_{max}=30`$, the observation window is $`30`$ rounds.
 - $`F_C=1`$, the network generates one cover message per round on average.
-- $`F_D=1/30`$, the network generates one data message every $`30`$ rounds on average, which is the rate at which a slot has an elected leader in the [Cryptarchia Protocol](cryptarchia-v1-protocol.md).
+- $`F_D=1/30`$, the network generates one data message every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)).
 - $`R_C=0`$ and $`R_D=0`$, no replication of cover or data messages is used in this version of the protocol.
 - $`\Phi_{CC}^{Min}=6`$ and $`\Phi_{CC}^{Max}=8`$, the smallest and the largest number of connections a core node holds with other core nodes ([Connectivity Maintenance](#connectivity-maintenance)).
-- $`M_1^{Max}=12`$ messages per round, the maximum a node may send to one neighbor in a round, as derived in [Expected Connection Traffic](#expected-connection-traffic).
-- $`\Lambda_E = M_1^{Max} = 12`$ edge nodes per round: the edge nodes together receive the allowance of one neighbor.
+- $`M_1^{Max}=12`$ messages per round, the maximum a node may send to one neighbor in a round ([Releasing](#releasing)).
+- $`\Lambda_E = M_1^{Max} = 12`$ edge nodes accepted per round.
 - $`M_1^{Min} = \lceil F_1 \cdot W / 10 \rceil = 9`$, the minimum number of messages per connection during an observation window, as derived in [Expected Connection Traffic](#expected-connection-traffic).
 - $`T_E=1`$ round, the time an edge node is given to send its message, as derived in [Connectivity Maintenance](#connectivity-maintenance).
 
@@ -525,9 +524,7 @@ The Neighbor Distinction Process (NDP) enables the core node to distinguish betw
 
 ### Expected Connection Traffic
 
-A message is released to every neighbor except the one it came from, and a duplicate is counted before it is discarded ([Relaying](#relaying)). A connection therefore carries every message the network emits.
-
-A data message replaces a cover message rather than adding to one ([Releasing](#releasing)). The rate a connection carries follows the larger of the two rates:
+The rate a connection carries per round is:
 
 $$
 F_1 = \max\left(F_C \cdot (1 + R_C),\ F_D \cdot (1 + R_D)\right) \cdot \beta_{max} = 3.0
@@ -539,7 +536,6 @@ $$
 M_1^{Min} = \left\lceil \dfrac{F_1 \cdot W}{10} \right\rceil = 9
 $$
 
-A connection below the minimum carries no penalty for its neighbor.
 
 **Maximum**
 
@@ -547,17 +543,13 @@ $$
 M_1^{Max} = 12
 $$
 
-$`M_1^{Max}`$ is a protocol constant. A node holds back anything above it rather than sending it ([Releasing](#releasing)).
-
-The value follows from $`F_1`$ and from the margin the network needs above it. The margin sets how far the network can move before the queue of a sender stops draining, which is four times the rate a connection carries today.
-
-The queue of a sender drains only while $`F_1 + F_W \lt M_1^{Max}`$. $`F_W`$, the rate of messages admitted by the proof of work quota ([Relaying](#relaying)), adds to the traffic without substituting, and [Blend Difficulty](#blend-difficulty) is what bounds it. [Cryptarchia](cryptarchia-v1-protocol.md) must bound the number of block proposals admitted per slot so that this holds, or $`M_1^{Max}`$ must be raised to cover the worst case it admits.
+The queue of a sender drains only while $`F_1 + F_W \lt M_1^{Max}`$. $`F_W`$ is defined in [Relaying](#relaying). [Cryptarchia](cryptarchia-v1-protocol.md) must bound the number of block proposals admitted per slot so that this holds, or $`M_1^{Max}`$ must be raised to cover the worst case it admits.
 
 The constants must keep $`(\Phi_{CC}^{Max} + 1) \cdot M_1^{Max}`$ public header verifications per round within the rate of the slowest node the protocol targets ([Relaying](#relaying)). Above it, a node may receive more than it can verify.
 
 ### Connectivity Maintenance
 
-A core node blacklists a neighbor only for misbehavior that its authenticated identity is responsible for. There are three kinds: a message that fails header verification, a failure of the authenticated stream, and a connection classified spammy. A failure of the authenticated stream is a TLS record that fails authentication, or a violation of the framing of the stream. The loss of a connection is not one of them, and counts as silence.
+A core node blacklists a neighbor for exactly three causes: a message that fails header verification, a failure of the authenticated stream, and a connection classified spammy. A failure of the authenticated stream is a TLS record that fails authentication, or a violation of the framing of the stream. The loss of a connection is not one of them, and counts as silence.
 
 The number of connections with core nodes never exceeds $`\Phi_{CC}^{Max}`$. A connection whose handshake is in progress counts towards it once the [Neighbor Distinction Process](#neighbor-distinction-process) has identified the neighbor as a core node. A handshake that has not completed within $`T_E`$ is abandoned and its slot released.
 
@@ -565,7 +557,7 @@ The number of connections with core nodes never exceeds $`\Phi_{CC}^{Max}`$. A c
 
 A node counts the messages it receives on each connection with a core node. $`M_1`$ is the count for the current round. It includes duplicates.
 
-$`M_1^W`$ is the count over the trailing observation window $`W`$ of the messages the node had not itself released on that connection. Every other message counts towards it, including one the node already holds from another neighbor. A node records the nullifiers it releases on each connection so that a return is recognised.
+$`M_1^W`$ is the count over the trailing observation window $`W`$ of the messages the node had not itself released on that connection. Every other message counts towards it, including one the node already holds from another neighbor. A node records the nullifiers it releases on each connection.
 
 The counts are kept against the authenticated identity of the neighbor, for the epoch. A neighbor that reconnects resumes them. The window advances only while the neighbor is connected.
 
@@ -1021,41 +1013,6 @@ The process of releasing messages involves the following steps:
 
 The cover and data message generation processes are **independent**, and there is a non-zero probability that more than one message will be scheduled for the same round. The number of messages released **to a single neighbor** during one round is nevertheless restricted to $`M_1^{Max}`$ ([Expected Connection Traffic](#expected-connection-traffic)). A node holding more than that for a neighbor releases $`M_1^{Max}`$ of them, chosen at random from those due, and carries the remainder into the following round. A message is never carried past the end of the [Transition Period](#transition-period) of the epoch it was generated for. A node discards it instead.
 
-The limit is enforced by the receiving neighbor ([Connectivity Maintenance](#connectivity-maintenance)).
-
-A message deferred this way is released later than the round the [Delaying](#delaying) logic chose for it. The upper bound on delay that section states does not hold for it.
-
-However, a node can calculate the expected number of messages to be released per release round. This depends on the value of $`\Delta_{max}`$, the network size (number of core nodes), and the generation quota.
-
-For sufficiently large networks, the number of processed messages queued in a node will be smaller than $`1`$ on average.
-
-However, in **smaller networks**, the number of messages queued in a node will be **larger than** $`1`$. **We must avoid this property because the additional delay negatively impacts the consensus protocol's safety. Therefore, we need to determine the network size threshold where the number of messages to be released exceeds** $`1`$**.**
-
-The expected number of messages to be released during a single release round for a single node is:
-
-$$
-\mu = \left\lceil{\Delta_{max} \cdot \beta_C \cdot \alpha \over {N }}\right\rceil
-$$
-
-Where:
-
-- $`\Delta_{max}`$ is the maximal delay time between two release rounds;
-- $`\beta_C`$ denotes an expected number of blending operations for each cover message;
-- $`\alpha`$ is a message number normalization constant;
-- $`N`$ is the number of core nodes in the network.
-
-Let us assume:
-
-- $`\beta_C=3`$, which means that every round, $`3`$ nodes are going to be processing messages generated by the network, which is a reasonable assumption as it defines the maximum number that the protocol can tolerate due to the quota limitations;
-- $`\alpha \approx 1.03`$, corrects the number of new messages emitted by the network per round to include data messages, where $1$ is the number of cover messages, and $0.03$ is the number of data messages per round.
-
-This gives us:
-
-- For $`N=16`$ core nodes; $`\mu=1`$ message per release round on average.
-- For $`N=8`$ core nodes;  $`\mu=2`$ messages per release round on average.
-- For $`N=4`$ core nodes; $`\mu=3`$ messages per release round on average.
-
-The $`\mu`$ estimator bounds the queueing behavior of a single node. The bounds that classify a connection are derived separately, from the traffic a connection is expected to carry, in [Expected Connection Traffic](#expected-connection-traffic).
 
 ### Broadcasting
 
