@@ -42,7 +42,7 @@
 | 1.11.0 | Track the configuration lineage of a channel: `ChannelState` gains `config_tip_hash` and the `CHANNEL_CONFIG` payload carries the `parent` configuration it extends, ordering configurations and preventing their replay | 2026-08-27 |
 | 1.11.1 | Renamed locked notes into service notes: `service_notes`, `ServiceNote` and `service_note_id` replace their locked counterparts, and the note kind is named after the role it plays rather than after the state it is left in | 2026-08-27 |
 | 1.12.0 | Specified the `SDP_ACTIVE` execution effects, matching the implementation: `active` is set to the epoch of the including block, and a message the activity logic rejects makes the Operation invalid. Set `withdraw_at` to `current_epoch + 2`, the epoch at which the node stops providing the service, and removed declarations at `withdraw_at` | 2026-09-02 |
-| 1.13.0 | Add the `CLAIM_POW_REWARD` Operation, the proof of work reward pool and its difficulty retargeting | 2026-08-31 |
+| 1.13.0 | Add the `CLAIM_POW_REWARD` Operation, the proof of work reward pool and its difficulty retargeting | 2026-09-04 |
 
 # Introduction
 
@@ -1653,19 +1653,19 @@ The puzzle ticket is derived from the payload:
 ```python
 def get_puzzle_ticket(claim: ClaimPowRewardOp) -> zkhash:
     return zkhash(
-        claim.epoch_nonce,
-        FiniteField(claim.block_hash, byte_order="little", modulus=p),
         claim.public_key,
+        FiniteField(claim.block_hash, byte_order="little", modulus=p),
+        claim.epoch_nonce,
     )
 ```
 
-where $`p`$ is the scalar field modulus given in [Common Cryptographic Components](common-cryptographic-components.md). A miner searches for a `public_key` whose ticket falls below the reward threshold; the corresponding secret key allows the reward note to be spent afterwards. The secret key must be sampled with full entropy rather than enumerated, because it both remains secret and authorises spending the reward.
+where `zkhash` is Poseidon2 and $`p`$ is the scalar field modulus, both given in [Common Cryptographic Components](common-cryptographic-components.md). A miner searches for a `public_key` whose ticket falls below the reward threshold; the corresponding secret key signs the claim and later spends the reward note. The secret key must be sampled with full entropy rather than enumerated, because it remains secret and authorises both.
 
 This derivation carries no domain separation tag.
 
 #### Proof
 
-  `None`. This Operation carries no signature and no zero-knowledge proof. The authorisation is the puzzle solution itself, which is re-derived from the payload and checked during validation. The corresponding entry in `op_proofs` is `None`.
+  A [ZkSignature](#zero-knowledge-signature-scheme-zksignature) by the secret key corresponding to `public_key`, over the transaction's `mantle_txhash`. The puzzle solution itself carries no separate proof: it is re-derived from the payload and checked during validation.
 
 #### Execution gas
 
@@ -1677,7 +1677,7 @@ This derivation carries no domain separation tag.
 
 ```python
 claim: ClaimPowRewardOp            # the CLAIM_POW_REWARD payload
-                                   # op_proof is None for this Operation
+claim_proof: ZkSignature           # the op_proofs entry for this Operation
 
 current_slot: SlotNumber           # slot of the block including this claim
 difficulty_reward: PowTarget       # d_reward, retargeted every block
@@ -1707,6 +1707,9 @@ assert puzzle_ticket < difficulty_reward
 # 5. The solution must not have been claimed before. The nullifier is the ticket,
 #    so the value computed in step 4 is reused.
 assert puzzle_ticket not in pow_nullifiers
+
+# 6. The claim must be signed by the key the reward is paid to.
+assert ZkSignature_verify(mantle_txhash, claim_proof, [claim.public_key])
 ```
 
   The nullifier of a claim is its puzzle ticket, which is determined by the payload and unique to a winning key:
@@ -1789,7 +1792,7 @@ tx = MantleTx(
 
 SignedMantleTx(
     tx=tx,
-    op_proofs=[None,                       # authorisation is the solution in the payload
+    op_proofs=[ZkSignature(reward_sk, mantle_txhash(tx)),
                transfer.prove(reward_sk)],
 )
 ```
@@ -2218,9 +2221,9 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_SDP_WITHDRAW_GAS | 590 |
 | EXECUTION_SDP_ACTIVE_GAS | 590 |
 | EXECUTION_LEADER_CLAIM_GAS | 580 |
-| EXECUTION_CLAIM_POW_REWARD_GAS | 56 |
+| EXECUTION_CLAIM_POW_REWARD_GAS | 590 |
 
-`EXECUTION_CLAIM_POW_REWARD_GAS` is the cost of an Operation that verifies no proof and no signature: it re-derives a hash, compares it against a threshold, and performs a few lookups and insertions. It is priced with the other Operations whose cost is a single signature verification, which is a conservative over-estimate here, and is derived in [\[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md).
+`EXECUTION_CLAIM_POW_REWARD_GAS` is the cost of one ZkSignature verification, the same basis as `EXECUTION_TRANSFER_GAS`: the ticket re-derivation and the window, nullifier and pool checks are negligible beside it. It is derived in [\[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md).
 
 The value bounds the fee a claim transaction must pay, and therefore bears on whether a claim is worth making at all: a claim whose fee exceeds its reward is never submitted.
 

@@ -30,7 +30,7 @@
 | 1.5.1 | Reflect Channel Deposit execution modification. It now consumes inputs to update their NoteId | 2026-07-27 |
 | 1.5.2 | Renamed locked notes into service notes and stated that the Input Gas covers the check that a note is neither a service nor a channel note | 2026-08-27 |
 | 1.5.3 | Adopted "active message" as the single name for the message | 2026-09-02 |
-| 1.6.0 | Add the Execution Gas derivation for the `CLAIM_POW_REWARD` Operation | 2026-08-31 |
+| 1.6.0 | Add the Execution Gas derivation for the `CLAIM_POW_REWARD` Operation | 2026-09-04 |
 
 # Introduction
 
@@ -78,7 +78,7 @@ SDP_DECLARE_GAS               = 646
 SDP_WITHDRAW_GAS              = 590
 SDP_ACTIVE_GAS                = 590
 LEADER_CLAIM_GAS              = 580
-CLAIM_POW_REWARD_GAS          = 56
+CLAIM_POW_REWARD_GAS          = 590
 ```
 
 and come from our implementation observations as described in [Gas determination from measures](#gas-determination-from-measures).  To get these numbers, we based our calculations on the following measures:
@@ -228,11 +228,12 @@ Execution: ~580k CPU cycles.
 
 ## Claim PoW Reward
 
-This gas covers the re-derivation of the puzzle ticket from the Operation payload, the comparison of that ticket against the reward difficulty, the lookup confirming the referenced block is canonical and within the acceptance window, the check that the ticket is not already in the nullifier set, and the check that the pool can cover a reward. Execution then inserts the nullifier, creates a single output note and decrements the pool.
+This gas covers the verification of the [ZkSignature](bedrock-v1.1-mantle-specification.md) proof, the re-derivation of the puzzle ticket from the Operation payload, the comparison of that ticket against the reward difficulty, the lookup confirming the referenced block is canonical and within the acceptance window, the check that the ticket is not already in the nullifier set, and the check that the pool can cover a reward. Execution then inserts the nullifier, creates a single output note and decrements the pool.
 
-Execution: dominated by one hash over three field elements. Every other step is a comparison or a set or map lookup.
+Execution: ~590k CPU cycles.
 
-- Re-derivation of the puzzle ticket: one `zkhash` over three field elements.
+- Verification of the ZK signature: 590,000 cycles.
+- Re-derivation of the puzzle ticket: one `zkhash` over three field elements, negligible.
 - Comparison of the ticket against the reward difficulty: negligible.
 - Lookup of the referenced block and the slot window comparison: negligible.
 - Verification that the ticket isn't already in the nullifier set: negligible.
@@ -241,13 +242,9 @@ Execution: dominated by one hash over three field elements. Every other step is 
 - Insertion of the note in the ledger: negligible.
 - Derivation of the note identifiers: negligible.
 
-Unlike every other Operation in this document, this one verifies no proof and no signature, so it has no batch-verification component and no term proportional to a number of proofs.
+`CLAIM_POW_REWARD_GAS` is set to **590**, the ZkSignature tier shared with `TRANSFER` and `CHANNEL_DEPOSIT`, and its signature joins the batch verification with theirs.
 
-It is therefore not comparable to `LEADER_CLAIM`, whose 580 is entirely the 580,000 cycle Proof of Claim verification that this Operation does not perform. The comparable Operations are the channel ones at 56, whose cost is one Eddsa25519 signature verification — and this Operation does not verify a signature either.
-
-`CLAIM_POW_REWARD_GAS` is set to **56**, adopting that tier as a conservative over-estimate rather than pricing the Operation at zero. It should be confirmed by measurement on the same basis as the others.
-
-A claim is intended to pay its own fee out of the reward it creates, so this gas contributes to the floor the per-claim reward must clear, and it constrains the reward parameters rather than merely pricing the Operation. Pricing it at `LEADER_CLAIM_GAS` would nearly double the claim transaction's execution gas, since the transaction already carries a `TRANSFER` at 590.
+A claim is intended to pay its own fee out of the reward it creates, so this gas contributes to the floor the per-claim reward must clear, and it constrains the reward parameters rather than merely pricing the Operation.
 
 # Annex
 

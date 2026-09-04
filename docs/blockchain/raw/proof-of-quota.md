@@ -28,7 +28,7 @@
 | 1.0.1 | Remove the protection against adaptive adversary from PoL. It impacts the PoL section of PoQ. Update the performance according to the new circuit. Remove old project name from DSTs | 2026-04-09 |
 | 1.1.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.2.0 | Add the proof of work branch: third selector value, `pow_quota` and `pow_blend_difficulty` public inputs, `pow_sk` witness, Lagrange branch selection, and the binding and precomputation properties | 2026-08-31 |
-| 1.3.0 | Replace the proof of work secret key and its key derivation with a single private nonce, and give the puzzle ticket a domain separation tag | 2026-08-31 |
+| 1.3.0 | Replace the proof of work secret key and its key derivation with a single private nonce, and give the puzzle ticket a domain separation tag | 2026-09-04 |
 
 
 # Introduction
@@ -207,7 +207,7 @@ is_leader = would_win_leadership(pol_epoch_nonce,
 # Check if it's a valid proof of work solution. The ticket is derived directly
 # from the private nonce under its own domain separation tag, and the comparison
 # is over the whole scalar field rather than a truncation of it.
-pow_ticket = zkhash(b"BLEND_POW_V1", pol_epoch_nonce, pow_nonce)
+pow_ticket = zkhash(b"BLEND_POW_V1", pow_nonce, pol_epoch_nonce)
 is_winning_pow = pow_ticket < pow_blend_difficulty
 
 # Verify that it's a core node, a leader, or a valid proof of work solution.
