@@ -464,13 +464,14 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\Lambda_E`$ denote the number of edge nodes a core node may serve during one round;
 - $`F_C`$ denote a frequency at which cover messages are generated per round;
 - $`F_D`$ denote a frequency at which data messages are generated per round;
+- $`F_W`$ denote a frequency at which messages backed by a proof of work are generated per round;
 - $`C = E \cdot F_C`$ denote the expected number of cover messages that are generated during an epoch by the core nodes;
 - $`R_C`$ denote a redundancy parameter for cover messages, defining the number of “replications” of the same message;
 - $`R_D`$ denote a redundancy parameter for data messages, defining the number of “replications” of the same message;
 - $`\mathcal{N} = \text{SDP}(e)`$ denote a set of core nodes providing the Blend service for the epoch $`e`$ returned by the SDP protocol ([Service Declaration Protocol](bedrock-service-declaration-protocol.md));
 - $`N = |\mathcal N|`$ denote a number of core nodes providing the Blend service;
 - $`\text {CSPRNG}()`$ is a cryptographically secure pseudo-random number generator, implemented as a [ChaCha20-Based PRNG Construction](common-cryptographic-components.md#chacha20-based-prng-construction);
-- $`\eta`$ denotes the network absorption, the time a message spends crossing the network on one hop;
+- $`\eta`$ denotes the network absorption, the maximum time a message spends crossing the network on one hop;
 - $`T_M`$ denotes the message traversal time, the time a message takes to cross the network;
 
 ## Global Parameters
@@ -544,7 +545,7 @@ $$
 M_1^{Max} = 12
 $$
 
-The queue of a sender drains only while $`F_1 + F_W \lt M_1^{Max}`$. $`F_W`$ is defined in [Relaying](#relaying). [Cryptarchia](cryptarchia-v1-protocol.md) must bound the number of block proposals admitted per slot so that this holds, or $`M_1^{Max}`$ must be raised to cover the worst case it admits.
+The queue of a sender drains only while $`F_1 + F_W \cdot \beta_{max} \lt M_1^{Max}`$. $`F_D`$ follows from the number of block proposals [Cryptarchia](cryptarchia-v1-protocol.md) admits per slot, and $`F_W`$ from the threshold $`d_{blend}`$ of [Blend Difficulty](#blend-difficulty). Both must be set so that the inequality holds.
 
 The constants must keep $`(\Phi_{CC}^{Max} + 1) \cdot M_1^{Max}`$ public header verifications per round within the rate of the slowest node the protocol targets ([Relaying](#relaying)). Above it, a node may receive more than it can verify.
 
@@ -564,7 +565,7 @@ The counts are kept against the authenticated identity of the neighbor, for the 
 
 **Classification**
 
-1. A connection is **spammy** when $`M_1 \gt (1+\eta) \cdot M_1^{Max}`$ in any round. A message arrives at most $`\eta`$ rounds after its release, so one round of arrivals carries the releases of at most $`1+\eta`$ rounds.
+1. A connection is **spammy** when $`M_1 \gt (2+\eta) \cdot M_1^{Max}`$ in any round. A message arrives at most $`\eta`$ rounds after its release, so one round of arrivals carries the releases of at most $`1+\eta`$ rounds. The threshold adds one further round, so a neighbor that keeps to $`M_1^{Max}`$ is never classified spammy.
 2. It is **healthy** when it is not spammy and $`M_1^W \ge M_1^{Min}`$. Only healthy connections count towards $`h(\Phi_{CC})`$.
 3. It is **unhealthy** when $`M_1^W \lt M_1^{Min}`$.
 
