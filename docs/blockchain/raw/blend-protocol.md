@@ -467,6 +467,8 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\text {CSPRNG}()`$ is a cryptographically secure pseudo-random number generator, implemented as a [ChaCha20-Based PRNG Construction](common-cryptographic-components.md#chacha20-based-prng-construction);
 - $`\eta`$ denotes the network absorption, the maximum time a message spends crossing the network on one hop;
 - $`T_M`$ denotes the message traversal time, the time a message takes to cross the network;
+- $`V_n`$ denotes the verification capacity of a core node $`n`$, as defined in [Load](#load);
+- $`\ell_n`$ denotes the load of a core node $`n`$, and $`\ell_n^q`$ its quantized form, as defined in [Load](#load);
 
 ## Global Parameters
 
@@ -540,6 +542,24 @@ $$
 The queue of a sender drains only while $`F_1 + F_W \cdot \beta_{max} \lt M_1^{Max}`$. $`F_D`$ follows from the number of block proposals [Cryptarchia](cryptarchia-v1-protocol.md) admits per slot, and $`F_W`$ from the threshold $`d_{blend}`$ of [Blend Difficulty](#blend-difficulty). Both must be set so that the inequality holds.
 
 The constants must keep $`\Phi_{CC}^{Max} \cdot M_1^{Max} + \Lambda_E`$ public header verifications per round within the rate of the slowest node the protocol targets ([Relaying](#relaying)). Above it, a node may receive more than it can verify.
+
+### Load
+
+$`V_n`$ is the number of public header verifications per round that the node $`n`$ sustains. A node measures it on its own hardware.
+
+The load of a core node over a set of rounds is:
+
+$$
+\ell_n = \dfrac{A_n}{V_n \cdot r}
+$$
+
+where $`A_n`$ is the number of messages the node received on its connections with core nodes during those rounds, plus the number of connections edge nodes offered to it, and $`r`$ is the number of those rounds during which the node provided the service. Every received message and every offered connection counts, including those later discarded or refused.
+
+A node reports its load quantized to sixteen levels:
+
+$$
+\ell_n^q = \min\left(15, \lfloor 8 \cdot \ell_n \rfloor\right)
+$$
 
 ### Connectivity Maintenance
 
@@ -1106,17 +1126,18 @@ The `metadata` field is the concatenation of the following fields, in order:
 | Field | Size (bytes) | Value |
 | --- | --- | --- |
 | `metadata_type` | 1 | `0x01`, identifying the payload as Blend service activity metadata |
-| `version` | 1 | `0x01`, the version of the Blend [Activity Proof](#activity-proof) format |
+| `version` | 1 | `0x02`, the version of the Blend [Activity Proof](#activity-proof) format |
 | `epoch_number` | 4 | the epoch $`e`$ the proof attests to, encoded as little-endian |
 | `signing_key` | 32 | the public key $`K^{n}_{l}`$ used to verify the two proofs below |
 | `proof_of_quota` | 160 | $`\pi_{Q}^{K^{n}_{l}}`$, serialized as defined in [Proof of Quota](proof-of-quota.md) |
 | `proof_of_selection` | 32 | $`\pi_{S}^{K^{n}_{l},l}`$ |
+| `load` | 1 | $`\ell_n^q`$, the node's quantized load over the rounds of the epoch $`e`$ ([Load](#load)) |
 
-The total size of the `metadata` field is therefore $`230`$ bytes.
+The total size of the `metadata` field is therefore $`231`$ bytes.
 
 The two leading bytes serve distinct purposes and must not be conflated. The `metadata_type` byte selects how the service-specific `metadata` field is interpreted, so that the SDP active message can carry activity metadata for services other than Blend. The `version` byte versions the Blend Activity Proof format itself, independently of that selector.
 
-The `metadata_type` must be equal to `0x01`; if not, then discard the message. The `version` must be equal to `0x01`; if not, then discard the message.
+The `metadata_type` must be equal to `0x01`; if not, then discard the message. The `version` must be equal to `0x02`; if not, then discard the message. The `load` must be at most `15`; if not, then discard the message.
 
 The active message is stored on the ledger.
 
