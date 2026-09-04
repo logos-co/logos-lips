@@ -311,7 +311,7 @@ Technical Details:
 
 Use in the Logos Blockchain:
 
-Equi-X prices admission at the edge of the Blend network: a core node sets the effort target an edge node must satisfy to be served ([Blend Protocol](blend-protocol.md)).
+Equi-X prices admission at the edge of the Blend network: a core node sets the effort target an edge node must satisfy to be served ([Edge Admission](blend-protocol.md#edge-admission)).
 
 Rationale for Use:
 

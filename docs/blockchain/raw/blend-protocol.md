@@ -332,8 +332,8 @@ The bootstrapping logic of an edge node:
     2. It identifies itself and authenticates using the [Neighbor Distinction Process](#neighbor-distinction-process).
         1. A core node learns that the neighbor is an edge node.
         2. An edge node confirms that the neighbor is a core node.
-        3. A core node closes the connection if it has already accepted $`\Lambda_E`$ connections with edge nodes this round ([Connectivity Maintenance](#connectivity-maintenance)).
-        4. An edge node must drop the connection if the neighbor is not the intended core node. Please note that technically it is done during TLS handshake, where the handshake will fail if the core node is using a different key than provided in the SDP declaration.
+        3. An edge node must drop the connection if the neighbor is not the intended core node. Please note that technically it is done during TLS handshake, where the handshake will fail if the core node is using a different key than provided in the SDP declaration.
+    3. The core node sends its door quote, and the edge node presents its token, as defined in [Edge Admission](#edge-admission). The core node closes the connection if the token fails any check of [Edge Admission](#edge-admission), including the acceptance rate $`\Lambda_E`$ ([Connectivity Maintenance](#connectivity-maintenance)).
 5. When the connection is established, it sends the message and closes the connection.
 6. Concurrently to the above, it repeats steps 4 and 5 until it is sends the message to a number of nodes equal to the communication redundancy number defined by the edge node. It stops connecting to each node after a certain number of tries, which is defined by the edge node.
 
@@ -469,6 +469,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`T_M`$ denotes the message traversal time, the time a message takes to cross the network;
 - $`V_n`$ denotes the verification capacity of a core node $`n`$, as defined in [Load](#load);
 - $`\ell_n`$ denotes the load of a core node $`n`$, and $`\ell_n^q`$ its quantized form, as defined in [Load](#load);
+- $`d_{edge}^n`$ denotes the Equi-X effort target the core node $`n`$ demands of edge nodes, as defined in [Edge Difficulty](#edge-difficulty);
 
 ## Global Parameters
 
@@ -489,6 +490,9 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`M_1^{Min} = \lceil F_1 \cdot W / 10 \rceil = 9`$, the minimum number of messages per connection during an observation window, as derived in [Expected Connection Traffic](#expected-connection-traffic).
 - $`T_E=1`$ round, the time an edge node is given to send its message, as derived in [Connectivity Maintenance](#connectivity-maintenance).
 - $`\ell^* = 4`$, the load set point, in the quantization levels of [Load](#load) ([Blend Difficulty](#blend-difficulty)).
+- $`T_R = 600`$ rounds, the challenge rotation period ([Edge Admission](#edge-admission)). $`T_R`$ must divide $`E`$, so that a window lies in exactly one epoch; a window that straddled two epochs would have no single epoch randomness.
+- $`G = 60`$ rounds, the price grace window ([Edge Admission](#edge-admission)). $`G`$ must be at least the p95 solving time at $`d_{edge}^{Max}`$ on the slowest targeted edge device; below that, a solver that began against a quoted target can be refused on completion.
+- $`d_{edge}^{Min} = 300`$ and $`d_{edge}^{Max} = 1000`$, the bounds of the edge effort target ([Edge Difficulty](#edge-difficulty)).
 
 ### Core Node Parameters
 
@@ -510,7 +514,7 @@ Implementations should choose a default based on the deployment they operate in,
 
 ### Connection Details
 
-The connections are established using libp2p with TLS version 1.3 (not older). The cryptographic scheme is Ed25519 with ephemeral keys**.** The libp2p protocol name is `/logos-blockchain/blend/1.0.0` for mainnet and `/logos-blockchain-testnet/blend/1.0.0` for testnet.
+The connections are established using libp2p with TLS version 1.3 (not older). The cryptographic scheme is Ed25519 with ephemeral keys**.** The libp2p protocol name is `/logos-blockchain/blend/2.0.0` for mainnet and `/logos-blockchain-testnet/blend/2.0.0` for testnet.
 
 ### Neighbor Distinction Process
 
@@ -562,6 +566,39 @@ $$
 \ell_n^q = \min\left(15, \lfloor 8 \cdot \ell_n \rfloor\right)
 $$
 
+### Edge Admission
+
+A core node prices its edge service with an [Equi-X](common-cryptographic-components.md#4-client-puzzles) effort target $`d_{edge}^n`$, set by the node as defined in [Edge Difficulty](#edge-difficulty).
+
+The challenge of the node $`n`$ for the window $`w = \lfloor r / T_R \rfloor`$, where $`r`$ is the current round:
+
+$$
+C_n^w = H(\text{"BLEND\_EDGE\_V1"} \| provider\_id_n \| R \| w)
+$$
+
+where $`H`$ is Hash ([BLAKE2b](common-cryptographic-components.md#blake2bgeneral-purpose-hashing), 32-byte output) with the leading domain separation tag, $`provider\_id_n`$ is the node's `provider_id` as its 32 bytes, $`R`$ is the epoch randomness of the epoch the window lies in ([Epoch Randomness](#epoch-randomness)), and $`w`$ is encoded as 8 bytes little-endian. Every input is public, so an edge node derives the challenge and solves without a connection.
+
+On identifying an edge neighbor ([Neighbor Distinction Process](#neighbor-distinction-process)) whose identity is not quarantined ([Connectivity Maintenance](#connectivity-maintenance)), the node sends its **door quote**: $`d_{edge}^n`$ as 4 bytes little-endian, then $`w`$ as 8 bytes little-endian. The edge node then sends its token — 24 bytes, serialized as defined in [Equi-X](common-cryptographic-components.md#4-client-puzzles) — followed by its message. An edge node holding no satisfying token closes the connection, and connects again once it holds one.
+
+The node accepts the token when all of the following hold, checked in this order:
+
+1. Fewer than $`\Lambda_E`$ edge connections have been accepted in the current round.
+2. The token verifies against $`C_n^w`$ or $`C_n^{w-1}`$.
+3. Its achieved effort is at least the lowest value $`d_{edge}^n`$ took during the past $`G`$ rounds.
+4. The pair of the token's challenge and nonce is not in the spent-token cache.
+
+On acceptance, the node inserts the pair into the spent-token cache, counts the connection against $`\Lambda_E`$, and receives the message. On any failure, the node closes the connection; a failure consumes no part of $`\Lambda_E`$, and the identity is not quarantined.
+
+The spent-token cache holds the pairs of the current and the previous window and discards entries of older windows. Its size is bounded by $`2 \cdot \Lambda_E \cdot T_R`$ entries.
+
+### Edge Difficulty
+
+Each core node sets $`d_{edge}^n`$ for itself. It starts at $`d_{edge}^{Min}`$ and is retargeted every $`W`$ rounds against the arrivals $`A_n`$ counted by [Load](#load) over those rounds:
+
+1. If $`8 \cdot A_n \gt (\ell^*+1) \cdot V_n \cdot W`$, then $`d_{edge}^n \leftarrow \min(2 \cdot d_{edge}^n,\ d_{edge}^{Max})`$.
+2. If $`8 \cdot A_n \lt (\ell^*-1) \cdot V_n \cdot W`$, then $`d_{edge}^n \leftarrow \max(\lfloor 3 \cdot d_{edge}^n / 4 \rfloor,\ d_{edge}^{Min})`$.
+3. Otherwise it is unchanged.
+
 ### Connectivity Maintenance
 
 A core node blacklists a neighbor for exactly three causes: a message that fails the header checks of [Relaying](#relaying), a failure of the authenticated stream, and a connection classified spammy. A failure of the authenticated stream is a TLS record that fails authentication, or a violation of the framing of the stream. The loss of a connection is not one of them.
@@ -593,7 +630,7 @@ A neighbor whose accumulated observation is shorter than $`W`$ counts as healthy
 5. When the node holds $`\Phi_{CC}^{Max}`$ connections and any of them is unhealthy, it replaces one. It selects the replacement first. It then closes the unhealthy connection with the lowest $`M_1^W`$, among those whose neighbor has completed an observation window, and gives the released slot to the replacement. Ties are broken uniformly at random. A healthy connection is never displaced. At most one connection is replaced per observation window. No connection is closed this way unless a replacement is available.
 6. A node that can neither open nor replace a connection logs that it holds fewer than $`\Phi_{CC}^{Min}`$ healthy connections.
 7. A connection with an edge node is closed once the edge node has sent its message, or once $`T_E`$ has elapsed. $`T_E`$ covers the transmission of one message: a block proposal of $`34574`$ bytes ([Payload Formatting](payload-formatting.md)) takes $`0.28`$ s over a $`1`$ Mbit/s link, and $`T_E`$ allows a fifth again for framing and half a second for latency.
-8. A core node accepts at most $`\Lambda_E`$ connections with edge nodes per round. They are counted once the [Neighbor Distinction Process](#neighbor-distinction-process) has identified the neighbor as an edge node. A connection offered above that rate is closed.
+8. A core node accepts at most $`\Lambda_E`$ connections with edge nodes per round. They are counted at the moment a connection passes the checks of [Edge Admission](#edge-admission); a connection those checks refuse does not count.
 9. An edge node whose message fails header verification has its connection closed, and its identity added to the **edge quarantine**. A quarantined identity is refused while its entry is held. The refusal does not consume the acceptance rate of rule 8. An entry expires at the end of the epoch. Each node fixes the size of the quarantine, and the oldest entry is discarded when it is full.
 
 **Logging**
@@ -1069,7 +1106,7 @@ To better understand the context of the constructions defined in this section re
 
 ### Epoch Randomness
 
-The rewarding protocol requires a common and unbiased randomness. We assume that it is provided by the consensus once per epoch.
+The protocol requires a common and unbiased randomness, for rewarding and for the edge challenge ([Edge Admission](#edge-admission)). We assume that it is provided by the consensus once per epoch.
 
 ### Activity Proof
 
