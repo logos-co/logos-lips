@@ -34,7 +34,7 @@
 | 1.3.1 | Judged the active message window by the epoch of the including block, made the one-message-per-epoch rule per attested epoch, and made the transition-period delay a release constraint | 2026-09-02 |
 | 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, add a transaction as a data message payload, and align the nullifier retention period | 2026-09-08 |
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
-| 1.6.0 | Replaced the per-window statistical threshold on a connection with an admission budget the receiver applies to novel messages, and a liveness test on the nullifiers a neighbor delivers. Separated the connections a node opens from the connections it accepts. Restricted blacklisting to attributable faults. Replaced the rate at which edge nodes are served with a limit on how many are served at once. | 2026-09-07 |
+| 1.6.0 | Replaced the per-window statistical threshold on a connection with an admission budget the receiver applies to novel messages, and a liveness test on the nullifiers a neighbor delivers. Separated the connections a node opens from the connections it accepts. Restricted blacklisting to attributable faults. Sized the budget from the verification rate of the slowest node and the transactions the network carries. | 2026-09-07 |
 
 # Introduction
 
@@ -154,8 +154,6 @@ At the beginning of an epoch, all core nodes retrieve a fresh set of core nodes�
 ### Minimal Network Size
 
 The minimal network size is $`32`$. This is the minimum number of nodes (unique `ProviderId`s from declarations) that must be retrieved from the SDP to consider the Blend protocol safe to use.
-
-In a network of $`N`$ core nodes, a node releases $`\left\lceil \Delta_{max} \cdot \beta_{max} / N \right\rceil`$ messages per release round. One message per round requires $`N \ge \Delta_{max} \cdot \beta_{max} = 9`$ responsive nodes, which $`32`$ holds with half the network unresponsive.
 
 ### Fallback
 
@@ -457,7 +455,6 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`F_C`$ denote a frequency at which cover messages are generated per round;
 - $`F_D`$ denote a frequency at which data messages are generated per round;
 - $`F_T`$ denote a frequency at which transactions are generated per round;
-- $`F_W`$ denote a frequency at which messages backed by a proof of work are generated per round;
 - $`C = E \cdot F_C`$ denote the expected number of cover messages that are generated during an epoch by the core nodes;
 - $`R_C`$ denote a redundancy parameter for cover messages, defining the number of “replications” of the same message;
 - $`R_D`$ denote a redundancy parameter for data messages, defining the number of “replications” of the same message;
@@ -479,7 +476,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`W=10 \cdot \Delta_{max}=30`$, the observation window is $`30`$ rounds.
 - $`F_C=1`$, the network generates one cover message per round on average.
 - $`F_D=1/30`$, the network generates one data message every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)).
-- $`F_T = 1024/30`$, the transactions the network carries in one slot, whatever quota backs them.
+- $`F_T = 1024/30`$, the network carries $`1024`$ transactions per slot of $`30`$ rounds, whatever quota backs them.
 - $`R_C=0`$ and $`R_D=0`$, no replication of cover or data messages is used in this version of the protocol.
 - $`\Phi_{out}=4`$ connections a core node opens, and $`\Phi_{in}=6`$ it accepts ([Connectivity Maintenance](#connectivity-maintenance)). Every node opens $`\Phi_{out}`$, so a node is offered $`\Phi_{out}`$ connections on average and $`\Phi_{in}`$ must exceed it.
 - $`V = 156`$ public header verifications per second, one below the $`157`$ measured on one core of a Raspberry Pi 5 ([benchmark](https://github.com/logos-blockchain/research/tree/blend-header-verification-benchmark/tools/benchmarks/blend-header-verification)).
@@ -528,7 +525,7 @@ $$
 F_1 = \max\left(F_C \cdot (1 + R_C),\ (F_D + F_T) \cdot (1 + R_D)\right) \cdot \beta_{max} = 102.5
 $$
 
-$`F_1`$ must stay below $`r`$; above it the slowest nodes throttle continuously. Messages backed by a proof of work count within $`F_T`$, and the threshold $`d_{blend}`$ of [Blend Difficulty](#blend-difficulty) is set so that they do.
+$`F_1`$ must stay below $`r`$; above it the slowest nodes throttle continuously. Flooding delivers each novel message once per other neighbor, so a core node receives and sends about $`F_1 \cdot (\Phi_{out} + \Phi_{in} - 1) = 922`$ messages per round, $`18`$ MB/s each way at $`19318`$ bytes per message ([Message Formatting](message-formatting.md)). Messages backed by a proof of work count within $`F_T`$, and the threshold $`d_{blend}`$ of [Blend Difficulty](#blend-difficulty) is set so that they do.
 
 A node verifies the public header of novel messages only, at most $`B`$ per round ([Relaying](#relaying)).
 
