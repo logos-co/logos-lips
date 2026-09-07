@@ -60,7 +60,7 @@ class Mempool:
     bodies: Map[TxHash, SignedMantleTx]          # transaction bodies
     admitted_at: Map[TxHash, Timestamp]          # admission time, per pending transaction
     by_prefix: Map[bytes, Set[TxHash]]           # pending hashes, keyed by reference prefix
-    commitment: Map[TxHash, Hash]                # body commitment, computed at admission
+    commitment: Map[TxHash, Hash]                # this node's body commitment, at admission
     attesters: Map[TxHash, Set[ProviderId]]      # providers that attested to holding it
     queried: Map[TxHash, Set[ProviderId]]        # providers that answered a query about it
     received_from: Map[TxHash, Set[ProviderId]]  # providers the transaction arrived from
@@ -74,6 +74,8 @@ A transaction is keyed by `mantle_txhash(tx)`, defined in [Mantle](bedrock-v1.1-
 `insert_by` places a hash at the position its admission time gives it, which is not the end when a [Reorganisation](#reorganisation) re-admits a transaction.
 
 A transaction is **confirmed** when `len(attesters[key]) >= PULL_CONFIRMATIONS`.
+
+A provider's `commitment` for a transaction is bound to its own `provider_id`, so no two providers hold the same value for the same transaction. A querier derives the commitments of the provider it queried, from its own copies of the transactions.
 
 `queried` records a provider once it answers a query naming the transaction, whether it answered yes or no. A provider that does not answer is not recorded, and a later round may sample and ask it again.
 
@@ -104,7 +106,7 @@ def admit(mempool, encoded: bytes, at: Timestamp = None) -> Result:
     mempool.admitted_at[key] = at if at is not None else now()
     mempool.pending.insert_by(key, mempool.admitted_at[key])
     mempool.by_prefix[prefix(key, REFERENCE_PREFIX_LENGTH)].add(key)
-    mempool.commitment[key] = Hash("LOGOS_MEMPOOL_BODY_V1" || encode(tx.tx))
+    mempool.commitment[key] = Hash("LOGOS_MEMPOOL_BODY_V1" || provider_id || encode(tx.tx))
     return Accept(key)
 ```
 
@@ -164,7 +166,6 @@ class PullResponse:
 
 ```python
 witness = Hash("LOGOS_MEMPOOL_PULL_WITNESS_V1"
-               || provider_id
                || nonce
                || held
                || concat(commitment[tx] for tx in query.tx_hashes where held))
@@ -174,7 +175,7 @@ A querier accepts a response as an attestation for a transaction when all of the
 
 1. The response arrives on the connection that carried the query, which [Locators](bedrock-service-declaration-protocol.md#locators) authenticates to the provider's `provider_id`.
 2. `nonce` matches an outstanding query, and no response to that query has been accepted.
-3. `witness` equals the value recomputed from that `provider_id`, `nonce`, `held` and the querier's own copies of the marked transactions.
+3. `witness` equals the value recomputed from `nonce`, `held` and the commitments of that `provider_id` over the querier's own copies of the marked transactions.
 4. The bit for that transaction is set.
 
 A provider that does not hold a queried transaction answers that it does not. It must not request the transaction, and the querier must not send it.
