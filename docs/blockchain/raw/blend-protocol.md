@@ -479,11 +479,11 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`W=10 \cdot \Delta_{max}=30`$, the observation window is $`30`$ rounds.
 - $`F_C=1`$, the network generates one cover message per round on average.
 - $`F_D=1/30`$, the network generates one data message every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)).
-- $`F_T = \mathrm{TARGET\_TXS\_PER\_BLOCK} / 30 = 512/30`$, the transactions of one slot ([Mantle](bedrock-v1.1-mantle-specification.md)), whatever quota backs them.
+- $`F_T = 1024/30`$, the transactions the network carries in one slot, whatever quota backs them.
 - $`R_C=0`$ and $`R_D=0`$, no replication of cover or data messages is used in this version of the protocol.
 - $`\Phi_{out}=4`$ connections a core node opens, and $`\Phi_{in}=6`$ it accepts ([Connectivity Maintenance](#connectivity-maintenance)). Every node opens $`\Phi_{out}`$, so a node is offered $`\Phi_{out}`$ connections on average and $`\Phi_{in}`$ must exceed it.
 - $`V = 156`$ public header verifications per second, one below the $`157`$ measured on one core of a Raspberry Pi 5 ([benchmark](https://github.com/logos-blockchain/research/tree/blend-header-verification-benchmark/tools/benchmarks/blend-header-verification)).
-- $`r = 2 \cdot V / 3 = 104`$ novel messages per round, the growth of the admission budget, and $`B = (V - r) \cdot \Delta_{max} = 156`$, its largest value ([Expected Traffic](#expected-traffic)). A node may hold larger values, keeping $`B`$ within its own verification rate.
+- $`r = 2 \cdot V / 3 = 104`$ novel messages per round, the growth of the admission budget, and $`B = (V - r) \cdot \Delta_{max} = 156`$, its largest value ([Expected Traffic](#expected-traffic)).
 - $`T_E=1`$ round, the time an edge node is given to send its message, as derived in [Connectivity Maintenance](#connectivity-maintenance).
 - $`T_H=2`$ rounds, the time a core node handshake is given to complete, which covers the round trips of the transport handshake and of the [Neighbor Distinction Process](#neighbor-distinction-process).
 
@@ -525,10 +525,10 @@ A message is **novel** to a node when its proof of quota nullifier is not in the
 The rate at which novel messages reach a node is:
 
 $$
-F_1 = \max\left(F_C \cdot (1 + R_C),\ (F_D + F_T) \cdot (1 + R_D)\right) \cdot \beta_{max} = 51.3
+F_1 = \max\left(F_C \cdot (1 + R_C),\ (F_D + F_T) \cdot (1 + R_D)\right) \cdot \beta_{max} = 102.5
 $$
 
-$`F_1`$ must stay below $`r`$, that is $`\mathrm{TARGET\_TXS\_PER\_BLOCK} + 1 \lt r \cdot 30 / \beta_{max} = 1040`$; above it the slowest nodes throttle continuously. Messages backed by a proof of work count within the target, and the threshold $`d_{blend}`$ of [Blend Difficulty](#blend-difficulty) is set so that they do.
+$`F_1`$ must stay below $`r`$; above it the slowest nodes throttle continuously. Messages backed by a proof of work count within $`F_T`$, and the threshold $`d_{blend}`$ of [Blend Difficulty](#blend-difficulty) is set so that they do.
 
 A node verifies the public header of novel messages only, at most $`B`$ per round ([Relaying](#relaying)).
 
@@ -900,11 +900,11 @@ $$
 \end{aligned}
 $$
 
-At the transaction target:
+At the rates above:
 
 $$
 \begin{aligned}
-(648000 + 30) \cdot \dfrac{513}{30} \cdot 3 \cdot 32 = 1063806048 \approx 1.1\,\mathrm{GB}
+(648000 + 30) \cdot \dfrac{1025}{30} \cdot 3 \cdot 32 = 2125538400 \approx 2.1\,\mathrm{GB}
 \end{aligned}
 $$
 
