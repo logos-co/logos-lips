@@ -34,7 +34,7 @@
 | 1.3.1 | Judged the active message window by the epoch of the including block, made the one-message-per-epoch rule per attested epoch, and made the transition-period delay a release constraint | 2026-09-02 |
 | 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, add a transaction as a data message payload, and align the nullifier retention period | 2026-09-08 |
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
-| 1.6.0 | Replaced the per-window statistical threshold on a connection with an admission budget the receiver applies to novel messages, and a liveness test on the nullifiers a neighbor delivers. Held the peering degree in live connections. Restricted blacklisting to attributable faults. Sized the budget from the verification rate of the slowest node and the transactions the network carries. | 2026-09-07 |
+| 1.6.0 | Replaced the per-window statistical threshold on a connection with an admission budget the receiver applies to the messages it receives, and a liveness test on the nullifiers a neighbor delivers. Held the peering degree in live connections. Restricted blacklisting to attributable faults. Sized the budget from the processing rate of the slowest node and the transactions the network carries. | 2026-09-07 |
 
 # Introduction
 
@@ -447,7 +447,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\beta_{max}`$ denotes a maximum number of processing rounds for a single message;
 - $`E`$ denotes a number of rounds in an epoch;
 - $`W`$ denote the observation window expressed in the number of rounds;
-- $`F_1`$ denote the rate at which novel messages reach a node, per round;
+- $`F_1`$ denote the number of messages a core connection carries per round;
 - $`V`$ denote the number of messages per second the slowest node the protocol targets processes;
 - $`r`$ denote the number of messages by which a node's admission budget grows per round;
 - $`B`$ denote the largest admission budget a node holds, in messages;
@@ -518,7 +518,7 @@ The Neighbor Distinction Process (NDP) enables the core node to distinguish betw
 
 A message is **novel** to a node when its proof of quota nullifier is not in the nullifier cache ([Relaying](#relaying)).
 
-The rate at which novel messages reach a node is:
+The rate a core connection carries is:
 
 $$
 F_1 = \max\left(F_C \cdot (1 + R_C),\ (F_D + F_T) \cdot (1 + R_D)\right) \cdot \beta_{max} = 20.0
@@ -534,7 +534,7 @@ A node verifies the public header of novel messages only, at most $`B`$ per roun
 
 1. A node holds a budget of at most $`B`$ messages ([Expected Traffic](#expected-traffic)). The budget grows by $`r`$ at the start of each round, and admitting a message spends one. It is held for the node, not for a connection. Only messages the node receives spend it; a message the node generates does not.
 2. While the budget is empty the node stops reading from its connections, and resumes when it refills.
-3. While more than one connection is readable the node reads them in turn, each up to its share ([Expected Traffic](#expected-traffic)).
+3. While more than one connection is readable the node reads them in turn, each core connection up to its share and the edge connections together up to theirs ([Expected Traffic](#expected-traffic)).
 4. The volume a neighbor sends is never a cause for closing a connection or for blacklisting.
 
 **Liveness**
