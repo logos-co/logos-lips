@@ -304,9 +304,8 @@ The bootstrapping defines the process of creating the network, which happens at 
             2. The neighbor learns that the node is a core node.
             3. The node stops connecting to selected peer after reaching the maximum number of tries ($`\Omega_C`$ parameter: [Core Node Parameters](#core-node-parameters)). Then a new random peer is selected.
 
-    3. It repeats the above steps until it holds $`\Phi_{CC}^{Min}`$ connections.
-4. It starts accepting incoming connections and maintaining all connections as defined in **Maintenance**.
-    1. Both incoming and outgoing connections count towards $`\Phi_{CC}^{Min}`$ and $`\Phi_{CC}^{Max}`$.
+    3. It repeats the above steps until it holds $`\Phi_{CC}^{Min}`$ connections. Both incoming and outgoing connections count towards $`\Phi_{CC}^{Min}`$ and $`\Phi_{CC}^{Max}`$, so a node accepts incoming connections while it opens its own.
+4. It maintains all connections as defined in **Maintenance**.
 5. If two nodes open two connections with each other, so that both have incoming and outgoing connections to the same neighbor (core node), then:
     1. The node with the lower public key value (`provider_id` from SDP) must close the outgoing connection to the node with the higher public key value.
     2. The node with the higher public key value (`provider_id` from SDP) must close the incoming connection from the node with the lower public key value.
@@ -544,7 +543,7 @@ The constants must keep $`\Phi_{CC}^{Max} \cdot M_1^{Max} + \Lambda_E`$ public h
 
 ### Connectivity Maintenance
 
-A core node blacklists a neighbor for exactly three causes: a message that fails the header checks of [Relaying](#relaying), a failure of the authenticated stream, and a connection classified spammy. A failure of the authenticated stream is a TLS record that fails authentication, or a violation of the framing of the stream. The loss of a connection is not one of them.
+A failure of the authenticated stream is a TLS record that fails authentication, or a violation of the framing of the stream. The loss of a connection is not a cause for blacklisting.
 
 The number of connections with core nodes never exceeds $`\Phi_{CC}^{Max}`$. A connection whose handshake is in progress counts towards it once the [Neighbor Distinction Process](#neighbor-distinction-process) has identified the neighbor as a core node. A handshake that has not completed within $`T_E`$ is abandoned and its slot released.
 
@@ -567,8 +566,8 @@ A neighbor whose accumulated observation is shorter than $`W`$ counts as healthy
 **Reaction**
 
 1. A spammy connection is closed and its neighbor is added to the **blacklist**. A blacklisted identity must not be selected again, and must be refused on incoming and on outgoing connections. An entry added during an epoch $`n`$ expires when the epoch $`n+2`$ begins.
-2. A connection with a core node whose authenticated stream fails, or that carries a message failing header verification, is closed and its neighbor is added to the blacklist.
-3. An unhealthy connection is not closed as a penalty, and its neighbor is not blacklisted.
+2. A connection with a core node whose authenticated stream fails, or that carries a message with a malformed header, an invalid signature, or an invalid proof of quota, is closed and its neighbor is added to the blacklist. A message discarded as a duplicate is expected traffic and carries no reaction.
+3. An unhealthy connection that is not spammy is not closed as a penalty, and its neighbor is not blacklisted.
 4. When $`h(\Phi_{CC}) \lt \Phi_{CC}^{Min}`$ and the node holds fewer than $`\Phi_{CC}^{Max}`$ connections, it opens connections with core nodes. It draws them uniformly at random and without replacement from the set returned by the SDP protocol, excluding itself, blacklisted identities and its current neighbors.
 5. When the node holds $`\Phi_{CC}^{Max}`$ connections and any of them is unhealthy, it replaces one. It selects the replacement first. It then closes the unhealthy connection with the lowest $`M_1^W`$, among those whose neighbor has completed an observation window, and gives the released slot to the replacement. Ties are broken uniformly at random. A healthy connection is never displaced. At most one connection is replaced per observation window. No connection is closed this way unless a replacement is available.
 6. A node that can neither open nor replace a connection logs that it holds fewer than $`\Phi_{CC}^{Min}`$ healthy connections.
