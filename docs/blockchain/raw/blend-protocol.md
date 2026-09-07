@@ -34,7 +34,7 @@
 | 1.3.1 | Judged the active message window by the epoch of the including block, made the one-message-per-epoch rule per attested epoch, and made the transition-period delay a release constraint | 2026-09-02 |
 | 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, add a transaction as a data message payload, and align the nullifier retention period | 2026-09-08 |
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
-| 1.6.0 | Replaced the per-window statistical threshold on a connection with an admission budget the receiver applies to the messages it receives, and a liveness test on the nullifiers a neighbor delivers. Held the peering degree in live connections. Restricted blacklisting to attributable faults. Sized the budget from the processing rate of the slowest node and the transactions the network carries. | 2026-09-07 |
+| 1.6.0 | Replaced the per-window statistical threshold on a connection with an admission budget the receiver applies to the messages it receives, and a liveness test on the nullifiers a neighbor delivers. Held the peering degree in live connections. Restricted blacklisting to attributable faults. Sized the budget from the processing rate of the slowest node, and derived the transactions the network carries from it. | 2026-09-07 |
 
 # Introduction
 
@@ -161,7 +161,7 @@ If the minimal network size is not reached, nodes must not use the Blend protoco
 
 ### Maintenance
 
-A core node counts the messages each of its connections carries, verifies every message it receives, and acts on both as defined in [Connectivity Maintenance](#connectivity-maintenance).
+A core node bounds the messages it receives and maintains its connections as defined in [Connectivity Maintenance](#connectivity-maintenance).
 
 ## Messages
 
@@ -442,7 +442,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 
 ## Notation
 
-- $`\Phi_{CC}`$ denotes the peering degree, the basis of the number of connections a core node holds with other core nodes;
+- $`\Phi_{CC}`$ denotes the peering degree of a core node;
 - $`\Delta_{max}`$ denotes a maximal delay time between two release rounds;
 - $`\beta_{max}`$ denotes a maximum number of processing rounds for a single message;
 - $`E`$ denotes a number of rounds in an epoch;
@@ -477,7 +477,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`F_D=1/30`$, the network generates one data message every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)).
 - $`F_T = 199/30`$, the network carries $`199`$ messages carrying transactions per slot of $`30`$ rounds, whatever quota backs them, each holding as many transactions as fit its payload ([Payload Formatting](payload-formatting.md)): $`\lfloor 20 \cdot 30 / \beta_{max} \rfloor - 1 = 199`$, where $`20`$ is a core connection's share of the budget ([Expected Traffic](#expected-traffic)).
 - $`R_C=0`$ and $`R_D=0`$, no replication of cover or data messages is used in this version of the protocol.
-- $`\Phi_{CC}=4`$, the peering degree; a core node holds between $`\Phi_{CC}-1`$ and $`\Phi_{CC}+1`$ connections with core nodes ([Connectivity Maintenance](#connectivity-maintenance)).
+- $`\Phi_{CC}=4`$, the peering degree ([Connectivity Maintenance](#connectivity-maintenance)).
 - $`V = 156`$ messages per second the slowest node the protocol targets processes, one below the $`157`$ measured on one core of a Raspberry Pi 5 ([benchmark](https://github.com/logos-blockchain/research/tree/blend-header-verification-benchmark/tools/benchmarks/blend-header-verification)).
 - $`r = 2 \cdot V / 3 = 104`$ messages per round, the growth of the admission budget, and $`B = (V - r) \cdot \Delta_{max} = 156`$, its largest value ([Expected Traffic](#expected-traffic)).
 - $`T_E=1`$ round, the time an edge node is given to send its message, as derived in [Connectivity Maintenance](#connectivity-maintenance).
