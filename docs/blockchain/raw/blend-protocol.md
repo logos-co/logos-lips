@@ -34,7 +34,7 @@
 | 1.3.1 | Judged the active message window by the epoch of the including block, made the one-message-per-epoch rule per attested epoch, and made the transition-period delay a release constraint | 2026-09-02 |
 | 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, add a transaction as a data message payload, and align the nullifier retention period | 2026-09-08 |
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
-| 1.6.0 | Replaced the per-window statistical threshold on a connection with an admission budget the receiver applies to novel messages, and a liveness test on the nullifiers a neighbor delivers. Separated the connections a node opens from the connections it accepts. Restricted blacklisting to attributable faults. Sized the budget from the verification rate of the slowest node and the transactions the network carries. | 2026-09-07 |
+| 1.6.0 | Replaced the per-window statistical threshold on a connection with an admission budget the receiver applies to novel messages, and a liveness test on the nullifiers a neighbor delivers. Held the peering degree in live connections. Restricted blacklisting to attributable faults. Sized the budget from the verification rate of the slowest node and the transactions the network carries. | 2026-09-07 |
 
 # Introduction
 
@@ -45,7 +45,7 @@ The privacy of a Proof-of-Stake (PoS) system is defined by the inability of an a
 
 While a node can be de-anonymized based on the content of its block proposals, this angle of attack is mitigated by Private Proof of Stake systems. However, a node can also be de-anonymized based on its network activity. An adversary can observe the node’s network behavior and link the node to the proposal it sends. Because a node’s relative stake correlates with its network activity in all PoS systems, observing a node’s behavior for some time enables the adversary to estimate the node’s stake. It is this network-based de-anonymization that is addressed by the Blend Protocol, allowing Logos Blockchain to achieve a truly Private PoS system.
 
-The Blend Protocol is designed as **a way to allow nodes to send block proposals that cannot be linked back to them**. The idea is to make it very difficult and costly for someone trying to figure out who sent a proposal and what stake they hold. Because the protocol spreads messages out over many nodes, it becomes even harder to attack, which enhances network privacy. The Blend Protocol increases the time to link the sender to the proposal by at least $`200`$ times, which **makes the stake inference highly impractical** ([Impact of the Blend Protocol on the Time to Link and Time to Infer the Stake](#impact-of-the-blend-protocol-on-the-time-to-link-and-time-to-infer-the-stake)).
+The Blend Protocol is designed as **a way to allow nodes to send block proposals that cannot be linked back to them**. The idea is to make it very difficult and costly for someone trying to figure out who sent a proposal and what stake they hold. Because the protocol spreads messages out over many nodes, it becomes even harder to attack, which enhances network privacy. The Blend Protocol increases the time to link the sender to the proposal by at least $`300`$ times, which **makes the stake inference highly impractical** ([Impact of the Blend Protocol on the Time to Link and Time to Infer the Stake](#impact-of-the-blend-protocol-on-the-time-to-link-and-time-to-infer-the-stake)).
 
 The Blend Protocol targets a specific set of requirements that differentiate it from mixnets and other general-purpose anonymous communication systems. It achieves probabilistic unlinkability in a highly decentralized environment with low bandwidth cost but high latency. It hides the sender of a block proposal, making it costly for an adversary to learn its origin with high confidence. The cost of attacking the network is high due to decentralization and the economic value of stake needed to add a single node. The protocol works well even when many nodes are involved and not much data is being sent, but it may take longer for proposals to be delivered.
 
@@ -302,7 +302,7 @@ The bootstrapping defines the process of creating the network, which happens at 
             2. The neighbor learns that the node is a core node.
             3. The node stops connecting to selected peer after reaching the maximum number of tries ($`\Omega_C`$ parameter: [Core Node Parameters](#core-node-parameters)). Then a new random peer is selected.
 
-    3. It repeats the above steps until it has opened $`\Phi_{out}`$ connections ([Connectivity Maintenance](#connectivity-maintenance)).
+    3. It repeats the above steps until it holds $`\Phi_{CC}`$ connections ([Connectivity Maintenance](#connectivity-maintenance)).
 4. It maintains all connections as defined in [Connectivity Maintenance](#connectivity-maintenance).
 5. If two nodes open two connections with each other, so that both have incoming and outgoing connections to the same neighbor (core node), then:
     1. The node with the lower public key value (`provider_id` from SDP) must close the outgoing connection to the node with the higher public key value.
@@ -442,8 +442,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 
 ## Notation
 
-- $`\Phi_{out}`$ denotes the number of connections a core node opens with other core nodes;
-- $`\Phi_{in}`$ denotes the number of connections a core node accepts from other core nodes;
+- $`\Phi_{CC}`$ denotes the peering degree, the number of live connections a core node maintains with other core nodes;
 - $`\Delta_{max}`$ denotes a maximal delay time between two release rounds;
 - $`\beta_{max}`$ denotes a maximum number of processing rounds for a single message;
 - $`E`$ denotes a number of rounds in an epoch;
@@ -476,9 +475,9 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`W=10 \cdot \Delta_{max}=30`$, the observation window is $`30`$ rounds.
 - $`F_C=1`$, the network generates one cover message per round on average.
 - $`F_D=1/30`$, the network generates one data message every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)).
-- $`F_T = 109/30`$, the network carries $`109`$ messages carrying transactions per slot of $`30`$ rounds, whatever quota backs them, each holding as many transactions as fit its payload ([Payload Formatting](payload-formatting.md)): $`\lfloor 11 \cdot 30 / \beta_{max} \rfloor - 1 = 109`$, where $`11`$ is a core connection's share of the budget ([Expected Traffic](#expected-traffic)).
+- $`F_T = 199/30`$, the network carries $`199`$ messages carrying transactions per slot of $`30`$ rounds, whatever quota backs them, each holding as many transactions as fit its payload ([Payload Formatting](payload-formatting.md)): $`\lfloor 20 \cdot 30 / \beta_{max} \rfloor - 1 = 199`$, where $`20`$ is a core connection's share of the budget ([Expected Traffic](#expected-traffic)).
 - $`R_C=0`$ and $`R_D=0`$, no replication of cover or data messages is used in this version of the protocol.
-- $`\Phi_{out}=3`$ connections a core node opens, and $`\Phi_{in}=5`$ it accepts ([Connectivity Maintenance](#connectivity-maintenance)). Every node opens $`\Phi_{out}`$, so a node is offered $`\Phi_{out}`$ connections on average and $`\Phi_{in}`$ must exceed it.
+- $`\Phi_{CC}=4`$, the peering degree; a core node holds between $`\Phi_{CC}-1`$ and $`\Phi_{CC}+1`$ connections with core nodes ([Connectivity Maintenance](#connectivity-maintenance)).
 - $`V = 156`$ messages per second the slowest node the protocol targets processes, one below the $`157`$ measured on one core of a Raspberry Pi 5 ([benchmark](https://github.com/logos-blockchain/research/tree/blend-header-verification-benchmark/tools/benchmarks/blend-header-verification)).
 - $`r = 2 \cdot V / 3 = 104`$ messages per round, the growth of the admission budget, and $`B = (V - r) \cdot \Delta_{max} = 156`$, its largest value ([Expected Traffic](#expected-traffic)).
 - $`T_E=1`$ round, the time an edge node is given to send its message, as derived in [Connectivity Maintenance](#connectivity-maintenance).
@@ -522,10 +521,10 @@ A message is **novel** to a node when its proof of quota nullifier is not in the
 The rate at which novel messages reach a node is:
 
 $$
-F_1 = \max\left(F_C \cdot (1 + R_C),\ (F_D + F_T) \cdot (1 + R_D)\right) \cdot \beta_{max} = 11.0
+F_1 = \max\left(F_C \cdot (1 + R_C),\ (F_D + F_T) \cdot (1 + R_D)\right) \cdot \beta_{max} = 20.0
 $$
 
-A node divides $`r`$ into one share for each core connection it may hold and one for the edge nodes together. A core connection's share is $`\lfloor r / (\Phi_{out} + \Phi_{in} + 1) \rfloor = 11`$ messages per round, and the edge connections together have the remainder, $`r - 11 \cdot (\Phi_{out} + \Phi_{in}) = 16`$. A node receives at most $`r`$ messages per round, which is $`2`$ MB/s at $`19318`$ bytes per message ([Message Formatting](message-formatting.md)). Flooding delivers each message once per neighbor, so $`F_1`$ must not exceed a core connection's share; above it the slowest nodes throttle continuously, and $`F_T`$ is the largest rate that keeps it within. Messages backed by a proof of work count within $`F_T`$, and the threshold $`d_{blend}`$ of [Blend Difficulty](#blend-difficulty) is set so that they do.
+A node divides $`r`$ into one share for each of the $`\Phi_{CC}`$ core connections and one for the edge nodes together. A core connection's share is $`\lfloor r / (\Phi_{CC} + 1) \rfloor = 20`$ messages per round, and the edge connections together have the remainder, $`r - 20 \cdot \Phi_{CC} = 24`$. A node receives at most $`r`$ messages per round, which is $`2`$ MB/s at $`19318`$ bytes per message ([Message Formatting](message-formatting.md)). Flooding delivers each message once per neighbor, so $`F_1`$ must not exceed a core connection's share; above it the slowest nodes throttle continuously, and $`F_T`$ is the largest rate that keeps it within. Messages backed by a proof of work count within $`F_T`$, and the threshold $`d_{blend}`$ of [Blend Difficulty](#blend-difficulty) is set so that they do.
 
 A node verifies the public header of novel messages only, at most $`B`$ per round ([Relaying](#relaying)).
 
@@ -546,10 +545,10 @@ A node verifies the public header of novel messages only, at most $`B`$ per roun
 
 **Degree**
 
-1. A node opens $`\Phi_{out}`$ connections with core nodes and accepts up to $`\Phi_{in}`$, counted separately. A connection offered above $`\Phi_{in}`$ is closed.
+1. A core node maintains $`\Phi_{CC}`$ live connections with core nodes. It opens connections while it holds fewer than $`\Phi_{CC}`$, and accepts connections while it holds fewer than $`\Phi_{CC} + 1`$; a connection offered above that is closed.
 2. It draws the nodes it opens uniformly at random and without replacement from the set returned by the SDP protocol, excluding itself, blacklisted identities and its current neighbors. A peer whose handshake is in progress is a current neighbor for this purpose.
-3. A connection that is not live is closed. When a connection the node opened is closed or lost, it opens another at once.
-4. A connection whose handshake is in progress counts towards $`\Phi_{out}`$ or $`\Phi_{in}`$ once the [Neighbor Distinction Process](#neighbor-distinction-process) has identified the neighbor as a core node. A handshake that has not completed within $`T_H`$ is abandoned and its slot released. At most $`\Phi_{in} + \Phi_{CE}^{Max}`$ handshakes are in progress at once, and one offered above that is closed.
+3. A connection that is not live is closed.
+4. A connection whose handshake is in progress counts towards $`\Phi_{CC}`$ once the [Neighbor Distinction Process](#neighbor-distinction-process) has identified the neighbor as a core node. A handshake that has not completed within $`T_H`$ is abandoned and its slot released. At most $`\Phi_{CC} + 1 + \Phi_{CE}^{Max}`$ handshakes are in progress at once, and one offered above that is closed.
 
 **Blacklist**
 
@@ -557,7 +556,7 @@ A failure of the authenticated stream is a TLS record that fails authentication,
 
 1. A connection with a core node whose authenticated stream fails, or that carries a message with a malformed header, an invalid signature, or an invalid proof of quota, is closed and its neighbor is added to the **blacklist**. A message discarded as a duplicate, or as belonging to an epoch the node no longer accepts ([Transition Period](#transition-period)), carries no reaction.
 2. A blacklisted identity is refused on incoming and on outgoing connections. An entry expires after $`W`$ rounds.
-3. The blacklist holds at most $`\Phi_{out} + \Phi_{in}`$ entries, and the oldest is discarded when it is full.
+3. The blacklist holds at most $`2 \cdot \Phi_{CC}`$ entries, and the oldest is discarded when it is full.
 
 **Edge Nodes**
 
@@ -571,7 +570,7 @@ A node logs:
 
 - every connection it closes, and every addition to and expiry from the blacklist;
 - every round in which the admission budget was empty;
-- every period during which it holds fewer than $`\Phi_{out}`$ connections it opened.
+- every period during which it holds fewer than $`\Phi_{CC} - 1`$ live connections with core nodes.
 
 Each entry carries the identity of the neighbor and the reason.
 
@@ -600,7 +599,7 @@ When a new **epoch** begins:
 - The node validates message proofs against both new and past epoch-related public input for the duration of TP. This allows past-epoch messages to safely transit through the network, as their validity is bound to the epoch in which they were generated.
 - The Blend threshold $`d_{blend}`$ is one of these public inputs: a proof is verified against the threshold of the epoch its public inputs belong to, so during the Transition Period messages meeting either epoch's threshold are accepted.
 - The node must open new connections to process new messages for the new epoch.
-- The node needs to maintain old connections and process all messages received from these connections for the duration of TP. A connection held for the past epoch counts towards neither $`\Phi_{out}`$ nor $`\Phi_{in}`$.
+- The node needs to maintain old connections and process all messages received from these connections for the duration of TP. A connection held for the past epoch does not count towards $`\Phi_{CC}`$.
 
 ## Quota
 
@@ -901,7 +900,7 @@ At the rates above:
 
 $$
 \begin{aligned}
-(648000 + 30) \cdot \dfrac{110}{30} \cdot 3 \cdot 32 = 228106560 \approx 228\,\mathrm{MB}
+(648000 + 30) \cdot \dfrac{200}{30} \cdot 3 \cdot 32 = 414739200 \approx 415\,\mathrm{MB}
 \end{aligned}
 $$
 
