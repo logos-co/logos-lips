@@ -820,7 +820,7 @@ def modular_bytes(data: bytes, modulus: int) -> int:
 
 Generation of cover messages is handled by each core node individually. The only protocol-enforced limitation is through the [Core Quota](#core-quota) ($`Q_C`$), which limits the number of messages a node can generate.
 
-A core node draws its cover message schedule uniformly at random over the epoch. It places at most one message in a round. A draw that lands on an occupied round is discarded.
+A core node draws its cover message schedule uniformly at random over the epoch.
 
 ### **Message Structure**
 
