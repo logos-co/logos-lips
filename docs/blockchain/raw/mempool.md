@@ -184,7 +184,7 @@ A provider rate-limits queries per peer and may decline to answer.
 ### Confirmation Rounds
 Every `PULL_INTERVAL`, a node:
 
-1. Collects every pending transaction that is unconfirmed, has been pending for at least `PULL_DELAY`, and has spent fewer than `PULL_MAX_ROUNDS` rounds. If more than `PULL_MAX_BATCH` qualify, it takes the oldest by admission time.
+1. Collects every pending transaction that is unconfirmed, has been pending for at least `PULL_DELAY`, and has spent fewer than `PULL_MAX_ROUNDS` rounds. The batch is however many qualify; where more than `PULL_MAX_BATCH` do, it takes the oldest by admission time. A round that collects nothing sends no query.
 2. Samples `PULL_SAMPLE_SIZE` providers uniformly at random from the active snapshot, excluding itself. The sample must be drawn from local randomness and never from a chain-derived seed.
 3. Sends each sampled provider a query with a fresh nonce, naming the collected transactions for which that provider is in neither `queried` nor `received_from`. It sends no query to a provider excluded by every transaction in the batch.
 4. Increments `rounds` for every transaction it collected in step 1.
