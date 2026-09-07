@@ -157,29 +157,25 @@ class PullQuery:
 class PullResponse:
     nonce: bytes32
     held: bitmap                    # one bit per queried hash, in query order
-    signature: Ed25519Signature
+    witness: Hash
 ```
 
 `held` carries one bit per entry of `tx_hashes`, in query order, packed least significant bit first and padded with zero bits to a whole number of bytes. `Hash` is the general-purpose hash function of [Common Cryptographic Components](common-cryptographic-components.md).
 
 ```python
 witness = Hash("LOGOS_MEMPOOL_PULL_WITNESS_V1"
-            || nonce
-            || uint16(count(held))
-            || concat(commitment[tx] for tx in query.tx_hashes where held))
-
-signature = Ed25519.sign(provider_sk,
-                         Hash("LOGOS_MEMPOOL_PULL_RESPONSE_V1"
-                           || nonce || held || witness))
+               || provider_id
+               || nonce
+               || held
+               || concat(commitment[tx] for tx in query.tx_hashes where held))
 ```
-
-The witness is not carried in the response. The querier recomputes it from its own copies of the marked transactions, and a provider that does not hold one of them cannot produce a signature over the value the querier recomputes.
 
 A querier accepts a response as an attestation for a transaction when all of the following hold:
 
-1. `nonce` matches an outstanding query, and no response to that query has been accepted.
-2. `signature` verifies, under the `provider_id` that query was sent to, over the value recomputed from `nonce`, `held` and the querier's own copies of the marked transactions.
-3. The bit for that transaction is set.
+1. The response arrives on the connection that carried the query, which [Locators](bedrock-service-declaration-protocol.md#locators) authenticates to the provider's `provider_id`.
+2. `nonce` matches an outstanding query, and no response to that query has been accepted.
+3. `witness` equals the value recomputed from that `provider_id`, `nonce`, `held` and the querier's own copies of the marked transactions.
+4. The bit for that transaction is set.
 
 A provider that does not hold a queried transaction answers that it does not. It must not request the transaction, and the querier must not send it.
 
@@ -192,7 +188,7 @@ Every `PULL_INTERVAL`, a node:
 2. Samples `PULL_SAMPLE_SIZE` providers uniformly at random from the active snapshot, excluding itself. The sample must be drawn from local randomness and never from a chain-derived seed.
 3. Sends each sampled provider a query with a fresh nonce, naming the collected transactions for which that provider is in neither `queried` nor `received_from`. It sends no query to a provider excluded by every transaction in the batch.
 4. Increments `rounds` for every transaction it collected in step 1.
-5. On each response whose signature verifies, adds the provider to the `queried` set of every transaction that query named, and to `attesters` for every transaction whose bit is set.
+5. On each response it accepts, adds the provider to the `queried` set of every transaction that query named, and to `attesters` for every transaction whose bit is set.
 
 A node must not exclude the union of `queried` across the batch. Exclusions apply per transaction.
 
