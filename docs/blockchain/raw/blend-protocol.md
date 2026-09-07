@@ -34,7 +34,7 @@
 | 1.3.1 | Judged the active message window by the epoch of the including block, made the one-message-per-epoch rule per attested epoch, and made the transition-period delay a release constraint | 2026-09-02 |
 | 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, add a transaction as a data message payload, and align the nullifier retention period | 2026-09-08 |
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
-| 1.6.0 | Replaced the per-window statistical threshold on a connection with an admission budget the receiver applies to novel messages, and a liveness test on the messages a neighbor delivers first. Separated the connections a node opens from the connections it accepts. Restricted blacklisting to attributable faults. Replaced the rate at which edge nodes are served with a limit on how many are served at once. | 2026-09-07 |
+| 1.6.0 | Replaced the per-window statistical threshold on a connection with an admission budget the receiver applies to novel messages, and a liveness test on the nullifiers a neighbor delivers. Separated the connections a node opens from the connections it accepts. Restricted blacklisting to attributable faults. Replaced the rate at which edge nodes are served with a limit on how many are served at once. | 2026-09-07 |
 
 # Introduction
 
@@ -543,17 +543,17 @@ A failure of the authenticated stream is a TLS record that fails authentication,
 
 **Liveness**
 
-1. A connection is **live** when the neighbor has delivered, within the trailing window $`W`$, a message that passed the checks of [Relaying](#relaying) and whose nullifier this node had not seen from that neighbor before.
-2. A connection that is not live carries no penalty, and its neighbor is not blacklisted.
-3. The window advances only while the neighbor is connected.
+1. A connection with a core node is **live** when the neighbor has delivered, within the trailing window $`W`$, a message carrying a nullifier that neighbor had not delivered within the window before. A message discarded as a duplicate counts: novelty is judged against that neighbor's deliveries alone. A node records the nullifiers each neighbor delivers, for the window.
+2. A connection counts as live until its observation reaches $`W`$.
+3. Not live is not misbehavior: the neighbor is not blacklisted, and may be selected again.
+4. The window advances only while the neighbor is connected.
 
 **Degree**
 
 1. A node opens $`\Phi_{out}`$ connections with core nodes and accepts up to $`\Phi_{in}`$. The two are counted separately, and an accepted connection never counts towards $`\Phi_{out}`$.
 2. It draws the nodes it opens uniformly at random and without replacement from the set returned by the SDP protocol, excluding itself, blacklisted identities and its current neighbors.
-3. When a connection it opened is lost or is not live, it closes that connection and opens another at once.
-4. When a new epoch begins, a node closes one of the connections it opened, chosen uniformly at random, and opens another.
-5. A connection whose handshake is in progress counts towards $`\Phi_{out}`$ or $`\Phi_{in}`$ once the [Neighbor Distinction Process](#neighbor-distinction-process) has identified the neighbor as a core node. A handshake that has not completed within $`T_H`$ is abandoned and its slot released.
+3. A connection that is not live is closed. When a connection the node opened is closed or lost, it opens another at once.
+4. A connection whose handshake is in progress counts towards $`\Phi_{out}`$ or $`\Phi_{in}`$ once the [Neighbor Distinction Process](#neighbor-distinction-process) has identified the neighbor as a core node. A handshake that has not completed within $`T_H`$ is abandoned and its slot released.
 
 **Blacklist**
 
@@ -882,7 +882,7 @@ When this happens, a number of messages (limited by the [Quota](#quota)) are gen
 The relaying logic is defined as follows:
 
 1. The node checks the header of the message that was received from its neighbor, according to the [Message Formatting](message-formatting.md).
-    1. If the neighbor is a core node, then the message counts towards the admission budget and the liveness of the connection, as defined in the [Connectivity Maintenance](#connectivity-maintenance).
+    1. If the neighbor is a core node, then the message counts towards the liveness of the connection, and a novel message consumes the admission budget ([Connectivity Maintenance](#connectivity-maintenance)).
     2. If the neighbor is an edge node, then close the connection with the neighbor.
     3. If the header of the message is incorrect, then discard the message and mark the neighbor as malicious and close the connection. We assume that an adversary cannot inject any spoofed message to the connection.
     4. If the PoQ nullifier $`\nu_i \in \mathbf H`$ from the public header of the message is already in the nullifier cache, then the message is a duplicate and must be discarded. Cached entries are retained for the duration of the current epoch and the [Transition Period](#transition-period).
