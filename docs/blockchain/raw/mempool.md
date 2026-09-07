@@ -81,7 +81,7 @@ A provider's `commitment` for a transaction is bound to its own `provider_id`, s
 
 A node adds a provider to `received_from` when a copy of the transaction arrives from it by gossip. A provider's `provider_id` is its node identity, as required by [Locators](bedrock-service-declaration-protocol.md#locators), so the peer a message arrives from is a provider exactly when that identity is in the active snapshot. A peer that is not is never sampled and is not recorded.
 
-A node keeps its outstanding queries outside `Mempool`: the nonce of each query in flight, the provider it went to, and the transactions it named. A restart discards them.
+A node keeps its outstanding queries outside `Mempool`: for each query in flight, the provider it went to and the transactions it named, in the order it named them. A restart discards them.
 
 ## Transaction Admission
 A transaction reaches the mempool by local submission through the [Node API](#node-api), by gossip on the mempool topic, or by re-insertion after a [Reorganisation](#reorganisation). All three follow this procedure.
@@ -153,11 +153,9 @@ The attesters are the Blend Network (`BN`) declarations active in the [Service D
 ### The Pull Exchange
 ```python
 class PullQuery:
-    nonce: bytes32                  # fresh, chosen by the querier
     tx_hashes: list[TxHash]         # at most PULL_MAX_BATCH entries
 
 class PullResponse:
-    nonce: bytes32
     held: bitmap                    # one bit per queried hash, in query order
     witness: Hash
 ```
@@ -166,17 +164,15 @@ class PullResponse:
 
 ```python
 witness = Hash("LOGOS_MEMPOOL_PULL_WITNESS_V1"
-               || nonce
                || held
                || concat(commitment[tx] for tx in query.tx_hashes where held))
 ```
 
 A querier accepts a response as an attestation for a transaction when all of the following hold:
 
-1. The response arrives on the connection that carried the query, which [Locators](bedrock-service-declaration-protocol.md#locators) authenticates to the provider's `provider_id`.
-2. `nonce` matches an outstanding query, and no response to that query has been accepted.
-3. `witness` equals the value recomputed from `nonce`, `held` and the commitments of that `provider_id` over the querier's own copies of the marked transactions.
-4. The bit for that transaction is set.
+1. The response answers an outstanding query on the stream that carried it, which [Locators](bedrock-service-declaration-protocol.md#locators) authenticates to the provider's `provider_id`.
+2. `witness` equals the value recomputed from `held` and the commitments of that `provider_id` over the querier's own copies of the marked transactions.
+3. The bit for that transaction is set.
 
 A provider that does not hold a queried transaction answers that it does not. It must not request the transaction, and the querier must not send it.
 
@@ -187,7 +183,7 @@ Every `PULL_INTERVAL`, a node:
 
 1. Collects every pending transaction that is unconfirmed, has been pending for at least `PULL_DELAY`, and has spent fewer than `PULL_MAX_ROUNDS` rounds. The batch is however many qualify; where more than `PULL_MAX_BATCH` do, it takes the oldest by admission time. A round that collects nothing sends no query.
 2. Samples `PULL_SAMPLE_SIZE` providers uniformly at random from the active snapshot, excluding itself. The sample must be drawn from local randomness and never from a chain-derived seed.
-3. Sends each sampled provider a query with a fresh nonce, naming the collected transactions for which that provider is in neither `queried` nor `received_from`. It sends no query to a provider excluded by every transaction in the batch.
+3. Sends each sampled provider a query naming the collected transactions for which that provider is in neither `queried` nor `received_from`. It sends no query to a provider excluded by every transaction in the batch.
 4. Increments `rounds` for every transaction it collected in step 1.
 5. On each response it accepts, adds the provider to the `queried` set of every transaction that query named, and to `attesters` for every transaction whose bit is set.
 
