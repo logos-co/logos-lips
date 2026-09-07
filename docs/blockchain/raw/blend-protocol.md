@@ -476,7 +476,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`W=10 \cdot \Delta_{max}=30`$, the observation window is $`30`$ rounds.
 - $`F_C=1`$, the network generates one cover message per round on average.
 - $`F_D=1/30`$, the network generates one data message every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)).
-- $`F_T = 147/30`$, the transactions the network carries per slot of $`30`$ rounds, whatever quota backs them: $`\lfloor r \cdot 30 / (\beta_{max} \cdot (\Phi_{out} + \Phi_{in} - 1)) \rfloor - 1 = 147`$, the most the budget of the slowest node admits ([Expected Traffic](#expected-traffic)).
+- $`F_T = 129/30`$, the transactions the network carries per slot of $`30`$ rounds, whatever quota backs them: $`\lfloor r \cdot 30 / (\beta_{max} \cdot (\Phi_{out} + \Phi_{in})) \rfloor - 1 = 129`$, the most a connection's share of the slowest node's budget carries ([Expected Traffic](#expected-traffic)).
 - $`R_C=0`$ and $`R_D=0`$, no replication of cover or data messages is used in this version of the protocol.
 - $`\Phi_{out}=3`$ connections a core node opens, and $`\Phi_{in}=5`$ it accepts ([Connectivity Maintenance](#connectivity-maintenance)). Every node opens $`\Phi_{out}`$, so a node is offered $`\Phi_{out}`$ connections on average and $`\Phi_{in}`$ must exceed it.
 - $`V = 156`$ messages per second the slowest node the protocol targets processes, one below the $`157`$ measured on one core of a Raspberry Pi 5 ([benchmark](https://github.com/logos-blockchain/research/tree/blend-header-verification-benchmark/tools/benchmarks/blend-header-verification)).
@@ -522,10 +522,10 @@ A message is **novel** to a node when its proof of quota nullifier is not in the
 The rate at which novel messages reach a node is:
 
 $$
-F_1 = \max\left(F_C \cdot (1 + R_C),\ (F_D + F_T) \cdot (1 + R_D)\right) \cdot \beta_{max} = 14.8
+F_1 = \max\left(F_C \cdot (1 + R_C),\ (F_D + F_T) \cdot (1 + R_D)\right) \cdot \beta_{max} = 13.0
 $$
 
-Flooding delivers each message once per other neighbor, so a node receives $`F_1 \cdot (\Phi_{out} + \Phi_{in} - 1)`$ messages per round. That rate must stay below $`r`$; above it the slowest nodes throttle continuously, and $`F_T`$ is the largest rate that keeps it below. Read in turn, a connection delivers at most $`\lceil r / (\Phi_{out} + \Phi_{in}) \rceil = 13`$ messages per round, and a node receives at most $`r`$, which is $`2`$ MB/s at $`19318`$ bytes per message ([Message Formatting](message-formatting.md)). Messages backed by a proof of work count within $`F_T`$, and the threshold $`d_{blend}`$ of [Blend Difficulty](#blend-difficulty) is set so that they do.
+A node reads its connections in turn, so a connection delivers at most $`r / (\Phi_{out} + \Phi_{in}) = 13`$ messages per round, and a node receives at most $`r`$, which is $`2`$ MB/s at $`19318`$ bytes per message ([Message Formatting](message-formatting.md)). Flooding delivers each message once per neighbor, so $`F_1`$ must not exceed a connection's share; above it the slowest nodes throttle continuously, and $`F_T`$ is the largest rate that keeps it within. Messages backed by a proof of work count within $`F_T`$, and the threshold $`d_{blend}`$ of [Blend Difficulty](#blend-difficulty) is set so that they do.
 
 A node verifies the public header of novel messages only, at most $`B`$ per round ([Relaying](#relaying)).
 
@@ -901,7 +901,7 @@ At the rates above:
 
 $$
 \begin{aligned}
-(648000 + 30) \cdot \dfrac{148}{30} \cdot 3 \cdot 32 = 306907008 \approx 307\,\mathrm{MB}
+(648000 + 30) \cdot \dfrac{130}{30} \cdot 3 \cdot 32 = 269580480 \approx 270\,\mathrm{MB}
 \end{aligned}
 $$
 
