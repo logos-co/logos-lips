@@ -302,7 +302,7 @@ The bootstrapping defines the process of creating the network, which happens at 
             2. The neighbor learns that the node is a core node.
             3. The node stops connecting to selected peer after reaching the maximum number of tries ($`\Omega_C`$ parameter: [Core Node Parameters](#core-node-parameters)). Then a new random peer is selected.
 
-    3. It repeats the above steps until it holds $`\Phi_{CC}`$ connections ([Connectivity Maintenance](#connectivity-maintenance)).
+    3. It repeats the above steps until it holds $`\Phi_{CC} - 1`$ connections ([Connectivity Maintenance](#connectivity-maintenance)).
 4. It maintains all connections as defined in [Connectivity Maintenance](#connectivity-maintenance).
 5. If two nodes open two connections with each other, so that both have incoming and outgoing connections to the same neighbor (core node), then:
     1. The node with the lower public key value (`provider_id` from SDP) must close the outgoing connection to the node with the higher public key value.
@@ -442,7 +442,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 
 ## Notation
 
-- $`\Phi_{CC}`$ denotes the peering degree, the number of live connections a core node maintains with other core nodes;
+- $`\Phi_{CC}`$ denotes the peering degree, the basis of the number of connections a core node holds with other core nodes;
 - $`\Delta_{max}`$ denotes a maximal delay time between two release rounds;
 - $`\beta_{max}`$ denotes a maximum number of processing rounds for a single message;
 - $`E`$ denotes a number of rounds in an epoch;
@@ -545,7 +545,7 @@ A node verifies the public header of novel messages only, at most $`B`$ per roun
 
 **Degree**
 
-1. A core node maintains $`\Phi_{CC}`$ live connections with core nodes. It opens connections while it holds fewer than $`\Phi_{CC}`$, and accepts connections while it holds fewer than $`\Phi_{CC} + 1`$; a connection offered above that is closed.
+1. A core node holds between $`\Phi_{CC} - 1`$ and $`\Phi_{CC} + 1`$ connections with core nodes. It opens connections while it holds fewer than $`\Phi_{CC} - 1`$ live ones, and accepts connections while it holds fewer than $`\Phi_{CC} + 1`$; a connection offered above that is closed.
 2. It draws the nodes it opens uniformly at random and without replacement from the set returned by the SDP protocol, excluding itself, blacklisted identities and its current neighbors. A peer whose handshake is in progress is a current neighbor for this purpose.
 3. A connection that is not live is closed.
 4. A connection whose handshake is in progress counts towards $`\Phi_{CC}`$ once the [Neighbor Distinction Process](#neighbor-distinction-process) has identified the neighbor as a core node. A handshake that has not completed within $`T_H`$ is abandoned and its slot released. At most $`\Phi_{CC} + 1 + \Phi_{CE}^{Max}`$ handshakes are in progress at once, and one offered above that is closed.
