@@ -449,9 +449,9 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`E`$ denotes a number of rounds in an epoch;
 - $`W`$ denote the observation window expressed in the number of rounds;
 - $`F_1`$ denote the rate at which novel messages reach a node, per round;
-- $`V`$ denote the number of public header verifications per second performed by the slowest node the protocol targets;
-- $`r`$ denote the number of novel messages by which a node's admission budget grows per round;
-- $`B`$ denote the largest admission budget a node holds, in novel messages;
+- $`V`$ denote the number of messages per second the slowest node the protocol targets processes;
+- $`r`$ denote the number of messages by which a node's admission budget grows per round;
+- $`B`$ denote the largest admission budget a node holds, in messages;
 - $`F_C`$ denote a frequency at which cover messages are generated per round;
 - $`F_D`$ denote a frequency at which data messages are generated per round;
 - $`F_T`$ denote a frequency at which transactions are generated per round;
@@ -476,11 +476,11 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`W=10 \cdot \Delta_{max}=30`$, the observation window is $`30`$ rounds.
 - $`F_C=1`$, the network generates one cover message per round on average.
 - $`F_D=1/30`$, the network generates one data message every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)).
-- $`F_T = 1024/30`$, the network carries $`1024`$ transactions per slot of $`30`$ rounds, whatever quota backs them.
+- $`F_T = 147/30`$, the transactions the network carries per slot of $`30`$ rounds, whatever quota backs them: $`\lfloor r \cdot 30 / (\beta_{max} \cdot (\Phi_{out} + \Phi_{in} - 1)) \rfloor - 1 = 147`$, the most the budget of the slowest node admits ([Expected Traffic](#expected-traffic)).
 - $`R_C=0`$ and $`R_D=0`$, no replication of cover or data messages is used in this version of the protocol.
-- $`\Phi_{out}=4`$ connections a core node opens, and $`\Phi_{in}=6`$ it accepts ([Connectivity Maintenance](#connectivity-maintenance)). Every node opens $`\Phi_{out}`$, so a node is offered $`\Phi_{out}`$ connections on average and $`\Phi_{in}`$ must exceed it.
-- $`V = 156`$ public header verifications per second, one below the $`157`$ measured on one core of a Raspberry Pi 5 ([benchmark](https://github.com/logos-blockchain/research/tree/blend-header-verification-benchmark/tools/benchmarks/blend-header-verification)).
-- $`r = 2 \cdot V / 3 = 104`$ novel messages per round, the growth of the admission budget, and $`B = (V - r) \cdot \Delta_{max} = 156`$, its largest value ([Expected Traffic](#expected-traffic)).
+- $`\Phi_{out}=3`$ connections a core node opens, and $`\Phi_{in}=5`$ it accepts ([Connectivity Maintenance](#connectivity-maintenance)). Every node opens $`\Phi_{out}`$, so a node is offered $`\Phi_{out}`$ connections on average and $`\Phi_{in}`$ must exceed it.
+- $`V = 156`$ messages per second the slowest node the protocol targets processes, one below the $`157`$ measured on one core of a Raspberry Pi 5 ([benchmark](https://github.com/logos-blockchain/research/tree/blend-header-verification-benchmark/tools/benchmarks/blend-header-verification)).
+- $`r = 2 \cdot V / 3 = 104`$ messages per round, the growth of the admission budget, and $`B = (V - r) \cdot \Delta_{max} = 156`$, its largest value ([Expected Traffic](#expected-traffic)).
 - $`T_E=1`$ round, the time an edge node is given to send its message, as derived in [Connectivity Maintenance](#connectivity-maintenance).
 - $`T_H=2`$ rounds, the time a core node handshake is given to complete, which covers the round trips of the transport handshake and of the [Neighbor Distinction Process](#neighbor-distinction-process).
 
@@ -522,10 +522,10 @@ A message is **novel** to a node when its proof of quota nullifier is not in the
 The rate at which novel messages reach a node is:
 
 $$
-F_1 = \max\left(F_C \cdot (1 + R_C),\ (F_D + F_T) \cdot (1 + R_D)\right) \cdot \beta_{max} = 102.5
+F_1 = \max\left(F_C \cdot (1 + R_C),\ (F_D + F_T) \cdot (1 + R_D)\right) \cdot \beta_{max} = 14.8
 $$
 
-$`F_1`$ must stay below $`r`$; above it the slowest nodes throttle continuously. Flooding delivers each novel message once per other neighbor, so a core node receives and sends about $`F_1 \cdot (\Phi_{out} + \Phi_{in} - 1) = 922`$ messages per round, $`18`$ MB/s each way at $`19318`$ bytes per message ([Message Formatting](message-formatting.md)). Messages backed by a proof of work count within $`F_T`$, and the threshold $`d_{blend}`$ of [Blend Difficulty](#blend-difficulty) is set so that they do.
+Flooding delivers each message once per other neighbor, so a node receives $`F_1 \cdot (\Phi_{out} + \Phi_{in} - 1)`$ messages per round. That rate must stay below $`r`$; above it the slowest nodes throttle continuously, and $`F_T`$ is the largest rate that keeps it below. Read in turn, a connection delivers at most $`\lceil r / (\Phi_{out} + \Phi_{in}) \rceil = 13`$ messages per round, and a node receives at most $`r`$, which is $`2`$ MB/s at $`19318`$ bytes per message ([Message Formatting](message-formatting.md)). Messages backed by a proof of work count within $`F_T`$, and the threshold $`d_{blend}`$ of [Blend Difficulty](#blend-difficulty) is set so that they do.
 
 A node verifies the public header of novel messages only, at most $`B`$ per round ([Relaying](#relaying)).
 
@@ -533,7 +533,7 @@ A node verifies the public header of novel messages only, at most $`B`$ per roun
 
 **Admission**
 
-1. A node holds a budget of at most $`B`$ novel messages ([Expected Traffic](#expected-traffic)). The budget grows by $`r`$ at the start of each round, and admitting a novel message spends one. It is held for the node, not for a connection. Only messages the node receives spend it; a message the node generates does not.
+1. A node holds a budget of at most $`B`$ messages ([Expected Traffic](#expected-traffic)). The budget grows by $`r`$ at the start of each round, and admitting a message spends one. It is held for the node, not for a connection. Only messages the node receives spend it; a message the node generates does not.
 2. While the budget is empty the node stops reading from its connections, and resumes when it refills.
 3. While more than one connection is readable the node reads them in turn, connections with core nodes before connections with edge nodes.
 4. The volume a neighbor sends is never a cause for closing a connection or for blacklisting.
@@ -880,7 +880,7 @@ When this happens, a number of messages (limited by the [Quota](#quota)) are gen
 The relaying logic is defined as follows:
 
 1. The node checks the header of the message that was received from its neighbor, according to the [Message Formatting](message-formatting.md).
-    1. If the neighbor is a core node, then the message counts towards the liveness of the connection, and a novel message consumes the admission budget ([Connectivity Maintenance](#connectivity-maintenance)).
+    1. If the neighbor is a core node, then the message counts towards the liveness of the connection and spends the admission budget ([Connectivity Maintenance](#connectivity-maintenance)).
     2. If the neighbor is an edge node, then close the connection with the neighbor.
     3. If the header of the message is incorrect, then discard the message and mark the neighbor as malicious and close the connection. We assume that an adversary cannot inject any spoofed message to the connection.
     4. If the PoQ nullifier $`\nu_i \in \mathbf H`$ from the public header of the message is already in the nullifier cache, then the message is a duplicate and must be discarded. Cached entries are retained for the duration of the current epoch and the [Transition Period](#transition-period).
@@ -901,7 +901,7 @@ At the rates above:
 
 $$
 \begin{aligned}
-(648000 + 30) \cdot \dfrac{1025}{30} \cdot 3 \cdot 32 = 2125538400 \approx 2.1\,\mathrm{GB}
+(648000 + 30) \cdot \dfrac{148}{30} \cdot 3 \cdot 32 = 306907008 \approx 307\,\mathrm{MB}
 \end{aligned}
 $$
 
