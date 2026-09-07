@@ -155,7 +155,7 @@ At the beginning of an epoch, all core nodes retrieve a fresh set of core nodesâ
 
 The minimal network size is $`32`$. This is the minimum number of nodes (unique `ProviderId`s from declarations) that must be retrieved from the SDP to consider the Blend protocol safe to use.
 
-In a network of $`N`$ core nodes, a node releases $`\left\lceil \Delta_{max} \cdot \beta_{max} / N \right\rceil`$ messages per release round. Sixteen nodes hold that at one message per round, and the minimum doubles it to tolerate $`50\%`$ unresponsive nodes.
+In a network of $`N`$ core nodes, a node releases $`\left\lceil \Delta_{max} \cdot \beta_{max} / N \right\rceil`$ messages per release round. One message per round requires $`N \ge \Delta_{max} \cdot \beta_{max} = 9`$ responsive nodes, which $`32`$ holds with half the network unresponsive.
 
 ### Fallback
 
@@ -484,7 +484,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\Phi_{CC}^{Min}=6`$ and $`\Phi_{CC}^{Max}=8`$, the smallest and the largest number of connections a core node holds with other core nodes ([Connectivity Maintenance](#connectivity-maintenance)).
 - $`M_1^{Max}=12`$ messages per round, the maximum a node may send to one neighbor in a round ([Releasing](#releasing)).
 - $`\Lambda_E = M_1^{Max} = 12`$ edge nodes accepted per round.
-- $`M_1^{Min} = \lceil F_1 \cdot W / 10 \rceil = 9`$, the minimum number of messages per connection during an observation window, as derived in [Expected Connection Traffic](#expected-connection-traffic).
+- $`M_1^{Min} = \lceil F_1 \cdot W / (3 \cdot \Phi_{CC}^{Max}) \rceil = 4`$, the minimum number of messages per connection during an observation window, as derived in [Expected Connection Traffic](#expected-connection-traffic).
 - $`T_E=1`$ round, the time an edge node is given to send its message, as derived in [Connectivity Maintenance](#connectivity-maintenance).
 
 ### Core Node Parameters
@@ -500,8 +500,9 @@ Implementations should choose a default based on the deployment they operate in,
 An edge node maintains the following parameters:
 
 - $`\Phi_{EC}`$ denotes the connection redundancy number for the edge node. A node must send a single message that needs to be blended to this number of core nodes.
+- $`\Omega_E`$ denotes the maximum number of retries an edge node will do to establish a connection with a core node.
 
-Implementations should choose a default based on the deployment they operate in, and users can override this default before joining.
+Implementations should choose a default based on the deployment they operate in, and users can override these defaults before joining.
 
 ## Network Maintenance
 
@@ -526,8 +527,10 @@ $$
 
 **Minimum**
 
+A connection delivers $`F_1 \cdot W / \Phi_{CC}^{Max}`$ of the messages in a window before the node holds them, and carries the rest after it has released them on the other connections ([Connectivity Maintenance](#connectivity-maintenance)). The minimum is a third of that share:
+
 $$
-M_1^{Min} = \left\lceil \dfrac{F_1 \cdot W}{10} \right\rceil = 9
+M_1^{Min} = \left\lceil \dfrac{F_1 \cdot W}{3 \cdot \Phi_{CC}^{Max}} \right\rceil = 4
 $$
 
 
@@ -537,9 +540,9 @@ $$
 M_1^{Max} = 12
 $$
 
-The queue of a sender drains only while $`F_1 + F_W \cdot \beta_{max} \lt M_1^{Max}`$. $`F_D`$ follows from the number of block proposals [Cryptarchia](cryptarchia-v1-protocol.md) admits per slot, and $`F_W`$ from the threshold $`d_{blend}`$ of [Blend Difficulty](#blend-difficulty). Both must be set so that the inequality holds.
+The queue of a sender drains only while $`F_1 + F_W \cdot \beta_{max} \lt M_1^{Max}`$. Above that rate a node discards messages at every release ([Releasing](#releasing)). $`F_D`$ follows from the number of block proposals [Cryptarchia](cryptarchia-v1-protocol.md) admits per slot. The protocol does not bound $`F_W`$, so the threshold $`d_{blend}`$ of [Blend Difficulty](#blend-difficulty) is what holds it below this rate.
 
-The constants must keep $`\Phi_{CC}^{Max} \cdot M_1^{Max} + \Lambda_E`$ public header verifications per round within the rate of the slowest node the protocol targets ([Relaying](#relaying)). Above it, a node may receive more than it can verify.
+The constants must keep $`\Phi_{CC}^{Max} \cdot (2+\eta) \cdot M_1^{Max} + \Lambda_E`$ public header verifications per round within the rate of the slowest node the protocol targets ([Relaying](#relaying)). That is the load a node carries before the classification closes the connections producing it.
 
 ### Connectivity Maintenance
 
@@ -557,7 +560,7 @@ The counts are kept against the authenticated identity of the neighbor, for the 
 
 **Classification**
 
-1. A connection is **spammy** when $`M_1 \gt (2+\eta) \cdot M_1^{Max}`$ in any round. A message arrives at most $`\eta`$ rounds after its release, so one round of arrivals carries the releases of at most $`1+\eta`$ rounds. The threshold adds one further round, so a neighbor that keeps to $`M_1^{Max}`$ is never classified spammy.
+1. A connection is **spammy** when $`M_1 \gt (2+\eta) \cdot M_1^{Max}`$ in any round. A message arrives at most $`\eta`$ rounds after its release, so one round of arrivals carries the releases of at most $`1+\eta`$ rounds. The threshold adds one further round, so a neighbor that keeps to $`M_1^{Max}`$ is never classified spammy. A connection is also spammy when the sum of $`M_1`$ over the trailing window $`W`$ exceeds $`W \cdot M_1^{Max}`$, which no neighbor keeping to the limit reaches.
 2. It is **healthy** when it is not spammy and $`M_1^W \ge M_1^{Min}`$. Only healthy connections count towards $`h(\Phi_{CC})`$.
 3. It is **unhealthy** when $`M_1^W \lt M_1^{Min}`$.
 
@@ -571,16 +574,16 @@ A neighbor whose accumulated observation is shorter than $`W`$ counts as healthy
 4. When $`h(\Phi_{CC}) \lt \Phi_{CC}^{Min}`$ and the node holds fewer than $`\Phi_{CC}^{Max}`$ connections, it opens connections with core nodes. It draws them uniformly at random and without replacement from the set returned by the SDP protocol, excluding itself, blacklisted identities and its current neighbors.
 5. When the node holds $`\Phi_{CC}^{Max}`$ connections and any of them is unhealthy, it replaces one. It selects the replacement first. It then closes the unhealthy connection with the lowest $`M_1^W`$, among those whose neighbor has completed an observation window, and gives the released slot to the replacement. Ties are broken uniformly at random. A healthy connection is never displaced. At most one connection is replaced per observation window. No connection is closed this way unless a replacement is available.
 6. A node that can neither open nor replace a connection logs that it holds fewer than $`\Phi_{CC}^{Min}`$ healthy connections.
-7. A connection with an edge node is closed once the edge node has sent its message, or once $`T_E`$ has elapsed. $`T_E`$ covers the transmission of one message: a block proposal of $`34574`$ bytes ([Payload Formatting](payload-formatting.md)) takes $`0.28`$ s over a $`1`$ Mbit/s link, and $`T_E`$ allows a fifth again for framing and half a second for latency.
+7. A connection with an edge node is closed once the edge node has sent its message, or once $`T_E`$ has elapsed. $`T_E`$ covers the transmission of one payload of $`Max\_Payload\_Length`$ ([Message Formatting](message-formatting.md)), which takes $`0.15`$ s over a $`1`$ Mbit/s link, a fifth again for framing and half a second for latency.
 8. A core node accepts at most $`\Lambda_E`$ connections with edge nodes per round. They are counted once the [Neighbor Distinction Process](#neighbor-distinction-process) has identified the neighbor as an edge node. A connection offered above that rate is closed.
-9. An edge node whose message fails header verification has its connection closed, and its identity added to the **edge quarantine**. A quarantined identity is refused while its entry is held. The refusal does not consume the acceptance rate of rule 8. An entry expires at the end of the epoch. Each node fixes the size of the quarantine, and the oldest entry is discarded when it is full.
+9. An edge node whose message fails header verification has its connection closed. Rule 8 is what bounds the cost of repeated attempts, since an edge node is identified only by an ephemeral key.
 
 **Logging**
 
 A node logs:
 
 - every connection it closes;
-- every addition to and expiry from the blacklist and the quarantine;
+- every addition to and expiry from the blacklist;
 - every replacement;
 - every period during which it holds fewer than $`\Phi_{CC}^{Min}`$ healthy connections.
 
@@ -969,7 +972,7 @@ The process of releasing messages involves the following steps:
 - As soon as a **data** message carrying a block proposal is generated, one random unreleased (future) **cover** message must be removed from the release schedule to maintain the nodeâ€™s statistical indistinguishability. A data message carrying a transaction removes no cover message.
 - If more than one message needs to be released for the same round, they must be randomly shuffled before release.
 
-The cover and data message generation processes are **independent**, and there is a non-zero probability that more than one message will be scheduled for the same round. The number of messages released **to a single neighbor** during one round is nevertheless restricted to $`M_1^{Max}`$ ([Expected Connection Traffic](#expected-connection-traffic)). When [Delaying](#delaying) selects a round in which the limit for a neighbor is already reached, the node selects the next round within the delay window in which it is not. A message that finds no such round is discarded.
+The cover and data message generation processes are **independent**, and there is a non-zero probability that more than one message will be scheduled for the same round. The number of messages released **to a single neighbor** during one round is nevertheless restricted to $`M_1^{Max}`$ ([Expected Connection Traffic](#expected-connection-traffic)). A node holding more than that for a neighbor releases $`M_1^{Max}`$ of them, chosen uniformly at random from those due, and discards the rest. The sender of a discarded payload reacts as defined in [Failure Detection and Reaction](#failure-detection-and-reaction).
 
 
 ### Broadcasting
