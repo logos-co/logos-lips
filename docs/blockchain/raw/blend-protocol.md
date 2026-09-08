@@ -302,7 +302,7 @@ The bootstrapping defines the process of creating the network, which happens at 
             2. The neighbor learns that the node is a core node.
             3. The node stops connecting to selected peer after reaching the maximum number of tries ($`\Omega_C`$ parameter: [Core Node Parameters](#core-node-parameters)). Then a new random peer is selected.
 
-    3. It repeats the above steps until it holds three connections, one below the peering degree ([Global Parameters](#global-parameters)).
+    3. It repeats the above steps while [Connectivity Maintenance](#connectivity-maintenance) requires it to open a connection.
 4. It maintains all connections as defined in [Connectivity Maintenance](#connectivity-maintenance).
 5. If two nodes open two connections with each other, so that both have incoming and outgoing connections to the same neighbor (core node), then:
     1. The node with the lower public key value (`provider_id` from SDP) must close the outgoing connection to the node with the higher public key value.
@@ -476,7 +476,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`F_D=1/30`$, the network generates one block proposal every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)).
 - $`F_T = 130/30`$, the network carries $`130`$ messages carrying transactions per slot of $`30`$ rounds, whatever quota backs them, each carrying one transaction ([Payload Formatting](payload-formatting.md)): $`\left(r_1 \cdot (1 - 1 / (\Delta_{max} + \eta)) / \beta_{max} - \max(F_C \cdot (1 + R_C), F_D \cdot (1 + R_D))\right) \cdot 30 = 130`$ ([Expected Traffic](#expected-traffic)).
 - $`R_C=0`$ and $`R_D=1`$: a cover message is not replicated, and a block proposal is replicated once. A transaction is not replicated.
-- $`\Phi_{CC}=4`$, the peering degree ([Connectivity Maintenance](#connectivity-maintenance)).
+- $`\Phi_{CC}=4`$, the peering degree ([Connectivity Maintenance](#connectivity-maintenance)). $`3 \le \Phi_{CC} \le 5`$: a node opens at least $`\Phi_{CC} - 2`$ connections and holds at most $`\Phi_{CC} + 1`$, so it accepts at most $`3`$. Below $`3`$ a node need open none; above $`5`$ the connections nodes must open exceed the connections nodes can accept, and dials are refused for good.
 - $`V = 156`$ messages per second the slowest node the protocol targets processes, one below the $`157`$ measured on one core of a Raspberry Pi 5 ([benchmark](https://github.com/logos-blockchain/research/tree/blend-header-verification-benchmark/tools/benchmarks/blend-header-verification)).
 - $`r_1 = 20`$ messages a node reads from a core connection per round, and $`r_E = 24`$ connections with edge nodes it accepts per round: $`r_1 = \lfloor (2V/3) / (\Phi_{CC} + 1) \rfloor`$ and $`r_E = 2V/3 - \Phi_{CC} \cdot r_1`$, so a node at its peering degree reads two thirds of $`V`$, and at one above it $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124 \le V`$ ([Expected Traffic](#expected-traffic)).
 - $`T_E=1`$ round, the time an edge node is given to send its message, as derived in [Connectivity Maintenance](#connectivity-maintenance).
@@ -542,7 +542,7 @@ A node reads at most $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124`$ messages in a rou
 
 **Degree**
 
-1. A core node holds between $`\Phi_{CC} - 1`$ and $`\Phi_{CC} + 1`$ connections with core nodes. It opens connections while it holds fewer than $`\Phi_{CC} - 1`$ live ones, and accepts connections while it holds fewer than $`\Phi_{CC} + 1`$; a connection offered above that is closed.
+1. A core node holds between $`\Phi_{CC} - 1`$ and $`\Phi_{CC} + 1`$ connections with core nodes. It opens connections while it holds fewer than $`\Phi_{CC} - 1`$ live ones, or fewer than $`\Phi_{CC} - 2`$ live ones that it opened, and accepts connections while it holds fewer than $`\Phi_{CC} + 1`$; a connection offered above that is closed.
 2. It draws the nodes it opens uniformly at random and without replacement from the set returned by the SDP protocol, excluding itself, blacklisted identities and its current neighbors.
 3. A connection that is not live is closed.
 4. A connection whose handshake is in progress counts towards $`\Phi_{CC}`$ once the [Neighbor Distinction Process](#neighbor-distinction-process) has identified the neighbor as a core node, and its peer is a current neighbor for rule 2. A handshake that has not completed within $`T_H`$ is abandoned and its slot released. At most $`\Phi_{CC} + 1 + \Phi_{CE}^{Max}`$ handshakes are in progress at once, and one offered above that is closed.
@@ -567,7 +567,7 @@ A node logs:
 
 - every connection it closes, and every addition to and expiry from the blacklist;
 - every round in which a connection's share was spent;
-- every period during which it holds fewer than $`\Phi_{CC} - 1`$ live connections with core nodes.
+- every period during which it holds fewer than $`\Phi_{CC} - 1`$ live connections with core nodes, or fewer than $`\Phi_{CC} - 2`$ that it opened.
 
 Each entry carries the identity of the neighbor and the reason.
 
