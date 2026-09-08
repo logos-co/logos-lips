@@ -532,7 +532,8 @@ A node reads at most $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124`$ messages in a rou
 **Admission**
 
 1. A node reads at most $`r_1`$ messages from a core connection in a round. A connection whose share is spent is not read until the next round.
-2. The volume a neighbor sends is never a cause for closing a connection or for blacklisting.
+2. A node sends at most $`r_1`$ messages on a core connection in a round. A message that has waited $`\eta`$ rounds to be sent on a connection is discarded for that connection.
+3. The volume a neighbor sends is never a cause for closing a connection or for blacklisting.
 
 **Liveness**
 
@@ -566,7 +567,7 @@ A failure of the authenticated stream is a violation of the framing of the strea
 A node logs:
 
 - every connection it closes, and every addition to and expiry from the blacklist;
-- every round in which a connection's share was spent;
+- every round in which a connection's share was spent, and every round in which it discarded a message waiting for a connection;
 - every period during which it holds fewer than $`\Phi_{CC} - 1`$ live connections with core nodes, or fewer than $`\Phi_{CC} - 2`$ that it opened.
 
 Each entry carries the identity of the neighbor and the reason.
