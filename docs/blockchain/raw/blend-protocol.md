@@ -549,7 +549,7 @@ A node reads at most $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124`$ messages in a rou
 
 **Blacklist**
 
-A failure of the authenticated stream is a TLS record that fails authentication, or a violation of the framing of the stream.
+A failure of the authenticated stream is a violation of the framing of the stream.
 
 1. A connection with a core node whose authenticated stream fails, or that carries a message with a malformed header, an invalid signature, or an invalid proof of quota, is closed and its neighbor is added to the **blacklist**. A message discarded as a duplicate, or as belonging to an epoch the node no longer accepts ([Transition Period](#transition-period)), carries no reaction.
 2. A blacklisted identity is refused on incoming and on outgoing connections. An entry expires after $`W`$ rounds.
