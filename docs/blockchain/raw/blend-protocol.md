@@ -452,7 +452,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`r`$ denote the number of messages by which a node's admission budget grows per round;
 - $`B`$ denote the largest admission budget a node holds, in messages;
 - $`F_C`$ denote a frequency at which cover messages are generated per round;
-- $`F_D`$ denote a frequency at which data messages are generated per round;
+- $`F_D`$ denote a frequency at which block proposals are generated per round;
 - $`F_T`$ denote a frequency at which messages carrying transactions are generated per round;
 - $`C = E \cdot F_C`$ denote the expected number of cover messages that are generated during an epoch by the core nodes;
 - $`R_C`$ denote a redundancy parameter for cover messages, defining the number of “replications” of the same message;
@@ -474,8 +474,8 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`T_M = 15`$ rounds, the message traversal time, as derived in the [Transition Period](#transition-period) section.
 - $`W=10 \cdot \Delta_{max}=30`$, the observation window is $`30`$ rounds.
 - $`F_C=1`$, the network generates one cover message per round on average.
-- $`F_D=1/30`$, the network generates one data message every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)).
-- $`F_T = 199/30`$, the network carries $`199`$ messages carrying transactions per slot of $`30`$ rounds, whatever quota backs them, each holding as many transactions as fit its payload ([Payload Formatting](payload-formatting.md)): $`\lfloor 20 \cdot 30 / \beta_{max} \rfloor - 1 = 199`$, where $`20`$ is a core connection's share of the budget ([Expected Traffic](#expected-traffic)).
+- $`F_D=1/30`$, the network generates one block proposal every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)).
+- $`F_T = 170/30`$, the network carries $`170`$ messages carrying transactions per slot of $`30`$ rounds, whatever quota backs them, each holding as many transactions as fit its payload ([Payload Formatting](payload-formatting.md)): $`\left(20 / \beta_{max} - \max(F_C, F_D)\right) \cdot 30 = 170`$, where $`20`$ is a core connection's share of the budget ([Expected Traffic](#expected-traffic)).
 - $`R_C=0`$ and $`R_D=0`$, no replication of cover or data messages is used in this version of the protocol.
 - $`\Phi_{CC}=4`$, the peering degree ([Connectivity Maintenance](#connectivity-maintenance)).
 - $`V = 156`$ messages per second the slowest node the protocol targets processes, one below the $`157`$ measured on one core of a Raspberry Pi 5 ([benchmark](https://github.com/logos-blockchain/research/tree/blend-header-verification-benchmark/tools/benchmarks/blend-header-verification)).
@@ -521,7 +521,7 @@ A message is **novel** to a node when its proof of quota nullifier is not in the
 The rate a core connection carries is:
 
 $$
-F_1 = \max\left(F_C \cdot (1 + R_C),\ (F_D + F_T) \cdot (1 + R_D)\right) \cdot \beta_{max} = 20.0
+F_1 = \left( \max\left(F_C \cdot (1 + R_C),\ F_D \cdot (1 + R_D)\right) + F_T \cdot (1 + R_D) \right) \cdot \beta_{max} = 20.0
 $$
 
 A node divides $`r`$ into one share for each of the $`\Phi_{CC}`$ core connections and one for the edge nodes together. A core connection's share is $`\lfloor r / (\Phi_{CC} + 1) \rfloor = 20`$ messages per round, and the edge connections together have the remainder, $`r - 20 \cdot \Phi_{CC} = 24`$. A node receives at most $`r`$ messages per round, which is $`2`$ MB/s at $`19318`$ bytes per message ([Message Formatting](message-formatting.md)). Flooding delivers each message once per neighbor, so $`F_1`$ must not exceed a core connection's share; above it the slowest nodes throttle continuously, and $`F_T`$ is the largest rate that keeps it within. Messages backed by a proof of work count within $`F_T`$, and the threshold $`d_{blend}`$ of [Blend Difficulty](#blend-difficulty) is set so that they do.
@@ -892,7 +892,7 @@ The node must cache the PoQ nullifiers ($`\nu_i`$) for every message it relays f
 
 $$
 \begin{aligned}
-(E + T)\cdot \max\left(F_C \cdot (1+R_C),\ (F_D + F_T) \cdot (1+R_D)\right) \cdot \beta_{max} \cdot |\nu_i|
+(E + T)\cdot \left( \max\left(F_C \cdot (1+R_C),\ F_D \cdot (1+R_D)\right) + F_T \cdot (1+R_D) \right) \cdot \beta_{max} \cdot |\nu_i|
 \end{aligned}
 $$
 
@@ -900,7 +900,7 @@ At the rates above:
 
 $$
 \begin{aligned}
-(648000 + 30) \cdot \dfrac{200}{30} \cdot 3 \cdot 32 = 414739200 \approx 415\,\mathrm{MB}
+(648000 + 30) \cdot \left(1 + \dfrac{170}{30}\right) \cdot 3 \cdot 32 = 414739200 \approx 415\,\mathrm{MB}
 \end{aligned}
 $$
 
