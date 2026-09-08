@@ -487,7 +487,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 A core node maintains the following set of parameters:
 
 - $`\Omega_C`$ denotes the maximum number of retries a core node will do to connect with another core node.
-- $`\Phi_{CE}^{Max}`$ denotes the maximum number of connections a core node holds with edge nodes at once.
+- $`\Phi_{CE}^{Max}`$ denotes the maximum number of connections a core node holds with edge nodes at once. $`\Phi_{CE}^{Max} \ge r_E`$: a connection holds its slot for $`T_E`$, so below $`r_E`$ the slots bind before the share does.
 
 Implementations should choose a default based on the deployment they operate in, and users can override these defaults before joining.
 
@@ -879,9 +879,9 @@ The relaying logic is defined as follows:
 1. The node checks the header of the message that was received from its neighbor, according to the [Message Formatting](message-formatting.md).
     1. If the neighbor is a core node, then the message counts towards the liveness of the connection and towards its share ([Connectivity Maintenance](#connectivity-maintenance)).
     2. If the neighbor is an edge node, then close the connection with the neighbor.
-    3. If the header of the message is incorrect, then discard the message and mark the neighbor as malicious and close the connection. We assume that an adversary cannot inject any spoofed message to the connection.
+    3. If the header of the message is incorrect, then discard the message, close the connection and blacklist the neighbor ([Connectivity Maintenance](#connectivity-maintenance)). We assume that an adversary cannot inject any spoofed message to the connection.
     4. If the PoQ nullifier $`\nu_i \in \mathbf H`$ from the public header of the message is already in the nullifier cache, then the message is a duplicate and must be discarded. Cached entries are retained for the duration of the current epoch and the [Transition Period](#transition-period).
-    5. If the signature $`\sigma_{K^{n}_{i}}(\mathbf P_i) \in \mathbf H`$ from the public header of the message is invalid, then the message must be discarded, and the neighbor must be marked malicious.
+    5. If the signature $`\sigma_{K^{n}_{i}}(\mathbf P_i) \in \mathbf H`$ from the public header of the message is invalid, then the message must be discarded, the connection closed and the neighbor blacklisted ([Connectivity Maintenance](#connectivity-maintenance)).
     6. If the proof of quota $`\pi^{K^{n}_i}_{Q} \in \mathbf H`$ from the public header is invalid, then the message must be discarded and must not be relayed. The connection is closed and the neighbor blacklisted, as defined in [Connectivity Maintenance](#connectivity-maintenance).
 2. Release the message according to the [Releasing](#releasing) logic.
 3. Concurrently to the above step, add the message to the processing queue, where it is handled by the [Processing](#processing) logic.
@@ -962,8 +962,6 @@ The process of releasing messages involves the following steps:
 - Every **generated** message is released at the beginning of the next round after its generation.
 - As soon as a **data** message carrying a block proposal is generated, one random unreleased (future) **cover** message must be removed from the release schedule to maintain the node’s statistical indistinguishability. A data message carrying a transaction removes no cover message.
 - If more than one message needs to be released for the same round, they must be randomly shuffled before release.
-
-
 
 ### Broadcasting
 
