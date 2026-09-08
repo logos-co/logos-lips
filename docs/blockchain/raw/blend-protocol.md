@@ -34,7 +34,7 @@
 | 1.3.1 | Judged the active message window by the epoch of the including block, made the one-message-per-epoch rule per attested epoch, and made the transition-period delay a release constraint | 2026-09-02 |
 | 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, add a transaction as a data message payload, and align the nullifier retention period | 2026-09-08 |
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
-| 1.6.0 | Replaced the per-window statistical threshold on a connection with an admission budget the receiver applies to the messages it receives, and a liveness test on the nullifiers a neighbor delivers. Held the peering degree in live connections. Restricted blacklisting to attributable faults. Sized the budget from the processing rate of the slowest node, and derived the transactions the network carries from it. | 2026-09-07 |
+| 1.6.0 | Replaced the per-window statistical threshold on a connection with a share of messages the receiver reads from each connection in a round, and a liveness test on the nullifiers a neighbor delivers. Held the peering degree in live connections. Restricted blacklisting to attributable faults. Sized the shares from the processing rate of the slowest node, and derived the transactions the network carries from them. | 2026-09-07 |
 
 # Introduction
 
@@ -302,7 +302,7 @@ The bootstrapping defines the process of creating the network, which happens at 
             2. The neighbor learns that the node is a core node.
             3. The node stops connecting to selected peer after reaching the maximum number of tries ($`\Omega_C`$ parameter: [Core Node Parameters](#core-node-parameters)). Then a new random peer is selected.
 
-    3. It repeats the above steps until it holds $`\Phi_{CC} - 1`$ connections ([Connectivity Maintenance](#connectivity-maintenance)).
+    3. It repeats the above steps until it holds $`\Phi_{CC} - 1 = 3`$ connections ([Global Parameters](#global-parameters)).
 4. It maintains all connections as defined in [Connectivity Maintenance](#connectivity-maintenance).
 5. If two nodes open two connections with each other, so that both have incoming and outgoing connections to the same neighbor (core node), then:
     1. The node with the lower public key value (`provider_id` from SDP) must close the outgoing connection to the node with the higher public key value.
@@ -330,7 +330,6 @@ The bootstrapping logic of an edge node:
     2. It identifies itself and authenticates using the [Neighbor Distinction Process](#neighbor-distinction-process).
         1. A core node learns that the neighbor is an edge node.
         2. An edge node confirms that the neighbor is a core node.
-        3. The core node may close the connection ([Connectivity Maintenance](#connectivity-maintenance)).
         4. An edge node must drop the connection if the neighbor is not the intended core node. Please note that technically it is done during TLS handshake, where the handshake will fail if the core node is using a different key than provided in the SDP declaration.
 5. When the connection is established, it sends the message and closes the connection.
 6. Concurrently to the above, it repeats steps 4 and 5 until it is sends the message to a number of nodes equal to the communication redundancy number defined by the edge node. It stops connecting to each node after a certain number of tries, which is defined by the edge node.
@@ -449,8 +448,8 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`W`$ denote the observation window expressed in the number of rounds;
 - $`F_1`$ denote the number of messages a core connection carries per round;
 - $`V`$ denote the number of messages per second the slowest node the protocol targets processes;
-- $`r`$ denote the number of messages by which a node's admission budget grows per round;
-- $`B`$ denote the largest admission budget a node holds, in messages;
+- $`r_1`$ denote the number of messages a node reads from a core connection in a round;
+- $`r_E`$ denote the number of connections with edge nodes a node accepts in a round;
 - $`F_C`$ denote a frequency at which cover messages are generated per round;
 - $`F_D`$ denote a frequency at which block proposals are generated per round;
 - $`F_T`$ denote a frequency at which messages carrying transactions are generated per round;
@@ -475,11 +474,11 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`W=10 \cdot \Delta_{max}=30`$, the observation window is $`30`$ rounds.
 - $`F_C=1`$, the network generates one cover message per round on average.
 - $`F_D=1/30`$, the network generates one block proposal every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)).
-- $`F_T = 170/30`$, the network carries $`170`$ messages carrying transactions per slot of $`30`$ rounds, whatever quota backs them, each holding as many transactions as fit its payload ([Payload Formatting](payload-formatting.md)): $`\left(20 / \beta_{max} - \max(F_C, F_D)\right) \cdot 30 = 170`$, where $`20`$ is a core connection's share of the budget ([Expected Traffic](#expected-traffic)).
+- $`F_T = 170/30`$, the network carries $`170`$ messages carrying transactions per slot of $`30`$ rounds, whatever quota backs them, each holding as many transactions as fit its payload ([Payload Formatting](payload-formatting.md)): $`\left(r_1 / \beta_{max} - \max(F_C, F_D)\right) \cdot 30 = 170`$ ([Expected Traffic](#expected-traffic)).
 - $`R_C=0`$ and $`R_D=0`$, no replication of cover or data messages is used in this version of the protocol.
 - $`\Phi_{CC}=4`$, the peering degree ([Connectivity Maintenance](#connectivity-maintenance)).
 - $`V = 156`$ messages per second the slowest node the protocol targets processes, one below the $`157`$ measured on one core of a Raspberry Pi 5 ([benchmark](https://github.com/logos-blockchain/research/tree/blend-header-verification-benchmark/tools/benchmarks/blend-header-verification)).
-- $`r = 2 \cdot V / 3 = 104`$ messages per round, the growth of the admission budget, and $`B = (V - r) \cdot \Delta_{max} = 156`$, its largest value ([Expected Traffic](#expected-traffic)).
+- $`r_1 = 20`$ messages a node reads from a core connection per round, and $`r_E = 24`$ connections with edge nodes it accepts per round: $`r_1 = \lfloor (2V/3) / (\Phi_{CC} + 1) \rfloor`$ and $`r_E = 2V/3 - \Phi_{CC} \cdot r_1`$, so a node at its peering degree reads two thirds of $`V`$, and at one above it $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124 \le V`$ ([Expected Traffic](#expected-traffic)).
 - $`T_E=1`$ round, the time an edge node is given to send its message, as derived in [Connectivity Maintenance](#connectivity-maintenance).
 - $`T_H=2`$ rounds, the time a core node handshake is given to complete, which covers the round trips of the transport handshake and of the [Neighbor Distinction Process](#neighbor-distinction-process).
 
@@ -490,7 +489,7 @@ A core node maintains the following set of parameters:
 - $`\Omega_C`$ denotes the maximum number of retries a core node will do to connect with another core node.
 - $`\Phi_{CE}^{Max}`$ denotes the maximum number of connections a core node holds with edge nodes at once.
 
-Implementations should choose a default based on the deployment they operate in, and users can override this default before joining.
+Implementations should choose a default based on the deployment they operate in, and users can override these defaults before joining.
 
 ### Edge Node Parameters
 
@@ -524,31 +523,29 @@ $$
 F_1 = \left( \max\left(F_C \cdot (1 + R_C),\ F_D \cdot (1 + R_D)\right) + F_T \cdot (1 + R_D) \right) \cdot \beta_{max} = 20.0
 $$
 
-A node divides $`r`$ into one share for each of the $`\Phi_{CC}`$ core connections and one for the edge nodes together. A core connection's share is $`\lfloor r / (\Phi_{CC} + 1) \rfloor = 20`$ messages per round, and the edge connections together have the remainder, $`r - 20 \cdot \Phi_{CC} = 24`$. A node receives at most $`r`$ messages per round, which is $`2`$ MB/s at $`19318`$ bytes per message ([Message Formatting](message-formatting.md)). Flooding delivers each message once per neighbor, so $`F_1`$ must not exceed a core connection's share; above it the slowest nodes throttle continuously, and $`F_T`$ is the largest rate that keeps it within. Messages backed by a proof of work count within $`F_T`$, and the threshold $`d_{blend}`$ of [Blend Difficulty](#blend-difficulty) is set so that they do.
+Flooding delivers each message once per neighbor, so $`F_1`$ must not exceed $`r_1`$; above it the slowest nodes throttle continuously, and $`F_T`$ is the largest rate that keeps it within. Messages backed by a proof of work count within $`F_T`$, and the threshold $`d_{blend}`$ of [Blend Difficulty](#blend-difficulty) is set so that they do, for the slowest node the protocol targets.
 
-A node verifies the public header of novel messages only, at most $`B`$ per round ([Relaying](#relaying)).
+A node reads at most $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124`$ messages in a round, which must not exceed $`V`$, and verifies the public header of novel messages only ([Relaying](#relaying)). At $`19318`$ bytes per message ([Message Formatting](message-formatting.md)) that is $`2.4`$ MB/s.
 
 ### Connectivity Maintenance
 
 **Admission**
 
-1. A node holds a budget of at most $`B`$ messages ([Expected Traffic](#expected-traffic)). The budget grows by $`r`$ at the start of each round, and admitting a message spends one. It is held for the node, not for a connection. Only messages the node receives spend it; a message the node generates does not.
-2. While the budget is empty the node stops reading from its connections, and resumes when it refills.
-3. While more than one connection is readable the node reads them in turn, each core connection up to its share and the edge connections together up to theirs ([Expected Traffic](#expected-traffic)).
-4. The volume a neighbor sends is never a cause for closing a connection or for blacklisting.
+1. A node reads at most $`r_1`$ messages from a core connection in a round. A connection whose share is spent is not read until the next round.
+2. The volume a neighbor sends is never a cause for closing a connection or for blacklisting.
 
 **Liveness**
 
-1. A connection with a core node is **live** when the neighbor has delivered, within the trailing window $`W`$, a message carrying a nullifier that neighbor had not delivered within the window before. A message discarded as a duplicate counts: novelty is judged against that neighbor's deliveries alone. A node records the nullifiers each neighbor delivers, for the window.
+1. A connection with a core node is **live** when the neighbor has delivered a message, duplicate or not, within the trailing window $`W`$.
 2. A connection counts as live until its observation reaches $`W`$.
 3. A neighbor whose connection is not live is not blacklisted.
 
 **Degree**
 
 1. A core node holds between $`\Phi_{CC} - 1`$ and $`\Phi_{CC} + 1`$ connections with core nodes. It opens connections while it holds fewer than $`\Phi_{CC} - 1`$ live ones, and accepts connections while it holds fewer than $`\Phi_{CC} + 1`$; a connection offered above that is closed.
-2. It draws the nodes it opens uniformly at random and without replacement from the set returned by the SDP protocol, excluding itself, blacklisted identities and its current neighbors. A peer whose handshake is in progress is a current neighbor for this purpose.
+2. It draws the nodes it opens uniformly at random and without replacement from the set returned by the SDP protocol, excluding itself, blacklisted identities and its current neighbors.
 3. A connection that is not live is closed.
-4. A connection whose handshake is in progress counts towards $`\Phi_{CC}`$ once the [Neighbor Distinction Process](#neighbor-distinction-process) has identified the neighbor as a core node. A handshake that has not completed within $`T_H`$ is abandoned and its slot released. At most $`\Phi_{CC} + 1 + \Phi_{CE}^{Max}`$ handshakes are in progress at once, and one offered above that is closed.
+4. A connection whose handshake is in progress counts towards $`\Phi_{CC}`$ once the [Neighbor Distinction Process](#neighbor-distinction-process) has identified the neighbor as a core node, and its peer is a current neighbor for rule 2. A handshake that has not completed within $`T_H`$ is abandoned and its slot released. At most $`\Phi_{CC} + 1 + \Phi_{CE}^{Max}`$ handshakes are in progress at once, and one offered above that is closed.
 
 **Blacklist**
 
@@ -560,7 +557,7 @@ A failure of the authenticated stream is a TLS record that fails authentication,
 
 **Edge Nodes**
 
-1. A core node holds at most $`\Phi_{CE}^{Max}`$ connections with edge nodes at once. A connection offered above that number is closed.
+1. A core node holds at most $`\Phi_{CE}^{Max}`$ connections with edge nodes at once, and accepts at most $`r_E`$ of them in a round. A connection offered above either is closed.
 2. A connection with an edge node is closed once the edge node has sent its message, or once $`T_E`$ has elapsed from accepting it. $`T_E`$ covers one encapsulated message of $`19318`$ bytes ([Message Formatting](message-formatting.md)), which takes $`0.15`$ s over a $`1`$ Mbit/s link; a further $`20\%`$ for framing and $`0.5`$ s of latency keep the total under one round.
 3. An edge node whose message fails header verification has its connection closed. It is not blacklisted.
 
@@ -569,7 +566,7 @@ A failure of the authenticated stream is a TLS record that fails authentication,
 A node logs:
 
 - every connection it closes, and every addition to and expiry from the blacklist;
-- every round in which the admission budget was empty;
+- every round in which a connection's share was spent;
 - every period during which it holds fewer than $`\Phi_{CC} - 1`$ live connections with core nodes.
 
 Each entry carries the identity of the neighbor and the reason.
@@ -879,7 +876,7 @@ When this happens, a number of messages (limited by the [Quota](#quota)) are gen
 The relaying logic is defined as follows:
 
 1. The node checks the header of the message that was received from its neighbor, according to the [Message Formatting](message-formatting.md).
-    1. If the neighbor is a core node, then the message counts towards the liveness of the connection and spends the admission budget ([Connectivity Maintenance](#connectivity-maintenance)).
+    1. If the neighbor is a core node, then the message counts towards the liveness of the connection and towards its share ([Connectivity Maintenance](#connectivity-maintenance)).
     2. If the neighbor is an edge node, then close the connection with the neighbor.
     3. If the header of the message is incorrect, then discard the message and mark the neighbor as malicious and close the connection. We assume that an adversary cannot inject any spoofed message to the connection.
     4. If the PoQ nullifier $`\nu_i \in \mathbf H`$ from the public header of the message is already in the nullifier cache, then the message is a duplicate and must be discarded. Cached entries are retained for the duration of the current epoch and the [Transition Period](#transition-period).
