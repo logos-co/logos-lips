@@ -161,7 +161,7 @@ If the minimal network size is not reached, nodes must not use the Blend protoco
 
 ### Maintenance
 
-A core node bounds the messages it receives and maintains its connections as defined in [Connectivity Maintenance](#connectivity-maintenance).
+A core node reads at most a share of messages from each connection per round, sized to what the slowest node the protocol targets can process, and keeps a connection only while its neighbor delivers. It maintains its peering degree and blacklists a neighbor only for a fault the neighbor is answerable for ([Connectivity Maintenance](#connectivity-maintenance)).
 
 ## Messages
 
@@ -302,7 +302,7 @@ The bootstrapping defines the process of creating the network, which happens at 
             2. The neighbor learns that the node is a core node.
             3. The node stops connecting to selected peer after reaching the maximum number of tries ($`\Omega_C`$ parameter: [Core Node Parameters](#core-node-parameters)). Then a new random peer is selected.
 
-    3. It repeats the above steps until it holds $`\Phi_{CC} - 1 = 3`$ connections ([Global Parameters](#global-parameters)).
+    3. It repeats the above steps until it holds three connections, one below the peering degree ([Global Parameters](#global-parameters)).
 4. It maintains all connections as defined in [Connectivity Maintenance](#connectivity-maintenance).
 5. If two nodes open two connections with each other, so that both have incoming and outgoing connections to the same neighbor (core node), then:
     1. The node with the lower public key value (`provider_id` from SDP) must close the outgoing connection to the node with the higher public key value.
@@ -455,7 +455,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`F_T`$ denote a frequency at which messages carrying transactions are generated per round;
 - $`C = E \cdot F_C`$ denote the expected number of cover messages that are generated during an epoch by the core nodes;
 - $`R_C`$ denote a redundancy parameter for cover messages, defining the number of “replications” of the same message;
-- $`R_D`$ denote a redundancy parameter for data messages, defining the number of “replications” of the same message;
+- $`R_D`$ denote a redundancy parameter for block proposals, defining the number of “replications” of the same message;
 - $`\mathcal{N} = \text{SDP}(e)`$ denote a set of core nodes providing the Blend service for the epoch $`e`$ returned by the SDP protocol ([Service Declaration Protocol](bedrock-service-declaration-protocol.md));
 - $`N = |\mathcal N|`$ denote a number of core nodes providing the Blend service;
 - $`\text {CSPRNG}()`$ is a cryptographically secure pseudo-random number generator, implemented as a [ChaCha20-Based PRNG Construction](common-cryptographic-components.md#chacha20-based-prng-construction);
@@ -474,8 +474,8 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`W=10 \cdot \Delta_{max}=30`$, the observation window is $`30`$ rounds.
 - $`F_C=1`$, the network generates one cover message per round on average.
 - $`F_D=1/30`$, the network generates one block proposal every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)).
-- $`F_T = 170/30`$, the network carries $`170`$ messages carrying transactions per slot of $`30`$ rounds, whatever quota backs them, each holding as many transactions as fit its payload ([Payload Formatting](payload-formatting.md)): $`\left(r_1 / \beta_{max} - \max(F_C, F_D)\right) \cdot 30 = 170`$ ([Expected Traffic](#expected-traffic)).
-- $`R_C=0`$ and $`R_D=0`$, no replication of cover or data messages is used in this version of the protocol.
+- $`F_T = 170/30`$, the network carries $`170`$ messages carrying transactions per slot of $`30`$ rounds, whatever quota backs them, each carrying one or more transactions ([Payload Formatting](payload-formatting.md)): $`\left(r_1 / \beta_{max} - \max(F_C \cdot (1 + R_C), F_D \cdot (1 + R_D))\right) \cdot 30 = 170`$ ([Expected Traffic](#expected-traffic)).
+- $`R_C=0`$ and $`R_D=1`$: a cover message is not replicated, and a block proposal is replicated once. A transaction is not replicated.
 - $`\Phi_{CC}=4`$, the peering degree ([Connectivity Maintenance](#connectivity-maintenance)).
 - $`V = 156`$ messages per second the slowest node the protocol targets processes, one below the $`157`$ measured on one core of a Raspberry Pi 5 ([benchmark](https://github.com/logos-blockchain/research/tree/blend-header-verification-benchmark/tools/benchmarks/blend-header-verification)).
 - $`r_1 = 20`$ messages a node reads from a core connection per round, and $`r_E = 24`$ connections with edge nodes it accepts per round: $`r_1 = \lfloor (2V/3) / (\Phi_{CC} + 1) \rfloor`$ and $`r_E = 2V/3 - \Phi_{CC} \cdot r_1`$, so a node at its peering degree reads two thirds of $`V`$, and at one above it $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124 \le V`$ ([Expected Traffic](#expected-traffic)).
@@ -520,10 +520,10 @@ A message is **novel** to a node when its proof of quota nullifier is not in the
 The rate a core connection carries is:
 
 $$
-F_1 = \left( \max\left(F_C \cdot (1 + R_C),\ F_D \cdot (1 + R_D)\right) + F_T \cdot (1 + R_D) \right) \cdot \beta_{max} = 20.0
+F_1 = \left( \max\left(F_C \cdot (1 + R_C),\ F_D \cdot (1 + R_D)\right) + F_T \right) \cdot \beta_{max} = 20.0
 $$
 
-Flooding delivers each message once per neighbor, so $`F_1`$ must not exceed $`r_1`$; above it the slowest nodes throttle continuously, and $`F_T`$ is the largest rate that keeps it within. Messages backed by a proof of work count within $`F_T`$, and the threshold $`d_{blend}`$ of [Blend Difficulty](#blend-difficulty) is set so that they do, for the slowest node the protocol targets.
+Flooding delivers each message once per neighbor, so $`F_1`$ must not exceed $`r_1`$; above it the slowest nodes throttle continuously, and $`F_T`$ is the largest rate that keeps it within. Messages backed by a proof of work count within $`F_T`$, and the threshold $`d_{blend}`$ of [Blend Difficulty](#blend-difficulty) is set so that they do on the slowest node the protocol targets, a Raspberry Pi 5 ([Global Parameters](#global-parameters)).
 
 A node reads at most $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124`$ messages in a round, which must not exceed $`V`$, and verifies the public header of novel messages only ([Relaying](#relaying)). At $`19318`$ bytes per message ([Message Formatting](message-formatting.md)) that is $`2.4`$ MB/s.
 
@@ -551,7 +551,7 @@ A node reads at most $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124`$ messages in a rou
 
 A failure of the authenticated stream is a violation of the framing of the stream.
 
-1. A connection with a core node whose authenticated stream fails, or that carries a message with a malformed header, an invalid signature, or an invalid proof of quota, is closed and its neighbor is added to the **blacklist**. A message discarded as a duplicate, or as belonging to an epoch the node no longer accepts ([Transition Period](#transition-period)), carries no reaction.
+1. A connection with a core node whose authenticated stream fails, or that carries a message with a malformed header, an invalid signature, or an invalid proof of quota, is closed and its neighbor is added to the **blacklist**. A message discarded as a duplicate carries no reaction.
 2. A blacklisted identity is refused on incoming and on outgoing connections. An entry expires after $`W`$ rounds.
 3. The blacklist holds at most $`2 \cdot \Phi_{CC}`$ entries, and the oldest is discarded when it is full.
 
@@ -640,7 +640,7 @@ $$
 where:
 
 - $`\beta_D`$ denotes the expected number of blending operations for each data message;
-- $`R_D`$ denotes a redundancy parameter for data messages, defining the number of “replications” of the same message.
+- $`R_D`$ denotes a redundancy parameter for block proposals, defining the number of “replications” of the same message.
 
 We can calculate an average data message number ($`D_{Avg}`$) which informs us about the average number of data messages generated per epoch:
 
@@ -889,7 +889,7 @@ The node must cache the PoQ nullifiers ($`\nu_i`$) for every message it relays f
 
 $$
 \begin{aligned}
-(E + T)\cdot \left( \max\left(F_C \cdot (1+R_C),\ F_D \cdot (1+R_D)\right) + F_T \cdot (1+R_D) \right) \cdot \beta_{max} \cdot |\nu_i|
+(E + T)\cdot \left( \max\left(F_C \cdot (1+R_C),\ F_D \cdot (1+R_D)\right) + F_T \right) \cdot \beta_{max} \cdot |\nu_i|
 \end{aligned}
 $$
 
