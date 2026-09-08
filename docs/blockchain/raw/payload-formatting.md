@@ -27,7 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-04-09 |
 | 1.1.0 | Updated `Max_Body_Length` to 34574 bytes, the maximum block proposal size once a proposal carries the signed headers of the uncles it references (see [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md)). | 2026-08-06 |
 | 1.1.1 | Updated `Max_Body_Length` to 18192 bytes, following the compression of transaction references to 16-byte prefixes and their encoding as a variable-length list (see [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md)). | 2026-08-18 |
-| 1.2.0 | Add the transaction `body_type`, bound a carried transaction to `Max_Body_Length`, and state the fixed-length padding cost it inherits | 2026-09-08 |
+| 1.2.0 | Add the transaction `body_type` carrying a length-prefixed sequence of transactions, bound the sequence to `Max_Body_Length`, and state the fixed-length padding cost it inherits | 2026-09-04 |
 
 # Introduction
 
@@ -65,7 +65,7 @@ We define the following values of the `body_type`:
 
 - `body_type=0x00`, informs that the `body` contains a cover message.
 - `body_type=0x01`, informs that the `body` contains a data message carrying a block proposal.
-- `body_type=0x02`, informs that the `body` contains a data message carrying a Mantle transaction.
+- `body_type=0x02`, informs that the `body` contains a data message carrying one or more Mantle transactions.
 
 Any other value of type means that the message was not decapsulated correctly and must be discarded.
 
@@ -77,7 +77,9 @@ We define the `body_length` as uint16 (encoded as little-endian). Therefore, the
 
 The `Max_Body_Length` parameter defines the maximum length of the `body`. The maximal length of a raw data message is the maximum size of a [Block Proposal](bedrock-v1.1-block-construction.md#block-proposal) — 18192 bytes, reached when the proposal carries `MAX_UNCLES` signed uncle headers and references `MAX_BLOCK_TXS` transactions — so the `Max_Body_Length=18192`. Because the padding below fixes every `body` to this length, the variable size of a proposal (which depends on the number of referenced uncles and transactions) is not observable on the wire, which is what preserves the indistinguishability of proposals required by the [Blend Protocol](blend-protocol.md).
 
-A transaction carried over the Blend network must fit into `Max_Body_Length` once encoded.
+Transactions are carried as a sequence. The `body` of a `body_type=0x02` payload is one or more encoded transactions, each prefixed by its encoded length as a `uint16` (little-endian), and `body_length` covers the whole sequence. The sequence must consume exactly `body_length` bytes; a payload whose length prefixes do not is malformed and must be discarded.
+
+The sequence must fit into `Max_Body_Length` once encoded.
 
 The `body` length is fixed to `Max_Body_Length` bytes. Therefore, if the length of the raw message is shorter than the `Max_Body_Length`, then it must be padded with random data.
 
