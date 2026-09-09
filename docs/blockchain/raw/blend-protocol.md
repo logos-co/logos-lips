@@ -531,6 +531,8 @@ A node reads at most $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124`$ messages in a rou
 
 **Admission**
 
+The shares keep the messages a node reads in a round within what the slowest node the protocol targets can verify, $`V`$ ([Expected Traffic](#expected-traffic)).
+
 1. A node reads at most $`r_1`$ messages from a core connection in a round. A connection whose share is spent is not read until the next round.
 2. A node sends at most $`r_1`$ messages on a core connection in a round. A message that has waited $`\eta`$ rounds to be sent on a connection is discarded for that connection.
 3. The volume a neighbor sends is never a cause for closing a connection or for blacklisting.
