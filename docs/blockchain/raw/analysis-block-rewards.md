@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Name | [Analysis] Block Rewards |
-| Slug | TBD |
+| Slug |  |
 | Status | raw |
 | Category | Informational |
 | Editor | Frederico Teixeira <frederico@logos.co> |
