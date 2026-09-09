@@ -173,7 +173,7 @@ def update_leader_rewards(e: epoch, # rewards for the epoch e
     for b in e.blocks: # for each block of the previous epoch
         settlement += get_block_rewards(b) # accrue, do not split per block
         leader_rewards += get_execution_market_tips(b) # tips, in full, no Blend share
-    leader_rewards += 2 * settlement // 5 # the residual, 40%
+    leader_rewards += settlement - (3 * settlement // 5) # the residual, 40%
     return leader_rewards
 ```
 
