@@ -572,7 +572,9 @@ and nothing in this document recovers the space.
 - Validate in one pass. A `Remove` can only target an earlier entry,
   so a single forward walk carrying a liveness bitmap suffices.
 - Keep the verified payload, not the decoded log, as the retained per-account
-  state. Storing the bytes means the retained copy cannot drift from what was signed.
+  state. Storing the bytes means the retained copy cannot drift from what was
+  signed, and that an implementation updated to read a new `data_tag` can
+  recover what it previously held as an opaque slot by re-parsing.
 - Signal freshness with the entry count. It is monotonic and non-secret, so a
   protocol can carry the count it last saw alongside its own messages, and a
   consumer holding fewer entries re-fetches. Act on such a claim only when it
