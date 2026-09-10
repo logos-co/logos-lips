@@ -237,26 +237,45 @@ Text(String)           a UTF-8 record
 
 ### Contexts
 
-All entry_data in an AccountLog carries a **context**: a short string naming what the endorsement
-is for and how it can be used.
+All `Add` entries in an AccountLog carry a **context**:
+a short string naming what the endorsement is for and how it can be used.
+An encryption key, for example, may only be usable within certain use-cases —
+such as messaging or storage. The context allows this information to be bound
+to the `entry_data`, making it possible for applications to find the relevant
+information.
 
 ```text
-context   := <namespace> "." <label>
+context := <namespace> "." <label>
 ```
 
-The **namespace**, up to the first `.`, names the specification that defines
-the context. The **label** is the rest, and names one context within that
-namespace. Any further `.` are part of the label. The context `chat.messaging` is the
-label `messaging` in the namespace `chat`.
+The **namespace** identifies which "use-case" this entry relates to.
+It is defined and governed by a context specification.
 
-A consumer selects data it needs by its context and ignores the rest, including contexts it does not recognize.
+The **label** identifies one specific use within the namespace.
+The context `chat.messaging` is the label `messaging` in the namespace `chat`.
+Context specifications define the labels, their valid uses, as well as data
+parsing/validity rules.
+
+A consumer selects data it needs by its context and ignores the rest,
+including contexts it does not recognize.
 
 This document defines and allocates no context. There is no registry —
-a specification defines its own namespace.
+a context specification defines its own namespace.
+Collision avoidance is out of scope.
 
 **Requirements:**
 
-- A consumer MUST only use a key or record for the purpose defined by its context specification.
+- A context specification SHOULD be created which governs each namespace.
+- A consumer MUST split a context at its first full stop (0x2E):
+  everything before is the namespace, everything after is the label.
+- A `namespace` MUST be a non-empty sequence of at most 16 ASCII octets,
+  each of which is a lowercase letter (0x61–0x7A), a digit (0x30–0x39),
+  or a hyphen-minus (0x2D). No other octet is permitted.
+- A `label` MUST be a non-empty sequence of at most 64 ASCII octets,
+  each of which is a lowercase letter (0x61–0x7A), a digit (0x30–0x39),
+  a hyphen-minus (0x2D), or a full stop (0x2E). No other octet is permitted.
+- A consumer MUST only use a key or record for the purpose defined by its
+  context specification.
 
 ### Unknown Entries
 
