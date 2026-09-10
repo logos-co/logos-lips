@@ -1991,7 +1991,7 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_SDP_WITHDRAW_GAS | 590 |
 | EXECUTION_SDP_ACTIVE_GAS | 590 |
 | EXECUTION_LEADER_CLAIM_GAS | 580 |
-| EXECUTION_CLAIM_POW_REWARD_GAS | 590 |
+| EXECUTION_CLAIM_POW_REWARD_GAS | 721 |
 
 ## Zero Knowledge Signature Scheme (ZkSignature)
 

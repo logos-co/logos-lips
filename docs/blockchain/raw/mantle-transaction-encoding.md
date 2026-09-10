@@ -33,6 +33,7 @@
 | 1.6.1 | Renamed the `LockedNoteId` production of the SDP Operations into `ServiceNoteId` | 2026-08-27 |
 | 1.7.0 | Added the `ChannelConfigOpProof` and `ChannelTransferOpProof` variants and factored the three channel threshold proofs into `ChannelMultiSigProof`, carrying the index of the signing key alongside each signature | 2026-08-31 |
 | 1.8.0 | Added the `ClaimPowReward` Operation payload; its proof is a `ZkSigProof` | 2026-09-08 |
+| 1.9.0 | The `ClaimPowReward` payload carries the Equi-X token: an 8-byte nonce and a 16-byte solution | 2026-09-10 |
 
 # Introduction
 
@@ -142,9 +143,11 @@ PublicKey        = ZkPublicKey
 ### Proof of work operations
 
 ```schema
-ClaimPowReward = EpochNonce BlockHash PublicKey
-EpochNonce     = FieldElement ; the epoch nonce the solution was found against
-BlockHash      = Hash32       ; recent canonical block the solution is anchored to
+ClaimPowReward = EpochNonce BlockHash PublicKey PowNonce PowSolution
+EpochNonce     = FieldElement ; the epoch nonce the token was found against
+BlockHash      = Hash32       ; recent canonical block the token is anchored to
+PowNonce       = 8BYTE        ; Equi-X nonce, little-endian
+PowSolution    = 16BYTE       ; Equi-X solution, 8 indices of 16 bits, each little-endian
 ```
 
 ### Transfer Operations

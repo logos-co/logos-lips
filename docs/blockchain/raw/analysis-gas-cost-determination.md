@@ -32,6 +32,7 @@
 | 1.5.3 | Adopted "active message" as the single name for the message | 2026-09-02 |
 | 1.5.4 | Renamed the `stake_manipulation_threshold` of the channel gas derivations into `transfer_threshold` and the Channel Stake Assignation section into Channel Transfer, following Mantle | 2026-08-31 |
 | 1.6.0 | Add the Execution Gas derivation for the `CLAIM_POW_REWARD` Operation | 2026-09-04 |
+| 1.7.0 | Price the Equi-X token verification a reward claim carries | 2026-09-10 |
 
 # Introduction
 
@@ -79,7 +80,7 @@ SDP_DECLARE_GAS               = 646
 SDP_WITHDRAW_GAS              = 590
 SDP_ACTIVE_GAS                = 590
 LEADER_CLAIM_GAS              = 580
-CLAIM_POW_REWARD_GAS          = 590
+CLAIM_POW_REWARD_GAS          = 721
 ```
 
 and come from our implementation observations as described in [Gas determination from measures](#gas-determination-from-measures).  To get these numbers, we based our calculations on the following measures:
@@ -89,6 +90,7 @@ and come from our implementation observations as described in [Gas determination
 | ZkSignature batch verification | 3,900,000 + number_of_proof x 590,000 |
 | Proof of Claim batch verification | 2,640,000 + number_of_proof x 580,000 |
 | Eddsa25519 signature verification | 56,000 |
+| Equi-X token verification | 131,000 |
 
 Comparison, list searching, hashes and operation in small fields are neglected. We also supposed that the initialization cost for batch verification is paid by everyone and deduced from the block directly. The user then pay only for the part that is proportional to the number of proofs.
 
@@ -229,15 +231,16 @@ Execution: ~580k CPU cycles.
 
 ## Claim PoW Reward
 
-This gas covers the verification of the [ZkSignature](bedrock-v1.1-mantle-specification.md) proof, the re-derivation of the puzzle ticket from the Operation payload, the comparison of that ticket against the reward difficulty, the lookup confirming the referenced block is canonical and within the acceptance window, the check that the ticket is not already in the nullifier set, and the check that the pool can cover a reward. Execution then inserts the nullifier, creates a single output note and decrements the pool.
+This gas covers the verification of the [ZkSignature](bedrock-v1.1-mantle-specification.md) proof, the verification of the [Equi-X](common-cryptographic-components.md#equi-x-asymmetric-client-puzzle) token the payload carries, the derivation of the challenge from that payload, the comparison of the token's effort against the reward effort, the lookup confirming the referenced block is canonical and within the acceptance window, the check that the token is not already in the nullifier set, and the check that the pool can cover a reward. Execution then inserts the nullifier, creates a single output note and decrements the pool.
 
-Execution: ~590k CPU cycles.
+Execution: ~721k CPU cycles.
 
 - Verification of the ZK signature: 590,000 cycles.
-- Re-derivation of the puzzle ticket: one `zkhash` over three field elements, negligible.
-- Comparison of the ticket against the reward difficulty: negligible.
+- Verification of the Equi-X token: 131,000 cycles. This regenerates and runs the token's hash program and checks the Equihash sums, and costs the same at every effort. It is measured at 54.7 microseconds on one core of a Raspberry Pi 5, the deployment target, rather than on the processor the rows above are taken from.
+- Derivation of the challenge and of the token digest: two hashes over a hundred bytes and change, negligible.
+- Comparison of the token's effort against the reward effort: negligible.
 - Lookup of the referenced block and the slot window comparison: negligible.
-- Verification that the ticket isn't already in the nullifier set: negligible.
+- Verification that the token isn't already in the nullifier set: negligible.
 - Verification that the pool covers the per-claim reward: negligible.
 - Insertion of the nullifier in the set: negligible.
 - Insertion of the note in the ledger: negligible.
