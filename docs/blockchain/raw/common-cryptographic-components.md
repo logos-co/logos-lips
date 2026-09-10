@@ -25,6 +25,7 @@
 | 1.0.1 | Renamed Nomos to Logos Blockchain | 2026-04-23 |
 | 1.0.2 | Clarification of the Poseidon2 function Add test values | 2026-05-07 |
 | 1.1.0 | [RFC] Replace the BLAKE2b-Based PRNG with ChaCha20 (ChaCha20Rng) | 2026-08-28 |
+| 1.2.0 | Define Equi-X, the client puzzle the proof of work reward claim is solved against | 2026-09-10 |
 
 # Introduction
 
@@ -42,6 +43,7 @@ The primitives span multiple domains:
 - The stream cipher (ChaCha20) provides deterministic pseudorandom byte generation and keystream encryption.
 - Signature schemes (EdDSA, ZkSignature) authenticate messages and participants, with ZkSignature designed specifically for ownership verification within zero-knowledge circuits.
 - Proof systems (Groth16) enable succinct and verifiable computation. Groth16 is used in hand-written circuits.
+- The client puzzle (Equi-X) prices an action in computation: it is expensive to solve and cheap to verify.
 
 Each primitive is chosen for its suitability in a particular context, balancing efficiency, cryptographic strength, and developer usability.
 
@@ -55,6 +57,7 @@ The table below summarizes the recommended component for each context:
 | General Signatures | [EdDSA](#eddsa) |
 | ZK Signatures | [ZkSignature](#zksignature-zero-knowledge-signature) (see [Mantle - Zero Knowledge Signature Scheme (ZkSignature)](bedrock-v1.1-mantle-specification.md)) |
 | Proof System (SNARK) | [Groth16](#groth16-zk-snark) |
+| Client Puzzle | [Equi-X](#equi-x-asymmetric-client-puzzle) |
 
 # 1. Hash Functions
 
@@ -291,6 +294,45 @@ Security Considerations:
 ## References
 
 - Groth16: [https://eprint.iacr.org/2016/260.pdf](https://eprint.iacr.org/2016/260.pdf)
+
+# 4. Client Puzzles
+
+## [Equi-X](https://github.com/tevador/equix) [(Asymmetric Client Puzzle)](https://spec.torproject.org/hspow-spec/index.html)
+
+Description:
+
+Equi-X is an asymmetric proof of work: finding a solution for a challenge is expensive, and verifying one is cheap and independent of the difficulty. It is [Equihash](https://eprint.iacr.org/2015/946) with parameters $`n=60`$, $`k=3`$ over [HashX](https://github.com/tevador/hashx), a per-input pseudo-random hash function, as used by the Tor onion-service proof of work (proposal 327).
+
+Technical Details:
+
+- Puzzle input: $`C \| nonce`$, where $`C`$ is the challenge, a byte string set by the verifier, and $`nonce`$ is $`8`$ bytes, little-endian.
+- Solution: $`8`$ indices of $`16`$ bits, serialized as each index in little-endian, $`16`$ bytes in total. A solution is valid for a puzzle input when Equi-X verification accepts it for that input.
+- Achieved effort: $`\text{effort}(C, nonce, sol) = \lfloor (2^{32}-1) / h_{32} \rfloor`$, where $`h_{32}`$ is the first $`4`$ bytes, big-endian, of the unkeyed BLAKE2b-256 of $`C \| nonce \| sol`$; when $`h_{32} = 0`$ the effort is $`2^{32}-1`$.
+- Token: the pair $`(nonce, sol)`$, serialized as the nonce followed by the solution, $`24`$ bytes. A token satisfies an effort target $`d`$ for a challenge $`C`$ when its solution is valid for $`C \| nonce`$ and $`\text{effort}(C, nonce, sol) \geq d`$. A larger target is a harder puzzle.
+- The expected cost of producing a satisfying token grows linearly with $`d`$. The cost and the size of verifying one are independent of $`d`$.
+- Solving needs about $`2`$ MB of working memory per instance; verification does not.
+
+Use in the Logos Blockchain:
+
+Equi-X is the puzzle a proof of work reward claim is solved against: the effort target is consensus state, and a claim carries the token that satisfies it ([CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward)).
+
+Rationale for Use:
+
+- HashX generates a fresh random program per nonce, so fixed-function hardware cannot bake the hash in; solving remains CPU-bound.
+- Verification runs in microseconds and does not grow with the target, so raising the price of a claim costs a validator nothing.
+- The token is $`24`$ bytes at every target, so difficulty has no bandwidth consequence.
+
+Security Considerations:
+
+- The puzzle is stateless and nothing in it prevents replay of a valid token. Single-use enforcement is an obligation of the protocol consuming the token.
+- Published solve rates are CPU measurements; a deployment must assume headroom for better-optimized solvers.
+
+## References
+
+- [Equi-X reference implementation](https://github.com/tevador/equix)
+- [HashX reference implementation](https://github.com/tevador/hashx)
+- [Tor onion-service proof of work (proposal 327)](https://spec.torproject.org/hspow-spec/index.html)
+- [Equihash](https://eprint.iacr.org/2015/946)
 
 # Annex
 
