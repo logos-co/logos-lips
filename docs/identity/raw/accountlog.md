@@ -519,15 +519,17 @@ data_body: variant, to the end of the entry body
 | `0x01` | Ed25519Key | Ed25519 32 bytes, fixed width |
 | `0x02` | Text | UTF-8 value, to the end of the entry body |
 
+`data_tag` values not assigned above are reserved.
+
 ```text
 0x01 <len> <u8 ctx_len> <context> 0x01 <32 bytes>   Add(Ed25519Key)
 0x01 <len> <u8 ctx_len> <context> 0x02 <value>      Add(Text), UTF-8
 ```
 
-The two tag spaces are independent:
-`data_tag` is only read after an `Add` opcode,
-so a future data variant and a future operation are separate allocations.
-`data_tag` values not assigned above are reserved.
+
+The `opcode` and `data_tag` spaces are independent: `data_tag` is only read
+after an `Add` opcode, so each may assign `0x01` for its own purpose.
+A future data variant and a future operation are therefore separate allocations.
 
 **Requirements:**
 
