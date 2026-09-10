@@ -31,7 +31,7 @@
 | 1.1.3 | Replaced the `block_root` header field with `body_root`, taken over an empty uncle header list and the initial transaction, due to updated [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md). | 2026-08-06 |
 | 1.1.4 | Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy. | 2026-08-25 |
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
-| 1.2.0 | Seed the pow reward pool at genesis | 2026-09-08 |
+| 1.2.0 | Seed the pow reward pool at genesis from the initial token distribution | 2026-09-08 |
 
 # Introduction
 
@@ -82,7 +82,9 @@ POW_REWARD_POOL_GENESIS: TokenValue   # Initial balance of the pow reward pool
 
 The seed is five thousandths of the maximum supply $`S_{cap}`$, as specified in [Reward Pool](proof-of-work.md#reward-pool).
 
-The pool holds a balance rather than notes, so unlike the stakeholder allocations above it does not appear as an output of the initial Transfer Operation. It is consensus state maintained as specified in [Reward Pool](proof-of-work.md#reward-pool), and after genesis it changes only through claims.
+This allocation is drawn from the initial token distribution, not created in addition to it: the tokens exist from genesis, and the seed determines how many of them are held in the pool rather than distributed to stakeholders directly.
+
+The pool holds a balance rather than notes, so unlike the stakeholder allocations above it does not appear as an output of the initial Transfer Operation. It is consensus state maintained as specified in [Reward Pool](proof-of-work.md#reward-pool), and after genesis it changes through the epoch-boundary refill and through claims.
 
 The seed is not part of the Cryptarchia parameter inscription, because it is not a Cryptarchia parameter. It is established during [Mantle Ledger Initialization](#mantle-ledger-initialization).
 
