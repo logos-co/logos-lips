@@ -103,7 +103,7 @@ All labels defined by this document use the namespace `profile`.
 
 ### Contexts
 
-| Context | `entry_data` | Description |
+| Context | `entry_data` Type | Description |
 | --- | --- | --- |
 | `profile.displayname` | Text | A short name for applications to use when displaying the account |
 
