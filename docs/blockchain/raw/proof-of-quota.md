@@ -61,15 +61,15 @@ class ProofOfQuotaPublic:
     # Public inputs:
     core_quota: int       # Allowed blending operations per epoch for core nodes (20 bits)
     leader_quota: int     # Allowed blending operations per election win (20 bits)
-    pow_quota: int        # Allowed blending operations per proof of work solution (20 bits)
     core_root: zkhash     # Merkle root of zk_id of the core nodes
+    pow_quota: int        # Allowed blending operations per proof of work solution (20 bits)
+    pol_ledger_aged: zkhash # Merkle root of the PoL eligible notes
     K_part_one: int       # First part of the signature public key (16 bytes)
     K_part_two: int       # Second part of the signature public key (16 bytes)
+    pow_blend_difficulty: zkhash # Blend threshold a PoW ticket must be below
     pol_epoch_nonce: int  # PoL Epoch nonce
     pol_t0: int           # PoL constant t0
     pol_t1: int           # PoL constant t1
-    pol_ledger_aged: zkhash # Merkle root of the PoL eligible notes
-    pow_blend_difficulty: zkhash # Blend threshold a PoW ticket must be below
 ```
 
 The proof's public signal vector is fixed by the circuit: the output first, then the public inputs in the order listed above.
