@@ -28,11 +28,13 @@
 
 # Introduction
 
-The mempool is a node's store of Mantle Transactions that have been submitted but are not yet in the canonical chain. It disseminates those transactions, supplies them to block building, and resolves the references a block proposal carries in place of transaction bodies.
+The mempool is a node's store of Mantle Transactions that have been submitted but are not yet in the canonical chain.
 
 # Overview
 
-A transaction enters the mempool by local submission, by gossip, or by re-insertion after a fork switch. While it is pending, the node relays and broadcasts it on the mempool topic, offers it to block building, and resolves against it the prefix a block proposal carries. It leaves when a block carrying it enters the canonical chain, when block building finds it can never apply, or when it expires.
+Each node keeps its own mempool. Nodes admit and retire independently, so their pending sets differ.
+
+A transaction is admitted, disseminated, offered to block building, and retired.
 
 # Construction
 
@@ -56,7 +58,7 @@ A transaction is keyed by `mantle_txhash(tx)`, defined in [Mantle](bedrock-v1.1-
 
 `by_prefix` maps `prefix(hash, REFERENCE_PREFIX_LENGTH)` to the pending hashes carrying that prefix, where `REFERENCE_PREFIX_LENGTH` is defined in [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md#references).
 
-`pending` holds each hash once, ordered by admission time. `insert_by` places a hash at the position its admission time gives it, which is not the end when a [Reorganisation](#reorganisation) re-admits a transaction.
+`insert_by` places a hash at the position its admission time gives it, which is not the end when a [Reorganisation](#reorganisation) re-admits a transaction.
 
 ## Transaction Admission
 
@@ -67,7 +69,7 @@ def admit(mempool, encoded: bytes, at: Timestamp = None) -> Result:
     if len(encoded) > MAX_BLOCK_SIZE:
         return Reject(TransactionTooLarge)
 
-    tx = decode_signed_mantle_tx(encoded)     # rejects trailing bytes
+    tx = decode_signed_mantle_tx(encoded)
     if tx is None:
         return Reject(Malformed)
 
@@ -85,7 +87,7 @@ def admit(mempool, encoded: bytes, at: Timestamp = None) -> Result:
     return Accept(key)
 ```
 
-Admission reads the transaction and the mempool. It must not read ledger state. A node must not treat membership of the mempool as evidence that a transaction can be applied.
+Admission reads the transaction and the mempool, and no other state. A node must not treat membership of the mempool as evidence that a transaction can be applied.
 
 `MAX_BLOCK_SIZE` is defined in [Cryptarchia Protocol](cryptarchia-v1-protocol.md#constants).
 
@@ -103,7 +105,7 @@ The payload is the canonical encoding defined in [Mantle Transaction Encoding](m
 
 ### Reorganisation
 
-When a fork switch displaces blocks from the canonical chain, the node re-admits the transactions they carried that the blocks now in the canonical chain do not carry, and broadcasts them. It re-admits each with its original admission time.
+When a fork switch displaces blocks from the canonical chain, the node re-admits the transactions they carried that the blocks now in the canonical chain do not carry. It re-admits each with its original admission time.
 
 ### Duplicates
 
@@ -114,9 +116,9 @@ When a fork switch displaces blocks from the canonical chain, the node re-admits
 
 ## Dissemination
 
-Transactions are disseminated by gossipsub on the mempool topic defined in [P2P Network](../draft/p2p-network.md#gossiping).
+Transactions are gossiped on the mempool topic defined in [P2P Network](../draft/p2p-network.md#gossiping).
 
-The message identity of a message on that topic is the Blake2b-256 digest of its payload bytes. Implementations must not use gossipsub's default source-and-sequence-number identity.
+A message's identity on that topic is the Blake2b-256 digest of its payload. Implementations must not use gossipsub's default source-and-sequence-number identity.
 
 A node relays a received message to its mesh neighbours on receipt, before admission.
 
@@ -126,17 +128,15 @@ A node broadcasts a transaction it admits by local submission or by re-insertion
 
 The mempool supplies the bodies of every pending transaction in admission order.
 
-A leader makes two determinations over that view.
-
 **Applicability.** The leader determines which transactions apply:
 
 1. Apply the block header to the ledger state. This is the working state.
 2. Pass over all pending transactions in admission order. Apply each transaction that succeeds to the working state.
 3. Repeat step 2 until a pass applies no transaction.
 
-No block limit applies to this computation. A transaction that never applies is retired, as specified in [Inapplicability](#inapplicability).
+No block limit applies to this computation.
 
-**Selection.** The leader fills the block from the applicable transactions in the same order, stopping at the first transaction that would exceed `MAX_BLOCK_TXS` or `MAX_BLOCK_SIZE`, both defined in [Cryptarchia Protocol](cryptarchia-v1-protocol.md#constants). A transaction left unselected is not retired.
+**Selection.** The leader fills the block from the applicable transactions in the same order, stopping at the first transaction that would exceed `MAX_BLOCK_TXS` or `MAX_BLOCK_SIZE`, both defined in [Cryptarchia Protocol](cryptarchia-v1-protocol.md#constants).
 
 ## Reference Resolution
 
@@ -150,9 +150,9 @@ def resolve(mempool, reference) -> Optional[SignedMantleTx]:
     return mempool.bodies[single(matches)]
 ```
 
-A reference resolves only when the match is unique. Zero matches and two or more matches are both unresolved. A non-unique match must not be searched.
+A non-unique match must not be searched.
 
-Resolution reads the proposal, `by_prefix` and `bodies`. It must not read the node's chain state, its peer set, or the order in which transactions were admitted.
+Resolution reads the proposal, `by_prefix` and `bodies`, and nothing else.
 
 How a validator uses the result, and what a failure to resolve establishes about the block, are specified in [Block Proposal Reconstruction](bedrock-v1.1-block-construction.md#block-proposal-reconstruction) and [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation).
 
@@ -186,7 +186,7 @@ A node does not persist `by_prefix`. It rebuilds the index from the recovered pe
 
 ## Node API
 
-A node exposes the mempool to local clients. These endpoints are operational and carry no consensus meaning.
+A node exposes the mempool to local clients through endpoints that carry no consensus meaning.
 
 | Operation | Description |
 | --- | --- |
