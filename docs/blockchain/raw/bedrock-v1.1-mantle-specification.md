@@ -261,7 +261,7 @@ Mantle Validators execute each Operation in `ops` according to its opcode, in th
 | *RESERVED* | *0x23 - 0x2F* |  |
 | LEADER_CLAIM | 0x30 | Claim leader reward anonymously. |
 | *RESERVED* | *0x31 - 0x3F* |  |
-| CLAIM_POW_REWARD | 0x40 | Claim a reward from the proof of work reward pool. |
+| CLAIM_POW_REWARD | 0x40 | Claim a reward from the pow reward pool. |
 | *RESERVED* | *0x41 - 0xFF* |  |
 
 ## Channel Operations
