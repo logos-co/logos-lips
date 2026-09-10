@@ -451,7 +451,7 @@ This is what makes an unrecognized entry skippable rather than fatal
 
 **Requirements:**
 
-- A consumer MUST reject the whole log if it contains a payload whose domain does not match byte-for-byte,
+- A consumer MUST reject the whole log if it contains a payload whose domain does not match byte-for-byte with the value defined in this specification.
   including the trailing NUL.
 - A consumer MUST reject the whole log if the final entry does not end
   exactly at the end of the payload.
