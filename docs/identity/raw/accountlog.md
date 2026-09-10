@@ -57,26 +57,36 @@ are to be interpreted as described in [RFC 2119](https://datatracker.ietf.org/do
 
 ## Motivation
 
-A user wants multiple application installations to act on behalf of their account.
+An account represents a person to the applications and the people they interact
+with. To its owner it holds what they would recognise as theirs — a name, a
+profile picture — and presents one identity that others can find and interact
+with. Behind that, it holds the keys applications need to communicate on their
+behalf, or to store data for them. One account, used consistently across every
+device and service the person uses.
 
-The simplest way to allow that is to give each installation a copy of the account key.
-Every installation then holds full control of the account:
-it can do anything the user can, for as long as it keeps the copy,
-and its actions are indistinguishable from the user's own.
-Removing one installation means changing the account key,
-which removes every other installation with it
-and changes the account for everyone who knew it.
-Applications are not trusted with that,
-and users should not have to trust them with it.
+An account is long-lived, and everything about it moves. People update their
+name and bio, install new applications, replace a phone, and lose a laptop.
+An account must therefore be mutable, and must outlast any one service,
+application or device.
+
+Being long-lived also makes it worth attacking: whoever compromises an account
+can masquerade as its owner. So handing every application a copy of the account
+key is not a workable design. Every application holding a copy can act as the
+user everywhere, and nothing tells one application's actions from another's, or
+from the user's own. A copy cannot be recalled once given. The only way to lock
+out a faulty or malicious application is to change the account key itself —
+which locks out every other application too, and leaves everyone who knew the
+account needing to learn it again.
 
 What is wanted instead is for every installation to operate under its own key:
 unique to it, never shared, and limited to what that installation is for.
-The account can then withdraw any one of those keys
-without affecting the others and without changing the account itself.
+The account then records the user's own data alongside the set of keys
+currently allowed to act for them. Any one of those keys can be withdrawn at
+any time, without affecting the others and without changing the account itself.
 
-An account is therefore not a key.
-It is a set of keys that changes over the account's life,
-together with associated metadata about the account.
+An account is therefore not a key. It is a set of keys and records that its
+owner revises over time, that anyone can verify, and that no single service has
+to hold.
 
 ## Theory / Semantics
 
@@ -525,7 +535,6 @@ data_body: variant, to the end of the entry body
 0x01 <len> <u8 ctx_len> <context> 0x01 <32 bytes>   Add(Ed25519Key)
 0x01 <len> <u8 ctx_len> <context> 0x02 <value>      Add(Text), UTF-8
 ```
-
 
 The `opcode` and `data_tag` spaces are independent: `data_tag` is only read
 after an `Add` opcode, so each may assign `0x01` for its own purpose.
