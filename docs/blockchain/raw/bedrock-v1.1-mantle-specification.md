@@ -139,7 +139,7 @@ def checked_int128(value: int) -> int:
         return value
 ```
 
-The proof of work difficulty updates are the exception to these bounds; they are specified in [Puzzle Target](proof-of-work.md#puzzle-target).
+The proof of work difficulty updates are the exception to these bounds; they are specified in [Blend Puzzle Target](proof-of-work.md#blend-puzzle-target) and [Reward Effort Target](proof-of-work.md#reward-effort-target).
 
 ## Mantle Transaction Fee
 
