@@ -34,7 +34,7 @@ The mempool is a node's store of Mantle Transactions that have been submitted bu
 
 Each node keeps its own mempool. Nodes admit and retire independently, so their pending sets differ.
 
-A transaction is admitted, disseminated, offered to block building, and retired.
+A transaction is admitted, disseminated, offered to block building, retired, and released.
 
 # Construction
 
@@ -43,6 +43,11 @@ A transaction is admitted, disseminated, offered to block building, and retired.
 | Constant | Name | Description | Value |
 | --- | --- | --- | --- |
 | `TRANSACTION_TTL` | Transaction Time To Live | How long a transaction may stay pending before it is retired. | 24 hours |
+| `TRANSACTION_RETENTION` | Transaction Retention | How long a transaction stays resolvable before it is released. | `2 * TRANSACTION_TTL` |
+
+`TRANSACTION_TTL` must not exceed the [Prolonged Bootstrap Period](cryptarchia-v1-bootstr-sync.md#prolonged-bootstrap-period). A node that has just completed that period cannot resolve a reference to a transaction admitted before the period began.
+
+`TRANSACTION_RETENTION` must exceed `TRANSACTION_TTL` by more than a block proposal spends crossing the Blend network ([Transition Period](blend-protocol.md#transition-period)). Otherwise a proposal that selects a transaction just under `TRANSACTION_TTL` arrives after that transaction was released.
 
 ## Mempool State
 
@@ -50,13 +55,15 @@ A transaction is admitted, disseminated, offered to block building, and retired.
 class Mempool:
     pending: TimeOrderedSet[TxHash]     # admitted, not yet retired, in admission order
     bodies: Map[TxHash, SignedMantleTx] # transaction bodies
-    admitted_at: Map[TxHash, Timestamp] # admission time, per pending transaction
-    by_prefix: Map[bytes, Set[TxHash]]  # pending hashes, keyed by reference prefix
+    admitted_at: Map[TxHash, Timestamp] # admission time
+    by_prefix: Map[bytes, Set[TxHash]]  # hashes keyed by reference prefix
 ```
 
 A transaction is keyed by `mantle_txhash(tx)`, defined in [Mantle](bedrock-v1.1-mantle-specification.md#mantle-transaction-hash).
 
-`by_prefix` maps `prefix(hash, REFERENCE_PREFIX_LENGTH)` to the pending hashes carrying that prefix, where `REFERENCE_PREFIX_LENGTH` is defined in [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md#references).
+A transaction is **retained** between its [Retirement](#retirement) and its [Release](#release). `bodies`, `admitted_at` and `by_prefix` hold the retained transactions as well as the pending ones.
+
+`by_prefix` maps `prefix(hash, REFERENCE_PREFIX_LENGTH)` to the hashes carrying that prefix, where `REFERENCE_PREFIX_LENGTH` is defined in [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md#references).
 
 `insert_by` places a hash at the position its admission time gives it, which is not the end when a [Reorganisation](#reorganisation) re-admits a transaction.
 
@@ -81,13 +88,15 @@ def admit(mempool, encoded: bytes, at: Timestamp = None) -> Result:
         return Duplicate(key)
 
     mempool.bodies[key] = tx
-    mempool.admitted_at[key] = at if at is not None else now()
+    mempool.admitted_at[key] = at if at is not None else mempool.admitted_at.get(key, now())
     mempool.pending.insert_by(key, mempool.admitted_at[key])
     mempool.by_prefix[prefix(key, REFERENCE_PREFIX_LENGTH)].add(key)
     return Accept(key)
 ```
 
 Admission reads the transaction and the mempool, and no other state. A node must not treat membership of the mempool as evidence that a transaction can be applied.
+
+Admitting a retained transaction again does not change its admission time.
 
 `MAX_BLOCK_SIZE` is defined in [Cryptarchia Protocol](cryptarchia-v1-protocol.md#constants).
 
@@ -117,6 +126,8 @@ When a fork switch displaces blocks from the canonical chain, the node re-admits
 ## Dissemination
 
 Transactions are gossiped on the mempool topic defined in [P2P Network](../draft/p2p-network.md#gossiping).
+
+A node subscribes to the topic when it starts [Listening for New Blocks](cryptarchia-v1-bootstr-sync.md#listening-for-new-blocks).
 
 A message's identity on that topic is the Blake2b-256 digest of its payload. Implementations must not use gossipsub's default source-and-sequence-number identity.
 
@@ -174,15 +185,19 @@ A pending transaction whose age exceeds `TRANSACTION_TTL` is retired.
 
 ### Effects of Retirement
 
-Retirement removes the hash from `pending` and from `by_prefix`, and discards its `admitted_at` entry and its body.
-
 A retired transaction that is gossiped again is admitted again.
+
+## Release
+
+A retained transaction whose age exceeds `TRANSACTION_RETENTION` is released.
+
+Release removes the hash from `by_prefix`, and discards its `admitted_at` entry and its body.
 
 ## Persistence and Recovery
 
-A node persists the pending hashes, their admission timestamps, and the transaction bodies.
+A node persists the pending and the retained hashes, their admission timestamps, and the transaction bodies.
 
-A node does not persist `by_prefix`. It rebuilds the index from the recovered pending set.
+A node does not persist `by_prefix`. It rebuilds the index from the recovered hashes.
 
 ## Node API
 
@@ -192,12 +207,14 @@ A node exposes the mempool to local clients through endpoints that carry no cons
 | --- | --- |
 | Submit transaction | Admit a transaction by local submission and broadcast it. Returns the outcome of [Transaction Admission](#transaction-admission). |
 | View | The hashes of the pending transactions. |
-| Status | For each queried hash, whether the transaction is pending or unknown to this node. |
+| Status | For each queried hash, whether the transaction is pending, retained, or unknown to this node. |
 | Metrics | The number of pending transactions and the time of the most recent admission. |
 
 # References
 
+- [Blend Protocol](blend-protocol.md)
 - [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md)
+- [Cryptarchia Bootstrapping & Synchronization](cryptarchia-v1-bootstr-sync.md)
 - [Cryptarchia Protocol](cryptarchia-v1-protocol.md)
 - [Mantle](bedrock-v1.1-mantle-specification.md)
 - [Mantle Transaction Encoding](mantle-transaction-encoding.md)
