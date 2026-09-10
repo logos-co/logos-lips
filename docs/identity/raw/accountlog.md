@@ -671,9 +671,6 @@ account signing key (seed):  9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703
 account address (public key): d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a
 endorsed key 1:              3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c
 endorsed key 2:              fc51cd8e6218a1a38da47ed00230f0580816ed13ba3303ac5deb911548908025
-domain:                      6c6f676f733a6163636f756e74733a3100
-opcode Add    = 0x01
-opcode Remove = 0x02
 contexts used:               chat.messaging, profile.displayname, storage.vault
 ```
 
