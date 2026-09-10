@@ -46,6 +46,10 @@ are to be interpreted as described in [RFC 2119](https://datatracker.ietf.org/do
   see [Account Address](#account-address).
 - **Account Log** — the append-only list of entries an account has signed.
 - **Consumer** — any party that reads an account's log.
+- **Domain** — the constant byte prefix every payload begins with
+  (`logos:accounts:1\0`); carries the encoding version and separates
+  account-log signatures from any other use of the account key;
+  see [Log Encoding](#log-encoding).
 - **Owner** — the party holding the account signing key,
   and so the only party that can extend the log.
 - **Live Set** — the entries in a log that no `Remove` targets;
@@ -355,9 +359,11 @@ consumer understands.
 
 ### Versioning
 
-The encoding version lives in the domain string (`logos:accounts:1`).
-A layout change is a new domain, which is a new signature domain,
-so payloads of different versions cannot be confused, by construction.
+The encoding version lives in the domain (`logos:accounts:1\0`), the constant
+prefix every payload begins with — see [Log Encoding](#log-encoding).
+A layout change means a new domain, and the domain is inside the signed bytes,
+so a signature over one version's payload can never verify as another's.
+Payloads of different versions cannot be confused, by construction.
 
 The framing in [Entry Encoding](#entry-encoding) means most future changes
 do not need a version bump at all:
@@ -367,7 +373,6 @@ The version is reserved for changes to the payload or entry *framing* itself.
 
 **Requirements:**
 
-- A consumer MUST reject the whole log if it contains a payload whose domain does not match byte-for-byte.
 - A consumer SHOULD distinguish, in the error it reports,
   a payload bearing `logos:accounts:` with an unrecognized version
   from a payload that is malformed,
@@ -430,7 +435,7 @@ entry* : zero or more entries, concatenated, filling the payload exactly
 ```
 
 The domain provides domain separation: the account key may live in an external
-signer (wallet, enclave) that signs other things, and the prefix stops a
+signer (wallet, enclave) that signs other things, and the domain stops a
 signature obtained for another purpose from being replayed as an account-log
 signature, and vice-versa. The trailing NUL keeps the domain from being a
 prefix of any other domain.
@@ -446,7 +451,7 @@ This is what makes an unrecognized entry skippable rather than fatal
 
 **Requirements:**
 
-- A consumer MUST reject the whole log if it contains a payload whose domain prefix does not match byte-for-byte,
+- A consumer MUST reject the whole log if it contains a payload whose domain does not match byte-for-byte,
   including the trailing NUL.
 - A consumer MUST reject the whole log if the final entry does not end
   exactly at the end of the payload.
