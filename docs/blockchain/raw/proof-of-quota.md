@@ -138,9 +138,8 @@ key_nullifier = zkhash(b"KEY_NULLIFIER_V1", selection_randomness)
 
   and `period_nonce` is:
 
-  - The `pol_epoch_nonce` if the node is a core node.
+  - The `pol_epoch_nonce` if the node is a core node or if the proof is backed by proof of work.
   - The winning slot of the PoL if it’s a leader node.
-  - The `pol_epoch_nonce` if the proof is backed by proof of work.
 
   Here we use two hashes because the selection randomness is used in the Proof of Selection in order to prove the ownership of a valid PoQ (see [Proof of Selection](blend-protocol.md#proof-of-selection)).
 
