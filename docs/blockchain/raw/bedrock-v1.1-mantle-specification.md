@@ -41,6 +41,7 @@
 | 1.10.2| Precise the state validation reads: the Operations of a Mantle Transaction are validated and executed one after the other in the order they appear, each against the state the preceding ones left, and a Mantle Transaction against the state the transactions preceding it in the block left. Accumulated the transaction balance along that pass, replacing `get_transaction_balance` | 2026-08-24 |
 | 1.11.0 | Track the configuration lineage of a channel: `ChannelState` gains `config_tip_hash` and the `CHANNEL_CONFIG` payload carries the `parent` configuration it extends, ordering configurations and preventing their replay | 2026-08-27 |
 | 1.11.1 | Renamed locked notes into service notes: `service_notes`, `ServiceNote` and `service_note_id` replace their locked counterparts, and the note kind is named after the role it plays rather than after the state it is left in | 2026-08-27 |
+| 1.12.0 | Added the `expiry_slot` field on `MantleTx` and the transaction validity window. | 2026-09-01 |
 
 # Introduction
 
@@ -79,6 +80,7 @@ Mantle Transactions form the core of Mantle, enabling users to combine multiple 
 
 ```python
 class MantleTx:
+    expiry_slot: SlotNumber   # last slot at which a block may include this transaction
     ops: list[Op]
 
 class Op:
@@ -96,6 +98,34 @@ def mantle_txhash(tx: MantleTx) -> Hash:
 ```
 
 The [hash function used](common-cryptographic-components.md), as well as other cryptographic primitives like ZK proofs and signature schemes, are described in [Common Cryptographic Components](common-cryptographic-components.md).
+
+## Transaction Validity Window
+
+| Constant | Description | Value |
+| --- | --- | --- |
+| `TX_VALIDITY_WINDOW` | The length, in slots, of the interval during which a transaction may be included in a block. | 7200 slots |
+| `TX_EXPIRY_QUANTUM` | The granularity of `expiry_slot`. Every deadline is a multiple of this value. | 900 slots |
+
+A block whose header slot is `s` may include a transaction `tx` only if both hold:
+
+```python
+tx.expiry_slot % TX_EXPIRY_QUANTUM == 0
+s <= tx.expiry_slot <= s + TX_VALIDITY_WINDOW
+```
+
+Evaluate the window as the addition written above. The algebraically equivalent `expiry_slot - TX_VALIDITY_WINDOW` underflows for any deadline below `TX_VALIDITY_WINDOW`, and [Arithmetic](#arithmetic) makes that an error rather than a wrap, so the two forms do not agree on the blocks they accept.
+
+A transaction builder must set `expiry_slot` to:
+
+```python
+def next_expiry_slot() -> SlotNumber:
+    horizon = current_slot() + TX_VALIDITY_WINDOW
+    return horizon - (horizon % TX_EXPIRY_QUANTUM)
+```
+
+This is a builder rule, not a validity condition: a transaction carrying any other legal multiple is valid, and only its builder is distinguished by it.
+
+Both constants are fixed per protocol version. A validator replaying history evaluates each block against the values in force at that block's slot. Changing either constant is a versioned consensus change, governed by [Versioning and Protocol Upgrades](cryptarchia-v1-protocol.md#versioning-and-protocol-upgrades).
 
 ## Mantle Transaction Hash
 
@@ -117,7 +147,7 @@ mantle_txhash_fr = FiniteField(mantle_txhash, byte_order="little", modulus = p)
 
 ## Arithmetic
 
-All arithmetic in this specification is checked. Every addition, subtraction, and multiplication over token values, balances, gas amounts, and fees is performed on the stated integer type, and a Mantle Transaction is invalid if any intermediate or final result cannot be represented in that type; results must never silently wrap around or saturate. Token value computations use the precision of `TokenValue` (see the [Notes](#notes) section). The transaction balance uses a signed 128-bit integer: it can be legitimately negative before the fee check.
+All arithmetic in this specification is checked. Every addition, subtraction, and multiplication over token values, balances, gas amounts, fees, and slot numbers is performed on the stated integer type, and a Mantle Transaction is invalid if any intermediate or final result cannot be represented in that type; results must never silently wrap around or saturate. Token value computations use the precision of `TokenValue` (see the [Notes](#notes) section). The transaction balance uses a signed 128-bit integer: it can be legitimately negative before the fee check.
 
 The pseudocode expresses these checks with the following helpers; a failed check makes the Mantle Transaction invalid:
 
@@ -164,13 +194,16 @@ If the Mantle Transaction is unbalanced (meaning that the Transaction consume mo
 
 ```python
 signed_tx = SignedMantleTx(
-    tx=MantleTx(ops),
+    tx=MantleTx(expiry_slot, ops),
     op_proofs
 )
 
+s: SlotNumber                           # slot of the header of the including block
 permanent_storage_gas_price: TokenValue # Given by Storage Market
 execution_gas_base_price: TokenValue    # Given by Execution Market
 ```
+
+Rule 4 reads `s`, the slot of the header of the block whose transactions are being validated. [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation) supplies `header.slot` on the proposal path, and a block received in full is validated against the slot of its own header.
 
 The state validation reads is not a fixed snapshot: it advances as the block is processed. A Mantle Transaction is validated against the state left by the Mantle Transactions preceding it in the block, as defined in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation), and validation and execution then follow one another Operation by Operation, in the order the Operations appear: the Operation at index `i` is validated against the state the Operations at indices `0` to `i-1` left, then executed to produce the state the Operation at index `i+1` is validated against. This is what the `ledger`, `channels`, `service_notes`, `declarations` and `voucher_nullifier_set` given to each Operation below denote.
 
@@ -218,13 +251,15 @@ Mantle validators will ensure the following:
     tx_priority_tip = checked_uint64(tx_balance - tx_mandatory_fee)
     ```
 
+4. The transaction satisfies [Transaction Validity Window](#transaction-validity-window) for the slot `s` of the including block.
+
 ## Execution
 
 *Given*
 
 ```python
 SignedMantleTx(
-    tx=MantleTx(ops),
+    tx=MantleTx(expiry_slot, ops),
     op_proofs
 )
 ```
@@ -478,6 +513,7 @@ transfer = Transfer(inputs=[<spocks_note_id>], outputs=[<change_note>])
 
 # Wrap it in a transaction
 tx = MantleTx(
+    expiry_slot=next_expiry_slot(),
     ops=[Op(opcode=CHANNEL_INSCRIBE, payload=encode(greeting)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -638,6 +674,7 @@ config = ChannelConfig(
 transfer = Transfer(inputs=[old_sequencer_funds], outputs=[<change_note>])
 
 tx = MantleTx(
+    expiry_slot=next_expiry_slot(),
     ops=[Op(opcode=CHANNEL_CONFIG, payload=encode(config)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -752,6 +789,7 @@ transfer = Transfer(inputs=[Alice_funds], outputs=[<change_note>])
 
 
 tx = MantleTx(
+    expiry_slot=next_expiry_slot(),
     ops=[Op(opcode=CHANNEL_DEPOSIT, payload=encode(deposit)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -864,6 +902,7 @@ withdrawal = ChannelWithdraw(
 transfer = Transfer(inputs=[Sequencer_funds], outputs=[<change_note>])
 
 tx = MantleTx(
+    expiry_slot=next_expiry_slot(),
     ops=[Op(opcode=CHANNEL_WITHDRAW, payload=encode(withdrawal)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -993,6 +1032,7 @@ chan_transfer = ChannelTransfer(
 transfer = Transfer(inputs=[Sequencer_funds], outputs=[<change_note>])
 
 tx = MantleTx(
+    expiry_slot=next_expiry_slot(),
     ops=[Op(opcode=CHANNEL_TRANSFER, payload=encode(chan_transfer)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -1203,6 +1243,7 @@ transfer = Transfer(inputs=[fee_note_id], outputs=[])
 
 
 tx = MantleTx(
+    expiry_slot=next_expiry_slot(),
     ops=[Op(opcode=SDP_DECLARE, payload=encode(declaration)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -1337,6 +1378,7 @@ transfer = Transfer(inputs=[alices_service_note_id],
                     outputs=[Note(100, alice_note_pk)])
 
 tx = MantleTx(
+    expiry_slot=next_expiry_slot(),
     ops=[Op(opcode=SDP_WITHDRAW, payload=encode(withdraw)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -1456,6 +1498,7 @@ active=Active(
 transfer = Transfer(inputs=[fee_note_id], outputs=[])
 
 tx = MantleTx(
+    expiry_slot=next_expiry_slot(),
     ops=[Op(opcode=SDP_ACTIVE, payload=encode(active))],
 )
 txhash = mantle_txhash(tx)
@@ -1555,6 +1598,7 @@ claim=ClaimRequest(
 transfer = Transfer(inputs=[<fee_note>], outputs=[<change_note>])
 
 tx = MantleTx(
+    expiry_slot=next_expiry_slot(),
     ops=[Op(opcode=LEADER_CLAIM, payload=encode(claim)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -1957,7 +2001,7 @@ The material used for the benchmarks is the following:
 
 ## Test Vectors
 
-To see what the payloads represent, refer to [Mantle Transaction Encoding](mantle-transaction-encoding.md).
+To see what the payloads represent, refer to [Mantle Transaction Encoding](mantle-transaction-encoding.md). The transaction-hash vectors use `expiry_slot = 7200`.
 
 ### Operation Id
 
@@ -1978,8 +2022,8 @@ To see what the payloads represent, refer to [Mantle Transaction Encoding](mantl
 
 | Transaction | Payload | Transaction Hash                                                   |
 | - | - | - |
-| Empty transaction | 0x00 | 0x2eba3f667b80a508f3d44d149a1c27a90ea365a51e4fc8209289088142b364e5 |
-| Transaction with one of each operation | 0x0a000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000600000000000000000000000000000000000000000000000000000000000000100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000c000d00110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c121010101010101010101010101010101010101010101010101010101010101010011100000000000000000000000000000000000000000000000000000000000000100000006465706f7369742d6d6574616461746113121212121212121212121212121212121212121212121212121212121212121201130000000000000000000000000000000000000000000000000000000000000014141414141414141414141414141414141414141414141414141414141414141401150000000000000000000000000000000000000000000000000000000000000001160000000000000017000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f319000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f0000000000000001010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c02020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202030303030303030303030303030303030303030303030303030303030303030330200000000000000000000000000000000000000000000000000000000000000021000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000 | 0x11e6013847824badf33aa383cfbdb4b5b74a621acefc8296c21f48c4072e0e92 |
+| Empty transaction | 0x201c00000000000000 | 0x12db09ba04d46da298e88af10585a5d22aa69c645bc5aa49d1469f6ff8366b90 |
+| Transaction with one of each operation | 0x201c0000000000000a000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000600000000000000000000000000000000000000000000000000000000000000100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000c000d00110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c121010101010101010101010101010101010101010101010101010101010101010011100000000000000000000000000000000000000000000000000000000000000100000006465706f7369742d6d6574616461746113121212121212121212121212121212121212121212121212121212121212121201130000000000000000000000000000000000000000000000000000000000000014141414141414141414141414141414141414141414141414141414141414141401150000000000000000000000000000000000000000000000000000000000000001160000000000000017000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f319000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f0000000000000001010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c02020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202030303030303030303030303030303030303030303030303030303030303030330200000000000000000000000000000000000000000000000000000000000000021000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000 | 0x0177f12aecac88bc59f2d04fe759660adc67a05e85755ac6c9fe6cf2c032853f |
 
 ### Declaration Id
 
