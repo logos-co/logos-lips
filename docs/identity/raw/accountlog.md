@@ -199,9 +199,9 @@ same signature verifies. The profile is therefore pinned.
 **Requirements:**
 
 - A consumer MUST use cofactorless verification.
-- A consumer MUST reject a signature whose scalar component `S` is not
+- A consumer MUST reject the whole log if the signature whose scalar component `S` is not
   canonically reduced, i.e. `S` MUST satisfy `0 <= S < L`.
-- A consumer MUST reject any Ed25519 point that is not a canonical compressed
+- A consumer MUST reject the whole log contains any Ed25519 point that is not a canonical compressed
   Edwards point encoding, or that is small-order.
   This covers the account address, the commitment `R`, and every
   `Ed25519Key` in the log.
@@ -271,9 +271,11 @@ Collision avoidance is out of scope.
 - A `namespace` MUST be a non-empty sequence of at most 16 ASCII octets,
   each of which is a lowercase letter (0x61–0x7A), a digit (0x30–0x39),
   or a hyphen-minus (0x2D). No other octet is permitted.
+- A `namespace` MUST must begin with a lowercase letter (0x61–0x7A). No other octet is permitted.
 - A `label` MUST be a non-empty sequence of at most 64 ASCII octets,
   each of which is a lowercase letter (0x61–0x7A), a digit (0x30–0x39),
   a hyphen-minus (0x2D), or a full stop (0x2E). No other octet is permitted.
+- A `label` MUST must begin with a lowercase letter (0x61–0x7A). No other octet is permitted.
 - A consumer MUST only use a key or record for the purpose defined by its
   context specification.
 
@@ -340,12 +342,12 @@ consumer understands.
 
 **Requirements:**
 
-- A consumer MUST reject the whole log if any part of it is invalid.
-- A consumer MUST reject a `Remove` whose index is at or after its own position.
-- A consumer MUST reject a `Remove` targeting a `Remove`.
+- A consumer MUST reject the whole log if any part of it is invalid or rejected.
+- A consumer MUST reject the whole log if it contains a `Remove` whose index is at or after its own position.
+- A consumer MUST reject the whole log if it contains a `Remove` targeting a `Remove`.
   Every other entry is an endorsement, including an unrecognized one,
   and is a valid target.
-- A consumer MUST reject a `Remove` targeting an entry already removed.
+- A consumer MUST reject the whole log if it contains a `Remove` targeting an entry already removed.
 - An owner MUST validate a log before signing it.
 - Only this document states what makes a log invalid.
   A specification built on the AccountLog MUST NOT add a condition,
@@ -365,7 +367,7 @@ The version is reserved for changes to the payload or entry *framing* itself.
 
 **Requirements:**
 
-- A consumer MUST reject a payload whose domain does not match byte-for-byte.
+- A consumer MUST reject the whole log if it contains a payload whose domain does not match byte-for-byte.
 - A consumer SHOULD distinguish, in the error it reports,
   a payload bearing `logos:accounts:` with an unrecognized version
   from a payload that is malformed,
@@ -444,9 +446,9 @@ This is what makes an unrecognized entry skippable rather than fatal
 
 **Requirements:**
 
-- A consumer MUST reject a payload whose domain prefix does not match byte-for-byte,
+- A consumer MUST reject the whole log if it contains a payload whose domain prefix does not match byte-for-byte,
   including the trailing NUL.
-- A consumer MUST reject a payload whose final entry does not end
+- A consumer MUST reject the whole log if the final entry does not end
   exactly at the end of the payload.
 
 ### Entry Encoding
@@ -465,11 +467,11 @@ body   : exactly `len` bytes
 
 **Requirements:**
 
-- A consumer MUST reject a payload in which an entry's `len`
+- A consumer MUST reject the whole log if it contains a payload in which an entry's `len`
   runs past the end of the payload.
-- A consumer MUST reject an entry whose opcode byte has any of its
+- A consumer MUST reject the whole log if it contains an entry whose opcode byte has any of its
   high four bits set.
-- A consumer MUST reject an entry with bytes left over after its body is decoded.
+- A consumer MUST reject the whole log if it contains an entry with bytes left over after its body is decoded.
 - An owner MUST produce exactly the layout above;
   there is no alternative serialization of the same entry.
 
@@ -524,15 +526,14 @@ so a future data variant and a future operation are separate allocations.
 
 **Requirements:**
 
-- A consumer MUST reject an `Add` whose `ctx_len` is zero,
+- A consumer MUST reject the whole log if it contains an `Add` whose `ctx_len` is zero,
   or whose `context` extends to or past the end of the entry body,
   leaving no room for `data_tag`.
   A context is at most 255 bytes; `ctx_len` cannot express more.
-- A consumer MUST reject a `context` whose namespace does not begin with
-  a character in `a`-`z`, that contains no `.`,
-  or that contains any byte outside `a`-`z`, `0`-`9`, `.`, `-`, `_`.
+- A consumer MUST reject the whole log if it contains a `context` whose namespace is invalid.
+- A consumer MUST NOT reject the whole log because it does not recognize a validly formatted context.
 - A consumer MUST compare contexts as raw bytes.
-- A consumer MUST reject a `Text` whose `value` is not valid UTF-8.
+- A consumer MUST reject the whole log if it contains a `Text` whose `value` is not valid UTF-8.
   A `Text` with an empty `value` is permitted and means the record is present but blank.
 
 #### Remove
@@ -549,7 +550,7 @@ index : u32 LE   position of the target entry
 
 **Requirements:**
 
-- A consumer MUST reject a `Remove` whose `len` is not 4.
+- A consumer MUST reject the whole log if it contains a `Remove` whose `len` is not 4.
 
 ### Resource Limits
 
@@ -560,7 +561,7 @@ an artificial limit is imposed to keep log sizes manageable.
 
 **Requirements:**
 
-- A consumer MUST reject a payload larger than 131072 bytes.
+- A consumer MUST reject the whole log if the payload larger than 131072 bytes.
 - An owner MUST NOT publish a payload larger than 131072 bytes.
 
 The limit is a lifetime budget, not a per-update one:
