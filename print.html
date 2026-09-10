@@ -10659,6 +10659,7 @@ should be transmitted over channels appropriate for the user's threat model.</p>
 </div><!-- timeline:start -->
 <h2 id="timeline-34"><a class="header" href="#timeline-34">Timeline</a></h2>
 <ul>
+<li><strong>2026-09-10</strong> — <a href="https://github.com/logos-co/logos-lips/blob/accd97d9bfd94ce1d542c41d0f95582f278e57db/docs/messaging/application/raw/segmentation.md"><code>accd97d</code></a> — use segment type instead of class (#441)</li>
 <li><strong>2026-09-03</strong> — <a href="https://github.com/logos-co/logos-lips/blob/40f1fb63ca0abf64a81ab904c184837c19d5cb5c/docs/messaging/application/raw/segmentation.md"><code>40f1fb6</code></a> — Adjust segmentation spec (#428)</li>
 <li><strong>2026-06-16</strong> — <a href="https://github.com/logos-co/logos-lips/blob/16e8af10af316557eda5813b6039c0bdf435baa1/docs/messaging/application/raw/segmentation.md"><code>16e8af1</code></a> — Chore/separate messaging specs (#361)</li>
 <li><strong>2026-06-12</strong> — <a href="https://github.com/logos-co/logos-lips/blob/124f8957915f349347532d802d9e4bb5cc2a5ce7/docs/messaging/raw/segmentation.md"><code>124f895</code></a> — chore: fix broken links (#357)</li>
@@ -10688,7 +10689,7 @@ Erasure-coded parity segments provide resilience against partial loss or reorder
 <li><strong>original payload</strong>: the full application payload before segmentation.</li>
 <li><strong>data segment</strong>: one chunk of the original payload.</li>
 <li><strong>parity segment</strong>: an erasure-coded segment derived from the set of data segments.</li>
-<li><strong>class</strong>: either of the two groups a payload's segments fall into, data or parity.</li>
+<li><strong>segment type</strong>: either data or parity.</li>
 <li><strong>segment message</strong>: a <a href="messaging/application/raw/segmentation.html#wire-format"><code>SegmentMessage</code></a> carrying either data or parity segment.</li>
 <li><strong>segmentSizeBytes</strong>: maximum size of a serialized segment message, see <a href="messaging/application/raw/segmentation.html#configuration">Configuration</a>.</li>
 </ul>
@@ -10700,11 +10701,11 @@ Erasure-coded parity segments provide resilience against partial loss or reorder
 message SegmentMessage {
   bytes           original_payload_hash   = 1;  // Keccak256 of the original payload, 32 bytes
   uint32          original_payload_length = 2;  // length in bytes of the original payload
-  uint32          index                   = 3;  // zero-based position within this segment's own class
+  uint32          index                   = 3;  // zero-based position among the segments of its type (data or parity)
   uint32          data_segment_count      = 4;  // number of data segments
   optional uint32 parity_segment_count    = 5;  // number of parity segments, unset if no parity
   bool            is_parity               = 6;  // false for a data segment, true for a parity one
-  bytes           payload         = 7;  // this segment's data chunk or parity shard
+  bytes           payload                 = 7;  // this segment's data chunk or parity shard
 }
 </code></pre>
 <h3 id="validity"><a class="header" href="#validity">Validity</a></h3>
