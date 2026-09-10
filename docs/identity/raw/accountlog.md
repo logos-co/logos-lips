@@ -24,7 +24,7 @@ Anyone reaching the account needs to know which keys are currently good.
 
 This document specifies the **AccountLog**: an append-only list of entries that an account signs and publishes.
 Anyone can verify the log independently, to prove it is valid.
-An account is an Ed25519 keypair and its verifying key is the account address.
+An account is an Ed25519 keypair and its public key is the account address.
 
 A consumer verifies the log against the address it already holds and reads off
 what is still live. Each entry is endorsed under a context saying what it is
@@ -42,7 +42,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
 are to be interpreted as described in [RFC 2119](https://datatracker.ietf.org/doc/html/rfc2119).
 
 - **Account** — an Ed25519 keypair.
-- **Account Address** — an account's Ed25519 verifying key;
+- **Account Address** — an account's Ed25519 public key;
   see [Account Address](#account-address).
 - **Account Log** — the append-only list of entries an account has signed.
 - **Consumer** — any party that reads an account's log.
@@ -161,7 +161,7 @@ No entry is confidential. See [Privacy](#privacy).
 
 ### Account Address
 
-Every account is backed by an Ed25519 signing key, and the address is its Ed25519 verifying key.
+Every account is backed by an Ed25519 signing key, and the address is its Ed25519 public key.
 
 A consumer uses the address to verify the log's signature, and ensure it belongs to the account.
 How it came to hold that address is out of scope (see [Assumptions](#assumptions)).
@@ -228,7 +228,7 @@ Remove { index: u32 }         tombstone the entry at position `index`
 `entry_data` is one of:
 
 ```text
-Ed25519Key([u8; 32])   an Ed25519 verifying key
+Ed25519Key([u8; 32])   an Ed25519 public key
 Text(String)           a UTF-8 record
 ```
 
@@ -390,7 +390,7 @@ All integers are little-endian.
 ### Address Encoding
 
 ```text
-address := 32 bytes, an Ed25519 verifying key
+address := 32 bytes, an Ed25519 public key
 ```
 
 An address is transmitted and stored in binary. Where it appears in text —
@@ -516,7 +516,7 @@ data_body: variant, to the end of the entry body
 
 | `data_tag` | Data | `data_body` |
 | --- | --- | --- |
-| `0x01` | Ed25519Key | 32 bytes, fixed width |
+| `0x01` | Ed25519Key | Ed25519 32 bytes, fixed width |
 | `0x02` | Text | UTF-8 value, to the end of the entry body |
 
 ```text
@@ -657,7 +657,7 @@ Contexts are illustrative; this document allocates none.
 
 ```text
 account signing key (seed):  9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60
-account address (verifying): d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a
+account address (public key): d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a
 endorsed key 1:              3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c
 endorsed key 2:              fc51cd8e6218a1a38da47ed00230f0580816ed13ba3303ac5deb911548908025
 domain:                      6c6f676f733a6163636f756e74733a3100
