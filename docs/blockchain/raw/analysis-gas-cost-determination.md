@@ -193,7 +193,7 @@ Execution: ~ 646k CPU cycles.
 - Register the note as a service note and index the provider identity: negligible.
 ## SDP Withdraw
 
-This gas covers a verification process that includes: confirming ownership of the zk_id through ZkSignature verification, confirming that the declaration exists and has not been previously withdrawn, and validating that the service note it holds is still bound to it. The validation process also ensures that the withdrawal message's nonce is greater than any previous nonce, preventing replay attacks. During execution, the system records the withdrawal epoch on the declaration; the declaration is removed and its note released at the epoch transition two epochs later.
+This gas covers a verification process that includes: confirming ownership of the zk_id through ZkSignature verification, confirming that the declaration exists and has not been previously withdrawn, and validating that the service note it holds is still bound to it. The validation process also ensures that the withdrawal message's nonce is greater than any previous nonce, preventing replay attacks. During execution, the system records the withdrawal epoch on the declaration; the declaration is removed and its note released by the epoch finalization at `withdraw_at + 1`.
 
 Execution: ~ 590k CPU cycles.
 
@@ -203,7 +203,8 @@ Execution: ~ 590k CPU cycles.
 - Verification that the declaration wasn’t already withdrawn: negligible.
 - Verification of nonce incrementation: negligible.
 - Update declaration: negligible.
-- Remove the declaration and release its service note: negligible.
+- Remove the declaration and release its service note for the service: negligible.
+- Unlock the note once no service holds it: negligible.
 ## SDP Activation
 
 This gas funds the verification of the zk_id signature through the ZkSignature verification process, validates the existence of the declaration in the system, and ensures that the active message's nonce is greater than any previous nonce to prevent replay attacks. The validation includes confirming that the declaration ID is present in the declarations dictionary and that the signature corresponds to the declaration's registered zk_id public key.
