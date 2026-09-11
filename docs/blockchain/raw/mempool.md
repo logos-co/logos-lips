@@ -34,7 +34,7 @@ The mempool is a node's store of Mantle Transactions that have been submitted bu
 
 Each node keeps its own mempool. Nodes admit and retire independently, so their pending sets differ.
 
-A transaction is admitted, disseminated, offered to block building, retired, and released.
+A transaction is admitted, disseminated, offered to block building once mature, retired, and released.
 
 # Construction
 
@@ -44,10 +44,17 @@ A transaction is admitted, disseminated, offered to block building, retired, and
 | --- | --- | --- | --- |
 | `TRANSACTION_TTL` | Transaction Time To Live | How long a transaction may stay pending before it is retired. | 24 hours |
 | `TRANSACTION_RETENTION` | Transaction Retention | How long a transaction stays resolvable before it is released. | `2 * TRANSACTION_TTL` |
+| `BLEND_DELAY` | Blend Delay | How long a block proposal takes to cross the Blend network. | 15 seconds |
+| `BROADCAST_DELAY` | Broadcast Delay | How long a block proposal takes to reach every node once it leaves the Blend network. | 5 seconds |
+| `TRANSACTION_MATURITY` | Transaction Maturity | How long a transaction must have been pending to be mature. | `BLEND_DELAY + BROADCAST_DELAY` |
 
 `TRANSACTION_TTL` must not exceed the [Prolonged Bootstrap Period](cryptarchia-v1-bootstr-sync.md#prolonged-bootstrap-period). A node that has just completed that period cannot resolve a reference to a transaction admitted before the period began.
 
-`TRANSACTION_RETENTION` must exceed `TRANSACTION_TTL` by more than a block proposal spends crossing the Blend network ([Transition Period](blend-protocol.md#transition-period)). Otherwise a proposal that selects a transaction just under `TRANSACTION_TTL` arrives after that transaction was released.
+`TRANSACTION_RETENTION` must exceed `TRANSACTION_TTL` by more than `BLEND_DELAY + BROADCAST_DELAY`. Otherwise a proposal that selects a transaction just under `TRANSACTION_TTL` arrives after that transaction was released.
+
+`BLEND_DELAY` must not be less than the time a message takes to cross the Blend network ([Transition Period](blend-protocol.md#transition-period)). Otherwise a mature transaction has had less time to spread than the proposal carrying it takes to arrive.
+
+`TRANSACTION_MATURITY` must be less than `TRANSACTION_TTL`. Otherwise a transaction is retired before it is mature, and nothing is ever selected.
 
 ## Mempool State
 
@@ -137,12 +144,14 @@ A node broadcasts a transaction it admits by local submission or by re-insertion
 
 ## Block Building View
 
-The mempool supplies the bodies of every pending transaction in admission order.
+A pending transaction is **mature** once its age reaches `TRANSACTION_MATURITY`.
+
+The mempool supplies the bodies of every mature transaction in admission order.
 
 **Applicability.** The leader determines which transactions apply:
 
 1. Apply the block header to the ledger state. This is the working state.
-2. Pass over all pending transactions in admission order. Apply each transaction that succeeds to the working state.
+2. Pass over the mature transactions in admission order. Apply each transaction that succeeds to the working state.
 3. Repeat step 2 until a pass applies no transaction.
 
 No block limit applies to this computation.
@@ -177,7 +186,7 @@ When a block enters the node's canonical chain, the transactions it carries are 
 
 ### Inapplicability
 
-A transaction that the applicability determination of [Block Building View](#block-building-view) never applies is retired.
+A mature transaction that the applicability determination of [Block Building View](#block-building-view) never applies is retired.
 
 ### Expiry
 
