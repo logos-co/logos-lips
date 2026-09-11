@@ -45,6 +45,7 @@
 | 1.13.0 | Removed the `None` case of `op_proofs`, every Operation carrying exactly one proof. A `CHANNEL_CONFIG` creating a channel is verified against a threshold of `0` and its proof carries no signature and no index. Execution Gas is derived from the Operation and the state it is validated against, the thresholds pricing the channel Operations being the ones held in the channel state | 2026-08-31 |
 | 1.14.0 | Moved SDP declaration removal to `withdraw_at + 1`; the last served epoch's reward is paid in the same first block, before removal | 2026-09-11 |
 | 1.15.0 | Add the `CLAIM_POW_REWARD` Operation and the proof of work state it is validated against; the reward pool and the difficulty controllers are specified in [Proof of Work](proof-of-work.md) | 2026-09-08 |
+| 1.16.0 | Solve a reward claim with an Equi-X token carried in its payload, measured against an effort target, the token's digest becoming the nullifier | 2026-09-10 |
 
 # Introduction
 
@@ -139,7 +140,7 @@ def checked_int128(value: int) -> int:
         return value
 ```
 
-The proof of work difficulty updates are the exception to these bounds; they are specified in [Puzzle Target](proof-of-work.md#puzzle-target).
+The proof of work difficulty updates are the exception to these bounds; they are specified in [Blend Puzzle Target](proof-of-work.md#blend-puzzle-target) and [Reward Effort Target](proof-of-work.md#reward-effort-target).
 
 ## Mantle Transaction Fee
 
@@ -1609,12 +1610,12 @@ Validators must maintain the following state to process proof of work Operations
 ```python
 pow_reward_pool: TokenValue      # Reserve the rewards are paid from
 epoch_pow_reward: TokenValue     # Reward per claim, fixed for the epoch
-difficulty_reward: PowTarget     # the reward threshold, retargeted every block
-pow_nullifiers: set[zkhash]      # Spent solutions, retained for the acceptance window
+difficulty_reward: PowEffort     # the reward effort target, retargeted every block
+pow_nullifiers: set[hash]        # Spent tokens, retained for the acceptance window
 block_slots: dict[hash, SlotNumber]  # Slots of recently seen blocks, for the window check
 ```
 
-`PowTarget`, the acceptance window, and the maintenance of `pow_reward_pool`, `epoch_pow_reward` and `difficulty_reward` between blocks are specified in [Proof of Work](proof-of-work.md).
+`PowEffort`, the acceptance window, and the maintenance of `pow_reward_pool`, `epoch_pow_reward` and `difficulty_reward` between blocks are specified in [Proof of Work](proof-of-work.md).
 
 ### CLAIM_POW_REWARD
 
@@ -1624,14 +1625,18 @@ This Operation claims a reward from the proof of work [reward pool](proof-of-wor
 
 ```python
 class ClaimPowRewardOp:
-    epoch_nonce: zkhash        # Epoch nonce the solution was found against
-    block_hash: hash           # Recent canonical block the solution is anchored to
-    public_key: ZkPublicKey    # Key the reward note is paid to
+    epoch_nonce: zkhash        # Epoch nonce the token was found against
+    block_hash: hash           # Recent canonical block the token is anchored to
+    public_key: ZkPublicKey    # Key the reward note is paid to, and part of the challenge
+    pow_nonce: bytes           # 8 bytes, the Equi-X nonce
+    pow_solution: bytes        # 16 bytes, the Equi-X solution
 ```
+
+  `pow_nonce` and `pow_solution` are the [Equi-X](common-cryptographic-components.md#equi-x-asymmetric-client-puzzle) token, and they are part of the payload so that two claims carrying different tokens have different Operation identifiers, which [Note Id](#note-id) requires.
 
 #### Proof
 
-  A [ZkSignature](#zero-knowledge-signature-scheme-zksignature) by the secret key corresponding to `public_key`, over the transaction's `mantle_txhash`. The signature proves knowledge of that secret key, so a solution cannot be found by searching over public keys directly.
+  A [ZkSignature](#zero-knowledge-signature-scheme-zksignature) by the secret key corresponding to `public_key`, over the transaction's `mantle_txhash`. It binds the claim to the transaction carrying it. What binds the token to the key is the challenge, which commits to `public_key`.
 
 #### Execution gas
 
@@ -1650,8 +1655,8 @@ current_slot: SlotNumber           # slot of the block including this claim
 epoch_nonce_current: zkhash        # Cryptarchia epoch nonce of the current epoch
 epoch_nonce_previous: zkhash       # and of the epoch before it
 WINDOW: SlotNumber                 # the acceptance window, in slots
-difficulty_reward: PowTarget       # retargeted every block
-pow_nullifiers: set[zkhash]        # spent solutions, retained for WINDOW
+difficulty_reward: PowEffort       # retargeted every block
+pow_nullifiers: set[hash]          # spent tokens, retained for WINDOW
 pow_reward_pool: TokenValue
 epoch_pow_reward: TokenValue
 ```
@@ -1673,18 +1678,22 @@ assert 0 <= current_slot - block.slot <= WINDOW
 # 3. The solution must have been found against the current or the previous epoch.
 assert claim.epoch_nonce in (epoch_nonce_current, epoch_nonce_previous)
 
-# 4. The ticket must satisfy the reward threshold.
-puzzle_ticket = zkhash(claim.public_key,
-                       FiniteField(claim.block_hash, byte_order="little", modulus=p),
-                       claim.epoch_nonce)
-assert puzzle_ticket < difficulty_reward
+# 4. The token must be a valid Equi-X solution for the claim's challenge.
+challenge = get_challenge(claim)
+assert equix_verify(challenge, claim.pow_nonce, claim.pow_solution)
 
-# 5. The solution must not have been claimed before. The nullifier is the ticket.
-assert puzzle_ticket not in pow_nullifiers
+# 5. The token must reach the reward effort target.
+pow_digest = equix_digest(challenge, claim.pow_nonce, claim.pow_solution)
+assert equix_reaches(pow_digest, difficulty_reward)
 
-# 6. The claim must be signed by the key the reward is paid to.
+# 6. The token must not have been claimed before. The nullifier is its digest.
+assert pow_digest not in pow_nullifiers
+
+# 7. The claim must be signed by the key the reward is paid to.
 assert ZkSignature_verify(mantle_txhash, claim_proof, [claim.public_key])
 ```
+
+  `get_challenge` is defined in [Reward Effort Target](proof-of-work.md#reward-effort-target), and `equix_verify`, `equix_digest` and `equix_reaches` in [Equi-X](common-cryptographic-components.md#equi-x-asymmetric-client-puzzle). A solution is accepted only in the canonical index order, so a token has one encoding and one digest. The secret key of `public_key` must be sampled with full entropy: it signs the claim and spends the reward note.
 
 #### Execution
 
@@ -1692,7 +1701,7 @@ assert ZkSignature_verify(mantle_txhash, claim_proof, [claim.public_key])
 
 ```python
 claim: ClaimPowRewardOp
-puzzle_ticket: zkhash              # computed in validation step 4
+pow_digest: hash                   # computed in validation step 5
 
 ledger: Ledger
 pow_reward_pool: TokenValue
@@ -1702,7 +1711,7 @@ pow_nullifiers: set[zkhash]
 
   *Execution*
 
-  1. Add `puzzle_ticket` to the `pow_nullifiers` set. The entry is retained until the claim's referenced block leaves the [acceptance window](proof-of-work.md#acceptance-window).
+  1. Add `pow_digest` to the `pow_nullifiers` set. The entry is retained until the claim's referenced block leaves the [acceptance window](proof-of-work.md#acceptance-window).
   2. Construct a single output note of value `epoch_pow_reward` under the public key given in the payload, and insert it into the Ledger:
       ```python
       output_note = Note(
@@ -1724,7 +1733,9 @@ pow_nullifiers: set[zkhash]
 claim = ClaimPowRewardOp(
     epoch_nonce=get_current_epoch_nonce(),
     block_hash=recent_canonical_block_hash(),
-    public_key=reward_pk,          # a key whose ticket satisfies difficulty_reward
+    public_key=reward_pk,
+    pow_nonce=nonce,               # a token reaching difficulty_reward
+    pow_solution=solution,
 )
 
 # The reward note is spendable by the following Operation, so it pays the fee
@@ -1980,7 +1991,7 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_SDP_WITHDRAW_GAS | 590 |
 | EXECUTION_SDP_ACTIVE_GAS | 590 |
 | EXECUTION_LEADER_CLAIM_GAS | 580 |
-| EXECUTION_CLAIM_POW_REWARD_GAS | 590 |
+| EXECUTION_CLAIM_POW_REWARD_GAS | 721 |
 
 ## Zero Knowledge Signature Scheme (ZkSignature)
 
