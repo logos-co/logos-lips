@@ -48,7 +48,7 @@ graph LR
     c --> t["pays for transactions"]
 ```
 
-The tokens come from the pow reward pool, set aside at genesis. Nothing is minted for it, so mining does not inflate the supply. Each epoch pays out a fraction of what the pool still holds, so the reward is the same for every claim of that epoch, for as long as the pool can pay it.
+The tokens come from the pow reward pool, set aside at genesis and refilled each epoch from a share of the transaction fees. Nothing is minted for it, so mining does not inflate the supply. Each epoch pays out a fraction of what the pool still holds, so the reward is the same for every claim of that epoch, for as long as the pool can pay it.
 
 Each use has its own threshold, and a threshold sets how much work a solution costs. Every node computes both from what blocks carry, so no node trusts another for them.
 
@@ -109,7 +109,7 @@ A validator checks a claim against the `difficulty_reward` the previous block pr
 
 [Mantle](bedrock-v1.1-mantle-specification.md#claim_pow_reward) specifies these checks and the order they run in. A claim that fails any of them makes its transaction invalid. On acceptance the node pays `epoch_pow_reward` to the key, marks the ticket spent, and subtracts the same amount from `pow_reward_pool`.
 
-A node computes five values from the chain. `pow_reward_pool` and the set of spent tickets change when a claim is accepted. `difficulty_reward` is recomputed after every block, from the number of claims in that block. `epoch_pow_reward` is recomputed at each epoch boundary, from `pow_reward_pool`. `difficulty_blend` is recomputed once per epoch, from the transactions of the epoch before last, at the snapshot that fixes the epoch nonce. [Reward Difficulty](#reward-difficulty), [Reward Pool](#reward-pool) and [Blend Difficulty](#blend-difficulty) specify the three computations.
+A node computes five values from the chain. `pow_reward_pool` and the set of spent tickets change when a claim is accepted. `difficulty_reward` is recomputed after every block, from the number of claims in that block. `pow_reward_pool` is credited at each epoch boundary with a share of the fees of the epoch that ended, and `epoch_pow_reward` is then recomputed from it. `difficulty_blend` is recomputed once per epoch, from the transactions of the epoch before last, at the snapshot that fixes the epoch nonce. [Reward Difficulty](#reward-difficulty), [Reward Pool](#reward-pool) and [Blend Difficulty](#blend-difficulty) specify the three computations.
 
 A node keeps a spent ticket only while its referenced block is inside the window, so the set stays small. [Acceptance Window](#acceptance-window) gives the window in slots.
 
@@ -139,8 +139,11 @@ EPOCH_POW_DISTRIBUTION_RATE_DEN: uint64 = 200
 TARGET_CLAIMS_PER_BLOCK: uint64 = 10            # T
 EXPECTED_BLOCKS_PER_EPOCH: uint64 = 21_600      # N_b = 10 k
 EXPECTED_BLOCKS_PER_WINDOW: uint64 = 10         # W_b
+POW_SHARE: uint64 = 10                          # beta, as the fraction POW_SHARE / SHARE_DEN
+SHARE_DEN: uint64 = 100
 EMA_SMOOTHING_FACTOR: uint64 = 9                # F, the weight given to the previous estimate
 EMA_SMOOTHING_PRECISION: uint64 = 10            # P, the scale F is expressed against; F < P
+REWARD_TARGET_FLOOR: uint64 = 9                 # ceil(F / (P - F)); see Reward Difficulty
 BLEND_DIFFICULTY_BASE: PowTarget = p // 2**19   # difficulty_blend at the reference load
 TARGET_TXS_PER_BLOCK: uint64 = 512              # Reference transactions per block
 BLEND_DAMPING_NUM: uint64 = 1                   # a, where the exponent is alpha = a / b
@@ -158,7 +161,7 @@ The two updates below multiply and divide targets as integers rather than in the
 
 ## Reward Pool
 
-The pool is seeded once, at genesis, with `POW_REWARD_POOL_GENESIS`, five thousandths of $`S_{cap}`$, as specified in [Bedrock Genesis Block](bedrock-genesis-block.md). After that it changes only through claims.
+The pool is seeded once, at genesis, with `POW_REWARD_POOL_GENESIS`, five thousandths of $`S_{cap}`$, as specified in [Bedrock Genesis Block](bedrock-genesis-block.md). After that it changes through the epoch-boundary refill and through claims.
 
 ```python
 def compute_epoch_pow_reward(pow_reward_pool: TokenValue) -> TokenValue:
@@ -168,7 +171,7 @@ def compute_epoch_pow_reward(pow_reward_pool: TokenValue) -> TokenValue:
     return (pow_reward_pool * EPOCH_POW_DISTRIBUTION_RATE_NUM) // denominator
 ```
 
-At each epoch boundary, before any block of the new epoch is processed, `epoch_pow_reward` is set to `compute_epoch_pow_reward(pow_reward_pool)` and held for the epoch. The division rounds down, and the remainder stays in the pow reward pool. All arithmetic here is checked, in accordance with [Arithmetic](bedrock-v1.1-mantle-specification.md#arithmetic).
+At each epoch boundary, before any block of the new epoch is processed, the pool is credited with `get_pow_pool_refill(epoch_blocks)`, the fraction `POW_SHARE / SHARE_DEN` of the fees collected over the blocks of the epoch that ended, as specified in [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool); `epoch_pow_reward` is then set to `compute_epoch_pow_reward(pow_reward_pool)` and held for the epoch. The division rounds down, and the remainder stays in the pow reward pool. All arithmetic here is checked, in accordance with [Arithmetic](bedrock-v1.1-mantle-specification.md#arithmetic); the pool must not saturate, since saturating would create tokens that were never allocated.
 
 ### Exhaustion within an epoch
 
@@ -194,10 +197,12 @@ def compute_new_reward_difficulty(claims_in_block: uint64,
                     + EMA_SMOOTHING_FACTOR * TARGET_CLAIMS_PER_BLOCK)
     new_target = (TARGET_CLAIMS_PER_BLOCK * current_target
                   * EMA_SMOOTHING_PRECISION) // demand
-    return min(new_target, p - 1)
+    return min(max(new_target, REWARD_TARGET_FLOOR), p - 1)
 ```
 
 `claims_in_block` counts the `CLAIM_POW_REWARD` Operations the block includes. Every claim in a block is validated against the target produced by the previous block's update; the update from a block's own count is applied after the block is processed and governs the next block. At genesis `difficulty_reward` is the quotient of the Euclidean division of the scalar field modulus by $`2^{26}`$.
+
+The update is multiplicative in the current target, so a target of zero would never recover, and under floor division the empty-block easing $`\lfloor t \cdot P/F \rfloor`$ returns $`t`$ unchanged for every $`t \lt F/(P-F)`$. `REWARD_TARGET_FLOOR` is the smallest target the easing strictly lifts, $`\lceil F/(P-F) \rceil = 9`$ at the specified smoothing.
 
 ## Blend Difficulty
 

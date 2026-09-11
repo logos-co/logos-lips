@@ -32,7 +32,7 @@
 | 1.2.1 | Pointed the `EpochNumber` of the activity proof at its definition in [Epoch](cryptarchia-v1-protocol.md#epoch) | 2026-08-25 |
 | 1.3.0 | [RFC] Replace the BLAKE2b-Based PRNG with ChaCha20 (ChaCha20Rng) | 2026-08-28 |
 | 1.3.1 | Judged the active message window by the epoch of the including block, made the one-message-per-epoch rule per attested epoch, and made the transition-period delay a release constraint | 2026-09-02 |
-| 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, add a transaction as a data message payload, and align the nullifier retention period | 2026-09-08 |
+| 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, and add a transaction as a data message payload; re-derive the nullifier cache bound and align the nullifier retention period | 2026-09-08 |
 
 # Introduction
 
@@ -874,11 +874,21 @@ The node must cache the PoQ nullifiers ($`\nu_i`$) for every message it relays f
 
 $$
 \begin{aligned}
-(E + \mathrm{TP})\cdot (F_C +F_D) \cdot \beta_{max} \cdot |\nu_i|
-&=(648000 + 30) \cdot \left(1+\dfrac{1}{30}\right) \cdot 3 \cdot 32 \\
-&= 64284576 \approx 65\,\mathrm{MB}
+(E + \mathrm{TP})\cdot (F_C +F_D + F_W) \cdot \beta_{max} \cdot |\nu_i|
 \end{aligned}
 $$
+
+where $`F_W`$ is the rate at which proof of work backed messages enter the network. Taking $`F_W = 0`$ recovers the figure for a network without the proof of work branch:
+
+$$
+\begin{aligned}
+(648000 + 30) \cdot \left(1+\dfrac{1}{30}\right) \cdot 3 \cdot 32 = 64284576 \approx 65\,\mathrm{MB}
+\end{aligned}
+$$
+
+That figure holds only while $`F_W = 0`$. The protocol bounds the other two rates: $`F_C`$ by the number of core nodes the SDP publishes, and $`F_D`$ by the rate of leader elections. It bounds neither the work participants perform nor $`Q_W`$, so it does not bound $`F_W`$.
+
+A node must therefore size this cache from its own resources rather than from the formula. What a node does when that limit is reached is not specified here. $`d_{blend}`$ sets this memory cost as well as the size of the anonymity set, and [Blend Difficulty](#blend-difficulty) must be chosen for both.
 
 ### Processing
 

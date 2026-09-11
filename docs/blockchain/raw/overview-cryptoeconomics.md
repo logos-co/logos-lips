@@ -27,6 +27,7 @@
 | 1.2.0 | Reflect the downward rounding of the leader share | 2026-08-05 |
 | 1.2.1 | Changing from burning/minting to pooling/distributing/releasing | 2026-08-25 |
 | 1.2.2 | Stated that the minimum stake of a service is locked in a service note | 2026-08-27 |
+| 1.3.0 | Add the proof of work reward pool, funded by diverting a share of the collected fees before they reach the rewards pool | 2026-08-31 |
 
 > **Disclaimer**:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -59,7 +60,7 @@ In this section we present an overview of the cryptoeconomical aspects of the Lo
 - Transactions may incur up to two types of fees:
     - Execution fee: covers the computational resources consumed by the transaction.
     - Permanent Storage fee: covers the permanent Ledger storage resources consumed by the transaction.
-- Execution base fees and storage fees are routed into the rewards pool for each block, removing them from circulation.
+- Execution base fees and storage fees are routed into the rewards pool for each block, removing them from circulation, except for the share diverted to the [Proof of Work Reward Pool](#proof-of-work-reward-pool).
 - Rewards are distributed on an epoch basis:
     - Leaders (block proposers) include Mantle Transactions in every block. Each transaction pays Permanent Storage and Execution fees, which are routed into the rewards pool. For each block, a reward is calculated following the [Block Rewards](block-rewards.md). Additionally, a portion of the Execution fees is distributed back to leaders from the pool according to the [Execution Market](execution-market.md). These two sources determine the total rewards allocated to leaders, as explained in [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders), which correspond to tips from the Execution market and 40% of block rewards. For anonymity reasons, block proposers don't receive rewards directly. Instead, leader rewards accumulate in a single pool that increases on an epoch basis rather than per block (see [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md)). When a new epoch begins, the pool increases by the total leader rewards from all blocks in the previous epoch. Simultaneously, leaders from the previous epoch can start claiming their rewards, with each unclaimed reward (since genesis) representing one equal share of the pool.
     - Blend nodes provide Blend service to the network for at least one epoch. Using the same [Block Rewards](block-rewards.md), the protocol determines the total rewards allocated to the Blend network, as explained in [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders) which correspond to 60% of the block rewards. 
@@ -172,6 +173,33 @@ def update_leader_rewards(e: epoch, # rewards for the epoch e
         leader_rewards += get_execution_market_tips(b) # get Execution market tips
     return leader_rewards
 ```
+
+### Proof of Work Reward Pool
+
+Proof of work claims are paid from a further pool. It is funded from the fees rather than from the block reward: each block credits a fixed share of the fees it collects to this pool, and the rest is pooled as before.
+
+```python
+def get_pow_pool_refill(e: epoch): # refill for the epoch e
+    refill = 0
+    for b in e.blocks: # for each block of the previous epoch
+        refill += get_collected_fees(b) * POW_SHARE // SHARE_DEN
+    return refill
+```
+
+`get_collected_fees(b)` is the sum of the Execution base fees and the Permanent Storage fees paid in block `b`, and `POW_SHARE / SHARE_DEN` is the share diverted. The division rounds down, so the pool never takes more than that share; what the rounding leaves stays with the remainder.
+
+### Who pays for the diversion
+
+No tokens are created. [Block Rewards](block-rewards.md) counts this pool as a fourth stock, beside the circulating supply, the rewards pool and the reserve. The diversion moves tokens that would otherwise have reached the rewards pool. The reserve is never drawn on to refill this pool, and a claim is paid only from what the pool holds.
+
+A block reward is a release from the reserve plus the average of the pooled fees. Diverting a share of the fees lowers that average by the same share, so it lowers the second part of the reward in the same proportion. Who bears that depends on the era:
+
+- While the reserve release dominates the reward, the reward barely moves. The diverted tokens still reach circulation, through claims instead of block rewards.
+- Once the reserve release approaches zero and the reward settles at the average pooled fee, a share diverted is a share not distributed. **The cost falls on the Blend service and the leaders**, in the 60/40 proportion in which they divide the block reward. That proportion is unchanged; the total they divide is smaller.
+
+The emission rate factor is computed in part from the pooling rate, so the released part of the reward responds to the diversion as well. That response vanishes in both eras above, and between them it is comparable to the direct effect.
+
+`POW_SHARE` is therefore a further claim on the flow that funds the privacy layer and consensus, and must be chosen on that basis.
 
 ## Reward Distribution Protocols
 
