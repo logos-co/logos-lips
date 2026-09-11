@@ -44,15 +44,20 @@ A transaction is admitted, disseminated, offered to block building once confirme
 | --- | --- | --- | --- |
 | `TRANSACTION_TTL` | Transaction Time To Live | How long a transaction may stay pending before it is retired. | 24 hours |
 | `PULL_PROTOCOL` | Pull Protocol | The libp2p request-response protocol carrying confirmation queries. | `/logos-blockchain/mempool-pull/1.0.0` for mainnet, `/logos-blockchain-testnet/mempool-pull/1.0.0` for testnet |
-| `PULL_HOP_ALLOWANCE` | Pull Hop Allowance | Time allowed for a transaction to cross one gossip hop. | 2 seconds |
-| `PULL_DELAY` | Pull Delay | How long a transaction must have been pending before a node queries about it. | `PULL_HOP_ALLOWANCE * ceil(log_D(N))`, where `N` is the size of the [attester set](#attester-set) and `D` the peering degree of [P2P Network](../draft/p2p-network.md#gossiping) |
-| `PULL_INTERVAL` | Pull Interval | The period between confirmation rounds. | 2 seconds |
+| `PULL_HOP_ALLOWANCE` | Pull Hop Allowance | Time allowed for a transaction to cross one gossip hop. | 1 second |
+| `PULL_MIN_ATTESTERS` | Minimum Attesters | The smallest `N` at which a node queries. | 5 |
+| `PULL_DELAY` | Pull Delay | How long a transaction must have been pending before a node queries about it. | `PULL_HOP_ALLOWANCE * ceil(log_D(max(N, PULL_MIN_ATTESTERS)))`, where `N` is defined in [Attester Set](#attester-set) and `D` is the peering degree of [P2P Network](../draft/p2p-network.md#gossiping) |
+| `PULL_INTERVAL` | Pull Interval | The period between confirmation rounds. | 500 milliseconds |
 | `PULL_SAMPLE_SIZE` | Pull Sample Size | Providers queried per round. | 16 |
-| `PULL_MAX_ROUNDS` | Maximum Pull Rounds | Rounds a node spends on one transaction. | 8 |
-| `PULL_SAMPLE` | Pull Sample | Distinct providers asked about one transaction. | `min(PULL_SAMPLE_SIZE * PULL_MAX_ROUNDS, N - 1)` |
+| `PULL_MAX_ROUNDS` | Maximum Pull Rounds | Rounds a node spends on one transaction. | 16 |
+| `PULL_SAMPLE` | Pull Sample | The fewest providers a majority is taken over. | `min(128, N)` |
 | `PULL_MAX_BATCH` | Maximum Pull Batch | The most transactions one query may name. | 1024 |
 
 `PULL_SAMPLE` is sized for an adversary holding at most one third of the attester set. At a larger share a transaction delivered to one node and a transaction the network holds return the same share of positive answers, and the rule below cannot tell them apart.
+
+`PULL_MIN_ATTESTERS` must exceed 3. At `N = 3` and `N = 1` a third of the attester set is a majority of `PULL_SAMPLE`.
+
+`PULL_SAMPLE_SIZE * PULL_MAX_ROUNDS` must exceed `PULL_SAMPLE`, or a transaction exhausts its rounds before `PULL_SAMPLE` providers have answered.
 
 ## Mempool State
 
@@ -66,8 +71,8 @@ class Mempool:
     commitment: Map[TxHash, Hash]                # this node's body commitment, at admission
     attesters: Map[TxHash, Set[ProviderId]]      # providers that attested to holding it
     queried: Map[TxHash, Set[ProviderId]]        # providers that answered a query about it
-    received_from: Map[TxHash, Set[ProviderId]]  # providers the transaction arrived from
     rounds: Map[TxHash, uint8]                   # confirmation rounds spent
+    confirmed: Set[TxHash]                       # confirmed transactions
 ```
 
 A transaction is keyed by `mantle_txhash(tx)`, defined in [Mantle](bedrock-v1.1-mantle-specification.md#mantle-transaction-hash).
@@ -76,13 +81,11 @@ A transaction is keyed by `mantle_txhash(tx)`, defined in [Mantle](bedrock-v1.1-
 
 `insert_by` places a hash at the position its admission time gives it, which is not the end when a [Reorganisation](#reorganisation) re-admits a transaction.
 
-A transaction is **confirmed** when `len(attesters[key]) > PULL_SAMPLE / 2`.
+A transaction is **confirmed** when it is in `confirmed`. [Confirmation Rounds](#confirmation-rounds) adds to that set and nothing removes from it before retirement.
 
 A node that holds no declaration in the [attester set](#attester-set) answers no query and stores no `commitment`.
 
-A node adds the sender of a gossiped copy to `received_from`, including a copy `admit` reports as a duplicate. The sender is identified by the `provider_id` that [Locators](bedrock-service-declaration-protocol.md#locators) makes its node identity. A sender outside the attester set is not recorded.
-
-A node holds two further tables outside `Mempool`. One records, for each query in flight, the provider it went to and the transactions it named, in the order it named them. The other records the providers sampled in each of the previous `PULL_MAX_ROUNDS - 1` rounds. A restart discards both.
+A node holds one further table outside `Mempool`, recording for each query in flight the provider it went to and the transactions it named, in the order it named them. A restart discards it.
 
 ## Transaction Admission
 
@@ -157,7 +160,7 @@ A node confirms a transaction by asking sampled providers whether they hold it.
 
 ### Attester Set
 
-The attester set is the Blend Network declarations active in the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) snapshot of the current epoch, defined in [Snapshots](bedrock-service-declaration-protocol.md#snapshots). A declaration supplies the `provider_id` and `locators` a querier uses to reach the provider.
+The attester set is the Blend Network declarations active in the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) snapshot of the current epoch, defined in [Snapshots](bedrock-service-declaration-protocol.md#snapshots). A declaration supplies the `provider_id` and `locators` a querier uses to reach the provider. `N` is the number of its members other than the node.
 
 ### The Pull Exchange
 
@@ -195,11 +198,12 @@ A provider rate-limits queries per querier. It may decline to answer.
 
 Every `PULL_INTERVAL`, a node:
 
-1. Collects every pending transaction that is unconfirmed, has been pending for at least `PULL_DELAY`, has spent fewer than `PULL_MAX_ROUNDS` rounds, and has fewer than `PULL_SAMPLE - floor(PULL_SAMPLE / 2)` providers in `queried` that are not in `attesters`. Where more than `PULL_MAX_BATCH` transactions qualify, it collects the `PULL_MAX_BATCH` oldest by admission time. A round that collects nothing sends no query.
-2. Samples `PULL_SAMPLE_SIZE` providers from the [attester set](#attester-set), uniformly at random and without replacement, excluding itself and every provider it sampled in the previous `PULL_MAX_ROUNDS - 1` rounds. Where fewer remain, it samples all of them. The sample must be drawn from local randomness and never from a chain-derived seed.
-3. Sends each sampled provider a query naming the collected transactions for which that provider is in neither `queried` nor `received_from`. It sends no query to a provider excluded by every transaction it collected.
-4. Increments `rounds` for every transaction it collected.
-5. On each response it accepts, adds the provider to the `queried` set of every transaction that query named, and to `attesters` for every transaction the response attests to.
+1. Adds to `confirmed` every pending transaction not in it for which `len(attesters) > max(len(queried), PULL_SAMPLE) / 2`. Where `N < PULL_MIN_ATTESTERS`, it adds instead every pending transaction that has been pending for at least `PULL_DELAY`, and ends the round.
+2. Collects every pending transaction that is unconfirmed, has been pending for at least `PULL_DELAY` and has spent fewer than `PULL_MAX_ROUNDS` rounds. Where more than `PULL_MAX_BATCH` transactions qualify, it collects the `PULL_MAX_BATCH` oldest by admission time. A round that collects nothing sends no query.
+3. Samples `PULL_SAMPLE_SIZE` providers from the [attester set](#attester-set), uniformly at random and without replacement, excluding itself. Where fewer exist, it samples all of them. The sample must be drawn from local randomness and never from a chain-derived seed.
+4. Sends each sampled provider a query naming the collected transactions for which that provider is not in `attesters`. It sends no query to a provider excluded by every transaction it collected.
+5. Increments `rounds` for every transaction it collected.
+6. On each response it accepts, adds the provider to the `queried` set of every transaction that query named, and to `attesters` for every transaction the response attests to.
 
 A node must not re-evaluate an accepted attestation against a later snapshot.
 
@@ -257,13 +261,13 @@ A pending transaction whose age exceeds `TRANSACTION_TTL` is retired.
 
 ### Effects of Retirement
 
-Retirement removes the hash from `pending` and from `by_prefix`, and discards its `admitted_at`, `attesters`, `queried`, `received_from` and `rounds` entries, its body and its `commitment`.
+Retirement removes the hash from `pending`, `by_prefix` and `confirmed`, and discards its `admitted_at`, `attesters`, `queried` and `rounds` entries, its body and its `commitment`.
 
 A retired transaction that is gossiped again is admitted again.
 
 ## Persistence and Recovery
 
-A node persists the pending hashes, their admission timestamps, their `attesters`, `queried`, `received_from` and `rounds` entries, and the transaction bodies.
+A node persists the pending hashes, their admission timestamps, their `attesters`, `queried` and `rounds` entries, `confirmed`, and the transaction bodies.
 
 A node does not persist `by_prefix` or `commitment`. It rebuilds both from the recovered pending set and its own `provider_id`.
 
