@@ -34,6 +34,7 @@
 | 1.3.1 | Judged the active message window by the epoch of the including block, made the one-message-per-epoch rule per attested epoch, and made the transition-period delay a release constraint | 2026-09-02 |
 | 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, add a transaction as a data message payload, and align the nullifier retention period | 2026-09-08 |
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
+| 1.6.0 | Replaced the per-window statistical threshold on a connection with a share of messages a node reads from, and sends on, each connection in a round, and a liveness test, kept per identity for the epoch, on whether a neighbor delivers. Held the peering degree in live connections, at least two of them opened by the node. Restricted blacklisting to attributable faults. Sized the shares from the processing rate of the slowest node, derived the transactions the network carries from them, and made that rate the reference load of the Blend difficulty. | 2026-09-08 |
 
 # Introduction
 
@@ -86,8 +87,6 @@ To have a **truly privacy-preserving system, we need to apply both techniques si
 
 - *Honest node* is a node that follows the protocol fully.
 - *Lazy node* is a node that does not follow the protocol due to a lack of incentives and only takes part in the protocol when it is directly beneficial to the node.
-- *Spammy node* is a node that does not follow the protocol and emits more messages than the protocol expects. In other words, it is a spamming node.
-- *Unhealthy node* is a node that emits fewer messages than the protocol expects. We cannot assume that this node is misbehaving deliberately, as it can be under an attack.
 - *Malicious node* is a node that does not follow the protocol regardless of incentives.
 - *Unresponsive node* is a node that does not follow the protocol due to technical reasons, such as a lack of connectivity or malfunction.
 
@@ -156,27 +155,13 @@ At the beginning of an epoch, all core nodes retrieve a fresh set of core nodes�
 
 The minimal network size is $`32`$. This is the minimum number of nodes (unique `ProviderId`s from declarations) that must be retrieved from the SDP to consider the Blend protocol safe to use.
 
-This minimal size of $`32`$ nodes allows the network to release, on average, a single message per round under the assumption of $`50\%`$ unresponsive nodes. With fewer nodes, the network would need to either release more messages per round or queue them. This would increase the time messages take to traverse the network, potentially compromising the safety of the consensus.
-
-The calculations supporting this requirement are provided in the [Releasing](#releasing) section, where the number of $`16`$ nodes has been estimated without assuming any unresponsive nodes. Therefore, we have doubled that value to accommodate the potential $`50\%`$ unresponsive nodes.
-
 ### Fallback
 
 If the minimal network size is not reached, nodes must not use the Blend protocol. In such cases, nodes must broadcast data messages directly, bypassing the Blend network.
 
 ### Maintenance
 
-To maintain an adequate quality of the network, all connections must be monitored by the nodes.
-
-Nodes monitor connections with their neighbors by verifying the correctness of messages and the number of messages they receive.
-
-1. If the messages are badly constructed or the number of messages is above a certain acceptable level, then:
-1. The connection with that neighbor must be closed.
-2. Then a new connection with a randomly selected core node must be established.
-
-2. If the number of messages is below a certain acceptable level, then a new connection with a random core node must be established.
-
-The above logic enables a node to maintain the quality of the network by closing connections with abusive, malicious, lazy, and unresponsive nodes. All honest nodes, by following this mechanism in the long run, will isolate themselves from other nodes, which will increase the overall performance of the network.
+A core node reads at most a share of messages from each connection per round, sized to what the slowest node the protocol targets can process, sends at most the same share on each, and keeps a connection only while its neighbor delivers. It maintains its peering degree and blacklists a neighbor only for a fault the neighbor is answerable for ([Connectivity Maintenance](#connectivity-maintenance)).
 
 ## Messages
 
@@ -309,7 +294,7 @@ The bootstrapping defines the process of creating the network, which happens at 
 1. A core node at the beginning of an epoch retrieves a set of core nodes’ information from the SDP protocol ([Service Declaration Protocol](bedrock-service-declaration-protocol.md)).
 2. If the number of core nodes is below the minimum number of nodes ([Minimal Network Size](#minimal-network-size)), then stop and use regular broadcasting.
 3. It starts opening new connections.
-    1. It selects at random (without replacement) a node from the set of core nodes.
+    1. It selects at random (without replacement) a node from the set of core nodes, excluding the identities that are on its blacklist ([Connectivity Maintenance](#connectivity-maintenance)).
     2. It establishes a secure connection with the selected node, that is:
         1. It opens a TLS connection using ephemeral keys to the node according to the [Connection Details](#connection-details).
         2. It identifies its neighbor using the [Neighbor Distinction Process](#neighbor-distinction-process) (NDP).
@@ -317,10 +302,8 @@ The bootstrapping defines the process of creating the network, which happens at 
             2. The neighbor learns that the node is a core node.
             3. The node stops connecting to selected peer after reaching the maximum number of tries ($`\Omega_C`$ parameter: [Core Node Parameters](#core-node-parameters)). Then a new random peer is selected.
 
-    3. It repeats the above steps until it connects to the minimal core peering degree of nodes. That is, 4 according to the $`\Phi_{CC}^{Min}`$ parameter: [Core Node Parameters](#core-node-parameters). Both incoming and outgoing connections count toward this minimal degree.
-4. It starts accepting incoming connections and maintaining all connections as defined in **Maintenance**.
-    1. It can maintain up to the maximum number of connections with core nodes ($`\Phi_{CC}^{Max}`$ parameter: [Core Node Parameters](#core-node-parameters)).  For example, a node initiates $`\Phi_{CC}^{Min}=4`$ connections and $`\Phi_{CC}^{Max}=8`$ , then it can still accept $`\Phi_{CC}^{Max} - \Phi_{CC}^{Min} = 4`$ connections from core nodes.
-    2. It can receive up to the maximum number of connections with edge nodes. For example, 300 or according to the $`\Phi_{CE}^{Max}`$ parameter: [Core Node Parameters](#core-node-parameters).
+    3. It repeats the above steps while [Connectivity Maintenance](#connectivity-maintenance) requires it to open a connection.
+4. It maintains all connections as defined in [Connectivity Maintenance](#connectivity-maintenance).
 5. If two nodes open two connections with each other, so that both have incoming and outgoing connections to the same neighbor (core node), then:
     1. The node with the lower public key value (`provider_id` from SDP) must close the outgoing connection to the node with the higher public key value.
     2. The node with the higher public key value (`provider_id` from SDP) must close the incoming connection from the node with the lower public key value.
@@ -329,28 +312,13 @@ Public key values are compared lexicographically. Specifically, we use the libp2
 
 **Maintenance**
 
-This process defines the way the network connections are maintained during the epoch.
-
-A core node monitors the connection quality of each connection with its neighbors, according to the [Connectivity Maintenance](#connectivity-maintenance):
-
-- It monitors the transmission rate of each neighbor’s connection.
-  1. If the transmission rate drops below a certain threshold, then the neighbor is marked unhealthy.
-  2. If the transmission rate goes above a threshold, then the neighbor is marked spammy.
-- A connection with a spammy neighbor is dropped, and a new one (with another randomly selected core node) must be established to maintain the minimum peering degree.
-- A connection with an unhealthy core node neighbor is maintained, but an additional connection is established.
-  1. The number of open connections must be below the maximum core connections.
-  2. If the maximum core connections is exceeded, then:
-      1. A message is added to the logs informing about this situation;
-      2. Possibility to establish new connections is paused until the maximum number of established connections goes down.
-- A connection with an unhealthy edge node is closed.
+A core node maintains its connections during the epoch as defined in [Connectivity Maintenance](#connectivity-maintenance).
 
 ### Edge Network
 
 **Bootstrapping**
 
 The edge network is maintained by core nodes because edge nodes can only establish connections with core nodes.
-
-Each core node defines individually the maximum number of edge connections allowed. Therefore, every core node is a potential entry point to the network, but not every node is connectable.
 
 The bootstrapping logic of an edge node:
 
@@ -362,7 +330,6 @@ The bootstrapping logic of an edge node:
     2. It identifies itself and authenticates using the [Neighbor Distinction Process](#neighbor-distinction-process).
         1. A core node learns that the neighbor is an edge node.
         2. An edge node confirms that the neighbor is a core node.
-        3. A core node might drop the connection if the maximum number of edge connections, defined by the core node, is reached.
         4. An edge node must drop the connection if the neighbor is not the intended core node. Please note that technically it is done during TLS handshake, where the handshake will fail if the core node is using a different key than provided in the SDP declaration.
 5. When the connection is established, it sends the message and closes the connection.
 6. Concurrently to the above, it repeats steps 4 and 5 until it is sends the message to a number of nodes equal to the communication redundancy number defined by the edge node. It stops connecting to each node after a certain number of tries, which is defined by the edge node.
@@ -474,29 +441,25 @@ Every active core node receives a reward. The activity of a node is verified in 
 
 ## Notation
 
-- $`\Phi_{CC}`$ denotes the actual number of established connections of the core node with other core nodes;
-- $`\Phi_{CE}`$ denotes the actual number of connections of the core node with edge nodes;
-- $`\Phi_{EC}`$ denotes the actual number of connections of the edge node with core nodes;
-- $`h(x)`$ denotes a function that returns the number of healthy connections of a given type, where type is: $`x \in \{ \Phi_{CC}, \Phi_{CE}, \Phi_{EC} \}`$;
+- $`\Phi_{CC}`$ denotes the peering degree of a core node;
 - $`\Delta_{max}`$ denotes a maximal delay time between two release rounds;
 - $`\beta_{max}`$ denotes a maximum number of processing rounds for a single message;
-- $`\mu`$ denotes the upper bound on the number of messages to be released during a single release round;
 - $`E`$ denotes a number of rounds in an epoch;
 - $`W`$ denote the observation window expressed in the number of rounds;
-- $`F_1^W`$ denote a frequency at which messages are observed during an observation window $`W`$;
-- $`\lceil F_1 \rceil^W`$ denote the maximal frequency at which messages can be generated during an observation window $`W`$;
-- $`\lfloor F_1 \rfloor^W`$ denote the minimal frequency at which messages must be generated during an observation window $`W`$;
+- $`F_1`$ denote the number of messages a core connection carries per round;
+- $`V`$ denote the number of messages per second the slowest node the protocol targets processes;
+- $`r_1`$ denote the number of messages a node reads from a core connection in a round;
+- $`r_E`$ denote the number of connections with edge nodes a node accepts in a round;
 - $`F_C`$ denote a frequency at which cover messages are generated per round;
-- $`F_D`$ denote a frequency at which data messages are generated per round;
-- $`C = S \cdot F_C`$ denote the expected number of cover messages that are generated during an epoch by the core nodes;
-- $`H_C`$ denote the expected number of blending operations for each cover message;
-- $`H_D`$ denote the expected number of blending operations for each data message;
+- $`F_D`$ denote a frequency at which block proposals are generated per round;
+- $`F_T`$ denote a frequency at which messages carrying a transaction are generated per round;
+- $`C = E \cdot F_C`$ denote the expected number of cover messages that are generated during an epoch by the core nodes;
 - $`R_C`$ denote a redundancy parameter for cover messages, defining the number of “replications” of the same message;
-- $`R_D`$ denote a redundancy parameter for data messages, defining the number of “replications” of the same message;
-- $`\mathcal{N} = \text{SDP}(s)`$ denote a set of core nodes providing the Blend service for the epoch $`e`$ returned by the SDP protocol ([Service Declaration Protocol](bedrock-service-declaration-protocol.md));
+- $`R_D`$ denote a redundancy parameter for block proposals, defining the number of “replications” of the same message;
+- $`\mathcal{N} = \text{SDP}(e)`$ denote a set of core nodes providing the Blend service for the epoch $`e`$ returned by the SDP protocol ([Service Declaration Protocol](bedrock-service-declaration-protocol.md));
 - $`N = |\mathcal N|`$ denote a number of core nodes providing the Blend service;
 - $`\text {CSPRNG}()`$ is a cryptographically secure pseudo-random number generator, implemented as a [ChaCha20-Based PRNG Construction](common-cryptographic-components.md#chacha20-based-prng-construction);
-- $`\eta`$ denotes the network absorption, the time a message spends crossing the network on one hop;
+- $`\eta`$ denotes the network absorption, the maximum time a message spends crossing the network on one hop;
 - $`T_M`$ denotes the message traversal time, the time a message takes to cross the network;
 
 ## Global Parameters
@@ -509,17 +472,22 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\eta=2`$ rounds, the network absorption of one hop.
 - $`T_M = 15`$ rounds, the message traversal time, as derived in the [Transition Period](#transition-period) section.
 - $`W=10 \cdot \Delta_{max}=30`$, the observation window is $`30`$ rounds.
-- $`\lceil F_1 \rceil^W = W \cdot \mu=30 \cdot \mu`$, the maximum number of messages per-connection during the observation window is a function of the $`\mu`$, which is defined in the [Releasing](#releasing)  section.
-- $`\lfloor F_1 \rfloor^W = 3 \cdot \mu`$, the minimum number of messages per-connection during observation is a function of the $`\mu`$, which is defined in the [Releasing](#releasing) section.
+- $`F_C=1`$, the network generates one cover message per round on average.
+- $`F_D=1/30`$, the network generates one block proposal every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)).
+- $`F_T = 130/30`$, the network carries $`130`$ messages per slot of $`30`$ rounds, each carrying one transaction ([Payload Formatting](payload-formatting.md)), whatever quota backs them: $`\left(F_1 / \beta_{max} - \max(F_C \cdot (1 + R_C), F_D \cdot (1 + R_D))\right) \cdot 30 = 130`$ at $`F_1 = 16`$ ([Expected Traffic](#expected-traffic)).
+- $`R_C=0`$ and $`R_D=1`$: a cover message is not replicated, and a block proposal is replicated once. A transaction is not replicated.
+- $`\Phi_{CC}=4`$, the peering degree ([Connectivity Maintenance](#connectivity-maintenance)). $`3 \le \Phi_{CC} \le 5`$. Below $`3`$ a node opens no connection of its own; above $`5`$ nodes must open more connections than nodes can accept, and dials are refused.
+- $`V = 156`$ messages per second the slowest node the protocol targets processes, one below the $`157`$ measured on one core of a Raspberry Pi 5 ([benchmark](https://github.com/logos-blockchain/research/tree/blend-header-verification-benchmark/tools/benchmarks/blend-header-verification)).
+- $`r_1 = 20`$ messages a node reads from a core connection per round, and $`r_E = 24`$ connections with edge nodes it accepts per round: $`r_1 = \lfloor (2V/3) / (\Phi_{CC} + 1) \rfloor`$ and $`r_E = 2V/3 - \Phi_{CC} \cdot r_1`$, so a node at its peering degree reads two thirds of $`V`$, and at one above it $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124 \le V`$ ([Expected Traffic](#expected-traffic)).
+- $`T_E=1`$ round, the time an edge node is given to send its message, as derived in [Connectivity Maintenance](#connectivity-maintenance).
+- $`T_H=2`$ rounds, the time a core node handshake is given to complete, which covers the round trips of the transport handshake and of the [Neighbor Distinction Process](#neighbor-distinction-process).
 
 ### Core Node Parameters
 
 A core node maintains the following set of parameters:
 
-- $`\Phi_{CC}^{Max}`$ denotes the maximal peering degree a core node can maintain with other core nodes. It is set by a core node individually.
-- $`\Phi_{CC}^{Min}`$ denotes the minimal peering degree a core node must maintain with other core nodes. It is set by a core node individually.
-- $`\Phi_{CE}^{Max}`$ denotes the maximum number of connections with edge nodes. It is set by the core node individually.
 - $`\Omega_C`$ denotes the maximum number of retries a core node will do to connect with another core node.
+- $`\Phi_{CE}^{Max}`$ denotes the maximum number of connections a core node holds with edge nodes at once. $`\Phi_{CE}^{Max} \ge 2 \cdot r_E`$: a connection holds its slot for $`T_E`$, one round, so the connections accepted in two rounds can be open at once, and a smaller value refuses edge connections before the share is spent.
 
 Implementations should choose a default based on the deployment they operate in, and users can override these defaults before joining.
 
@@ -545,35 +513,66 @@ The Neighbor Distinction Process (NDP) enables the core node to distinguish betw
 1. A node extracts `peer_id` from the TLS metadata of the accepted connection.
 2. If the `peer_id` is found in the set of `provider_id`s, then the neighbor is a core node; otherwise, the peer is an edge node.
 
+### Expected Traffic
+
+A message is **novel** to a node when its proof of quota nullifier is not in the nullifier cache ([Relaying](#relaying)).
+
+The rate a core connection carries is:
+
+$$
+F_1 = \left( \max\left(F_C \cdot (1 + R_C),\ F_D \cdot (1 + R_D)\right) + F_T \right) \cdot \beta_{max} = 16.0
+$$
+
+Flooding delivers each message once per neighbor, so $`F_1`$ must be below $`r_1`$; at $`r_1`$ a backlog on a connection never drains. $`F_T`$ is sized so that a backlog of one round's share drains, at $`r_1 - F_1`$ per round, within the time a message may spend at one hop, $`\Delta_{max} + \eta`$ ([Transition Period](#transition-period)): $`F_1 = r_1 \cdot (1 - 1 / (\Delta_{max} + \eta)) = 16`$. Messages backed by a proof of work count within $`F_T`$, which is the reference load of [Blend Difficulty](proof-of-work.md#blend-difficulty).
+
+A node reads at most $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124`$ messages in a round, which must not exceed $`V`$, and verifies the public header of novel messages only ([Relaying](#relaying)). At $`19318`$ bytes per message ([Message Formatting](message-formatting.md)) that is $`2.4`$ MB/s.
+
 ### Connectivity Maintenance
 
-The core node is responsible for maintaining the level of connectivity and monitoring the state of connection with its neighbors. The neighbors must comply with the maximum and minimum frequencies of emitting messages. Otherwise, the connection with that node may be dropped.
+**Admission**
 
-The monitoring logic is defined as follows:
+The shares keep the messages a node reads in a round within what the slowest node the protocol targets can verify, $`V`$ ([Expected Traffic](#expected-traffic)).
 
-1. The messages are counted after successful connection-level decryption of the message for each neighbor.
-2. The node counts the number of messages during a window of observation $`W`$. The frequency of observed messages $`F_1^W`$is calculated as the number of messages recorded during the observation time divided by the length of the observation window (denoted in rounds).
-3. If the measured message frequency is higher than maximal ($`F_1^W \gt \lceil F_1 \rceil^W`$), then the node marks the neighbor as *spammy,* and the connection with that node must be closed.
-    1. The node can mark the neighbor as spammy with high confidence, as the neighbor is the true source of messages due to the usage of the TLS protocol, which eliminates the possibility of executing replay attacks by the adversary.
-    2. To maintain the minimal number of connections, a new one must be established when a connection with an abusive node is closed.
-    3. The neighbor is added to a black list, and its selection must be avoided.
-4. If the measured frequency is lower than the minimum ($`F_1^W \lt \lfloor F_1 \rfloor^W`$), then the connection is marked *unhealthy*.
-5. If the number of healthy connections is below the minimum number of connections ($`h(\Phi_{CC}) \lt \Phi_{CC}^{Min}`$ for core-to-core connections), then another connection must be opened with a new randomly selected core node. We cannot assume that the neighbor is spammy, as it might be under a denial-of-service attack or other censoring attack.
-6. An unhealthy connection is monitored continuously. If the message frequency goes above the minimal value during the next observation window, then the connection must be treated as healthy, and the node must remove the unhealthy marking for that connection.
-7. If the number of open connections is above the maximum ($`\Phi_{CC} \ge \Phi_{CC}^{Max}`$) then:
-    1. Add an entry to the log that the maximum number of connections has been reached*.*
-    2. Pause the ability to establish new connections until the number of open connections drops below the maximum.
-8. If the neighbor is an edge node, then the edge node must send a message immediately after establishing the connection with the core node and then close the connection. Otherwise, the connection must be closed by the core node.
-9. If the node receives a message that has been discarded during the relaying process due to invalidity of the signature ([Relaying](#relaying)), then:
-    1. If the sender is a core node, then it must be marked as malicious, and the connection with that node must be closed.
-    2. If the sender is an edge node, then do nothing as the connection must already be closed with that node.
-10. If a node **receives** **a second message from its neighbor** (core node) that is using an already seen message identifier, then the connection with that neighbor must be closed.
+1. A node reads at most $`r_1`$ messages from a core connection in a round. A connection whose share is spent is not read until the next round.
+2. A node sends at most $`r_1`$ messages on a core connection in a round. A message that has waited $`\eta`$ rounds to be sent on a connection is discarded for that connection.
+3. The volume a neighbor sends is never a cause for closing a connection or for blacklisting.
 
-The **message identifier** is the message proof of quota nullifier embedded in the public header of the message. It is used for signing the message and must be unique; otherwise, the message must be discarded.
+**Liveness**
 
-We do not force any action when the measured transmission rate is below the thresholds defined above, which means that the sender is not emitting enough messages. The primary reason is security; a node might be under an attack, and an adversary is trying to exploit the node and force the node to connect to a different peer (who might be malicious). The severity of that attack is high, as it is not attributable to the adversary. That is, the adversary can execute this attack without disclosing its identity even if it is not controlling the other end of the connection. Therefore, it is better not to close the connection immediately but to establish another one with a randomly selected node from the list.
+1. A connection with a core node is **live** when the neighbor has delivered a message, duplicate or not, within its last $`W`$ connected rounds, or has been connected for fewer than $`W`$ rounds in total.
+2. Connected rounds and deliveries are counted per identity, for the epoch, over every connection the node has held with it.
+3. A neighbor whose connection is not live is not blacklisted.
 
-However, this must also be carefully engineered as the number of connections must not rise above the maximal connection values. The reaction of the node operator to the situation when the number of connections reached maximum is a complex matter, which needs to be handled according to the privacy requirements of the operator. For example, it might be a sign that the node is under attack. Therefore, we have decided to define a privacy-first strategy that is to inform the operator about the potential problem (through logs) and pause the ability to establish new connections until the number of open connections goes below the maximum.
+**Degree**
+
+1. A core node holds between $`\Phi_{CC} - 1`$ and $`\Phi_{CC} + 1`$ connections with core nodes. It opens a connection while it holds fewer than $`\Phi_{CC} - 1`$ live ones, or fewer than $`\Phi_{CC} - 2`$ live ones that it opened. It accepts a connection while it holds fewer than $`\Phi_{CC} + 1`$ connections and fewer than $`(\Phi_{CC} + 1) - (\Phi_{CC} - 2) = 3`$ accepted ones, and closes a connection offered above either.
+2. It draws the nodes it opens uniformly at random and without replacement from the set returned by the SDP protocol, excluding itself, blacklisted identities and its current neighbors.
+3. A connection that is not live is closed.
+4. A connection whose handshake is in progress counts towards $`\Phi_{CC}`$ once the [Neighbor Distinction Process](#neighbor-distinction-process) has identified the neighbor as a core node, and its peer is a current neighbor for rule 2. A handshake that has not completed within $`T_H`$ is abandoned and its slot released. At most $`\Phi_{CC} + 1 + \Phi_{CE}^{Max}`$ handshakes are in progress at once, and one offered above that is closed.
+
+**Blacklist**
+
+A failure of the authenticated stream is a violation of the framing of the stream.
+
+1. A connection with a core node whose authenticated stream fails, or that carries a message with a malformed header, an invalid signature, or an invalid proof of quota, is closed and its neighbor is added to the **blacklist**. A message discarded as a duplicate carries no reaction.
+2. A blacklisted identity is refused on incoming and on outgoing connections. An entry expires after $`W`$ rounds.
+3. The blacklist holds at most $`2 \cdot \Phi_{CC}`$ entries, and the oldest is discarded when it is full.
+
+**Edge Nodes**
+
+1. A core node holds at most $`\Phi_{CE}^{Max}`$ connections with edge nodes at once, and accepts at most $`r_E`$ of them in a round. A connection offered above either is closed.
+2. A connection with an edge node is closed once the edge node has sent its message, or once $`T_E`$ has elapsed from accepting it. $`T_E`$ covers one encapsulated message of $`19318`$ bytes ([Message Formatting](message-formatting.md)), which takes $`0.15`$ s over a $`1`$ Mbit/s link; a further $`20\%`$ for framing and $`0.5`$ s of latency keep the total under one round.
+3. An edge node whose message fails header verification has its connection closed. It is not blacklisted.
+
+**Logging**
+
+A node logs:
+
+- every connection it closes, and every addition to and expiry from the blacklist;
+- every round in which a connection's share was spent, and every round in which it discarded a message waiting for a connection;
+- every period during which it holds fewer than $`\Phi_{CC} - 1`$ live connections with core nodes, or fewer than $`\Phi_{CC} - 2`$ that it opened.
+
+Each entry carries the identity of the neighbor and the reason.
 
 ### Transition Period
 
@@ -600,7 +599,7 @@ When a new **epoch** begins:
 - The node validates message proofs against both new and past epoch-related public input for the duration of TP. This allows past-epoch messages to safely transit through the network, as their validity is bound to the epoch in which they were generated.
 - The Blend threshold $`d_{blend}`$ is one of these public inputs: a proof is verified against the threshold of the epoch its public inputs belong to, so during the Transition Period messages meeting either epoch's threshold are accepted.
 - The node must open new connections to process new messages for the new epoch.
-- The node needs to maintain old connections and process all messages received from these connections for the duration of TP.
+- The node needs to maintain old connections and process all messages received from these connections for the duration of TP. A connection held for the past epoch does not count towards $`\Phi_{CC}`$.
 
 ## Quota
 
@@ -644,7 +643,7 @@ $$
 where:
 
 - $`\beta_D`$ denotes the expected number of blending operations for each data message;
-- $`R_D`$ denotes a redundancy parameter for data messages, defining the number of “replications” of the same message.
+- $`R_D`$ denotes a redundancy parameter for block proposals, defining the number of “replications” of the same message.
 
 We can calculate an average data message number ($`D_{Avg}`$) which informs us about the average number of data messages generated per epoch:
 
@@ -821,7 +820,7 @@ def modular_bytes(data: bytes, modulus: int) -> int:
 
 Generation of cover messages is handled by each core node individually. The only protocol-enforced limitation is through the [Core Quota](#core-quota) ($`Q_C`$), which limits the number of messages a node can generate.
 
-To protect its own privacy, a core node should emit cover messages in a fully random manner to ensure that the cover messages are evenly distributed across the duration of an epoch.
+A core node draws its cover message schedule uniformly at random over the epoch.
 
 ### **Message Structure**
 
@@ -880,12 +879,12 @@ When this happens, a number of messages (limited by the [Quota](#quota)) are gen
 The relaying logic is defined as follows:
 
 1. The node checks the header of the message that was received from its neighbor, according to the [Message Formatting](message-formatting.md).
-    1. If the neighbor is a core node, then update the message counter for the neighbor.
+    1. If the neighbor is a core node, then the message counts towards the liveness of the connection and towards its share ([Connectivity Maintenance](#connectivity-maintenance)).
     2. If the neighbor is an edge node, then close the connection with the neighbor.
-    3. If the header of the message is incorrect, then discard the message and mark the neighbor as malicious and close the connection. We assume that an adversary cannot inject any spoofed message to the connection.
+    3. If the header of the message is incorrect, then discard the message, close the connection and blacklist the neighbor ([Connectivity Maintenance](#connectivity-maintenance)). We assume that an adversary cannot inject any spoofed message to the connection.
     4. If the PoQ nullifier $`\nu_i \in \mathbf H`$ from the public header of the message is already in the nullifier cache, then the message is a duplicate and must be discarded. Cached entries are retained for the duration of the current epoch and the [Transition Period](#transition-period).
-    5. If the signature $`\sigma_{K^{n}_{i}}(\mathbf P_i) \in \mathbf H`$ from the public header of the message is invalid, then the message must be discarded, and the neighbor must be marked malicious.
-    6. If the proof of quota $`\pi^{K^{n}_i}_{Q} \in \mathbf H`$ from the public header is invalid, then the message must be discarded, and the neighbor must be marked malicious.
+    5. If the signature $`\sigma_{K^{n}_{i}}(\mathbf P_i) \in \mathbf H`$ from the public header of the message is invalid, then the message must be discarded, the connection closed and the neighbor blacklisted ([Connectivity Maintenance](#connectivity-maintenance)).
+    6. If the proof of quota $`\pi^{K^{n}_i}_{Q} \in \mathbf H`$ from the public header is invalid, then the message must be discarded and must not be relayed. The connection is closed and the neighbor blacklisted, as defined in [Connectivity Maintenance](#connectivity-maintenance).
 2. Release the message according to the [Releasing](#releasing) logic.
 3. Concurrently to the above step, add the message to the processing queue, where it is handled by the [Processing](#processing) logic.
 
@@ -893,9 +892,15 @@ The node must cache the PoQ nullifiers ($`\nu_i`$) for every message it relays f
 
 $$
 \begin{aligned}
-(E + \mathrm{TP})\cdot (F_C +F_D) \cdot \beta_{max} \cdot |\nu_i|
-&=(648000 + 30) \cdot \left(1+\dfrac{1}{30}\right) \cdot 3 \cdot 32 \\
-&= 64284576 \approx 65\,\mathrm{MB}
+(E + T)\cdot \left( \max\left(F_C \cdot (1+R_C),\ F_D \cdot (1+R_D)\right) + F_T \right) \cdot \beta_{max} \cdot |\nu_i|
+\end{aligned}
+$$
+
+At the rates above:
+
+$$
+\begin{aligned}
+(648000 + 30) \cdot \left(1 + \dfrac{130}{30}\right) \cdot 3 \cdot 32 = 331791360 \approx 332\,\mathrm{MB}
 \end{aligned}
 $$
 
@@ -935,7 +940,7 @@ The purpose of message delaying is to hide timing correlations between incoming 
 
 The message anonymity pool is the total number of messages that have been seen by the node between two subsequent message release events. The set of seen messages does not necessarily include a message that the node is the recipient of.
 
-**The key design objective is to release messages with an upper bound on the delay.** Therefore, the design assumes that there is a $`\Delta_{max}`$ maximum delay between two subsequent message release attempts that define the longest waiting time for message release. This also defines the maximal message anonymity pool (assuming a single message is released in a round by the network).
+The design assumes a maximum delay $`\Delta_{max}`$ between two subsequent message release attempts, which defines the longest waiting time for message release. This also defines the maximal message anonymity pool (assuming a single message is released in a round by the network).
 
 Now we can define the delaying logic:
 
@@ -954,46 +959,11 @@ However, the release round selection must work independently of the queue state.
 
 The process of releasing messages involves the following steps:
 
-- Upon **receiving** a message, it is immediately released to all neighboring.
+- Upon **receiving** a message, it is immediately released to all neighboring nodes, except the one it was received from.
 - All **processed** messages are queued and released at the next release round determined by the [Delaying](#delaying) logic.
 - Every **generated** message is released at the beginning of the next round after its generation.
 - As soon as a **data** message carrying a block proposal is generated, one random unreleased (future) **cover** message must be removed from the release schedule to maintain the node’s statistical indistinguishability. A data message carrying a transaction removes no cover message.
 - If more than one message needs to be released for the same round, they must be randomly shuffled before release.
-
-The cover and data message generation processes are **independent**, and there is a non-zero probability that more than one message will be scheduled for the same round. Therefore, the number of messages that can be released during a single round is **not restricted**.
-
-However, a node can calculate the expected number of messages to be released per release round. This depends on the value of $`\Delta_{max}`$, the network size (number of core nodes), and the generation quota. This number can be used to detect spammy nodes as part of the [Connectivity Maintenance](#connectivity-maintenance) logic.
-
-For sufficiently large networks, the number of processed messages queued in a node will be smaller than $`1`$ on average.
-
-However, in **smaller networks**, the number of messages queued in a node will be **larger than** $`1`$. **We must avoid this property because the additional delay negatively impacts the consensus protocol's safety. Therefore, we need to determine the network size threshold where the number of messages to be released exceeds** $`1`$**.**
-
-The expected number of messages to be released during a single release round for a single node is:
-
-$$
-\mu = \left\lceil{\Delta_{max} \cdot \beta_C \cdot \alpha \over {N }}\right\rceil
-$$
-
-Where:
-
-- $`\Delta_{max}`$ is the maximal delay time between two release rounds;
-- $`\beta_C`$ denotes an expected number of blending operations for each cover message;
-- $`\alpha`$ is a message number normalization constant;
-- $`N`$ is the number of core nodes in the network.
-
-Let us assume:
-
-- $`\Delta_{max}=3`$ is our target value, as defined in the [Delaying](#delaying) section above;
-- $`\beta_C=3`$, which means that every round, $`3`$ nodes are going to be processing messages generated by the network, which is a reasonable assumption as it defines the maximum number that the protocol can tolerate due to the quota limitations;
-- $`\alpha \approx 1.03`$, corrects the number of new messages emitted by the network per round to include data messages, where $1$ is the number of cover messages, and $0.03$ is the number of data messages per round.
-
-This gives us:
-
-- For $`N=16`$ core nodes; $`\mu=1`$ message per release round on average.
-- For $`N=8`$ core nodes;  $`\mu=2`$ messages per release round on average.
-- For $`N=4`$ core nodes; $`\mu=3`$ messages per release round on average.
-
-We use the $`\mu`$ estimator for calculating the maximum and minimum number of messages that can be received by a node, as listed in the [Global Parameters](#global-parameters) section.
 
 ### Broadcasting
 
