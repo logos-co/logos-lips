@@ -905,7 +905,7 @@
     "title": "Service Declaration Protocol",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-09-03",
+    "updated": "2026-09-11",
     "path": "blockchain/raw/bedrock-service-declaration-protocol.html"
   },
   {
@@ -1004,7 +1004,7 @@
     "title": "Mantle",
     "status": "raw",
     "category": "Informational",
-    "updated": "2026-09-09",
+    "updated": "2026-09-11",
     "path": "blockchain/raw/bedrock-v1.1-mantle-specification.html"
   },
   {

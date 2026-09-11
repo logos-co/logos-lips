@@ -192,6 +192,7 @@
 </div><!-- timeline:start -->
 <h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
 <ul>
+<li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/7c2ec59fadcdc2ba0ae74ff7600a14b55d90efcd/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>7c2ec59</code></a> — [RFC] The Last Served Epoch Is Rewardable (#435)</li>
 <li><strong>2026-09-09</strong> — <a href="https://github.com/logos-co/logos-lips/blob/4b9d1ca1794f1e1b47aa40582f7793e2f84ed999/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>4b9d1ca</code></a> — docs(blockchain): make every Operation carry a proof and gas independent of it (#431)</li>
 <li><strong>2026-09-03</strong> — <a href="https://github.com/logos-co/logos-lips/blob/e2e9e0fc0096e42153430689628c0d638d3c4cf4/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>e2e9e0f</code></a> — [RFC] The Epochs <code>active</code> and <code>withdraw_at</code> Record (#422)</li>
 <li><strong>2026-08-31</strong> — <a href="https://github.com/logos-co/logos-lips/blob/3cac48f3f3c7db46eddf3bbb70c1567d96e2b213/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>3cac48f</code></a> — docs(blockchain): rename locked notes to service notes (#423)</li>
@@ -232,6 +233,7 @@
 <tr><td>1.11.1</td><td>Renamed locked notes into service notes: <code>service_notes</code>, <code>ServiceNote</code> and <code>service_note_id</code> replace their locked counterparts, and the note kind is named after the role it plays rather than after the state it is left in</td><td>2026-08-27</td></tr>
 <tr><td>1.12.0</td><td>Specified the <code>SDP_ACTIVE</code> execution effects, matching the implementation: <code>active</code> is set to the epoch of the including block, and a message the activity logic rejects makes the Operation invalid. Set <code>withdraw_at</code> to <code>current_epoch + 2</code>, the epoch at which the node stops providing the service, and removed declarations at <code>withdraw_at</code></td><td>2026-09-02</td></tr>
 <tr><td>1.13.0</td><td>Removed the <code>None</code> case of <code>op_proofs</code>, every Operation carrying exactly one proof. A <code>CHANNEL_CONFIG</code> creating a channel is verified against a threshold of <code>0</code> and its proof carries no signature and no index. Execution Gas is derived from the Operation and the state it is validated against, the thresholds pricing the channel Operations being the ones held in the channel state</td><td>2026-08-31</td></tr>
+<tr><td>1.14.0</td><td>Moved SDP declaration removal to <code>withdraw_at + 1</code>; the last served epoch's reward is paid in the same first block, before removal</td><td>2026-09-11</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
@@ -1301,11 +1303,11 @@ SignedMantleTx(
 <h3 id="sdp-epoch-finalization"><a class="header" href="#sdp-epoch-finalization">SDP Epoch Finalization</a></h3>
 <p>Withdrawn declarations are removed by Mantle as part of the epoch transition,
 not when the <code>WithdrawMessage</code> is processed. The rewards of epoch
-<code>withdraw_at - 2</code> (<a href="bedrock-service-declaration-protocol.html#withdraw">Withdraw</a>)
-are distributed in the first block of epoch <code>withdraw_at</code> (see
+<code>withdraw_at - 1</code> (<a href="bedrock-service-declaration-protocol.html#withdraw">Withdraw</a>)
+are distributed in the first block of epoch <code>withdraw_at + 1</code> (see
 <a href="bedrock-service-reward-distribution.html">Service Reward Distribution Protocol</a>).
 In that same block, after the rewards have been distributed, every declaration
-with <code>withdraw_at &lt;= current_epoch</code> is removed and its stake unlocked.
+with <code>withdraw_at + 1 &lt;= current_epoch</code> is removed and its stake unlocked.
 Declarations that withdrew without earning a final reward are removed by the
 same step.</p>
 <p><em>Given</em></p>
@@ -1315,7 +1317,7 @@ declarations: dict[DeclarationID, DeclarationInfo]
 </code></pre>
 <p><em>Execute</em></p>
 <p>For every <code>declare_id</code>, <code>declare_info</code> in <code>declarations</code> where
-<code>declare_info.withdraw_at is not None and declare_info.withdraw_at &lt;= current_epoch</code>:</p>
+<code>declare_info.withdraw_at is not None and declare_info.withdraw_at + 1 &lt;= current_epoch</code>:</p>
 <ol>
 <li>
 <p>Remove the declaration from its service note.</p>

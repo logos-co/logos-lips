@@ -22219,6 +22219,7 @@ With <code>transactions</code> now available, the remaining rule of <a href="blo
 </div><!-- timeline:start -->
 <h2 id="timeline-84"><a class="header" href="#timeline-84">Timeline</a></h2>
 <ul>
+<li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/7c2ec59fadcdc2ba0ae74ff7600a14b55d90efcd/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>7c2ec59</code></a> — [RFC] The Last Served Epoch Is Rewardable (#435)</li>
 <li><strong>2026-09-09</strong> — <a href="https://github.com/logos-co/logos-lips/blob/4b9d1ca1794f1e1b47aa40582f7793e2f84ed999/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>4b9d1ca</code></a> — docs(blockchain): make every Operation carry a proof and gas independent of it (#431)</li>
 <li><strong>2026-09-03</strong> — <a href="https://github.com/logos-co/logos-lips/blob/e2e9e0fc0096e42153430689628c0d638d3c4cf4/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>e2e9e0f</code></a> — [RFC] The Epochs <code>active</code> and <code>withdraw_at</code> Record (#422)</li>
 <li><strong>2026-08-31</strong> — <a href="https://github.com/logos-co/logos-lips/blob/3cac48f3f3c7db46eddf3bbb70c1567d96e2b213/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>3cac48f</code></a> — docs(blockchain): rename locked notes to service notes (#423)</li>
@@ -22259,6 +22260,7 @@ With <code>transactions</code> now available, the remaining rule of <a href="blo
 <tr><td>1.11.1</td><td>Renamed locked notes into service notes: <code>service_notes</code>, <code>ServiceNote</code> and <code>service_note_id</code> replace their locked counterparts, and the note kind is named after the role it plays rather than after the state it is left in</td><td>2026-08-27</td></tr>
 <tr><td>1.12.0</td><td>Specified the <code>SDP_ACTIVE</code> execution effects, matching the implementation: <code>active</code> is set to the epoch of the including block, and a message the activity logic rejects makes the Operation invalid. Set <code>withdraw_at</code> to <code>current_epoch + 2</code>, the epoch at which the node stops providing the service, and removed declarations at <code>withdraw_at</code></td><td>2026-09-02</td></tr>
 <tr><td>1.13.0</td><td>Removed the <code>None</code> case of <code>op_proofs</code>, every Operation carrying exactly one proof. A <code>CHANNEL_CONFIG</code> creating a channel is verified against a threshold of <code>0</code> and its proof carries no signature and no index. Execution Gas is derived from the Operation and the state it is validated against, the thresholds pricing the channel Operations being the ones held in the channel state</td><td>2026-08-31</td></tr>
+<tr><td>1.14.0</td><td>Moved SDP declaration removal to <code>withdraw_at + 1</code>; the last served epoch's reward is paid in the same first block, before removal</td><td>2026-09-11</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction-23"><a class="header" href="#introduction-23">Introduction</a></h1>
@@ -23328,11 +23330,11 @@ SignedMantleTx(
 <h3 id="sdp-epoch-finalization"><a class="header" href="#sdp-epoch-finalization">SDP Epoch Finalization</a></h3>
 <p>Withdrawn declarations are removed by Mantle as part of the epoch transition,
 not when the <code>WithdrawMessage</code> is processed. The rewards of epoch
-<code>withdraw_at - 2</code> (<a href="blockchain/raw/bedrock-service-declaration-protocol.html#withdraw">Withdraw</a>)
-are distributed in the first block of epoch <code>withdraw_at</code> (see
+<code>withdraw_at - 1</code> (<a href="blockchain/raw/bedrock-service-declaration-protocol.html#withdraw">Withdraw</a>)
+are distributed in the first block of epoch <code>withdraw_at + 1</code> (see
 <a href="blockchain/raw/bedrock-service-reward-distribution.html">Service Reward Distribution Protocol</a>).
 In that same block, after the rewards have been distributed, every declaration
-with <code>withdraw_at &lt;= current_epoch</code> is removed and its stake unlocked.
+with <code>withdraw_at + 1 &lt;= current_epoch</code> is removed and its stake unlocked.
 Declarations that withdrew without earning a final reward are removed by the
 same step.</p>
 <p><em>Given</em></p>
@@ -23342,7 +23344,7 @@ declarations: dict[DeclarationID, DeclarationInfo]
 </code></pre>
 <p><em>Execute</em></p>
 <p>For every <code>declare_id</code>, <code>declare_info</code> in <code>declarations</code> where
-<code>declare_info.withdraw_at is not None and declare_info.withdraw_at &lt;= current_epoch</code>:</p>
+<code>declare_info.withdraw_at is not None and declare_info.withdraw_at + 1 &lt;= current_epoch</code>:</p>
 <ol>
 <li>
 <p>Remove the declaration from its service note.</p>
@@ -25430,6 +25432,7 @@ WithdrawThreshold = UINT16
 </div><!-- timeline:start -->
 <h2 id="timeline-86"><a class="header" href="#timeline-86">Timeline</a></h2>
 <ul>
+<li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/7c2ec59fadcdc2ba0ae74ff7600a14b55d90efcd/docs/blockchain/raw/bedrock-service-declaration-protocol.md"><code>7c2ec59</code></a> — [RFC] The Last Served Epoch Is Rewardable (#435)</li>
 <li><strong>2026-09-03</strong> — <a href="https://github.com/logos-co/logos-lips/blob/e2e9e0fc0096e42153430689628c0d638d3c4cf4/docs/blockchain/raw/bedrock-service-declaration-protocol.md"><code>e2e9e0f</code></a> — [RFC] The Epochs <code>active</code> and <code>withdraw_at</code> Record (#422)</li>
 <li><strong>2026-09-01</strong> — <a href="https://github.com/logos-co/logos-lips/blob/74f6f939e84d8bb8e494db3108d47ebe7faf071f/docs/blockchain/raw/bedrock-service-declaration-protocol.md"><code>74f6f93</code></a> — [RFC] Per-Service <code>zk_id</code> Uniqueness Is Normative for Reward Distribution (#406)</li>
 <li><strong>2026-08-31</strong> — <a href="https://github.com/logos-co/logos-lips/blob/3cac48f3f3c7db46eddf3bbb70c1567d96e2b213/docs/blockchain/raw/bedrock-service-declaration-protocol.md"><code>3cac48f</code></a> — docs(blockchain): rename locked notes to service notes (#423)</li>
@@ -25455,6 +25458,7 @@ WithdrawThreshold = UINT16
 <tr><td>1.4.2</td><td>Renamed locked notes into service notes: <code>locked_note_id</code> becomes <code>service_note_id</code> in the declaration and withdraw messages and in <code>DeclarationInfo</code></td><td>2026-08-27</td></tr>
 <tr><td>1.4.3</td><td>Identifier uniqueness covers every stored declaration, not only activated ones, matching the implementation</td><td>2026-09-01</td></tr>
 <tr><td>1.5.0</td><td>Defined <code>active</code> as the epoch of the block that contained the latest accepted active message, initialised to <code>created + 2</code>, and <code>withdraw_at</code> as the epoch at which the node stops providing the service, matching the implementation. Added the participant-set exclusion rule and <a href="blockchain/raw/bedrock-service-declaration-protocol.html#message-timing">Message Timing</a></td><td>2026-09-02</td></tr>
+<tr><td>1.6.0</td><td>Declarations are removed at <code>withdraw_at + 1</code>, one epoch after the node stops, making the last served epoch rewardable</td><td>2026-09-03</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction-25"><a class="header" href="#introduction-25">Introduction</a></h1>
@@ -25551,7 +25555,8 @@ Each snapshot updates the common view of the registry. Changes to the declaratio
 <div class="table-wrapper"><table><thead><tr><th>Epoch</th><th>What happens</th></tr></thead><tbody>
 <tr><td><code>e</code></td><td>The message is included, with <code>withdraw_at = e+2</code>.</td></tr>
 <tr><td><code>e+1</code></td><td>The node is in the participant set (<code>n &lt; withdraw_at</code>) and provides the service. It reports its epoch-<code>e</code> activity.</td></tr>
-<tr><td><code>e+2</code></td><td>Every service excludes the declaration (<code>n &gt;= withdraw_at</code>). The epoch-<code>e</code> reward is distributed and the declaration is removed in the first block (<a href="blockchain/raw/bedrock-v1.1-mantle-specification.html#sdp-epoch-finalization">SDP Epoch Finalization</a>).</td></tr>
+<tr><td><code>e+2</code></td><td>Every service excludes the declaration (<code>n &gt;= withdraw_at</code>). The node reports its epoch-<code>e+1</code> activity. The epoch-<code>e</code> reward is distributed in the first block.</td></tr>
+<tr><td><code>e+3</code></td><td>The epoch-<code>e+1</code> reward is distributed and the declaration is removed in the first block (<a href="blockchain/raw/bedrock-v1.1-mantle-specification.html#sdp-epoch-finalization">SDP Epoch Finalization</a>).</td></tr>
 </tbody></table>
 </div>
 <h3 id="identifiers"><a class="header" href="#identifiers">Identifiers</a></h3>
@@ -25688,12 +25693,12 @@ Each snapshot updates the common view of the registry. Changes to the declaratio
 <li>If the service-specific activity logic rejects the message, discard the message and stop processing.</li>
 <li>The <code>active</code> field of the <code>DeclarationInfo</code> is set to that epoch.</li>
 </ol>
-<p>An active message is valid only while the current epoch is below <code>withdraw_at</code> (see <a href="blockchain/raw/bedrock-service-declaration-protocol.html#withdraw"><strong>Withdraw</strong></a>).</p>
+<p>An active message is valid only while the current epoch is at most <code>withdraw_at</code> (see <a href="blockchain/raw/bedrock-service-declaration-protocol.html#withdraw"><strong>Withdraw</strong></a>).</p>
 <h3 id="withdraw"><a class="header" href="#withdraw"><strong>Withdraw</strong></a></h3>
 <p>The withdraw action enables a withdrawal of a service declaration. It requires sending a valid <code>WithdrawMessage</code> (as defined in <a href="blockchain/raw/bedrock-service-declaration-protocol.html#withdraw-message">Withdraw Message</a>). The withdrawal marks the intent to stop providing the service.</p>
 <p>Let <code>e</code> be the epoch of the block that contained the <code>WithdrawMessage</code>; <code>withdraw_at</code> records <code>e+2</code> (<a href="blockchain/raw/bedrock-service-declaration-protocol.html#snapshots">Snapshots</a>).</p>
 <p>A service deriving its participant set from a snapshot must exclude every declaration for which <code>withdraw_at</code> is not <code>None</code> and <code>n &gt;= withdraw_at</code>, where <code>n</code> is the epoch the set is derived for.</p>
-<p>The node provides the service through epoch <code>withdraw_at - 1</code>; its last rewardable epoch is <code>withdraw_at - 2</code>. The declaration is removed and the service note unlocked at epoch <code>withdraw_at</code> (<a href="blockchain/raw/bedrock-v1.1-mantle-specification.html#sdp-epoch-finalization">SDP Epoch Finalization</a>).</p>
+<p>The node provides the service through epoch <code>withdraw_at - 1</code>, its last rewardable epoch. The declaration is removed and the service note unlocked at epoch <code>withdraw_at + 1</code> (<a href="blockchain/raw/bedrock-v1.1-mantle-specification.html#sdp-epoch-finalization">SDP Epoch Finalization</a>).</p>
 <p>The logic of the withdraw action is:</p>
 <ol>
 <li>A node sends a <code>WithdrawMessage</code> transaction.</li>
@@ -25707,7 +25712,7 @@ Each snapshot updates the common view of the registry. Changes to the declaratio
 </li>
 <li>If any of the above is not correct, then discard the message and stop.</li>
 <li>Set the <code>withdraw_at</code> from the <code>DeclarationInfo</code> to the current epoch number plus two.</li>
-<li>The <code>DeclarationInfo</code> is removed and the stake unlocked (releasing the <code>service_note_id</code>) at epoch <code>withdraw_at</code> (<a href="blockchain/raw/bedrock-v1.1-mantle-specification.html#sdp-epoch-finalization">SDP Epoch Finalization</a>).</li>
+<li>The <code>DeclarationInfo</code> is removed and the stake unlocked (releasing the <code>service_note_id</code>) at epoch <code>withdraw_at + 1</code> (<a href="blockchain/raw/bedrock-v1.1-mantle-specification.html#sdp-epoch-finalization">SDP Epoch Finalization</a>).</li>
 </ol>
 <h3 id="query"><a class="header" href="#query">Query</a></h3>
 <p>The protocol must enable querying the ledger in at least the following manner:</p>
