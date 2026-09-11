@@ -896,7 +896,7 @@ signature: e4abccb6d6570e237fd465d2cff39ca06c7364f428518331aa8d633a46a0fc9a
            cdeb571b09fc9ef7636e379461c179ee2be88fa342bc6a4689ce2ae5c955cc0a
 ```
 
-**N9 context has illegal byte** — '@' outside a-z 0-9 . - _
+**N9 context has illegal byte** — '@' outside a-z 0-9 . -
 
 ```text
 payload:   6c6f676f733a6163636f756e74733a31000130000e636861742e6d6573734067
