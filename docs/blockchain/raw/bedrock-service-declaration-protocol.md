@@ -191,8 +191,6 @@ The length of the binary form of a `Locator` is restricted to 329 bytes.
 
 Implementations that accept the string form as input must parse it into the binary form before serialization, and every part of the address must be explicit (no implicit defaults).
 
-The canonical form makes a single `Locator` unambiguous, but it does not make a *list* of them unambiguous. The byte form of a multiaddr is self-describing, so concatenating two `Locator`s yields the byte form of a single longer one: `[/ip4/203.0.113.10/tcp/4001]` and `[/ip4/203.0.113.10, /tcp/4001]` are the same byte string. A list of `Locator`s must therefore be serialized as the `Locators` production of the [Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations): prefixed with its element count and with each element prefixed by its byte length.
-
 ### **Declaration Message**
 
 The construction of the declaration message is as follows.
@@ -243,11 +241,18 @@ Where:
 - `withdraw_at` is the epoch at which the node stops providing the service ([**Withdraw**](#withdraw)), and is `None` until the declaration is withdrawn;
 - `nonce` is 0 for the declaration message, and increases monotonically with every message sent for the declaration.
 
-The `declaration_id` (of a `DeclarationId` type) is the hash of the concatenation of `service` and `zk_id`. `service` is the one-byte `ServiceType` discriminant ([Service Types](#service-types)) and `zk_id` is its canonical encoding ([Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations)). The hash function is `blake2b` using 256 bits of the output.
+The `declaration_id` (of a `DeclarationId` type) is the hash of the concatenation of `service` and `zk_id`:
 
 ```python
 declaration_id = Hash(service||zk_id)
 ```
+
+where:
+
+- `service` is the `ServiceType` production, one byte ([Service Types](#service-types));
+- `zk_id` is the `ZkId` production, 32 bytes ([Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations));
+- `||` is byte concatenation, so the preimage is 33 bytes;
+- `Hash` is BLAKE2b with a digest length of 32 bytes, unkeyed, without salt or personalization.
 
 The `declaration_id` is not stored as part of the `DeclarationInfo` but is used to index it. All `DeclarationInfo` entries are held in `declarations`, indexed by service and then by `declaration_id`.
 
@@ -285,7 +290,7 @@ class ActiveMessage:
     metadata: Metadata
 ```
 
-where `metadata` is service-specific node activeness metadata, encoded as the `Metadata` production of the [Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations).
+where `metadata` is service-specific node activeness metadata.
 
 The message must be signed by the `zk_id` key of the declaration.
 
@@ -308,6 +313,18 @@ class WithdrawMessage:
 The message must be signed by the `zk_id` key of the declaration.
 
 The `nonce` must increase monotonically by every message sent for the declaration.
+
+### Serialization
+
+Each message is the payload of one Mantle Operation ([Mantle](bedrock-v1.1-mantle-specification.md#service-declaration-protocol-sdp-operations)), serialized as the production of the [Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations) named below, its fields in the order the message lists them:
+
+| Message | Operation | Production |
+| --- | --- | --- |
+| `DeclarationMessage` | `SDP_DECLARE` | `SDPDeclare` |
+| `ActiveMessage` | `SDP_ACTIVE` | `SDPActive` |
+| `WithdrawMessage` | `SDP_WITHDRAW` | `SDPWithdraw` |
+
+The signatures a message requires are carried in the Operation's proof and cover the Mantle transaction hash.
 
 ### Indexing
 

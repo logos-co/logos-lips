@@ -2155,7 +2155,7 @@ To see what the payloads represent, refer to [Mantle Transaction Encoding](mantl
 
 ### Declaration Id
 
-The `declaration_id` ([Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage)) is `Hash(service||zk_id)` (BLAKE2b, 256-bit output, no DST), where `service` is the one-byte `ServiceType` discriminant. This vector reuses the fields of the `SDP_DECLARE` payload from [Operation Id](#operation-id).
+The `declaration_id` ([Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage)) is `Hash(service||zk_id)`. This vector reuses the fields of the `SDP_DECLARE` payload from [Operation Id](#operation-id).
 
 | Field | Value |
 | - | - |
