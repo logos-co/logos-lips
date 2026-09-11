@@ -33,7 +33,8 @@
 | 1.4.2 | Renamed locked notes into service notes: `locked_note_id` becomes `service_note_id` in the declaration and withdraw messages and in `DeclarationInfo` | 2026-08-27 |
 | 1.4.3 | Identifier uniqueness covers every stored declaration, not only activated ones, matching the implementation | 2026-09-01 |
 | 1.5.0 | Defined `active` as the epoch of the block that contained the latest accepted active message, initialised to `created + 2`, and `withdraw_at` as the epoch at which the node stops providing the service, matching the implementation. Added the participant-set exclusion rule and [Message Timing](#message-timing) | 2026-09-02 |
-| 1.6.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a declaration covers one service, and a note backs one declaration per service | 2026-09-11 |
+| 1.6.0 | Declarations are removed at `withdraw_at + 1`, one epoch after the node stops, making the last served epoch rewardable | 2026-09-03 |
+| 1.7.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a declaration covers one service, and a note backs one declaration per service | 2026-09-11 |
 
 # Introduction
 
@@ -64,7 +65,7 @@ The logic of the protocol is straightforward.
 2. The declaration is registered on the Ledger, and the node can commence its service according to the service-specific service logic.
 3. After a service-specific service-providing time, the node confirms its activity.
 4. The node must confirm its activity with a service-specific minimum frequency; otherwise, its declaration is inactive.
-5. The node sends a withdrawal message. It provides the service through the withdrawal epoch. Its declaration is removed and its service note released two epochs later.
+5. The node sends a withdrawal message. It provides the service for one more epoch. Its declaration is removed and its service note released once that epoch has been rewarded.
 
 > The protocol messages are subject to a finality that means messages become part of the immutable ledger after a delay. The delay at which it happens is defined by the consensus. Therefore, the protocol’s progress must be tracked from the perspective of the latest finalized block, not the tip of the chain. Otherwise, the protocol and services using it would need to handle chain reorganizations, which we must avoid due to their potential to break services. Hence, the services must use a snapshot from a fully finalized epoch: `finalized_epoch = current_epoch - 2`. For more details about finalization, refer to [Cryptarchia Protocol](cryptarchia-v1-protocol.md).
 
@@ -168,7 +169,8 @@ At any epoch `n`, the most recent report a snapshot can contain was included in 
 | --- | --- |
 | `e` | The message is included, with `withdraw_at = e+2`. |
 | `e+1` | The node is in the participant set (`n < withdraw_at`) and provides the service. It reports its epoch-`e` activity. |
-| `e+2` | Every service excludes the declaration (`n >= withdraw_at`). The epoch-`e` reward is distributed and the declaration is removed in the first block ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)). |
+| `e+2` | Every service excludes the declaration (`n >= withdraw_at`). The node reports its epoch-`e+1` activity. The epoch-`e` reward is distributed in the first block. |
+| `e+3` | The epoch-`e+1` reward is distributed and the declaration is removed in the first block ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)). |
 
 ### Identifiers
 
@@ -358,7 +360,7 @@ The SDP active action logic is:
 5. If the service-specific activity logic rejects the message, discard the message and stop processing.
 6. The `active` field of the `DeclarationInfo` is set to that epoch.
 
-An active message is valid only while the current epoch is below `withdraw_at` (see [**Withdraw**](#withdraw)).
+An active message is valid only while the current epoch is at most `withdraw_at` (see [**Withdraw**](#withdraw)).
 
 ### **Withdraw**
 
@@ -366,7 +368,7 @@ The Withdraw action withdraws a service declaration. It requires sending a valid
 
 Let `e` be the epoch of the block that contained the `WithdrawMessage`; `withdraw_at` records `e+2` ([Snapshots](#snapshots)). A declaration whose `withdraw_at` an epoch has reached is excluded from that epoch's [Active Set](#active-set).
 
-The node provides the service through epoch `withdraw_at - 1`; its last rewardable epoch is `withdraw_at - 2`. The declaration is removed and its service note released at epoch `withdraw_at` ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).
+The node provides the service through epoch `withdraw_at - 1`, its last rewardable epoch. The declaration is removed and its service note released at epoch `withdraw_at + 1` ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).
 
 The logic of the withdraw action is:
 
@@ -378,7 +380,7 @@ The logic of the withdraw action is:
     4. The `nonce` increases monotonically.
 3. If any of the above is not correct, then discard the message and stop.
 4. Set the `withdraw_at` of the `DeclarationInfo` to the current epoch number plus two.
-5. At epoch `withdraw_at`, right after the final reward is paid out, the Mantle epoch finalization step removes the `DeclarationInfo` and releases its `service_note_id` ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).
+5. At epoch `withdraw_at + 1`, right after the final reward is paid out, the Mantle epoch finalization step removes the `DeclarationInfo` and releases its `service_note_id` ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).
 
 ### Query
 
