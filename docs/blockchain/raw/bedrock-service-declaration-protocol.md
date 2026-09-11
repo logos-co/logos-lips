@@ -249,10 +249,10 @@ The `declaration_id` (of a `DeclarationId` type) is the hash of the concatenatio
 declaration_id = Hash(service||zk_id)
 ```
 
-The `declaration_id` is not stored as part of the `DeclarationInfo` but is used to index it. All `DeclarationInfo` entries are held in `declarations`, indexed by `declaration_id`.
+The `declaration_id` is not stored as part of the `DeclarationInfo` but is used to index it. All `DeclarationInfo` entries are held in `declarations`, indexed by service and then by `declaration_id`.
 
 ```python
-declarations: dict[DeclarationId, DeclarationInfo]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
 ### Identifier Uniqueness
@@ -340,7 +340,7 @@ The declaration message is considered valid when all of the following are met:
 - The sender holds the private key corresponding to the `provider_id`.
 - The `locators` list is non-empty and not longer than 8 entries.
 
-If all of the above conditions are fulfilled, then the declaration is stored on the ledger under its `declaration_id`; otherwise, the message is discarded.
+If all of the above conditions are fulfilled, then the declaration is stored on the ledger under its service and `declaration_id`; otherwise, the message is discarded.
 
 ### Active
 

@@ -1035,11 +1035,22 @@ Validators must keep the following state when implementing SDP Operations:
 ```python
 service_notes: dict[NoteId, dict[ServiceType, DeclarationId]]
 providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
-declarations: dict[DeclarationId, DeclarationInfo]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
+`declarations` holds one map per `ServiceType`, keyed by `declaration_id`.
 `service_notes` maps a note to the declaration holding it in each service, and
 `providers` maps a provider identity to its declaration in each service.
+`find_declaration` returns the service and the entry of a `declaration_id`, or
+`None` when no service holds it:
+
+```python
+def find_declaration(declarations, declaration_id):
+    for service, entries in declarations.items():
+        if declaration_id in entries:
+            return service, entries[declaration_id]
+    return None
+```
 
 ### Common SDP Structures
 
@@ -1120,7 +1131,7 @@ min_stake: MinStake      # the (global) minimum stake setting
 ledger: Ledger           # the set of unspent notes
 service_notes: dict[NoteId, dict[ServiceType, DeclarationId]]
 providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
-declarations: dict[DeclarationId, DeclarationInfo]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
   *Validate*
@@ -1140,7 +1151,7 @@ declarations: dict[DeclarationId, DeclarationInfo]
      the `declaration_id` being derived as in [Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage).
       ```python
       declare_id = declaration_id(declaration)
-      assert declare_id not in declarations
+      assert declare_id not in declarations[declaration.service_type]
       assert declaration.service_type not in service_notes.get(declaration.service_note_id, {})
       assert declaration.provider_id not in providers[declaration.service_type]
       ```
@@ -1180,7 +1191,7 @@ providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
 
   2. Store the declaration as explained in [**Declaration Storage**](bedrock-service-declaration-protocol.md#declaration-storage).
       ```python
-      declarations[declare_id] = DeclarationInfo(
+      declarations[declaration.service_type][declare_id] = DeclarationInfo(
           service=declaration.service_type,
           provider_id=declaration.provider_id,
           service_note_id=declaration.service_note_id,
@@ -1270,15 +1281,16 @@ signature: ZkSignature
 
 ledger: Ledger
 service_notes: dict[NoteId, dict[ServiceType, DeclarationId]]
-declarations: dict[DeclarationId, DeclarationInfo]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
   *Validate*
 
   1. Ensure the declaration exists, and take the note it locked.
       ```python
-      assert withdraw.declaration in declarations
-      declare_info = declarations[withdraw.declaration]
+      found = find_declaration(declarations, withdraw.declaration)
+      assert found is not None
+      service, declare_info = found
       service_note_id = declare_info.service_note_id
       ```
 
@@ -1286,7 +1298,7 @@ declarations: dict[DeclarationId, DeclarationInfo]
       1. Ensure that note is still present and locked to this declaration.
           ```python
           assert ledger.is_unspent(service_note_id)
-          assert service_notes[service_note_id][declare_info.service] == withdraw.declaration
+          assert service_notes[service_note_id][service] == withdraw.declaration
           ```
       2. Ensure the declaration is not already scheduled for withdrawal.
           ```python
@@ -1313,7 +1325,7 @@ signature: ZkSignature
 current_epoch: EpochNumber # current epoch
 ledger: Ledger
 service_notes: dict[NoteId, dict[ServiceType, DeclarationId]]
-declarations: dict[DeclarationId, DeclarationInfo]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
   *Execute*
@@ -1322,7 +1334,7 @@ declarations: dict[DeclarationId, DeclarationInfo]
 
   1. Update the declaration info with the nonce and the withdrawal epoch.
       ```python
-      declare_info = declarations[withdraw.declaration]
+      _, declare_info = find_declaration(declarations, withdraw.declaration)
       declare_info.nonce = withdraw.nonce
       declare_info.withdraw_at = current_epoch + 2
       ```
@@ -1370,26 +1382,26 @@ same step.
 current_epoch: EpochNumber
 service_notes: dict[NoteId, dict[ServiceType, DeclarationId]]
 providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
-declarations: dict[DeclarationId, DeclarationInfo]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
   *Execute*
 
-  For every `declare_id`, `declare_info` in `declarations` where
+  For every `service`, `declare_id`, `declare_info` in `declarations` where
   `declare_info.withdraw_at is not None and declare_info.withdraw_at + 1 <= current_epoch`:
 
   1. Release the note and the provider identity the declaration held. The note
      becomes spendable once no service holds it.
       ```python
-      del service_notes[declare_info.service_note_id][declare_info.service]
+      del service_notes[declare_info.service_note_id][service]
       if not service_notes[declare_info.service_note_id]:
           del service_notes[declare_info.service_note_id]
-      del providers[declare_info.service][declare_info.provider_id]
+      del providers[service][declare_info.provider_id]
       ```
 
   2. Remove the declaration.
       ```python
-      del declarations[declare_id]
+      del declarations[service][declare_id]
       ```
 
 ### SDP_ACTIVE
@@ -1424,14 +1436,15 @@ txhash: zkhash # Mantle transaction hash of the tx containing this operation
 active: Active
 signature: ZkSignature
 
-declarations: dict[DeclarationId, DeclarationInfo]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
   *Validate*
 
 ```python
-assert active.declaration in declarations
-declaration_info = declarations[active.declaration]
+found = find_declaration(declarations, active.declaration)
+assert found is not None
+_, declaration_info = found
 
 assert active.nonce > declaration_info.nonce
 
@@ -1446,7 +1459,7 @@ assert ZkSignature_verify(txhash, signature, declaration_info.zk_id)
 active: Active
 
 current_epoch: EpochNumber # epoch of the block containing this operation
-declarations: dict[DeclarationId, DeclarationInfo]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
   *Execute*
@@ -1455,7 +1468,7 @@ declarations: dict[DeclarationId, DeclarationInfo]
 
   1. Update the declaration info with the nonce and the epoch.
       ```python
-      declaration_info = declarations[active.declaration]
+      _, declaration_info = find_declaration(declarations, active.declaration)
       declaration_info.nonce = active.nonce
       declaration_info.active = current_epoch
       ```
@@ -2117,8 +2130,6 @@ The material used for the benchmarks is the following:
 ## Test Vectors
 
 To see what the payloads represent, refer to [Mantle Transaction Encoding](mantle-transaction-encoding.md).
-
-The `SDP_WITHDRAW` payload changed with this revision, so its `op_id` and the hash of the transaction carrying it are marked `TBD` until they are regenerated from the encoding.
 
 ### Operation Id
 
