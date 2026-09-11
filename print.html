@@ -40626,6 +40626,7 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 </div><!-- timeline:start -->
 <h2 id="timeline-131"><a class="header" href="#timeline-131">Timeline</a></h2>
 <ul>
+<li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/7244d3b05ddec91a4a7b565bd5a9340ab77ededd/docs/blockchain/raw/blend-protocol.md"><code>7244d3b</code></a> — [RFC] Blend: Failure Detection and Reaction (#412)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b7301a67b5364a8dbe719f8b67b96b7f198d0a13/docs/blockchain/raw/blend-protocol.md"><code>b7301a6</code></a> — [RFC] Mantle: Enable basic EmPoWering machinery (#400)</li>
 <li><strong>2026-09-03</strong> — <a href="https://github.com/logos-co/logos-lips/blob/e2e9e0fc0096e42153430689628c0d638d3c4cf4/docs/blockchain/raw/blend-protocol.md"><code>e2e9e0f</code></a> — [RFC] The Epochs <code>active</code> and <code>withdraw_at</code> Record (#422)</li>
 <li><strong>2026-08-31</strong> — <a href="https://github.com/logos-co/logos-lips/blob/5587d1e5ca2964e38098cd18f81f0fbe19f51fd3/docs/blockchain/raw/blend-protocol.md"><code>5587d1e</code></a> — [RFC] Replace the BLAKE2b-based PRNG with ChaCha20 (ChaCha20Rng) (#425)</li>
@@ -40651,6 +40652,7 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <tr><td>1.3.0</td><td>[RFC] Replace the BLAKE2b-Based PRNG with ChaCha20 (ChaCha20Rng)</td><td>2026-08-28</td></tr>
 <tr><td>1.3.1</td><td>Judged the active message window by the epoch of the including block, made the one-message-per-epoch rule per attested epoch, and made the transition-period delay a release constraint</td><td>2026-09-02</td></tr>
 <tr><td>1.4.0</td><td>Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, add a transaction as a data message payload, and align the nullifier retention period</td><td>2026-09-08</td></tr>
+<tr><td>1.5.0</td><td>[RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time.</td><td>2026-09-04</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction-71"><a class="header" href="#introduction-71">Introduction</a></h1>
@@ -40869,6 +40871,8 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <h3 id="broadcasting"><a class="header" href="#broadcasting">Broadcasting</a></h3>
 <p>Broadcasting is a process of delivering a block proposal extracted from a data message to the entire Logos Blockchain network by the core node that received it. Only content that is constructed correctly can be broadcast. Any badly constructed content must be rejected. The logic behind the verification of the content is out of the scope of the Blend protocol. It is defined by the Logos Blockchain Bedrock (<a href="blockchain/raw/bedrock-architecture-overview.html">[Overview] Bedrock Architecture</a>).</p>
 <p>A transaction extracted from a data message is not broadcast by this protocol. It is submitted to the mempool of the node that received it, and the mempool disseminates it as its own rules specify.</p>
+<h2 id="failure-detection-and-reaction"><a class="header" href="#failure-detection-and-reaction">Failure Detection and Reaction</a></h2>
+<p>A payload the Blend network fails to deliver is broadcast directly by its sender, without the unlinkability the network provides.</p>
 <h2 id="rewarding"><a class="header" href="#rewarding">Rewarding</a></h2>
 <p>A node must be encouraged to follow the protocol, which means that it must be rewarded for the contribution it is making. Otherwise, honest nodes might become lazy nodes, nodes that are not motivated to follow the protocol due to a lack of incentives. In simple terms, a lazy node will not work until it gets paid. Therefore, we motivate the following set of protocol actions:</p>
 <ol>
@@ -41112,6 +41116,14 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <li>The proposal is extracted from the payload and is broadcasted to the Logos Blockchain broadcasting channel after a random delay.</li>
 </ol>
 <p>For a complete description of the processing logic, refer to <a href="blockchain/raw/blend-protocol.html#broadcasting">Broadcasting</a>.</p>
+<h2 id="failure-detection-and-reaction-1"><a class="header" href="#failure-detection-and-reaction-1">Failure Detection and Reaction</a></h2>
+<p>This section defines how a node detects that the Blend network is not delivering its data messages and how it should react.</p>
+<h3 id="detection"><a class="header" href="#detection">Detection</a></h3>
+<p><strong>Delivery failure.</strong> The sender of a data message knows its payload: the identifier of the block it proposed, or the hash of the transaction it submitted. If the sender does not observe that payload on the broadcasting channel within the message traversal time <span class="math-inline" data-tex="T_M"></span> (<a href="blockchain/raw/blend-protocol.html#transition-period">Transition Period</a>), counted from the round in which the message was released, it must treat the message as lost.</p>
+<h3 id="direct-broadcast"><a class="header" href="#direct-broadcast">Direct Broadcast</a></h3>
+<p>Nodes that value privacy above block rewards should disable this fallback and abstain from participation until Blend recovers.</p>
+<p>When a sender <strong>detects</strong> a Blend network failure to broadcast, the sender broadcasts the payload directly to the Logos Blockchain broadcasting channel.</p>
+<p>The deadline is the message traversal time, so a directly broadcast payload never reaches the network earlier than a delivered one. <a href="blockchain/raw/bedrock-v1.1-block-construction.html#block-proposal-reconstruction">Block Proposal Reconstruction</a> assumes that delay for the transactions a proposal references.</p>
 <h2 id="rewarding-1"><a class="header" href="#rewarding-1">Rewarding</a></h2>
 <p>Every active core node receives a reward. The activity of a node is verified in a probabilistic manner, where a more active node has higher chances of getting a reward and a premium reward. To claim a reward, the node must do the following:</p>
 <ol>
@@ -41157,6 +41169,8 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <li><span class="math-inline" data-tex="\mathcal{N} = \text{SDP}(s)"></span> denote a set of core nodes providing the Blend service for the epoch <span class="math-inline" data-tex="e"></span> returned by the SDP protocol (<a href="blockchain/raw/bedrock-service-declaration-protocol.html">Service Declaration Protocol</a>);</li>
 <li><span class="math-inline" data-tex="N = |\mathcal N|"></span> denote a number of core nodes providing the Blend service;</li>
 <li><span class="math-inline" data-tex="\text {CSPRNG}()"></span> is a cryptographically secure pseudo-random number generator, implemented as a <a href="blockchain/raw/common-cryptographic-components.html#chacha20-based-prng-construction">ChaCha20-Based PRNG Construction</a>;</li>
+<li><span class="math-inline" data-tex="\eta"></span> denotes the network absorption, the time a message spends crossing the network on one hop;</li>
+<li><span class="math-inline" data-tex="T_M"></span> denotes the message traversal time, the time a message takes to cross the network;</li>
 </ul>
 <h2 id="global-parameters"><a class="header" href="#global-parameters">Global Parameters</a></h2>
 <ul>
@@ -41165,6 +41179,8 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <li><span class="math-inline" data-tex="\beta_{max} = 3"></span>, the maximum number of blending operations of a single message.</li>
 <li><span class="math-inline" data-tex="\beta_C=3"></span>, the expected number of blending operations for each cover message;</li>
 <li><span class="math-inline" data-tex="\beta_D=3"></span>, the expected number of blending operations for each data message;</li>
+<li><span class="math-inline" data-tex="\eta=2"></span> rounds, the network absorption of one hop.</li>
+<li><span class="math-inline" data-tex="T_M = 15"></span> rounds, the message traversal time, as derived in the <a href="blockchain/raw/blend-protocol.html#transition-period">Transition Period</a> section.</li>
 <li><span class="math-inline" data-tex="W=10 \cdot \Delta_{max}=30"></span>, the observation window is <span class="math-inline" data-tex="30"></span> rounds.</li>
 <li><span class="math-inline" data-tex="\lceil F_1 \rceil^W = W \cdot \mu=30 \cdot \mu"></span>, the maximum number of messages per-connection during the observation window is a function of the <span class="math-inline" data-tex="\mu"></span>, which is defined in the <a href="blockchain/raw/blend-protocol.html#releasing">Releasing</a>  section.</li>
 <li><span class="math-inline" data-tex="\lfloor F_1 \rfloor^W = 3 \cdot \mu"></span>, the minimum number of messages per-connection during observation is a function of the <span class="math-inline" data-tex="\mu"></span>, which is defined in the <a href="blockchain/raw/blend-protocol.html#releasing">Releasing</a> section.</li>
@@ -41230,18 +41246,16 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <p>However, this must also be carefully engineered as the number of connections must not rise above the maximal connection values. The reaction of the node operator to the situation when the number of connections reached maximum is a complex matter, which needs to be handled according to the privacy requirements of the operator. For example, it might be a sign that the node is under attack. Therefore, we have decided to define a privacy-first strategy that is to inform the operator about the potential problem (through logs) and pause the ability to establish new connections until the number of open connections goes below the maximum.</p>
 <h3 id="transition-period"><a class="header" href="#transition-period">Transition Period</a></h3>
 <p>When a new epoch begins, the set of public information checked against proofs embedded in messages changes, which renders some messages invalid. However, these messages may still contain valid payloads that must reach their destination. Therefore, we implement a Transition Period (TP, <span class="math-inline" data-tex="T"></span>) during which the network can gracefully react to the change and allow these messages to safely exit the network.</p>
-<p>The duration of the TP is calculated as follows:</p>
-<div class="math-block" data-tex="T = (\Delta_{max} +d)\cdot \beta_{max} +d"></div>
+<p>A message crosses <span class="math-inline" data-tex="\beta_{max}"></span> blend nodes, each holding it for at most <span class="math-inline" data-tex="\Delta_{max}"></span> and the network carrying it for <span class="math-inline" data-tex="\eta"></span>:</p>
+<div class="math-block" data-tex="T_M = \beta_{max} \cdot (\Delta_{max} + \eta) = 3 \cdot (3 + 2) = 15 \text{ rounds}"></div>
 <p>where:</p>
 <ul>
 <li><span class="math-inline" data-tex="\Delta_{max} = 3"></span> defines the maximal blending delay;</li>
-<li><span class="math-inline" data-tex="d"></span> defines the network dissemination delay;</li>
+<li><span class="math-inline" data-tex="\eta = 2"></span> defines the network absorption of one hop (<a href="blockchain/raw/blend-protocol.html#global-parameters">Global Parameters</a>);</li>
 <li><span class="math-inline" data-tex="\beta_{max}=3"></span> defines maximum number of blending operations of a single message.</li>
 </ul>
-<p>We assume that <span class="math-inline" data-tex="d=0.5"></span> is an average message dissemination delay, then:</p>
-<div class="math-block" data-tex="T = (3 + 0.5)\cdot 3 + 0.5= 11"></div>
-<p>That means that after <span class="math-inline" data-tex="11"></span> rounds, all messages for the past epoch should have been processed and disseminated.</p>
-<p>However, to provide an additional safety buffer, we round up the transition period to <span class="math-inline" data-tex="T=30"></span> rounds. After this period, all old connections can be safely terminated, and messages for the past epoch must not be processed anymore.</p>
+<p>After <span class="math-inline" data-tex="T_M"></span> rounds, all messages for the past epoch should have been processed and disseminated. To provide an additional safety buffer, we round the transition period up to <span class="math-inline" data-tex="T=30"></span> rounds. After this period, all old connections can be safely terminated, and messages for the past epoch must not be processed anymore.</p>
+<p>The transition period must not be shorter than the message traversal time. A node that stopped processing past-epoch messages before <span class="math-inline" data-tex="T_M"></span> would discard messages that are still crossing the network, and their senders would wait for a delivery that can no longer happen (<a href="blockchain/raw/blend-protocol.html#detection">Detection</a>).</p>
 <p>When a new <strong>epoch</strong> begins:</p>
 <ul>
 <li>The node validates message proofs against both new and past epoch-related public input for the duration of TP. This allows past-epoch messages to safely transit through the network, as their validity is bound to the epoch in which they were generated.</li>
@@ -41487,11 +41501,13 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <li>
 <p>If the decapsulation is successful, then:</p>
 <ol>
-<li>If the proof of selection (<span class="math-inline" data-tex="\pi^{K^{n}_l,l}_{S} \in \mathbf b_1"></span>) is invalid, then the message is discarded. A valid proof of selection points to the index of the node <span class="math-inline" data-tex="l"></span> in the list of nodes returned from the SDP.</li>
-<li>Store the blending token which is the collection of the proof of quota from the header (<span class="math-inline" data-tex="\pi^{K^{n}_l}_{Q} \in \mathbf H"></span>), and the proof of selection from the private header (<span class="math-inline" data-tex="\pi^{K^{n}_l,l}_{S} \in \mathbf b_1 \in \mathbf h"></span>):</li>
-</ol>
- <div class="math-block" data-tex="    t = ( \pi^{K^{n}_l}_{Q} \in \mathbf H, \pi^{K^{n}_l,l}_{S} \in \mathbf b_1 \in \mathbf h).&#10;    "></div>
-<ol start="3">
+<li>
+<p>If the proof of selection (<span class="math-inline" data-tex="\pi^{K^{n}_l,l}_{S} \in \mathbf b_1"></span>) is invalid, then the message is discarded. A valid proof of selection points to the index of the node <span class="math-inline" data-tex="l"></span> in the list of nodes returned from the SDP.</p>
+</li>
+<li>
+<p>Store the blending token which is the collection of the proof of quota from the header (<span class="math-inline" data-tex="\pi^{K^{n}_l}_{Q} \in \mathbf H"></span>), and the proof of selection from the private header (<span class="math-inline" data-tex="\pi^{K^{n}_l,l}_{S} \in \mathbf b_1 \in \mathbf h"></span>):</p>
+<div class="math-block" data-tex="       t = ( \pi^{K^{n}_l}_{Q} \in \mathbf H, \pi^{K^{n}_l,l}_{S} \in \mathbf b_1 \in \mathbf h).&#10;       "></div>
+</li>
 <li>
 <p>If the last flag is set (<span class="math-inline" data-tex="\Omega == 1"></span>) then examine the header type of the payload as defined in the <a href="blockchain/raw/payload-formatting.html">Payload Formatting</a>, then:</p>
 <ol>
