@@ -45,6 +45,7 @@
 | 1.13.0 | Removed the `None` case of `op_proofs`, every Operation carrying exactly one proof. A `CHANNEL_CONFIG` creating a channel is verified against a threshold of `0` and its proof carries no signature and no index. Execution Gas is derived from the Operation and the state it is validated against, the thresholds pricing the channel Operations being the ones held in the channel state | 2026-08-31 |
 | 1.14.0 | Moved SDP declaration removal to `withdraw_at + 1`; the last served epoch's reward is paid in the same first block, before removal | 2026-09-11 |
 | 1.15.0 | Add the `CLAIM_POW_REWARD` Operation and the proof of work state it is validated against; the reward pool and the difficulty controllers are specified in [Proof of Work](proof-of-work.md) | 2026-09-08 |
+| 1.16.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a note backs one declaration per service, and `SDP_WITHDRAW` no longer names the note | 2026-09-11 |
 
 # Introduction
 
@@ -257,7 +258,7 @@ Mantle Validators execute each Operation in `ops` according to its opcode, in th
 | CHANNEL_TRANSFER | 0x14 | Consume and create notes belonging to a channel |
 | *RESERVED* | *0x15 - 0x1F* |  |
 | SDP_DECLARE | 0x20 | Declare intention to participate as a node in a Bedrock Service, locking funds as collateral. |
-| SDP_WITHDRAW | 0x21 | Withdraw participation from a Bedrock Service, unlocking your funds in the process. |
+| SDP_WITHDRAW | 0x21 | Withdraw participation from a Bedrock Service, releasing the service note in the process. |
 | SDP_ACTIVE | 0x22 | Signal that you are still an active participant of a Bedrock Service. |
 | *RESERVED* | *0x23 - 0x2F* |  |
 | LEADER_CLAIM | 0x30 | Claim leader reward anonymously. |
@@ -1032,11 +1033,23 @@ These Operations implement the [Service Declaration Protocol](bedrock-service-de
 Validators must keep the following state when implementing SDP Operations:
 
 ```python
-service_notes: dict[NoteID, ServiceNote]
-declarations: dict[DeclarationID, DeclarationInfo]
+service_notes: dict[NoteId, dict[ServiceType, DeclarationId]]
+providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
+```
 
-class ServiceNote:
-    declarations: set[DeclarationID]
+`declarations` holds one map per `ServiceType`, keyed by `declaration_id`.
+`service_notes` maps a note to the declaration holding it in each service, and
+`providers` maps a provider identity to its declaration in each service.
+`find_declaration` returns the service and the entry of a `declaration_id`, or
+`None` when no service holds it:
+
+```python
+def find_declaration(declarations, declaration_id):
+    for service, entries in declarations.items():
+        if declaration_id in entries:
+            return service, entries[declaration_id]
+    return None
 ```
 
 ### Common SDP Structures
@@ -1062,10 +1075,10 @@ class ServiceParameters:
 
 class DeclarationInfo:
     service: ServiceType
-    locators: list[Locator]
     provider_id: Ed25519PublicKey
-    zk_id: ZkPublicKey
     service_note_id: NoteId
+    locators: list[Locator]
+    zk_id: ZkPublicKey
     created: EpochNumber
     active: EpochNumber
     withdraw_at: EpochNumber | None
@@ -1088,7 +1101,7 @@ class DeclarationMessage:
     service_note_id: NoteId
 ```
 
-Service notes are introduced in [Service notes](#service-notes) and serve as Service collaterals. They cannot be spent before the owner withdraw its participation from the declared service(s).
+Service notes are introduced in [Service notes](#service-notes) and serve as Service collaterals. They cannot be spent before the owner withdraws its participation from the declared service.
 
 #### Proof
 
@@ -1116,8 +1129,9 @@ proof: DeclarationProof
 
 min_stake: MinStake      # the (global) minimum stake setting
 ledger: Ledger           # the set of unspent notes
-service_notes: dict[NoteId, ServiceNote]
-declarations: dict[NoteId, DeclarationInfo]
+service_notes: dict[NoteId, dict[ServiceType, DeclarationId]]
+providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
   *Validate*
@@ -1132,9 +1146,14 @@ declarations: dict[NoteId, DeclarationInfo]
       assert Ed25519_verify(txhash, proof.provider_sig, provider_id)
       ```
 
-  2. Ensure declaration does not already exist.
+  2. Ensure no identifier is already taken
+     ([Identifier Uniqueness](bedrock-service-declaration-protocol.md#identifier-uniqueness)),
+     the `declaration_id` being derived as in [Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage).
       ```python
-      assert declaration_id(declaration) not in declarations
+      declare_id = declaration_id(declaration)
+      assert declare_id not in declarations[declaration.service_type]
+      assert declaration.service_type not in service_notes.get(declaration.service_note_id, {})
+      assert declaration.provider_id not in providers[declaration.service_type]
       ```
 
   3. Ensure the locators list is non-empty and has no more than 8 entries.
@@ -1150,14 +1169,6 @@ declarations: dict[NoteId, DeclarationInfo]
       assert note.value >= min_stake.stake_threshold
       ```
 
-  5. Ensure the note has not already been used for this service.
-      ```python
-      if declaration.service_note in service_notes:
-          service_note = service_notes[declaration.service_note]
-          services = [declarations[declare_id] for declare_id in service_note.declarations]
-          assert declaration.service_type not in services
-      ```
-
 #### Execution
 
   *Given*
@@ -1165,38 +1176,31 @@ declarations: dict[NoteId, DeclarationInfo]
 ```python
 declaration: DeclarationMessage # the declaration we are executing
 current_epoch: EpochNumber
-service_notes : dict[NoteId, ServiceNote]
+service_notes: dict[NoteId, dict[ServiceType, DeclarationId]]
+providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
 ```
 
   *Execute*
 
-  1. Create the service note state if it doesn't already exist.
-      ```python
-      if declaration.service_note not in service_notes:
-          service_notes[declaration.service_note_id] = ServiceNote(declarations=set())
-
-      service_note = service_notes[declaration.service_note_id]
-      ```
-
-  2. Add this declaration to the service note.
+  1. Index the note and the provider identity by this declaration.
       ```python
       declare_id = declaration_id(declaration)
-      service_note.declarations.add(declare_id)
+      service_notes.setdefault(declaration.service_note_id, {})[declaration.service_type] = declare_id
+      providers[declaration.service_type][declaration.provider_id] = declare_id
       ```
 
-  3. Store the declaration as explained in [**Declaration Storage**](bedrock-service-declaration-protocol.md#declaration-storage).
+  2. Store the declaration as explained in [**Declaration Storage**](bedrock-service-declaration-protocol.md#declaration-storage).
       ```python
-      declarations[declare_id] = DeclarationInfo(
-          service: declaration.service
-          locators: declaration.locators
-          provider_id: declaration.provider_id
-          zk_id: declaration.zk_id
-          service_note_id: declaration.service_note_id
-          declaration,
+      declarations[declaration.service_type][declare_id] = DeclarationInfo(
+          service=declaration.service_type,
+          provider_id=declaration.provider_id,
+          service_note_id=declaration.service_note_id,
+          locators=declaration.locators,
+          zk_id=declaration.zk_id,
           created=current_epoch,
           active=current_epoch + 2,
-          withdraw_at=None
-          nonce=0
+          withdraw_at=None,
+          nonce=0,
       )
       ```
 
@@ -1250,8 +1254,7 @@ The service withdrawal follows the definition given in [Withdraw Message](bedroc
 
 ```python
 class WithdrawMessage:
-    declaration: DeclarationID
-    service_note_id: NoteId
+    declaration: DeclarationId
     nonce: int
 ```
 
@@ -1277,35 +1280,33 @@ withdraw: WithdrawMessage
 signature: ZkSignature
 
 ledger: Ledger
-service_notes: dict[NoteId, ServiceNote]
-declarations: dict[DeclarationID, DeclarationInfo]
+service_notes: dict[NoteId, dict[ServiceType, DeclarationId]]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
   *Validate*
 
-  1. Ensure that the service note exists and is bound to this declaration.
+  1. Ensure the declaration exists, and take the note it locked.
       ```python
-      assert ledger.is_unspent(withdraw.service_note_id)
-      assert withdraw.service_note_id in service_notes
-
-      service_note = service_notes[withdraw.service_note_id]
-
-      assert withdraw.declaration in service_note.declarations
+      found = find_declaration(declarations, withdraw.declaration)
+      assert found is not None
+      service, declare_info = found
+      service_note_id = declare_info.service_note_id
       ```
 
   2. Validate SDP withdrawal according to [**Withdraw**](bedrock-service-declaration-protocol.md#withdraw).
-      1. Ensure declaration exists.
+      1. Ensure that note is still present and locked to this declaration.
           ```python
-          assert withdraw.declaration in declarations
-          declare_info = declarations[withdraw.declaration]
+          assert ledger.is_unspent(service_note_id)
+          assert service_notes[service_note_id][service] == withdraw.declaration
           ```
       2. Ensure the declaration is not already scheduled for withdrawal.
           ```python
           assert declare_info.withdraw_at is None
           ```
-      3. Ensure service note `pk` and `zk_id` attached to this declaration authorized this Operation.
+      3. Ensure service note `pk` and the `zk_id` of this declaration authorized this Operation.
           ```python
-          service_note = ledger[withdraw.service_note_id]
+          service_note = ledger[service_note_id]
           assert ZkSignature_verify(txhash, signature, [service_note.pk, declare_info.zk_id])
           ```
       4. Ensure that the nonce is greater than the previous one.
@@ -1323,8 +1324,8 @@ signature: ZkSignature
 
 current_epoch: EpochNumber # current epoch
 ledger: Ledger
-service_notes: dict[NoteId, ServiceNote]
-declarations: dict[DeclarationID, DeclarationInfo]
+service_notes: dict[NoteId, dict[ServiceType, DeclarationId]]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
   *Execute*
@@ -1333,7 +1334,7 @@ declarations: dict[DeclarationID, DeclarationInfo]
 
   1. Update the declaration info with the nonce and the withdrawal epoch.
       ```python
-      declare_info = declarations[withdraw.declaration]
+      _, declare_info = find_declaration(declarations, withdraw.declaration)
       declare_info.nonce = withdraw.nonce
       declare_info.withdraw_at = current_epoch + 2
       ```
@@ -1343,7 +1344,6 @@ declarations: dict[DeclarationID, DeclarationInfo]
 ```python
 withdraw=Withdraw(
     declaration=alice_declaration_id,
-    service_note_id=alices_service_note_id
     nonce=1579532
 )
 
@@ -1372,7 +1372,7 @@ not when the `WithdrawMessage` is processed. The rewards of epoch
 are distributed in the first block of epoch `withdraw_at + 1` (see
 [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md)).
 In that same block, after the rewards have been distributed, every declaration
-with `withdraw_at + 1 <= current_epoch` is removed and its stake unlocked.
+with `withdraw_at + 1 <= current_epoch` is removed and its service note released.
 Declarations that withdrew without earning a final reward are removed by the
 same step.
 
@@ -1380,30 +1380,28 @@ same step.
 
 ```python
 current_epoch: EpochNumber
-service_notes: dict[NoteId, ServiceNote]
-declarations: dict[DeclarationID, DeclarationInfo]
+service_notes: dict[NoteId, dict[ServiceType, DeclarationId]]
+providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
   *Execute*
 
-  For every `declare_id`, `declare_info` in `declarations` where
+  For every `service`, `declare_id`, `declare_info` in `declarations` where
   `declare_info.withdraw_at is not None and declare_info.withdraw_at + 1 <= current_epoch`:
 
-  1. Remove the declaration from its service note.
+  1. Release the note and the provider identity the declaration held. The note
+     becomes spendable once no service holds it.
       ```python
-      service_note = service_notes[declare_info.service_note_id]
-      service_note.declarations.remove(declare_id)
+      del service_notes[declare_info.service_note_id][service]
+      if not service_notes[declare_info.service_note_id]:
+          del service_notes[declare_info.service_note_id]
+      del providers[service][declare_info.provider_id]
       ```
 
   2. Remove the declaration.
       ```python
-      del declarations[declare_id]
-      ```
-
-  3. Unlock the note once it is no longer bound to any declaration.
-      ```python
-      if len(service_note.declarations) == 0:
-          del service_notes[declare_info.service_note_id]
+      del declarations[service][declare_id]
       ```
 
 ### SDP_ACTIVE
@@ -1414,7 +1412,7 @@ The service active action follows the definition given in [Active Message](bedro
 
 ```python
 class Active:
-    declaration: DeclarationID
+    declaration: DeclarationId
     nonce: int
     metadata: bytes # a service-specific node activeness metadata
 ```
@@ -1438,14 +1436,15 @@ txhash: zkhash # Mantle transaction hash of the tx containing this operation
 active: Active
 signature: ZkSignature
 
-declarations: dict[DeclarationID, DeclarationInfo]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
   *Validate*
 
 ```python
-assert active.declaration in declarations
-declaration_info = declarations[active.declaration]
+found = find_declaration(declarations, active.declaration)
+assert found is not None
+_, declaration_info = found
 
 assert active.nonce > declaration_info.nonce
 
@@ -1460,7 +1459,7 @@ assert ZkSignature_verify(txhash, signature, declaration_info.zk_id)
 active: Active
 
 current_epoch: EpochNumber # epoch of the block containing this operation
-declarations: dict[DeclarationID, DeclarationInfo]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
   *Execute*
@@ -1469,7 +1468,7 @@ declarations: dict[DeclarationID, DeclarationInfo]
 
   1. Update the declaration info with the nonce and the epoch.
       ```python
-      declaration_info = declarations[active.declaration]
+      _, declaration_info = find_declaration(declarations, active.declaration)
       declaration_info.nonce = active.nonce
       declaration_info.active = current_epoch
       ```
@@ -1880,7 +1879,7 @@ These note identifiers uniquely define notes in the system and cannot be chosen 
 
 ### Service notes
 
-Service notes are special notes in Mantle that serve as collateral for Service Declarations. A note can become a service note after being locked by executing a Declare Operation, preventing it from being spent until explicitly released through a Withdraw Operation. The system maintains a mapping of service note IDs to their supporting declarations. Though locked, these notes remain in the Ledger and can still participate in Proof of Stake. When service providers withdraw all their declarations, the associated note(s) become unlocked and available for spending again.
+Service notes are special notes in Mantle that serve as collateral for Service Declarations. A note can become a service note after being locked by executing a Declare Operation, preventing it from being spent until explicitly released through a Withdraw Operation. A note backs at most one declaration per service, so the system maintains a mapping of each service note ID to the declaration it supports in each service. Though locked, these notes remain in the Ledger and can still participate in Proof of Stake. When a service provider withdraws its declaration, the note it held is released for that service, and is available for spending again once no service holds it.
 
 ### Channel Notes
 
@@ -1893,7 +1892,7 @@ The system maintains a `channel_notes` set in the Ledger tracking all active cha
 ```python
 class Ledger:
     notes: list[Note]
-    service_notes: dict[NoteId, ServiceNote]
+    service_notes: dict[NoteId, dict[ServiceType, DeclarationId]]
     channel_notes: dict[NoteId, ChannelId]
 ```
 
@@ -2143,7 +2142,7 @@ To see what the payloads represent, refer to [Mantle Transaction Encoding](mantl
 | `CHANNEL_WITHDRAW`        | 0x1212121212121212121212121212121212121212121212121212121212121212011300000000000000000000000000000000000000000000000000000000000000 | 0x503d0d08f9faef971864943103965d13be7159fe6e0361c8ea614c6d0431e59c |
 | `CHANNEL_TRANSFER`        | 0x14141414141414141414141414141414141414141414141414141414141414140115000000000000000000000000000000000000000000000000000000000000000116000000000000001700000000000000000000000000000000000000000000000000000000000000 | 0xfb24c17731954e8bbe1b0dedd69e4857c8083d1689aff331ba16f3ed5883f0ce |
 | `SDP_DECLARE`             | 0x00010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f319000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000 | 0x42e93fdce121a5ab4da3201a6fd2da1d42ca8b7d8c1a8c9e2a657a6cdc7aa468 |
-| `SDP_WITHDRAW`            | 0x1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000 | 0xc95aea0e46f60c12a8b29b259ca1b39947093c0d88a1ea8400c49e392ca491a0 |
+| `SDP_WITHDRAW`            | 0x1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d00000000000000 | TBD |
 | `SDP_ACTIVE`              | 0x1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f0000000000000001010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020303030303030303030303030303030303030303030303030303030303030303 | 0x76afa55f5733db75a982dc5ccabb5c6a7dab992eda78cdfd5f657f314e388354 |
 | `LEADER_CLAIM`            | 0x200000000000000000000000000000000000000000000000000000000000000021000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000 | 0x0dc1a007fdd184b4553a83d166b749a621f5be2de4b3b0429ebf0520d1dd9a51 |
 
@@ -2152,17 +2151,15 @@ To see what the payloads represent, refer to [Mantle Transaction Encoding](mantl
 | Transaction | Payload | Transaction Hash                                                   |
 | - | - | - |
 | Empty transaction | 0x00 | 0x2eba3f667b80a508f3d44d149a1c27a90ea365a51e4fc8209289088142b364e5 |
-| Transaction with one of each operation | 0x0a000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000600000000000000000000000000000000000000000000000000000000000000100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000c000d00110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c121010101010101010101010101010101010101010101010101010101010101010011100000000000000000000000000000000000000000000000000000000000000100000006465706f7369742d6d6574616461746113121212121212121212121212121212121212121212121212121212121212121201130000000000000000000000000000000000000000000000000000000000000014141414141414141414141414141414141414141414141414141414141414141401150000000000000000000000000000000000000000000000000000000000000001160000000000000017000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f319000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f0000000000000001010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c02020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202030303030303030303030303030303030303030303030303030303030303030330200000000000000000000000000000000000000000000000000000000000000021000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000 | 0x11e6013847824badf33aa383cfbdb4b5b74a621acefc8296c21f48c4072e0e92 |
+| Transaction with one of each operation | 0x0a000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000600000000000000000000000000000000000000000000000000000000000000100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000c000d00110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c121010101010101010101010101010101010101010101010101010101010101010011100000000000000000000000000000000000000000000000000000000000000100000006465706f7369742d6d6574616461746113121212121212121212121212121212121212121212121212121212121212121201130000000000000000000000000000000000000000000000000000000000000014141414141414141414141414141414141414141414141414141414141414141401150000000000000000000000000000000000000000000000000000000000000001160000000000000017000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f319000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d00000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f0000000000000001010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c02020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202030303030303030303030303030303030303030303030303030303030303030330200000000000000000000000000000000000000000000000000000000000000021000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000 | TBD |
 
 ### Declaration Id
 
-The `declaration_id` ([Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage)) is `Hash(service||provider_id||zk_id||locators)` (BLAKE2b, 256-bit output, no DST), where `service` is the one-byte `ServiceType` discriminant and `locators` is the `Locators` production ([Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations)): the element count followed by each `Locator`'s binary form prefixed with its 2-byte little-endian byte length. Note that the preimage field order differs from the `SDP_DECLARE` wire order and excludes `service_note_id`. This vector reuses the fields of the `SDP_DECLARE` payload from [Operation Id](#operation-id).
+The `declaration_id` ([Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage)) is `Hash(service||zk_id)`. This vector reuses the fields of the `SDP_DECLARE` payload from [Operation Id](#operation-id).
 
 | Field | Value |
 | - | - |
 | `service` | 0x00 |
-| `provider_id` | 0x53470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f3 |
 | `zk_id` | 0x1900000000000000000000000000000000000000000000000000000000000000 |
-| `locators` | 0x010b00047f00000191020bb8cd03 |
-| Preimage | 0x0053470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f31900000000000000000000000000000000000000000000000000000000000000010b00047f00000191020bb8cd03 |
-| `declaration_id` | 0x7fb647c069bade94e06685b0825299d220e7cc14752cfc474773b6c4040e37b5 |
+| Preimage | 0x001900000000000000000000000000000000000000000000000000000000000000 |
+| `declaration_id` | 0x67fa7d1fe7f1391195fdd479bba30dd97c9e6d2e1525436ac2427f2bf8567a0d |
