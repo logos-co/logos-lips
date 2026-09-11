@@ -576,7 +576,7 @@ new clients can use new capabilities (1, 3).
 - To better support (2) and (3) in the future,
 we will likely release a new version that gives better support for open,
 growable maps (association lists or native map type) (3)
-- When we we want to provide a new set of packets that have different requirements,
+- When we want to provide a new set of packets that have different requirements,
 we do so under a new protocol version and employ protocol versioning.
 This is a form of accretion at a level above -
 it ensures a client can support both protocols at once and
