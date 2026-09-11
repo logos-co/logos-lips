@@ -285,11 +285,11 @@ Collision avoidance is out of scope.
 - A `namespace` MUST be a non-empty sequence of at most 16 ASCII octets,
   each of which is a lowercase letter (0x61–0x7A), a digit (0x30–0x39),
   or a hyphen-minus (0x2D). No other octet is permitted.
-- A `namespace` MUST must begin with a lowercase letter (0x61–0x7A). No other octet is permitted.
+- A `namespace` MUST must begin with a lowercase letter (0x61–0x7A).
 - A `label` MUST be a non-empty sequence of at most 64 ASCII octets,
   each of which is a lowercase letter (0x61–0x7A), a digit (0x30–0x39),
   a hyphen-minus (0x2D), or a full stop (0x2E). No other octet is permitted.
-- A `label` MUST must begin with a lowercase letter (0x61–0x7A). No other octet is permitted.
+- A `label` MUST must begin with a lowercase letter (0x61–0x7A).
 - A consumer MUST only use a key or record for the purpose defined by its
   context specification.
 
