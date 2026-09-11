@@ -31,8 +31,9 @@
 | 1.5.2 | Renamed locked notes into service notes and stated that the Input Gas covers the check that a note is neither a service nor a channel note | 2026-08-27 |
 | 1.5.3 | Adopted "active message" as the single name for the message | 2026-09-02 |
 | 1.5.4 | Renamed the `stake_manipulation_threshold` of the channel gas derivations into `transfer_threshold` and the Channel Stake Assignation section into Channel Transfer, following Mantle | 2026-08-31 |
-| 1.5.5 | [RFC] Align the SDP costs with declarations keyed by service and `zk_id`: no lock-period check | 2026-09-09 |
-| 1.5.6 | Declaring no longer verifies locators | 2026-09-09 |
+| 1.6.0 | Add the Execution Gas derivation for the `CLAIM_POW_REWARD` Operation | 2026-09-04 |
+| 1.6.1 | [RFC] The SDP costs price the per-service identifier checks and no lock-period check | 2026-09-11 |
+| 1.6.2 | Declaring no longer verifies locators | 2026-09-09 |
 
 # Introduction
 
@@ -80,6 +81,7 @@ SDP_DECLARE_GAS               = 646
 SDP_WITHDRAW_GAS              = 590
 SDP_ACTIVE_GAS                = 590
 LEADER_CLAIM_GAS              = 580
+CLAIM_POW_REWARD_GAS          = 590
 ```
 
 and come from our implementation observations as described in [Gas determination from measures](#gas-determination-from-measures).  To get these numbers, we based our calculations on the following measures:
@@ -183,7 +185,7 @@ Execution: ~ 646k CPU cycles.
 
 - Verification of the Ed25519 signature: 56,000 cycles.
 - Verification of the ZK signature: 590,000 cycles.
-- Verification that the `zk_id` is not already registered in the service: negligible.
+- Verification that the declaration doesn’t already exist: negligible.
 - Verification that the `provider_id` is not already bound in the service: negligible.
 - Verification of service note existence: negligible.
 - Verification of service note value: negligible.
@@ -191,7 +193,7 @@ Execution: ~ 646k CPU cycles.
 - Register the note as a service note and index the provider identity: negligible.
 ## SDP Withdraw
 
-This gas covers a verification process that includes: confirming ownership of the zk_id through ZkSignature verification, confirming that the declaration exists and has not been previously withdrawn, and validating that the service note it holds is still bound to it. The validation process also ensures that the withdrawal message's nonce is greater than any previous nonce, preventing replay attacks. During execution, the system records the withdrawal epoch on the declaration; the declaration is removed and its note released at the epoch transition two epochs later.
+This gas covers a verification process that includes: confirming ownership of the zk_id through ZkSignature verification, confirming that the declaration exists and has not been previously withdrawn, and validating that the service note it holds is still bound to it. The validation process also ensures that the withdrawal message's nonce is greater than any previous nonce, preventing replay attacks. During execution, the system records the withdrawal epoch on the declaration; the declaration is removed and its note released by the epoch finalization at `withdraw_at + 1`.
 
 Execution: ~ 590k CPU cycles.
 
@@ -201,10 +203,11 @@ Execution: ~ 590k CPU cycles.
 - Verification that the declaration wasn’t already withdrawn: negligible.
 - Verification of nonce incrementation: negligible.
 - Update declaration: negligible.
-- Remove the declaration and release its service note: negligible.
+- Remove the declaration and release its service note for the service: negligible.
+- Unlock the note once no service holds it: negligible.
 ## SDP Activation
 
-This gas funds the verification of the zk_id signature through the ZkSignature verification process, validates the existence of the declaration in the system, and ensures that the active message's nonce is greater than any previous nonce to prevent replay attacks. The validation includes confirming that the `zk_id` is present in the declarations dictionary and that the signature corresponds to it.
+This gas funds the verification of the zk_id signature through the ZkSignature verification process, validates the existence of the declaration in the system, and ensures that the active message's nonce is greater than any previous nonce to prevent replay attacks. The validation includes confirming that the declaration ID is present in the declarations dictionary and that the signature corresponds to the declaration's registered zk_id public key.
 
 - Execution: ~590k CPU cycles.
     - Verification that the declaration exist: negligible.
@@ -224,6 +227,25 @@ Execution: ~580k CPU cycles.
 - Insertion of the nullifier in the voucher nullifier set: negligible.
 - Insertion of the note in the ledger: negligible.
 - Derivation of the note identifiers: negligible
+
+## Claim PoW Reward
+
+This gas covers the verification of the [ZkSignature](bedrock-v1.1-mantle-specification.md) proof, the re-derivation of the puzzle ticket from the Operation payload, the comparison of that ticket against the reward difficulty, the lookup confirming the referenced block is canonical and within the acceptance window, the check that the ticket is not already in the nullifier set, and the check that the pool can cover a reward. Execution then inserts the nullifier, creates a single output note and decrements the pool.
+
+Execution: ~590k CPU cycles.
+
+- Verification of the ZK signature: 590,000 cycles.
+- Re-derivation of the puzzle ticket: one `zkhash` over three field elements, negligible.
+- Comparison of the ticket against the reward difficulty: negligible.
+- Lookup of the referenced block and the slot window comparison: negligible.
+- Verification that the ticket isn't already in the nullifier set: negligible.
+- Verification that the pool covers the per-claim reward: negligible.
+- Insertion of the nullifier in the set: negligible.
+- Insertion of the note in the ledger: negligible.
+- Derivation of the note identifiers: negligible.
+
+A claim is intended to pay its own fee out of the reward it creates, so this gas contributes to the floor the per-claim reward must clear, and it constrains the reward parameters rather than merely pricing the Operation.
+
 # Annex
 
 ## Gas determination from measures

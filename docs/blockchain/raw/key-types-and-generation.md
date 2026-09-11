@@ -26,8 +26,8 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-09 |
 | 1.0.1 | [RFC] Remove Concept of a Session | 2026-06-22 |
-| 1.0.2 | The NQK is the key of the declaration entry within its service rather than a field of it | 2026-09-09 |
-| 1.0.3 | The NSK public key is carried by the `provider_id` rather than being it | 2026-09-09 |
+| 1.1.0 | Add the Proof of Work Nonce | 2026-08-31 |
+| 1.1.1 | The NSK public key is carried by the `provider_id` rather than being it | 2026-09-09 |
 
 # Introduction
 
@@ -40,6 +40,7 @@ This document ensures that the keys are used and generated in a common manner, w
 - **Non-ephemeral Quota Key (NQK)** — used for proving that a node is a core node.
 - **Non-ephemeral Signing Key (NSK)** — used to authenticate the node on the network level and derive the Non-ephemeral Encryption Key.
 - **Ephemeral Signing Key (ESK)** — used for signing Blend messages, one per encapsulation.
+- **Proof of Work Nonce (PWN)** — used for proving that a node holds a proof of work solution, one per solution. It is a secret, not a key.
 - **Non-ephemeral Encryption Key (NEK)** — used for deriving shared secrets for message encryption.
 - **Ephemeral Encryption Key (EEK)** — used for encrypting Blend messages, one per encapsulation.
 
@@ -47,7 +48,7 @@ This document ensures that the keys are used and generated in a common manner, w
 
 ## Non-ephemeral Quota Key
 
-A node generates a Non-ephemeral Quota Key (NQK) that is a ZkSignature ([Zero Knowledge Signature Scheme (ZkSignature)](bedrock-v1.1-mantle-specification.md#zero-knowledge-signature-scheme-zksignature)). The NQK is stored on the ledger as the `zk_id` under which the node’s `DeclarationInfo` is held, being the outcome of its participation in the Service Declaration Protocol (SDP — [Service Declaration Protocol](bedrock-service-declaration-protocol.md)).
+A node generates a Non-ephemeral Quota Key (NQK) that is a ZkSignature ([Zero Knowledge Signature Scheme (ZkSignature)](bedrock-v1.1-mantle-specification.md#zero-knowledge-signature-scheme-zksignature)). The NQK is stored on the ledger as the `zk_id` field in the `DeclarationInfo` of the node’s outcome of the participation in the Service Declaration Protocol (SDP — [Service Declaration Protocol](bedrock-service-declaration-protocol.md)).
 
 The NQK is used to prove that the node is part of the set of core nodes as indicated through the SDP.
 
@@ -64,6 +65,10 @@ A node generates Ephemeral Signing Keys (ESK) that are proved to be limited in n
 A unique signing key must be generated for every encapsulation as required by the [Message Encapsulation Mechanism](message-encapsulation.md).
 
 The key must not be reused. Otherwise, the messages that reuse the same key can be linked together. The node is responsible for not reusing the key.
+
+## Proof of Work Nonce
+
+The Proof of Work Nonce (PWN) is a scalar field element found by search: the node samples candidates with full entropy until the puzzle ticket derived from the candidate and the epoch nonce falls below the Blend threshold of the epoch, as defined in [Proof of Quota](proof-of-quota.md). It is a private witness of the PoQ circuit, never appears in a message, and is bound to the epoch it was found for.
 
 ## Non-ephemeral Encryption Key
 

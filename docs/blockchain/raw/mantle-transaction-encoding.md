@@ -32,8 +32,9 @@
 | 1.6.0 | Added the `Parent` of the `ChannelConfig` to follow Mantle | 2026-08-27 |
 | 1.6.1 | Renamed the `LockedNoteId` production of the SDP Operations into `ServiceNoteId` | 2026-08-27 |
 | 1.7.0 | Added the `ChannelConfigOpProof` and `ChannelTransferOpProof` variants and factored the three channel threshold proofs into `ChannelMultiSigProof`, carrying the index of the signing key alongside each signature | 2026-08-31 |
-| 1.8.0 | [RFC] SDP Operations address a declaration by `ServiceType` and `ZkId` instead of `DeclarationId`, and `SDPWithdraw` drops the redundant `ServiceNoteId` | 2026-09-09 |
-| 1.9.0 | [RFC] `SDPDeclare` drops the `Locators` production, and `ProviderId` becomes the 38-byte libp2p `PeerId` | 2026-09-09 |
+| 1.8.0 | Added the `ClaimPowReward` Operation payload; its proof is a `ZkSigProof` | 2026-09-08 |
+| 1.9.0 | [RFC] `SDPWithdraw` drops the redundant `ServiceNoteId` | 2026-09-11 |
+| 1.10.0 | [RFC] `SDPDeclare` drops the `Locators` production, and `ProviderId` becomes the 38-byte libp2p `PeerId` | 2026-09-09 |
 
 # Introduction
 
@@ -77,7 +78,8 @@ OpPayload = Transfer /
             SDPDeclare /
             SDPWithdraw /
             SDPActive /
-            LeaderClaim 
+            LeaderClaim /
+            ClaimPowReward
 ```
 
 ### Channel Operations
@@ -119,10 +121,11 @@ ProviderId    = 38BYTE          ; libp2p PeerId: 0x002408011220 || Ed25519Public
 ZkId          = ZkPublicKey
 ServiceNoteId = NoteId
 
-SDPWithdraw   = ServiceType ZkId Nonce
+SDPWithdraw   = DeclarationId Nonce
+DeclarationId = Hash32
 Nonce         = UINT64
 
-SDPActive     = ServiceType ZkId Nonce Metadata
+SDPActive     = DeclarationId Nonce Metadata
 Metadata      = UINT32 *BYTE  ; Service-specific node activeness metadata
 ```
 
@@ -133,6 +136,14 @@ LeaderClaim      = RewardsRoot VoucherNullifier PublicKey
 RewardsRoot      = FieldElement ; Merkle root for voucher membership proof
 VoucherNullifier = FieldElement
 PublicKey        = ZkPublicKey
+```
+
+### Proof of work operations
+
+```schema
+ClaimPowReward = EpochNonce BlockHash PublicKey
+EpochNonce     = FieldElement ; the epoch nonce the solution was found against
+BlockHash      = Hash32       ; recent canonical block the solution is anchored to
 ```
 
 ### Transfer Operations
