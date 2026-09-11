@@ -1,4 +1,4 @@
-# [RFC] Mempool: Transaction retention
+# [RFC] Mempool: Transaction retention and maturity
 
 **Motivation and proposal:** [PR #448](https://github.com/logos-co/logos-lips/pull/448)
 
@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-09-10 |
 | v2 | Added `TRANSACTION_MATURITY`, the age `BLEND_DELAY + BROADCAST_DELAY` (15 s + 5 s) a transaction must reach before block building sees it, and restated the retention constraint in those terms. | 2026-09-11 |
+| v3 | Renamed to cover maturity, and moved the RFC document to the matching path. | 2026-09-11 |
 
 ## Reviewer Orientation
 
