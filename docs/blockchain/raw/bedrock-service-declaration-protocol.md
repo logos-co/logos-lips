@@ -223,8 +223,8 @@ class DeclarationInfo:
     service: ServiceType
     provider_id: Ed25519PublicKey
     service_note_id: NoteId
-    zk_id: ZkPublicKey
     locators: list[Locator]
+    zk_id: ZkPublicKey
     created: EpochNumber
     active: EpochNumber
     withdraw_at: EpochNumber | None
@@ -236,8 +236,8 @@ Where:
 - `service` is the service the declaration covers;
 - `provider_id` is the `Ed25519PublicKey` the validator signs its messages with;
 - `service_note_id` is the `NoteId` of the note that meets the minimum stake threshold;
-- `zk_id` is the `ZkPublicKey` of the validator, which signs its active and withdraw messages and receives its rewards;
 - `locators` is a copy of the `locators` from the `DeclarationMessage`;
+- `zk_id` is the `ZkPublicKey` of the validator, which signs its active and withdraw messages and receives its rewards;
 - `created` is the epoch of the block that contained the declaration;
 - `active` is the epoch of the block that contained the latest accepted active message, initialised to `created + 2` ([Message Timing](#message-timing));
 - `withdraw_at` is the epoch at which the node stops providing the service ([**Withdraw**](#withdraw)), and is `None` until the declaration is withdrawn;

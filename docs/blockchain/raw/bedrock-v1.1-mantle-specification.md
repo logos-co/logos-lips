@@ -1064,10 +1064,10 @@ class ServiceParameters:
 
 class DeclarationInfo:
     service: ServiceType
-    locators: list[Locator]
     provider_id: Ed25519PublicKey
-    zk_id: ZkPublicKey
     service_note_id: NoteId
+    locators: list[Locator]
+    zk_id: ZkPublicKey
     created: EpochNumber
     active: EpochNumber
     withdraw_at: EpochNumber | None
@@ -1182,10 +1182,10 @@ providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
       ```python
       declarations[declare_id] = DeclarationInfo(
           service=declaration.service_type,
-          locators=declaration.locators,
           provider_id=declaration.provider_id,
-          zk_id=declaration.zk_id,
           service_note_id=declaration.service_note_id,
+          locators=declaration.locators,
+          zk_id=declaration.zk_id,
           created=current_epoch,
           active=current_epoch + 2,
           withdraw_at=None,
