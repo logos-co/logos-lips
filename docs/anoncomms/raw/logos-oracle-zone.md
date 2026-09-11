@@ -91,10 +91,9 @@ who fetch-then-forward price data by following this protocol.
 Ordering authority is delegated entirely to Bedrock's immutable inscription order.
 - Indexers have no immutable execution logic beyond aggregation.
 Stake custody and slashing enforcement are delegated entirely to LEZ contracts.
-- At least one honest indexer disputes a wrong proposal before the dispute window closes,
-by sending the observations to LEZ.
-LEZ resolves the dispute by recomputing the median.
-Correctness of the attested price rests on this one honest indexer existing.
+- Enough honest indexers dispute a wrong proposal before the dispute window closes,
+each sending the observations and LEZ resolves the dispute by recomputing the median.
+Correctness of the disputed set rests on enough honest indexers.
 - The active oracle set is large enough that the quorum `N` is reached every round.
 Liveness of attestation depends on this oversizing.
 
@@ -298,7 +297,9 @@ or before quorum, is covered in [Incentivization](#incentivization).
 
 Membership of the active oracle set determines which `oracle id`s submit observations that indexers will accept.
 Membership is also the basis of incentivization.
-To join, an `oracle node` MUST bond stake in a LEZ contract and register its `oracle id` in the membership tree held in LEZ.Registration is a LEZ-only operation and does not require a cross-zone write into the Oracle Zone.
+To join, an `oracle node` MUST bond stake in a LEZ contract and register
+its `oracle id` in the membership tree held in LEZ.
+Registration is a LEZ-only operation and does not require a cross-zone write into the Oracle Zone.
 
 An indexer does not query LEZ state live, which would make aggregation non-deterministic across replicas.
 Instead, each observation carries a `membership_proof`,
@@ -563,10 +564,10 @@ Block-time and finality parameters are properties of the LEZ and are listed for 
 | Feed decimals |  | 6 | Fixed integer scale for the feed. Every observation uses it, so the indexer needs no rescaling. |
 | Quorum threshold | `N` | 50 | Minimum observations required to attest a price for a round. |
 | Honest-majority assumption |  | majority of the aggregated observations | Over the observations aggregated per attestation, not the total pool. |
-| Heartbeat / round cadence | `R_round` | 1 block (`~30 s`) | Defined in block-height terms; must be `>= T_block`. |
-| Dispute window | `W_dispute` | 3 Bedrock blocks (`~90 s`) | Time a proposed price waits for a dispute before it finalizes. |
+| Heartbeat / round cadence | `R_round` | 1 Bedrock block (`~30 s`) | Defined in block-height terms; must be `>= T_block`. |
+| Dispute window | `W_dispute` | 90 LEZ blocks (`~90 s`) | Time a proposed price waits for a dispute before it finalizes. |
 | LEZ block time |  | `~1 s` | Consumer zone block time, faster than the host chain block. |
-| Aggregation function |  | median | Plain median of all signature and membership-observations. |
+| Aggregation function |  | median | Plain median of all valid observations. |
 | Reward band | `D_reward` | 0.5%* | Tight band around the median for reward eligibility; `D_reward < D_slash`.  |
 | Hard validity bound | `D_slash` | 2.5%* | Wide sanity bound; a signed value outside it is a slashable out-of-bound fault.  |
 | Signature scheme | | BIP-340 Schnorr | `oracle_id` is the node's 32-byte x-only public key. |
@@ -637,6 +638,101 @@ with its `round` field and signature, to LEZ during the dispute window.
 LEZ contract verifies it and sees it should have been included.
 The `round` field prevents a proposer from claiming a valid observation arrived too late.
 Completeness therefore reduces to the same one-of-many honest assumption as the optimistic path.
+
+## Dispute Detection
+
+Every indexer runs a per-round dispute loop to detect potential wrong attestations
+by comparing the written value against the one it computes locally.
+
+Correctness of the feed is guaranteed by the dispute detection mechanism.
+On the optimistic path the LEZ contract only stores what the proposer wrote, without any verification.
+A wrong value is caught only if enough honest indexers run the loop and raise a dispute within the window.
+
+### The loop
+
+After each round closes, every indexer runs these steps.
+
+1. **Read.** An indexer follows every new Bedrock block
+and caches its `PriceObservation` inscriptions in canonical order,
+so once a round closes the cache already holds every observation for it.
+2. **Recompute.** Run the aggregation over the cached observations and produce the indexer's own attested price.
+This is the deterministic median logic described in [Aggregation](#aggregation).
+3. **Fetch.** Once the `round` closes in Bedrock, poll the LEZ contract for the accepted attestation.
+Polling every few seconds through `W_dispute` is enough.
+4. **Compare.** If the fetched value equals the recomputed one, do nothing.
+If they differ, raise a dispute before `W_dispute` closes.
+The next section defines raising a dispute formally.
+
+### Raising a dispute
+
+Formally, a dispute is a set of `DisputeSubmission` transactions sent by indexers
+that together deliver the round's signed `PriceObservation`s to the contract,
+ordered as they appear on Bedrock.
+It shifts a round from the optimistic path into the verification path,
+where the written `AttestedPrice` is checked against the actual observations.
+
+Each dispute transaction carries the following payload.
+
+```protobuf
+syntax = "proto3";
+
+// A dispute consists of one or more of these, sent by indexers inside W_dispute.
+message DisputeSubmission {
+  int64 disputed_round                   = 1;  // the round whose AttestedPrice is disputed
+  bytes sender_oracle_id                 = 2;  // the submitter's BIP-340 pubkey (must be in root_cycle)
+  bytes sender_signature                 = 3;  // BIP-340 signature over the submission, verified against sender_oracle_id
+  bytes sender_membership_proof          = 4;  // Merkle proof of sender_oracle_id in root_cycle of the disputed round's cycle
+  repeated PriceObservation observations = 5;  // signed observations from Bedrock, in Bedrock order
+}
+```
+
+The indexer signs the submission with its own oracle key (BIP-340),
+and includes its `sender_oracle_id` and membership proof.
+LEZ contract verifies the signature against `sender_oracle_id`
+and verifies that key is in the `root_cycle` of the disputed round's cycle.
+Only a registered indexer can produce both,
+so a non-member cannot flood the contract with disputes.
+This uses the same external signature scheme as the observations,
+so it does not depend on the LEZ transaction sender.
+
+The `PriceObservation` type is defined in [Price Fetching](#price-fetching).
+Each `PriceObservation` carries the same `signature` and `membership_proof` it had on Bedrock.
+LEZ verifies these against the `root_cycle` frozen for the disputed round's cycle, not against the current live root.
+
+Since one transaction may not hold the full set at once,
+the delivery is split across multiple transactions inside `W_dispute`.
+LEZ collects the submitted observations into a per-round set, deduplicated by `(oracle_id, round)` as they arrive, 
+so the same observation carried by two indexers is counted once.
+Each submission is checked against `sender_signature` and `sender_membership_proof`,
+so only a registered indexer can add to the set.
+No observation signatures are verified during collection.
+
+`W_dispute` opens at the LEZ block that includes the proposer's `AttestedPrice`.
+If that block is `B` and the window is `W_dispute` blocks,
+disputes are accepted while the current LEZ height is in `(B, B + W_dispute]`.
+LEZ checks this on each submission using its own block height.
+
+Each submission increases a per-round counter of unique observations.
+When the counter reaches `N`, resolution is triggered.
+If the resolution work fits the LEZ cycle budget,
+it MAY run in the same transaction that reaches `N`.
+Otherwise it is invoked as a separate `resolve_dispute(disputed_round)` call by any registered indexer.
+On resolution, LEZ verifies each one which path applies is left to implementation.
+
+LEZ then verifies each one, checking its `signature` against `oracle_id` and
+its `membership_proof` against the `root_cycle` of the disputed round's cycle, dropping any that fail.
+If fewer than `N` valid observations remain, the dispute is invalid and the written `AttestedPrice` stands.
+Otherwise LEZ computes the median over the valid set with the same rules as [Aggregation](#aggregation)
+and compares it to the written value.
+If they match, the dispute fails and the written value stands.
+If they differ, the dispute succeeds, the written `AttestedPrice` is replaced with the recomputed one,
+and the proposer is slashed per [Slashing](#slashing).
+If `W_dispute` closes before `N` unique observations are collected,
+the dispute is invalid and the written value stands.
+
+How the dispute set is stored and deduplicated,
+and whether resolution runs in one transaction or several, are left to implementation,
+since both depend on the LEZ storage model and cycle budget.
 
 ## Future Work
 
