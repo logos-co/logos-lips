@@ -36,7 +36,7 @@ Erasure-coded parity segments provide resilience against partial loss or reorder
 - **original payload**: the full application payload before segmentation.
 - **data segment**: one chunk of the original payload.
 - **parity segment**: an erasure-coded segment derived from the set of data segments.
-- **class**: either of the two groups a payload's segments fall into, data or parity.
+- **segment type**: either data or parity.
 - **segment message**: a [`SegmentMessage`](#wire-format) carrying either data or parity segment.
 - **segmentSizeBytes**: maximum size of a serialized segment message, see [Configuration](#configuration).
 
@@ -52,11 +52,11 @@ syntax = "proto3";
 message SegmentMessage {
   bytes           original_payload_hash   = 1;  // Keccak256 of the original payload, 32 bytes
   uint32          original_payload_length = 2;  // length in bytes of the original payload
-  uint32          index                   = 3;  // zero-based position within this segment's own class
+  uint32          index                   = 3;  // zero-based position among the segments of its type (data or parity)
   uint32          data_segment_count      = 4;  // number of data segments
   optional uint32 parity_segment_count    = 5;  // number of parity segments, unset if no parity
   bool            is_parity               = 6;  // false for a data segment, true for a parity one
-  bytes           payload         = 7;  // this segment's data chunk or parity shard
+  bytes           payload                 = 7;  // this segment's data chunk or parity shard
 }
 ```
 
