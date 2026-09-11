@@ -384,25 +384,12 @@ The logic of the withdraw action is:
 
 ### Query
 
-The protocol must enable querying the ledger in at least the following manner:
+A node must answer the following queries from the finalized state ([Snapshots](#snapshots)):
 
-- `GetAllProviderId(epoch)`, returns all `provider_id`s associated with the `epoch`.
-- `GetAllProviderIdSince(epoch)`, returns all `provider_id`s since the `epoch`.
-- `GetAllDeclarationInfo(epoch)`, returns all `DeclarationInfo` entries associated with the `epoch`.
-- `GetAllDeclarationInfoSince(epoch)`, returns all `DeclarationInfo` entries since the `epoch`.
-- `GetDeclarationInfo(declaration_id)`, returns the `DeclarationInfo` entry identified by the `declaration_id`.
-- `GetDeclarationInfo(service_type, provider_id)`, returns the `DeclarationInfo` entry of the `service_type` whose `provider_id` matches.
-- `GetAllServiceParameters(epoch)`, returns all entries of the `ServiceParameters` store for the requested `epoch`.
-- `GetAllServiceParametersSince(epoch)`, returns all entries of the `ServiceParameters` store since the requested `epoch`.
-- `GetServiceParameters(service_type, epoch)`, returns the service parameter entry from the `ServiceParameters` store of a `service_type` for a specified `epoch`.
-- `GetMinStake(epoch)`, returns the `MinStake` structure at the requested `epoch`.
-- `GetMinStakeSince(epoch)`, returns a set of `MinStake` structures since the requested `epoch`.
+- `GetDeclarationInfo(declaration_id)`, returns the `DeclarationInfo` held under the `declaration_id`.
+- `GetAllDeclarationInfo(service_type)`, returns every `DeclarationInfo` of the `service_type`, keyed by `declaration_id`.
 
-The query must return an error if the requested information is not available.
-
-The list of queries may be extended.
-
-Every query must return information for a finalized state only.
+A query for a `declaration_id` or a `service_type` the finalized state does not hold returns an error.
 
 ## Mantle and ZK Proofs
 
