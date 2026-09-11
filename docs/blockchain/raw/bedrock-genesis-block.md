@@ -31,7 +31,7 @@
 | 1.1.3 | Replaced the `block_root` header field with `body_root`, taken over an empty uncle header list and the initial transaction, due to updated [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md). | 2026-08-06 |
 | 1.1.4 | Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy. | 2026-08-25 |
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
-| 1.2.0 | Seed the proof of work reward pool at genesis | 2026-09-08 |
+| 1.2.0 | Seed the pow reward pool at genesis | 2026-09-08 |
 
 # Introduction
 
@@ -73,16 +73,16 @@ STAKE_DISTRIBUTION = Transfer(
 
 ## Initial Proof of Work Reward Pool
 
-The proof of work reward pool is seeded once, at genesis, with a fixed quantity of tokens:
+The pow reward pool is seeded once, at genesis, with a fixed quantity of tokens:
 
 ```python
-POW_REWARD_POOL_GENESIS: TokenValue   # Initial balance of the proof of work reward pool
+POW_REWARD_POOL_GENESIS: TokenValue   # Initial balance of the pow reward pool
                                       # = 5/1000 of the maximum supply
 ```
 
-The seed is five thousandths of the maximum supply $`S_{cap}`$, as specified in [Genesis](proof-of-work.md#genesis).
+The seed is five thousandths of the maximum supply $`S_{cap}`$, as specified in [Reward Pool](proof-of-work.md#reward-pool).
 
-The pool holds a balance rather than notes, so unlike the stakeholder allocations above it does not appear as an output of the initial Transfer Operation. It is consensus state maintained by Mantle, and after genesis it changes only through claims.
+The pool holds a balance rather than notes, so unlike the stakeholder allocations above it does not appear as an output of the initial Transfer Operation. It is consensus state maintained as specified in [Reward Pool](proof-of-work.md#reward-pool), and after genesis it changes only through claims.
 
 The seed is not part of the Cryptarchia parameter inscription, because it is not a Cryptarchia parameter. It is established during [Mantle Ledger Initialization](#mantle-ledger-initialization).
 
@@ -310,7 +310,7 @@ Everything else is validated as it would be in any other block, against the stat
 
 The Transfer Operation distributing the initial tokens is validated and executed as any other Transfer Operation, minus the two exemptions covering its inputs and the transaction balance. Its outputs are validated as [Output Notes Validation](bedrock-v1.1-mantle-specification.md#output-notes-validation) requires. The result of normal transfer execution adds all outputs to the Ledger, their `NoteId` derived from the Operation as usual.
 
-The proof of work reward pool is initialized at the same time:
+The pow reward pool is initialized at the same time:
 
 1. `pow_reward_pool` is set to `POW_REWARD_POOL_GENESIS`, as described in [Initial Proof of Work Reward Pool](#initial-proof-of-work-reward-pool).
 2. `epoch_pow_reward` is derived from it by the computation given in [Reward Pool](proof-of-work.md#reward-pool), so that claiming is productive from the first epoch rather than waiting for the first refill.

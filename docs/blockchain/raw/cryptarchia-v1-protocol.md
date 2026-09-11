@@ -34,7 +34,6 @@
 | 1.2.2 | Precise, in [Chain Maintenance](#chain-maintenance), that the execution layer validates the block by applying its transactions in the order they appear starting from the parent block's execution state. | 2026-08-25 |
 | 1.2.3 | Update the test vectors to reflect the parent added in the `CHANNEL_CONFIG` payload | 2026-08-27 |
 | 1.2.4 | Reordered the `ProofOfLeadership` fields to the wire order defined by the [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding), and noted that the [Block ID](#block-id) preimage absorbs the same fields in a different order by design. The `Header` layout and the `block_id` preimage are otherwise unchanged. | 2026-08-28 |
-| 1.3.0 | Scope the Proof of Stake vs. Proof of Work annex to leader election, state that proof of work does not enter fork choice, and define the expected number of blocks in an epoch | 2026-08-31 |
 
 # Introduction
 
@@ -152,8 +151,6 @@ An epoch is divided into 3 phases, as outlined below.
 | Lottery Constants Finalization | $`s+\lfloor\frac{k}{f}\rfloor=4\lfloor\frac{k}{f}\rfloor`$ slots | On the $`2s^{th}`$ slot into the epoch, the epoch nonce $`\eta`$ and the inferred total stake $`D`$ can be computed. We wait another $`4\frac{k}{f}`$ slots for these values to finalize. |
 
 The **epoch length** is the sum of the individual phases: $`3\lfloor \frac{k}{f} \rfloor + 3\lfloor \frac{k}{f} \rfloor + 4\lfloor \frac{k}{f} \rfloor =10 \lfloor \frac{k}{f} \rfloor`$ slots.
-
-Since $`f`$ is the rate at which slots are occupied, the **expected number of blocks in an epoch** follows directly: $`10 \lfloor \frac{k}{f} \rfloor \cdot f = 10k = 21{,}600`$ blocks, and the simplification is exact because $`k/f`$ is an integer at the specified constants. What the product counts is occupied slots, and so blocks proposed: a slot is occupied once however many leaders win it, and the chain carries every proposed block except those left on a fork. A fork block referenced as an [uncle](#uncle-references) is one of those, already counted in its own occupied slot rather than added to the total, and it earns nothing and executes nothing. The figure is therefore an upper bound on the blocks of the chain, exact but for the fork rate, and specifications that use it — the reward pool arithmetic in [Proof of Work](proof-of-work.md#reward-pool), the leadership quota in [Blend Protocol](blend-protocol.md#leadership-quota) — are counting this same quantity.
 
 ### Epoch State
 
@@ -547,15 +544,6 @@ Protocol versions are signalled through the `bedrock_version` field of the block
 ## Proof of Stake vs. Proof of Work
 
 From a privacy and resiliency point of view, Proof of Work is highly attractive. The amount of hashing power of a node is private, they can provide a new public key for each block he mines ensuring that his blocks cannot be connected by this identity, and PoW is not susceptible to long range attacks as is PoS. Unfortunately, it is wasteful and demands that leaders have powerful machines. We want to ensure strong decentralization by having a low barrier to entry and we believe we can achieve a good enough level of security given by having participants have an economic stake in the protocol.
-
-This objection is scoped to **leader election**: Cryptarchia selects block proposers by the stake lottery described in [Leadership Lottery](#leadership-lottery), and no proof of work participates in that selection.
-
-The protocol does use proof of work elsewhere, in two roles that do not bear on consensus:
-
-- as an additional way to qualify for Blend Network admission, alongside the core-node and leadership branches, specified in [Proof of Quota](proof-of-quota.md);
-- as the authorisation for claiming a token reward from a protocol pool, specified in [Mantle](bedrock-v1.1-mantle-specification.md).
-
-**Proof of work does not enter fork choice** either. The chain selection rules in [Fork Choice](fork-choice.md) compare chains by block count and by block-count density; the protocol maintains no accumulated-work quantity, and a chain carrying more proof of work is not thereby preferred. The security argument for chain selection therefore rests on stake alone, exactly as it did before proof of work was introduced.
 
 ## Clocks
 

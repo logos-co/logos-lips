@@ -401,7 +401,7 @@ When a node receives a message from one of its neighbors, it does the following:
     1. The version of the message must be equal to `0x01`; if not, then discard the message.
     2. The proof of quota nullifier must be unique; if not, then discard the message.
     3. The signature must be valid; if not, then discard the message.
-    4. The proof of quota must be valid; if not, then discard the message and do not relay it. This applies to every received message, whether it came from a core node or an edge node.
+    4. The proof of quota must be valid; if not, then discard the message and do not relay it.
 2. The message is released to the network as defined in the [Releasing](#releasing) section.
 3. Concurrently to the above, the message is handled by the processing logic as defined in the [Processing](#processing) section.
 
@@ -598,7 +598,7 @@ The transition period must not be shorter than the message traversal time. A nod
 When a new **epoch** begins:
 
 - The node validates message proofs against both new and past epoch-related public input for the duration of TP. This allows past-epoch messages to safely transit through the network, as their validity is bound to the epoch in which they were generated.
-- This includes the Blend threshold $`d_{blend}`$: a proof is accepted if it satisfies the threshold of the epoch whose public inputs it was generated against. A message from the past epoch is therefore judged against the past epoch's threshold and not the new one, which is required for correctness — a message that was valid when it was sent must not become invalid in flight merely because the threshold tightened at the boundary. The consequence is that during the Transition Period the network admits messages meeting either threshold, so the more permissive of the two governs for its duration. Since TP is $`30`$ rounds against an epoch of $`648000`$, and the threshold is bounded in how far it may move at a boundary, this widening is short and small.
+- The Blend threshold $`d_{blend}`$ is one of these public inputs: a proof is verified against the threshold of the epoch its public inputs belong to, so during the Transition Period messages meeting either epoch's threshold are accepted.
 - The node must open new connections to process new messages for the new epoch.
 - The node needs to maintain old connections and process all messages received from these connections for the duration of TP.
 
@@ -672,7 +672,7 @@ where $`x`$ is the exact number of leader elections won by the node $`n`$ in an 
 
 ### Proof of Work Quota
 
-The proof of work quota ($`Q_W`$) defines the number of blending operations that a single proof of work solution entitles its holder to perform. It differs from the two quotas above in what it is attached to. The core quota is attached to a node declared through the SDP, and the leadership quota to a won leader election; both are consequences of something the network already knows about the participant. A proof of work solution is attached to nothing but the work itself, and a participant may hold as many solutions as it is willing to compute. There is therefore no per node bound on this branch, and $`Q_W`$ must be read as a per solution allowance:
+The proof of work quota ($`Q_W`$) defines the number of blending operations that a single proof of work solution entitles its holder to perform. A solution is attached to no node, so the quota is a per solution allowance:
 
 $$
 Q^{n}_W = y \cdot Q_W, \qquad Q_W = \beta_{max}
@@ -680,13 +680,7 @@ $$
 
 where $`y`$ is the number of distinct solutions held by the node $`n`$ that satisfy the Blend threshold $`d_{blend}`$ for the epoch. As with the leadership quota, $`y`$ is known only to the node.
 
-Setting $`Q_W = \beta_{max}`$ makes one solution sufficient for exactly one message. A quota unit is one blending operation, not one message: a message carries $`\beta_{max}`$ blending operations and therefore consumes $`\beta_{max}`$ keys, one per encapsulation. Expressing the quota as a multiple of $`\beta_{max}`$ rather than as a bare number keeps that relationship correct if the number of blending operations per message ever changes, and makes the messages-per-solution figure explicit rather than something a reader must derive.
-
-This is the quota that admits participants holding neither stake nor a declaration: the cost of reaching the Blend network without a prior relationship to the protocol is one puzzle solution per message, set by $`d_{blend}`$, whose baseline is chosen in [Blend Difficulty](proof-of-work.md#blend-difficulty).
-
-The puzzle is not the only per message cost: each of the $`\beta_{max}`$ encapsulations carries its own proof, generated whatever the quota is.
-
-The rate at which this branch admits messages cannot be bounded in the way the other two are. The core quota is bounded by $`N`$, which the SDP publishes, and the leadership quota by the total stake. The proof of work quota is bounded only by how much work the network's participants choose to perform, which is not observable in advance and not bounded by the protocol. Every quantity derived from a bound on total messages — most directly the nullifier cache size in [Relaying](#relaying) — must therefore be re-derived against $`d_{blend}`$ rather than against a count of registered nodes.
+$`Q_W = \beta_{max}`$: one solution pays for exactly one message, since a message consumes one blending operation per encapsulation.
 
 ### Blend Difficulty
 
@@ -707,7 +701,7 @@ $$
 
 which describes a collection of $`q`$ key pairs for a node $`n`$ with proofs of quota for the epoch $`e`$, where $`K_{i}^{n}`$ is the $`i`$-th public key, $`k_{i}^{n}`$ is its corresponding private key, and $`\pi_{Q}^{K_{i}^{n}}`$ is its proof of quota. Additionally:
 
-- $`q=Q_C + Q_L^n + Q_W^n`$ is the sum of core quota, leadership quota and proof of work quota for the node $`n`$. A node that is not a declared core node contributes no $`Q_C`$ term, and one that wins no leader election contributes no $`Q_L^n`$ term; a node holding only proof of work solutions draws its whole allowance from $`Q_W^n`$.
+- $`q=Q_C + Q_L^n + Q_W^n`$ is the sum of core quota, leadership quota and proof of work quota for the node $`n`$.
 - $`\pi_{Q}^{K_{i}^{n}}`$ is a proof of quota which confirms that $`i \lt h`$ for every key $`K^{n}_{i}`$ from the key pool $`\mathbf K^{n,e}_h`$ of a node, without disclosing the identity of the node $`n`$.
 
 ### Keys Generation
@@ -773,8 +767,6 @@ Finally, we use all three constrains and create a single proof of quota ($`\pi^{
 - $`\pi^{K_{i}^{n}}_{Q_W}`$ constraints are true.
 
 This means that the proof of quota is a logical sum of the proof of core quota, the proof of leadership quota and the proof of work quota, $`\pi_{Q}^{K_{i}^{n}} = \pi_{Q_C}^{K_{i}^{n}} \lor \pi_{Q_L^{n}}^{K_{i}^{n}} \lor \pi_{Q_W}^{K_{i}^{n}}`$.
-
-Which of the three held is not disclosed. A verifier learns only that the disjunction is satisfied, so a message admitted through proof of work is indistinguishable from one sent by a core node or a leader. This lets a participant without stake send without being identifiable as such, and it is the property that makes the branch worth adding rather than simply operating a separate permissionless channel.
 
 Please refer to the document below for more details.
 
@@ -891,13 +883,13 @@ The relaying logic is defined as follows:
     1. If the neighbor is a core node, then update the message counter for the neighbor.
     2. If the neighbor is an edge node, then close the connection with the neighbor.
     3. If the header of the message is incorrect, then discard the message and mark the neighbor as malicious and close the connection. We assume that an adversary cannot inject any spoofed message to the connection.
-    4. If the PoQ nullifier $`\nu_i \in \mathbf H`$ from the public header of the message is already in the nullifier cache, then the message is a duplicate and must be discarded. This step only reads the cache: the nullifier is inserted only after steps 1.5 and 1.6 have both passed, at the moment the message is accepted for relaying. Cached entries are retained for the duration of the current epoch and the [Transition Period](#transition-period).
+    4. If the PoQ nullifier $`\nu_i \in \mathbf H`$ from the public header of the message is already in the nullifier cache, then the message is a duplicate and must be discarded. Cached entries are retained for the duration of the current epoch and the [Transition Period](#transition-period).
     5. If the signature $`\sigma_{K^{n}_{i}}(\mathbf P_i) \in \mathbf H`$ from the public header of the message is invalid, then the message must be discarded, and the neighbor must be marked malicious.
     6. If the proof of quota $`\pi^{K^{n}_i}_{Q} \in \mathbf H`$ from the public header is invalid, then the message must be discarded, and the neighbor must be marked malicious.
 2. Release the message according to the [Releasing](#releasing) logic.
 3. Concurrently to the above step, add the message to the processing queue, where it is handled by the [Processing](#processing) logic.
 
-The node must cache the PoQ nullifiers ($`\nu_i`$) of every message it relays — and only of messages it relays — for a duration of a single epoch plus the [Transition Period](#transition-period) (TP). Then the node can clear the cache.  That means that the size of the cache must be at least:
+The node must cache the PoQ nullifiers ($`\nu_i`$) for every message it relays for a duration of a single epoch plus the [Transition Period](#transition-period) (TP). Then the node can clear the cache.  That means that the size of the cache must be at least:
 
 $$
 \begin{aligned}
@@ -926,7 +918,7 @@ When a message $`\mathbf M`$ has passed the [Relaying](#relaying) checks, it is 
 
     4. Else:
         1. Examine the decapsulated public header:
-            1. If the PoQ nullifier $`\nu_i \in \mathbf H`$ from the public header of the message was already seen, then the node was not allowed to use the same PoQ nullifier and the message must be discarded. The cache consulted here is the one maintained by [Relaying](#relaying), whose entries are inserted only after proof verification, so a hit is a true duplicate. The retention period is the one given there: a single epoch plus the [Transition Period](#transition-period). Retaining them only for the epoch would let a message generated against the previous epoch's public inputs, and legitimately still in flight during the Transition Period, be replayed.
+            1. If the PoQ nullifier $`\nu_i \in \mathbf H`$ from the public header of the message was already seen, then the node was not allowed to use the same PoQ nullifier and the message must be discarded. The cache is the one maintained by [Relaying](#relaying).
             2. If the signature $`\sigma_{K^{n}_{i}}(\mathbf P_i) \in \mathbf H`$ from the public header of the message is invalid, then the message must be discarded.
             3. If the proof of quota $`\pi^{K^{n}_i}_{Q} \in \mathbf H`$ from the public header of the message is not correct, then the message must be discarded.
         2. Format the message according to the [Message Formatting](message-formatting.md).

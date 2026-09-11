@@ -67,15 +67,7 @@ The key must not be reused. Otherwise, the messages that reuse the same key can 
 
 ## Proof of Work Nonce
 
-A node obtains a Proof of Work Nonce (PWN) by searching for a nonce whose puzzle ticket falls below the Blend threshold for the epoch, as defined in [Proof of Quota](proof-of-quota.md). Unlike the keys above, it is not chosen but found: the node generates candidates until one satisfies the threshold, and the work of doing so is what the nonce represents.
-
-No public counterpart is derived from it and it signs nothing. The nonce is supplied to the PoQ circuit as a private witness and never appears in a message. It also stands in the secret's position of the nullifier derivation, which binds the solution's quota to whoever holds the nonce.
-
-The PWN must be sampled with full entropy from the scalar field rather than enumerated from a starting point. Because the nonce remains secret and is the sole basis on which the quota is granted, a predictable generation procedure would let an observer reconstruct it and consume the remaining quota.
-
-A PWN is bound to the epoch it was found in, since the epoch nonce enters the ticket derivation. It cannot be carried into the following epoch and must be found again.
-
-A PWN and an ESK are unrelated: the PWN proves entitlement, the ESK signs the message, and the circuit does not constrain any relation between them. What enforces the quota is not the ESK but the nullifier: each encapsulation consumes one `index` against the solution and yields a distinct key nullifier derived from the PWN, so reusing an index reveals itself as a duplicate. The ESK is a separate key that is fresh per encapsulation by its own definition above, not because the quota requires it.
+The Proof of Work Nonce (PWN) is a scalar field element found by search: the node samples candidates with full entropy until the puzzle ticket derived from the candidate and the epoch nonce falls below the Blend threshold of the epoch, as defined in [Proof of Quota](proof-of-quota.md). It is a private witness of the PoQ circuit, never appears in a message, and is bound to the epoch it was found for.
 
 ## Non-ephemeral Encryption Key
 

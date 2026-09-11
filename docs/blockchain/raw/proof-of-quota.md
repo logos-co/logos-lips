@@ -27,7 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-04-09 |
 | 1.0.1 | Remove the protection against adaptive adversary from PoL. It impacts the PoL section of PoQ. Update the performance according to the new circuit. Remove old project name from DSTs | 2026-04-09 |
 | 1.1.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
-| 1.2.0 | Add the proof of work branch: third selector value, `pow_quota` and `pow_blend_difficulty` public inputs, a private `pow_nonce` witness, and Lagrange branch selection | 2026-09-08 |
+| 1.2.0 | Add the proof of work branch: third selector value, `pow_quota` and `pow_blend_difficulty` public inputs, a private `pow_nonce` witness, and Lagrange branch selection; benchmark the three branch circuit | 2026-09-08 |
 
 
 # Introduction
@@ -61,15 +61,15 @@ class ProofOfQuotaPublic:
     # Public inputs:
     core_quota: int       # Allowed blending operations per epoch for core nodes (20 bits)
     leader_quota: int     # Allowed blending operations per election win (20 bits)
-    pow_quota: int        # Allowed blending operations per proof of work solution (20 bits)
     core_root: zkhash     # Merkle root of zk_id of the core nodes
+    pow_quota: int        # Allowed blending operations per proof of work solution (20 bits)
+    pol_ledger_aged: zkhash # Merkle root of the PoL eligible notes
     K_part_one: int       # First part of the signature public key (16 bytes)
     K_part_two: int       # Second part of the signature public key (16 bytes)
+    pow_blend_difficulty: zkhash # Blend threshold a PoW ticket must be below
     pol_epoch_nonce: int  # PoL Epoch nonce
     pol_t0: int           # PoL constant t0
     pol_t1: int           # PoL constant t1
-    pol_ledger_aged: zkhash # Merkle root of the PoL eligible notes
-    pow_blend_difficulty: zkhash # Blend threshold a PoW ticket must be below
 ```
 
 The proof's public signal vector is fixed by the circuit: the output first, then the public inputs in the order listed above.
@@ -108,10 +108,6 @@ Such that the following constraints hold:
 
 **Step 1**: The prover selects an `index` for the chosen key. This index must be lower than the allowed quota and not already used. This index is used to derive the key nullifier in step 5. Limiting the possible values of this index also limit the possible nullifier created which produce the desired effect: limiting the generation of keys to a certain quota. `index` is on 20 bits, so a quota may be at most $`2^{20} - 1`$.
 
-What the quota bounds differs by branch, because the nullifier of step 5 is derived from a different secret and period nonce in each. For the core branch the bound is per `core_sk` per `epoch`. For the leadership branch it is per note key per winning slot. For the proof of work branch it is per solution: a prover holding $`n`$ solutions may derive $`n \cdot`$ `pow_quota` distinct nullifiers.
-
-`pow_quota` is $`Q_W`$, as specified in [Proof of Work Quota](blend-protocol.md#proof-of-work-quota).
-
 **Step 2:**  If the prover indicated that the node is a core node for the proof, the proof checks that:
 
   1. The core node is registered in the set `N = SDP(epoch)`. This is proven by demonstrating knowledge of a `core_sk` that corresponds to a declared `zk_id`, which is a valid SDP registry for the current `epoch`. The `zk_id` values are stored in a Merkle tree with a fixed depth of 20, with the root provided as a public input. To build the Merkle tree, `zk_id` are ordered from the smallest to the biggest (when seen as natural numbers between 0 and $`p`$) and remaining empty leaves are represented by the `0` after the sorting (appended at the end of the vector). This structure supports up to 1M validators.
@@ -142,17 +138,14 @@ key_nullifier = zkhash(b"KEY_NULLIFIER_V1", selection_randomness)
 
   and `period_nonce` is:
 
-  - The `pol_epoch_nonce` if the node is a core node.
+  - The `pol_epoch_nonce` if the node is a core node or if the proof is backed by proof of work.
   - The winning slot of the PoL if it’s a leader node.
-  - The `pol_epoch_nonce` if the proof is backed by proof of work.
 
   Here we use two hashes because the selection randomness is used in the Proof of Selection in order to prove the ownership of a valid PoQ (see [Proof of Selection](blend-protocol.md#proof-of-selection)).
 
-**Step 6**: The prover attaches a one-time signature key used in the blend protocol. This public key is split into two 16-byte parts: `K_part_one` and `K_part_two`. When written in little-endian byte order, the complete public key equals the concatenation `K_part_one||K_part_two`. The circuit constrains no relation between this key and the branch secret: a proof is bound to its message by the proving system binding it to its public inputs, which include the key, and by the message header being signed under that key.
+**Step 6**: The prover attaches a one-time signature key used in the blend protocol. This public key is split into two 16-byte parts: `K_part_one` and `K_part_two`. When written in little-endian byte order, the complete public key equals the concatenation `K_part_one||K_part_two`.
 
 ### Pseudocode
-
-The circuit selects between the three branches with the Lagrange basis polynomials `L1` and `L2` defined below, evaluated at the selector: `L1` is 1 when `selector = 1` and 0 at the other two values, and `L2` is 1 when `selector = 2` and 0 at the other two values. Every value that differs by branch is written as `core_value + (leader_value - core_value) * L1 + (pow_value - core_value) * L2`, where `core_value` is the core branch's value, so the expression evaluates to the selected branch's value.
 
 ```python
 # Verify selector is 0, 1 or 2. Note that a width check alone is insufficient:
@@ -211,13 +204,6 @@ selection_randomness = zkhash(
 key_nullifier = zkhash(b"KEY_NULLIFIER_V1", selection_randomness)
 ```
 
-## Precomputation of proof of work solutions
-
-The proof of work branch places no bound on how old a solution may be. The only time dependent input to the puzzle is `pol_epoch_nonce`, so a solution is bound to an epoch and to nothing finer.
-
-That value does not become known when its epoch starts. It is fixed at the beginning of the lottery constants finalization phase of the *preceding* epoch, as specified in [Epoch](cryptarchia-v1-protocol.md#epoch), and is public from that moment. An epoch is $`10\lfloor k/f \rfloor`$ slots and the nonce is fixed $`6\lfloor k/f \rfloor`$ slots into the preceding epoch, so it is known for the final $`4\lfloor k/f \rfloor`$ slots of that epoch — with the parameters in [Cryptarchia](cryptarchia-v1-protocol.md#constants), roughly three days of a seven and a half day epoch.
-
-`pow_blend_difficulty` for the epoch is fixed at the same snapshot as the nonce, as specified in [Blend Difficulty](proof-of-work.md#blend-difficulty), so the whole window has every public input of the proof available, and complete proofs — not only solutions — may be prepared ahead of the epoch; the reward path's freshness is enforced independently by its own acceptance window. A prover may therefore mine solutions for an epoch throughout that window and hold them until the epoch opens. Admission to the Blend network over the proof of work branch is consequently limited by the total work a prover can perform in that window and by `pow_quota`, rather than by any rate at which solutions may be presented.
 ## Proof Compression
 
 The proof confirming that the PoQ is correct must be compressed to a size of 128 bytes, where the `UncompressedProof` is comprising of 2  $`\mathbb{G}_1`$ and 1  $`\mathbb{G}_2`$ BN256 elements as presented below.
@@ -251,7 +237,5 @@ The material used for the benchmarks is the following:
 - OS: Ubuntu 22.04.5 LTS
 - Kernel: 6.8.0-59-generic
 
-![Diagram](proof-of-quota/assets/2e9261aa-09df-8023-91a7-e7f6c11c4056.png)
-
-The figure above measures the two branch circuit. The three branch circuit specified here is release v0.5.6 of the circuits repository, whose proving key holds 20123 R1CS constraints; its earlier key-based form compiled to 20590.
+![Median proving time of the three branch circuit against the number of threads, ten runs](proof-of-quota/assets/proving-time-three-branch.png)
 

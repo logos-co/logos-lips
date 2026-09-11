@@ -243,8 +243,6 @@ Execution: ~590k CPU cycles.
 - Insertion of the note in the ledger: negligible.
 - Derivation of the note identifiers: negligible.
 
-`CLAIM_POW_REWARD_GAS` is set to **590**, the ZkSignature tier shared with `TRANSFER` and `CHANNEL_DEPOSIT`, and its signature joins the batch verification with theirs.
-
 A claim is intended to pay its own fee out of the reward it creates, so this gas contributes to the floor the per-claim reward must clear, and it constrains the reward parameters rather than merely pricing the Operation.
 
 # Annex
