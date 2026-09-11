@@ -30,6 +30,7 @@
 | 1.5.1 | Reflect Channel Deposit execution modification. It now consumes inputs to update their NoteId | 2026-07-27 |
 | 1.5.2 | Renamed locked notes into service notes and stated that the Input Gas covers the check that a note is neither a service nor a channel note | 2026-08-27 |
 | 1.5.3 | Adopted "active message" as the single name for the message | 2026-09-02 |
+| 1.5.4 | Renamed the `stake_manipulation_threshold` of the channel gas derivations into `transfer_threshold` and the Channel Stake Assignation section into Channel Transfer, following Mantle | 2026-08-31 |
 
 # Introduction
 
@@ -71,8 +72,8 @@ TRANSFER_GAS                  = 590
 CHANNEL_INSCRIBE_GAS          = 56
 CHANNEL_CONFIG_GAS            = 56 * configuration_threshold
 CHANNEL_DEPOSIT_GAS           = 590
-CHANNEL_TRANSFER_GAS          = 56 * stake_manipulation_threshold
-CHANNEL_WITHDRAW_GAS          = 56 * stake_manipulation_threshold
+CHANNEL_TRANSFER_GAS          = 56 * transfer_threshold
+CHANNEL_WITHDRAW_GAS          = 56 * transfer_threshold
 SDP_DECLARE_GAS               = 646
 SDP_WITHDRAW_GAS              = 590
 SDP_ACTIVE_GAS                = 590
@@ -149,7 +150,7 @@ Execution: ~56k CPU cycles * transfer_threshold.
 - Verification that the notes are in the channel: negligible.
 - Removing the notes from channel notes: negligible.
 
-## Channel Stake Assignation
+## Channel Transfer
 
 The validation process requires verifying multiple Eddsa25519 signatures, and managing the channel notes.
 The execution require deriving note Id and adding notes to the ledger.

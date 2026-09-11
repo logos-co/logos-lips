@@ -50,7 +50,7 @@ The Mix Protocol defines cover traffic as a pluggable component (see [Mix Protoc
 This specification provides a concrete instantiation of that component,
 defining the cover traffic architecture, the rate-limit budget model, and two concrete scheduling strategies.
 The architecture is designed to be compatible with the DoS protection mechanism defined in [Mix DoS Protection](mix-dos-protection.md)
-and specifically with the [Mix RLN DoS Protection](mix-spam-protection-rln.md) mechanism.
+and specifically with the [Mix RLN DoS Protection](mix-dos-protection-rln.md) mechanism.
 
 ## 2. Terminology
 
@@ -260,7 +260,7 @@ are loaded into the new pool.
 
 Cover packets emitted near epoch end may arrive at later hops in a subsequent epoch.
 The DoS protection mechanism is responsible for accepting proofs within a configurable epoch window
-(_e.g.,_ the `max_epoch_gap` parameter in [Mix RLN DoS Protection](mix-spam-protection-rln.md)).
+(_e.g.,_ the `max_epoch_gap` parameter in [Mix RLN DoS Protection](mix-dos-protection-rln.md)).
 
 A cover packet whose pre-send delay ([§6.2](#62-cover-emission)) is still elapsing at the boundary
 is discarded rather than transmitted:
@@ -348,7 +348,7 @@ Pre-computed proofs are bound to a specific epoch and MUST NOT be reused in subs
 
 **Proof validity over time:**
 Pre-computed proofs may be invalidated within their target epoch, not just across epochs.
-For example, in [Mix RLN DoS Protection](mix-spam-protection-rln.md),
+For example, in [Mix RLN DoS Protection](mix-dos-protection-rln.md),
 accumulating membership updates can push the root used at generation time
 out of the current `acceptable_root_window_size` before the epoch ends.
 Implementations MUST therefore validate pre-computed proofs at send time
@@ -439,7 +439,7 @@ independently of the cover emission schedule.
 Before transmitting a pre-built cover packet,
 the mechanism MUST validate the carried DoS protection proof against the current state
 (see [§6.1](#61-at-epoch-boundary) for rationale).
-For [Mix RLN DoS Protection](mix-spam-protection-rln.md),
+For [Mix RLN DoS Protection](mix-dos-protection-rln.md),
 this means verifying the `merkle_root` bound into the proof
 is still within the node's `acceptable_root_window_size`.
 
@@ -450,7 +450,7 @@ If validation fails, implementations MUST either:
 
 A pre-built packet with a stale proof MUST NOT be sent.
 When regenerating, implementations MAY reuse the message identifier bound to the cover packet
-where the DoS protection mechanism permits (see [Mix RLN DoS Protection](mix-spam-protection-rln.md)).
+where the DoS protection mechanism permits (see [Mix RLN DoS Protection](mix-dos-protection-rln.md)).
 
 ## 7. Recommended Strategy
 
@@ -744,7 +744,7 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 
 - [libp2p Mix Protocol](mix.md)
 - [Mix DoS Protection](mix-dos-protection.md)
-- [Mix RLN DoS Protection](mix-spam-protection-rln.md)
+- [Mix RLN DoS Protection](mix-dos-protection-rln.md)
 - [Loopix: Providing Anonymity in a Message Passing System](https://www.usenix.org/conference/usenixsecurity17/technical-sessions/presentation/piotrowska)
 - [Nym: Mixnet for Network-Level Privacy](https://nymtech.net/nym-whitepaper.pdf)
 - [Blend Protocol](../../blockchain/raw/blend-protocol.md)

@@ -31,6 +31,7 @@
 | 1.5.1 | [RFC] One canonical encoding for `ServiceType` and `Locator`: pin `Locator` bytes to the multiaddr binary form | 2026-08-14 |
 | 1.6.0 | Added the `Parent` of the `ChannelConfig` to follow Mantle | 2026-08-27 |
 | 1.6.1 | Renamed the `LockedNoteId` production of the SDP Operations into `ServiceNoteId` | 2026-08-27 |
+| 1.7.0 | Added the `ChannelConfigOpProof` and `ChannelTransferOpProof` variants and factored the three channel threshold proofs into `ChannelMultiSigProof`, carrying the index of the signing key alongside each signature | 2026-08-31 |
 
 # Introduction
 
@@ -164,16 +165,24 @@ OpsProofs = *OpProof ; 1. Lenth must equal OpCount
 OpProof   = Ed25519SigProof /
             ZkSigProof /
             ZkAndEd25519SigsProof /
+            ChannelConfigOpProof /
             ChannelWithdrawOpProof /
+            ChannelTransferOpProof /
             ProofOfClaimProof
 
 Ed25519SigProof         = Ed25519Signature
 ZkSigProof              = ZkSignature
 ZkAndEd25519SigsProof   = ZkSignature Ed25519Signature
-ChannelWithdrawOpProof  = SignatureCount *Ed25519Signature
+ChannelConfigOpProof    = ChannelMultiSigProof
+ChannelWithdrawOpProof  = ChannelMultiSigProof
+ChannelTransferOpProof  = ChannelMultiSigProof
 ProofOfClaimProof       = Groth16
 
+ChannelMultiSigProof = SignatureCount *IndexedSignature
+IndexedSignature     = Ed25519Signature SignerIndex
+
 SignatureCount = UINT16
+SignerIndex    = UINT16
 ```
 
 ## Common Structures
