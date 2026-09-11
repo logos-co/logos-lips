@@ -32,6 +32,7 @@
 | 1.2.1 | Pointed the `EpochNumber` of the activity proof at its definition in [Epoch](cryptarchia-v1-protocol.md#epoch) | 2026-08-25 |
 | 1.3.0 | [RFC] Replace the BLAKE2b-Based PRNG with ChaCha20 (ChaCha20Rng) | 2026-08-28 |
 | 1.3.1 | Judged the active message window by the epoch of the including block, made the one-message-per-epoch rule per attested epoch, and made the transition-period delay a release constraint | 2026-09-02 |
+| 1.3.2 | Recomputed the encapsulation overhead for the revised compression: `Max_Payload_Length` = 10003 bytes, overhead ≈ 11.2% (see [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md)). | 2026-09-02 |
 
 # Introduction
 
@@ -787,7 +788,7 @@ A node $`n`$ constructs a message $`\mathbf M = (\mathbf H, \mathbf h, \mathbf P
 
 3. $`\mathbf P`$ is a payload.
 
->**Encapsulation Overhead Calculation:** Assuming that we use Groth16 SNARKs as a proving system, we need $`160`$ bytes per PoQ ($`128`$ for proof and $`32`$ for nullifier) quota. Which gives us $`289`$ bytes per hop (proof of quota $`160`$ bytes + proof of selection $`32`$ bytes + public key $`32`$ bytes + signature $`64`$ bytes + last flag $`1`$ byte) plus $`256`$ bytes for the public header. Which for $`3`$ hops gives us $`1123`$ bytes in total. That is added to the payload being encapsulated, which is `Max_Payload_Length` = $`18195`$ bytes ([Message Formatting](message-formatting.md)): the padded `Max_Body_Length` of [Payload Formatting](payload-formatting.md), set from the maximum size of the block proposal defined in [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md), plus the 3-byte payload header. The encapsulation therefore adds $`\approx 6.2\%`$.
+>**Encapsulation Overhead Calculation:** Assuming that we use Groth16 SNARKs as a proving system, we need $`160`$ bytes per PoQ ($`128`$ for proof and $`32`$ for nullifier) quota. Which gives us $`289`$ bytes per hop (proof of quota $`160`$ bytes + proof of selection $`32`$ bytes + public key $`32`$ bytes + signature $`64`$ bytes + last flag $`1`$ byte) plus $`256`$ bytes for the public header. Which for $`3`$ hops gives us $`1123`$ bytes in total. That is added to the payload being encapsulated, which is `Max_Payload_Length` = $`10003`$ bytes ([Message Formatting](message-formatting.md)): the padded `Max_Body_Length` of [Payload Formatting](payload-formatting.md), set from the maximum size of the block proposal defined in [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md), plus the 3-byte payload header. The encapsulation therefore adds $`\approx 11.2\%`$.
 
 ### Formatting
 
