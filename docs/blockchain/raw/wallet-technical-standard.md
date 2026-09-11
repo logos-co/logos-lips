@@ -27,13 +27,13 @@
 | 1.0.0 | Initial revision. | 2026-02-05 |
 | 1.0.1 | Updated project references to Logos Blockchain | 2026-04-17 |
 | 1.1.0 | Fixed the master key generation personalization string to a valid 16-byte value; aligned the public key derivation with the [Mantle specification](bedrock-v1.1-mantle-specification.md#zero-knowledge-signature-scheme-zksignature) (`KDF` DST, compression mode, applied to the Logos key); specified the final Poseidon2 step as hash mode with the `WALLET_ZK_SK_V1` DST; clarified that extended public keys derive no children | 2026-09-03 |
-| 1.2.0 | Hierarchical key management for one-time keys: fixed the key hierarchy `m / 154' / account' / role' / index'` with the receive, change and voucher roles; specified one-time note keys and the derivation of reward voucher secrets from a per-account voucher master; specified the recovery procedure (history scan, gap limit); stated the freshness requirements for keys the wallet does not derive; added test vectors | 2026-09-03 |
+| 1.2.0 | Fixed the key hierarchy `m / 154' / account' / role' / index'` with the receive, change and voucher roles; specified one-time note keys, the derivation of reward voucher secrets and the recovery procedure (history scan, gap limit); added test vectors | 2026-09-03 |
 
 # Introduction
 
 The main motivation behind this spec is avoiding being locked into a wallet software. By specifying the algorithms used to derive keys, we allow users to easily migrate from one implementation to the other.
 
-The second motivation is to support one-time keys. The [Mantle](bedrock-v1.1-mantle-specification.md) ledger is transparent: every `Note` carries its owner's `ZkPublicKey` in clear and a `TRANSFER` reveals the public keys of the notes it consumes, so a public key reused across notes links every payment a user ever received and every spend they ever made. Likewise every proposed block commits to a fresh [reward voucher](bedrock-anonymous-leaders-reward.md) whose secret is the only way to claim the reward. Both call for a hierarchy that produces an unbounded supply of keys deterministically from one seed, so that fresh keys cost nothing and are all recoverable from the mnemonic.
+The second motivation is to support one-time keys. The [Mantle](bedrock-v1.1-mantle-specification.md) ledger is transparent: every `Note` carries its owner's `ZkPublicKey` in clear, so a public key reused across notes links every payment a user receives. Likewise every proposed block commits to a fresh [reward voucher](bedrock-anonymous-leaders-reward.md) whose secret is the only way to claim the reward. Both call for an unbounded supply of keys derived deterministically from one seed, so that fresh keys cost nothing and are all recoverable from the mnemonic.
 
 # Overview
 
@@ -120,9 +120,9 @@ m / 154' / account' / role' / index'
 | `2'` | Voucher | the voucher master of the account, see [Voucher Secret Derivation](#voucher-secret-derivation); this role has no `index'` level | n/a |
 | `3'` – `(2^{31}-1)'` | Reserved | reserved for future roles (e.g. node identity keys); wallets MUST NOT derive keys under them | |
 
-Every leaf is a 32-byte extended private key $`(k, c)`$ produced by `CDKpriv`. How the 32 bytes of $`k`$ become network keys is specified by the derivation sections below, starting with [ZK-Compatible Secret Key Derivation in the Logos Blockchain](#zk-compatible-secret-key-derivation-in-the-logos-blockchain); every key the protocol derives from a leaf belongs to that leaf. The leaf, not any single key, is the unit of use and of recovery in this specification.
+Every leaf is an extended private key $`(k, c)`$ produced by `CDKpriv`; the network keys are derived from its $`k`$ as specified in the following sections, and every key derived from a leaf belongs to that leaf. The leaf is the unit of use and of recovery in this specification.
 
-  **Why no `coin_type` level?** BIP-44 inserts a `coin_type'` level so that wallets sharing one BIP-32 tree across several chains produce unrelated keys per chain. This specification does not share a tree with any other chain: `CDKpriv` and the master key generation are already personalized with `Logos_ExpandSeed` and `Logos_MasterKGen`, so a Logos key never coincides with a key another chain derives from the same mnemonic and path, whatever `coin_type` that chain uses. A `coin_type` level would add nothing but a registration dependency.
+  **Why no `coin_type` level?** BIP-44 uses it to keep chains sharing one BIP-32 tree apart. This tree is already personalized with `Logos_MasterKGen` and `Logos_ExpandSeed`, so no other chain derives the same keys from the same mnemonic and a `coin_type` level would add nothing.
 
 ## ZK-Compatible Secret Key Derivation in the Logos Blockchain
 
@@ -154,20 +154,18 @@ This wallet-side step is not part of any circuit, so the DST costs nothing in pr
 
 ## One-Time Note Keys
 
-A note leaf is a leaf under the receive (`0'`) or change (`1'`) role. Its keys are the note keys: the `ZkSecretKey` $`k_{\text{logos}}`$, whose `ZkPublicKey` is the `public_key` field of the notes it owns, and every further key the protocol derives from the same leaf. A payment request carries every public key of one leaf, and a note is owned by the leaf whose keys it carries.
+A note leaf is a leaf under the receive (`0'`) or change (`1'`) role. Its keys are the `ZkSecretKey` $`k_{\text{logos}}`$, whose `ZkPublicKey` is the `public_key` field of the notes it owns, and every further key the protocol derives from the same leaf. A payment request carries the public keys of one leaf, and a note is owned by the leaf whose keys it carries.
 
 - A wallet MUST use a fresh receive leaf, i.e. the next unused `index'` under `0'`, for every payment request it hands out. It MAY reuse a leaf whose public keys have been published but which has not yet received a note.
 - A wallet MUST use a fresh change leaf, the next unused `index'` under `1'`, for every change output it creates. It MUST NOT send change back to the keys of a consumed input by default.
-- A wallet MAY spend notes owned by different leaves in one `TRANSFER`: the [ZkSignature](bedrock-v1.1-mantle-specification.md#zero-knowledge-signature-scheme-zksignature) proves up to 32 secret keys in a single proof, so one-time keys do not add proofs to a transaction with at most 32 inputs.
-- One-time keys change nothing for consensus: the Proof of Leadership eligibility (note ageing) is attached to the `NoteId`, not to the public key, and the Proof of Leadership and Proof of Quota circuits use the note secret key only as a secret input.
 
-  **What one-time keys do and do not hide.** A fresh leaf per note prevents an observer from linking the notes a user receives over time and from recognising the same recipient across payments. It does not hide the transaction graph: a `TRANSFER` still shows which notes are consumed together and which notes it creates, and every `Note` remains public, as the Mantle specification states. Wallets MUST NOT present one-time keys as transaction privacy.
+  **What one-time keys do and do not hide.** A fresh leaf per note prevents an observer from linking the notes a user receives over time. It does not hide the transaction graph: a `TRANSFER` still shows which notes it consumes and creates. Wallets MUST NOT present one-time keys as transaction privacy.
 
 ## Voucher Secret Derivation
 
 Each block a leader proposes commits to a reward voucher whose secret is required to claim the reward with a `LEADER_CLAIM` Operation. A voucher secret that is lost cannot be recovered from the chain, so a wallet derives voucher secrets deterministically from the seed.
 
-The voucher leaf of an account is `m / 154' / account' / 2'`; its keys are derived exactly as a note leaf's. The voucher master $`vm`$ is the `ZkSecretKey` of the voucher leaf, and if the protocol derives keys in more than one field from a leaf, the voucher leaf yields one voucher master per field in the same way. The $`i`$-th voucher secret of the account is:
+The voucher leaf of an account is `m / 154' / account' / 2'`; its keys are derived exactly as a note leaf's. The voucher master $`vm`$ is the `ZkSecretKey` of the voucher leaf. The $`i`$-th voucher secret of the account is:
 
 ```python
 def voucher_secret(vm: ZkSecretKey, i: int) -> Fr:  # i is a uint64
@@ -178,11 +176,11 @@ def voucher_secret(vm: ZkSecretKey, i: int) -> Fr:  # i is a uint64
     )  # Poseidon2 hash mode
 ```
 
-- A wallet MUST keep a single counter `next_voucher_index` per account, whatever field the voucher is issued in, use `voucher_secret(vm, next_voucher_index)` for the next block it proposes and increment the counter before the block is released. A voucher secret MUST never be used for two blocks.
+- A wallet MUST keep a counter `next_voucher_index` per account, use `voucher_secret(vm, next_voucher_index)` for the next block it proposes and increment the counter before the block is released. A voucher secret MUST never be used for two blocks.
 - The voucher commitment `voucher_cm` and the nullifier `voucher_nf` are computed from the voucher secret exactly as specified in the [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md); this specification only fixes where the secret comes from and does not change their derivation, the Proof of Claim circuit, or any validation rule.
-- The voucher master(s) MAY be handed to a block-producing node without the rest of the hierarchy. Their compromise exposes the account's unclaimed rewards and nothing else.
+- The voucher master MAY be handed to a block-producing node without the rest of the hierarchy. Its compromise exposes the account's unclaimed rewards and nothing else.
 
-  **Why a master plus a Poseidon2 counter rather than one leaf per voucher?** A node produces a voucher for every block it proposes, and keeping the derivation inside Poseidon2 lets a key management system hold a single field element for the whole role and stay free of the byte-oriented `CDKpriv` machinery; the counter is also not bounded to $`2^{31}`$ indices. The DST separates voucher secrets from every other Poseidon2 use, in particular from `KDF` and from note keys.
+  **Why a master plus a counter rather than one leaf per voucher?** A node needs a voucher for every block it proposes; a single field element and a Poseidon2 counter keep that out of the byte-oriented `CDKpriv` machinery, and the DST separates voucher secrets from every other Poseidon2 use.
 
 ## Wallet Recovery
 
@@ -192,19 +190,10 @@ Let `GAP_LIMIT = 20`.
 
 1. **Note keys.** For each of the roles `0'` and `1'` of an account, derive the leaves `index' = 0', 1', 2', …` and their public keys. A leaf is *used* if any of its public keys appears in any `Note` created at any point in the chain history, spent or not. Stop after `GAP_LIMIT` consecutive unused leaves; every used leaf found is part of the wallet, and `next_index` of the role is one past the last used leaf.
     - The lookup MUST cover the chain history and not only the current set of unspent notes: a leaf whose notes were all spent is used, and skipping it would misplace the gap and hide the funds of later leaves.
-    - A note that carries one public key of the leaf but not its others still marks the leaf as used: the leaf was published, and skipping it would misplace the gap. Whether the wallet counts such a note as received is decided by the acceptance rules of the key derivation sections, not by recovery.
     - Wallets MAY scan beyond `GAP_LIMIT` on user request but MUST NOT stop earlier.
-2. **Vouchers.** Derive `voucher_secret(vm, i)` and its `voucher_cm` for `i = 0, 1, 2, …`. A voucher is *issued* if its commitment is in the voucher commitment set (an append-only Merkle Mountain Range, so an issued voucher is always found) and *claimed* if its nullifier is in the voucher nullifier set. Stop after `GAP_LIMIT` consecutive unissued indices; `next_voucher_index` is one past the last issued index. Vouchers of the current epoch are not yet in the set, so a recovering wallet that is also producing blocks MUST also account for the vouchers it issued since the last epoch boundary. If the protocol has migrated to a new proof system and retains a legacy voucher set, the scan MUST cover both the legacy set, using the voucher master and commitment derivation in force when those vouchers were issued, and the current set, with the single counter running across both.
+    - Wallets MAY persist `next_index` and the used leaves to avoid rescanning, but MUST be able to recover from the seed alone.
+2. **Vouchers.** Derive `voucher_secret(vm, i)` and its `voucher_cm` for `i = 0, 1, 2, …`. A voucher is *issued* if its commitment is in the voucher commitment set (an append-only Merkle Mountain Range, so an issued voucher is always found) and *claimed* if its nullifier is in the voucher nullifier set. Stop after `GAP_LIMIT` consecutive unissued indices; `next_voucher_index` is one past the last issued index. Vouchers of the current epoch are not yet in the set, so a wallet that is also producing blocks MUST also account for the vouchers it issued since the last epoch boundary.
 3. **Accounts.** Recover account 0; recover account `a + 1` only if account `a` has at least one used leaf or issued voucher.
-
-## Keys This Specification Does Not Derive
-
-Two further kinds of one-time keys exist in the protocol. Neither carries value, so neither needs recovery, and they are outside this hierarchy:
-
-- The one-time Ed25519 key $`P_\text{LEAD}`$ that signs a block proposal, bound to the [Proof of Leadership](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block). It MUST be generated fresh for every proposal, since reusing it would link the proposals of a leader, and MAY be drawn at random.
-- The ephemeral signing and encryption keys of the Blend protocol, one per encapsulation, as required by [Key Types and Generation](key-types-and-generation.md); their number is bounded by the Proof of Quota.
-
-The long-lived node identity keys of [Key Types and Generation](key-types-and-generation.md) (`zk_id`, `provider_id`) are also not covered; the reserved roles leave room to add them.
 
 ## Test Vectors
 
