@@ -208,7 +208,7 @@
   },
   {
     "component": "anoncomms",
-    "slug": "245",
+    "slug": "246",
     "title": "LOGOS-MIXNET",
     "status": "raw",
     "category": "Standards Track",
@@ -217,7 +217,7 @@
   },
   {
     "component": "anoncomms",
-    "slug": "246",
+    "slug": "247",
     "title": "Stake-Weighted Mix RLN DoS Protection",
     "status": "raw",
     "category": "Standards Track",
@@ -226,7 +226,7 @@
   },
   {
     "component": "anoncomms",
-    "slug": "247",
+    "slug": "248",
     "title": "RLN Module API",
     "status": "raw",
     "category": "Standards Track",
@@ -455,7 +455,7 @@
     "title": "[Analysis] Gas Cost Determination",
     "status": "raw",
     "category": "Informational",
-    "updated": "2026-09-09",
+    "updated": "2026-09-11",
     "path": "blockchain/raw/analysis-gas-cost-determination.html"
   },
   {
@@ -554,7 +554,7 @@
     "title": "Mantle Transaction Encoding",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-09-09",
+    "updated": "2026-09-11",
     "path": "blockchain/raw/mantle-transaction-encoding.html"
   },
   {
@@ -572,7 +572,7 @@
     "title": "[Overview] Cryptoeconomics",
     "status": "raw",
     "category": "Informational",
-    "updated": "2026-08-31",
+    "updated": "2026-09-11",
     "path": "blockchain/raw/overview-cryptoeconomics.html"
   },
   {
@@ -865,6 +865,15 @@
   },
   {
     "component": "blockchain",
+    "slug": "245",
+    "title": "Proof of Work",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-09-11",
+    "path": "blockchain/raw/proof-of-work.html"
+  },
+  {
+    "component": "blockchain",
     "slug": "83",
     "title": "Proof of Leadership",
     "status": "raw",
@@ -878,7 +887,7 @@
     "title": "Key Types and Generation",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-07-03",
+    "updated": "2026-09-11",
     "path": "blockchain/raw/key-types-and-generation.html"
   },
   {
@@ -914,7 +923,7 @@
     "title": "Proof of Quota",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-07-03",
+    "updated": "2026-09-11",
     "path": "blockchain/raw/proof-of-quota.html"
   },
   {
@@ -932,7 +941,7 @@
     "title": "Bedrock Genesis Block",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-08-31",
+    "updated": "2026-09-11",
     "path": "blockchain/raw/bedrock-genesis-block.html"
   },
   {
@@ -941,7 +950,7 @@
     "title": "Message Encapsulation Mechanism",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-08-31",
+    "updated": "2026-09-11",
     "path": "blockchain/raw/message-encapsulation.html"
   },
   {
@@ -977,7 +986,7 @@
     "title": "Blend Protocol",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-09-03",
+    "updated": "2026-09-11",
     "path": "blockchain/raw/blend-protocol.html"
   },
   {
@@ -995,7 +1004,7 @@
     "title": "Payload Formatting",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-08-31",
+    "updated": "2026-09-11",
     "path": "blockchain/raw/payload-formatting.html"
   },
   {

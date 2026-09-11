@@ -173,6 +173,11 @@
               "status": "raw"
             },
             {
+              "label": "Proof of Work",
+              "path": "blockchain/raw/proof-of-work.md",
+              "status": "raw"
+            },
+            {
               "label": "Service Declaration Protocol",
               "path": "blockchain/raw/bedrock-service-declaration-protocol.md",
               "status": "raw"
@@ -789,6 +794,11 @@
                 {
                   "label": "Mantle Transaction Encoding",
                   "path": "blockchain/raw/mantle-transaction-encoding.md",
+                  "status": "raw"
+                },
+                {
+                  "label": "Proof of Work",
+                  "path": "blockchain/raw/proof-of-work.md",
                   "status": "raw"
                 },
                 {
