@@ -31,6 +31,7 @@
 | 1.1.3 | Replaced the `block_root` header field with `body_root`, taken over an empty uncle header list and the initial transaction, due to updated [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md). | 2026-08-06 |
 | 1.1.4 | Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy. | 2026-08-25 |
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
+| 1.2.0 | genesis notes carry a `stark_public_key` like every other note | 2026-09-07 |
 
 # Introduction
 
@@ -62,9 +63,9 @@ The initial state of the Ledger will be derived through normal execution of this
 STAKE_DISTRIBUTION = Transfer(
     inputs=[],
     outputs=[
-        Note(value=1000, public_key=STAKE_HOLDER_0_PK),
-        Note(value=2000, public_key=STAKE_HOLDER_1_PK),
-        Note(value=1500, public_key=STAKE_HOLDER_2_PK),
+        Note(value=1000, public_key=STAKE_HOLDER_0_PK, stark_public_key=STAKE_HOLDER_0_STARK_PK),
+        Note(value=2000, public_key=STAKE_HOLDER_1_PK, stark_public_key=STAKE_HOLDER_1_STARK_PK),
+        Note(value=1500, public_key=STAKE_HOLDER_2_PK, stark_public_key=STAKE_HOLDER_2_STARK_PK),
         # ...
     ]
 )
@@ -208,9 +209,9 @@ GENESIS_HEADER = Header(
 STAKE_DISTRIBUTION = Transfer(
     inputs=[],
     outputs=[
-        Note(value=1000, public_key=STAKE_HOLDER_0_PK),
-        Note(value=2000, public_key=STAKE_HOLDER_1_PK),
-        Note(value=1500, public_key=STAKE_HOLDER_2_PK),
+        Note(value=1000, public_key=STAKE_HOLDER_0_PK, stark_public_key=STAKE_HOLDER_0_STARK_PK),
+        Note(value=2000, public_key=STAKE_HOLDER_1_PK, stark_public_key=STAKE_HOLDER_1_STARK_PK),
+        Note(value=1500, public_key=STAKE_HOLDER_2_PK, stark_public_key=STAKE_HOLDER_2_STARK_PK),
         # ...
     ]
 )

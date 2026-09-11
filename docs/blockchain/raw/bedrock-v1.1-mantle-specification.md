@@ -26,23 +26,24 @@
 | --- | --- | --- |
 | 1.1.0 | Initial revision. | 2026-12-01 |
 | 1.2.0 | Removed DA references. Removed notions of Sovereignty and Rollups and used Zones for simplicity. Removed Nomos from specifications and DSTs. Added bridging and decentralized sequencing for channels. | 2026-01-01 |
-| 1.2.1 | [RFC] Improve Mantle Transaction hash. | 2026-03-25 |
+| 1.2.1 | Improve Mantle Transaction hash. | 2026-03-25 |
 | 1.3.0 | [[RFC] Make Ledger Transaction an Operation](mantle-transaction-encoding/appendices/rfc-make-ledger-transaction-an-operation.md). | 2026-04-02 |
 | 1.4.0 | [[RFC] Enforce NoteId uniqueness](mantle-transaction-encoding/appendices/rfc-enforce-noteid-uniqueness.md). | 2026-04-24 |
 | 1.5.0 | [[RFC] Simplify Mantle Transaction and Refactor Ledger Operations](mantle-transaction-encoding/appendices/rfc-simplify-mantle-transaction-and-refactor-ledger-operations.md). | 2026-05-06 |
-| 1.6.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
+| 1.6.0 | Remove Concept of a Session | 2026-06-22 |
 | 1.7.0 | Factor out the multi eddsa threshold verification and added a validation step in channel config to check the new config threshold is lower or equal than the number of accredited keys | 2026-06-25 |
-| 1.8.0 | [RFC] Update channels to support proof of stake participation and test vectors for OpId and Mantle Transaction Hash | 2026-07-06 |
+| 1.8.0 | Update channels to support proof of stake participation and test vectors for OpId and Mantle Transaction Hash | 2026-07-06 |
 | 1.9.0 | Update the execution of `CHANNEL_DEPOSIT` to consume the inputs and recreate them in the channel, updating their NoteId avoid replay attacks in case of withdraw after a deposit | 2026-07-27 |
 | 1.9.1 | Rename the excess balance left after the mandatory fees into `tx_priority_tip` and convert it back into a `TokenValue` explicitly | 2026-08-05 |
 | 1.9.2 | Required checked arithmetic for all token value, balance, gas, and fee computations. | 2026-08-06 |
 | 1.10.0| Enforce non empty inputs for every operation not only transfer moving the assertion in the validation of input spendability | 2026-08-11 |
-| 1.10.1| [RFC] One canonical encoding for `ServiceType` and `Locator`: `ServiceType` is its one-byte discriminant and `Locator` is the multiaddr binary form. Added a `declaration_id` test vector | 2026-08-14 |
+| 1.10.1| One canonical encoding for `ServiceType` and `Locator`: `ServiceType` is its one-byte discriminant and `Locator` is the multiaddr binary form. Added a `declaration_id` test vector | 2026-08-14 |
 | 1.10.2| Precise the state validation reads: the Operations of a Mantle Transaction are validated and executed one after the other in the order they appear, each against the state the preceding ones left, and a Mantle Transaction against the state the transactions preceding it in the block left. Accumulated the transaction balance along that pass, replacing `get_transaction_balance` | 2026-08-24 |
 | 1.11.0 | Track the configuration lineage of a channel: `ChannelState` gains `config_tip_hash` and the `CHANNEL_CONFIG` payload carries the `parent` configuration it extends, ordering configurations and preventing their replay | 2026-08-27 |
 | 1.11.1 | Renamed locked notes into service notes: `service_notes`, `ServiceNote` and `service_note_id` replace their locked counterparts, and the note kind is named after the role it plays rather than after the state it is left in | 2026-08-27 |
 | 1.12.0 | Specified the `SDP_ACTIVE` execution effects, matching the implementation: `active` is set to the epoch of the including block, and a message the activity logic rejects makes the Operation invalid. Set `withdraw_at` to `current_epoch + 2`, the epoch at which the node stops providing the service, and removed declarations at `withdraw_at` | 2026-09-02 |
 | 1.13.0 | Removed the `None` case of `op_proofs`, every Operation carrying exactly one proof. A `CHANNEL_CONFIG` creating a channel is verified against a threshold of `0` and its proof carries no signature and no index. Execution Gas is derived from the Operation and the state it is validated against, the thresholds pricing the channel Operations being the ones held in the channel state | 2026-08-31 |
+| 1.14.0 | Every `Note`, the `LEADER_CLAIM` output and the SDP declaration commit to a STARK-field public key next to the BN254 one; the `NoteId` binds both; test vectors regenerated | 2026-09-07 |
 
 # Introduction
 
@@ -357,7 +358,7 @@ Channels let their bridged funds keep participating in Proof of Stake. When a us
 
 **Ownership vs. staking power.** A `CHANNEL_DEPOSIT` separates the two rights that a normal note bundles together:
 
-- *Ownership* moves to the channel. The note is registered in the ledger's `channel_notes` set with the channel as its owner, and the channel keeps full control over it. The deposited notes are consumed and re-created identically: they keep their value and `ZkPublicKey`, receive a new `NoteId` derived from the deposit's `OpId`, and are registered as channel-owned. The channel is now the party responsible for the note.
+- *Ownership* moves to the channel. The note is registered in the ledger's `channel_notes` set with the channel as its owner, and the channel keeps full control over it. The deposited notes are consumed and re-created identically: they keep their value and both public keys, receive a new `NoteId` derived from the deposit's `OpId`, and are registered as channel-owned. The channel is now the party responsible for the note.
 - *Staking power* stays with the `ZkPublicKey` carried by the note. That key does not confer ownership. It only delegates the note's value for PoL creation. Whoever controls the key is the one allowed to turn the note into a PoL and collect the resulting rewards. On deposit this key is still the depositor's, so the user keeps the PoS participation power they had before bridging.
 
 Because the channel owns the note but does not hold the delegated key, the note earns rewards for the key holder, never for the channel itself.
@@ -859,7 +860,7 @@ ledger: Ledger
 
   *Execute*
 
-Remove the inputs from channel notes owned by the channel. The notes are neither consumed nor re-created: they keep their NoteId, value and ZkPublicKey, and are simply unregistered in the channel_notes set.
+Remove the inputs from channel notes owned by the channel. The notes are neither consumed nor re-created: they keep their NoteId, value and both public keys, and are simply unregistered in the channel_notes set.
 ```python
 for note_id in withdrawal.inputs:
     ledger.channel_notes.pop(note_id)
@@ -1059,6 +1060,7 @@ class DeclarationInfo:
     locators: list[Locator]
     provider_id: Ed25519PublicKey
     zk_id: ZkPublicKey
+    stark_zk_id: StarkPublicKey  # STARK-field counterpart of zk_id, see Notes
     service_note_id: NoteId
     created: EpochNumber
     active: EpochNumber
@@ -1079,6 +1081,7 @@ class DeclarationMessage:
     locators: list[Locator]
     provider_id: Ed25519PublicKey
     zk_id: ZkPublicKey
+    stark_zk_id: StarkPublicKey  # STARK-field counterpart of zk_id, see Notes
     service_note_id: NoteId
 ```
 
@@ -1201,7 +1204,7 @@ service_notes : dict[NoteId, ServiceNote]
 alice_note = Utxo(
     txhash=0x2948904F2F0F479B8F8197694B30184B0D2ED1C1CD2A1EC0FB85D299A192A447,
     output_number=3,
-    note=Note(value=500, public_key=alice_pk_1),
+    note=Note(value=500, public_key=alice_pk_1, stark_public_key=alice_stark_pk_1),
 )
 
 # Alice wishes to lock it to join the Blend network
@@ -1504,6 +1507,7 @@ class ClaimRequest:
     rewards_root: zkhash # Merkle root used in the proof for voucher membership
     voucher_nf: zkhash
     public_key: ZkPublicKey
+    stark_public_key: StarkPublicKey  # STARK-field key of the reward note, see Notes
 ```
 
 #### Proof
@@ -1551,11 +1555,12 @@ leader_reward: TokenValue     # The amount one leader can claim
   *Execution*
 
   1. Add `claim.voucher_nf` to the `voucher_nullifier_set`.
-  2. Denoting by `leader_reward` the amount defined for leader rewards in [Leaders Reward](bedrock-anonymous-leaders-reward.md#leaders-reward), construct a single output note with value leader_reward under the public key defined in the payload, and insert it into the Ledger:
+  2. Denoting by `leader_reward` the amount defined for leader rewards in [Leaders Reward](bedrock-anonymous-leaders-reward.md#leaders-reward), construct a single output note with value leader_reward under the two public keys defined in the payload, and insert it into the Ledger:
       ```python
       output_note=Note(
-          value = leader_reward
+          value = leader_reward,
           public_key = claim.public_key,
+          stark_public_key = claim.stark_public_key,
       )
       claim_id = derive_op_id(claim)
       ledger.execute_adding(claim_id, [output_note])
@@ -1573,7 +1578,8 @@ voucher_nullifier = leader_claim_nullifier(secret_voucher)
 claim=ClaimRequest(
     rewards_root=REWARDS_MERKLE_TREE.root(),
     voucher_nf=voucher_nullifier,
-    public_key=leader_one_time_key
+    public_key=leader_one_time_key,
+    stark_public_key=leader_one_time_stark_key,
 )
 
 # Build the transfer operation to pay the fees
@@ -1685,6 +1691,7 @@ alice_note_id = ... # assume Alice holds a note worth 501 tokens
 bob_note=Note(
     value=500
     public_key=bob_pk,
+    stark_public_key=bob_stark_pk,
 )
 
 transfer = Transfer(
@@ -1701,9 +1708,16 @@ Notes are composed of two fields representing their value and their owner:
 
 ```python
 class Note:
-    value: TokenValue   # uint64
-    public_key: ZkPublicKey # 32 bytes
+    value: TokenValue                 # uint64
+    public_key: ZkPublicKey           # 32 bytes, one BN254 field element
+    stark_public_key: StarkPublicKey  # 32 bytes, four Goldilocks field elements
 ```
+
+A note names its owner twice. `public_key` is the key every proof verifies today: it is derived with Poseidon2 over BN254 ([ZkSignature](#zero-knowledge-signature-scheme-zksignature)) and it is the key the ZkSignature, the [Proof of Leadership](cryptarchia-proof-of-leadership.md) and the [Proof of Quota](proof-of-quota.md) prove knowledge of. `stark_public_key` is the same owner's key over the Goldilocks field: it is a digest of the [STARK-field hash](common-cryptographic-components.md#rescue-prime-optimized-stark-field-hash-function) over the Goldilocks field, derived as the [Wallet Technical Standard](wallet-technical-standard.md#stark-field-key-derivation) specifies.
+
+A `StarkPublicKey` is the four-element digest of the STARK-field hash serialized as 32 bytes: four Goldilocks field elements, each 8 bytes little-endian, each strictly smaller than $`q = 2^{64} - 2^{32} + 1`$ (canonical form, see [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures)).
+
+No proof verifies `stark_public_key` and no rule reads it beyond its encoding: it is carried, and bound by the [Note Id](#note-id), so that every note already commits to a key native to a STARK-field proof system. Nothing on the ledger proves that the two keys of a note belong to the same party; a wallet MUST treat a note as its own only when both keys are its own ([Wallet Technical Standard](wallet-technical-standard.md#stark-field-key-derivation)).
 
 ### Note Id
 
@@ -1718,12 +1732,15 @@ def derive_op_id(operation: Op) -> Hash:
     return h.digest()
 
 def derive_note_id(op_id: Hash, output_number: int, note: Note) -> NoteId:
+    spk = note.stark_public_key.elements()  # the four Goldilocks elements of the key, each < q
     return zkhash(
         FiniteField(b"NOTE_ID_V1", byte_order="little", modulus= p),
         FiniteField(op_id, byte_order="little", modulus= p),
         FiniteField(output_number, byte_order="little", modulus= p),
         FiniteField(note.value, byte_order="little", modulus= p),
-        note.public_key
+        note.public_key,
+        FiniteField(spk[0] + spk[1] * 2**64, byte_order="little", modulus= p),
+        FiniteField(spk[2] + spk[3] * 2**64, byte_order="little", modulus= p),
     )
 ```
 
@@ -1785,6 +1802,8 @@ class Ledger:
             assert note.value > 0
             assert note.value <= 2**64-1
 ```
+
+The [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures) only admits a `stark_public_key` in canonical form, so the [Note Id](#note-id) commits to exactly one byte string per key. No validation rule reads the field.
 
 ### Consuming Input Notes Execution
 
@@ -1870,6 +1889,8 @@ Such that the following constraints hold:
 - The proof is bound to `msg` (it’s the `mantle_tx_hash` reduced modulo $`p`$ in case of transactions).
 
   For implementation, the ZkSignature circuit will take a maximum of 32 public keys as inputs. To prove ownership of fewer keys, the remaining inputs will be padded with the public key corresponding to the secret key `0` and ignored during execution. The outputs have no size limit since they are included in the hashed message.
+
+  The ZkSignature proves knowledge of the BN254 secret key only. The `stark_public_key` a note carries ([Notes](#notes)) is not an input of this circuit and is not verified by any proof.
 
 ### Benchmark
 
@@ -1988,23 +2009,23 @@ To see what the payloads represent, refer to [Mantle Transaction Encoding](mantl
 
 | Operation | Payload | `op_id` |
 | ------------------------- | - | - |
-| `TRANSFER`                | 0x0201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000600000000000000000000000000000000000000000000000000000000000000 | 0x5e5e1b318aa0c2aec93fbb327e6af5f705e5684269a34e0c1319539d00d06cdb |
+| `TRANSFER`                | 0x020100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002030000000000000004000000000000000000000000000000000000000000000000000000000000008400000000000000000000000000000000000000000000000000000000000000050000000000000006000000000000000000000000000000000000000000000000000000000000008600000000000000000000000000000000000000000000000000000000000000 | 0xc92e97c8fb5e6ed66bd125879597a809a7f4f87b2c5bd725ec6d826dcadf51de |
 | `CHANNEL_CONFIG`          | 0x0707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000c000d00 | 0x8bac7efe4c3ef10745c0d509ac88e2abaf1d3cda94987ed2eeb9ad71dd31d056 |
 | `CHANNEL_INSCRIBE`        | 0x0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c | 0xfb9af7fb1384fff51780ec8c5afbcba76449ab7603484f797df3a472e48826c1 |
 | `CHANNEL_DEPOSIT`         | 0x1010101010101010101010101010101010101010101010101010101010101010011100000000000000000000000000000000000000000000000000000000000000100000006465706f7369742d6d65746164617461 | 0xf14ff0aad9bc5e8e30c5d1aa3710aaa1c1cc1f47c2c256e7d9e73104cb17ccaf |
 | `CHANNEL_WITHDRAW`        | 0x1212121212121212121212121212121212121212121212121212121212121212011300000000000000000000000000000000000000000000000000000000000000 | 0x503d0d08f9faef971864943103965d13be7159fe6e0361c8ea614c6d0431e59c |
-| `CHANNEL_TRANSFER`        | 0x14141414141414141414141414141414141414141414141414141414141414140115000000000000000000000000000000000000000000000000000000000000000116000000000000001700000000000000000000000000000000000000000000000000000000000000 | 0xfb24c17731954e8bbe1b0dedd69e4857c8083d1689aff331ba16f3ed5883f0ce |
-| `SDP_DECLARE`             | 0x00010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f319000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000 | 0x42e93fdce121a5ab4da3201a6fd2da1d42ca8b7d8c1a8c9e2a657a6cdc7aa468 |
+| `CHANNEL_TRANSFER`        | 0x141414141414141414141414141414141414141414141414141414141414141401150000000000000000000000000000000000000000000000000000000000000001160000000000000017000000000000000000000000000000000000000000000000000000000000009700000000000000000000000000000000000000000000000000000000000000 | 0x31e25161dd618de35fe2188291360eca8274b128c63209e673f37e902e704f0e |
+| `SDP_DECLARE`             | 0x00010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f3190000000000000000000000000000000000000000000000000000000000000099000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000 | 0xd54a1d16711ca7aac3d02eef5f146267119c671d706bd56282592e305f344f3a |
 | `SDP_WITHDRAW`            | 0x1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000 | 0xc95aea0e46f60c12a8b29b259ca1b39947093c0d88a1ea8400c49e392ca491a0 |
 | `SDP_ACTIVE`              | 0x1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f0000000000000001010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020303030303030303030303030303030303030303030303030303030303030303 | 0x76afa55f5733db75a982dc5ccabb5c6a7dab992eda78cdfd5f657f314e388354 |
-| `LEADER_CLAIM`            | 0x200000000000000000000000000000000000000000000000000000000000000021000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000 | 0x0dc1a007fdd184b4553a83d166b749a621f5be2de4b3b0429ebf0520d1dd9a51 |
+| `LEADER_CLAIM`            | 0x200000000000000000000000000000000000000000000000000000000000000021000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000a200000000000000000000000000000000000000000000000000000000000000 | 0x5f8a94febcb6ea1c6550ba944a2370985f904413c1ff1042a0ab296cdceae409 |
 
 ### Mantle Transaction Hash
 
 | Transaction | Payload | Transaction Hash                                                   |
 | - | - | - |
 | Empty transaction | 0x00 | 0x2eba3f667b80a508f3d44d149a1c27a90ea365a51e4fc8209289088142b364e5 |
-| Transaction with one of each operation | 0x0a000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000600000000000000000000000000000000000000000000000000000000000000100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000c000d00110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c121010101010101010101010101010101010101010101010101010101010101010011100000000000000000000000000000000000000000000000000000000000000100000006465706f7369742d6d6574616461746113121212121212121212121212121212121212121212121212121212121212121201130000000000000000000000000000000000000000000000000000000000000014141414141414141414141414141414141414141414141414141414141414141401150000000000000000000000000000000000000000000000000000000000000001160000000000000017000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f319000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f0000000000000001010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c02020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202030303030303030303030303030303030303030303030303030303030303030330200000000000000000000000000000000000000000000000000000000000000021000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000 | 0x11e6013847824badf33aa383cfbdb4b5b74a621acefc8296c21f48c4072e0e92 |
+| Transaction with one of each operation | 0x0a00020100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002030000000000000004000000000000000000000000000000000000000000000000000000000000008400000000000000000000000000000000000000000000000000000000000000050000000000000006000000000000000000000000000000000000000000000000000000000000008600000000000000000000000000000000000000000000000000000000000000100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000c000d00110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c121010101010101010101010101010101010101010101010101010101010101010011100000000000000000000000000000000000000000000000000000000000000100000006465706f7369742d6d65746164617461131212121212121212121212121212121212121212121212121212121212121212011300000000000000000000000000000000000000000000000000000000000000141414141414141414141414141414141414141414141414141414141414141414011500000000000000000000000000000000000000000000000000000000000000011600000000000000170000000000000000000000000000000000000000000000000000000000000097000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f3190000000000000000000000000000000000000000000000000000000000000099000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f0000000000000001010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c02020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202030303030303030303030303030303030303030303030303030303030303030330200000000000000000000000000000000000000000000000000000000000000021000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000a200000000000000000000000000000000000000000000000000000000000000 | 0x85d2330c182e439dd00982f533215ddb2dffc61f58ca60354b3f1e958697b6f7 |
 
 ### Declaration Id
 

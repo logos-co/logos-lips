@@ -26,8 +26,8 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-09 |
 | 1.0.1 | Remove the protection against adaptive adversary from PoL. It impacts the PoL section of PoQ. Update the performance according to the new circuit. Remove old project name from DSTs | 2026-04-09 |
-| 1.1.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
-
+| 1.1.0 | Remove Concept of a Session | 2026-06-22 |
+| 1.2.0 | The PoL note's STARK-field public key is a witness and enters the note identifier derivation | 2026-09-07 |
 
 # Introduction
 
@@ -85,6 +85,7 @@ class ProofOfQuotaWitness:
     pol_note_value: int                   # PoL note value
     pol_note_tx_hash: zkhash              # PoL note transaction
     pol_note_output_number: int           # PoL note transaction output number
+    pol_note_stark_pk: list[zkhash]       # PoL note STARK-field public key packed into 2 field elements (see Mantle Note Id)
     pol_noteid_path: list[zkhash]         # PoL Merkle path proving noteID membership in ledger aged (len = 32)
     pol_noteid_path_selectors: list[bool] # Indicates how to read the note_path (if Merkle nodes are left or right in the path)
 ```
@@ -154,6 +155,7 @@ is_leader = would_win_leadership(pol_epoch_nonce,
         pol_note_value,
         pol_note_tx_hash,
         pol_note_output_number,
+        pol_note_stark_pk,
         pol_noteid_path,
         pol_noteid_path_selectors)
 

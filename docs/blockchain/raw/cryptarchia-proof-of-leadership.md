@@ -27,6 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-12-09 |
 | 1.1.0 | Remove the protection against adaptive adversary from PoL removing a non-enforced feature, simplifying work for engineers, improving UX and performances of PoL and PoQ. Update the performance according to the new circuit. Remove the notion of NOMOS in DSTs | 2026-01-29 |
 | 1.1.1 | Introduced a discussion for when the value of a participating note is way higher than the total estimated stake | 2026-06-24 |
+| 1.2.0 | The note's STARK-field public key is a private input and enters the note identifier derivation | 2026-09-07 |
 
 # Introduction
 
@@ -163,6 +164,7 @@ The prover has to provide these values, but they remain secret:
 	- The note value: $`v`$.
 	- The note transaction zk hash: $`note\_tx\_hash`$.
 	- The note outputs number: $`note\_output\_number`$.
+	- The note STARK-field public key $`stark\_pk`$, packed into two field elements as in [Note Id](bedrock-v1.1-mantle-specification.md#note-id). It is only hashed into the note identifier; the circuit proves nothing about it.
 
 2. The proof of membership of the note identifier in the zone ledgers $`ledger_{AGED}`$ and $`ledger_{LATEST}`$. This is done by providing the complementary Merkle nodes and indicating whether they are left (0) or right (1) through boolean selectors:
 	- The aged ledger complementary nodes: $`noteid\_aged\_path`$.
@@ -175,7 +177,7 @@ The prover has to provide these values, but they remain secret:
 The proof confirms the following relations:
 
 1. The derivation of the public key.
-2. The computation of the note identifier.
+2. The computation of the note identifier, over both public keys of the note ([Note Id](bedrock-v1.1-mantle-specification.md#note-id)).
 3. The note identifier is in $`ledger_{AGED}`$ and $`ledger_{LATEST}`$.
 4. The computation of the lottery ticket: $`ticket := \text{hash}(\text{LEAD\_V1}||\eta||sl||noteID||sk)`$ using [Poseidon2](common-cryptographic-components.md).
 5. The computation of the threshold: $`t:= v(t_0+t_1\cdot v)`$.

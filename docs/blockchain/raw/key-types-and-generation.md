@@ -25,7 +25,8 @@
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-09 |
-| 1.0.1 | [RFC] Remove Concept of a Session | 2026-06-22 |
+| 1.0.1 | Remove Concept of a Session | 2026-06-22 |
+| 1.1.0 | The NQK is declared together with its STARK-field counterpart `stark_zk_id` | 2026-09-07 |
 
 # Introduction
 
@@ -48,6 +49,8 @@ This document ensures that the keys are used and generated in a common manner, w
 A node generates a Non-ephemeral Quota Key (NQK) that is a ZkSignature ([Zero Knowledge Signature Scheme (ZkSignature)](bedrock-v1.1-mantle-specification.md#zero-knowledge-signature-scheme-zksignature)). The NQK is stored on the ledger as the `zk_id` field in the `DeclarationInfo` of the node’s outcome of the participation in the Service Declaration Protocol (SDP — [Service Declaration Protocol](bedrock-service-declaration-protocol.md)).
 
 The NQK is used to prove that the node is part of the set of core nodes as indicated through the SDP.
+
+The NQK is declared together with its STARK-field counterpart, stored as `stark_zk_id` in the same `DeclarationInfo` and derived from the same wallet leaf ([Wallet Technical Standard](wallet-technical-standard.md#stark-field-key-derivation)). No proof verifies it; it is the node's zero-knowledge identity under a STARK-field proof system.
 
 ## Non-ephemeral Signing Key
 
