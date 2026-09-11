@@ -33,7 +33,7 @@
 | 1.4.2 | Renamed locked notes into service notes: `locked_note_id` becomes `service_note_id` in the declaration and withdraw messages and in `DeclarationInfo` | 2026-08-27 |
 | 1.4.3 | Identifier uniqueness covers every stored declaration, not only activated ones, matching the implementation | 2026-09-01 |
 | 1.5.0 | Defined `active` as the epoch of the block that contained the latest accepted active message, initialised to `created + 2`, and `withdraw_at` as the epoch at which the node stops providing the service, matching the implementation. Added the participant-set exclusion rule and [Message Timing](#message-timing) | 2026-09-02 |
-| 1.6.0 | [RFC] The service and the `zk_id` identify a declaration; the derived `declaration_id` is removed | 2026-09-09 |
+| 1.6.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a declaration covers one service, and a note backs one declaration per service | 2026-09-11 |
 
 # Introduction
 
@@ -89,7 +89,7 @@ class ServiceType(Enum):
 
 A declaration can be generated for any of the services above. Any declaration that is not one of the above must be rejected. The number of services might grow in the future.
 
-Each service type is assigned a one-byte discriminant, given by the enum value above. This byte is the canonical encoding of a `ServiceType` and is used wherever a `ServiceType` is serialized or hashed: the transaction wire form ([Mantle Transaction Encoding](mantle-transaction-encoding.md)) and the reward `op_id` preimage ([Service Reward Distribution](bedrock-service-reward-distribution.md)).
+Each service type is assigned a one-byte discriminant, given by the enum value above. This byte is the canonical encoding of a `ServiceType` and is used wherever a `ServiceType` is serialized or hashed: the transaction wire form ([Mantle Transaction Encoding](mantle-transaction-encoding.md)), the `declaration_id` preimage ([Declaration Storage](#declaration-storage)), and the reward `op_id` preimage ([Service Reward Distribution](bedrock-service-reward-distribution.md)).
 
 ### Minimum Stake
 
@@ -187,7 +187,7 @@ The canonical form of a `Locator` is the multiaddr **binary (byte) form**. Where
 
 The length of the binary form of a `Locator` is restricted to 329 bytes.
 
-**The canonical form makes deterministic ID generation work consistently.** The binary form carries no letter case and no textual shorthand, so two equal multiaddrs always share one byte representation; the string-form ambiguities (case, implicit defaults) cannot arise. Implementations that accept the string form as input must parse it into the binary form before any serialization or hashing, and every part of the address must be explicit (no implicit defaults).
+Implementations that accept the string form as input must parse it into the binary form before serialization, and every part of the address must be explicit (no implicit defaults).
 
 The canonical form makes a single `Locator` unambiguous, but it does not make a *list* of them unambiguous. The byte form of a multiaddr is self-describing, so concatenating two `Locator`s yields the byte form of a single longer one: `[/ip4/203.0.113.10/tcp/4001]` and `[/ip4/203.0.113.10, /tcp/4001]` are the same byte string. A list of `Locator`s must therefore be serialized as the `Locators` production of the [Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations): prefixed with its element count and with each element prefixed by its byte length.
 
@@ -214,12 +214,14 @@ The message is also signed by the `zk_id` key.
 
 ### **Declaration Storage**
 
-Only valid declaration messages can be stored on the ledger. A declaration covers exactly one service and is identified by that service and the `zk_id` of the validator that created it. We define the `DeclarationInfo` as follows:
+Only valid declaration messages can be stored on the ledger. A declaration covers exactly one service. We define the `DeclarationInfo` as follows:
 
 ```python
 class DeclarationInfo:
+    service: ServiceType
     provider_id: Ed25519PublicKey
     locators: list[Locator]
+    zk_id: ZkPublicKey
     service_note_id: NoteId
     created: EpochNumber
     active: EpochNumber
@@ -229,25 +231,33 @@ class DeclarationInfo:
 
 Where:
 
+- `service` is the service the declaration covers;
 - `provider_id` is the `Ed25519PublicKey` the validator signs its messages with;
 - `locators` is a copy of the `locators` from the `DeclarationMessage`;
+- `zk_id` is the `ZkPublicKey` of the validator, which signs its active and withdraw messages and receives its rewards;
 - `service_note_id` is the `NoteId` of the note that meets the minimum stake threshold;
 - `created` is the epoch of the block that contained the declaration;
 - `active` is the epoch of the block that contained the latest accepted active message, initialised to `created + 2` ([Message Timing](#message-timing));
 - `withdraw_at` is the epoch at which the node stops providing the service ([**Withdraw**](#withdraw)), and is `None` until the declaration is withdrawn;
 - `nonce` is 0 for the declaration message, and increases monotonically with every message sent for the declaration.
 
-All `DeclarationInfo` entries are held in `declarations`, indexed by service and then by `zk_id`.
+The `declaration_id` (of a `DeclarationId` type) is the hash of the concatenation of `service` and `zk_id`. `service` is the one-byte `ServiceType` discriminant ([Service Types](#service-types)) and `zk_id` is its canonical encoding ([Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations)). The hash function is `blake2b` using 256 bits of the output.
 
 ```python
-declarations: dict[ServiceType, dict[ZkPublicKey, DeclarationInfo]]
+declaration_id = Hash(service||zk_id)
+```
+
+The `declaration_id` is not stored as part of the `DeclarationInfo` but is used to index it. All `DeclarationInfo` entries are held in `declarations`, indexed by `declaration_id`.
+
+```python
+declarations: dict[DeclarationId, DeclarationInfo]
 ```
 
 ### Identifier Uniqueness
 
 Within the declarations of one service, each of the following is bound to at most one `DeclarationInfo`:
 
-- the `zk_id`;
+- the `zk_id`, so the `declaration_id` is unique;
 - the `provider_id`;
 - the `service_note_id`.
 
@@ -268,15 +278,14 @@ The construction of the active message is as follows:
 
 ```python
 class ActiveMessage:
-    service: ServiceType
-    zk_id: ZkPublicKey
+    declaration_id: DeclarationId
     nonce: Nonce
     metadata: Metadata
 ```
 
 where `metadata` is service-specific node activeness metadata, encoded as the `Metadata` production of the [Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations).
 
-The message must be signed by the `zk_id` key.
+The message must be signed by the `zk_id` key of the declaration.
 
 The `nonce` must increase monotonically by every message sent for the declaration.
 
@@ -290,18 +299,17 @@ The construction of the withdraw message is as follows:
 
 ```python
 class WithdrawMessage:
-    service: ServiceType
-    zk_id: ZkPublicKey
+    declaration_id: DeclarationId
     nonce: Nonce
 ```
 
-The message must be signed by the `zk_id` key.
+The message must be signed by the `zk_id` key of the declaration.
 
 The `nonce` must increase monotonically by every message sent for the declaration.
 
 ### Indexing
 
-Every event must be correctly indexed to enable lighter synchronization of the changes. Therefore, we index every `zk_id` according to `EventType`, `ServiceType`, and `Epoch`. Where `EventType = { "created", "active", "withdrawn" }` follows the type of the message.
+Every event must be correctly indexed to enable lighter synchronization of the changes. Therefore, we index every `declaration_id` according to `EventType`, `ServiceType`, and `Epoch`. Where `EventType = { "created", "active", "withdrawn" }` follows the type of the message.
 
 The `Epoch` key is the epoch of the block that contained the message, for all three event types.
 
@@ -310,7 +318,7 @@ events = {
     event_type: {
         service_type: {
             epoch: {
-                declarations: list[zk_id]
+                declarations: list[declaration_id]
             }
         }
     }
@@ -330,7 +338,7 @@ The declaration message is considered valid when all of the following are met:
 - The sender holds the private key corresponding to the `provider_id`.
 - The `locators` list is non-empty and not longer than 8 entries.
 
-If all of the above conditions are fulfilled, then the declaration is stored on the ledger under its service and `zk_id`; otherwise, the message is discarded.
+If all of the above conditions are fulfilled, then the declaration is stored on the ledger under its `declaration_id`; otherwise, the message is discarded.
 
 ### Active
 
@@ -342,7 +350,7 @@ The SDP active action logic is:
 
 1. A node sends an `ActiveMessage` transaction.
 2. The `ActiveMessage` is verified by the SDP logic:
-    1. The `service` and the `zk_id` return an existing `DeclarationInfo`.
+    1. The `declaration_id` returns an existing `DeclarationInfo`.
     2. The transaction containing `ActiveMessage` is signed by the `zk_id`.
     3. The `nonce` increases monotonically.
 3. If any of these conditions fail, discard the message and stop processing.
@@ -364,7 +372,7 @@ The logic of the withdraw action is:
 
 1. A node sends a `WithdrawMessage` transaction.
 2. The `WithdrawMessage` is verified by the SDP logic.
-    1. The `service` and the `zk_id` return an existing `DeclarationInfo`.
+    1. The `declaration_id` returns an existing `DeclarationInfo`.
     2. The transaction containing `WithdrawMessage` is signed by the `zk_id`.
     3. The `withdraw_at` of the `DeclarationInfo` is `None`.
     4. The `nonce` increases monotonically.
@@ -380,7 +388,7 @@ The protocol must enable querying the ledger in at least the following manner:
 - `GetAllProviderIdSince(epoch)`, returns all `provider_id`s since the `epoch`.
 - `GetAllDeclarationInfo(epoch)`, returns all `DeclarationInfo` entries associated with the `epoch`.
 - `GetAllDeclarationInfoSince(epoch)`, returns all `DeclarationInfo` entries since the `epoch`.
-- `GetDeclarationInfo(service_type, zk_id)`, returns the `DeclarationInfo` entry identified by the `service_type` and the `zk_id`.
+- `GetDeclarationInfo(declaration_id)`, returns the `DeclarationInfo` entry identified by the `declaration_id`.
 - `GetDeclarationInfo(service_type, provider_id)`, returns the `DeclarationInfo` entry of the `service_type` whose `provider_id` matches.
 - `GetAllServiceParameters(epoch)`, returns all entries of the `ServiceParameters` store for the requested `epoch`.
 - `GetAllServiceParametersSince(epoch)`, returns all entries of the `ServiceParameters` store since the requested `epoch`.

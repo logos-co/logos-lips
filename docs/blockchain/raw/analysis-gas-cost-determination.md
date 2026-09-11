@@ -31,7 +31,7 @@
 | 1.5.2 | Renamed locked notes into service notes and stated that the Input Gas covers the check that a note is neither a service nor a channel note | 2026-08-27 |
 | 1.5.3 | Adopted "active message" as the single name for the message | 2026-09-02 |
 | 1.5.4 | Renamed the `stake_manipulation_threshold` of the channel gas derivations into `transfer_threshold` and the Channel Stake Assignation section into Channel Transfer, following Mantle | 2026-08-31 |
-| 1.5.5 | [RFC] Align the SDP costs with declarations keyed by service and `zk_id`: no lock-period check | 2026-09-09 |
+| 1.5.5 | [RFC] The SDP costs price the per-service identifier checks and no lock-period check | 2026-09-11 |
 
 # Introduction
 
@@ -182,7 +182,7 @@ Execution: ~ 646k CPU cycles.
 
 - Verification of the Ed25519 signature: 56,000 cycles.
 - Verification of the ZK signature: 590,000 cycles.
-- Verification that the `zk_id` is not already registered in the service: negligible.
+- Verification that the declaration doesn’t already exist: negligible.
 - Verification that the `provider_id` is not already bound in the service: negligible.
 - Verification of locator length: negligible.
 - Verification of service note existence: negligible.
@@ -204,7 +204,7 @@ Execution: ~ 590k CPU cycles.
 - Remove the declaration and release its service note: negligible.
 ## SDP Activation
 
-This gas funds the verification of the zk_id signature through the ZkSignature verification process, validates the existence of the declaration in the system, and ensures that the active message's nonce is greater than any previous nonce to prevent replay attacks. The validation includes confirming that the `zk_id` is present in the declarations dictionary and that the signature corresponds to it.
+This gas funds the verification of the zk_id signature through the ZkSignature verification process, validates the existence of the declaration in the system, and ensures that the active message's nonce is greater than any previous nonce to prevent replay attacks. The validation includes confirming that the declaration ID is present in the declarations dictionary and that the signature corresponds to the declaration's registered zk_id public key.
 
 - Execution: ~590k CPU cycles.
     - Verification that the declaration exist: negligible.
