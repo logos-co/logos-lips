@@ -32,6 +32,8 @@
 | 1.2.1 | Pointed the `EpochNumber` of the activity proof at its definition in [Epoch](cryptarchia-v1-protocol.md#epoch) | 2026-08-25 |
 | 1.3.0 | [RFC] Replace the BLAKE2b-Based PRNG with ChaCha20 (ChaCha20Rng) | 2026-08-28 |
 | 1.3.1 | Judged the active message window by the epoch of the including block, made the one-message-per-epoch rule per attested epoch, and made the transition-period delay a release constraint | 2026-09-02 |
+| 1.4.0 | Removed the message and Activity Proof `version` bytes, put the era in the libp2p protocol name, and linked the era rules for the transition period and for releasing ([Bedrock Eras](bedrock-eras.md)). | 2026-09-04 |
+| 1.4.1 | Updated `Max_Payload_Length` to 18190 bytes in the overhead calculation, following the removal of the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)). | 2026-09-04 |
 
 # Introduction
 
@@ -388,9 +390,8 @@ For a complete description of the generation logic, refer to [Generation](#gener
 When a node receives a message from one of its neighbors, it does the following:
 
 1. Checks the public header of the message, that is:
-    1. The version of the message must be equal to `0x01`; if not, then discard the message.
-    2. The proof of quota nullifier must be unique; if not, then discard the message.
-    3. The signature must be valid; if not, then discard the message.
+    1. The proof of quota nullifier must be unique; if not, then discard the message.
+    2. The signature must be valid; if not, then discard the message.
 2. The message is released to the network as defined in the [Releasing](#releasing) section.
 3. Concurrently to the above, the message is handled by the processing logic as defined in the [Processing](#processing) section.
 
@@ -504,7 +505,7 @@ Implementations should choose a default based on the deployment they operate in,
 
 ### Connection Details
 
-The connections are established using libp2p with TLS version 1.3 (not older). The cryptographic scheme is Ed25519 with ephemeral keys**.** The libp2p protocol name is `/logos-blockchain/blend/1.0.0` for mainnet and `/logos-blockchain-testnet/blend/1.0.0` for testnet.
+The connections are established using libp2p with TLS version 1.3 (not older). The cryptographic scheme is Ed25519 with ephemeral keys**.** The libp2p protocol name is `/logos-blockchain/<era>/blend` for mainnet and `/logos-blockchain-testnet/<era>/blend` for testnet ([Network Protocol Identity](bedrock-eras.md#network-protocol-identity)).
 
 ### Neighbor Distinction Process
 
@@ -574,6 +575,8 @@ When a new **epoch** begins:
 - The node validates message proofs against both new and past epoch-related public input for the duration of TP. This allows past-epoch messages to safely transit through the network, as their validity is bound to the epoch in which they were generated.
 - The node must open new connections to process new messages for the new epoch.
 - The node needs to maintain old connections and process all messages received from these connections for the duration of TP.
+
+At an era boundary, the [Era Transition Period](bedrock-eras.md#era-transition-period) also applies.
 
 ## Quota
 
@@ -767,7 +770,7 @@ To protect its own privacy, a core node should emit cover messages in a fully ra
 
 ### **Message Structure**
 
-For this document, we present a definition of the message structure as defined in the [Message Encapsulation Mechanism](message-encapsulation.md). For simplicity, we omit the versioning of the message as defined in [Message Formatting](message-formatting.md).
+For this document, we present a definition of the message structure as defined in the [Message Encapsulation Mechanism](message-encapsulation.md).
 
 A node $`n`$ constructs a message $`\mathbf M = (\mathbf H, \mathbf h, \mathbf P)`$ according to the format presented below.
 
@@ -787,7 +790,7 @@ A node $`n`$ constructs a message $`\mathbf M = (\mathbf H, \mathbf h, \mathbf P
 
 3. $`\mathbf P`$ is a payload.
 
->**Encapsulation Overhead Calculation:** Assuming that we use Groth16 SNARKs as a proving system, we need $`160`$ bytes per PoQ ($`128`$ for proof and $`32`$ for nullifier) quota. Which gives us $`289`$ bytes per hop (proof of quota $`160`$ bytes + proof of selection $`32`$ bytes + public key $`32`$ bytes + signature $`64`$ bytes + last flag $`1`$ byte) plus $`256`$ bytes for the public header. Which for $`3`$ hops gives us $`1123`$ bytes in total. That is added to the payload being encapsulated, which is `Max_Payload_Length` = $`18195`$ bytes ([Message Formatting](message-formatting.md)): the padded `Max_Body_Length` of [Payload Formatting](payload-formatting.md), set from the maximum size of the block proposal defined in [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md), plus the 3-byte payload header. The encapsulation therefore adds $`\approx 6.2\%`$.
+>**Encapsulation Overhead Calculation:** Assuming that we use Groth16 SNARKs as a proving system, we need $`160`$ bytes per PoQ ($`128`$ for proof and $`32`$ for nullifier) quota. Which gives us $`289`$ bytes per hop (proof of quota $`160`$ bytes + proof of selection $`32`$ bytes + public key $`32`$ bytes + signature $`64`$ bytes + last flag $`1`$ byte) plus $`256`$ bytes for the public header. Which for $`3`$ hops gives us $`1123`$ bytes in total. That is added to the payload being encapsulated, which is `Max_Payload_Length` = $`18190`$ bytes ([Message Formatting](message-formatting.md)): the padded `Max_Body_Length` of [Payload Formatting](payload-formatting.md), set from the maximum size of the block proposal defined in [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md), plus the 3-byte payload header. The encapsulation therefore adds $`\approx 6.2\%`$.
 
 ### Formatting
 
@@ -900,6 +903,8 @@ The process of releasing messages involves the following steps:
 - As soon as a **data** message is generated, one random unreleased (future) **cover** message must be removed from the release schedule to maintain the node’s statistical indistinguishability.
 - If more than one message needs to be released for the same round, they must be randomly shuffled before release.
 
+The era of the connections a message is released on is defined in [Network Protocol Identity](bedrock-eras.md#network-protocol-identity).
+
 The cover and data message generation processes are **independent**, and there is a non-zero probability that more than one message will be scheduled for the same round. Therefore, the number of messages that can be released during a single round is **not restricted**.
 
 However, a node can calculate the expected number of messages to be released per release round. This depends on the value of $`\Delta_{max}`$, the network size (number of core nodes), and the generation quota. This number can be used to detect spammy nodes as part of the [Connectivity Maintenance](#connectivity-maintenance) logic.
@@ -1000,7 +1005,7 @@ Where:
 - `ProofOfSelection` is defined in [Proof of Selection](#proof-of-selection).
 - `SigningKey` is the key used to sign the `ProofOfQuota`.
 
-The serialized form of these fields, together with the two header bytes that precede them, is defined in [Active Message](#active-message).
+The serialized form of these fields, together with the header byte that precedes them, is defined in [Active Message](#active-message).
 
 ### Activity Threshold
 
@@ -1033,17 +1038,14 @@ The `metadata` field is the concatenation of the following fields, in order:
 | Field | Size (bytes) | Value |
 | --- | --- | --- |
 | `metadata_type` | 1 | `0x01`, identifying the payload as Blend service activity metadata |
-| `version` | 1 | `0x01`, the version of the Blend [Activity Proof](#activity-proof) format |
 | `epoch_number` | 4 | the epoch $`e`$ the proof attests to, encoded as little-endian |
 | `signing_key` | 32 | the public key $`K^{n}_{l}`$ used to verify the two proofs below |
 | `proof_of_quota` | 160 | $`\pi_{Q}^{K^{n}_{l}}`$, serialized as defined in [Proof of Quota](proof-of-quota.md) |
 | `proof_of_selection` | 32 | $`\pi_{S}^{K^{n}_{l},l}`$ |
 
-The total size of the `metadata` field is therefore $`230`$ bytes.
+The total size of the `metadata` field is therefore $`229`$ bytes.
 
-The two leading bytes serve distinct purposes and must not be conflated. The `metadata_type` byte selects how the service-specific `metadata` field is interpreted, so that the SDP active message can carry activity metadata for services other than Blend. The `version` byte versions the Blend Activity Proof format itself, independently of that selector.
-
-The `metadata_type` must be equal to `0x01`; if not, then discard the message. The `version` must be equal to `0x01`; if not, then discard the message.
+The `metadata_type` must be equal to `0x01`; if not, then discard the message.
 
 The active message is stored on the ledger.
 

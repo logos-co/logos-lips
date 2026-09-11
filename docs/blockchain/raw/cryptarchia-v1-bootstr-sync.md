@@ -26,6 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.0.1 | Noted that a streamed `Block` carries the signed headers of the uncles it references, which is what lets a synchronizing node validate those blocks and reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) without ever seeing their proposals, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
+| 1.1.0 | The sync protocol ID carries the era number in place of the version; blocks are parsed and validated under the era of their slot; the checkpoint state carries the recorded chain state, encoded under the era of the checkpoint block ([Bedrock Eras](bedrock-eras.md)). | 2026-09-04 |
 
 # Introduction
 
@@ -153,7 +154,7 @@ def initial_block_download(peers, local_tree):
 
 ![Diagram](cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-81f6-bb41-fdbd8907329f.png)
 
-The downloaded blocks are validated and added to the local block tree using the fork choice rule determined above. Both block headers and block bodies must be validated. The header validation rules are defined in [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation).
+The downloaded blocks are validated and added to the local block tree using the fork choice rule determined above. Both block headers and block bodies must be validated. Each block is parsed and validated under the era of its slot ([Interpreting Chain Data](bedrock-eras.md#interpreting-chain-data)). The header validation rules are defined in [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation).
 
 If the node fails to catch up with at least one IBD peer (e.g., network error or invalid blocks), the node is terminated with an error, allowing the operator to restart the node with other IBD peers.
 
@@ -207,8 +208,10 @@ For performing [Initial Block Download](#initial-block-download) and handling or
 
 **Libp2p Protocol ID**
 
-- Mainnet: `/logos-blockchain/cryptarchia/sync/1.0.0`
-- Testnet: `/logos-blockchain-testnet/cryptarchia/sync/1.0.0`
+- Mainnet: `/logos-blockchain/<era>/cryptarchia/sync`
+- Testnet: `/logos-blockchain-testnet/<era>/cryptarchia/sync`
+
+`<era>` is defined in [Network Protocol Identity](bedrock-eras.md#network-protocol-identity).
 
 ```python
 class DownloadBlocksRequest:
@@ -297,7 +300,7 @@ Instead of bootstrapping from the Genesis block or from the local block tree, a 
 
 A trusted checkpoint provider exposes a HTTP endpoint, allowing nodes to download the checkpoint block and the corresponding ledger state. The details are defined in [Checkpoint Provider HTTP API](#checkpoint-provider-http-api).
 
-The bootstrapping node imports the downloaded checkpoint block and ledger state before starting bootstrapping. The imported checkpoint block is used as the latest immutable block $`B_{imm}`$ and the local chain tip $`c_{loc}`$. Starting from the checkpoint block, the same [Initial Block Download](#initial-block-download) is used to downloads blocks up to the tip of the local chain of each peer. As defined in [Setting the Fork Choice Rule](#setting-the-fork-choice-rule), the Bootstrap fork choice rule must be used upon startup.
+The bootstrapping node imports the downloaded checkpoint block and ledger state before starting bootstrapping. The `checkpoint_ledger_state` carries the recorded chain state defined in [Era Migration](bedrock-eras.md#era-migration), encoded under the era of the slot of the checkpoint block. The imported checkpoint block is used as the latest immutable block $`B_{imm}`$ and the local chain tip $`c_{loc}`$. Starting from the checkpoint block, the same [Initial Block Download](#initial-block-download) is used to downloads blocks up to the tip of the local chain of each peer. As defined in [Setting the Fork Choice Rule](#setting-the-fork-choice-rule), the Bootstrap fork choice rule must be used upon startup.
 
 ![Diagram](cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-817b-883e-df4c9ca6ae54.png)
 

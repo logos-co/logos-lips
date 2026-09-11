@@ -73,6 +73,7 @@ FILE_ASSIGNMENTS = {
 
     # Mantle
     "blockchain/raw/bedrock-architecture-overview.md": ("Mantle", "[Overview] Bedrock Architecture"),
+    "blockchain/raw/bedrock-eras.md": ("Mantle", "Bedrock Eras"),
     "blockchain/deprecated/v1.0.0-bedrock-architecture-overview.md": ("Mantle", "[1.0.0] [Overview] Bedrock Architecture"),
     "blockchain/raw/bedrock-v1.1-mantle-specification.md": ("Mantle", "Mantle"),
     "blockchain/deprecated/v1.4.0-mantle.md": ("Mantle", "[1.4.0] Mantle"),
