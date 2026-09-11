@@ -28,6 +28,7 @@
 | 1.0.1 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.1.0 | [RFC] Replace the BLAKE2b-Based PRNG with ChaCha20 (ChaCha20Rng) | 2026-08-28 |
 | 1.2.0 | Add the proof of work case to the Proof of Quota generation procedure | 2026-08-31 |
+| 1.2.1 | The public key of a selected node is carried by its `provider_id` | 2026-09-07 |
 
 # Introduction
 
@@ -292,7 +293,7 @@ The first step is to generate a set of keys alongside all necessary proofs that 
     ```
 
 3. Generate proofs of selection $`\pi^{K^{n}_i,l_i}_{S}`$ for $`i \in \{1,…,h\}`$, which proves that the public key $`K^{n}_i`$ correctly maps to the index $`l_i`$ from the set of nodes $`\mathcal{N}`$.
-4. For $`i \in \{1,…,h\}`$, retrieve public keys $`\mathcal P = \{ {P^{l_1},..., P^{l_h}} \}`$ for all $`h`$ selected nodes using the SDP protocol (defined as `provider_id` in [Identifiers](bedrock-service-declaration-protocol.md#identifiers)).
+4. For $`i \in \{1,…,h\}`$, retrieve public keys $`\mathcal P = \{ {P^{l_1},..., P^{l_h}} \}`$ for all $`h`$ selected nodes using the SDP protocol, each carried by the node's `provider_id` ([Identifiers](bedrock-service-declaration-protocol.md#identifiers)).
     ```python
     def blend_node_signing_public_keys(selected_nodes: List[Node]) -> List[Ed25519PublicKey]:
         return [node.signing_public_key for node in selected_nodes]

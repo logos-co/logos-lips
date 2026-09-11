@@ -32,7 +32,8 @@
 | 1.1.4 | Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy. | 2026-08-25 |
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
 | 1.2.0 | Seed the pow reward pool at genesis | 2026-09-08 |
-| 1.2.1 | Align the initial service declarations with the Service Declaration Protocol: the `BN` service type, the full `DeclarationMessage` shape, and multiaddr locators | 2026-09-01 |
+| 1.2.1 | Align the initial service declarations with the Service Declaration Protocol: the `BN` service type and the full `DeclarationMessage` shape | 2026-09-01 |
+| 1.2.2 | The initial service declarations carry no addresses | 2026-09-02 |
 
 # Introduction
 
@@ -99,7 +100,6 @@ Blend enforces a minimal network size for the service to be active. Thus, in ord
 BLEND_DECLARATIONS = [
     Op(opcode=SDP_DECLARE, payload=encode(DeclarationMessage(
         service_type=ServiceType.BN,
-        locators=["/ip4/1.1.1.1/tcp/3000"],
         provider_id=PROVIDER_ID_0,
         service_note_id=STAKE_DISTRIBUTION_TX.output_note_id(0),
         zk_id=ZK_ID_0,
@@ -257,7 +257,6 @@ CRYPTARCHIA_INSCRIPTION = Inscribe(
 BLEND_DECLARATIONS = [
     Op(opcode=SDP_DECLARE, payload=encode(DeclarationMessage(
         service_type=ServiceType.BN,
-        locators=["/ip4/1.1.1.1/tcp/3000"],
         provider_id=PROVIDER_ID_0,
         service_note_id=STAKE_DISTRIBUTION.output_note_id(0),
         zk_id=ZK_ID_0,

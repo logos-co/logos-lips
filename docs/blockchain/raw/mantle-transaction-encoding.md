@@ -34,6 +34,7 @@
 | 1.7.0 | Added the `ChannelConfigOpProof` and `ChannelTransferOpProof` variants and factored the three channel threshold proofs into `ChannelMultiSigProof`, carrying the index of the signing key alongside each signature | 2026-08-31 |
 | 1.8.0 | Added the `ClaimPowReward` Operation payload; its proof is a `ZkSigProof` | 2026-09-08 |
 | 1.9.0 | [RFC] `SDPWithdraw` drops the redundant `ServiceNoteId` | 2026-09-11 |
+| 1.10.0 | [RFC] `SDPDeclare` drops the `Locators` production, and `ProviderId` becomes the 38-byte libp2p `PeerId` | 2026-09-09 |
 
 # Introduction
 
@@ -114,12 +115,9 @@ Inputs            = InputCount *NoteId
 ### SDP Operations
 
 ```schema
-SDPDeclare    = ServiceType Locators ProviderId ZkId ServiceNoteId
+SDPDeclare    = ServiceType ProviderId ZkId ServiceNoteId
 ServiceType   = Byte          ; 0 = BN
-Locators      = LocatorCount *Locator
-LocatorCount  = Byte          ; Max 8
-Locator       = 2Byte *BYTE   ; Max 329 bytes, multiaddr binary form
-ProviderId    = Ed25519PublicKey
+ProviderId    = 38BYTE          ; libp2p PeerId: 0x002408011220 || Ed25519PublicKey
 ZkId          = ZkPublicKey
 ServiceNoteId = NoteId
 

@@ -33,6 +33,7 @@
 | 1.5.4 | Renamed the `stake_manipulation_threshold` of the channel gas derivations into `transfer_threshold` and the Channel Stake Assignation section into Channel Transfer, following Mantle | 2026-08-31 |
 | 1.6.0 | Add the Execution Gas derivation for the `CLAIM_POW_REWARD` Operation | 2026-09-04 |
 | 1.6.1 | [RFC] The SDP costs price the per-service identifier checks and no lock-period check | 2026-09-11 |
+| 1.6.2 | Declaring no longer verifies locators | 2026-09-09 |
 
 # Introduction
 
@@ -186,7 +187,6 @@ Execution: ~ 646k CPU cycles.
 - Verification of the ZK signature: 590,000 cycles.
 - Verification that the declaration doesn’t already exist: negligible.
 - Verification that the `provider_id` is not already bound in the service: negligible.
-- Verification of locator length: negligible.
 - Verification of service note existence: negligible.
 - Verification of service note value: negligible.
 - Verification that the note isn’t already used: negligible.
