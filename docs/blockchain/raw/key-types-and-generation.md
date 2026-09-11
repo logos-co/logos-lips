@@ -26,6 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-09 |
 | 1.0.1 | [RFC] Remove Concept of a Session | 2026-06-22 |
+| 1.1.0 | Add the Proof of Work Nonce | 2026-08-31 |
 
 # Introduction
 
@@ -38,6 +39,7 @@ This document ensures that the keys are used and generated in a common manner, w
 - **Non-ephemeral Quota Key (NQK)** — used for proving that a node is a core node.
 - **Non-ephemeral Signing Key (NSK)** — used to authenticate the node on the network level and derive the Non-ephemeral Encryption Key.
 - **Ephemeral Signing Key (ESK)** — used for signing Blend messages, one per encapsulation.
+- **Proof of Work Nonce (PWN)** — used for proving that a node holds a proof of work solution, one per solution. It is a secret, not a key.
 - **Non-ephemeral Encryption Key (NEK)** — used for deriving shared secrets for message encryption.
 - **Ephemeral Encryption Key (EEK)** — used for encrypting Blend messages, one per encapsulation.
 
@@ -62,6 +64,10 @@ A node generates Ephemeral Signing Keys (ESK) that are proved to be limited in n
 A unique signing key must be generated for every encapsulation as required by the [Message Encapsulation Mechanism](message-encapsulation.md).
 
 The key must not be reused. Otherwise, the messages that reuse the same key can be linked together. The node is responsible for not reusing the key.
+
+## Proof of Work Nonce
+
+The Proof of Work Nonce (PWN) is a scalar field element found by search: the node samples candidates with full entropy until the puzzle ticket derived from the candidate and the epoch nonce falls below the Blend threshold of the epoch, as defined in [Proof of Quota](proof-of-quota.md). It is a private witness of the PoQ circuit, never appears in a message, and is bound to the epoch it was found for.
 
 ## Non-ephemeral Encryption Key
 
