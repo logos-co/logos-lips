@@ -22,8 +22,8 @@
 | Version | Changes | Date |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-24 |
-| 1.1.0 | Changing from burning/minting to pooling/distributing/releasing, removing $`S_{tge}`$ | 2026-06-22 |
-| 1.2.0 | Block reward redefined as $`R_t = R^{\text{block}}_t + A_t c`$. Fee cap, fee split and excess capture removed; the reserve throttle removed and replaced by a solvency clamp. | 2026-08-23 |
+| 1.1.0 | Changing from burning/minting to pooling/distributing/releasing, removing $`S_{tge}`$ | 2026-08-25 |
+| 1.2.0 | Block reward redefined as $`R_t = R^{\text{block}}_t + A_t c`$. Fee cap, fee split and excess capture removed; the reserve throttle removed and replaced by a solvency clamp. | 2026-09-12 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
