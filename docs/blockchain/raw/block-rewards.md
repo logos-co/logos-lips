@@ -422,7 +422,7 @@ The clamp against $`B_{t-1}`$ is applied after the multiplication and floor, on 
 
 ## Bit width
 
-The largest intermediate is $`\max \lbrace \Lambda^{\ast} M, \; M c^{\ast} \rbrace = \Lambda^{\ast} M = 2.15 \cdot 10^{36}`$, which fits in `u128` with a factor of $`158`$ of headroom. `u64` is insufficient by seventeen orders of magnitude. Any change to $`\Lambda`$ or $`M`$ must preserve
+The largest intermediate is $`\max \lbrace \Lambda^{\ast} M, \; M c^{\ast} \rbrace = \Lambda^{\ast} M = 2.15 \cdot 10^{36}`$, which fits in `uint128` with a factor of $`158`$ of headroom. `uint64` is insufficient by seventeen orders of magnitude. Any change to $`\Lambda`$ or $`M`$ must preserve
 
 $$
 \max \lbrace \Lambda^{\ast} M, \; M c^{\ast} \rbrace < 2^{128} .
