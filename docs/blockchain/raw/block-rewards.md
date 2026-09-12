@@ -430,20 +430,6 @@ $$
 
 The rewards pool accumulator is no longer bounded by a protocol constant, because the fee component of $`R_t`$ is uncapped. Its reserve-funded part is at most $`L c^{\ast} \approx 2.06 \cdot 10^{24}`$ base units, and the only bound on the total is the conservation bound $`P_t \le S_{cap}^{\ast} = 10^{28}`$ base units. `uint128` accommodates the latter with eleven orders of magnitude to spare; `uint64` does not accommodate either.
 
-## Accuracy
-
-A full chain of $`20`$ epochs of $`L = 21600`$ blocks, $`432000`$ blocks in total, was simulated against exact rational arithmetic with $`D_t \in [0, 4 \cdot 10^9]`$ LGO and $`R^{\text{block}}_t \in [0, 3c]`$ drawn independently at each block. The run was repeated with the reserve initialized at $`2 \cdot 10^6`$ LGO so that the clamp binds. The differential test is `new-block-rewards/assets/reference_implementation.py`.
-
-- worst absolute deviation from the exact block reward: $`2.22 \cdot 10^{-8}`$ LGO per block, that is $`0.023`$ LGO per year against a maximum annual release of $`10^8`$ LGO, a relative error of $`2.3 \cdot 10^{-10}`$ on the annual emission. Identical in both runs, since the fee term is exact and the clamp does not add error.
-- $`R^{\text{block}}_t \le R_t \le R^{\text{block}}_t + c^{\ast}`$: holds at every block, confirming [Derived Property P3](analysis-block-rewards.md#p3-block-reward-bounds-and-monotonicity) and R5.
-- $`\iota_t \le B_{t-1}`$: holds at every block, in both runs, confirming [Derived Property P6](analysis-block-rewards.md#p6-the-reserve-pool-covers-every-released-reward).
-- $`B_t = \max \lbrace 0, B_0 - \sum_{s \le t} \lfloor A_s c^{\ast} \rfloor \rbrace`$: exact at every block in both runs, including through exhaustion, confirming the closed form of [Derived Property P5](analysis-block-rewards.md#p5-closed-form-for-the-stock-dynamics).
-- $`B_t \ge 0`$ with exact termination: in the near-empty run the reserve reached exactly zero at block $`30648`$ and stayed there, with the release identically zero thereafter and the block reward equal to the fees.
-- $`S_t + B_t + P_t`$ constant: checked at every block, including boundaries, confirming [Derived Property P1](analysis-block-rewards.md#p1-conservation) at integer precision.
-- $`P_{T_e} = 0`$ at all $`20`$ boundaries, confirming [Derived Property P2](analysis-block-rewards.md#p2-the-rewards-pool-accrues-within-an-epoch-and-discharges-at-the-boundary) and R9.
-- $`\Pi^{blend}_e + \Pi^{leader}_e = \Pi_e`$: exact. Computing the two components with independent floor divisions would lose up to one base unit per settlement and break [Derived Property P1](analysis-block-rewards.md#p1-conservation); assigning the residual to the leader share removes the loss.
-- peak rewards pool balance: $`4.51 \cdot 10^6`$ LGO, against a reserve-funded component of at most $`L c = 2.05 \cdot 10^6`$ LGO. The excess is fee-driven and scales with fee volume, which is the observable consequence of the accumulator no longer having a protocol bound.
-
 ## Reference
 
 ```python
