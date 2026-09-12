@@ -76,7 +76,7 @@ Two neighbouring terms are not rewards:
 Four architectural constraints of Logos Blockchain determine the shape of the mechanism.
 
 - **Unlinkability.** Block proposal and reward collection are decoupled, so a block reward cannot be assigned to an identified proposer.
-- **Fee pooling.** Transaction fees are routed to a protocol account rather than paid directly to a proposer.
+- **Fee pooling.** Transaction fees are routed to a protocol reward pool rather than paid directly to a proposer.
 - **Global metrics.** The block reward is a function of network-wide state observable at block production time, not of proposer-local or single-transaction data.
 - **Epoch settlement.** Block rewards are computed per block but paid per epoch. The amount owed accrues over the blocks of an epoch and is transferred at the epoch boundary to the distribution protocols, which pay individual recipients.
 
