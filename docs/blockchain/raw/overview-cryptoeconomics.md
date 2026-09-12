@@ -7,7 +7,7 @@
 | Status | raw |
 | Category | Informational |
 | Editor | Thomas Lavaur <thomas@logos.co> |
-| Contributors | Marcin Pawlowski <marcin@logos.co>, Filip Dimitrijevic <filip@logos.co> |
+| Contributors | Marcin Pawlowski <marcin@logos.co>, Filip Dimitrijevic <filip@logos.co>, Frederico Teixeira <frederico@logos.co> |
 
 <!-- timeline:start -->
 
@@ -27,6 +27,7 @@
 | 1.2.0 | Reflect the downward rounding of the leader share | 2026-08-05 |
 | 1.2.1 | Changing from burning/minting to pooling/distributing/releasing | 2026-08-25 |
 | 1.2.2 | Stated that the minimum stake of a service is locked in a service note | 2026-08-27 |
+| 1.2.3 | Align with the reviewed Block Rewards, Execution Market and Anonymous Leaders Reward specs | 2026-08-27 |
 
 > **Disclaimer**:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -59,11 +60,11 @@ In this section we present an overview of the cryptoeconomical aspects of the Lo
 - Transactions may incur up to two types of fees:
     - Execution fee: covers the computational resources consumed by the transaction.
     - Permanent Storage fee: covers the permanent Ledger storage resources consumed by the transaction.
-- Execution base fees and storage fees are routed into the rewards pool for each block, removing them from circulation.
+- Execution base fees and Permanent Storage fees are routed into the rewards pool for each block, where they stay until the epoch settlement returns them in full. Execution priority fees are routed instead to the leader reward pool, and take no Blend share.
 - Rewards are distributed on an epoch basis:
-    - Leaders (block proposers) include Mantle Transactions in every block. Each transaction pays Permanent Storage and Execution fees, which are routed into the rewards pool. For each block, a reward is calculated following the [Block Rewards](block-rewards.md). Additionally, a portion of the Execution fees is distributed back to leaders from the pool according to the [Execution Market](execution-market.md). These two sources determine the total rewards allocated to leaders, as explained in [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders), which correspond to tips from the Execution market and 40% of block rewards. For anonymity reasons, block proposers don't receive rewards directly. Instead, leader rewards accumulate in a single pool that increases on an epoch basis rather than per block (see [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md)). When a new epoch begins, the pool increases by the total leader rewards from all blocks in the previous epoch. Simultaneously, leaders from the previous epoch can start claiming their rewards, with each unclaimed reward (since genesis) representing one equal share of the pool.
+    - Leaders (block proposers) include Mantle Transactions in every block. Each transaction pays Permanent Storage fees and Execution fees. The Permanent Storage fees and the Execution base fees are routed into the rewards pool, in which a reward accrues for each block following the [Block Rewards](block-rewards.md). The Execution priority fees are routed separately, in full, to the leader reward pool, and take no Blend share (see [Execution Market](execution-market.md)). These two sources determine the total rewards allocated to leaders, as explained in [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders), which correspond to the tips of the Execution market, and 40% of the epoch settlement of block rewards. For anonymity reasons, block proposers don't receive rewards directly. Instead, leader rewards accumulate in a single pool that increases on an epoch basis rather than per block (see [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md)). When a new epoch begins, the pool increases by the total leader rewards from all blocks in the previous epoch. Simultaneously, leaders from the previous epoch can start claiming their rewards, with each unclaimed reward (since genesis) representing one equal share of the pool.
     - Blend nodes provide Blend service to the network for at least one epoch. Using the same [Block Rewards](block-rewards.md), the protocol determines the total rewards allocated to the Blend network, as explained in [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders) which correspond to 60% of the block rewards. 
-    When an epoch $`e`$  ends, Blend validators have one additional epoch $`e+1`$  to send an active message used by the [Reward Distribution Protocols](#reward-distribution-protocols) to determine reward distribution among validators. During the first block of epoch $`e+2$, Blend validators from epoch $`e`$ receive their portion of [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders) rewards, with proportions determined by the [Reward Distribution Protocols](#reward-distribution-protocols). These rewards are distributed at the start of the next epoch.
+    When an epoch $`e`$  ends, Blend validators have one additional epoch $`e+1`$  to send an active message used by the [Reward Distribution Protocols](#reward-distribution-protocols) to determine reward distribution among validators. During the first block of epoch $`e+2`$, Blend validators from epoch $`e`$ receive their portion of [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders) rewards, with proportions determined by the [Reward Distribution Protocols](#reward-distribution-protocols). These rewards are distributed at the start of the next epoch.
 - The [Service Rewards Distribution Protocol](#service-rewards-distribution-protocol) handles payments of rewards for Blend Services to individual nodes.
 - Individual leaders claim their rewards through a [Leader Claim Operation](bedrock-v1.1-mantle-specification.md) (on-chain transaction) that preserves privacy by separating the leader reward from the proposed block.
 
@@ -135,12 +136,12 @@ The following sections explain how these principles apply to different roles in 
 
 ### Blend Service and Consensus Leaders
 
-The Blend service and the leaders proposing the blocks share a same block reward that is calculated for each block based on a KPI function. This KPI function takes as input the inferred total stake and the amount of Execution and Permanent Storage fees of the block. How the KPI function calculates each block reward is explained in [Block Rewards](block-rewards.md).
+The Blend service and the leaders proposing the blocks share the same block reward that is calculated for each block. It is the sum the block's Execution base fees and Permanent Storage fees, passed through in full, and a release from the reserve sized by a KPI function. That KPI function takes a single input, the inferred total stake, and does not depend on fee revenue. How each block reward is calculated is explained in [Block Rewards](block-rewards.md).
 
 - Blend rewards are distributed among all active Blend Nodes. Blend rewards are composed of a fraction of the block rewards. These rewards of epoch $`e`$ are defined when a new Blend epoch $`e+1`$ starts (a defined number of blocks) and are allocated to nodes based on their reported Active Messages and the [Reward Distribution Protocols](#reward-distribution-protocols) during epoch $`e+2`$ . The [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md) manages the direct payment to nodes.
-- Leaders get a voucher for each included block in epoch $`e`$ . Vouchers represent an equal share of the leader reward pool. At the start of epoch $`e+1`$ , the leaders rewards of epoch $`e`$ are added to the pool (represented by a variable) and the voucher of epoch $`e`$ can start being used. The amount added to the pool is composed of a fraction of the block rewards and a portion of the Execution fees distributed back according to the [Execution Market](execution-market.md) from all blocks of epoch $`e`$ . Vouchers can be exchanged with a reward through a [Leader Claim Operation](bedrock-v1.1-mantle-specification.md) (on-chain transaction) that preserves privacy by decoupling the leader reward from the proposed block. The reward amount, represented by a share of the pool, is computed when the claim Operation is executed (c.f. [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md)).
+- Leaders get a voucher for each included block in epoch $`e`$ . Vouchers represent an equal share of the leader reward pool. At the start of epoch $`e+1`$ , the leaders rewards of epoch $`e`$ are added to the pool (represented by a variable) and the voucher of epoch $`e`$ can start being used. The amount added to the pool is composed of the leader share of the epoch settlement of block rewards, and of the Execution priority fees of all blocks of epoch $`e`$ , credited in full according to the [Execution Market](execution-market.md). Vouchers can be exchanged with a reward through a [Leader Claim Operation](bedrock-v1.1-mantle-specification.md) (on-chain transaction) that preserves privacy by decoupling the leader reward from the proposed block. The reward amount, represented by a share of the pool, is computed when the claim Operation is executed (c.f. [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md)).
 
-Each block reward of each block is split as follows between the Blend service and the leader:
+The block rewards accrued over an epoch are split as follows between the Blend service and the leader:
 
 - 40% for the leader.
 - 60% for the Blend service.
@@ -156,20 +157,22 @@ At the start of each Blend epoch, a Blend reward variable is computed. Its amoun
 
 ```python
 def get_blend_reward(e: epoch): # rewards for the epoch e
-    blend_rewards = 0
+    settlement = 0
     for b in e.blocks: # for each block of the previous epoch
-        blend_rewards += 0.6 * get_block_rewards(b) # get 60% of the rewards
-    return blend_rewards
+        settlement += get_block_rewards(b) # accrue, do not split per block
+    return 3 * settlement // 5 # 60%, split once on the epoch total
 ```
 
-At the start of each epoch, the rewards are added to the leader rewards. Its amount is increased by 40% of the total block rewards of the previous epoch. The blocks from the previous epoch are denoted by B in the pseudocode below:
+At the start of each epoch, the rewards are added to the leader rewards. Its amount is increased by the leader share of the previous epoch's block rewards, that is the residual of the 60% Blend share on the epoch total, and by the Execution priority fees of that epoch in full. The blocks from the previous epoch are denoted by B in the pseudocode below:
 
 ```python
 def update_leader_rewards(e: epoch, # rewards for the epoch e
     leader_rewards: int): # added to the leader reward pool
+    settlement = 0
     for b in e.blocks: # for each block of the previous epoch
-        leader_rewards += 0.4 * get_block_rewards(b) # get 40% of the rewards
-        leader_rewards += get_execution_market_tips(b) # get Execution market tips
+        settlement += get_block_rewards(b) # accrue, do not split per block
+        leader_rewards += get_execution_market_tips(b) # tips, in full, no Blend share
+    leader_rewards += settlement - (3 * settlement // 5) # the residual, 40%
     return leader_rewards
 ```
 
@@ -181,8 +184,8 @@ To protect leaders' privacy, we must not link leaders to their blocks and reward
 
 The [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md) defines how leader rewards are maintained in the ledger and how leaders can claim them. Leader rewards follow a two-step procedure:
 
-1. When a new epoch $`e`$ starts, the unique reward pool variable for leaders is updated, increasing by the reward amount for the previous epoch $`e-1`$. This reward amount is calculated as the sum of leader block rewards from epoch $`e-1`$. Simultaneously, consensus nodes update the voucher set, adding vouchers of leaders from epoch $`e-1`$ to the global voucher set.
-1. From epoch $`e`$ onward, leaders can exchange their vouchers for shares of the rewards pool, as their vouchers are now in the set. Each unclaimed voucher represents an equal share of the leader rewards pool.
+1. When a new epoch $`e`$ starts, the unique reward pool variable for leaders is updated, increasing by the reward amount for the previous epoch $`e-1`$. This reward amount is the leader share of the block rewards settled for epoch $`e-1`$, together with the Execution priority fees of that epoch. Simultaneously, consensus nodes update the voucher set, adding vouchers of leaders from epoch $`e-1`$ to the global voucher set.
+2. From epoch $`e`$ onward, leaders can exchange their vouchers for shares of the rewards pool, as their vouchers are now in the set. Each unclaimed voucher represents an equal share of the leader rewards pool.
 
 Claimable rewards remain stable during an epoch because the reward pool decreases proportionally to the number of unclaimed vouchers, and the pool is neither increased nor are new vouchers added to the set during an epoch. The share being a whole number of tokens, it is rounded down, so two leaders claiming during the same epoch may still differ by one token, the last claimants of the epoch being the ones receiving the extra token. The remainder of the division is left in the pool and redistributed at the next epoch.
 
@@ -204,8 +207,8 @@ The [Service Reward Distribution Protocol](bedrock-service-reward-distribution.m
 
 In this section we provide references to the core specifications that define the mechanisms introduced throughout this document. Together, these specifications form the foundation of the Logos Blockchain cryptoeconomic model by detailing how fees are collected, how rewards are determined, and how incentives align across different roles in the network. Below is a short overview of each:
 
-- [Block Rewards](block-rewards.md). Outlines the KPI-based reward emission model that governs leader and Blend rewards. It details how emission from the reserve rewards pool adapts to network conditions using inferred stake and fee-inflow rates, ensuring sustainability, security, and downward pressure on circulating supply when demand is high.
-- [Execution Market](execution-market.md). Describes the fee mechanism for execution resources, including the use of a dynamic base fee and priority tips. It explains how execution demand is smoothed over time, how fees are routed into the rewards pool and later distributed as rewards, and how the system mitigates manipulation risks while maintaining predictable costs.
+- [Block Rewards](block-rewards.md). Outlines the reward model that governs leader and Blend rewards. It details how the block's fees are passed through in full, and how the release from the reserve adapts to network conditions using the inferred total stake alone, bounding emission per block and per year for as long as the reserve lasts.
+- [Execution Market](execution-market.md). Describes the fee mechanism for execution resources, including the use of a dynamic base fee and priority tips. It explains how execution demand is smoothed over time, how the base fee is routed into the rewards pool and the priority fee to the leader reward pool, and how the system mitigates manipulation risks while maintaining predictable costs.
 - [Storage Markets](storage-markets.md). Defines the transaction fee mechanism for the Permanent Storage market. It introduces a timeframe-based model where prices are fixed during an epoch and adjusted smoothly between them, ensuring predictability for users while allowing the market to adapt to long-term trends.
 
 These documents serve as complementary technical references, offering the deeper mathematical and procedural foundations that support the economic model described here.
@@ -214,7 +217,7 @@ These documents serve as complementary technical references, offering the deeper
 
 As a general overview, and to prepare the reader before embarking in the study of these documents, we will highlight here the conceptual differences between the Execution Market and the Storage Market, since they operate under distinct economic logics even though both rely on fee mechanisms:
 
-- Execution Market  Pricing is more reactive and adaptive, with the base fee updated every block using a smoothed demand signal. The system uses a dual-component fee structure: a protocol-defined base_fee and a priority_fee (tip) defined by the user setting the transaction's gas price. It is explicitly anchored to a target utilization (50% of gas limit, similar to EIP-1559) and a hard maximum gas per block, ensuring the network remains operable on minimal hardware. Both base and priority fees are initially routed into the rewards pool, but the priority fee is later distributed back as part of leader rewards, providing a clear, strategy-aligned mechanism for transaction inclusion and incentivization.
-- Storage Markets  Pricing is designed to be predictable and stable over a timeframe. Fees remain fixed within an epoch and are updated only at the transition to the next timeframe. This creates a single-component fee that is straightforward for users. While the mechanism has an anchoring point $`T_\text{base}`$, it is not built around strict capacity limits, unlike execution. Instead, it prioritizes robustness and predictability, with parameters (such as the clipping factor) chosen to filter out volatility and keep pricing agnostic to short-term demand spikes.
+- Execution Market  Pricing is more reactive and adaptive, with the base fee updated every block using a smoothed demand signal. The system uses a dual-component fee structure: a protocol-defined base_fee and a priority_fee (tip) defined by the user setting the transaction's gas price. It is explicitly anchored to a target utilization (50% of gas limit, similar to EIP-1559) and a hard maximum gas per block, ensuring the network remains operable on minimal hardware. The base fee is routed into the rewards pool and settled to leaders and Blend nodes at the epoch boundary, while the priority fee is routed to the leader reward pool and settled to leaders alone, providing a clear, strategy-aligned mechanism for transaction inclusion and incentivization.
+- Storage Markets  Pricing is designed to be predictable and stable over a timeframe. Fees remain fixed within an epoch and are updated only at the transition to the next timeframe. This creates a single-component fee that is straightforward for users. While the mechanism has an anchoring point $`T_\text{base}`$ , it is not built around strict capacity limitsunlike execution. Instead, it prioritizes robustness and predictability, with parameters (such as the clipping factor) chosen to filter out volatility and keep pricing agnostic to short-term demand spikes.
 
 Taken together, these distinctions show how the storage market emphasizes stability and medium-term predictability, while the execution market emphasizes responsiveness and short-term allocation efficiency, each addressing the unique constraints of their underlying resources.

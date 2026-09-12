@@ -26,6 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-03-30 |
 | 1.1.0 | Round the leader share downwards and align the voucher commitment and nullifier domain separation tags with Mantle | 2026-08-05 |
+| 1.1.1 | State the leader share of the epoch settlement, plus the epoch's Execution priority fees. | 2026-08-27 |
 
 # Introduction
 
@@ -52,7 +53,7 @@ Key properties of the protocol:
 - **Anonymity**: Block rewards are unlinkable to the blocks they originate from (avoiding deanonymization).
 - **Soundness**: No reward can be claimed twice.
 
-In parallel, the blockchain maintains the value `leaders_rewards` accumulating the rewards for leaders over time. Each voucher included in the Merkle tree represents the same share of `leaders_rewards`. Just like for voucher inclusion, more rewards are added to this variable on an epoch-by-epoch basis, which guarantees a stable and equal claimable reward for leaders over an epoch.
+In parallel, the blockchain maintains the value `leaders_rewards` accumulating the rewards for leaders over time. Two streams credit it, both epoch by epoch: the leader share $`\Pi^{leader}_e`$ of the epoch settlement defined in [Block Rewards](block-rewards.md), which is 40% of the pooled Execution base fees, Permanent Storage fees and reserve release; and the Execution priority fees of the epoch in full, which take no Blend share (cf. [Execution Market](execution-market.md)). Each voucher included in the Merkle tree represents the same share of `leaders_rewards`. Just like for voucher inclusion, more rewards are added to this variable on an epoch-by-epoch basis, which guarantees a stable and equal claimable reward for leaders over an epoch.
 
 # Protocol
 
@@ -84,11 +85,11 @@ This Operation increases the balance of a Mantle Transaction by the leader rewar
 
   This means that a leader may use their funds directly, getting their reward and using them atomically.
 
-Note that every leader will receive a reward that is independent of the block content to avoid de-anonymization. This means that the fees of the block cannot be collected by the leader directly, or need to be pooled for all the leaders.
+Note that every leader will receive a reward that is independent of the block content to avoid de-anonymization. This means that the fees of the block cannot be collected by the leader directly, and are pooled for all the leaders instead. This applies to the priority fee as much as to the base fee: paying a tip to the proposer in its own block would tie the amount received to that block's contents and defeat the unlinkability this protocol provides.
 
 ### Leaders Reward
 
-At the start of epoch **N+1**, validators aggregate the leaders rewards of epoch **N** into the leader rewards variable. The amount of the reward claimable with a voucher corresponds to a share of the `leaders_rewards`. This share is equal to the total value of rewards divided by the size of the anonymity set of leaders, rounded down, that is:
+At the start of epoch **N+1**, validators aggregate the leaders rewards of epoch **N**, that is $`\Pi^{leader}_N`$ together with the Execution priority fees of that epoch, into the leader rewards variable. The amount of the reward claimable with a voucher corresponds to a share of the `leaders_rewards`. This share is equal to the total value of rewards divided by the size of the anonymity set of leaders, rounded down, that is:
 
 $$
 share = \begin{cases}
