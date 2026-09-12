@@ -324,33 +324,6 @@ Once $`B_t = 0`$ the state is absorbing, per [Derived Property P7](analysis-bloc
 
 ## Accounting and Supply Dynamics
 
-### Stock accounting
-
-Two flows occur at every block. They are independent, and the order in which a node applies them does not matter.
-
-$$
-\text{1. Block fees:} \quad R^{\text{block}}_t: \; S_t \rightarrow P_t , \qquad
-\text{2. Released rewards:} \quad \iota_t: \; B_t \rightarrow P_t .
-$$
-
-$$
-S_t = S_{t-1} - R^{\text{block}}_t + \Pi_e \cdot \mathbb{1} \lbrace t = T_e \rbrace ,
-$$
-
-$$
-B_t = B_{t-1} - \iota_t ,
-$$
-
-$$
-P_t = P_{t-1} + R^{\text{block}}_t + \iota_t - \Pi_e \cdot \mathbb{1} \lbrace t = T_e \rbrace = P_{t-1} + R_t - \Pi_e \cdot \mathbb{1} \lbrace t = T_e \rbrace .
-$$
-
-Each account has one role. The reserve pool funds released rewards and nothing else; it never touches the fees. The rewards pool receives both components of the block reward and pays out only at a boundary. Circulating supply loses the block's fees during the epoch and regains the settlement amount at the boundary.
-
-The only debit from the reserve pool is $`\iota_t`$, and the clamp in equation (2) bounds it by $`B_{t-1}`$ unconditionally, so $`B_t \ge 0`$ holds at every block. No flow ordering constraint is required.
-
-R6 is satisfied trivially. The reserve pool never accumulates, since it has no inflow, and the rewards pool is emptied at every boundary by R9. There is no stock in which value can build up without a release rule, because there is no stock that builds up.
-
 ### Supply dynamics
 
 Over epoch $`e`$ the circulating supply loses the epoch's fees and regains the settlement, which is the epoch's fees plus the epoch's releases. Netting the two,
