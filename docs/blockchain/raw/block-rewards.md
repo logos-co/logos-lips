@@ -36,7 +36,7 @@
 
 This document specifies the block reward mechanism of Logos Blockchain: the amount of tokens paid at each block, the source of those tokens, and the state transitions the mechanism applies to the token stocks it controls.
 
-The objective is a block reward that pays for security while the network is establishing it, and that hands the job to transaction fees as the network grows into them. The mechanism must remain defined when the pre-allocated reserve is close to exhausted while the security target is still unmet.
+The objective is a block reward that pays for consensus security while the network is establishing it, and that hands the job to transaction fees as the network grows into them. The mechanism must remain defined when the pre-allocated reserve is close to exhausted while the security target is still unmet.
 
 The design holds the token supply fixed. Block rewards are not minted. The fee component is recycled from the fees the block itself collected, the released component is drawn from a reserve allocated at genesis out of the hard cap, and the three stocks the mechanism controls sum to a constant at every block. Emission into circulation is bounded per block and per year, in every state and at any fee level.
 
