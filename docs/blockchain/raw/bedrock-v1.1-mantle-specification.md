@@ -43,6 +43,8 @@
 | 1.11.1 | Renamed locked notes into service notes: `service_notes`, `ServiceNote` and `service_note_id` replace their locked counterparts, and the note kind is named after the role it plays rather than after the state it is left in | 2026-08-27 |
 | 1.12.0 | Specified the `SDP_ACTIVE` execution effects, matching the implementation: `active` is set to the epoch of the including block, and a message the activity logic rejects makes the Operation invalid. Set `withdraw_at` to `current_epoch + 2`, the epoch at which the node stops providing the service, and removed declarations at `withdraw_at` | 2026-09-02 |
 | 1.13.0 | Removed the `None` case of `op_proofs`, every Operation carrying exactly one proof. A `CHANNEL_CONFIG` creating a channel is verified against a threshold of `0` and its proof carries no signature and no index. Execution Gas is derived from the Operation and the state it is validated against, the thresholds pricing the channel Operations being the ones held in the channel state | 2026-08-31 |
+| 1.14.0 | Moved SDP declaration removal to `withdraw_at + 1`; the last served epoch's reward is paid in the same first block, before removal | 2026-09-11 |
+| 1.15.0 | Add the `CLAIM_POW_REWARD` Operation and the proof of work state it is validated against; the reward pool and the difficulty controllers are specified in [Proof of Work](proof-of-work.md) | 2026-09-08 |
 
 # Introduction
 
@@ -136,6 +138,8 @@ def checked_int128(value: int) -> int:
         assert INT128_MIN <= value <= INT128_MAX
         return value
 ```
+
+The proof of work difficulty updates are the exception to these bounds; they are specified in [Puzzle Target](proof-of-work.md#puzzle-target).
 
 ## Mantle Transaction Fee
 
@@ -255,9 +259,11 @@ Mantle Validators execute each Operation in `ops` according to its opcode, in th
 | SDP_DECLARE | 0x20 | Declare intention to participate as a node in a Bedrock Service, locking funds as collateral. |
 | SDP_WITHDRAW | 0x21 | Withdraw participation from a Bedrock Service, unlocking your funds in the process. |
 | SDP_ACTIVE | 0x22 | Signal that you are still an active participant of a Bedrock Service. |
-| *RESERVED* | *0x23 - 0xFF* |  |
+| *RESERVED* | *0x23 - 0x2F* |  |
 | LEADER_CLAIM | 0x30 | Claim leader reward anonymously. |
-| *RESERVED* | *0x31 - 0xFF* |  |
+| *RESERVED* | *0x31 - 0x3F* |  |
+| CLAIM_POW_REWARD | 0x40 | Claim a reward from the pow reward pool. |
+| *RESERVED* | *0x41 - 0xFF* |  |
 
 ## Channel Operations
 
@@ -1362,11 +1368,11 @@ SignedMantleTx(
 
 Withdrawn declarations are removed by Mantle as part of the epoch transition,
 not when the `WithdrawMessage` is processed. The rewards of epoch
-`withdraw_at - 2` ([Withdraw](bedrock-service-declaration-protocol.md#withdraw))
-are distributed in the first block of epoch `withdraw_at` (see
+`withdraw_at - 1` ([Withdraw](bedrock-service-declaration-protocol.md#withdraw))
+are distributed in the first block of epoch `withdraw_at + 1` (see
 [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md)).
 In that same block, after the rewards have been distributed, every declaration
-with `withdraw_at <= current_epoch` is removed and its stake unlocked.
+with `withdraw_at + 1 <= current_epoch` is removed and its stake unlocked.
 Declarations that withdrew without earning a final reward are removed by the
 same step.
 
@@ -1381,7 +1387,7 @@ declarations: dict[DeclarationID, DeclarationInfo]
   *Execute*
 
   For every `declare_id`, `declare_info` in `declarations` where
-  `declare_info.withdraw_at is not None and declare_info.withdraw_at <= current_epoch`:
+  `declare_info.withdraw_at is not None and declare_info.withdraw_at + 1 <= current_epoch`:
 
   1. Remove the declaration from its service note.
       ```python
@@ -1593,6 +1599,147 @@ claim_proof = claim.prove(
 SignedMantleTx(
     tx=tx,
     op_proofs=[claim_proof, transfer.prove(fee_note_sk)]
+)
+```
+
+## Proof of Work Operations
+
+Validators must maintain the following state to process proof of work Operations:
+
+```python
+pow_reward_pool: TokenValue      # Reserve the rewards are paid from
+epoch_pow_reward: TokenValue     # Reward per claim, fixed for the epoch
+difficulty_reward: PowTarget     # the reward threshold, retargeted every block
+pow_nullifiers: set[zkhash]      # Spent solutions, retained for the acceptance window
+block_slots: dict[hash, SlotNumber]  # Slots of recently seen blocks, for the window check
+```
+
+`PowTarget`, the acceptance window, and the maintenance of `pow_reward_pool`, `epoch_pow_reward` and `difficulty_reward` between blocks are specified in [Proof of Work](proof-of-work.md).
+
+### CLAIM_POW_REWARD
+
+This Operation claims a reward from the proof of work [reward pool](proof-of-work.md#reward-pool) by presenting a puzzle solution.
+
+#### Payload
+
+```python
+class ClaimPowRewardOp:
+    epoch_nonce: zkhash        # Epoch nonce the solution was found against
+    block_hash: hash           # Recent canonical block the solution is anchored to
+    public_key: ZkPublicKey    # Key the reward note is paid to
+```
+
+#### Proof
+
+  A [ZkSignature](#zero-knowledge-signature-scheme-zksignature) by the secret key corresponding to `public_key`, over the transaction's `mantle_txhash`. The signature proves knowledge of that secret key, so a solution cannot be found by searching over public keys directly.
+
+#### Execution gas
+
+  Claim Operations have a fixed Execution Gas cost of `EXECUTION_CLAIM_POW_REWARD_GAS`. See [Gas Determination](#gas-determination) for the Execution Gas values.
+
+#### Validation
+
+  *Given*
+
+```python
+mantle_txhash: zkhash
+claim: ClaimPowRewardOp            # the CLAIM_POW_REWARD payload
+claim_proof: ZkSignature           # the op_proofs entry for this Operation
+
+current_slot: SlotNumber           # slot of the block including this claim
+epoch_nonce_current: zkhash        # Cryptarchia epoch nonce of the current epoch
+epoch_nonce_previous: zkhash       # and of the epoch before it
+WINDOW: SlotNumber                 # the acceptance window, in slots
+difficulty_reward: PowTarget       # retargeted every block
+pow_nullifiers: set[zkhash]        # spent solutions, retained for WINDOW
+pow_reward_pool: TokenValue
+epoch_pow_reward: TokenValue
+```
+
+  The epoch nonces are the Cryptarchia epoch nonce $`\eta`$ of [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce), and `WINDOW` is derived in [Acceptance Window](proof-of-work.md#acceptance-window).
+
+  *Validate*
+
+```python
+# 1. Claiming must be enabled for this block: the pool must be able to cover a reward.
+assert epoch_pow_reward > 0
+assert pow_reward_pool >= epoch_pow_reward
+
+# 2. The referenced block must be canonical and within the acceptance window.
+block = get_block_from_hash(claim.block_hash)   # None if unknown or not canonical
+assert block is not None
+assert 0 <= current_slot - block.slot <= WINDOW
+
+# 3. The solution must have been found against the current or the previous epoch.
+assert claim.epoch_nonce in (epoch_nonce_current, epoch_nonce_previous)
+
+# 4. The ticket must satisfy the reward threshold.
+puzzle_ticket = zkhash(claim.public_key,
+                       FiniteField(claim.block_hash, byte_order="little", modulus=p),
+                       claim.epoch_nonce)
+assert puzzle_ticket < difficulty_reward
+
+# 5. The solution must not have been claimed before. The nullifier is the ticket.
+assert puzzle_ticket not in pow_nullifiers
+
+# 6. The claim must be signed by the key the reward is paid to.
+assert ZkSignature_verify(mantle_txhash, claim_proof, [claim.public_key])
+```
+
+#### Execution
+
+  *Given*
+
+```python
+claim: ClaimPowRewardOp
+puzzle_ticket: zkhash              # computed in validation step 4
+
+ledger: Ledger
+pow_reward_pool: TokenValue
+epoch_pow_reward: TokenValue       # fixed for the epoch
+pow_nullifiers: set[zkhash]
+```
+
+  *Execution*
+
+  1. Add `puzzle_ticket` to the `pow_nullifiers` set. The entry is retained until the claim's referenced block leaves the [acceptance window](proof-of-work.md#acceptance-window).
+  2. Construct a single output note of value `epoch_pow_reward` under the public key given in the payload, and insert it into the Ledger:
+      ```python
+      output_note = Note(
+          value = epoch_pow_reward,
+          public_key = claim.public_key,
+      )
+      claim_id = derive_op_id(claim)
+      ledger.execute_adding(claim_id, [output_note])
+      ```
+
+  3. Reduce the `pow_reward_pool` by the same amount:
+      ```python
+      pow_reward_pool = checked_uint64(pow_reward_pool - epoch_pow_reward)
+      ```
+
+#### Example
+
+```python
+claim = ClaimPowRewardOp(
+    epoch_nonce=get_current_epoch_nonce(),
+    block_hash=recent_canonical_block_hash(),
+    public_key=reward_pk,          # a key whose ticket satisfies difficulty_reward
+)
+
+# The reward note is spendable by the following Operation, so it pays the fee
+reward_note_id = derive_note_id(derive_op_id(claim), 0,
+                                Note(value=epoch_pow_reward, public_key=reward_pk))
+transfer = Transfer(inputs=[reward_note_id], outputs=[<change_note>])
+
+tx = MantleTx(
+    ops=[Op(opcode=CLAIM_POW_REWARD, payload=encode(claim)),
+         Op(opcode=TRANSFER, payload=encode(transfer))],
+)
+
+SignedMantleTx(
+    tx=tx,
+    op_proofs=[ZkSignature(reward_sk, mantle_txhash(tx)), transfer.prove(reward_sk)]
 )
 ```
 
@@ -1833,6 +1980,7 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_SDP_WITHDRAW_GAS | 590 |
 | EXECUTION_SDP_ACTIVE_GAS | 590 |
 | EXECUTION_LEADER_CLAIM_GAS | 580 |
+| EXECUTION_CLAIM_POW_REWARD_GAS | 590 |
 
 ## Zero Knowledge Signature Scheme (ZkSignature)
 
