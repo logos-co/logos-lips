@@ -428,7 +428,7 @@ $$
 \max \lbrace \Lambda^{\ast} M, \; M c^{\ast} \rbrace < 2^{128} .
 $$
 
-The rewards pool accumulator is no longer bounded by a protocol constant, because the fee component of $`R_t`$ is uncapped. Its reserve-funded part is at most $`L c^{\ast} \approx 2.06 \cdot 10^{24}`$ base units, and the only bound on the total is the conservation bound $`P_t \le S_{cap}^{\ast} = 10^{28}`$ base units. `u128` accommodates the latter with eleven orders of magnitude to spare; `u64` does not accommodate either.
+The rewards pool accumulator is no longer bounded by a protocol constant, because the fee component of $`R_t`$ is uncapped. Its reserve-funded part is at most $`L c^{\ast} \approx 2.06 \cdot 10^{24}`$ base units, and the only bound on the total is the conservation bound $`P_t \le S_{cap}^{\ast} = 10^{28}`$ base units. `uint128` accommodates the latter with eleven orders of magnitude to spare; `uint64` does not accommodate either.
 
 ## Accuracy
 
