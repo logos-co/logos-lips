@@ -59,7 +59,7 @@ S^{tot}_t = S^{tot}_0 \qquad \text{for every } t .
 $$
 
 Every flow is a transfer between the three stocks: 
-* the block's fees move tokens out of circulation, 
+* the block's fees move tokens out of circulation to the reserve pool, 
 * a release moves them from the reserve pool to the rewards pool, and 
 * a settlement moves them from the rewards pool back into circulation. 
 
