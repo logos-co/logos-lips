@@ -42,6 +42,8 @@ Labels of the form R1 to R9 refer to the numbered rows of [Design Requirements](
 
 # Derived Properties
 
+Refer to [Protocol constants](block-rewards.md#Protocol constants) for the definition of the parameters.
+
 ## P1. Conservation
 
 Let $`S^{tot}_t = S_t + P_t + B_t`$. At a block that is not an epoch boundary,
