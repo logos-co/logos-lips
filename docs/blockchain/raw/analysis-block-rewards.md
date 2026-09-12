@@ -9,6 +9,8 @@
 | Editor | Frederico Teixeira <frederico@logos.co> |
 | Contributors | Filip Dimitrijevic <filip@logos.co> |
 
+<!-- timeline:start -->
+
 ## Timeline
 
 - **2026-05-27** — [`b7602ed`](https://github.com/logos-co/logos-lips/blob/b7602ed8a225d41ca0bfaaa432524dc84d2ded7e/docs/blockchain/raw/analysis-block-rewards.md) — chore: move blockchain specs from notion to github
