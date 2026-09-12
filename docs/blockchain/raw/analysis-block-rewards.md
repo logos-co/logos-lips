@@ -319,7 +319,7 @@ The attack triggers no emission, since $`\iota_t`$ is independent of fees. Fee c
 
 ## I2. Staking response to fee revenue
 
-$`\partial R_t / \partial R^{\text{block}}_t = 1`$. Fee revenue passes to stakers in full, so it raises the yield, attracts stake, and reduces the shortfall. This indirect channel is the only route by which fee revenue conserves the reserve.
+$`\partial R_t / \partial R^{\text{block}}_t = 1`$. A portion of the base fees and all the priority fees passes to stakers, so it raises the yield, attracts stake, and reduces the shortfall. This indirect channel is the only route by which fee revenue conserves the reserve.
 
 There is no direct channel. Fee revenue does not displace the release within the block, so at $`A_t = 1`$ the reserve drains at $`c`$ per block at every fee level, from $`u = 0`$ upward.
 
