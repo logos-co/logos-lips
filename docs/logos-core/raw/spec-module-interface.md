@@ -265,6 +265,11 @@ A schema field name MUST NOT begin with `has_`.
 This reservation applies to request, response, event, named-map, and inline-map fields.
 It preserves the canonical C presence convention by ensuring that a generated `has_<field>` identifier cannot also represent schema data.
 
+A schema field name MUST NOT equal a C17 keyword.
+The complete set of C17 keywords that otherwise satisfies Logos field-name grammar is `auto`, `break`, `case`, `char`, `const`, `continue`, `default`, `do`, `double`, `else`, `enum`, `extern`, `float`, `for`, `goto`, `if`, `inline`, `int`, `long`, `register`, `restrict`, `return`, `short`, `signed`, `sizeof`, `static`, `struct`, `switch`, `typedef`, `union`, `unsigned`, `void`, `volatile`, and `while`.
+A schema field name also MUST NOT equal `bool`, `true`, or `false`, because the canonical C mapping includes `<stdbool.h>` and uses those macro names.
+These reservations ensure that every valid schema field name can appear unchanged as a canonical C structure member.
+
 A supporting schema MUST NOT declare a local named definition whose name ends in `_request`, `_response`, or `_event`.
 Those suffixes are reserved for callable declarations in concrete module and interface contract schemas.
 
@@ -332,8 +337,8 @@ Every method remains one request with one final response.
 Concurrent dispatch invocations may return in any order,
 but that execution behavior does not create an asynchronous method kind or change the method's request and response schemas.
 
-Map keys MUST be bare CDDL identifiers (not quoted strings). Key names are
-used directly as C parameter names and deterministic CBOR map keys.
+Map keys MUST be bare CDDL identifiers (not quoted strings).
+Key names are used directly as deterministic CBOR map keys and map to C parameter names under Section 2.4.
 
 ### 1.5 Event Declarations
 
@@ -402,7 +407,7 @@ Module schemas MUST only use types from this set:
 | Maps | `{ key: type, ... }` (struct-like maps with known keys) |
 | Optional fields | `? key: type` (in maps only) |
 | Choices | `T1 / T2 / T3` (tagged unions whose canonical arms satisfy the structural selection rules) |
-| Named types | Any type alias defined in the same schema or the Logos common schema surface in Section 5. |
+| Named types | Named types resolved under Section 1.1. |
 
 The following are **NOT allowed** in module schemas:
 
@@ -528,6 +533,11 @@ Otherwise it MUST use the metadata-extended C form and emit only the required sc
 Every accepted schema set MUST be representable by one of the two forms.
 Given the same accepted schema set, any two implementations of this specification MUST produce identical C header sets, modulo whitespace, comments, include layout, and include guards.
 
+This mapping is total from an accepted CDDL schema set to canonical C.
+The reverse mapping accepts only the C subset defined in Section 3.
+Consequently, a module may be authored from a conforming C contract without requiring every schema construct to be expressible through ordinary C declarations alone.
+The metadata-extended form preserves schema facts that the declaration-only C form cannot represent.
+
 ### 2.1 Naming Conventions
 
 **Namespace projection.** A simple namespace consists of one segment that begins with a lowercase ASCII letter, continues with lowercase ASCII letters or digits, and contains no underscore.
@@ -643,17 +653,25 @@ the schema set is invalid.
 This includes collisions caused by underscore joining, structural path-component text, or namespace projection.
 The generic collision rule below does not permit a generator to choose another spelling.
 
-Types from the Logos common schema surface are prefixed with `logos_` (no module):
+Types from the pinned Logos common schema surface use one `logos_` prefix and omit the common `logos` namespace component:
 
-| CDDL type           | C type                      |
-|----------------------|-----------------------------|
-| `logos.error_code`   | `logos_error_code_t`        |
+| CDDL type | C type |
+| --- | --- |
+| `logos.error_code` | `logos_error_code_t` |
+| `logos.error_detail` | `logos_error_detail_t` |
+| `logos.schema_commitment` | `logos_schema_commitment_t` |
+
+`logos.error_code` reuses the shared `logos_error_code_t` status enum instead of receiving a separate choice declaration.
+The same single-prefix rule applies to the other named types and aggregate tags derived from the pinned common schema.
+This exception applies only to the pinned common document.
+A non-common namespace such as `logos.runtime_control` retains the complete-namespace projection above.
 
 `logos_result_t` is the shared C ABI invocation-status structure.
 It is not a schema-defined contract value.
 
 **Canonical order.** Generated forward declarations are ordered by qualified schema name.
-Type definitions place dependencies before dependents and break independent ties by qualified schema name.
+Type definitions place non-recursive dependencies before dependents and break independent ties by qualified schema name.
+Definitions within one recursive representation component are ordered by qualified schema name.
 All remaining declarations are ordered by qualified schema name.
 Struct fields and the corresponding method parameters are ordered by ascending lexicographic order of their valid UTF-8 field-name bytes.
 Choice arms use the canonical arm order defined by LOGOS-MODULE-COMMITMENT-MODEL.
@@ -709,13 +727,14 @@ a closed `tstr` or `bstr` range has its minimum and maximum components.
 The generated validator enforces the constraint at runtime.
 The reverse mapping recognizes only a typedef whose name and underlying pointer type agree with this rule.
 
-An exact-size byte string maps to an array so its size remains part of the C declaration:
+An exact-size byte string with a positive size maps to an array so its size remains part of the C declaration:
 
 ```c
 uint8_t digest[32]; /* bstr .size 32 */
 ```
 
-An exact-size byte-string function input uses a pointer to the complete array type such as `const uint8_t (*digest)[32]`, so ordinary C parameter adjustment does not erase the bound.
+An exact-size byte-string function input with a positive size uses a pointer to the complete array type such as `const uint8_t (*in_digest)[32]`, so ordinary C parameter adjustment does not erase the bound.
+An exact-zero byte string uses the empty-value representation in Section 2.3.
 
 ### 2.3 Composite Type Mapping
 
@@ -769,10 +788,11 @@ In canonical C, an identifier beginning with `has_` is valid only as the exact `
 
 Fixed-length tuples preserve positional order.
 A named tuple uses struct members `item_0`, `item_1`, and so on.
-A tuple used inline as field `x` uses adjacent members or parameters `x_0`, `x_1`, and so on.
+A nonempty tuple used inline as field `x` uses adjacent members `x_0`, `x_1`, and so on.
+Method parameters use the same components with the direction prefix defined in Section 2.4.
 The reverse mapper removes those generated components and reconstructs the tuple positions.
 
-Byte strings use the same adjacent pointer-and-length representation in structs and function signatures.
+Unbounded and ranged byte strings use the same adjacent pointer-and-length representation in structs and function signatures.
 For a bounded byte string, the pointer has the canonical constraint typedef from Section 2.2.
 An implementation MUST treat a pointer-and-length pair as one schema field and MUST keep the pair adjacent.
 
@@ -780,14 +800,53 @@ An implementation MUST treat a pointer-and-length pair as one schema field and M
 
 - A named scalar or constrained string uses a `typedef` to its canonical scalar or constraint type.
 - A named map uses the canonical `logos_map_` struct form above.
-- A named byte string uses a struct with adjacent `data` and `len` members, except that an exact-size byte string uses one `data[N]` member.
+- A named byte string uses a struct with adjacent `data` and `len` members, except that a positive exact-size byte string uses one `data[N]` member and an exact-zero byte string uses the empty-value representation below.
 - A named variable-length list uses a struct with adjacent `items` and `count` members.
 - A named tuple uses a struct with `item_<index>` members.
 - A named choice uses the enum-and-union form below.
 
+**Empty values.** A generated struct for the schema `{}`, `[]`, or `bstr .size 0` MUST contain exactly one member, `uint8_t _empty;`.
+This includes empty event payload structs.
+The placeholder contributes no schema field or wire data.
+Encoders and value validators MUST ignore its value; decoders MUST initialize it to zero.
+
+The fixed mapping environment in `logos_types.h` supplies these types:
+
+```c
+typedef struct logos_bstr_size_0 {
+    uint8_t _empty;
+} logos_bstr_size_0_t;
+
+typedef struct logos_tuple_size_0 {
+    uint8_t _empty;
+} logos_tuple_size_0_t;
+```
+
+An inline `bstr .size 0` uses `logos_bstr_size_0_t`.
+An inline `[]` uses one `logos_tuple_size_0_t` value.
+These representations apply in map fields, tuple positions, list elements, choice arms, and method parameters.
+Named declarations with these empty bodies retain their own aggregate declarations and type names.
+An empty request or response map has no corresponding method parameters, as specified in Section 2.4.
+
 An inline map or choice uses the owner, path, tag, enum, and typedef derivation defined in Section 2.1.
-A named aggregate or inline map-or-choice method input is passed as `const <type>*`;
+A method input whose C representation is a struct is passed as `const <type>*`;
 its output is passed as caller-allocated `<type>*`.
+
+**Recursive aggregate references.** The canonical C mapping computes a directed by-value representation graph over every generated aggregate declaration.
+The graph contains an edge from aggregate `A` to aggregate `B` for each schema occurrence that would otherwise embed the complete C representation of `B` directly in `A`.
+An occurrence beneath a variable-length list does not add a by-value edge because the list representation already uses a pointer and count.
+
+A by-value edge is recursive when its endpoints belong to the same strongly connected component and that component contains more than one node or the edge is a self-loop.
+Every recursive by-value edge maps to `const B*` instead of an embedded `B` value.
+Every other named aggregate occurrence retains its ordinary by-value representation.
+This rule applies equally to map fields, tuple items, and choice union arms.
+
+The generator emits a canonical forward typedef for each aggregate referenced by a recursive edge before any definition in that recursive component.
+A required recursive pointer MUST be non-null in a conforming C value.
+For an optional field, the adjacent `has_<field>` flag alone records presence;
+when the flag is true, the recursive pointer MUST be non-null, and when the flag is false, the pointer value is ignored.
+Recursive indirection does not add schema optionality, ownership transfer, or a wire-level reference.
+Deterministic CBOR encoding recursively encodes the pointed-to value as the referenced schema type.
 
 **Literals.** A literal uses the C representation of its scalar base type and a canonical macro containing its exact required value.
 Outside a choice, the macro name is the uppercase qualified owner and field path followed by `_LITERAL`.
@@ -899,13 +958,13 @@ maps to:
 ```c
 typedef logos_result_t (*logos_storage_call_exists_fn)(
     logos_module_context_t* module,
-    const char*             cid,
+    const char*             in_cid,
     bool*                   out_exists
 );
 
 logos_result_t logos_storage_module_call_storage_exists(
     logos_module_context_t* module,
-    const char*            cid,          /* from request map */
+    const char*            in_cid,       /* from request map */
     bool*                  out_exists    /* from response map */
 );
 ```
@@ -915,23 +974,55 @@ logos_result_t logos_storage_module_call_storage_exists(
 1. First parameter is always `logos_module_context_t* module`.
    The module returned this opaque per-instance context from its lifecycle initializer.
    The ABI caller MUST pass the same context to every instance-dependent call for that initialized module instance.
-2. Request map fields expand to input parameters in canonical field-name order.
-   Names are derived directly from the CDDL key.
-3. Response map fields expand to output parameters in canonical field-name order, appended after all input parameters and prefixed with `out_`.
-4. A scalar response field uses a pointer to its canonical C scalar type.
+2. When the request body is a map, its fields expand to input parameters in canonical field-name order.
+   Names are derived from the CDDL key and prefixed with `in_`.
+3. When the response body is a map, its fields expand to output parameters in canonical field-name order, appended after all input parameters and prefixed with `out_`.
+4. When the request body is a choice of maps, the generator emits the request declaration as the named choice aggregate `logos_<namespace>_<method>_request_t` and uses one `const logos_<namespace>_<method>_request_t* in_request` input parameter instead of flattening its arms.
+5. When the response body is a choice of maps, the generator emits the response declaration as the named choice aggregate `logos_<namespace>_<method>_response_t` and uses one caller-allocated `logos_<namespace>_<method>_response_t* out_response` output parameter instead of flattening its arms.
+6. A scalar response field uses a pointer to its canonical C scalar type.
    An unconstrained `tstr` response field uses `const char** out_<name>`.
    An exact-size or ranged `tstr` response field uses a pointer to its canonical constrained typedef, such as `logos_tstr_size_1_64_t* out_<name>`.
    Both forms transfer the returned string under Section 2.7.
-5. If the response map is empty (`{}`), there are no output parameters.
+7. If the response map is empty (`{}`), there are no output parameters.
    `result.code == LOGOS_OK` indicates that the invocation produced the valid empty response.
-6. Unbounded and ranged `bstr` fields expand to adjacent pointer-and-length parameters.
+8. Unbounded and ranged `bstr` fields expand to adjacent pointer-and-length parameters.
    A ranged byte string uses its canonical constrained pointer typedef.
-   An exact-size byte-string input uses `const uint8_t (*<name>)[N]`, and its caller-allocated output uses `uint8_t (*out_<name>)[N]`.
+   A positive exact-size byte-string input uses `const uint8_t (*in_<name>)[N]`, and its caller-allocated output uses `uint8_t (*out_<name>)[N]`.
    An exact-size byte string has no length parameter.
-7. A variable-length list input uses adjacent `const <type>* <name>` and `size_t <name>_count` parameters.
+9. A variable-length list input uses adjacent `const <type>* in_<name>` and `size_t in_<name>_count` parameters.
    Its output uses adjacent `<type>** out_<name>` and `size_t* out_<name>_count` parameters.
-8. Named aggregates and inline map or choice values use the pointer forms defined in Section 2.3.
-9. The function always returns `logos_result_t` as its invocation status.
+10. Method parameters with struct representations, including empty values, use the pointer forms defined in Section 2.3.
+11. The function always returns `logos_result_t` as its invocation status.
+
+Every parameter in a flattened field's representation uses its direction prefix, including presence flags, lengths, counts, and tuple components.
+The prefix is applied once, after field expansion, and does not change schema field names or aggregate member names.
+For example, request fields `module` and `out_value` use `in_module` and `in_out_value`, and `? data: bstr` uses `in_has_data`, `in_data`, and `in_data_len`.
+
+The choice aggregate and all inline map arms use the declaration and inline-path naming rules in Sections 2.1 and 2.3.
+The wrapper parameter belongs to the method ABI and does not add a map or field to the wire value.
+If only one method half is choice-valued, only that half uses a wrapper; an ordinary map-valued half remains flattened.
+
+For example, the following choice-valued request and map-valued response:
+
+```cddl
+storage.resolve_request =
+    { kind: "by-id", id: uint64 } /
+    { kind: "by-name", name: tstr }
+
+storage.resolve_response = {
+    matched: bool,
+}
+```
+
+maps to a method signature using the generated request choice:
+
+```c
+typedef logos_result_t (*logos_storage_call_resolve_fn)(
+    logos_module_context_t* module,
+    const logos_storage_resolve_request_t* in_request,
+    bool* out_matched
+);
+```
 
 Every method generates a defining-contract function typedef named
 `logos_<namespace>_call_<method>_fn`.
@@ -940,7 +1031,7 @@ A concrete provider header declares `logos_<module>_call_<namespace>_<method>` w
 The provider declaration attaches that complete contract method to the concrete module;
 the typedef makes the interface contract independently representable in ordinary C.
 
-For an optional request field `x`, the input parameters are adjacent `bool has_x` and the ordinary input representation of `x`.
+For an optional request field `x`, the input parameters are adjacent `bool in_has_x` and the ordinary input representation of `x`.
 For an optional response field `x`, the output parameters are adjacent `bool* out_has_x` and the ordinary output representation of `x`.
 The value parameter is ignored when its presence flag is false.
 This is the function-parameter form of the same `has_<field>` convention used by structs.
@@ -993,8 +1084,8 @@ storage.upload_url_response = {
 ```c
 logos_result_t logos_storage_module_call_storage_upload_url(
     logos_module_context_t* module,
-    uint64_t               chunk_size,
-    const char*            url,
+    uint64_t               in_chunk_size,
+    const char*            in_url,
     bool*                  out_accepted
 );
 ```
@@ -1019,20 +1110,21 @@ typedef struct logos_event_storage_upload_progress_event {
 } logos_storage_upload_progress_event_t;
 ```
 
-The common C declarations in Section 5.2 define
-`logos_route_subscribe()`,
-`logos_route_unsubscribe()`,
+The route-handle vtable in Section 5.2 defines
+`subscribe` and `unsubscribe` operations,
 `logos_subscription_id_t`,
 and `logos_event_handler_t`.
-These functions operate on a consumer-bound exact-contract route.
+These operations act on a consumer-bound exact-contract route.
 They are caller-side binding operations,
 not module ABI symbols exported by a provider implementation.
 `event_name` MUST be the exact schema event identifier selected by the route.
 The event MUST be allowed by the route's allowed event scope.
 
-`logos_route_subscribe()` returns `LOGOS_OK` only after the subscription is active.
-On success, it writes an identifier scoped to that route into `*out_subscription_id`.
-No handler invocation for that subscription may begin before the function returns.
+The route `subscribe` operation returns `LOGOS_OK` only after the subscription is active.
+On success, it MUST write an identifier scoped to that route into `*out_subscription_id` before activation.
+The caller MUST make `handler` and `user_data` ready for concurrent use before calling `subscribe`.
+After activation, another thread MAY begin a handler invocation before `subscribe` returns.
+The `subscribe` operation MUST NOT invoke that subscription's handler synchronously on the subscribing thread.
 On failure, it creates no subscription, MUST NOT invoke `handler`, and MUST NOT modify `*out_subscription_id`.
 
 For each subscription, handler invocations MUST begin in direct publication order or in Event commitment order for Transport delivery.
@@ -1047,11 +1139,11 @@ The callback's `event_name` and `cbor_data` are borrowed only for that invocatio
 that matches the selected event-data type.
 A handler MUST copy borrowed data that it needs to retain.
 
-An external `logos_route_unsubscribe()` call returns `LOGOS_OK` only after
+An external route `unsubscribe` operation returns `LOGOS_OK` only after
 the subscription is inactive,
 every active handler invocation has returned,
 and no later invocation can begin.
-If a handler calls `logos_route_unsubscribe()`
+If a handler invokes the route `unsubscribe` operation
 for its own subscription through the same route handle,
 the binding MUST deactivate the subscription before returning
 but MUST NOT wait for handler frames already active on the calling thread.
@@ -1167,10 +1259,13 @@ One accepted native implementation binding MAY be initialized more than once.
 Each successful initialization creates a distinct live module instance and MUST
 return a distinct non-null `logos_module_context_t*`.
 The module owns the context and its ABI callers treat it as opaque.
-The same pointer MUST be passed to every instance-dependent ABI call for that module instance and MUST be passed exactly once to `logos_<module>_destroy()`.
+The same pointer MUST be passed to every instance-dependent ABI call for that module instance.
+During graceful release, the ABI caller MUST pass that pointer exactly once to `logos_<module>_destroy()` and retain the implementation binding until the call returns.
+Forced termination of the execution envelope MAY prevent `_destroy()` from beginning or returning.
+Termination of the execution envelope ends its process-local lifetimes.
 
 For ABI preconditions, a module context is live from successful `_init()` return
-until the ABI caller begins that context's single `_destroy()` call after quiescence.
+until the ABI caller begins that context's single `_destroy()` call after quiescence or the execution envelope terminates.
 `_destroy()` consumes the live context.
 The context is bound to that module instance and implementation binding.
 Passing a null context, a context belonging to another instance or implementation,
@@ -1386,21 +1481,16 @@ void logos_<module>_free(logos_module_context_t* module, void* ptr);
   ABI callers borrow it and MUST NOT dereference, modify, serialize, or free it.
 - Request arguments are borrowed until the provider C function returns.
   The provider MUST NOT retain them.
-- The `message` and `detail` storage referenced by a `logos_result_t` returned from an instance-dependent provider C function remains valid until the next ABI call using the same module context begins or until `_destroy()` begins, whichever occurs first.
+- The `message` and `detail` storage referenced by a returned `logos_result_t` MUST be isolated from ABI calls executing concurrently on other threads.
+  It remains valid until the next ABI call into the implementation that returned the result begins on the calling thread, until `_destroy()` begins for an instance-dependent provider result, or until the applicable implementation binding is released, whichever occurs first.
   The ABI caller MUST copy `message` and `detail` before that point if it needs to retain, encode, or forward them.
-  The ABI caller MUST NOT begin another call using that context until any required copy is complete.
-  A call already in progress when the result is returned does not shorten this lifetime.
-- The corresponding storage returned by `_init()` remains valid until the next `_init()` call for the same implementation binding begins or until that binding is released, whichever occurs first.
-  The ABI caller MUST copy `message` and `detail` before that point if it needs to retain, encode, or forward them.
-  The ABI caller MUST NOT begin another `_init()` call for the same implementation binding until every required copy from a returned `_init()` result is complete.
-  An `_init()` call already in progress when the result is returned does not shorten this lifetime.
+  A call on another thread does not shorten this lifetime or modify the referenced storage.
 - A successful dispatch transfers ownership of `out_response_cbor` to the caller.
   The caller releases it with the same module instance's `logos_<module>_free(module, ptr)`.
   A failed dispatch transfers no output ownership.
-- For caller-side runtime handles or generated caller helpers,
-  `logos_result_t.message` and `.detail` are valid until the next Logos call on
-  the same handle or helper-owned call state.
-  Callers MUST copy these fields to retain them.
+- For Runtime Control bindings, route handles, and generated caller helpers,
+  `logos_result_t.message` and `.detail` follow the same calling-thread lifetime.
+  Callers MUST copy these fields before the next call into the returning implementation on that thread if they need to retain them.
 - On a successful typed provider call, output pointers (`out_*`) for dynamically-sized data (`tstr`, `bstr`,
   arrays) are allocated by the typed provider.
   Callers MUST free them with the same module instance's
@@ -1491,6 +1581,9 @@ and release every transferred output associated with the context.
 Before `_destroy()` returns,
 the module MUST stop or join internal work
 that could later use the context, Runtime Control binding, publish callback, or publish state.
+The module MUST release every Runtime Control or route response buffer it owns before `_destroy()` returns.
+It MUST also unsubscribe every Runtime Control subscription it created and release every route handle it owns.
+Releasing those handles deactivates their remaining route subscriptions.
 After `_destroy()` returns, none of those values remains valid.
 
 ---
@@ -1505,6 +1598,12 @@ ABI-equivalent declarations are not interchangeable for reverse mapping when the
 Both the declaration-only C form and the metadata-extended C form are valid schema-authoring inputs.
 The reverse mapper MUST derive every unambiguous schema fact from canonical C declarations and MUST require schema-metadata constants only for the remaining facts identified by this section.
 CDDL is the recommended authoring form when a contract requires substantial schema metadata, but the metadata-extended C form remains a complete C representation of every accepted schema set.
+The reverse mapping is partial over the C language: a C header outside the allowed subset is not a conforming C contract.
+This restriction does not limit the accepted CDDL schema set or the generated C representation of that set.
+
+The fixed declarations supplied by `logos_types.h` form a predefined mapping environment, like the fixed-width types supplied by `<stdint.h>`.
+They are available to every C contract but are not schema-authoring declarations in that contract.
+The reverse mapper recognizes their canonical names without reconstructing their definitions.
 
 ### 3.1 Allowed C Subset
 
@@ -1526,8 +1625,12 @@ The reverse mapper accepts the exact declaration forms produced by Section 2:
 | `logos_tstr_size_<n>_t` | `tstr .size n` |
 | `logos_tstr_size_<min>_<max>_t` | `tstr .size (min..max)` |
 | `logos_bstr_size_<min>_<max>_t` + `size_t` | `bstr .size (min..max)` |
-| `uint8_t[N]` | `bstr .size N` |
+| `uint8_t[N]`, where `N > 0` | `bstr .size N` |
+| `logos_bstr_size_0_t` | `bstr .size 0` |
+| `logos_tuple_size_0_t` | `[]` |
 | `logos_<namespace>_<type>_t` | Named schema type |
+| Fixed `logos_<common-name>_t` from `logos_types.h` | Reference to the corresponding pinned common type |
+| `const logos_<namespace>_<type>_t*` in a recursive aggregate component | Recursive named aggregate reference |
 | `const T*` + `size_t` (pair) | `[* T]` (array) |
 | `logos_result_t` | (return type only; maps to invocation status) |
 | `logos_module_context_t*` | (first param only; not in CDDL) |
@@ -1538,7 +1641,7 @@ It validates the complete declaration group before deriving schema nodes.
 **Disallowed C constructs in the API surface:**
 
 - `void*` (except for `logos_module_init_input_t.publish_user_data` and `logos_<module>_free`)
-- Raw pointers that are not part of a canonical text, byte-string, list, exact-array, output, context, or opaque-handle representation defined by this specification
+- Raw pointers that are not part of a canonical text, byte-string, list, exact-array, recursive aggregate, output, context, or opaque-handle representation defined by this specification
 - Function pointers other than the canonical generated method-signature typedefs
 - `float` and `double` (reserved for a future deterministic numeric profile)
 - Bitfields, bit-packed structs
@@ -1551,7 +1654,9 @@ Schema-bearing declarations and constants MUST NOT depend on conditional compila
 ### 3.2 Contract and Namespace Recognition
 
 A namespace group is the complete set of schema-derived declarations assigned to one exact schema namespace.
-The pinned `logos` common group is recognized from the fixed common-schema declarations and does not use document-role namespace metadata.
+Declarations supplied by `logos_types.h` are excluded from namespace grouping because they belong to the predefined mapping environment.
+An exact use of a fixed common type name reconstructs a reference to the corresponding declaration in the pinned `logos` common schema.
+A C contract MUST include `logos_types.h` rather than redeclare a fixed common type.
 
 For a header set containing exactly one non-common namespace group whose namespace is simple, the reverse mapper obtains the exact namespace from the first underscore-delimited component in each schema-derived C name.
 Every declaration MUST yield the same namespace.
@@ -1577,7 +1682,7 @@ A provider method declaration for a non-primary namespace requires the correspon
 
 A primary-group reference to a type in a supporting group reconstructs an imported named-type reference to that supporting schema.
 The reverse mapper computes the supporting schema root from the reconstructed group.
-The pinned common group always maps to common-schema references and never generates `_implements`.
+A fixed common type use always maps to a common-schema reference and never generates `_implements`.
 
 The reverse mapper MUST reject any of the following:
 
@@ -1592,6 +1697,12 @@ The reverse mapper MUST reject any of the following:
 - when the input contains a concrete provider header, a supporting-schema group not referenced by its primary group;
 - a missing or non-contiguous implemented-interface index; or
 - a generated-identifier or namespace-projection collision.
+
+After recovering named aggregate references from canonical type names, the reverse mapper constructs the by-value representation graph defined in Section 2.3.
+A `const logos_<namespace>_<type>_t*` aggregate member is valid only when replacing that member with an ordinary by-value edge places its source and target in the same recursive component.
+The mapper reconstructs that pointer as an ordinary named schema reference;
+the pointer does not create optionality or a wire-level reference.
+The mapper MUST reject an embedded value on a recursive edge and MUST reject recursive-pointer spelling on a non-recursive edge.
 
 ### 3.3 Function Signature Recognition
 
@@ -1611,33 +1722,42 @@ A concrete provider function is recognized by pattern:
 ```c
 logos_result_t logos_<module>_call_<namespace>_<method>(
     logos_module_context_t* module,
-    <input params...>,
+    <input params...>,       /* in_ prefix */
     <output params...>        /* out_ prefix */
 );
 ```
 
+Every parameter after `module` MUST use `in_` for the request or `out_` for the response.
+All request parameters MUST precede all response parameters.
+
 - The `logos_module_context_t*` first parameter is stripped (not in CDDL).
-- Input parameters (no `out_` prefix) become request map fields.
-- Output parameters (`out_` prefix, pointer types) become response map fields.
+- An exact `const logos_<namespace>_<method>_request_t* in_request` parameter reconstructs a choice-valued request from its complete canonical named-choice declaration.
+- An exact `logos_<namespace>_<method>_response_t* out_response` parameter reconstructs a choice-valued response from its complete canonical named-choice declaration.
+- Other input parameters with an `in_` prefix become request map fields.
+- Other output parameters with an `out_` prefix and canonical output pointer types become response map fields.
 - `logos_result_t` return is stripped (invocation status, not CDDL data).
-- An adjacent `bool has_<field>` and ordinary input representation of `<field>` makes that request field optional.
+- An adjacent `bool in_has_<field>` and ordinary input representation of `in_<field>` makes that request field optional.
 - An adjacent `bool* out_has_<field>` and ordinary output representation of `out_<field>` makes that response field optional.
 - Adjacent `_len` and `_count` parameters are consumed as part of their byte-string or list field.
 - The namespace and method components identify the request/response qualified names.
 
+A choice wrapper is valid only when its type name, qualifier, pointer form, parameter name, choice declaration, and inline arm declarations all match Sections 2.1 through 2.4.
+The mapper MUST reject a wrapper mixed with flattened parameters for the same method half.
+It MUST also reject a request or response choice declaration that is not consumed by the corresponding wrapper parameter.
+
 A provider function MUST exactly match the corresponding defining-contract typedef.
 Its module component attaches that contract method to the concrete provider but does not create another schema declaration.
 
-**Parameter name to CDDL key:** parameter names are used directly.
-`chunk_size` -> `chunk_size`.
+**Parameter name to CDDL key:** remove exactly one direction prefix, then reverse the field expansion rules in Section 2.4.
+For example, `in_chunk_size` maps to request field `chunk_size`, `in_out_value` maps to request field `out_value`, and `out_value` maps to response field `value`.
 
 **Example:**
 
 ```c
 logos_result_t logos_storage_module_call_storage_upload_url(
     logos_module_context_t* module,
-    uint64_t               chunk_size,
-    const char*            url,
+    uint64_t               in_chunk_size,
+    const char*            in_url,
     bool*                  out_accepted
 );
 ```
@@ -1656,7 +1776,7 @@ storage.upload_url_response = {
 
 Parameters MUST appear in the canonical field order required by Section 2.1.
 The mapper MUST reject an unmatched presence, length, count, or output parameter.
-A parameter identifier beginning with `has_` or `out_has_` MUST form the exact typed and adjacent presence pair above.
+A parameter identifier beginning with `in_has_` or `out_has_` MUST form the exact typed and adjacent presence pair above.
 The mapper MUST reject any other such parameter and MUST NOT reconstruct it as a schema field.
 
 ### 3.4 Named Type and Struct Recognition
@@ -1690,7 +1810,9 @@ Members MUST appear in canonical field-name order, with each presence, length, o
 A struct member identifier beginning with `has_` MUST have type `bool`
 and MUST immediately precede the member whose exact name follows the prefix.
 The mapper MUST reject any other such member and MUST NOT reconstruct it as a schema field.
-A canonical `logos_bstr_`, `logos_list_`, or `logos_tuple_` tag MUST contain only its corresponding `data` and `len`, `data[N]`, `items` and `count`, or `item_<index>` members.
+A canonical `logos_bstr_`, `logos_list_`, or `logos_tuple_` tag MUST contain only its corresponding `data` and `len`, `data[N]`, `items` and `count`, or `item_<index>` members, except for the empty-value forms in Section 2.3.
+The mapper reconstructs an empty map, empty tuple, or exact-zero byte string from the aggregate tag and sole canonical `_empty` member.
+It MUST reject an empty struct, a zero-length array, or any other use of `_empty` as a member name.
 
 ### 3.5 Choice and Literal Recognition
 
@@ -1811,14 +1933,14 @@ typedef struct logos_map_meter_reading {
 
 typedef logos_result_t (*logos_meter_call_read_fn)(
     logos_module_context_t*    module,
-    uint32_t                   channel,
+    uint32_t                   in_channel,
     logos_tstr_size_1_64_t*   out_label,
     logos_meter_reading_t*    out_reading
 );
 
 logos_result_t logos_meter_module_call_meter_read(
     logos_module_context_t*    module,
-    uint32_t                   channel,
+    uint32_t                   in_channel,
     logos_tstr_size_1_64_t*   out_label,
     logos_meter_reading_t*    out_reading
 );
@@ -1930,12 +2052,12 @@ logos_result_t logos_sensor_module_call_metrics_provider_snapshot(
 
 typedef logos_result_t (*logos_sensor_control_call_configure_fn)(
     logos_module_context_t*                module,
-    const logos_sensor_control_settings_t* settings
+    const logos_sensor_control_settings_t* in_settings
 );
 
 logos_result_t logos_sensor_module_call_sensor_control_configure(
     logos_module_context_t*                module,
-    const logos_sensor_control_settings_t* settings
+    const logos_sensor_control_settings_t* in_settings
 );
 
 const char* logos_sensor_module_name(void);
@@ -1969,7 +2091,68 @@ The literal constant constrains `sensor.control.settings.kind` to the text value
 Generating C from the three documents and then reconstructing CDDL from the generated header set MUST reproduce all three canonical schema models and the exact implementation relationship.
 The generated header set MUST NOT contain an event-name constant or any other schema-metadata constant not shown above.
 
-#### 3.9.3 Required Rejections
+#### 3.9.3 Recursive Aggregate References
+
+The following supporting schema contains one self-recursive aggregate, one mutually recursive component, and one ordinary non-recursive aggregate reference:
+
+```cddl
+recursive.branch = {
+  node: recursive.node,
+}
+
+recursive.left = {
+  ? right: recursive.right,
+}
+
+recursive.node = {
+  ? next: recursive.node,
+  value: uint64,
+}
+
+recursive.right = {
+  ? left: recursive.left,
+}
+```
+
+Its canonical declarations are:
+
+```c
+typedef struct logos_map_recursive_left logos_recursive_left_t;
+typedef struct logos_map_recursive_node logos_recursive_node_t;
+typedef struct logos_map_recursive_right logos_recursive_right_t;
+
+struct logos_map_recursive_left {
+    bool                          has_right;
+    const logos_recursive_right_t* right;
+};
+
+struct logos_map_recursive_node {
+    bool                         has_next;
+    const logos_recursive_node_t* next;
+    uint64_t                     value;
+};
+
+struct logos_map_recursive_right {
+    bool                         has_left;
+    const logos_recursive_left_t* left;
+};
+
+typedef struct logos_map_recursive_branch {
+    logos_recursive_node_t node;
+} logos_recursive_branch_t;
+```
+
+The `node` self-loop and both edges between `left` and `right` are recursive by-value edges and therefore use pointers.
+The edge from `branch` to `node` crosses recursive components and remains an embedded value.
+Generating C from the schema and then reconstructing CDDL from the generated declarations MUST reproduce the same canonical schema model.
+
+#### 3.9.4 Choice-Valued Method Halves
+
+The conformance set MUST include one method with a choice-valued request and map-valued response and one method with a map-valued request and choice-valued response.
+For each choice-valued half, the canonical C form MUST contain the complete named-choice declaration and exactly one wrapper parameter from Section 2.4.
+Generating C and reconstructing CDDL MUST preserve the canonical schema model in both cases.
+
+#### 3.9.5 Required Rejections
 
 Each case in the following table starts from the complete C declaration set named in the Input column and applies only the stated mutation.
 The mapper MUST reject the resulting header set before emitting CDDL.
@@ -1986,6 +2169,10 @@ The required condition identifies the normative reason for rejection; diagnostic
 | `C-EXT-MISSING-IMPLEMENTS` | Section 3.9.2 | Delete `LOGOS_SENSOR_MODULE_IMPLEMENTS_0`. | The concrete provider declares a non-primary interface method without the required implementation relationship. |
 | `C-EXT-WRONG-LITERAL-TYPE` | Section 3.9.2 | Replace the settings literal value with `7u`. | The literal replacement has unsigned-integer type, but the associated C field has text-string type. |
 | `C-EXT-UNSUPPORTED-DOUBLE` | Section 3.9.2 | Add `typedef double logos_sensor_control_temperature_t;`. | `double` is outside the allowed schema-bearing C subset. |
+| `C-RECURSIVE-EMBEDDED-SELF` | Section 3.9.3 | Replace the `node.next` pointer with an embedded `logos_recursive_node_t` value. | A recursive by-value edge does not use its required pointer representation. |
+| `C-RECURSIVE-POINTER-NONRECURSIVE` | Section 3.9.3 | Replace the embedded `branch.node` value with `const logos_recursive_node_t*`. | A non-recursive by-value edge incorrectly uses recursive-pointer spelling. |
+| `C-CHOICE-WRONG-WRAPPER-NAME` | Section 3.9.4 | Replace the choice request parameter name `in_request` with `in_value`. | A choice-valued method half does not use its exact wrapper parameter name. |
+| `C-CHOICE-MIXED-REQUEST-FORM` | Section 3.9.4 | Add a flattened request parameter after the choice request wrapper. | One method half mixes the wrapper and flattened forms. |
 
 The following isolated header set is the required namespace-projection-collision case:
 
@@ -2207,7 +2394,7 @@ logos.schema_commitment = {
     hash_suite: "logos.hash-suite.blake3-256",
 }
 
-; -- route handle (opaque, not on wire) --
+; -- route handle (process-local, not on wire) --
 ; logos_route_handle_t is a process-local binding concept, not serialised.
 
 ; -- selected-contract introspection (well-known method) --
@@ -2332,6 +2519,11 @@ hand-written modules and caller-side bindings.
 For C-first modules, the reverse mapping in section 3 recognizes these shared
 C types and maps them to the corresponding schema or ABI concepts defined by this specification.
 
+`logos_types.h` also supplies the canonical C declarations for every named type in the pinned common schema surface from Section 5.1 and any constraint or inline support declarations required by those types.
+Those declarations are derived by Sections 2.1 through 2.3, including the dedicated common-name projection and the `logos.error_code` exception.
+Generated contract headers include `logos_types.h` and MUST NOT redeclare its fixed common types.
+The common declarations are mapping inputs in the same sense as `uint64_t`: a reverse mapper recognizes their fixed names but does not reconstruct their definitions as part of the authored C contract.
+
 - `logos_error_code_t` defines the shared status-code space used at the module boundary.
 - `logos_result_t` reports the status of an ABI operation.
   For a schema-defined method invocation,
@@ -2343,18 +2535,21 @@ C types and maps them to the corresponding schema or ABI concepts defined by thi
   Its length MUST NOT exceed `LOGOS_ERROR_DETAIL_MAX_LEN`.
 - `logos_module_context_t` is an opaque per-instance type owned by the module implementation.
 - The module creates one distinct live context during each successful `_init()` call.
-- The same context is passed to every instance-dependent ABI call and to `_destroy()` exactly once.
+- Context lifetime and destruction follow Section 2.6.
 - The module context is process-local.
   It MUST NOT be serialized, used as a module identity, or treated as a caller-side routing handle.
 - `logos_module_init_input_t` is the size- and version-delimited initialization input supplied to the module by the ABI caller.
-- `logos_runtime_control_binding_t` is the opaque process-local binding through which the initialized module invokes the intrinsic Runtime Control contract.
+- `logos_runtime_control_binding_t` is the process-local binding through which the initialized module invokes the intrinsic Runtime Control contract.
+- A Runtime Control binding contains a versioned vtable and opaque binding state.
+  It supports generic deterministic-CBOR calls, response release, event subscription, unsubscription, and route-handle materialization.
 - The Runtime Control binding identifies the initialized module instance as consumer but grants no authority by itself.
 - The publish callback attributes published events to the initialized module instance and does not transfer the authority of an inbound caller.
 - `logos_module_init_input_t.state_dir`, when non-null, identifies the module-visible persistent-state directory assigned to this module instance.
   It is a NUL-terminated UTF-8 string without an embedded NUL.
   A null value means that no persistent-state directory was assigned.
   The path is coordination data and grants no filesystem authority by itself.
-- `logos_route_handle_t` is opaque to callers.
+- `logos_route_handle_t` contains a versioned vtable and opaque route state.
+  Callers MUST NOT inspect or modify the state.
 - A route handle is a process-local representation of one consumer-bound, exact-contract route.
 - A language binding constructs it from a ready route returned by Runtime Control.
 - In direct mode, a handle may wrap function pointers or equivalent
@@ -2363,6 +2558,8 @@ C types and maps them to the corresponding schema or ABI concepts defined by thi
   runtime state.
 - The execution mode behind a handle is runtime-internal and MUST NOT change
   the module contract seen by callers.
+- Releasing a route handle releases only the local binding state.
+  Logical route closure remains the Runtime Control `close_route` operation.
 - Route-handle concurrency is defined in Section 2.8.
 - `logos_subscription_id_t` identifies one subscription within one route handle.
 - `logos_event_handler_t` receives validated encoded event data through a caller-side route binding.
@@ -2409,6 +2606,9 @@ typedef struct {
  */
 typedef struct logos_module_context logos_module_context_t;
 typedef struct logos_runtime_control_binding logos_runtime_control_binding_t;
+typedef struct logos_runtime_control_vtable logos_runtime_control_vtable_t;
+typedef struct logos_route_handle logos_route_handle_t;
+typedef struct logos_route_vtable logos_route_vtable_t;
 
 #define LOGOS_MODULE_INIT_ABI_VERSION 1u
 
@@ -2430,24 +2630,10 @@ typedef struct {
     size_t                                 configuration_cbor_len;
 } logos_module_init_input_t;
 
-/* -- Route handle -- */
+/* -- Runtime Control binding and route handle -- */
 
-/*
- * A route handle is the process-local representation of one
- * consumer-bound, exact-contract route returned by Runtime Control.
- *
- * In direct mode, the handle wraps validated provider function pointers.
- * In local or remote transport mode, it wraps the selected invocation path.
- *
- * Concurrency requirements are defined in
- * LOGOS-MODULE-INTERFACE Section 2.8.
- */
-typedef struct logos_route_handle {
-    /* opaque to callers — fields are binding-internal */
-    void* _impl;
-} logos_route_handle_t;
-
-/* -- Event subscription -- */
+#define LOGOS_RUNTIME_CONTROL_VTABLE_ABI_VERSION 1u
+#define LOGOS_ROUTE_VTABLE_ABI_VERSION 1u
 
 typedef uint64_t logos_subscription_id_t;
 
@@ -2458,18 +2644,90 @@ typedef void (*logos_event_handler_t)(
     void*          user_data
 );
 
-logos_result_t logos_route_subscribe(
-    logos_route_handle_t*     route,
-    const char*               event_name,
-    logos_event_handler_t     handler,
-    void*                     user_data,
-    logos_subscription_id_t*  out_subscription_id
-);
+struct logos_runtime_control_binding {
+    const logos_runtime_control_vtable_t* vtable;
+    void*                                 state;
+};
 
-logos_result_t logos_route_unsubscribe(
-    logos_route_handle_t*    route,
-    logos_subscription_id_t  subscription_id
-);
+struct logos_route_handle {
+    const logos_route_vtable_t* vtable;
+    void*                       state;
+};
+
+struct logos_runtime_control_vtable {
+    uint32_t abi_version;
+    size_t   struct_size;
+
+    logos_result_t (*call)(
+        const logos_runtime_control_binding_t* binding,
+        const char*                            method,
+        const uint8_t*                         params_cbor,
+        size_t                                 params_cbor_len,
+        uint8_t**                              out_response_cbor,
+        size_t*                                out_response_cbor_len
+    );
+
+    void (*release_response)(
+        const logos_runtime_control_binding_t* binding,
+        uint8_t*                               response_cbor,
+        size_t                                 response_cbor_len
+    );
+
+    logos_result_t (*subscribe)(
+        const logos_runtime_control_binding_t* binding,
+        const char*                            event_name,
+        logos_event_handler_t                  handler,
+        void*                                  user_data,
+        logos_subscription_id_t*               out_subscription_id
+    );
+
+    logos_result_t (*unsubscribe)(
+        const logos_runtime_control_binding_t* binding,
+        logos_subscription_id_t                subscription_id
+    );
+
+    logos_result_t (*materialize_route)(
+        const logos_runtime_control_binding_t* binding,
+        const char*                            route_id,
+        const uint8_t                          expected_contract_root[32],
+        logos_route_handle_t*                  out_route
+    );
+};
+
+struct logos_route_vtable {
+    uint32_t abi_version;
+    size_t   struct_size;
+
+    logos_result_t (*call)(
+        logos_route_handle_t* route,
+        const char*           method,
+        const uint8_t*        params_cbor,
+        size_t                params_cbor_len,
+        uint8_t**             out_response_cbor,
+        size_t*               out_response_cbor_len
+    );
+
+    void (*release_response)(
+        logos_route_handle_t* route,
+        uint8_t*              response_cbor,
+        size_t                response_cbor_len
+    );
+
+    logos_result_t (*subscribe)(
+        logos_route_handle_t*    route,
+        const char*              event_name,
+        logos_event_handler_t    handler,
+        void*                    user_data,
+        logos_subscription_id_t* out_subscription_id
+    );
+
+    logos_result_t (*unsubscribe)(
+        logos_route_handle_t*   route,
+        logos_subscription_id_t subscription_id
+    );
+
+    void (*release)(logos_route_handle_t* route);
+};
 
 /* -- Memory management -- */
 
@@ -2492,6 +2750,42 @@ A module that does not support the version or receives a structure too
 small to contain the fields defined by that version MUST return
 `LOGOS_ERR_VERSION_MISMATCH` and a null context.
 Unknown appended fields within a supported version are ignored.
+
+The Runtime Control and route vtables use ABI version `1` in this revision.
+Each `struct_size` is the number of initialized bytes available in that vtable.
+A binding consumer MUST reject a null vtable, a null state pointer, an unsupported version, a structure too small to contain every field defined by that version, or a null required operation pointer.
+A binding consumer MUST NOT read beyond `struct_size`.
+Future compatible revisions MAY append fields and increase `struct_size`, but MUST NOT reorder, remove, or change the meaning of existing fields.
+An incompatible layout requires a new vtable ABI version.
+The vtable and state pointers remain valid and unchanged for the complete binding or handle lifetime.
+
+The Runtime Control `call` operation accepts an exact Runtime Control method name and one complete deterministic-CBOR request map for that method.
+The route `call` operation accepts an exact method name selected by that route and one complete deterministic-CBOR request map for that method.
+Before either call, the caller MUST set `*out_response_cbor` to `NULL` and `*out_response_cbor_len` to zero.
+Success requires a non-null response buffer and a nonzero length containing exactly one valid deterministic-CBOR response map for the selected method.
+Failure requires a nonzero result code, a null response pointer, and a zero response length.
+The caller MUST reject every other result and output combination.
+A successful call transfers the response buffer to the caller, which MUST pass the exact pointer and length exactly once to the matching vtable's `release_response` operation before releasing the binding or handle.
+The generic route `call` operation uses deterministic CBOR at the caller-side binding boundary in every execution mode, including direct mode.
+For a direct route, this encoding is not a Transport message and creates no Transport connection.
+The direct binding invokes `logos_<module>_dispatch()` or an equivalent validated adapter against the selected provider context.
+An ABI caller that independently owns an accepted direct implementation binding MAY instead invoke its typed provider functions directly under Sections 2.6 through 2.8.
+
+The Runtime Control `subscribe` and `unsubscribe` operations apply the subscription semantics in Section 2.5 to events selected from the Runtime Control contract.
+The corresponding route operations apply those semantics to events selected by that route.
+
+To materialize a route handle, the caller MUST provide the exact `route_id` and 32-byte `schema_root` from the `expected_contract` of a ready route returned through the same Runtime Control binding as `expected_contract_root`.
+Before calling `materialize_route`, the caller MUST set `out_route->vtable` and `out_route->state` to `NULL`.
+Runtime MUST revalidate that the binding's consumer owns the route, that the route is currently ready, that the route still selects the exact expected contract recorded at establishment or renewal, and that the contract's schema root matches `expected_contract_root`.
+Success requires non-null `out_route->vtable` and `out_route->state` values that represent that route without changing its selected contract or consumer.
+Failure MUST leave both output fields null and MUST NOT create a live handle.
+Route materialization does not create, renew, or retarget a logical route.
+
+The caller MUST invoke a successfully materialized route handle's `release` operation exactly once.
+Before release, the caller MUST stop new operations through the handle and release every transferred response buffer.
+Release deactivates every remaining subscription, waits for the callback quiescence required by Section 2.5, and releases the local binding state.
+After release begins, the caller MUST NOT use or inspect the handle again.
+Handle release does not close the logical route; an authorized caller closes that route through the Runtime Control `close_route` method.
 
 The configuration fields are absent exactly when `configuration_cbor` is `NULL` and `configuration_cbor_len` is zero.
 When present, they MUST contain a non-null pointer and nonzero length for exactly one deterministic-CBOR value.
@@ -2672,14 +2966,14 @@ For each method, a generator may produce a typed call helper that invokes the me
  *       storage.exists_response = { exists: bool } */
 logos_result_t logos_storage_invoke_exists(
     logos_route_handle_t* route,
-    const char*           cid,
+    const char*           in_cid,
     bool*                 out_exists
 );
 ```
 
 The helper requires a route whose selected contract defines `storage.exists`.
-For direct mode, it invokes the validated typed provider function without serialization.
-For local or remote Transport mode, it deterministic-CBOR-encodes the request, invokes the route's selected Transport path, decodes the response, and writes `out_exists`.
+It deterministic-CBOR-encodes the request, invokes the route vtable's generic `call` operation, decodes the response, and writes `out_exists`.
+The route binding invokes the validated direct provider or selected Transport path as defined in Section 5.2 without changing this caller-side surface.
 The helper does not select a provider, acquire a route, or name another consumer.
 
 ### A.6 Framework-Specific UI Bindings

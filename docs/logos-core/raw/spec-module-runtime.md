@@ -132,7 +132,7 @@ Provider and consumer are orthogonal roles.
 A module instance may expose providers and act as a consumer without acquiring a second module identity or lifecycle.
 The word caller describes a consumer while it performs a particular call, subscription, or other operation; it does not introduce another managed entity.
 
-Every consumer is a module instance.
+Every consumer is a module instance, except that LOGOS-MODULE-CAPABILITY-AUTHORITY permits the local Runtime as consumer for Runtime-initiated deployment startup.
 The Runtime engine, Runtime host, bootstrap machinery, operating-system objects, protected inputs, humans, and unauthenticated peers remain outside the participant model.
 They do not receive unconstrained consumer references.
 If a later specification needs a human, user-session, device, organization, or agent identity, it must define that identity and its delegation relationship explicitly.
@@ -209,7 +209,9 @@ Runtime MUST apply authority to each requested Runtime Control method or event a
 Making a Runtime Control binding available to a module does not authorize any operation by itself.
 A module consumes Runtime Control through a consumer-bound Runtime Control binding that preserves the contract's typed-value, authority, commitment, evidence, and error semantics.
 That binding MAY use direct invocation or a Transport-backed invocation path according to the module's placement.
-A direct binding MAY invoke the Runtime implementation without serializing the request or using Transport.
+The native Runtime Control vtable defined by LOGOS-MODULE-INTERFACE carries method requests and responses as deterministic CBOR in every placement.
+An in-process binding MAY invoke the Runtime implementation without constructing a Transport message or using a Transport connection.
+It MUST still validate the request and response against the selected Runtime Control method.
 Provider-contract method calls and events remain operations of their selected provider contracts rather than Runtime Control operations.
 An implementation is not required to perform its internal Runtime operations by invoking its own Runtime Control contract.
 
@@ -344,7 +346,8 @@ They do not themselves create a module instance.
 For each native module instance that uses the binding,
 the applicable ABI caller MUST construct the versioned initialization input defined by LOGOS-MODULE-INTERFACE and invoke `logos_<module>_init(input, out_context)`.
 Each successful call MUST return a distinct non-null module context.
-The applicable ABI caller MUST retain the implementation binding until every context created from that binding has been passed exactly once to `logos_<module>_destroy(context)`.
+The applicable ABI caller MUST retain the implementation binding until destruction has returned for every context created from that binding,
+except when the containing execution envelope is forcibly terminated under Section 10.2.
 
 ### 2.3 Direct Static Binding
 
@@ -557,7 +560,8 @@ but those are not additional module states.
 
 On stop, Runtime transitions the module instance to `stopping`,
 marks its provider views unavailable for new routes and invocations,
-prevents new outbound operations by that module instance,
+prevents new outbound method calls and new Runtime Control contract calls by that module instance,
+permits the response-release, unsubscription, and route-handle-release operations required for native destruction,
 drains or fails in-flight work according to active policy,
 invokes lifecycle destruction when applicable,
 stops or detaches the realization through the responsible boundary,
@@ -688,16 +692,18 @@ A provider requirement does not create a package dependency or a lifecycle-order
 ### 4.1 Route Handles
 
 A module requests a route through the Runtime Control `establish_route` method.
-For each ready route returned to that consumer, the language binding MAY construct a process-local route handle.
+For each ready route returned to that consumer by `establish_route` or `renew_route`, the language binding MAY invoke the Runtime Control binding's `materialize_route` operation with the returned `route` identifier and `expected_contract.schema_root`.
+Route materialization is a process-local binding operation rather than a Runtime Control contract method.
+Runtime MUST revalidate that the binding identifies the route's consumer, that the route is currently `ready`, that the route still selects its exact expected contract, and that its expected-contract schema root equals the supplied root.
+If any check fails, Runtime MUST return no handle.
 The handle represents that consumer-bound, exact-contract route.
 Closing the route uses the Runtime Control `close_route` method.
 Releasing the handle afterward is local binding cleanup.
 
 The language binding realizes the handle according to the selected route's invocation path:
 
-- **Direct mode:** The handle wraps the selected module context and validated
-  provider function pointers.
-  Calls go through direct C function invocation with no serialization.
+- **Direct mode:** The handle wraps Runtime-controlled route state for the selected module context and validated provider binding.
+  Its generic call operation carries deterministic-CBOR payloads to `logos_<module>_dispatch()` or an equivalent validated adapter without constructing Transport messages or opening a Transport connection.
 - **Local transport mode:** The handle wraps a local transport
   connection to the selected provider. Calls are serialised as Logos
   deterministic CBOR per LOGOS-MODULE-TRANSPORT.
@@ -707,7 +713,7 @@ The language binding realizes the handle according to the selected route's invoc
   Calls are serialised as Logos deterministic CBOR per LOGOS-MODULE-TRANSPORT.
 
 The consumer does not need to know which mode is active.
-The handle hides the invocation path.
+The handle's versioned vtable hides the invocation path.
 Handle-based typed call helpers are the caller-side C API.
 Such helpers take a `logos_route_handle_t*` as their first argument and route
 calls through the handle.
@@ -746,6 +752,7 @@ logos_result_t logos_route_call(
 
 `logos_route_call()` carries deterministic-CBOR method payloads using the same
 request, response, and error shapes as LOGOS-MODULE-TRANSPORT.
+It dispatches to the handle vtable's generic `call` operation.
 Every handle-based typed helper and generic dynamic call uses the mandatory payload commitments
 defined by LOGOS-MODULE-TRANSPORT.
 For local or remote Transport,
@@ -858,13 +865,18 @@ It MUST NOT expose unrelated registry records, other consumers' routes, or other
 An invocation boundary that shares an address space with module code
 MUST NOT place unrelated secrets or authority material in that address space.
 
+When the hosted module requests route materialization,
+the process-local invocation boundary MUST send the exact route identifier and expected-contract schema root through that protected realization-internal carrier.
+The owning Runtime MUST perform the materialization checks in Section 4.1 against current Runtime-owned state.
+The boundary MUST NOT treat a previously returned route record or cached readiness result as sufficient authorization.
+
 Runtime Control calls from the hosted module MUST have the same typed values, authority decisions, errors, and observable state transitions as direct calls from an in-process module.
 Ordinary provider calls through a returned route handle MUST have the same selected-contract behavior as the corresponding direct route.
 Routing changes MUST NOT silently retarget an existing handle.
 
 ### 4.3 Capability Validation
 
-Before returning a caller-side handle, helper binding, or invocation descriptor,
+Before making a route ready or returning a caller-side handle, helper binding, or invocation descriptor,
 the runtime MUST verify that the caller is authorized to access the selected
 provider according to runtime authority policy.
 For providers owned by another runtime instance, the runtime that owns the
@@ -950,10 +962,7 @@ It does not create a per-invocation module context.
 On stop, Runtime prevents new calls, drains or fails in-flight work,
 releases every transferred output,
 and initiates orderly release through the selected realization mechanism.
-For every live native context, including a context for a consumer-only module instance,
-the applicable ABI caller MUST invoke
-`logos_<module>_destroy(context)` exactly once
-before discarding the direct binding or stopping the containing execution form.
+Native context destruction and binding retention follow Section 10.2.
 
 A consumer-only module does not need a provider endpoint or dispatch loop.
 Its realization uses the non-provider handoff and readiness evidence required by its selected profile.
@@ -969,8 +978,8 @@ Platform loading and symbol resolution occur inside the provider process, not ac
 ### 5.2 Single-Process (Mobile / Embedded)
 
 In single-process mode, module implementations may be bound into the process that serves as the Runtime host.
-Calls use direct C function pointers with the selected module context.
-No serialization or socket is required for those direct calls.
+An applicable ABI caller that owns the accepted provider binding may use typed C function pointers with the selected module context without serialization or a socket.
+A handle-based caller uses the generic deterministic-CBOR route-call boundary defined by LOGOS-MODULE-INTERFACE, but no Transport message, Transport connection, or socket is required for that direct route.
 
 The runtime still manages the registry, lifecycle, and capability validation.
 Each successful initialization still creates one distinct context and logical module instance.
@@ -1041,10 +1050,13 @@ For a native hosted provider,
 the boundary invokes `logos_<module>_dispatch(context, ...)`
 with the context returned for that module instance.
 
-The runtime MUST NOT mark a local-transport-hosted module as `ready` merely
-because a local endpoint exists.
-The host is ready only after the runtime can connect to that socket and
-complete the LOGOS-MODULE-TRANSPORT Hello handshake for the hosted module.
+Runtime MUST NOT mark a local-transport-hosted module as `ready` merely because a local endpoint exists.
+Runtime MUST confirm successful module initialization and validate the provider's call surface against the accepted contract expectations.
+Runtime MUST validate the exact inherited listener under LOGOS-MODULE-TRANSPORT Section 8.2.
+Through the protected realization mechanism, Runtime MUST confirm that the provider-side invocation boundary has started serving that listener for the current realization.
+The module instance MUST remain unavailable for provider routing until these checks and every other applicable readiness check succeed.
+Every provider session MUST pass the applicable Transport peer verification, authorization, and Hello checks before accepting ordinary provider messages.
+
 If readiness is not reached before the startup timeout, Runtime MUST move the module instance to `error` and MUST NOT treat the provider or any dependent route as ready.
 For a locally realized instance,
 Runtime MUST initiate release through the same mechanism that established the realization.
@@ -1186,7 +1198,7 @@ Every route and outbound call obtained through that binding uses that consumer's
 Authorization of an inbound call to the module does not delegate the inbound caller's authority to an outbound call made by the module.
 Runtime MUST NOT reuse an inbound route, route ticket, or authority decision as authority for the outbound operation.
 
-For direct mode, the route handle invokes validated provider function pointers without serialization.
+For direct mode, the route handle carries deterministic-CBOR payloads through its generic call operation to the validated provider binding without using Transport.
 For local transport mode, the process-local invocation boundary uses only the invocation material bound to that route and translates typed calls into LOGOS-MODULE-TRANSPORT messages.
 For remote transport mode, the route handle uses the authenticated Runtime-to-Runtime path and provider session established for that route.
 The typed call helper exposes the same method inputs, outputs, and errors in every mode.
@@ -1364,7 +1376,7 @@ hardening guidance.
 
 LOGOS-MODULE-INTERFACE defines the versioned
 `logos_module_init_input_t`,
-opaque `logos_runtime_control_binding_t`,
+`logos_runtime_control_binding_t` and its vtable,
 and opaque `logos_module_context_t` C ABI types.
 For each module instance,
 the applicable ABI caller MUST populate the initialization ABI version and structure size,
@@ -1374,6 +1386,7 @@ set `*out_context` to null,
 and invoke `logos_<module>_init(input, out_context)`.
 
 The Runtime Control binding MUST identify the initialized module instance as consumer.
+It MUST contain the complete versioned operation table and binding state required by LOGOS-MODULE-INTERFACE.
 Each Runtime Control operation invoked through that binding is attributed to that consumer.
 Each event emitted through the publish callback is attributed to the initialized module instance as publisher.
 Neither path transfers the authority of an inbound caller or another context created from the same implementation binding.
@@ -1396,12 +1409,12 @@ state before returning the failure.
 Each successful initialization of one accepted implementation binding creates
 a distinct context and module instance lifetime.
 Initialization and provider-entry concurrency follow LOGOS-MODULE-INTERFACE Section 2.8.
-Runtime MUST NOT initiate release while another instance-dependent call is in flight.
+Runtime MUST NOT initiate graceful release while another instance-dependent call is in flight.
 Before destruction, Runtime MUST prevent new calls through that context,
 drain or fail in-flight work,
 and release every transferred module-owned output.
 It then initiates graceful release through the selected realization mechanism.
-The applicable ABI caller MUST invoke `_destroy(context)` exactly once before discarding the direct binding or stopping the containing execution form.
+Native context destruction and binding retention follow Section 10.2.
 
 The initialization input carries the Runtime Control binding,
 event-publication fields,
@@ -1455,7 +1468,7 @@ Before Runtime uses a provider as a system service, it MUST confirm that:
 - the provider exposes the module contract required for that responsibility;
 - the invocation path is usable with the authority granted for that binding.
 
-For a local-transport system service provider, readiness includes completing the Transport Hello exchange for the required module contract.
+Before using a local-transport system service provider, Runtime MUST complete the authorized Transport Hello exchange for the required module contract.
 Runtime MUST NOT use the provider for dependent operations until all binding checks succeed.
 The same readiness, contract, invocation-path, and authority checks apply when active policy replaces a system service binding after bootstrap.
 
@@ -1471,7 +1484,7 @@ A module has only the operations granted to its module instance by active policy
 Module identity, implementation, provided contracts, and placement grant no Runtime Control authority, route authority, system-service access, or provider visibility by themselves.
 
 For authority-policy evaluation, Runtime MUST authenticate the consumer at the enforcement boundary
-and represent that consumer with `module_instance_address`.
+and use the consumer identity defined by LOGOS-MODULE-CAPABILITY-AUTHORITY.
 Runtime MAY derive policy attributes from authenticated context.
 Those attributes are policy inputs, not additional identities or authority by themselves.
 
@@ -1496,7 +1509,7 @@ Remote runtime-control access requires authority accepted by the runtime that
 exposes the Runtime Control endpoint.
 
 Runtime MUST populate or validate the Capability Authority request's `consumer`
-against the module instance authenticated for the attempted operation.
+against the authenticated consumer for the attempted operation.
 Runtime MUST reject a returned decision whose consumer does not match the request.
 
 The following operations require an allow decision from runtime authority
@@ -2360,7 +2373,8 @@ which identifies a local or remote transport invocation path.
 The mandatory local descriptor uses `logos.local.unix-stream`.
 It carries the Unix-domain-socket path and one-time 32-byte route ticket directly.
 It does not contain an opaque nested descriptor.
-Direct-mode callers obtain a process-local `logos_route_handle_t` from the language binding and do not serialize that handle into Runtime Control.
+Direct-mode callers obtain a process-local `logos_route_handle_t` by materializing a ready route through their Runtime Control binding.
+They do not serialize that handle into Runtime Control.
 
 A remote-transport invocation directly identifies the expected target Runtime,
 the selected remote provider, the provider-side listener,
@@ -2375,8 +2389,8 @@ and selects the remote transport and security profile.
 The caller carries it in the first Transport Hello as `token`
 and MUST NOT reuse it for another connection.
 
-For a ready remote route returned by `establish_route` or `renew_route`,
-the enclosing `route_record` MUST contain `expected_contract` and `expires_at`.
+Every ready route returned to its consumer by `establish_route` or `renew_route` MUST contain `expected_contract`.
+For a ready remote route, the enclosing `route_record` MUST also contain `expires_at`.
 Its consumer, provider, module, contract, access, route, and expiry
 define the authorization and session constraints for the invocation.
 The caller MUST reject the invocation
@@ -2481,9 +2495,7 @@ Route establishment follows these steps:
    routing-selection state or deployment configuration.
    For `all-runtime-visible`, Runtime treats each matching provider visible through
    the discovery decision as selected and attempts an independent route for each one.
-5. For each selected provider, the runtime validates the selected contract
-   using the module name, schema namespace, schema commitment, compatibility
-   metadata, and Transport Hello `schema` commitment where Transport is used.
+5. For each selected provider, the runtime validates the selected contract using the module name, schema namespace, schema commitment, and compatibility metadata.
 6. If the selected provider is owned by another Runtime instance, the consumer's
    Runtime contacts the target Runtime.
    The target runtime remains responsible for validating providers it owns.
@@ -2502,16 +2514,15 @@ Route establishment follows these steps:
    return the other ready routes, and set `partial` to `true`.
 10. If validation and authority checking succeed,
     the runtime creates or exposes
-    a `route_record` and binds the consumer-side handle, helper, or transport
-    session to the route.
+    a `route_record` and the consumer-scoped invocation material from which an authorized handle, helper, or Transport session can be bound to the route.
 11. The route becomes `ready` only after the selected invocation path is usable and
     the target provider still satisfies the selected contract.
 12. Ordinary module calls use the selected invocation path, not Runtime Control methods.
 
 Route establishment and renewal are Runtime-owned operations.
 Runtime exposes them to modules only through the typed Runtime Control `establish_route` and `renew_route` methods.
-A language binding MAY represent a ready route returned by those methods as a process-local handle or Transport session.
-That representation does not define another route-acquisition operation.
+A language binding MAY materialize a ready route returned by those methods as a process-local handle or establish its Transport session.
+Materializing that representation revalidates the existing route but does not define another route-acquisition operation.
 The resulting route belongs to and may be used only by its consumer module.
 Ordinary provider calls use the invocation path of the resulting route and are not Runtime Control operations.
 
@@ -2796,9 +2807,8 @@ The response reports the resulting route state.
 Closing a route does not revoke an authorization grant or change another route.
 
 The `start_module` method starts a module record already known to the runtime.
-If the module record is not known, the runtime returns the ordinary
-schema-defined error result for "module not found" or equivalent runtime
-failure.
+If the module record is not known, Runtime MUST report an invocation failure through the shared error channel defined by LOGOS-MODULE-INTERFACE.
+The failure MUST preserve this section's non-disclosure rules.
 The method does not install packages, resolve package dependencies, or create
 new runtime records by itself.
 For a local module implementation, success means Runtime has performed the lifecycle work needed to move the selected module instance toward `ready`, including native artifact loading and lifecycle initialization where applicable.
@@ -2869,8 +2879,8 @@ runtime-control record, such as `module_record`, `route_record`,
 `runtime_endpoint`, or `module_provider_address`.
 Implementations MAY use different internal structures, but call evidence
 MUST be derived from the CDDL-defined runtime-control value.
-This specification does not require every transient runtime-control response to
-be committed.
+Commitment computation is mandatory for every successful Runtime Control response.
+Retention of the computed commitment follows the applicable audit requirements.
 
 ---
 
@@ -2934,9 +2944,10 @@ On runtime shutdown:
    Runtime initiates graceful release for each local realization through the same mechanism that established it.
 4. During graceful release of a live native context,
    the applicable ABI caller invokes `_destroy(context)` exactly once
-   before discarding its binding or stopping its containing execution form.
+   and waits for it to return before discarding its binding or stopping its containing execution form.
 5. If an ordinary realization does not complete cleanup within the active grace period,
    Runtime MAY request forced cleanup through the responsible realization, Runtime host, or deployment mechanism.
+   Forced termination of the execution envelope MAY prevent destruction from beginning or returning.
 6. Runtime continues shutdown after every realization has been released,
    or its cleanup failure has been recorded according to shutdown policy.
 
@@ -3061,7 +3072,7 @@ LOGOS-MODULE-INTERFACE and LOGOS-MODULE-HASH-PROFILE.
 
 ```cddl
 {
-  runtime_instance_id: "rt-local-001",
+  runtime_instance_id: "de1d7cd9-4e0d-4f68-89fa-460fc3332e00",
   address: {
     transport: "unix-stream",
     path: "/run/logos/runtime-control.sock",
@@ -3077,7 +3088,7 @@ The `runtime_instance_id` is opaque and does not prove trust or authority.
 
 ```cddl
 {
-  runtime_instance_id: "rt-local-001",
+  runtime_instance_id: "de1d7cd9-4e0d-4f68-89fa-460fc3332e00",
   provider: "provider-storage-local"
 }
 ```
@@ -3092,7 +3103,7 @@ The `provider` id is scoped to the runtime instance identified by
 {
   module: "storage_module",
   provider: {
-    runtime_instance_id: "rt-local-001",
+    runtime_instance_id: "de1d7cd9-4e0d-4f68-89fa-460fc3332e00",
     provider: "provider-storage-local"
   },
   instance: "instance-storage-001",
@@ -3118,12 +3129,12 @@ the root bytes remain illustrative record-construction data.
 {
   module: "storage_module",
   provider: {
-    runtime_instance_id: "rt-local-001",
+    runtime_instance_id: "de1d7cd9-4e0d-4f68-89fa-460fc3332e00",
     provider: "provider-storage-remote-facade"
   },
   remote: {
     runtime: {
-      runtime_instance_id: "rt-remote-001",
+      runtime_instance_id: "32f85d68-6b4d-45a2-9a06-c0d56f75c3dc",
       address: {
         transport: "tls-tcp",
         host: "remote.example",
@@ -3156,11 +3167,11 @@ The nested `remote.provider` is scoped to the remote runtime identified by
 {
   route: "route-storage-remote-001",
   consumer: {
-    runtime_instance_id: "rt-local-001",
+    runtime_instance_id: "de1d7cd9-4e0d-4f68-89fa-460fc3332e00",
     module_instance_id: "instance-consumer-example-001"
   },
   target_provider: {
-    runtime_instance_id: "rt-local-001",
+    runtime_instance_id: "de1d7cd9-4e0d-4f68-89fa-460fc3332e00",
     provider: "provider-storage-remote-facade"
   },
   module: "storage_module",

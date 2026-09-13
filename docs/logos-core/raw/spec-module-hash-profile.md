@@ -668,9 +668,9 @@ branch-label = {
 }
 ```
 
-`root-child-record` is used only for the one semantic value node below a value root.
-It has no path label because the empty semantic path selects that whole node.
-Every other parent-child relation uses `child-record` with an explicit typed label.
+`root-child-record` represents the sole child of a payload whose shape in Section 7.4 uses that record.
+It has no path label; the enclosing payload determines the child's semantic position.
+A `child-record` identifies a child in an ordered collection or a selected choice arm with an explicit typed label.
 The schema identity is mandatory in both record shapes,
 so an implementation never infers it from a local schema traversal.
 Each record's schema identity MUST equal field `2` of the complete payload whose digest that record carries.

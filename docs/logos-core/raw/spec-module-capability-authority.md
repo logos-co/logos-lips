@@ -64,10 +64,11 @@ and MUST NOT authorize its own initial binding.
 
 ## 2. Module-Instance Addresses And Authenticated Call Context
 
-Every `consumer` field and every grant `target` field contains a module-instance address.
-`consumer` names the module instance whose authority is used to authorize or evaluate the operation.
+Every grant `target` field contains a module-instance address.
+A `consumer` contains a module-instance address or, for Runtime-initiated deployment startup, identifies the local Runtime.
+`consumer` identifies whose authority is used to authorize or evaluate the operation.
 In a grant, `target` names the module instance to which that grant applies.
-Consumer and target are relationships expressed through module-instance identity; neither creates another entity type.
+Consumer and target are authorization roles; neither creates another module entity type.
 Every module-instance address named by this contract MUST resolve to one Runtime-known module instance.
 The Runtime engine, Runtime host, bootstrap machinery, operating-system objects, protected inputs, humans, and unauthenticated peers MUST NOT be represented as module instances.
 
@@ -78,7 +79,8 @@ The address does not authenticate the module instance or grant authority.
 Runtime MUST supply Capability Authority with authenticated context for the consumer.
 Runtime MUST populate or validate the request's `consumer` against that context before dispatching a Capability Authority method.
 For `evaluate`, Runtime supplies the module instance that initiated the attempted operation as consumer.
-Runtime's protected invocation of the bound Capability Authority provider does not make the Runtime engine or Runtime host the consumer.
+For deployment startup initiated by the local Runtime, Runtime MUST instead supply its own authenticated Runtime identity as consumer.
+Runtime's protected invocation on behalf of a module MUST preserve that module as consumer.
 For other methods, the consumer is the module instance authenticated at the Capability Authority invocation boundary.
 A request may separately name a target module instance.
 A target does not supply the authority used to invoke the method and does not become the consumer.
@@ -412,8 +414,7 @@ Provider identity remains the provider address selected and validated by Runtime
 Neither identity grants authority by itself.
 
 Request and response value roots normally do not exist when an allow decision is made.
-Commitment requirements tell the enforcement boundary which roots or proofs to compute,
-verify, and retain for the operation.
+Commitment requirements tell the enforcement boundary which request or successful-response roots to retain for audit.
 The resulting roots are linked to the decision, exact call scope, and enforcement outcome
 through the audit rules in Section 9.
 
@@ -465,8 +466,15 @@ logos.capability_authority.denial = {
     ? message: tstr .size (0..512),
 }
 
+logos.capability_authority.evaluation_consumer =
+    logos.runtime.module_instance_address /
+    {
+        kind: "runtime",
+        runtime_instance_id: logos.runtime.runtime_instance_id,
+    }
+
 logos.capability_authority.evaluate_request = {
-    consumer: logos.runtime.module_instance_address,
+    consumer: logos.capability_authority.evaluation_consumer,
     scopes: [* logos.capability_authority.scope],
     ? commitment: logos.capability_authority.commitment_requirements,
 }
@@ -474,7 +482,7 @@ logos.capability_authority.evaluate_request = {
 logos.capability_authority.decision = {
     decision_id: logos.capability_authority.decision_id,
     result: logos.capability_authority.decision_result,
-    consumer: logos.runtime.module_instance_address,
+    consumer: logos.capability_authority.evaluation_consumer,
     requested_scopes: [* logos.capability_authority.scope],
     ? allowed_scopes: [* logos.capability_authority.scope],
     issued_at: logos.capability_authority.timestamp,
@@ -761,7 +769,7 @@ logos.capability_authority.audit_record =
         timestamp: logos.capability_authority.timestamp,
         operation: "evaluate",
         outcome: "allow",
-        consumer: logos.runtime.module_instance_address,
+        consumer: logos.capability_authority.evaluation_consumer,
         decision_id: logos.capability_authority.decision_id,
         scopes: [* logos.capability_authority.scope],
     } /
@@ -769,7 +777,7 @@ logos.capability_authority.audit_record =
         timestamp: logos.capability_authority.timestamp,
         operation: "evaluate",
         outcome: "deny",
-        consumer: logos.runtime.module_instance_address,
+        consumer: logos.capability_authority.evaluation_consumer,
         decision_id: logos.capability_authority.decision_id,
         scopes: [* logos.capability_authority.scope],
         denial: logos.capability_authority.denial,
@@ -778,7 +786,7 @@ logos.capability_authority.audit_record =
         timestamp: logos.capability_authority.timestamp,
         operation: "evaluate",
         outcome: "failure",
-        consumer: logos.runtime.module_instance_address,
+        consumer: logos.capability_authority.evaluation_consumer,
         ? scopes: [* logos.capability_authority.scope],
         error: logos.capability_authority.error_code,
     } /
@@ -786,7 +794,7 @@ logos.capability_authority.audit_record =
         timestamp: logos.capability_authority.timestamp,
         operation: "call",
         outcome: "success",
-        consumer: logos.runtime.module_instance_address,
+        consumer: logos.capability_authority.evaluation_consumer,
         decision_id: logos.capability_authority.decision_id,
         scopes: [logos.capability_authority.scope],
         commitments: logos.capability_authority.call_commitments,
@@ -795,7 +803,7 @@ logos.capability_authority.audit_record =
         timestamp: logos.capability_authority.timestamp,
         operation: "call",
         outcome: "failure",
-        consumer: logos.runtime.module_instance_address,
+        consumer: logos.capability_authority.evaluation_consumer,
         decision_id: logos.capability_authority.decision_id,
         scopes: [logos.capability_authority.scope],
         ? commitments: logos.capability_authority.call_commitments,
@@ -859,7 +867,7 @@ logos.capability_authority.audit_record =
 
 logos.capability_authority.query_audit_request = {
     consumer: logos.runtime.module_instance_address,
-    ? record_consumer: logos.runtime.module_instance_address,
+    ? record_consumer: logos.capability_authority.evaluation_consumer,
     ? target: logos.runtime.module_instance_address,
     ? decision_id: logos.capability_authority.decision_id,
     ? grant_id: logos.capability_authority.grant_id,
@@ -879,7 +887,7 @@ The records are ordered newest first.
 
 `consumer` in `query_audit_request` is the authenticated invoker.
 `record_consumer` and `target` are optional record filters; they do not supply query authority.
-In an audit record, `consumer` identifies the module instance whose authority was used for the recorded operation.
+In an audit record, `consumer` identifies whose authority was used for the recorded operation.
 `target` identifies a separate module instance affected by that operation when one exists.
 The CDDL variants define the complete common field set for each operation and outcome.
 A field not admitted by the selected variant is forbidden.
@@ -1134,7 +1142,7 @@ in grant, decision, audit, Module Loader realization, package, or module lifecyc
 | Remote Runtime enrollment | Capability Authority or internal Runtime policy | Runtime and the selected remote-trust profile |
 | Network, filesystem, process, device, credential, and platform access | Capability Authority or selected profile policy | Module Loader, deployment controls, operating-system mechanisms, or another enforcement point named by the permission definition |
 | Runtime-owned route, event, subscription, and resource limits | Capability Authority or selected profile policy | Runtime or Transport, according to the controlled resource |
-| Commitment and proof requirements | Capability Authority or commitment policy | Runtime, Transport, or verifier named by the selected profile |
+| Commitment retention | Capability Authority or internal Runtime policy | Runtime-controlled invocation boundary |
 
 An allow decision is usable only when every required enforcement owner can enforce its part of the allowed scope.
 Successful schema validation, package resolution, artifact lookup, provider discovery,

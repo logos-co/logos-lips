@@ -186,7 +186,8 @@ The registration MUST identify the ABI symbols for `module`.
 
 `direct_dynamic` selects a dynamic library loaded into the process-local caller.
 Calls may use the schema-derived typed ABI directly or the generic dispatch ABI.
-No Transport endpoint is created for a direct realization.
+Module Loader MUST NOT create or return a Transport endpoint for a direct realization.
+Runtime MAY expose the directly realized provider through a separate Transport invocation boundary.
 
 `hosted_dynamic` starts one Module Host in the selected hosted placement.
 The Module Host loads the same form of dynamic library used by `direct_dynamic`.
@@ -440,7 +441,7 @@ logos.module_loader.failed_realization = {
 logos.module_loader.realization_id = tstr .size (1..128)
 
 logos.module_loader.get_status_request = {
-  realization: logos.module_loader.realization_id,
+  ? realization: logos.module_loader.realization_id,
   module_instance: logos.runtime.module_instance_id,
 }
 
@@ -483,9 +484,12 @@ Unexpected Module Host termination,
 loss of a required direct binding,
 or an indeterminate live-configuration outcome changes an active realization to failed.
 
-`get_status` MUST return one complete active or failed record for a matching realization.
-It MUST return `realization-not-found` when no realization matches both supplied identifiers.
-It MUST NOT disclose whether either identifier matches a different record.
+`get_status` MUST select the retained realization for the supplied `module_instance`.
+When `realization` is supplied, the record MUST also match that identifier.
+On success, it MUST return one complete active or failed record.
+It MUST return `realization-not-found` when no record matches the supplied identifiers.
+A request containing both identifiers MUST NOT disclose whether either identifier matches a different record.
+The operation MUST NOT create, release, or restart a realization.
 
 ## 8. Live Configuration
 
@@ -549,9 +553,10 @@ Omission of `force` requests graceful release.
 Runtime invokes graceful release only after it prevents new instance-dependent work
 and drains or fails in-flight work according to LOGOS-MODULE-RUNTIME.
 
-For a live native context,
+During graceful release of a live native context,
 the ABI caller MUST invoke `logos_<module>_destroy(context)` exactly once
-before discarding the binding or stopping its execution envelope.
+and wait for it to return before discarding the binding or stopping its execution envelope.
+Forced termination of the execution envelope MAY prevent destruction from beginning or returning.
 Beginning destruction consumes the live context.
 A later cleanup attempt MUST NOT invoke destruction again for that context.
 
