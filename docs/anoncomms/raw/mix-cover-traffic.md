@@ -21,17 +21,22 @@
 ## Abstract
 
 This document specifies the cover traffic architecture for the [libp2p Mix Protocol](mix.md).
-The architecture ensures that an observer cannot distinguish cover traffic from locally originated messages
-by observing a node's emission pattern.
-It defines how cover packets are generated and emitted,
-how the rate-limit budget is shared across cover and non-cover traffic,
-and specifies the Constant-Rate cover traffic strategy, with Poisson-Rate as a future consideration in §11.5.
+It defines the Poisson-rate emission strategy,
+the loop cover packets the strategy emits,
+and how the rate-limit budget is divided between origination and forwarding.
+Under this strategy, every packet a node originates leaves on a tick of a random clock
+whose behaviour does not depend on the node's traffic,
+so an observer of the node's outgoing link cannot tell whether it is sending its own messages,
+how many,
+or when.
+An observer who also counts the node's incoming link can still infer how much it sends;
+the mechanism that would close that channel is recorded as future work ([§11.5](#115-drop-cover)).
 
 ## 1. Introduction
 
 The Mix Protocol provides sender anonymity through layered encryption and per-hop delays.
 However, without cover traffic,
-an adversary observing a mix node's emission rate can mount several attacks:
+an adversary observing a mix node's emissions can mount several attacks:
 
 - **Traffic analysis**: by correlating emission bursts with known events,
   an adversary can link a node's activity periods to specific senders or recipients.
@@ -39,16 +44,31 @@ an adversary observing a mix node's emission rate can mount several attacks:
   an adversary can progressively narrow down the set of possible senders across multiple messages.
 - **Timing correlation**: by matching idle and active periods across mix nodes,
   an adversary can correlate ingress and egress packets.
+- **Counting**: by counting packets into and out of a node over a window,
+  an adversary can recover how much the node sends,
+  because forwarded packets and any cover that returns to the originator both cancel from the difference.
 
-All three attacks rely on the same weakness:
-a node's emission pattern leaks information about whether it is carrying non-cover traffic.
+The first three attacks rely on the same weakness:
+a node's emission pattern leaks whether it is carrying non-cover traffic,
+either in how many packets it emits or in when it emits them.
 
-Cover traffic addresses this by ensuring a node's emission pattern does not depend on non-cover traffic volume,
-making it indistinguishable to an observer whether the node is sending locally originated messages or none at all.
+Cover traffic addresses this by making a node's emission pattern independent of its non-cover traffic
+in both volume and timing.
+A node emits one packet on every tick of a clock with exponentially distributed gaps.
+When the node has a message of its own to send, the message takes the next tick;
+when it has none, a loop packet takes the tick instead.
+The clock does not know which is which,
+so neither does an observer of the outgoing link.
+
+The counting attack is not closed by this revision.
+Closing it requires cover that does not return to the originator,
+which is recorded as future work ([§11.5](#115-drop-cover)).
+[§10.5](#105-inbound-observability) states what remains visible,
+to whom,
+and what closing it would take.
 
 The Mix Protocol defines cover traffic as a pluggable component (see [Mix Protocol §6.4](mix.md#64-cover-traffic)).
-This specification provides a concrete instantiation of that component,
-defining the cover traffic architecture, the rate-limit budget model, and two concrete scheduling strategies.
+This specification provides a concrete instantiation of that component.
 The architecture is designed to be compatible with the DoS protection mechanism defined in [Mix DoS Protection](mix-dos-protection.md)
 and specifically with the [Mix RLN DoS Protection](mix-dos-protection-rln.md) mechanism.
 
@@ -61,43 +81,91 @@ Other terms used in this document are as defined in the [libp2p Mix Protocol](mi
 
 The following additional terms are used throughout this specification:
 
-- **Cover Packet**
-  A dummy Sphinx packet that carries no application payload
-  and is indistinguishable from non-cover Sphinx packets in structure, size, and routing behavior.
-
-- **Slot**
-  A single rate-limit token within an epoch's budget of `R` tokens, as defined by the DoS protection mechanism.
-  Each outgoing packet — whether cover or non-cover — consumes exactly one slot.
-
-- **Slot Pool**
-  The collection of rate-limit slots available for a given epoch.
+- **Origination**
+  Any packet a node emits:
+  a locally originated message, a SURB reply the node produces as an exit, or a cover packet.
+  Forwarded packets are not originations.
 
 - **Epoch**
-  A fixed time window of duration `P` seconds during which each mix node is permitted to emit at most `R` packets,
+  A fixed time window of duration `P` seconds during which each mix node is permitted to emit at most `R_node` packets,
   as enforced by the DoS protection mechanism.
+  Under [Mix RLN DoS Protection](mix-dos-protection-rln.md), `P` is that specification's `period`.
+
+- **`R_node`**
+  The node's own per-epoch rate-limit budget on outgoing packets, exposed by the DoS protection mechanism for this specific node.
+  Under [Mix RLN DoS Protection](mix-dos-protection-rln.md), `R_node` is the flat rate limit configured for the deployment,
+  the `user_message_limit` every node registers with, and is uniform across all nodes.
+  Under [Stake-Weighted Mix RLN DoS Protection](mix-dos-protection-rln-stake-weighted.md), `R_node` equals the node's
+  `user_message_limit ∈ [R_min, R_max]` derived from its registered stake, and may differ across nodes.
+
+- **`R_base`**
+  The deployment-wide anchor rate per epoch, published in the DoS protection mechanism's deployment configuration
+  and identical across all nodes.
+  Under [Mix RLN DoS Protection](mix-dos-protection-rln.md), `R_base` equals that same flat rate limit, so `R_base = R_node`.
+  Under [Stake-Weighted Mix RLN DoS Protection](mix-dos-protection-rln-stake-weighted.md), `R_base` is the parameter defined in its
+  [System Parameters](mix-dos-protection-rln-stake-weighted.md#44-system-parameters).
+  Every node satisfies `R_node ≥ R_base` by construction.
+
+- **Origination Clock**
+  A per-node timer whose gaps between ticks are sampled independently from an exponential distribution
+  with the deployment-wide mean `μ_tick` seconds.
+  The clock runs continuously from node start and is not reset or aligned at epoch boundaries;
+  the number of ticks that fall within one epoch is a Poisson random variable with mean `P / μ_tick`.
+  Every origination leaves the node on a tick of this clock and never between ticks.
+
+- **Tick**
+  One firing of the origination clock.
+
+- **Loop Packet**
+  A cover packet whose path returns to the originating node.
+  A loop packet is emitted on every tick that no locally originated message or SURB reply is waiting to use.
+
+- **Slot**
+  A single rate-limit token within an epoch's budget of `R_node` tokens, as defined by the DoS protection mechanism.
+  Each outgoing packet — whether cover or non-cover — consumes exactly one slot
+  and carries a proof bound to that slot's message index.
+
+- **Slot Pool**
+  The node's per-epoch record of its slots ([§5.5](#55-data-structures)).
+
+- **Origination Share** and **Forwarding Share**
+  The two parts into which an epoch's `R_node` slots are divided ([§4](#4-rate-limit-budget-model)).
+  The origination share is the same for every node;
+  the forwarding share is whatever remains of `R_node`.
+  Ticks claim from the origination share;
+  forwarded packets claim from the forwarding share.
 
 ## 3. Design Principles
 
 The cover traffic architecture is guided by the following principles:
 
-- **Sender unobservability**: A node's emission pattern must not depend on non-cover traffic volume,
-  making it indistinguishable to an observer whether the node is carrying non-cover traffic or not.
+- **Sender unobservability on the outgoing link**: A node's emission pattern does not depend on its non-cover traffic,
+  in either volume or timing.
+  What the node receives is not made independent of its traffic by this specification ([§10.5](#105-inbound-observability)).
+- **Substitution, not addition**: The clock emits exactly one packet per tick whether or not the node has anything to send.
+  A tick carries a locally originated message or SURB reply if one is waiting,
+  and a loop packet otherwise.
+  Real traffic therefore replaces cover on a tick and never adds an emission the clock would not have produced,
+  so the number and timing of a node's originations are fixed by the clock alone.
 - **Indistinguishability**: Cover packets are structurally identical to non-cover Sphinx packets in size and routing behavior,
-  preventing packet-level classification. ([Mix Protocol §6.4](mix.md#64-cover-traffic))
-- **Self-exit**: Cover packets SHOULD use loop paths where the originating node is also the exit node.
-  This ensures the dummy payload is never decrypted by an external party,
-  eliminating the risk of cover classification at the exit.
-- **DoS protection compliance**: All cover traffic operates within the rate-limit budget `R` enforced per epoch.
-  Proofs are epoch-bound and unused slots are discarded at epoch boundaries. ([Mix DoS Protection](mix-dos-protection.md))
-- **Slot integrity**: Each rate-limit slot is consumed at most once on the wire per epoch.
-  When a non-cover claim reclaims a slot held by a queued cover packet,
-  that packet's pre-computed proof is discarded before the slot is reused.
-- **Mix node only**: Cover traffic is generated only for mix nodes that act as intermediate nodes forwarding mix traffic
+  preventing packet-level classification ([Mix Protocol §6.4](mix.md#64-cover-traffic)).
+  Cover packets are built by the same path selector, under the same path constraints,
+  as the locally originated messages they stand in for ([§5.1](#51-cover-packet-construction)).
+  Every origination, cover or real, receives its rate-limit proof at the tick that emits it,
+  so no origination is delayed by cryptographic work that another is not.
+- **Uniformity**: The tick mean `μ_tick` is a deployment-wide constant.
+  A node whose clock differs from its peers is identifiable by its rate alone ([§10.7](#107-uniformity-of-the-origination-clock)).
+- **DoS protection compliance**: All cover traffic operates within the rate-limit budget `R_node` enforced per epoch.
+  Proofs are epoch-bound and unused slots are discarded at epoch boundaries ([Mix DoS Protection](mix-dos-protection.md)).
+- **Slot integrity**: Each rate-limit slot is spent on the wire at most once per epoch.
+  A slot claim returns the message index the packet's proof is bound to,
+  and the origination and forwarding shares draw from disjoint index ranges ([§5.2](#52-slot-claims)).
+- **Mix node only**: Cover traffic is generated only by mix nodes that forward traffic for other nodes
   and participate continuously in the network.
   Initiating-only nodes are mostly short-lived with dynamic identifiers and do not forward traffic,
-  making cover traffic neither practical nor beneficial for them.
-- **Pre-computation**: As an optimization, cover packets and their proofs MAY be generated during epoch `N-1`,
-  so they are ready to emit at the start of epoch `N` without any cryptographic work at emission time.
+  making cover traffic neither practical nor beneficial for them ([§8](#8-initiating-only-node-considerations)).
+- **Pre-computation**: As an optimization, loop packet bodies can be built ahead of the ticks that emit them,
+  so that a tick does no Sphinx construction at emission time.
 
 ## Overview
 
@@ -105,77 +173,125 @@ A mix node plays multiple roles at once: it sends its own messages, relays messa
 Without protection, an observer watching the node's outgoing packets can tell when it is active, how busy it is, and when it is idle —
 enough to link users to their messages through traffic patterns.
 
-Cover traffic addresses this by emitting additional dummy packets that look identical to real mix traffic from the outside.
-An observer still sees packets leaving the node,
-but can no longer tell from the pattern alone whether those packets are real or dummy.
+This specification makes every origination leave on a tick of the origination clock.
+The clock fires at random moments with exponentially distributed gaps.
+On each tick the node sends exactly one packet:
+a locally originated message or SURB reply if one is waiting,
+and a loop packet otherwise.
+An observer of the outgoing link sees the same stream of originations —
+the same rate, the same random shape —
+whether the node is idle or sending at capacity.
+
+Forwarded packets do not use the clock.
+They leave after the mixing delay the sender encoded for this hop,
+which is exponentially distributed.
+Originations leave on a clock that is independent of everything the node is doing,
+so the node's output has the same distribution whatever its real traffic ([§7](#7-poisson-rate-emission-strategy)).
 
 The node operates under a rate limit that bounds total packets emitted per epoch ([§4](#4-rate-limit-budget-model)).
-Every packet — cover, locally originated, or forwarded — consumes one slot from this shared budget.
-Forwarding typically takes a large share of the budget because each originated packet traverses multiple hops,
-so the maximum cover rate is naturally bounded below the total.
+Every packet — cover, locally originated, SURB reply, or forwarded — consumes one slot.
+The budget is divided into an origination share, claimed by ticks,
+and a forwarding share, claimed by forwarded packets;
+neither can starve the other.
 
-Cover is emitted at a steady configurable rate, up to this bound ([§7.1](#71-constant-rate-cover-traffic)).
-A `cover_rate_fraction` parameter scales cover down from the maximum,
-leaving headroom in the budget for spikes in real traffic.
-Real traffic (locally originated and forwarded) claims slots from the same pool as it arrives;
-cover yields whatever slots remain.
+Loop packets return to the originator
+and fill the ticks that nothing real is waiting to use.
+For efficiency, loop packet bodies MAY be pre-built ahead of the clock ([§6.1](#61-at-epoch-boundary));
+the rate-limit proof of every origination is generated at its tick.
 
-Cover packets follow round-trip paths — the sender is also the final destination,
-so the dummy payload is never decrypted by another party ([§5.1](#51-cover-packet-transmission)).
-For efficiency, cover packets and their rate-limit proofs MAY be pre-built during the previous epoch ([§6.1](#61-at-epoch-boundary))
-and revalidated at send time in case the underlying state has changed ([§6.5](#65-pre-computed-proof-validation-at-send-time)).
-
-Each epoch begins by discarding previous state and initializing a fresh slot budget,
-loading any pre-built cover packets prepared during the prior epoch.
-Throughout the epoch, cover, locally originated, and forwarded packets independently claim slots.
-Near the midpoint, the node starts pre-computing cover packets for the next epoch.
+Each epoch begins by discarding previous state and initializing a fresh slot budget.
+Throughout the epoch the clock ticks;
+each tick claims one slot and emits one packet,
+or is silent if the origination share is spent.
+Forwarded packets claim from the forwarding share as they arrive.
 At epoch end, unused slots are discarded and the cycle repeats.
-
-The specification focuses on the Constant-Rate strategy.
-An alternative Poisson-Rate strategy, where cover emission times are randomized, is kept for future consideration in [§11.5](#115-poisson-rate-cover-traffic).
 
 ## 4. Rate Limit Budget Model
 
-Each mix node receives a budget of `R` slots per epoch from the DoS protection mechanism.
-Cover emission, locally originated message sending, and packet forwarding all draw from the same pool.
+Each mix node receives a budget of `R_node` slots per epoch from the DoS protection mechanism.
+Cover emission, locally originated message sending, SURB reply origination, and packet forwarding all draw from this budget.
 Since each originated packet traverses `L` forwarding hops — where `L` is the mix path length
 as defined in [Mix Protocol §6](mix.md#6-pluggable-components) —
-forwarding traffic naturally consumes a significant portion of the budget.
+forwarding consumes a significant portion of the budget.
 
-If every node originates at rate `C` packets per epoch (cover plus locally originated combined),
+If every node originates at rate `C` packets per epoch (cover, locally originated, and replies combined),
 each node forwards approximately `C * L` packets per epoch.
-Since origination and forwarding share the same budget `R`:
+Since origination and forwarding share the same budget:
 
 ```text
-C + C * L ≤ R
-C ≤ R / (1 + L)
+C + C * L ≤ R_node
+C ≤ R_node / (1 + L)
 ```
 
-`R / (1 + L)` is therefore the **upper bound on total origination**,
-not a target for cover emission alone.
-Cover rate does not need to be explicitly reduced by a node's locally originated rate,
-because the slot pool is self-balancing (see below).
+`R_node / (1 + L)` is therefore the **upper bound on total origination** for that node.
+For `L = 3`, approximately 25% of a node's slots are available for origination.
 
-This means the actual cover traffic emitted by a node is always less than `R` and depends on:
+**Origination share.**
+A node originates exactly one packet per tick,
+so its per-epoch origination count is a Poisson random variable with mean `P / μ_tick`.
+The origination share is `ceil(R_base / (1 + L))` slots and is the same for every node in the deployment,
+since the tick mean is a deployment-wide constant ([§10.7](#107-uniformity-of-the-origination-clock))
+and the share has to fit within the budget of the lowest-rate node.
+The tick mean MUST be chosen so that the per-epoch tick count exceeds the share only rarely:
 
-- **Path length `L`**: longer paths consume more forwarding slots, leaving fewer for cover.
-  For `L=3`, approximately 25% of slots are available for cover and locally originated message sending.
-- **Network size `N` and forwarding variance**: with random path selection, forwarding load is not uniform.
-  Some nodes receive more forwarding traffic than the equilibrium average, leaving even fewer slots for cover.
-  The actual cover output per node therefore varies with network conditions.
+```text
+Pr[ Poisson(P / μ_tick) > ceil(R_base / (1 + L)) ] ≤ 0.01
+```
 
-The slot pool is self-balancing — no explicit origination rate constraint is needed.
-Heavier forwarding load automatically leaves fewer slots for cover; lighter load leaves more.
+With `R_base = 100`, `L = 3`, and `P = 10 s`, the origination share is 25 slots
+and `P / μ_tick = 15` — a tick mean of about `0.67 s` — satisfies the bound with a probability of about 0.6%.
+A deployment whose `R_base / (1 + L)` is too small to admit a useful tick rate under this bound
+MUST raise `R_base` rather than lower the bound.
+When the count does exceed the share, the remaining ticks of that epoch are silent ([§6.2](#62-cover-emission)).
+Because non-cover originations replace ticks rather than adding to them,
+whether a tick is silent depends only on the node's own clock and never on its non-cover traffic.
+
+**Forwarding share.**
+The forwarding share is whatever remains of the node's budget after the origination share:
+`R_node − ceil(R_base / (1 + L))` slots per epoch,
+75 at the parameters above.
+The two shares together never exceed `R_node`.
+Under a flat rate limit it is the same for every node;
+under stake-weighted rates a node with a larger `R_node` has a larger forwarding share and the same origination share,
+so additional stake buys forwarding capacity and never a higher origination rate.
+Forwarded packets claim from this share as they arrive
+and are dropped once it is exhausted ([§6.4](#64-packet-forwarding)).
+The cap is what keeps a forwarding flood from silencing the node's own origination ([§10.4](#104-forwarding-cap-and-forwarded-packet-drops)).
+Origination-share slots left unused when the epoch ends are discarded;
+they are never released to forwarding,
+so that the split is a fixed property of the deployment rather than of the node's load.
+At the parameters above, on average 10 of the 25 origination slots go unused each epoch;
+that is the price of a share the node cannot know it will not need until the epoch is over.
+
+**Cost of cover.**
+Every origination, cover or real, costs the network the same:
+one origination slot at the sender,
+`L − 1` forwarding slots at relays,
+and one terminal arrival that is received but not forwarded.
+A loop costs exactly as much as a real message.
+Cover is all of a node's originations when it is idle
+and none of them when it originates at the tick rate.
+This overhead is the price of making origination unobservable by substitution.
+`μ_tick` sets the total rate of originations the node must sustain,
+and the node's own real rate sets how much of that is cover.
+
+The number of forwarded packets a node can carry therefore depends on:
+
+- **Its rate limit `R_node`**: everything above the origination share is forwarding capacity.
+- **Path length `L`**: longer paths consume more forwarding slots per originated packet.
+- **Network size and forwarding variance**: with random path selection, forwarding load is not uniform.
+  Some nodes receive more forwarding traffic than the equilibrium average.
+  Under the cap, the excess is dropped rather than taken from origination.
 
 **Note on DoS protection architecture:**
-The self-balancing pool model assumes per-hop generated proofs
+The budget model assumes per-hop generated proofs
 ([Mix DoS Protection §4.2](mix-dos-protection.md#42-per-hop-generated-proofs)),
-where forwarding consumes slots from the node's own `R` budget.
+where forwarding consumes slots from the node's own budget.
 With sender-generated proofs ([Mix DoS Protection §4.1](mix-dos-protection.md#41-sender-generated-proofs)),
-forwarding nodes only verify proofs and do not consume their own `R`,
-but cover emission must still account for forwarding load to maintain constant total output.
-The budget model and slot pool semantics for sender-generated proofs require separate analysis
-and are deferred to [§11.4](#114-budget-model-for-sender-generated-proofs).
+forwarding nodes only verify proofs and do not consume their own budget;
+the budget model for that architecture is deferred to [§11.3](#113-budget-model-for-sender-generated-proofs).
+Neither architecture enforces the origination clock cryptographically;
+see [§10.6](#106-the-origination-cap-is-a-convention).
 
 ## 5. Integration with the Mix Protocol
 
@@ -185,30 +301,37 @@ Cover packets are identified by the reserved protocol codec `"/mix/cover/1.0.0"`
 This codec is used as the origin protocol codec during Sphinx packet construction
 and is checked during exit processing to distinguish cover packets from application traffic.
 
-All mix nodes in a deployment SHOULD use the same strategy type and parameters
-to ensure uniform emission patterns across the anonymity set.
+All mix nodes in a deployment MUST use the same tick mean and the same reserved loop share
+([§10.7](#107-uniformity-of-the-origination-clock)).
 The configured path length `L` for cover packets
 MUST match the path length used for locally originated messages
 as defined in [Mix Protocol §6](mix.md#6-pluggable-components).
 
-### 5.1 Cover Packet Transmission
+Where this specification refers to the path selector,
+it means the path selection component configured for the Mix Protocol instance
+([Mix Protocol §6](mix.md#6-pluggable-components)),
+whose strategies are being specified in [Mix Path Selection](https://github.com/logos-co/logos-lips/pull/445).
 
-**Trigger:** The configured strategy schedules a cover emission.
+### 5.1 Cover Packet Construction
+
+**Trigger:** A tick of the origination clock fires and no locally originated message or SURB reply is waiting ([§6.2](#62-cover-emission)).
 
 **[During Sphinx packet construction](mix.md#85-packet-construction):**
-The mechanism constructs a cover Sphinx packet
-following the same construction procedure as a locally originated message,
-with the following differences:
+The mechanism constructs a loop Sphinx packet
+following the same construction procedure as a locally originated message.
+The differences are:
 
-- The mix path is a loop path — the final hop routes the packet back to the originating node.
+- The mix path returns to the originating node.
+  The path MUST be requested from the path selector under the same constraints as locally originated messages,
+  so that any hop positions the selector fixes for locally originated messages are fixed for loops as well.
+  The request identifies the path as cover;
+  the identifier for that purpose is defined by the path selection specification and is not fixed here.
+  No constraint specific to the return leg is imposed here:
+  fixing the closing position would change what an adversary learns from the loops it closes,
+  a trade discussed in [§10.5](#105-inbound-observability) and belonging to path selection.
 - The origin protocol codec MUST be set to the cover traffic codec defined in [§5](#5-integration-with-the-mix-protocol).
-  This codec is recognized by the Mix Protocol during exit processing
-  to identify returning cover packets (see [§5.4](#54-cover-packet-reception)).
-- The application message content SHOULD be filled with cryptographically random bytes.
-  Random payloads provide defense-in-depth against partial path compromise
-  and ensure that cover packets remain indistinguishable from non-cover traffic
-  if the design evolves to support non-loop cover paths in the future.
-- If pre-computation is enabled, the pre-built cover packet is used directly without re-construction.
+- The application message content MUST be filled with cryptographically random bytes.
+- If pre-computation is enabled, a pre-built packet body is used without re-construction.
 
 **Wire format:**
 Cover packets use the exact Sphinx packet format defined in [Mix Protocol §8](mix.md#8-sphinx-packet-format).
@@ -216,33 +339,42 @@ No additional fields or framing are introduced.
 A cover packet on the wire is indistinguishable from a non-cover traffic packet,
 ensuring that intermediary nodes and external observers cannot classify packets as cover or non-cover.
 
-The cover packet is then transmitted to the first hop following the standard Mix Protocol transmission procedure.
+The cover packet is transmitted to its first hop on the tick that selected it,
+after its proof is generated ([§6.2](#62-cover-emission)).
+No further delay is applied:
+the wait for the tick is the pre-send delay ([§6.3](#63-locally-originated-message-sending)).
 
-### 5.2 Non-Cover Slot Claim
+### 5.2 Slot Claims
 
-**Procedure:** `ClaimSlot() -> success`
+**Procedure:** `ClaimSlot(kind) -> (success, message_index)`, where `kind ∈ { TICK, FORWARD }`
 
-**Trigger:** The Mix Protocol needs to send a message or forward a packet and requires a slot from the budget.
+**Trigger:** The origination clock fires (`TICK`),
+or the Mix Protocol needs to forward a packet (`FORWARD`).
 
-The mechanism atomically claims a slot from the pool using the following procedure:
+The pool tracks the origination share and the forwarding share separately ([§4](#4-rate-limit-budget-model)),
+and each share owns a contiguous range of the epoch's message indices:
+the origination share owns indices `1 .. S`, where `S = ceil(R_base / (1 + L))`,
+and the forwarding share owns indices `S + 1 .. R_node`.
 
-1. If `slots_remaining == 0`, the claim fails.
-2. If `slots_remaining == len(cover_queue)`, the only way to free a slot is to reclaim one held by a queued cover packet:
-   dequeue the head of `cover_queue` and discard it. Its pre-computed proof MUST NOT be sent on the wire.
-3. Decrement `slots_remaining` and return success.
+1. A `TICK` claim takes the next unused index from the origination range and returns it.
+   If the range is exhausted, the claim fails and the tick is silent ([§6.2](#62-cover-emission)).
+2. A `FORWARD` claim takes the next unused index from the forwarding range and returns it.
+   If the range is exhausted, the claim fails and the packet is dropped ([§6.4](#64-packet-forwarding)).
 
-Free (unreserved) slots are taken first;
-a queued cover packet is reclaimed only when no free slots remain
-(_i.e._, when every remaining slot is committed to either non-cover claims already on the wire or pre-built cover in the queue).
+A `FORWARD` claim MUST NOT return an origination-range index,
+and a `TICK` claim MUST NOT return a forwarding-range index.
+An index MUST NOT be returned twice in an epoch.
+The proof of every packet is generated with the index its claim returned,
+so no two proofs in an epoch share an index ([§10.1](#101-message-index-integrity)).
 
-On success, the caller then generates a DoS protection proof
+Locally originated messages and SURB replies do not claim slots directly.
+They are placed in the origination queue and take the next tick ([§6.3](#63-locally-originated-message-sending))
+instead of the loop packet that tick would otherwise have carried.
+
+On a successful claim, the caller generates the DoS protection proof
 via `GenerateProof(binding_data)` ([Mix DoS Protection §8.2.1](mix-dos-protection.md#821-proof-generation)),
-where `binding_data` is the packet-specific data as defined by the DoS protection mechanism.
-
-If the claim fails, the packet SHOULD be handled as follows to avoid hitting DoS protection limits:
-
-- **Locally originated messages**: queued for the next epoch.
-- **Forwarded packets**: dropped.
+where `binding_data` is the packet-specific data as defined by the DoS protection mechanism
+and the message index is the one returned by the claim.
 
 ### 5.3 Epoch Boundary
 
@@ -254,18 +386,14 @@ The Mix Protocol MUST call `ResetEpoch` before processing any packets in the new
 
 The mechanism refreshes the slot pool for the new epoch:
 all remaining slots from the previous epoch are discarded,
-and a new pool of `R` slots is initialized.
-If pre-computation is enabled, the pre-built cover packets prepared during the previous epoch
-are loaded into the new pool.
+and a new pool of `R_node` slots is initialized with its origination and forwarding index ranges.
 
-Cover packets emitted near epoch end may arrive at later hops in a subsequent epoch.
+The origination clock runs across epoch boundaries without reset.
+A tick claims its slot in the epoch in which it fires,
+so no origination is ever held across a boundary.
+Packets emitted near epoch end may arrive at later hops in a subsequent epoch.
 The DoS protection mechanism is responsible for accepting proofs within a configurable epoch window
 (_e.g.,_ the `max_epoch_gap` parameter in [Mix RLN DoS Protection](mix-dos-protection-rln.md)).
-
-A cover packet whose pre-send delay ([§6.2](#62-cover-emission)) is still elapsing at the boundary
-is discarded rather than transmitted:
-its slot was claimed from the previous epoch's pool,
-so transmitting it in the new epoch would exceed the fresh budget by one packet.
 
 ### 5.4 Cover Packet Reception
 
@@ -274,51 +402,39 @@ and extracts the origin protocol codec from the decrypted payload.
 
 If the codec matches the cover traffic codec (see [§5](#5-integration-with-the-mix-protocol)),
 the Mix Protocol MUST handle the packet internally without handing off to the Mix Exit Layer.
-The packet SHOULD be silently discarded.
-Implementations MAY use this reception event for diagnostics such as path health monitoring
-(see [§11.2](#112-path-health-monitoring)).
+The packet MUST be silently discarded.
 
 This is handled by the cover traffic codec check
 in [Mix Protocol §8.6.4](mix.md#864-exit-processing) step 4,
 which intercepts cover packets before handing off to the Mix Exit Layer.
 
-Since cover packets use loop paths (see the self-exit principle in [§3](#3-design-principles)),
-the exit node is always the originating node itself.
-The cover traffic codec is therefore never visible to any external party.
-If a cover packet were routed to a different exit node,
-that node would detect the cover traffic codec during exit processing
-and classify the packet as cover traffic.
-Although the Sphinx construction prevents the exit from identifying the sender,
-a malicious exit could accumulate cover-to-non-cover traffic ratios over time,
-leaking information about network-wide cover strategy and volume.
+The exit node of a loop packet is the originating node itself,
+so the cover codec is never visible to any other party.
+Implementations SHOULD use the reception event for path health monitoring ([§11.2](#112-path-health-monitoring)).
 
 ### 5.5 Data Structures
 
 ```text
-PrebuiltCoverPacket {
-  slot_id:        bytes                 // Slot identifier within the epoch
-  packet:         bytes                 // Pre-built wire-format packet (Sphinx packet + DoS protection proof), ready to transmit
-  path:           []bytes               // Ordered list of mix node identifiers on the cover path
-  created_at:     uint64                // Unix timestamp (seconds) when this packet was constructed
+PrebuiltLoopBody {
+  packet:         bytes     // Pre-built Sphinx packet without its DoS protection proof
+  path:           []bytes   // Ordered list of mix node identifiers on the loop path
+  created_at:     uint64    // Unix timestamp (seconds) when this body was constructed; bounds body age (see §9.1)
 }
 ```
 
 ```text
 SlotPool {
-  epoch:              uint64                 // The epoch this pool belongs to
-  cover_queue:        []PrebuiltCoverPacket  // Pre-built cover packets, dequeued on emission or reclaimed by non-cover claims
-  slots_remaining:    uint32                 // Slots still spendable in this epoch (R minus what's already on the wire);
-                                             // invariant: slots_remaining >= len(cover_queue)
+  epoch:                  uint64   // The epoch this pool belongs to
+  origination_next:       uint32   // Next unused index in the origination range 1 .. S
+  forwarding_next:        uint32   // Next unused index in the forwarding range S + 1 .. R_node
+  loop_bodies:            []PrebuiltLoopBody
 }
 ```
 
 ```text
 CoverTrafficConfig {
-  strategy_type:  enum { CONSTANT_RATE, POISSON, NONE }
-  cover_rate_fraction:  float64    // f ∈ (0.0, 1.0], scales cover rate relative to the maximum safe rate (see §7); RECOMMENDED default 0.7
-  // Strategy-specific parameters (see §7):
-  // For CONSTANT_RATE: emission_rate (float64, packets per second)
-  // For POISSON:       lambda_cover (float64, packets per second)
+  tick_mean:      float64   // μ_tick, mean gap between ticks in seconds; deployment-wide (see §7)
+  queue_limit:    uint32    // Max originations waiting for a tick; RECOMMENDED ceil(P / μ_tick) (see §6.3)
 }
 ```
 
@@ -326,7 +442,8 @@ CoverTrafficConfig {
 
 This section defines what each mix node MUST do at each integration point.
 
-The slot pool ([`SlotPool`](#55-data-structures)) is a token bucket of `R` slots per epoch.
+The slot pool ([`SlotPool`](#55-data-structures)) is a token bucket of `R_node` slots per epoch,
+divided into an origination share and a forwarding share.
 Each outgoing packet — cover or non-cover — atomically claims one slot.
 Slot claim operations MUST be atomic.
 
@@ -337,186 +454,224 @@ the Mix Protocol instance MUST invoke `ResetEpoch` ([§5.3](#53-epoch-boundary))
 to discard previous epoch state and initialize a new slot pool.
 
 **If pre-computation is enabled (RECOMMENDED):**
-The cover traffic mechanism pre-builds cover packets during epoch `N-1` for use in epoch `N`.
-For each slot to be pre-computed (at most `R`; see [§9.1](#91-pre-computation-scheduling) for sizing guidance),
-construct a cover Sphinx packet following the procedure in [§5.1](#51-cover-packet-transmission)
-and generate a DoS protection proof for the **next** epoch
-via `GenerateProof(binding_data)` ([Mix DoS Protection §8.2.1](mix-dos-protection.md#821-proof-generation)).
-Store the result as a [`PrebuiltCoverPacket`](#55-data-structures).
-Slots without a pre-built packet will require on-demand generation if selected for cover emission.
-Pre-computed proofs are bound to a specific epoch and MUST NOT be reused in subsequent epochs.
-
-**Proof validity over time:**
-Pre-computed proofs may be invalidated within their target epoch, not just across epochs.
-For example, in [Mix RLN DoS Protection](mix-dos-protection-rln.md),
-accumulating membership updates can push the root used at generation time
-out of the current `acceptable_root_window_size` before the epoch ends.
-Implementations MUST therefore validate pre-computed proofs at send time
-(see [§6.5](#65-pre-computed-proof-validation-at-send-time)).
+The cover traffic mechanism keeps a supply of loop packet bodies built ahead of the clock
+(see [§9.1](#91-pre-computation-scheduling) for sizing).
+A body is a complete Sphinx packet built per [§5.1](#51-cover-packet-construction) without its proof;
+the proof is generated at the tick that emits it, like every other origination.
+Bodies are not bound to an epoch and carry over epoch boundaries.
+A pre-built body whose path includes a node that has left the pool is discarded and rebuilt.
 
 **Fallback caveat:**
-On-demand generation when pre-computation falls behind adds load-dependent delay
-on top of the sampled pre-send delay ([§6.2](#62-cover-emission)),
-skewing emission timing in a way that correlates with pre-computation load
-and weakens timing unobservability.
-Implementations SHOULD size the pre-computation pipeline ([§9.1](#91-pre-computation-scheduling))
+Building a loop body on demand when the supply is empty adds construction time
+after the tick that selected it.
+Implementations SHOULD size the supply ([§9.1](#91-pre-computation-scheduling))
 to avoid the fallback path in steady state.
 
 ### 6.2 Cover Emission
 
-The cover emission loop runs continuously as a background process.
-Emission timing is governed by the configured strategy ([`CoverTrafficConfig`](#55-data-structures)).
+Emission timing is governed by the origination clock.
+The clock is the only mechanism that decides when an origination leaves the node;
+there is no separate cover schedule and no separate pre-send hold.
 
-Cover emission consumes from `cover_queue`.
-Slots are deducted from `slots_remaining` at claim time, not at wire transmission:
+Slots are deducted at claim time, not at wire transmission:
 forwarded packets within their mixing delay (see [§6.4](#64-packet-forwarding))
-have already been deducted, so their slots are unavailable to any later claim.
+have already been deducted from the forwarding share,
+so their slots are unavailable to any later forward claim.
 
-**Algorithm: Cover Emission**
+**Algorithm: Origination Clock**
 
-> The following steps repeat continuously throughout each epoch:
+> The following steps repeat continuously, across epoch boundaries:
 >
-> 1. Wait for the next emission event as determined by the configured strategy.
->    Emission events occur at fixed times independent of when previous transmissions completed;
->    the pre-send delay of step 2.b MUST NOT shift subsequent emission events.
-> 2. If the strategy schedules an emission **and** `cover_queue` is non-empty:
->    - a. Dequeue the head of `cover_queue` and decrement `slots_remaining`.
->    - b. Sample a pre-send delay from the same distribution used for locally originated sends
->      ([mix.md §8.5.2](mix.md#852-construction-steps) Step 3.f)
->      and schedule steps 2.c–2.e to run once it elapses, without blocking step 1.
->      Otherwise, a delay longer than the emission interval would compress the gap
->      between consecutive transmits to the delay itself — a cover timing signature.
->    - c. If the epoch changed while the delay elapsed, discard the packet:
->      its slot was claimed from a pool that has since been discarded ([§5.3](#53-epoch-boundary)),
->      and transmitting would exceed the new epoch's budget by one packet.
->    - d. Validate the proof per [§6.5](#65-pre-computed-proof-validation-at-send-time).
->      Validation happens after the delay so the staleness window between validation and transmission stays minimal.
->    - e. Transmit the `packet` field of [`PrebuiltCoverPacket`](#55-data-structures) to the first hop
->      (other fields are internal and MUST NOT be sent).
-> 3. If `cover_queue` is empty for the remainder of the epoch
->    (because pre-built packets were exhausted by emission or reclaimed under heavy non-cover load),
->    cover emission is suppressed until the next epoch boundary.
+> 1. Sample a gap `g` from an exponential distribution with mean `μ_tick`
+>    and wait `g` seconds.
+>    The gap is sampled independently of every previous gap
+>    and of whether any origination is waiting.
+> 2. Call `ClaimSlot(TICK)` ([§5.2](#52-slot-claims)).
+>    If the claim fails, the tick is silent: emit nothing and return to step 1.
+> 3. Select the packet body:
+>    - a. A locally originated message or SURB reply is waiting:
+>      take the packet at the head of the origination queue.
+>    - b. Nothing is waiting: take a pre-built loop body,
+>      or build one on demand if the supply is empty ([§5.1](#51-cover-packet-construction)).
+> 4. Generate the packet's DoS protection proof with the index the claim returned
+>    ([§5.2](#52-slot-claims)),
+>    and attach it.
+> 5. Transmit the packet to its first hop.
 
-**Pre-send delay:**
-Locally originated packets and SURB replies apply a sampled pre-send delay before their first-hop write
-([mix.md §8.5.2](mix.md#852-construction-steps) Step 3.f).
-Cover transmissions MUST apply the same delay, sampled from the same distribution:
-a packet class that departs exactly on the strategy schedule while every other class jitters
-would be identifiable by the absence of jitter alone.
-This blurs individual emissions off the strategy grid,
-restoring the separability baseline from before non-cover traffic jittered;
-it does not provide timing unobservability
-([§10.4](#104-timing-separability-of-cover-and-non-cover-packets)).
+**Proof at the tick:**
+Every origination, cover or real, receives its proof in step 4,
+so every origination leaves the node the same proving time after its tick.
+A proof generated earlier would be bound to an epoch or a membership state that may have changed by the tick,
+and regenerating it only for the packets that crossed a boundary
+would delay real messages more often than cover.
+Implementations SHOULD keep proving time small relative to `μ_tick`.
+
+**A tick that fires while the previous one is still being proved:**
+Gaps shorter than the proving time are not rare:
+with exponential gaps of mean `μ_tick`,
+a fraction `1 − exp(−t / μ_tick)` of them fall below a proving time `t`,
+which is about 7% for `t = 50 ms` at the parameters of [§7](#7-poisson-rate-emission-strategy).
+Implementations MUST serve such ticks in order
+and MUST NOT drop, coalesce, or reorder them,
+so that the number of originations still matches the number of ticks.
+The emission times are then the tick times delayed by the prover's backlog.
+That backlog is a function of the clock alone and never of what the ticks carry,
+so the emission stream stays independent of the node's real traffic,
+though its gaps are no longer exactly exponential ([§7](#7-poisson-rate-emission-strategy)).
+
+**Indices are spent, not recycled:**
+A tick claims its index at step 2,
+before the packet body is selected and before the proof is generated.
+If the body cannot be built or the proof cannot be generated,
+the tick emits nothing and the claimed index is spent for that epoch.
+An index MUST NOT be returned to the pool and reused:
+a failure after the packet reached the wire is not reliably distinguishable from one before it,
+and a second proof under a spent index is what [§10.1](#101-message-index-integrity) forbids.
+
+**Silent ticks:**
+In normal operation a tick is silent only when the origination share of the current epoch is exhausted.
+Because every tick claims exactly one slot regardless of what it carries,
+exhaustion depends on the node's own tick count in the epoch and on nothing else;
+in particular it does not depend on how many real originations the node had.
+With `μ_tick` chosen per [§4](#4-rate-limit-budget-model), silent ticks occur in fewer than 1% of epochs.
+
+A failure to build a body or to generate a proof is the other way a tick can emit nothing,
+and the two do not behave alike.
+Proving happens on every tick, so a proving failure is independent of the node's load.
+A body is needed only on a tick that carries a loop,
+which is every tick while the node is idle and none while it originates at the tick rate,
+so a body failure is reached more often the less the node sends.
+Implementations MUST keep such failures rare enough that the silence they cause does not track load;
+this is what the supply sizing of [§9.1](#91-pre-computation-scheduling) is for.
 
 ### 6.3 Locally Originated Message Sending
 
 **[During Sphinx packet construction](mix.md#85-packet-construction):**
 When the Mix Entry Layer submits a locally originated message for mixification,
-the Mix Protocol instance MUST first call `ClaimSlot()` ([§5.2](#52-non-cover-slot-claim)).
-If no slot can be claimed, the message is queued for the next epoch.
-Otherwise, the Mix Protocol instance proceeds with
-[Sphinx packet construction](mix.md#85-packet-construction).
+the Mix Protocol instance MUST construct its Sphinx packet immediately
+and place it in the origination queue.
+The packet receives its proof and is transmitted on the next tick ([§6.2](#62-cover-emission), steps 3.a and 4).
+
+**Pre-send delay:**
+The wait from enqueueing to the next tick is exponentially distributed with mean `μ_tick`,
+because the clock is memoryless.
+This wait is the pre-send delay of [mix.md §8.5.2](mix.md#852-construction-steps) Step 3.f;
+no additional delay is sampled,
+and the Step 3.f distribution is this one.
+This supersedes the delay sampled at that step for nodes running this specification,
+as it does for SURB replies at [mix.md §8.7.3](mix.md#873-using-a-surb) Step 4;
+both steps require a companion revision of the Mix Protocol specification.
+End-to-end delay estimates ([mix.md §9.4.2](mix.md#942-no-built-in-retry-or-acknowledgment)) therefore include this mean
+for the origination and reply pre-send terms.
+
+**Queueing and backpressure:**
+If real originations arrive faster than ticks fire,
+the origination queue grows and latency increases;
+no origination is ever sent off-tick.
+The queue holds at most `queue_limit` packets.
+When it is full, the Mix Protocol instance MUST reject further submissions from the Mix Entry Layer
+and MUST NOT emit anything in response;
+rejection is internal to the node and leaves no trace on the wire.
+Surfacing that rejection to the submitting application requires an error path on the Mix Entry Layer interface,
+which is a companion revision of the Mix Protocol specification.
+The RECOMMENDED `queue_limit` is `ceil(P / μ_tick)`,
+the expected number of ticks in one epoch,
+which is 15 at the parameters of [§7](#7-poisson-rate-emission-strategy).
+That bounds the queueing delay a submission can accumulate to about one epoch;
+a larger limit trades latency for tolerance of bursts.
+Applications SHOULD keep their sustained real rate below `1 / μ_tick` packets per second.
 
 ### 6.4 Packet Forwarding
 
 **[During Sphinx packet handling](mix.md#86-sphinx-packet-handling):**
 When the Mix Protocol instance acts as an intermediary and receives a Sphinx packet to forward,
-it MUST first call `ClaimSlot()` ([§5.2](#52-non-cover-slot-claim)) before applying the mixing delay.
+it MUST first call `ClaimSlot(FORWARD)` ([§5.2](#52-slot-claims)) before applying the mixing delay.
 This ensures no two forwarded packets consume the same slot regardless of how their mixing delays overlap.
 If no slot can be claimed, the packet is dropped.
 Otherwise, the Mix Protocol instance proceeds with
-[intermediary processing](mix.md#863-intermediary-processing).
+[intermediary processing](mix.md#863-intermediary-processing),
+generating the forwarding proof with the index the claim returned.
 
 **Slot consumption:**
-The slot is consumed on successful `ClaimSlot()`, not on transmission (see [§6.2](#62-cover-emission)).
+The slot is consumed on successful `ClaimSlot(FORWARD)`, not on transmission.
 
 **Send timing:**
 The packet is dispatched when its mixing delay elapses,
-independently of the cover emission schedule.
+independently of the origination clock.
+Forwarded packets never use ticks.
 
-### 6.5 Pre-Computed Proof Validation at Send Time
+### 6.5 SURB Reply Origination at the Exit
 
-Before transmitting a pre-built cover packet,
-the mechanism MUST validate the carried DoS protection proof against the current state
-(see [§6.1](#61-at-epoch-boundary) for rationale).
-For [Mix RLN DoS Protection](mix-dos-protection-rln.md),
-this means verifying the `merkle_root` bound into the proof
-is still within the node's `acceptable_root_window_size`.
+A SURB reply produced by an exit node is an origination of that node
+([mix.md §8.7.3](mix.md#873-using-a-surb)).
+The exit MUST build the reply when it is produced
+and place it in its origination queue,
+transmitting it on its next tick exactly as a locally originated message ([§6.3](#63-locally-originated-message-sending)).
+The reply follows the return path the initiator built into the SURB.
+The reply's pre-send delay is therefore the tick wait,
+with the same mean as at the initiator.
+Replies SHOULD be placed ahead of the exit's own locally originated messages in the queue,
+so that a reply waits for one tick and not for the queue to drain;
+this ordering is internal to the exit and is not observable.
 
-If validation fails, implementations MUST either:
+**Reply timeouts:**
+A round trip includes two tick waits — one at the initiator and one at the exit — in addition to the mixing delays.
+Each wait exceeds `x` seconds with probability `exp(−x / μ_tick)`;
+at the parameters of [§7](#7-poisson-rate-emission-strategy) a single wait exceeds 5 s about 0.06% of the time.
+An initiator that times out before the reply has had that long to leave the exit will retransmit a request whose reply is still queued.
+Duplicate requests spend ticks and SURBs on both sides
+and are visible as duplicates to the exit and the destination.
+Reply timeouts ([mix.md §9.4.2](mix.md#942-no-built-in-retry-or-acknowledgment)) therefore need to be sized to the tail of both tick waits,
+not to their means,
+and origin protocols SHOULD deduplicate requests, since the Mix Protocol is stateless and cannot.
 
-- **Regenerate** the proof against the current anchor, keeping the Sphinx packet body unchanged; or
-- **Skip** the emission if regeneration is infeasible.
+A request carries at most two SURBs ([mix.md §8.5.1](mix.md#851-inputs)),
+so serving one request costs the exit at most two ticks.
+An exit serving many requests spends its ticks on replies
+and originates fewer of its own messages;
+its emission count and timing do not change.
 
-A pre-built packet with a stale proof MUST NOT be sent.
-When regenerating, implementations MAY reuse the message identifier bound to the cover packet
-where the DoS protection mechanism permits (see [Mix RLN DoS Protection](mix-dos-protection-rln.md)).
+## 7. Poisson-Rate Emission Strategy
 
-## 7. Recommended Strategy
+The node runs the origination clock of [§6.2](#62-cover-emission):
+inter-tick gaps are exponential with the deployment-wide mean `μ_tick`,
+every tick emits exactly one packet,
+and a locally originated message or SURB reply substitutes for the loop packet a tick would otherwise carry.
 
-This section defines the Constant-Rate cover emission strategy, which is the normative strategy for this specification.
-An alternative Poisson-Rate strategy is documented as a future consideration in [§11.5](#115-poisson-rate-cover-traffic).
-Cover emission operates over the `R`-slot pool and produces irregular total output
-because forwarding traffic claims slots at unpredictable times.
-Cover is emitted at up to `R / (1 + L)` packets per epoch —
-a maximum, not a target;
-the self-balancing pool ([§4](#4-rate-limit-budget-model))
-accommodates locally originated messages without explicit adjustment.
+**Parameters:**
 
-**Cover rate fraction `f`:**
-The strategy takes a configurable `cover_rate_fraction` `f ∈ (0.0, 1.0]` ([§5.5](#55-data-structures))
-that scales the configured cover rate relative to the maximum safe rate `R / ((1 + L) × P)`.
-A value of `f = 1.0` emits cover at the maximum; lower values reduce cover output
-and leave more headroom in the slot budget for locally originated messages and forwarded traffic.
-The RECOMMENDED default is `f = 0.7`,
-which reserves roughly 30% of the per-node slot budget as headroom against forwarding variance.
-All mix nodes in a deployment SHOULD use the same `f` to preserve a uniform anonymity set across the network.
+- `μ_tick`, the tick mean, chosen per [§4](#4-rate-limit-budget-model) against the lowest rate limit in the deployment,
+  so that the per-epoch tick count exceeds the origination share with probability at most 1%.
+  With `R_base = 100`, `L = 3`, `P = 10 s`: `μ_tick ≈ 0.67 s`, about 15 ticks per epoch.
+- The node's maximum sustained rate of real originations is the tick rate `1 / μ_tick`, `1.5 /s` at the parameters above.
+  A deployment that needs more real capacity raises `R_base`.
 
-### 7.1 Constant-Rate Cover Traffic
+**Why the emission is unobservable:**
+The origination clock samples every gap independently of the node's traffic,
+and every tick emits exactly one packet whether or not anything real is waiting.
+The stream of originations therefore has the same distribution whatever the node is doing:
+its rate is `1 / μ_tick` and its gaps are exponential when the node is idle, when it is at capacity, and in between.
+This holds even against an observer who can tell originations from forwarded packets perfectly;
+the origination stream carries no information about real traffic because none went into it.
+It holds for any tick mean and does not require `μ_tick` to equal the mixing delay mean,
+and it does not depend on the shape of the forwarded stream ([§10.8](#108-interaction-with-fixed-hop-path-selection)).
 
-The cover traffic mechanism emits cover packets at a fixed interval of `1 / emission_rate` seconds,
-where `emission_rate = f × R / ((1 + L) × P)` packets per second.
-`f` is the configured `cover_rate_fraction` ([§5.5](#55-data-structures)),
-and `R / ((1 + L) × P)` is the maximum safe cover rate (achieved at `f = 1.0`).
-Non-cover traffic claims slots via `ClaimSlot()` ([§5.2](#52-non-cover-slot-claim)) as it arrives,
-making total output inherently irregular even though the cover emission rate is constant.
-
-At the configured rate, up to `f × R / (1 + L)` cover packets are emitted per epoch;
-the actual count is lower when locally originated messages or forwarding variance claim slots first.
-The originated cover emission rate is perfectly constant,
-so an adversary cannot distinguish epochs with heavy locally originated traffic from idle epochs
-by observing cover timing alone.
-
-**Tradeoff — timing separability:**
-Cover packets are scheduled on a fixed grid;
-the pre-send delay ([§6.2](#62-cover-emission)) blurs each transmission off that grid,
-but the constant mean spacing remains.
-Forwarded packets fire at arrival time plus mixing delay,
-uncorrelated with the cover schedule.
-Over enough observations, an adversary can still separate cover from non-cover by timing alone,
-regardless of forwarding load.
-Constant-Rate therefore provides **volume unobservability**
-(the node's emission count does not leak non-cover activity)
-but not **timing unobservability**
-(individual packets remain classifiable by timing).
-
-Full timing unobservability requires the pre-scheduled emission timing enhancement
-([§11.3](#113-pre-scheduled-emission-timing)),
-where all traffic types share the same timing grid.
-Constant-Rate is the only strategy compatible with this upgrade path,
-as it requires deterministic emission times known at epoch start.
+Where proving time is not negligible against `μ_tick`,
+the gaps are the tick gaps delayed by the prover's backlog rather than exactly exponential ([§6.2](#62-cover-emission)).
+That backlog is a function of the clock alone,
+so the distribution is still the same whatever the node is doing,
+which is the property this section rests on.
 
 **Characteristics:**
-Constant-Rate emits up to `N = f × R / (1 + L)` cover packets per epoch.
-The count is exact when forwarding does not exhaust the pool —
-the design intent behind the RECOMMENDED `cover_rate_fraction = 0.7` ([§7](#7-recommended-strategy)),
-which reserves roughly 30% of the per-node slot budget as headroom against forwarding spikes.
-Pre-computation sizing matches `N`; no further safety margin beyond `f` is needed.
-Under exhaustion, cover emission is suppressed for the remainder of the epoch
-([§6.2](#62-cover-emission), [§10.5](#105-cover-priority-and-forwarded-packet-drops)),
-and per-epoch cover output drops below `N`.
-An observer who knows `f` can upper-bound the per-epoch forwarding count as `total_emissions - N`,
-so volume unobservability holds only against observers unaware of `f` or watching aggregate rates.
+Per epoch, the node emits `Poisson(P / μ_tick)` originations,
+of which the loops are those that no real origination was waiting to take.
+Silent ticks occur only when the epoch's origination share is exhausted,
+in fewer than 1% of epochs at the parameters above,
+and their occurrence is independent of the node's real traffic.
+A real origination waits for the next tick:
+an exponential wait with mean `μ_tick`, about `0.67 s` at the parameters above,
+with the same tail shape as a mixing delay.
+Sustained real demand above `1 / μ_tick` queues rather than leaks ([§6.3](#63-locally-originated-message-sending)).
 
 ## 8. Initiating-Only Node Considerations
 
@@ -536,13 +691,9 @@ However, an adversary on the link to the first hop — or a malicious first hop 
 can directly observe session volume and timing,
 since no cover or forwarded packets are blended with originated traffic.
 
-Deployments where this matters SHOULD route initiating-only traffic through trusted first hops.
-
 If an initiating-only node is promoted to a mix node and becomes long-lived,
-it SHOULD activate cover traffic using the Constant-Rate strategy.
-During the first epoch after promotion, pre-computed cover packets are unavailable;
-the node SHOULD fall back to on-demand cover packet generation for that epoch
-and begin pre-computation immediately upon promotion.
+it SHOULD start the origination clock immediately upon promotion
+and build loop bodies on demand until its pre-built supply is established.
 
 ## 9. Implementation Recommendations
 
@@ -550,39 +701,43 @@ This section provides non-normative guidance for implementers.
 
 ### 9.1 Pre-computation Scheduling
 
-The pre-computation pipeline SHOULD be initiated at the midpoint of the current epoch
-to allow sufficient time for slots to be processed before the next epoch begins.
-Implementations SHOULD interleave pre-computation with normal packet processing
-(_e.g.,_ yielding to non-cover traffic between slot generations) to avoid contention with ongoing packet handling.
+Loop bodies are not bound to an epoch,
+so the supply can be replenished continuously in the background
+rather than in a burst before each epoch.
+Implementations SHOULD interleave body construction with normal packet processing
+(_e.g.,_ yielding to non-cover traffic between constructions) to avoid contention with ongoing packet handling.
 
-Rather than pre-computing all cover packets in the previous epoch,
-implementations MAY batch pre-computation across epochs:
-an initial batch during epoch `N-1` to ensure cover packets are available at the start of epoch `N`,
-with subsequent batches computed incrementally during epoch `N` itself, staying ahead of the emission schedule.
-This reduces peak computational load and memory usage.
+**Sizing:**
+Any tick may need a loop body,
+so the demand per epoch is at most `P / μ_tick` bodies, a Poisson count;
+implementations SHOULD keep the supply at that mean plus `3 × sqrt(mean)`
+so that on-demand construction is rare.
+
+**Body age:**
+Because bodies are not bound to an epoch, a body can outlive the accuracy of the path it was built for.
+Beyond discarding bodies whose paths have lost a node ([§6.1](#61-at-epoch-boundary)),
+implementations SHOULD bound body age,
+discarding any body older than a configured maximum,
+so that a supply built during a quiet period is not still in use after the topology has moved on.
+`created_at` ([§5.5](#55-data-structures)) records the construction time this bound applies to.
 
 ### 9.2 Pool Status Tracking
 
 Implementations SHOULD maintain runtime counters for available slots, cover emissions, and non-cover consumptions.
-These aid in diagnostics, monitoring, and tuning the emission strategy.
+These aid in diagnostics, monitoring, and tuning.
 
-**Exposure restrictions:**
-The non-cover consumption counter reveals the exact per-epoch count of real traffic,
-which is what traffic analysis aims to recover.
-
-Implementations MUST keep this counter (and any derived per-epoch breakdowns) in-memory only
-and MUST NOT export it via metrics endpoints, structured logs, or any monitoring interface.
+The non-cover consumption counter is subject to the exposure restriction of [§10.9](#109-exposure-of-real-traffic-counters).
 
 ### 9.3 Slot Exhaustion Logging
 
-When a forwarded packet is dropped due to slot exhaustion, implementations SHOULD log a warning.
-Persistent slot exhaustion may indicate that `R` is too low for the network's forwarding load,
+When a forwarded packet is dropped due to forwarding-share exhaustion, implementations SHOULD log a warning.
+Persistent exhaustion may indicate that `R_node` is too low for the network's forwarding load,
 or that the node is under a traffic flooding attack.
 
 ### 9.4 Synchronization
 
-Slot claim operations MUST be atomic.
-Implementations may enforce this using mutexes, lock-free atomic operations, or single-threaded event loops,
+The atomicity of slot claims required by [§6](#6-node-responsibilities)
+can be enforced using mutexes, lock-free atomic operations, or single-threaded event loops,
 depending on the concurrency model.
 
 ## 10. Security Considerations
@@ -591,150 +746,268 @@ The design principles motivating slot integrity and DoS protection compliance
 are described in [§3](#3-design-principles).
 This section discusses the threat context behind those principles.
 
-### 10.1 Proof Reuse via Proof Leakage
+### 10.1 Message Index Integrity
 
-If a pre-computed cover proof and a freshly generated non-cover proof for the same slot are both sent on the wire,
-the DoS protection mechanism detects a reuse.
-Depending on the mechanism, this may result in slashing or reputation loss for the node.
-The slot integrity principle ([§3](#3-design-principles)) prevents this
-by ensuring the cover proof is discarded before the slot is reused.
+Under [Mix RLN DoS Protection](mix-dos-protection-rln.md) and its stake-weighted extension,
+a member MUST NOT use the same message index twice in an epoch:
+two proofs under the same index with different signals let any verifier recover the member's secret,
+and the member is slashed.
+A node that originates and forwards in the same epoch generates proofs for both,
+so the two shares MUST draw from disjoint index ranges,
+and every proof MUST use the index its slot claim returned ([§5.2](#52-slot-claims)).
+Without the partition, a tick and a forward could select the same index and the node would slash itself.
 
-### 10.2 Slot Exhaustion Under Heavy Non-Cover Traffic
+### 10.2 Origination Share Exhaustion
 
-If non-cover traffic consumes all `R` slots before the epoch ends,
-the node cannot emit further cover traffic.
-This is a natural consequence of DoS protection compliance ([§3](#3-design-principles)).
-Locally originated messages that arrive after slot exhaustion MUST be queued for the next epoch.
-Cover emission ceases when no slots remain.
+A tick that finds the origination share exhausted is silent ([§6.2](#62-cover-emission)).
+Because a tick claims one slot whether it carries a loop or a real origination,
+exhaustion is a function of the node's own tick count in the epoch only
+and is independent of the node's real traffic.
+The margin in [§4](#4-rate-limit-budget-model) keeps such epochs below 1%.
 
-### 10.3 Network-Wide Cover-Rate Correlation
+### 10.3 Why Emission Is Not Scheduled on a Fixed Interval
 
-When a message traverses multiple mix nodes,
-each node on the path claims one slot for forwarding,
-slightly reducing its available cover capacity for the remainder of the epoch.
-A global passive adversary observing all nodes simultaneously could in principle
-detect correlated cover-rate perturbations across nodes and use them to trace message paths.
+A strategy that emits cover at a fixed interval provides volume unobservability
+(the emission count does not depend on real traffic)
+but not timing unobservability.
+Forwarded packets leave after random mixing delays;
+cover on a fixed interval is the only periodic component of the node's output,
+and a passive adversary recovers the interval by averaging over enough observations
+and classifies packets near its grid points.
+Blurring each emission with a sampled hold does not remove the constant mean spacing.
+The origination clock has no interval and no hold:
+its ticks are a Poisson process,
+and there is no grid to recover.
 
-In practice, each forwarded message consumes only one slot out of `R`,
-making the perturbation negligible for sufficiently large `R`.
-The pre-scheduled emission timing enhancement ([§11.3](#113-pre-scheduled-emission-timing))
-would eliminate this concern entirely by fixing all emission times at epoch start,
-making individual slot consumption events unobservable.
+### 10.4 Forwarding Cap and Forwarded Packet Drops
 
-### 10.4 Timing Separability of Cover and Non-Cover Packets
+Forwarded packets are dropped once the forwarding share is exhausted ([§6.4](#64-packet-forwarding)).
+Without the cap, an adversary who routes enough traffic through a node could consume its whole budget
+and silence its origination clock,
+muting the node's real and cover traffic together.
+With the cap, such a flood costs the adversary dropped packets and leaves the node's origination untouched.
 
-The default Constant-Rate strategy ([§7.1](#71-constant-rate-cover-traffic))
-schedules cover packets on a fixed grid while forwarded packets are dispatched at arrival time plus mixing delay.
-The pre-send delay applied at emission ([§6.2](#62-cover-emission)) removes exact grid alignment,
-but the constant underlying spacing survives averaging:
-with enough observations, a passive adversary can recover the emission schedule
-and classify packets near grid points with high confidence,
-regardless of forwarding load.
+Drops are visible to the originators of the dropped packets as failed loop returns and missing replies.
+Persistent forwarding-share exhaustion indicates that `R_node` is too low for the network's forwarding load
+or that the node is under attack ([§9.3](#93-slot-exhaustion-logging)).
 
-Constant-Rate therefore provides volume unobservability but not timing unobservability.
-Under Constant-Rate, the pre-scheduled emission timing enhancement ([§11.3](#113-pre-scheduled-emission-timing))
-is the only design that closes this gap,
-by assigning all outgoing packets — cover, locally originated, and forwarded —
-to a shared fixed-time grid determined at epoch start.
+### 10.5 Inbound Observability
 
-### 10.5 Cover Priority and Forwarded Packet Drops
+This specification fixes what a node **emits**.
+It does not fix what a node **receives**,
+and an observer who counts both of a node's links learns from the difference.
 
-Cover emissions occur on a schedule independent of forwarding load,
-so slots consumed by cover early in an epoch are unavailable to forwarded packets arriving later.
-Under uneven forwarding load, this can cause honest forwards to be dropped ([§6.4](#64-packet-forwarding))
-even when total traffic stays within the `R` budget.
+Consider an observer of one node's link who counts packets in and packets out over a window of several epochs.
+Forwarded packets enter and leave, so they cancel.
+Every loop the node sends returns to it, so loops cancel.
+A real origination leaves and does not return;
+a real arrival arrives and does not leave.
+Over the window,
 
-The `cover_rate_fraction` `f` ([§7](#7-recommended-strategy)) reduces this risk
-by holding back a fraction of the per-node slot budget from cover emission,
-leaving headroom for forwarding spikes.
-With the RECOMMENDED `f = 0.7`, approximately 30% of the budget is reserved as headroom.
-Deployments SHOULD adjust `f` based on observed network behavior;
-see [§11.1](#111-adaptive-cover-rate-fraction) for adaptive tuning as a future enhancement.
+```text
+in − out = received − sent
+```
+
+where `sent` counts the node's non-cover originations —
+its locally originated messages and the SURB replies it produces as an exit ([§2](#2-terminology)) —
+and `received` counts the messages and replies delivered to it.
+The observer sees both `in` and `out`,
+so it learns `received − sent`,
+and for a node that mostly sends or mostly receives, that is its rate.
+This holds against an observer of a single link,
+needs no packet to be distinguishable from any other,
+and converges within a few epochs.
+
+Three terms blur the estimate without removing it.
+Packets in flight at the window's edges are bounded by the path delay and do not accumulate.
+Forwarded packets dropped when the forwarding share is exhausted ([§6.4](#64-packet-forwarding))
+break the cancellation of forwarded traffic for as long as the exhaustion lasts.
+Loops that fail to return — the condition the reception signal of [§5.4](#54-cover-packet-reception) exists to detect —
+break the cancellation of loops.
+All three widen the observer's error bars;
+none of them is under the node's control,
+and none of them is a defence.
+
+The observer need not watch the node's link at all.
+A node in the closing position of a loop forwards it to the originator,
+but Sphinx does not tell that node whether the originator is the end of the path or a further hop,
+so what it counts is a sample of the originator's loop returns
+mixed inseparably with its own ordinary forwards to that node.
+The returns in the sample number `ticks − sent` scaled by the share of loops this node closes,
+and the tick rate is a deployment-wide constant ([§10.7](#107-uniformity-of-the-origination-clock)),
+so an adversary holding a fraction of the network
+occupies the closing position often enough to estimate `sent` from that sample.
+The estimate is statistical, not a direct count,
+and it sharpens with the fraction held.
+
+Fixing the closing position to a small candidate set is not a defence against this
+and is deliberately not required by [§5.1](#51-cover-packet-construction).
+It would make the estimate exact and persistent for any adversary inside the set
+rather than sampled across the network,
+and a node whose terminal arrivals came from a small stable set of peers,
+while every other node's came from many,
+would be distinguishable by that alone on its own link and to topology analysis.
+Whether that trade is worth making belongs to path selection.
+
+Closing the channel requires that the packets standing in for real messages also fail to return,
+which is the drop cover of [§11.5](#115-drop-cover),
+deferred for the reasons given there.
+Even with drop cover, SURB replies arrive in proportion to the requests a node sent,
+at most two per request ([§6.5](#65-surb-reply-origination-at-the-exit)),
+so a requester's rate would remain visible through its replies until inbound delivery is itself made constant ([§11.4](#114-inbound-cover)).
+
+The property this specification delivers is therefore the following:
+an observer of a node's outgoing link learns nothing about when or how much it sends;
+an observer of both links learns `received − sent`;
+and an adversary holding a fraction of nodes estimates `sent` from the loop returns it closes.
+
+### 10.6 The Origination Cap Is a Convention
+
+The origination clock bounds a node's origination rate by construction,
+but nothing verifies another node's clock.
+A node that originates faster than its tick mean allows — up to its whole budget `R_node` —
+is not detectable by any single neighbor,
+since the excess is spread across all first hops.
+It is detectable by its forwarding behavior:
+having spent its slots on origination, it drops the packets it should forward.
+The clock therefore protects the anonymity of nodes that follow it
+and does not by itself bound what a node that ignores it can impose on the network.
+An origination proof verified at the exit,
+drawn from a per-node origination quota separate from the forwarding budget,
+would make the cap enforceable;
+this belongs to the DoS protection specification ([§11.6](#116-enforced-origination-quota)).
+
+### 10.7 Uniformity of the Origination Clock
+
+The unobservability argument of [§7](#7-poisson-rate-emission-strategy) requires every mix node to run the same clock.
+A node running a faster or slower clock is identifiable by its origination rate alone,
+and its anonymity set shrinks to the nodes sharing its rate.
+Accordingly:
+
+- Every mix node that forwards traffic MUST run the origination clock.
+  A node that forwards traffic without emitting cover has a visibly lower origination rate than its peers.
+- `μ_tick` MUST be a deployment-wide constant,
+  independent of a node's rate-limit budget `R_node`.
+  It is derived from `R_base` ([§4](#4-rate-limit-budget-model)),
+  so that every node, including one at the floor stake, can sustain it.
+  Under a stake-weighted budget ([Stake-Weighted Mix RLN DoS Protection](mix-dos-protection-rln-stake-weighted.md)),
+  a node with a larger `R_node` has a larger forwarding share and the same origination rate.
+- A deployment that wishes to let higher-budget nodes originate faster MUST do so through deployment-wide rate classes,
+  each defined by its own `μ_tick`.
+  A node's rate class is observable, so the class is the anonymity set of its members;
+  the fewer and larger the classes, the less the rate reveals.
+
+The same applies to the mixing delay mean used by relays ([mix.md §6.2](mix.md#62-delay-strategy)):
+it is a deployment-wide constant,
+distinct from `μ_tick`,
+and the two need not be equal.
+
+### 10.8 Interaction with Fixed-Hop Path Selection
+
+Under session- or time-based path selection ([Mix Path Selection](https://github.com/logos-co/logos-lips/pull/445)),
+a node that is a fixed hop for a high-volume sender receives a concentrated stream from one predecessor.
+The exponential mixing delay smooths that stream but does not make it memoryless,
+so the node's forwarded output carries some structure from the fixed-hop stream.
+This does not affect the node's own originations, which remain on the clock
+and are unobservable on their own terms ([§7](#7-poisson-rate-emission-strategy));
+it affects what an observer of that node can infer about the fixed-hop sender,
+and is a consideration for the path selection specification rather than for this one.
+
+### 10.9 Exposure of Real-Traffic Counters
+
+The non-cover consumption counter ([§9.2](#92-pool-status-tracking)) reveals the exact per-epoch count of real traffic,
+which is what traffic analysis aims to recover.
+Implementations MUST keep this counter, and any per-epoch breakdown derived from it, in memory only,
+and MUST NOT export it via metrics endpoints, structured logs, or any monitoring interface.
 
 ## 11. Future Work
 
-### 11.1 Adaptive Cover Rate Fraction
+### 11.1 Adaptive Tick Mean
 
-The `cover_rate_fraction` `f` ([§7](#7-recommended-strategy)) is currently a static deployment-wide configuration.
-A future enhancement MAY define a method for nodes to adapt `f` based on observed forwarding load,
-network size `N`, and path length `L`,
-allowing cover rate to be tuned closer to the node's actual available budget
-and reducing unnecessary cryptographic work.
-Any adaptive scheme MUST preserve uniformity of `f` across the anonymity set
-to avoid leaking per-node load through emission rate differences.
+`μ_tick` is currently a static deployment-wide configuration.
+A future enhancement MAY define a method for a deployment to adapt `μ_tick` to network size and path length.
+Any adaptive scheme MUST change `μ_tick` for all nodes together,
+never per node ([§10.7](#107-uniformity-of-the-origination-clock)).
 
 ### 11.2 Path Health Monitoring
 
-When cover packets are implemented as loop packets —
-dummy Sphinx packets that follow a valid mix path and return to the originating node —
-their return confirms path liveness.
-Failures to return indicate potential node failures or active attacks along the path.
+Loop packets follow a valid mix path and return to the originating node,
+so their return confirms path liveness,
+and failures to return indicate node failures or active attacks along the path.
 A future revision of this specification MAY define an interface for exposing loop return status
-to enable path health monitoring.
+to the path selector,
+for example to decide when a fixed-hop candidate is unreachable.
 
-### 11.3 Pre-Scheduled Emission Timing
+A node originating at the tick rate sends no loops,
+and so has no loop signal while it is leaning on its paths hardest;
+it still learns of some failures from missing SURB replies.
+A future revision MAY reserve a share `f_loop` of ticks for loops that real traffic never takes,
+so that loops keep flowing at `f_loop / μ_tick` whatever the load,
+at the cost of that share of real capacity.
+The share would be sized by the detection the monitoring needs:
+noticing that a fraction `p` of what a path carries is being dropped, with confidence `1 − α`,
+takes `ln(α) / ln(1 − p)` loops through that path,
+44 for `p = 0.1` and `α = 0.01`.
+At `f_loop = 0.1` and the parameters of [§7](#7-poisson-rate-emission-strategy) a node accumulates 44 loops in about 5 minutes,
+which is evidence about one particular hop only where the selector fixes it;
+under uniform per-packet selection a given node lies on about `(L − 1) / N` of a node's loops,
+so the same evidence about one node takes about 12 hours at `N = 300`.
 
-Inspired by the [Blend Protocol](../../blockchain/raw/blend-protocol.md), a future enhancement MAY define pre-scheduled emission slots
-where all outgoing packets — cover, locally originated, and forwarded — are assigned to
-fixed time slots determined at epoch start.
-All traffic types would share the same timing grid,
-producing a perfectly periodic total output regardless of traffic mix.
-This would eliminate the periodic emission pattern tradeoff noted in [§7.1](#71-constant-rate-cover-traffic),
-as an observer would see uniform intervals with no way to classify individual packets.
-When using Constant-Rate, this is the only design path to full timing unobservability
-(see [§10.4](#104-timing-separability-of-cover-and-non-cover-packets)).
-
-This approach is only compatible with the Constant-Rate strategy,
-which provides deterministic emission times known at epoch start.
-Poisson-Rate, where emission times are sampled at runtime, cannot support pre-scheduled slots.
-Note that pre-scheduled slots would require changes to the mixing delay strategy
-in the Mix Protocol, as forwarded packets would need to be held until their assigned slot time
-rather than forwarded after the sampled delay elapses.
-The pre-send delays ([mix.md §8.5.2](mix.md#852-construction-steps) Step 3.f, [§6.2](#62-cover-emission))
-would likewise be superseded by slot assignment.
-
-### 11.4 Budget Model for Sender-Generated Proofs
+### 11.3 Budget Model for Sender-Generated Proofs
 
 The rate-limit budget model in [§4](#4-rate-limit-budget-model) assumes per-hop generated proofs,
-where forwarding consumes from the node's own `R` budget and the slot pool self-balances.
-With sender-generated proofs, the initiating node generates `L` proofs per originated packet from its own `R`,
+where forwarding consumes from the node's own `R_node` budget.
+With sender-generated proofs, the initiating node generates `L` proofs per originated packet from its own `R_node`,
 while forwarding nodes only verify and do not consume their own budget.
 A future revision MAY define an adapted budget model for this architecture,
-including revised slot pool semantics, an explicit emission rate target that accounts for observed forwarding load,
-and updated pre-computation sizing.
+including revised slot pool semantics and pre-computation sizing.
 
-### 11.5 Poisson-Rate Cover Traffic
+### 11.4 Inbound Cover
 
-Poisson-Rate is a candidate alternative strategy retained here for future consideration.
+Inbound reply traffic varies with a node's requests ([§10.5](#105-inbound-observability)).
+A future enhancement MAY define a constant request rate per node,
+with unused SURBs answered by dummy replies,
+or a provider-style model in which a trusted first hop delivers inbound traffic to the node at a constant rate.
 
-The node emits cover packets according to a Poisson process with rate `λ_cover` packets per second,
-producing random memoryless inter-emission gaps.
-`λ_cover` would be set to `f × R / ((1 + L) × P)` packets per second,
-where `f` is the configured `cover_rate_fraction` ([§5.5](#55-data-structures)).
-Emissions are suppressed when no slots are available.
+### 11.5 Drop Cover
 
-**Potential strengths:**
+A drop packet is a loop whose final hop discards it instead of returning it:
+built by the same selector under the same constraints,
+carrying the cover codec,
+and terminating at a mix node other than the originator.
+If ticks with nothing waiting carried drops rather than loops,
+the number of a node's originations that do not return would be fixed by the clock,
+whatever its real traffic,
+and the count of [§10.5](#105-inbound-observability) would no longer contain `sent`.
+This is the payload-stream filler of Loopix,
+on which its sender-unobservability argument rests.
 
-- **Timing unobservability:** both cover and forwarded emissions are exp-distributed,
-  making it statistically hard for an observer to classify individual packets by timing
-  (addressing the separability concern in [§10.4](#104-timing-separability-of-cover-and-non-cover-packets)).
-- **Short-window volume unobservability:** per-epoch cover count is `Poisson(N)` rather than deterministic,
-  so forwarding-count estimates from total emissions carry at least `±√N` uncertainty per epoch.
+Drop cover is deferred from this revision for three reasons.
+A drop must carry every proof a real message carries at the exit,
+including any exit abuse prevention proof ([Mix Protocol §6.3](mix.md#63-exit-abuse-prevention)),
+since a packet the exit rejects is distinguishable by that rejection;
+under a proof-of-work scheme that is continuous work for packets nobody reads,
+and whether a deployment can afford it depends on the exit abuse scheme it chooses.
+Under exit ≠ destination, the exit of a real message opens an onward connection and the exit of a drop does not,
+so a passive observer at the exit classifies drops without controlling the exit,
+thinning the cover by the fraction of exits it can watch.
+And drops close the channel only for traffic that expects no reply;
+a requester's rate remains visible through its replies until [§11.4](#114-inbound-cover) lands,
+so the gain is partial until then.
+A future revision MAY add drop packets on ticks with nothing waiting,
+with the accounting above,
+once the exit abuse scheme and inbound cover are settled.
+Such a revision would also need a companion change to [Mix Protocol §6.4](mix.md#64-cover-traffic),
+which limits cover traffic to loop messages;
+the loop-only design of this revision satisfies that constraint as written.
 
-**Costs:**
+### 11.6 Enforced Origination Quota
 
-- **Per-epoch variance:** cover emissions per epoch are `Poisson(N)` — some epochs are thin and weaken in-epoch mixing.
-- **Front-loading:** random clustering can consume cover budget early, starving late-arriving non-cover traffic.
-- **Pre-computation margin:** pipelines need a safety margin (e.g., `N + 3√N`) to avoid running dry.
-- **Budget coupling:** cover rate drops with non-cover load as the pool nears exhaustion.
-
-**Interaction with `R`:**
-
-Poisson-Rate's per-epoch variance shrinks relative to its mean as `R` grows (`√N / N` → 0).
-At small `R`, front-loading and thin-cover epochs are pronounced.
-At large `R`, these effects become negligible.
-
-Simulation of real traffic distributions is required before adopting Poisson-Rate as a normative option.
+The origination clock is a convention ([§10.6](#106-the-origination-cap-is-a-convention)).
+A future revision of the DoS protection specification MAY add an origination proof,
+carried inside the Sphinx payload and verified at the exit,
+drawn from a per-node origination quota.
+This would bound origination cryptographically and independently of the forwarding budget.
 
 ## Copyright
 
@@ -745,6 +1018,7 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 - [libp2p Mix Protocol](mix.md)
 - [Mix DoS Protection](mix-dos-protection.md)
 - [Mix RLN DoS Protection](mix-dos-protection-rln.md)
+- [Stake-Weighted Mix RLN DoS Protection](mix-dos-protection-rln-stake-weighted.md)
+- [Mix Path Selection (in progress)](https://github.com/logos-co/logos-lips/pull/445)
 - [Loopix: Providing Anonymity in a Message Passing System](https://www.usenix.org/conference/usenixsecurity17/technical-sessions/presentation/piotrowska)
 - [Nym: Mixnet for Network-Level Privacy](https://nymtech.net/nym-whitepaper.pdf)
-- [Blend Protocol](../../blockchain/raw/blend-protocol.md)
