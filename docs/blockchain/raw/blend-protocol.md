@@ -39,6 +39,7 @@
 | 1.6.2 | The node count and the neighbor distinction read the `provider_id`s of the Blend declarations, which the Service Declaration Protocol keeps unique | 2026-10-27 |
 | 1.7.0 | Derived the observation window $`W`$ from cover traffic in place of the maximal release delay. | 2026-10-29 |
 | 1.8.0 | Refused a neighbor closed as not live for $`W`$ rounds, restarting its liveness count, in place of shutting it out for the rest of the epoch. | 2026-10-30 |
+| 1.8.1 | Connection Details follows [Transport Security](../draft/p2p-network.md#transport-security). | 2026-11-02 |
 
 # Introduction
 
@@ -510,7 +511,7 @@ Implementations should choose a default based on the deployment they operate in,
 
 ### Connection Details
 
-The connections are established using libp2p with TLS version 1.3 (not older). The cryptographic scheme is Ed25519 with ephemeral keys**.** The libp2p protocol name is `/logos-blockchain/blend/1.0.0` for mainnet and `/logos-blockchain-testnet/blend/1.0.0` for testnet.
+The connections are established using libp2p with TLS version 1.3 (not older), following the transport security configuration of the network — the peer authentication model (Ed25519 node identity) and the key exchange — as specified in [Transport Security](../draft/p2p-network.md#transport-security). As of the first post-quantum phase, the key exchange is the hybrid group `X25519MLKEM768`, with `X25519` retained for interoperability. Blend is the sharpest reason for the hybrid requirement: traffic recorded today and decrypted by a future quantum adversary would retroactively degrade the privacy this protocol provides. The libp2p protocol name is `/logos-blockchain/blend/1.0.0` for mainnet and `/logos-blockchain-testnet/blend/1.0.0` for testnet.
 
 ### Neighbor Distinction Process
 
