@@ -33,6 +33,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-01-20 |
 | 1.0.1 | Rename Nomos to Logos Blockchain | 2026-04-17 |
+| 1.1.0 | Added the Transport Security section: TLS 1.3, cipher suites, peer authentication, and the hybrid post-quantum key exchange `X25519MLKEM768`. | 2026-08-28 |
 
 # Introduction
 
@@ -57,6 +58,131 @@ The Logos Blockchain network uses production-tested protocols to ensure all of t
 The Logos Blockchain network extensively leverages the [libp2p](https://docs.libp2p.io/) suite of plug-and-play protocols, which forms a foundational component for delivering the essential functionalities outlined previously.
 
 At its core, the Logos Blockchain network employs the [*QUIC*](https://docs.libp2p.io/concepts/transports/quic/) transport protocol. QUIC provides rapid connection establishment and offers several advantages, including enhanced NAT traversal capabilities stemming from its UDP foundation. Additionally, its default multiplexing feature simplifies configuration processes.
+
+## Transport Security
+
+This section states the canonical TLS configuration of the stack: the TLS
+version, the peer authentication model, and the key exchange. It applies to
+every libp2p connection a node establishes, regardless of the protocol carried
+over it.
+
+The key words **MUST**, **MUST NOT**, **SHOULD** and **MAY** in this section
+are to be interpreted as described in
+[RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
+
+### Handshake
+
+The QUIC handshake is TLS 1.3
+([RFC 9001](https://www.rfc-editor.org/rfc/rfc9001)).
+
+Nodes **MUST** use TLS 1.3. Earlier TLS versions **MUST NOT** be offered or
+accepted.
+
+Nodes **MUST** support the TLS 1.3 AEAD cipher suites:
+
+- `TLS_CHACHA20_POLY1305_SHA256`
+- `TLS_AES_256_GCM_SHA384`
+- `TLS_AES_128_GCM_SHA256`
+
+### Peer Authentication
+
+Peers authenticate as specified by the
+[libp2p TLS handshake](https://github.com/libp2p/specs/blob/master/tls/tls.md).
+Each peer presents a self-signed certificate carrying its identity public key
+in the libp2p Public Key Extension (OID `1.3.6.1.4.1.53594.1.1`). The identity
+key signs the concatenation of the string `libp2p-tls-handshake:` and the
+public key of the certificate, which proves possession of the identity key at
+the time the certificate was signed.
+
+The node identity key is **Ed25519**. It is the same key that the
+[Service Declaration Protocol](../raw/bedrock-service-declaration-protocol.md)
+declares as `provider_id`, which is what allows a node to verify that the peer
+it has connected to is the peer whose declaration it holds.
+
+The certificate's own key pair is unrelated to the identity key and carries no
+protocol meaning beyond the binding above. Its algorithm is deliberately not
+specified: it is an implementation choice with no protocol consequence, and
+constraining it would create an interoperability requirement without a
+corresponding benefit.
+
+### Key Exchange
+
+Nodes **MUST** offer the hybrid key exchange group `X25519MLKEM768`
+([draft-ietf-tls-ecdhe-mlkem](https://datatracker.ietf.org/doc/draft-ietf-tls-ecdhe-mlkem/),
+IANA named group `0x11EC`), and **MUST** offer it as the most-preferred group.
+
+Nodes **MUST** continue to offer `X25519`, so that peers which do not yet
+support the hybrid group remain reachable.
+
+`X25519MLKEM768` combines an X25519 key exchange with an ML-KEM-768
+encapsulation ([FIPS 203](https://csrc.nist.gov/pubs/fips/203/final)) and
+derives the shared secret from both. The result is secure unless **both**
+components are broken: a classical adversary is defeated by X25519, and an
+adversary with a quantum computer by ML-KEM-768.
+
+Requiring the hybrid group to be *preferred* rather than merely *offered* is
+deliberate. A node that offers the group but prefers the classical one would
+negotiate away the property this requirement exists to provide, and would do
+so silently.
+
+Key exchange material is **ephemeral per handshake**. It **MUST NOT** be
+persisted, reused across connections, or transmitted in any protocol message
+outside the handshake.
+
+No new wire structure is introduced: the key exchange group is negotiated in
+the TLS `supported_groups` extension and carried in `key_share`, as specified
+by [RFC 8446](https://www.rfc-editor.org/rfc/rfc8446); the hybrid group's
+codepoint and share encoding are specified by
+[draft-ietf-tls-ecdhe-mlkem](https://datatracker.ietf.org/doc/draft-ietf-tls-ecdhe-mlkem/).
+
+| Group | IANA codepoint | Client share | Server share |
+| --- | --- | --- | --- |
+| `X25519MLKEM768` | `0x11EC` | 1216 B | 1120 B |
+| `X25519` | `0x001D` | 32 B | 32 B |
+
+### Post-Quantum Scope
+
+The hybrid requirement is the first phase of the post-quantum transition. It
+addresses harvest-now-decrypt-later: an adversary who records network traffic
+today can decrypt it once a cryptographically-relevant quantum computer
+exists, so the exposure is already accruing and is only realised later. The
+sharpest consumer of this property is the
+[Blend Protocol](../raw/blend-protocol.md#connection-details), whose privacy
+guarantees would otherwise be retroactively degraded by recorded traffic
+becoming decryptable.
+
+This phase changes the key exchange and nothing else. In particular, the
+following are unchanged by it:
+
+| | changed by this phase |
+| --- | --- |
+| node identity signature (`provider_id`, Ed25519) | no |
+| certificate signature | no |
+| `declaration_id`, locators, declaration size | no |
+| Service Declaration Protocol messages | no |
+| service reward distribution | no |
+| record-layer AEAD | no |
+
+The key exchange is ephemeral and never leaves the handshake, so no value
+declared on-chain and no value derived from one is affected.
+
+Authentication is deliberately deferred, not overlooked: a signature cannot be
+forged retroactively, so an adversary who breaks Ed25519 in the future cannot
+impersonate a peer in a handshake that has already completed. Migrating the
+node identity to a post-quantum signature is the subject of a later phase.
+
+Because `X25519` is retained for interoperability, a handshake between a
+conforming node and a non-conforming peer agrees on the classical group. This
+is intentional and is what allows the network to migrate without a coordinated
+upgrade, but it means the property is obtained per-connection, in proportion
+to adoption. An active adversary cannot force a downgrade beyond what the peer
+already supports: the group is negotiated inside the handshake, and the
+negotiation is covered by the transcript.
+
+The hybrid key exchange increases the size of the handshake. On QUIC this is
+not amplification-relevant: a server may not send more than three times what
+it has received before validating the peer's address, and the larger client
+flight raises that allowance rather than consuming it.
 
 ## Peer Discovery
 
