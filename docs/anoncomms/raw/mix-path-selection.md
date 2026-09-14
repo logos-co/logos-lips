@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Name | Mix Path Selection |
-| Slug | 245 |
+| Slug | 246 |
 | Status | raw |
 | Category | Standards Track |
 | Editor | Mohammed Alghazwi <mohalghazwi@logos.co> |
