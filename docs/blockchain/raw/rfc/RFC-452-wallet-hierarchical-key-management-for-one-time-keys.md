@@ -7,6 +7,7 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-09-14 |
+| v2 | Review: voucher role is a node, not a leaf; account creation rule (Youngjoon) | 2026-09-14 |
 
 ## Reviewer Orientation
 
@@ -63,13 +64,13 @@ New section. The path is fixed, all levels hardened:
 m / 154' / account' / role' / index'
 ```
 
-`154'` is the purpose (the slug of this specification, BIP-43 convention). Wallets MUST support account `0'` and MAY expose more. Roles:
+`154'` is the purpose (the slug of this specification, BIP-43 convention). Wallets MUST support account `0'` and MAY expose more, but MUST NOT create account `a + 1` while account `a` has no used leaf and no issued voucher (mirrors the recovery rule). Roles:
 
 | `role` | Name | Leaf usage | One-time |
 | --- | --- | --- | --- |
 | `0'` | Receive | one leaf, hence one set of note keys, per received note | yes |
 | `1'` | Change | one leaf, hence one set of note keys, per change note | yes |
-| `2'` | Voucher | the voucher master of the account; this role has no `index'` level | n/a |
+| `2'` | Voucher | the node `m / 154' / account' / 2'` itself is the voucher master; no `index'` level | n/a |
 | `3'` – `(2^{31}-1)'` | Reserved | future roles (e.g. node identity keys); wallets MUST NOT derive keys under them | |
 
 ### 2. One-Time Note Keys
@@ -78,7 +79,7 @@ New section. A wallet MUST use a fresh receive leaf (the next unused `index'` un
 
 ### 3. Voucher Secret Derivation
 
-New section. The voucher leaf is `m / 154' / account' / 2'`; the voucher master `vm` is its `ZkSecretKey`. The `i`-th voucher secret is:
+New section. The voucher node is `m / 154' / account' / 2'`, with no `index'` level; the voucher master `vm` is its `ZkSecretKey`. The `i`-th voucher secret is:
 
 ```python
 def voucher_secret(vm: ZkSecretKey, i: int) -> Fr:  # i is a uint64

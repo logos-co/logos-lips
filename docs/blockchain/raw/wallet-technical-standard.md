@@ -109,7 +109,7 @@ m / 154' / account' / role' / index'
 ```
 
 - `154'` is the purpose, fixed to the slug of this specification, following the BIP-43 convention. It never changes, even if the specification is renumbered.
-- `account'` separates independent sets of keys for the same user (e.g. personal and business), numbered from 0. Wallets MUST support account 0 and MAY expose more.
+- `account'` separates independent sets of keys for the same user (e.g. personal and business), numbered from 0. Wallets MUST support account 0 and MAY expose more. A wallet MUST NOT create account `a + 1` while account `a` has no used leaf and no issued voucher; recovery stops at the first such account, see [Wallet Recovery](#wallet-recovery).
 - `role'` selects what the leaves under it are used for, according to the table below.
 - `index'` enumerates the leaves of a role, from 0, without gaps.
 
@@ -117,7 +117,7 @@ m / 154' / account' / role' / index'
 | --- | --- | --- | --- |
 | `0'` | Receive | one leaf, hence one set of note keys, per received note, see [One-Time Note Keys](#one-time-note-keys) | yes |
 | `1'` | Change | one leaf, hence one set of note keys, per change note, see [One-Time Note Keys](#one-time-note-keys) | yes |
-| `2'` | Voucher | the voucher master of the account, see [Voucher Secret Derivation](#voucher-secret-derivation); this role has no `index'` level | n/a |
+| `2'` | Voucher | the node `m / 154' / account' / 2'` itself is the voucher master of the account, there is no `index'` level, see [Voucher Secret Derivation](#voucher-secret-derivation) | n/a |
 | `3'` – `(2^{31}-1)'` | Reserved | reserved for future roles (e.g. node identity keys); wallets MUST NOT derive keys under them | |
 
 Every leaf is an extended private key $`(k, c)`$ produced by `CDKpriv`; the network keys are derived from its $`k`$ as specified in the following sections, and every key derived from a leaf belongs to that leaf. The leaf is the unit of use and of recovery in this specification.
@@ -165,7 +165,7 @@ A note leaf is a leaf under the receive (`0'`) or change (`1'`) role. Its keys a
 
 Each block a leader proposes commits to a reward voucher whose secret is required to claim the reward with a `LEADER_CLAIM` Operation. A voucher secret that is lost cannot be recovered from the chain, so a wallet derives voucher secrets deterministically from the seed.
 
-The voucher leaf of an account is `m / 154' / account' / 2'`; its keys are derived exactly as a note leaf's. The voucher master $`vm`$ is the `ZkSecretKey` of the voucher leaf. The $`i`$-th voucher secret of the account is:
+The voucher node of an account is `m / 154' / account' / 2'`. The voucher master $`vm`$ is the `ZkSecretKey` of that node, derived from its $`k`$ exactly as for a note leaf. The $`i`$-th voucher secret of the account is:
 
 ```python
 def voucher_secret(vm: ZkSecretKey, i: int) -> Fr:  # i is a uint64
@@ -219,8 +219,8 @@ The vectors below use the BIP-39 mnemonic `abandon abandon abandon abandon aband
 
 | Quantity | Value |
 | --- | --- |
-| `m/154'/0'/2'` leaf `k` | 0xcbbb7fde40e8971d22a7557c890b2d9f00e765bb2475a2588aaba675e6754403 |
-| `m/154'/0'/2'` leaf `c` | 0x775509a7384f889155c37948b8e2677b75975a0f20bd37b0708125d23933aa5d |
+| `m/154'/0'/2'` node `k` | 0xcbbb7fde40e8971d22a7557c890b2d9f00e765bb2475a2588aaba675e6754403 |
+| `m/154'/0'/2'` node `c` | 0x775509a7384f889155c37948b8e2677b75975a0f20bd37b0708125d23933aa5d |
 | voucher master `vm` | 0x0962b39836dcac5d984c4c771b78b0ad5572c3cdd14d0f75c9c367f365b0b908 |
 | `voucher_secret(vm, 0)` | 0x4b92e4cf4caa3731e0b0dd9005620cb73abc7a56220db0b81a25e9e06671ab00 |
 | `voucher_cm`, i = 0 | 0x4d1a9c149153079046d8fdb372b2e5c8dfa45ed0746b35697a9e39d535dea313 |
