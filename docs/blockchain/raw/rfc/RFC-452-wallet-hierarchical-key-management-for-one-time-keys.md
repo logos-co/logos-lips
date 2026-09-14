@@ -118,6 +118,7 @@ Step 1 of voucher creation no longer requires a random secret:
 
 - Anonymous Leaders Reward Protocol: `$`r < n`$` → `$`r \lt n`$` so the rendering validator passes on the touched file.
 - Wallet Technical Standard tags and revision history (1.1.0 → 1.2.0); Anonymous Leaders Reward Protocol revision history (1.1.0 → 1.1.1).
+- `scripts/validate_metadata.py`: exclude `rfc/` from the metadata-table check so RFC documents can live beside the specs, the same one-line change as #448.
 
 # Implementation
 
