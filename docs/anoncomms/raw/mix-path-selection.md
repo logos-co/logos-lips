@@ -21,77 +21,48 @@ This specification introduces a generic path-selection interface and defines thr
 - **Session mode:** intended for sessions that may generate many (related) Mix packets, such as anonymous downloads.
 - **Time-based mode:** intended for long-lived identities or services that communicate over many sessions and potentially with many anonymous clients, such as hidden services.
 
-The strategies specified here build on previous research on [path selection strategies for anonymous download](https://forum.research.logos.co/t/mix-path-selection/721) and [hidden services](https://forum.research.logos.co/t/hidden-service-time-based-path-selection/730/1)
+The strategies specified here build on previous research on [path selection strategies for anonymous download](https://forum.research.logos.co/t/mix-path-selection/721), [time-based path selection](https://forum.research.logos.co/t/hidden-service-time-based-path-selection/730) and [hidden services](https://forum.research.logos.co/t/hidden-service-time-based-path-selection/730/1). Deanonymization probabilities listed in this document are supported by simulation experiments done using [the freeroutesim simulator](https://github.com/logos-storage/hs-mix-sim).
 
 ## Definitions
 
 ### mixnet adversaries
-In order to decide which path selection strategy is needed for a specific use-case, we need to define the threat model. Mixnets in general are designed to provide anonymity and protect against "Global Passive Adversaries" (GPA) which can observe all traffic on the network. To help achieve this, mixnets select a path (of `L` hops) uniformly at random from the set of online mix nodes. While this minimizes how much the GPA can observe, it doesn't account for the fact that most network traffic consists of sessions rather than single packets.
 
-In a session, the two communicating parties will exchange multiple packets and for each one, they will select a path. If we assume a percentage of the network is controlled by malicious mix nodes (e.g., 10%), then the more packets needed for a session, the more chance that a path containing all malicious nodes is possible. Therefore, if traffic is expected to consist of sessions (e.g., anonymous download and hidden services), then we need to consider the malicious mix node adversary in our threat model. We can refer to this adversary as MMN.
+**Global Passive Adversary (GPA).** An adversary that is able to observe the network traffic globally.
 
-With these two adversaries (GPA and MMN), we need to balance how much advantage we give to each:
-- selecting paths uniformly at random minimizes the advantage given to GPA and maximizes it to MMN.
-- selecting a single path for the whole session (similar to Tor) maximizes advantage for GPA and minimizes it for MMN.
+**Mix Node Adversary (MNA).** An adversary that controls a fraction \(\beta\) of the eligible Mix nodes. A path is considered fully compromised when every Mix node on the relevant path is controlled by the adversary.
+
+**Adaptive adversary (AA).** An adversary that may compromise additional Mix nodes over time and may choose which nodes to target based on information learned from previously compromised nodes. This includes attacks against persistent paths or topologies in which the adversary attempts to progressively compromise nodes toward an endpoint.
 
 ### the de-anonymization likelihood metric (`DLM`)
-The path selection modes specified in this document will try to balance the advantages given to each of these adversaries. The metric we use to measure the expected anonymity provided by each mode is the de-anonymization likelihood metric (`DLM`). This metric was introduced in the [NDSS paper](https://www.ndss-symposium.org/wp-content/uploads/2026-f2384-paper.pdf) and we use it with some slight modifications. Let's start with some notation:
-- $`L`$ is the number of mix nodes in a path.
-- $`\mathcal{M}`$ is the set of online mix nodes.
-- $`m=|\mathcal{M}|`$ is the number of online mix nodes.
-- $`\mathcal{A}\subseteq\mathcal{M}`$ is the set of malicious nodes.
-- $`a=|\mathcal{A}|`$ is the number of malicious nodes.
-- $`\beta=a/m`$ is the malicious fraction of the network.
-- $`q`$ is the probability that one sampled path is fully compromised.
-
-For a free-route mixnet that samples $`L`$ distinct nodes uniformly at random, we can calculate this as:
-
-$`
-q = \beta^L.
-`$
-
-Given these notations, we can now define **DLM** as:
-the de-anonymization likelihood metric that estimates the probability of picking a fully malicious path (a path of `L` nodes that are all malicious). Depending on the use-case, DLM can be calculated differently. We consider the three main formulas:
-- packet-based DLM (P-DLM): the probability of selecting a malicious path with `L` hops from the set of online mix nodes $`\mathcal{M}`$ where we expect $`\beta`$ percentage of them to be malicious:
-
-   $`
-    \texttt{P-DLM}=q = \beta^L
-   `$
-
-    For example, if the adversary controls $`10\%`$ of the nodes and paths contain three independently selected hops, then
-
-   $`
-    \texttt{P-DLM}=0.1^3=0.001
-   `$
-
-    Thus, approximately one out of every 1000 independently sampled paths is expected to be fully compromised.
-
-- session-based DLM (S-DLM): the probability that at least one packet in a session uses a fully compromised path.
-    Consider a session containing $`N`$ packets. If the path used by each packet is selected independently and every path has compromise probability $`q`$, the probability that none of the packets uses a fully compromised path is:
-
-   $`
-    (1-q)^N
-   `$
-
-    The probability that at least one packet uses a fully compromised path is therefore:
-
-   $`
-    \texttt{S-DLM}(N) = 1-(1-q)^N = 1-\left(1-\beta^L\right)^N
-   `$
-
-    e.g., for a 2 KB packet payload and one return path per packet, a 4 MB transfer needs approx $`N=4096`$ paths (ignoring acks and redundancy, etc). With $`\beta=0.1`$, $`L=3`$:
-
-   $`
-    \texttt{S-DLM}(4096)\approx 98\%.
-   `$
-
-    Note: this formula assumes that packet paths are independent. We will need to adjust it later for strategies that reuse paths, fixes hops, or selects hops from a set with differnt $`\beta`$ values.
-
-- time-based DLM (T-DLM): extends S-DLM to a long-lived hidden service exposed to repeated requests from malicious clients. To get an approximation for T-DLM, we can restrict the lifetime of the hidden service to $`T`$ and work out a formula for computing T-DLM. We can basically compute this using the same $`\texttt{S-DLM}`$ formula above but compute $`N`$ based on how many path need to be selected over the service lifetime $`T`$.
+The metric we use to measure the expected anonymity provided by each path selection mode is the de-anonymization likelihood metric (`DLM`). This metric was introduced in the [NDSS paper](https://www.ndss-symposium.org/wp-content/uploads/2026-f2384-paper.pdf) and we use it with some slight modifications:
+- **packet-based DLM (P-DLM)** is the probability that a single selected path is fully controlled by the adversary.
+- **session-based DLM (S-DLM)** is the probability that at least one packet in a session uses a fully compromised path.
+- **time-based DLM (T-DLM)** is the probability that a long-lived identity or service becomes deanonymized during a time period `T`.
 
 
 ### Path selection strategy
-A **path-selection strategy** is a method for constructing a Mix path from the currently eligible Mix nodes. A strategy may be stateless, or it may retain local state in order to reuse selected nodes across multiple path requests. Path-selection state is local to the initiating node and is not part of the path or Sphinx packet encoding.
+A **path-selection strategy** is a way to construct a Mix path from the currently eligible Mix nodes. A strategy may be stateless, or it may maintain a local state in order to reuse selected nodes/paths across multiple path requests.
+
+### Sessions
+We can define a session as a single or multiple transport layer sessions where a client sends or receives multiple chunks/files that are related, i.e., the chunks are all related to the same file or multiple files but all belong to the same content category/type which an adversary can correlate.
+
+### Local topology
+A local topology maintained by the path selector and consists of layers of (possibly trusted) mix nodes and edges connecting these layers. Paths are then constructed by traversing this local topology. Selector may rotate nodes on this topology or keep it for the entire selector lifetime. 
+
+Example local topology with 3 layers
+
+```
+Layer 1          Layer 2          Layer 3
+
+  A1 ─────────►    B1 ─────────►    C1
+   └──────────►    B2 ─────────►    C2
+
+  A2 ─────────►    B2 ─────────►    C2
+   └──────────►    B3 ─────────►    C3
+
+  A3 ─────────►    B3 ─────────►    C3
+   └──────────►    B1 ─────────►    C1
+```
 
 ## Path selection as a generic pluggable component
 
@@ -99,7 +70,7 @@ Path selection can be treated as an optional pluggable component with the defaul
 
 The selector type and selector state are local to the initiating node and don't change the encoding of Sphinx packets. A selected path is passed to the existing Sphinx packet-construction procedure defined by the Mix Protocol.
 
-The path selector can be initialized using a config that is `PathSelector`-specific along with the mix node pool manager which the selector can use when selecting paths:
+The path selector can be initialized using a config that is `PathSelector`-specific along with the mix node pool which the selector can use when selecting paths:
 
 ```
 type PathSelector* = ref object of RootObj
@@ -211,7 +182,7 @@ The selector type determines the lifetime of the path-selection strategy.
 | `SESSION` | One logical session | anonymous download |
 | `TIME_BASED` | Multiple sessions within time `T` | hidden service |
 
-Defining when a session/service starts and ends is done when initializing the path selector. Each selector defines its own initialization interface and `PathSelectorConfig`. Further details are provided in the following sections.
+Defining when a session/service starts and ends is done when initializing the path selector.
 
 ## Random Path Selection (`RANDOM`)
 
