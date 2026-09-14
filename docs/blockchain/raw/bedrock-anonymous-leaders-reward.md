@@ -26,7 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-03-30 |
 | 1.1.0 | Round the leader share downwards and align the voucher commitment and nullifier domain separation tags with Mantle | 2026-08-05 |
-| 1.1.1 | Allowed the voucher secret to be derived from the wallet seed per the Wallet Technical Standard instead of drawn at random, and required that a voucher secret is never reused | 2026-09-03 |
+| 1.1.1 | Allowed the voucher secret to be derived from the wallet seed per the Wallet Technical Standard instead of drawn at random, and required that a voucher secret is never reused | 2026-09-14 |
 
 # Introduction
 

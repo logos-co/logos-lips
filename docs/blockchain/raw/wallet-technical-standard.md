@@ -27,7 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-02-05 |
 | 1.0.1 | Updated project references to Logos Blockchain | 2026-04-17 |
 | 1.1.0 | Fixed the master key generation personalization string to a valid 16-byte value; aligned the public key derivation with the [Mantle specification](bedrock-v1.1-mantle-specification.md#zero-knowledge-signature-scheme-zksignature) (`KDF` DST, compression mode, applied to the Logos key); specified the final Poseidon2 step as hash mode with the `WALLET_ZK_SK_V1` DST; clarified that extended public keys derive no children | 2026-09-03 |
-| 1.2.0 | Fixed the key hierarchy `m / 154' / account' / role' / index'` with the receive, change and voucher roles; specified one-time note keys, the derivation of reward voucher secrets and the recovery procedure (history scan, gap limit); added test vectors | 2026-09-03 |
+| 1.2.0 | Fixed the key hierarchy `m / 154' / account' / role' / index'` with the receive, change and voucher roles; specified one-time note keys, the derivation of reward voucher secrets and the recovery procedure (history scan, gap limit); added test vectors | 2026-09-14 |
 
 # Introduction
 
