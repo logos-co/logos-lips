@@ -79,9 +79,7 @@ type PathSelector* = ref object of RootObj
     rng: CSPRNG
 ```
 
-The config would contain params that are needed for initializing the path selector. The `PathSelector` interface API should expose path selection and return the resulting mix path which will be passed to the normal Sphinx packet-construction procedure.
-
-Path selection might require applying some constraints such as fixing some exit hops and excluding the destination from the path. This is especially needed since forward, cover, and surb paths are constructed differently. In general, the path selection function can be abstracted as follows:
+The `PathSelector` interface API should expose path selection and return the resulting mix path which will be passed to the normal Sphinx packet-construction procedure. Path selection might require applying some constraints such as fixing some exit hops and excluding the destination from the path. This is especially needed since forward, cover, and surb paths are constructed differently. In general, the path selection function can be abstracted as follows:
 
 ```
 
@@ -137,7 +135,7 @@ excludedNodeIds = {
 fixedHops[L - 1] = InitiatorId
 ~~~
 
-The selector fills L - 1 positions and the return path terminates at the initiator. `forwardExitId` is the exit node that will receive the SURBs (or forward the SURBs to the destination). `forwardDestinationId` is the destination node for the forward message, this could also be the same node as the `forwardExitId` when the exit is the destination.
+The selector fills L - 1 positions and the return path terminates at the initiator. `forwardExitId` is the exit node that will receive and use the SURBs. `forwardDestinationId` is the destination node for the forward message, this could also be the same node as the `forwardExitId` when the `exit==destination`.
 
 ### Cover loop (`COVER`)
 
@@ -150,7 +148,7 @@ excludedNodeIds = { InitiatorId }
 fixedHops[L - 1] = InitiatorId
 ~~~
 
-The selector fills L - 1 positions. Cover traffic path loops back to the initiator as specified in the [mix cover traffic specification](https://lip.logos.co/anoncomms/raw/mix-cover-traffic.html). Additionally, cover traffic path selection does not require a specified strategy and can fall back to uniform random selection of mix nodes.
+The selector fills L - 1 positions. Cover traffic path loops back to the initiator as specified in the [mix cover traffic specification](https://lip.logos.co/anoncomms/raw/mix-cover-traffic.html). Additionally, cover traffic path selection does not require a specified strategy and can fall back to uniform random selection of mix nodes. Note that future versions of the spec might specify a way to use cover traffic for [path health monitoring](https://lip.logos.co/anoncomms/raw/mix-cover-traffic.html#112-path-health-monitoring). 
 
 
 ### Path validity
@@ -161,7 +159,13 @@ The Path selector must validate/ensure the selected path satisfies all of the fo
 2. every node in the path is present in the mix node pool
 3. no node identifier appears more than once.
 4. Every node has the addressing and key material required for Sphinx construction.
-5. The path meets the conditions defined in `PathConstraints`.
+5. The path meets the conditions defined in `PathConstraints`, see next subsection for more details on this.
+
+### Path constraints
+
+Path constraints need to be handled carefully so as not to help adversary with confirmation attacks, i.e., confirming certain mix nodes are used within the fixed paths. Therefore the path selector must not behave predectibly based on the constraints. For example, path selector failing to produce a path for some destinations/exits would confirm that these destinations/exists are likely used in the path selector state since requests involving that node repeatedly fail. 
+
+As can be seen above, both forward and SURB path creation require excluding the destination and exit addresses. For path selection strategies with fixed nodes or paths, this could lead to failure to create a path where all `L` hops being unique thus confirming to an adversary that it is used by the user/service. Path selector must be able to handle such cases by having alterantive paths/nodes to choose from.
 
 ### Path Selector Types
 
@@ -513,7 +517,6 @@ where we define these threat models as follows:
 
 - The strategies proposed in this document do not define how a node pool establishes that a candidate is trustworthy. Constructing a pool of trusted nodes depends on each service and can be specified in a separate specification document.
 - Both session- and time-based selection strategies reduce cumulative exposure within a bounded session or time $`T`$. However, running multiple sessions and operating multiple hidden service instances would increase the probability of deanonymization.
-- Path constraints need to be handled carefully so as not to introduce/help adversary with confirmation attacks, i.e., confirming certain mix nodes are used within the fixed paths.
 - Repeated use of fixed paths may allow nodes on these paths to infer that they belong to some fixed path. The degree of certainty depends on multiple factors, including traffic volume, path reuse, mixing delays, and the cover-traffic strategy. Further research is required to determine whether this creates a practical side channel.
 - Concentrating traffic on a small set of fixed nodes may increase load and create congestion. Nodes selected for fixed paths should provide sufficient bandwidth and are expected to tolerate rate-limit/RLN restrictions. The selector can then choose the appropriate nodes for the mix pool passed to the selector.
 - Restricting traffic to a smaller set of paths may also give a global passive adversary (GPA) more opportunities to link observations over time. Mixing and cover traffic may reduce this advantage, but their effectiveness under persistent path reuse requires further research and analysis.
