@@ -3,7 +3,6 @@
 | Field | Value |
 | --- | --- |
 | Name | AccountLog |
-| Slug | TODO (assigned on promotion to draft) |
 | Status | raw |
 | Type | RFC |
 | Category | Standards Track |
