@@ -1017,6 +1017,15 @@
     "path": "blockchain/raw/bedrock-v1.1-mantle-specification.html"
   },
   {
+    "component": "identity",
+    "slug": "249",
+    "title": "AccountLog",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-09-15",
+    "path": "identity/raw/accountlog.html"
+  },
+  {
     "component": "messaging",
     "slug": "10",
     "title": "Waku v2",
