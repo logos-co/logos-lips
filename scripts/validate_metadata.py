@@ -25,7 +25,7 @@ EXCLUDE_PARTS = {"appendix", "appendices"}
 REQUIRED_FIELDS_ALL = ("name", "slug", "status", "type", "category", "editor")
 REQUIRED_FIELDS_RAW = ("name", "status")
 ALLOWED_STATUS = {"raw", "draft", "approved", "stable", "verified", "deprecated", "retired", "deleted"}
-STATUS_SCOPED_COMPONENTS = {"messaging", "blockchain", "storage", "anoncomms", "research"}
+STATUS_SCOPED_COMPONENTS = {"messaging", "blockchain", "storage", "anoncomms", "identity", "research"}
 ALLOWED_TYPES = {"rfc", "cfr"}
 ALLOWED_CATEGORIES = {
     "standards track",
