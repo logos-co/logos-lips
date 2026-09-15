@@ -34,6 +34,7 @@
 | 1.3.1 | Judged the active message window by the epoch of the including block, made the one-message-per-epoch rule per attested epoch, and made the transition-period delay a release constraint | 2026-09-02 |
 | 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, add a transaction as a data message payload, and align the nullifier retention period | 2026-09-08 |
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
+| 1.5.1 | Updated Connection Details to follow [Transport Security](../draft/p2p-network.md#transport-security) and require the hybrid post-quantum key exchange. | 2026-08-28 |
 
 # Introduction
 
@@ -536,7 +537,7 @@ Implementations should choose a default based on the deployment they operate in,
 
 ### Connection Details
 
-The connections are established using libp2p with TLS version 1.3 (not older). The cryptographic scheme is Ed25519 with ephemeral keys**.** The libp2p protocol name is `/logos-blockchain/blend/1.0.0` for mainnet and `/logos-blockchain-testnet/blend/1.0.0` for testnet.
+The connections are established using libp2p with TLS version 1.3 (not older), following the transport security configuration of the network — the peer authentication model (Ed25519 node identity) and the key exchange — as specified in [Transport Security](../draft/p2p-network.md#transport-security). As of the first post-quantum phase, the key exchange is the hybrid group `X25519MLKEM768`, with `X25519` retained for interoperability. Blend is the sharpest reason for the hybrid requirement: traffic recorded today and decrypted by a future quantum adversary would retroactively degrade the privacy this protocol provides. The libp2p protocol name is `/logos-blockchain/blend/1.0.0` for mainnet and `/logos-blockchain-testnet/blend/1.0.0` for testnet.
 
 ### Neighbor Distinction Process
 
