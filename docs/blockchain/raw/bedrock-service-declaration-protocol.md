@@ -34,6 +34,7 @@
 | 1.4.3 | Identifier uniqueness covers every stored declaration, not only activated ones, matching the implementation | 2026-09-01 |
 | 1.5.0 | Defined `active` as the epoch of the block that contained the latest accepted active message, initialised to `created + 2`, and `withdraw_at` as the epoch at which the node stops providing the service, matching the implementation. Added the participant-set exclusion rule and [Message Timing](#message-timing) | 2026-09-02 |
 | 1.6.0 | Declarations are removed at `withdraw_at + 1`, one epoch after the node stops, making the last served epoch rewardable | 2026-09-03 |
+| 1.7.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a declaration covers one service, and a note backs one declaration per service | 2026-09-11 |
 
 # Introduction
 
@@ -55,7 +56,7 @@ The SDP enables nodes to declare their eligibility to provide a specific service
 The protocol defines the following actions:
 
 - **Declare:** A node sends a declaration that confirms its willingness to provide a specific service, which is confirmed by locking a stake above a certain threshold in a service note.
-- **Active:** A node marks that its participation in the protocol is active according to the service-specific activity logic. This action enables the protocol to monitor the node’s activity. We utilize this as a non-intrusive differentiator of node activity. It is crucial to exclude inactive nodes from the set of active nodes, as it enhances the stability of services.
+- **Active:** A node marks that its participation in the protocol is active according to the service-specific activity logic. This action enables the protocol to monitor the node’s activity. We utilize this as a non-intrusive differentiator of node activity. It is crucial to exclude inactive nodes from the active set, as it enhances the stability of services.
 - **Withdraw:** A node withdraws its declaration and stops providing a service.
 
 The logic of the protocol is straightforward.
@@ -64,7 +65,7 @@ The logic of the protocol is straightforward.
 2. The declaration is registered on the Ledger, and the node can commence its service according to the service-specific service logic.
 3. After a service-specific service-providing time, the node confirms its activity.
 4. The node must confirm its activity with a service-specific minimum frequency; otherwise, its declaration is inactive.
-5. After the service-specific locking period, the node can send a withdrawal message, and its declaration is removed from the Ledger, which means that the node will no longer provide the service.
+5. The node sends a withdrawal message. It provides the service for one more epoch. Its declaration is removed and its service note released once that epoch has been rewarded.
 
 > The protocol messages are subject to a finality that means messages become part of the immutable ledger after a delay. The delay at which it happens is defined by the consensus. Therefore, the protocol’s progress must be tracked from the perspective of the latest finalized block, not the tip of the chain. Otherwise, the protocol and services using it would need to handle chain reorganizations, which we must avoid due to their potential to break services. Hence, the services must use a snapshot from a fully finalized epoch: `finalized_epoch = current_epoch - 2`. For more details about finalization, refer to [Cryptarchia Protocol](cryptarchia-v1-protocol.md).
 
@@ -184,13 +185,11 @@ A `Locator` is the address of a validator which is used to establish secure comm
 
 The `provider_id` must be used as the node identity. Therefore, the `Locator` must be completed by adding the `provider_id` at the end of it, which makes the `Locator` usable in the context of libp2p.
 
-The canonical form of a `Locator` is the multiaddr **binary (byte) form**. Wherever a `Locator` is serialized or hashed — the transaction wire form ([Mantle Transaction Encoding](mantle-transaction-encoding.md)) and the `declaration_id` preimage ([Declaration Storage](#declaration-storage)) — its binary form is used. The human-readable string form (e.g. `/ip4/203.0.113.10/tcp/4001`) is presentational only and must never appear in an encoding.
+The canonical form of a `Locator` is the multiaddr **binary (byte) form**. Wherever a `Locator` is serialized — the transaction wire form ([Mantle Transaction Encoding](mantle-transaction-encoding.md)) — its binary form is used. The human-readable string form (e.g. `/ip4/203.0.113.10/tcp/4001`) is presentational only and must never appear in an encoding.
 
 The length of the binary form of a `Locator` is restricted to 329 bytes.
 
-**The canonical form makes deterministic ID generation work consistently.** The binary form carries no letter case and no textual shorthand, so two equal multiaddrs always share one byte representation; the string-form ambiguities (case, implicit defaults) cannot arise. Implementations that accept the string form as input must parse it into the binary form before any serialization or hashing, and every part of the address must be explicit (no implicit defaults).
-
-The canonical form makes a single `Locator` unambiguous, but it does not make a *list* of them unambiguous. The byte form of a multiaddr is self-describing, so concatenating two `Locator`s yields the byte form of a single longer one: `[/ip4/203.0.113.10/tcp/4001]` and `[/ip4/203.0.113.10, /tcp/4001]` are the same byte string. Wherever a list of `Locator`s is hashed it must therefore be serialized as the `Locators` production of the [Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations): prefixed with its element count and with each element prefixed by its byte length.
+Implementations that accept the string form as input must parse it into the binary form before serialization, and every part of the address must be explicit (no implicit defaults).
 
 ### **Declaration Message**
 
@@ -201,29 +200,29 @@ class DeclarationMessage:
     service_type: ServiceType
     locators: list[Locator]
     provider_id: Ed25519PublicKey
-    service_note_id: NoteId
     zk_id: ZkPublicKey
+    service_note_id: NoteId
 ```
 
 The `locators` list must be non-empty and its length must be limited to reduce the potential for abuse. Therefore, the length of the list cannot be longer than 8.
 
 The message must be signed by the `provider_id` key to prove ownership of the key that is used for network-level authentication of the validator.
 
-The `service_note_id` points to a service note used for minimum stake threshold verification purposes.
+The `service_note_id` points to the service note the validator puts up as collateral.
 
 The message is also signed by the `zk_id` key.
 
 ### **Declaration Storage**
 
-Only valid declaration messages can be stored on the ledger. We define the `DeclarationInfo` as follows:
+Only valid declaration messages can be stored on the ledger. A declaration covers exactly one service. We define the `DeclarationInfo` as follows:
 
 ```python
 class DeclarationInfo:
     service: ServiceType
     provider_id: Ed25519PublicKey
     service_note_id: NoteId
-    zk_id: ZkPublicKey
     locators: list[Locator]
+    zk_id: ZkPublicKey
     created: EpochNumber
     active: EpochNumber
     withdraw_at: EpochNumber | None
@@ -232,44 +231,53 @@ class DeclarationInfo:
 
 Where:
 
-- `service` defines the service type of the declaration;
-- `provider_id` is an `Ed25519PublicKey` used to sign the message by the validator;
-- `service_note_id` is a `NoteId` used for minimum stake threshold verification purposes;
-- `zk_id` is used for zero-knowledge operations by the validator that includes rewarding;
+- `service` is the service the declaration covers;
+- `provider_id` is the `Ed25519PublicKey` the validator signs its messages with;
+- `service_note_id` is the `NoteId` of the note that meets the minimum stake threshold;
 - `locators` is a copy of the `locators` from the `DeclarationMessage`;
-- `created` refers to the epoch number of the block that contained the declaration;
-- `active` refers to the epoch of the block that contained the latest accepted active message; it is initialised to `created + 2` ([Message Timing](#message-timing));
-- `withdraw_at` refers to the epoch at which the node stops providing the service ([**Withdraw**](#withdraw)); it is set to `None` by default;
-- The `nonce` must be set to 0 for the declaration message and must increase monotonically by every message sent for the `declaration_id`.
+- `zk_id` is the `ZkPublicKey` of the validator, which signs its active and withdraw messages and receives its rewards;
+- `created` is the epoch of the block that contained the declaration;
+- `active` is the epoch of the block that contained the latest accepted active message, initialised to `created + 2` ([Message Timing](#message-timing));
+- `withdraw_at` is the epoch at which the node stops providing the service ([**Withdraw**](#withdraw)), and is `None` until the declaration is withdrawn;
+- `nonce` is 0 for the declaration message, and increases monotonically with every message sent for the declaration.
 
-We also define the `declaration_id` (of a `DeclarationId` type) that is the unique identifier of `DeclarationInfo` calculated as a hash of the concatenation of `service`, `provider_id`, `zk_id` and `locators`. The implementation of the hash function is `blake2b` using 256 bits of the output.
+The `declaration_id` (of a `DeclarationId` type) is the hash of the concatenation of `service` and `zk_id`:
 
 ```python
-declaration_id = Hash(service||provider_id||zk_id||locators)
+declaration_id = Hash(service||zk_id)
 ```
 
-Each component of the preimage is serialized in its canonical encoding, as defined by the [Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations) for the `SDP_DECLARE` operation: `service` as the one-byte `ServiceType` discriminant ([Service Types](#service-types)), and `locators` as the `Locators` production, its element count followed by each `Locator`'s binary form prefixed with its byte length ([Locators](#locators)). Concatenating the locators without those lengths would leave the `declaration_id` not binding the locator list, for the reason given in [Locators](#locators).
+where:
 
-The `declaration_id` is not stored as part of the `DeclarationInfo` but it is used to index it.
+- `service` is the `ServiceType` production, one byte ([Service Types](#service-types));
+- `zk_id` is the `ZkId` production, 32 bytes ([Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations));
+- `||` is byte concatenation, so the preimage is 33 bytes;
+- `Hash` is BLAKE2b with a digest length of 32 bytes, unkeyed, without salt or personalization.
 
-All `DeclarationInfo` references are stored in the `declarations` and are indexed by `declaration_id`.
+The `declaration_id` is not stored as part of the `DeclarationInfo` but is used to index it. All `DeclarationInfo` entries are held in `declarations`, indexed by service and then by `declaration_id`.
 
 ```python
-declarations: list[declaration_id]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
 ### Identifier Uniqueness
 
-The SDP is responsible for enforcing the uniqueness of the `provider_id` and the `zk_id` in the context of a service. This means that, for a given `service`, each `provider_id` and each `zk_id` must be bound to at most one `DeclarationInfo` in `declarations`, whether or not its `active` field is set.
+Within the declarations of one service, each of the following is bound to at most one `DeclarationInfo`:
 
-The `declaration_id` uniqueness alone is insufficient to guarantee this property. Because `declaration_id = Hash(service||provider_id||zk_id||locators)`, two declarations for the same `service` that reuse the same `provider_id` (or the same `zk_id`) but differ in any other component would produce distinct `declaration_id`s and would therefore not collide. This holds only because each component is committed under an encoding that determines it uniquely: without the length prefixing defined above, two declarations differing only in how the same locator bytes are split across the list would share a `declaration_id`. The SDP must reject such declarations regardless.
+- the `zk_id`, so the `declaration_id` is unique;
+- the `provider_id`;
+- the `service_note_id`.
 
-Consequently, within a single `service`:
+The same identifier may be bound in several services. An identifier becomes available for reuse in a service once its declaration in that service has been removed (see [**Withdraw**](#withdraw)).
 
-- A `provider_id` must not be bound to more than one `DeclarationInfo`.
-- A `zk_id` must not be bound to more than one `DeclarationInfo`.
+### Active Set
 
-The uniqueness is scoped per-service: the same `provider_id` or `zk_id` may be reused across different services, but never more than once within the same service. A `provider_id` or `zk_id` becomes available for reuse in a service only once its previous `DeclarationInfo` for that service has been withdrawn and removed (see [Withdraw](#withdraw)).
+The **active set** of a service for an epoch $`n`$ is derived from that service's declarations in the snapshot read for that epoch ([Snapshots](#snapshots)) by keeping those for which both of the following hold:
+
+- activity has been reported recently enough: `active + inactivity_period >= n`;
+- the withdrawal has not taken effect: `withdraw_at` is `None`, or `n < withdraw_at`.
+
+Both conditions are evaluated against the epoch $`n`$ the set is being derived for, not against the epoch the snapshot was taken in.
 
 ### Active Message
 
@@ -284,9 +292,9 @@ class ActiveMessage:
 
 where `metadata` is service-specific node activeness metadata.
 
-The message must be signed by the `zk_id` key associated with the `declaration_id`.
+The message must be signed by the `zk_id` key of the declaration.
 
-The `nonce` must increase monotonically by every message sent for the `declaration_id`.
+The `nonce` must increase monotonically by every message sent for the declaration.
 
 An active message attests to a single past epoch during which the node provided the service. The service defines when the message may be sent (see [Active Message](blend-protocol.md#active-message) for the Blend Network).
 
@@ -299,15 +307,24 @@ The construction of the withdraw message is as follows:
 ```python
 class WithdrawMessage:
     declaration_id: DeclarationId
-    service_note_id: NoteId
     nonce: Nonce
 ```
 
-The message must be signed by the `zk_id` key from the `declaration_id`.
+The message must be signed by the `zk_id` key of the declaration.
 
-The `service_note_id` is a `NoteId` that was used for minimum stake threshold verification purposes and will be unlocked after withdrawal.
+The `nonce` must increase monotonically by every message sent for the declaration.
 
-The `nonce` must increase monotonically by every message sent for the `declaration_id`.
+### Serialization
+
+Each message is the payload of one Mantle Operation ([Mantle](bedrock-v1.1-mantle-specification.md#service-declaration-protocol-sdp-operations)), serialized as the production of the [Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations) named below, its fields in the order the message lists them:
+
+| Message | Operation | Production |
+| --- | --- | --- |
+| `DeclarationMessage` | `SDP_DECLARE` | `SDPDeclare` |
+| `ActiveMessage` | `SDP_ACTIVE` | `SDPActive` |
+| `WithdrawMessage` | `SDP_WITHDRAW` | `SDPWithdraw` |
+
+The signatures a message requires are carried in the Operation's proof and cover the Mantle transaction hash.
 
 ### Indexing
 
@@ -335,18 +352,16 @@ The Declare action associates a validator with a service it wants to provide. It
 
 The declaration message is considered valid when all of the following are met:
 
-- The sender meets the stake requirements and its `service_note_id` is valid.
-- The `declaration_id` is unique.
-- The `provider_id` and the `zk_id` are each unique in the context of the `service` (as defined in [Identifier Uniqueness](#identifier-uniqueness)).
-- The sender knows the secret behind the `provider_id` identifier.
-- The length of the `locators` list must not be longer than 8.
-- The `nonce` increases monotonically.
+- The `service_note_id` names an unspent note whose value meets the minimum stake threshold.
+- The `zk_id`, the `service_note_id` and the `provider_id` are each unbound in the `service_type` of the message ([Identifier Uniqueness](#identifier-uniqueness)).
+- The sender holds the private key corresponding to the `provider_id`.
+- The `locators` list is non-empty and not longer than 8 entries.
 
-If all of the above conditions are fulfilled, then the message is stored on the ledger; otherwise, the message is discarded.
+If all of the above conditions are fulfilled, then the declaration is stored on the ledger under its service and `declaration_id`; otherwise, the message is discarded.
 
 ### Active
 
-The Active action enables marking the provider as actively providing a service. It requires sending a valid `ActiveMessage` (as defined in [Active Message](#active-message)), which is relayed to the service-specific node activity logic (as indicated by the service type in [Common SDP Structures](bedrock-v1.1-mantle-specification.md#common-sdp-structures)).
+The Active action marks a provider as actively providing its service. It requires sending a valid `ActiveMessage` (as defined in [Active Message](#active-message)), which is relayed to the service-specific node activity logic (as indicated by the service type in [Common SDP Structures](bedrock-v1.1-mantle-specification.md#common-sdp-structures)).
 
 The Active action updates the `active` value of the `DeclarationInfo`. A declaration considered inactive is not removed from the registry, and an accepted active message makes it active again. A declaration is removed only by withdrawal ([**Withdraw**](#withdraw)); a removed declaration cannot become active again.
 
@@ -366,13 +381,11 @@ An active message is valid only while the current epoch is at most `withdraw_at`
 
 ### **Withdraw**
 
-The withdraw action enables a withdrawal of a service declaration. It requires sending a valid `WithdrawMessage` (as defined in [Withdraw Message](#withdraw-message)). The withdrawal marks the intent to stop providing the service.
+The Withdraw action withdraws a service declaration. It requires sending a valid `WithdrawMessage` (as defined in [Withdraw Message](#withdraw-message)). The withdrawal marks the intent to stop providing the service.
 
-Let `e` be the epoch of the block that contained the `WithdrawMessage`; `withdraw_at` records `e+2` ([Snapshots](#snapshots)).
+Let `e` be the epoch of the block that contained the `WithdrawMessage`; `withdraw_at` records `e+2` ([Snapshots](#snapshots)). A declaration whose `withdraw_at` an epoch has reached is excluded from that epoch's [Active Set](#active-set).
 
-A service deriving its participant set from a snapshot must exclude every declaration for which `withdraw_at` is not `None` and `n >= withdraw_at`, where `n` is the epoch the set is derived for.
-
-The node provides the service through epoch `withdraw_at - 1`, its last rewardable epoch. The declaration is removed and the service note unlocked at epoch `withdraw_at + 1` ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).
+The node provides the service through epoch `withdraw_at - 1`, its last rewardable epoch. The declaration is removed and its service note released at epoch `withdraw_at + 1` ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).
 
 The logic of the withdraw action is:
 
@@ -380,33 +393,20 @@ The logic of the withdraw action is:
 2. The `WithdrawMessage` is verified by the SDP logic.
     1. The `declaration_id` returns an existing `DeclarationInfo`.
     2. The transaction containing `WithdrawMessage` is signed by the `zk_id`.
-    3. The `withdraw_at` from `DeclarationInfo` is set to `None`.
+    3. The `withdraw_at` of the `DeclarationInfo` is `None`.
     4. The `nonce` increases monotonically.
 3. If any of the above is not correct, then discard the message and stop.
-4. Set the `withdraw_at` from the `DeclarationInfo` to the current epoch number plus two.
-5. The `DeclarationInfo` is removed and the stake unlocked (releasing the `service_note_id`) at epoch `withdraw_at + 1` ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).
+4. Set the `withdraw_at` of the `DeclarationInfo` to the current epoch number plus two.
+5. At epoch `withdraw_at + 1`, right after the final reward is paid out, the Mantle epoch finalization step removes the `DeclarationInfo` and releases its `service_note_id` ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).
 
 ### Query
 
-The protocol must enable querying the ledger in at least the following manner:
+A node must answer the following queries from the finalized state ([Snapshots](#snapshots)):
 
-- `GetAllProviderId(epoch)`, returns all `provider_id`s associated with the `epoch`.
-- `GetAllProviderIdSince(epoch)`, returns all `provider_id`s since the `epoch`.
-- `GetAllDeclarationInfo(epoch)`, returns all `DeclarationInfo` entries associated with the `epoch`.
-- `GetAllDeclarationInfoSince(epoch)`, returns all `DeclarationInfo` entries since the `epoch`.
-- `GetDeclarationInfo(provider_id)`, returns the `DeclarationInfo` entry identified by the `provider_id`.
-- `GetDeclarationInfo(declaration_id)`, returns the `DeclarationInfo` entry identified by the `declaration_id`.
-- `GetAllServiceParameters(epoch)`, returns all entries of the `ServiceParameters` store for the requested `epoch`.
-- `GetAllServiceParametersSince(epoch)`, returns all entries of the `ServiceParameters` store since the requested `epoch`.
-- `GetServiceParameters(service_type, epoch)`, returns the service parameter entry from the `ServiceParameters` store of a `service_type` for a specified `epoch`.
-- `GetMinStake(epoch)`, returns the `MinStake` structure at the requested `epoch`.
-- `GetMinStakeSince(epoch)`, returns a set of `MinStake` structures since the requested `epoch`.
+- `GetDeclarationInfo(declaration_id)`, returns the `DeclarationInfo` held under the `declaration_id`.
+- `GetAllDeclarationInfo(service_type)`, returns every `DeclarationInfo` of the `service_type`, keyed by `declaration_id`.
 
-The query must return an error if the requested information is not available.
-
-The list of queries may be extended.
-
-Every query must return information for a finalized state only.
+A query for a `declaration_id` or a `service_type` the finalized state does not hold returns an error.
 
 ## Mantle and ZK Proofs
 
