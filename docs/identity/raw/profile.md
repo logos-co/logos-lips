@@ -3,7 +3,6 @@
 | Field | Value |
 | --- | --- |
 | Name | Account Profile |
-| Slug | TODO (assigned on promotion to draft) |
 | Status | raw |
 | Type | RFC |
 | Category | Standards Track |
@@ -55,7 +54,7 @@ This document defines the `profile` namespace within the AccountLog.
 
 A profile contains data about the owner, exclusively for displaying and
 rendering accounts to other users.
-User preferences, and synchronising data between installations of the same
+User preferences, and synchronizing data between installations of the same
 account, are out of scope.
 
 The AccountLog settles whether a log is valid and which of its entries are live.
