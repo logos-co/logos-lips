@@ -30,6 +30,7 @@ help route it.
 - Blockchain: `docs/blockchain/README.md`
 - Storage: `docs/storage/README.md`
 - AnonComms: `docs/anoncomms/README.md`
+- Identity: `docs/identity/README.md`
 - Research: `docs/research/README.md`
 
 ## Local setup
