@@ -475,7 +475,7 @@ Every entry is an opcode byte, a body length, and a body:
 ```text
 entry := opcode || len || body
 
-opcode : u8      the operation; high nibble reserved, MUST be zero
+opcode : u8      the operation
 len    : u16 LE  length of `body` in bytes
 body   : exactly `len` bytes
 ```
@@ -484,25 +484,11 @@ body   : exactly `len` bytes
 
 - A consumer MUST reject the whole log if it contains a payload in which an entry's `len`
   runs past the end of the payload.
-- A consumer MUST reject the whole log if it contains an entry whose opcode byte has any of its
-  high four bits set.
 - A consumer MUST reject the whole log if it contains an entry with bytes left over after its body is decoded.
 - An owner MUST produce exactly the layout above;
   there is no alternative serialization of the same entry.
 
 #### Opcodes
-
-```text
- 7 6 5 4   3 2 1 0
-+---------+---------+
-| reserved| opcode  |
-+---------+---------+
-```
-
-The high nibble is reserved against a future need for
-per-entry flags alongside the opcode.
-Sixteen opcodes is more than this format is expected to allocate;
-recovering those bits later would require a new encoding version, so they are held now.
 
 | `opcode` | Operation | `body` |
 | --- | --- | --- |
@@ -858,17 +844,7 @@ signature: c9ce34c9ae7a6448277db4f864e5fef89125b47e9a2bd9b72ffc25b967a06009
            d07c34650fa5f34aa5509e317bae668b9db7cebb11373ee42525f1fcf736b109
 ```
 
-**N5 opcode high bit set** — opcode 0x81, high nibble non-zero
-
-```text
-payload:   6c6f676f733a6163636f756e74733a31008130000e636861742e6d6573736167
-           696e67013d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f1
-           2af4660c
-signature: 3b5188eb2218ecb0465ac2ac4cc9cf8b40cb12c9655c70f04aa5addc6184d001
-           45f619b90db9461bc332e2660d96889743cbc43a89adabec74e7add203eb510c
-```
-
-**N6 Remove with wrong len** — Remove body is 5 bytes, must be 4
+**N5 Remove with wrong len** — Remove body is 5 bytes, must be 4
 
 ```text
 payload:   6c6f676f733a6163636f756e74733a31000130000e636861742e6d6573736167
@@ -878,7 +854,7 @@ signature: a4ca08ef15de1ed782b32e2cf6fd50cb9e2e59158513f714f81bc16e848cb358
            9ed6cb168a2eb6c1d4d3afd164a77b407c821802cd6495025103d36538690b01
 ```
 
-**N7 Add ctx_len zero** — ctx_len = 0
+**N6 Add ctx_len zero** — ctx_len = 0
 
 ```text
 payload:   6c6f676f733a6163636f756e74733a310001220000013d4017c3e843895a92b7
@@ -887,7 +863,7 @@ signature: a60390e07cd2b1fc01197e207647c665586eed63c849b2ad42bb8ac129382ddf
            79057d418e00d845a354157f88287153a82a32e8ed3f0a117569c0b421218b0e
 ```
 
-**N8 context leaves no room for data_tag** — body ends after context
+**N7 context leaves no room for data_tag** — body ends after context
 
 ```text
 payload:   6c6f676f733a6163636f756e74733a3100010f000e636861742e6d6573736167
@@ -896,7 +872,7 @@ signature: e4abccb6d6570e237fd465d2cff39ca06c7364f428518331aa8d633a46a0fc9a
            cdeb571b09fc9ef7636e379461c179ee2be88fa342bc6a4689ce2ae5c955cc0a
 ```
 
-**N9 context has illegal byte** — '@' outside a-z 0-9 . -
+**N8 context has illegal byte** — '@' outside a-z 0-9 . -
 
 ```text
 payload:   6c6f676f733a6163636f756e74733a31000130000e636861742e6d6573734067
@@ -906,7 +882,7 @@ signature: 9bc59f4e2928a474af39caa45b379486554fa94a158ca78e27ace1b97a5727aa
            6c66fd954b01d956ee501af2d463226977b98b9499496fd7fabb939a1cbf600d
 ```
 
-**N10 context has no namespace boundary** — no '.' present
+**N9 context has no namespace boundary** — no '.' present
 
 ```text
 payload:   6c6f676f733a6163636f756e74733a3100012b00096d6573736167696e67013d
@@ -915,7 +891,7 @@ signature: 09457e5c68e846f1362343e4eaa7dd5371d48359328ec9987ffc80ad5d7d3a18
            ae46232bc4515d3584f541af36c27dfab077b1192030ce9f425e6792064c4b09
 ```
 
-**N11 namespace does not begin with a letter** — leading digit
+**N10 namespace does not begin with a letter** — leading digit
 
 ```text
 payload:   6c6f676f733a6163636f756e74733a31000131000f31636861742e6d65737361
@@ -925,7 +901,7 @@ signature: b3c3b71783b1da9686f485a323b455c0a4eaf78ff3a596b5e3c5af60b6a0c4b8
            b97a37c0f2dd0e6dad55590cfb22a91969fa08bd2b06b37d0afde0adcceabf0e
 ```
 
-**N12 invalid UTF-8 in Text** — 0xff 0xfe is not UTF-8
+**N11 invalid UTF-8 in Text** — 0xff 0xfe is not UTF-8
 
 ```text
 payload:   6c6f676f733a6163636f756e74733a31000117001370726f66696c652e646973
@@ -934,7 +910,7 @@ signature: d6c35f646506187cb3e1fce7fc36eb226be953ea2ec9b22b12249e67bdcd3d03
            31992d19347ad07c9bd0b38668d8420b93814fa4d6b8e03702e419c80cedec0b
 ```
 
-**N13 Remove index at its own position** — index 1 == its own position
+**N12 Remove index at its own position** — index 1 == its own position
 
 ```text
 payload:   6c6f676f733a6163636f756e74733a31000130000e636861742e6d6573736167
@@ -944,7 +920,7 @@ signature: cc625f45f42f9cce8fa0fa53997fb67e5a844e3af9b8fa43804fe22a57fb2cb1
            075a541f815062ad85787279a0ae9b442c7968bce84da42cf1c598b0cf87260b
 ```
 
-**N14 Remove of an already-removed entry** — index 0 already dead
+**N13 Remove of an already-removed entry** — index 0 already dead
 
 ```text
 payload:   6c6f676f733a6163636f756e74733a31000130000e636861742e6d6573736167
@@ -954,7 +930,7 @@ signature: aae22448caae0f4f0fcbbe0557efe2bdfbf2e1f636cbbbcfbd75bf2a7a534d7f
            499e3f04f36204c5f127b4b3114554c7da0c5548573eb4866f3563554db8250f
 ```
 
-**N15 Remove targeting a Remove** — index 1 is a Remove
+**N14 Remove targeting a Remove** — index 1 is a Remove
 
 ```text
 payload:   6c6f676f733a6163636f756e74733a31000130000e636861742e6d6573736167
