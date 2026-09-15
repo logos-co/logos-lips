@@ -22,7 +22,7 @@ BLOCKCHAIN_TREE_JSON = DOCS / "blockchain-structure.json"
 SKIP_FILES = {"README.md", "SUMMARY.md"}
 AUXILIARY_DIR_NAMES = ("appendices", "appendix")
 
-TOP_LEVEL = ["messaging", "blockchain", "storage", "anoncomms", "research"]
+TOP_LEVEL = ["messaging", "blockchain", "storage", "anoncomms", "identity", "research"]
 
 LABEL_OVERRIDES = {
     "anoncomms": "AnonComms",
@@ -46,6 +46,10 @@ LABEL_OVERRIDES = {
     "anoncomms/raw": "Raw",
     "anoncomms/draft": "Draft",
     "anoncomms/deleted": "Deleted",
+    "identity/raw": "Raw",
+    "identity/draft": "Draft",
+    "identity/stable": "Stable",
+    "identity/deprecated": "Deprecated",
     "research": "Research",
     "research/draft": "Draft",
 }
@@ -62,6 +66,7 @@ ORDER_OVERRIDES = {
     "blockchain": ["raw", "draft", "deprecated"],
     "storage": ["raw", "draft", "deprecated"],
     "anoncomms": ["raw", "draft", "deleted"],
+    "identity": ["raw", "draft", "stable", "deprecated", "deleted"],
     "research": ["draft"],
 }
 
