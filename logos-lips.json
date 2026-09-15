@@ -1026,6 +1026,15 @@
     "path": "identity/raw/accountlog.html"
   },
   {
+    "component": "identity",
+    "slug": "250",
+    "title": "Account Profile",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-09-15",
+    "path": "identity/raw/profile.html"
+  },
+  {
     "component": "messaging",
     "slug": "10",
     "title": "Waku v2",
