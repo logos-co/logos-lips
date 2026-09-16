@@ -17,8 +17,8 @@ from validate_metadata import DOCS, ROOT, EXCLUDE_FILES, EXCLUDE_PARTS, discover
 
 SUMMARY = DOCS / "SUMMARY.md"
 INDEX = DOCS / "logos-lips.json"
-EXCLUDE_INDEX_PARTS = {"previous-versions", "appendix", "appendices"}
-SUMMARY_AUXILIARY_PARTS = {"appendix", "appendices"}
+EXCLUDE_INDEX_PARTS = {"previous-versions", "appendix", "appendices", "rfc"}
+SUMMARY_AUXILIARY_PARTS = {"appendix", "appendices", "rfc"}
 SUMMARY_ALLOWED_NON_SPEC_FILES = {"README.md", "about.md", "template.md"}
 SUMMARY_LINK_RE = re.compile(r"\[(?:\\.|[^\]\\])+\]\(([^)]+\.md(?:#[^)]+)?)\)")
 
