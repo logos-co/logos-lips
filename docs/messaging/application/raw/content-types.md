@@ -18,19 +18,20 @@
 
 ## Abstract
 
-Chat content today is opaque bytes with one implicit type, UTF-8 text. Nothing
-tells a receiver what a body is or how to render it.
+This specification defines a content format for chat messages: how a message body
+declares what it is, how a receiver decodes and renders it, and how a receiver
+behaves when it meets a type it does not understand.
 
-This document specifies a content model: a typed body a receiver can decode and
-render without prior agreement, degrade gracefully when it cannot, and extend
-without collisions. It sets out the requirements, weighs three structures
-(media-typed parts, a namespaced type-id envelope, and a curated tagged union),
-and recommends the media-typed model built on the
-[MIMI content format](https://datatracker.ietf.org/doc/draft-ietf-mimi-content/).
-All three have been prototyped.
+A message body is a **content value** carrying one or more **parts**. Each part
+names its format with an IANA media type and carries either bytes or a reference
+to encrypted external storage. A message MAY carry several representations of
+itself so that a receiver renders the richest form it supports and falls back to a
+simpler one otherwise. Replies, edits, deletions, and reactions are expressed as
+references to another message.
 
-The specification is **raw**. It fixes the requirements, the candidate
-structures, and the layering, but not a byte-exact wire format.
+The format is transport-independent. It defines the bytes of a message body and
+the rules for interpreting them, and says nothing about how those bytes are
+delivered, ordered, stored, or encrypted.
 
 ## Terminology
 
@@ -43,437 +44,314 @@ including Content, Frame, and Payload.
 
 CHAT-DEFS defines a **Content Type** as "a definition of the structure and
 encoding of a Content instance, interpreted solely by the Application". This
-document narrows the term to the *identifier* of that definition — the string or
-tuple that names it on the wire — and calls the definition itself a **schema**.
+document narrows the term to the *identifier* of such a definition, and calls the
+definition itself a **schema**.
 
-Added here:
+- **Content value** — the complete encoded body of one message.
+- **Part** — one representation of a body, carrying a content type and either
+  bytes or an external reference.
+- **Disposition** — a part's intended handling, such as inline rendering,
+  attachment, or reaction.
+- **Baseline content type** — a content type every implementation MUST be able to
+  receive.
+- **Fallback** — the representation a receiver renders when it does not support a
+  part's content type.
+- **Embedding protocol** — the protocol that carries a content value as its
+  payload.
 
-- **Content Model** — the scheme by which a body is typed, decoded, and rendered.
-- **Part** — one representation of a body, carrying a content type and bytes or
-  an external reference.
-- **Envelope** — the wrapper naming the content type and carrying the payload.
-- **Codec** — the encode/decode logic for one content type.
-- **Fallback** — what a receiver renders for a type it does not understand: a
-  simpler representation, or a short human-readable line.
-- **Disposition** — a part's intended handling: render inline, attachment,
-  reaction, and so on.
-- **Baseline Type** — a content type every client MUST support.
+## Background / Rationale / Motivation
 
-## Motivation
+Participants in a chat network do not share an implementation. Different clients,
+written by different people against different release schedules, exchange messages
+directly, and no participant can require another to upgrade. A message body is
+therefore read by software its author never saw.
 
-### Current state
+Two consequences follow, and this specification exists to address them.
 
-The user payload is opaque end to end. It rides inside the
-[SDS](../../../anoncomms/raw/sds.md) reliability envelope, whose `content` field
-is typed `optional bytes` and carries no content-type field of any kind. SDS says
-only that it "MUST contain the application-level content".
+**Messages must be interpretable across implementations.** A body that is bytes
+with no declared type is interpretable only by an implementation that already
+knows, out of band, what the sender meant. Every implementation then invents its
+own notion of text, image, or reaction, and the same message renders differently
+or not at all depending on who receives it. Naming the format of a body, with an
+identifier drawn from a registry both sides can consult, is what makes a message
+mean the same thing to every receiver.
 
-The content model is a new typed layer inside that field. Everything below it —
-MLS, delivery, causal reliability — is untouched.
+**Implementations must be able to introduce formats without coordination.** An
+implementer who wants a new kind of message — a poll, a location, a game move —
+cannot be made to wait for agreement from everyone else. The format must let
+anyone define a content type that cannot collide with another, and must let a
+receiver that has never heard of that type still show the user something and stay
+usable. Extensibility without a central gatekeeper, and graceful degradation, are
+the same requirement seen from the sender's and the receiver's side.
 
-```text
-MLS application message (encrypted)
-└─ SDS Message                delivery + causal reliability (today)
-   └─ content: bytes          ← the content model goes HERE (every option below)
-```
+A content format that satisfies both is a small contract: identify the format,
+permit alternatives, degrade predictably, and stay out of the way of everything
+else.
 
-### Related specifications
+### Scope
 
-| Specification | Relationship |
+This specification defines the encoding of a message body and the rules for
+interpreting it. The following are out of scope: how a content value is
+transported, how it is encrypted or authenticated, how messages are ordered or
+acknowledged, how participants discover one another, and where external content is
+stored.
+
+An embedding protocol carries a content value as an opaque byte string. This
+specification places no requirement on that protocol beyond supplying the two
+identifiers named in [Message references](#message-references).
+
+| Specification | Boundary |
 | --- | --- |
-| [SDS](../../../anoncomms/raw/sds.md) | Defines the envelope this content sits in, and the `message_id` that content-level references must reconcile with. |
-| [ContentFrame](contentframe.md) | An existing raw proposal for a self-describing `(domain, tag)` content-type envelope. A concrete instance of Model B, evaluated as such below. |
-| [ConversationTypes](conversationtypes.md) | Defines the Conversation that converts Content to and from Payload. It places content schema explicitly out of scope. |
-| [CHAT-FRAMEWORK](chat-framework.md) | Names the five components of a chat protocol. This document sits above all of them. |
-| [CHAT-DEFS](../../informational/raw/chatdefs.md) | Supplies the shared vocabulary. |
-
-ConversationTypes is the reason this document exists. A Conversation converts
-between Content and Payloads, and everything inside that boundary is its scope;
-content schema is listed out of scope, and a ConversationType "MUST NOT impose
-any requirements on Content structure". Conversations are deliberately
-content-agnostic, so nothing currently defines what a Content instance looks
-like. That gap is what this specification fills.
-
-The independence runs both ways. ConversationTypes solves versioning by making
-types immutable and rotating participants to new ones rather than by versioning a
-protocol in place, which is why it needs no `semver` or version tracking. Content
-types evolve on their own schedule, and a rotation does not imply a content
-change or vice versa.
-
-CHAT-FRAMEWORK divides a protocol into three phases (Discovery, Initialization,
-Operation) plus a Delivery Service and a Framing Strategy. This document is not a
-Framing Strategy: that term covers demultiplexing payloads to the right protocol
-state machine, which is a transport concern. The content model sits above all
-five components, inside the Content a Conversation Protocol hands to the
-application.
-
-### Requirements
-
-The content model MUST or SHOULD address:
-
-| # | Requirement | Why |
-| --- | --- | --- |
-| R1 | A small **MUST-support baseline** | The interop floor — every client renders something. |
-| R2 | **Graceful degradation** for unknown/newer types | A new type MUST NOT blank out or fragment the timeline. |
-| R3 | **Unknown-field tolerance + namespaced extensions** | Forward/backward compatibility; collision-free third-party growth. |
-| R4 | **Rich-text safety** — restricted markdown, neutralized HTML | Markdown is not inherently safe; embedded HTML is the XSS vector. |
-| R5 | **Attachments**: inline *and* external refs, encrypted + hash-bound | Keep the E2EE payload small; bind remote blobs against tamper/leak. |
-| R6 | **Stable, verifiable message IDs** | Replies, reactions, edits, and deletes reference another message. |
-| R7 | **Expiry** (relative/absolute) | Disappearing messages, with honest semantics. |
-| R8 | **Receipts as a separable type** | High-volume, aggregatable, privacy-sensitive — keep out of the body. |
-| R9 | **Language tags** per part | Internationalization and localized fallbacks. |
-| R10 | **Metadata minimization** under E2EE | Keep cleartext minimal; bind it to the ciphertext (MLS AAD). |
-| R11 | Room for **message franking** | E2EE otherwise makes abuse reports unverifiable. |
-| R12 | **Anchor to a standard / IANA** | Interop across vendors; reuse the media-type registry. |
-
-R1–R9 are structural: a model either provides them or leaves them to be built.
-They drive the comparison.
-
-R10 and R11 are properties of how a model is deployed under MLS rather than of
-the structure, and are treated under Security and Privacy. R12 discriminates
-sharply — only Model A satisfies it, by reusing the IANA media-type registry
-instead of inventing a namespace.
-
-### Design axes
-
-| Axis | The question |
-| --- | --- |
-| **Identifier** | How is a message's kind named? |
-| **Fallback** | Meeting a type it does not understand, how does a client still show something? |
-| **Versioning** | How does a type change without breaking old clients? |
-| **Extensibility** | Can third parties add types without colliding? |
-| **Relationships** | How do reply, reaction, edit, and delete reference another message? |
-| **Encoding** | What are the bytes? |
-| **Cost** | How much is built and maintained here rather than inherited? |
-
-Encoding is not a property of the model. Any of the three structures can be
-serialized as protobuf, matching the envelope, or as CBOR. The prototypes all use
-CBOR; the encodings named below are each model's natural default, not a
-constraint.
-
-## Considered Models
-
-All three are the body inside the SDS `content` field. They differ in how they
-name types, degrade, and grow.
-
-### Model A — Media-typed parts
-
-A message is a set of parts, each named by an IANA media type, with relationship
-fields alongside. Fallback is a second part, not a side field.
-
-```text
-Content {
-  parts:       Part[]          // one or more representations of the same message
-  in_reply_to: MessageId?      // reply
-  replaces:    MessageId?      // edit (delete = replaces + an empty part)
-  expires:     Timestamp?      // disappearing message
-  extensions:  map<key, value> // additions
-}
-
-Part {
-  media_type:  string          // "text/plain;charset=utf-8", "image/png"
-  disposition: Render | Attachment | Reaction | Inline | ...
-  body:        Inline(bytes) | External(url, size, hash, enc_key)
-}
-```
-
-- **Identifier:** the media type string, reusing the global IANA registry.
-- **Fallback:** multiple parts. A rich part travels with a `text/plain`
-  alternative and the receiver renders the richest type it knows.
-- **Versioning:** media-type parameters (`text/markdown;variant=...`) plus the
-  extensions map. No version integer on the envelope.
-- **Extensibility:** any IANA media type; vendors use the `vnd.` tree.
-- **Relationships:** first-class fields. A reaction is a part with the reaction
-  disposition and `in_reply_to` set.
-- **Encoding:** CBOR, following the MIMI content format.
-- **Cost:** least new code where an existing implementation is reused, at the
-  price of the largest concept surface and a second serialization format beside
-  the protobuf envelope.
-
-Richest and most future-proof, with multi-representation fallback built in and
-enough standards alignment to interop. Against it: the weight, an evolving
-reference draft, and an unresolved message-id story.
-
-### Model B — Namespaced type-id envelope
-
-One typed payload in a thin envelope that names the type and carries a fallback
-string.
-
-```protobuf
-syntax = "proto3";
-
-message ContentEnvelope {
-  ContentTypeId       type     = 1;
-  map<string, string> params   = 2;   // e.g. { "encoding": "utf-8" }
-  optional string     fallback = 3;    // human line shown if `type` is unknown
-  bytes               payload  = 4;    // type-specific, decoded by the codec
-}
-
-message ContentTypeId {
-  string authority     = 1;   // "logos", "acme.example"
-  string type_id       = 2;   // "text", "reaction"
-  uint32 version_major = 3;
-  uint32 version_minor = 4;
-}
-// e.g.  logos/text:1.0   logos/reaction:1.0   acme.example/poll:1.0
-```
-
-- **Identifier:** `authority/type:major.minor`, where `authority` is a domain the
-  definer controls, so ids cannot collide.
-- **Fallback:** the `fallback` string the sender sets.
-- **Versioning:** explicit major/minor. Same-major MUST stay backward-compatible;
-  a major bump signals a possible break.
-- **Extensibility:** anyone defines types under their own authority; a registry
-  maps type to codec.
-- **Relationships:** inside each payload, not on the envelope.
-- **Encoding:** protobuf, matching the envelope.
-- **Cost:** a small envelope, but every payload is designed and maintained here,
-  with no standards interop.
-
-Simplest to reason about, envelope-native, explicitly versioned, and pleasant for
-third-party developers. Against it: a single payload means fallback is only a
-string, and every capability has to be invented.
-
-#### ContentFrame as an instance of Model B
-
-ContentFrame is an existing raw proposal that lands squarely in this model. It
-names a type by a `(domain, tag)` tuple, where `domain` is a URL identifying the
-authority that governs a set of types and `tag` is a positive integer unique
-within it. Domains map to integer `domain_id` values on the wire to keep payloads
-small.
-
-| | ContentFrame | Sketch above |
-| --- | --- | --- |
-| Identifier | `(domain_id, tag)` integers, resolved via a registry | `authority/type` strings, self-describing on the wire |
-| Discovery | the domain URL points at the governing specification | none; an unknown id is simply unknown |
-| Versioning | left to the domain's own specification | explicit `major.minor` on the envelope |
-
-Its discovery property is genuinely novel, and neither other model offers it: a
-developer meeting an unknown type has a URL to go read. The cost is a registry.
-The `domain_id` mapping is a coordination point someone must maintain — its own
-appendix currently hosts it with a note to find it a better home — which is the
-thing an IANA anchor otherwise buys for free. Integer tags are compact but
-opaque, and fallback, attachments, message ids, expiry, and language would be
-defined per type.
-
-There is a hybrid worth considering. A `vnd.` media type or a text extension key
-can carry a `(domain, tag)` directly, which preserves discovery under Model A and
-would let ContentFrame drop the integer registry entirely.
-
-### Model C — Curated tagged union
-
-A fixed, curated set of variants in one tagged union. The type is whichever
-variant is set; `Custom` is the only extension seam.
-
-```protobuf
-syntax = "proto3";
-
-message Content {
-  uint32 min_version = 1;   // receiver below this → show "update to view"
-  oneof body {
-    Text       text       = 2;
-    Markdown   markdown    = 3;
-    Reply      reply       = 4;
-    Reaction   reaction    = 5;
-    Attachment attachment  = 6;
-    Custom     custom      = 7;   // escape hatch for third-party types
-  }
-}
-
-message Text       { string body = 1; }
-message Markdown   { string body = 1; }
-message Reply      { bytes  target = 1; Content body = 2; }
-message Reaction   { bytes  target = 1; string emoji = 2; bool remove = 3; }
-message Attachment { string media_type = 1; External ref = 2; string caption = 3; }
-message Custom     { string type_id = 1; bytes payload = 2; string fallback = 3; }
-```
-
-- **Identifier:** implicit. No id scheme to police.
-- **Fallback:** `min_version` gates old clients into an "update to view"
-  placeholder; `Custom.fallback` covers third-party types. Proto3 also ignores
-  unknown fields.
-- **Versioning:** schema evolution plus the `min_version` gate.
-- **Extensibility:** closed by design for first-party types, with `Custom` as a
-  limited escape hatch.
-- **Relationships:** explicit typed variants, the most legible of the three.
-- **Encoding:** protobuf. The prototype uses an internally-tagged CBOR enum,
-  equivalent in structure.
-- **Cost:** lowest complexity and the best first-party developer experience, but
-  every new core type is a schema change shipped everywhere.
-
-Simplest and most type-safe, with no id-collision risk. Against it: not built for
-an open ecosystem.
-
-### Comparison
-
-| Axis | **A — Media-typed parts** | **B — Type-id envelope** | **C — Tagged union** |
-| --- | --- | --- | --- |
-| Identifier | IANA media type per part | `authority/type:v`, or `(domain, tag)` | implicit variant |
-| Fallback | extra `text/plain` **part** | sender `fallback` **string** | `min_version` + `Custom.fallback` |
-| Versioning | media-type params + extensions | explicit major/minor | schema + `min_version` |
-| Extensibility | any media type, `vnd.` tree, extensions | own authority or domain | closed + `Custom` |
-| Discovery of unknown types | IANA registry lookup | only via a resolvable domain URL | none |
-| Relationships | envelope fields + dispositions | inside each payload | explicit variants |
-| Natural encoding | CBOR | protobuf | protobuf |
-| Third-party friendly | high | high | low |
-| Complexity / new code | high concept, low code | low | lowest |
-| Interop with other systems | yes | no | no |
-| Coverage of R1–R9 | native | built per type | built per variant |
-
-### Decision (proposed)
-
-We recommend Model A, realised with the MIMI content format.
-
-MIMI provides R1–R3 and R5–R9 directly: a mandatory baseline of media types,
-multi-representation fallback, an extensions map, encrypted external attachments,
-content-derived message ids, expiry, a companion receipts type, and per-part
-language. Under B or C each of these is built here. It also gives R4 as a named
-variant, `GFM-MIMI`, which is GitHub Flavored Markdown with autolinks dropped and
-raw HTML rendered as literal text — precisely the no-HTML profile the security
-requirements demand.
-
-R12 decides it. Only A anchors to an existing public registry. B and C need a
-namespace someone governs, and ContentFrame makes that cost concrete in the shape
-of a `domain_id` registry looking for a home.
-
-MIMI is also the only candidate designed to convey content inside MLS application
-messages, which is the stack directly beneath SDS. All three models were
-prototyped; the MIMI-backed prototype round-trips text, markdown, and replies.
-
-Model B is the documented fallback, and the right answer if an open ecosystem of
-third-party types and rich fallback turn out not to be needed. If B wins,
-ContentFrame SHOULD be preferred over a new identifier scheme, and this document
-should be withdrawn in favour of a profile of ContentFrame covering fallback,
-attachments, expiry, and language. Keeping the backing behind a facade makes that
-switch local.
-
-Two questions remain open, and they are the substance of the review this document
-invites. First, are third-party content types actually required, or is a curated
-set enough? That is what separates A and B from C. Second, how is message
-identity reconciled with SDS?
+| [ConversationTypes](conversationtypes.md) | Defines the Conversation that converts between Content and Payloads. It places content schema out of scope and requires that a ConversationType impose no requirements on Content structure. This specification is the mirror of that boundary: it constrains content and says nothing about conversations. |
+| [CHAT-FRAMEWORK](chat-framework.md) | Divides a protocol into Discovery, Initialization, and Operation phases, a Delivery Service, and a Framing Strategy. Content sits above all five. |
+| [ContentFrame](contentframe.md) | An alternative approach to identifying content types, by a `(domain, tag)` tuple resolved through a registry rather than by media type. |
 
 ## Theory / Semantics
 
-This section specifies the recommended model.
+### Content values and parts
 
-### Layering
+A content value carries exactly one top-level part, together with fields that
+relate the message to other messages and govern its lifetime.
 
-The SDS `content` field MUST carry a serialized content value. Today's plain text
-becomes a content value with a single `text/plain` part — a strict superset, so
-nothing regresses.
+A part is one of four kinds:
 
-### Baseline
-
-MIMI requires a compliant client to receive three media types:
-`application/mimi-content`, `text/plain;charset=utf-8`, and
-`text/markdown;variant=GFM-MIMI`. This specification adopts that floor unchanged
-as its baseline (R1). Implementations MUST NOT treat bare `text/plain` as
-sufficient; the charset parameter is part of the required type, and markdown
-support is not optional.
-
-### Content model
-
-| Capability | MIMI construct |
+| Kind | Carries |
 | --- | --- |
-| text, markdown, any format (R1) | a `SinglePart` with an IANA `contentType` |
-| graceful degradation (R2) | a `MultiPart` with `chooseOne` carrying a rich part and a text alternative |
-| custom and app types (R3) | the `mimiExtensions` map plus IANA media types |
-| rich-text safety (R4) | the `GFM-MIMI` markdown variant |
-| attachment (R5) | `ExternalPart` with `url`, `size`, `contentHash`, and AEAD `key`/`nonce`/`aad`, or an inline part |
-| reply, edit, delete (R6) | `replaces` and `inReplyTo`; a delete is `replaces` with a `NullPart` |
-| reaction (R6) | a part with the reaction disposition and `inReplyTo` set |
-| expiry (R7) | `expires` |
-| receipts (R8) | a separate content type, `application/mimi-message-status` |
-| i18n (R9) | per-part `language`, using RFC 5646 tags |
-| threads | `topicId` |
+| Single | a content type and the bytes of that content |
+| External | a content type and a reference to content held elsewhere |
+| Multi | two or more nested parts, plus a rule for combining them |
+| Null | nothing; used to express deletion |
 
-Two caveats on this table. R3's namespacing is weaker than it looks: MIMI
-extension keys are small positive integers assigned by Expert Review, with keys 1
-through 255 reserved to IETF Stream RFCs, plus text strings and negative integers
-for private use. Namespacing therefore exists only by convention on the text
-keys, not as a structural guarantee. And R8's receipts type comes from an
-individual draft rather than a working-group document, so it carries more
-revision risk than the content format itself.
+Every part declares a disposition and a language. Nesting is permitted: a
+multipart may contain multiparts.
 
-### Fallback
+### Content types
 
-A rich message SHOULD travel as a `chooseOne` multipart carrying the rich part
-and a text alternative. A client that cannot render the rich part renders the
-text. Receivers MUST NOT drop unknown content; they surface the alternative or a
-visible placeholder.
+A part names its format with an IANA media type, including any parameters that
+the type defines. Parameters are significant: `text/plain;charset=utf-8` and
+`text/markdown;variant=GFM-MIMI` are distinct from their unparameterised forms,
+and an implementation matching a content type MUST take declared parameters into
+account rather than comparing type and subtype alone.
 
-### Message identity
+Matching follows media type rules rather than string equality. Type, subtype, and
+parameter names are case-insensitive, parameter order is not significant, and
+whitespace around parameter separators does not change the type. An implementation
+MUST NOT reject a content type solely because it carries a parameter the
+implementation does not recognize.
 
-SDS and MIMI each define a message identifier, and replies, reactions, and edits
-are only correct if participants agree on which one a content-level reference
-means.
+Reusing the media-type registry means an implementer defining a new format has two
+paths that cannot collide with anyone else. Registering a type under
+[RFC 6838](https://www.rfc-editor.org/rfc/rfc6838.txt) makes it available to
+every implementation. Using the `vnd.` tree makes it available immediately without
+registration. Neither requires the agreement of any other participant in the
+network.
 
-The two are closer than they first appear. SDS requires a globally unique
-`message_id` and says it is "likely based on a message hash", and its conflict
-resolution orders messages by comparing ids as hashes. MIMI derives its id by
-hashing sender and room identifiers together with the message and a salt. Both
-are content-derived in practice.
+### Baseline content types
 
-Two concrete mismatches have to be resolved whichever way this goes.
+An implementation MUST be able to receive:
 
-The first is encoding. SDS types `message_id` as a protobuf `string`. A MIMI
-`MessageId` is a 32-byte binary value whose leading octet identifies the hash
-algorithm, with the remaining 31 bytes taken from the digest. Any resolution
-needs a stated encoding rule between the two.
+- `text/plain;charset=utf-8`
+- `text/markdown;variant=GFM-MIMI`
 
-The second is the hash inputs. MIMI's derivation covers a sender URI and a room
-URI, and Logos defines neither. They are not carried in the message, so a
-receiver cannot recover what a sender used; an agreed mapping is required, most
-plausibly from the SDS `sender_id` and `channel_id` fields. Fixing that mapping
-is a prerequisite for promotion to draft, alongside the choice below.
+`GFM-MIMI` is GitHub Flavored Markdown with the autolink extension removed and raw
+HTML rendered as literal text rather than interpreted. An implementation MUST NOT
+interpret HTML found in a `GFM-MIMI` part.
 
-Three resolutions are available:
+To receive a baseline type is to accept it and make its content available. It is
+not an obligation to render formatting. An implementation that presents a
+`GFM-MIMI` part as its literal source text has received it, and an implementation
+with no user interface at all satisfies the requirement by not rejecting the part.
+What an implementation MUST NOT do is treat a baseline type as unsupported.
 
-1. Content-level references use the MIMI id, the SDS id stays the
-   delivery and ordering id, and implementations persist a mapping between them.
-   This is what the prototype does. It costs a mapping table and leaves a
-   reference unresolvable until its target arrives.
-2. Content-level references use the SDS `message_id` and MIMI's id goes unused.
-   Simplest, but it forfeits content-derived verifiability and complicates
-   franking.
-3. SDS specifies a content-derived `message_id`, collapsing the two. This is a
-   smaller change than it sounds, since SDS already anticipates a hash-based id
-   and its conflict resolution assumes one; it would mostly make an existing
-   assumption normative. It is still a change to SDS, so it cannot be decided
-   here alone.
+These two types are the interoperability floor, and the fallback rules depend on
+them. A sender offering alternatives under
+[Multiple representations](#multiple-representations) relies on a baseline part
+being understood by every receiver; without at least one type guaranteed to be
+understood, degradation has no terminal case and a receiver could conform while
+rendering nothing at all. Every other content type is optional, and a receiver
+that does not support one MUST handle it as described in
+[Receiver processing](#receiver-processing).
 
-The seam is model-independent. B and C face the same question.
+The media type of the content value itself, `application/mimi-content`, is
+specified in [Wire Format](#wire-format-specification--syntax). It identifies the
+encoding of a whole message body, not the format of a part, and this
+specification defines no meaning for a part that carries it. A receiver meeting
+one treats it as an unsupported content type.
 
-### Versioning
+### Dispositions
 
-Type evolution follows the chosen model's rule: media-type parameters and the
-extensions map for A, explicit major and minor for B, schema evolution plus
-`min_version` for C. Receivers MUST ignore unknown fields and unknown extension
-keys.
+A disposition tells a receiver what a part is for. Defined values are:
 
-Content-type evolution is independent of Conversation Rotation. A rotation does
-not imply a content change, and a new content type does not require one.
+| Disposition | Meaning |
+| --- | --- |
+| `render` | Display as the message body. |
+| `inline` | Display within another part that references it. |
+| `attachment` | Offer to the user as a file rather than rendering. |
+| `reaction` | A reaction to the message named by `inReplyTo`. |
+
+A receiver that meets an unrecognized disposition MUST treat the part as
+`attachment` and MUST NOT discard it.
+
+### Multiple representations
+
+A multipart declares how its nested parts combine:
+
+| Semantics | Receiver behaviour |
+| --- | --- |
+| `chooseOne` | Render exactly one nested part. |
+| `singleUnit` | Render every nested part together, or none of them. |
+| `processAll` | Process every nested part independently, in order. |
+
+`chooseOne` is how a message degrades gracefully. A sender that uses a content
+type outside the baseline SHOULD send a `chooseOne` multipart carrying that part
+together with a baseline alternative conveying as much of the meaning as the
+simpler type allows. A receiver selects the first nested part whose content type
+it supports, evaluating parts in the order the sender gave them; senders SHOULD
+therefore order parts from richest to simplest.
+
+`singleUnit` is all-or-nothing: if a receiver cannot render every nested part it
+MUST render none of them and MUST fall back as though the whole multipart were
+unsupported.
+
+### Message references
+
+Replies, edits, deletions, and reactions refer to another message by a **message
+reference**, a 32-byte value whose leading octet identifies a hash algorithm and
+whose remaining 31 octets are the leading bytes of a digest over:
+
+- the identifier of the sender,
+- the identifier of the room or conversation,
+- the encoded content value, and
+- the content value's salt.
+
+A reference is therefore derived from the message it names and can be recomputed
+and verified by any receiver that holds that message.
+
+The sender identifier and room identifier are supplied by the embedding protocol,
+which MUST define them and MUST make them available to every participant that
+needs to compute or verify a reference. An embedding protocol MUST specify the
+byte encoding of both identifiers. Two implementations that disagree on either
+will derive different references for the same message, and replies between them
+will not resolve.
+
+### Relationships
+
+Relationships are expressed by two fields on the content value.
+
+| Field | Meaning |
+| --- | --- |
+| `inReplyTo` | This message replies to, or reacts to, the referenced message. |
+| `replaces` | This message replaces the referenced message. |
+
+A **reply** sets `inReplyTo` and carries an ordinary body, so a reply may be of
+any content type.
+
+A **reaction** sets `inReplyTo` and carries a part with the `reaction`
+disposition, whose content is the reaction itself, typically a short string.
+
+An **edit** sets `replaces`. A receiver that holds the referenced message SHOULD
+present the new content in its place while making the substitution visible.
+
+A **deletion** sets `replaces` and carries a null part. A receiver SHOULD remove
+the referenced content from display. Deletion is a request to a receiver, not a
+guarantee: a receiver that has already shown, copied, or stored the content cannot
+be compelled to forget it.
+
+A receiver MUST tolerate a reference to a message it does not hold. Ordering is
+the embedding protocol's concern, and a reply, edit, reaction, or deletion MAY
+arrive before its target or when its target never arrives at all. Such a message
+MUST NOT be discarded; a receiver SHOULD hold it and resolve the reference if the
+target arrives later.
+
+### External parts
+
+An external part references content held outside the message. It carries the
+retrieval URL, the size, an AEAD algorithm with its key, nonce, and associated
+data, a hash algorithm with the content hash, and optionally a filename and a
+description.
+
+External content MUST be encrypted under a key carried in the part and MUST NOT
+be readable by the storage holding it. A receiver MUST verify the content hash
+after retrieval and decryption, and MUST reject content whose hash does not match.
+
+An external part MAY carry its own expiry, indicating when the sender expects the
+reference to stop resolving.
+
+### Expiry
+
+A content value MAY declare an expiry, either as an absolute time or as a duration
+measured from receipt. A receiver SHOULD stop displaying the content once it has
+expired.
+
+Expiry is a cooperative signal. It depends on receivers honouring it and on clocks
+being honest, and it offers no protection against a receiver that chooses to
+retain the content. See [Security and Privacy](#securityprivacy-considerations).
+
+### Language
+
+Every part declares a language tag as defined in
+[RFC 5646](https://www.rfc-editor.org/rfc/rfc5646), or the empty string when no
+language applies, as for an image or a reaction.
+
+A `chooseOne` multipart whose nested parts differ only by language allows a
+receiver to select the one matching its user's preferences. A receiver that
+supports no offered language MUST select by content type as usual rather than
+rendering nothing.
+
+### Extensions
+
+A content value carries a map of extensions. Keys are either integers assigned
+through IANA registration, or values in the private-use ranges available to any
+implementer without registration.
+
+Private-use keys are not namespaced by the format. Two implementations MAY choose
+the same private-use key for different purposes, and a receiver MUST NOT assume
+that a private-use key it recognizes was written by an implementation that shares
+its meaning. An extension intended for use between independent implementations
+SHOULD be registered rather than left in the private-use range.
+
+A receiver MUST ignore extension keys it does not recognize, and MUST NOT treat an
+unrecognized key as an error.
+
+### Receiver processing
+
+A receiver processes a content value as follows.
+
+1. Decode the content value. If it cannot be decoded, the message MUST be treated
+   as a decode error: the receiver MUST NOT discard it silently, and SHOULD
+   indicate to the user that a message arrived that could not be read.
+2. Ignore any unrecognized extension key.
+3. Resolve the top-level part:
+   - For a **single** or **external** part, determine whether the content type is
+     supported. If it is, render according to the disposition. If it is not,
+     treat the part as unsupported.
+   - For a **multipart**, apply its semantics: select one supported nested part
+     under `chooseOne`; render all or none under `singleUnit`; process each in
+     order under `processAll`. Resolve each nested part by this same procedure.
+   - For a **null** part, apply the deletion described by `replaces`.
+4. An unsupported part MUST NOT cause the message to be dropped. The receiver MUST
+   present a visible placeholder identifying the content type it could not render,
+   so that the conversation remains intact and the user can see that something was
+   said.
+5. If `inReplyTo` or `replaces` is set, resolve the reference. An unresolved
+   reference MUST NOT cause the message to be discarded.
+
+The governing rule is that no property of a message may cause a receiver to
+silently drop it. An unknown content type, an unknown disposition, an unknown
+extension, and an unresolved reference are all conditions a conformant receiver
+survives.
 
 ## Wire Format Specification / Syntax
 
-Under the recommended model the SDS `content` field carries a deterministic-CBOR
-`mimiContent` value. MLS and SDS framing are unchanged.
+A content value is encoded as deterministic CBOR, as specified by the
+[MIMI content format](https://datatracker.ietf.org/doc/draft-ietf-mimi-content/)
+and identified by the media type `application/mimi-content`.
 
-**This document does not fix a byte-exact wire format and MUST NOT be treated as
-an interop contract in its present state.** MIMI's encoding has changed across
-revisions — early ones used TLS presentation language, later ones CBOR — so the
-schema below tracks a specific revision rather than standing on its own. Before
-promotion to draft this section MUST be replaced by a self-contained normative
-schema with byte-exact test vectors.
-
-The schema below is abridged from `draft-ietf-mimi-content-09`; disposition
-values and the extensions type are omitted. The prototype pins
-[`mimi-content`](https://github.com/nexun-foundation/mimi-rs) at revision
-`d33c7e027a7fc3ab183de623f22a131586334c00`. Implementations MUST pin a revision
-explicitly and MUST re-verify field names on any bump.
+The schema below is reproduced from `draft-ietf-mimi-content-09`. Disposition
+values and the extensions type are abridged. Where this document and the
+referenced draft disagree, the draft is authoritative.
 
 ```cddl
-; encoded into the SDS Message.content field
 mimiContent = [
   salt:           bstr .size 16,
   replaces:       null / MessageId,
@@ -505,142 +383,106 @@ ExternalPart = (cardinality: external, contentType: tstr, url: tstr,
                 description: tstr, filename: tstr)
 ```
 
-Note that `disposition` and `language` sit on `NestedPart`, above the variant,
-and each variant is tagged by its `cardinality`. A `MultiPart` holds at least two
-parts.
+`disposition` and `language` sit on `NestedPart`, above the variant; each variant
+is tagged by its `cardinality`. A multipart holds at least two parts.
 
-### Alternative encoding (Models B and C)
+### Examples
 
-If B or C is chosen the wire form is a protobuf message defined alongside the
-envelope, and SDS framing is unchanged. Under B, ContentFrame already specifies a
-wire format for the identifier and SHOULD be used rather than a new one.
-
-## Implementation Suggestions
-
-### Facade
-
-An implementation SHOULD keep the backing content-format types off its public
-surface and expose a thin facade instead: typed constructors for sending,
-and a decoded, implementation-owned enum for receiving, with an explicit variant
-for a content type the build does not handle. This is a maintainability
-constraint rather than an interop one — it is what makes swapping the backing a
-local change — and conformance does not depend on it.
-
-### Prototypes
-
-All three models were implemented as prototype branches in libchat, each
-replacing the same `message-types` crate so they can be compared as running code.
-
-| Model | Branch |
-| --- | --- |
-| A — media-typed parts | `mch/content-types-poc-mimi-contents` |
-| B — type-id envelope | `mch/content-types-type-id-envelope` |
-| C — curated tagged union | `mch/content-types-curated-union` |
-
-The Model A prototype is backed by `mimi-content` at the pinned revision and
-exposes `encode_text`, `encode_markdown`, `encode_reply`, and `decode`. The chat
-client sends text on a normal message and markdown via an explicit command, and
-decodes on receive: an unknown type becomes a placeholder, and non-envelope bytes
-fall back to lossy UTF-8 so pre-existing plain-text messages keep rendering.
-Crate and client round-trip tests pass.
-
-All three prototypes serialize with CBOR, which keeps them comparable. It is not
-a property of B or C.
-
-### Rollout
-
-Each phase is independently shippable.
-
-1. Text parity: plain text and markdown over the new envelope, with the
-   lossy-UTF-8 fallback for legacy bodies. Prototyped.
-2. Reply and reaction. This is the phase that forces message identity to be
-   resolved. Replies are prototyped; reactions are not.
-3. Attachments: external parts with content hash and AEAD. Blob storage is a
-   separate concern.
-4. Receipts, plus one worked third-party extension to validate R3 end to end.
-
-In the prototypes the content layer sits at the client edge: the delivery event
-still carries raw bytes and the client encodes and decodes. Surfacing decoded
-content from the library is a later step and does not affect the wire format.
-
-## Security/Privacy Considerations
-
-### Security
-
-**Rich-text safety.** "Markdown is safe" is a fallacy. The danger is embedded
-HTML, and common parsers ship with sanitization off. Implementations MUST use a
-no-HTML markdown profile; under the recommended model that profile is `GFM-MIMI`,
-which renders any HTML tag as literal text and drops the autolink extension. If
-HTML is ever rendered, it MUST be sanitized and its URL schemes filtered.
-
-**Attachment integrity.** External blobs MUST be individually encrypted and
-integrity-bound by content hash, so remote storage is neither a plaintext leak
-nor a tamper vector.
-
-**Franking.** The model MUST leave room for verifiable abuse reports under E2EE.
-Franking commits to a specific plaintext, so edits, deletes, and multipart
-content complicate what a report proves. It also pulls on message identity: a
-content-derived id is the more natural commitment.
-
-**Moving-draft risk.** MIMI is an active Internet-Draft, at revision 09 and not
-yet submitted to the IESG. Implementations MUST pin a revision and isolate the
-wire format. This is the main risk the Model B fallback hedges against.
-
-### Privacy
-
-**Never drop unknown content.** Receivers MUST render a fallback so the timeline
-stays intact and users can still participate.
-
-**Metadata minimization.** MLS encrypts content and related metadata;
-implementations SHOULD keep any cleartext minimal and bind it via the MLS AAD.
-The envelope's own fields — sender, channel, Lamport timestamp, causal history —
-sit outside this content model and are governed by SDS.
-
-**Relationships as an abuse surface.** Reactions and edits can be weaponized
-through emoji spam and edit-harassment. Clients SHOULD honor block and ignore
-before delivering relations, and MUST tolerate out-of-order arrival, which causal
-history makes routine.
-
-**Ephemerality is not confidentiality.** Expiry relies on cooperating clients and
-honest clocks. Forensic capture or a rewound clock preserves expired data. It is
-data hygiene, not a security guarantee.
-
-## Examples
-
-Illustrative structures, not byte-exact encodings. Dispositions and cardinalities
-are shown by name. Byte-exact test vectors are a prerequisite for promotion to
-draft.
+Dispositions and cardinalities are shown by name rather than by their encoded
+integer values. These illustrate structure and are not byte-exact vectors.
 
 ```text
 ; text/plain "hello"
 [ salt, null, "", null, null, {},
   [ render, "en", single, "text/plain;charset=utf-8", 'hello' ] ]
 
-; 👍 reaction to 0x1a2b…
+; a reaction to the message 0x1a2b…
 [ salt, null, "", null, 0x1a2b…, {},
   [ reaction, "", single, "text/plain;charset=utf-8", '👍' ] ]
+
+; markdown with a plain-text alternative
+[ salt, null, "", null, null, {},
+  [ render, "en", multi, chooseOne,
+    [ [ render, "en", single, "text/markdown;variant=GFM-MIMI", '**hi**' ],
+      [ render, "en", single, "text/plain;charset=utf-8",       'hi' ] ] ] ]
 ```
 
-The same two under Model B:
+## Security/Privacy Considerations
 
-```text
-// text/plain "hello"
-ContentEnvelope { type: logos/text:1.0, fallback: "hello",
-                  payload: Text{ body: "hello" } }
+### Rendering untrusted content
 
-// 👍 reaction
-ContentEnvelope { type: logos/reaction:1.0, fallback: "reacted 👍",
-                  payload: Reaction{ target: 0x1a2b…, emoji: "👍" } }
-```
+A message body is written by another participant and MUST be treated as
+untrusted input.
 
-### Rejection behaviour
+Markdown is not a safe format by default. The hazard is embedded HTML, and
+widely used parsers accept it unless explicitly configured otherwise. An
+implementation MUST render `text/markdown;variant=GFM-MIMI` with HTML disabled, so
+that any tag appears to the user as literal text. An implementation that renders
+any content type capable of carrying HTML MUST sanitize it and MUST restrict which
+URL schemes are permitted in links and embedded references.
 
-A malformed or non-CBOR content value MUST be treated as a decode error. The
-client keeps the raw bytes and shows an error placeholder; the prototype's
-lossy-UTF-8 path additionally keeps legacy plain-text messages readable.
+An implementation MUST NOT execute content, MUST NOT resolve external references
+automatically where doing so would disclose the recipient's presence or network
+address to a third party without consent, and MUST bound the resources any single
+message may consume while being decoded or rendered.
 
-An unknown media type or extension MUST NOT be rejected. It degrades to an
-unsupported placeholder carrying its fallback, never a hard failure.
+### External content
+
+External content is held by storage the sender does not control and the receiver
+does not trust. Encrypting each external part under its own key keeps the storage
+from reading it, and binding the part to a content hash keeps the storage from
+substituting it. A receiver that skips hash verification accepts content chosen by
+whoever holds the storage.
+
+A retrieval URL discloses that a participant is fetching a particular object, and
+to whom. Implementations SHOULD treat retrieval as an action with its own privacy
+cost rather than as a transparent read.
+
+### Relationships as an abuse surface
+
+Reactions and edits let one participant attach content to another participant's
+messages. Both can be used to harass: reactions at volume, and edits that change
+what a quoted message appears to have said. An implementation SHOULD apply a
+user's blocking and muting decisions before presenting a relationship, and SHOULD
+make an edit visible as an edit rather than silently substituting content.
+
+### Deletion and expiry are requests
+
+Deletion and expiry ask a receiver to stop displaying content. Neither can compel
+it. An implementation that has rendered content cannot guarantee it was not
+captured, and an implementation under the control of an adversary will do whatever
+it chooses regardless of what the message says. Both features are hygiene for
+cooperating participants, and neither is a confidentiality mechanism. Users
+SHOULD NOT be shown language that implies a stronger guarantee than the format can
+deliver.
+
+### Verifiable reporting
+
+A participant who receives abusive content may need to report it to someone. Where
+the embedding protocol encrypts messages between participants, a report is
+inherently unverifiable: the recipient can produce any plaintext and claim it was
+sent, and the sender can deny any plaintext that was.
+
+Message references in this format are derived from the message content, which
+makes them a commitment a report can be built on: a reference binds to one exact
+content value, and a third party holding both can confirm they correspond.
+
+This specification defines no reporting mechanism and names no authority to
+receive a report. Whether reports exist at all, who receives them, and what
+follows from one are questions for the embedding protocol and the systems built
+around it, and none of them are settled here. What this format provides is the
+commitment such a system would need; two limits on that commitment are worth
+recording. A commitment binds one content value, so an edit or a deletion does not
+retract what was committed to, and a multipart commits to every alternative it
+carries rather than to the one a given receiver rendered.
+
+### Metadata
+
+A content value is an opaque byte string to its transport. This format defines no
+cleartext header and exposes no field outside the encoded value, so it adds no
+metadata beyond the length of the encoding and whatever the embedding protocol
+chooses to expose. Any metadata a participant is exposed to in practice comes from
+that protocol, not from this format.
 
 ## Copyright
 
@@ -650,32 +492,31 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 
 ### Normative
 
-- [SDS](../../../anoncomms/raw/sds.md) — Scalable Data Sync protocol; the
-  envelope and `message_id`.
 - [CHAT-DEFS](../../informational/raw/chatdefs.md) — Shared definitions for chat
   protocols.
 - [RFC 2119](https://datatracker.ietf.org/doc/html/rfc2119) — Key words for
   requirement levels.
 - [IETF MIMI content](https://datatracker.ietf.org/doc/draft-ietf-mimi-content/) —
-  the content format; revision 09 at time of writing.
-- [RFC 9420](https://datatracker.ietf.org/doc/rfc9420/) — Messaging Layer Security.
-- [RFC 6838](https://www.rfc-editor.org/rfc/rfc6838.txt) — Media type registration.
-- [IANA Media Types](https://www.iana.org/assignments/media-types).
-- [RFC 8610](https://www.rfc-editor.org/rfc/rfc8610) — CDDL.
+  the content format; revision 09 at the time of writing.
+- [RFC 6838](https://www.rfc-editor.org/rfc/rfc6838.txt) — Media type
+  specifications and registration procedures.
+- [IANA Media Types](https://www.iana.org/assignments/media-types) — the media
+  type registry.
+- [RFC 5646](https://www.rfc-editor.org/rfc/rfc5646) — Tags for identifying
+  languages.
+- [RFC 8610](https://www.rfc-editor.org/rfc/rfc8610) — CDDL, the schema notation
+  used above.
 
 ### Informative
 
-- [ContentFrame](contentframe.md) — the `(domain, tag)` instance of Model B.
+- [ContentFrame](contentframe.md) — an alternative content type identifier.
 - [ConversationTypes](conversationtypes.md) — the Conversation abstraction.
 - [CHAT-FRAMEWORK](chat-framework.md) — modular framework for chat protocols.
-- [`mimi-content`](https://github.com/nexun-foundation/mimi-rs) — a third-party
-  Apache-2.0 Rust implementation of the MIMI drafts, used by the Model A
-  prototype.
-- [XMTP XIP-5](https://github.com/xmtp/XIPs/blob/main/XIPs/xip-5-message-content-types.md) —
-  Model B precedent.
 - [MIMI message status](https://datatracker.ietf.org/doc/draft-mahy-mimi-message-status/) —
-  receipts; an individual draft, not a working-group document.
+  delivery and read receipts as a separate content type; an individual draft, not
+  a working-group document.
 - [Matrix MSC1767](https://github.com/matrix-org/matrix-spec-proposals/blob/main/proposals/1767-extensible-events.md) —
   extensible events.
+- [XMTP XIP-5](https://github.com/xmtp/XIPs/blob/main/XIPs/xip-5-message-content-types.md) —
+  content types identified by a namespaced string.
 - [Message franking (committing AEAD)](https://eprint.iacr.org/2017/664).
-- [Signal disappearing messages](https://signal.org/blog/disappearing-messages/).
