@@ -87,14 +87,14 @@ Under this scheme the following assumptions are made:
 ### Overview
 
 The approach taken follows double-ratchet header encryption - where the encryption key for headers lags behind the messaging key by some interval. 
-This means that a participant which does not hold the most recent encryption key can still decrypt information as long as they stay synchronized within N epochs.
+This means that a participant which does not hold the most recent encryption key can still decrypt information as long as they do not miss more than `LAG` epochs.
 
 An `epoch_reliability_key` is derived from the `epoch_secret`, which is then used to encrypt the SDS headers for an epoch. 
 
 
 ### External Parameters
 
-**LAG**: number of *additional* previous epochs which can still decrypt this header. A receiver therefore holds `LAG + 1` usable reliability keys at any time: the current epoch's, and the preceding `LAG`. Higher values result in more allowable desynchronization, at the cost of decreased Forward Secrecy granularity.
+**LAG**: number of *additional* previous epochs which can still decrypt this header. A receiver at epoch `E` therefore holds `LAG + 1` usable reliability keys at any time: `epoch_reliability_key[E]` through `epoch_reliability_key[E + LAG]`. Higher values result in more allowable desynchronization, at the cost of decreased Forward Secrecy granularity.
 
 ### Key Schedule
 
@@ -110,7 +110,8 @@ For the first `LAG` epochs of a group there is no epoch `E - LAG` to derive from
 
 ### Initialization 
 
-New members joining the reliability set MUST receive the `LAG + 1` keys covering the current epoch and the preceding `LAG` epochs, by another mechanism.
+New members joining the reliability set MUST receive `epoch_reliability_key[E]` through `epoch_reliability_key[E + LAG]`, where `E` is the current epoch, by another mechanism.
+
 This SHOULD be the same "invite" that distributes the required keying material. 
 
 Sending the `epoch_secret` would violate FS, by allowing participants not party to the original communication to access message contents - this MUST NOT be permitted. Only the derived `epoch_reliability_key` is to be transported.
@@ -151,13 +152,26 @@ Given the data at risk, eventual forward secrecy is acceptable here.
 
 ### Associated Data and Binding
 
-!TODO: consider binding header and payload to stop replay/composition attacks
+Each header is encrypted with associated data that binds it to the epoch it was sent in and to the message it accompanies, as the Security Model requires.
+
+```
+HeaderAAD(label, i, h) = uint8(len(label)) || label || uint64_be(i) || h
+```
+
+- `||` denotes concatenation.
+- `label` is the ASCII encoding of the domain string, currently `"sds-hdr-v1"`, prefixed with its length in bytes.
+- `i` is the epoch index, encoded as an unsigned 64-bit big-endian integer.
+- `h` is `HASH(content_ciphertext)`, where `content_ciphertext` is the application's encrypted content for the message the header accompanies. `HASH` output is fixed-size, so `h` needs no length prefix.
+
+The associated data is not transmitted. The receiver reconstructs it from the content ciphertext, which travels alongside the header (see Wire Format), and from the candidate epoch index during trial decryption.
+
+Binding prevents a valid header from being moved onto a different message; see Security, Header Substitution. It does not prevent a complete message, header and content together, from being replayed unmodified. Such a replay is a duplicate at the SDS layer, which participants MAY discard by `message_id` as SDS already permits.
 
 ### Epoch Reliability Key Derivation
 
 Where `i` = the current epoch index
 
-`epoch_reliability_key[i+LAG] = KDF_DOM(epoch_secret[i], "sds-enc-v1")`
+`epoch_reliability_key[i + LAG] = KDF_DOM(epoch_secret[i], "sds-enc-v1")`
 
 
 ### Header Encryption
@@ -169,27 +183,27 @@ aad[i]        = HeaderAAD("sds-hdr-v1", i, HASH(content_ciphertext))
 ciphertext[i] = ENC(epoch_reliability_key[i], aad[i], header[i])
 ```
 
+where `header[i]` is the serialized `SDS::Message` with its `content` field unset (see Wire Format).
+
 ### Header Decryption
 
-The epoch index is not carried on the wire, so a receiver does not know in advance which `epoch_reliability_key` was used. The receiver holds the keys for the current epoch and the preceding `LAG` epochs, and attempts decryption against each in turn.
-
-For each candidate epoch index `j`, from the most recent to the oldest:
+The epoch index is not carried on the wire, so a receiver does not know in advance which `epoch_reliability_key` was used. The receiver holds `LAG + 1` keys, and attempts decryption against each in turn.
 
 ```
-result = DEC(epoch_reliability_key[j], "", ciphertext)
+For each j from E to E + LAG:
+    aad[j] = HeaderAAD("sds-hdr-v1", j, HASH(content_ciphertext))
+    result = DEC(epoch_reliability_key[j], aad[j], ciphertext)
 ```
 
-The first candidate for which `DEC` succeeds yields the header. If every candidate fails, the header is not addressed to this receiver, falls outside the `LAG` window, or has been modified; it MUST be discarded.
+The first candidate for which `DEC` succeeds yields the header. If every candidate fails, the header is not addressed to this receiver, falls outside the `LAG` window, or has been modified; it SHOULD be discarded.
 
-Receivers SHOULD order candidate keys from most recent to oldest. In normal operation the current epoch's key succeeds on the first attempt.
 
 
 ## Wire Format
 
 ### EncryptedSdsHeader
 
-!TODO: Propose SDS::message to be a header instead of a wrapper.
-!TODO: Don't use protobuf if we don't have to; consider TLV. Keeping as protobuf given its clear notion
+The header is the `SDS::Message` with its `content` field unset. The content cannot travel inside the encrypted header, because the receiver needs `HASH(content_ciphertext)` to form the associated data before it can decrypt. The enclosing protocol therefore carries the content ciphertext alongside `EncryptedSdsHeader`, and the receiver restores it into `content` after decryption.
 
 ```protobuf
 syntax = "proto3";
@@ -200,22 +214,21 @@ message EncryptedSdsHeader {
 
 ```
 
-`nonce` MUST carry the nonce required by `ENC`, sized as `ENC` requires
-`nonce` MUST be randomly generated
-`ciphertext` MUST contain an encrypted serialized SDS::Message, as defined in [SDS](https://lip.logos.co/anoncomms/raw/sds.html)
+- `nonce` MUST carry the nonce required by `ENC`, sized as `ENC` requires
+- `nonce` MUST be randomly generated
+- `ciphertext` MUST contain an encrypted serialized `SDS::Message`, as defined in [SDS](https://lip.logos.co/anoncomms/raw/sds.html), with its `content` field unset
 
 
 
-### Suggestions
+## Suggestions
 
 **Primitives**
 
-- ENC = XChaCha20-Poly1305. Note the extended form is required; ChaCha20-Poly1305 does not meet the nonce size requirements.
-- KDF_DOM(ikm, domain) = HKDF-Expand(ikm, domain, L), where `ikm` is the `epoch_secret` and `L` is the key length required by `ENC`. Extract is not required here; the `epoch_secret` is assumed uniformly distributed, so there is no entropy to concentrate. MLS deployments MAY substitute `ExpandWithLabel` (RFC 9420, Section 8), which provides the same domain separation with a length-prefixed and version-prefixed encoding of the domain string.
+- `ENC` = XChaCha20-Poly1305. Note the extended form is required; ChaCha20-Poly1305 does not meet the nonce size requirements.
+- `KDF_DOM(ikm, domain) = HKDF-Expand(ikm, domain, L)`, where `ikm` is the `epoch_secret` and `L` is the key length required by `ENC`. Extract is not required here; the `epoch_secret` is assumed uniformly distributed, so there is no entropy to concentrate. MLS deployments MAY substitute `ExpandWithLabel` (RFC 9420, Section 8), which provides the same domain separation with a length-prefixed and version-prefixed encoding of the domain string.
 
-**
 
-### Security 
+## Security 
 
 **Retention of `epoch_reliability_key`'s**
 Delete keys as soon as possible
