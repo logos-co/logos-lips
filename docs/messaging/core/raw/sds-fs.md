@@ -1,4 +1,4 @@
-# Sds Forward Secrecy
+# SDS-FS
 
 | Field | Value |
 | --- | --- |
@@ -53,9 +53,9 @@ Forward secrecy is a minimum requirement in modern private messaging protocols.
 
 For a messaging protocol that wants to use SDS and still retain forward secrecy, these two items conflict. 
 
-SDS works by receiving the latest payload and walking through the history backwards to recover lost messages. However FS based encryption schemes require the first encryption key in order to derive the others. Given the case where a message containing key material has been lost, a client cannot decrypt future messages - and if SDS payload is encrypted the previous messages_ids cannot be recovered.
+SDS works by receiving the latest payload and walking through the history backwards to recover lost messages. However FS based encryption schemes require the first encryption key in order to derive the others. Given the case where a message containing key material has been lost, a client cannot decrypt future messages - and if SDS payload is encrypted the previous message_ids cannot be recovered.
 
-This problem can be avoided by sending SDS payloads in cleartext, however that leaks metadata that undermines privacy required in messaging protocols. This directly exposes SenderId, ChannelId, previous messages, while also leaking metadata that increases linkability.
+This problem can be avoided by sending SDS payloads in cleartext, however that leaks metadata that undermines privacy required in messaging protocols. This directly exposes `sender_id`, `channel_id`, previous messages, while also leaking metadata that increases linkability.
 
 What is needed is an encryption scheme for SDS payloads which is compatible with forward secrecy.
 
@@ -94,7 +94,7 @@ An `epoch_reliability_key` is derived from the `epoch_secret`, which is then use
 
 ### External Parameters
 
-**LAG**: number of *additional* previous epochs which can still decrypt this header. A receiver at epoch `E` therefore holds `LAG + 1` usable reliability keys at any time: `epoch_reliability_key[E]` through `epoch_reliability_key[E + LAG]`. Higher values result in more allowable desynchronization, at the cost of decreased Forward Secrecy granularity.
+**LAG**: number of *additional* previous epochs which can still decrypt this header. A receiver at epoch `E` therefore holds `LAG + 1` usable reliability keys at any time: `epoch_reliability_key[E]` through `epoch_reliability_key[E + LAG]`. Higher values result in more allowable desynchronization, at the cost of a longer exposure window after compromise or removal.
 
 ### Key Schedule
 
@@ -127,7 +127,7 @@ The bound is expressed in epochs, not in time. Where the application advances ep
 
 Header encryption maintains Forward secrecy with epoch granularity. A compromised `epoch_reliability_key` decrypts all headers sent in that epoch, and no headers sent in any other epoch. Its value therefore expires once the epoch it covers is closed, which is a bound in epochs rather than in elapsed time.
 
-The encryption of the headers does not incorporate a ratchet mechanism or new entropy, as this increases the coordination required between members. A deterministic encryption process lowers the requirements for decryption, and does not require shared state. Any message can be decrypted using the a priori `epoch_reliability_key` for that epoch and the provided cleartext data in the payload. This feature is critical for desynchronized members to be able to fetch previous messages.
+The encryption of the headers does not incorporate a ratchet mechanism or new entropy, as this increases the coordination required between members. A deterministic key schedule lowers the requirements for decryption, and does not require shared state. Any message can be decrypted using the a priori `epoch_reliability_key` for that epoch and the provided cleartext data in the payload. This feature is critical for desynchronized members to be able to fetch previous messages.
 
 Given the data at risk, eventual forward secrecy is acceptable here.
 
@@ -213,7 +213,6 @@ message EncryptedSdsHeader {
     bytes nonce = 1;
     bytes ciphertext = 2;
 }
-
 ```
 
 - `nonce` MUST carry the nonce required by `ENC`, sized as `ENC` requires
@@ -222,7 +221,7 @@ message EncryptedSdsHeader {
 
 
 
-## Suggestions
+## Implementation Suggestions
 
 **Primitives**
 
@@ -232,15 +231,19 @@ message EncryptedSdsHeader {
 
 ## Security 
 
-**Retention of `epoch_reliability_key`'s**
-Delete keys as soon as possible
+**Retention of `epoch_reliability_key`s**
+A member at epoch `E` holds `epoch_reliability_key[E]` through `epoch_reliability_key[E + LAG]`. On advancing to epoch `E + 1`, it derives `epoch_reliability_key[E + 1 + LAG]` and MUST delete `epoch_reliability_key[E]`. The `epoch_secret` is not retained past its epoch.
+
+Once an epoch's key is deleted, headers from that epoch can no longer be read, including headers of messages recovered later through SDS. Their content is encrypted under that epoch's `epoch_secret`, which is already gone, so nothing further is lost. Where the application keeps past epoch secrets to handle late delivery, it SHOULD keep the matching reliability keys for the same period.
+
+A compromise of a member's state at epoch `E` exposes headers from epochs `E` through `E + LAG`. Headers from earlier epochs remain protected.
 
 **Nonce Reuse**
 The construction uses random nonces, over a counter to avoid issues with persistence/state rollbacks leading to nonce reuse. 
 
 The re-use domain is restricted to a single epoch, and the nonce size is chosen to limit the risks here. 
 
-96 bit nonces have a birthday bound of 2^32 messages - which does not provide an adequate safety margin for large groups, with peer syncing. 192 provides sufficient buffer with 2^80 messages.
+With random 96-bit nonces, the collision probability reaches 2^-32 after about 2^32 messages under one key. This is the conventional limit, and it is too low for large groups with peer syncing. With 192-bit nonces the same probability is not reached until about 2^80 messages.
 
 These bounds hold only under random generation, which is why the wire format requires it rather than recommending it. A counter-based implementation would inherit the rollback exposure this construction is written to avoid, and the stated margins would not apply to it.
 
@@ -254,4 +257,4 @@ Anyone holding a reliability key can forge SDS headers. This approach currently 
 A receiver performs up to `LAG + 1` decryption attempts before rejecting a header. An attacker who emits headers that will never decrypt therefore imposes `LAG + 1` times the work of a single verification, per header. Headers are small and the operation is cheap, but the amplification scales linearly with `LAG`. Implementations MAY cap the number of attempts, and SHOULD apply whatever rate limiting the transport already provides before entering the trial loop.
 
 **Metadata Exposure**
-Omitting the epoch index from the wire prevents an observer from grouping or ordering headers by epoch. This is only a gain where the enclosing transport does not already expose it. Under MLS the group identifier and epoch are cleartext fields of `PrivateMessage`, so an observer recovers the epoch from the enclosing frame regardless of what this construction does; the trial decryption cost buys no privacy in that deployment. The construction is specified this way so that it does not import that exposure as a requirement, and so that transports which do not leak the epoch are not forced to begin.
+Omitting the epoch index from the wire prevents an observer from grouping or ordering headers by epoch. This is only a gain where the enclosing transport does not already expose it. Under MLS the group identifier and epoch are cleartext fields of `PrivateMessage`, so an observer recovers the epoch from the enclosing frame regardless of what this construction does; the trial decryption cost buys no privacy in that deployment. The construction is specified this way so that it does not import that exposure as a requirement, and so that transports which do not leak the epoch are not forced to.
