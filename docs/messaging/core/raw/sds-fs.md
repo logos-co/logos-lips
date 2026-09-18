@@ -71,11 +71,11 @@ Integrity alone is not sufficient. An authenticated header proves only that some
 Under this scheme the following assumptions are made:
 - Participants are trusted entities; A participant who you willingly share private content with, can also be trusted with reliability metadata. This trust extends to removed members for the `LAG + 1` epochs during which they retain usable reliability keys.
 - There exist active external attackers. External attackers hold no reliability keys.
-- Epoch-granular Forward Secrecy is sufficient for encrypting SDS Header information. 
+- Epoch-granular forward secrecy is sufficient for encrypting SDS Header information. 
 
 ## Environment Assumptions
 
-- There exists an `epoch_secret` used for encrypting messages which is eventually rotated. This key is deleted to maintain Forward Secrecy, and its lifetime is bounded to a single epoch. The key is assumed to be uniformly distributed.
+- There exists an `epoch_secret` used for encrypting messages which is eventually rotated. This key is deleted to maintain forward secrecy, and its lifetime is bounded to a single epoch. The key is assumed to be uniformly distributed.
 - Epoch advance is driven by the application, not by this document. The exposure windows described here are bounded in epochs. Where the application advances epochs only on membership or state change, those windows are unbounded in wall-clock time.
 - The application's content encryption layer is assumed to be IND-CPA, and therefore to produce distinct ciphertexts for repeated plaintexts.
 - The `epoch_secret` is assumed not to be compromised. An attacker holding an `epoch_secret` recovers message content directly, which is catastrophic to the application independent of anything in this document. The reliability keys derived from it are not the dominant harm in that case, and it is out of scope here.
@@ -125,7 +125,7 @@ The bound is expressed in epochs, not in time. Where the application advances ep
 
 ### Eventual Forward Secrecy
 
-Header encryption maintains Forward secrecy with epoch granularity. A compromised `epoch_reliability_key` decrypts all headers sent in that epoch, and no headers sent in any other epoch. Its value therefore expires once the epoch it covers is closed, which is a bound in epochs rather than in elapsed time.
+Header encryption maintains forward secrecy with epoch granularity. A compromised `epoch_reliability_key` decrypts all headers sent in that epoch, and no headers sent in any other epoch. Its value therefore expires once the epoch it covers is closed, which is a bound in epochs rather than in elapsed time.
 
 The encryption of the headers does not incorporate a ratchet mechanism or new entropy, as this increases the coordination required between members. A deterministic key schedule lowers the requirements for decryption, and does not require shared state. Any message can be decrypted using the a priori `epoch_reliability_key` for that epoch and the provided cleartext data in the payload. This feature is critical for desynchronized members to be able to fetch previous messages.
 
@@ -143,7 +143,7 @@ This construction adds no public-key cryptography, so it introduces no quantum w
 
 ### External Functions
 
-**KDF_DOM(ikm, domain)**: Returns a domain separated encryption key of length `L` given a uniformly distributed key, and `domain`. `L` MUST be the key length required by `ENC`. The output is a uniformly distributed key.
+**KDF_DOM(ikm, domain)**: Returns a domain-separated encryption key of length `L` given a uniformly distributed key, and `domain`. `L` MUST be the key length required by `ENC`. The output is a uniformly distributed key.
 
 **HASH(data)**: Returns a fixed-size digest of `data`. The hash function MUST be collision resistant.
 
@@ -248,7 +248,7 @@ With random 96-bit nonces, the collision probability reaches 2^-32 after about 2
 These bounds hold only under random generation, which is why the wire format requires it rather than recommending it. A counter-based implementation would inherit the rollback exposure this construction is written to avoid, and the stated margins would not apply to it.
 
 **Header Substitution**
-Binding `HASH(content_ciphertext)` into the associated data prevents a valid header from being detached from its own message and reattached to another. Two headers are substitutable only if their accompanying content ciphertexts are identical. This does not occur, because the application's content encryption layer is IND-CPA and therefore produces distinct ciphertexts for repeated plaintexts - including for the no-op payloads required by Environment Assumptions. The substitution resistance of the header is inherited from this property of a layer that this document does not specify.
+Binding `HASH(content_ciphertext)` into the associated data prevents a valid header from being detached from its own message and reattached to another. Two headers are substitutable only if their accompanying content ciphertexts are identical. This does not occur for messages with content, because the application's content encryption layer is IND-CPA and therefore produces distinct ciphertexts for repeated plaintexts. The substitution resistance of the header is inherited from this property of a layer that this document does not specify. Messages with no content, such as SDS periodic sync messages, all share the same `h`. For these, moving a header onto another such message is the same as replaying the original, which is covered under Associated Data and Binding.
 
 **Compromised Reliability Keys**
 Anyone holding a reliability key can forge SDS headers. This approach currently has no solution to that. The compromise is bounded in that the key validity expires with future epochs, however while valid an attacker could cause clients to request non-existent messages.
