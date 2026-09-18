@@ -134,7 +134,9 @@ Given the data at risk, eventual forward secrecy is acceptable here.
 
 ### PQ Considerations
 
-!TODO: Grovers Algo note on keysizes
+Grover's algorithm reduces the effective security of a `k`-bit symmetric key to about `k/2` bits against a quantum attacker. `ENC` SHOULD therefore use keys of at least 256 bits. `HASH` is relied on only for collision resistance, which quantum search degrades less sharply; a 256-bit output is sufficient.
+
+This construction adds no public-key cryptography, so it introduces no quantum weakness of its own. Its post-quantum security is that of the `epoch_secret` it derives from. Where the `epoch_secret` is established by a classical key agreement, an attacker who records traffic now and later breaks that agreement recovers the reliability keys along with the message keys.
 
 
 ## Construction
