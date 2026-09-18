@@ -47,7 +47,7 @@ A path-selection strategy is a way to construct a Mix path from the currently el
 We can define a session as a single or multiple transport layer sessions where a client sends or receives multiple chunks/files that are related, i.e., the chunks are all related to the same file or multiple files but all belong to the same content category/type which an adversary can correlate.
 
 ### Local topology
-A local topology maintained by the path selector and consists of layers of (possibly trusted) mix nodes and edges connecting these layers. Paths are then constructed by traversing this local topology. Selector may rotate nodes on this topology or keep it for the entire selector lifetime. 
+A local topology maintained by the path selector and consists of layers of (possibly trusted) mix nodes and edges connecting these layers. Paths are then constructed by traversing this local topology. Selector may rotate nodes on this topology or keep it for the entire selector lifetime.
 
 Example local topology with 3 layers
 
@@ -148,7 +148,7 @@ excludedNodeIds = { InitiatorId }
 fixedHops[L - 1] = InitiatorId
 ~~~
 
-The selector fills L - 1 positions. Cover traffic path loops back to the initiator as specified in the [mix cover traffic specification](https://lip.logos.co/anoncomms/raw/mix-cover-traffic.html). Additionally, cover traffic path selection does not require a specified strategy and can fall back to uniform random selection of mix nodes. Note that future versions of the spec might specify a way to use cover traffic for [path health monitoring](https://lip.logos.co/anoncomms/raw/mix-cover-traffic.html#112-path-health-monitoring). 
+The selector fills L - 1 positions. Cover traffic path loops back to the initiator as specified in the [mix cover traffic specification](https://lip.logos.co/anoncomms/raw/mix-cover-traffic.html). Additionally, cover traffic path selection does not require a specified strategy and can fall back to uniform random selection of mix nodes. Note that future versions of the spec might specify a way to use cover traffic for [path health monitoring](https://lip.logos.co/anoncomms/raw/mix-cover-traffic.html#112-path-health-monitoring).
 
 
 ### Path validity
@@ -163,7 +163,7 @@ The Path selector must validate/ensure the selected path satisfies all of the fo
 
 ### Path constraints
 
-Path constraints need to be handled carefully so as not to help adversary with confirmation attacks, i.e., confirming certain mix nodes are used within the fixed paths. Therefore the path selector must not behave predectibly based on the constraints. For example, path selector failing to produce a path for some destinations/exits would confirm that these destinations/exists are likely used in the path selector state since requests involving that node repeatedly fail. 
+Path constraints need to be handled carefully so as not to help the adversary with confirmation attacks, i.e., confirming certain mix nodes are used within the fixed paths. Therefore, the path selector must not behave predictably based on the constraints. For example, the path selector failing to produce a path for some destinations/exits would confirm that these destinations/exits are likely used in the path selector state since requests involving that node repeatedly fail.
 
 As can be seen above, both forward and SURB path creation require excluding the destination and exit addresses. For path selection strategies with fixed nodes or paths, this could lead to failure to create a path where all `L` hops being unique thus confirming to an adversary that it is used by the user/service. Path selector must be able to handle such cases by having alterantive paths/nodes to choose from.
 
@@ -206,7 +206,7 @@ $`
 \texttt{P-DLM} \approx \beta^R
 `$
 
-Where $`R = L-F`$ is the number of randomly selected intermediary Mix nodes. Fixed hops are not counted as independently sampled intermediaries. For intance, $`R=L`$ for a forward path with a separate destination, while $`R=L-1`$ when the destination is also the exit (`exit==destination`). $`\texttt{P-DLM}`$ is the probability that only a single packet will be de-anonymized. However, if a mix node sends packets over time, after $`N`$ independently selected paths, the probability that at least one fully malicious path is selected is approximately:
+Where $`R = L-F`$ is the number of randomly selected intermediary Mix nodes. Fixed hops are not counted as independently sampled intermediaries. For instance, $`R=L`$ for a forward path with a separate destination, while $`R=L-1`$ when the destination is also the exit (`exit==destination`). $`\texttt{P-DLM}`$ is the probability that only a single packet will be de-anonymized. However, if a mix node sends packets over time, after $`N`$ independently selected paths, the probability that at least one fully malicious path is selected is approximately:
 
 $`
 \texttt{P-DLM}(N)
@@ -226,13 +226,13 @@ Examples include:
 - anonymous uploads
 - large request/response exchanges implemented using the Mix transport layer.
 
-The session selector combines fixed-hop selection (similar to the K-HF in the [research post](https://forum.research.logos.co/t/mix-path-selection/721)) with ordered K-sized sets (i.e., the K/W strategy). It follows the fixed-hop approach because fixing one or more hop positions limits the number of opportunities for a session to encounter a fully malicious path. The K-sized sets allow the selector to tolerate realistic node churn without sampling a new node whenever the active fixed node is temporarily unavailable. An example of 2 fixed hops, each fixed hop containing a set of nodes $`S`$ of size $`K`$, with a third hop $`R`$ chosen at random: 
+The session selector combines fixed-hop selection (similar to the K-HF in the [research post](https://forum.research.logos.co/t/mix-path-selection/721)) with ordered K-sized sets (i.e., the K/W strategy). It follows the fixed-hop approach because fixing one or more hop positions limits the number of opportunities for a session to encounter a fully malicious path. The K-sized sets allow the selector to tolerate realistic node churn without sampling a new node whenever the active fixed node is temporarily unavailable. An example of 2 fixed hops, each fixed hop containing a set of nodes $`S`$ of size $`K`$, with a third hop $`R`$ chosen at random:
 
 ```
 Sender -> [S_1] -> [S_2] -> R -> receiver
 ```
 
-We can use the notation X-X-...-R, where X is the size of the set. e.g., 5-5-R would mean 3 hops, two fixed each with 5 possible nodes to select from, and a third hop with a random node sampled from the mix network. The set of mix nodes for fixed hop set could come from a trusted pool chosen by the user and it also helps to set an upperbound on the deanonymization probability that we can tolerate. The session would only be valid as long as we don't exceed this set.
+We can use the notation X-X-...-R, where X is the size of the set. e.g., 5-5-R would mean 3 hops, two fixed each with 5 possible nodes to select from, and a third hop with a random node sampled from the mix network. The set of mix nodes for fixed hop set could come from a trusted pool chosen by the user and it also helps to set an upper bound on the deanonymization probability that we can tolerate. The session would only be valid as long as we don't exceed this set.
 
 A distinct session-selector instance must be initialized for each independent session. However, all forward packets, control packets, acknowledgements, and SURBs belonging to the same session must use the same selector instance. The selector instance must be discarded when the session ends and must not be reused by an unrelated session. This prevents the path-selection layer itself from introducing linkability between otherwise independent sessions, although initializing more independent selectors also increases the node's cumulative exposure to new candidates.
 
@@ -251,7 +251,7 @@ $`
 S_j=(n_{j,1},n_{j,2},\ldots,n_{j,K}).
 `$
 
-The selector stores the candidate sets $`\{S_0,\cdots,S_{L_f} \}`$ in the selector state:
+The selector stores the candidate sets $`\{S_1,\cdots,S_{L_f} \}`$ in the selector state:
 
 ```text
 SessionState {
@@ -265,16 +265,16 @@ For each path request, the selector:
 1. places any $`F`$ caller-fixed hops specified by `PathConstraints` at their required positions
 2. For each $`L_f`$ session-fixed hops, first filter candidate set to exclude offline, nodes in the exclusion list, and nodes already placed in the path.
 3. Select one candidate uniformly at random from each filtered set, ensuring that no node appears more than once.
-4. Fill any the remaining $`r`$ random positions by sampling uniformly from the Mix pool, excluding nodes from `PathConstraints` or already placed in the path.
+4. Fill any remaining $`r`$ random positions by sampling uniformly from the Mix pool, excluding nodes from `PathConstraints` or already placed in the path.
 5. Returns the path after checking the general path-validity requirements.
 
-If none of the candidates are usable/online in any of the sets then the session should ends to preserve the anonymity requirement as specified when constructing the path selector.
+If none of the candidates are usable/online in any of the sets, then the session should end to preserve the anonymity requirement specified when constructing the path selector.
 
 #### De-anonymization probability
 
 Let:
-- $`L_f`$ be the number of fixed positions 
-- $`\beta_f`$ be the estimated malicious fraction in the pool from which fixed-hop candidates are selected. 
+- $`L_f`$ be the number of fixed positions
+- $`\beta_f`$ be the estimated malicious fraction in the pool from which fixed-hop candidates are selected.
 - $`\beta`$ be the estimated malicious fraction
 
 The upper bound for session de-anonymization likelihood for $`N`$ paths is:
@@ -374,9 +374,9 @@ The selector state is shared by all application sessions and path requests assoc
 
 Let:
 
-- $`L_f`$ be the number of consecutive path positions controlled by the time-based selector and does not include called-supplied fixed hops, i.e., $`L_f \le L`$.
+- $`L_f`$ be the number of consecutive path positions controlled by the time-based selector and does not include caller-supplied fixed hops, i.e., $`L_f \le L`$.
 - $`K`$ be the number of candidate nodes in each topology layer
-- $`d`$ be the number of distinct outgoing connections from each node in a layer (expect the last) to the next layer
+- $`d`$ be the number of distinct outgoing connections from each node in a layer (except the last) to the next layer
 - $`M`$ be the number of active complete paths
 - $`R`$ be the size of the set containing random rotating mix nodes
 - $`\mathcal{P}`$ be the set of complete paths allowed by the fixed topology with size $`A=|\mathcal{P}|`$
@@ -448,25 +448,25 @@ $`
 When an active path expires, the selector:
 
 1. removes that complete path from the active set
-2. samples one replacement path uniformly from the set $`\mathcal{P}`$ excluding path that are already active
+2. samples one replacement path uniformly from the set $`\mathcal{P}`$, excluding paths that are already active
 3. assigns the replacement a newly sampled independent rotation time ($`\tau`$).
 
-*Notes: 
+Notes:
 - Path rotation does not change topology nodes, connections, or node-expiry timers.
 - A previously chosen path may be selected again after expiry since selection is random and the set $`\mathcal{P}`$ is expected to be smaller in size than the expected number of paths requested.
 
 ### Node rotation
 
-All nodes in a layer share the same lifetime policy, but sample their durations independently. Depending on the selector strategy/profiles, nodes lifetimes in some layers may or may not have an expiry. 
+All nodes in a layer share the same lifetime policy, but sample their durations independently. Depending on the selector strategy/profiles, nodes lifetimes in some layers may or may not have an expiry.
 
 When a node with a lifetime expires, the selector:
 
-1. samples a replacement uniformly from eligible nodes outside the current topology excluding nodes that used in the current local topology
+1. samples a replacement uniformly from eligible nodes outside the current topology, excluding nodes that are used in the current local topology
 2. places the replacement in the same layer and same index (this helps fixed paths stay consistent).
 3. all incoming and outgoing connections of that layer and index are preserved
 4. the replacement's lifetime is sampled based on the layer's policy
 
-Every active path using that slot immediately resolves to the replacement node since its placed in the same layer and index. The active path-expiry timers remain unchanged.
+Every active path using that slot immediately resolves to the replacement node since it's placed in the same layer and index. The active path-expiry timers remain unchanged.
 
 ### Path selection
 
@@ -475,10 +475,10 @@ For every path request, the selector:
 1. applies `PathConstraints` and removes any active path that does not satisfy them.
 2. removes any active path containing a node that is currently offline or unavailable.
 3. samples uniformly from the remaining active paths.
-4. add any additional hops, e.g. a requested exist node.
+4. add any additional hops, e.g. a requested exit node.
 5. returns the selected path.
 
-Note: removal above refer to removal from sampling for a given request. Temporary unavailability should not cause path rotation or node replacement. If no active path is usable, depending on the availability requirement, the selection fails or an additional path is sampled from the fixed topology and added to the set $`\mathcal{P}`$.
+Note: removal above refers to removal from sampling for a given request. Temporary unavailability should not cause path rotation or node replacement. If no active path is usable, depending on the availability requirement, the selection fails or an additional path is sampled from the fixed topology and added to the set $`\mathcal{P}`$.
 
 ### Time-based anonymity profiles
 
@@ -491,37 +491,37 @@ TimeBasedProfile =
   | STRICT
 ```
 
-Each profile determines $`L_f`$, $`K`$, $`d`$, $`M`$, and the rotation values $`\tau_{min}`$ and $`\tau_{max}`$. $`R`$ refers to a hop with random mix node sampled from the mixnet, whereas, $`R5`$ refers to a fixed set of randomly selected mix nodes, each with independet lifetime sampled from the same $`\tau_{min}`$ and $`\tau_{max}`$ range.
+Each profile determines $`L_f`$, $`K`$, $`d`$, $`M`$, and the rotation values $`\tau_{min}`$ and $`\tau_{max}`$. $`R`$ refers to a hop with random mix node sampled from the mixnet, whereas, $`R5`$ refers to a fixed set of randomly selected mix nodes, each with an independent lifetime sampled from the same $`\tau_{min}`$ and $`\tau_{max}`$ range.
 
-Profile | $`L_f`$ | $`K`$ | $`d`$ | $`M`$ | $`R`$ | num of fixed nodes | Path rotation ($`\tau_{min}`,`\tau_{max}`$) |
-|---|---:|---:|---:|---:|---:|---:|---| 
+Profile | $`L_f`$ | $`K`$ | $`d`$ | $`M`$ | $`R`$ | num of fixed nodes | Path rotation ($`\tau_{min}`$,$`\tau_{max}`$) |
+|---|---:|---:|---:|---:|---:|---:|---|
 | `LITE` (`5_5_R`) | 3 | 5 | mesh | 5 | 0 | 10 | $`(1,48)`$ hours |
 | `STANDARD` (`5_5_R5`) | 3 | 5 | 3 | 5 | 5 | 10 | $`(1,48)`$ hours |
 | `STRICT` (`5_5_5_R5`) | 4 | 5 | 3 | 5 | 5 | 15 | $`(1,48)`$ hours |
 
 Profile | $`L_f`$ | Connections | $`M`$ | Permanent nodes | Rotating nodes |
 |---|---|---:|---|---:|---:|
-| `LITE` (`5_5_R`) | 3 | Mesh | 5 | 10 | 0 | 
+| `LITE` (`5_5_R`) | 3 | Mesh | 5 | 10 | 0 |
 | `STANDARD` (`5_5_R5`) | 3 | Degree 3 | 5 | 10 | 5 |
 | `STRICT` (`5_5_5_R5`) | 4 | Degree 3 | 5 | 15 | 5 |
 
 
-- `LITE` uses 2 fixed topology layers, mesh connections between layers, and 5 active paths. The third hop is randomly selected from the mix pool. 
-- `STANDARD` is the default. It has 2 fixed layers with degree 3, however, it's random third hop uses a fixed set of 5 nodes each with it's own independent lifetime. 
+- `LITE` uses 2 fixed topology layers, mesh connections between layers, and 5 active paths. The third hop is randomly selected from the mix pool.
+- `STANDARD` is the default. It has 2 fixed layers with degree 3; however, its random third hop uses a fixed set of 5 nodes, each with its own independent lifetime.
 - `STRICT` uses the same structure as `STANDARD` but with 3 fixed layer instead of 2 to resist sybil and path walking attacks for a longer period of time. The three fixed layers would mean that this profile requires more trusted nodes (15 nodes).
 
 `STANDARD` and `STRICT` place an additional fixed layer of rotating nodes $`R5`$ at the client-facing side. The purpose of $`R5`$ layer is to incentivize the adversary to sybil that layer and give the service more time to operate. This is because exit nodes are sampled from the general mixnet pool and rotate slowly, therefore, making it more attractive for the adversary to sybil attack instead of the more expensive compromise attack. Additionally, rotation limits how long a sybiled exit remains useful in its position, potentially reducing the usefulness of compromises that finish after it rotates.
 
-The $R5$ layer follows these rules:
+The $`R5`$ layer follows these rules:
 - Initialize five distinct nodes, excluding all nodes in the other layers.
 - Assign each node an independent lifetime equal to the maximum of two uniform draws between 1-48 hours.
-- Connect the preceding layer to $R5$ using the topology's configured degree.
-- When a node expires, replace it with a uniformly selected eligible node outside the current topology. The replacement inherits the connections and active paths the used the expired node.
+- Connect the preceding layer to $`R5`$ using the topology's configured degree.
+- When a node expires, replace it with a uniformly selected eligible node outside the current topology. The replacement inherits the connections and active paths that used the expired node.
 - Keep node and path timers independent: replacing a node does not reset path timers, and rotating a path does not reset node timers.
 
 #### De-anonymization probability
 
-To estimate the $`\texttt{T-DLM}`$ value for each profile, we used the [mixpathsim](https://github.com/logos-storage/hs-mix-sim) simulator. Simulations with malicious control $`\beta=0.10`$, a 30-day hidden service lifetime, five active paths, and 5,000 trials show the following expected $`\texttt{T-DLM}`$ and median time to service identification.`NR` means that the 50% threshold was not reached within the 30-day observation period.
+To estimate the $`\texttt{T-DLM}`$ value for each profile, we used the [mixpathsim](https://github.com/logos-storage/hs-mix-sim) simulator. Simulations with malicious control $`\beta=0.10`$, a 30-day hidden service lifetime, five active paths, and 5,000 trials show the following expected $`\texttt{T-DLM}`$ and median time to service identification. `NR` means that the 50% threshold was not reached within the 30-day observation period.
 
 | Profile | Sybil only | Basic | APT | FVEY | Rubberhose1 | Rubberhose2 |
 |---|---:|---:|---:|---:|---:|---:|
@@ -542,18 +542,18 @@ where we define these adversary models (following Tor's naming convention here) 
 | `rubberhose2` | 50% between 7 and 21 days, otherwise never
 
 
-The suggested lifetime `T` for hidden service using each of these profiles considering the strogest adversary model (FVEY):
+The suggested lifetime `T` for a hidden service using each of these profiles, considering the strongest adversary model (FVEY):
 
 Profile | measured median lifetime | Suggested lifetime range |
 |---|---|---|
-| `LITE` (`5_5_R`) | 5.64 days | 1-5 days | 
+| `LITE` (`5_5_R`) | 5.64 days | 1-5 days |
 | `STANDARD` (`5_5_R5`) | 24.04 days | 1-15 days |
 | `STRICT` (`5_5_5_R5`) |  NR | 1-30 days |
 
 ## Security Consideration
 
 - The strategies proposed in this document do not define how a user/service establishes that a candidate is trustworthy. Constructing a pool of trusted nodes depends on each user/service and can be specified in a separate specification document.
-- Both session- and time-based selection strategies reduce cumulative exposure within a bounded session or time $`T`$. However, running multiple sessions and operating multiple hidden service instances would increase the probability of deanonymization. For users expecting multiple sessions within some bounded it, it might make sense to use the time-based selection strategy as it would reduce the cumulative exposure at the cost of possibly linking these sessions. 
+- Both session- and time-based selection strategies reduce cumulative exposure within a bounded session or time $`T`$. However, running multiple sessions and operating multiple hidden service instances would increase the probability of deanonymization. For users expecting multiple sessions within some bounded time, it might make sense to use the time-based selection strategy as it would reduce the cumulative exposure at the cost of possibly linking these sessions.
 - Repeated use of fixed paths may allow nodes on these paths to infer that they belong to some fixed path. The degree of certainty depends on multiple factors, including traffic volume, path reuse, mixing delays, and the cover-traffic strategy. Further research is required to determine whether this creates a practical side channel.
 - Concentrating traffic on a small set of fixed nodes may increase load and create congestion. Nodes selected for fixed paths should provide sufficient bandwidth and are expected to tolerate rate-limit/RLN restrictions. The selector can then choose the appropriate nodes for the mix pool passed to the selector.
 - Restricting traffic to a smaller set of paths may also give a global passive adversary (GPA) more opportunities to link observations over time. Mixing and cover traffic may reduce this advantage, but their effectiveness under persistent path reuse requires further research and analysis.
@@ -563,5 +563,5 @@ Profile | measured median lifetime | Suggested lifetime range |
 
 - [Reference implementation and simulation](https://github.com/logos-storage/hs-mix-sim)
 - [Path selection strategies for anonymous download](https://forum.research.logos.co/t/mix-path-selection/721)
-- [Time-based path selection](https://forum.research.logos.co/t/hidden-service-time-based-path-selection/730) 
+- [Time-based path selection](https://forum.research.logos.co/t/hidden-service-time-based-path-selection/730)
 - [Hidden services](https://forum.research.logos.co/t/hidden-service-time-based-path-selection/730/1)
