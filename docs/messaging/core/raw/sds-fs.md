@@ -3,7 +3,6 @@
 | Field | Value |
 | --- | --- |
 | Name | Forward Secrecy with SDS|
-| Slug | TODO (assigned on promotion to draft) |
 | Status | raw |
 | Type | RFC |
 | Category | Standards Track |
@@ -54,8 +53,6 @@ Forward secrecy is a minimum requirement in modern private messaging protocols.
 
 For a messaging protocol that wants to use SDS and still retain forward secrecy, these two items conflict. 
 
-< Diagram >
-
 SDS works by receiving the latest payload and walking through the history backwards to recover lost messages. However FS based encryption schemes require the first encryption key in order to derive the others. Given the case where a message containing key material has been lost, a client cannot decrypt future messages - and if SDS payload is encrypted the previous messages_ids cannot be recovered.
 
 This problem can be avoided by sending SDS payloads in cleartext, however that leaks metadata that undermines privacy required in messaging protocols. This directly exposes SenderId, ChannelId, previous messages, while also leaking metadata that increases linkability.
@@ -104,6 +101,10 @@ An `epoch_reliability_key` is derived from the `epoch_secret`, which is then use
 There is a predictable rotation to keys. The `epoch_reliability_key` used to encrypt reliability headers in epoch `E`, is the key derived from epoch `E - LAG`. 
 
 This allows members who have missed `LAG` state updates to parse reliability headers and begin recovery of missing messages. 
+
+![Epochs 1 to 5, where each epoch derives the reliability key used two epochs later (LAG = 2). Raya is at epoch 3 and Saro at epoch 5.](images/sds-fs-fig1.png)
+
+In the figure `LAG` = 2. Saro, at epoch 5, encrypts headers with reliability key 5, which is derived from epoch 3. Raya is two epochs behind but holds the secret for epoch 3, which is enough to read Saro's headers.
 
 For the first `LAG` epochs of a group there is no epoch `E - LAG` to derive from. The creator of the group generates the reliability keys for these epochs at random. Every other member is a joiner, and receives them by the mechanism described in Initialization. From epoch `LAG` onward the derivation applies normally.
 
