@@ -19,7 +19,7 @@
 
 ## Abstract
 
-!TODO: 
+This document specifies an encryption scheme for Scalable Data Sync (SDS) headers that is compatible with forward secrecy. The key for each epoch's headers is derived from the `epoch_secret` of the epoch `LAG` epochs earlier, so a member that has missed up to `LAG` epoch updates can still read incoming headers and use their causal history to recover the messages it is missing. Headers are authenticated and bound to the message they accompany. Header confidentiality has forward secrecy at the granularity of one epoch.
 
 ## Terminology
 
