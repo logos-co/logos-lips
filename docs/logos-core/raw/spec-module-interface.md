@@ -1536,7 +1536,7 @@ the ABI caller is not required to serialize provider calls.
 and concurrently with other calls using the same live context.
 The module MUST synchronize its allocator state.
 
-Operations through one Runtime Control binding MAY be initiated concurrently from multiple module threads.
+Operations through one Runtime Control binding, except its release, MAY be initiated concurrently from multiple module threads.
 The binding implementation MUST make those operations thread-safe
 while preserving the operation ordering defined by LOGOS-MODULE-RUNTIME.
 
@@ -2541,7 +2541,7 @@ The common declarations are mapping inputs in the same sense as `uint64_t`: a re
 - `logos_module_init_input_t` is the size- and version-delimited initialization input supplied to the module by the ABI caller.
 - `logos_runtime_control_binding_t` is the process-local binding through which the initialized module invokes the intrinsic Runtime Control contract.
 - A Runtime Control binding contains a versioned vtable and opaque binding state.
-  It supports generic deterministic-CBOR calls, response release, event subscription, unsubscription, and route-handle materialization.
+  It supports generic deterministic-CBOR calls, response release, event subscription, unsubscription, route-handle materialization, remote binding acquisition, and owned-binding release.
 - The Runtime Control binding identifies the initialized module instance as consumer but grants no authority by itself.
 - The publish callback attributes published events to the initialized module instance and does not transfer the authority of an inbound caller.
 - `logos_module_init_input_t.state_dir`, when non-null, identifies the module-visible persistent-state directory assigned to this module instance.
@@ -2690,7 +2690,21 @@ struct logos_runtime_control_vtable {
         const logos_runtime_control_binding_t* binding,
         const char*                            route_id,
         const uint8_t                          expected_contract_root[32],
+        const uint8_t*                         schema_cbor,
+        size_t                                 schema_cbor_len,
         logos_route_handle_t*                  out_route
+    );
+
+    logos_result_t (*connect_remote)(
+        const logos_runtime_control_binding_t* binding,
+        const uint8_t*                         endpoint_cbor,
+        size_t                                 endpoint_cbor_len,
+        const uint8_t                          expected_contract_root[32],
+        logos_runtime_control_binding_t*       out_binding
+    );
+
+    void (*release)(
+        logos_runtime_control_binding_t* binding
     );
 };
 
@@ -2774,7 +2788,38 @@ An ABI caller that independently owns an accepted direct implementation binding 
 The Runtime Control `subscribe` and `unsubscribe` operations apply the subscription semantics in Section 2.5 to events selected from the Runtime Control contract.
 The corresponding route operations apply those semantics to events selected by that route.
 
+The `connect_remote` operation acquires a process-local binding to the intrinsic Runtime Control contract of an explicitly selected remote Runtime.
+It MUST be invoked through the initialized module's local Runtime Control binding.
+Invoking it through a remote binding MUST fail with `LOGOS_ERR_INVALID_PARAMS`.
+The endpoint bytes MUST contain exactly one deterministic-CBOR `logos.runtime_control.runtime_endpoint` value as defined by LOGOS-MODULE-RUNTIME, with `runtime_instance_id` present and an address selecting `logos.remote.tls-tcp` or `logos.remote.quic`.
+The selected Runtime MUST differ from the consumer's owning Runtime.
+The endpoint bytes and `expected_contract_root` are borrowed only for the operation.
+The owning Runtime MUST authenticate the selected Runtime and validate Transport Hello against the supplied 32-byte Runtime Control schema root before reporting success.
+The remote binding MUST retain the initialized module's complete consumer identity and MUST NOT substitute another module or a Runtime consumer.
+Acquisition grants no authority; the target Runtime MUST enforce its enrollment, forwarding and operation-authorization requirements.
+The binding's target and consumer MUST remain unchanged throughout its lifetime.
+
+Before calling `connect_remote`, the caller MUST set `out_binding->vtable` and `out_binding->state` to `NULL`.
+Success requires both fields to be non-null and transfers ownership of the acquired binding to the caller.
+Failure MUST leave both fields null and MUST NOT retain a live acquired binding.
+The output structure is caller-owned; its vtable and opaque state are Runtime-owned.
+Remote `call`, `subscribe`, `unsubscribe` and `materialize_route` operations preserve their existing consumer, contract, validation and ownership requirements.
+
+The caller MUST invoke each acquired binding's `release` operation exactly once, before the initialized module's `_destroy()` returns.
+If `_init()` fails, the module MUST release every binding it acquired before returning that failure.
+Before release, the caller MUST stop new operations, wait for outstanding operations to return, and release every transferred response buffer.
+Release MUST NOT be invoked from a callback belonging to that binding.
+Release deactivates remaining subscriptions, waits for the callback quiescence required by Section 2.5, and releases the Runtime-owned binding state.
+After release begins, the caller MUST NOT use or inspect the binding again.
+Release does not close independent provider sessions, release their route handles, or close their logical routes.
+Execution-envelope termination MUST reclaim outstanding acquired bindings without requiring module cleanup to run.
+The Runtime Control binding supplied in the initialization input is borrowed; the module MUST NOT invoke its `release` operation.
+
 To materialize a route handle, the caller MUST provide the exact `route_id` and 32-byte `schema_root` from the `expected_contract` of a ready route returned through the same Runtime Control binding as `expected_contract_root`.
+`schema_cbor` MUST be non-null and contain one `logos.schema_response` value encoded as Logos deterministic CBOR, with `schema_cbor_len` between 1 and 8,388,608 bytes.
+The bytes are borrowed for the duration of the call.
+Runtime MUST validate the construction input under Sections 5.1 and 5.3 and verify that the reconstructed selected-contract root equals `expected_contract_root` before returning a handle.
+Supplying this input does not require permission to call `logos.schema`.
 Before calling `materialize_route`, the caller MUST set `out_route->vtable` and `out_route->state` to `NULL`.
 Runtime MUST revalidate that the binding's consumer owns the route, that the route is currently ready, that the route still selects the exact expected contract recorded at establishment or renewal, and that the contract's schema root matches `expected_contract_root`.
 Success requires non-null `out_route->vtable` and `out_route->state` values that represent that route without changing its selected contract or consumer.

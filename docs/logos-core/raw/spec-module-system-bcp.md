@@ -133,6 +133,7 @@ It should not need Runtime Control records, provider addresses, route records, p
 LOGOS-MODULE-CONFIGURATION defines configuration-schema bindings, configuration values, Runtime-owned configuration state, startup delivery, and live reconfiguration.
 It assigns the exact configuration payload carried through the generic pointer-and-length ABI fields defined by LOGOS-MODULE-INTERFACE.
 
+Runtime comprises an enforcement engine and an orchestration module.
 LOGOS-MODULE-RUNTIME defines how module instances are admitted and lifecycle-tracked.
 It defines how providers are registered, selected, routed, observed, and revoked.
 It owns the following runtime concepts:
@@ -249,9 +250,10 @@ An implementation may claim conformance to an individual Core specification with
 Accordingly, conformance to LOGOS-MODULE-RUNTIME or LOGOS-MODULE-TRANSPORT does not require implementation of LOGOS-MODULE-LOADER.
 
 A deployment claiming conformance to this BCP as a complete Logos module system MUST establish its initial Module Loader provider through protected, non-recursive bootstrap.
-After Runtime binds that provider,
-Runtime MUST use it to realize every subsequent local module implementation
-and MUST NOT substitute an independently started implementation or pre-existing provider endpoint for Module Loader realization.
+After Runtime binds that provider, it MUST use it to realize the orchestration module under protected bootstrap policy.
+Every subsequent local module implementation MUST also be realized through the bound Module Loader provider.
+Runtime MUST NOT substitute an independently started implementation or pre-existing provider endpoint for Module Loader realization.
+Orchestration performs subsequent deployment startup through Runtime Control according to LOGOS-MODULE-RUNTIME.
 Remote-module facade creation does not invoke Module Loader because it creates no local module implementation or lifecycle.
 
 ### 5.2 Profile Terminology
@@ -351,7 +353,21 @@ They MUST NOT appear in addresses, discovery results, or negotiation fields defi
 Unknown or unsupported profile identifiers MUST fail the dependent operation unless the owning specification explicitly permits the identifier to be ignored.
 A future profile does not affect current conformance until a normative specification assigns its identifier and complete semantics.
 
-## 6. Module Contract Code Generation (Informative)
+## 6. Module Kit (Informative)
+
+A Module Kit bundles tools and reusable support code for authoring Logos modules.
+Providing the following components together is a useful authoring practice:
+
+- a contract validator and code generator;
+- generated provider and consumer bindings;
+- shared libraries for encoding, ABI boundary checks, memory ownership, and callbacks;
+- templates and examples for library adapters and consumer modules;
+- build and test integration; and
+- authoring documentation.
+
+Using a Module Kit is optional; conformance depends on the artifacts and behavior required by the owning specifications.
+
+### 6.1 Contract Code Generation
 
 Code generation is an implementation technique rather than a conformance requirement.
 A module contract generator can accept a Logos CDDL schema set or equivalent C declarations that conform to the canonical mapping in LOGOS-MODULE-INTERFACE.

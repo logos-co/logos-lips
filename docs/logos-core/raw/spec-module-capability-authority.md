@@ -65,7 +65,7 @@ and MUST NOT authorize its own initial binding.
 ## 2. Module-Instance Addresses And Authenticated Call Context
 
 Every grant `target` field contains a module-instance address.
-A `consumer` contains a module-instance address or, for Runtime-initiated deployment startup, identifies the local Runtime.
+Every `consumer` field contains a module-instance address.
 `consumer` identifies whose authority is used to authorize or evaluate the operation.
 In a grant, `target` names the module instance to which that grant applies.
 Consumer and target are authorization roles; neither creates another module entity type.
@@ -78,8 +78,7 @@ The address does not authenticate the module instance or grant authority.
 
 Runtime MUST supply Capability Authority with authenticated context for the consumer.
 Runtime MUST populate or validate the request's `consumer` against that context before dispatching a Capability Authority method.
-For `evaluate`, Runtime supplies the module instance that initiated the attempted operation as consumer.
-For deployment startup initiated by the local Runtime, Runtime MUST instead supply its own authenticated Runtime identity as consumer.
+For `evaluate`, Runtime supplies the module instance whose authority is required for the attempted operation under LOGOS-MODULE-RUNTIME.
 Runtime's protected invocation on behalf of a module MUST preserve that module as consumer.
 For other methods, the consumer is the module instance authenticated at the Capability Authority invocation boundary.
 A request may separately name a target module instance.
@@ -466,23 +465,17 @@ logos.capability_authority.denial = {
     ? message: tstr .size (0..512),
 }
 
-logos.capability_authority.evaluation_consumer =
-    logos.runtime.module_instance_address /
-    {
-        kind: "runtime",
-        runtime_instance_id: logos.runtime.runtime_instance_id,
-    }
-
 logos.capability_authority.evaluate_request = {
-    consumer: logos.capability_authority.evaluation_consumer,
+    consumer: logos.runtime.module_instance_address,
     scopes: [* logos.capability_authority.scope],
     ? commitment: logos.capability_authority.commitment_requirements,
 }
 
 logos.capability_authority.decision = {
     decision_id: logos.capability_authority.decision_id,
+    policy_revision: uint64,
     result: logos.capability_authority.decision_result,
-    consumer: logos.capability_authority.evaluation_consumer,
+    consumer: logos.runtime.module_instance_address,
     requested_scopes: [* logos.capability_authority.scope],
     ? allowed_scopes: [* logos.capability_authority.scope],
     issued_at: logos.capability_authority.timestamp,
@@ -679,11 +672,35 @@ logos.capability_authority.grant_changed_event = {
 
 logos.capability_authority.policy_changed_event = {
     changed_at: logos.capability_authority.timestamp,
+    previous_policy_revision: uint64,
+    policy_revision: uint64,
+    ? affected_executions: [* logos.runtime.module_instance_address],
 }
 ```
 
 `changed_at` is the time at which the new active policy takes effect.
 The corresponding `policy-change` audit record MUST use the same timestamp.
+
+Policy revisions are positive, strictly increase on policy changes, and are scoped to the selected Authority binding.
+A decision's `policy_revision` identifies the policy evaluated.
+A policy event identifies the exact transition from `previous_policy_revision` to `policy_revision`.
+Grant changes do not advance the policy revision.
+
+When present, `affected_executions` is a complete set of execution targets whose existing authorizations may be affected by that policy transition.
+Capability Authority MUST verify against the committed transition that authorizations for every unlisted target remain valid for every consumer and enforcement context, including scope and commitment requirements.
+Caller-supplied target information alone MUST NOT establish this guarantee.
+If completeness cannot be established, Capability Authority MUST omit the field.
+The set MAY be empty and MUST use the deterministic-CBOR ordering and uniqueness rules for set-valued arrays.
+The event MUST NOT expose targets the subscriber is not authorized to observe; filtering the set does not preserve its completeness guarantee.
+
+Runtime MAY retain an existing execution authorization across the transition only when the authenticated event belongs to the same Authority binding, its previous revision matches that authorization's current policy revision, and its complete set excludes the exact execution target.
+Runtime MUST then advance the retained authorization to the event's policy revision without extending its lifetime or scope.
+Each retained authorization MUST account for every intervening policy transition; missing, inconsistent, or unverifiable transition information MUST end the authorization.
+A listed target's existing execution authorization MUST end.
+A fresh decision evaluated after a transition does not depend on that transition's retention guarantee.
+Expiry, supporting-grant revocation or expiry, enforcement loss, and Authority-binding or notification-path loss MUST still end the authorization.
+A change to an unrelated grant does not by itself end an execution authorization; grant issuance MUST NOT widen or revive one.
+Retaining execution does not permit reuse of an invalidated decision for other protected operations.
 
 Runtime may reuse an allow decision only while all of the following remain true:
 
@@ -769,7 +786,7 @@ logos.capability_authority.audit_record =
         timestamp: logos.capability_authority.timestamp,
         operation: "evaluate",
         outcome: "allow",
-        consumer: logos.capability_authority.evaluation_consumer,
+        consumer: logos.runtime.module_instance_address,
         decision_id: logos.capability_authority.decision_id,
         scopes: [* logos.capability_authority.scope],
     } /
@@ -777,7 +794,7 @@ logos.capability_authority.audit_record =
         timestamp: logos.capability_authority.timestamp,
         operation: "evaluate",
         outcome: "deny",
-        consumer: logos.capability_authority.evaluation_consumer,
+        consumer: logos.runtime.module_instance_address,
         decision_id: logos.capability_authority.decision_id,
         scopes: [* logos.capability_authority.scope],
         denial: logos.capability_authority.denial,
@@ -786,7 +803,7 @@ logos.capability_authority.audit_record =
         timestamp: logos.capability_authority.timestamp,
         operation: "evaluate",
         outcome: "failure",
-        consumer: logos.capability_authority.evaluation_consumer,
+        consumer: logos.runtime.module_instance_address,
         ? scopes: [* logos.capability_authority.scope],
         error: logos.capability_authority.error_code,
     } /
@@ -794,7 +811,7 @@ logos.capability_authority.audit_record =
         timestamp: logos.capability_authority.timestamp,
         operation: "call",
         outcome: "success",
-        consumer: logos.capability_authority.evaluation_consumer,
+        consumer: logos.runtime.module_instance_address,
         decision_id: logos.capability_authority.decision_id,
         scopes: [logos.capability_authority.scope],
         commitments: logos.capability_authority.call_commitments,
@@ -803,7 +820,7 @@ logos.capability_authority.audit_record =
         timestamp: logos.capability_authority.timestamp,
         operation: "call",
         outcome: "failure",
-        consumer: logos.capability_authority.evaluation_consumer,
+        consumer: logos.runtime.module_instance_address,
         decision_id: logos.capability_authority.decision_id,
         scopes: [logos.capability_authority.scope],
         ? commitments: logos.capability_authority.call_commitments,
@@ -867,7 +884,7 @@ logos.capability_authority.audit_record =
 
 logos.capability_authority.query_audit_request = {
     consumer: logos.runtime.module_instance_address,
-    ? record_consumer: logos.capability_authority.evaluation_consumer,
+    ? record_consumer: logos.runtime.module_instance_address,
     ? target: logos.runtime.module_instance_address,
     ? decision_id: logos.capability_authority.decision_id,
     ? grant_id: logos.capability_authority.grant_id,

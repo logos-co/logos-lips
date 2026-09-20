@@ -70,11 +70,9 @@ This specification does not define:
 
 ## 1. Responsibility Split
 
-Runtime owns every logical module instance,
-including its identity, lifecycle state, provider state, routing, readiness,
-Runtime Control representation, and Runtime enforcement points.
-Runtime decides when an accepted implementation is realized
-and invokes the bound Module Loader provider.
+The Runtime engine owns module-instance identity, lifecycle state, provider state, routing, readiness, Runtime Control representation, and enforcement.
+The orchestration module coordinates deployment and schedules recovery through Runtime Control.
+The engine admits lifecycle requests and invokes the bound Module Loader provider for realization, status and release.
 
 Package Manager owns package catalogs, package installation state,
 resolved local artifacts, and authenticated Runtime handoff records.
@@ -322,6 +320,14 @@ Module Loader MUST NOT advertise a hosted placement unless it can convey the lis
 A direct realization MUST omit `provider_endpoint`.
 A consumer-only realization MUST omit `provider_endpoint`.
 No endpoint mechanism is negotiated through this contract.
+
+### 5.4 Trusted Transport Adapter Handoff
+
+Module Loader MAY convey a private invocation channel between a Module Host and a Runtime-controlled Transport adapter outside the module's execution envelope.
+The handoff MUST preserve the binding to the module instance and its realization, the selected placement's isolation, and existing invocation semantics.
+It MUST NOT expose Runtime credentials to the Module Host or module.
+The adapter does not change the meaning of `provider_endpoint` defined in Section 5.3.
+Channel setup and descriptor transfer are determined by the implementation.
 
 ## 6. Realize Operation
 
@@ -698,9 +704,7 @@ permission, isolation, and audit semantics.
 
 ## 15. Boundary With Other Core Specifications
 
-LOGOS-MODULE-RUNTIME owns module-instance identity,
-lifecycle, provider state, routing, readiness,
-Runtime Control, restart policy, and Runtime enforcement points.
+LOGOS-MODULE-RUNTIME defines the Runtime engine and orchestration module and their responsibilities for module-instance identity, lifecycle, provider state, routing, readiness, Runtime Control, recovery policy and enforcement.
 
 LOGOS-MODULE-INTERFACE owns native implementation metadata,
 initialization, context, dispatch, memory, and destruction semantics.
