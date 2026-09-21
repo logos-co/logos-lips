@@ -499,12 +499,6 @@ Profile | $`L_f`$ | $`K`$ | $`d`$ | $`M`$ | $`R`$ | num of fixed nodes | Path ro
 | `STANDARD` (`5_5_R5`) | 3 | 5 | 3 | 5 | 5 | 10 | $`(1,48)`$ hours |
 | `STRICT` (`5_5_5_R5`) | 4 | 5 | 3 | 5 | 5 | 15 | $`(1,48)`$ hours |
 
-Profile | $`L_f`$ | Connections | $`M`$ | Permanent nodes | Rotating nodes |
-|---|---|---:|---|---:|---:|
-| `LITE` (`5_5_R`) | 3 | Mesh | 5 | 10 | 0 |
-| `STANDARD` (`5_5_R5`) | 3 | Degree 3 | 5 | 10 | 5 |
-| `STRICT` (`5_5_5_R5`) | 4 | Degree 3 | 5 | 15 | 5 |
-
 
 - `LITE` uses 2 fixed topology layers, mesh connections between layers, and 5 active paths. The third hop is randomly selected from the mix pool.
 - `STANDARD` is the default. It has 2 fixed layers with degree 3; however, its random third hop uses a fixed set of 5 nodes, each with its own independent lifetime.
