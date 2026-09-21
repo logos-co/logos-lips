@@ -33,6 +33,7 @@
 | 1.6.1 | Renamed the `LockedNoteId` production of the SDP Operations into `ServiceNoteId` | 2026-08-27 |
 | 1.7.0 | Added the `ChannelConfigOpProof` and `ChannelTransferOpProof` variants and factored the three channel threshold proofs into `ChannelMultiSigProof`, carrying the index of the signing key alongside each signature | 2026-08-31 |
 | 1.8.0 | Added the `ClaimPowReward` Operation payload; its proof is a `ZkSigProof` | 2026-09-08 |
+| 1.9.0 | Holder-authorized channel notes, following Mantle 1.16.0: removed `ChannelWithdraw`, `ChannelTransfer`, their proofs and the `TransferThreshold` of `ChannelConfig`; `ChannelInscribe` carries a transfer part; added the register, force, challenge, answer, pool creation, stake and unstake payloads, the `PoolJournal` and the `EmptyProof` | 2026-09-18 |
 
 # Introduction
 
@@ -71,8 +72,13 @@ OpPayload = Transfer /
             ChannelInscribe /
             ChannelConfig /
             ChannelDeposit /
-            ChannelWithdraw /
-            ChannelTransfer /
+            ChannelRegisterAuth /
+            ChannelForceTransfer /
+            ChannelChallenge /
+            ChannelAnswer /
+            PoolCreate /
+            ChannelStake /
+            ChannelUnstake /
             SDPDeclare /
             SDPWithdraw /
             SDPActive /
@@ -83,24 +89,51 @@ OpPayload = Transfer /
 ### Channel Operations
 
 ```schema
-ChannelInscribe = ChannelId Inscription Parent Signer
+ChannelInscribe = ChannelId Inscription Parent Signer Inputs Outputs Declared
+                  ; Inputs, Outputs and Declared are the transfer part,
+                  ; all empty when the inscription moves nothing
 Inscription     = UINT32 *BYTE 
+Declared        = DeclaredCount *PoolTransition
+DeclaredCount   = Byte
+PoolTransition  = InstanceId StateBefore NewState
+InstanceId      = FieldElement
+StateBefore     = FieldElement
+NewState        = FieldElement
 
-ChannelConfig     = ChannelId Parent KeyCount *Signer PostingTimeframe PostingTimeout ConfigThreshold TransferThreshold
+ChannelConfig     = ChannelId Parent KeyCount *Signer PostingTimeframe PostingTimeout ConfigThreshold
 KeyCount                   = UINT16
 PostingTimeframe           = UINT32
 PostingTimeout             = UINT32
 ConfigThreshold            = UINT16
-TransferThreshold          = UINT16
 
 ChannelDeposit    = ChannelId Inputs Metadata
-Inputs            = InputCount *NoteId
-InputCount        = Byte
 Metadata          = UINT32 *BYTE
 
-ChannelTransfer = ChannelId Inputs Outputs
+ChannelRegisterAuth  = ChannelId Inputs Outputs
+ChannelForceTransfer = ChannelId Inputs Outputs
 
-ChannelWithdraw   = ChannelId Inputs
+ChannelChallenge = TransferId BondNoteId
+ChannelAnswer    = TransferId BondNoteId StepCount *Step
+TransferId       = Hash32        ; OpId of the challenged transfer
+BondNoteId       = NoteId
+StepCount        = UINT16
+Step             = UserStep / PoolStep
+UserStep         = %x00 Inputs Outputs ZkSignature
+PoolStep         = %x01 InstanceId PoolInputs Outputs Groth16   ; Groth16 is the Risc0 seal
+PoolInputs       = PoolInputCount *PoolInput
+PoolInputCount   = Byte
+PoolInput        = NoteRef Value IntentHash
+NoteRef          = %x00 NoteId /          ; an input of the transfer
+                   %x01 UINT16 UINT16     ; (step_index, output_index) of a note an earlier step created
+IntentHash       = FieldElement
+
+PoolCreate = ChannelId ImageId ParamsHash
+ImageId    = Hash32
+ParamsHash = FieldElement
+
+ChannelStake   = Sequencer Inputs
+ChannelUnstake = Sequencer Inputs
+Sequencer      = Ed25519PublicKey   ; the accredited key the stake backs
 
 ChannelId         = Hash32
 Parent            = Hash32
@@ -108,6 +141,13 @@ Signer            = Ed25519PublicKey
 Outputs           = OutputCount *Note
 OutputCount       = Byte
 Inputs            = InputCount *NoteId
+InputCount        = Byte
+```
+
+The journal a pool's program commits to is the following, with the `PoolInputs` and `Outputs` of its pool step. Its SHA-256 digest is what the Risc0 claim binds.
+
+```schema
+PoolJournal = InstanceId StateBefore NewState PoolInputs Outputs
 ```
 
 ### SDP Operations
@@ -176,17 +216,15 @@ OpProof   = Ed25519SigProof /
             ZkSigProof /
             ZkAndEd25519SigsProof /
             ChannelConfigOpProof /
-            ChannelWithdrawOpProof /
-            ChannelTransferOpProof /
-            ProofOfClaimProof
+            ProofOfClaimProof /
+            EmptyProof
 
 Ed25519SigProof         = Ed25519Signature
 ZkSigProof              = ZkSignature
 ZkAndEd25519SigsProof   = ZkSignature Ed25519Signature
 ChannelConfigOpProof    = ChannelMultiSigProof
-ChannelWithdrawOpProof  = ChannelMultiSigProof
-ChannelTransferOpProof  = ChannelMultiSigProof
 ProofOfClaimProof       = Groth16
+EmptyProof              = 0Byte   ; CHANNEL_FORCE_TRANSFER and POOL_CREATE carry nothing
 
 ChannelMultiSigProof = SignatureCount *IndexedSignature
 IndexedSignature     = Ed25519Signature SignerIndex

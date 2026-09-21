@@ -45,6 +45,7 @@
 | 1.13.0 | Removed the `None` case of `op_proofs`, every Operation carrying exactly one proof. A `CHANNEL_CONFIG` creating a channel is verified against a threshold of `0` and its proof carries no signature and no index. Execution Gas is derived from the Operation and the state it is validated against, the thresholds pricing the channel Operations being the ones held in the channel state | 2026-08-31 |
 | 1.14.0 | Moved SDP declaration removal to `withdraw_at + 1`; the last served epoch's reward is paid in the same first block, before removal | 2026-09-11 |
 | 1.15.0 | Add the `CLAIM_POW_REWARD` Operation and the proof of work state it is validated against; the reward pool and the difficulty controllers are specified in [Proof of Work](proof-of-work.md) | 2026-09-08 |
+| 1.16.0 | [RFC] Holder-authorized channel notes: a channel note moves only with its holder's authorization, checked on challenge. `CHANNEL_INSCRIBE` carries the transfer part, `CHANNEL_TRANSFER`, `CHANNEL_WITHDRAW` and `transfer_threshold` are removed, an ordinary `TRANSFER` takes an unlocked note out of its channel, and pools, sequencer collateral, challenges and forced transfers are added, forfeits going to the pending rewards pool. Collateral is derived in [\[Analysis\] Channel Collateral](analysis-channel-collateral.md). A `ZkSignature` over notes lists each distinct key once | 2026-09-18 |
 
 # Introduction
 
@@ -66,7 +67,7 @@ Logos Blockchain features are exposed through Mantle Operations, which can be co
 
 ## Mantle Ledger
 
-The Mantle Ledger enables asset transfers using a transparent UTXO model. While a Transfer Operation can consume more tokens than it creates, the Mantle Transaction excess balance must exactly pay for the fees. The ledger tracks three kinds of notes: regular notes, service notes (collateral for service declarations) and channel notes (channel bridge funds eligible for PoS participation only).
+The Mantle Ledger enables asset transfers using a transparent UTXO model. While a Transfer Operation can consume more tokens than it creates, the Mantle Transaction excess balance must exactly pay for the fees. The ledger tracks regular notes, notes held as collateral (service notes for service declarations, staked notes for channel sequencers and bond notes for challenges) and channel notes (channel bridge funds, moved inside their channel only with their holder's authorization).
 
 ## Transaction Fees
 
@@ -111,7 +112,7 @@ class SignedMantleTx:
     op_proofs: list[OpProof] # each Op has exactly 1 associated proof
 ```
 
-Each proof (op proof and signature) must be cryptographically bound to the `MantleTx` through the `mantle_txhash` to prevent replay attacks. This binding is achieved by including the `MantleTx` hash reduced modulo $`p`$ as a public input in every ZK proof.
+Each proof (op proof and signature) must be cryptographically bound to the `MantleTx` through the `mantle_txhash` to prevent replay attacks. This binding is achieved by including the `MantleTx` hash reduced modulo $`p`$ as a public input in every ZK proof. The one exception is an [authorization](#authorizations) of channel notes, the proof of `CHANNEL_REGISTER_AUTH` and of the user steps of `CHANNEL_ANSWER`: its holder cannot know the transaction it will end up in, so it is bound to the notes it consumes instead, and cannot be replayed since each note is consumed once.
 
 ```python
 mantle_txhash_fr = FiniteField(mantle_txhash, byte_order="little", modulus = p)
@@ -183,9 +184,11 @@ permanent_storage_gas_price: TokenValue # Given by Storage Market
 execution_gas_base_price: TokenValue    # Given by Execution Market
 ```
 
-The state validation reads is not a fixed snapshot: it advances as the block is processed. A Mantle Transaction is validated against the state left by the Mantle Transactions preceding it in the block, as defined in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation), and validation and execution then follow one another Operation by Operation, in the order the Operations appear: the Operation at index `i` is validated against the state the Operations at indices `0` to `i-1` left, then executed to produce the state the Operation at index `i+1` is validated against. This is what the `ledger`, `channels`, `service_notes`, `declarations` and `voucher_nullifier_set` given to each Operation below denote.
+The state validation reads is not a fixed snapshot: it advances as the block is processed. A Mantle Transaction is validated against the state left by the Mantle Transactions preceding it in the block, as defined in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation), and validation and execution then follow one another Operation by Operation, in the order the Operations appear: the Operation at index `i` is validated against the state the Operations at indices `0` to `i-1` left, then executed to produce the state the Operation at index `i+1` is validated against. This is what the `ledger`, `channels`, `pools`, `pending_transfers`, `registrations`, `sequencer_stakes`, `service_notes`, `declarations` and `voucher_nullifier_set` given to each Operation below denote.
 
 Atomicity is what a failed check means, not simultaneity. If any of the checks below fails, the whole Mantle Transaction is invalid: none of its Operations takes effect, whether or not it was reached. An invalid Mantle Transaction is never skipped over either, the block including it being invalid and nothing of that block being executed.
+
+`CHANNEL_ANSWER` is the only Operation whose outcome is decided at execution rather than by validity. Its validation holds cheap checks only, and whether the answer holds is an outcome of its execution: a wrong answer forfeits its bond and leaves the transaction, and the block, valid. Evaluating an answer means verifying signatures and a Risc0 proof. Since the result never makes a block invalid, a leader can include an answer without evaluating it first, and a wrong one cannot be used to waste leaders' time.
 
 Mantle validators will ensure the following:
 
@@ -253,9 +256,15 @@ Mantle Validators execute each Operation in `ops` according to its opcode, in th
 | CHANNEL_CONFIG | 0x10 | Configure a channel |
 | CHANNEL_INSCRIBE | 0x11 | Write a message permanently onto Mantle. |
 | CHANNEL_DEPOSIT | 0x12 | Deposit assets into a channel |
-| CHANNEL_WITHDRAW | 0x13 | Withdraw assets from a channel |
-| CHANNEL_TRANSFER | 0x14 | Consume and create notes belonging to a channel |
-| *RESERVED* | *0x15 - 0x1F* |  |
+| *RESERVED* | *0x13 - 0x14* | Formerly `CHANNEL_WITHDRAW` and `CHANNEL_TRANSFER`, not reused |
+| CHANNEL_REGISTER_AUTH | 0x15 | Register an authorization, starting the delay before it can be forced |
+| CHANNEL_FORCE_TRANSFER | 0x16 | Apply a registered authorization the sequencers did not apply |
+| CHANNEL_CHALLENGE | 0x17 | Challenge a pending transfer |
+| CHANNEL_ANSWER | 0x18 | Answer a challenge with the accounting of the transfer |
+| POOL_CREATE | 0x19 | Create a pool in a channel |
+| CHANNEL_STAKE | 0x1A | Stake notes as a sequencer's collateral |
+| CHANNEL_UNSTAKE | 0x1B | Release staked notes |
+| *RESERVED* | *0x1C - 0x1F* |  |
 | SDP_DECLARE | 0x20 | Declare intention to participate as a node in a Bedrock Service, locking funds as collateral. |
 | SDP_WITHDRAW | 0x21 | Withdraw participation from a Bedrock Service, unlocking your funds in the process. |
 | SDP_ACTIVE | 0x22 | Signal that you are still an active participant of a Bedrock Service. |
@@ -275,7 +284,7 @@ Channels form virtual chains by having each message reference its parent message
 
 Configurations form a second hash chain within the channel: each configuration names the configuration it supersedes, so a pending reconfiguration stays valid while the sequencer keeps posting inscriptions.
 
-The first time a message is sent to an unclaimed channel, the key that signs the initial message becomes the only accredited key in the list (Note that this key may correspond to a threshold signature key). Accredited keys of a channel forms a committee that can configure the channel, withdraw funds and take turns to write messages to that channel following a round-robin algorithm. Configuring a channel includes modifying the list of accredited keys, the round-robin parameters and the required number of signatures to withdraw funds or establish a new configuration.
+The first time a message is sent to an unclaimed channel, the key that signs the initial message becomes the only accredited key in the list (Note that this key may correspond to a threshold signature key). Accredited keys of a channel forms a committee that can configure the channel and take turns to write messages to that channel following a round-robin algorithm. Configuring a channel includes modifying the list of accredited keys, the round-robin parameters and the required number of signatures to establish a new configuration.
 
 Validators must maintain the following state to process channel Operations:
 
@@ -300,10 +309,6 @@ class ChannelState:
     posting_timeframe: u32  # number of slots (0 = infinity)
     posting_timeout: u32    # number of slots (0 = no timeout)
 
-    # Bridging
-    transfer_threshold: u16  # indicating how many keys are
-                             # required to transfer or withdraw funds from the channel
-
 def default_channel(block_slot: Slot, keys: list[Ed25519PublicKey]) -> ChannelState:
     return ChannelState(
         tip_hash = ZERO,
@@ -314,9 +319,10 @@ def default_channel(block_slot: Slot, keys: list[Ed25519PublicKey]) -> ChannelSt
         tip_sequencer_starting_slot = block_slot,
         posting_timeframe = 0,
         posting_timeout = 0,
-        configuration_threshold = 1,
-        transfer_threshold = 1)
+        configuration_threshold = 1)
 ```
+
+The state that bridging adds is given in [Bridging State](#bridging-state).
 
 Note that the user chooses the ChannelId mapping to the ChannelState (but it’s restricted to 32 bytes). We don't currently impose restrictions on it, but we may do so in the future to prevent undesirable behaviors.
 
@@ -361,29 +367,260 @@ Channels let their bridged funds keep participating in Proof of Stake. When a us
 - **More PoS participation, stronger security.** Funds deposited into a channel would otherwise leave the staking set. Keeping them as channel notes means the capital backing the application layer also backs consensus security, so bridging does not shrink the stake that secures the chain.
 - **No split between security and application.** A user no longer has to choose between staking funds or using them in a channel. The same funds do both at once. They stay usable inside the channel while still earning Proof of Leadership rewards, so capital is never fragmented between the two.
 
-**Ownership vs. staking power.** A `CHANNEL_DEPOSIT` separates the two rights that a normal note bundles together:
+**Custody and authorization.** A `CHANNEL_DEPOSIT` consumes the deposited notes and re-creates them with the same value and `ZkPublicKey` under a new `NoteId` derived from the deposit's `OpId`, registered in the ledger's `channel_notes` set. From then on the channel has custody: apart from a [forced transfer](#forced-transfers), only its sequencers post the transfers that move the note inside the channel, ordered by the channel's inscriptions. The `ZkPublicKey` keeps the meaning it has on an ordinary note. Its holder creates the note's PoLs, earns their rewards, and must [authorize](#authorizations) any transfer of the note. The ledger does not check authorizations when a transfer is posted. It checks them when someone [challenges](#challenges-and-answers) the transfer, and a transfer they do not back is undone.
 
-- *Ownership* moves to the channel. The note is registered in the ledger's `channel_notes` set with the channel as its owner, and the channel keeps full control over it. The deposited notes are consumed and re-created identically: they keep their value and `ZkPublicKey`, receive a new `NoteId` derived from the deposit's `OpId`, and are registered as channel-owned. The channel is now the party responsible for the note.
-- *Staking power* stays with the `ZkPublicKey` carried by the note. That key does not confer ownership. It only delegates the note's value for PoL creation. Whoever controls the key is the one allowed to turn the note into a PoL and collect the resulting rewards. On deposit this key is still the depositor's, so the user keeps the PoS participation power they had before bridging.
-
-Because the channel owns the note but does not hold the delegated key, the note earns rewards for the key holder, never for the channel itself.
-
-**Ageing.** Because the deposit re-creates the notes under a new `NoteId`, a deposited note restarts the ageing process and must age again before it can create a PoL. Bridged funds still count toward Proof of Stake, so the goals above hold, but the participation is not continuous across the deposit.
+**Ageing.** Because the deposit re-creates the notes under a new `NoteId`, a deposited note restarts the ageing process and must age again before it can create a PoL. Bridged funds still count toward Proof of Stake, so the goals above hold, but the participation is not continuous across the deposit. The same holds for every transfer, which consumes its inputs and creates new notes.
 
 **What each party can do.**
 
 | Party | Can | Cannot |
 |---|---|---|
-| Holder of the note's `ZkPublicKey` (by default, the depositor) | Use the note to create a PoL and earn its leader rewards | Spend the note, withdraw it, reassign it, or use it as service stake |
-| Channel sequencers (owner of the note) | Reassign the note to a different `ZkPublicKey` (`CHANNEL_TRANSFER`) and spend it to fund withdrawals (`CHANNEL_WITHDRAW`), both without `ZkSignature` verification | Use the note as service stake, or earn PoL rewards without first assigning the note to their own key |
+| Holder of the note's `ZkPublicKey` | Create a PoL with the note and earn its rewards. Authorize transfers of the note. Take the note out of the channel with a `TRANSFER` once it is not [locked](#transfers) | Use the note as service stake or as sequencer collateral while it is a channel note |
+| Channel sequencers | Post, on their turn, transfers applying authorizations, netting many of them into one transfer | Move a note for good without its holder's authorization |
 
-This makes delegated staking explicit. Sequencers can assign a channel note to their own `ZkPublicKey` and earn the Proof of Leadership rewards it produces, but those rewards always follow the assigned key, so the channel earns nothing merely by owning the note. Conversely, ownership never leaving the channel is exactly what lets sequencers redelegate value or cover withdrawals at any time without a user signature.
+What the ledger guarantees is consent: whatever the channel's configuration, no channel note is moved for good without its holder's authorization. It does not guarantee liveness. Sequencers holding the configuration threshold can refuse to post, and holders then leave with a `TRANSFER` or a [forced transfer](#forced-transfers). Capturing a channel stalls it but does not give access to its funds. The sections below describe the mechanism, and [Bridging State](#bridging-state) and [Bridging Parameters](#bridging-parameters) list what it adds to the ledger. [\[Template\] Bridged Zone](template-bridged-zone.md) shows how a Zone uses it, with a swap pool as an example.
 
-**Warning: a deposit is a transfer of custody.** Depositors must understand that channel note handling is fully defined by the channel. Once a `CHANNEL_DEPOSIT` is executed the note belongs to the channel, and its sequencers can reassign it to any `ZkPublicKey` with `CHANNEL_TRANSFER` or release it to whoever they choose with `CHANNEL_WITHDRAW`, at any time and without any signature from the depositor. The ledger enforces no return path to the original depositor. Holding the note's `ZkPublicKey` grants PoS participation power only and never a claim on the value, so it confers no ability to recover the funds. A user who deposits into a dishonest or faulty channel has no on-chain recourse. Deposit only into channels you trust to honour their own withdrawal policy.
+### Authorizations
+
+An authorization is a [`ZkSignature`](#zero-knowledge-signature-scheme-zksignature) by the keys of the channel notes it consumes, listed by `distinct_keys`, over
+
+```python
+def auth_msg(channel: ChannelId, inputs: list[NoteId], outputs: list[Note]) -> zkhash:
+    fr = lambda x: FiniteField(x, byte_order="little", modulus=p)
+    return zkhash(
+        fr(b"CHANNEL_NOTE_AUTH_V1"),
+        fr(channel),
+        fr(len(inputs)), *inputs,
+        fr(len(outputs)), *[x for note in outputs for x in (fr(note.value), note.public_key)])
+```
+
+It states which notes of the channel may be consumed and which notes must come out of them. It is not bound to a `mantle_txhash`, since the holder cannot know the transaction a sequencer builds out of many authorizations. It cannot be replayed, since each input can be consumed once. The same authorization serves a sequencer's transfer and, if the sequencers ignore it, a [forced transfer](#forced-transfers).
+
+### Transfers
+
+The transfer part of a `CHANNEL_INSCRIBE` consumes channel notes (`inputs`), creates channel notes (`outputs`) and advances pool states (`declared`). Carrying it in the inscription ties the note moves to the zone message they back: both land in one Operation, or neither does. Posting checks only what is cheap: the inputs are notes of the channel, value is conserved, the outputs are sorted by key, the declared pool states match the ledger, and the sequencer's stake covers the transfer's `required` collateral. No authorization or proof is checked.
+
+A posted transfer executes at once, but its outputs are **locked**. A locked note stays on the ledger, ages like any note, and may be consumed by a later transfer of the channel, but no `TRANSFER` or forced transfer may spend it. Executing and locking, rather than delaying, lets a lost challenge be repaired by moving notes again instead of re-inserting consumed `NoteId`s, which must stay unique. For that repair, the pending transfer keeps the value and key of every input it consumed.
+
+A transfer **depends on** the pending transfer that created each locked input it consumes, and on the most recent pending transfer declaring each pool it declares, the one that wrote its `state_before`. Without these edges, a child could become final while the parent it builds on can still be undone, and a pool could be drained in two steps: a false jump to a state where the poster owns the reserves, then a genuine transition out of it. Only these edges count, and not the whole inscription chain, so one lost transfer does not undo every later payment of the channel.
+
+A transfer is **final** once its own window is over and every transfer it depends on is final. Its own window is over when `CHALLENGE_WINDOW` has passed without a challenge, or as soon as a valid answer settles its challenge. Its lock then lifts and nothing else changes.
+
+A transfer is **lost** when its challenge is still unanswered at the end of the response window. It is undone together with every pending transfer that depends on it, directly or not. The notes they consumed from outside that set are re-created under the same keys, the notes they created are removed, and the pools they advanced return to the state before the first of them. The re-created notes have new identifiers, so an authorization naming the old ones, registered or not, no longer applies and has to be signed again.
+
+A transfer undone this way moves nothing any more, but its sequencer still answers for it. It stays challengeable until the end of its own challenge window, and forfeits its collateral only if its own challenge goes unanswered. Otherwise it is dropped once its window is over. An answer reads only what the pending transfer recorded, so it stays possible after the undo.
+
+A sequencer that built on a transfer later lost therefore loses its work, not its collateral, provided it can answer for what it posted. A transfer nobody can answer forfeits whether or not it was undone first, which is why an invalid transfer is worth challenging even when it is about to be undone. To spare its users the undo, a sequencer builds only on a pending transfer it could answer for itself, holding and having checked its authorizations and, for a pool, the transition it declares.
+
+[Channel Transfer Resolution](#channel-transfer-resolution) applies finality and losses at the start of each block, as a function of the chain and the slot alone.
+
+### Challenges and Answers
+
+Anyone may challenge a pending transfer during its `CHALLENGE_WINDOW`, once per transfer, bonding a note worth the transfer's `required`. Anyone may answer until the end of the response window, bonding at least `answer_bond()`. A valid answer settles the challenge and the challenger's bond pays the answerer. A wrong answer forfeits its bond to the rewards pool and leaves the challenge open, so wrong answers cannot make a valid transfer lose. Since a valid answer settles the transfer early, whoever holds its authorizations can finalize it before its window ends by challenging it and answering.
+
+An answer is the full accounting of the transfer, as a list of steps. A challenge cannot target a single note: an authorization names its outputs by content, their `NoteId`s depending on the `op_id` of a transfer it does not know, so two authorizations paying the same key the same value would both claim one output (see the [example](#channel_answer) under `CHANNEL_ANSWER`).
+
+A **user step** applies one authorization. A `ZkSignature` proves every key of its list at once, so two authorizations signed apart cannot be combined in one step. A user step consumes transfer inputs only, the only notes a holder can name when signing. A **pool step** applies one pool transition (see [Pools](#pools)) and may also consume notes created by earlier steps.
+
+Every note a step creates is either consumed by a later step, an **intermediate note** named `(step_index, output_index)`, or a **claim**. Claims to the same key merge: the transfer's outputs are the claims summed per key and sorted by key, which is why outputs are posted sorted by key and why a recipient of several payments receives one note. A zone fee is a claim written in a user's authorization. Since the outputs are fully determined by the steps, a sequencer that groups claims wrongly loses the challenge.
+
+An answer is valid when all of the following hold (see [`answer_holds`](#channel_answer)):
+
+1. every note a step consumes is a transfer input, or an intermediate note created by an earlier step;
+2. every transfer input is consumed by exactly one step;
+3. every intermediate note is consumed exactly once;
+4. every step conserves value and creates notes of positive value;
+5. the claims, summed per key and sorted by key, equal the transfer's outputs;
+6. every user step carries a valid authorization of its inputs and outputs;
+7. every declared pool transition is proven by exactly one pool step, and every pool step proves a declared one.
+
+The first check matters most, since a transfer is challenged once and a settled challenge is final: a step consuming a note the transfer never consumed would count value that is still on the ledger, and nothing would catch it later. Conservation holds per step because the outputs only balance in total. The last check stops a transfer from declaring a pool transition that no answer proves.
+
+### Collateral
+
+A sequencer posts transfers against a standing stake: ordinary notes staked with `CHANNEL_STAKE` and held unspendable, as service notes are. A transfer requires, at the prices of the block that includes it,
+
+```python
+def fee_cost(gas: int, size: int) -> TokenValue:
+    return checked_uint64(gas * execution_gas_base_price + size * permanent_storage_gas_price)
+
+def required_collateral(inputs: list[NoteId], declared: list[PoolTransition]) -> TokenValue:
+    n, d = len(inputs), len(declared)
+    # The value of the inputs that could have aged: locked inputs are not eligible
+    # for leadership, and the reserves of the declared pools carry a pool key
+    reserves = {pool_key(pools[t.instance_id].image_id, t.instance_id, 0) for t in declared}
+    staking_value = sum(ledger.get_note(i).value for i in inputs
+                        if i not in ledger.locked_notes
+                        and ledger.get_note(i).public_key not in reserves)
+    return checked_uint64(
+        COLLATERAL_MARGIN * fee_cost(FLOOR_GAS + INPUT_GAS * n + STATE_GAS * d,
+                                     FLOOR_BYTES + INPUT_BYTES * n + STATE_BYTES * d)
+        + STATE_PROVING * d
+        + staking_value * VALUE_RATE_PPM // 1_000_000)
+```
+
+and may be posted only if the signer's staked value exceeds its `at_risk` by at least that amount. The amount is recorded with the transfer, so later price changes do not alter it. A stake belongs to an accredited key and serves every channel where the key is accredited, and `at_risk` counts across all of them, so a sequencer caught in one channel loses capacity in all.
+
+Each part pays for something, derived in [\[Analysis\] Channel Collateral](analysis-channel-collateral.md):
+
+- The fee-priced part, with its margin, pays for the dispute. Its floor makes a right challenge worth a transaction and makes a wrong one pay for the fixed part of the answer it forced; each input and each declared transition adds what its step adds to that answer.
+- `STATE_PROVING` pays for the off-chain proof a pool step needs, which gas does not price.
+- The value part pays for the lock itself. A transfer consuming a final note restarts its ageing, even when it is later undone, and keeping value out of the leadership lottery raises every other participant's share of the rewards. The value rate makes that unprofitable.
+
+Staked notes are ordinary notes, never channel notes. Any transfer of a channel may consume that channel's notes, so a stake held there could be named as an input by a rival and tied up for a window. It also means a sequencer needs no funds inside the channels it serves. Staked notes keep taking part in Proof of Stake, so collateral costs a sequencer liquidity rather than yield.
+
+The requirement counts inputs, not outputs. Merging lets a transfer consume a thousand notes into one output, and it is the holders of the inputs who are locked out.
+
+A lost transfer forfeits its `required`: half pays the challenger and the rest goes to the pending rewards pool, as fees do (see [Block Rewards](block-rewards.md)). The challenger gets only half because the challenger may be the sequencer itself, under a second key: paid in full, it would recover its forfeit and lock any number of notes for the price of gas. A transfer undone with it keeps its `required` at risk and is judged on its own challenge, so a large transfer cannot escape its requirement by depending on a small one made to lose, and an honest one loses nothing. Locking `n` notes therefore costs `n` times the per-input requirement, while one challenge covers the whole transfer.
+
+A stake is taken from its notes in the order they were staked. The last note taken is split: the excess is re-created under the same key and stays staked.
+
+An answer bonds the fee-priced floor at the prices of its own block:
+
+```python
+def answer_bond() -> TokenValue:
+    return checked_uint64(COLLATERAL_MARGIN * fee_cost(FLOOR_GAS, FLOOR_BYTES))
+```
+
+### Pools
+
+A pool is value in a zone that no single user owns, such as an AMM reserve. Nobody can sign for it, so a Risc0 program governs it and a proof that the program ran replaces the authorization. `image_id` names the program and `instance_id` the pool among those running it.
+
+```python
+class PoolEntry:
+    channel: ChannelId
+    image_id: ImageId  # the Risc0 program the pool runs
+    state: zkhash      # opaque to the ledger
+
+def pool_key(image_id: ImageId, instance_id: InstanceId, intent_hash: zkhash) -> ZkPublicKey:
+    fr = lambda x: FiniteField(x, byte_order="little", modulus=p)
+    return zkhash(fr(b"RISC0_PROGRAM"), fr(image_id), instance_id, intent_hash)
+```
+
+Every note held by or sent to a pool carries a pool key. Reserves use `intent_hash = 0`. A deposit uses `intent_hash = zkhash(intent)`, the intent being what the sender wants done, in a form the program defines, typically a recipient, a minimum output, a refund key and a salt. Sending to a pool is an ordinary authorization with an output under the pool key. No secret key exists behind a pool key, so pool notes move only through pool steps.
+
+The intent in the key ties the program's inputs to the deposit paying for them. A pool step gives the `intent_hash` of each note it consumes, and the ledger recomputes the note's key from it. The same `intent_hash` is in the journal the proof commits to, so the program was handed exactly the intent the note carries, and an answer cannot drop a swap and treat the deposit as a gift to the reserves. Two deposits with byte-identical intents would share a key and merge, which is why an intent carries a salt.
+
+The ledger keeps each pool's state, so an answer cannot start from a state of its choosing, and only transfers of the pool's channel may advance it. A transfer declares, for each pool it moves, `state_before` and `new_state`; posting checks the first against the entry and writes the second, as it does for the channel tip. A pool advances at most once per transfer, everything that happened to it in the meantime folding into one transition. A transfer may declare a transition without moving any note, which a private pool needs to advance its roots, and the per-transition part of the collateral prices it, since it would otherwise cost nothing to post.
+
+A pool step for the declared transition `s`, consuming `notes`, is valid when:
+
+```python
+image_id = pools[step.instance_id].image_id
+for note, consumed in zip(notes, step.consumed):
+    assert note.value == consumed.value
+    assert note.public_key == pool_key(image_id, step.instance_id, consumed.intent_hash)
+journal = PoolJournal(step.instance_id, s.state_before, s.new_state, step.consumed, step.created)
+assert risc0_verify(image_id, sha256(encode(journal)), step.seal)
+```
+
+The value check matters as much as the key. Without it, an answer could state a deposit smaller than it is, the program would pay less, and the step would still balance against the real value, the difference going to an output of the answerer's choice. The ledger checks ownership by hashing and the program checks intent and logic by proving. The ledger guarantees that the program ran from the recorded state and was handed every intent, not that it honours them: a program that ignores intents still produces valid proofs.
+
+`POOL_CREATE` creates a pool with derived identifiers:
+
+```python
+def derive_instance_id(channel: ChannelId, image_id: ImageId, params_hash: zkhash) -> InstanceId:
+    fr = lambda x: FiniteField(x, byte_order="little", modulus=p)
+    return zkhash(fr(b"POOL_INSTANCE"), fr(channel), fr(image_id), params_hash)
+
+def derive_pool_genesis(image_id: ImageId, params_hash: zkhash) -> zkhash:
+    fr = lambda x: FiniteField(x, byte_order="little", modulus=p)
+    return zkhash(fr(b"POOL_GENESIS"), fr(image_id), params_hash)
+```
+
+The ledger derives both. A creator choosing them could register the identifier users compute for themselves, so their deposits land, with a starting state in which it already owns the reserves, and no challenge would catch it. With derived identifiers, whoever creates a pool first creates the pool others wanted. A salt in the parameters separates two pools running the same program. Entries are never removed, and since creation is not part of a transfer, a lost transfer does not undo it.
+
+### Forced Transfers
+
+A holder censored by the sequencers leaves with a `TRANSFER` once the note is unlocked. To pay inside the channel or into a pool, the holder forces the authorization instead, in two steps. `CHANNEL_REGISTER_AUTH` verifies it and records its slot, giving the ledger a clock. Between `FORCE_DELAY` and `2 * FORCE_DELAY` slots later, anyone may apply it with `CHANNEL_FORCE_TRANSFER`, whose outputs are final at once. If a transfer applied it in the meantime, its inputs are gone and forcing fails.
+
+The delay keeps forcing from becoming an attack on the zone. Without it, anyone holding an authorization that a sequencer had netted could post it first, invalidating the netted transfer and the inscription carrying it, and stall the zone for one transaction per turn. A forced transfer never advances a pool state, and a registered authorization is public before it applies.
+
+### Following a Channel
+
+The ledger checks note moves, not zone semantics. A zone that bridges funds **follows every move of its channel notes and credits only what the same Mantle Transaction backs**. The unit is the transaction because Mantle executes a transaction atomically, which lets a `TRANSFER` out of one channel sit next to that channel's inscription in a [cross-channel transfer](template-cross-channel-messaging.md#synchronous-messaging).
+
+- A move carrying no message, a `TRANSFER` out of the channel or a forced transfer, debits the keys of the channel notes it consumes and credits the keys of the channel notes it creates.
+- A lost transfer is undone on the ledger, with the transfers depending on it, while their inscriptions stay. The zone re-executes its history from the lost inscription by a deterministic rule, so that all its followers agree. [\[Template\] Bridged Zone](template-bridged-zone.md#default-rule-for-lost-transfers) gives a default one: drop the messages posted since the lost inscription, and keep following the note moves that still stand.
+- Every zone effect that touches bridged value is provisional until the transfer backing it is final.
+
+### Bridging State
+
+Validators maintain the following state for bridging, next to `channels` and the [Ledger](#ledger):
+
+```python
+pools: dict[InstanceId, PoolEntry]               # see Pools
+pending_transfers: dict[OpId, PendingTransfer]   # iterated in the order the transfers were posted
+registrations: dict[zkhash, Slot]                # slot each authorization was registered at, by auth_msg
+sequencer_stakes: dict[Ed25519PublicKey, SequencerStake]
+
+InstanceId = zkhash
+ImageId = bytes      # 32 bytes: the Risc0 image ID, the digest identifying a program
+OpId = hash          # identifier of an Operation, see derive_op_id
+
+class PoolTransition:
+    instance_id: InstanceId
+    state_before: zkhash
+    new_state: zkhash
+
+class ConsumedInput:
+    note_id: NoteId
+    note: Note                  # kept: the transfer removed the note from the ledger
+    locked_by: OpId | None      # the pending transfer that created the note, if it was locked
+
+class Challenge:
+    bond: NoteId
+    settled: bool               # a valid answer has been posted
+
+class PendingTransfer:
+    channel: ChannelId
+    sequencer: Ed25519PublicKey
+    slot: Slot                  # slot of the block that included the transfer
+    inputs: list[ConsumedInput]
+    outputs: list[Note]
+    declared: list[PoolTransition]
+    required: TokenValue        # collateral the transfer puts at risk
+    depends_on: set[OpId]
+    challenge: Challenge | None
+    undone: bool                # undone with a lost transfer it depended on, and still answerable
+
+class SequencerStake:
+    notes: list[NoteId]         # staked notes, in the order they were staked
+    at_risk: TokenValue         # sum of `required` over the sequencer's pending transfers
+```
+
+### Bridging Parameters
+
+| Parameter | Value | Role |
+| --- | --- | --- |
+| `CHALLENGE_WINDOW` | 64,800 slots | How long a posted transfer may be challenged |
+| `RESPONSE_WINDOW` | 64,800 slots | How long after the challenge window an answer may still arrive |
+| `FORCE_DELAY` | 64,800 slots | How long a registered authorization waits before it can be forced, and how long it can then be forced |
+| `COLLATERAL_MARGIN` | 2 | Margin on the fee prices of the dispute |
+| `FLOOR_GAS`, `FLOOR_BYTES` | 8,980 gas, 800 bytes | Fee-priced collateral of any transfer, and the answer bond |
+| `INPUT_GAS`, `INPUT_BYTES` | 590 gas, 400 bytes | Fee-priced collateral per input |
+| `STATE_GAS`, `STATE_BYTES` | 590 gas, 300 bytes | Fee-priced collateral per declared pool transition |
+| `STATE_PROVING` | one GPU-hour, in LGO at the genesis price | Collateral per declared pool transition for its off-chain proof |
+| `VALUE_RATE_PPM` | 5,000, that is 0.5% | Collateral per unit of value of the inputs that could have aged |
+| `RISC0_CONTROL_ROOT`, `RISC0_BN254_CONTROL_ID`, `RISC0_GROTH16_VK` | those of the pinned Risc0 release | [Risc0 receipt verification](#risc0-receipt-verification) |
+
+The windows are ledger parameters and not part of a channel's configuration, since a captured configuration would set them to zero. Each equals the finality depth $`\lfloor k/f \rfloor`$ of [Cryptarchia](cryptarchia-v1-protocol.md#constants), about 18 hours, so keeping a challenge or an answer out of the chain for a whole window takes every leader of that period refusing it. Together they stay below one epoch, 648,000 slots, the shortest time a note needs to become eligible for leadership. Every transfer is resolved by `slot + CHALLENGE_WINDOW + RESPONSE_WINDOW` (see [Channel Transfer Resolution](#channel-transfer-resolution)), so a locked note is never eligible, and a transfer that is later undone never earns its outputs a Proof of Leadership reward.
+
+The collateral parameters are derived in [\[Analysis\] Channel Collateral](analysis-channel-collateral.md). The fee-priced ones follow the size and gas of a challenge, of an answer's fixed part and of its steps. `STATE_PROVING` sizes the heaviest proof, a private pool's transition, and awaits a measurement on reference hardware. `VALUE_RATE_PPM` makes suppressing stake from the leadership lottery unprofitable while the inferred stake is below its target, and can fall towards 1,500 once it is reached. A challenger bonds what the transfer requires, so the same amounts are what a wrong challenge pays the answerer for the work it forced.
+
+### Bridging Security Considerations
+
+- **Watchtowers.** An unchallenged transfer becomes final. A sequencer can lock a note again every window by naming it in transfers it cannot back, and pays for it only when someone challenges. Leaving the channel is available whenever someone is willing to challenge, not unconditionally.
+- **Sequencer availability.** A transfer nobody answers within the response window loses, even if it is valid. Running a sequencer means keeping the authorizations of every pending transfer and being able to answer at any time.
+- **Pool liveness.** A holder can get their own notes out without the sequencers, but pool value moves only when a sequencer posts. Under round-robin sequencing, a group holding the configuration threshold can remove every honest sequencer and hold pool value hostage. A single accredited sequencer can also stall a pool for up to both windows by declaring a transition nobody can prove: the others cannot build on it, and cannot declare from another state. It forfeits its collateral each time, which does not grow with the pool's value, so the remedy is to remove its key with a `CHANNEL_CONFIG`.
+- **Programs.** A pool's `image_id` is in the key of every note it holds, so a pool cannot be upgraded: only a migration path the program provides can move its value. Anything a program reads that is neither in its state nor in the keys of the notes it consumes, an oracle price for instance, is chosen by whoever answers.
+- **Native token only.** A note carries no asset type, so only LGO is protected.
+- **Lost keys.** Nobody can move a channel note whose key is lost.
+- **Privacy.** A registered authorization publishes its inputs, outputs and values before it is applied.
 
 ### CHANNEL_INSCRIBE
 
-Write a message to a channel with the message data being permanently stored on the Logos Blockchain.
+Write a message to a channel with the message data being permanently stored on the Logos Blockchain, and optionally move the channel's notes with a [transfer](#transfers).
 
 #### Payload
 
@@ -393,7 +630,13 @@ class Inscribe:
     inscription : bytes      # Message to be written on the blockchain
     parent: hash             # Previous message in the channel
     signer: Ed25519PublicKey # Identity of message sender
+    # Transfer part, empty when the inscription moves nothing
+    inputs: list[NoteId]            # channel notes consumed, locked or not
+    outputs: list[Note]             # channel notes created, sorted by public key
+    declared: list[PoolTransition]  # pool states advanced
 ```
+
+The inscription carries a transfer when any of `inputs`, `outputs` and `declared` is non-empty.
 
 #### Proof
 
@@ -415,12 +658,19 @@ msg: Inscribe
 sig: Ed25519Signature
 
 channels: dict[ChannelId, ChannelState]
+pools: dict[InstanceId, PoolEntry]
+sequencer_stakes: dict[Ed25519PublicKey, SequencerStake]
+execution_gas_base_price: TokenValue    # Given by Execution Market
+permanent_storage_gas_price: TokenValue # Given by Storage Market
+ledger: Ledger
 block_slot: Slot
 ```
  
   *Validate*
 
 ```python
+has_transfer = msg.inputs or msg.outputs or msg.declared
+
 if msg.channel in channels:
     chan = channels[msg.channel]
     current_sequencer_index = round_robin(block_slot, chan)[0]
@@ -434,9 +684,50 @@ else:
     # Channel will be created automatically upon execution
     # Ensure that this message is the genesis message (parent == ZERO)
     assert msg.parent == ZERO
+    # A channel that does not exist holds no note and no pool
+    assert not has_transfer
+
+if has_transfer:
+    # Inputs are notes of this channel, locked or not
+    if msg.inputs:
+        ledger.assert_spendable(msg.inputs, msg.channel)
+
+    # Outputs are valid and sorted by strictly increasing public key, keys
+    # compared as integers, the order an answer produces them in, which
+    # also rules out two outputs under the same key
+    ledger.assert_valid_output(msg.outputs)
+    for a, b in zip(msg.outputs, msg.outputs[1:]):
+        assert a.public_key < b.public_key
+
+    # Value is conserved
+    input_amount = checked_uint64(sum(ledger.get_note(i).value for i in msg.inputs))
+    output_amount = checked_uint64(sum(o.value for o in msg.outputs))
+    assert input_amount == output_amount
+
+    # Each declared pool belongs to this channel, is declared once,
+    # and starts from the state the ledger holds
+    instances = [t.instance_id for t in msg.declared]
+    assert len(instances) == len(set(instances))
+    for t in msg.declared:
+        assert t.instance_id in pools
+        assert pools[t.instance_id].channel == msg.channel
+        assert pools[t.instance_id].state == t.state_before
+
+    # The signer's stake covers the collateral this transfer puts at risk
+    assert msg.signer in sequencer_stakes
+    stake = sequencer_stakes[msg.signer]
+    required = required_collateral(msg.inputs, msg.declared)
+    assert staked_value(stake) >= checked_uint64(stake.at_risk + required)
 
 # Ensure the msg signer signature
 assert Ed25519_verify(txhash, msg.signer, sig)
+```
+
+with
+
+```python
+def staked_value(stake: SequencerStake) -> TokenValue:
+    return checked_uint64(sum(ledger.get_note(n).value for n in stake.notes))
 ```
 
 #### Execution
@@ -448,6 +739,12 @@ msg: Inscribe
 sig: Ed25519Signature
 
 channels: dict[ChannelId, ChannelState]
+pools: dict[InstanceId, PoolEntry]
+pending_transfers: dict[OpId, PendingTransfer]
+sequencer_stakes: dict[Ed25519PublicKey, SequencerStake]
+execution_gas_base_price: TokenValue    # Given by Execution Market
+permanent_storage_gas_price: TokenValue # Given by Storage Market
+ledger: Ledger
 block_slot: Slot
 ```
 
@@ -475,6 +772,41 @@ block_slot: Slot
       chan.tip_slot = block_slot
       ```
 
+  4. If the inscription carries a transfer, execute it and record it as pending.
+      ```python
+      if msg.inputs or msg.outputs or msg.declared:
+          op_id = derive_op_id(msg)
+          # The requirement reads the inputs, so it is computed before they are spent
+          required = required_collateral(msg.inputs, msg.declared)
+          inputs = [ConsumedInput(note_id=i,
+                                  note=ledger.get_note(i),
+                                  locked_by=ledger.locked_notes.get(i))
+                    for i in msg.inputs]
+
+          # Depend on the creator of each locked input, and on the last
+          # pending writer of each declared pool state
+          depends_on = {c.locked_by for c in inputs if c.locked_by is not None}
+          for t in msg.declared:
+              writers = [w for w, p in pending_transfers.items()
+                         if not p.undone
+                         and any(d.instance_id == t.instance_id for d in p.declared)]
+              if writers:
+                  depends_on.add(writers[-1])
+              pools[t.instance_id].state = t.new_state
+
+          # Consume the inputs and create the outputs, locked
+          ledger.execute_spending(msg.inputs, msg.channel)
+          ledger.execute_adding(op_id, msg.outputs, msg.channel)
+          for index, note in enumerate(msg.outputs):
+              ledger.locked_notes[derive_note_id(op_id, index, note)] = op_id
+
+          sequencer_stakes[msg.signer].at_risk += required
+          pending_transfers[op_id] = PendingTransfer(
+              channel=msg.channel, sequencer=msg.signer, slot=block_slot,
+              inputs=inputs, outputs=msg.outputs, declared=msg.declared,
+              required=required, depends_on=depends_on, challenge=None, undone=False)
+      ```
+
 #### Example
 
 ```python
@@ -483,7 +815,10 @@ greeting = Inscription(
     channel=CHANNEL_EARTH,
     inscription=b"Live long and prosper",
     parent=ZERO
-    signer=spock_pk
+    signer=spock_pk,
+    inputs=[],
+    outputs=[],
+    declared=[]
 )
 
 # Build the transfer operation to pay the fees
@@ -506,6 +841,28 @@ signed_tx = SignedMantleTx(
 mempool.push(signed_tx)
 ```
 
+A transfer nets authorizations. Alice and Bob each pay Carol 25 out of a note of 50, and Carol's two claims merge into one output:
+
+```python
+# Each holder signs an authorization of their own note, and hands it to the sequencer
+alice_auth = ZkSignature_sign(auth_msg(ZONE_A, [alice_note_id],
+                                       [Note(25, carol_pk), Note(25, alice_pk)]), [alice_sk])
+bob_auth = ZkSignature_sign(auth_msg(ZONE_A, [bob_note_id],
+                                     [Note(25, carol_pk), Note(25, bob_pk)]), [bob_sk])
+
+# The sequencer posts the netted transfer with the zone's message, outputs sorted by key
+payment = Inscribe(
+    channel=ZONE_A,
+    inscription=b"<zone state transition paying Carol>",
+    parent=zone_a_tip,
+    signer=sequencer_pk,
+    inputs=[alice_note_id, bob_note_id],
+    outputs=sorted([Note(50, carol_pk), Note(25, alice_pk), Note(25, bob_pk)],
+                   key=lambda note: note.public_key),
+    declared=[]
+)
+```
+
 ### CHANNEL_CONFIG
 
 Overwrite the configuration of a channel.
@@ -520,7 +877,6 @@ class ChannelConfig:
     posting_timeframe: u32
     posting_timeout: u32
     configuration_threshold: u16
-    transfer_threshold: u16
 ```
 
 #### Proof
@@ -554,7 +910,6 @@ channels: dict[ChannelId, ChannelState]
 
 ```python
 assert config.configuration_threshold > 0
-assert config.transfer_threshold > 0
 assert len(config.keys) > 0
 assert len(config.keys) < 2^16
 # The configuration threshold must be reachable with the accredited keys,
@@ -623,9 +978,6 @@ block_slot: Slot
       chan.tip_sequencer_starting_slot = block_slot
       chan.posting_timeframe = config.posting_timeframe
       chan.posting_timeout = config.posting_timeout
-
-      # Update Bridging Parameters
-      chan.transfer_threshold = config.transfer_threshold
       ```
 
   3. Update the configuration tip.
@@ -651,8 +1003,7 @@ config = ChannelConfig(
     keys=[old_sequencer_pk, new_sequencer_pk],
     posting_timeframe = 5000,
     posting_timeout = 500,
-    configuration_threshold = 2,
-    transfer_threshold = 1
+    configuration_threshold = 2
 )
 
 # Build the transfer operation to pay the fees
@@ -672,7 +1023,7 @@ signed_tx = SignedMantleTx(
 
 ### CHANNEL_DEPOSIT
 
-Deposit notes to a channel. The inputs are consumed and re-created as channel notes under a new `NoteId`, which resets their ageing and prevents the deposit from being replayed after a withdrawal.
+Deposit notes to a channel. The inputs are consumed and re-created as channel notes under a new `NoteId`, which resets their ageing and prevents the deposit from being replayed once the note has left the channel.
 
 #### Payload
 
@@ -724,8 +1075,7 @@ ledger: Ledger
   3. Validate ownership over deposited notes.
       ```python
       input_notes = [ledger[input_note_id] for input_note_id in deposit.inputs]
-      input_pks = [note.public_key for note in input_notes]
-      assert ZkSignature_verify(mantle_txhash, deposit_proof, input_pks)
+      assert ZkSignature_verify(mantle_txhash, deposit_proof, distinct_keys(input_notes))
       ```
 
 #### Execution
@@ -786,124 +1136,91 @@ signed_tx = SignedMantleTx(
 A Zone that credits a deposit in its own state must be sure the deposit really lands on-chain. If the Zone reflects the deposit through a `CHANNEL_INSCRIBE` posted in a separate Mantle Transaction, a reorganization can reorder the two so that the inscription is included while the deposit is not, leaving the Zone crediting funds it never received. Two options avoid this:
 
 - Wait for the deposit to be finalized before interpreting it, at the cost of the finalization delay.
-- Make the inscription conditional on the deposit, by including a `CHANNEL_TRANSFER` that consumes the deposited note in the same Mantle Transaction as the inscription. Mantle Transactions execute atomically, so the inscription is included only if the deposited note exists and is consumed. This removes the waiting period entirely.
+- Make the inscription conditional on the deposit, by consuming the deposited note in the inscription's own transfer part. The inscription is then valid only if the deposited note exists, and a reorganization cannot keep one without the other. This removes the waiting period entirely.
 
-The second option resets the ageing of the value. A `CHANNEL_TRANSFER` consumes its inputs and creates new notes, so the resulting note starts the ageing process again and must age before it can create a PoL. A `CHANNEL_DEPOSIT` resets ageing for the same reason, since it consumes its inputs and re-creates them under a new `NoteId`. A `CHANNEL_WITHDRAW` keeps the `NoteId` of the notes it releases and therefore never resets ageing.
+The second option resets the ageing of the value, since a transfer consumes its inputs and creates new notes. A `CHANNEL_DEPOSIT` resets ageing for the same reason, and so does leaving the channel with a `TRANSFER`.
 
-### CHANNEL_WITHDRAW
+### CHANNEL_REGISTER_AUTH
 
-Withdraw notes from a channel.
+Register an [authorization](#authorizations), so that it can be [forced](#forced-transfers) once `FORCE_DELAY` has passed.
 
 #### Payload
 
 ```python
-class ChannelWithdraw:
+class RegisterAuth:
     channel: ChannelId
-    inputs: list[NoteId]
+    inputs: list[NoteId]  # channel notes the authorization consumes
+    outputs: list[Note]   # notes it creates
 ```
 
 #### Proof
 
-A Channel Withdraw is authorized by a threshold of the channel's accredited keys using [Multiple Ed25519 Signatures Verification](#multiple-ed25519-signatures-verification).
+The authorization itself: a [ZkSignature](#zero-knowledge-signature-scheme-zksignature) over `auth_msg(channel, inputs, outputs)` rather than over the `mantle_txhash`. Anyone holding the authorization may register it.
 
 ```python
-class ChannelWithdrawOpProof:
-    signatures: list[Ed25519Signature] # exactly transfer_threshold signatures
-    indexes: list[int]    # signatures of accredited keys with their index
-                          # indexes must be ordered from smallest to
-                          # biggest without duplication
+ZkSignature
 ```
 
 #### Execution Gas
 
-  Channel Withdraw Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_WITHDRAW_GAS * transfer_threshold`, where `transfer_threshold` is the one held in the channel state. See [Gas Determination](#gas-determination) for the Execution Gas values.
+  Register Authorization Operations have a fixed Execution Gas cost of `EXECUTION_CHANNEL_REGISTER_AUTH_GAS`. See [Gas Determination](#gas-determination) for the Execution Gas values.
 
 #### Validation
 
   *Given*
 
 ```python
-txhash: zkhash
-withdrawal: ChannelWithdraw
-proof: ChannelWithdrawOpProof
+register: RegisterAuth
+proof: ZkSignature
 
 channels: dict[ChannelId, ChannelState]
+registrations: dict[zkhash, Slot]
 ledger: Ledger
 ```
 
   *Validate*
 
-  1. Check that the channel exists
-      ```python
-      assert withdrawal.channel in channels
-      ```
+```python
+assert register.channel in channels
 
-  2. Check that the inputs are valid and belongs to the channel
-      ```python
-      ledger.assert_spendable(withdrawal.inputs, withdrawal.channel)
-      ```
+# Inputs are notes of the channel. They may still be locked: the authorization
+# may be waiting in a pending transfer, and can only be forced once unlocked.
+ledger.assert_spendable(register.inputs, register.channel)
+ledger.assert_valid_output(register.outputs)
+input_notes = [ledger.get_note(i) for i in register.inputs]
+input_amount = checked_uint64(sum(n.value for n in input_notes))
+output_amount = checked_uint64(sum(o.value for o in register.outputs))
+assert input_amount == output_amount
 
-  3. Check the signatures (see [Multiple Ed25519 Signatures Verification](#multiple-ed25519-signatures-verification))
-      ```python
-      MultiEd25519_verify(txhash,
-                          proof.signatures,
-                          proof.indexes,
-                          channels[withdrawal.channel].accredited_keys,
-                          channels[withdrawal.channel].transfer_treshold)
-      ```
+msg = auth_msg(register.channel, register.inputs, register.outputs)
+assert msg not in registrations
+assert ZkSignature_verify(msg, proof, distinct_keys(input_notes))
+```
 
 #### Execution
 
   *Given*
 
 ```python
-withdrawal: ChannelWithdraw
-
-channels: dict[ChannelId, ChannelState]
-ledger: Ledger
+register: RegisterAuth
+registrations: dict[zkhash, Slot]
+block_slot: Slot
 ```
 
   *Execute*
 
-Remove the inputs from channel notes owned by the channel. The notes are neither consumed nor re-created: they keep their NoteId, value and ZkPublicKey, and are simply unregistered in the channel_notes set.
 ```python
-for note_id in withdrawal.inputs:
-    ledger.channel_notes.pop(note_id)
-```
-#### Example
-
-  Suppose the unique sequencer of Zone A wants to withdraw 50 tokens.
-
-```python
-# Sequencer encodes his withdrawal
-withdrawal = ChannelWithdraw(
-    channel=ZONE_A,
-    inputs  = [Channel_note_id]
-)
-
-# Build the transfer operation to pay the fees
-transfer = Transfer(inputs=[Sequencer_funds], outputs=[<change_note>])
-
-tx = MantleTx(
-    ops=[Op(opcode=CHANNEL_WITHDRAW, payload=encode(withdrawal)),
-         Op(opcode=TRANSFER, payload=encode(transfer))],
-)
-
-signed_tx = SignedMantleTx(
-    tx=tx,
-    op_proofs=[[[Ed25519_sign(mantle_txhash(tx), sequencer_sk)],[0]],
-               transfer.prove(Sequencer_node_sk)],
-)
+registrations[auth_msg(register.channel, register.inputs, register.outputs)] = block_slot
 ```
 
-### CHANNEL_TRANSFER
+### CHANNEL_FORCE_TRANSFER
 
-Assign funds from a channel to new `ZkPublicKey`. This funds are only usable to participate in PoS and to withdraw from the channel.
+Apply a registered authorization that no transfer has applied.
 
 #### Payload
 
 ```python
-class ChannelTransfer:
+class ForceTransfer:
     channel: ChannelId
     inputs: list[NoteId]
     outputs: list[Note]
@@ -911,119 +1228,674 @@ class ChannelTransfer:
 
 #### Proof
 
+None. The authorization was verified when it was registered, and the payload must reproduce it exactly.
+
 ```python
-class ChannelTransferOpProof:
-    signatures: list[Ed25519Signature] # signature from transfer_threshold keys
-    indexes: list[int]    # signatures of accredited keys with their index.
-                          # indexes must be ordered from smallest to biggest without duplication
+EmptyProof
 ```
 
 #### Execution Gas
 
-`CHANNEL_TRANSFER` Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_TRANSFER_GAS * transfer_threshold`, where `transfer_threshold` is the one held in the channel state. See [Gas Determination](#gas-determination) for the Execution Gas values.
+  Force Transfer Operations have a fixed Execution Gas cost of `EXECUTION_CHANNEL_FORCE_TRANSFER_GAS`. See [Gas Determination](#gas-determination) for the Execution Gas values.
 
 #### Validation
 
-*Given*
+  *Given*
 
 ```python
-txhash: zkhash
-chan_transfer: ChannelTransfer
-proof: ChannelTransferOpProof
+force: ForceTransfer
+registrations: dict[zkhash, Slot]
+ledger: Ledger
+block_slot: Slot
+```
 
-channels: dict[ChannelId, ChannelState]
+  *Validate*
+
+```python
+msg = auth_msg(force.channel, force.inputs, force.outputs)
+assert msg in registrations
+assert FORCE_DELAY <= block_slot - registrations[msg] < 2 * FORCE_DELAY
+
+# Inputs are unlocked notes of the channel. If a transfer applied the
+# authorization meanwhile, they are gone and forcing fails.
+ledger.assert_spendable(force.inputs, force.channel)
+for note_id in force.inputs:
+    assert note_id not in ledger.locked_notes
+```
+
+Value conservation and output validity were checked at registration, over the same notes.
+
+#### Execution
+
+  *Given*
+
+```python
+force: ForceTransfer
+registrations: dict[zkhash, Slot]
 ledger: Ledger
 ```
 
-*Validate*
-
-1. Check that the outputs are valid
+  *Execute*
 
 ```python
-ledger.assert_valid_output(chan_transfer.outputs)
+del registrations[auth_msg(force.channel, force.inputs, force.outputs)]
+ledger.execute_spending(force.inputs, force.channel)
+ledger.execute_adding(derive_op_id(force), force.outputs, force.channel)
 ```
 
-2. Check that the channel exists
+The outputs are channel notes, unlocked: a forced transfer is final at once.
+
+### CHANNEL_CHALLENGE
+
+Challenge a [pending transfer](#transfers).
+
+#### Payload
 
 ```python
-assert chan_transfer.channel in channels
+class ChannelChallenge:
+    transfer: OpId   # the challenged transfer
+    bond: NoteId     # an ordinary note of the challenger
 ```
 
-3. Check that the inputs are valid and belongs to the channel
+#### Proof
+
+A [ZkSignature](#zero-knowledge-signature-scheme-zksignature) over the `mantle_txhash` by the key of the bond note.
 
 ```python
-ledger.assert_spendable(chan_transfer.inputs, chan_transfer.channel)
+ZkSignature
 ```
 
-4. Check the balance
+#### Execution Gas
+
+  Channel Challenge Operations have a fixed Execution Gas cost of `EXECUTION_CHANNEL_CHALLENGE_GAS`. See [Gas Determination](#gas-determination) for the Execution Gas values.
+
+#### Validation
+
+  *Given*
 
 ```python
-input_amount = checked_uint64(sum(ledger.get_note(input).value for input in chan_transfer.inputs))
-output_amount = checked_uint64(sum(output.value for output in chan_transfer.outputs))
-assert input_amount == output_amount
+mantle_txhash: zkhash
+challenge: ChannelChallenge
+proof: ZkSignature
+
+pending_transfers: dict[OpId, PendingTransfer]
+ledger: Ledger
+block_slot: Slot
 ```
 
-5. Check the signatures (see [Multiple Ed25519 Signatures Verification](#multiple-ed25519-signatures-verification))
+  *Validate*
+
 ```python
-MultiEd25519_verify(txhash,
-					proof.signatures,
-                    proof.indexes,
-                    channels[chan_transfer.channel].accredited_keys,
-                    channels[chan_transfer.channel].transfer_treshold)
+assert challenge.transfer in pending_transfers
+t = pending_transfers[challenge.transfer]
+
+# One challenge per transfer, within its challenge window
+assert t.challenge is None
+assert block_slot < t.slot + CHALLENGE_WINDOW
+
+# The bond is an ordinary note worth the collateral the transfer put at risk
+ledger.assert_spendable([challenge.bond], None)
+bond = ledger.get_note(challenge.bond)
+assert bond.value >= t.required
+assert ZkSignature_verify(mantle_txhash, proof, [bond.public_key])
 ```
 
 #### Execution
 
-*Given*
+  *Given*
 
 ```python
-chan_transfer: ChannelTransfer
-
-channels: dict[ChannelId, ChannelState]
+challenge: ChannelChallenge
+pending_transfers: dict[OpId, PendingTransfer]
 ledger: Ledger
 ```
 
-*Execute*
-
-1. Remove inputs from the ledger
+  *Execute*
 
 ```python
-ledger.execute_spending(chan_transfer.inputs, chan_transfer.channel)
+ledger.bond_notes.add(challenge.bond)
+pending_transfers[challenge.transfer].challenge = Challenge(bond=challenge.bond, settled=False)
 ```
 
-2. Add outputs to the ledger.
+### CHANNEL_ANSWER
+
+Answer a challenge with the full accounting of the transfer (see [Challenges and Answers](#challenges-and-answers)).
+
+#### Payload
 
 ```python
-chan_transfer_id = derive_op_id(chan_transfer)
-ledger.execute_adding(chan_transfer_id, chan_transfer.outputs, chan_transfer.channel)
+class UserStep:
+    inputs: list[NoteId]   # transfer inputs, at least one
+    outputs: list[Note]
+    proof: ZkSignature     # the authorization, over auth_msg(channel, inputs, outputs)
+
+class PoolInput:
+    ref: NoteId | tuple[u16, u16]  # a transfer input, or the (step_index, output_index)
+                                   # of a note created by an earlier step
+    value: TokenValue
+    intent_hash: zkhash
+
+class PoolStep:
+    instance_id: InstanceId
+    consumed: list[PoolInput]
+    created: list[Note]
+    seal: Groth16Proof     # Risc0 receipt of the pool's program, wrapped in Groth16
+
+class ChannelAnswer:
+    transfer: OpId
+    bond: NoteId           # an ordinary note of the answerer
+    steps: list[UserStep | PoolStep]
 ```
+
+#### Proof
+
+A [ZkSignature](#zero-knowledge-signature-scheme-zksignature) over the `mantle_txhash` by the key of the bond note. The proofs the steps carry are part of the payload.
+
+```python
+ZkSignature
+```
+
+#### Execution Gas
+
+  Channel Answer Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_ANSWER_GAS + 2 * EXECUTION_ANSWER_BATCH_GAS + EXECUTION_ANSWER_PROOF_GAS * len(steps)`: the bond's `ZkSignature`, the fixed cost of the answer's two batches and one proof per step. See [Gas Determination](#gas-determination) for the Execution Gas values.
+
+#### Validation
+
+  *Given*
+
+```python
+mantle_txhash: zkhash
+answer: ChannelAnswer
+proof: ZkSignature
+
+pending_transfers: dict[OpId, PendingTransfer]
+execution_gas_base_price: TokenValue    # Given by Execution Market
+permanent_storage_gas_price: TokenValue # Given by Storage Market
+ledger: Ledger
+block_slot: Slot
+```
+
+  *Validate*
+
+```python
+assert answer.transfer in pending_transfers
+t = pending_transfers[answer.transfer]
+
+# The transfer has an open challenge and its response window is not over
+assert t.challenge is not None
+assert not t.challenge.settled
+assert block_slot < t.slot + CHALLENGE_WINDOW + RESPONSE_WINDOW
+
+# The bond is an ordinary note worth at least answer_bond()
+ledger.assert_spendable([answer.bond], None)
+bond = ledger.get_note(answer.bond)
+assert bond.value >= answer_bond()
+assert ZkSignature_verify(mantle_txhash, proof, [bond.public_key])
+```
+
+Validation stops there: whether the answer holds is decided at execution, and a wrong answer leaves the Operation valid (see [Validation](#validation)).
+
+#### Execution
+
+  *Given*
+
+```python
+answer: ChannelAnswer
+pools: dict[InstanceId, PoolEntry]
+pending_transfers: dict[OpId, PendingTransfer]
+ledger: Ledger
+```
+
+  *Execute*
+
+```python
+t = pending_transfers[answer.transfer]
+if answer_holds(t, answer):
+    # The challenge is settled and the challenger's bond pays the answerer
+    challenger_bond = ledger.get_note(t.challenge.bond)
+    answerer = ledger.get_note(answer.bond).public_key
+    ledger.bond_notes.remove(t.challenge.bond)
+    ledger.execute_spending([t.challenge.bond], None)
+    ledger.execute_adding(derive_op_id(answer), [Note(challenger_bond.value, answerer)], None)
+    t.challenge.settled = True
+else:
+    # A wrong answer forfeits its bond to the rewards pool and leaves the challenge open
+    route_to_rewards_pool(ledger.get_note(answer.bond).value)
+    ledger.execute_spending([answer.bond], None)
+```
+
+`answer_holds` implements the seven checks of [Challenges and Answers](#challenges-and-answers). Its sums are exact: a sum that does not fit a `TokenValue` makes the answer wrong, not the transaction invalid.
+
+```python
+def answer_holds(t: PendingTransfer, answer: ChannelAnswer) -> bool:
+    inputs = {c.note_id: c.note for c in t.inputs}
+    declared = {s.instance_id: s for s in t.declared}
+    spent = set()     # transfer inputs consumed so far
+    open_notes = {}   # notes created by a step and not consumed yet, by (step_index, output_index)
+    proven = set()    # pool transitions proven so far
+    auths, receipts = [], []
+
+    for step_index, step in enumerate(answer.steps):
+        if isinstance(step, UserStep):
+            refs, created = step.inputs, step.outputs
+            if not refs:
+                return False
+        else:
+            refs, created = [c.ref for c in step.consumed], step.created
+
+        # 1, 2, 3: a transfer input consumed once, or a note an earlier step created
+        consumed = []
+        for ref in refs:
+            if ref in inputs and ref not in spent:
+                spent.add(ref)
+                consumed.append(inputs[ref])
+            elif ref in open_notes:
+                consumed.append(open_notes.pop(ref))
+            else:
+                return False
+
+        # 4: value is conserved and every created note has a valid value
+        if any(not 0 < o.value <= UINT64_MAX for o in created):
+            return False
+        if sum(n.value for n in consumed) != sum(o.value for o in created):
+            return False
+        for output_index, note in enumerate(created):
+            open_notes[(step_index, output_index)] = note
+
+        if isinstance(step, UserStep):
+            # 6: the authorization, verified in the answer's batch
+            auths.append((auth_msg(t.channel, step.inputs, step.outputs),
+                          step.proof, distinct_keys(consumed)))
+        else:
+            # 7: the pool step proves one declared transition, from the right notes
+            if step.instance_id not in declared or step.instance_id in proven:
+                return False
+            proven.add(step.instance_id)
+            transition = declared[step.instance_id]
+            image_id = pools[step.instance_id].image_id
+            for note, c in zip(consumed, step.consumed):
+                if note.value != c.value:
+                    return False
+                if note.public_key != pool_key(image_id, step.instance_id, c.intent_hash):
+                    return False
+            journal = PoolJournal(step.instance_id, transition.state_before,
+                                  transition.new_state, step.consumed, step.created)
+            receipts.append((image_id, sha256(encode(journal)), step.seal))
+
+    # 2: every input consumed, 7: every declared transition proven
+    if spent != set(inputs) or proven != set(declared):
+        return False
+
+    # 5: the notes nobody consumed are the claims; summed per key and
+    # sorted by key, they are the transfer's outputs
+    claims = {}
+    for note in open_notes.values():
+        claims[note.public_key] = claims.get(note.public_key, 0) + note.value
+    if [Note(value=v, public_key=k) for k, v in sorted(claims.items())] != t.outputs:
+        return False
+
+    # 6, 7: the proofs, each kind in its own batch
+    return (zksig_batch_verify(auths, answer)
+            and risc0_batch_verify(receipts, answer))
+```
+
+`PoolJournal` is the journal the pool's program commits to, encoded as specified in [Mantle Transaction Encoding](mantle-transaction-encoding.md#channel-operations). `zksig_batch_verify` and `risc0_batch_verify` verify all the proofs of one kind in a single batch, with coefficients derived from the answer (see [Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#answer-batches)), and return whether the batch holds. A `ZkSignature` item is verified as `ZkSignature_verify(msg, proof, keys)`, a Risc0 item as specified in [Risc0 Receipt Verification](#risc0-receipt-verification).
 
 #### Example
 
-Suppose the unique sequencer of Zone A wants to attribute 50 tokens to themself.
+The answer to a challenge of the `payment` transfer of the [`CHANNEL_INSCRIBE` example](#channel_inscribe):
 
 ```python
-# Sequencer encodes their assignation
-chan_transfer = ChannelTransfer(
-    channel=ZONE_A,
-    inputs = [Channel_note_id]
-    outputs = [Note(pk=alice, value=50)]
-)
-
-# Build the transfer operation to pay the fees
-transfer = Transfer(inputs=[Sequencer_funds], outputs=[<change_note>])
-
-tx = MantleTx(
-    ops=[Op(opcode=CHANNEL_TRANSFER, payload=encode(chan_transfer)),
-         Op(opcode=TRANSFER, payload=encode(transfer))],
-)
-
-signed_tx = SignedMantleTx(
-    tx=tx,
-    op_proofs=[[[Ed25519_sign(mantle_txhash(tx), sequencer_sk)],[0]],
-                              transfer.prove(Sequencer_node_sk)],
-)
+answer = ChannelAnswer(
+    transfer=derive_op_id(payment),
+    bond=answerer_bond_note_id,
+    steps=[UserStep(inputs=[alice_note_id],
+                    outputs=[Note(25, carol_pk), Note(25, alice_pk)],
+                    proof=alice_auth),
+           UserStep(inputs=[bob_note_id],
+                    outputs=[Note(25, carol_pk), Note(25, bob_pk)],
+                    proof=bob_auth)])
 ```
+
+Each input is consumed once and each step balances. No step consumes another's notes, so all four are claims, and summed per key they give Carol 50, Alice 25 and Bob 25: the transfer's outputs. Had the sequencer posted `Carol(25), Alice(25), Bob(25), Seq(25)` instead, the claims would not match and the answer could not hold.
+
+### POOL_CREATE
+
+Create a [pool](#pools) in a channel.
+
+#### Payload
+
+```python
+class PoolCreate:
+    channel: ChannelId
+    image_id: ImageId      # the Risc0 program the pool runs
+    params_hash: zkhash   # the pool's parameters, salt included
+```
+
+#### Proof
+
+None. Both identifiers are derived, so whoever creates the pool creates the same one.
+
+```python
+EmptyProof
+```
+
+#### Execution Gas
+
+  Pool Create Operations have a fixed Execution Gas cost of `EXECUTION_POOL_CREATE_GAS`. See [Gas Determination](#gas-determination) for the Execution Gas values.
+
+#### Validation
+
+  *Given*
+
+```python
+create: PoolCreate
+channels: dict[ChannelId, ChannelState]
+pools: dict[InstanceId, PoolEntry]
+```
+
+  *Validate*
+
+```python
+assert create.channel in channels
+assert derive_instance_id(create.channel, create.image_id, create.params_hash) not in pools
+```
+
+#### Execution
+
+  *Given*
+
+```python
+create: PoolCreate
+pools: dict[InstanceId, PoolEntry]
+```
+
+  *Execute*
+
+```python
+instance_id = derive_instance_id(create.channel, create.image_id, create.params_hash)
+pools[instance_id] = PoolEntry(channel=create.channel,
+                               image_id=create.image_id,
+                               state=derive_pool_genesis(create.image_id, create.params_hash))
+```
+
+### CHANNEL_STAKE
+
+Stake ordinary notes as the [collateral](#collateral) of a sequencer key.
+
+#### Payload
+
+```python
+class ChannelStake:
+    sequencer: Ed25519PublicKey  # the accredited key the stake backs
+    notes: list[NoteId]          # ordinary notes
+```
+
+#### Proof
+
+A [ZkSignature](#zero-knowledge-signature-scheme-zksignature) over the `mantle_txhash` by the keys of the staked notes. It is what stops a sequencer from staking notes that are not its own.
+
+```python
+ZkSignature
+```
+
+#### Execution Gas
+
+  Channel Stake Operations have a fixed Execution Gas cost of `EXECUTION_CHANNEL_STAKE_GAS`. See [Gas Determination](#gas-determination) for the Execution Gas values.
+
+#### Validation
+
+  *Given*
+
+```python
+mantle_txhash: zkhash
+stake: ChannelStake
+proof: ZkSignature
+ledger: Ledger
+```
+
+  *Validate*
+
+```python
+# Ordinary notes only: not channel, service, staked or bond notes
+ledger.assert_spendable(stake.notes, None)
+notes = [ledger.get_note(n) for n in stake.notes]
+assert ZkSignature_verify(mantle_txhash, proof, distinct_keys(notes))
+```
+
+#### Execution
+
+  *Given*
+
+```python
+stake: ChannelStake
+sequencer_stakes: dict[Ed25519PublicKey, SequencerStake]
+ledger: Ledger
+```
+
+  *Execute*
+
+```python
+s = sequencer_stakes.setdefault(stake.sequencer, SequencerStake(notes=[], at_risk=0))
+s.notes.extend(stake.notes)
+for note_id in stake.notes:
+    ledger.staked_notes[note_id] = stake.sequencer
+```
+
+Staked notes stay on the ledger and keep taking part in Proof of Stake, as service notes do.
+
+#### Example
+
+```python
+# A sequencer of Zone A stakes a note of its own as collateral for its accredited key
+stake = ChannelStake(sequencer=sequencer_pk, notes=[sequencer_stake_note_id])
+transfer = Transfer(inputs=[<sequencer_funds>], outputs=[<change_note>])
+
+tx = MantleTx(ops=[Op(opcode=CHANNEL_STAKE, payload=encode(stake)),
+                   Op(opcode=TRANSFER, payload=encode(transfer))])
+signed_tx = SignedMantleTx(tx=tx, op_proofs=[stake.prove(sequencer_zk_sk),
+                                             transfer.prove(sequencer_zk_sk)])
+```
+
+### CHANNEL_UNSTAKE
+
+Release staked notes that no pending transfer needs.
+
+#### Payload
+
+```python
+class ChannelUnstake:
+    sequencer: Ed25519PublicKey
+    notes: list[NoteId]
+```
+
+#### Proof
+
+A [ZkSignature](#zero-knowledge-signature-scheme-zksignature) over the `mantle_txhash` by the keys of the released notes.
+
+```python
+ZkSignature
+```
+
+#### Execution Gas
+
+  Channel Unstake Operations have a fixed Execution Gas cost of `EXECUTION_CHANNEL_UNSTAKE_GAS`. See [Gas Determination](#gas-determination) for the Execution Gas values.
+
+#### Validation
+
+  *Given*
+
+```python
+mantle_txhash: zkhash
+unstake: ChannelUnstake
+proof: ZkSignature
+sequencer_stakes: dict[Ed25519PublicKey, SequencerStake]
+ledger: Ledger
+```
+
+  *Validate*
+
+```python
+assert unstake.sequencer in sequencer_stakes
+s = sequencer_stakes[unstake.sequencer]
+assert len(unstake.notes) > 0
+assert len(unstake.notes) == len(set(unstake.notes))
+for note_id in unstake.notes:
+    assert ledger.staked_notes.get(note_id) == unstake.sequencer
+
+# What stays staked still covers the collateral of the pending transfers
+notes = [ledger.get_note(n) for n in unstake.notes]
+released = checked_uint64(sum(n.value for n in notes))
+assert staked_value(s) - released >= s.at_risk
+assert ZkSignature_verify(mantle_txhash, proof, distinct_keys(notes))
+```
+
+#### Execution
+
+  *Given*
+
+```python
+unstake: ChannelUnstake
+sequencer_stakes: dict[Ed25519PublicKey, SequencerStake]
+ledger: Ledger
+```
+
+  *Execute*
+
+```python
+s = sequencer_stakes[unstake.sequencer]
+for note_id in unstake.notes:
+    s.notes.remove(note_id)
+    del ledger.staked_notes[note_id]
+```
+
+A sequencer leaving a channel keeps its collateral at risk until its last transfer is resolved, since `at_risk` only falls then.
+
+### Channel Transfer Resolution
+
+At the start of each block, before its transactions, validators resolve the pending transfers as a function of the block's slot, as [Block Execution](bedrock-v1.1-block-construction.md#block-execution) specifies. It reads the ledger state and the slot, never the block's transactions.
+
+```python
+def resolve_channel_transfers(block_slot: Slot):
+    # Registrations whose forcing window is over are dropped
+    for msg, slot in list(registrations.items()):
+        if block_slot - slot >= 2 * FORCE_DELAY:
+            del registrations[msg]
+
+    # A challenge still unanswered at the end of the response window loses
+    for op_id, t in list(pending_transfers.items()):
+        if (t.challenge is not None and not t.challenge.settled
+                and block_slot >= t.slot + CHALLENGE_WINDOW + RESPONSE_WINDOW):
+            lose(op_id)
+
+    # A transfer whose own window is over is final once its dependencies are,
+    # and an undone one is dropped. Pending transfers are visited in posting
+    # order, so a transfer comes after the ones it depends on and one pass suffices.
+    for op_id, t in list(pending_transfers.items()):
+        if t.challenge is None:
+            window_over = block_slot >= t.slot + CHALLENGE_WINDOW
+        else:
+            window_over = t.challenge.settled
+        if window_over and (t.undone or not any(d in pending_transfers for d in t.depends_on)):
+            finalize(op_id)
+```
+
+A final transfer releases its lock and its collateral. An undone transfer holds no lock any more, and releases its collateral only:
+
+```python
+def finalize(op_id: OpId):
+    t = pending_transfers.pop(op_id)
+    for note_id in [n for n, o in ledger.locked_notes.items() if o == op_id]:
+        del ledger.locked_notes[note_id]
+    sequencer_stakes[t.sequencer].at_risk -= t.required
+```
+
+A lost transfer forfeits its collateral and, unless an earlier loss already undid it, is undone with every transfer depending on it:
+
+```python
+def derive_redirect_id(lost_op_id: OpId) -> Hash:
+    h = Hasher()  # /!\ a classic hash, as in derive_op_id /!\
+    h.update(b"REDIRECT_V1")
+    h.update(lost_op_id)
+    return h.digest()
+
+def lose(op_id: OpId):
+    lost = pending_transfers[op_id]
+    restored = [] if lost.undone else undo(op_id)
+    del pending_transfers[op_id]
+
+    # Half of the forfeit pays the challenger and the rest goes to the rewards
+    # pool. The excess of the last staked note taken is re-created, still staked.
+    challenger = ledger.get_note(lost.challenge.bond).public_key
+    payout = [Note(value=lost.required // 2, public_key=challenger)] if lost.required >= 2 else []
+    change = take_stake(lost.sequencer, lost.required)
+    ids = ledger.execute_adding(derive_redirect_id(op_id),
+                                payout + ([change] if change is not None else []),
+                                None, first_index=len(restored))
+    if change is not None:
+        sequencer_stakes[lost.sequencer].notes.insert(0, ids[-1])
+        ledger.staked_notes[ids[-1]] = lost.sequencer
+    route_to_rewards_pool(lost.required - sum(n.value for n in payout))
+
+    # The challenger's bond is released
+    ledger.bond_notes.remove(lost.challenge.bond)
+```
+
+Undoing re-inserts no `NoteId`: the consumed notes are re-created under identifiers derived from the lost transfer. The undone transfers stay pending, marked, so that they can still be challenged and answered.
+
+```python
+def undo(op_id: OpId) -> list[ConsumedInput]:
+    # The lost transfer and every transfer depending on it that still stands, in posting order
+    undone = [op_id]
+    for other, t in pending_transfers.items():
+        if other != op_id and not t.undone and t.depends_on & set(undone):
+            undone.append(other)
+    records = [pending_transfers[u] for u in undone]
+    for t in records:
+        t.undone = True
+
+    # Pools go back to the state before the first undone declaration
+    for t in reversed(records):
+        for s in t.declared:
+            pools[s.instance_id].state = s.state_before
+
+    # The notes the undone transfers created are removed
+    removed = [n for n, o in ledger.locked_notes.items() if o in undone]
+    if removed:
+        ledger.execute_spending(removed, records[0].channel)
+
+    # The notes they consumed from outside the undone set are re-created, under
+    # the same keys. A note whose creator still stands, pending, stays locked by it.
+    restored = [c for t in records for c in t.inputs if c.locked_by not in undone]
+    ids = ledger.execute_adding(derive_redirect_id(op_id), [c.note for c in restored],
+                                records[0].channel)
+    for note_id, c in zip(ids, restored):
+        creator = pending_transfers.get(c.locked_by)
+        if creator is not None and not creator.undone:
+            ledger.locked_notes[note_id] = c.locked_by
+    return restored
+```
+
+Collateral is taken from the staked notes in the order they were staked, the last note taken being split:
+
+```python
+def take_stake(sequencer: Ed25519PublicKey, amount: TokenValue) -> Note | None:
+    s = sequencer_stakes[sequencer]
+    s.at_risk -= amount
+    taken, last = 0, None
+    while taken < amount:
+        note_id = s.notes.pop(0)
+        last = ledger.get_note(note_id)
+        del ledger.staked_notes[note_id]
+        ledger.execute_spending([note_id], None)
+        taken += last.value
+    # the excess of the last note taken stays staked
+    return Note(value=taken - amount, public_key=last.public_key) if taken > amount else None
+```
+
+The loop always ends, since a sequencer's staked value never falls below its `at_risk`: posting checks it, unstaking checks it, and taking a forfeit lowers both by the same amount.
+
+`route_to_rewards_pool(amount)` adds `amount` to the pending rewards pool and counts it in the block's $`R_\text{block}`$, as the fees of its transactions are (see [Block Rewards](block-rewards.md)). Forfeited value is pooled rather than destroyed, and total supply is unchanged.
 
 ## Service Declaration Protocol (SDP) Operations
 
@@ -1148,6 +2020,12 @@ declarations: dict[NoteId, DeclarationInfo]
       assert ledger.is_unspent(declaration.service_note_id)
       note = ledger.get_note(declaration.service_note_id)
       assert note.value >= min_stake.stake_threshold
+
+      # A service note is an ordinary note: not a channel note,
+      # and not already a sequencer's stake or a bond
+      assert declaration.service_note_id not in ledger.channel_notes
+      assert declaration.service_note_id not in ledger.staked_notes
+      assert declaration.service_note_id not in ledger.bond_notes
       ```
 
   5. Ensure the note has not already been used for this service.
@@ -1784,16 +2662,15 @@ ledger: Ledger
 
   *Validate*
 
-  1. Ensure all inputs are spendable and not in a channel.
+  1. Ensure all inputs are spendable. An input may be a channel note that is not [locked](#transfers), which the Transfer takes out of its channel.
       ```python
-      ledger.assert_spendable(transfer.inputs)
+      ledger.assert_spendable(transfer.inputs, None, leaving_channel=True)
       ```
 
   2. Validate transfer proof to show ownership over input notes.
       ```python
       input_notes = [ledger[input_note_id] for input_note_id in transfer.inputs]
-      input_pks = [note.public_key for note in input_notes]
-      assert ZkSignature_verify(mantle_txhash, transfer_proof, input_pks)
+      assert ZkSignature_verify(mantle_txhash, transfer_proof, distinct_keys(input_notes))
       ```
 
   3. Ensure outputs are valid.
@@ -1886,7 +2763,11 @@ Service notes are special notes in Mantle that serve as collateral for Service D
 
 Channel notes are on-ledger notes minted to represent channel funds. They are distinct from Service Notes as they can’t be used to declare a service. However, they follow the same ageing rule as ordinary notes since they are part of the ledger and can be used for PoL creation once aged enough.
 
-The system maintains a `channel_notes` set in the Ledger tracking all active channel `NoteId` and their respective `ChannelId`.
+The system maintains a `channel_notes` set in the Ledger tracking all active channel `NoteId` and their respective `ChannelId`, and a `locked_notes` set tracking the channel notes created by a [transfer](#transfers) that is not final yet, with that transfer's `OpId`.
+
+### Staked and Bond Notes
+
+Staked notes are ordinary notes held as a sequencer's [collateral](#collateral), and bond notes are ordinary notes held by an open challenge. Like service notes, they stay in the Ledger and keep taking part in Proof of Stake, but cannot be spent until released.
 
 ## Ledger
 
@@ -1895,30 +2776,37 @@ class Ledger:
     notes: list[Note]
     service_notes: dict[NoteId, ServiceNote]
     channel_notes: dict[NoteId, ChannelId]
+    locked_notes: dict[NoteId, OpId]                # channel notes of a pending transfer
+    staked_notes: dict[NoteId, Ed25519PublicKey]    # collateral, by sequencer key
+    bond_notes: set[NoteId]                         # bonds of open challenges
 ```
 
 ### Input Notes Spendability Validation
 
-A note is spendable if and only if it exists, it is not spent or a service note. The following function validates that an input of notes can be consumed:
+A note is spendable if and only if it exists, it is not spent, and it is not a service, staked or bond note. A channel note is spendable by its channel's transfers, locked or not, and by a `TRANSFER` Operation once it is unlocked. The following function validates that an input of notes can be consumed:
 
 ```python
 class Ledger:
-    def assert_spendable(inputs: list[NoteId], channel_id: ChannelId | None):
-		# Assert inputs are empty
-		assert len(inputs) > 0
+    def assert_spendable(inputs: list[NoteId], channel_id: ChannelId | None,
+                         leaving_channel: bool = False):
+        # Assert inputs are not empty
+        assert len(inputs) > 0
 
-        ## Check there is no duplicate
+        # Check there is no duplicate
         assert len(inputs) == len(set(inputs))
 
-            # Check that each note is individualy not a service note, for the correct channel and unspent
-            for note_id in inputs:
-                assert ledger.is_unspent(note_id)
-                assert note_id not in service_notes
-                if channel_id is None:
-                	assert note_id not in ledger.channel_notes
-                else:
-                	assert note_id in ledger.channel_notes
-                    assert ledger.channel_notes[note_id] == channel_id
+        for note_id in inputs:
+            assert ledger.is_unspent(note_id)
+            assert note_id not in ledger.service_notes
+            assert note_id not in ledger.staked_notes
+            assert note_id not in ledger.bond_notes
+            if channel_id is not None:
+                # a note of this channel, locked or not
+                assert ledger.channel_notes.get(note_id) == channel_id
+            elif note_id in ledger.channel_notes:
+                # only a Transfer takes a note out of its channel, once unlocked
+                assert leaving_channel
+                assert note_id not in ledger.locked_notes
 ```
 
 ### Output Notes Validation
@@ -1944,22 +2832,28 @@ class Ledger:
             # updates the merkle tree to zero out the leaf for this entry
             # and adds that leaf index to the list of unused leaves
             ledger.remove(note_id)
-            if channel_id is not None:
-                ledger.channel_notes.pop(note_id)
+            # a channel note leaves its channel, and its lock, when consumed,
+            # whether by its channel or by a Transfer
+            ledger.channel_notes.pop(note_id, None)
+            ledger.locked_notes.pop(note_id, None)
 ```
 
 ### Creating Output Notes Execution
 
-Creating notes derives their `NoteId` from the Operation’s `OpId` and insert them in the Ledger:
+Creating notes derives their `NoteId` from the Operation’s `OpId` and insert them in the Ledger. `first_index` lets an operation add its outputs in several calls:
 
 ```python
 class Ledger:
-    def execute_adding(op_id: Hash, outputs: list[Note], channel_id: ChannelId | None):
-        for (output_index, output_note) in enumerate(outputs):
+    def execute_adding(op_id: Hash, outputs: list[Note], channel_id: ChannelId | None,
+                       first_index: int = 0) -> list[NoteId]:
+        output_note_ids = []
+        for (output_index, output_note) in enumerate(outputs, start=first_index):
             output_note_id = derive_note_id(op_id, output_index, output_note)
             ledger.add(output_note_id)
             if channel_id is not None:
                 ledger.channel_notes[output_note_id] = channel_id
+            output_note_ids.append(output_note_id)
+        return output_note_ids
 ```
 
 # Appendix
@@ -1974,8 +2868,15 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_CHANNEL_INSCRIBE_GAS | 56 |
 | EXECUTION_CHANNEL_CONFIG_GAS | 56 |
 | EXECUTION_CHANNEL_DEPOSIT_GAS | 590 |
-| EXECUTION_CHANNEL_WITHDRAW_GAS | 56 |
-| EXECUTION_CHANNEL_TRANSFER_GAS | 56 |
+| EXECUTION_CHANNEL_REGISTER_AUTH_GAS | 590 |
+| EXECUTION_CHANNEL_FORCE_TRANSFER_GAS | 0 |
+| EXECUTION_CHANNEL_CHALLENGE_GAS | 590 |
+| EXECUTION_CHANNEL_ANSWER_GAS | 590 |
+| EXECUTION_ANSWER_BATCH_GAS | 3,900 |
+| EXECUTION_ANSWER_PROOF_GAS | 590 |
+| EXECUTION_POOL_CREATE_GAS | 0 |
+| EXECUTION_CHANNEL_STAKE_GAS | 590 |
+| EXECUTION_CHANNEL_UNSTAKE_GAS | 590 |
 | EXECUTION_SDP_DECLARE_GAS | 646 |
 | EXECUTION_SDP_WITHDRAW_GAS | 590 |
 | EXECUTION_SDP_ACTIVE_GAS | 590 |
@@ -2015,9 +2916,20 @@ Such that the following constraints hold:
   )
   ```
 
-- The proof is bound to `msg` (it’s the `mantle_tx_hash` reduced modulo $`p`$ in case of transactions).
+- The proof is bound to `msg` (it’s the `mantle_tx_hash` reduced modulo $`p`$ in case of transactions, and the `auth_msg` in case of [authorizations](#authorizations)).
 
   For implementation, the ZkSignature circuit will take a maximum of 32 public keys as inputs. To prove ownership of fewer keys, the remaining inputs will be padded with the public key corresponding to the secret key `0` and ignored during execution. The outputs have no size limit since they are included in the hashed message.
+
+When the keys are those of notes, the list holds each distinct key once, in the order it first appears, so that spending many notes under one key takes one entry and the 32-key limit counts owners rather than notes:
+
+```python
+def distinct_keys(notes: list[Note]) -> list[ZkPublicKey]:
+    keys = []
+    for note in notes:
+        if note.public_key not in keys:
+            keys.append(note.public_key)
+    return keys
+```
 
 ### Benchmark
 
@@ -2033,9 +2945,8 @@ The material used for the benchmarks is the following:
 
 ## Multiple Ed25519 Signatures Verification
 
-Several operations (e.g. [Channel Configuration](#channel-configuration) and
-[Channel Withdraw](#channel-withdraw)) authorize an action with a threshold of
-Ed25519 signatures produced by a list of accredited keys. Each signature comes
+[Channel Configuration](#channel_config) authorizes a new configuration with a
+threshold of Ed25519 signatures produced by a list of accredited keys. Each signature comes
 with the index, in the accredited keys list, of the key that produced it. The
 verification is factored out in the following routine:
 
@@ -2128,9 +3039,29 @@ The material used for the benchmarks is the following:
 
 ![Diagram](bedrock-v1.1-mantle-specification/assets/b23261aa-09df-827c-8565-014a68d98d4c.png)
 
+## Risc0 Receipt Verification
+
+A [pool step](#pools) carries the seal of a Risc0 receipt wrapped in Groth16 over BN254. It is verified against the program and the journal the ledger expects:
+
+```python
+def risc0_verify(image_id: ImageId, journal_digest: bytes, seal: Groth16Proof) -> bool:
+    # The claim that program `image_id` ran to completion with exit code
+    # Halted(0), committing to a journal whose SHA-256 digest is `journal_digest`
+    claim = risc0_receipt_claim_digest(image_id, journal_digest, exit_code=Halted(0))
+    control_root_0, control_root_1 = split_128(RISC0_CONTROL_ROOT)
+    claim_0, claim_1 = split_128(claim)
+    return groth16_verify(RISC0_GROTH16_VK, seal,
+                          [control_root_0, control_root_1, claim_0, claim_1,
+                           RISC0_BN254_CONTROL_ID])
+```
+
+`risc0_receipt_claim_digest`, `split_128` and `RISC0_GROTH16_VK` are those of the Risc0 release pinned by `RISC0_CONTROL_ROOT` and `RISC0_BN254_CONTROL_ID`. Adopting another release means changing these parameters. The verification key comes from Risc0's trusted setup, not from the [Logos one](trusted-setup-ceremony.md). In an answer, the receipts are verified in one batch, as `risc0_batch_verify`.
+
 ## Test Vectors
 
 To see what the payloads represent, refer to [Mantle Transaction Encoding](mantle-transaction-encoding.md).
+
+The `CHANNEL_CONFIG`, `CHANNEL_INSCRIBE`, `CHANNEL_WITHDRAW` and `CHANNEL_TRANSFER` vectors, and the transaction carrying one Operation of each kind, use the payloads in force before revision 1.16.0 and are to be regenerated from the implementation.
 
 ### Operation Id
 

@@ -32,6 +32,7 @@
 | 1.5.3 | Adopted "active message" as the single name for the message | 2026-09-02 |
 | 1.5.4 | Renamed the `stake_manipulation_threshold` of the channel gas derivations into `transfer_threshold` and the Channel Stake Assignation section into Channel Transfer, following Mantle | 2026-08-31 |
 | 1.6.0 | Add the Execution Gas derivation for the `CLAIM_POW_REWARD` Operation | 2026-09-04 |
+| 1.7.0 | Removed the Channel Withdraw and Channel Transfer derivations and added those of the register, force, challenge, answer, pool creation, stake and unstake Operations, following Mantle 1.16.0 | 2026-09-18 |
 
 # Introduction
 
@@ -73,8 +74,13 @@ TRANSFER_GAS                  = 590
 CHANNEL_INSCRIBE_GAS          = 56
 CHANNEL_CONFIG_GAS            = 56 * configuration_threshold
 CHANNEL_DEPOSIT_GAS           = 590
-CHANNEL_TRANSFER_GAS          = 56 * transfer_threshold
-CHANNEL_WITHDRAW_GAS          = 56 * transfer_threshold
+CHANNEL_REGISTER_AUTH_GAS     = 590
+CHANNEL_FORCE_TRANSFER_GAS    = 0
+CHANNEL_CHALLENGE_GAS         = 590
+CHANNEL_ANSWER_GAS            = 590 + 2 * 3900 + 590 * number_of_steps
+POOL_CREATE_GAS               = 0
+CHANNEL_STAKE_GAS             = 590
+CHANNEL_UNSTAKE_GAS           = 590
 SDP_DECLARE_GAS               = 646
 SDP_WITHDRAW_GAS              = 590
 SDP_ACTIVE_GAS                = 590
@@ -89,8 +95,9 @@ and come from our implementation observations as described in [Gas determination
 | ZkSignature batch verification | 3,900,000 + number_of_proof x 590,000 |
 | Proof of Claim batch verification | 2,640,000 + number_of_proof x 580,000 |
 | Eddsa25519 signature verification | 56,000 |
+| Risc0 Groth16 receipt batch verification | assumed equal to the ZkSignature batch until measured |
 
-Comparison, list searching, hashes and operation in small fields are neglected. We also supposed that the initialization cost for batch verification is paid by everyone and deduced from the block directly. The user then pay only for the part that is proportional to the number of proofs.
+Comparison, list searching, hashes and operation in small fields are neglected. We also supposed that the initialization cost for batch verification is paid by everyone and deduced from the block directly. The user then pay only for the part that is proportional to the number of proofs. An answer to a channel challenge is the exception: its proofs are verified in batches of their own, so it pays their initialization cost.
 
 # Transfer
 
@@ -101,12 +108,12 @@ Execution: ~590k CPU cycles.
 - Verification of the ZK signature: 590,000 cycles.
 ## Input Gas
 
-Input gas covers the computational cost of verifying that one Note Id exists in the Ledger and is not a service or channel note. Additionally, it compensates for the removal of one Note Id from the Ledger.
+Input gas covers the computational cost of verifying that one Note Id exists in the Ledger, is not a service, staked or bond note, and is not a locked channel note. Additionally, it compensates for the removal of one Note Id from the Ledger.
 
 Execution: negligible.
 
 - Verification that the note is in the ledger: negligible.
-- Verification that the note is not a channel or service note: negligible.
+- Verification that the note is not a service, staked, bond or locked channel note: negligible.
 - Removing of the note from the ledger: negligible.
 ## Output Gas
 
@@ -119,7 +126,7 @@ Execution: negligible.
 - Derivation of the note identifiers: negligible
 ## Channel Inscription
 
-The validation process includes verifying an Eddsa25519 signature, confirming that the signer is authorized for the specified channel, and checking the chaining sequence of the channel. The execution encompasses creating channel records (if not previously used) and updating the tip of the channel.
+The validation process includes verifying an Eddsa25519 signature, confirming that the signer is authorized for the specified channel, and checking the chaining sequence of the channel. The execution encompasses creating channel records (if not previously used) and updating the tip of the channel. A transfer part adds checks on its notes, pool states and collateral, and their ledger updates, none of which verifies a proof.
 
 Execution: ~56k CPU cycles.
 
@@ -127,6 +134,7 @@ Execution: ~56k CPU cycles.
 - Verification of the signer authorization: negligible.
 - Verification of channel sequencing: negligible
 - Update the channel state: negligible
+- Checks and execution of the transfer part: negligible
 ## Channel Deposit
 
 The Execution Gas of the Channel Deposit Operation compensates for the verification of the [ZkSignature](bedrock-v1.1-mantle-specification.md) proof and for the check of the inputs.
@@ -140,32 +148,61 @@ Execution: ~590k CPU cycles.
 - Insertion of the note in the ledger: negligible.
 - Derivation of the note identifiers: negligible
 
-## Channel Withdraw
+## Channel Register Authorization
 
-The validation process requires verifying multiple Eddsa25519 signatures.
-The execution require consuming the channel notes, deriving note Id and adding notes to the ledger.
+The Execution Gas compensates for the verification of the authorization's [ZkSignature](bedrock-v1.1-mantle-specification.md) proof.
 
-Execution: ~56k CPU cycles * transfer_threshold.
+Execution: ~590k CPU cycles.
 
-- Verification of `transfer_threshold` Ed25519Signatures: 56,000 cycles per signature.
-- Verification that the notes are in the ledger: negligible.
-- Verification that the notes are in the channel: negligible.
-- Removing the notes from channel notes: negligible.
+- Verification of the ZK signature: 590,000 cycles.
+- Verification that the notes are in the channel and the balance is conserved: negligible.
+- Recording the registration: negligible.
 
-## Channel Transfer
+## Channel Force Transfer
 
-The validation process requires verifying multiple Eddsa25519 signatures, and managing the channel notes.
-The execution require deriving note Id and adding notes to the ledger.
+The authorization was verified at registration, so nothing is left but checks and ledger updates.
 
-Execution: ~56k CPU cycles * transfer_threshold.
+Execution: negligible.
 
-- Verification of `transfer_threshold` Ed25519Signatures: 56,000 cycles per signature.
-- Verification that the notes are in the ledger: negligible.
-- Verification that the notes are in the channel: negligible.
-- Removing of the note from the ledger: negligible.
-- Verification of the output validity: negligible.
-- Insertion of the note in the ledger: negligible.
-- Derivation of the note identifiers: negligible
+- Recomputing the authorization message and finding its registration: negligible.
+- Verification that the notes are in the channel and unlocked: negligible.
+- Removing and inserting the notes: negligible.
+
+## Channel Challenge
+
+The Execution Gas compensates for the verification of the bond's ZkSignature.
+
+Execution: ~590k CPU cycles.
+
+- Verification of the ZK signature: 590,000 cycles.
+- Verification of the challenge window and of the bond value: negligible.
+
+## Channel Answer
+
+The Execution Gas compensates for the verification of the bond's ZkSignature and for the verification of the answer's proofs, in two batches of their own: one for the `ZkSignature` of the user steps and one for the Risc0 receipts of the pool steps. Unlike every other proof, these are not verified in the block's batch, since a wrong answer must not invalidate the block, so the answer pays the initialization cost of both batches.
+
+Execution: ~590k + 2 * 3,900k + 590k * number_of_steps CPU cycles.
+
+- Verification of the bond's ZK signature: 590,000 cycles.
+- Initialization of the two batches: 3,900,000 cycles each.
+- Verification of one proof per step: 590,000 cycles, the Risc0 receipt being assumed to cost what a ZkSignature does until it is measured.
+- Accounting of the steps and hashing of the pool journals: negligible.
+
+## Pool Create
+
+Execution: negligible.
+
+- Derivation of the instance identifier and genesis state: negligible.
+- Insertion of the pool entry: negligible.
+
+## Channel Stake and Unstake
+
+The Execution Gas compensates for the verification of the ZkSignature over the staked or released notes.
+
+Execution: ~590k CPU cycles.
+
+- Verification of the ZK signature: 590,000 cycles.
+- Verification of the notes and, when unstaking, of the collateral still at risk: negligible.
 
 ## Channel Config
 

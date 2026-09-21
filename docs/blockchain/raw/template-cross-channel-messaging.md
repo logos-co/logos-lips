@@ -25,6 +25,7 @@
 | 1.1.0 | [\[RFC\] Enforce NoteId uniqueness](mantle-transaction-encoding/appendices/rfc-enforce-noteid-uniqueness.md). | 2026-04-24 |
 | 1.1.1 | [\[RFC\] Simplify Mantle Transaction and Refactor Ledger Operations](mantle-transaction-encoding/appendices/rfc-simplify-mantle-transaction-and-refactor-ledger-operations.md) | 2026-05-06 |
 | 1.2.0 | Align the atomic transfer example with the `CHANNEL_DEPOSIT` execution consuming its inputs and re-creating them in the destination channel. | 2026-07-27 |
+| 1.3.0 | The atomic transfer takes the note out of the source channel with a `Transfer` authorized by its holder, `CHANNEL_WITHDRAW` being removed from [Mantle](bedrock-v1.1-mantle-specification.md) 1.16.0. The holder joins the signature round | 2026-09-18 |
 
 # Introduction
 
@@ -158,7 +159,7 @@ Synchronous messaging enables atomic cross-channel operations by including multi
 
 The atomicity property is crucial for use cases that require coordinated changes across multiple channels. Examples include:
 
-- Atomic swaps: Trading assets between two zones where both transfers must succeed or both must fail. It involves executing a CHANNEL_WITHDRAW, a CHANNEL_DEPOSIT and two state transitions encoded as CHANNEL_INSCRIBE.
+- Atomic swaps: Trading assets between two zones where both transfers must succeed or both must fail. It involves taking notes out of one channel with a TRANSFER, a CHANNEL_DEPOSIT and two state transitions encoded as CHANNEL_INSCRIBE.
 - Cross-channel funds transfers: Moving assets from one channel to another with guarantees that the asset is directly deposited to the other channel.
 
 Without atomicity, these operations would be vulnerable to partial failures, leading to inconsistent global state.
@@ -169,28 +170,30 @@ Without atomicity, these operations would be vulnerable to partial failures, lea
 # Build the inscription that sends a transfer from Zone A to Zone B
 sending = Inscribe(
     channel=CHANNEL_ZONE_A,
-    inscription=b"Alice burns 5 tokens to send to Bob in Zone B",
+    inscription=b"Alice sends 5 tokens to her account in Zone B",
     parent=hash(PREVIOUS_ZONE_A_INSCRIPTION),
-    signer=sequencer_of_zone_a
+    signer=sequencer_of_zone_a,
+    inputs=[], outputs=[], declared=[]
 )
 # Build the inscription that receives the transfer from Zone A to Zone B
 receiving = Inscribe(
     channel=CHANNEL_ZONE_B,
-    inscription=b"Bob mints 5 tokens, received from Alice in Zone A",
+    inscription=b"Alice receives 5 tokens from her account in Zone A",
     parent=hash(PREVIOUS_ZONE_B_INSCRIPTION),
-    signer=sequencer_of_zone_b
+    signer=sequencer_of_zone_b,
+    inputs=[], outputs=[], declared=[]
 )
-# Sequencer of Zone A encodes the withdrawal from Zone A. The note leaves the
-# channel keeping its NoteId, its value and its ZkPublicKey
-withdrawal = ChannelWithdraw(
-    channel=CHANNEL_ZONE_A,
-    inputs=[zone_a_channel_note_id]
+# Alice takes her note out of Zone A with an ordinary Transfer. The note must
+# not be locked, and it is re-created as an ordinary note under a new NoteId
+leave_a = Transfer(
+    inputs=[alice_zone_a_note_id],
+    outputs=[Note(value=5, public_key=alice_pk)]
 )
-# The withdrawn note is deposited to Zone B, where it is consumed and
+# The note the exit created is deposited to Zone B, where it is consumed and
 # re-created as a channel note under a new NoteId
 deposit = ChannelDeposit(
     channel=CHANNEL_ZONE_B,
-    inputs=[zone_a_channel_note_id],
+    inputs=[derive_note_id(derive_op_id(leave_a), 0, Note(value=5, public_key=alice_pk))],
     metadata=b"transfer from Zone A"
 )
 # Build the transfer operation to pay the fees
@@ -199,40 +202,38 @@ transfer = Transfer(
     outputs=[<change_note>]
 )
 # Wrap it in a transaction. Operations are executed sequentially, so the
-# withdrawal must precede the deposit for the note to be spendable
+# exit from Zone A must precede the deposit for the note to exist
 tx = MantleTx(
     ops=[Op(opcode=CHANNEL_INSCRIBE, payload=encode(sending)),
          Op(opcode=CHANNEL_INSCRIBE, payload=encode(receiving)),
-         Op(opcode=CHANNEL_WITHDRAW, payload=encode(withdrawal)),
+         Op(opcode=TRANSFER, payload=encode(leave_a)),
          Op(opcode=CHANNEL_DEPOSIT, payload=encode(deposit)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
 # Sign the transaction
 signed_tx = SignedMantleTx(
     tx=tx,
-    # Sequencer A is responsible for Zone A so it signs the Inscription and the
-    # Withdraw of Zone A, and proves ownership of the deposited note. Sequencer B
-    # only signs the Inscription of Zone B, as a Deposit is authorized by the
-    # owner of the notes it consumes and not by the destination channel.
-    # Note that the withdraw OpProof has a ChannelWithdrawOpProof structure
+    # Each sequencer signs the Inscription of its own Zone. Alice holds the key
+    # of the note, so she authorizes both its exit from Zone A and its deposit
+    # into Zone B, as neither channel can move it without her.
     op_proofs=[Ed25519_sign(mantle_txhash(tx), sequencer_of_zone_a_sk),
                Ed25519_sign(mantle_txhash(tx), sequencer_of_zone_b_sk),
-               [[Ed25519_sign(mantle_txhash(tx), sequencer_of_zone_a_sk)],[0]],
-               deposit.prove(zone_a_note_zk_sk),
+               leave_a.prove(alice_sk),
+               deposit.prove(alice_sk),
                transfer.prove(sequencer_of_zone_a_sk)]
 )
 # Send the transaction to the mempool
 mempool.push(signed_tx)
 ```
 
-The withdrawn note keeps the `ZkPublicKey` it carried while it was a channel note of Zone A, and the Deposit proves ownership of that key. Zone A must therefore control it when the transaction is built, either because the note was already assigned to one of its keys or by reassigning it with a `CHANNEL_TRANSFER` placed before the withdrawal in the same Mantle Transaction.
+A channel note moves only with its holder's authorization (see [Mantle Bridging](bedrock-v1.1-mantle-specification.md#bridging)), so the holder takes part in the round with the two sequencers and must be online for it. Zone A debits Alice because the exit sits in the same Mantle Transaction as its inscription, and Zone B credits the key the deposited note carries, which is Alice's (see [Following a Channel](bedrock-v1.1-mantle-specification.md#following-a-channel)). To pay someone else in Zone B, Alice adds a transfer of Zone B applying her authorization.
 
 ### Signature Coordination
 
 Synchronous messaging requires coordination between sequencers from different channels. The process works as follows:
 
 1. Transaction Construction: One sequencer (the coordinator) constructs a Mantle Transaction containing multiple channel operations for different channels. Each Operation represents an Inscription, withdraw or deposit for a specific channel or a transfer. In order to construct this transaction, the coordinator must gather the different intentions of the affected channels sequencers. For example, a Zone sequencer needs to inform another Zone sequencer that a user is transferring tokens so the receiving Zone can mint the token in its state.
-1. Signature Collection: Each participating sequencer receives the complete Mantle Transaction and verifies it. If all checks pass, the sequencer builds a proof for the Operations of its channel which includes the signature of the Mantle Transaction hash. The signature covers the entire transaction, ensuring that all sequencers approve the atomic Operations as a whole and preventing signature replay attacks.
+1. Signature Collection: Each participant receives the complete Mantle Transaction and verifies it: the sequencers of the channels involved, and the holders of the channel notes it moves, whose authorization a channel cannot give for them. If all checks pass, each builds a proof for its Operations which includes the signature of the Mantle Transaction hash. The signature covers the entire transaction, ensuring that all sequencers approve the atomic Operations as a whole and preventing signature replay attacks.
 1. Coordination and Submission: The coordinator collects Operation proofs from all participating sequencers. Once all required proofs are gathered, the coordinator assembles the fully signed transaction and submits it to Bedrock.
 1. Atomic Execution: The chain validates the Mantle Transaction. If any validation check fails, the entire transaction is rejected and no state changes are applied. If all checks pass, all Operations are executed atomically.
 
