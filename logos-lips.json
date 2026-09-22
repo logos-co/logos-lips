@@ -1414,6 +1414,15 @@
   },
   {
     "component": "messaging",
+    "slug": "251",
+    "title": "Forward Secrecy with SDS",
+    "status": "raw",
+    "category": "Standards Track",
+    "updated": "2026-09-21",
+    "path": "messaging/core/raw/sds-fs.html"
+  },
+  {
+    "component": "messaging",
     "slug": "26",
     "title": "Waku Message Payload Encryption",
     "status": "draft",
