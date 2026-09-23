@@ -23,6 +23,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-24 |
 | 1.1.0 | Changing from burning/minting to pooling/distributing/releasing, removing $`S_{tge}`$ | 2026-08-25 |
+| 1.2.0 | $`R_\text{block}`$ also counts the channel collateral forfeited in the block, which [Mantle](bedrock-v1.1-mantle-specification.md) 1.16.0 routes to the pending rewards pool | 2026-09-18 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -99,7 +100,7 @@ where:
 - $`S_{cap}`$ denotes the maximum allowable token supply (hard cap).
 - $`\Delta_t`$ denotes the fraction of year in one time step per e.g., epoch, block, or day.
 - $`f`$ be the average number of block proposal within $`\Delta_{t}`$ units.
-- $`R_\text{block}`$ denotes the total amount of Execution base fees and Permanent Storage fees that are routed to the pending reward pool when the block is proposed.
+- $`R_\text{block}`$ denotes the total amount of Execution base fees and Permanent Storage fees, and of the channel collateral forfeited in the block (see [Channels](channels.md#collateral)), that are routed to the pending reward pool when the block is proposed.
 - $`\bar{R}_t`$ denotes the average pooled reward: the moving average of $`R_\text{block}`$ over the look-back window $`T`$.
 
 ## Lifecycle Phases
@@ -155,7 +156,7 @@ Let us define the following variables:
 - $`A_t \in [0,1]`$ denotes the emission rate factor on a per year basis.
     - This implies that $`A_t \cdot I_{max} \cdot \Delta_t`$ denotes the emission within the time-step.
 - $`D_{i,t}`$ denotes the $i$-th key performance indicator at time $t$ (e.g., TVL, staked amount, active users).
-- $`R_\text{block}`$ denotes the total amount of Execution Gas and Permanent Storage fees routed to the rewards pool in a block. Refer to [Execution Market](execution-market.md) and [Storage Markets](storage-markets.md) for how to compute $`R_{block}`$.
+- $`R_\text{block}`$ denotes the total amount of Execution Gas and Permanent Storage fees, and of forfeited channel collateral, routed to the rewards pool in a block. Refer to [Execution Market](execution-market.md) and [Storage Markets](storage-markets.md) for how to compute $`R_{block}`$.
 - $`\bar{R}_t = \dfrac{1}{T} \sum_{\tau=t-T+1}^{t} D_{1,\tau}`$ denotes the average pooled reward: the moving average of $`R_\text{block}`$ over the look-back window $`T`$. It is the base distributed each block, topped up by the reserve release.
 
 ## Parametrization

@@ -33,6 +33,7 @@
 | 1.6.1 | Renamed the `LockedNoteId` production of the SDP Operations into `ServiceNoteId` | 2026-08-27 |
 | 1.7.0 | Added the `ChannelConfigOpProof` and `ChannelTransferOpProof` variants and factored the three channel threshold proofs into `ChannelMultiSigProof`, carrying the index of the signing key alongside each signature | 2026-08-31 |
 | 1.8.0 | Added the `ClaimPowReward` Operation payload; its proof is a `ZkSigProof` | 2026-09-08 |
+| 1.9.0 | Removed `ChannelTransfer`, its proof and the `TransferThreshold` of `ChannelConfig`; `ChannelWithdraw` carries its channel and its inputs only; `ChannelInscribe` gains `MovesNotes`, `Inputs`, `Outputs` and `Bond`, and takes a `ZkAndEd25519SigsProof` when it moves notes; added the challenge and answer payloads and the `EmptyProof`, following Mantle 1.16.0 | 2026-09-18 |
 
 # Introduction
 
@@ -72,7 +73,8 @@ OpPayload = Transfer /
             ChannelConfig /
             ChannelDeposit /
             ChannelWithdraw /
-            ChannelTransfer /
+            ChannelChallenge /
+            ChannelAnswer /
             SDPDeclare /
             SDPWithdraw /
             SDPActive /
@@ -83,24 +85,27 @@ OpPayload = Transfer /
 ### Channel Operations
 
 ```schema
-ChannelInscribe = ChannelId Inscription Parent Signer
+ChannelInscribe = ChannelId Inscription Parent Signer MovesNotes [Inputs Outputs Bond]
 Inscription     = UINT32 *BYTE 
+MovesNotes      = Byte   ; 0x01 when Inputs, Outputs and Bond follow, 0x00 otherwise
 
-ChannelConfig     = ChannelId Parent KeyCount *Signer PostingTimeframe PostingTimeout ConfigThreshold TransferThreshold
+ChannelConfig     = ChannelId Parent KeyCount *Signer PostingTimeframe PostingTimeout ConfigThreshold
 KeyCount                   = UINT16
 PostingTimeframe           = UINT32
 PostingTimeout             = UINT32
 ConfigThreshold            = UINT16
-TransferThreshold          = UINT16
 
 ChannelDeposit    = ChannelId Inputs Metadata
-Inputs            = InputCount *NoteId
-InputCount        = Byte
 Metadata          = UINT32 *BYTE
 
-ChannelTransfer = ChannelId Inputs Outputs
-
 ChannelWithdraw   = ChannelId Inputs
+
+ChannelChallenge = InscriptionId Bond
+ChannelAnswer    = InscriptionId StepCount *Step
+InscriptionId    = Hash32
+Bond             = Inputs
+StepCount        = UINT16
+Step             = Inputs Outputs ZkSignature
 
 ChannelId         = Hash32
 Parent            = Hash32
@@ -108,7 +113,10 @@ Signer            = Ed25519PublicKey
 Outputs           = OutputCount *Note
 OutputCount       = Byte
 Inputs            = InputCount *NoteId
+InputCount        = Byte
 ```
+
+A `ChannelInscribe` whose `MovesNotes` is `0x01` carries its `Inputs`, `Outputs` and `Bond` and takes a `ZkAndEd25519SigsProof`; one whose `MovesNotes` is `0x00` carries none of them and takes an `Ed25519SigProof`.
 
 ### SDP Operations
 
@@ -168,7 +176,7 @@ NoteId = FieldElement
 ## Op Proofs
 
 ```schema
-OpsProofs = *OpProof ; 1. Lenth must equal OpCount
+OpsProofs = *OpProof ; 1. Length must equal OpCount
                      ; 2. OpProof variant is derived from the corresponding Op.
                      ;    That is, type(OpProofs[i]) == ProofFor(Op[i])
 
@@ -176,17 +184,15 @@ OpProof   = Ed25519SigProof /
             ZkSigProof /
             ZkAndEd25519SigsProof /
             ChannelConfigOpProof /
-            ChannelWithdrawOpProof /
-            ChannelTransferOpProof /
-            ProofOfClaimProof
+            ProofOfClaimProof /
+            EmptyProof
 
 Ed25519SigProof         = Ed25519Signature
 ZkSigProof              = ZkSignature
 ZkAndEd25519SigsProof   = ZkSignature Ed25519Signature
 ChannelConfigOpProof    = ChannelMultiSigProof
-ChannelWithdrawOpProof  = ChannelMultiSigProof
-ChannelTransferOpProof  = ChannelMultiSigProof
 ProofOfClaimProof       = Groth16
+EmptyProof              = 0Byte
 
 ChannelMultiSigProof = SignatureCount *IndexedSignature
 IndexedSignature     = Ed25519Signature SignerIndex
