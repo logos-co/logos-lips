@@ -193,7 +193,7 @@ Technical Details:
 - Public Key Size: 32 bytes.
 - Security Level: Approximately 128 bits.
 - Operations: Efficient scalar multiplications with Montgomery ladder for constant-time execution.
-- Verification: a signature $`(R, S)`$ on a message $`M`$ under the public key $`A`$ is valid only if $`S < \ell`$, neither $`A`$ nor $`R`$ is a point of small order (order 1, 2, 4 or 8), and $`[S]B = R + [k]A`$ with $`k = \text{SHA-512}(R \| A \| M)`$. This is the cofactorless equation of RFC 8032 §5.1.7 with the small-order checks added (`verify_strict` in `ed25519-dalek`).
+- Verification: a signature $`(R, S)`$ on a message $`M`$ under the public key $`A`$ is valid only if $`S < \ell`$, neither $`A`$ nor $`R`$ is a point of small order (order 1, 2, 4 or 8), and $`[S]B = R + [k]A`$ with $`k = \text{SHA-512}(R \| A \| M)`$. This is the cofactorless equation of [RFC 8032 §5.1.7](https://datatracker.ietf.org/doc/html/rfc8032#section-5.1.7) with the small-order checks added (`verify_strict` in `ed25519-dalek`).
 
 Use in the Logos Blockchain:
 
