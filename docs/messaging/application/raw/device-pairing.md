@@ -93,7 +93,7 @@ d.   -> sA, sAeB, sAsB  {s}
    - An ephemeral public key `eB`;
    - The content topic parameters `contentTopicParams = {application-name}, {application-version}, {shard-id}`.
    - A (randomly generated) 16-bytes long `messageNametag`.
-   - A commitment `H(sB||r)` for its static key `sB` where `r` is a random fixed-lenght value.
+   - A commitment `H(sB||r)` for its static key `sB` where `r` is a random fixed-length value.
    
 2. The device `A`:
 
