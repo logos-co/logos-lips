@@ -26,6 +26,7 @@
 | 1.1.1 | [\[RFC\] Simplify Mantle Transaction and Refactor Ledger Operations](mantle-transaction-encoding/appendices/rfc-simplify-mantle-transaction-and-refactor-ledger-operations.md) | 2026-05-06 |
 | 1.2.0 | Align the atomic transfer example with the `CHANNEL_DEPOSIT` execution consuming its inputs and re-creating them in the destination channel. | 2026-07-27 |
 | 1.3.0 | The atomic transfer deposits into the destination channel a note its holder withdrew from the source channel beforehand, since [Mantle](bedrock-v1.1-mantle-specification.md) 1.16.0 removes `CHANNEL_TRANSFER` and makes `CHANNEL_WITHDRAW`, after its delay, the only way out of a channel. The holder joins the signature round | 2026-09-18 |
+| 1.3.1 | The inscription of the atomic transfer example advances no pool, following [Mantle](bedrock-v1.1-mantle-specification.md) 1.17.0 | 2026-09-21 |
 
 # Introduction
 
@@ -183,7 +184,7 @@ receiving = Inscribe(
     inscription=b"Alice receives 5 tokens from her account in Zone A",
     parent=hash(PREVIOUS_ZONE_B_INSCRIPTION),
     signer=sequencer_of_zone_b,
-    inputs=[], outputs=[], bond=[]
+    inputs=[], outputs=[], declared=[], bond=[]
 )
 # The withdrawn note is deposited to Zone B, where it is consumed and
 # re-created as a channel note under a new NoteId

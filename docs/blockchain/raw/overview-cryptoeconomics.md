@@ -27,6 +27,7 @@
 | 1.2.0 | Reflect the downward rounding of the leader share | 2026-08-05 |
 | 1.2.1 | Changing from burning/minting to pooling/distributing/releasing | 2026-08-25 |
 | 1.2.2 | Stated that the minimum stake of a service is locked in a service note | 2026-08-27 |
+| 1.2.3 | Listed the Pool Create Operation, whose proof is empty, with the Operations the execution limit does not constrain, following [Mantle](bedrock-v1.1-mantle-specification.md) 1.17.0 | 2026-09-21 |
 
 > **Disclaimer**:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -93,7 +94,7 @@ Users (rollup sequencers, node operators, or leaders) pay [fees in Logos Blockch
 
 Both markets recompute their price with integer arithmetic, so that the result is identical on every node, and both round the updated price upwards. Each update multiplies the current price by an adjustment factor, so a price rounded downwards would reach 0 at the bottom of its range and remain there, leaving the resource permanently free. Rounding upwards keeps one unit as the effective floor of each price. The usage signals driving these updates measure consumption rather than price and are rounded downwards.
 
-All fee markets aim to ensure fair compensation, sustainability, proper incentives, and to address specific market needs. Because every Operation (except the Channel Inscribe and the Channel Config Operations), whether it involves computation, or permanent storage, requires some execution to be validated and processed, reaching the execution limit effectively constrains the Permanent Storage market (except for Channel Inscribe and Channel Config). In practice, this means that the Permanent Storage market is limited in the number of transactions it can process per block except for Channel Inscribe and Channel Config Operations.
+All fee markets aim to ensure fair compensation, sustainability, proper incentives, and to address specific market needs. Because every Operation (except the Channel Inscribe, Channel Config and Pool Create Operations), whether it involves computation, or permanent storage, requires some execution to be validated and processed, reaching the execution limit effectively constrains the Permanent Storage market (except for Channel Inscribe, Channel Config and Pool Create). In practice, this means that the Permanent Storage market is limited in the number of transactions it can process per block except for Channel Inscribe, Channel Config and Pool Create Operations.
 
 ### Execution Fee Market
 

@@ -46,6 +46,7 @@
 | 1.14.0 | Moved SDP declaration removal to `withdraw_at + 1`; the last served epoch's reward is paid in the same first block, before removal | 2026-09-11 |
 | 1.15.0 | Add the `CLAIM_POW_REWARD` Operation and the proof of work state it is validated against; the reward pool and the difficulty controllers are specified in [Proof of Work](proof-of-work.md) | 2026-09-08 |
 | 1.16.0 | Channel notes move only with their holder's authorization, checked on challenge: `CHANNEL_INSCRIBE` moves notes against a bond, `CHANNEL_TRANSFER` and `transfer_threshold` are removed, every channel note leaves its channel through `CHANNEL_WITHDRAW`, after a delay and without the sequencers, and the `CHANNEL_CHALLENGE` and `CHANNEL_ANSWER` Operations are added. The channel protocol is specified in [Channels](channels.md), and pending inscriptions and withdrawals are resolved at the start of each block by the [Channel Resolution](#channel-resolution). A `ZkSignature` over notes lists the distinct keys of the notes, so its 32-key limit bounds owners rather than notes | 2026-09-18 |
+| 1.17.0 | Added channel pools, for value no holder owns: a pool is governed by a Risc0 program whose state the ledger records. An inscription declares the pool transitions it makes, an answer proves them with pool steps, undoing an inscription returns the pools it advanced to their earlier state, and `POOL_CREATE` creates a pool with derived identifiers | 2026-09-21 |
 
 # Introduction
 
@@ -183,7 +184,7 @@ permanent_storage_gas_price: TokenValue # Given by Storage Market
 execution_gas_base_price: TokenValue    # Given by Execution Market
 ```
 
-The state validation reads is not a fixed snapshot: it advances as the block is processed. A Mantle Transaction is validated against the state left by the Mantle Transactions preceding it in the block, as defined in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation), and validation and execution then follow one another Operation by Operation, in the order the Operations appear: the Operation at index `i` is validated against the state the Operations at indices `0` to `i-1` left, then executed to produce the state the Operation at index `i+1` is validated against. This is what the `ledger`, `channels`, `pending`, `withdrawals`, `service_notes`, `declarations` and `voucher_nullifier_set` given to each Operation below denote.
+The state validation reads is not a fixed snapshot: it advances as the block is processed. A Mantle Transaction is validated against the state left by the Mantle Transactions preceding it in the block, as defined in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation), and validation and execution then follow one another Operation by Operation, in the order the Operations appear: the Operation at index `i` is validated against the state the Operations at indices `0` to `i-1` left, then executed to produce the state the Operation at index `i+1` is validated against. This is what the `ledger`, `channels`, `pools`, `pending`, `withdrawals`, `service_notes`, `declarations` and `voucher_nullifier_set` given to each Operation below denote.
 
 Atomicity is what a failed check means, not simultaneity. If any of the checks below fails, the whole Mantle Transaction is invalid: none of its Operations takes effect, whether or not it was reached. An invalid Mantle Transaction is never skipped over either, the block including it being invalid and nothing of that block being executed.
 
@@ -256,7 +257,8 @@ Mantle Validators execute each Operation in `ops` according to its opcode, in th
 | CHANNEL_WITHDRAW | 0x13 | Take notes out of a channel after a delay, without its sequencers |
 | CHANNEL_CHALLENGE | 0x14 | Challenge a pending inscription |
 | CHANNEL_ANSWER | 0x15 | Answer a challenge with the accounting of the inscription |
-| *RESERVED* | *0x16 - 0x1F* |  |
+| POOL_CREATE | 0x16 | Create a pool in a channel |
+| *RESERVED* | *0x17 - 0x1F* |  |
 | SDP_DECLARE | 0x20 | Declare intention to participate as a node in a Bedrock Service, locking funds as collateral. |
 | SDP_WITHDRAW | 0x21 | Withdraw participation from a Bedrock Service, unlocking your funds in the process. |
 | SDP_ACTIVE | 0x22 | Signal that you are still an active participant of a Bedrock Service. |
@@ -268,7 +270,7 @@ Mantle Validators execute each Operation in `ops` according to its opcode, in th
 
 ## Channel Operations
 
-These Operations implement [Channels](channels.md), which specifies how a channel orders its messages, how its sequencers take turns, and how the notes bridged into it move. Validation uses its `round_robin`, `auth_msg` and `required_collateral` functions and its [parameters](channels.md#parameters). An inscription that moves notes stays pending until it is final or lost, and a withdrawal waits for its delay; the [Channel Resolution](#channel-resolution) decides both at the start of each block.
+These Operations implement [Channels](channels.md), which specifies how a channel orders its messages, how its sequencers take turns, and how the notes bridged into it move. Validation uses its `round_robin`, `auth_msg`, `required_collateral`, `pool_key`, `transition_msg`, `derive_instance_id` and `derive_pool_genesis` functions and its [parameters](channels.md#parameters). An inscription that moves notes or advances a pool stays pending until it is final or lost, and a withdrawal waits for its delay; the [Channel Resolution](#channel-resolution) decides both at the start of each block.
 
 Validators must maintain the following state to process channel Operations:
 
@@ -311,10 +313,24 @@ Note that the user chooses the ChannelId mapping to the ChannelState (but it’s
 Bridging adds the following state:
 
 ```python
-pending: dict[OpId, PendingInscription]   # inscriptions that moved notes and are not final, in posting order
+pools: dict[InstanceId, PoolEntry]        # the pools of all channels
+pending: dict[OpId, PendingInscription]   # inscriptions that moved notes or advanced a pool and are not final, in posting order
 withdrawals: dict[OpId, Withdrawal]       # withdrawals waiting for their delay, by the OpId of their CHANNEL_WITHDRAW
 due: SortedMap[Slot, list[OpId]]          # pending inscriptions and withdrawals to resolve, by slot;
                                           # a block pops the entries due from the front
+
+InstanceId = zkhash
+ImageId = bytes      # 32 bytes: the Risc0 image ID, the digest identifying a program
+
+class PoolEntry:
+    channel: ChannelId
+    image_id: ImageId           # the Risc0 program the pool runs
+    state: zkhash               # opaque to the ledger
+
+class PoolTransition:
+    instance_id: InstanceId
+    state_before: zkhash
+    new_state: zkhash
 
 class ConsumedInput:
     note_id: NoteId                 # the steps of an answer name it, once it has left the ledger
@@ -331,10 +347,11 @@ class PendingInscription:
     outputs: list[Note]              # the notes it created
     created: list[NoteId]            # those of them still on the ledger, locked until it is final:
                                      # a note a later inscription consumes leaves the list
+    declared: list[PoolTransition]   # the pool transitions it made
     bond: list[NoteId]               # locked until it is final, forfeited if it is lost
     required: TokenValue             # collateral the inscription puts at risk
-    depends_on: set[OpId]            # the pending inscriptions that created its locked inputs
-    dependents: list[OpId]           # the pending inscriptions that consumed a note it created, in posting order
+    depends_on: set[OpId]            # the pending inscriptions that created its locked inputs or last advanced its declared pools
+    dependents: list[OpId]           # the pending inscriptions that consumed a note it created or declared a pool from its state, in posting order
     status: NOT_CHALLENGED | CHALLENGED | PROVEN   # challenged at most once; proven, it is final at the next block
     challenge: list[NoteId]          # the challenger's bond, while CHALLENGED
     undone: bool                     # undone with a lost inscription it depended on, and still answerable
@@ -346,7 +363,7 @@ class Withdrawal:
 
 ### CHANNEL_INSCRIBE
 
-Write a message to a channel with the message data being permanently stored on the Logos Blockchain, and optionally move the channel's notes.
+Write a message to a channel with the message data being permanently stored on the Logos Blockchain, and optionally move the channel's notes and advance its pools.
 
 #### Payload
 
@@ -356,26 +373,27 @@ class Inscribe:
     inscription : bytes      # Message to be written on the blockchain
     parent: hash             # Previous message in the channel
     signer: Ed25519PublicKey # Identity of message sender
-    inputs: list[NoteId]     # notes of the channel to consume, locked or not; empty when the inscription moves nothing
-    outputs: list[Note]      # notes to create in the channel
-    bond: list[NoteId]       # notes bonded for the moved notes; empty when the inscription moves nothing
+    inputs: list[NoteId]            # notes of the channel to consume, locked or not; empty when the inscription moves nothing
+    outputs: list[Note]             # notes to create in the channel
+    declared: list[PoolTransition]  # pool states to advance
+    bond: list[NoteId]              # notes bonded for the moved notes and declared transitions; empty when there are none
 ```
 
-An inscription moves notes when `inputs` is non-empty: it consumes them and creates the `outputs` in the channel, locked until the inscription is final (see [Moving Notes](channels.md#moving-notes)). An input may itself be locked, which makes the inscription depend on the pending inscription that created it. The `bond` is locked until the inscription is final, and forfeited if it is lost.
+An inscription moves notes when `inputs` is non-empty: it consumes them and creates the `outputs` in the channel, locked until the inscription is final (see [Moving Notes](channels.md#moving-notes)). An input may itself be locked, which makes the inscription depend on the pending inscription that created it. It advances a [pool](channels.md#pools) when `declared` names it, which makes the inscription depend on the pending inscription that last advanced that pool. The `bond` is locked until the inscription is final, and forfeited if it is lost.
 
 #### Proof
 
-  An inscription is signed by its sequencer with an Ed25519 signature. When it moves notes, it also proves the ownership of its bond notes using a [Zero Knowledge Signature Scheme (ZkSignature)](#zero-knowledge-signature-scheme-zksignature).
+  An inscription is signed by its sequencer with an Ed25519 signature. When it moves notes or advances a pool, it also proves the ownership of its bond notes using a [Zero Knowledge Signature Scheme (ZkSignature)](#zero-knowledge-signature-scheme-zksignature).
 
 ```python
 class InscribeProof:
-    bond_sig: ZkSignature | None    # present when the inscription moves notes
+    bond_sig: ZkSignature | None    # present when the inscription moves notes or advances a pool
     signer_sig: Ed25519Signature
 ```
 
 #### Execution Gas
 
-  Channel Inscribe Operations have a fixed Execution Gas cost of `EXECUTION_CHANNEL_INSCRIBE_GAS`, plus `EXECUTION_CHANNEL_BOND_GAS` when they move notes. See [Gas Determination](#gas-determination) for the Execution Gas values.
+  Channel Inscribe Operations have a fixed Execution Gas cost of `EXECUTION_CHANNEL_INSCRIBE_GAS`, plus `EXECUTION_CHANNEL_BOND_GAS` when they move notes or advance a pool. See [Gas Determination](#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -389,6 +407,7 @@ proof: InscribeProof
 
 channels: dict[ChannelId, ChannelState]
 withdrawals: dict[OpId, Withdrawal]
+pools: dict[InstanceId, PoolEntry]
 execution_gas_base_price: TokenValue    # Given by Execution Market
 permanent_storage_gas_price: TokenValue # Given by Storage Market
 ledger: Ledger
@@ -397,7 +416,7 @@ block_slot: Slot
  
   *Validate*
 
-  1. Ensure the signer is the one authorized to write to the channel and that the message continues the channel sequence. A channel that does not exist is created upon execution: its first message carries a `parent` of `ZERO`, and it holds no note.
+  1. Ensure the signer is the one authorized to write to the channel and that the message continues the channel sequence. A channel that does not exist is created upon execution: its first message carries a `parent` of `ZERO`, and it holds no note and no pool.
       ```python
       if msg.channel in channels:
           chan = channels[msg.channel]
@@ -412,8 +431,8 @@ block_slot: Slot
           # Channel will be created automatically upon execution
           # Ensure that this message is the genesis message (parent == ZERO)
           assert msg.parent == ZERO
-          # A channel that does not exist holds no note
-          assert not msg.inputs
+          # A channel that does not exist holds no note and no pool
+          assert not msg.inputs and not msg.declared
       ```
 
   2. Ensure the msg signer signature.
@@ -421,16 +440,17 @@ block_slot: Slot
       assert Ed25519_verify(txhash, msg.signer, proof.signer_sig)
       ```
 
-  3. An inscription that moves nothing creates no note and bonds none, and its validation ends here.
+  3. An inscription that moves nothing and advances no pool creates no note and bonds none, and its validation ends here.
       ```python
-      if not msg.inputs:
+      if not msg.inputs and not msg.declared:
           assert not msg.outputs and not msg.bond
           return
       ```
 
-  4. Ensure the inputs are notes of the channel, locked or not, and that no withdrawal past its delay names them.
+  4. Ensure the inputs are notes of the channel, locked or not, and that no withdrawal past its delay names them. An inscription that only advances pools has none.
       ```python
-      ledger.assert_spendable(msg.inputs, msg.channel)
+      if msg.inputs:
+          ledger.assert_spendable(msg.inputs, msg.channel)
       ```
 
   5. Ensure the outputs are valid.
@@ -445,12 +465,22 @@ block_slot: Slot
       assert input_amount == output_amount
       ```
 
-  7. Ensure the bond covers the collateral the inscription puts at risk, and validate ownership over the bond notes. A bond is made of unlocked channel notes of the channel, none of which the inscription consumes.
+  7. Ensure each declared pool belongs to the channel, is declared once, and starts from the state the ledger holds.
+      ```python
+      instances = [transition.instance_id for transition in msg.declared]
+      assert len(instances) == len(set(instances))
+      for transition in msg.declared:
+          assert transition.instance_id in pools
+          assert pools[transition.instance_id].channel == msg.channel
+          assert pools[transition.instance_id].state == transition.state_before
+      ```
+
+  8. Ensure the bond covers the collateral the inscription puts at risk, and validate ownership over the bond notes. A bond is made of unlocked channel notes of the channel, none of which the inscription consumes.
       ```python
       ledger.assert_bond(msg.bond, msg.channel)
       assert not set(msg.bond) & set(msg.inputs)
       bond_notes = [ledger.get_note(note_id) for note_id in msg.bond]
-      assert checked_uint64(sum(note.value for note in bond_notes)) >= required_collateral(msg.inputs)
+      assert checked_uint64(sum(note.value for note in bond_notes)) >= required_collateral(msg.inputs, msg.declared)
       assert ZkSignature_verify(mantle_txhash, proof.bond_sig, keys_of(bond_notes))
       ```
 
@@ -462,6 +492,7 @@ block_slot: Slot
 msg: Inscribe
 
 channels: dict[ChannelId, ChannelState]
+pools: dict[InstanceId, PoolEntry]
 pending: dict[OpId, PendingInscription]
 withdrawals: dict[OpId, Withdrawal]
 due: SortedMap[Slot, list[OpId]]
@@ -495,12 +526,12 @@ block_slot: Slot
       chan.tip_slot = block_slot
       ```
 
-  4. If the inscription moves notes, move them and record the inscription as pending.
+  4. If the inscription moves notes or advances pools, do so and record the inscription as pending.
       ```python
-      if msg.inputs:
+      if msg.inputs or msg.declared:
           op_id = derive_op_id(msg)
           # The requirement reads the inputs, so it is computed before they are consumed
-          required = required_collateral(msg.inputs)
+          required = required_collateral(msg.inputs, msg.declared)
           inputs = []
           for note_id in msg.inputs:
               note = ledger.channel_notes[note_id]
@@ -509,24 +540,33 @@ block_slot: Slot
                   withdrawal=note.withdrawal,
                   withdrawal_due=None if note.withdrawal is None else withdrawals[note.withdrawal].due))
 
-          # Depend on the creator of each locked input, which drops the note from its created list
+          # Depend on the creator of each locked input, which drops the note from its
+          # created list, and on the last pending inscription that advanced each declared pool
           depends_on = {consumed.locked_by for consumed in inputs if consumed.locked_by is not None}
           for consumed in inputs:
               if consumed.locked_by is not None:
                   pending[consumed.locked_by].created.remove(consumed.note_id)
+          for transition in msg.declared:
+              writers = [inscription_id for inscription_id, inscription in pending.items()
+                         if not inscription.undone
+                         and any(declared.instance_id == transition.instance_id for declared in inscription.declared)]
+              if writers:
+                  depends_on.add(writers[-1])
+              pools[transition.instance_id].state = transition.new_state
           for dep in depends_on:
               pending[dep].dependents.append(op_id)
 
           # Consume the inputs, create the outputs, and lock them with the bond
-          ledger.execute_spending(msg.inputs)
+          if msg.inputs:
+              ledger.execute_spending(msg.inputs)
           created = ledger.execute_adding(op_id, msg.outputs, msg.channel)
           ledger.lock(created, op_id, created=True)
           ledger.lock(msg.bond, op_id, created=False)
 
           pending[op_id] = PendingInscription(
               channel=msg.channel, deadline=block_slot + CHALLENGE_WINDOW,
-              inputs=inputs, outputs=msg.outputs, created=created, bond=msg.bond,
-              required=required, depends_on=depends_on, dependents=[],
+              inputs=inputs, outputs=msg.outputs, created=created, declared=msg.declared,
+              bond=msg.bond, required=required, depends_on=depends_on, dependents=[],
               status=NOT_CHALLENGED, challenge=[], undone=False)
           due.setdefault(block_slot + CHALLENGE_WINDOW, []).append(op_id)
       ```
@@ -550,7 +590,8 @@ payment = Inscribe(
     inputs=[alice_note_id, bob_note_id],
     outputs=[Note(25, carol_pk), Note(25, alice_pk),    # Alice's authorization
              Note(25, carol_pk), Note(25, bob_pk)],     # Bob's authorization
-    bond=[sequencer_bond_note_id]    # worth at least required_collateral(inputs)
+    declared=[],
+    bond=[sequencer_bond_note_id]    # worth at least required_collateral(inputs, declared)
 )
 
 # Build the transfer operation to pay the fees
@@ -1088,19 +1129,30 @@ Answer a challenge with the full accounting of the inscription (see [Challenges 
 #### Payload
 
 ```python
-class Step:
+class UserStep:
     inputs: list[NoteId]   # inputs of the inscription, or notes created by earlier steps; at least one
     outputs: list[Note]
     auth: ZkSignature      # the authorization, over auth_msg(inputs, outputs)
 
+class PoolInput:
+    note_id: NoteId        # an input of the inscription, or a note created by an earlier step
+    value: TokenValue
+    intent_hash: zkhash
+
+class PoolStep:
+    instance_id: InstanceId
+    consumed: list[PoolInput]
+    created: list[Note]
+    seal: Groth16Proof     # Risc0 receipt of the pool's program, wrapped in Groth16
+
 class ChannelAnswer:
     inscription: OpId
-    steps: list[Step]
+    steps: list[UserStep | PoolStep]
 ```
 
 #### Proof
 
-  An empty proof. The answer carries the authorizations of its steps in its payload, and anyone may post them.
+  An empty proof. The answer carries the authorizations and the Risc0 receipts of its steps in its payload, and anyone may post them.
 
 ```python
 EmptyProof
@@ -1108,7 +1160,7 @@ EmptyProof
 
 #### Execution Gas
 
-  Channel Answer Operations have a linear Execution Gas cost equal to `EXECUTION_ANSWER_STEP_GAS * len(steps)`: one authorization per step. The step count is encoded on two bytes (see [Mantle Transaction Encoding](mantle-transaction-encoding.md#channel-operations)), so an answer carries at most 65,535 steps and costs at most 65,535 times `EXECUTION_ANSWER_STEP_GAS`. See [Gas Determination](#gas-determination) for the Execution Gas values.
+  Channel Answer Operations have a linear Execution Gas cost equal to `EXECUTION_ANSWER_STEP_GAS * len(steps)`, plus `EXECUTION_RISC0_BATCH_GAS` when a step is a pool step: one authorization or receipt per step, and the batch of receipts the answer verifies on its own. The step count is encoded on two bytes (see [Mantle Transaction Encoding](mantle-transaction-encoding.md#channel-operations)), so an answer carries at most 65,535 steps. See [Gas Determination](#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -1117,6 +1169,7 @@ EmptyProof
 ```python
 answer: ChannelAnswer
 
+pools: dict[InstanceId, PoolEntry]
 pending: dict[OpId, PendingInscription]
 ledger: Ledger
 block_slot: Slot
@@ -1137,45 +1190,70 @@ block_slot: Slot
       assert answer_holds(answered_inscription, answer)
       ```
 
-`answer_holds` implements the five checks of [Challenges and Answers](channels.md#challenges-and-answers). Its sums are exact: a sum that does not fit a `TokenValue` makes the answer wrong.
+`answer_holds` implements the six checks of [Challenges and Answers](channels.md#challenges-and-answers). Its sums are exact: a sum that does not fit a `TokenValue` makes the answer wrong.
 
 ```python
 def answer_holds(inscription: PendingInscription, answer: ChannelAnswer) -> bool:
     # The notes a step may consume, by identifier: the inputs of the inscription to
     # begin with, then the notes earlier steps created
     available = {consumed_input.note_id: consumed_input.note for consumed_input in inscription.inputs}
-    # The identifiers the steps have consumed so far
+    # The declared transitions, by pool
+    declared = {transition.instance_id: transition for transition in inscription.declared}
+    # The identifiers the steps have consumed so far, and the pools a step has proven
     consumed = set()
-    # The authorizations to verify, with their message and key list
-    auths = []
+    proven = set()
+    # The authorizations and the receipts to verify
+    auths, receipts = [], []
 
     for step in answer.steps:
+        if isinstance(step, UserStep):
+            refs, created = step.inputs, step.outputs
+            if not refs:
+                return False
+        else:
+            refs, created = [pool_input.note_id for pool_input in step.consumed], step.created
+
         # 1, 2: the step consumes available notes, each consumed once over the answer
-        if not step.inputs:
-            return False
         notes = []
-        for note_id in step.inputs:
+        for note_id in refs:
             if note_id not in available or note_id in consumed:
                 return False
             consumed.add(note_id)
             notes.append(available[note_id])
 
         # 3: value is conserved and every created note has a valid value
-        if not ledger.valid_output(step.outputs):
+        if not ledger.valid_output(created):
             return False
-        if sum(note.value for note in notes) != sum(output.value for output in step.outputs):
+        if sum(note.value for note in notes) != sum(output.value for output in created):
             return False
 
-        # 5: the authorization, over the keys of the consumed notes
-        msg = auth_msg(step.inputs, step.outputs)
-        auths.append((msg, step.auth, keys_of(notes)))
+        if isinstance(step, UserStep):
+            # 5: the authorization, over the keys of the consumed notes
+            msg = auth_msg(step.inputs, step.outputs)
+            auths.append((msg, step.auth, keys_of(notes)))
+        else:
+            # 6: the pool step proves one declared transition, from the right notes
+            if step.instance_id not in declared or step.instance_id in proven:
+                return False
+            proven.add(step.instance_id)
+            transition = declared[step.instance_id]
+            image_id = pools[step.instance_id].image_id
+            for note, pool_input in zip(notes, step.consumed):
+                if note.value != pool_input.value:
+                    return False
+                if note.public_key != pool_key(image_id, step.instance_id, pool_input.intent_hash):
+                    return False
+            journal = PoolJournal(step.instance_id, transition.state_before,
+                                  transition.new_state, step.consumed, step.created)
+            receipts.append((image_id, sha256(encode(journal)), step.seal))
+            msg = transition_msg(transition)
 
         # The created notes become available to later steps, under the identifiers of Channels
-        for index, note in enumerate(step.outputs):
+        for index, note in enumerate(created):
             available[derive_note_id(msg, index, note)] = note
 
-    # 2: every input of the inscription is consumed by some step
-    if any(consumed_input.note_id not in consumed for consumed_input in inscription.inputs):
+    # 2: every input of the inscription is consumed by some step; 6: every declared transition is proven
+    if any(consumed_input.note_id not in consumed for consumed_input in inscription.inputs) or proven != set(declared):
         return False
 
     # 4: the created notes left unconsumed, in the order the steps created them, are the outputs
@@ -1183,11 +1261,12 @@ def answer_holds(inscription: PendingInscription, answer: ChannelAnswer) -> bool
     if claims != inscription.outputs:
         return False
 
-    # 5: every authorization holds
-    return all(ZkSignature_verify(msg, auth, keys) for msg, auth, keys in auths)
+    # 5, 6: every authorization and every receipt holds
+    return (all(ZkSignature_verify(msg, auth, keys) for msg, auth, keys in auths)
+            and all(risc0_verify(image_id, digest, seal) for image_id, digest, seal in receipts))
 ```
 
-The authorizations are `ZkSignature`s like the Operation proofs of the block, and a failing one makes the block invalid as a failing proof does, so a validator may verify them in the block's `ZkSignature` batch (see [Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#batch-verification-of-zk-proofs)).
+`PoolJournal` is the journal the pool's program commits to, encoded as specified in [Mantle Transaction Encoding](mantle-transaction-encoding.md#channel-operations), and [Risc0 Receipt Verification](#risc0-receipt-verification) specifies `risc0_verify`. The authorizations are `ZkSignature`s like the Operation proofs of the block, and a failing one makes the block invalid as a failing proof does, so a validator may verify them in the block's `ZkSignature` batch (see [Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#batch-verification-of-zk-proofs)). The receipts are verified in a batch of their own, following the same procedure with the Risc0 verification key.
 
 #### Execution
 
@@ -1226,12 +1305,12 @@ due.setdefault(block_slot + 1, []).append(answer.inscription)
 ```python
 answer = ChannelAnswer(
     inscription=derive_op_id(payment),
-    steps=[Step(inputs=[alice_note_id],
-                outputs=[Note(25, carol_pk), Note(25, alice_pk)],
-                auth=alice_auth),
-           Step(inputs=[bob_note_id],
-                outputs=[Note(25, carol_pk), Note(25, bob_pk)],
-                auth=bob_auth)])
+    steps=[UserStep(inputs=[alice_note_id],
+                    outputs=[Note(25, carol_pk), Note(25, alice_pk)],
+                    auth=alice_auth),
+           UserStep(inputs=[bob_note_id],
+                    outputs=[Note(25, carol_pk), Note(25, bob_pk)],
+                    auth=bob_auth)])
 
 # Build the transfer operation to pay the fees
 transfer = Transfer(inputs=[sequencer_funds], outputs=[<change_note>])
@@ -1247,11 +1326,105 @@ signed_tx = SignedMantleTx(
 )
 ```
 
-  Each input is consumed once and each step balances. No step consumes what another created, so the four notes created are all claims, and in the order of the steps they are exactly the inscription's outputs. The answer holds, and Dave's bond pays the inscription's `required` to the key of `sequencer_bond_note_id`.
+  Each input is consumed once and each step balances. No step consumes what another created, so the four notes created are all claims, and in the order of the steps they are exactly the inscription's outputs. The inscription declared no pool, so no pool step is needed. The answer holds, and Dave's bond pays the inscription's `required` to the key of `sequencer_bond_note_id`.
+
+### POOL_CREATE
+
+Create a [pool](channels.md#pools) in a channel.
+
+#### Payload
+
+```python
+class PoolCreate:
+    channel: ChannelId
+    image_id: ImageId      # the Risc0 program the pool runs
+    params_hash: zkhash    # the pool's parameters, salt included
+```
+
+#### Proof
+
+  An empty proof. Both identifiers of the pool are derived, so whoever creates it creates the same one, and anyone may.
+
+```python
+EmptyProof
+```
+
+#### Execution Gas
+
+  Pool Create Operations have a fixed Execution Gas cost of `EXECUTION_POOL_CREATE_GAS`. See [Gas Determination](#gas-determination) for the Execution Gas values.
+
+#### Validation
+
+  *Given*
+
+```python
+create: PoolCreate
+
+channels: dict[ChannelId, ChannelState]
+pools: dict[InstanceId, PoolEntry]
+```
+
+  *Validate*
+
+  1. Verify that the channel exists.
+      ```python
+      assert create.channel in channels
+      ```
+
+  2. Ensure the pool does not exist yet.
+      ```python
+      assert derive_instance_id(create.channel, create.image_id, create.params_hash) not in pools
+      ```
+
+#### Execution
+
+  *Given*
+
+```python
+create: PoolCreate
+
+pools: dict[InstanceId, PoolEntry]
+```
+
+  *Execute*
+
+  Record the pool under its derived identifier, at its derived genesis state.
+
+```python
+instance_id = derive_instance_id(create.channel, create.image_id, create.params_hash)
+pools[instance_id] = PoolEntry(channel=create.channel,
+                               image_id=create.image_id,
+                               state=derive_pool_genesis(create.image_id, create.params_hash))
+```
+
+#### Example
+
+  Zone A creates a swap pool running the program `SWAP_IMAGE_ID`. Anyone can send the transaction, and whoever does creates the same pool:
+
+```python
+create = PoolCreate(
+    channel=ZONE_A,
+    image_id=SWAP_IMAGE_ID,
+    params_hash=zkhash(encode(swap_params))   # the pool's parameters, with a salt
+)
+
+# Build the transfer operation to pay the fees
+transfer = Transfer(inputs=[<funds>], outputs=[<change_note>])
+
+tx = MantleTx(
+    ops=[Op(opcode=POOL_CREATE, payload=encode(create)),
+         Op(opcode=TRANSFER, payload=encode(transfer))],
+)
+
+signed_tx = SignedMantleTx(
+    tx=tx,
+    op_proofs=[EmptyProof(), transfer.prove(sk)],
+)
+```
 
 ### Channel Resolution
 
-A `CHANNEL_INSCRIBE` that moves notes is pending until its `deadline` has passed: the end of its challenge window, extended by the response window when it is challenged, and the start of the next block once it is proven. A `CHANNEL_WITHDRAW` waits `WITHDRAW_DELAY` slots. Both are entered in `due` at the slot they become resolvable.
+A `CHANNEL_INSCRIBE` that moves notes or advances a pool is pending until its `deadline` has passed: the end of its challenge window, extended by the response window when it is challenged, and the start of the next block once it is proven. A `CHANNEL_WITHDRAW` waits `WITHDRAW_DELAY` slots. Both are entered in `due` at the slot they become resolvable.
 
 [Block Execution](bedrock-v1.1-block-construction.md#block-execution) resolves, at the start of each block and before its transactions, every entry due at the block's slot or before, in slot order. An entry in `due` is visited once. The cost of a block's resolution is the number of entries due, whatever the gap since the previous block.
 
@@ -1373,7 +1546,7 @@ def lose(op_id: OpId, block_slot: Slot):
         resolve(dep, block_slot)
 ```
 
-Undoing re-inserts no `NoteId`: the consumed notes are re-created under the redirect identifier of the lost inscription, derived from its `OpId`. The undone inscriptions stay pending, marked, so that they can still be challenged and answered until their own deadline. No inscription consumes a note under withdrawal, so an undo never restores one; a withdrawn note that an undone inscription created is removed with it, leaves the withdrawal, and the withdrawal is resolved:
+Undoing re-inserts no `NoteId`: the consumed notes are re-created under the redirect identifier of the lost inscription, derived from its `OpId`, and the pools the undone inscriptions advanced return to the state before the first of them. The undone inscriptions stay pending, marked, so that they can still be challenged and answered until their own deadline. No inscription consumes a note under withdrawal, so an undo never restores one; a withdrawn note that an undone inscription created is removed with it, leaves the withdrawal, and the withdrawal is resolved:
 
 ```python
 def derive_redirect_id(op_id: OpId) -> Hash:
@@ -1396,6 +1569,15 @@ def undo(op_id: OpId, block_slot: Slot):
     records = [pending[inscription_id] for inscription_id in undone]
     for inscription in records:
         inscription.undone = True
+
+    # Pools go back to the state before the first undone transition. Of the undone
+    # inscriptions that advanced a pool, the first is the one depending on none of the others
+    for pool in {transition.instance_id for inscription in records for transition in inscription.declared}:
+        writers = {inscription_id for inscription_id in undone
+                   if any(transition.instance_id == pool for transition in pending[inscription_id].declared)}
+        first = next(inscription_id for inscription_id in writers if not pending[inscription_id].depends_on & writers)
+        pools[pool].state = next(transition.state_before for transition in pending[first].declared
+                                 if transition.instance_id == pool)
 
     # The notes the undone inscriptions created are removed
     removed = [note_id for inscription in records for note_id in inscription.created]
@@ -2463,6 +2645,8 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_CHANNEL_WITHDRAW_GAS | 590 |
 | EXECUTION_CHANNEL_CHALLENGE_GAS | 590 |
 | EXECUTION_ANSWER_STEP_GAS | 590 |
+| EXECUTION_RISC0_BATCH_GAS | 3,900 |
+| EXECUTION_POOL_CREATE_GAS | 0 |
 | EXECUTION_SDP_DECLARE_GAS | 646 |
 | EXECUTION_SDP_WITHDRAW_GAS | 590 |
 | EXECUTION_SDP_ACTIVE_GAS | 590 |
@@ -2628,6 +2812,24 @@ The material used for the benchmarks is the following:
 - Kernel    : 6.8.0-59-generic
 
 ![Diagram](bedrock-v1.1-mantle-specification/assets/b23261aa-09df-827c-8565-014a68d98d4c.png)
+
+## Risc0 Receipt Verification
+
+A [pool step](channels.md#pools) carries the seal of a Risc0 receipt wrapped in Groth16 over BN254. It is verified against the program and the journal the ledger expects:
+
+```python
+def risc0_verify(image_id: ImageId, journal_digest: bytes, seal: Groth16Proof) -> bool:
+    # The claim that program `image_id` ran to completion with exit code
+    # Halted(0), committing to a journal whose SHA-256 digest is `journal_digest`
+    claim = risc0_receipt_claim_digest(image_id, journal_digest, exit_code=Halted(0))
+    control_root_0, control_root_1 = split_128(RISC0_CONTROL_ROOT)
+    claim_0, claim_1 = split_128(claim)
+    return groth16_verify(RISC0_GROTH16_VK, seal,
+                          [control_root_0, control_root_1, claim_0, claim_1,
+                           RISC0_BN254_CONTROL_ID])
+```
+
+`risc0_receipt_claim_digest`, `split_128` and `RISC0_GROTH16_VK` are those of the Risc0 release pinned by `RISC0_CONTROL_ROOT` and `RISC0_BN254_CONTROL_ID`. Adopting another release means changing these parameters. The verification key comes from Risc0's trusted setup, not from the [Logos one](trusted-setup-ceremony.md). The receipts of one answer are verified in one batch, with the procedure of [Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#batch-verification-of-zk-proofs) and this verification key.
 
 ## Test Vectors
 
