@@ -25,6 +25,7 @@
 | 1.0.1 | Renamed Nomos to Logos Blockchain | 2026-04-23 |
 | 1.0.2 | Clarification of the Poseidon2 function Add test values | 2026-05-07 |
 | 1.1.0 | [RFC] Replace the BLAKE2b-Based PRNG with ChaCha20 (ChaCha20Rng) | 2026-08-28 |
+| 1.2.0 | Strict EdDSA verification: reject small-order public keys and small-order `R` | 2026-09-22 |
 
 # Introduction
 
@@ -192,6 +193,7 @@ Technical Details:
 - Public Key Size: 32 bytes.
 - Security Level: Approximately 128 bits.
 - Operations: Efficient scalar multiplications with Montgomery ladder for constant-time execution.
+- Verification: a signature $`(R, S)`$ on a message $`M`$ under the public key $`A`$ is valid only if $`S < \ell`$, neither $`A`$ nor $`R`$ is a point of small order (order 1, 2, 4 or 8), and $`[S]B = R + [k]A`$ with $`k = \text{SHA-512}(R \| A \| M)`$. This is the cofactorless equation of [RFC 8032 §5.1.7](https://datatracker.ietf.org/doc/html/rfc8032#section-5.1.7) with the small-order checks added (`verify_strict` in `ed25519-dalek`).
 
 Use in the Logos Blockchain:
 
@@ -206,6 +208,7 @@ Security Considerations:
 
 - Standard security assumptions: discrete logarithm hardness on Curve25519.
 - Resistant to timing and side-channel attacks due to uniform implementation characteristics.
+- Small-order public keys are rejected because anyone can produce a signature under them without knowing a secret key. Honestly generated keys are never of small order. Such a key may still appear where no signature is verified, e.g. the all-zero null key of the Genesis inscription.
 
 ## [ZkSignature (Zero-Knowledge Signature)](bedrock-v1.1-mantle-specification.md)
 
