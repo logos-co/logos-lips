@@ -192,6 +192,7 @@
 </div><!-- timeline:start -->
 <h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
 <ul>
+<li><strong>2026-09-23</strong> — <a href="https://github.com/logos-co/logos-lips/blob/d788723992a805b395f377de6e6cf59859b47168/docs/blockchain/raw/common-cryptographic-components.md"><code>d788723</code></a> — docs(blockchain): strict EdDSA verification (#461)</li>
 <li><strong>2026-08-31</strong> — <a href="https://github.com/logos-co/logos-lips/blob/5587d1e5ca2964e38098cd18f81f0fbe19f51fd3/docs/blockchain/raw/common-cryptographic-components.md"><code>5587d1e</code></a> — [RFC] Replace the BLAKE2b-based PRNG with ChaCha20 (ChaCha20Rng) (#425)</li>
 <li><strong>2026-07-03</strong> — <a href="https://github.com/logos-co/logos-lips/blob/709cf7f1662affa6efa094e2fb066e9b530b5aaa/docs/blockchain/raw/common-cryptographic-components.md"><code>709cf7f</code></a> — Bedrock-RFC: Remove Concept of a Session (#365)</li>
 <li><strong>2026-06-12</strong> — <a href="https://github.com/logos-co/logos-lips/blob/124f8957915f349347532d802d9e4bb5cc2a5ce7/docs/blockchain/raw/common-cryptographic-components.md"><code>124f895</code></a> — chore: fix broken links (#357)</li>
@@ -204,6 +205,7 @@
 <tr><td>1.0.1</td><td>Renamed Nomos to Logos Blockchain</td><td>2026-04-23</td></tr>
 <tr><td>1.0.2</td><td>Clarification of the Poseidon2 function Add test values</td><td>2026-05-07</td></tr>
 <tr><td>1.1.0</td><td>[RFC] Replace the BLAKE2b-Based PRNG with ChaCha20 (ChaCha20Rng)</td><td>2026-08-28</td></tr>
+<tr><td>1.2.0</td><td>Strict EdDSA verification: reject small-order public keys and small-order <code>R</code></td><td>2026-09-22</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
@@ -339,6 +341,7 @@
 <li>Public Key Size: 32 bytes.</li>
 <li>Security Level: Approximately 128 bits.</li>
 <li>Operations: Efficient scalar multiplications with Montgomery ladder for constant-time execution.</li>
+<li>Verification: a signature <span class="math-inline" data-tex="(R, S)"></span> on a message <span class="math-inline" data-tex="M"></span> under the public key <span class="math-inline" data-tex="A"></span> is valid only if <span class="math-inline" data-tex="S &lt; \ell"></span>, neither <span class="math-inline" data-tex="A"></span> nor <span class="math-inline" data-tex="R"></span> is a point of small order (order 1, 2, 4 or 8), and <span class="math-inline" data-tex="[S]B = R + [k]A"></span> with <span class="math-inline" data-tex="k = \text{SHA-512}(R \| A \| M)"></span>. This is the cofactorless equation of <a href="https://datatracker.ietf.org/doc/html/rfc8032#section-5.1.7">RFC 8032 §5.1.7</a> with the small-order checks added (<code>verify_strict</code> in <code>ed25519-dalek</code>).</li>
 </ul>
 <p>Use in the Logos Blockchain:</p>
 <ul>
@@ -353,6 +356,7 @@
 <ul>
 <li>Standard security assumptions: discrete logarithm hardness on Curve25519.</li>
 <li>Resistant to timing and side-channel attacks due to uniform implementation characteristics.</li>
+<li>Small-order public keys are rejected because anyone can produce a signature under them without knowing a secret key. Honestly generated keys are never of small order. Such a key may still appear where no signature is verified, e.g. the all-zero null key of the Genesis inscription.</li>
 </ul>
 <h2 id="zksignature-zero-knowledge-signature"><a class="header" href="#zksignature-zero-knowledge-signature"><a href="bedrock-v1.1-mantle-specification.html">ZkSignature (Zero-Knowledge Signature)</a></a></h2>
 <p>Description:</p>
