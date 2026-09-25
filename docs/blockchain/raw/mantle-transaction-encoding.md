@@ -34,6 +34,7 @@
 | 1.7.0 | Added the `ChannelConfigOpProof` and `ChannelTransferOpProof` variants and factored the three channel threshold proofs into `ChannelMultiSigProof`, carrying the index of the signing key alongside each signature | 2026-08-31 |
 | 1.8.0 | Added the `ClaimPowReward` Operation payload; its proof is a `ZkSigProof` | 2026-09-08 |
 | 1.9.0 | Removed `ChannelTransfer`, its proof and the `TransferThreshold` of `ChannelConfig`; `ChannelWithdraw` carries its channel and its inputs only; `ChannelInscribe` gains `MovesNotes`, `Inputs`, `Outputs` and `Bond`, and takes a `ZkAndEd25519SigsProof` when it moves notes; added the challenge and answer payloads and the `EmptyProof`, following Mantle 1.16.0 | 2026-09-18 |
+| 1.10.0 | `ChannelInscribe` gains `Declared`, an answer's `Step` is a `UserStep` or a `PoolStep`, and the `PoolCreate` payload and the `PoolJournal` are added, following Mantle 1.17.0 | 2026-09-21 |
 
 # Introduction
 
@@ -75,6 +76,7 @@ OpPayload = Transfer /
             ChannelWithdraw /
             ChannelChallenge /
             ChannelAnswer /
+            PoolCreate /
             SDPDeclare /
             SDPWithdraw /
             SDPActive /
@@ -85,9 +87,15 @@ OpPayload = Transfer /
 ### Channel Operations
 
 ```schema
-ChannelInscribe = ChannelId Inscription Parent Signer MovesNotes [Inputs Outputs Bond]
+ChannelInscribe = ChannelId Inscription Parent Signer MovesNotes [Inputs Outputs Declared Bond]
 Inscription     = UINT32 *BYTE 
-MovesNotes      = Byte   ; 0x01 when Inputs, Outputs and Bond follow, 0x00 otherwise
+MovesNotes      = Byte   ; 0x01 when Inputs, Outputs, Declared and Bond follow, 0x00 otherwise
+Declared        = DeclaredCount *PoolTransition
+DeclaredCount   = Byte
+PoolTransition  = InstanceId StateBefore NewState
+InstanceId      = FieldElement
+StateBefore     = FieldElement
+NewState        = FieldElement
 
 ChannelConfig     = ChannelId Parent KeyCount *Signer PostingTimeframe PostingTimeout ConfigThreshold
 KeyCount                   = UINT16
@@ -105,7 +113,17 @@ ChannelAnswer    = InscriptionId StepCount *Step
 InscriptionId    = Hash32
 Bond             = Inputs
 StepCount        = UINT16
-Step             = Inputs Outputs ZkSignature
+Step             = UserStep / PoolStep          ; the first byte tells them apart
+UserStep         = %x00 Inputs Outputs ZkSignature              ; the ZkSignature is the authorization
+PoolStep         = %x01 InstanceId PoolInputs Outputs Groth16   ; the Groth16 is the Risc0 seal
+PoolInputs       = PoolInputCount *PoolInput
+PoolInputCount   = Byte
+PoolInput        = NoteId Value IntentHash
+IntentHash       = FieldElement
+
+PoolCreate = ChannelId ImageId ParamsHash
+ImageId    = Hash32
+ParamsHash = FieldElement
 
 ChannelId         = Hash32
 Parent            = Hash32
@@ -116,7 +134,13 @@ Inputs            = InputCount *NoteId
 InputCount        = Byte
 ```
 
-A `ChannelInscribe` whose `MovesNotes` is `0x01` carries its `Inputs`, `Outputs` and `Bond` and takes a `ZkAndEd25519SigsProof`; one whose `MovesNotes` is `0x00` carries none of them and takes an `Ed25519SigProof`.
+A `ChannelInscribe` whose `MovesNotes` is `0x01` carries its `Inputs`, `Outputs`, `Declared` and `Bond` and takes a `ZkAndEd25519SigsProof`; one whose `MovesNotes` is `0x00` carries none of them and takes an `Ed25519SigProof`.
+
+The journal a pool's program commits to is the following, with the `PoolInputs` and `Outputs` of its pool step. Its SHA-256 digest is what the Risc0 claim binds.
+
+```schema
+PoolJournal = InstanceId StateBefore NewState PoolInputs Outputs
+```
 
 ### SDP Operations
 

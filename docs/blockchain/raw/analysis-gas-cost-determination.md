@@ -33,6 +33,7 @@
 | 1.5.4 | Renamed the `stake_manipulation_threshold` of the channel gas derivations into `transfer_threshold` and the Channel Stake Assignation section into Channel Transfer, following Mantle | 2026-08-31 |
 | 1.6.0 | Add the Execution Gas derivation for the `CLAIM_POW_REWARD` Operation | 2026-09-04 |
 | 1.7.0 | Removed the Channel Transfer derivation, added the bond signature of an inscription that moves notes and the derivations of the challenge and answer Operations, and the Channel Withdraw derivation follows the new Operation, following Mantle 1.16.0 | 2026-09-18 |
+| 1.8.0 | An answer with pool steps pays for a batch of Risc0 receipts, and the Pool Create derivation is added, following Mantle 1.17.0 | 2026-09-21 |
 
 # Introduction
 
@@ -71,12 +72,15 @@ The gas derivation of each Operation are:
 
 ```python
 TRANSFER_GAS                  = 590
-CHANNEL_INSCRIBE_GAS          = 56 + 590 * is_moving_funds    # is_moving_funds is 1 if the inputs are non-empty, 0 otherwise
+CHANNEL_INSCRIBE_GAS          = 56 + 590 * is_bonded    # is_bonded is 1 if the inputs or the declared transitions are non-empty, 0 otherwise
 CHANNEL_CONFIG_GAS            = 56 * configuration_threshold
 CHANNEL_DEPOSIT_GAS           = 590
 CHANNEL_WITHDRAW_GAS          = 590
 CHANNEL_CHALLENGE_GAS         = 590
-CHANNEL_ANSWER_GAS            = 590 * number_of_steps          # number_of_steps is the length of the steps list of the payload
+CHANNEL_ANSWER_GAS            = 590 * number_of_steps + 3900 * has_pool_step
+                                # number_of_steps is the length of the steps list of the payload,
+                                # has_pool_step is 1 if one of them is a pool step, 0 otherwise
+POOL_CREATE_GAS               = 0
 SDP_DECLARE_GAS               = 646
 SDP_WITHDRAW_GAS              = 590
 SDP_ACTIVE_GAS                = 590
@@ -91,8 +95,9 @@ and come from our implementation observations as described in [Gas determination
 | ZkSignature batch verification | 3,900,000 + number_of_proof x 590,000 |
 | Proof of Claim batch verification | 2,640,000 + number_of_proof x 580,000 |
 | Eddsa25519 signature verification | 56,000 |
+| Risc0 Groth16 receipt batch verification | assumed equal to the ZkSignature batch until measured |
 
-Comparison, list searching, hashes and operation in small fields are neglected. We also supposed that the initialization cost for batch verification is paid by everyone and deduced from the block directly. The user then pay only for the part that is proportional to the number of proofs. The authorizations in the payload of an answer to a channel challenge are `ZkSignature`s and join that batch.
+Comparison, list searching, hashes and operation in small fields are neglected. We also supposed that the initialization cost for batch verification is paid by everyone and deduced from the block directly. The user then pay only for the part that is proportional to the number of proofs. The authorizations in the payload of an answer to a channel challenge are `ZkSignature`s and join that batch. Its Risc0 receipts are verified in a batch of their own, whose initialization the answer pays.
 
 # Transfer
 
@@ -121,16 +126,16 @@ Execution: negligible.
 - Derivation of the note identifiers: negligible
 ## Channel Inscription
 
-The validation process includes verifying an Eddsa25519 signature, confirming that the signer is authorized for the specified channel, and checking the chaining sequence of the channel. The execution encompasses creating channel records (if not previously used) and updating the tip of the channel. An inscription with inputs also moves notes: it checks its inputs, outputs and bond, verifies the ZkSignature over its bond notes, and updates the ledger.
+The validation process includes verifying an Eddsa25519 signature, confirming that the signer is authorized for the specified channel, and checking the chaining sequence of the channel. The execution encompasses creating channel records (if not previously used) and updating the tip of the channel. An inscription with inputs or declared pool transitions also moves notes or advances pools: it checks its inputs, outputs, declared states and bond, verifies the ZkSignature over its bond notes, and updates the ledger.
 
-Execution: ~56k CPU cycles, ~646k when the inscription moves notes.
+Execution: ~56k CPU cycles, ~646k when the inscription moves notes or advances a pool.
 
 - Verification of the Ed25519 signature: 56,000 cycles.
 - Verification of the signer authorization: negligible.
 - Verification of channel sequencing: negligible
 - Update the channel state: negligible
-- Verification of the ZK signature over the bond, when the inscription moves notes: 590,000 cycles.
-- Checks on the inputs, the due of a withdrawal naming one included, on the outputs and the bond, and their ledger updates: negligible
+- Verification of the ZK signature over the bond, when the inscription moves notes or advances a pool: 590,000 cycles.
+- Checks on the inputs, the due of a withdrawal naming one included, on the outputs, the declared pool states and the bond, and their ledger updates: negligible
 
 ## Channel Deposit
 
@@ -166,12 +171,22 @@ Execution: ~590k CPU cycles.
 
 ## Channel Answer
 
-The Execution Gas compensates for the verification of the authorizations the payload carries, one `ZkSignature` per step, which the block's batch may take with the Operation proofs.
+The Execution Gas compensates for the verification of the authorizations and Risc0 receipts the payload carries, one per step. The authorizations are `ZkSignature`s the block's batch may take with the Operation proofs; the receipts are verified in a batch of their own, so an answer with pool steps pays its initialization.
 
-Execution: ~590k * number_of_steps CPU cycles. The step count is a two-byte field, so an answer has at most 65,535 steps and costs at most 38,665,650 Execution Gas.
+Execution: ~590k * number_of_steps CPU cycles, plus 3,900k when the answer has a pool step. The step count is a two-byte field, so an answer has at most 65,535 steps.
 
-- Verification of one authorization per step: 590,000 cycles.
-- Accounting of the steps: negligible.
+- Verification of one authorization or receipt per step: 590,000 cycles, the Risc0 receipt being assumed to cost what a ZkSignature does until it is measured.
+- Initialization of the batch of receipts: 3,900,000 cycles.
+- Accounting of the steps and hashing of the pool journals: negligible.
+
+## Pool Create
+
+The pool identifiers are derived, and nothing is verified.
+
+Execution: negligible.
+
+- Derivation of the instance identifier and genesis state: negligible.
+- Insertion of the pool entry: negligible.
 
 ## Channel Config
 

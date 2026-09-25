@@ -33,6 +33,7 @@
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
 | 1.2.0 | Seed the pow reward pool at genesis | 2026-09-08 |
 | 1.3.0 | The Cryptarchia inscription moves no notes, following [Mantle](bedrock-v1.1-mantle-specification.md) 1.16.0 | 2026-09-18 |
+| 1.3.1 | The Cryptarchia inscription advances no pool, following [Mantle](bedrock-v1.1-mantle-specification.md) 1.17.0 | 2026-09-21 |
 
 # Introduction
 
@@ -149,6 +150,7 @@ CRYPTARCHIA_INSCRIPTION = Inscribe(
     signer=Ed25519PublicKey_ZERO,
     inputs=[],
     outputs=[],
+    declared=[],
     bond=[],
 )
 ```
@@ -255,6 +257,7 @@ CRYPTARCHIA_INSCRIPTION = Inscribe(
     signer=Ed25519PublicKey_ZERO,
     inputs=[],
     outputs=[],
+    declared=[],
     bond=[],
 )
 
@@ -326,7 +329,7 @@ The pow reward pool is initialized at the same time:
 
 ## Cryptarchia Initialization
 
-The Mantle Transaction contains an inscription sent to the null channel containing the parameters for initializing Cryptarchia. It is validated as an ordinary `CHANNEL_INSCRIBE` Operation minus its signature, moving no notes, with empty `inputs`, `outputs` and `bond`: the null channel does not exist yet, so the inscription must carry a `parent` of `ZERO`, and its execution creates that channel with the null key as its only accredited key.
+The Mantle Transaction contains an inscription sent to the null channel containing the parameters for initializing Cryptarchia. It is validated as an ordinary `CHANNEL_INSCRIBE` Operation minus its signature, moving no notes and advancing no pool, with empty `inputs`, `outputs`, `declared` and `bond`: the null channel does not exist yet, so the inscription must carry a `parent` of `ZERO`, and its execution creates that channel with the null key as its only accredited key.
 
 Two conditions are specific to Genesis. The inscription must be addressed to the null channel and signed by the null key, an inscription anywhere else not being a set of Cryptarchia parameters. It must also decode to exactly the three parameters, encoded as [Cryptarchia Parameters](#cryptarchia-parameters) specifies and with no trailing bytes. A node that cannot decode them has no clock, no chain identifier and no lottery randomness, and must reject the Genesis block.
 
