@@ -33,6 +33,7 @@
 | 1.2.0 | Added the `uncle_headers` field — the signed headers of the referenced uncles — to the [Proposal](#block-proposal) and to the newly defined [Block](#block), and replaced `block_root` with `body_root` in the [Header](#header), which commits to them, signatures included, as well as to the transactions. Due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
 | 1.2.1 | Precise the state each transaction of a block is validated against: the transactions are validated and executed one after the other in the order they appear, each against the state the preceding ones left, which makes block validity order-dependent. Precise that a block whose validation fails at any point is not executed at all. | 2026-08-24 |
 | 1.3.0 | Compressed Block Proposal: 16-byte transaction reference prefixes and a variable-length `references` list, reducing the proposal from 34,574 bytes to at most 18,192. Added the [Canonical Encoding](#canonical-encoding) section. | 2026-08-18 |
+| 1.4.0 | Added the resolution of pending channel inscriptions and withdrawals to the [Overview](#overview) and to [Block Execution](#block-execution), before the transactions, and noted that the authorizations of a `CHANNEL_ANSWER` may join the block's `ZkSignature` batch | 2026-09-18 |
 
 # Introduction
 
@@ -57,12 +58,14 @@ Below, we present a high-level description of the block lifecycle. The main focu
 5. The validators **validate** the block proposal.
    1. They validate the block header.
    2. They retrieve complete transactions from their mempool that are referred in the block.
-   3. They validate each transaction included in the block, in the order the transactions appear, each against the state the preceding ones left.
+   3. They resolve the channels at the block's slot, as defined in [Channel Resolution](bedrock-v1.1-mantle-specification.md#channel-resolution), since the first transaction is validated against the state that leaves.
+   4. They validate each transaction included in the block, in the order the transactions appear, each against the state the preceding ones left.
 
 6. The validators **execute** the block proposal.
    1. They append the `leader_voucher` of the block to the set of reward vouchers, which the following epoch starts with.
    2. They execute the [**Service Reward Distribution Protocol**](bedrock-service-reward-distribution.md) to generate reward notes locally and include them in the ledger.
-   3. They derive the new blockchain state from the previous one by executing transactions as defined in [Mantle](bedrock-v1.1-mantle-specification.md), in that same pass, adopting the result only once the whole block has validated.
+   3. They resolve the channels at the block's slot, as defined in [Channel Resolution](bedrock-v1.1-mantle-specification.md#channel-resolution): pending inscriptions are finalized or lost, and withdrawn notes taken out.
+   4. They derive the new blockchain state from the previous one by executing transactions as defined in [Mantle](bedrock-v1.1-mantle-specification.md), in that same pass, adopting the result only once the whole block has validated.
 
 # Constructions
 
@@ -374,7 +377,7 @@ The order is constrained as well as economical. [Block Header Validation](crypta
 
   Block validity is consequently order-dependent, and the order the transactions appear in is normative. Two transactions consuming the same note make the block invalid whatever their order, since the second consumption finds the note gone; a transaction consuming a note an earlier transaction created is valid in that order and invalid in the reverse one.
 
-  In order to verify ZK proofs, they are batched for verification as explained in [Batch verification of ZK proofs](#batch-verification-of-zk-proofs) to get better performance. Batching covers the proof checks alone and does not change the state a transaction is validated in: the public inputs of every proof are taken from the state its transaction is reached in, and the state-dependent assertions still run in sequence.
+  In order to verify ZK proofs, they are batched for verification as explained in [Batch verification of ZK proofs](#batch-verification-of-zk-proofs) to get better performance. Batching covers the proof checks alone and does not change the state a transaction is validated in: the public inputs of every proof are taken from the state its transaction is reached in, and the state-dependent assertions still run in sequence. The authorizations carried in the payload of a `CHANNEL_ANSWER` are `ZkSignature`s whose failure invalidates the block as well, so a validator may verify them in the same batch as the `ZkSignature` proofs.
 
 If any of the above checks fail, the block proposal must be rejected. What the rejection establishes depends on which bytes the failed check read. `block_id` is computed from the 297-byte header alone, so every byte outside the header — `uncle_headers`, `references`, `signature`, trailing bytes — can be altered in a copy without changing the `block_id` it names, and none of those bytes are authenticated until `header.body_root` is confirmed in step 4. A failure detected in them is a property of the received copy, not of the block: a frame that does not decode (step 1), a bad `signature` (step 2), an invalid uncle entry (step 3) and a failure to reconstruct (step 4) each discard the copy **without** recording a verdict against `block_id`. Only a failure implied by the header bytes themselves — a wrong version, an invalid proof of leadership — condemns the block the header names, identically at every node. Treating any of the former as final would let an attacker censor a genuine block by circulating tampered copies of it: one flipped bit in the trailing `signature`, or one substituted uncle entry, leaves `block_id` unchanged. The mempool-dependence of step 4 adds one further distinction — a reference that fails to resolve locally may resolve at another node — described in [Reference Resolution](#reference-resolution). Independently of what a rejection establishes about the block, **nothing of the proposal is executed**. The state progression the pass builds is a working one, adopted as the new chain state only once the last transaction of the block has validated: a single failed check anywhere in the block, in any transaction, in any Operation of any transaction, invalidates the whole block, so a node rejecting it holds exactly the state it held before it started processing it.
 
@@ -388,11 +391,12 @@ Given a `ValidBlock` that has successfully passed proposal validation, the node 
 
 1. Append the `leader_voucher` contained in the block to the set of reward vouchers **when the following epoch starts**.
 2. Execute the reward distribution protocol defined in [**Service Reward Distribution Protocol**](bedrock-service-reward-distribution.md) to generate reward notes locally and include them in the ledger.
-3. Execute the Mantle Transactions included in the block in the order they appear, using the execution rules defined in the [Mantle](bedrock-v1.1-mantle-specification.md).
+3. Resolve the channels at the block's slot, as defined in [Channel Resolution](bedrock-v1.1-mantle-specification.md#channel-resolution): finalize the pending [`CHANNEL_INSCRIBE`](bedrock-v1.1-mantle-specification.md#channel_inscribe) Operations whose window is over, undo those whose challenge received no answer in time, and take out the notes of the [`CHANNEL_WITHDRAW`](bedrock-v1.1-mantle-specification.md#channel_withdraw) Operations whose delay has passed.
+4. Execute the Mantle Transactions included in the block in the order they appear, using the execution rules defined in the [Mantle](bedrock-v1.1-mantle-specification.md).
 
-Steps 1 and 2 read the epoch and the state of the [Service Declaration Protocol](bedrock-service-declaration-protocol.md), never the transactions of the block, which is what lets them run before those transactions are validated and makes the reward notes of step 2 available to them.
+Steps 1 and 2 read the epoch and the state of the [Service Declaration Protocol](bedrock-service-declaration-protocol.md), and step 3 the ledger state and the slot, never the transactions of the block, which is what lets them run before those transactions are validated and makes the reward notes of step 2, and the notes step 3 unlocks or re-creates, available to them.
 
-The three steps stand or fall together, on a block that has validated in full: a block that fails validation at any point is not executed at all. The voucher of step 1 is appended to the set the following epoch starts with, so it lands at the epoch boundary rather than with the other two.
+The four steps stand or fall together, on a block that has validated in full: a block that fails validation at any point is not executed at all. The voucher of step 1 is appended to the set the following epoch starts with, so it lands at the epoch boundary rather than with the other three.
 
 The carried `uncle_headers` are not executed. A referenced uncle is not part of the chain; therefore, its transactions have no effect on the ledger state. The uncles are used only as evidence of consensus participation for the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference).
 
@@ -443,3 +447,5 @@ Relative to a design that carries the count in the signed header, this removes o
 ### ZkSignatures
 
 The verifier follows the same procedure as in [Proofs of Claim](#proofs-of-claim) but with the Groth16 proofs of ZkSignatures.
+
+The batch may also take the authorizations carried in the payload of a `CHANNEL_ANSWER` ([Mantle](bedrock-v1.1-mantle-specification.md#channel_answer)), which are `ZkSignature`s over their `auth_msg`: a failing one makes the answer, and the block, invalid, exactly as a failing proof does.

@@ -32,6 +32,7 @@
 | 1.5.3 | Adopted "active message" as the single name for the message | 2026-09-02 |
 | 1.5.4 | Renamed the `stake_manipulation_threshold` of the channel gas derivations into `transfer_threshold` and the Channel Stake Assignation section into Channel Transfer, following Mantle | 2026-08-31 |
 | 1.6.0 | Add the Execution Gas derivation for the `CLAIM_POW_REWARD` Operation | 2026-09-04 |
+| 1.7.0 | Removed the Channel Transfer derivation, added the bond signature of an inscription that moves notes and the derivations of the challenge and answer Operations, and the Channel Withdraw derivation follows the new Operation, following Mantle 1.16.0 | 2026-09-18 |
 
 # Introduction
 
@@ -70,11 +71,12 @@ The gas derivation of each Operation are:
 
 ```python
 TRANSFER_GAS                  = 590
-CHANNEL_INSCRIBE_GAS          = 56
+CHANNEL_INSCRIBE_GAS          = 56 + 590 * is_moving_funds    # is_moving_funds is 1 if the inputs are non-empty, 0 otherwise
 CHANNEL_CONFIG_GAS            = 56 * configuration_threshold
 CHANNEL_DEPOSIT_GAS           = 590
-CHANNEL_TRANSFER_GAS          = 56 * transfer_threshold
-CHANNEL_WITHDRAW_GAS          = 56 * transfer_threshold
+CHANNEL_WITHDRAW_GAS          = 590
+CHANNEL_CHALLENGE_GAS         = 590
+CHANNEL_ANSWER_GAS            = 590 * number_of_steps          # number_of_steps is the length of the steps list of the payload
 SDP_DECLARE_GAS               = 646
 SDP_WITHDRAW_GAS              = 590
 SDP_ACTIVE_GAS                = 590
@@ -90,7 +92,7 @@ and come from our implementation observations as described in [Gas determination
 | Proof of Claim batch verification | 2,640,000 + number_of_proof x 580,000 |
 | Eddsa25519 signature verification | 56,000 |
 
-Comparison, list searching, hashes and operation in small fields are neglected. We also supposed that the initialization cost for batch verification is paid by everyone and deduced from the block directly. The user then pay only for the part that is proportional to the number of proofs.
+Comparison, list searching, hashes and operation in small fields are neglected. We also supposed that the initialization cost for batch verification is paid by everyone and deduced from the block directly. The user then pay only for the part that is proportional to the number of proofs. The authorizations in the payload of an answer to a channel challenge are `ZkSignature`s and join that batch.
 
 # Transfer
 
@@ -119,14 +121,17 @@ Execution: negligible.
 - Derivation of the note identifiers: negligible
 ## Channel Inscription
 
-The validation process includes verifying an Eddsa25519 signature, confirming that the signer is authorized for the specified channel, and checking the chaining sequence of the channel. The execution encompasses creating channel records (if not previously used) and updating the tip of the channel.
+The validation process includes verifying an Eddsa25519 signature, confirming that the signer is authorized for the specified channel, and checking the chaining sequence of the channel. The execution encompasses creating channel records (if not previously used) and updating the tip of the channel. An inscription with inputs also moves notes: it checks its inputs, outputs and bond, verifies the ZkSignature over its bond notes, and updates the ledger.
 
-Execution: ~56k CPU cycles.
+Execution: ~56k CPU cycles, ~646k when the inscription moves notes.
 
 - Verification of the Ed25519 signature: 56,000 cycles.
 - Verification of the signer authorization: negligible.
 - Verification of channel sequencing: negligible
 - Update the channel state: negligible
+- Verification of the ZK signature over the bond, when the inscription moves notes: 590,000 cycles.
+- Checks on the inputs, the due of a withdrawal naming one included, on the outputs and the bond, and their ledger updates: negligible
+
 ## Channel Deposit
 
 The Execution Gas of the Channel Deposit Operation compensates for the verification of the [ZkSignature](bedrock-v1.1-mantle-specification.md) proof and for the check of the inputs.
@@ -142,30 +147,31 @@ Execution: ~590k CPU cycles.
 
 ## Channel Withdraw
 
-The validation process requires verifying multiple Eddsa25519 signatures.
-The execution require consuming the channel notes, deriving note Id and adding notes to the ledger.
+The Execution Gas compensates for the verification of the holder's [ZkSignature](bedrock-v1.1-mantle-specification.md) proof.
 
-Execution: ~56k CPU cycles * transfer_threshold.
+Execution: ~590k CPU cycles.
 
-- Verification of `transfer_threshold` Ed25519Signatures: 56,000 cycles per signature.
-- Verification that the notes are in the ledger: negligible.
-- Verification that the notes are in the channel: negligible.
-- Removing the notes from channel notes: negligible.
+- Verification of the ZK signature: 590,000 cycles.
+- Verification that the notes are in the channel, under no withdrawal and not bonded: negligible.
+- Recording the withdrawal and marking the notes: negligible.
 
-## Channel Transfer
+## Channel Challenge
 
-The validation process requires verifying multiple Eddsa25519 signatures, and managing the channel notes.
-The execution require deriving note Id and adding notes to the ledger.
+The Execution Gas compensates for the verification of the bond's ZkSignature.
 
-Execution: ~56k CPU cycles * transfer_threshold.
+Execution: ~590k CPU cycles.
 
-- Verification of `transfer_threshold` Ed25519Signatures: 56,000 cycles per signature.
-- Verification that the notes are in the ledger: negligible.
-- Verification that the notes are in the channel: negligible.
-- Removing of the note from the ledger: negligible.
-- Verification of the output validity: negligible.
-- Insertion of the note in the ledger: negligible.
-- Derivation of the note identifiers: negligible
+- Verification of the ZK signature: 590,000 cycles.
+- Verification of the challenge window and of the bond value: negligible.
+
+## Channel Answer
+
+The Execution Gas compensates for the verification of the authorizations the payload carries, one `ZkSignature` per step, which the block's batch may take with the Operation proofs.
+
+Execution: ~590k * number_of_steps CPU cycles. The step count is a two-byte field, so an answer has at most 65,535 steps and costs at most 38,665,650 Execution Gas.
+
+- Verification of one authorization per step: 590,000 cycles.
+- Accounting of the steps: negligible.
 
 ## Channel Config
 
