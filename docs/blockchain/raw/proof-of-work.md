@@ -144,7 +144,7 @@ POW_SHARE: uint64 = 10                          # beta, as the fraction POW_SHAR
 SHARE_DEN: uint64 = 100
 EMA_SMOOTHING_FACTOR: uint64 = 9                # F, the weight given to the previous estimate
 EMA_SMOOTHING_PRECISION: uint64 = 10            # P, the scale F is expressed against; F < P
-REWARD_TARGET_FLOOR: uint64 = 9                 # ceil(F / (P - F)); see Reward Difficulty
+REWARD_TARGET_FLOOR: uint64 = 9                 # max(1, ceil(F / (P - F))); see Reward Difficulty
 BLEND_DIFFICULTY_BASE: PowTarget = p // 2**19   # difficulty_blend at the reference load
 TARGET_TXS_PER_BLOCK: uint64 = 130              # Reference transactions per block, F_T / F_D
 BLEND_DAMPING_NUM: uint64 = 1                   # a, where the exponent is alpha = a / b
