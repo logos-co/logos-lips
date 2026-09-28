@@ -385,6 +385,8 @@ This makes delegated staking explicit. Sequencers can assign a channel note to t
 
 Write a message to a channel with the message data being permanently stored on the Logos Blockchain.
 
+The inscription is opaque channel-specific data and its size MUST NOT exceed `MAX_OPERATION_DATA_SIZE`. The canonical limit and decoding requirement are defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md#channel-operations).
+
 #### Payload
 
 ```python
@@ -673,6 +675,8 @@ signed_tx = SignedMantleTx(
 ### CHANNEL_DEPOSIT
 
 Deposit notes to a channel. The inputs are consumed and re-created as channel notes under a new `NoteId`, which resets their ageing and prevents the deposit from being replayed after a withdrawal.
+
+The `metadata` field is opaque channel-specific data. Its size MUST NOT exceed `MAX_OPERATION_DATA_SIZE`; the canonical limit and decoding requirement are defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md#channel-operations).
 
 #### Payload
 
