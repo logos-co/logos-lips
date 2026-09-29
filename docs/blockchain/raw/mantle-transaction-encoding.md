@@ -33,6 +33,7 @@
 | 1.6.1 | Renamed the `LockedNoteId` production of the SDP Operations into `ServiceNoteId` | 2026-08-27 |
 | 1.7.0 | Added the `ChannelConfigOpProof` and `ChannelTransferOpProof` variants and factored the three channel threshold proofs into `ChannelMultiSigProof`, carrying the index of the signing key alongside each signature | 2026-08-31 |
 | 1.8.0 | Added the `ClaimPowReward` Operation payload; its proof is a `ZkSigProof` | 2026-09-08 |
+| 1.9.0 | [\[RFC\] Bound Mantle Operation Data Payloads](mantle-transaction-encoding/appendices/rfc-bound-operation-data-size.md): Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata; retained their `UINT32` length prefixes | 2026-09-28 |
 
 # Introduction
 
@@ -84,7 +85,7 @@ OpPayload = Transfer /
 
 ```schema
 ChannelInscribe = ChannelId Inscription Parent Signer
-Inscription     = UINT32 *BYTE 
+Inscription     = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes
 
 ChannelConfig     = ChannelId Parent KeyCount *Signer PostingTimeframe PostingTimeout ConfigThreshold TransferThreshold
 KeyCount                   = UINT16
@@ -96,7 +97,7 @@ TransferThreshold          = UINT16
 ChannelDeposit    = ChannelId Inputs Metadata
 Inputs            = InputCount *NoteId
 InputCount        = Byte
-Metadata          = UINT32 *BYTE
+Metadata          = UINT32 *BYTE ; ChannelDeposit: max MAX_OPERATION_DATA_SIZE bytes
 
 ChannelTransfer = ChannelId Inputs Outputs
 
@@ -109,6 +110,10 @@ Outputs           = OutputCount *Note
 OutputCount       = Byte
 Inputs            = InputCount *NoteId
 ```
+
+`MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. This is currently seven eighths of the 2 MiB maximum block body (2,097,152 bytes), leaving headroom for transaction framing, other operations, inputs, proofs, and other transaction data. The limit is a concrete protocol value; Mantle parsing does not depend on importing the block-size constant.
+
+`UINT32` specifies the encoded byte-length prefix and does not define the maximum permitted payload size. Although a `UINT32` prefix can encode lengths up to `2^32 - 1`, `ChannelInscribe.Inscription` and `ChannelDeposit.Metadata` MUST each contain at most `MAX_OPERATION_DATA_SIZE` bytes. A decoder MUST reject either field when its declared or decoded length exceeds that limit. This bound applies to the channel operation fields named here; it does not constrain `SDPActive.Metadata`.
 
 ### SDP Operations
 
