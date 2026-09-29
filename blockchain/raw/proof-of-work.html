@@ -192,12 +192,14 @@
 </div><!-- timeline:start -->
 <h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
 <ul>
+<li><strong>2026-09-29</strong> — <a href="https://github.com/logos-co/logos-lips/blob/96e958692700a1b4e67203158a3632d47640002f/docs/blockchain/raw/proof-of-work.md"><code>96e9586</code></a> — [RFC] Blend: Bound connection traffic at the receiver (#421)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b7301a67b5364a8dbe719f8b67b96b7f198d0a13/docs/blockchain/raw/proof-of-work.md"><code>b7301a6</code></a> — [RFC] Mantle: Enable basic EmPoWering machinery (#400)</li>
 </ul>
 <!-- timeline:end -->
 <h1 id="revision-history"><a class="header" href="#revision-history">Revision History</a></h1>
 <div class="table-wrapper"><table><thead><tr><th><strong>Version</strong></th><th><strong>Changes</strong></th><th><strong>Date</strong></th></tr></thead><tbody>
 <tr><td>1.0.0</td><td>Initial revision.</td><td>2026-09-09</td></tr>
+<tr><td>1.1.0</td><td>Set the reference load of the Blend difficulty to the transaction rate the Blend network carries, <code>F_T / F_D = 130</code> transactions per block</td><td>2026-09-11</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
@@ -289,12 +291,13 @@ EXPECTED_BLOCKS_PER_WINDOW: uint64 = 10         # W_b
 EMA_SMOOTHING_FACTOR: uint64 = 9                # F, the weight given to the previous estimate
 EMA_SMOOTHING_PRECISION: uint64 = 10            # P, the scale F is expressed against; F &lt; P
 BLEND_DIFFICULTY_BASE: PowTarget = p // 2**19   # difficulty_blend at the reference load
-TARGET_TXS_PER_BLOCK: uint64 = 512              # Reference transactions per block
+TARGET_TXS_PER_BLOCK: uint64 = 130              # Reference transactions per block, F_T / F_D
 BLEND_DAMPING_NUM: uint64 = 1                   # a, where the exponent is alpha = a / b
 BLEND_DAMPING_DEN: uint64 = 2                   # b, with 0 &lt; a &lt;= b so that alpha &lt;= 1
 BLEND_MAX_STEP: uint64 = 2                      # Max factor difficulty_blend may move per epoch
 </code></pre>
 <p>The parameters must give an <code>epoch_pow_reward</code> above the fee of a claim transaction, which pays for the claim and the <code>TRANSFER</code> that spends its note, or a claim cannot pay its own fee.</p>
+<p><code>TARGET_TXS_PER_BLOCK</code> is the transaction rate the Blend network carries, <span class="math-inline" data-tex="F_T / F_D = 130"></span> transactions per block (<a href="blend-protocol.html#global-parameters">Global Parameters</a>).</p>
 <h2 id="puzzle-target"><a class="header" href="#puzzle-target">Puzzle Target</a></h2>
 <p><code>PowTarget</code> is an element of <span class="math-inline" data-tex="\mathbb{F}_p"></span>, as every ticket is. A ticket satisfies a target when its canonical integer representative in <span class="math-inline" data-tex="[0, p-1]"></span> is strictly below the target's; a smaller target is a harder puzzle. A representative is at most 254 bits, so a 256-bit unsigned integer holds any target.</p>
 <p>The two updates below multiply and divide targets as integers rather than in the fixed-width types of <a href="bedrock-v1.1-mantle-specification.html#arithmetic">Arithmetic</a>, and cap their result at <span class="math-inline" data-tex="p - 1"></span>, so that it converts back to a field element without reduction. Every intermediate fits in <strong>512 bits</strong>: the reward retarget's product reaches <span class="math-inline" data-tex="2^{261}"></span> and the Blend radicand <span class="math-inline" data-tex="2^{493}"></span>. Each operation is integer addition, multiplication, floor division or comparison, and <code>integer_nth_root</code> returns the exact floor, so two implementations agree exactly.</p>

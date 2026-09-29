@@ -25758,12 +25758,14 @@ WithdrawThreshold = UINT16
 </div><!-- timeline:start -->
 <h2 id="timeline-87"><a class="header" href="#timeline-87">Timeline</a></h2>
 <ul>
+<li><strong>2026-09-29</strong> — <a href="https://github.com/logos-co/logos-lips/blob/96e958692700a1b4e67203158a3632d47640002f/docs/blockchain/raw/proof-of-work.md"><code>96e9586</code></a> — [RFC] Blend: Bound connection traffic at the receiver (#421)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b7301a67b5364a8dbe719f8b67b96b7f198d0a13/docs/blockchain/raw/proof-of-work.md"><code>b7301a6</code></a> — [RFC] Mantle: Enable basic EmPoWering machinery (#400)</li>
 </ul>
 <!-- timeline:end -->
 <h1 id="revision-history-15"><a class="header" href="#revision-history-15">Revision History</a></h1>
 <div class="table-wrapper"><table><thead><tr><th><strong>Version</strong></th><th><strong>Changes</strong></th><th><strong>Date</strong></th></tr></thead><tbody>
 <tr><td>1.0.0</td><td>Initial revision.</td><td>2026-09-09</td></tr>
+<tr><td>1.1.0</td><td>Set the reference load of the Blend difficulty to the transaction rate the Blend network carries, <code>F_T / F_D = 130</code> transactions per block</td><td>2026-09-11</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction-25"><a class="header" href="#introduction-25">Introduction</a></h1>
@@ -25855,12 +25857,13 @@ EXPECTED_BLOCKS_PER_WINDOW: uint64 = 10         # W_b
 EMA_SMOOTHING_FACTOR: uint64 = 9                # F, the weight given to the previous estimate
 EMA_SMOOTHING_PRECISION: uint64 = 10            # P, the scale F is expressed against; F &lt; P
 BLEND_DIFFICULTY_BASE: PowTarget = p // 2**19   # difficulty_blend at the reference load
-TARGET_TXS_PER_BLOCK: uint64 = 512              # Reference transactions per block
+TARGET_TXS_PER_BLOCK: uint64 = 130              # Reference transactions per block, F_T / F_D
 BLEND_DAMPING_NUM: uint64 = 1                   # a, where the exponent is alpha = a / b
 BLEND_DAMPING_DEN: uint64 = 2                   # b, with 0 &lt; a &lt;= b so that alpha &lt;= 1
 BLEND_MAX_STEP: uint64 = 2                      # Max factor difficulty_blend may move per epoch
 </code></pre>
 <p>The parameters must give an <code>epoch_pow_reward</code> above the fee of a claim transaction, which pays for the claim and the <code>TRANSFER</code> that spends its note, or a claim cannot pay its own fee.</p>
+<p><code>TARGET_TXS_PER_BLOCK</code> is the transaction rate the Blend network carries, <span class="math-inline" data-tex="F_T / F_D = 130"></span> transactions per block (<a href="blockchain/raw/blend-protocol.html#global-parameters">Global Parameters</a>).</p>
 <h2 id="puzzle-target"><a class="header" href="#puzzle-target">Puzzle Target</a></h2>
 <p><code>PowTarget</code> is an element of <span class="math-inline" data-tex="\mathbb{F}_p"></span>, as every ticket is. A ticket satisfies a target when its canonical integer representative in <span class="math-inline" data-tex="[0, p-1]"></span> is strictly below the target's; a smaller target is a harder puzzle. A representative is at most 254 bits, so a 256-bit unsigned integer holds any target.</p>
 <p>The two updates below multiply and divide targets as integers rather than in the fixed-width types of <a href="blockchain/raw/bedrock-v1.1-mantle-specification.html#arithmetic">Arithmetic</a>, and cap their result at <span class="math-inline" data-tex="p - 1"></span>, so that it converts back to a field element without reduction. Every intermediate fits in <strong>512 bits</strong>: the reward retarget's product reaches <span class="math-inline" data-tex="2^{261}"></span> and the Blend radicand <span class="math-inline" data-tex="2^{493}"></span>. Each operation is integer addition, multiplication, floor division or comparison, and <code>integer_nth_root</code> returns the exact floor, so two implementations agree exactly.</p>
@@ -40788,6 +40791,7 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 </div><!-- timeline:start -->
 <h2 id="timeline-132"><a class="header" href="#timeline-132">Timeline</a></h2>
 <ul>
+<li><strong>2026-09-29</strong> — <a href="https://github.com/logos-co/logos-lips/blob/96e958692700a1b4e67203158a3632d47640002f/docs/blockchain/raw/blend-protocol.md"><code>96e9586</code></a> — [RFC] Blend: Bound connection traffic at the receiver (#421)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/7244d3b05ddec91a4a7b565bd5a9340ab77ededd/docs/blockchain/raw/blend-protocol.md"><code>7244d3b</code></a> — [RFC] Blend: Failure Detection and Reaction (#412)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b7301a67b5364a8dbe719f8b67b96b7f198d0a13/docs/blockchain/raw/blend-protocol.md"><code>b7301a6</code></a> — [RFC] Mantle: Enable basic EmPoWering machinery (#400)</li>
 <li><strong>2026-09-03</strong> — <a href="https://github.com/logos-co/logos-lips/blob/e2e9e0fc0096e42153430689628c0d638d3c4cf4/docs/blockchain/raw/blend-protocol.md"><code>e2e9e0f</code></a> — [RFC] The Epochs <code>active</code> and <code>withdraw_at</code> Record (#422)</li>
@@ -40815,6 +40819,7 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <tr><td>1.3.1</td><td>Judged the active message window by the epoch of the including block, made the one-message-per-epoch rule per attested epoch, and made the transition-period delay a release constraint</td><td>2026-09-02</td></tr>
 <tr><td>1.4.0</td><td>Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, add a transaction as a data message payload, and align the nullifier retention period</td><td>2026-09-08</td></tr>
 <tr><td>1.5.0</td><td>[RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time.</td><td>2026-09-04</td></tr>
+<tr><td>1.6.0</td><td>Replaced the per-window statistical threshold on a connection with a share of messages a node reads from, and sends on, each connection in a round, and a liveness test, kept per identity for the epoch, on whether a neighbor delivers. Held the peering degree in live connections, at least two of them opened by the node. Restricted blacklisting to attributable faults. Sized the shares from the processing rate of the slowest node, derived the transactions the network carries from them, and made that rate the reference load of the Blend difficulty.</td><td>2026-09-08</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction-71"><a class="header" href="#introduction-71">Introduction</a></h1>
@@ -40856,8 +40861,6 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <ul>
 <li><em>Honest node</em> is a node that follows the protocol fully.</li>
 <li><em>Lazy node</em> is a node that does not follow the protocol due to a lack of incentives and only takes part in the protocol when it is directly beneficial to the node.</li>
-<li><em>Spammy node</em> is a node that does not follow the protocol and emits more messages than the protocol expects. In other words, it is a spamming node.</li>
-<li><em>Unhealthy node</em> is a node that emits fewer messages than the protocol expects. We cannot assume that this node is misbehaving deliberately, as it can be under an attack.</li>
 <li><em>Malicious node</em> is a node that does not follow the protocol regardless of incentives.</li>
 <li><em>Unresponsive node</em> is a node that does not follow the protocol due to technical reasons, such as a lack of connectivity or malfunction.</li>
 </ul>
@@ -40923,28 +40926,10 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <p>At the beginning of an epoch, all core nodes retrieve a fresh set of core nodes’ connectivity information from the SDP protocol. Then each core node selects at random a set of other core nodes and connects to them through fully encrypted connections. After some time, when all core nodes connect to other core nodes, a new network is formed.</p>
 <h3 id="minimal-network-size"><a class="header" href="#minimal-network-size">Minimal Network Size</a></h3>
 <p>The minimal network size is <span class="math-inline" data-tex="32"></span>. This is the minimum number of nodes (unique <code>ProviderId</code>s from declarations) that must be retrieved from the SDP to consider the Blend protocol safe to use.</p>
-<p>This minimal size of <span class="math-inline" data-tex="32"></span> nodes allows the network to release, on average, a single message per round under the assumption of <span class="math-inline" data-tex="50\%"></span> unresponsive nodes. With fewer nodes, the network would need to either release more messages per round or queue them. This would increase the time messages take to traverse the network, potentially compromising the safety of the consensus.</p>
-<p>The calculations supporting this requirement are provided in the <a href="blockchain/raw/blend-protocol.html#releasing">Releasing</a> section, where the number of <span class="math-inline" data-tex="16"></span> nodes has been estimated without assuming any unresponsive nodes. Therefore, we have doubled that value to accommodate the potential <span class="math-inline" data-tex="50\%"></span> unresponsive nodes.</p>
 <h3 id="fallback"><a class="header" href="#fallback">Fallback</a></h3>
 <p>If the minimal network size is not reached, nodes must not use the Blend protocol. In such cases, nodes must broadcast data messages directly, bypassing the Blend network.</p>
 <h3 id="maintenance"><a class="header" href="#maintenance">Maintenance</a></h3>
-<p>To maintain an adequate quality of the network, all connections must be monitored by the nodes.</p>
-<p>Nodes monitor connections with their neighbors by verifying the correctness of messages and the number of messages they receive.</p>
-<ol>
-<li>
-<p>If the messages are badly constructed or the number of messages is above a certain acceptable level, then:</p>
-</li>
-<li>
-<p>The connection with that neighbor must be closed.</p>
-</li>
-<li>
-<p>Then a new connection with a randomly selected core node must be established.</p>
-</li>
-<li>
-<p>If the number of messages is below a certain acceptable level, then a new connection with a random core node must be established.</p>
-</li>
-</ol>
-<p>The above logic enables a node to maintain the quality of the network by closing connections with abusive, malicious, lazy, and unresponsive nodes. All honest nodes, by following this mechanism in the long run, will isolate themselves from other nodes, which will increase the overall performance of the network.</p>
+<p>A core node reads at most a share of messages from each connection per round, sized to what the slowest node the protocol targets can process, sends at most the same share on each, and keeps a connection only while its neighbor delivers. It maintains its peering degree and blacklists a neighbor only for a fault the neighbor is answerable for (<a href="blockchain/raw/blend-protocol.html#connectivity-maintenance">Connectivity Maintenance</a>).</p>
 <h2 id="messages-2"><a class="header" href="#messages-2">Messages</a></h2>
 <p>The protocol defines two types of messages: data, and cover.</p>
 <ul>
@@ -41111,7 +41096,7 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <li>It starts opening new connections.
 <ol>
 <li>
-<p>It selects at random (without replacement) a node from the set of core nodes.</p>
+<p>It selects at random (without replacement) a node from the set of core nodes, excluding the identities that are on its blacklist (<a href="blockchain/raw/blend-protocol.html#connectivity-maintenance">Connectivity Maintenance</a>).</p>
 </li>
 <li>
 <p>It establishes a secure connection with the selected node, that is:</p>
@@ -41127,16 +41112,11 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 </ol>
 </li>
 <li>
-<p>It repeats the above steps until it connects to the minimal core peering degree of nodes. That is, 4 according to the <span class="math-inline" data-tex="\Phi_{CC}^{Min}"></span> parameter: <a href="blockchain/raw/blend-protocol.html#core-node-parameters">Core Node Parameters</a>. Both incoming and outgoing connections count toward this minimal degree.</p>
+<p>It repeats the above steps while <a href="blockchain/raw/blend-protocol.html#connectivity-maintenance">Connectivity Maintenance</a> requires it to open a connection.</p>
 </li>
 </ol>
 </li>
-<li>It starts accepting incoming connections and maintaining all connections as defined in <strong>Maintenance</strong>.
-<ol>
-<li>It can maintain up to the maximum number of connections with core nodes (<span class="math-inline" data-tex="\Phi_{CC}^{Max}"></span> parameter: <a href="blockchain/raw/blend-protocol.html#core-node-parameters">Core Node Parameters</a>).  For example, a node initiates <span class="math-inline" data-tex="\Phi_{CC}^{Min}=4"></span> connections and <span class="math-inline" data-tex="\Phi_{CC}^{Max}=8"></span> , then it can still accept <span class="math-inline" data-tex="\Phi_{CC}^{Max} - \Phi_{CC}^{Min} = 4"></span> connections from core nodes.</li>
-<li>It can receive up to the maximum number of connections with edge nodes. For example, 300 or according to the <span class="math-inline" data-tex="\Phi_{CE}^{Max}"></span> parameter: <a href="blockchain/raw/blend-protocol.html#core-node-parameters">Core Node Parameters</a>.</li>
-</ol>
-</li>
+<li>It maintains all connections as defined in <a href="blockchain/raw/blend-protocol.html#connectivity-maintenance">Connectivity Maintenance</a>.</li>
 <li>If two nodes open two connections with each other, so that both have incoming and outgoing connections to the same neighbor (core node), then:
 <ol>
 <li>The node with the lower public key value (<code>provider_id</code> from SDP) must close the outgoing connection to the node with the higher public key value.</li>
@@ -41146,33 +41126,10 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 </ol>
 <p>Public key values are compared lexicographically. Specifically, we use the libp2p <a href="https://docs.libp2p.io/concepts/fundamentals/peers/#peer-id"><code>peer_id</code></a> format of the <code>provider_id</code> and apply standard Base58 encoding (<a href="https://docs.rs/libp2p/latest/libp2p/struct.PeerId.html#method.to_base58"><code>to_base58()</code></a> libp2p function) for the comparison.</p>
 <p><strong>Maintenance</strong></p>
-<p>This process defines the way the network connections are maintained during the epoch.</p>
-<p>A core node monitors the connection quality of each connection with its neighbors, according to the <a href="blockchain/raw/blend-protocol.html#connectivity-maintenance">Connectivity Maintenance</a>:</p>
-<ul>
-<li>It monitors the transmission rate of each neighbor’s connection.
-<ol>
-<li>If the transmission rate drops below a certain threshold, then the neighbor is marked unhealthy.</li>
-<li>If the transmission rate goes above a threshold, then the neighbor is marked spammy.</li>
-</ol>
-</li>
-<li>A connection with a spammy neighbor is dropped, and a new one (with another randomly selected core node) must be established to maintain the minimum peering degree.</li>
-<li>A connection with an unhealthy core node neighbor is maintained, but an additional connection is established.
-<ol>
-<li>The number of open connections must be below the maximum core connections.</li>
-<li>If the maximum core connections is exceeded, then:
-<ol>
-<li>A message is added to the logs informing about this situation;</li>
-<li>Possibility to establish new connections is paused until the maximum number of established connections goes down.</li>
-</ol>
-</li>
-</ol>
-</li>
-<li>A connection with an unhealthy edge node is closed.</li>
-</ul>
+<p>A core node maintains its connections during the epoch as defined in <a href="blockchain/raw/blend-protocol.html#connectivity-maintenance">Connectivity Maintenance</a>.</p>
 <h3 id="edge-network"><a class="header" href="#edge-network">Edge Network</a></h3>
 <p><strong>Bootstrapping</strong></p>
 <p>The edge network is maintained by core nodes because edge nodes can only establish connections with core nodes.</p>
-<p>Each core node defines individually the maximum number of edge connections allowed. Therefore, every core node is a potential entry point to the network, but not every node is connectable.</p>
 <p>The bootstrapping logic of an edge node:</p>
 <ol>
 <li>At the beginning of an epoch, the edge node retrieves a set of core nodes’ information from the SDP protocol.</li>
@@ -41185,7 +41142,6 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <ol>
 <li>A core node learns that the neighbor is an edge node.</li>
 <li>An edge node confirms that the neighbor is a core node.</li>
-<li>A core node might drop the connection if the maximum number of edge connections, defined by the core node, is reached.</li>
 <li>An edge node must drop the connection if the neighbor is not the intended core node. Please note that technically it is done during TLS handshake, where the handshake will fail if the core node is using a different key than provided in the SDP declaration.</li>
 </ol>
 </li>
@@ -41309,29 +41265,25 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <h1 id="details-10"><a class="header" href="#details-10">Details</a></h1>
 <h2 id="notation-4"><a class="header" href="#notation-4">Notation</a></h2>
 <ul>
-<li><span class="math-inline" data-tex="\Phi_{CC}"></span> denotes the actual number of established connections of the core node with other core nodes;</li>
-<li><span class="math-inline" data-tex="\Phi_{CE}"></span> denotes the actual number of connections of the core node with edge nodes;</li>
-<li><span class="math-inline" data-tex="\Phi_{EC}"></span> denotes the actual number of connections of the edge node with core nodes;</li>
-<li><span class="math-inline" data-tex="h(x)"></span> denotes a function that returns the number of healthy connections of a given type, where type is: <span class="math-inline" data-tex="x \in \{ \Phi_{CC}, \Phi_{CE}, \Phi_{EC} \}"></span>;</li>
+<li><span class="math-inline" data-tex="\Phi_{CC}"></span> denotes the peering degree of a core node;</li>
 <li><span class="math-inline" data-tex="\Delta_{max}"></span> denotes a maximal delay time between two release rounds;</li>
 <li><span class="math-inline" data-tex="\beta_{max}"></span> denotes a maximum number of processing rounds for a single message;</li>
-<li><span class="math-inline" data-tex="\mu"></span> denotes the upper bound on the number of messages to be released during a single release round;</li>
 <li><span class="math-inline" data-tex="E"></span> denotes a number of rounds in an epoch;</li>
 <li><span class="math-inline" data-tex="W"></span> denote the observation window expressed in the number of rounds;</li>
-<li><span class="math-inline" data-tex="F_1^W"></span> denote a frequency at which messages are observed during an observation window <span class="math-inline" data-tex="W"></span>;</li>
-<li><span class="math-inline" data-tex="\lceil F_1 \rceil^W"></span> denote the maximal frequency at which messages can be generated during an observation window <span class="math-inline" data-tex="W"></span>;</li>
-<li><span class="math-inline" data-tex="\lfloor F_1 \rfloor^W"></span> denote the minimal frequency at which messages must be generated during an observation window <span class="math-inline" data-tex="W"></span>;</li>
+<li><span class="math-inline" data-tex="F_1"></span> denote the number of messages a core connection carries per round;</li>
+<li><span class="math-inline" data-tex="V"></span> denote the number of messages per second the slowest node the protocol targets processes;</li>
+<li><span class="math-inline" data-tex="r_1"></span> denote the number of messages a node reads from a core connection in a round;</li>
+<li><span class="math-inline" data-tex="r_E"></span> denote the number of connections with edge nodes a node accepts in a round;</li>
 <li><span class="math-inline" data-tex="F_C"></span> denote a frequency at which cover messages are generated per round;</li>
-<li><span class="math-inline" data-tex="F_D"></span> denote a frequency at which data messages are generated per round;</li>
-<li><span class="math-inline" data-tex="C = S \cdot F_C"></span> denote the expected number of cover messages that are generated during an epoch by the core nodes;</li>
-<li><span class="math-inline" data-tex="H_C"></span> denote the expected number of blending operations for each cover message;</li>
-<li><span class="math-inline" data-tex="H_D"></span> denote the expected number of blending operations for each data message;</li>
+<li><span class="math-inline" data-tex="F_D"></span> denote a frequency at which block proposals are generated per round;</li>
+<li><span class="math-inline" data-tex="F_T"></span> denote a frequency at which messages carrying a transaction are generated per round;</li>
+<li><span class="math-inline" data-tex="C = E \cdot F_C"></span> denote the expected number of cover messages that are generated during an epoch by the core nodes;</li>
 <li><span class="math-inline" data-tex="R_C"></span> denote a redundancy parameter for cover messages, defining the number of “replications” of the same message;</li>
-<li><span class="math-inline" data-tex="R_D"></span> denote a redundancy parameter for data messages, defining the number of “replications” of the same message;</li>
-<li><span class="math-inline" data-tex="\mathcal{N} = \text{SDP}(s)"></span> denote a set of core nodes providing the Blend service for the epoch <span class="math-inline" data-tex="e"></span> returned by the SDP protocol (<a href="blockchain/raw/bedrock-service-declaration-protocol.html">Service Declaration Protocol</a>);</li>
+<li><span class="math-inline" data-tex="R_D"></span> denote a redundancy parameter for block proposals, defining the number of “replications” of the same message;</li>
+<li><span class="math-inline" data-tex="\mathcal{N} = \text{SDP}(e)"></span> denote a set of core nodes providing the Blend service for the epoch <span class="math-inline" data-tex="e"></span> returned by the SDP protocol (<a href="blockchain/raw/bedrock-service-declaration-protocol.html">Service Declaration Protocol</a>);</li>
 <li><span class="math-inline" data-tex="N = |\mathcal N|"></span> denote a number of core nodes providing the Blend service;</li>
 <li><span class="math-inline" data-tex="\text {CSPRNG}()"></span> is a cryptographically secure pseudo-random number generator, implemented as a <a href="blockchain/raw/common-cryptographic-components.html#chacha20-based-prng-construction">ChaCha20-Based PRNG Construction</a>;</li>
-<li><span class="math-inline" data-tex="\eta"></span> denotes the network absorption, the time a message spends crossing the network on one hop;</li>
+<li><span class="math-inline" data-tex="\eta"></span> denotes the network absorption, the maximum time a message spends crossing the network on one hop;</li>
 <li><span class="math-inline" data-tex="T_M"></span> denotes the message traversal time, the time a message takes to cross the network;</li>
 </ul>
 <h2 id="global-parameters"><a class="header" href="#global-parameters">Global Parameters</a></h2>
@@ -41344,16 +41296,21 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <li><span class="math-inline" data-tex="\eta=2"></span> rounds, the network absorption of one hop.</li>
 <li><span class="math-inline" data-tex="T_M = 15"></span> rounds, the message traversal time, as derived in the <a href="blockchain/raw/blend-protocol.html#transition-period">Transition Period</a> section.</li>
 <li><span class="math-inline" data-tex="W=10 \cdot \Delta_{max}=30"></span>, the observation window is <span class="math-inline" data-tex="30"></span> rounds.</li>
-<li><span class="math-inline" data-tex="\lceil F_1 \rceil^W = W \cdot \mu=30 \cdot \mu"></span>, the maximum number of messages per-connection during the observation window is a function of the <span class="math-inline" data-tex="\mu"></span>, which is defined in the <a href="blockchain/raw/blend-protocol.html#releasing">Releasing</a>  section.</li>
-<li><span class="math-inline" data-tex="\lfloor F_1 \rfloor^W = 3 \cdot \mu"></span>, the minimum number of messages per-connection during observation is a function of the <span class="math-inline" data-tex="\mu"></span>, which is defined in the <a href="blockchain/raw/blend-protocol.html#releasing">Releasing</a> section.</li>
+<li><span class="math-inline" data-tex="F_C=1"></span>, the network generates one cover message per round on average.</li>
+<li><span class="math-inline" data-tex="F_D=1/30"></span>, the network generates one block proposal every <span class="math-inline" data-tex="30"></span> rounds on average (<a href="blockchain/raw/cryptarchia-v1-protocol.html">Cryptarchia Protocol</a>).</li>
+<li><span class="math-inline" data-tex="F_T = 130/30"></span>, the network carries <span class="math-inline" data-tex="130"></span> messages per slot of <span class="math-inline" data-tex="30"></span> rounds, each carrying one transaction (<a href="blockchain/raw/payload-formatting.html">Payload Formatting</a>), whatever quota backs them: <span class="math-inline" data-tex="\left(F_1 / \beta_{max} - \max(F_C \cdot (1 + R_C), F_D \cdot (1 + R_D))\right) \cdot 30 = 130"></span> at <span class="math-inline" data-tex="F_1 = 16"></span> (<a href="blockchain/raw/blend-protocol.html#expected-traffic">Expected Traffic</a>).</li>
+<li><span class="math-inline" data-tex="R_C=0"></span> and <span class="math-inline" data-tex="R_D=1"></span>: a cover message is not replicated, and a block proposal is replicated once. A transaction is not replicated.</li>
+<li><span class="math-inline" data-tex="\Phi_{CC}=4"></span>, the peering degree (<a href="blockchain/raw/blend-protocol.html#connectivity-maintenance">Connectivity Maintenance</a>). <span class="math-inline" data-tex="3 \le \Phi_{CC} \le 5"></span>. Below <span class="math-inline" data-tex="3"></span> a node opens no connection of its own; above <span class="math-inline" data-tex="5"></span> nodes must open more connections than nodes can accept, and dials are refused.</li>
+<li><span class="math-inline" data-tex="V = 156"></span> messages per second the slowest node the protocol targets processes, one below the <span class="math-inline" data-tex="157"></span> measured on one core of a Raspberry Pi 5 (<a href="https://github.com/logos-blockchain/research/tree/blend-header-verification-benchmark/tools/benchmarks/blend-header-verification">benchmark</a>).</li>
+<li><span class="math-inline" data-tex="r_1 = 20"></span> messages a node reads from a core connection per round, and <span class="math-inline" data-tex="r_E = 24"></span> connections with edge nodes it accepts per round: <span class="math-inline" data-tex="r_1 = \lfloor (2V/3) / (\Phi_{CC} + 1) \rfloor"></span> and <span class="math-inline" data-tex="r_E = 2V/3 - \Phi_{CC} \cdot r_1"></span>, so a node at its peering degree reads two thirds of <span class="math-inline" data-tex="V"></span>, and at one above it <span class="math-inline" data-tex="(\Phi_{CC} + 1) \cdot r_1 + r_E = 124 \le V"></span> (<a href="blockchain/raw/blend-protocol.html#expected-traffic">Expected Traffic</a>).</li>
+<li><span class="math-inline" data-tex="T_E=1"></span> round, the time an edge node is given to send its message, as derived in <a href="blockchain/raw/blend-protocol.html#connectivity-maintenance">Connectivity Maintenance</a>.</li>
+<li><span class="math-inline" data-tex="T_H=2"></span> rounds, the time a core node handshake is given to complete, which covers the round trips of the transport handshake and of the <a href="blockchain/raw/blend-protocol.html#neighbor-distinction-process">Neighbor Distinction Process</a>.</li>
 </ul>
 <h3 id="core-node-parameters"><a class="header" href="#core-node-parameters">Core Node Parameters</a></h3>
 <p>A core node maintains the following set of parameters:</p>
 <ul>
-<li><span class="math-inline" data-tex="\Phi_{CC}^{Max}"></span> denotes the maximal peering degree a core node can maintain with other core nodes. It is set by a core node individually.</li>
-<li><span class="math-inline" data-tex="\Phi_{CC}^{Min}"></span> denotes the minimal peering degree a core node must maintain with other core nodes. It is set by a core node individually.</li>
-<li><span class="math-inline" data-tex="\Phi_{CE}^{Max}"></span> denotes the maximum number of connections with edge nodes. It is set by the core node individually.</li>
 <li><span class="math-inline" data-tex="\Omega_C"></span> denotes the maximum number of retries a core node will do to connect with another core node.</li>
+<li><span class="math-inline" data-tex="\Phi_{CE}^{Max}"></span> denotes the maximum number of connections a core node holds with edge nodes at once. <span class="math-inline" data-tex="\Phi_{CE}^{Max} \ge 2 \cdot r_E"></span>: a connection holds its slot for <span class="math-inline" data-tex="T_E"></span>, one round, so the connections accepted in two rounds can be open at once, and a smaller value refuses edge connections before the share is spent.</li>
 </ul>
 <p>Implementations should choose a default based on the deployment they operate in, and users can override these defaults before joining.</p>
 <h3 id="edge-node-parameters"><a class="header" href="#edge-node-parameters">Edge Node Parameters</a></h3>
@@ -41372,40 +41329,54 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <li>A node extracts <code>peer_id</code> from the TLS metadata of the accepted connection.</li>
 <li>If the <code>peer_id</code> is found in the set of <code>provider_id</code>s, then the neighbor is a core node; otherwise, the peer is an edge node.</li>
 </ol>
+<h3 id="expected-traffic"><a class="header" href="#expected-traffic">Expected Traffic</a></h3>
+<p>A message is <strong>novel</strong> to a node when its proof of quota nullifier is not in the nullifier cache (<a href="blockchain/raw/blend-protocol.html#relaying">Relaying</a>).</p>
+<p>The rate a core connection carries is:</p>
+<div class="math-block" data-tex="F_1 = \left( \max\left(F_C \cdot (1 + R_C),\ F_D \cdot (1 + R_D)\right) + F_T \right) \cdot \beta_{max} = 16.0"></div>
+<p>Flooding delivers each message once per neighbor, so <span class="math-inline" data-tex="F_1"></span> must be below <span class="math-inline" data-tex="r_1"></span>; at <span class="math-inline" data-tex="r_1"></span> a backlog on a connection never drains. <span class="math-inline" data-tex="F_T"></span> is sized so that a backlog of one round's share drains, at <span class="math-inline" data-tex="r_1 - F_1"></span> per round, within the time a message may spend at one hop, <span class="math-inline" data-tex="\Delta_{max} + \eta"></span> (<a href="blockchain/raw/blend-protocol.html#transition-period">Transition Period</a>): <span class="math-inline" data-tex="F_1 = r_1 \cdot (1 - 1 / (\Delta_{max} + \eta)) = 16"></span>. Messages backed by a proof of work count within <span class="math-inline" data-tex="F_T"></span>, which is the reference load of <a href="blockchain/raw/proof-of-work.html#blend-difficulty">Blend Difficulty</a>.</p>
+<p>A node reads at most <span class="math-inline" data-tex="(\Phi_{CC} + 1) \cdot r_1 + r_E = 124"></span> messages in a round, which must not exceed <span class="math-inline" data-tex="V"></span>, and verifies the public header of novel messages only (<a href="blockchain/raw/blend-protocol.html#relaying">Relaying</a>). At <span class="math-inline" data-tex="19318"></span> bytes per message (<a href="blockchain/raw/message-formatting.html">Message Formatting</a>) that is <span class="math-inline" data-tex="2.4"></span> MB/s.</p>
 <h3 id="connectivity-maintenance"><a class="header" href="#connectivity-maintenance">Connectivity Maintenance</a></h3>
-<p>The core node is responsible for maintaining the level of connectivity and monitoring the state of connection with its neighbors. The neighbors must comply with the maximum and minimum frequencies of emitting messages. Otherwise, the connection with that node may be dropped.</p>
-<p>The monitoring logic is defined as follows:</p>
+<p><strong>Admission</strong></p>
+<p>The shares keep the messages a node reads in a round within what the slowest node the protocol targets can verify, <span class="math-inline" data-tex="V"></span> (<a href="blockchain/raw/blend-protocol.html#expected-traffic">Expected Traffic</a>).</p>
 <ol>
-<li>The messages are counted after successful connection-level decryption of the message for each neighbor.</li>
-<li>The node counts the number of messages during a window of observation <span class="math-inline" data-tex="W"></span>. The frequency of observed messages <span class="math-inline" data-tex="F_1^W"></span>is calculated as the number of messages recorded during the observation time divided by the length of the observation window (denoted in rounds).</li>
-<li>If the measured message frequency is higher than maximal (<span class="math-inline" data-tex="F_1^W \gt \lceil F_1 \rceil^W"></span>), then the node marks the neighbor as <em>spammy,</em> and the connection with that node must be closed.
+<li>A node reads at most <span class="math-inline" data-tex="r_1"></span> messages from a core connection in a round. A connection whose share is spent is not read until the next round.</li>
+<li>A node sends at most <span class="math-inline" data-tex="r_1"></span> messages on a core connection in a round. A message that has waited <span class="math-inline" data-tex="\eta"></span> rounds to be sent on a connection is discarded for that connection.</li>
+<li>The volume a neighbor sends is never a cause for closing a connection or for blacklisting.</li>
+</ol>
+<p><strong>Liveness</strong></p>
 <ol>
-<li>The node can mark the neighbor as spammy with high confidence, as the neighbor is the true source of messages due to the usage of the TLS protocol, which eliminates the possibility of executing replay attacks by the adversary.</li>
-<li>To maintain the minimal number of connections, a new one must be established when a connection with an abusive node is closed.</li>
-<li>The neighbor is added to a black list, and its selection must be avoided.</li>
+<li>A connection with a core node is <strong>live</strong> when the neighbor has delivered a message, duplicate or not, within its last <span class="math-inline" data-tex="W"></span> connected rounds, or has been connected for fewer than <span class="math-inline" data-tex="W"></span> rounds in total.</li>
+<li>Connected rounds and deliveries are counted per identity, for the epoch, over every connection the node has held with it.</li>
+<li>A neighbor whose connection is not live is not blacklisted.</li>
 </ol>
-</li>
-<li>If the measured frequency is lower than the minimum (<span class="math-inline" data-tex="F_1^W \lt \lfloor F_1 \rfloor^W"></span>), then the connection is marked <em>unhealthy</em>.</li>
-<li>If the number of healthy connections is below the minimum number of connections (<span class="math-inline" data-tex="h(\Phi_{CC}) \lt \Phi_{CC}^{Min}"></span> for core-to-core connections), then another connection must be opened with a new randomly selected core node. We cannot assume that the neighbor is spammy, as it might be under a denial-of-service attack or other censoring attack.</li>
-<li>An unhealthy connection is monitored continuously. If the message frequency goes above the minimal value during the next observation window, then the connection must be treated as healthy, and the node must remove the unhealthy marking for that connection.</li>
-<li>If the number of open connections is above the maximum (<span class="math-inline" data-tex="\Phi_{CC} \ge \Phi_{CC}^{Max}"></span>) then:
+<p><strong>Degree</strong></p>
 <ol>
-<li>Add an entry to the log that the maximum number of connections has been reached*.*</li>
-<li>Pause the ability to establish new connections until the number of open connections drops below the maximum.</li>
+<li>A core node holds between <span class="math-inline" data-tex="\Phi_{CC} - 1"></span> and <span class="math-inline" data-tex="\Phi_{CC} + 1"></span> connections with core nodes. It opens a connection while it holds fewer than <span class="math-inline" data-tex="\Phi_{CC} - 1"></span> live ones, or fewer than <span class="math-inline" data-tex="\Phi_{CC} - 2"></span> live ones that it opened. It accepts a connection while it holds fewer than <span class="math-inline" data-tex="\Phi_{CC} + 1"></span> connections and fewer than <span class="math-inline" data-tex="(\Phi_{CC} + 1) - (\Phi_{CC} - 2) = 3"></span> accepted ones, and closes a connection offered above either.</li>
+<li>It draws the nodes it opens uniformly at random and without replacement from the set returned by the SDP protocol, excluding itself, blacklisted identities and its current neighbors.</li>
+<li>A connection that is not live is closed.</li>
+<li>A connection whose handshake is in progress counts towards <span class="math-inline" data-tex="\Phi_{CC}"></span> once the <a href="blockchain/raw/blend-protocol.html#neighbor-distinction-process">Neighbor Distinction Process</a> has identified the neighbor as a core node, and its peer is a current neighbor for rule 2. A handshake that has not completed within <span class="math-inline" data-tex="T_H"></span> is abandoned and its slot released. At most <span class="math-inline" data-tex="\Phi_{CC} + 1 + \Phi_{CE}^{Max}"></span> handshakes are in progress at once, and one offered above that is closed.</li>
 </ol>
-</li>
-<li>If the neighbor is an edge node, then the edge node must send a message immediately after establishing the connection with the core node and then close the connection. Otherwise, the connection must be closed by the core node.</li>
-<li>If the node receives a message that has been discarded during the relaying process due to invalidity of the signature (<a href="blockchain/raw/blend-protocol.html#relaying">Relaying</a>), then:
+<p><strong>Blacklist</strong></p>
+<p>A failure of the authenticated stream is a violation of the framing of the stream.</p>
 <ol>
-<li>If the sender is a core node, then it must be marked as malicious, and the connection with that node must be closed.</li>
-<li>If the sender is an edge node, then do nothing as the connection must already be closed with that node.</li>
+<li>A connection with a core node whose authenticated stream fails, or that carries a message with a malformed header, an invalid signature, or an invalid proof of quota, is closed and its neighbor is added to the <strong>blacklist</strong>. A message discarded as a duplicate carries no reaction.</li>
+<li>A blacklisted identity is refused on incoming and on outgoing connections. An entry expires after <span class="math-inline" data-tex="W"></span> rounds.</li>
+<li>The blacklist holds at most <span class="math-inline" data-tex="2 \cdot \Phi_{CC}"></span> entries, and the oldest is discarded when it is full.</li>
 </ol>
-</li>
-<li>If a node <strong>receives</strong> <strong>a second message from its neighbor</strong> (core node) that is using an already seen message identifier, then the connection with that neighbor must be closed.</li>
+<p><strong>Edge Nodes</strong></p>
+<ol>
+<li>A core node holds at most <span class="math-inline" data-tex="\Phi_{CE}^{Max}"></span> connections with edge nodes at once, and accepts at most <span class="math-inline" data-tex="r_E"></span> of them in a round. A connection offered above either is closed.</li>
+<li>A connection with an edge node is closed once the edge node has sent its message, or once <span class="math-inline" data-tex="T_E"></span> has elapsed from accepting it. <span class="math-inline" data-tex="T_E"></span> covers one encapsulated message of <span class="math-inline" data-tex="19318"></span> bytes (<a href="blockchain/raw/message-formatting.html">Message Formatting</a>), which takes <span class="math-inline" data-tex="0.15"></span> s over a <span class="math-inline" data-tex="1"></span> Mbit/s link; a further <span class="math-inline" data-tex="20\%"></span> for framing and <span class="math-inline" data-tex="0.5"></span> s of latency keep the total under one round.</li>
+<li>An edge node whose message fails header verification has its connection closed. It is not blacklisted.</li>
 </ol>
-<p>The <strong>message identifier</strong> is the message proof of quota nullifier embedded in the public header of the message. It is used for signing the message and must be unique; otherwise, the message must be discarded.</p>
-<p>We do not force any action when the measured transmission rate is below the thresholds defined above, which means that the sender is not emitting enough messages. The primary reason is security; a node might be under an attack, and an adversary is trying to exploit the node and force the node to connect to a different peer (who might be malicious). The severity of that attack is high, as it is not attributable to the adversary. That is, the adversary can execute this attack without disclosing its identity even if it is not controlling the other end of the connection. Therefore, it is better not to close the connection immediately but to establish another one with a randomly selected node from the list.</p>
-<p>However, this must also be carefully engineered as the number of connections must not rise above the maximal connection values. The reaction of the node operator to the situation when the number of connections reached maximum is a complex matter, which needs to be handled according to the privacy requirements of the operator. For example, it might be a sign that the node is under attack. Therefore, we have decided to define a privacy-first strategy that is to inform the operator about the potential problem (through logs) and pause the ability to establish new connections until the number of open connections goes below the maximum.</p>
+<p><strong>Logging</strong></p>
+<p>A node logs:</p>
+<ul>
+<li>every connection it closes, and every addition to and expiry from the blacklist;</li>
+<li>every round in which a connection's share was spent, and every round in which it discarded a message waiting for a connection;</li>
+<li>every period during which it holds fewer than <span class="math-inline" data-tex="\Phi_{CC} - 1"></span> live connections with core nodes, or fewer than <span class="math-inline" data-tex="\Phi_{CC} - 2"></span> that it opened.</li>
+</ul>
+<p>Each entry carries the identity of the neighbor and the reason.</p>
 <h3 id="transition-period"><a class="header" href="#transition-period">Transition Period</a></h3>
 <p>When a new epoch begins, the set of public information checked against proofs embedded in messages changes, which renders some messages invalid. However, these messages may still contain valid payloads that must reach their destination. Therefore, we implement a Transition Period (TP, <span class="math-inline" data-tex="T"></span>) during which the network can gracefully react to the change and allow these messages to safely exit the network.</p>
 <p>A message crosses <span class="math-inline" data-tex="\beta_{max}"></span> blend nodes, each holding it for at most <span class="math-inline" data-tex="\Delta_{max}"></span> and the network carrying it for <span class="math-inline" data-tex="\eta"></span>:</p>
@@ -41423,7 +41394,7 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <li>The node validates message proofs against both new and past epoch-related public input for the duration of TP. This allows past-epoch messages to safely transit through the network, as their validity is bound to the epoch in which they were generated.</li>
 <li>The Blend threshold <span class="math-inline" data-tex="d_{blend}"></span> is one of these public inputs: a proof is verified against the threshold of the epoch its public inputs belong to, so during the Transition Period messages meeting either epoch's threshold are accepted.</li>
 <li>The node must open new connections to process new messages for the new epoch.</li>
-<li>The node needs to maintain old connections and process all messages received from these connections for the duration of TP.</li>
+<li>The node needs to maintain old connections and process all messages received from these connections for the duration of TP. A connection held for the past epoch does not count towards <span class="math-inline" data-tex="\Phi_{CC}"></span>.</li>
 </ul>
 <h2 id="quota"><a class="header" href="#quota">Quota</a></h2>
 <p>The quota limits the number of messages that can be generated during an epoch. This bound is necessary for the health of the network as it decreases the bandwidth usage and enables us to calculate rewards fairly.</p>
@@ -41448,7 +41419,7 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <p>where:</p>
 <ul>
 <li><span class="math-inline" data-tex="\beta_D"></span> denotes the expected number of blending operations for each data message;</li>
-<li><span class="math-inline" data-tex="R_D"></span> denotes a redundancy parameter for data messages, defining the number of “replications” of the same message.</li>
+<li><span class="math-inline" data-tex="R_D"></span> denotes a redundancy parameter for block proposals, defining the number of “replications” of the same message.</li>
 </ul>
 <p>We can calculate an average data message number (<span class="math-inline" data-tex="D_{Avg}"></span>) which informs us about the average number of data messages generated per epoch:</p>
 <div class="math-block" data-tex="D_{Avg} = L_{Avg} \cdot Q_L"></div>
@@ -41576,7 +41547,7 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 </code></pre>
 <h3 id="cover-message-schedule"><a class="header" href="#cover-message-schedule">Cover Message Schedule</a></h3>
 <p>Generation of cover messages is handled by each core node individually. The only protocol-enforced limitation is through the <a href="blockchain/raw/blend-protocol.html#core-quota">Core Quota</a> (<span class="math-inline" data-tex="Q_C"></span>), which limits the number of messages a node can generate.</p>
-<p>To protect its own privacy, a core node should emit cover messages in a fully random manner to ensure that the cover messages are evenly distributed across the duration of an epoch.</p>
+<p>A core node draws its cover message schedule uniformly at random over the epoch.</p>
 <h3 id="message-structure"><a class="header" href="#message-structure"><strong>Message Structure</strong></a></h3>
 <p>For this document, we present a definition of the message structure as defined in the <a href="blockchain/raw/message-encapsulation.html">Message Encapsulation Mechanism</a>. For simplicity, we omit the versioning of the message as defined in <a href="blockchain/raw/message-formatting.html">Message Formatting</a>.</p>
 <p>A node <span class="math-inline" data-tex="n"></span> constructs a message <span class="math-inline" data-tex="\mathbf M = (\mathbf H, \mathbf h, \mathbf P)"></span> according to the format presented below.</p>
@@ -41641,19 +41612,21 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <ol>
 <li>The node checks the header of the message that was received from its neighbor, according to the <a href="blockchain/raw/message-formatting.html">Message Formatting</a>.
 <ol>
-<li>If the neighbor is a core node, then update the message counter for the neighbor.</li>
+<li>If the neighbor is a core node, then the message counts towards the liveness of the connection and towards its share (<a href="blockchain/raw/blend-protocol.html#connectivity-maintenance">Connectivity Maintenance</a>).</li>
 <li>If the neighbor is an edge node, then close the connection with the neighbor.</li>
-<li>If the header of the message is incorrect, then discard the message and mark the neighbor as malicious and close the connection. We assume that an adversary cannot inject any spoofed message to the connection.</li>
+<li>If the header of the message is incorrect, then discard the message, close the connection and blacklist the neighbor (<a href="blockchain/raw/blend-protocol.html#connectivity-maintenance">Connectivity Maintenance</a>). We assume that an adversary cannot inject any spoofed message to the connection.</li>
 <li>If the PoQ nullifier <span class="math-inline" data-tex="\nu_i \in \mathbf H"></span> from the public header of the message is already in the nullifier cache, then the message is a duplicate and must be discarded. Cached entries are retained for the duration of the current epoch and the <a href="blockchain/raw/blend-protocol.html#transition-period">Transition Period</a>.</li>
-<li>If the signature <span class="math-inline" data-tex="\sigma_{K^{n}_{i}}(\mathbf P_i) \in \mathbf H"></span> from the public header of the message is invalid, then the message must be discarded, and the neighbor must be marked malicious.</li>
-<li>If the proof of quota <span class="math-inline" data-tex="\pi^{K^{n}_i}_{Q} \in \mathbf H"></span> from the public header is invalid, then the message must be discarded, and the neighbor must be marked malicious.</li>
+<li>If the signature <span class="math-inline" data-tex="\sigma_{K^{n}_{i}}(\mathbf P_i) \in \mathbf H"></span> from the public header of the message is invalid, then the message must be discarded, the connection closed and the neighbor blacklisted (<a href="blockchain/raw/blend-protocol.html#connectivity-maintenance">Connectivity Maintenance</a>).</li>
+<li>If the proof of quota <span class="math-inline" data-tex="\pi^{K^{n}_i}_{Q} \in \mathbf H"></span> from the public header is invalid, then the message must be discarded and must not be relayed. The connection is closed and the neighbor blacklisted, as defined in <a href="blockchain/raw/blend-protocol.html#connectivity-maintenance">Connectivity Maintenance</a>.</li>
 </ol>
 </li>
 <li>Release the message according to the <a href="blockchain/raw/blend-protocol.html#releasing">Releasing</a> logic.</li>
 <li>Concurrently to the above step, add the message to the processing queue, where it is handled by the <a href="blockchain/raw/blend-protocol.html#processing">Processing</a> logic.</li>
 </ol>
 <p>The node must cache the PoQ nullifiers (<span class="math-inline" data-tex="\nu_i"></span>) for every message it relays for a duration of a single epoch plus the <a href="blockchain/raw/blend-protocol.html#transition-period">Transition Period</a> (TP). Then the node can clear the cache.  That means that the size of the cache must be at least:</p>
-<div class="math-block" data-tex="\begin{aligned}&#10;(E + \mathrm{TP})\cdot (F_C +F_D) \cdot \beta_{max} \cdot |\nu_i|&#10;&amp;=(648000 + 30) \cdot \left(1+\dfrac{1}{30}\right) \cdot 3 \cdot 32 \\&#10;&amp;= 64284576 \approx 65\,\mathrm{MB}&#10;\end{aligned}"></div>
+<div class="math-block" data-tex="\begin{aligned}&#10;(E + T)\cdot \left( \max\left(F_C \cdot (1+R_C),\ F_D \cdot (1+R_D)\right) + F_T \right) \cdot \beta_{max} \cdot |\nu_i|&#10;\end{aligned}"></div>
+<p>At the rates above:</p>
+<div class="math-block" data-tex="\begin{aligned}&#10;(648000 + 30) \cdot \left(1 + \dfrac{130}{30}\right) \cdot 3 \cdot 32 = 331791360 \approx 332\,\mathrm{MB}&#10;\end{aligned}"></div>
 <h3 id="processing-2"><a class="header" href="#processing-2">Processing</a></h3>
 <p>When a message <span class="math-inline" data-tex="\mathbf M"></span> has passed the <a href="blockchain/raw/blend-protocol.html#relaying">Relaying</a> checks, it is processed by this logic:</p>
 <ol>
@@ -41703,7 +41676,7 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <h3 id="delaying"><a class="header" href="#delaying">Delaying</a></h3>
 <p>The purpose of message delaying is to hide timing correlations between incoming and outgoing messages from a node. That is, a message is delayed in a random manner, which makes it harder to link the incoming and outgoing messages based on the network timing observation.</p>
 <p>The message anonymity pool is the total number of messages that have been seen by the node between two subsequent message release events. The set of seen messages does not necessarily include a message that the node is the recipient of.</p>
-<p><strong>The key design objective is to release messages with an upper bound on the delay.</strong> Therefore, the design assumes that there is a <span class="math-inline" data-tex="\Delta_{max}"></span> maximum delay between two subsequent message release attempts that define the longest waiting time for message release. This also defines the maximal message anonymity pool (assuming a single message is released in a round by the network).</p>
+<p>The design assumes a maximum delay <span class="math-inline" data-tex="\Delta_{max}"></span> between two subsequent message release attempts, which defines the longest waiting time for message release. This also defines the maximal message anonymity pool (assuming a single message is released in a round by the network).</p>
 <p>Now we can define the delaying logic:</p>
 <ol>
 <li>Select at random a delay: <span class="math-inline" data-tex="\delta \in (1, \Delta_{max})"></span>.</li>
@@ -41721,38 +41694,12 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <h3 id="releasing"><a class="header" href="#releasing">Releasing</a></h3>
 <p>The process of releasing messages involves the following steps:</p>
 <ul>
-<li>Upon <strong>receiving</strong> a message, it is immediately released to all neighboring.</li>
+<li>Upon <strong>receiving</strong> a message, it is immediately released to all neighboring nodes, except the one it was received from.</li>
 <li>All <strong>processed</strong> messages are queued and released at the next release round determined by the <a href="blockchain/raw/blend-protocol.html#delaying">Delaying</a> logic.</li>
 <li>Every <strong>generated</strong> message is released at the beginning of the next round after its generation.</li>
 <li>As soon as a <strong>data</strong> message carrying a block proposal is generated, one random unreleased (future) <strong>cover</strong> message must be removed from the release schedule to maintain the node’s statistical indistinguishability. A data message carrying a transaction removes no cover message.</li>
 <li>If more than one message needs to be released for the same round, they must be randomly shuffled before release.</li>
 </ul>
-<p>The cover and data message generation processes are <strong>independent</strong>, and there is a non-zero probability that more than one message will be scheduled for the same round. Therefore, the number of messages that can be released during a single round is <strong>not restricted</strong>.</p>
-<p>However, a node can calculate the expected number of messages to be released per release round. This depends on the value of <span class="math-inline" data-tex="\Delta_{max}"></span>, the network size (number of core nodes), and the generation quota. This number can be used to detect spammy nodes as part of the <a href="blockchain/raw/blend-protocol.html#connectivity-maintenance">Connectivity Maintenance</a> logic.</p>
-<p>For sufficiently large networks, the number of processed messages queued in a node will be smaller than <span class="math-inline" data-tex="1"></span> on average.</p>
-<p>However, in <strong>smaller networks</strong>, the number of messages queued in a node will be <strong>larger than</strong> <span class="math-inline" data-tex="1"></span>. <strong>We must avoid this property because the additional delay negatively impacts the consensus protocol's safety. Therefore, we need to determine the network size threshold where the number of messages to be released exceeds</strong> <span class="math-inline" data-tex="1"></span><strong>.</strong></p>
-<p>The expected number of messages to be released during a single release round for a single node is:</p>
-<div class="math-block" data-tex="\mu = \left\lceil{\Delta_{max} \cdot \beta_C \cdot \alpha \over {N }}\right\rceil"></div>
-<p>Where:</p>
-<ul>
-<li><span class="math-inline" data-tex="\Delta_{max}"></span> is the maximal delay time between two release rounds;</li>
-<li><span class="math-inline" data-tex="\beta_C"></span> denotes an expected number of blending operations for each cover message;</li>
-<li><span class="math-inline" data-tex="\alpha"></span> is a message number normalization constant;</li>
-<li><span class="math-inline" data-tex="N"></span> is the number of core nodes in the network.</li>
-</ul>
-<p>Let us assume:</p>
-<ul>
-<li><span class="math-inline" data-tex="\Delta_{max}=3"></span> is our target value, as defined in the <a href="blockchain/raw/blend-protocol.html#delaying">Delaying</a> section above;</li>
-<li><span class="math-inline" data-tex="\beta_C=3"></span>, which means that every round, <span class="math-inline" data-tex="3"></span> nodes are going to be processing messages generated by the network, which is a reasonable assumption as it defines the maximum number that the protocol can tolerate due to the quota limitations;</li>
-<li><span class="math-inline" data-tex="\alpha \approx 1.03"></span>, corrects the number of new messages emitted by the network per round to include data messages, where <span class="math-inline" data-tex="1"></span> is the number of cover messages, and <span class="math-inline" data-tex="0.03"></span> is the number of data messages per round.</li>
-</ul>
-<p>This gives us:</p>
-<ul>
-<li>For <span class="math-inline" data-tex="N=16"></span> core nodes; <span class="math-inline" data-tex="\mu=1"></span> message per release round on average.</li>
-<li>For <span class="math-inline" data-tex="N=8"></span> core nodes;  <span class="math-inline" data-tex="\mu=2"></span> messages per release round on average.</li>
-<li>For <span class="math-inline" data-tex="N=4"></span> core nodes; <span class="math-inline" data-tex="\mu=3"></span> messages per release round on average.</li>
-</ul>
-<p>We use the <span class="math-inline" data-tex="\mu"></span> estimator for calculating the maximum and minimum number of messages that can be received by a node, as listed in the <a href="blockchain/raw/blend-protocol.html#global-parameters">Global Parameters</a> section.</p>
 <h3 id="broadcasting-2"><a class="header" href="#broadcasting-2">Broadcasting</a></h3>
 <p>Every payload that is added to the broadcasting queue is processed as follows:</p>
 <ol>
