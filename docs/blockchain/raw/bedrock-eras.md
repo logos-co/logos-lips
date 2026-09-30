@@ -20,7 +20,7 @@ An era is a range of consecutive epochs ([Cryptarchia Protocol](cryptarchia-v1-p
 
 # Overview
 
-An era schedule embedded in the node software maps every epoch to an era and gives each era a parameter record. A node applies to a block the rules of the era of the block's slot, and to its network protocols the era of the slot given by its clock. Every era after the first defines a migration of the recorded chain state from its predecessor. When the era changes, a node runs the network protocols of both eras for a transition period. Every protocol identifier carries a digest of the chain's genesis and of the eras it has activated. A software release halts at its horizon, the last epoch it interprets.
+An era schedule embedded in the node software maps every epoch to an era and gives each era a parameter record. A node applies to a block the rules of the era of the block's slot, and to its network protocols the era of the slot given by its clock. Every era after the first defines a migration of the recorded chain state from its predecessor. When the era changes, a node runs the network protocols of both eras for a transition period. Every protocol identifier carries a digest of the chain's genesis and of the eras it has activated. A software release warns its operator past its horizon, the last epoch it interprets.
 
 # Protocol
 
@@ -53,7 +53,7 @@ The era schedule is embedded in the node software and is not read from the chain
 
 An era must not change $`k`$, $`f`$ ([Constants](cryptarchia-v1-protocol.md#constants)) or the epoch length. Otherwise every later era boundary moves. An era must not change the comparison of chains that diverge by at most $`k`$ blocks ([Online Fork Choice Rule](fork-choice.md#online-fork-choice-rule)). Otherwise fork choice depends on the order in which forks were seen for the first $`k`$ blocks of the era.
 
-A schedule entry, the rules of its era and the migration into it must never change once a software release has published the entry. Otherwise nodes running different releases fork. A software release must not publish an entry whose epoch has begun. Otherwise a node that installs the release holds state executed under the wrong era.
+The nodes of two software releases apply different rules from the first epoch whose era has a different digest in the two schedules. From that epoch they use different fork digests. A software release must not change the rules of a published era, or the migration into it, while keeping the era's first epoch and parameter record. Otherwise the nodes of the two releases apply different rules under one fork digest. A software release must not publish an entry, or change the record of an entry, whose epoch has begun. Otherwise a node that installs the release holds state executed under the wrong era.
 
 ## Era Parameters
 
@@ -144,8 +144,6 @@ A node sends a message it generates over the identifiers of the era in force at 
 
 ## Horizon
 
-$`H`$ must not be smaller than the last entry of the schedule. Otherwise the node halts at or before the first slot of its last era.
+$`H`$ must not be smaller than the last entry of the schedule. Otherwise the node warns its operator before its last era begins.
 
-When $`\textbf{wallclock\_time}().\textbf{to\_slot}()`$ reaches the first slot of epoch $`H+1`$, a node halts. The horizon halt must not be triggered by information received from peers.
-
-If an entry is at or before the $`H`$ of a published software release, the nodes of that release do not halt at the new boundary and fork.
+When $`\textbf{wallclock\_time}().\textbf{to\_slot}()`$ reaches the first slot of epoch $`H+1`$, a node warns its operator that its software no longer interprets the chain. A node also warns its operator when a peer of its chain advertises an identifier whose fork digest the node does not know.
