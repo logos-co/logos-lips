@@ -26,7 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.0.1 | Noted that a streamed `Block` carries the signed headers of the uncles it references, which is what lets a synchronizing node validate those blocks and reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) without ever seeing their proposals, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
-| 1.1.0 | The sync protocol ID carries the era number in place of the version; blocks are parsed and validated under the era of their slot; the checkpoint state carries the recorded chain state, encoded under the era of the checkpoint block ([Bedrock Eras](bedrock-eras.md)). | 2026-09-04 |
+| 1.1.0 | The sync protocol ID is `chainsync` and carries the fork digest in place of the version; blocks are parsed and validated under the era of their slot; the checkpoint state carries the recorded chain state, encoded under the era of the checkpoint block ([Bedrock Eras](bedrock-eras.md)). | 2026-09-04 |
 
 # Introduction
 
@@ -206,12 +206,7 @@ def listen_and_process_new_blocks(fork_choice: ForkChoice, local_tree: Tree, pee
 
 For performing [Initial Block Download](#initial-block-download) and handling orphan blocks while [Listening for New Blocks](#listening-for-new-blocks), a node sends a `DownloadBlocksRequest` to a peer, which must respond with blocks in parent-to-child order. This communication should be implemented based on the [Libp2p streaming](https://github.com/libp2p/rust-libp2p/tree/master/protocols/stream).
 
-**Libp2p Protocol ID**
-
-- Mainnet: `/logos-blockchain/<era>/cryptarchia/sync`
-- Testnet: `/logos-blockchain-testnet/<era>/cryptarchia/sync`
-
-`<era>` is defined in [Network Protocol Identity](bedrock-eras.md#network-protocol-identity).
+**Libp2p Protocol ID**: `/logos-blockchain/<fork_digest>/chainsync`, with `<fork_digest>` defined in [Network Protocol Identity](bedrock-eras.md#network-protocol-identity).
 
 ```python
 class DownloadBlocksRequest:

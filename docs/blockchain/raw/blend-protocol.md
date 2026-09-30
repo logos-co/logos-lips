@@ -35,7 +35,7 @@
 | 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, add a transaction as a data message payload, and align the nullifier retention period | 2026-09-08 |
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
 | 1.6.0 | Replaced the per-window statistical threshold on a connection with a share of messages a node reads from, and sends on, each connection in a round, and a liveness test, kept per identity for the epoch, on whether a neighbor delivers. Held the peering degree in live connections, at least two of them opened by the node. Restricted blacklisting to attributable faults. Sized the shares from the processing rate of the slowest node, derived the transactions the network carries from them, and made that rate the reference load of the Blend difficulty. | 2026-09-08 |
-| 1.7.0 | Removed the message and Activity Proof `version` bytes, put the era in the libp2p protocol name, and linked the era rules for the transition period, for releasing and for broadcasting ([Bedrock Eras](bedrock-eras.md)). | 2026-09-30 |
+| 1.7.0 | Removed the message and Activity Proof `version` bytes, put the fork digest in the libp2p protocol name, and linked the era rules for the transition period, for releasing and for broadcasting ([Bedrock Eras](bedrock-eras.md)). | 2026-09-30 |
 | 1.7.1 | Updated `Max_Payload_Length` to 18190 bytes in the overhead calculation, following the removal of the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)). | 2026-09-30 |
 
 # Introduction
@@ -505,7 +505,7 @@ Implementations should choose a default based on the deployment they operate in,
 
 ### Connection Details
 
-The connections are established using libp2p with TLS version 1.3 (not older). The cryptographic scheme is Ed25519 with ephemeral keys**.** The libp2p protocol name is `/logos-blockchain/<era>/blend` for mainnet and `/logos-blockchain-testnet/<era>/blend` for testnet ([Network Protocol Identity](bedrock-eras.md#network-protocol-identity)).
+The connections are established using libp2p with TLS version 1.3 (not older). The cryptographic scheme is Ed25519 with ephemeral keys**.** The libp2p protocol name is `/logos-blockchain/<fork_digest>/blend` ([Network Protocol Identity](bedrock-eras.md#network-protocol-identity)).
 
 ### Neighbor Distinction Process
 

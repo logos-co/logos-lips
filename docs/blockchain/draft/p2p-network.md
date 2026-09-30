@@ -33,7 +33,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-01-20 |
 | 1.0.1 | Rename Nomos to Logos Blockchain | 2026-04-17 |
-| 1.1.0 | Protocol identifiers and gossipsub topics carry the era number in place of the version ([Bedrock Eras](../raw/bedrock-eras.md)). | 2026-09-04 |
+| 1.1.0 | Protocol identifiers and gossipsub topics carry the fork digest, or the chain ID for Kademlia and identify, in place of the version ([Bedrock Eras](../raw/bedrock-eras.md)). | 2026-09-04 |
 
 # Introduction
 
@@ -67,10 +67,10 @@ The Logos Blockchain P2P network integrates a combination of libp2p's [Kademlia]
 
 The specific protocols to be negotiated are:
 
-- Kademlia: `/logos-blockchain/<era>/kad` for mainnet and `/logos-blockchain-testnet/<era>/kad` for testnet.
-- Identify: `/logos-blockchain/<era>/identify` and `/logos-blockchain-testnet/<era>/identify` for testnet.
+- Kademlia: `/logos-blockchain/<chain_id>/kad`.
+- Identify: `/logos-blockchain/<chain_id>/identify`.
 
-`<era>` is defined in [Network Protocol Identity](../raw/bedrock-eras.md#network-protocol-identity).
+`<chain_id>` and `<fork_digest>` are defined in [Network Protocol Identity](../raw/bedrock-eras.md#network-protocol-identity).
 
 The Logos Blockchain team acknowledges that the current Kademlia DHT implementation is only optimal for the V1 solution, as it is a heavier protocol for the limited utility the Logos Blockchain actually requires. However, it remains a viable interim approach. An ideal protocol would feature:
 
@@ -93,8 +93,8 @@ The Logos Blockchain leverages [`gossipsub`](https://github.com/libp2p/specs/tre
 
 Logos Blockchain gossiping uses two major topics. One dedicated to *mempool* and one for *block dissemination*:
 
-- Mempool: `/logos-blockchain/<era>/mempool` for mainnet. `/logos-blockchain-testnet/<era>/mempool` for testnet.
-- Proposals: `/logos-blockchain/<era>/cryptarchia` for mainnet. `/logos-blockchain-testnet/<era>/cryptarchia` for testnet.
+- Mempool: `/logos-blockchain/<fork_digest>/mempool`.
+- Proposals: `/logos-blockchain/<fork_digest>/cryptarchia`.
 
   gossipsub is openly customizable but it is encouraged to have a peering degree of at least 8 peers.
 

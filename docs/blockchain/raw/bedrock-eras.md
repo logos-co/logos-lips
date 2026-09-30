@@ -20,7 +20,7 @@ An era is a range of consecutive epochs ([Cryptarchia Protocol](cryptarchia-v1-p
 
 # Overview
 
-An era schedule embedded in the node software maps every epoch to an era. A node applies to a block the rules of the era of the block's slot, and to its network protocols the era of the slot given by its clock. Every era after the first defines a migration of the recorded chain state from its predecessor. When the era changes, a node runs the network protocols of both eras for a transition period, and every protocol identifier carries the era. A software release halts at its horizon, the last epoch it interprets.
+An era schedule embedded in the node software maps every epoch to an era and gives each era a parameter record. A node applies to a block the rules of the era of the block's slot, and to its network protocols the era of the slot given by its clock. Every era after the first defines a migration of the recorded chain state from its predecessor. When the era changes, a node runs the network protocols of both eras for a transition period. Every protocol identifier carries a digest of the chain's genesis and of the eras it has activated. A software release halts at its horizon, the last epoch it interprets.
 
 # Protocol
 
@@ -28,30 +28,73 @@ An era schedule embedded in the node software maps every epoch to an era. A node
 
 | Symbol | Name | Description | Value |
 | --- | --- | --- | --- |
-| *none* | era schedule of mainnet | The first epochs of the eras of mainnet. | `[0]` |
-| *none* | era schedule of testnet | The first epochs of the eras of testnet. | `[0]` |
+| *none* | era schedule of mainnet | The first epoch and the parameter record of each era of mainnet. | $`[(0, P_0)]`$ |
+| *none* | era schedule of testnet | The first epoch and the parameter record of each era of testnet. | $`[(0, P_0)]`$ |
 
 ## Notation
 
 | Symbol | Name | Description | Value |
 | --- | --- | --- | --- |
-| $`E_n`$ | first epoch of era $`n`$ | Entry $`n`$ (1-based) of the era schedule. | $`E_1 = 0`$ |
+| $`E_n`$ | first epoch of era $`n`$ | The first epoch of entry $`n`$ of the era schedule, counting from 0. | $`E_0 = 0`$ |
+| $`P_n`$ | parameter record of era $`n`$ | The [parameter record](#era-parameters) of entry $`n`$ of the era schedule. | |
 | $`\textbf{era}(ep)`$ | era of an epoch | The era whose first epoch is the largest at or before $`ep`$. | $`\max\{n : E_n \le ep\}`$ |
 | $`\textbf{era}(sl)`$ | era of a slot | The era of the slot's epoch, with the epoch length of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule). | $`\textbf{era}(\lfloor sl / \text{EPOCH\_LENGTH} \rfloor)`$ |
 | *none* | era in force | The era of the slot given by the local clock ([Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation)). | $`\textbf{era}(\textbf{wallclock\_time}().\textbf{to\_slot}())`$ |
 | $`H`$ | horizon | The last epoch a software release interprets, per network. | set per release |
 | $`T`$ | Transition Period | The Blend [Transition Period](blend-protocol.md#transition-period) of the era in force. | |
 | $`B_\text{imm}`$ | latest immutable block | See [Cryptarchia Protocol](cryptarchia-v1-protocol.md#latest-immutable-block). | |
+| $`G`$ | genesis block ID | The [Block ID](cryptarchia-v1-protocol.md#block-id) of the [Genesis Block](bedrock-genesis-block.md). | |
+| $`D_n`$ | era digest of era $`n`$ | The `hash` of [Block ID](cryptarchia-v1-protocol.md#block-id) over $`E_n`$ as an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch) and $`P_n`$ in its [encoding](#era-parameters). | $`\textbf{hash}(\texttt{ERA\_DIGEST\_V1} \,\|\, E_n \,\|\, P_n)`$ |
+| $`F_n`$ | fork digest of era $`n`$ | The same `hash` over $`G`$, `chain_id` encoded as in [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters), and $`D_0`$ to $`D_n`$. | $`\textbf{hash}(\texttt{FORK\_DIGEST\_V1} \,\|\, G \,\|\, \text{chain\_id} \,\|\, D_0 \,\|\, \dots \,\|\, D_n)`$ |
 
 ## Era Schedule
 
-The era schedule is embedded in the node software and is not read from the chain. Each network has its own schedule. The schedule is a strictly increasing list of epoch numbers whose first entry is 0.
+The era schedule is embedded in the node software and is not read from the chain. Each network has its own schedule. The schedule is a list of entries, each a first epoch and a [parameter record](#era-parameters). The first epochs strictly increase, and the first of them is 0.
 
 An era must not change $`k`$, $`f`$ ([Constants](cryptarchia-v1-protocol.md#constants)) or the epoch length. Otherwise every later era boundary moves. An era must not change the comparison of chains that diverge by at most $`k`$ blocks ([Online Fork Choice Rule](fork-choice.md#online-fork-choice-rule)). Otherwise fork choice depends on the order in which forks were seen for the first $`k`$ blocks of the era.
 
 A schedule entry, the rules of its era and the migration into it must never change once a software release has published the entry. Otherwise nodes running different releases fork. A software release must not publish an entry whose epoch has begun. Otherwise a node that installs the release holds state executed under the wrong era.
 
-An era does not fix the values of [Service Parameters](bedrock-service-declaration-protocol.md#service-parameters). A new `ServiceParameters` value changes a parameter without an era change.
+## Era Parameters
+
+The parameter record of an era is a layout version followed by the fields below, in this order. A field holds the value of its source constant under the rules of the era. The layout version is a `UINT16` equal to 1. Integers are unsigned and little-endian. A ratio is its numerator, then its denominator, each a `UINT32`. A duration is its whole seconds as a `UINT64`, then the nanoseconds past them as a `UINT32`.
+
+| Field | Encoding | Source constant |
+| --- | --- | --- |
+| `num_blend_layers` | `UINT64` | $`\beta_{max}`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `minimum_network_size` | `UINT64` | The minimal network size of [Minimal Network Size](blend-protocol.md#minimal-network-size) |
+| `network_absorption_in_rounds` | `UINT64` | $`\eta`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `data_replication_factor` | `UINT64` | $`R_D`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `message_frequency_per_round` | ratio | $`F_C`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `maximum_release_delay_in_rounds` | `UINT64` | $`\Delta_{max}`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `target_peering_degree` | `UINT32` | $`\Phi_{CC}`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `verification_rate_per_second` | `UINT32` | $`V`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `edge_node_send_deadline_in_rounds` | `UINT64` | $`T_E`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `core_handshake_deadline_in_rounds` | `UINT128` | $`T_H`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `activity_threshold_sensitivity` | `UINT64` | $`\theta`$ of [Activity Threshold](blend-protocol.md#activity-threshold) |
+| `epoch_config` | three `UINT8` | The lengths of the three phases of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule), in multiples of $`\lfloor k/f \rfloor`$ |
+| `security_param` | `UINT32` | $`k`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
+| `slot_activation_coeff` | ratio | $`f`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
+| `learning_rate` | ratio | `beta` of [Parameters and variables](cryptarchia-total-stake-inference.md#parameters-and-variables) |
+| `uncle_reference_window_in_block` | `UINT32` | $`W`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
+| `service_params` | A `UINT32` count, then for each service in ascending order of its `ServiceType` byte: that byte, `inactivity_period` as a `UINT32` and `epoch` as a `UINT32` | [Service Parameters](bedrock-service-declaration-protocol.md#service-parameters) |
+| `min_stake` | `stake_threshold` as a `UINT64`, then `epoch` as a `UINT32` | [Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake) |
+| `base_difficulty` | `UINT32` | $`n`$ in `BLEND_DIFFICULTY_BASE` $`= \lfloor p / 2^n \rfloor`$ of [Parameters](proof-of-work.md#parameters) |
+| `target_transactions_per_block` | `UINT64` | `TARGET_TXS_PER_BLOCK` of [Parameters](proof-of-work.md#parameters) |
+| `max_step` | `UINT64` | `BLEND_MAX_STEP` of [Parameters](proof-of-work.md#parameters) |
+| `damping_num` | `UINT32` | `BLEND_DAMPING_NUM` of [Parameters](proof-of-work.md#parameters) |
+| `damping_den_offset` | `UINT32` | `BLEND_DAMPING_DEN` minus `BLEND_DAMPING_NUM` of [Parameters](proof-of-work.md#parameters) |
+| `ema_smoothing_factor` | `UINT64` | `EMA_SMOOTHING_FACTOR` of [Parameters](proof-of-work.md#parameters) |
+| `ema_smoothing_precision` | `UINT64` | `EMA_SMOOTHING_PRECISION` of [Parameters](proof-of-work.md#parameters) |
+| `target_claims_per_block` | `UINT64` | `TARGET_CLAIMS_PER_BLOCK` of [Parameters](proof-of-work.md#parameters) |
+| `rate_num` | `UINT64` | `EPOCH_POW_DISTRIBUTION_RATE_NUM` of [Parameters](proof-of-work.md#parameters) |
+| `rate_den` | `UINT64` | `EPOCH_POW_DISTRIBUTION_RATE_DEN` of [Parameters](proof-of-work.md#parameters) |
+| `expected_blocks_per_window` | `UINT64` | `EXPECTED_BLOCKS_PER_WINDOW` of [Parameters](proof-of-work.md#parameters) |
+| `slot_duration` | duration | The slot length of [Constants](cryptarchia-v1-protocol.md#constants) |
+
+The `stake_thresholds` ([Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake)) and `parameters` ([Service Parameters](bedrock-service-declaration-protocol.md#service-parameters)) stores hold the `min_stake` and `service_params` entries of the records of the schedule.
+
+A software release that adds, removes or re-encodes a field defines a new layout version, used by the eras that adopt it.
 
 ## Interpreting Chain Data
 
@@ -66,7 +109,7 @@ A node keeps in its mempool only transactions valid under the era in force. A tr
 
 ## Era Migration
 
-Every era after the first defines a migration from its predecessor. A migration is a function of the recorded chain state alone. The recorded chain state is the state a Mantle Operation is validated against ([Validation](bedrock-v1.1-mantle-specification.md#validation), [Proof of Work Operations](bedrock-v1.1-mantle-specification.md#proof-of-work-operations)), the `stake_thresholds` ([Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake)) and `parameters` ([Service Parameters](bedrock-service-declaration-protocol.md#service-parameters)), and the [snapshots](bedrock-service-declaration-protocol.md#snapshots) of the current and later epochs.
+Every era after the first defines a migration from its predecessor. A migration is a function of the recorded chain state alone. The recorded chain state is the state a Mantle Operation is validated against ([Validation](bedrock-v1.1-mantle-specification.md#validation), [Proof of Work Operations](bedrock-v1.1-mantle-specification.md#proof-of-work-operations)) and the [snapshots](bedrock-service-declaration-protocol.md#snapshots) of the current and later epochs.
 
 The migration must be:
 
@@ -90,11 +133,11 @@ During the Era Transition Period a node must:
 2. Validate a Blend message under the era of the connection it arrived on.
 3. Keep every input the predecessor era's message checks read until the period ends.
 
-After the Era Transition Period the node must drop the predecessor era's protocols and must not process its Blend messages. A synchronization stream open at the end of the period is served to its end.
+After the Era Transition Period the node must drop the identifiers of the predecessor era and must not process its Blend messages. A synchronization stream open at the end of the period is served to its end.
 
 ## Network Protocol Identity
 
-Every protocol identifier and gossipsub topic a Logos Blockchain specification defines is `/<network>/<era>/<protocol>`. `<network>` is `logos-blockchain` for mainnet and `logos-blockchain-testnet` for testnet. Any other network takes its own name. `<era>` is the decimal era number. `<protocol>` is the identifier the protocol's own specification defines.
+Every protocol identifier and gossipsub topic a Logos Blockchain specification defines is `/logos-blockchain/<chain_id>/<protocol>` for Kademlia and identify ([P2P Network](../draft/p2p-network.md)), and `/logos-blockchain/<fork_digest>/<protocol>` for every other protocol. `<chain_id>` is `chain_id` ([Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters)), percent-encoded as in [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986#section-2.1) except for its unreserved characters. `<fork_digest>` is the fork digest $`F_n`$ of an era $`n`$ in lowercase hexadecimal, and the identifier is an identifier of era $`n`$. `<protocol>` is the identifier the protocol's own specification defines.
 
 A node sends a message it generates over the identifiers of the era in force at generation. A node relays or releases a received or processed Blend message, and broadcasts its payload, over the identifiers of the era of the connection it arrived on. A node publishes a proposal it accepts, and a transaction it admits to its mempool, on the topic of the era in force. A [synchronization](cryptarchia-v1-bootstr-sync.md#downloading-blocks) response carries blocks of any era.
 
