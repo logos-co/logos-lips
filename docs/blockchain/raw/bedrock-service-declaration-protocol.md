@@ -34,7 +34,7 @@
 | 1.4.3 | Identifier uniqueness covers every stored declaration, not only activated ones, matching the implementation | 2026-09-01 |
 | 1.5.0 | Defined `active` as the epoch of the block that contained the latest accepted active message, initialised to `created + 2`, and `withdraw_at` as the epoch at which the node stops providing the service, matching the implementation. Added the participant-set exclusion rule and [Message Timing](#message-timing) | 2026-09-02 |
 | 1.6.0 | Declarations are removed at `withdraw_at + 1`, one epoch after the node stops, making the last served epoch rewardable | 2026-09-03 |
-| 1.7.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a declaration covers one service, and a note backs one declaration per service | 2026-09-11 |
+| 1.7.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a declaration covers one service, a note backs one declaration per service, and a `nonce` carries the `created` epoch of its declaration | 2026-09-30 |
 
 # Introduction
 
@@ -239,7 +239,14 @@ Where:
 - `created` is the epoch of the block that contained the declaration;
 - `active` is the epoch of the block that contained the latest accepted active message, initialised to `created + 2` ([Message Timing](#message-timing));
 - `withdraw_at` is the epoch at which the node stops providing the service ([**Withdraw**](#withdraw)), and is `None` until the declaration is withdrawn;
-- `nonce` is 0 for the declaration message, and increases monotonically with every message sent for the declaration.
+- `nonce` is the `nonce` of the latest accepted active or withdraw message, initialised to `created · 2^32`.
+
+A `nonce` is a 64-bit unsigned integer whose high 32 bits are the `created` epoch of its declaration. An active or withdraw message is valid only if its `nonce`:
+
+- has the `created` of the `DeclarationInfo` as its high 32 bits;
+- is greater than the `nonce` of the `DeclarationInfo`.
+
+Two declarations with the same `declaration_id` never share a `created` epoch, because a declaration is removed no earlier than epoch `created + 3` ([**Withdraw**](#withdraw)). If they could, a message signed for the earlier declaration would be valid for the later one.
 
 The `declaration_id` (of a `DeclarationId` type) is the hash of the concatenation of `service` and `zk_id`:
 
@@ -294,7 +301,7 @@ where `metadata` is service-specific node activeness metadata.
 
 The message must be signed by the `zk_id` key of the declaration.
 
-The `nonce` must increase monotonically by every message sent for the declaration.
+The `nonce` follows [Declaration Storage](#declaration-storage).
 
 An active message attests to a single past epoch during which the node provided the service. The service defines when the message may be sent (see [Active Message](blend-protocol.md#active-message) for the Blend Network).
 
@@ -312,7 +319,7 @@ class WithdrawMessage:
 
 The message must be signed by the `zk_id` key of the declaration.
 
-The `nonce` must increase monotonically by every message sent for the declaration.
+The `nonce` follows [Declaration Storage](#declaration-storage).
 
 ### Serialization
 
@@ -371,7 +378,7 @@ The SDP active action logic is:
 2. The `ActiveMessage` is verified by the SDP logic:
     1. The `declaration_id` returns an existing `DeclarationInfo`.
     2. The transaction containing `ActiveMessage` is signed by the `zk_id`.
-    3. The `nonce` increases monotonically.
+    3. The `nonce` is valid for the `DeclarationInfo` ([Declaration Storage](#declaration-storage)).
 3. If any of these conditions fail, discard the message and stop processing.
 4. The message is processed by the service-specific activity logic, together with the epoch of the block that contained the message.
 5. If the service-specific activity logic rejects the message, discard the message and stop processing.
@@ -394,7 +401,7 @@ The logic of the withdraw action is:
     1. The `declaration_id` returns an existing `DeclarationInfo`.
     2. The transaction containing `WithdrawMessage` is signed by the `zk_id`.
     3. The `withdraw_at` of the `DeclarationInfo` is `None`.
-    4. The `nonce` increases monotonically.
+    4. The `nonce` is valid for the `DeclarationInfo` ([Declaration Storage](#declaration-storage)).
 3. If any of the above is not correct, then discard the message and stop.
 4. Set the `withdraw_at` of the `DeclarationInfo` to the current epoch number plus two.
 5. At epoch `withdraw_at + 1`, right after the final reward is paid out, the Mantle epoch finalization step removes the `DeclarationInfo` and releases its `service_note_id` ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).

@@ -45,7 +45,7 @@
 | 1.13.0 | Removed the `None` case of `op_proofs`, every Operation carrying exactly one proof. A `CHANNEL_CONFIG` creating a channel is verified against a threshold of `0` and its proof carries no signature and no index. Execution Gas is derived from the Operation and the state it is validated against, the thresholds pricing the channel Operations being the ones held in the channel state | 2026-08-31 |
 | 1.14.0 | Moved SDP declaration removal to `withdraw_at + 1`; the last served epoch's reward is paid in the same first block, before removal | 2026-09-11 |
 | 1.15.0 | Add the `CLAIM_POW_REWARD` Operation and the proof of work state it is validated against; the reward pool and the difficulty controllers are specified in [Proof of Work](proof-of-work.md) | 2026-09-08 |
-| 1.16.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a note backs one declaration per service, and `SDP_WITHDRAW` no longer names the note | 2026-09-11 |
+| 1.16.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a note backs one declaration per service, `SDP_WITHDRAW` no longer names the note, and a `nonce` carries the `created` epoch of its declaration | 2026-09-30 |
 
 # Introduction
 
@@ -1082,7 +1082,7 @@ class DeclarationInfo:
     created: EpochNumber
     active: EpochNumber
     withdraw_at: EpochNumber | None
-    # SDP ops updating a declaration must use monotonically increasing nonces
+    # high 32 bits: created; see Declaration Storage in the SDP
     nonce: int
 ```
 
@@ -1200,7 +1200,7 @@ providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
           created=current_epoch,
           active=current_epoch + 2,
           withdraw_at=None,
-          nonce=0,
+          nonce=current_epoch << 32,
       )
       ```
 
@@ -1309,8 +1309,9 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
           service_note = ledger[service_note_id]
           assert ZkSignature_verify(txhash, signature, [service_note.pk, declare_info.zk_id])
           ```
-      4. Ensure that the nonce is greater than the previous one.
+      4. Ensure that the nonce belongs to this declaration and is greater than the previous one.
           ```python
+          assert withdraw.nonce >> 32 == declare_info.created
           assert withdraw.nonce > declare_info.nonce
           ```
 
@@ -1446,6 +1447,7 @@ found = find_declaration(declarations, active.declaration)
 assert found is not None
 _, declaration_info = found
 
+assert active.nonce >> 32 == declaration_info.created
 assert active.nonce > declaration_info.nonce
 
 assert ZkSignature_verify(txhash, signature, declaration_info.zk_id)
