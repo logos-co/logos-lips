@@ -94,7 +94,7 @@ The Logos Blockchain leverages [`gossipsub`](https://github.com/libp2p/specs/tre
 Logos Blockchain gossiping uses two major topics. One dedicated to *mempool* and one for *block dissemination*:
 
 - Mempool: `/logos-blockchain/<era>/mempool` for mainnet. `/logos-blockchain-testnet/<era>/mempool` for testnet.
-- Blocks: `/logos-blockchain/<era>/cryptarchia` for mainnet. `/logos-blockchain-testnet/<era>/cryptarchia` for testnet.
+- Proposals: `/logos-blockchain/<era>/cryptarchia` for mainnet. `/logos-blockchain-testnet/<era>/cryptarchia` for testnet.
 
   gossipsub is openly customizable but it is encouraged to have a peering degree of at least 8 peers.
 

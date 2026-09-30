@@ -32,6 +32,7 @@
 | 1.6.0 | Added the `Parent` of the `ChannelConfig` to follow Mantle | 2026-08-27 |
 | 1.6.1 | Renamed the `LockedNoteId` production of the SDP Operations into `ServiceNoteId` | 2026-08-27 |
 | 1.7.0 | Added the `ChannelConfigOpProof` and `ChannelTransferOpProof` variants and factored the three channel threshold proofs into `ChannelMultiSigProof`, carrying the index of the signing key alongside each signature | 2026-08-31 |
+| 1.8.0 | Added the `ClaimPowReward` Operation payload; its proof is a `ZkSigProof` | 2026-09-08 |
 
 # Introduction
 
@@ -75,7 +76,8 @@ OpPayload = Transfer /
             SDPDeclare /
             SDPWithdraw /
             SDPActive /
-            LeaderClaim 
+            LeaderClaim /
+            ClaimPowReward
 ```
 
 ### Channel Operations
@@ -135,6 +137,14 @@ LeaderClaim      = RewardsRoot VoucherNullifier PublicKey
 RewardsRoot      = FieldElement ; Merkle root for voucher membership proof
 VoucherNullifier = FieldElement
 PublicKey        = ZkPublicKey
+```
+
+### Proof of work operations
+
+```schema
+ClaimPowReward = EpochNonce BlockHash PublicKey
+EpochNonce     = FieldElement ; the epoch nonce the solution was found against
+BlockHash      = Hash32       ; recent canonical block the solution is anchored to
 ```
 
 ### Transfer Operations

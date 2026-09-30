@@ -31,6 +31,7 @@
 | 1.5.2 | Renamed locked notes into service notes and stated that the Input Gas covers the check that a note is neither a service nor a channel note | 2026-08-27 |
 | 1.5.3 | Adopted "active message" as the single name for the message | 2026-09-02 |
 | 1.5.4 | Renamed the `stake_manipulation_threshold` of the channel gas derivations into `transfer_threshold` and the Channel Stake Assignation section into Channel Transfer, following Mantle | 2026-08-31 |
+| 1.6.0 | Add the Execution Gas derivation for the `CLAIM_POW_REWARD` Operation | 2026-09-04 |
 
 # Introduction
 
@@ -78,6 +79,7 @@ SDP_DECLARE_GAS               = 646
 SDP_WITHDRAW_GAS              = 590
 SDP_ACTIVE_GAS                = 590
 LEADER_CLAIM_GAS              = 580
+CLAIM_POW_REWARD_GAS          = 590
 ```
 
 and come from our implementation observations as described in [Gas determination from measures](#gas-determination-from-measures).  To get these numbers, we based our calculations on the following measures:
@@ -224,6 +226,25 @@ Execution: ~580k CPU cycles.
 - Insertion of the nullifier in the voucher nullifier set: negligible.
 - Insertion of the note in the ledger: negligible.
 - Derivation of the note identifiers: negligible
+
+## Claim PoW Reward
+
+This gas covers the verification of the [ZkSignature](bedrock-v1.1-mantle-specification.md) proof, the re-derivation of the puzzle ticket from the Operation payload, the comparison of that ticket against the reward difficulty, the lookup confirming the referenced block is canonical and within the acceptance window, the check that the ticket is not already in the nullifier set, and the check that the pool can cover a reward. Execution then inserts the nullifier, creates a single output note and decrements the pool.
+
+Execution: ~590k CPU cycles.
+
+- Verification of the ZK signature: 590,000 cycles.
+- Re-derivation of the puzzle ticket: one `zkhash` over three field elements, negligible.
+- Comparison of the ticket against the reward difficulty: negligible.
+- Lookup of the referenced block and the slot window comparison: negligible.
+- Verification that the ticket isn't already in the nullifier set: negligible.
+- Verification that the pool covers the per-claim reward: negligible.
+- Insertion of the nullifier in the set: negligible.
+- Insertion of the note in the ledger: negligible.
+- Derivation of the note identifiers: negligible.
+
+A claim is intended to pay its own fee out of the reward it creates, so this gas contributes to the floor the per-claim reward must clear, and it constrains the reward parameters rather than merely pricing the Operation.
+
 # Annex
 
 ## Gas determination from measures

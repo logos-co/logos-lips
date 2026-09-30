@@ -33,6 +33,7 @@
 | 1.4.2 | Renamed locked notes into service notes: `locked_note_id` becomes `service_note_id` in the declaration and withdraw messages and in `DeclarationInfo` | 2026-08-27 |
 | 1.4.3 | Identifier uniqueness covers every stored declaration, not only activated ones, matching the implementation | 2026-09-01 |
 | 1.5.0 | Defined `active` as the epoch of the block that contained the latest accepted active message, initialised to `created + 2`, and `withdraw_at` as the epoch at which the node stops providing the service, matching the implementation. Added the participant-set exclusion rule and [Message Timing](#message-timing) | 2026-09-02 |
+| 1.6.0 | Declarations are removed at `withdraw_at + 1`, one epoch after the node stops, making the last served epoch rewardable | 2026-09-03 |
 
 # Introduction
 
@@ -167,7 +168,8 @@ At any epoch `n`, the most recent report a snapshot can contain was included in 
 | --- | --- |
 | `e` | The message is included, with `withdraw_at = e+2`. |
 | `e+1` | The node is in the participant set (`n < withdraw_at`) and provides the service. It reports its epoch-`e` activity. |
-| `e+2` | Every service excludes the declaration (`n >= withdraw_at`). The epoch-`e` reward is distributed and the declaration is removed in the first block ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)). |
+| `e+2` | Every service excludes the declaration (`n >= withdraw_at`). The node reports its epoch-`e+1` activity. The epoch-`e` reward is distributed in the first block. |
+| `e+3` | The epoch-`e+1` reward is distributed and the declaration is removed in the first block ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)). |
 
 ### Identifiers
 
@@ -360,7 +362,7 @@ The SDP active action logic is:
 5. If the service-specific activity logic rejects the message, discard the message and stop processing.
 6. The `active` field of the `DeclarationInfo` is set to that epoch.
 
-An active message is valid only while the current epoch is below `withdraw_at` (see [**Withdraw**](#withdraw)).
+An active message is valid only while the current epoch is at most `withdraw_at` (see [**Withdraw**](#withdraw)).
 
 ### **Withdraw**
 
@@ -370,7 +372,7 @@ Let `e` be the epoch of the block that contained the `WithdrawMessage`; `withdra
 
 A service deriving its participant set from a snapshot must exclude every declaration for which `withdraw_at` is not `None` and `n >= withdraw_at`, where `n` is the epoch the set is derived for.
 
-The node provides the service through epoch `withdraw_at - 1`; its last rewardable epoch is `withdraw_at - 2`. The declaration is removed and the service note unlocked at epoch `withdraw_at` ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).
+The node provides the service through epoch `withdraw_at - 1`, its last rewardable epoch. The declaration is removed and the service note unlocked at epoch `withdraw_at + 1` ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).
 
 The logic of the withdraw action is:
 
@@ -382,7 +384,7 @@ The logic of the withdraw action is:
     4. The `nonce` increases monotonically.
 3. If any of the above is not correct, then discard the message and stop.
 4. Set the `withdraw_at` from the `DeclarationInfo` to the current epoch number plus two.
-5. The `DeclarationInfo` is removed and the stake unlocked (releasing the `service_note_id`) at epoch `withdraw_at` ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).
+5. The `DeclarationInfo` is removed and the stake unlocked (releasing the `service_note_id`) at epoch `withdraw_at + 1` ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).
 
 ### Query
 
