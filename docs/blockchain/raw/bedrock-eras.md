@@ -20,7 +20,7 @@ An era is a range of consecutive epochs ([Cryptarchia Protocol](cryptarchia-v1-p
 
 # Overview
 
-An era schedule embedded in the node software maps every epoch to an era and gives each era a parameter record. A node applies to a block the rules of the era of the block's slot, and to its network protocols the era of the slot given by its clock. Every era after the first defines a migration of the recorded chain state from its predecessor. When the era changes, a node runs the network protocols of both eras for a transition period. Every protocol identifier carries a digest of the chain's genesis and of the eras it has activated. A software release warns its operator past its horizon, the last epoch it interprets.
+An era schedule embedded in the node software maps every epoch to an era and gives each era a parameter record. A node applies to a block the rules of the era of the block's slot, and to its network protocols the era of the slot given by its clock. Every era after the first defines a migration of the recorded chain state from its predecessor. When the era changes, a node runs the network protocols of both eras for a transition period. Protocol identifiers and transactions carry a digest of the chain's genesis and of the eras it has activated. A software release warns its operator past its horizon, the last epoch it interprets.
 
 # Protocol
 
@@ -105,13 +105,15 @@ A software release that adds, removes or re-encodes a field defines a new layout
 
 ## Interpreting Chain Data
 
-A block or proposal, and everything it carries, is parsed, validated and executed under the rules of $`\textbf{era}(sl)`$ of its slot. `slot` is the first field of the header ([Block Header](cryptarchia-v1-protocol.md#block-header)) and has the same encoding in every era, and every message that carries a block or proposal begins with the header in its [canonical encoding](bedrock-v1.1-block-construction.md#canonical-encoding). Otherwise a node cannot parse a block before it knows the block's era.
+A block or proposal, and everything it carries, is parsed, validated and executed under the rules of $`\textbf{era}(sl)`$ of its slot, except that a transaction is parsed under the era whose fork digest it carries. `slot` is the first field of the header ([Block Header](cryptarchia-v1-protocol.md#block-header)) and has the same encoding in every era, and every message that carries a block or proposal begins with the header in its [canonical encoding](bedrock-v1.1-block-construction.md#canonical-encoding). Otherwise a node cannot parse a block before it knows the block's era.
+
+Every transaction begins with the fork digest of the era in force when it was signed ([Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction)), in the same encoding in every era. Otherwise a node cannot parse a transaction before it knows the transaction's era. A block of era $`m`$ accepts a transaction that carries $`F_m`$, or $`F_{m-1}`$ while the block's slot lies in epoch $`E_m`$.
 
 [Fork choice](fork-choice.md) compares two chains under the era of the slot of their $`\textbf{common\_ancestor}`$ ([Fork Pruning](cryptarchia-v1-protocol.md#fork-pruning)). The fork choice rule of an era reads only the block tree and the slot of each block. Otherwise it is undefined on the blocks of a later era that re-encodes a field it reads. [Commit](cryptarchia-v1-protocol.md#commit) uses the $`k`$ of the era of the slot of the local chain tip.
 
 At startup and on checkpoint import, a node whose software does not implement the rules of every era from $`\textbf{era}(sl_{B_\text{imm}})`$ to the era in force must halt. A halted node stops every protocol and exits with an error to the operator.
 
-A node keeps in its mempool only transactions valid under the era in force. A transaction is parsed under the era of the identifier that delivered it and admitted under the rules of the era in force.
+A node keeps in its mempool only transactions valid under the era in force.
 
 
 ## Era Migration

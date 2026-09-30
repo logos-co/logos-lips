@@ -32,7 +32,7 @@
 | 1.1.4 | Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy. | 2026-08-25 |
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
 | 1.2.0 | Seed the pow reward pool at genesis | 2026-09-08 |
-| 1.3.0 | Removed the `bedrock_version` header field and moved `slot` first ([Bedrock Eras](bedrock-eras.md)). | 2026-09-30 |
+| 1.3.0 | Removed the `bedrock_version` header field and moved `slot` first, and set the `fork_digest` of the Genesis Mantle Transaction to zero ([Bedrock Eras](bedrock-eras.md)). | 2026-09-30 |
 
 # Introduction
 
@@ -185,6 +185,7 @@ The initial stake distribution, service declarations and Cryptarchia inscription
 
 ```python
 GENESIS_MANTLE_TX = MantleTx(
+    fork_digest=bytes(32),
     ops=[STAKE_DISTRIBUTION, CRYPTARCHIA_INSCRIPTION] + SERVICE_DECLARATIONS,
 )
 ```
@@ -262,6 +263,7 @@ SERVICE_DECLARATIONS = BLEND_DECLARATIONS
 
 # build the genesis Mantle Transaction
 GENESIS_MANTLE_TX = MantleTx(
+    fork_digest=bytes(32),
     ops=[STAKE_DISTRIBUTION, CRYPTARCHIA_INSCRIPTION] + SERVICE_DECLARATIONS,
 )
 
@@ -301,6 +303,8 @@ The checks below, and only these, are skipped when the Genesis Mantle Transactio
 2. **The transaction balance covering the mandatory fees.** The whole initial token supply is created out of nothing by the Transfer Operation, so the balance of the Genesis Mantle Transaction is negative and no fee can be paid from it. Step 3 of [Validation](bedrock-v1.1-mantle-specification.md#validation) is skipped, no mandatory fee is charged and no `tx_priority_tip` is derived. The Genesis Mantle Transaction is accounted as costing no gas.
 
 3. **The Transfer Operation inputs.** The Genesis Transfer Operation has no inputs, no note existing before it, so the requirement that inputs be non-empty ([Input Notes Spendability Validation](bedrock-v1.1-mantle-specification.md#input-notes-spendability-validation)) does not apply and there is no spendability to check. It is the only Transfer Operation of the chain allowed to consume nothing.
+
+4. **The fork digest.** Every fork digest hashes the Genesis block ([Bedrock Eras](bedrock-eras.md#notation)), so the Genesis Mantle Transaction cannot carry one. Its `fork_digest` is 32 zero bytes, and step 4 of [Validation](bedrock-v1.1-mantle-specification.md#validation) is skipped.
 
 Everything else is validated as it would be in any other block, against the state the Operations preceding it left, the transaction level check that there is one `op_proofs` entry per Operation included.
 
