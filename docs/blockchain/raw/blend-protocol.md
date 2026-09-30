@@ -35,6 +35,7 @@
 | 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, add a transaction as a data message payload, and align the nullifier retention period | 2026-09-08 |
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
 | 1.6.0 | Replaced the per-window statistical threshold on a connection with a share of messages a node reads from, and sends on, each connection in a round, and a liveness test, kept per identity for the epoch, on whether a neighbor delivers. Held the peering degree in live connections, at least two of them opened by the node. Restricted blacklisting to attributable faults. Sized the shares from the processing rate of the slowest node, derived the transactions the network carries from them, and made that rate the reference load of the Blend difficulty. | 2026-09-08 |
+| 1.6.1 | Linked the discard of a message waiting on a connection to the per-hop allowance of the message traversal time, and motivated relaying by the liveness test. | 2026-09-30 |
 
 # Introduction
 
@@ -243,7 +244,7 @@ We address the above motivations in the following manner:
   - The node must also limit the number of cover messages to generate to be indistinguishable from all other nodes. That is, for every block proposal a node generates it must generate one less cover message; otherwise the node could be distinguished from other nodes based on the number of emitted messages.
 
 2. Message **relaying** is motivated by monitoring the connection quality with the node by its neighbors.
-  - The node must relay messages according to a network-defined limit. Otherwise, the neighbors will close the connection with the node. This will lead to a network-level isolation of that node, and if the node is isolated, it will not receive any messages to process, so it will earn no rewards.
+  - The node must relay messages. Otherwise, its connections stop being live, and its neighbors close them ([Connectivity Maintenance](#connectivity-maintenance)). This will lead to a network-level isolation of that node, and if the node is isolated, it will not receive any messages to process, so it will earn no rewards.
   - The node must relay processed messages. If it does not, the node that generated the message will learn this fact and might stop addressing messages to the relaying node. This is possible because a node can select the recipients of the messages freely but from a random subset of all nodes.
 
 3. Message **processing** is motivated by calculating a reward as a node’s activity function.
@@ -330,9 +331,9 @@ The bootstrapping logic of an edge node:
     2. It identifies itself and authenticates using the [Neighbor Distinction Process](#neighbor-distinction-process).
         1. A core node learns that the neighbor is an edge node.
         2. An edge node confirms that the neighbor is a core node.
-        4. An edge node must drop the connection if the neighbor is not the intended core node. Please note that technically it is done during TLS handshake, where the handshake will fail if the core node is using a different key than provided in the SDP declaration.
+        3. An edge node must drop the connection if the neighbor is not the intended core node. Please note that technically it is done during TLS handshake, where the handshake will fail if the core node is using a different key than provided in the SDP declaration.
 5. When the connection is established, it sends the message and closes the connection.
-6. Concurrently to the above, it repeats steps 4 and 5 until it is sends the message to a number of nodes equal to the communication redundancy number defined by the edge node. It stops connecting to each node after a certain number of tries, which is defined by the edge node.
+6. Concurrently to the above, it repeats steps 4 and 5 until it sends the message to a number of nodes equal to the communication redundancy number defined by the edge node. It stops connecting to each node after a certain number of tries, which is defined by the edge node.
 
 ## Message Lifecycle
 
@@ -534,7 +535,7 @@ A node reads at most $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124`$ messages in a rou
 The shares keep the messages a node reads in a round within what the slowest node the protocol targets can verify, $`V`$ ([Expected Traffic](#expected-traffic)).
 
 1. A node reads at most $`r_1`$ messages from a core connection in a round. A connection whose share is spent is not read until the next round.
-2. A node sends at most $`r_1`$ messages on a core connection in a round. A message that has waited $`\eta`$ rounds to be sent on a connection is discarded for that connection.
+2. A node sends at most $`r_1`$ messages on a core connection in a round. A message that has waited $`\eta`$ rounds to be sent on a connection is discarded for that connection. It has used the time its hop is allowed within the message traversal time $`T_M`$ ([Transition Period](#transition-period)).
 3. The volume a neighbor sends is never a cause for closing a connection or for blacklisting.
 
 **Liveness**
