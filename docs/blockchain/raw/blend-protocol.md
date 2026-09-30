@@ -35,7 +35,7 @@
 | 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, add a transaction as a data message payload, and align the nullifier retention period | 2026-09-08 |
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
 | 1.6.0 | Replaced the per-window statistical threshold on a connection with a share of messages a node reads from, and sends on, each connection in a round, and a liveness test, kept per identity for the epoch, on whether a neighbor delivers. Held the peering degree in live connections, at least $`\Phi_{CC} - 2`$ of them opened by the node. Restricted blacklisting to attributable faults. Sized the shares from the processing rate of the slowest node, derived the transactions the network carries from them, and made that rate the reference load of the Blend difficulty. | 2026-09-08 |
-| 1.6.1 | Sized the transactions the network carries so that a connection's backlog drains within the network absorption of one hop, stored 64 bits of each cached nullifier, and stopped blacklisting a neighbor whose stream fails. | 2026-09-30 |
+| 1.7.0 | Sized the transactions the network carries so that a connection's backlog drains within the network absorption of one hop, stored 64 bits of each cached nullifier, and stopped blacklisting a neighbor whose stream fails. | 2026-09-30 |
 
 # Introduction
 

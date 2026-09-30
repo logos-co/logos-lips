@@ -7,6 +7,7 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-09-30 |
+| v2 | Numbered the Blend Protocol revision 1.7.0, since the connection rules change | 2026-09-30 |
 
 ## Reviewer Orientation
 
@@ -241,5 +242,5 @@ The Neighbor Distinction Process reads the peer id the transport handshake alrea
 
 | Specification | Status | Note |
 | --- | --- | --- |
-| [Blend Protocol](../blend-protocol.md) | Modified | Revision 1.6.1 |
+| [Blend Protocol](../blend-protocol.md) | Modified | Revision 1.7.0 |
 | [Proof of Work](../proof-of-work.md) | Modified | Revision 1.1.1 |
