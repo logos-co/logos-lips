@@ -33,6 +33,7 @@
 | 1.6.1 | Renamed the `LockedNoteId` production of the SDP Operations into `ServiceNoteId` | 2026-08-27 |
 | 1.7.0 | Added the `ChannelConfigOpProof` and `ChannelTransferOpProof` variants and factored the three channel threshold proofs into `ChannelMultiSigProof`, carrying the index of the signing key alongside each signature | 2026-08-31 |
 | 1.8.0 | Added the `ClaimPowReward` Operation payload; its proof is a `ZkSigProof` | 2026-09-08 |
+| 1.9.0 | Added the `ForkDigest` as the first field of `MantleTx` ([Bedrock Eras](bedrock-eras.md)). | 2026-09-30 |
 
 # Introduction
 
@@ -57,8 +58,9 @@ SignedMantleTx = MantleTx OpsProofs
 ## Mantle Tx
 
 ```schema
-MantleTx = OpCount *Op
-OpCount  = Byte
+MantleTx   = ForkDigest OpCount *Op
+ForkDigest = Hash32
+OpCount    = Byte
 ```
 
 ## Operations
