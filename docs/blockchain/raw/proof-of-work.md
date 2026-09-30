@@ -144,7 +144,7 @@ POW_SHARE: uint64 = 10                          # beta, as the fraction POW_SHAR
 SHARE_DEN: uint64 = 100
 EMA_SMOOTHING_FACTOR: uint64 = 9                # F, the weight given to the previous estimate
 EMA_SMOOTHING_PRECISION: uint64 = 10            # P, the scale F is expressed against; F < P
-REWARD_TARGET_FLOOR: uint64 = 9                 # max(1, ceil(F / (P - F))); see Reward Difficulty
+REWARD_TARGET_FLOOR: uint64 = 9                 # smallest target the retarget returns; see Reward Difficulty
 BLEND_DIFFICULTY_BASE: PowTarget = p // 2**19   # difficulty_blend at the reference load
 TARGET_TXS_PER_BLOCK: uint64 = 130              # Reference transactions per block, F_T / F_D
 BLEND_DAMPING_NUM: uint64 = 1                   # a, where the exponent is alpha = a / b
@@ -205,7 +205,7 @@ def compute_new_reward_difficulty(claims_in_block: uint64,
 
 `claims_in_block` counts the `CLAIM_POW_REWARD` Operations the block includes. Every claim in a block is validated against the target produced by the previous block's update; the update from a block's own count is applied after the block is processed and governs the next block. At genesis `difficulty_reward` is the quotient of the Euclidean division of the scalar field modulus by $`2^{26}`$.
 
-The update is multiplicative in the current target, so a target of zero would never recover, and under floor division the empty-block easing $`\lfloor t \cdot P/F \rfloor`$ returns $`t`$ unchanged for every $`t \lt F/(P-F)`$. `REWARD_TARGET_FLOOR` is the smallest target the easing strictly lifts, $`\lceil F/(P-F) \rceil = 9`$ at the specified smoothing.
+The update is multiplicative in the current target, so a target of zero never recovers. With $`F \gt 0`$, the update from a block without claims is $`\lfloor t \cdot P/F \rfloor`$, which equals $`t`$ for every $`t \lt F/(P-F)`$. `REWARD_TARGET_FLOOR` is the smallest target that a block without claims strictly raises, $`\max(1, \lceil F/(P-F) \rceil)`$, which is 9 at the specified smoothing.
 
 ## Blend Difficulty
 
