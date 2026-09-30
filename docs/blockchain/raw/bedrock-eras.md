@@ -61,12 +61,12 @@ A block or proposal, and everything it carries, is parsed, validated and execute
 
 At startup and on checkpoint import, a node whose software does not implement the rules of every era from $`\textbf{era}(sl_{B_\text{imm}})`$ to the era in force must halt. A halted node stops every protocol and exits with an error to the operator.
 
-A node keeps in its mempool only transactions valid under the era in force. A transaction is parsed under the era of the topic that delivered it and admitted under the rules of the era in force.
+A node keeps in its mempool only transactions valid under the era in force. A transaction is parsed under the era of the identifier that delivered it and admitted under the rules of the era in force.
 
 
 ## Era Migration
 
-Every era after the first defines a migration from its predecessor. A migration is a function of the recorded chain state alone. The recorded chain state is the state a Mantle Operation is validated against ([Validation](bedrock-v1.1-mantle-specification.md#validation)), the `stake_thresholds` ([Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake)) and `parameters` ([Service Parameters](bedrock-service-declaration-protocol.md#service-parameters)), and the [snapshots](bedrock-service-declaration-protocol.md#snapshots) of the current and later epochs.
+Every era after the first defines a migration from its predecessor. A migration is a function of the recorded chain state alone. The recorded chain state is the state a Mantle Operation is validated against ([Validation](bedrock-v1.1-mantle-specification.md#validation), [Proof of Work Operations](bedrock-v1.1-mantle-specification.md#proof-of-work-operations)), the `stake_thresholds` ([Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake)) and `parameters` ([Service Parameters](bedrock-service-declaration-protocol.md#service-parameters)), and the [snapshots](bedrock-service-declaration-protocol.md#snapshots) of the current and later epochs.
 
 The migration must be:
 
@@ -75,9 +75,9 @@ The migration must be:
 
 A block reads the state after any block of an earlier era with the intervening migrations applied, in order. When the era in force changes, a node applies the same migrations to the state after its local chain tip; it re-validates its mempool and runs the network protocols of the new era against that state.
 
-The [Epoch State](cryptarchia-v1-protocol.md#epoch-state) of an epoch is computed under the rules of the epoch's era. Where it reads the chain state as of a slot, it reads the state after the last block at or before that slot, migrated to the epoch's era. The Epoch State of an earlier epoch is used as it was derived.
+A value derived for an epoch is derived under the rules of the epoch's era: its [Epoch State](cryptarchia-v1-protocol.md#epoch-state), its `difficulty_blend` ([Blend Difficulty](proof-of-work.md#blend-difficulty)) and its `epoch_pow_reward` ([Reward Pool](proof-of-work.md#reward-pool)). Where a derivation reads the chain state as of a slot, it reads the state after the last block at or before that slot, migrated to the epoch's era. A value derived for an earlier epoch is used as it was derived.
 
-The rules of an era verify the Activity Proofs and reward claims of the last epoch of the predecessor era as the predecessor's rules do. Otherwise the rewards of that epoch are lost.
+The rules of an era verify the Activity Proofs and reward claims of the last epoch of the predecessor era, [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) included, as the predecessor's rules do. Otherwise the rewards of that epoch are lost.
 
 
 ## Era Transition Period
@@ -96,7 +96,7 @@ After the Era Transition Period the node must drop the predecessor era's protoco
 
 Every protocol identifier and gossipsub topic a Logos Blockchain specification defines is `/<network>/<era>/<protocol>`. `<network>` is `logos-blockchain` for mainnet and `logos-blockchain-testnet` for testnet. Any other network takes its own name. `<era>` is the decimal era number. `<protocol>` is the identifier the protocol's own specification defines.
 
-A node sends a message it generates over the identifiers of the era in force at generation. A node relays or releases a received or processed Blend message over the era of the connection it arrived on. A node publishes every block it accepts on the block topic of the era in force. A [synchronization](cryptarchia-v1-bootstr-sync.md#downloading-blocks) response carries blocks of any era.
+A node sends a message it generates over the identifiers of the era in force at generation. A node relays or releases a received or processed Blend message, and broadcasts its payload, over the identifiers of the era of the connection it arrived on. A node publishes a proposal it accepts, and a transaction it admits to its mempool, on the topic of the era in force. A [synchronization](cryptarchia-v1-bootstr-sync.md#downloading-blocks) response carries blocks of any era.
 
 
 ## Horizon
