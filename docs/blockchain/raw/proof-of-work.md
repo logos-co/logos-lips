@@ -30,7 +30,7 @@ Proof of work removes this obstacle. A participant who has computed a puzzle sol
 
 The puzzles are measured against separate thresholds that follow separate objectives:
 
-- the reward threshold keeps the number of paid claims per block near a target whatever the amount of mining,
+- the reward threshold keeps the number of paid claims per block near a target,
 - and the Blend threshold keeps admission to the network affordable when the network is quiet and dearer when it is busy.
 
 This document specifies the puzzle, the two thresholds, the pow reward pool and the reward it pays per claim, and the window within which a reward may be claimed. The Blend side of the mechanism is specified in [Proof of Quota](proof-of-quota.md) and the claim Operation in [Mantle](bedrock-v1.1-mantle-specification.md#claim_pow_reward); this document holds what both depend on.
@@ -145,6 +145,7 @@ SHARE_DEN: uint64 = 100
 EMA_SMOOTHING_FACTOR: uint64 = 9                # F, the weight given to the previous estimate
 EMA_SMOOTHING_PRECISION: uint64 = 10            # P, the scale F is expressed against; F < P
 REWARD_TARGET_FLOOR: uint64 = 9                 # smallest target the retarget returns; see Reward Difficulty
+REWARD_TARGET_CAP: PowTarget = p // 2**26       # largest target the retarget returns, and its genesis value
 BLEND_DIFFICULTY_BASE: PowTarget = p // 2**19   # difficulty_blend at the reference load
 TARGET_TXS_PER_BLOCK: uint64 = 130              # Reference transactions per block, F_T / F_D
 BLEND_DAMPING_NUM: uint64 = 1                   # a, where the exponent is alpha = a / b
@@ -154,13 +155,15 @@ BLEND_MAX_STEP: uint64 = 2                      # Max factor difficulty_blend ma
 
 The parameters must give an `epoch_pow_reward` above the fee of a claim transaction, which pays for the claim and the `TRANSFER` that spends its note, or a claim cannot pay its own fee.
 
+`REWARD_TARGET_CAP` must be above `REWARD_TARGET_FLOOR` and at most $`p - 1`$, as [Puzzle Target](#puzzle-target) requires. At or below the floor, every retarget would return `REWARD_TARGET_CAP`, so the target could not move.
+
 `TARGET_TXS_PER_BLOCK` is the transaction rate the Blend network carries, $`F_T / F_D = 130`$ transactions per block ([Global Parameters](blend-protocol.md#global-parameters)).
 
 ## Puzzle Target
 
 `PowTarget` is an element of $`\mathbb{F}_p`$, as every ticket is. A ticket satisfies a target when its canonical integer representative in $`[0, p-1]`$ is strictly below the target's; a smaller target is a harder puzzle. A representative is at most 254 bits, so a 256-bit unsigned integer holds any target.
 
-The two updates below multiply and divide targets as integers rather than in the fixed-width types of [Arithmetic](bedrock-v1.1-mantle-specification.md#arithmetic), and cap their result at $`p - 1`$, so that it converts back to a field element without reduction. Every intermediate fits in **512 bits**: the reward retarget's product reaches $`2^{261}`$ and the Blend radicand $`2^{493}`$. Each operation is integer addition, multiplication, floor division or comparison, and `integer_nth_root` returns the exact floor, so two implementations agree exactly.
+The two updates below multiply and divide targets as integers rather than in the fixed-width types of [Arithmetic](bedrock-v1.1-mantle-specification.md#arithmetic), and cap their result at or below $`p - 1`$, so that it converts back to a field element without reduction. Every intermediate fits in **512 bits**: the reward retarget's product reaches $`2^{261}`$ and the Blend radicand $`2^{493}`$. Each operation is integer addition, multiplication, floor division or comparison, and `integer_nth_root` returns the exact floor, so two implementations agree exactly.
 
 ## Reward Pool
 
@@ -200,10 +203,10 @@ def compute_new_reward_difficulty(claims_in_block: uint64,
                     + EMA_SMOOTHING_FACTOR * TARGET_CLAIMS_PER_BLOCK)
     new_target = (TARGET_CLAIMS_PER_BLOCK * current_target
                   * EMA_SMOOTHING_PRECISION) // demand
-    return min(max(new_target, REWARD_TARGET_FLOOR), p - 1)
+    return min(max(new_target, REWARD_TARGET_FLOOR), REWARD_TARGET_CAP)
 ```
 
-`claims_in_block` counts the `CLAIM_POW_REWARD` Operations the block includes. Every claim in a block is validated against the target produced by the previous block's update; the update from a block's own count is applied after the block is processed and governs the next block. At genesis `difficulty_reward` is the quotient of the Euclidean division of the scalar field modulus by $`2^{26}`$.
+`claims_in_block` counts the `CLAIM_POW_REWARD` Operations the block includes. Every claim in a block is validated against the target produced by the previous block's update; the update from a block's own count is applied after the block is processed and governs the next block. At genesis `difficulty_reward` is `REWARD_TARGET_CAP`.
 
 The update is multiplicative in the current target, so a target of zero never recovers. With $`F \gt 0`$, the update from a block without claims is $`\lfloor t \cdot P/F \rfloor`$, which equals $`t`$ for every $`t \lt F/(P-F)`$. `REWARD_TARGET_FLOOR` is the smallest target that a block without claims strictly raises, $`\max(1, \lceil F/(P-F) \rceil)`$, which is 9 at the specified smoothing.
 
