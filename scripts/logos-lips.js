@@ -59,6 +59,7 @@
           <a href="${root}blockchain/index.html">Blockchain</a>
           <a href="${root}storage/index.html">Storage</a>
           <a href="${root}anoncomms/index.html">AnonComms</a>
+          <a href="${root}identity/index.html">Identity</a>
           <a href="${root}research/index.html">Research</a>
         </div>
       </details>
@@ -403,6 +404,7 @@
     blockchain: "Blockchain",
     storage: "Storage",
     "anoncomms": "AnonComms",
+    identity: "Identity",
     research: "Research",
   };
   const hiddenByDefaultStatuses = new Set(["deprecated", "deleted"]);
