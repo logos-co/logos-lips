@@ -1349,7 +1349,7 @@ withdraw=Withdraw(
 )
 
 # Build the transfer operation to pay the fees
-transfer = Transfer(inputs=[alices_service_note_id],
+transfer = Transfer(inputs=[alices_fee_note_id],
                     outputs=[Note(100, alice_note_pk)])
 
 tx = MantleTx(
