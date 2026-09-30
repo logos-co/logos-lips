@@ -174,7 +174,7 @@ def compute_epoch_pow_reward(pow_reward_pool: TokenValue) -> TokenValue:
     return (pow_reward_pool * EPOCH_POW_DISTRIBUTION_RATE_NUM) // denominator
 ```
 
-At each epoch boundary, before any block of the new epoch is processed, the pool is credited with `get_pow_pool_refill(epoch_blocks)`, the fraction `POW_SHARE / SHARE_DEN` of the fees collected over the blocks of the epoch that ended, as specified in [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool); `epoch_pow_reward` is then set to `compute_epoch_pow_reward(pow_reward_pool)` and held for the epoch. The division rounds down, and the remainder stays in the pow reward pool. All arithmetic here is checked, in accordance with [Arithmetic](bedrock-v1.1-mantle-specification.md#arithmetic); the pool must not saturate, since saturating would create tokens that were never allocated.
+At each epoch boundary, before any block of the new epoch is processed, the pool is credited with `get_pow_pool_refill(epoch_blocks)`, the fraction `POW_SHARE / SHARE_DEN` of the fees collected over the blocks of the epoch that ended, as specified in [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool); `epoch_pow_reward` is then set to `compute_epoch_pow_reward(pow_reward_pool)` and held for the epoch. The division rounds down, and the remainder stays in the pow reward pool. All arithmetic here is checked, in accordance with [Arithmetic](bedrock-v1.1-mantle-specification.md#arithmetic).
 
 ### Exhaustion within an epoch
 
