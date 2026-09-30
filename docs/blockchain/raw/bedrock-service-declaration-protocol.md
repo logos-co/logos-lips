@@ -239,12 +239,17 @@ Where:
 - `created` is the epoch of the block that contained the declaration;
 - `active` is the epoch of the block that contained the latest accepted active message, initialised to `created + 2` ([Message Timing](#message-timing));
 - `withdraw_at` is the epoch at which the node stops providing the service ([**Withdraw**](#withdraw)), and is `None` until the declaration is withdrawn;
-- `nonce` is the `nonce` of the latest accepted active or withdraw message, initialised to `created · 2^32`.
+- `nonce` is the `nonce` of the latest accepted active or withdraw message, initialised with `created` as its `lifecycle_epoch` and a `sequence` of 0.
 
-A `nonce` is a 64-bit unsigned integer whose high 32 bits are the `created` epoch of its declaration. An active or withdraw message is valid only if its `nonce`:
+A `Nonce` is a 64-bit unsigned integer, `lifecycle_epoch · 2^32 + sequence`:
 
-- has the `created` of the `DeclarationInfo` as its high 32 bits;
-- is greater than the `nonce` of the `DeclarationInfo`.
+- `lifecycle_epoch` is the high 32 bits, an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch);
+- `sequence` is the low 32 bits.
+
+An active or withdraw message is valid only if its `nonce`:
+
+- has the `created` of the `DeclarationInfo` as its `lifecycle_epoch`;
+- has a `sequence` greater than the `sequence` of the `nonce` of the `DeclarationInfo`.
 
 Two declarations with the same `declaration_id` never share a `created` epoch, because a declaration is removed no earlier than epoch `created + 3` ([**Withdraw**](#withdraw)). If they could, a message signed for the earlier declaration would be valid for the later one.
 

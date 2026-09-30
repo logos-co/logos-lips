@@ -1082,7 +1082,7 @@ class DeclarationInfo:
     created: EpochNumber
     active: EpochNumber
     withdraw_at: EpochNumber | None
-    # high 32 bits: created; see Declaration Storage in the SDP
+    # lifecycle_epoch << 32 | sequence, see Declaration Storage in the SDP
     nonce: int
 ```
 
@@ -1200,7 +1200,7 @@ providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
           created=current_epoch,
           active=current_epoch + 2,
           withdraw_at=None,
-          nonce=current_epoch << 32,
+          nonce=current_epoch << 32,  # lifecycle_epoch = created, sequence = 0
       )
       ```
 
@@ -1309,10 +1309,10 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
           service_note = ledger[service_note_id]
           assert ZkSignature_verify(txhash, signature, [service_note.pk, declare_info.zk_id])
           ```
-      4. Ensure that the nonce belongs to this declaration and is greater than the previous one.
+      4. Ensure that the nonce belongs to this declaration and that its sequence is greater than the previous one.
           ```python
           assert withdraw.nonce >> 32 == declare_info.created
-          assert withdraw.nonce > declare_info.nonce
+          assert withdraw.nonce & 0xFFFFFFFF > declare_info.nonce & 0xFFFFFFFF
           ```
 
 #### Execution
@@ -1448,7 +1448,7 @@ assert found is not None
 _, declaration_info = found
 
 assert active.nonce >> 32 == declaration_info.created
-assert active.nonce > declaration_info.nonce
+assert active.nonce & 0xFFFFFFFF > declaration_info.nonce & 0xFFFFFFFF
 
 assert ZkSignature_verify(txhash, signature, declaration_info.zk_id)
 ```
