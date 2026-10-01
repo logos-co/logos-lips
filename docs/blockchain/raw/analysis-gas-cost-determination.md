@@ -32,7 +32,7 @@
 | 1.5.3 | Adopted "active message" as the single name for the message | 2026-09-02 |
 | 1.5.4 | Renamed the `stake_manipulation_threshold` of the channel gas derivations into `transfer_threshold` and the Channel Stake Assignation section into Channel Transfer, following Mantle | 2026-08-31 |
 | 1.6.0 | Add the Execution Gas derivation for the `CLAIM_POW_REWARD` Operation | 2026-09-04 |
-| 1.6.1 | [RFC] The SDP costs price the per-service identifier checks and no lock-period check | 2026-09-11 |
+| 1.6.1 | [RFC] The SDP costs price the per-service identifier checks and no lock-period check | 2026-10-01 |
 
 # Introduction
 
