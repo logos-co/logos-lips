@@ -21717,6 +21717,7 @@ This coordination requirement is the main trade-off of synchronous messaging: it
 </div><!-- timeline:start -->
 <h2 id="timeline-83"><a class="header" href="#timeline-83">Timeline</a></h2>
 <ul>
+<li><strong>2026-10-01</strong> — <a href="https://github.com/logos-co/logos-lips/blob/760f5ee6f27cdb0b7b4d2fc1c79a49831dfcba6a/docs/blockchain/raw/bedrock-genesis-block.md"><code>760f5ee</code></a> — [RFC] Mantle: EmPoWering — retarget bounds and pool funding (#443)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b7301a67b5364a8dbe719f8b67b96b7f198d0a13/docs/blockchain/raw/bedrock-genesis-block.md"><code>b7301a6</code></a> — [RFC] Mantle: Enable basic EmPoWering machinery (#400)</li>
 <li><strong>2026-08-31</strong> — <a href="https://github.com/logos-co/logos-lips/blob/3cac48f3f3c7db46eddf3bbb70c1567d96e2b213/docs/blockchain/raw/bedrock-genesis-block.md"><code>3cac48f</code></a> — docs(blockchain): rename locked notes to service notes (#423)</li>
 <li><strong>2026-08-26</strong> — <a href="https://github.com/logos-co/logos-lips/blob/eb5ce96a1cfcfcb5e60164772ea5eccaafc5ec97/docs/blockchain/raw/bedrock-genesis-block.md"><code>eb5ce96</code></a> — docs(blockchain): specify genesis block validation rule (#419)</li>
@@ -21738,7 +21739,7 @@ This coordination requirement is the main trade-off of synchronous messaging: it
 <tr><td>1.1.3</td><td>Replaced the <code>block_root</code> header field with <code>body_root</code>, taken over an empty uncle header list and the initial transaction, due to updated <a href="blockchain/raw/bedrock-v1.1-block-construction.html">Block Construction, Validation and Execution</a>.</td><td>2026-08-06</td></tr>
 <tr><td>1.1.4</td><td>Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy.</td><td>2026-08-25</td></tr>
 <tr><td>1.1.5</td><td>Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a <code>service_note_id</code></td><td>2026-08-27</td></tr>
-<tr><td>1.2.0</td><td>Seed the pow reward pool at genesis</td><td>2026-09-08</td></tr>
+<tr><td>1.2.0</td><td>Seed the pow reward pool at genesis from the initial token distribution</td><td>2026-09-08</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction-21"><a class="header" href="#introduction-21">Introduction</a></h1>
@@ -21770,7 +21771,8 @@ This coordination requirement is the main trade-off of synchronous messaging: it
                                       # = 5/1000 of the maximum supply
 </code></pre>
 <p>The seed is five thousandths of the maximum supply <span class="math-inline" data-tex="S_{cap}"></span>, as specified in <a href="blockchain/raw/proof-of-work.html#reward-pool">Reward Pool</a>.</p>
-<p>The pool holds a balance rather than notes, so unlike the stakeholder allocations above it does not appear as an output of the initial Transfer Operation. It is consensus state maintained as specified in <a href="blockchain/raw/proof-of-work.html#reward-pool">Reward Pool</a>, and after genesis it changes only through claims.</p>
+<p>This allocation is drawn from the initial token distribution, not created in addition to it: the tokens exist from genesis, and the seed determines how many of them are held in the pool rather than distributed to stakeholders directly.</p>
+<p>The pool holds a balance rather than notes, so unlike the stakeholder allocations above it does not appear as an output of the initial Transfer Operation. It is consensus state maintained as specified in <a href="blockchain/raw/proof-of-work.html#reward-pool">Reward Pool</a>, and after genesis it changes through the epoch-boundary refill and through claims.</p>
 <p>The seed is not part of the Cryptarchia parameter inscription, because it is not a Cryptarchia parameter. It is established during <a href="blockchain/raw/bedrock-genesis-block.html#mantle-ledger-initialization">Mantle Ledger Initialization</a>.</p>
 <h2 id="initial-service-declarations"><a class="header" href="#initial-service-declarations">Initial Service Declarations</a></h2>
 <p>Blend Network MUST initialize its set of providers. This is done through a set of <code>SDP_DECLARE</code> Operations in the Genesis Mantle Transaction.</p>
@@ -21976,7 +21978,7 @@ GENESIS_BLOCK = (GENESIS_HEADER, [GENESIS_MANTLE_TX])
 <li><code>pow_reward_pool</code> is set to <code>POW_REWARD_POOL_GENESIS</code>, as described in <a href="blockchain/raw/bedrock-genesis-block.html#initial-proof-of-work-reward-pool">Initial Proof of Work Reward Pool</a>.</li>
 <li><code>epoch_pow_reward</code> is derived from it by the computation given in <a href="blockchain/raw/proof-of-work.html#reward-pool">Reward Pool</a>, so that claiming is productive from the first epoch rather than waiting for the first refill.</li>
 <li><code>difficulty_blend</code> is set to <code>BLEND_DIFFICULTY_BASE</code> for <strong>epochs 0 and 1</strong>, as given in <a href="blockchain/raw/proof-of-work.html#blend-difficulty">Blend Difficulty</a>: the value for an epoch is fixed at the preceding epoch's nonce snapshot from the load of the epoch before that, and no complete input epoch exists before epoch 2. The schedule begins with epoch 2's value, computed during epoch 1 from epoch 0's load.</li>
-<li><code>difficulty_reward</code> is set to the genesis value given in <a href="blockchain/raw/proof-of-work.html#reward-difficulty">Reward Difficulty</a>, which is set hard so that the controller's first correction loosens rather than tightens, and <code>pow_nullifiers</code> is empty.</li>
+<li><code>difficulty_reward</code> is set to the genesis value given in <a href="blockchain/raw/proof-of-work.html#reward-difficulty">Reward Difficulty</a>, and <code>pow_nullifiers</code> is empty.</li>
 </ol>
 <h2 id="cryptarchia-initialization"><a class="header" href="#cryptarchia-initialization">Cryptarchia Initialization</a></h2>
 <p>The Mantle Transaction contains an inscription sent to the null channel containing the parameters for initializing Cryptarchia. It is validated as an ordinary <code>CHANNEL_INSCRIBE</code> Operation minus its signature: the null channel does not exist yet, so the inscription must carry a <code>parent</code> of <code>ZERO</code>, and its execution creates that channel with the null key as its only accredited key.</p>
@@ -25758,6 +25760,7 @@ WithdrawThreshold = UINT16
 </div><!-- timeline:start -->
 <h2 id="timeline-87"><a class="header" href="#timeline-87">Timeline</a></h2>
 <ul>
+<li><strong>2026-10-01</strong> — <a href="https://github.com/logos-co/logos-lips/blob/760f5ee6f27cdb0b7b4d2fc1c79a49831dfcba6a/docs/blockchain/raw/proof-of-work.md"><code>760f5ee</code></a> — [RFC] Mantle: EmPoWering — retarget bounds and pool funding (#443)</li>
 <li><strong>2026-09-29</strong> — <a href="https://github.com/logos-co/logos-lips/blob/96e958692700a1b4e67203158a3632d47640002f/docs/blockchain/raw/proof-of-work.md"><code>96e9586</code></a> — [RFC] Blend: Bound connection traffic at the receiver (#421)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b7301a67b5364a8dbe719f8b67b96b7f198d0a13/docs/blockchain/raw/proof-of-work.md"><code>b7301a6</code></a> — [RFC] Mantle: Enable basic EmPoWering machinery (#400)</li>
 </ul>
@@ -25773,7 +25776,7 @@ WithdrawThreshold = UINT16
 <p>Proof of work removes this obstacle. A participant who has computed a puzzle solution may use it to post transactions and to send messages through Blend. Neither use has a prerequisite beyond the computation itself. The cost is the hardware and the electricity it burns, and it cannot be faked, since a valid ticket proves the work, and a validator checks it cheaply.</p>
 <p>The puzzles are measured against separate thresholds that follow separate objectives:</p>
 <ul>
-<li>the reward threshold keeps the number of paid claims per block near a target whatever the amount of mining,</li>
+<li>the reward threshold keeps the number of paid claims per block near a target,</li>
 <li>and the Blend threshold keeps admission to the network affordable when the network is quiet and dearer when it is busy.</li>
 </ul>
 <p>This document specifies the puzzle, the two thresholds, the pow reward pool and the reward it pays per claim, and the window within which a reward may be claimed. The Blend side of the mechanism is specified in <a href="blockchain/raw/proof-of-quota.html">Proof of Quota</a> and the claim Operation in <a href="blockchain/raw/bedrock-v1.1-mantle-specification.html#claim_pow_reward">Mantle</a>; this document holds what both depend on.</p>
@@ -25786,7 +25789,7 @@ WithdrawThreshold = UINT16
     s --&gt; c["claims tokens from the&lt;br/&gt;pow reward pool"]
     c --&gt; t["pays for transactions"]
 </code></pre>
-<p>The tokens come from the pow reward pool, set aside at genesis. Nothing is minted for it, so mining does not inflate the supply. Each epoch pays out a fraction of what the pool still holds, so the reward is the same for every claim of that epoch, for as long as the pool can pay it.</p>
+<p>The tokens come from the pow reward pool, set aside at genesis and refilled each epoch from a share of the transaction fees. Nothing is minted for it, so mining does not inflate the supply. Each epoch pays out a fraction of what the pool still holds, so the reward is the same for every claim of that epoch, for as long as the pool can pay it.</p>
 <p>Each use has its own threshold, and a threshold sets how much work a solution costs. Every node computes both from what blocks carry, so no node trusts another for them.</p>
 <p>The reward threshold reads the claims in a block, the only sign of mining the chain has.</p>
 <pre><code class="language-mermaid">graph LR
@@ -25830,7 +25833,7 @@ WithdrawThreshold = UINT16
 <li><code>epoch_pow_reward</code> is positive and <code>pow_reward_pool</code> still holds it.</li>
 </ul>
 <p><a href="blockchain/raw/bedrock-v1.1-mantle-specification.html#claim_pow_reward">Mantle</a> specifies these checks and the order they run in. A claim that fails any of them makes its transaction invalid. On acceptance the node pays <code>epoch_pow_reward</code> to the key, marks the ticket spent, and subtracts the same amount from <code>pow_reward_pool</code>.</p>
-<p>A node computes five values from the chain. <code>pow_reward_pool</code> and the set of spent tickets change when a claim is accepted. <code>difficulty_reward</code> is recomputed after every block, from the number of claims in that block. <code>epoch_pow_reward</code> is recomputed at each epoch boundary, from <code>pow_reward_pool</code>. <code>difficulty_blend</code> is recomputed once per epoch, from the transactions of the epoch before last, at the snapshot that fixes the epoch nonce. <a href="blockchain/raw/proof-of-work.html#reward-difficulty">Reward Difficulty</a>, <a href="blockchain/raw/proof-of-work.html#reward-pool">Reward Pool</a> and <a href="blockchain/raw/proof-of-work.html#blend-difficulty">Blend Difficulty</a> specify the three computations.</p>
+<p>A node computes five values from the chain. <code>pow_reward_pool</code> and the set of spent tickets change when a claim is accepted. <code>difficulty_reward</code> is recomputed after every block, from the number of claims in that block. <code>pow_reward_pool</code> is credited at each epoch boundary with a share of the fees of the epoch that ended, and <code>epoch_pow_reward</code> is then recomputed from it. <code>difficulty_blend</code> is recomputed once per epoch, from the transactions of the epoch before last, at the snapshot that fixes the epoch nonce. <a href="blockchain/raw/proof-of-work.html#reward-difficulty">Reward Difficulty</a>, <a href="blockchain/raw/proof-of-work.html#reward-pool">Reward Pool</a> and <a href="blockchain/raw/proof-of-work.html#blend-difficulty">Blend Difficulty</a> specify the three computations.</p>
 <p>A node keeps a spent ticket only while its referenced block is inside the window, so the set stays small. <a href="blockchain/raw/proof-of-work.html#acceptance-window">Acceptance Window</a> gives the window in slots.</p>
 <h1 id="details-7"><a class="header" href="#details-7">Details</a></h1>
 <h2 id="notation-1"><a class="header" href="#notation-1">Notation</a></h2>
@@ -25854,8 +25857,12 @@ EPOCH_POW_DISTRIBUTION_RATE_DEN: uint64 = 200
 TARGET_CLAIMS_PER_BLOCK: uint64 = 10            # T
 EXPECTED_BLOCKS_PER_EPOCH: uint64 = 21_600      # N_b = 10 k
 EXPECTED_BLOCKS_PER_WINDOW: uint64 = 10         # W_b
+POW_SHARE: uint64 = 10                          # beta, as the fraction POW_SHARE / SHARE_DEN
+SHARE_DEN: uint64 = 100
 EMA_SMOOTHING_FACTOR: uint64 = 9                # F, the weight given to the previous estimate
 EMA_SMOOTHING_PRECISION: uint64 = 10            # P, the scale F is expressed against; F &lt; P
+REWARD_TARGET_FLOOR: uint64 = 9                 # smallest target the retarget returns; see Reward Difficulty
+REWARD_TARGET_CAP: PowTarget = p // 2**26       # largest target the retarget returns, and its genesis value
 BLEND_DIFFICULTY_BASE: PowTarget = p // 2**19   # difficulty_blend at the reference load
 TARGET_TXS_PER_BLOCK: uint64 = 130              # Reference transactions per block, F_T / F_D
 BLEND_DAMPING_NUM: uint64 = 1                   # a, where the exponent is alpha = a / b
@@ -25863,19 +25870,20 @@ BLEND_DAMPING_DEN: uint64 = 2                   # b, with 0 &lt; a &lt;= b so th
 BLEND_MAX_STEP: uint64 = 2                      # Max factor difficulty_blend may move per epoch
 </code></pre>
 <p>The parameters must give an <code>epoch_pow_reward</code> above the fee of a claim transaction, which pays for the claim and the <code>TRANSFER</code> that spends its note, or a claim cannot pay its own fee.</p>
+<p><code>REWARD_TARGET_CAP</code> must be above <code>REWARD_TARGET_FLOOR</code> and at most <span class="math-inline" data-tex="p - 1"></span>, as <a href="blockchain/raw/proof-of-work.html#puzzle-target">Puzzle Target</a> requires. At or below the floor, every retarget would return <code>REWARD_TARGET_CAP</code>, so the target could not move.</p>
 <p><code>TARGET_TXS_PER_BLOCK</code> is the transaction rate the Blend network carries, <span class="math-inline" data-tex="F_T / F_D = 130"></span> transactions per block (<a href="blockchain/raw/blend-protocol.html#global-parameters">Global Parameters</a>).</p>
 <h2 id="puzzle-target"><a class="header" href="#puzzle-target">Puzzle Target</a></h2>
 <p><code>PowTarget</code> is an element of <span class="math-inline" data-tex="\mathbb{F}_p"></span>, as every ticket is. A ticket satisfies a target when its canonical integer representative in <span class="math-inline" data-tex="[0, p-1]"></span> is strictly below the target's; a smaller target is a harder puzzle. A representative is at most 254 bits, so a 256-bit unsigned integer holds any target.</p>
-<p>The two updates below multiply and divide targets as integers rather than in the fixed-width types of <a href="blockchain/raw/bedrock-v1.1-mantle-specification.html#arithmetic">Arithmetic</a>, and cap their result at <span class="math-inline" data-tex="p - 1"></span>, so that it converts back to a field element without reduction. Every intermediate fits in <strong>512 bits</strong>: the reward retarget's product reaches <span class="math-inline" data-tex="2^{261}"></span> and the Blend radicand <span class="math-inline" data-tex="2^{493}"></span>. Each operation is integer addition, multiplication, floor division or comparison, and <code>integer_nth_root</code> returns the exact floor, so two implementations agree exactly.</p>
+<p>The two updates below multiply and divide targets as integers rather than in the fixed-width types of <a href="blockchain/raw/bedrock-v1.1-mantle-specification.html#arithmetic">Arithmetic</a>, and cap their result at or below <span class="math-inline" data-tex="p - 1"></span>, so that it converts back to a field element without reduction. Every intermediate fits in <strong>512 bits</strong>: the reward retarget's product reaches <span class="math-inline" data-tex="2^{261}"></span> and the Blend radicand <span class="math-inline" data-tex="2^{493}"></span>. Each operation is integer addition, multiplication, floor division or comparison, and <code>integer_nth_root</code> returns the exact floor, so two implementations agree exactly.</p>
 <h2 id="reward-pool"><a class="header" href="#reward-pool">Reward Pool</a></h2>
-<p>The pool is seeded once, at genesis, with <code>POW_REWARD_POOL_GENESIS</code>, five thousandths of <span class="math-inline" data-tex="S_{cap}"></span>, as specified in <a href="blockchain/raw/bedrock-genesis-block.html">Bedrock Genesis Block</a>. After that it changes only through claims.</p>
+<p>The pool is seeded once, at genesis, with <code>POW_REWARD_POOL_GENESIS</code>, five thousandths of <span class="math-inline" data-tex="S_{cap}"></span>, as specified in <a href="blockchain/raw/bedrock-genesis-block.html">Bedrock Genesis Block</a>. After that it changes through the epoch-boundary refill and through claims.</p>
 <pre><code class="language-python">def compute_epoch_pow_reward(pow_reward_pool: TokenValue) -&gt; TokenValue:
     denominator = (EPOCH_POW_DISTRIBUTION_RATE_DEN
                    * TARGET_CLAIMS_PER_BLOCK
                    * EXPECTED_BLOCKS_PER_EPOCH)
     return (pow_reward_pool * EPOCH_POW_DISTRIBUTION_RATE_NUM) // denominator
 </code></pre>
-<p>At each epoch boundary, before any block of the new epoch is processed, <code>epoch_pow_reward</code> is set to <code>compute_epoch_pow_reward(pow_reward_pool)</code> and held for the epoch. The division rounds down, and the remainder stays in the pow reward pool. All arithmetic here is checked, in accordance with <a href="blockchain/raw/bedrock-v1.1-mantle-specification.html#arithmetic">Arithmetic</a>.</p>
+<p>At each epoch boundary, before any block of the new epoch is processed, the pool is credited with <code>get_pow_pool_refill(epoch_blocks)</code>, the fraction <code>POW_SHARE / SHARE_DEN</code> of the fees collected over the blocks of the epoch that ended, as specified in <a href="blockchain/raw/overview-cryptoeconomics.html#proof-of-work-reward-pool">Proof of Work Reward Pool</a>; <code>epoch_pow_reward</code> is then set to <code>compute_epoch_pow_reward(pow_reward_pool)</code> and held for the epoch. The division rounds down, and the remainder stays in the pow reward pool. All arithmetic here is checked, in accordance with <a href="blockchain/raw/bedrock-v1.1-mantle-specification.html#arithmetic">Arithmetic</a>.</p>
 <h3 id="exhaustion-within-an-epoch"><a class="header" href="#exhaustion-within-an-epoch">Exhaustion within an epoch</a></h3>
 <p>The reward is fixed for the epoch while the pool shrinks with every claim. The first condition of <a href="blockchain/raw/bedrock-v1.1-mantle-specification.html#claim_pow_reward">CLAIM_POW_REWARD</a> validation, that the reward is positive and the pool covers it, is evaluated for every claim against the pool as it stands at that point in the block, and a claim it rejects invalidates its transaction. Claiming resumes at the next epoch boundary at which the recomputed reward is positive and the pow reward pool covers it.</p>
 <h2 id="acceptance-window"><a class="header" href="#acceptance-window">Acceptance Window</a></h2>
@@ -25891,9 +25899,10 @@ BLEND_MAX_STEP: uint64 = 2                      # Max factor difficulty_blend ma
                     + EMA_SMOOTHING_FACTOR * TARGET_CLAIMS_PER_BLOCK)
     new_target = (TARGET_CLAIMS_PER_BLOCK * current_target
                   * EMA_SMOOTHING_PRECISION) // demand
-    return min(new_target, p - 1)
+    return min(max(new_target, REWARD_TARGET_FLOOR), REWARD_TARGET_CAP)
 </code></pre>
-<p><code>claims_in_block</code> counts the <code>CLAIM_POW_REWARD</code> Operations the block includes. Every claim in a block is validated against the target produced by the previous block's update; the update from a block's own count is applied after the block is processed and governs the next block. At genesis <code>difficulty_reward</code> is the quotient of the Euclidean division of the scalar field modulus by <span class="math-inline" data-tex="2^{26}"></span>.</p>
+<p><code>claims_in_block</code> counts the <code>CLAIM_POW_REWARD</code> Operations the block includes. Every claim in a block is validated against the target produced by the previous block's update; the update from a block's own count is applied after the block is processed and governs the next block. At genesis <code>difficulty_reward</code> is <code>REWARD_TARGET_CAP</code>.</p>
+<p>The update is multiplicative in the current target, so a target of zero never recovers. With <span class="math-inline" data-tex="F \gt 0"></span>, the update from a block without claims is <span class="math-inline" data-tex="\lfloor t \cdot P/F \rfloor"></span>, which equals <span class="math-inline" data-tex="t"></span> for every <span class="math-inline" data-tex="t \lt F/(P-F)"></span>. <code>REWARD_TARGET_FLOOR</code> is the smallest target that a block without claims strictly raises, <span class="math-inline" data-tex="\max(1, \lceil F/(P-F) \rceil)"></span>, which is 9 at the specified smoothing.</p>
 <h2 id="blend-difficulty"><a class="header" href="#blend-difficulty">Blend Difficulty</a></h2>
 <p><code>difficulty_blend</code> for epoch <span class="math-inline" data-tex="N"></span> is computed at the lottery-constants snapshot of epoch <span class="math-inline" data-tex="N-1"></span> specified in <a href="blockchain/raw/cryptarchia-v1-protocol.html#epoch">Epoch</a>, the moment epoch <span class="math-inline" data-tex="N"></span>'s nonce is fixed, from the blocks of epoch <span class="math-inline" data-tex="N-2"></span>, and is the public input <code>pow_blend_difficulty</code> of <a href="blockchain/raw/proof-of-quota.html">Proof of Quota</a> for the whole of epoch <span class="math-inline" data-tex="N"></span>. For epochs 0 and 1 it is <code>BLEND_DIFFICULTY_BASE</code>; the schedule begins with epoch 2, computed during epoch 1 from epoch 0's blocks.</p>
 <pre><code class="language-python">def compute_epoch_blend_difficulty(epoch_blocks: list[Block],   # the blocks of epoch N-2
@@ -37891,6 +37900,7 @@ This material, including any linked pages or documents, is provided for informat
 </div><!-- timeline:start -->
 <h2 id="timeline-121"><a class="header" href="#timeline-121">Timeline</a></h2>
 <ul>
+<li><strong>2026-10-01</strong> — <a href="https://github.com/logos-co/logos-lips/blob/760f5ee6f27cdb0b7b4d2fc1c79a49831dfcba6a/docs/blockchain/raw/overview-cryptoeconomics.md"><code>760f5ee</code></a> — [RFC] Mantle: EmPoWering — retarget bounds and pool funding (#443)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b7301a67b5364a8dbe719f8b67b96b7f198d0a13/docs/blockchain/raw/overview-cryptoeconomics.md"><code>b7301a6</code></a> — [RFC] Mantle: Enable basic EmPoWering machinery (#400)</li>
 <li><strong>2026-08-31</strong> — <a href="https://github.com/logos-co/logos-lips/blob/3cac48f3f3c7db46eddf3bbb70c1567d96e2b213/docs/blockchain/raw/overview-cryptoeconomics.md"><code>3cac48f</code></a> — docs(blockchain): rename locked notes to service notes (#423)</li>
 <li><strong>2026-08-26</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b655e4b0285d2e0bc09a19b5292d46bacc44019b/docs/blockchain/raw/overview-cryptoeconomics.md"><code>b655e4b</code></a> — [RFC] Block Rewards: Replace Burning/Minting with Pooling/Distributing/Releasing (#375)</li>
@@ -37908,6 +37918,7 @@ This material, including any linked pages or documents, is provided for informat
 <tr><td>1.2.0</td><td>Reflect the downward rounding of the leader share</td><td>2026-08-05</td></tr>
 <tr><td>1.2.1</td><td>Changing from burning/minting to pooling/distributing/releasing</td><td>2026-08-25</td></tr>
 <tr><td>1.2.2</td><td>Stated that the minimum stake of a service is locked in a service note</td><td>2026-08-27</td></tr>
+<tr><td>1.3.0</td><td>Add the proof of work reward pool, funded by diverting a share of the collected fees before they reach the rewards pool</td><td>2026-08-31</td></tr>
 </tbody></table>
 </div>
 <blockquote>
@@ -37939,7 +37950,7 @@ This material, including any linked pages or documents, is provided for informat
 <li>Permanent Storage fee: covers the permanent Ledger storage resources consumed by the transaction.</li>
 </ul>
 </li>
-<li>Execution base fees and storage fees are routed into the rewards pool for each block, removing them from circulation.</li>
+<li>Execution base fees and storage fees are routed into the rewards pool for each block, removing them from circulation, except for the share diverted to the <a href="blockchain/raw/overview-cryptoeconomics.html#proof-of-work-reward-pool">Proof of Work Reward Pool</a>.</li>
 <li>Rewards are distributed on an epoch basis:
 <ul>
 <li>Leaders (block proposers) include Mantle Transactions in every block. Each transaction pays Permanent Storage and Execution fees, which are routed into the rewards pool. For each block, a reward is calculated following the <a href="blockchain/raw/block-rewards.html">Block Rewards</a>. Additionally, a portion of the Execution fees is distributed back to leaders from the pool according to the <a href="blockchain/raw/execution-market.html">Execution Market</a>. These two sources determine the total rewards allocated to leaders, as explained in <a href="blockchain/raw/overview-cryptoeconomics.html#blend-service-and-consensus-leaders">Blend Service and Consensus Leaders</a>, which correspond to tips from the Execution market and 40% of block rewards. For anonymity reasons, block proposers don't receive rewards directly. Instead, leader rewards accumulate in a single pool that increases on an epoch basis rather than per block (see <a href="blockchain/raw/bedrock-anonymous-leaders-reward.html">Anonymous Leaders Reward Protocol</a>). When a new epoch begins, the pool increases by the total leader rewards from all blocks in the previous epoch. Simultaneously, leaders from the previous epoch can start claiming their rewards, with each unclaimed reward (since genesis) representing one equal share of the pool.</li>
@@ -38024,6 +38035,24 @@ When an epoch <span class="math-inline" data-tex="e"></span>  ends, Blend valida
         leader_rewards += get_execution_market_tips(b) # get Execution market tips
     return leader_rewards
 </code></pre>
+<h3 id="proof-of-work-reward-pool"><a class="header" href="#proof-of-work-reward-pool">Proof of Work Reward Pool</a></h3>
+<p>Proof of work claims are paid from a further pool. It is funded from the fees rather than from the block reward: each block credits a fixed share of the fees it collects to this pool, and the rest is pooled as before.</p>
+<pre><code class="language-python">def get_pow_pool_refill(e: epoch): # refill for the epoch e
+    refill = 0
+    for b in e.blocks: # for each block of the previous epoch
+        refill += get_collected_fees(b) * POW_SHARE // SHARE_DEN
+    return refill
+</code></pre>
+<p><code>get_collected_fees(b)</code> is the sum of the Execution base fees and the Permanent Storage fees paid in block <code>b</code>, and <code>POW_SHARE / SHARE_DEN</code> is the share diverted. The division rounds down, so the pool never takes more than that share; what the rounding leaves stays with the remainder.</p>
+<h3 id="who-pays-for-the-diversion"><a class="header" href="#who-pays-for-the-diversion">Who pays for the diversion</a></h3>
+<p>No tokens are created. <a href="blockchain/raw/block-rewards.html">Block Rewards</a> counts this pool as a fourth stock, beside the circulating supply, the rewards pool and the reserve. The diversion moves tokens that would otherwise have reached the rewards pool. The reserve is never drawn on to refill this pool, and a claim is paid only from what the pool holds.</p>
+<p>A block reward is a release from the reserve plus the average of the pooled fees. Diverting a share of the fees lowers that average by the same share, so it lowers the second part of the reward in the same proportion. Who bears that depends on the era:</p>
+<ul>
+<li>While the reserve release dominates the reward, the reward barely moves. The diverted tokens still reach circulation, through claims instead of block rewards.</li>
+<li>Once the reserve release approaches zero and the reward settles at the average pooled fee, a share diverted is a share not distributed. <strong>The cost falls on the Blend service and the leaders</strong>, in the 60/40 proportion in which they divide the block reward. That proportion is unchanged; the total they divide is smaller.</li>
+</ul>
+<p>The emission rate factor is computed in part from the pooling rate, so the released part of the reward responds to the diversion as well. That response vanishes in both eras above, and between them it is comparable to the direct effect.</p>
+<p><code>POW_SHARE</code> is therefore a further claim on the flow that funds the privacy layer and consensus, and must be chosen on that basis.</p>
 <h2 id="reward-distribution-protocols"><a class="header" href="#reward-distribution-protocols">Reward Distribution Protocols</a></h2>
 <h3 id="anonymous-leaders-reward-protocol-1"><a class="header" href="#anonymous-leaders-reward-protocol-1">Anonymous Leaders Reward Protocol</a></h3>
 <p>To protect leaders' privacy, we must not link leaders to their blocks and rewards. Therefore, we designed a mechanism for anonymous reward claiming. A key design decision in this mechanism is that the amount of rewards a leader receives cannot be associated with or calculated based on the block they proposed. Without this approach, leaders could be linked back to their proposed blocks based on the value of their claimed rewards. This mechanism creates an anonymity pool where all leaders contribute, turning the leader-to-block assignment into a guessing game.</p>
@@ -38070,6 +38099,7 @@ When an epoch <span class="math-inline" data-tex="e"></span>  ends, Blend valida
 </div><!-- timeline:start -->
 <h2 id="timeline-122"><a class="header" href="#timeline-122">Timeline</a></h2>
 <ul>
+<li><strong>2026-10-01</strong> — <a href="https://github.com/logos-co/logos-lips/blob/760f5ee6f27cdb0b7b4d2fc1c79a49831dfcba6a/docs/blockchain/raw/block-rewards.md"><code>760f5ee</code></a> — [RFC] Mantle: EmPoWering — retarget bounds and pool funding (#443)</li>
 <li><strong>2026-08-26</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b655e4b0285d2e0bc09a19b5292d46bacc44019b/docs/blockchain/raw/block-rewards.md"><code>b655e4b</code></a> — [RFC] Block Rewards: Replace Burning/Minting with Pooling/Distributing/Releasing (#375)</li>
 <li><strong>2026-07-03</strong> — <a href="https://github.com/logos-co/logos-lips/blob/709cf7f1662affa6efa094e2fb066e9b530b5aaa/docs/blockchain/raw/block-rewards.md"><code>709cf7f</code></a> — Bedrock-RFC: Remove Concept of a Session (#365)</li>
 <li><strong>2026-05-29</strong> — <a href="https://github.com/logos-co/logos-lips/blob/67e498e2d65e447d954e213ea89bbe3b9b285a8a/docs/blockchain/raw/block-rewards.md"><code>67e498e</code></a> — chore: fix math issues (#350)</li>
@@ -38080,6 +38110,7 @@ When an epoch <span class="math-inline" data-tex="e"></span>  ends, Blend valida
 <div class="table-wrapper"><table><thead><tr><th>Version</th><th>Changes</th><th>Date</th></tr></thead><tbody>
 <tr><td>1.0.0</td><td>Initial revision.</td><td>2026-04-24</td></tr>
 <tr><td>1.1.0</td><td>Changing from burning/minting to pooling/distributing/releasing, removing <span class="math-inline" data-tex="S_{tge}"></span></td><td>2026-08-25</td></tr>
+<tr><td>1.2.0</td><td>Count the proof of work reward pool as a fourth controlled stock, bound net circulating growth by the two stocks that drain, and state that the pooled fee is net of the share diverted to that pool</td><td>2026-08-31</td></tr>
 </tbody></table>
 </div>
 <blockquote>
@@ -38233,12 +38264,12 @@ This material, including any linked pages or documents, is provided for informat
 <li><span class="math-inline" data-tex="S_{cap}"></span> denotes the maximum allowable token supply (hard cap).</li>
 <li><span class="math-inline" data-tex="\Delta_t"></span> denotes the fraction of year in one time step per e.g., epoch, block, or day.</li>
 <li><span class="math-inline" data-tex="f"></span> be the average number of block proposal within <span class="math-inline" data-tex="\Delta_{t}"></span> units.</li>
-<li><span class="math-inline" data-tex="R_\text{block} = D_{1,t}"></span> denotes the per-block Execution base fees and Storage fees collected in the block and routed to the pending reward pool when the block is proposed.</li>
+<li><span class="math-inline" data-tex="R_\text{block} = D_{1,t}"></span> denotes the per-block Execution base fees and Storage fees collected in the block and routed to the pending reward pool when the block is proposed. It is the amount the pool receives, net of the share diverted to the <a href="blockchain/raw/overview-cryptoeconomics.html#proof-of-work-reward-pool">Proof of Work Reward Pool</a>.</li>
 <li><span class="math-inline" data-tex="\bar{R}_t = \dfrac{1}{T} \sum_{\tau=t-T+1}^{t} D_{1,\tau}"></span> denotes the average pooled reward: the moving average of <span class="math-inline" data-tex="R_\text{block}"></span> over the look-back window <span class="math-inline" data-tex="T"></span>.</li>
 </ul>
 <p>The recycled component distributes the average pooled reward <span class="math-inline" data-tex="\bar{R}_t"></span>, rather than the single-block fee <span class="math-inline" data-tex="R_\text{block}"></span>, which smooths it across the window <span class="math-inline" data-tex="T"></span>. Rearranging equation (1) isolates the role of the reserve release:</p>
 <div class="math-block" data-tex="\bar{R}_t + A_t \cdot \left( \dfrac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f} - \bar{R}_t \right)."></div>
-<p>The base distributed every block is the average pooled fees <span class="math-inline" data-tex="\bar{R}_t"></span>. The second term is the reserve release: when the aggregate KPI is far from the target, <span class="math-inline" data-tex="A_t \rightarrow 1"></span> and the reserve release tops up the reward from <span class="math-inline" data-tex="\bar{R}_t"></span> toward the per-block release cap <span class="math-inline" data-tex="\frac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f}"></span>. In the bootstrap regime, where activity is low and <span class="math-inline" data-tex="\bar{R}_t &lt; \frac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f}"></span>, the top-up is positive, so the reserve release raises the reward above the average pooled fees. If the average pooled fees already exceeds the release cap, the second term is non-positive, and therefore less tokens are released from the average pooled fees as rewards.</p>
+<p>The base distributed every block is the average pooled fees <span class="math-inline" data-tex="\bar{R}_t"></span>. The second term is the reserve release: when the aggregate KPI is far from the target, <span class="math-inline" data-tex="A_t \rightarrow 1"></span> and the reserve release tops up the reward from <span class="math-inline" data-tex="\bar{R}_t"></span> toward the per-block release cap <span class="math-inline" data-tex="\frac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f}"></span>. In the bootstrap regime, where activity is low and <span class="math-inline" data-tex="\bar{R}_t \lt \frac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f}"></span>, the top-up is positive, so the reserve release raises the reward above the average pooled fees. If the average pooled fees already exceeds the release cap, the second term is non-positive, and therefore less tokens are released from the average pooled fees as rewards.</p>
 <pre><code class="language-python">def block_rewards(
     S_cap: float,
     emission_rate_factor: float,
@@ -38264,7 +38295,7 @@ This material, including any linked pages or documents, is provided for informat
 </ul>
 <p>The reserve funds the release and is monotonically non-increasing, bounded below by zero:</p>
 <div class="math-block" data-tex="B_t = B_{t-1} - \iota_t, \qquad B_t \geq 0."></div>
-<p>Once the reserve is depleted, <span class="math-inline" data-tex="\iota_t = 0"></span> and the reward reduces to the recycled component <span class="math-inline" data-tex="(1 - A_t) \cdot \bar{R}_t"></span>, funded entirely by pooled fees. The cap on <span class="math-inline" data-tex="\iota_t"></span> makes the reserve last <span class="math-inline" data-tex="Y"></span> years at the maximum release rate, and longer whenever <span class="math-inline" data-tex="A_t &lt; 1"></span>.</p>
+<p>Once the reserve is depleted, <span class="math-inline" data-tex="\iota_t = 0"></span> and the reward reduces to the recycled component <span class="math-inline" data-tex="(1 - A_t) \cdot \bar{R}_t"></span>, funded entirely by pooled fees. The cap on <span class="math-inline" data-tex="\iota_t"></span> makes the reserve last <span class="math-inline" data-tex="Y"></span> years at the maximum release rate, and longer whenever <span class="math-inline" data-tex="A_t \lt 1"></span>.</p>
 <p>The pool collects every fee and pays out only the recycled component, so its balance evolves as</p>
 <div class="math-block" data-tex="P_t = P_{t-1} + R_\text{block} - (1 - A_t) \cdot \bar{R}_t."></div>
 <p>The increment <span class="math-inline" data-tex="R_\text{block} - (1 - A_t)\bar{R}_t"></span> can take either sign. Near target (<span class="math-inline" data-tex="A_t \rightarrow 0"></span>) the pool pays the average and banks the difference <span class="math-inline" data-tex="D_{1,t} - \bar{R}_t"></span>, acting as a buffer that smooths fee fluctuations; far from target (<span class="math-inline" data-tex="A_t \rightarrow 1"></span>) it retains the full fee while the reserve release carries the reward. The pool is redistributable, subject to <span class="math-inline" data-tex="P_t \geq 0"></span>.</p>
@@ -38272,7 +38303,8 @@ This material, including any linked pages or documents, is provided for informat
 <div class="math-block" data-tex="\Delta S_t = R_t - R_\text{block} = (1 - A_t) \cdot \bar{R}_t + \iota_t - D_{1,t},"></div>
 <div class="math-block" data-tex="\Delta P_t = R_\text{block} - (1 - A_t) \cdot \bar{R}_t, \qquad \Delta B_t = -\iota_t,"></div>
 <div class="math-block" data-tex="\Delta S_t^{tot} = \Delta S_t + \Delta P_t + \Delta B_t = 0."></div>
-<p>The controlled total is constant: the mechanism never mints tokens. A reserve release moves tokens from <span class="math-inline" data-tex="B_t"></span> into circulation, routing a fee moves tokens from circulation into <span class="math-inline" data-tex="P_t"></span>, and recycling moves them back. Circulating supply <span class="math-inline" data-tex="S_t"></span> rises as the reserve drains, and contracts whenever the fee inflow exceeds the distributed reward, <span class="math-inline" data-tex="D_{1,t} &gt; R_t"></span>, when tokens accumulate in the pool faster than they are paid out. This removes tokens from circulation, not from existence, and reverses if the pool is later released. Net circulating growth over the reserve's life is bounded by <span class="math-inline" data-tex="B_0 = I_{max} \cdot S_{cap} \cdot Y"></span>.</p>
+<p>The controlled total is constant: the mechanism never mints tokens. A reserve release moves tokens from <span class="math-inline" data-tex="B_t"></span> into circulation, routing a fee moves tokens from circulation into <span class="math-inline" data-tex="P_t"></span>, and recycling moves them back. Circulating supply <span class="math-inline" data-tex="S_t"></span> rises as the reserve drains, and contracts whenever the fee inflow exceeds the distributed reward, <span class="math-inline" data-tex="D_{1,t} \gt R_t"></span>, when tokens accumulate in the pool faster than they are paid out. This removes tokens from circulation, not from existence, and reverses if the pool is later released.</p>
+<p>The <a href="blockchain/raw/overview-cryptoeconomics.html#proof-of-work-reward-pool">Proof of Work Reward Pool</a> is a stock of the same kind, holding tokens allocated at genesis and topped up by the share of the fees diverted before they reach <span class="math-inline" data-tex="P_t"></span>, and paying them into circulation as claims are made. It joins the controlled total, which is <span class="math-inline" data-tex="S_t + P_t + B_t + W_t"></span>, writing <span class="math-inline" data-tex="W_t"></span> for this pool, and is constant for the same reason: every movement is between stocks. Net circulating growth over the reserve's life is bounded by <span class="math-inline" data-tex="B_0 + W_0"></span>, the two stocks that begin full and drain into circulation.</p>
 <h2 id="emission-rate-factor-function"><a class="header" href="#emission-rate-factor-function">Emission Rate Factor Function</a></h2>
 <p>The emission rate factor <span class="math-inline" data-tex="A_t \in [0,1]"></span> determines the portion of <span class="math-inline" data-tex="I_{max}"></span> that should be emitted based on current values of <span class="math-inline" data-tex="\delta_t"></span> and <span class="math-inline" data-tex="\gamma_t"></span>:</p>
 <div class="math-block" data-tex="A_t = \min \lbrace 1, \max \lbrace 0, \dfrac{ \alpha_d \cdot \delta_t + \alpha_a \cdot \gamma_t + I_{min}}{I_{max}} \rbrace \rbrace."></div>
@@ -38456,6 +38488,7 @@ def block_reward(total_stake: int64, pooled_fees_window: list[int64]) -&gt; tupl
 </div><!-- timeline:start -->
 <h2 id="timeline-123"><a class="header" href="#timeline-123">Timeline</a></h2>
 <ul>
+<li><strong>2026-10-01</strong> — <a href="https://github.com/logos-co/logos-lips/blob/760f5ee6f27cdb0b7b4d2fc1c79a49831dfcba6a/docs/blockchain/raw/execution-market.md"><code>760f5ee</code></a> — [RFC] Mantle: EmPoWering — retarget bounds and pool funding (#443)</li>
 <li><strong>2026-08-26</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b655e4b0285d2e0bc09a19b5292d46bacc44019b/docs/blockchain/raw/execution-market.md"><code>b655e4b</code></a> — [RFC] Block Rewards: Replace Burning/Minting with Pooling/Distributing/Releasing (#375)</li>
 <li><strong>2026-08-26</strong> — <a href="https://github.com/logos-co/logos-lips/blob/5a9bee03baa8c6c6267a0574f2bf8fad7f7f0be6/docs/blockchain/raw/execution-market.md"><code>5a9bee0</code></a> — docs(blockchain): make execution steps clearer (#417)</li>
 <li><strong>2026-07-28</strong> — <a href="https://github.com/logos-co/logos-lips/blob/38916aa474164ac4acd81e62d19715e17626be17/docs/blockchain/raw/execution-market.md"><code>38916aa</code></a> — docs(blockchain): prevent execution and storage fees from rounding down to zero (#384)</li>
@@ -38472,6 +38505,7 @@ def block_reward(total_stake: int64, pooled_fees_window: list[int64]) -&gt; tupl
 <tr><td>1.1.0</td><td>Round the base fee update upwards</td><td>2026-07-28</td></tr>
 <tr><td>1.1.1</td><td>Precise that greedy inclusion selects a candidate only if it is valid in the state the already selected transactions leave</td><td>2026-08-24</td></tr>
 <tr><td>1.1.2</td><td>Changing from burning/minting to pooling/distributing</td><td>2026-08-26</td></tr>
+<tr><td>1.2.0</td><td>The base fee is routed to the rewards pool less the share diverted to the proof of work reward pool</td><td>2026-08-31</td></tr>
 </tbody></table>
 </div>
 <blockquote>
@@ -38499,7 +38533,7 @@ This material, including any linked pages or documents, is provided for informat
 <ul>
 <li>Dynamic Base Fee: A protocol-defined base_fee for Execution Gas must be paid for a transaction to be included in a block. This fee adjusts automatically based on a smoothed average of recent network demand relative to a predefined capacity target, ensuring sustainable network load. This base_fee is the minimal threshold to be paid for the transaction to be accepted by the block builder.</li>
 <li>Priority Fee (Tip): To incentivize faster inclusion by block builders, users add a priority_fee on top of the base fee. This creates a simple and transparent auction for block space during periods of high demand. The proceeds of this goes to the block builder.</li>
-<li>Fee Splitting and Pooling: The two fee components are treated differently. The entire base_fee is routed to the rewards pool, removing it from circulation. As usage grows, more base fees are routed to the pool and removed from circulation, which creates a direct link between network activity and the circulating supply of the native token. The priority_fee is not immediately distributed to the block builder (to preserve privacy), but instead it is directed into the block builders reward stream. 40% of the rewards will be allocated to block builders and the remaining 60% to Blend nodes. Rewards are privacy-preserving via <a href="blockchain/raw/bedrock-anonymous-leaders-reward.html">Anonymous Leaders Reward Protocol</a>.</li>
+<li>Fee Splitting and Pooling: The two fee components are treated differently. The base_fee, less the share diverted to the <a href="blockchain/raw/overview-cryptoeconomics.html#proof-of-work-reward-pool">Proof of Work Reward Pool</a>, is routed to the rewards pool, removing it from circulation. As usage grows, more base fees are routed to the pool and removed from circulation, which creates a direct link between network activity and the circulating supply of the native token. The priority_fee is not immediately distributed to the block builder (to preserve privacy), but instead it is directed into the block builders reward stream. 40% of the rewards will be allocated to block builders and the remaining 60% to Blend nodes. Rewards are privacy-preserving via <a href="blockchain/raw/bedrock-anonymous-leaders-reward.html">Anonymous Leaders Reward Protocol</a>.</li>
 </ul>
 <p>The entire lifecycle can be visualized in the following flow:</p>
 <p><img src="blockchain/raw/execution-market/assets/execution-market-lifecycle.svg" alt="Execution market lifecycle flow" /></p>
@@ -38625,6 +38659,7 @@ def update_base_fee(base_fee: int, g_avg: int) -&gt; int:
 </div><!-- timeline:start -->
 <h2 id="timeline-124"><a class="header" href="#timeline-124">Timeline</a></h2>
 <ul>
+<li><strong>2026-10-01</strong> — <a href="https://github.com/logos-co/logos-lips/blob/760f5ee6f27cdb0b7b4d2fc1c79a49831dfcba6a/docs/blockchain/raw/storage-markets.md"><code>760f5ee</code></a> — [RFC] Mantle: EmPoWering — retarget bounds and pool funding (#443)</li>
 <li><strong>2026-08-26</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b655e4b0285d2e0bc09a19b5292d46bacc44019b/docs/blockchain/raw/storage-markets.md"><code>b655e4b</code></a> — [RFC] Block Rewards: Replace Burning/Minting with Pooling/Distributing/Releasing (#375)</li>
 <li><strong>2026-07-28</strong> — <a href="https://github.com/logos-co/logos-lips/blob/38916aa474164ac4acd81e62d19715e17626be17/docs/blockchain/raw/storage-markets.md"><code>38916aa</code></a> — docs(blockchain): prevent execution and storage fees from rounding down to zero (#384)</li>
 <li><strong>2026-07-27</strong> — <a href="https://github.com/logos-co/logos-lips/blob/628684e3b9df9972526e388212d87de16f023ff4/docs/blockchain/raw/storage-markets.md"><code>628684e</code></a> — docs(blockchain): fix CHANNEL_DEPOSIT execution, block limits and storage market formatting (#381)</li>
@@ -38640,6 +38675,7 @@ def update_base_fee(base_fee: int, g_avg: int) -&gt; int:
 <tr><td>1.0.2</td><td>Fix invalid python indentation due to github migration</td><td>2026-07-27</td></tr>
 <tr><td>1.1.0</td><td>Round the price update upwards and align the reference code with the zero target guard</td><td>2026-07-28</td></tr>
 <tr><td>1.1.1</td><td>Changing from burning/minting to pooling/distributing/releasing</td><td>2026-08-25</td></tr>
+<tr><td>1.2.0</td><td>The storage fee is routed to the rewards pool less the share diverted to the proof of work reward pool</td><td>2026-08-31</td></tr>
 </tbody></table>
 </div>
 <blockquote>
@@ -38662,7 +38698,7 @@ This material, including any linked pages or documents, is provided for informat
 <p>Justification. As will be discussed later, the tradeoff between adaptability and predictability of the mechanism is determined by its parameters. In scenarios of high volatility, its core design principle is to act as a shock absorber, deliberately filtering out high-frequency, transient volatility by operating over longer timeframes and using a smoothed moving average (EMA). For the primary consumer, reacting to every momentary spike in demand would create untenable price chaos. This model, therefore, intentionally forgoes instantaneous adaptation in favor of providing crucial timeframe-level price certainty, ensuring that fees reflect meaningful, medium-term trends rather than reacting to volatile, short-term market noise.</p>
 <h1 id="overview-58"><a class="header" href="#overview-58">Overview</a></h1>
 <p>The proposed fee mechanism operates on a simple but powerful principle: the price for Logos Blockchain Storage is fixed and predictable within a given timeframe (epoch for Permanent Storage), but it adjusts smoothly between timeframes based on observed network usage.</p>
-<p>When a user submits data, a fee is calculated based on the Logos Blockchain Storage Gas consumption. This fee is determined by a price per Gas, <span class="math-inline" data-tex="P_{storage}"></span>, which is known in advance for the entire timeframe. The collected fee is routed in full into the network's shared rewards pool, the same pool that funds block rewards (see <a href="blockchain/raw/storage-markets.html#fee-routing">Fee Routing</a>).</p>
+<p>When a user submits data, a fee is calculated based on the Logos Blockchain Storage Gas consumption. This fee is determined by a price per Gas, <span class="math-inline" data-tex="P_{storage}"></span>, which is known in advance for the entire timeframe. The collected fee is routed into the network's shared rewards pool, the same pool that funds block rewards (see <a href="blockchain/raw/storage-markets.html#fee-routing">Fee Routing</a>).</p>
 <p>At the end of each timeframe, the protocol tallies the total amount of Logos Blockchain Storage Gas that was stored. It compares this actual usage to an adaptive target a "healthy" usage level that is itself a dynamic blend of a long-term policy goal and recent historical usage. Based on whether the actual usage was above or below this target, the price <span class="math-inline" data-tex="P_{storage}"></span> for the next timeframe is adjusted slightly up or down.</p>
 <p>This flow can be visualized as follows:</p>
 <p><img src="blockchain/raw/storage-markets/assets/storage-market-lifecycle.svg" alt="Storage market lifecycle flow" /></p>
@@ -38677,7 +38713,7 @@ This material, including any linked pages or documents, is provided for informat
 <p>with <span class="math-inline" data-tex="f:\mathbb{N}\to\mathbb{R}_+"></span> a monotonically increasing function. Making f sublinear can be understood as accounting for economies of scale, while making <span class="math-inline" data-tex="f"></span> superlinear can be understood as a penalization for using larger data sizes. We decided to go with the linear form of <span class="math-inline" data-tex="f"></span> as it was the least opinionated. Examples of this could be</p>
 <div class="math-block" data-tex="\begin{align*}&#10;F_\text{storage}^\text{exp}&amp;=\exp(\alpha S_\text{gas})\cdot P_\text{storage}\quad \alpha &gt;0\\&#10;F_\text{poly}^\text{exp}&amp;=S^\beta_\text{gas}\cdot P_\text{storage},\quad \beta&gt;1\\&#10;\end{align*}"></div>
 <h3 id="fee-routing"><a class="header" href="#fee-routing">Fee Routing</a></h3>
-<p>Each Logos Blockchain Storage fee <span class="math-inline" data-tex="F_{\text{storage}}"></span> is routed in full into the network's shared rewards pool at the moment its transaction is included, rather than paid to any participant or removed from supply. This is the same pool fed by the <a href="blockchain/raw/execution-market.html">Execution Market</a> and drawn down to pay leaders and Blend nodes.</p>
+<p>Each Logos Blockchain Storage fee <span class="math-inline" data-tex="F_{\text{storage}}"></span> is routed into the network's shared rewards pool at the moment its transaction is included, less the fixed share diverted to the <a href="blockchain/raw/overview-cryptoeconomics.html#proof-of-work-reward-pool">Proof of Work Reward Pool</a>, rather than paid to any participant or removed from supply. This is the same pool fed by the <a href="blockchain/raw/execution-market.html">Execution Market</a> and drawn down to pay leaders and Blend nodes.</p>
 <p>Aggregated over a block, the Storage fees of its transactions form the Storage-market component of the per-block pool inflow <span class="math-inline" data-tex="R_{block}"></span> used to compute block rewards:</p>
 <div class="math-block" data-tex="\hat{R}_{\text{storage}} = \sum_{t \in \mathcal{B}} S_{\text{gas}}(t) \cdot P_{\text{storage}}(s) = P_{\text{storage}}(s) \sum_{t \in \mathcal{B}} S_{\text{gas}}(t),"></div>
 <p>where <span class="math-inline" data-tex="\mathcal{B}"></span> is the set of transactions in the block, <span class="math-inline" data-tex="S_{\text{gas}}(t)"></span> is the Logos Blockchain Storage Gas consumed by transaction <span class="math-inline" data-tex="t"></span>, and <span class="math-inline" data-tex="P_{\text{storage}}(s)"></span> is the fixed price of the enclosing timeframe <span class="math-inline" data-tex="s"></span>. The Execution market contributes the remaining component of <span class="math-inline" data-tex="R_{block}"></span>, the pooled base fees <span class="math-inline" data-tex="\hat{R}_{\text{pooled}}"></span> (cf. <a href="blockchain/raw/execution-market.html">Execution Market</a>), giving <span class="math-inline" data-tex="R_{block} = \hat{R}_{\text{storage}} + \hat{R}_{\text{pooled}}"></span>. This pooled inflow is distributed to leaders and Blend nodes through the reward mechanism of <a href="blockchain/raw/block-rewards.html">Block Rewards</a>. The Storage market governs only the price <span class="math-inline" data-tex="P_{\text{storage}}(s)"></span>; the routing and subsequent distribution of the resulting fee are defined by the block-reward mechanism.</p>

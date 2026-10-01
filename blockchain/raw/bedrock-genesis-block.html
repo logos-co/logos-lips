@@ -192,6 +192,7 @@
 </div><!-- timeline:start -->
 <h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
 <ul>
+<li><strong>2026-10-01</strong> — <a href="https://github.com/logos-co/logos-lips/blob/760f5ee6f27cdb0b7b4d2fc1c79a49831dfcba6a/docs/blockchain/raw/bedrock-genesis-block.md"><code>760f5ee</code></a> — [RFC] Mantle: EmPoWering — retarget bounds and pool funding (#443)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b7301a67b5364a8dbe719f8b67b96b7f198d0a13/docs/blockchain/raw/bedrock-genesis-block.md"><code>b7301a6</code></a> — [RFC] Mantle: Enable basic EmPoWering machinery (#400)</li>
 <li><strong>2026-08-31</strong> — <a href="https://github.com/logos-co/logos-lips/blob/3cac48f3f3c7db46eddf3bbb70c1567d96e2b213/docs/blockchain/raw/bedrock-genesis-block.md"><code>3cac48f</code></a> — docs(blockchain): rename locked notes to service notes (#423)</li>
 <li><strong>2026-08-26</strong> — <a href="https://github.com/logos-co/logos-lips/blob/eb5ce96a1cfcfcb5e60164772ea5eccaafc5ec97/docs/blockchain/raw/bedrock-genesis-block.md"><code>eb5ce96</code></a> — docs(blockchain): specify genesis block validation rule (#419)</li>
@@ -213,7 +214,7 @@
 <tr><td>1.1.3</td><td>Replaced the <code>block_root</code> header field with <code>body_root</code>, taken over an empty uncle header list and the initial transaction, due to updated <a href="bedrock-v1.1-block-construction.html">Block Construction, Validation and Execution</a>.</td><td>2026-08-06</td></tr>
 <tr><td>1.1.4</td><td>Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy.</td><td>2026-08-25</td></tr>
 <tr><td>1.1.5</td><td>Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a <code>service_note_id</code></td><td>2026-08-27</td></tr>
-<tr><td>1.2.0</td><td>Seed the pow reward pool at genesis</td><td>2026-09-08</td></tr>
+<tr><td>1.2.0</td><td>Seed the pow reward pool at genesis from the initial token distribution</td><td>2026-09-08</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
@@ -245,7 +246,8 @@
                                       # = 5/1000 of the maximum supply
 </code></pre>
 <p>The seed is five thousandths of the maximum supply <span class="math-inline" data-tex="S_{cap}"></span>, as specified in <a href="proof-of-work.html#reward-pool">Reward Pool</a>.</p>
-<p>The pool holds a balance rather than notes, so unlike the stakeholder allocations above it does not appear as an output of the initial Transfer Operation. It is consensus state maintained as specified in <a href="proof-of-work.html#reward-pool">Reward Pool</a>, and after genesis it changes only through claims.</p>
+<p>This allocation is drawn from the initial token distribution, not created in addition to it: the tokens exist from genesis, and the seed determines how many of them are held in the pool rather than distributed to stakeholders directly.</p>
+<p>The pool holds a balance rather than notes, so unlike the stakeholder allocations above it does not appear as an output of the initial Transfer Operation. It is consensus state maintained as specified in <a href="proof-of-work.html#reward-pool">Reward Pool</a>, and after genesis it changes through the epoch-boundary refill and through claims.</p>
 <p>The seed is not part of the Cryptarchia parameter inscription, because it is not a Cryptarchia parameter. It is established during <a href="#mantle-ledger-initialization">Mantle Ledger Initialization</a>.</p>
 <h2 id="initial-service-declarations"><a class="header" href="#initial-service-declarations">Initial Service Declarations</a></h2>
 <p>Blend Network MUST initialize its set of providers. This is done through a set of <code>SDP_DECLARE</code> Operations in the Genesis Mantle Transaction.</p>
@@ -451,7 +453,7 @@ GENESIS_BLOCK = (GENESIS_HEADER, [GENESIS_MANTLE_TX])
 <li><code>pow_reward_pool</code> is set to <code>POW_REWARD_POOL_GENESIS</code>, as described in <a href="#initial-proof-of-work-reward-pool">Initial Proof of Work Reward Pool</a>.</li>
 <li><code>epoch_pow_reward</code> is derived from it by the computation given in <a href="proof-of-work.html#reward-pool">Reward Pool</a>, so that claiming is productive from the first epoch rather than waiting for the first refill.</li>
 <li><code>difficulty_blend</code> is set to <code>BLEND_DIFFICULTY_BASE</code> for <strong>epochs 0 and 1</strong>, as given in <a href="proof-of-work.html#blend-difficulty">Blend Difficulty</a>: the value for an epoch is fixed at the preceding epoch's nonce snapshot from the load of the epoch before that, and no complete input epoch exists before epoch 2. The schedule begins with epoch 2's value, computed during epoch 1 from epoch 0's load.</li>
-<li><code>difficulty_reward</code> is set to the genesis value given in <a href="proof-of-work.html#reward-difficulty">Reward Difficulty</a>, which is set hard so that the controller's first correction loosens rather than tightens, and <code>pow_nullifiers</code> is empty.</li>
+<li><code>difficulty_reward</code> is set to the genesis value given in <a href="proof-of-work.html#reward-difficulty">Reward Difficulty</a>, and <code>pow_nullifiers</code> is empty.</li>
 </ol>
 <h2 id="cryptarchia-initialization"><a class="header" href="#cryptarchia-initialization">Cryptarchia Initialization</a></h2>
 <p>The Mantle Transaction contains an inscription sent to the null channel containing the parameters for initializing Cryptarchia. It is validated as an ordinary <code>CHANNEL_INSCRIBE</code> Operation minus its signature: the null channel does not exist yet, so the inscription must carry a <code>parent</code> of <code>ZERO</code>, and its execution creates that channel with the null key as its only accredited key.</p>

@@ -192,6 +192,7 @@
 </div><!-- timeline:start -->
 <h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
 <ul>
+<li><strong>2026-10-01</strong> — <a href="https://github.com/logos-co/logos-lips/blob/760f5ee6f27cdb0b7b4d2fc1c79a49831dfcba6a/docs/blockchain/raw/proof-of-work.md"><code>760f5ee</code></a> — [RFC] Mantle: EmPoWering — retarget bounds and pool funding (#443)</li>
 <li><strong>2026-09-29</strong> — <a href="https://github.com/logos-co/logos-lips/blob/96e958692700a1b4e67203158a3632d47640002f/docs/blockchain/raw/proof-of-work.md"><code>96e9586</code></a> — [RFC] Blend: Bound connection traffic at the receiver (#421)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b7301a67b5364a8dbe719f8b67b96b7f198d0a13/docs/blockchain/raw/proof-of-work.md"><code>b7301a6</code></a> — [RFC] Mantle: Enable basic EmPoWering machinery (#400)</li>
 </ul>
@@ -207,7 +208,7 @@
 <p>Proof of work removes this obstacle. A participant who has computed a puzzle solution may use it to post transactions and to send messages through Blend. Neither use has a prerequisite beyond the computation itself. The cost is the hardware and the electricity it burns, and it cannot be faked, since a valid ticket proves the work, and a validator checks it cheaply.</p>
 <p>The puzzles are measured against separate thresholds that follow separate objectives:</p>
 <ul>
-<li>the reward threshold keeps the number of paid claims per block near a target whatever the amount of mining,</li>
+<li>the reward threshold keeps the number of paid claims per block near a target,</li>
 <li>and the Blend threshold keeps admission to the network affordable when the network is quiet and dearer when it is busy.</li>
 </ul>
 <p>This document specifies the puzzle, the two thresholds, the pow reward pool and the reward it pays per claim, and the window within which a reward may be claimed. The Blend side of the mechanism is specified in <a href="proof-of-quota.html">Proof of Quota</a> and the claim Operation in <a href="bedrock-v1.1-mantle-specification.html#claim_pow_reward">Mantle</a>; this document holds what both depend on.</p>
@@ -220,7 +221,7 @@
     s --&gt; c["claims tokens from the&lt;br/&gt;pow reward pool"]
     c --&gt; t["pays for transactions"]
 </code></pre>
-<p>The tokens come from the pow reward pool, set aside at genesis. Nothing is minted for it, so mining does not inflate the supply. Each epoch pays out a fraction of what the pool still holds, so the reward is the same for every claim of that epoch, for as long as the pool can pay it.</p>
+<p>The tokens come from the pow reward pool, set aside at genesis and refilled each epoch from a share of the transaction fees. Nothing is minted for it, so mining does not inflate the supply. Each epoch pays out a fraction of what the pool still holds, so the reward is the same for every claim of that epoch, for as long as the pool can pay it.</p>
 <p>Each use has its own threshold, and a threshold sets how much work a solution costs. Every node computes both from what blocks carry, so no node trusts another for them.</p>
 <p>The reward threshold reads the claims in a block, the only sign of mining the chain has.</p>
 <pre><code class="language-mermaid">graph LR
@@ -264,7 +265,7 @@
 <li><code>epoch_pow_reward</code> is positive and <code>pow_reward_pool</code> still holds it.</li>
 </ul>
 <p><a href="bedrock-v1.1-mantle-specification.html#claim_pow_reward">Mantle</a> specifies these checks and the order they run in. A claim that fails any of them makes its transaction invalid. On acceptance the node pays <code>epoch_pow_reward</code> to the key, marks the ticket spent, and subtracts the same amount from <code>pow_reward_pool</code>.</p>
-<p>A node computes five values from the chain. <code>pow_reward_pool</code> and the set of spent tickets change when a claim is accepted. <code>difficulty_reward</code> is recomputed after every block, from the number of claims in that block. <code>epoch_pow_reward</code> is recomputed at each epoch boundary, from <code>pow_reward_pool</code>. <code>difficulty_blend</code> is recomputed once per epoch, from the transactions of the epoch before last, at the snapshot that fixes the epoch nonce. <a href="#reward-difficulty">Reward Difficulty</a>, <a href="#reward-pool">Reward Pool</a> and <a href="#blend-difficulty">Blend Difficulty</a> specify the three computations.</p>
+<p>A node computes five values from the chain. <code>pow_reward_pool</code> and the set of spent tickets change when a claim is accepted. <code>difficulty_reward</code> is recomputed after every block, from the number of claims in that block. <code>pow_reward_pool</code> is credited at each epoch boundary with a share of the fees of the epoch that ended, and <code>epoch_pow_reward</code> is then recomputed from it. <code>difficulty_blend</code> is recomputed once per epoch, from the transactions of the epoch before last, at the snapshot that fixes the epoch nonce. <a href="#reward-difficulty">Reward Difficulty</a>, <a href="#reward-pool">Reward Pool</a> and <a href="#blend-difficulty">Blend Difficulty</a> specify the three computations.</p>
 <p>A node keeps a spent ticket only while its referenced block is inside the window, so the set stays small. <a href="#acceptance-window">Acceptance Window</a> gives the window in slots.</p>
 <h1 id="details"><a class="header" href="#details">Details</a></h1>
 <h2 id="notation"><a class="header" href="#notation">Notation</a></h2>
@@ -288,8 +289,12 @@ EPOCH_POW_DISTRIBUTION_RATE_DEN: uint64 = 200
 TARGET_CLAIMS_PER_BLOCK: uint64 = 10            # T
 EXPECTED_BLOCKS_PER_EPOCH: uint64 = 21_600      # N_b = 10 k
 EXPECTED_BLOCKS_PER_WINDOW: uint64 = 10         # W_b
+POW_SHARE: uint64 = 10                          # beta, as the fraction POW_SHARE / SHARE_DEN
+SHARE_DEN: uint64 = 100
 EMA_SMOOTHING_FACTOR: uint64 = 9                # F, the weight given to the previous estimate
 EMA_SMOOTHING_PRECISION: uint64 = 10            # P, the scale F is expressed against; F &lt; P
+REWARD_TARGET_FLOOR: uint64 = 9                 # smallest target the retarget returns; see Reward Difficulty
+REWARD_TARGET_CAP: PowTarget = p // 2**26       # largest target the retarget returns, and its genesis value
 BLEND_DIFFICULTY_BASE: PowTarget = p // 2**19   # difficulty_blend at the reference load
 TARGET_TXS_PER_BLOCK: uint64 = 130              # Reference transactions per block, F_T / F_D
 BLEND_DAMPING_NUM: uint64 = 1                   # a, where the exponent is alpha = a / b
@@ -297,19 +302,20 @@ BLEND_DAMPING_DEN: uint64 = 2                   # b, with 0 &lt; a &lt;= b so th
 BLEND_MAX_STEP: uint64 = 2                      # Max factor difficulty_blend may move per epoch
 </code></pre>
 <p>The parameters must give an <code>epoch_pow_reward</code> above the fee of a claim transaction, which pays for the claim and the <code>TRANSFER</code> that spends its note, or a claim cannot pay its own fee.</p>
+<p><code>REWARD_TARGET_CAP</code> must be above <code>REWARD_TARGET_FLOOR</code> and at most <span class="math-inline" data-tex="p - 1"></span>, as <a href="#puzzle-target">Puzzle Target</a> requires. At or below the floor, every retarget would return <code>REWARD_TARGET_CAP</code>, so the target could not move.</p>
 <p><code>TARGET_TXS_PER_BLOCK</code> is the transaction rate the Blend network carries, <span class="math-inline" data-tex="F_T / F_D = 130"></span> transactions per block (<a href="blend-protocol.html#global-parameters">Global Parameters</a>).</p>
 <h2 id="puzzle-target"><a class="header" href="#puzzle-target">Puzzle Target</a></h2>
 <p><code>PowTarget</code> is an element of <span class="math-inline" data-tex="\mathbb{F}_p"></span>, as every ticket is. A ticket satisfies a target when its canonical integer representative in <span class="math-inline" data-tex="[0, p-1]"></span> is strictly below the target's; a smaller target is a harder puzzle. A representative is at most 254 bits, so a 256-bit unsigned integer holds any target.</p>
-<p>The two updates below multiply and divide targets as integers rather than in the fixed-width types of <a href="bedrock-v1.1-mantle-specification.html#arithmetic">Arithmetic</a>, and cap their result at <span class="math-inline" data-tex="p - 1"></span>, so that it converts back to a field element without reduction. Every intermediate fits in <strong>512 bits</strong>: the reward retarget's product reaches <span class="math-inline" data-tex="2^{261}"></span> and the Blend radicand <span class="math-inline" data-tex="2^{493}"></span>. Each operation is integer addition, multiplication, floor division or comparison, and <code>integer_nth_root</code> returns the exact floor, so two implementations agree exactly.</p>
+<p>The two updates below multiply and divide targets as integers rather than in the fixed-width types of <a href="bedrock-v1.1-mantle-specification.html#arithmetic">Arithmetic</a>, and cap their result at or below <span class="math-inline" data-tex="p - 1"></span>, so that it converts back to a field element without reduction. Every intermediate fits in <strong>512 bits</strong>: the reward retarget's product reaches <span class="math-inline" data-tex="2^{261}"></span> and the Blend radicand <span class="math-inline" data-tex="2^{493}"></span>. Each operation is integer addition, multiplication, floor division or comparison, and <code>integer_nth_root</code> returns the exact floor, so two implementations agree exactly.</p>
 <h2 id="reward-pool"><a class="header" href="#reward-pool">Reward Pool</a></h2>
-<p>The pool is seeded once, at genesis, with <code>POW_REWARD_POOL_GENESIS</code>, five thousandths of <span class="math-inline" data-tex="S_{cap}"></span>, as specified in <a href="bedrock-genesis-block.html">Bedrock Genesis Block</a>. After that it changes only through claims.</p>
+<p>The pool is seeded once, at genesis, with <code>POW_REWARD_POOL_GENESIS</code>, five thousandths of <span class="math-inline" data-tex="S_{cap}"></span>, as specified in <a href="bedrock-genesis-block.html">Bedrock Genesis Block</a>. After that it changes through the epoch-boundary refill and through claims.</p>
 <pre><code class="language-python">def compute_epoch_pow_reward(pow_reward_pool: TokenValue) -&gt; TokenValue:
     denominator = (EPOCH_POW_DISTRIBUTION_RATE_DEN
                    * TARGET_CLAIMS_PER_BLOCK
                    * EXPECTED_BLOCKS_PER_EPOCH)
     return (pow_reward_pool * EPOCH_POW_DISTRIBUTION_RATE_NUM) // denominator
 </code></pre>
-<p>At each epoch boundary, before any block of the new epoch is processed, <code>epoch_pow_reward</code> is set to <code>compute_epoch_pow_reward(pow_reward_pool)</code> and held for the epoch. The division rounds down, and the remainder stays in the pow reward pool. All arithmetic here is checked, in accordance with <a href="bedrock-v1.1-mantle-specification.html#arithmetic">Arithmetic</a>.</p>
+<p>At each epoch boundary, before any block of the new epoch is processed, the pool is credited with <code>get_pow_pool_refill(epoch_blocks)</code>, the fraction <code>POW_SHARE / SHARE_DEN</code> of the fees collected over the blocks of the epoch that ended, as specified in <a href="overview-cryptoeconomics.html#proof-of-work-reward-pool">Proof of Work Reward Pool</a>; <code>epoch_pow_reward</code> is then set to <code>compute_epoch_pow_reward(pow_reward_pool)</code> and held for the epoch. The division rounds down, and the remainder stays in the pow reward pool. All arithmetic here is checked, in accordance with <a href="bedrock-v1.1-mantle-specification.html#arithmetic">Arithmetic</a>.</p>
 <h3 id="exhaustion-within-an-epoch"><a class="header" href="#exhaustion-within-an-epoch">Exhaustion within an epoch</a></h3>
 <p>The reward is fixed for the epoch while the pool shrinks with every claim. The first condition of <a href="bedrock-v1.1-mantle-specification.html#claim_pow_reward">CLAIM_POW_REWARD</a> validation, that the reward is positive and the pool covers it, is evaluated for every claim against the pool as it stands at that point in the block, and a claim it rejects invalidates its transaction. Claiming resumes at the next epoch boundary at which the recomputed reward is positive and the pow reward pool covers it.</p>
 <h2 id="acceptance-window"><a class="header" href="#acceptance-window">Acceptance Window</a></h2>
@@ -325,9 +331,10 @@ BLEND_MAX_STEP: uint64 = 2                      # Max factor difficulty_blend ma
                     + EMA_SMOOTHING_FACTOR * TARGET_CLAIMS_PER_BLOCK)
     new_target = (TARGET_CLAIMS_PER_BLOCK * current_target
                   * EMA_SMOOTHING_PRECISION) // demand
-    return min(new_target, p - 1)
+    return min(max(new_target, REWARD_TARGET_FLOOR), REWARD_TARGET_CAP)
 </code></pre>
-<p><code>claims_in_block</code> counts the <code>CLAIM_POW_REWARD</code> Operations the block includes. Every claim in a block is validated against the target produced by the previous block's update; the update from a block's own count is applied after the block is processed and governs the next block. At genesis <code>difficulty_reward</code> is the quotient of the Euclidean division of the scalar field modulus by <span class="math-inline" data-tex="2^{26}"></span>.</p>
+<p><code>claims_in_block</code> counts the <code>CLAIM_POW_REWARD</code> Operations the block includes. Every claim in a block is validated against the target produced by the previous block's update; the update from a block's own count is applied after the block is processed and governs the next block. At genesis <code>difficulty_reward</code> is <code>REWARD_TARGET_CAP</code>.</p>
+<p>The update is multiplicative in the current target, so a target of zero never recovers. With <span class="math-inline" data-tex="F \gt 0"></span>, the update from a block without claims is <span class="math-inline" data-tex="\lfloor t \cdot P/F \rfloor"></span>, which equals <span class="math-inline" data-tex="t"></span> for every <span class="math-inline" data-tex="t \lt F/(P-F)"></span>. <code>REWARD_TARGET_FLOOR</code> is the smallest target that a block without claims strictly raises, <span class="math-inline" data-tex="\max(1, \lceil F/(P-F) \rceil)"></span>, which is 9 at the specified smoothing.</p>
 <h2 id="blend-difficulty"><a class="header" href="#blend-difficulty">Blend Difficulty</a></h2>
 <p><code>difficulty_blend</code> for epoch <span class="math-inline" data-tex="N"></span> is computed at the lottery-constants snapshot of epoch <span class="math-inline" data-tex="N-1"></span> specified in <a href="cryptarchia-v1-protocol.html#epoch">Epoch</a>, the moment epoch <span class="math-inline" data-tex="N"></span>'s nonce is fixed, from the blocks of epoch <span class="math-inline" data-tex="N-2"></span>, and is the public input <code>pow_blend_difficulty</code> of <a href="proof-of-quota.html">Proof of Quota</a> for the whole of epoch <span class="math-inline" data-tex="N"></span>. For epochs 0 and 1 it is <code>BLEND_DIFFICULTY_BASE</code>; the schedule begins with epoch 2, computed during epoch 1 from epoch 0's blocks.</p>
 <pre><code class="language-python">def compute_epoch_blend_difficulty(epoch_blocks: list[Block],   # the blocks of epoch N-2

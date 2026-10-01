@@ -192,6 +192,7 @@
 </div><!-- timeline:start -->
 <h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
 <ul>
+<li><strong>2026-10-01</strong> — <a href="https://github.com/logos-co/logos-lips/blob/760f5ee6f27cdb0b7b4d2fc1c79a49831dfcba6a/docs/blockchain/raw/execution-market.md"><code>760f5ee</code></a> — [RFC] Mantle: EmPoWering — retarget bounds and pool funding (#443)</li>
 <li><strong>2026-08-26</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b655e4b0285d2e0bc09a19b5292d46bacc44019b/docs/blockchain/raw/execution-market.md"><code>b655e4b</code></a> — [RFC] Block Rewards: Replace Burning/Minting with Pooling/Distributing/Releasing (#375)</li>
 <li><strong>2026-08-26</strong> — <a href="https://github.com/logos-co/logos-lips/blob/5a9bee03baa8c6c6267a0574f2bf8fad7f7f0be6/docs/blockchain/raw/execution-market.md"><code>5a9bee0</code></a> — docs(blockchain): make execution steps clearer (#417)</li>
 <li><strong>2026-07-28</strong> — <a href="https://github.com/logos-co/logos-lips/blob/38916aa474164ac4acd81e62d19715e17626be17/docs/blockchain/raw/execution-market.md"><code>38916aa</code></a> — docs(blockchain): prevent execution and storage fees from rounding down to zero (#384)</li>
@@ -208,6 +209,7 @@
 <tr><td>1.1.0</td><td>Round the base fee update upwards</td><td>2026-07-28</td></tr>
 <tr><td>1.1.1</td><td>Precise that greedy inclusion selects a candidate only if it is valid in the state the already selected transactions leave</td><td>2026-08-24</td></tr>
 <tr><td>1.1.2</td><td>Changing from burning/minting to pooling/distributing</td><td>2026-08-26</td></tr>
+<tr><td>1.2.0</td><td>The base fee is routed to the rewards pool less the share diverted to the proof of work reward pool</td><td>2026-08-31</td></tr>
 </tbody></table>
 </div>
 <blockquote>
@@ -235,7 +237,7 @@ This material, including any linked pages or documents, is provided for informat
 <ul>
 <li>Dynamic Base Fee: A protocol-defined base_fee for Execution Gas must be paid for a transaction to be included in a block. This fee adjusts automatically based on a smoothed average of recent network demand relative to a predefined capacity target, ensuring sustainable network load. This base_fee is the minimal threshold to be paid for the transaction to be accepted by the block builder.</li>
 <li>Priority Fee (Tip): To incentivize faster inclusion by block builders, users add a priority_fee on top of the base fee. This creates a simple and transparent auction for block space during periods of high demand. The proceeds of this goes to the block builder.</li>
-<li>Fee Splitting and Pooling: The two fee components are treated differently. The entire base_fee is routed to the rewards pool, removing it from circulation. As usage grows, more base fees are routed to the pool and removed from circulation, which creates a direct link between network activity and the circulating supply of the native token. The priority_fee is not immediately distributed to the block builder (to preserve privacy), but instead it is directed into the block builders reward stream. 40% of the rewards will be allocated to block builders and the remaining 60% to Blend nodes. Rewards are privacy-preserving via <a href="bedrock-anonymous-leaders-reward.html">Anonymous Leaders Reward Protocol</a>.</li>
+<li>Fee Splitting and Pooling: The two fee components are treated differently. The base_fee, less the share diverted to the <a href="overview-cryptoeconomics.html#proof-of-work-reward-pool">Proof of Work Reward Pool</a>, is routed to the rewards pool, removing it from circulation. As usage grows, more base fees are routed to the pool and removed from circulation, which creates a direct link between network activity and the circulating supply of the native token. The priority_fee is not immediately distributed to the block builder (to preserve privacy), but instead it is directed into the block builders reward stream. 40% of the rewards will be allocated to block builders and the remaining 60% to Blend nodes. Rewards are privacy-preserving via <a href="bedrock-anonymous-leaders-reward.html">Anonymous Leaders Reward Protocol</a>.</li>
 </ul>
 <p>The entire lifecycle can be visualized in the following flow:</p>
 <p><img src="execution-market/assets/execution-market-lifecycle.svg" alt="Execution market lifecycle flow" /></p>

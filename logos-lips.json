@@ -527,7 +527,7 @@
     "title": "Block Rewards",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-08-26",
+    "updated": "2026-10-01",
     "path": "blockchain/raw/block-rewards.html"
   },
   {
@@ -545,7 +545,7 @@
     "title": "Execution Market",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-08-26",
+    "updated": "2026-10-01",
     "path": "blockchain/raw/execution-market.html"
   },
   {
@@ -572,7 +572,7 @@
     "title": "[Overview] Cryptoeconomics",
     "status": "raw",
     "category": "Informational",
-    "updated": "2026-09-11",
+    "updated": "2026-10-01",
     "path": "blockchain/raw/overview-cryptoeconomics.html"
   },
   {
@@ -581,7 +581,7 @@
     "title": "Storage Markets",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-08-26",
+    "updated": "2026-10-01",
     "path": "blockchain/raw/storage-markets.html"
   },
   {
@@ -869,7 +869,7 @@
     "title": "Proof of Work",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-09-29",
+    "updated": "2026-10-01",
     "path": "blockchain/raw/proof-of-work.html"
   },
   {
@@ -941,7 +941,7 @@
     "title": "Bedrock Genesis Block",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-09-11",
+    "updated": "2026-10-01",
     "path": "blockchain/raw/bedrock-genesis-block.html"
   },
   {
