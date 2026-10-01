@@ -1345,7 +1345,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```python
 withdraw=Withdraw(
     declaration=alice_declaration_id,
-    nonce=1579532
+    nonce=alice_declaration_created << 32 | 1579532  # lifecycle_epoch, sequence
 )
 
 # Build the transfer operation to pay the fees
@@ -1480,7 +1480,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```python
 active=Active(
     declaration=alice_declaration_id,
-    nonce=1579532,
+    nonce=alice_declaration_created << 32 | 1579532,  # lifecycle_epoch, sequence
     metadata=b"Look, I am still doing my job"
 )
 
