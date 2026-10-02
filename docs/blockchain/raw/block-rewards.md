@@ -23,6 +23,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-24 |
 | 1.1.0 | Changing from burning/minting to pooling/distributing/releasing, removing $`S_{tge}`$ | 2026-08-25 |
+| 1.2.0 | Count the proof of work reward pool as a fourth controlled stock, bound net circulating growth by the two stocks that drain, and state that the pooled fee is net of the share diverted to that pool | 2026-08-31 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -207,7 +208,7 @@ where:
 - $`S_{cap}`$ denotes the maximum allowable token supply (hard cap).
 - $`\Delta_t`$ denotes the fraction of year in one time step per e.g., epoch, block, or day.
 - $f$ be the average number of block proposal within $`\Delta_{t}`$ units.
-- $`R_\text{block} = D_{1,t}`$ denotes the per-block Execution base fees and Storage fees collected in the block and routed to the pending reward pool when the block is proposed.
+- $`R_\text{block} = D_{1,t}`$ denotes the per-block Execution base fees and Storage fees collected in the block and routed to the pending reward pool when the block is proposed. It is the amount the pool receives, net of the share diverted to the [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool).
 - $`\bar{R}_t = \dfrac{1}{T} \sum_{\tau=t-T+1}^{t} D_{1,\tau}`$ denotes the average pooled reward: the moving average of $`R_\text{block}`$ over the look-back window $`T`$.
 
 The recycled component distributes the average pooled reward $`\bar{R}_t`$, rather than the single-block fee $`R_\text{block}`$, which smooths it across the window $`T`$. Rearranging equation (1) isolates the role of the reserve release:
@@ -216,7 +217,7 @@ $$
 \bar{R}_t + A_t \cdot \left( \dfrac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f} - \bar{R}_t \right).
 $$
 
-The base distributed every block is the average pooled fees $`\bar{R}_t`$. The second term is the reserve release: when the aggregate KPI is far from the target, $`A_t \rightarrow 1`$ and the reserve release tops up the reward from $`\bar{R}_t`$ toward the per-block release cap $`\frac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f}`$. In the bootstrap regime, where activity is low and $`\bar{R}_t < \frac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f}`$, the top-up is positive, so the reserve release raises the reward above the average pooled fees. If the average pooled fees already exceeds the release cap, the second term is non-positive, and therefore less tokens are released from the average pooled fees as rewards.
+The base distributed every block is the average pooled fees $`\bar{R}_t`$. The second term is the reserve release: when the aggregate KPI is far from the target, $`A_t \rightarrow 1`$ and the reserve release tops up the reward from $`\bar{R}_t`$ toward the per-block release cap $`\frac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f}`$. In the bootstrap regime, where activity is low and $`\bar{R}_t \lt \frac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f}`$, the top-up is positive, so the reserve release raises the reward above the average pooled fees. If the average pooled fees already exceeds the release cap, the second term is non-positive, and therefore less tokens are released from the average pooled fees as rewards.
 
 ```python
 def block_rewards(
@@ -251,7 +252,7 @@ $$
 B_t = B_{t-1} - \iota_t, \qquad B_t \geq 0.
 $$
 
-Once the reserve is depleted, $`\iota_t = 0`$ and the reward reduces to the recycled component $`(1 - A_t) \cdot \bar{R}_t`$, funded entirely by pooled fees. The cap on $`\iota_t`$ makes the reserve last $`Y`$ years at the maximum release rate, and longer whenever $`A_t < 1`$.
+Once the reserve is depleted, $`\iota_t = 0`$ and the reward reduces to the recycled component $`(1 - A_t) \cdot \bar{R}_t`$, funded entirely by pooled fees. The cap on $`\iota_t`$ makes the reserve last $`Y`$ years at the maximum release rate, and longer whenever $`A_t \lt 1`$.
 
 The pool collects every fee and pays out only the recycled component, so its balance evolves as
 
@@ -275,7 +276,9 @@ $$
 \Delta S_t^{tot} = \Delta S_t + \Delta P_t + \Delta B_t = 0.
 $$
 
-The controlled total is constant: the mechanism never mints tokens. A reserve release moves tokens from $`B_t`$ into circulation, routing a fee moves tokens from circulation into $`P_t`$, and recycling moves them back. Circulating supply $`S_t`$ rises as the reserve drains, and contracts whenever the fee inflow exceeds the distributed reward, $`D_{1,t} > R_t`$, when tokens accumulate in the pool faster than they are paid out. This removes tokens from circulation, not from existence, and reverses if the pool is later released. Net circulating growth over the reserve's life is bounded by $`B_0 = I_{max} \cdot S_{cap} \cdot Y`$.
+The controlled total is constant: the mechanism never mints tokens. A reserve release moves tokens from $`B_t`$ into circulation, routing a fee moves tokens from circulation into $`P_t`$, and recycling moves them back. Circulating supply $`S_t`$ rises as the reserve drains, and contracts whenever the fee inflow exceeds the distributed reward, $`D_{1,t} \gt R_t`$, when tokens accumulate in the pool faster than they are paid out. This removes tokens from circulation, not from existence, and reverses if the pool is later released.
+
+The [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool) is a stock of the same kind, holding tokens allocated at genesis and topped up by the share of the fees diverted before they reach $`P_t`$, and paying them into circulation as claims are made. It joins the controlled total, which is $`S_t + P_t + B_t + W_t`$, writing $`W_t`$ for this pool, and is constant for the same reason: every movement is between stocks. Net circulating growth over the reserve's life is bounded by $`B_0 + W_0`$, the two stocks that begin full and drain into circulation.
 
 ## Emission Rate Factor Function
 
