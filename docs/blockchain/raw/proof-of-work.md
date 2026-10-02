@@ -21,6 +21,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-09 |
 | 1.1.0 | Set the reference load of the Blend difficulty to the transaction rate the Blend network carries, `F_T / F_D = 130` transactions per block | 2026-09-11 |
+| 1.1.1 | Lowered `TARGET_TXS_PER_BLOCK` to 70, following the transaction rate the Blend network carries | 2026-10-02 |
 
 # Introduction
 
@@ -147,7 +148,7 @@ EMA_SMOOTHING_PRECISION: uint64 = 10            # P, the scale F is expressed ag
 REWARD_TARGET_FLOOR: uint64 = 9                 # smallest target the retarget returns; see Reward Difficulty
 REWARD_TARGET_CAP: PowTarget = p // 2**26       # largest target the retarget returns, and its genesis value
 BLEND_DIFFICULTY_BASE: PowTarget = p // 2**19   # difficulty_blend at the reference load
-TARGET_TXS_PER_BLOCK: uint64 = 130              # Reference transactions per block, F_T / F_D
+TARGET_TXS_PER_BLOCK: uint64 = 70               # Reference transactions per block, F_T / F_D
 BLEND_DAMPING_NUM: uint64 = 1                   # a, where the exponent is alpha = a / b
 BLEND_DAMPING_DEN: uint64 = 2                   # b, with 0 < a <= b so that alpha <= 1
 BLEND_MAX_STEP: uint64 = 2                      # Max factor difficulty_blend may move per epoch
@@ -157,7 +158,7 @@ The parameters must give an `epoch_pow_reward` above the fee of a claim transact
 
 `REWARD_TARGET_CAP` must be above `REWARD_TARGET_FLOOR` and at most $`p - 1`$, as [Puzzle Target](#puzzle-target) requires. At or below the floor, every retarget would return `REWARD_TARGET_CAP`, so the target could not move.
 
-`TARGET_TXS_PER_BLOCK` is the transaction rate the Blend network carries, $`F_T / F_D = 130`$ transactions per block ([Global Parameters](blend-protocol.md#global-parameters)).
+`TARGET_TXS_PER_BLOCK` is the transaction rate the Blend network carries, $`F_T / F_D = 70`$ transactions per block ([Global Parameters](blend-protocol.md#global-parameters)).
 
 ## Puzzle Target
 
