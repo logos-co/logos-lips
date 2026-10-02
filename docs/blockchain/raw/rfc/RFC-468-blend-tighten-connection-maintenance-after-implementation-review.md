@@ -9,6 +9,7 @@
 | v1 | Initial RFC | 2026-09-30 |
 | v2 | Numbered the Blend Protocol revision 1.7.0, since the connection rules change | 2026-09-30 |
 | v3 | Gave every generated message the same number of copies, `R = 1`, which lowers `F_T` and `TARGET_TXS_PER_BLOCK` to 20; made `T_H` a core node parameter | 2026-10-02 |
+| v4 | Held a pending edge handshake towards `Φ_CE^Max` from its identification, gave the 1.4.0 to 1.6.0 rows their merge dates, and answered the remaining review findings | 2026-10-02 |
 
 ## Reviewer Orientation
 
@@ -20,7 +21,7 @@ Read the PR's Motivation first. Most changes land in rules Blend 1.6.0 introduce
 | 2 | Critical | [Blend Protocol](#affected-specifications): [one number of copies](#2-one-number-of-copies-for-every-message) | `R = 1` copy of every generated message, cover or data, replaces `R_C = 0` and `R_D = 1`; `F_T` falls to 20 transactions during 30 rounds; `Q_C` and `Q_W` double |
 | 3 | Critical | [Proof of Work](#affected-specifications): [the reference load](#3-the-reference-load-of-the-blend-difficulty) | `TARGET_TXS_PER_BLOCK`, a consensus constant, from 130 to 20 |
 | 4 | High | **Start here** — [Blend Protocol](#affected-specifications): [blacklisting](#4-blacklisting) | a stream that ends or fails no longer blacklists; blacklisting closes open connections; the size cap is gone |
-| 5 | High | [Blend Protocol](#affected-specifications): [pending handshakes, the cap and liveness](#5-pending-handshakes-the-handshake-cap-and-liveness) | a pending handshake is held as opened or accepted; the cap counts offered handshakes only, `3 + Φ_CE^Max`; liveness is judged at the end of a round |
+| 5 | High | [Blend Protocol](#affected-specifications): [pending handshakes, the cap and liveness](#5-pending-handshakes-the-handshake-cap-and-liveness) | a pending handshake is held as opened or accepted, and a pending edge handshake towards `Φ_CE^Max`; the cap counts offered handshakes only, `3 + Φ_CE^Max`; liveness is judged at the end of a round |
 | 6 | Medium | [Blend Protocol](#affected-specifications): [the nullifier cache](#6-the-nullifier-cache) | membership on the 64 least significant bits; the worst-case size |
 | 7 | Medium | [Blend Protocol](#affected-specifications): [the receive window](#7-the-receive-window) | a transport requirement: at most `r_1` unread messages on a core connection |
 | 8 | Low | [Blend Protocol](#affected-specifications): [the handshake time](#8-the-handshake-time) | `T_H` becomes a core node parameter, counted from the start of the transport handshake |
@@ -78,6 +79,8 @@ A pending handshake counted towards `Φ_CC`, but nothing said whether it counted
 
 The handshake cap counted every handshake in progress, the node's own dials included. A handshake is not identified during its transport handshake, so unregistered peers could keep the cap full by restarting stalled TLS handshakes every `T_H`, and stop the node from dialing. The cap now counts handshakes offered to the node, one for each connection it may accept: the 3 accepted core connections of Degree rule 1 and the `Φ_CE^Max` edge connections.
 
+1.6.0 did not say whether a pending edge handshake counts towards `Φ_CE^Max`. An edge connection is now accepted and held from the same point as a core one, once the Neighbor Distinction Process identifies it, so `T_E` runs from there and a pending edge handshake holds its slot for at most `T_E`.
+
 Liveness is counted per identity for the epoch, so a neighbor closed as not live starts not live when it reconnects. 1.6.0 did not say when liveness is judged. Judged when a connection opens, it closes the reconnected neighbor before it can deliver, and shuts the identity out for the rest of the epoch. Judged at the end of a round, the neighbor has that round to deliver; an honest neighbor delivers about two messages a round on average, even in a quiet network.
 
 ## The receive window
@@ -103,10 +106,11 @@ No message format changes. `TARGET_TXS_PER_BLOCK` is a consensus constant, and t
 | Degree rule 3 closes every non-live connection at once | That needs `W` rounds in which no neighbor delivers anything, an outage of the network or of the node itself. Judging liveness at the end of a round keeps reconnection working afterwards. |
 | A neighbor keeps its slot by replaying one message per `W` | Excluding echoes is beaten by forwarding any message from another connection once per `W`. Liveness detects dead peers, not contribution ([Relaying is enforced only by liveness](#relaying-is-enforced-only-by-liveness)). |
 | A stalled handshake has no consequence | Bounded by the pending-handshake rule and per-identity liveness, above. |
+| `Φ_CE^Max ≥ 2·r_E` budgets no time for teardown | A connection the node has closed holds no slot, so an edge connection frees its slot once `T_E` has elapsed. |
 | Duplicate suppression cannot deduplicate a proof still being verified | `V` measures a full public-header verification, signature and proof of quota, and the read shares bound verifications at 124 a round whatever is deduplicated. |
 | A message once begun has no read deadline | A partial message is not a delivery, so liveness closes the connection after `W`. |
 | Liveness restarts every epoch | `W = 30` rounds against an epoch of 648,000. |
-| `Φ_CC = 3` lets peers choose three of four connections | The constraint, and what breaks, are stated where `Φ_CC` is defined. |
+| `Φ_CC = 3` lets peers choose three of four connections | Accepted at the bottom of the range. At `Φ_CC = 3` a node opens at least `Φ_CC − 2 = 1` of its 4 connections, so its peers choose up to three. At the specified `Φ_CC = 4` it opens at least 2 of 5. |
 | Simultaneous connection | Core Network Bootstrapping step 5 specifies it. |
 | A closer truncates the message in flight | A stream that ends carries no reaction. |
 | The blacklist across epochs and roles | An entry is kept per identity, refuses it on any connection, and expires after `W` rounds. |
@@ -115,6 +119,7 @@ No message format changes. `TARGET_TXS_PER_BLOCK` is a consensus constant, and t
 | Refusing a connection or accepting and closing it | "Closed" covers both. |
 | Liveness credited before the header checks | The outcome is the same: a message that fails a later check closes the connection and blacklists the neighbor. The share must count every message read. |
 | A minimum network size | [Minimal Network Size](../blend-protocol.md#minimal-network-size) specifies it. |
+| The 1.6.0 change-log row omits the removal of replacement-first, of the echo exclusion and of the edge quarantine | A change-log row states the core modification. "Replaced the per-window statistical threshold" and "Restricted blacklisting to attributable faults" cover all three. |
 
 ## What this RFC leaves open
 
@@ -221,6 +226,13 @@ The send deadline of Admission rule 2 counts from the round a message was queued
 +4. A connection whose handshake is in progress is held, as one the node opened or accepted, once the [Neighbor Distinction Process](#neighbor-distinction-process) has identified the neighbor as a core node, and its peer is a current neighbor for rule 2. A handshake that has not completed within $`T_H`$ is abandoned and its slot released. At most $`3 + \Phi_{CE}^{Max}`$ handshakes offered to the node are in progress at once, one for each connection it may accept, and one offered above that is closed.
 ```
 
+[Connectivity Maintenance](../blend-protocol.md#connectivity-maintenance), Edge Nodes:
+
+```diff
+-1. A core node holds at most $`\Phi_{CE}^{Max}`$ connections with edge nodes at once, and accepts at most $`r_E`$ of them in a round. A connection offered above either is closed.
++1. A core node holds at most $`\Phi_{CE}^{Max}`$ connections with edge nodes at once, and accepts at most $`r_E`$ of them in a round. A connection is accepted and held once the [Neighbor Distinction Process](#neighbor-distinction-process) has identified the peer as an edge node, whether or not its handshake has completed. A connection offered above either is closed.
+```
+
 ## 6. The nullifier cache
 
 [Relaying](../blend-protocol.md#relaying-2) in Details keeps the retention of step 1.4 and changes what is stored:
@@ -271,6 +283,7 @@ The Neighbor Distinction Process reads the peer id the transport handshake alrea
 - Edge rule 3 drops "has its connection closed", which Relaying step 1.2 already requires.
 - The relaying motivation in Rewarding says a node must deliver messages to its neighbors, which is what liveness enforces.
 - The 1.6.0 change-log row says `Φ_CC − 2` of the connections are opened by the node, not two.
+- The 1.4.0, 1.5.0 and 1.6.0 change-log rows carry their merge dates, so the dates follow the versions.
 - Edge Network bootstrapping numbers its third sub-step 3, not 4, and "until it is sends" reads "until it sends".
 - `F_T` is stated during 30 rounds, not per slot of 30 rounds, since a slot lasts one round.
 
@@ -283,6 +296,7 @@ The Neighbor Distinction Process reads the peer id the transport handshake alrea
 - [ ] Close a connection whose stream ends or fails, without blacklisting its neighbor.
 - [ ] On blacklisting an identity, close every connection held with it, past-epoch and pending ones included; remove the blacklist size cap.
 - [ ] Hold a pending handshake as an opened or accepted connection once the Neighbor Distinction Process identifies a core node, and count its rounds towards liveness.
+- [ ] Count a pending edge connection towards `Φ_CE^Max` and `r_E` once the Neighbor Distinction Process identifies it, and run `T_E` from then.
 - [ ] Cap the handshakes offered to the node at `3 + Φ_CE^Max`, leaving the node's own dials out of the count.
 - [ ] Judge liveness, and close connections that are not live, at the end of each round.
 - [ ] Limit the receive window of each core connection to `r_1` messages.
