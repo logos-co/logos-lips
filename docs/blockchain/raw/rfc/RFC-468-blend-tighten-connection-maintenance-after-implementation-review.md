@@ -12,6 +12,7 @@
 | v4 | Held a pending edge handshake towards `Φ_CE^Max` from its identification, gave the 1.4.0 to 1.6.0 rows their merge dates, and answered the remaining review findings | 2026-10-02 |
 | v5 | Counted only the messages a node verifies towards a connection's share, sized `F_1` against the shares of the connections a node opens, which raises `F_T` and `TARGET_TXS_PER_BLOCK` to 70, and put a nullifier in the cache from the start of its verification | 2026-10-02 |
 | v6 | Left open the bandwidth that reading every copy whole costs | 2026-10-02 |
+| v7 | Restored that `V` covers the proof of quota, which the review asked to confirm | 2026-10-02 |
 
 ## Reviewer Orientation
 
@@ -47,7 +48,7 @@ The share now counts novel messages only. A limit on reads would protect bandwid
 
 A message is verified on whichever connection delivers it first, so the flood no longer has to pass through one connection's share. A novel message held back on a spent connection arrives on another. `F_1` is sized against the shares of the `Φ_CC − 2` connections a node opens itself, which no adversary chooses, with the drain margin of `η`: `F_1 = 2·20·(1 − 1/2) = 20`. If the connections a node opened deliver, it verifies the whole flood even when every connection it accepted is silent.
 
-A nullifier now enters the cache when its verification starts. Otherwise the copies that reach a node from several neighbors while a proof is being verified would each be verified, and the load would climb back towards `Φ_CC·F_1`. A copy that arrives during a verification is checked again once the verification ends, so an invalid message carrying a copied nullifier cannot make a node drop the valid one.
+`V` is measured over the full check of a public header, its signature and its proof of quota ([benchmark](https://github.com/logos-blockchain/research/tree/blend-header-verification-benchmark/tools/benchmarks/blend-header-verification)). A nullifier now enters the cache when its verification starts. Otherwise the copies that reach a node from several neighbors while a proof is being verified would each be verified, and the load would climb back towards `Φ_CC·F_1`. A copy that arrives during a verification is checked again once the verification ends, so an invalid message carrying a copied nullifier cannot make a node drop the valid one.
 
 The limit moves to bandwidth: at `F_1 = 20`, a node receives up to 1.5 MB/s and sends 1.2 MB/s.
 
