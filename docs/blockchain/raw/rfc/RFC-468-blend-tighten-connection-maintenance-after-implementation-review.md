@@ -1,10 +1,5 @@
 # [RFC] Blend: Tighten connection maintenance after implementation review
 
-| Field | Value |
-| --- | --- |
-| Name | [RFC] Blend: Tighten connection maintenance after implementation review |
-| Status | raw |
-
 **Motivation and proposal:** [PR #468](https://github.com/logos-co/logos-lips/pull/468)
 
 ## Change log
