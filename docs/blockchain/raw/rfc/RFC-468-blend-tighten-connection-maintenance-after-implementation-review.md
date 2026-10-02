@@ -11,6 +11,7 @@
 | v3 | Gave every generated message the same number of copies, `R = 1`, which lowers `F_T` and `TARGET_TXS_PER_BLOCK` to 20; made `T_H` a core node parameter | 2026-10-02 |
 | v4 | Held a pending edge handshake towards `Φ_CE^Max` from its identification, gave the 1.4.0 to 1.6.0 rows their merge dates, and answered the remaining review findings | 2026-10-02 |
 | v5 | Counted only the messages a node verifies towards a connection's share, sized `F_1` against the shares of the connections a node opens, which raises `F_T` and `TARGET_TXS_PER_BLOCK` to 70, and put a nullifier in the cache from the start of its verification | 2026-10-02 |
+| v6 | Left open the bandwidth that reading every copy whole costs | 2026-10-02 |
 
 ## Reviewer Orientation
 
@@ -142,6 +143,10 @@ Liveness requires a neighbor to deliver one message per `W` connected rounds. A 
 ### Edge admission
 
 Unregistered peers can exhaust the edge share `r_E`, and the cap on offered handshakes, by opening connections that send nothing. A per-identity measure cannot stop this, since an edge identity costs nothing. This RFC does not change edge admission.
+
+### Bandwidth
+
+With the verification share, bandwidth limits `F_1` before `V` does. A node receives each message from up to `Φ_CC` neighbors, and reads every copy whole before it can check the nullifier. Sending the public header ahead of the body, and fetching the body only when its nullifier is novel, would cut a node's traffic about three- to fourfold, at the cost of a round trip per hop. It changes the wire protocol, and is a separate change.
 
 # Details
 
