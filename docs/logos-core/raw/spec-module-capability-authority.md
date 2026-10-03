@@ -502,8 +502,10 @@ and MUST NOT be later than the expiry of any expiring supporting grant.
 Runtime MUST verify that the decision's consumer and requested scopes match its request.
 Every allowed scope MUST be equal to or narrower than at least one requested scope.
 For every requested scope, an allow decision MUST contain at least one equal or narrower allowed scope.
-Runtime MUST enforce every allowed scope and MUST verify that the attempted operation satisfies every narrowing
-introduced by those scopes.
+Runtime MUST enforce every allowed scope and MUST verify that the attempted operation satisfies every narrowing introduced by those scopes.
+For Runtime Control scopes that differ only in their subject selectors, those selectors are alternatives.
+Runtime MUST require a subject to satisfy at least one complete alternative and every narrowing shared by those alternatives.
+Runtime MUST NOT combine selector fields from different alternatives to admit a subject that no individual alternative permits.
 An allow decision that omits coverage for a requested scope, broadens a requested scope,
 or contains an allowed scope that Runtime cannot enforce is malformed and MUST fail closed as an evaluation failure.
 
@@ -937,6 +939,8 @@ Grant expiry and policy change have no invoking contract consumer in the common 
 Capability Authority MUST produce an audit record for each evaluation result or failure, grant issuance,
 grant revocation, grant expiry, and policy change.
 Retention duration and storage realization are deployment or audit-profile policy.
+Rejection before evaluation begins, including rejection by a deadline, size limit, or queue limit, is an admission failure and does not require an audit record.
+Once evaluation begins, every result or failure remains subject to the audit requirement.
 
 When an applied allow decision requires request or response retention for a call,
 the Runtime-controlled invocation boundary MUST produce a `call` audit record

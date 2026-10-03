@@ -1179,9 +1179,9 @@ Package Manager MUST select the unresolved package name that is first in UTF-8 b
 It MUST consider that package's satisfying candidate versions in descending SemVer precedence.
 It MUST select the first candidate for which the complete transitive closure can be resolved,
 backtracking to lower candidates when a candidate's dependencies make the closure unsatisfiable.
-If multiple acceptable manifests claim the same package name and version with
-different manifest commitments,
-protected catalog policy MUST select one exact commitment or resolution MUST fail.
+If multiple acceptable manifests claim the same package name and version with different manifest commitments,
+protected catalog policy MUST select one exact commitment,
+or the root operation MUST fail with `dependency-unavailable`.
 If no complete solution exists, the root operation MUST fail with `dependency-unavailable`.
 
 The `resolved_dependencies` array in an installed package record

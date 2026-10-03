@@ -265,6 +265,10 @@ A schema field name MUST NOT begin with `has_`.
 This reservation applies to request, response, event, named-map, and inline-map fields.
 It preserves the canonical C presence convention by ensuring that a generated `has_<field>` identifier cannot also represent schema data.
 
+A schema field name MUST NOT end with `_len`, `_count`, or an underscore followed by one or more decimal digits.
+This reservation applies to the same field kinds as the `has_` reservation.
+It keeps generated length, count, and tuple-position members distinct from schema fields.
+
 A schema field name MUST NOT equal a C17 keyword.
 The complete set of C17 keywords that otherwise satisfies Logos field-name grammar is `auto`, `break`, `case`, `char`, `const`, `continue`, `default`, `do`, `double`, `else`, `enum`, `extern`, `float`, `for`, `goto`, `if`, `inline`, `int`, `long`, `register`, `restrict`, `return`, `short`, `signed`, `sizeof`, `static`, `struct`, `switch`, `typedef`, `union`, `unsigned`, `void`, `volatile`, and `while`.
 A schema field name also MUST NOT equal `bool`, `true`, or `false`, because the canonical C mapping includes `<stdbool.h>` and uses those macro names.
@@ -874,6 +878,10 @@ typedef struct logos_choice_storage_value {
     } value;
 } logos_storage_value_t;
 ```
+
+A named choice's generated enum uses typedef `logos_<namespace>_<name>_kind_t` and enumerators `LOGOS_<NAMESPACE>_<NAME>_ARM_<index>`.
+The names follow the namespace projection and common-schema prefix rules in Section 2.1.
+`<index>` is the zero-based index in canonical choice-arm order.
 
 Choice arms are first normalized into the canonical choice-arm order defined
 by LOGOS-MODULE-COMMITMENT-MODEL.
@@ -2286,8 +2294,7 @@ the CBOR data model and core deterministic encoding requirements in RFC 8949.
 
 Implementations MUST:
 
-1. Reject any incoming deterministic CBOR that violates the determinism rules
-   in section 4.4 with error code `INVALID_PARAMS`.
+1. Reject incoming CBOR that violates the determinism rules in Section 4.4 with error code `INVALID_PARAMS`.
 2. Produce outgoing deterministic CBOR that satisfies section 4.4 in every build mode.
    An implementation MAY elide a separate validation pass when its encoder guarantees those requirements by construction.
    Debug and release builds MUST NOT emit different bytes for the same schema-typed value.
@@ -2304,6 +2311,10 @@ layer generated from or implemented against the module's CDDL schema.
 The runtime and transport layers validate envelopes and routing fields.
 They MUST NOT be required to introspect module payload schemas while forwarding
 local or remote transport calls.
+
+A module dispatch rejection is reported as an invocation failure under Section 4.6.
+Failure of Transport message validation is reported under LOGOS-MODULE-TRANSPORT Section 2.3.
+Transport deterministic-CBOR validation includes the embedded payload maps and does not require their schemas.
 
 ### 4.6 Contract Outcomes and Invocation Failures
 
@@ -2330,7 +2341,7 @@ The invocation status passes through unchanged.
 
 Protocol errors are distinct from correlated invocation failures.
 A protocol error reports a connection or framing failure,
-such as malformed deterministic CBOR or an unknown Transport message kind.
+such as malformed or non-deterministic CBOR in a Transport message or an unknown Transport message kind.
 A correlated invocation failure is carried in `response-err` with the Request identifier.
 For example, `LOGOS_ERR_METHOD_NOT_FOUND` is an invocation failure and not a protocol error.
 

@@ -461,6 +461,20 @@ A one-shot application return, process exit, or authorized stop follows the ordi
 It creates no host-shell-specific cleanup path.
 Retained observation and audit material remains attributed to the module instance as required by the owning specifications.
 
+## 8. Optional Observer (Informative)
+
+An optional observer can be implemented as an ordinary module that correlates authorized Core queries and events into a derived operational view.
+It uses supported contracts under its own module-instance identity.
+The view can preserve source references and distinguish recorded facts, inferred explanations, and missing information.
+
+The observer can expose this view through its own module contract for consumption by other modules.
+That contract defines the meaning of its queries and events, including limits, incomplete history, and disclosure to authorized consumers.
+The observer's access to source information does not by itself authorize disclosure to its consumers.
+
+Runtime operation, enforcement, and required audit retention remain independent of observer availability.
+The derived view does not replace authoritative state or required audit records.
+This section defines no observer contract or additional Core conformance requirement.
+
 ---
 
 ## Copyright

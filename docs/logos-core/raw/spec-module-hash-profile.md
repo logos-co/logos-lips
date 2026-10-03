@@ -1131,9 +1131,8 @@ or substring semantics.
 They prove bytes of the canonical UTF-8 encoding only.
 
 An empty path proves the whole value.
-For a whole-value verified view, the disclosed value is the full normalized
-value and proof material MAY be empty if the verifier can recompute the value
-root directly from the disclosed value.
+For a whole-value verified view, the disclosed value is the full normalized value and the proof material MUST be empty.
+The verifier MUST recompute the value root directly from the disclosed value and MUST reject a whole-value view that carries proof material.
 
 Absence proofs use the same path language.
 Because absent optional fields are explicit semantic nodes in

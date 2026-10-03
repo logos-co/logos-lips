@@ -447,11 +447,12 @@ Caller                                  Callee
    the callee MUST perform the following checks in the listed order.
    If more than one check would fail,
    the callee MUST report the outcome of the first failing check.
-   - The `module` field MUST be present, well-formed,
-     and equal the callee's selected module or endpoint name for this connection.
-     If it is missing, malformed, or differs,
-     the callee MUST send ProtocolError `INVALID_PARAMS` when the connection remains writable
+   - The `module` field MUST be present and well-formed.
+     If it is missing or malformed, the callee MUST send ProtocolError `INVALID_PARAMS` when the connection remains writable
      and MUST close the connection without consuming authorization material.
+     On a remote intrinsic Runtime Control endpoint, a well-formed `module` that differs from the endpoint name is treated the same way.
+     On an ordinary protected provider endpoint, a well-formed `module` that differs from the provider selected for this connection
+     MUST fail the following route-ticket check with the non-revealing `NOT_AUTHORISED` outcome required by Section 8.1.
    - The `token` field MUST be present and satisfy the selected endpoint and transport profile.
      A remote intrinsic Runtime Control endpoint uses the consumer-binding rules in LOGOS-MODULE-RUNTIME Section 9.
      An ordinary protected provider route uses the route-ticket validation defined in Section 8.1.
@@ -555,7 +556,7 @@ Caller                                  Callee
 The caller sends a Request and waits for a Response with the matching `id`.
 
 **Request fields:**
-- `id`: unique within this connection (caller-assigned)
+- `id`: caller-assigned according to Section 7
 - `method`: the bare method name defined by LOGOS-MODULE-INTERFACE
   (e.g. `"exists"`, `"upload_url"`)
 - `params`: a CBOR map matching the method's `_request` schema
@@ -796,9 +797,14 @@ Caller                                  Callee
 
 Rules:
 
-- The caller MUST NOT reuse an `id` during the lifetime of the connection.
-- The callee MUST NOT assume requests arrive in order.
+- The caller MUST transmit Requests with strictly increasing `id` values on each connection.
+  Gaps between consecutive Request `id` values are permitted.
+- If no larger `id` is available for a new Request, the caller MUST close the connection without transmitting that Request.
+- If a Request's `id` is not greater than the highest Request `id` previously received on the connection,
+  the callee MUST NOT dispatch it, MUST send ProtocolError `INVALID_PARAMS` when the connection remains writable, and MUST close the connection.
+- The callee need not execute Requests in transmission order.
 - The callee MAY respond out of order.
+- Cancel identifiers refer to their target Requests and are not part of the Request `id` sequence.
 - Event messages for different subscriptions may be interleaved with
   responses.
 

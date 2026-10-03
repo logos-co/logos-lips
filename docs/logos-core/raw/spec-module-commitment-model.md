@@ -494,9 +494,9 @@ Map examples use closed maps, as required by this specification.
 |---------------|---------------------------------|--------|
 | `uint64 / tstr` | CBOR major type | Valid |
 | `[uint64] / [uint64, uint64]` | Fixed tuple length | Valid |
-| `{ status: "failed", error: bstr } / { status: "failed", realization: bstr }` | Presence of `error` | Valid |
-| `{ request: bstr, ? response: bstr } / { response: bstr }` | Presence of `request` | Valid |
-| `{} / { error: bstr }` | Presence of `error` | Valid |
+| `{ status: "failed", error: bstr } / { status: "failed", realization: bstr }` | Map-field-literal test on `error` (absent versus present) | Valid |
+| `{ request: bstr, ? response: bstr } / { response: bstr }` | Map-field-literal test on `request` (absent versus present) | Valid |
+| `{} / { error: bstr }` | Map-field-literal test on `error` (absent versus present) | Valid |
 | `{ operation: "evaluate", outcome: "allow" } / { operation: "evaluate", outcome: "deny" } / { operation: "issue-grant", outcome: "deny" }` | Exact `operation` literal, then exact `outcome` literal where needed | Valid |
 | `tstr / "fixed"` | No test separates the overlapping arms | Invalid |
 | `A / B`, where both definitions have distinct required `kind` literals and may refer recursively to either definition | Exact `kind` literal | Valid |

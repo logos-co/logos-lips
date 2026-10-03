@@ -42,7 +42,7 @@ Configuration state is bound to the module-instance identity and is not shared m
 
 A module declaration MAY contain one configuration-schema binding.
 A declaration without that binding defines a module with no configuration value under this specification.
-Runtime MUST reject configuration operations for such a module instance.
+Runtime MUST reject configuration operations other than `get_configuration_summary` for such a module instance.
 
 A configuration value MUST be one complete value under the bound configuration root.
 Core defines no field patch, implicit merge, or partially applied configuration value.
@@ -147,18 +147,23 @@ Source paths, authoring formats, storage keys, and other acquisition mechanics d
 
 ## 5. Runtime Control Operations
 
-The Runtime Control contract includes exactly four configuration operations:
+The Runtime Control contract includes exactly five configuration operations:
 
 - `get_configuration_schema`;
+- `get_configuration_summary`;
 - `get_configuration`;
 - `update_configuration`; and
 - `apply_configuration`.
 
 Runtime MUST accept these operations only from an authenticated module instance.
 Runtime MUST authorize each invocation for its exact method and target module instance before disclosing information or changing state.
-Authority to invoke one configuration operation does not authorize either other configuration operation or any Runtime lifecycle operation.
+Authority to invoke one configuration operation does not authorize any other configuration operation or any Runtime lifecycle operation.
 
 `get_configuration_schema` returns one consistent snapshot containing the configuration-state revision, accepted CDDL document, configuration root, and configuration-schema commitment.
+
+`get_configuration_summary` returns one consistent `configuration_state_summary` snapshot for the target module instance.
+The snapshot follows the same field-presence rules as the state summary in `configuration_state_changed_event`.
+It MUST NOT include complete configuration values or schema documents.
 
 `get_configuration` returns one consistent snapshot containing the configuration-state revision, accepted configuration-schema commitment, and any current and staged value records.
 Each returned record includes the complete value, configuration-schema commitment, value commitment, value revision, and provenance.
@@ -222,6 +227,9 @@ Existing records remain ineligible for startup or live reconfiguration until an 
 
 Runtime MUST order replacement of an accepted binding with configuration mutations, startup attempts, and live-reconfiguration attempts for that module instance.
 Replacing a binding in a way that changes its configuration-schema commitment or live-reconfiguration declaration MUST atomically advance the configuration-state revision.
+An accepted declaration update MAY remove the configuration-schema binding.
+Removal MUST atomically advance the configuration-state revision.
+Retained records remain bound to their former commitment and ineligible for startup or live reconfiguration.
 
 An already-running realization MAY continue with the configuration and implementation under which it reached `ready`.
 Starting or re-realizing the module instance under the changed schema requires a complete value accepted under that schema.
@@ -267,7 +275,9 @@ Successful live reconfiguration does not otherwise change lifecycle state and MU
 Runtime Control defines `configuration_state_changed_event` for authorized observation of configuration-state changes.
 Runtime MUST emit it after every configuration-state revision change.
 Runtime MUST emit events for one module instance in the same order as their committed configuration-state revisions.
-The event identifies the target module instance and configuration-state revision, always includes the accepted configuration-schema commitment, and includes the value commitment, value revision, and provenance of each current or staged record that exists.
+The event identifies the target module instance and configuration-state revision.
+When an accepted configuration-schema binding exists, the event MUST include its commitment and the value commitment, value revision, and provenance of each current or staged record that exists.
+When no accepted configuration-schema binding exists, the event MUST omit `schema_commitment`, `current`, and `staged`.
 It MUST NOT include either complete configuration value.
 Runtime MUST authorize subscription and delivery for the exact target module instance and configuration-state observation scope.
 
@@ -345,7 +355,7 @@ logos.module_configuration.configuration_state = {
 
 logos.module_configuration.configuration_state_summary = {
   state_revision: uint64,
-  schema_commitment: logos.module_configuration.schema_commitment,
+  ? schema_commitment: logos.module_configuration.schema_commitment,
   ? current: logos.module_configuration.value_record_metadata,
   ? staged: logos.module_configuration.value_record_metadata,
 }
@@ -367,7 +377,7 @@ Within `schema_commitment`, `schema_root` commits to the complete document and `
 
 `value_commitment` is interpreted only with the adjacent `schema_commitment`; their `schema_subtree_root` fields must match, and together they bind the value to the accepted configuration root under the Commitment Model and Hash Profile.
 `configuration_state` is the complete authorized configuration snapshot.
-`configuration_state_summary` omits the complete values and is used by configuration-state events.
+`configuration_state_summary` omits the complete values and is used by `get_configuration_summary` and configuration-state events.
 `configuration_input` is the value delivered through startup and live-reconfiguration boundaries.
 
 ## References
