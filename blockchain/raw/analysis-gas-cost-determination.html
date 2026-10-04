@@ -192,6 +192,7 @@
 </div><!-- timeline:start -->
 <h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
 <ul>
+<li><strong>2026-10-04</strong> — <a href="https://github.com/logos-co/logos-lips/blob/47a73cdc412af55f1bebc5441c4783a9ac595240/docs/blockchain/raw/analysis-gas-cost-determination.md"><code>47a73cd</code></a> — docs(blockchain): gas for strict EdDSA verification (#464)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b7301a67b5364a8dbe719f8b67b96b7f198d0a13/docs/blockchain/raw/analysis-gas-cost-determination.md"><code>b7301a6</code></a> — [RFC] Mantle: Enable basic EmPoWering machinery (#400)</li>
 <li><strong>2026-09-09</strong> — <a href="https://github.com/logos-co/logos-lips/blob/4b9d1ca1794f1e1b47aa40582f7793e2f84ed999/docs/blockchain/raw/analysis-gas-cost-determination.md"><code>4b9d1ca</code></a> — docs(blockchain): make every Operation carry a proof and gas independent of it (#431)</li>
 <li><strong>2026-09-03</strong> — <a href="https://github.com/logos-co/logos-lips/blob/e2e9e0fc0096e42153430689628c0d638d3c4cf4/docs/blockchain/raw/analysis-gas-cost-determination.md"><code>e2e9e0f</code></a> — [RFC] The Epochs <code>active</code> and <code>withdraw_at</code> Record (#422)</li>
@@ -215,6 +216,7 @@
 <tr><td>1.5.3</td><td>Adopted "active message" as the single name for the message</td><td>2026-09-02</td></tr>
 <tr><td>1.5.4</td><td>Renamed the <code>stake_manipulation_threshold</code> of the channel gas derivations into <code>transfer_threshold</code> and the Channel Stake Assignation section into Channel Transfer, following Mantle</td><td>2026-08-31</td></tr>
 <tr><td>1.6.0</td><td>Add the Execution Gas derivation for the <code>CLAIM_POW_REWARD</code> Operation</td><td>2026-09-04</td></tr>
+<tr><td>1.7.0</td><td>Per-signature Ed25519 cost re-measured with strict verification (<a href="common-cryptographic-components.html">Common Cryptographic Components</a> 1.2.0): 56 → 59 Execution Gas, <code>SDP_DECLARE_GAS</code> 646 → 649</td><td>2026-09-24</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
@@ -238,12 +240,12 @@
 </code></pre>
 <p>The gas derivation of each Operation are:</p>
 <pre><code class="language-python">TRANSFER_GAS                  = 590
-CHANNEL_INSCRIBE_GAS          = 56
-CHANNEL_CONFIG_GAS            = 56 * configuration_threshold
+CHANNEL_INSCRIBE_GAS          = 59
+CHANNEL_CONFIG_GAS            = 59 * configuration_threshold
 CHANNEL_DEPOSIT_GAS           = 590
-CHANNEL_TRANSFER_GAS          = 56 * transfer_threshold
-CHANNEL_WITHDRAW_GAS          = 56 * transfer_threshold
-SDP_DECLARE_GAS               = 646
+CHANNEL_TRANSFER_GAS          = 59 * transfer_threshold
+CHANNEL_WITHDRAW_GAS          = 59 * transfer_threshold
+SDP_DECLARE_GAS               = 649
 SDP_WITHDRAW_GAS              = 590
 SDP_ACTIVE_GAS                = 590
 LEADER_CLAIM_GAS              = 580
@@ -253,7 +255,7 @@ CLAIM_POW_REWARD_GAS          = 590
 <div class="table-wrapper"><table><thead><tr><th>Operation</th><th>Number of CPU cycles</th></tr></thead><tbody>
 <tr><td>ZkSignature batch verification</td><td>3,900,000 + number_of_proof x 590,000</td></tr>
 <tr><td>Proof of Claim batch verification</td><td>2,640,000 + number_of_proof x 580,000</td></tr>
-<tr><td>Eddsa25519 signature verification</td><td>56,000</td></tr>
+<tr><td>Eddsa25519 signature verification</td><td>59,200</td></tr>
 </tbody></table>
 </div>
 <p>Comparison, list searching, hashes and operation in small fields are neglected. We also supposed that the initialization cost for batch verification is paid by everyone and deduced from the block directly. The user then pay only for the part that is proportional to the number of proofs.</p>
@@ -281,9 +283,9 @@ CLAIM_POW_REWARD_GAS          = 590
 </ul>
 <h2 id="channel-inscription"><a class="header" href="#channel-inscription">Channel Inscription</a></h2>
 <p>The validation process includes verifying an Eddsa25519 signature, confirming that the signer is authorized for the specified channel, and checking the chaining sequence of the channel. The execution encompasses creating channel records (if not previously used) and updating the tip of the channel.</p>
-<p>Execution: ~56k CPU cycles.</p>
+<p>Execution: ~59k CPU cycles.</p>
 <ul>
-<li>Verification of the Ed25519 signature: 56,000 cycles.</li>
+<li>Verification of the Ed25519 signature: 59,200 cycles.</li>
 <li>Verification of the signer authorization: negligible.</li>
 <li>Verification of channel sequencing: negligible</li>
 <li>Update the channel state: negligible</li>
@@ -302,9 +304,9 @@ CLAIM_POW_REWARD_GAS          = 590
 <h2 id="channel-withdraw"><a class="header" href="#channel-withdraw">Channel Withdraw</a></h2>
 <p>The validation process requires verifying multiple Eddsa25519 signatures.
 The execution require consuming the channel notes, deriving note Id and adding notes to the ledger.</p>
-<p>Execution: ~56k CPU cycles * transfer_threshold.</p>
+<p>Execution: ~59k CPU cycles * transfer_threshold.</p>
 <ul>
-<li>Verification of <code>transfer_threshold</code> Ed25519Signatures: 56,000 cycles per signature.</li>
+<li>Verification of <code>transfer_threshold</code> Ed25519Signatures: 59,200 cycles per signature.</li>
 <li>Verification that the notes are in the ledger: negligible.</li>
 <li>Verification that the notes are in the channel: negligible.</li>
 <li>Removing the notes from channel notes: negligible.</li>
@@ -312,9 +314,9 @@ The execution require consuming the channel notes, deriving note Id and adding n
 <h2 id="channel-transfer"><a class="header" href="#channel-transfer">Channel Transfer</a></h2>
 <p>The validation process requires verifying multiple Eddsa25519 signatures, and managing the channel notes.
 The execution require deriving note Id and adding notes to the ledger.</p>
-<p>Execution: ~56k CPU cycles * transfer_threshold.</p>
+<p>Execution: ~59k CPU cycles * transfer_threshold.</p>
 <ul>
-<li>Verification of <code>transfer_threshold</code> Ed25519Signatures: 56,000 cycles per signature.</li>
+<li>Verification of <code>transfer_threshold</code> Ed25519Signatures: 59,200 cycles per signature.</li>
 <li>Verification that the notes are in the ledger: negligible.</li>
 <li>Verification that the notes are in the channel: negligible.</li>
 <li>Removing of the note from the ledger: negligible.</li>
@@ -325,18 +327,18 @@ The execution require deriving note Id and adding notes to the ledger.</p>
 <h2 id="channel-config"><a class="header" href="#channel-config">Channel Config</a></h2>
 <p>This gas amount covers the verification of multiple Eddsa25519 signatures and ensures the operation is well-formed. This represents the computational cost associated with processing channel configuration operations.</p>
 <ul>
-<li>Execution: ~56k CPU cycles * configuration_threshold.
+<li>Execution: ~59k CPU cycles * configuration_threshold.
 <ul>
-<li>Verification of the configuration_threshold Ed25519 signatures: 56,000 cycles per signature.</li>
+<li>Verification of the configuration_threshold Ed25519 signatures: 59,200 cycles per signature.</li>
 <li>Modification of the state of the channel: negligible.</li>
 </ul>
 </li>
 </ul>
 <h2 id="sdp-declaration"><a class="header" href="#sdp-declaration">SDP Declaration</a></h2>
 <p>This gas covers multiple verification processes: confirming ownership of the service note through ZkSignature verification, validating the zk_id via a second ZkSignature, and establishing ownership of the provider_id through an Eddsa25519 signature. It also includes verification of the declaration format, confirmation of note existence, validation that the note is not already used for this service, and verification of its amount. Additionally, it accounts for the computational costs associated with the note service locking mechanism and declaration management.</p>
-<p>Execution: ~ 646k CPU cycles.</p>
+<p>Execution: ~ 649k CPU cycles.</p>
 <ul>
-<li>Verification of the Ed25519 signature: 56,000 cycles.</li>
+<li>Verification of the Ed25519 signature: 59,200 cycles.</li>
 <li>Verification of the ZK signature: 590,000 cycles.</li>
 <li>Verification that the declaration doesn’t already exist: negligible.</li>
 <li>Verification of locator length: negligible.</li>
@@ -409,7 +411,7 @@ The execution require deriving note Id and adding notes to the ledger.</p>
 </ul>
 <h3 id="eddsa-signature-verification"><a class="header" href="#eddsa-signature-verification">Eddsa Signature Verification</a></h3>
 <p>To get the numbers, we executed the <a href="https://github.com/logos-blockchain/logos-blockchain/blob/3c249f67d11bcad6ce7cbd92cf8c6b977d35a443/tests/src/benchmarks/eddsa.rs#L17">test included in the official Rust implementation of the node</a>.</p>
-<p>Over 100 iterations, verifying an Eddsa25519 signature requires an average of 56,000 CPU cycles.</p>
+<p>Over 100 iterations, verifying an Eddsa25519 signature with strict verification (small-order checks on the public key and on <code>R</code>, see <a href="common-cryptographic-components.html#eddsa">Common Cryptographic Components</a>) requires an average of 59,200 CPU cycles.</p>
 <h3 id="proof-of-claim"><a class="header" href="#proof-of-claim">Proof of Claim</a></h3>
 <p>To get the numbers, we executed the <a href="https://github.com/logos-blockchain/logos-blockchain/blob/044259f74527bffb2724e132203f10253de58541/zk/groth16/tests/proof_of_claim_cpy_cycles.rs#L169">test included in the official Rust implementation of the node</a>.</p>
 <p>We found the best linear curve approximating these measures (over 100 iterations):</p>

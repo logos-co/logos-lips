@@ -192,6 +192,7 @@
 </div><!-- timeline:start -->
 <h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
 <ul>
+<li><strong>2026-10-04</strong> — <a href="https://github.com/logos-co/logos-lips/blob/47a73cdc412af55f1bebc5441c4783a9ac595240/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>47a73cd</code></a> — docs(blockchain): gas for strict EdDSA verification (#464)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b7301a67b5364a8dbe719f8b67b96b7f198d0a13/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>b7301a6</code></a> — [RFC] Mantle: Enable basic EmPoWering machinery (#400)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/7c2ec59fadcdc2ba0ae74ff7600a14b55d90efcd/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>7c2ec59</code></a> — [RFC] The Last Served Epoch Is Rewardable (#435)</li>
 <li><strong>2026-09-09</strong> — <a href="https://github.com/logos-co/logos-lips/blob/4b9d1ca1794f1e1b47aa40582f7793e2f84ed999/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>4b9d1ca</code></a> — docs(blockchain): make every Operation carry a proof and gas independent of it (#431)</li>
@@ -236,6 +237,7 @@
 <tr><td>1.13.0</td><td>Removed the <code>None</code> case of <code>op_proofs</code>, every Operation carrying exactly one proof. A <code>CHANNEL_CONFIG</code> creating a channel is verified against a threshold of <code>0</code> and its proof carries no signature and no index. Execution Gas is derived from the Operation and the state it is validated against, the thresholds pricing the channel Operations being the ones held in the channel state</td><td>2026-08-31</td></tr>
 <tr><td>1.14.0</td><td>Moved SDP declaration removal to <code>withdraw_at + 1</code>; the last served epoch's reward is paid in the same first block, before removal</td><td>2026-09-11</td></tr>
 <tr><td>1.15.0</td><td>Add the <code>CLAIM_POW_REWARD</code> Operation and the proof of work state it is validated against; the reward pool and the difficulty controllers are specified in <a href="proof-of-work.html">Proof of Work</a></td><td>2026-09-08</td></tr>
+<tr><td>1.16.0</td><td>Gas Determination table updated for strict Ed25519 verification: channel Operations 56 → 59 Execution Gas per signature, <code>EXECUTION_SDP_DECLARE_GAS</code> 646 → 649, from <a href="analysis-gas-cost-determination.html">Gas Cost Determination</a> 1.7.0</td><td>2026-09-24</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
@@ -1776,12 +1778,12 @@ def derive_note_id(op_id: Hash, output_number: int, note: Note) -&gt; NoteId:
 <p>From the [<a href="analysis-gas-cost-determination.html">Analysis] Gas Cost Determination</a>, we get the table below:</p>
 <div class="table-wrapper"><table><thead><tr><th>Constants</th><th>Value</th></tr></thead><tbody>
 <tr><td>EXECUTION_TRANSFER_GAS</td><td>590</td></tr>
-<tr><td>EXECUTION_CHANNEL_INSCRIBE_GAS</td><td>56</td></tr>
-<tr><td>EXECUTION_CHANNEL_CONFIG_GAS</td><td>56</td></tr>
+<tr><td>EXECUTION_CHANNEL_INSCRIBE_GAS</td><td>59</td></tr>
+<tr><td>EXECUTION_CHANNEL_CONFIG_GAS</td><td>59</td></tr>
 <tr><td>EXECUTION_CHANNEL_DEPOSIT_GAS</td><td>590</td></tr>
-<tr><td>EXECUTION_CHANNEL_WITHDRAW_GAS</td><td>56</td></tr>
-<tr><td>EXECUTION_CHANNEL_TRANSFER_GAS</td><td>56</td></tr>
-<tr><td>EXECUTION_SDP_DECLARE_GAS</td><td>646</td></tr>
+<tr><td>EXECUTION_CHANNEL_WITHDRAW_GAS</td><td>59</td></tr>
+<tr><td>EXECUTION_CHANNEL_TRANSFER_GAS</td><td>59</td></tr>
+<tr><td>EXECUTION_SDP_DECLARE_GAS</td><td>649</td></tr>
 <tr><td>EXECUTION_SDP_WITHDRAW_GAS</td><td>590</td></tr>
 <tr><td>EXECUTION_SDP_ACTIVE_GAS</td><td>590</td></tr>
 <tr><td>EXECUTION_LEADER_CLAIM_GAS</td><td>580</td></tr>
