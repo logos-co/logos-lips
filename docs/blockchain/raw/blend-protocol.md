@@ -526,7 +526,7 @@ $$
 
 A node verifies each message once, from the first neighbor that delivers it. The shares of the $`\Phi_{CC} - 2`$ connections a node opens itself ([Connectivity Maintenance](#connectivity-maintenance)) must carry the flood, so $`F_1`$ must be below $`(\Phi_{CC} - 2) \cdot r_1`$; at that rate a backlog never drains. $`F_T`$ is sized so that a backlog of one round of these shares drains, at $`(\Phi_{CC} - 2) \cdot r_1 - F_1`$ per round, within the network absorption of one hop, $`\eta`$ ([Transition Period](#transition-period)): $`F_1 = (\Phi_{CC} - 2) \cdot r_1 \cdot (1 - 1 / \eta) = 20`$. Messages backed by a proof of work count within $`F_T`$, which is the reference load of [Blend Difficulty](proof-of-work.md#blend-difficulty).
 
-A node verifies at most $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124`$ messages in a round, which must not exceed $`V`$. It receives each message from up to $`\Phi_{CC}`$ neighbors and forwards it to $`\Phi_{CC} - 1`$, so at $`F_1`$ and $`19318`$ bytes per message ([Message Formatting](message-formatting.md)) it receives up to $`1.5`$ MB/s and sends $`1.2`$ MB/s.
+A node verifies at most $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124`$ messages in a round, which must not exceed $`V`$. At its peering degree, a node forwards each message to the $`\Phi_{CC} - 1`$ neighbors it did not receive it from, and receives it from between $`1`$ and $`\Phi_{CC}`$ of them. At $`F_1`$ and $`19318`$ bytes per message ([Message Formatting](message-formatting.md)), it sends $`(\Phi_{CC} - 1) \cdot F_1 = 60`$ messages a round, $`1.2`$ MB/s, and receives between $`F_1 = 20`$ and $`\Phi_{CC} \cdot F_1 = 80`$, $`0.4`$ to $`1.5`$ MB/s.
 
 ### Connectivity Maintenance
 

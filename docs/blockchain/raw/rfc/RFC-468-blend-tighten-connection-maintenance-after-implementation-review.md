@@ -17,6 +17,7 @@
 | v9 | Counted in `F_1` the messages generated or processed, so that relayed copies are not | 2026-10-05 |
 | v10 | Moved the single number of copies out of this RFC, back to `R_C = 0` and `R_D = 1`, which raises `F_T` and `TARGET_TXS_PER_BLOCK` to 170 | 2026-10-05 |
 | v11 | Linked the cover message motivation in Rewarding to Releasing, which it had contradicted | 2026-10-05 |
+| v12 | Stated the bandwidth a node receives as a range, from `F_1` to `Φ_CC·F_1` | 2026-10-05 |
 
 ## Reviewer Orientation
 
@@ -53,7 +54,7 @@ A message is verified on whichever connection delivers it first, so the flood no
 
 `V` is measured over the full check of a public header, its signature and its proof of quota ([benchmark](https://github.com/logos-blockchain/research/tree/blend-header-verification-benchmark/tools/benchmarks/blend-header-verification)). A nullifier now enters the cache when its verification starts. Otherwise the copies that reach a node from several neighbors while a proof is being verified would each be verified, and the load would climb back towards `Φ_CC·F_1`. A copy that arrives during a verification is checked again once the verification ends, so an invalid message carrying a copied nullifier cannot make a node drop the valid one.
 
-The limit moves to bandwidth: at `F_1 = 20`, a node receives up to 1.5 MB/s and sends 1.2 MB/s.
+The limit moves to bandwidth: at `F_1 = 20`, a node sends 1.2 MB/s and receives 0.4 to 1.5 MB/s. A node that hears a message after all its neighbors receives a copy from each, so the slowest node sits at the top of that range.
 
 ## Why 64 bits of the nullifier
 
@@ -172,7 +173,7 @@ With the verification share, bandwidth limits `F_1` before `V` does. A node rece
 +A node verifies each message once, from the first neighbor that delivers it. The shares of the $`\Phi_{CC} - 2`$ connections a node opens itself ([Connectivity Maintenance](#connectivity-maintenance)) must carry the flood, so $`F_1`$ must be below $`(\Phi_{CC} - 2) \cdot r_1`$; at that rate a backlog never drains. $`F_T`$ is sized so that a backlog of one round of these shares drains, at $`(\Phi_{CC} - 2) \cdot r_1 - F_1`$ per round, within the network absorption of one hop, $`\eta`$ ([Transition Period](#transition-period)): $`F_1 = (\Phi_{CC} - 2) \cdot r_1 \cdot (1 - 1 / \eta) = 20`$. ...
 
 -A node reads at most $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124`$ messages in a round, which must not exceed $`V`$, and verifies the public header of novel messages only ([Relaying](#relaying)). At $`19318`$ bytes per message ([Message Formatting](message-formatting.md)) that is $`2.4`$ MB/s.
-+A node verifies at most $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124`$ messages in a round, which must not exceed $`V`$. It receives each message from up to $`\Phi_{CC}`$ neighbors and forwards it to $`\Phi_{CC} - 1`$, so at $`F_1`$ and $`19318`$ bytes per message ([Message Formatting](message-formatting.md)) it receives up to $`1.5`$ MB/s and sends $`1.2`$ MB/s.
++A node verifies at most $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124`$ messages in a round, which must not exceed $`V`$. At its peering degree, a node forwards each message to the $`\Phi_{CC} - 1`$ neighbors it did not receive it from, and receives it from between $`1`$ and $`\Phi_{CC}`$ of them. At $`F_1`$ and $`19318`$ bytes per message ([Message Formatting](message-formatting.md)), it sends $`(\Phi_{CC} - 1) \cdot F_1 = 60`$ messages a round, $`1.2`$ MB/s, and receives between $`F_1 = 20`$ and $`\Phi_{CC} \cdot F_1 = 80`$, $`0.4`$ to $`1.5`$ MB/s.
 ```
 
 The `F_1` formula and [Global Parameters](../blend-protocol.md#global-parameters) follow:
