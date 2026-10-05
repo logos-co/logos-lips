@@ -13,6 +13,7 @@
 | v5 | Counted only the messages a node verifies towards a connection's share, sized `F_1` against the shares of the connections a node opens, which raises `F_T` and `TARGET_TXS_PER_BLOCK` to 70, and put a nullifier in the cache from the start of its verification | 2026-10-02 |
 | v6 | Left open the bandwidth that reading every copy whole costs | 2026-10-02 |
 | v7 | Restored that `V` covers the proof of quota, which the review asked to confirm | 2026-10-02 |
+| v8 | Defined `F_1` as the rate the network releases messages, and made Releasing remove one cover message, with its copies, per block proposal | 2026-10-05 |
 
 ## Reviewer Orientation
 
@@ -56,7 +57,7 @@ The limit moves to bandwidth: at `F_1 = 20`, a node receives up to 1.5 MB/s and 
 
 1.6.0 sent a block proposal in `1 + R_D = 2` messages and every other message once, with `R_C = 0`. A proposer releases both messages in the round after it generates them, while a node draws its cover messages uniformly over the epoch. A node that releases two messages in one round has therefore almost certainly proposed a block. The count did not balance either: Rewarding removed one cover message per block proposal, and Releasing removed one per data message.
 
-One parameter, `R`, now sets the copies of every message a node generates: a cover message, a block proposal or a transaction. A transaction gets its copy for the same reason, since a single message stands out against paired cover messages. With one value, the proposal term of the `max` in `F_1` never exceeds the cover term. `F_1` is therefore `(F_C + F_T)·(1 + R)·β_max`, and `F_D ≤ F_C` is stated where `F_D` is defined.
+One parameter, `R`, now sets the copies of every message a node generates: a cover message, a block proposal or a transaction. A transaction gets its copy for the same reason, since a single message stands out against paired cover messages. With one value, the proposal term of the `max` in `F_1` never exceeds the cover term. `F_1` is therefore `(F_C + F_T)·(1 + R)·β_max`, and `F_D ≤ F_C` is stated where `F_D` is defined. Releasing now removes one cover message, with its copies, per block proposal, as Rewarding says. A proposal and the cover message it replaces then send the same number of messages; removing one cover message per copy of the proposal would send `1 + R` fewer.
 
 `R = 1` keeps a block proposal on two paths. Cover messages then take 6 of the 20 messages a connection carries per round, against 3, so `F_T` is 70 transactions during 30 rounds, 140 messages with their copies, against 170 without copies. `Q_C` doubles, `Q_L` stays 6, and `Q_W` becomes `(1 + R)·β_max = 6`, so one proof of work solution pays for a message and its copy. The activity threshold rises by one bit with `Q_C`, through its formula.
 
@@ -159,6 +160,9 @@ With the verification share, bandwidth limits `F_1` before `V` does. A node rece
 -A core node reads at most a share of messages from each connection per round, sized to what the slowest node the protocol targets can process, sends at most the same share on each, and keeps a connection only while its neighbor delivers. ...
 +A core node verifies at most a share of the novel messages from each connection per round, sized to what the slowest node the protocol targets can process, and keeps a connection only while its neighbor delivers. ...
 
+-- $`F_1`$ denote the number of messages a core connection carries per round;
++- $`F_1`$ denote the number of messages the network releases per round, each of which every core node verifies once;
+
 -- $`r_1`$ denote the number of messages a node reads from a core connection in a round;
 +- $`r_1`$ denote the number of novel messages a node verifies from a core connection in a round;
 
@@ -169,6 +173,9 @@ With the verification share, bandwidth limits `F_1` before `V` does. A node rece
 [Expected Traffic](../blend-protocol.md#expected-traffic) sizes `F_1` against the shares of the connections a node opens, draining within `η`:
 
 ```diff
+-The rate a core connection carries is:
++The network releases messages, and every core node verifies them, at the rate:
+
 -Flooding delivers each message once per neighbor, so $`F_1`$ must be below $`r_1`$; at $`r_1`$ a backlog on a connection never drains. $`F_T`$ is sized so that a backlog of one round's share drains, at $`r_1 - F_1`$ per round, within the time a message may spend at one hop, $`\Delta_{max} + \eta`$ ([Transition Period](#transition-period)): $`F_1 = r_1 \cdot (1 - 1 / (\Delta_{max} + \eta)) = 16`$. ...
 +A node verifies each message once, from the first neighbor that delivers it. The shares of the $`\Phi_{CC} - 2`$ connections a node opens itself ([Connectivity Maintenance](#connectivity-maintenance)) must carry the flood, so $`F_1`$ must be below $`(\Phi_{CC} - 2) \cdot r_1`$; at that rate a backlog never drains. $`F_T`$ is sized so that a backlog of one round of these shares drains, at $`(\Phi_{CC} - 2) \cdot r_1 - F_1`$ per round, within the network absorption of one hop, $`\eta`$ ([Transition Period](#transition-period)): $`F_1 = (\Phi_{CC} - 2) \cdot r_1 \cdot (1 - 1 / \eta) = 20`$. ...
 
@@ -237,6 +244,13 @@ The nullifier cache takes a nullifier from the start of its verification ([Detai
 
 -$`Q_W = \beta_{max}`$: one solution pays for exactly one message, since a message consumes one blending operation per encapsulation.
 +$`Q_W = (1 + R) \cdot \beta_{max}`$: one solution pays for exactly one message and its copies, since each consumes one blending operation per encapsulation.
+```
+
+[Releasing](../blend-protocol.md#releasing) removes one cover message, with its copies, per block proposal:
+
+```diff
+-- As soon as a **data** message carrying a block proposal is generated, one random unreleased (future) **cover** message must be removed from the release schedule to maintain the node’s statistical indistinguishability. A data message carrying a transaction removes no cover message.
++- As soon as a block proposal is generated, one random unreleased (future) **cover** message, with its copies, must be removed from the release schedule to maintain the node’s statistical indistinguishability. A transaction removes no cover message.
 ```
 
 ## 3. The reference load of the Blend difficulty
@@ -335,6 +349,7 @@ The Neighbor Distinction Process reads the peer id the transport handshake alrea
 - [ ] Count only novel messages towards a core connection's share, and stop reading the connection once its share for the round is spent. Remove the per-round cap on what a node sends on a connection.
 - [ ] Discard a message queued for a core connection in round `n` that is not sent before round `n + η`.
 - [ ] Send every generated message, whether a cover message, a block proposal or a transaction, with `R = 1` copy, each encapsulated with its own keys.
+- [ ] Remove one scheduled cover message, with its copy, per block proposal, not one per copy of the proposal.
 - [ ] Derive `Q_C`, `Q_L` and `Q_W` with `R = 1`: `Q_C` doubles, `Q_L` stays 6, and `Q_W` becomes 6.
 - [ ] Set `TARGET_TXS_PER_BLOCK` to 70.
 - [ ] Close a connection whose stream ends or fails, without blacklisting its neighbor.

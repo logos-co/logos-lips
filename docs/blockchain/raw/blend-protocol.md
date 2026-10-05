@@ -447,7 +447,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\beta_{max}`$ denotes a maximum number of processing rounds for a single message;
 - $`E`$ denotes a number of rounds in an epoch;
 - $`W`$ denote the observation window expressed in the number of rounds;
-- $`F_1`$ denote the number of messages a core connection carries per round;
+- $`F_1`$ denote the number of messages the network releases per round, each of which every core node verifies once;
 - $`V`$ denote the number of messages per second the slowest node the protocol targets processes;
 - $`r_1`$ denote the number of novel messages a node verifies from a core connection in a round;
 - $`r_E`$ denote the number of connections with edge nodes a node accepts in a round;
@@ -517,7 +517,7 @@ The Neighbor Distinction Process (NDP) enables the core node to distinguish betw
 
 A message is **novel** to a node when its proof of quota nullifier is not in the nullifier cache ([Relaying](#relaying)).
 
-The rate a core connection carries is:
+The network releases messages, and every core node verifies them, at the rate:
 
 $$
 F_1 = \left( F_C + F_T \right) \cdot (1 + R) \cdot \beta_{max} = 20.0
@@ -952,7 +952,7 @@ The process of releasing messages involves the following steps:
 - Upon **receiving** a message, it is immediately released to all neighboring nodes, except the one it was received from.
 - All **processed** messages are queued and released at the next release round determined by the [Delaying](#delaying) logic.
 - Every **generated** message is released at the beginning of the next round after its generation.
-- As soon as a **data** message carrying a block proposal is generated, one random unreleased (future) **cover** message must be removed from the release schedule to maintain the node’s statistical indistinguishability. A data message carrying a transaction removes no cover message.
+- As soon as a block proposal is generated, one random unreleased (future) **cover** message, with its copies, must be removed from the release schedule to maintain the node’s statistical indistinguishability. A transaction removes no cover message.
 - If more than one message needs to be released for the same round, they must be randomly shuffled before release.
 
 ### Broadcasting
