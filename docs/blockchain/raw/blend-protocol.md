@@ -524,7 +524,15 @@ $$
 F_1 = \left( \max\left(F_C \cdot (1 + R_C),\ F_D \cdot (1 + R_D)\right) + F_T \right) \cdot \beta_{max} = 20.0
 $$
 
-A node verifies each message once, from the first neighbor that delivers it. The shares of the $`\Phi_{CC} - 2`$ connections a node opens itself ([Connectivity Maintenance](#connectivity-maintenance)) must carry the flood, so $`F_1`$ must be below $`(\Phi_{CC} - 2) \cdot r_1`$; at that rate a backlog never drains. $`F_T`$ is sized so that a backlog of one round of these shares drains, at $`(\Phi_{CC} - 2) \cdot r_1 - F_1`$ per round, within the network absorption of one hop, $`\eta`$ ([Transition Period](#transition-period)): $`F_1 = (\Phi_{CC} - 2) \cdot r_1 \cdot (1 - 1 / \eta) = 20`$. Messages backed by a proof of work count within $`F_T`$, which is the reference load of [Blend Difficulty](proof-of-work.md#blend-difficulty).
+A node verifies each message once, from the first neighbor that delivers it. $`F_1`$ is sized against the shares of the $`\Phi_{CC} - 2`$ connections a node opens itself ([Connectivity Maintenance](#connectivity-maintenance)), which give it $`(\Phi_{CC} - 2) \cdot r_1`$ verifications a round. A backlog of one round of these shares clears at $`(\Phi_{CC} - 2) \cdot r_1 - F_1`$ a round, and must clear within the network absorption of one hop, $`\eta`$ ([Transition Period](#transition-period)):
+
+$$
+\frac{(\Phi_{CC} - 2) \cdot r_1}{(\Phi_{CC} - 2) \cdot r_1 - F_1} = \eta
+\quad\Rightarrow\quad
+F_1 = (\Phi_{CC} - 2) \cdot r_1 \cdot \left(1 - \frac{1}{\eta}\right) = 20
+$$
+
+Messages backed by a proof of work count within $`F_T`$, which is the reference load of [Blend Difficulty](proof-of-work.md#blend-difficulty).
 
 A node verifies at most $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124`$ messages in a round, which must not exceed $`V`$. At its peering degree, a node forwards each message to the $`\Phi_{CC} - 1`$ neighbors it did not receive it from, and receives it from between $`1`$ and $`\Phi_{CC}`$ of them. At $`F_1`$ and $`19318`$ bytes per message ([Message Formatting](message-formatting.md)), it sends $`(\Phi_{CC} - 1) \cdot F_1 = 60`$ messages a round, $`1.2`$ MB/s, and receives between $`F_1 = 20`$ and $`\Phi_{CC} \cdot F_1 = 80`$, $`0.4`$ to $`1.5`$ MB/s.
 
