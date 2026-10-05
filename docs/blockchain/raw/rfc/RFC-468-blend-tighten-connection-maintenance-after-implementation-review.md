@@ -16,6 +16,7 @@
 | v8 | Defined `F_1` as the rate the network releases messages, and made Releasing remove one cover message, with its copies, per block proposal | 2026-10-05 |
 | v9 | Counted in `F_1` the messages generated or processed, so that relayed copies are not | 2026-10-05 |
 | v10 | Moved the single number of copies out of this RFC, back to `R_C = 0` and `R_D = 1`, which raises `F_T` and `TARGET_TXS_PER_BLOCK` to 170 | 2026-10-05 |
+| v11 | Linked the cover message motivation in Rewarding to Releasing, which it had contradicted | 2026-10-05 |
 
 ## Reviewer Orientation
 
@@ -295,6 +296,7 @@ The Neighbor Distinction Process reads the peer id the transport handshake alrea
 
 - Edge rule 3 drops "has its connection closed", which Relaying step 1.2 already requires.
 - The relaying motivation in Rewarding says a node must deliver messages to its neighbors, which is what liveness enforces.
+- The cover message motivation in Rewarding links to Releasing instead of restating its rule. It had counted one cover message per block proposal, where Releasing counts one per data message.
 - The 1.6.0 change-log row says `Φ_CC − 2` of the connections are opened by the node, not two.
 - The 1.4.0, 1.5.0 and 1.6.0 change-log rows carry their merge dates, so the dates follow the versions.
 - Edge Network bootstrapping numbers its third sub-step 3, not 4, and "until it is sends" reads "until it sends".

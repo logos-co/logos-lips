@@ -241,7 +241,7 @@ We address the above motivations in the following manner:
 
 1. Cover message **generation** is motivated by the node’s individual need for privacy.
   - The node must generate and emit cover messages to keep itself private. Otherwise, it will lose the protection given by the protocol.
-  - The node must also limit the number of cover messages to generate to be indistinguishable from all other nodes. That is, for every block proposal a node generates it must generate one less cover message; otherwise the node could be distinguished from other nodes based on the number of emitted messages.
+  - The node must also limit the number of cover messages it generates to be indistinguishable from all other nodes, as [Releasing](#releasing) specifies.
 
 2. Message **relaying** is motivated by monitoring the connection quality with the node by its neighbors.
   - The node must deliver messages to its neighbors. Otherwise, they close their connections with it ([Connectivity Maintenance](#connectivity-maintenance)). This will lead to a network-level isolation of that node, and if the node is isolated, it will not receive any messages to process, so it will earn no rewards.
