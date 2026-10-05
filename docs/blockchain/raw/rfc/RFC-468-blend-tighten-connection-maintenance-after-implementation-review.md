@@ -14,6 +14,7 @@
 | v6 | Left open the bandwidth that reading every copy whole costs | 2026-10-02 |
 | v7 | Restored that `V` covers the proof of quota, which the review asked to confirm | 2026-10-02 |
 | v8 | Defined `F_1` as the rate the network releases messages, and made Releasing remove one cover message, with its copies, per block proposal | 2026-10-05 |
+| v9 | Counted in `F_1` the messages generated or processed, so that relayed copies are not | 2026-10-05 |
 
 ## Reviewer Orientation
 
@@ -161,7 +162,7 @@ With the verification share, bandwidth limits `F_1` before `V` does. A node rece
 +A core node verifies at most a share of the novel messages from each connection per round, sized to what the slowest node the protocol targets can process, and keeps a connection only while its neighbor delivers. ...
 
 -- $`F_1`$ denote the number of messages a core connection carries per round;
-+- $`F_1`$ denote the number of messages the network releases per round, each of which every core node verifies once;
++- $`F_1`$ denote the number of messages generated or processed per round across the network, each of which every core node verifies once;
 
 -- $`r_1`$ denote the number of messages a node reads from a core connection in a round;
 +- $`r_1`$ denote the number of novel messages a node verifies from a core connection in a round;
@@ -174,7 +175,7 @@ With the verification share, bandwidth limits `F_1` before `V` does. A node rece
 
 ```diff
 -The rate a core connection carries is:
-+The network releases messages, and every core node verifies them, at the rate:
++Messages are generated or processed across the network, and verified once by every core node, at the rate:
 
 -Flooding delivers each message once per neighbor, so $`F_1`$ must be below $`r_1`$; at $`r_1`$ a backlog on a connection never drains. $`F_T`$ is sized so that a backlog of one round's share drains, at $`r_1 - F_1`$ per round, within the time a message may spend at one hop, $`\Delta_{max} + \eta`$ ([Transition Period](#transition-period)): $`F_1 = r_1 \cdot (1 - 1 / (\Delta_{max} + \eta)) = 16`$. ...
 +A node verifies each message once, from the first neighbor that delivers it. The shares of the $`\Phi_{CC} - 2`$ connections a node opens itself ([Connectivity Maintenance](#connectivity-maintenance)) must carry the flood, so $`F_1`$ must be below $`(\Phi_{CC} - 2) \cdot r_1`$; at that rate a backlog never drains. $`F_T`$ is sized so that a backlog of one round of these shares drains, at $`(\Phi_{CC} - 2) \cdot r_1 - F_1`$ per round, within the network absorption of one hop, $`\eta`$ ([Transition Period](#transition-period)): $`F_1 = (\Phi_{CC} - 2) \cdot r_1 \cdot (1 - 1 / \eta) = 20`$. ...

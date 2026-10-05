@@ -447,7 +447,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\beta_{max}`$ denotes a maximum number of processing rounds for a single message;
 - $`E`$ denotes a number of rounds in an epoch;
 - $`W`$ denote the observation window expressed in the number of rounds;
-- $`F_1`$ denote the number of messages the network releases per round, each of which every core node verifies once;
+- $`F_1`$ denote the number of messages generated or processed per round across the network, each of which every core node verifies once;
 - $`V`$ denote the number of messages per second the slowest node the protocol targets processes;
 - $`r_1`$ denote the number of novel messages a node verifies from a core connection in a round;
 - $`r_E`$ denote the number of connections with edge nodes a node accepts in a round;
@@ -517,7 +517,7 @@ The Neighbor Distinction Process (NDP) enables the core node to distinguish betw
 
 A message is **novel** to a node when its proof of quota nullifier is not in the nullifier cache ([Relaying](#relaying)).
 
-The network releases messages, and every core node verifies them, at the rate:
+Messages are generated or processed across the network, and verified once by every core node, at the rate:
 
 $$
 F_1 = \left( F_C + F_T \right) \cdot (1 + R) \cdot \beta_{max} = 20.0
