@@ -15,22 +15,22 @@
 | v7 | Restored that `V` covers the proof of quota, which the review asked to confirm | 2026-10-02 |
 | v8 | Defined `F_1` as the rate the network releases messages, and made Releasing remove one cover message, with its copies, per block proposal | 2026-10-05 |
 | v9 | Counted in `F_1` the messages generated or processed, so that relayed copies are not | 2026-10-05 |
+| v10 | Moved the single number of copies out of this RFC, back to `R_C = 0` and `R_D = 1`, which raises `F_T` and `TARGET_TXS_PER_BLOCK` to 170 | 2026-10-05 |
 
 ## Reviewer Orientation
 
-Read the PR's Motivation first. Most changes land in rules Blend 1.6.0 introduced: [Expected Traffic](../blend-protocol.md#expected-traffic) and [Connectivity Maintenance](../blend-protocol.md#connectivity-maintenance). The number of copies also reaches the [Quota](../blend-protocol.md#quota).
+Read the PR's Motivation first. Most changes land in rules Blend 1.6.0 introduced: [Expected Traffic](../blend-protocol.md#expected-traffic) and [Connectivity Maintenance](../blend-protocol.md#connectivity-maintenance).
 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here** — [Blend Protocol](#affected-specifications): [the shares count verifications](#1-the-shares-count-verifications) | `r_1` counts the novel messages a node verifies, not every message it reads, and a node no longer caps what it sends; `F_1 = (Φ_CC − 2)·r_1·(1 − 1/η) = 20`, draining within `η` instead of `Δ_max + η`; the send deadline counts from the round a message was queued |
-| 2 | Critical | [Blend Protocol](#affected-specifications): [one number of copies](#2-one-number-of-copies-for-every-message) | `R = 1` copy of every generated message, cover or data, replaces `R_C = 0` and `R_D = 1`; `F_T` is 70 transactions during 30 rounds, 140 messages with their copies; `Q_C` and `Q_W` double |
-| 3 | Critical | [Proof of Work](#affected-specifications): [the reference load](#3-the-reference-load-of-the-blend-difficulty) | `TARGET_TXS_PER_BLOCK`, a consensus constant, from 130 to 70 |
-| 4 | High | **Start here** — [Blend Protocol](#affected-specifications): [blacklisting](#4-blacklisting) | a stream that ends or fails no longer blacklists; blacklisting closes open connections; the size cap is gone |
-| 5 | High | [Blend Protocol](#affected-specifications): [pending handshakes, the cap and liveness](#5-pending-handshakes-the-handshake-cap-and-liveness) | a pending handshake is held as opened or accepted, and a pending edge handshake towards `Φ_CE^Max`; the cap counts offered handshakes only, `3 + Φ_CE^Max`; liveness is judged at the end of a round |
-| 6 | Medium | [Blend Protocol](#affected-specifications): [the nullifier cache](#6-the-nullifier-cache) | membership on the 64 least significant bits, from the start of a verification; the worst-case size |
-| 7 | Medium | [Blend Protocol](#affected-specifications): [the receive window](#7-the-receive-window) | a transport requirement: at most `r_1` unread messages on a core connection |
-| 8 | Low | [Blend Protocol](#affected-specifications): [the handshake time](#8-the-handshake-time) | `T_H` becomes a core node parameter, counted from the start of the transport handshake |
-| 9 | Low | [Chores](#chores) | skim |
+| 2 | Critical | [Proof of Work](#affected-specifications): [the reference load](#2-the-reference-load-of-the-blend-difficulty) | `TARGET_TXS_PER_BLOCK`, a consensus constant, from 130 to 170 |
+| 3 | High | **Start here** — [Blend Protocol](#affected-specifications): [blacklisting](#3-blacklisting) | a stream that ends or fails no longer blacklists; blacklisting closes open connections; the size cap is gone |
+| 4 | High | [Blend Protocol](#affected-specifications): [pending handshakes, the cap and liveness](#4-pending-handshakes-the-handshake-cap-and-liveness) | a pending handshake is held as opened or accepted, and a pending edge handshake towards `Φ_CE^Max`; the cap counts offered handshakes only, `3 + Φ_CE^Max`; liveness is judged at the end of a round |
+| 5 | Medium | [Blend Protocol](#affected-specifications): [the nullifier cache](#5-the-nullifier-cache) | membership on the 64 least significant bits, from the start of a verification; the worst-case size |
+| 6 | Medium | [Blend Protocol](#affected-specifications): [the receive window](#6-the-receive-window) | a transport requirement: at most `r_1` unread messages on a core connection |
+| 7 | Low | [Blend Protocol](#affected-specifications): [the handshake time](#7-the-handshake-time) | `T_H` becomes a core node parameter, counted from the start of the transport handshake |
+| 8 | Low | [Chores](#chores) | skim |
 
 # Discussion
 
@@ -53,16 +53,6 @@ A message is verified on whichever connection delivers it first, so the flood no
 `V` is measured over the full check of a public header, its signature and its proof of quota ([benchmark](https://github.com/logos-blockchain/research/tree/blend-header-verification-benchmark/tools/benchmarks/blend-header-verification)). A nullifier now enters the cache when its verification starts. Otherwise the copies that reach a node from several neighbors while a proof is being verified would each be verified, and the load would climb back towards `Φ_CC·F_1`. A copy that arrives during a verification is checked again once the verification ends, so an invalid message carrying a copied nullifier cannot make a node drop the valid one.
 
 The limit moves to bandwidth: at `F_1 = 20`, a node receives up to 1.5 MB/s and sends 1.2 MB/s.
-
-## Why every message has the same number of copies
-
-1.6.0 sent a block proposal in `1 + R_D = 2` messages and every other message once, with `R_C = 0`. A proposer releases both messages in the round after it generates them, while a node draws its cover messages uniformly over the epoch. A node that releases two messages in one round has therefore almost certainly proposed a block. The count did not balance either: Rewarding removed one cover message per block proposal, and Releasing removed one per data message.
-
-One parameter, `R`, now sets the copies of every message a node generates: a cover message, a block proposal or a transaction. A transaction gets its copy for the same reason, since a single message stands out against paired cover messages. With one value, the proposal term of the `max` in `F_1` never exceeds the cover term. `F_1` is therefore `(F_C + F_T)·(1 + R)·β_max`, and `F_D ≤ F_C` is stated where `F_D` is defined. Releasing now removes one cover message, with its copies, per block proposal, as Rewarding says. A proposal and the cover message it replaces then send the same number of messages; removing one cover message per copy of the proposal would send `1 + R` fewer.
-
-`R = 1` keeps a block proposal on two paths. Cover messages then take 6 of the 20 messages a connection carries per round, against 3, so `F_T` is 70 transactions during 30 rounds, 140 messages with their copies, against 170 without copies. `Q_C` doubles, `Q_L` stays 6, and `Q_W` becomes `(1 + R)·β_max = 6`, so one proof of work solution pays for a message and its copy. The activity threshold rises by one bit with `Q_C`, through its formula.
-
-`R = 0` would give `F_T = 170`, but a block proposal would travel one path, and one whose path fails falls back to a direct broadcast ([Failure Detection and Reaction](../blend-protocol.md#failure-detection-and-reaction)).
 
 ## Why 64 bits of the nullifier
 
@@ -98,7 +88,7 @@ The handshake cap counted every handshake in progress, the node's own dials incl
 
 1.6.0 did not say whether a pending edge handshake counts towards `Φ_CE^Max`. An edge connection is now accepted and held from the same point as a core one, once the Neighbor Distinction Process identifies it, so `T_E` runs from there and a pending edge handshake holds its slot for at most `T_E`.
 
-Liveness is counted per identity for the epoch, so a neighbor closed as not live starts not live when it reconnects. 1.6.0 did not say when liveness is judged. Judged when a connection opens, it closes the reconnected neighbor before it can deliver, and shuts the identity out for the rest of the epoch. Judged at the end of a round, the neighbor has that round to deliver; an honest neighbor delivers about three messages a round on average, even in a quiet network.
+Liveness is counted per identity for the epoch, so a neighbor closed as not live starts not live when it reconnects. 1.6.0 did not say when liveness is judged. Judged when a connection opens, it closes the reconnected neighbor before it can deliver, and shuts the identity out for the rest of the epoch. Judged at the end of a round, the neighbor has that round to deliver; an honest neighbor delivers about two messages a round on average, even in a quiet network.
 
 ## The receive window
 
@@ -114,7 +104,7 @@ The reference implementation bounds the transport handshake by the QUIC handshak
 
 ## Compatibility
 
-No message format changes. `TARGET_TXS_PER_BLOCK` is a consensus constant, and the proof of quota checks `Q_C` and `Q_W`. Bedrock has no deployed network, so the change needs no migration.
+No message format changes. `TARGET_TXS_PER_BLOCK` is a consensus constant, and Bedrock has no deployed network, so the change needs no migration.
 
 ## Review findings that need no change
 
@@ -184,7 +174,19 @@ With the verification share, bandwidth limits `F_1` before `V` does. A node rece
 +A node verifies at most $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124`$ messages in a round, which must not exceed $`V`$. It receives each message from up to $`\Phi_{CC}`$ neighbors and forwards it to $`\Phi_{CC} - 1`$, so at $`F_1`$ and $`19318`$ bytes per message ([Message Formatting](message-formatting.md)) it receives up to $`1.5`$ MB/s and sends $`1.2`$ MB/s.
 ```
 
-The `F_1` formula and `F_T` follow in [Details 2](#2-one-number-of-copies-for-every-message), and the reference load in [Details 3](#3-the-reference-load-of-the-blend-difficulty).
+The `F_1` formula and [Global Parameters](../blend-protocol.md#global-parameters) follow:
+
+```diff
+ $$
+-F_1 = \left( \max\left(F_C \cdot (1 + R_C),\ F_D \cdot (1 + R_D)\right) + F_T \right) \cdot \beta_{max} = 16.0
++F_1 = \left( \max\left(F_C \cdot (1 + R_C),\ F_D \cdot (1 + R_D)\right) + F_T \right) \cdot \beta_{max} = 20.0
+ $$
+
+-- $`F_T = 130/30`$, the network carries $`130`$ messages per slot of $`30`$ rounds, each carrying one transaction ([Payload Formatting](payload-formatting.md)), whatever quota backs them: $`\left(F_1 / \beta_{max} - \max(F_C \cdot (1 + R_C), F_D \cdot (1 + R_D))\right) \cdot 30 = 130`$ at $`F_1 = 16`$ ([Expected Traffic](#expected-traffic)).
++- $`F_T = 170/30`$, the network carries $`170`$ messages during $`30`$ rounds, each carrying one transaction ([Payload Formatting](payload-formatting.md)), whatever quota backs them: $`\left(F_1 / \beta_{max} - \max(F_C \cdot (1 + R_C), F_D \cdot (1 + R_D))\right) \cdot 30 = 170`$ at $`F_1 = 20`$ ([Expected Traffic](#expected-traffic)).
+```
+
+The reference load follows in [Details 2](#2-the-reference-load-of-the-blend-difficulty).
 
 [Connectivity Maintenance](../blend-protocol.md#connectivity-maintenance), Admission: a share counts novel messages, a node no longer caps what it sends, and the send deadline counts from the round a message was queued:
 
@@ -205,65 +207,18 @@ The `F_1` formula and `F_T` follow in [Details 2](#2-one-number-of-copies-for-ev
 +    1. If the neighbor is a core node, then the message counts towards the liveness of the connection, and a novel message towards its share ([Connectivity Maintenance](#connectivity-maintenance)).
 ```
 
-The nullifier cache takes a nullifier from the start of its verification ([Details 6](#6-the-nullifier-cache)).
+The nullifier cache takes a nullifier from the start of its verification ([Details 5](#5-the-nullifier-cache)).
 
-## 2. One number of copies for every message
-
-[Notation](../blend-protocol.md#notation):
-
-```diff
--- $`R_C`$ denote a redundancy parameter for cover messages, defining the number of “replications” of the same message;
--- $`R_D`$ denote a redundancy parameter for block proposals, defining the number of “replications” of the same message;
-+- $`R`$ denote the number of copies a node sends of each message it generates, besides the message itself, each encapsulated with its own keys;
-```
-
-[Global Parameters](../blend-protocol.md#global-parameters):
-
-```diff
--- $`F_D=1/30`$, the network generates one block proposal every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)).
--- $`F_T = 130/30`$, the network carries $`130`$ messages per slot of $`30`$ rounds, each carrying one transaction ([Payload Formatting](payload-formatting.md)), whatever quota backs them: $`\left(F_1 / \beta_{max} - \max(F_C \cdot (1 + R_C), F_D \cdot (1 + R_D))\right) \cdot 30 = 130`$ at $`F_1 = 16`$ ([Expected Traffic](#expected-traffic)).
--- $`R_C=0`$ and $`R_D=1`$: a cover message is not replicated, and a block proposal is replicated once. A transaction is not replicated.
-+- $`F_D=1/30`$, the network generates one block proposal every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)). $`F_D \le F_C`$: a block proposal replaces a cover message ([Releasing](#releasing)), so [Expected Traffic](#expected-traffic) counts it within $`F_C`$.
-+- $`F_T = 70/30`$, the network carries $`70`$ transactions during $`30`$ rounds, one per message ([Payload Formatting](payload-formatting.md)), in $`(1 + R) \cdot 70 = 140`$ messages with their copies, whatever quota backs them: $`\left(F_1 / ((1 + R) \cdot \beta_{max}) - F_C\right) \cdot 30 = 70`$ at $`F_1 = 20`$ ([Expected Traffic](#expected-traffic)).
-+- $`R=1`$: a node sends one copy of every message it generates, whatever its type. One value serves every type, since a different number of copies would reveal a message's type.
-```
-
-[Expected Traffic](../blend-protocol.md#expected-traffic):
-
-```diff
- $$
--F_1 = \left( \max\left(F_C \cdot (1 + R_C),\ F_D \cdot (1 + R_D)\right) + F_T \right) \cdot \beta_{max} = 16.0
-+F_1 = \left( F_C + F_T \right) \cdot (1 + R) \cdot \beta_{max} = 20.0
- $$
-```
-
-[Core Quota](../blend-protocol.md#core-quota) and [Leadership Quota](../blend-protocol.md#leadership-quota) use `R` in place of `R_C` and `R_D`. [Proof of Work Quota](../blend-protocol.md#proof-of-work-quota) pays for the copy:
-
-```diff
--Q^{n}_W = y \cdot Q_W, \qquad Q_W = \beta_{max}
-+Q^{n}_W = y \cdot Q_W, \qquad Q_W = (1 + R) \cdot \beta_{max}
-
--$`Q_W = \beta_{max}`$: one solution pays for exactly one message, since a message consumes one blending operation per encapsulation.
-+$`Q_W = (1 + R) \cdot \beta_{max}`$: one solution pays for exactly one message and its copies, since each consumes one blending operation per encapsulation.
-```
-
-[Releasing](../blend-protocol.md#releasing) removes one cover message, with its copies, per block proposal:
-
-```diff
--- As soon as a **data** message carrying a block proposal is generated, one random unreleased (future) **cover** message must be removed from the release schedule to maintain the node’s statistical indistinguishability. A data message carrying a transaction removes no cover message.
-+- As soon as a block proposal is generated, one random unreleased (future) **cover** message, with its copies, must be removed from the release schedule to maintain the node’s statistical indistinguishability. A transaction removes no cover message.
-```
-
-## 3. The reference load of the Blend difficulty
+## 2. The reference load of the Blend difficulty
 
 [Proof of Work](../proof-of-work.md#blend-difficulty) follows `F_T / F_D`:
 
 ```diff
 -TARGET_TXS_PER_BLOCK: uint64 = 130              # Reference transactions per block, F_T / F_D
-+TARGET_TXS_PER_BLOCK: uint64 = 70               # Reference transactions per block, F_T / F_D
++TARGET_TXS_PER_BLOCK: uint64 = 170              # Reference transactions per block, F_T / F_D
 ```
 
-## 4. Blacklisting
+## 3. Blacklisting
 
 [Connectivity Maintenance](../blend-protocol.md#connectivity-maintenance), Blacklist:
 
@@ -278,7 +233,7 @@ The nullifier cache takes a nullifier from the start of its verification ([Detai
 +3. A connection whose stream ends or fails is closed. Its neighbor is not blacklisted.
 ```
 
-## 5. Pending handshakes, the handshake cap and liveness
+## 4. Pending handshakes, the handshake cap and liveness
 
 [Connectivity Maintenance](../blend-protocol.md#connectivity-maintenance), Degree:
 
@@ -296,7 +251,7 @@ The nullifier cache takes a nullifier from the start of its verification ([Detai
 +1. A core node holds at most $`\Phi_{CE}^{Max}`$ connections with edge nodes at once, and accepts at most $`r_E`$ of them in a round. A connection is accepted and held once the [Neighbor Distinction Process](#neighbor-distinction-process) has identified the peer as an edge node, whether or not its handshake has completed. A connection offered above either is closed.
 ```
 
-## 6. The nullifier cache
+## 5. The nullifier cache
 
 [Relaying](../blend-protocol.md#relaying-2) in Details keeps the retention of step 1.4 and changes what is stored, and from when:
 
@@ -321,11 +276,11 @@ The nullifier cache takes a nullifier from the start of its verification ([Detai
 +It holds at most $`(E + T) \cdot ((\Phi_{CC} + 1) \cdot r_1 + r_E) \cdot 8 \approx 643`$ MB, when the node spends every share in every round. Two nullifiers that share these bits make the later message a duplicate. At that size the expected number of such pairs, the square of the entries over $`2^{65}`$, is below $`2 \cdot 10^{-4}`$ per epoch.
 ```
 
-## 7. The receive window
+## 6. The receive window
 
 [Connectivity Maintenance](../blend-protocol.md#connectivity-maintenance), Admission rule 1 ends with the bound on the receive window. Its diff is in [Details 1](#1-the-shares-count-verifications).
 
-## 8. The handshake time
+## 7. The handshake time
 
 `T_H` moves from [Global Parameters](../blend-protocol.md#global-parameters) to [Core Node Parameters](../blend-protocol.md#core-node-parameters):
 
@@ -349,10 +304,7 @@ The Neighbor Distinction Process reads the peer id the transport handshake alrea
 
 - [ ] Count only novel messages towards a core connection's share, and stop reading the connection once its share for the round is spent. Remove the per-round cap on what a node sends on a connection.
 - [ ] Discard a message queued for a core connection in round `n` that is not sent before round `n + η`.
-- [ ] Send every generated message, whether a cover message, a block proposal or a transaction, with `R = 1` copy, each encapsulated with its own keys.
-- [ ] Remove one scheduled cover message, with its copy, per block proposal, not one per copy of the proposal.
-- [ ] Derive `Q_C`, `Q_L` and `Q_W` with `R = 1`: `Q_C` doubles, `Q_L` stays 6, and `Q_W` becomes 6.
-- [ ] Set `TARGET_TXS_PER_BLOCK` to 70.
+- [ ] Set `TARGET_TXS_PER_BLOCK` to 170.
 - [ ] Close a connection whose stream ends or fails, without blacklisting its neighbor.
 - [ ] On blacklisting an identity, close every connection held with it, past-epoch and pending ones included; remove the blacklist size cap.
 - [ ] Hold a pending handshake as an opened or accepted connection once the Neighbor Distinction Process identifies a core node, and count its rounds towards liveness.
@@ -362,7 +314,7 @@ The Neighbor Distinction Process reads the peer id the transport handshake alrea
 - [ ] Limit the receive window of each core connection to `r_1` messages.
 - [ ] Key the nullifier cache by the 64 least significant bits of each nullifier. Add a nullifier when its verification starts, remove it if the verification fails, and check a copy that arrived meanwhile again once the verification ends.
 - [ ] Bound each handshake by the node's `T_H`, counted from the start of its transport handshake.
-- [ ] Add tests for the verification share, copies arriving during a verification, truncated streams, blacklist scope, stalled handshakes, reconnection after a liveness closure, the send deadline, and the copies of each message type.
+- [ ] Add tests for the verification share, copies arriving during a verification, truncated streams, blacklist scope, stalled handshakes, reconnection after a liveness closure, and the send deadline.
 - [ ] Verify the implementation matches this specification.
 
 # Affected Specifications

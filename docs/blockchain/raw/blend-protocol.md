@@ -35,7 +35,7 @@
 | 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, add a transaction as a data message payload, and align the nullifier retention period | 2026-09-11 |
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-11 |
 | 1.6.0 | Replaced the per-window statistical threshold on a connection with a share of messages a node reads from, and sends on, each connection in a round, and a liveness test, kept per identity for the epoch, on whether a neighbor delivers. Held the peering degree in live connections, at least $`\Phi_{CC} - 2`$ of them opened by the node. Restricted blacklisting to attributable faults. Sized the shares from the processing rate of the slowest node, derived the transactions the network carries from them, and made that rate the reference load of the Blend difficulty. | 2026-09-29 |
-| 1.7.0 | Counted only the messages a node verifies towards a connection's share, sized the transactions the network carries so that a backlog drains through the connections a node opens within the network absorption of one hop, gave every generated message the same number of copies, stored 64 bits of each cached nullifier, and stopped blacklisting a neighbor whose stream fails. | 2026-10-02 |
+| 1.7.0 | Counted only the messages a node verifies towards a connection's share, sized the transactions the network carries so that a backlog drains through the connections a node opens within the network absorption of one hop, stored 64 bits of each cached nullifier, and stopped blacklisting a neighbor whose stream fails. | 2026-10-02 |
 
 # Introduction
 
@@ -455,7 +455,8 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`F_D`$ denote a frequency at which block proposals are generated per round;
 - $`F_T`$ denote a frequency at which messages carrying a transaction are generated per round;
 - $`C = E \cdot F_C`$ denote the expected number of cover messages that are generated during an epoch by the core nodes;
-- $`R`$ denote the number of copies a node sends of each message it generates, besides the message itself, each encapsulated with its own keys;
+- $`R_C`$ denote a redundancy parameter for cover messages, defining the number of “replications” of the same message;
+- $`R_D`$ denote a redundancy parameter for block proposals, defining the number of “replications” of the same message;
 - $`\mathcal{N} = \text{SDP}(e)`$ denote a set of core nodes providing the Blend service for the epoch $`e`$ returned by the SDP protocol ([Service Declaration Protocol](bedrock-service-declaration-protocol.md));
 - $`N = |\mathcal N|`$ denote a number of core nodes providing the Blend service;
 - $`\text {CSPRNG}()`$ is a cryptographically secure pseudo-random number generator, implemented as a [ChaCha20-Based PRNG Construction](common-cryptographic-components.md#chacha20-based-prng-construction);
@@ -473,9 +474,9 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`T_M = 15`$ rounds, the message traversal time, as derived in the [Transition Period](#transition-period) section.
 - $`W=10 \cdot \Delta_{max}=30`$, the observation window is $`30`$ rounds.
 - $`F_C=1`$, the network generates one cover message per round on average.
-- $`F_D=1/30`$, the network generates one block proposal every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)). $`F_D \le F_C`$: a block proposal replaces a cover message ([Releasing](#releasing)), so [Expected Traffic](#expected-traffic) counts it within $`F_C`$.
-- $`F_T = 70/30`$, the network carries $`70`$ transactions during $`30`$ rounds, one per message ([Payload Formatting](payload-formatting.md)), in $`(1 + R) \cdot 70 = 140`$ messages with their copies, whatever quota backs them: $`\left(F_1 / ((1 + R) \cdot \beta_{max}) - F_C\right) \cdot 30 = 70`$ at $`F_1 = 20`$ ([Expected Traffic](#expected-traffic)).
-- $`R=1`$: a node sends one copy of every message it generates, whatever its type. One value serves every type, since a different number of copies would reveal a message's type.
+- $`F_D=1/30`$, the network generates one block proposal every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)).
+- $`F_T = 170/30`$, the network carries $`170`$ messages during $`30`$ rounds, each carrying one transaction ([Payload Formatting](payload-formatting.md)), whatever quota backs them: $`\left(F_1 / \beta_{max} - \max(F_C \cdot (1 + R_C), F_D \cdot (1 + R_D))\right) \cdot 30 = 170`$ at $`F_1 = 20`$ ([Expected Traffic](#expected-traffic)).
+- $`R_C=0`$ and $`R_D=1`$: a cover message is not replicated, and a block proposal is replicated once. A transaction is not replicated.
 - $`\Phi_{CC}=4`$, the peering degree ([Connectivity Maintenance](#connectivity-maintenance)). $`3 \le \Phi_{CC} \le 5`$. Below $`3`$ a node opens no connection of its own; above $`5`$ nodes must open more connections than nodes can accept, and dials are refused.
 - $`V = 156`$ messages per second the slowest node the protocol targets processes, one below the $`157`$ measured on one core of a Raspberry Pi 5 ([benchmark](https://github.com/logos-blockchain/research/tree/blend-header-verification-benchmark/tools/benchmarks/blend-header-verification)).
 - $`r_1 = 20`$ novel messages a node verifies from a core connection per round, and $`r_E = 24`$ connections with edge nodes it accepts per round: $`r_1 = \lfloor (2V/3) / (\Phi_{CC} + 1) \rfloor`$ and $`r_E = 2V/3 - \Phi_{CC} \cdot r_1`$, so a node at its peering degree verifies at most two thirds of $`V`$, and at one above it $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124 \le V`$ ([Expected Traffic](#expected-traffic)).
@@ -520,7 +521,7 @@ A message is **novel** to a node when its proof of quota nullifier is not in the
 Messages are generated or processed across the network, and verified once by every core node, at the rate:
 
 $$
-F_1 = \left( F_C + F_T \right) \cdot (1 + R) \cdot \beta_{max} = 20.0
+F_1 = \left( \max\left(F_C \cdot (1 + R_C),\ F_D \cdot (1 + R_D)\right) + F_T \right) \cdot \beta_{max} = 20.0
 $$
 
 A node verifies each message once, from the first neighbor that delivers it. The shares of the $`\Phi_{CC} - 2`$ connections a node opens itself ([Connectivity Maintenance](#connectivity-maintenance)) must carry the flood, so $`F_1`$ must be below $`(\Phi_{CC} - 2) \cdot r_1`$; at that rate a backlog never drains. $`F_T`$ is sized so that a backlog of one round of these shares drains, at $`(\Phi_{CC} - 2) \cdot r_1 - F_1`$ per round, within the network absorption of one hop, $`\eta`$ ([Transition Period](#transition-period)): $`F_1 = (\Phi_{CC} - 2) \cdot r_1 \cdot (1 - 1 / \eta) = 20`$. Messages backed by a proof of work count within $`F_T`$, which is the reference load of [Blend Difficulty](proof-of-work.md#blend-difficulty).
@@ -608,40 +609,40 @@ The quota limits the number of messages that can be generated during an epoch. T
 The core quota ($`Q_C`$) defines the messaging allowance that can be used by a core node during a single epoch. **The purpose of** $`Q_C`$ **is to limit the number of cover messages and the number of blending operations that can be used for a single message.** We assume that the core quota is used for generating cover messages, but the core node is not limited by this assumption. We define it as follows:
 
 $$
-Q_C = \left\lceil \dfrac{C \cdot (\beta_C+R \cdot \beta_C)}{N} \right\rceil
+Q_C = \left\lceil \dfrac{C \cdot (\beta_C+R_C \cdot \beta_C)}{N} \right\rceil
 $$
 
 Where:
 
 - $`C = E \cdot F_C`$ denotes an expected number of cover messages that are generated during an epoch by the core nodes;
 - $`\beta_C`$ denotes the expected number of blending operations for each cover message;
-- $`R`$ denotes the number of copies a node sends of each message it generates;
+- $`R_C`$ denotes a redundancy parameter for cover messages, increasing the number of core node messages a node can send;
 - $`N`$ denote a number of core nodes providing the Blend service for the epoch returned by the SDP protocol ([Service Declaration Protocol](bedrock-service-declaration-protocol.md)).
 
-The division must be rounded **up**. Rounding down would collapse $`Q_C`$ to $`0`$ as soon as $`N \gt C \cdot (\beta_C + R \cdot \beta_C)`$ — that is, as soon as the network outgrows the expected number of blending operations for cover messages. Every core node would then be issued an empty key pool and cover traffic would stop entirely, removing the protocol's anonymity guarantee exactly when the network is largest. Rounding up costs at most $`N-1`$ additional messages network-wide per epoch.
+The division must be rounded **up**. Rounding down would collapse $`Q_C`$ to $`0`$ as soon as $`N \gt C \cdot (\beta_C + R_C \cdot \beta_C)`$ — that is, as soon as the network outgrows the expected number of blending operations for cover messages. Every core node would then be issued an empty key pool and cover traffic would stop entirely, removing the protocol's anonymity guarantee exactly when the network is largest. Rounding up costs at most $`N-1`$ additional messages network-wide per epoch.
 
 The parameters must additionally satisfy $`C \cdot \beta_C \gt 0`$. Together with rounding up, this guarantees $`Q_C \geq 1`$ for every epoch.
 
 Additionally, we introduce the total core quota, which defines the total number of generated cover messages that the whole network can emit (independently of the number of nodes):
 
 $$
-Q^{Total}_C = N \cdot Q_C \geq C \cdot (\beta_C+R \cdot \beta_C)
+Q^{Total}_C = N \cdot Q_C \geq C \cdot (\beta_C+R_C \cdot \beta_C)
 $$
 
-The equality holds only when $`N`$ divides $`C \cdot (\beta_C + R \cdot \beta_C)`$; otherwise rounding up makes the total larger by at most $`N-1`$ messages. From $`Q_C \geq 1`$ it also follows that $`Q^{Total}_C \geq N`$, which is relied upon by the [Activity Proof](#activity-proof) and the [Activity Threshold](#activity-threshold).
+The equality holds only when $`N`$ divides $`C \cdot (\beta_C + R_C \cdot \beta_C)`$; otherwise rounding up makes the total larger by at most $`N-1`$ messages. From $`Q_C \geq 1`$ it also follows that $`Q^{Total}_C \geq N`$, which is relied upon by the [Activity Proof](#activity-proof) and the [Activity Threshold](#activity-threshold).
 
 ### Leadership Quota
 
 **The leadership quota (**$`Q_L`$**) defines the number of blending operations a block proposer (consensus leader) node can perform within the network.** A single quota is used per single proof of leadership. Therefore, a single node can use multiple leadership quotas during a single epoch. We assume that the leader is interested in using most of its quota to generate data messages; however, the leader is not limited by this assumption. We define the leadership quota as follows:
 
 $$
-Q_L = \beta_D + \beta_D \cdot R
+Q_L = \beta_D + \beta_D \cdot R_D
 $$
 
 where:
 
 - $`\beta_D`$ denotes the expected number of blending operations for each data message;
-- $`R`$ denotes the number of copies a node sends of each message it generates.
+- $`R_D`$ denotes a redundancy parameter for block proposals, defining the number of “replications” of the same message.
 
 We can calculate an average data message number ($`D_{Avg}`$) which informs us about the average number of data messages generated per epoch:
 
@@ -662,7 +663,7 @@ where $`E=648000`$ and $`F_D=1/30`$ are taken from the [Cryptarchia Protocol](cr
 Finally, let us define the leadership quota for node $`n`$ ($`Q^{n}_L`$), which can **only** be calculated by the node $`n`$:
 
 $$
-Q^{n}_L = x \cdot (\beta_D + \beta_D \cdot R)
+Q^{n}_L = x \cdot (\beta_D + \beta_D \cdot R_D)
 $$
 
 where $`x`$ is the exact number of leader elections won by the node $`n`$ in an epoch. The value of $`x`$ is known only to the node because its value is a function of the stake of a node $`n`$, which is kept private.
@@ -672,12 +673,12 @@ where $`x`$ is the exact number of leader elections won by the node $`n`$ in an 
 The proof of work quota ($`Q_W`$) defines the number of blending operations that a single proof of work solution entitles its holder to perform. A solution is attached to no node, so the quota is a per solution allowance:
 
 $$
-Q^{n}_W = y \cdot Q_W, \qquad Q_W = (1 + R) \cdot \beta_{max}
+Q^{n}_W = y \cdot Q_W, \qquad Q_W = \beta_{max}
 $$
 
 where $`y`$ is the number of distinct solutions held by the node $`n`$ that satisfy the Blend threshold $`d_{blend}`$ for the epoch. As with the leadership quota, $`y`$ is known only to the node.
 
-$`Q_W = (1 + R) \cdot \beta_{max}`$: one solution pays for exactly one message and its copies, since each consumes one blending operation per encapsulation.
+$`Q_W = \beta_{max}`$: one solution pays for exactly one message, since a message consumes one blending operation per encapsulation.
 
 ### Blend Difficulty
 
@@ -952,7 +953,7 @@ The process of releasing messages involves the following steps:
 - Upon **receiving** a message, it is immediately released to all neighboring nodes, except the one it was received from.
 - All **processed** messages are queued and released at the next release round determined by the [Delaying](#delaying) logic.
 - Every **generated** message is released at the beginning of the next round after its generation.
-- As soon as a block proposal is generated, one random unreleased (future) **cover** message, with its copies, must be removed from the release schedule to maintain the node’s statistical indistinguishability. A transaction removes no cover message.
+- As soon as a **data** message carrying a block proposal is generated, one random unreleased (future) **cover** message must be removed from the release schedule to maintain the node’s statistical indistinguishability. A data message carrying a transaction removes no cover message.
 - If more than one message needs to be released for the same round, they must be randomly shuffled before release.
 
 ### Broadcasting
