@@ -26,7 +26,8 @@
 | 1.0.2 | Fix invalid python indentation due to github migration | 2026-07-27 | 
 | 1.1.0 | Round the price update upwards and align the reference code with the zero target guard | 2026-07-28 |
 | 1.1.1 | Changing from burning/minting to pooling/distributing/releasing | 2026-08-25 |
-| 1.1.2 | Align every block-reward reference with [Block Rewards](block-rewards.md) 1.2.0. No change to the price mechanism. | 2026-08-27 |
+| 1.2.0 | The storage fee is routed to the rewards pool less the share diverted to the proof of work reward pool | 2026-08-31 |
+| 1.2.1 | Align every block-reward reference with [Block Rewards](block-rewards.md) 1.2.0. No change to the price mechanism. | 2026-10-06 |
 
 > **Disclaimer:**
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -97,7 +98,7 @@ $$
 
 ### Fee Routing
 
-Each Logos Blockchain Storage fee $`F_{\text{storage}}`$ is routed in full into the network's shared rewards pool at the moment its transaction is included. This is the same pool fed by the base fees of the [Execution Market](execution-market.md). It is emptied at each epoch boundary, and the settled amount is split 40% to leaders and 60% to Blend nodes, per [Block Rewards](block-rewards.md).
+Each Logos Blockchain Storage fee $`F_{\text{storage}}`$ is routed into the network's shared rewards pool at the moment its transaction is included, less the fixed share diverted to the [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool), rather than paid to any participant or removed from supply. This is the same pool fed by the [Execution Market](execution-market.md) and drawn down to pay leaders and Blend nodes.
 
 Aggregated over a block, the Storage fees of its transactions form the Storage-market component of that block's gross fee inflow $`R^{\text{block}}`$, the quantity carried into the block reward by [Block Rewards](block-rewards.md):
 
