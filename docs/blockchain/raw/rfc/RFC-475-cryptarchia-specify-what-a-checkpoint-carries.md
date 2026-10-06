@@ -1,6 +1,6 @@
 # [RFC] Cryptarchia: Specify what a checkpoint carries
 
-**Motivation and proposal:** PR #TBD
+**Motivation and proposal:** [PR #475](https://github.com/logos-co/logos-lips/pull/475)
 
 ## Change log
 
