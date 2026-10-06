@@ -432,22 +432,25 @@ def max_precision_exponent(supply_in_tokens: int, value_max: int) -> int:
         d += 1
     return d
 
-def min_precision_exponent(gas: int, price: float, target_cost: float) -> int:
+def min_precision_exponent(gas: int, price: int, target_cost: int) -> int:
     """
-    Lower bound on d (R3): smallest d such that the one-unit price floor
-    keeps an operation consuming `gas` units at or below `target_cost`,
-    when the token trades at `price`. Returns 9 for one GiB of permanent
-    storage at 0.5 USD per LOGOS and a 5 USD per GiB target.
+    Lower bound on d (R3): smallest d such that the price floor of one
+    LEPTON per gas unit keeps an operation consuming `gas` units at or
+    below `target_cost`. `price` is the currency amount per LOGOS and
+    `target_cost` the currency amount per operation, both integers in the
+    same minor unit (for example micro-USD). For one GiB of permanent
+    storage at 8 gas per byte, pass gas = 8 * 2**30.
     """
     d = 0
-    while gas * 10 ** (-d) * price > target_cost:
+    while gas * price > target_cost * 10**d:
         d += 1
     return d
 
-def saturation_price(gas: int, d: int, target_cost: float) -> float:
+def saturation_price(gas: int, d: int, target_cost: int) -> int:
     """
-    Token price above which the one-unit floor makes an operation consuming
-    `gas` units cost more than `target_cost`.
+    Largest integer price per LOGOS, in the minor unit of `target_cost`,
+    at which the price floor of one LEPTON per gas unit keeps an operation
+    consuming `gas` units at or below `target_cost`.
     """
-    return target_cost * 10**d / gas
+    return target_cost * 10**d // gas
 ```
