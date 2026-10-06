@@ -128,14 +128,14 @@ This PR precedes any launched network. Era 0 is today's rules. The identifier, h
 
 [Bedrock Eras](../bedrock-eras.md) is the specification and should be read whole. Its sections:
 
-- **Notation:** `E_n`, the parameter record `P_n`, the epoch and slot lengths `L_n` and `Δ_n`, the era start slots `S_n` and times `τ_n`, `era(ep)`, `era(sl)`, `epoch(sl)`, `first_slot(ep)`, `slot(t)`, the era in force, the horizon `H`, the Transition Period `T`, the genesis block ID `G`, the era digest `D_n` and the fork digest `F_n`.
+- **Notation:** `E_n`, the parameter record `P_n`, the epoch and slot lengths `L_n` and `Δ_n`, the era start slots `S_n` and times `τ_n`, `era(ep)`, `era(sl)`, `epoch(sl)`, `first_slot(ep)`, `slot(t)`, the era in force, the horizon `H`, the genesis block ID `G`, the era digest `D_n` and the fork digest `F_n`.
 - **Era Schedule:** an embedded list per network of (first epoch, parameter record), first epoch 0; the frozen within-k fork comparison; the consequence of two releases' schedules differing; no change to a published era's code rules in place, and no entry for an epoch that has begun.
 - **Era Parameters:** the record, a layout version followed by 33 fields in a fixed order, each holding a named constant of Blend, Cryptarchia, Total Stake Inference, SDP or Proof of Work; their encodings, with non-zero ratio denominators; epoch and slot lengths of at least 1; the SDP stores filled from the records; layout versioning.
 - **Era of Chain Data:** a block and everything it carries under `era(sl)`, except that a transaction is parsed under the era its fork digest names; `slot` first and unchanged in every era; the fork digest first in every transaction, and the acceptance rule; fork choice under the common ancestor's era; `commit` with the tip era's k; the startup and checkpoint-import halt; the mempool.
 - **Era Migration:** a function of the recorded chain state (Mantle validation state, PoW state, SDP snapshots); total; identity by default; applied per chain and at the boundary tip; epoch derivations under the epoch's era; predecessor last-epoch proofs.
 - **Era Transition Period:** the first `T` rounds after the era in force changes; both eras' identifiers; Blend messages validated under the arrival connection's era; afterwards the predecessor's identifiers dropped and open sync streams served to their end.
 - **Network Protocol Identity:** `/logos-blockchain/<fork_digest>/<protocol>`, and `/logos-blockchain/<chain_id>/<protocol>` for Kademlia and identify; generation, forwarding and publication rules.
-- **Horizon:** `H` no smaller than the last entry; warnings past `H` and on unknown peer fork digests.
+- **Horizon:** `H` no smaller than `E_n` of the last entry; warnings past `H` and on unknown peer fork digests.
 
 ## 2. Transaction fork digest
 
