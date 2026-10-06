@@ -34,60 +34,86 @@ This document specifies the era schedule and the parameter record of an era, the
 The history of the chain is divided into eras. Each era is a run of consecutive epochs under one set of rules and one set of parameters. Every release of the node software carries a schedule that says at which epoch each era begins. The schedule is not read from the chain, so a node learns of a new era by installing a release that names it.
 
 ```mermaid
-flowchart TB
-    subgraph rel["schedule in the software release"]
-        direction LR
-        s0["era 0<br/>from epoch 0<br/>parameters 0"] ~~~ s1["era 1<br/>from epoch 100<br/>parameters 1"] ~~~ s2["era 2<br/>from epoch 250<br/>parameters 2"]
-    end
-    subgraph chain["chain"]
-        direction LR
-        e0["era 0<br/>epochs 0–99"] -- "migration" --> e1["era 1<br/>epochs 100–249"] -- "migration" --> e2["era 2<br/>epochs from 250"]
-    end
-    rel -- "divides the chain into eras" --> chain
+---
+displayMode: compact
+---
+gantt
+    title Eras over epochs, for an example schedule
+    dateFormat X
+    axisFormat %s
+    tickInterval 1minute
+    todayMarker off
+    section Blocks
+        era 0 rules : r0, 0, 120s
+        era 1 rules : r1, after r0, 120s
+        era 2 rules : r2, after r1, 60s
+    section Chain state
+        migration to era 1 : milestone, m1, after r0, 0s
+        migration to era 2 : milestone, m2, after r1, 0s
+    section Network
+        era 0 protocols : n0, 0, 128s
+        era 1 protocols : n1, after r0, 128s
+        era 2 protocols : n2, after r1, 60s
+    section Transition
+        both eras : crit, t1, after r0, 8s
+        both eras : crit, t2, after r1, 8s
 ```
 
-In this example, the schedule starts era 1 at epoch 100 and era 2 at epoch 250. Each era lasts until the next one begins. At each boundary, the new era's migration carries the chain state across and leaves unchanged whatever the new era does not redefine.
+In this example, the schedule starts era 1 at epoch 120 and era 2 at epoch 240. The rules for blocks change exactly at each boundary. There, a migration carries the chain state into the new era and leaves unchanged whatever the new era does not redefine. The network follows the local clock: after each boundary, a node runs the protocols of both eras for a short transition period, then drops the old ones. The diagram draws the transition periods far wider than they are: each lasts seconds, while an epoch lasts days.
 
 A node judges a block by the era the block was made in, which the block's slot tells it. It talks to its peers in the era its own clock says has begun. A node that syncs from genesis therefore validates old blocks under old rules while it talks to the network under the current ones.
 
 ```mermaid
-graph LR
-    b["a block"] -- "its slot" --> be["the block's era"]
-    be --> bv["rules that validate<br/>and execute the block"]
-    c["the local clock"] -- "the current slot" --> ce["the current era"]
-    ce --> cn["network protocols"]
+flowchart LR
+    peer["a peer"] -- "blocks of every era,<br/>over the sync protocol<br/>of era 2" --> node
+    subgraph node["a node whose clock is in epoch 260, in era 2"]
+        direction LR
+        b0["block of epoch 50"] -- "validated under" --> r0["era 0 rules"]
+        b1["block of epoch 180"] -- "validated under" --> r1["era 1 rules"]
+        b2["block of epoch 255"] -- "validated under" --> r2["era 2 rules"]
+    end
 ```
 
-The two paths can name different eras, as they do for a node that is catching up on old blocks.
+The node fetches every block over the sync protocol of era 2, the era of its clock. It validates each block under the rules of the era of the block's slot.
 
 Each era has a fork digest, a fingerprint of the genesis block and of the schedule up to that era. Network protocol names and transactions carry it. Two releases whose schedules agree share their protocol names up to the first era where the schedules differ, and never again after it.
 
 ```mermaid
-graph LR
-    g["genesis"] --> a0["era 0"] --> a1["era 1"]
-    a1 --> x["era 2 of release A"]
-    a1 --> y["era 2 of release B"]
+flowchart LR
+    subgraph both["the same in both releases: shared fork digests"]
+        direction LR
+        g["genesis"] --> e0["era 0<br/>from epoch 0"] --> e1["era 1<br/>from epoch 120"]
+    end
+    subgraph A["release A: its own fork digest"]
+        a2["era 2 from epoch 240,<br/>parameters A"]
+    end
+    subgraph B["release B: its own fork digest"]
+        b2["era 2 from epoch 240,<br/>parameters B"]
+    end
+    e1 --> a2
+    e1 --> b2
 ```
 
-Up to era 1, the two releases share a fork digest. From era 2 on, they have different ones.
+Both releases share the fork digests of eras 0 and 1, and with them the protocol names of those eras. Their era 2 parameters differ, so their era 2 fork digests and protocol names differ too.
 
 The two protocols that find peers and describe them carry the identifier of the chain in their names instead of a fork digest. No era changes it.
-
-When an era begins, a node runs the network protocols of the old and the new era side by side for a short transition period, then drops the old ones.
 
 A release knows the rules only up to its horizon, the last epoch it interprets. A node warns its operator once its clock passes the horizon, and when a peer advertises a fork digest the node does not know. A node whose release lacks the rules of an era it must apply halts when it starts or imports a checkpoint.
 
 # Protocol
 
 ```mermaid
-graph TB
-    sc["era schedule<br/>of the release"] --> er["era of each<br/>slot and epoch"]
-    sc --> fd["fork digest<br/>of each era"]
-    er -- "slot of a block" --> bk["block parsed, validated<br/>and executed under its era"]
-    fd -- "carried by a transaction" --> tx["transaction parsed<br/>under its era"]
-    er -- "slot of the local clock" --> ef["era in force"]
-    ef --> nw["network protocols<br/>and mempool"]
-    fd -- "carried by identifiers<br/>and topics" --> nw
+flowchart TB
+    subgraph clock["when the local clock reaches the first slot of era n"]
+        c1["era in force<br/>becomes era n"] --> c2["migrate the<br/>state after<br/>the chain tip"]
+        c2 --> c3["re-validate<br/>the mempool"]
+        c2 --> c4["Era Transition<br/>Period:<br/>identifiers of<br/>eras n−1 and n"]
+        c4 -- "when the period ends" --> c5["drop the<br/>identifiers<br/>of era n−1"]
+    end
+    subgraph block["when a block arrives"]
+        b1["era of the<br/>block's slot"] --> b2["state after<br/>its parent,<br/>migrated to<br/>that era"]
+        b2 --> b3["parse, validate<br/>and execute<br/>under that<br/>era's rules"]
+    end
 ```
 
 A software release carries one **era schedule** per network. Each entry gives the first epoch of an era and its **parameter record**, the values of the constants the era's rules read ([Era Parameters](#era-parameters)). Every slot and every epoch belongs to the last era that begins at or before it. Epoch and slot lengths may differ between eras, so slots and times are counted era by era ([Notation](#notation)). [Era Schedule](#era-schedule) constrains what an era may change and what a release may change in a schedule.
