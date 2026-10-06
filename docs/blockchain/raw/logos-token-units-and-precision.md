@@ -32,9 +32,9 @@ This document specifies the smallest indivisible unit of the Logos Blockchain na
 
 The Logos Blockchain ledger holds no fractional quantities. Note values are integers of type `TokenValue`, defined as `uint64` in [Bedrock v1.1 Mantle Specification](bedrock-v1.1-mantle-specification.md). Every fee, price, and reward reduces to an integer count of indivisible units.
 
-Precision therefore fixes the representable range of the ledger and the price resolution of both gas markets. This document derives it from those two constraints rather than by analogy with other chains.
+Precision therefore fixes the representable range of the ledger and the price resolution of both gas markets.
 
-The derivation is two-sided. Section Upper Bound on Precision bounds precision from above by representability: the supply must fit in a `uint64` note. Section Lower Bound on Precision bounds it from below by economics: one indivisible unit is the price floor of both gas markets, so a coarse unit prices operations above their market-clearing level.
+Section Upper Bound on Precision bounds precision from above: the supply must fit in a `uint64` note. Section Lower Bound on Precision bounds it from below: one indivisible unit is the price floor of both gas markets, so a coarse unit prices operations above their market-clearing level.
 
 The results are:
 
@@ -62,13 +62,13 @@ The first two bound precision from above. The third bounds it from below.
 - **R3. Price resolution**. One indivisible unit must be small enough that the gas-market price floor stays below the market-clearing price of the operations those markets serve.
 - **R4. Unique naming**. Each named unit denotes exactly one quantity, and each quantity has exactly one canonical name in protocol interfaces.
 
-**R1** and **R3** are opposing. **R1** is satisfied by lowering precision, **R3** by raising it. Sections Upper Bound on Precision and Lower Bound on Precision derive each independently, and section Choice of Precision combines them.
+**R1** is satisfied by lowering precision, **R3** by raising it. Sections Upper Bound on Precision and Lower Bound on Precision derive each independently, and section Choice of Precision combines them.
 
 ## High-level Design
 
 The unit system has two layers. The protocol layer counts LEPTA as unsigned integers and never sees a decimal point. The presentation layer renders a LEPTA count as a decimal LOGOS string with at most nine fractional digits, and parses such a string back into a LEPTA count.
 
-Between them sit two named intermediate denominations, kilolepton and megalepton. They make gas prices and small fees readable without introducing a second numeric type. They are simply display aliases.
+Between them sit two named intermediate denominations, kilolepton and megalepton. They are display aliases that make gas prices and small fees readable without a second numeric type.
 
 # Construction
 
@@ -120,7 +120,7 @@ $$
 d \le 9 .
 $$
 
-The bound is tight, and the margin at $d = 10$ is not marginal. The table evaluates $N(d)$ and $H(d)$ around the bound.
+$N(d)$ and $H(d)$ around the bound:
 
 | $d$ | $N(d)$ (LEPTA) | Representable in `uint64` | $H(d)$ |
 | --- | --- | --- | --- |
@@ -132,7 +132,7 @@ The bound is tight, and the margin at $d = 10$ is not marginal. The table evalua
 
 A wei-like precision of $10^{18}$ is not available under the current ledger types. It exceeds $V_{max}$ by a factor of $5.4 \times 10^8$. Adopting it would require widening `TokenValue` from 64 to at least 128 bits, which changes note encoding, transaction encoding, and every checked-arithmetic bound in [Bedrock v1.1 Mantle Specification](bedrock-v1.1-mantle-specification.md) and [Mantle Transaction Encoding](mantle-transaction-encoding.md).
 
-The bound depends on $S_{cap}$. Any change to the hard cap changes the admissible set, as recorded in Headroom.
+Any change to the hard cap changes the admissible set, as recorded in Headroom.
 
 ## Lower Bound on Precision
 
@@ -197,15 +197,13 @@ Two reference operations bracket the range of $g$ in the protocol:
 - A Transfer Operation, with $g = 590$.
 - One GiB of permanent storage, with $g = 8 \cdot 2^{30} = 2^{33} = 8{,}589{,}934{,}592$, since Permanent Storage Gas is charged at $8$ per byte.
 
-The gap in $g$ is a factor of $1.46 \times 10^{7}$, so the two markets saturate at prices seven orders of magnitude apart. The table gives $p^{\ast}$ in USD per LOGOS across candidate precisions and target costs.
+The gap in $g$ is a factor of $1.46 \times 10^{7}$, so the two markets saturate at prices seven orders of magnitude apart. Saturation price $p^{\ast}$ in USD per LOGOS:
 
 | $d$ | Transfer, $c^{\ast} = \$0.01$ | 1 GiB, $c^{\ast} = \$1$ | 1 GiB, $c^{\ast} = \$5$ | 1 GiB, $c^{\ast} = \$10$ | 1 GiB, $c^{\ast} = \$30$ |
 | --- | --- | --- | --- | --- | --- |
 | $7$ | $\$169.49$ | $\$0.0012$ | $\$0.0058$ | $\$0.0116$ | $\$0.0349$ |
 | $8$ | $\$1{,}694.92$ | $\$0.0116$ | $\$0.0582$ | $\$0.1164$ | $\$0.3492$ |
 | $9$ | $\$16{,}949.15$ | $\$0.1164$ | $\$0.5821$ | $\$1.1642$ | $\$3.4925$ |
-
-Three readings follow:
 
 - Execution is not the binding market. At $d = 8$ a transfer stays under one cent up to $\$1{,}695$ per LOGOS, which is a fully diluted valuation of $17$ trillion USD at $S_{cap} = 10^{10}$. The execution floor does not discriminate between candidate precisions at any plausible price.
 - Permanent storage is the binding market. Its boundary $p / c^{\ast} \le 10^{9} / 2^{33}$ is tighter than the execution boundary $p / c^{\ast} \le 10^{9} / 590$ by the gas ratio alone, so the ordering holds whatever target costs are assigned to the two operations.
@@ -245,7 +243,7 @@ Its contents depend only on the ratio $p / c^{\ast}$, through the equivalence $d
 | $\left( 10^{8} / 2^{33}, \; 10^{9} / 2^{33} \right]$ | $9$ | $\lbrace 9 \rbrace$ |
 | $> 10^{9} / 2^{33}$ | $\ge 10$ | empty |
 
-$\mathcal{D}$ is an interval capped at $9$ by **R1**, so its upper endpoint is $9$ whenever it is non-empty. This gives a dominance argument: $d = 9$ **is admissible whenever any precision is admissible.**
+$\mathcal{D}$ is an interval capped at $9$ by **R1**, so its upper endpoint is $9$ whenever it is non-empty. Therefore $d = 9$ **is admissible whenever any precision is admissible.**
 
 No other value has this property. $d = 8$ is admissible only on $p / c^{\ast} \le 10^{8} / 2^{33}$, one tenth of the range, and $d = 7$ on one hundredth. 
 
@@ -258,12 +256,12 @@ $$
 What is forced and what is not:
 
 - On the band $10^{8} / 2^{33} < p / c^{\ast} \le 10^{9} / 2^{33}$, $d = 9$ is the only admissible value.
-- Below that band $d = 9$ remains admissible but is no longer unique, and $d = 8$ satisfies both requirements as well. Here $d = 9$ is selected by dominance, not by necessity.
+- Below that band $d = 9$ remains admissible but is no longer unique, and $d = 8$ satisfies both requirements as well.
 - Above the band $\mathcal{D}$ is empty and no precision satisfies both requirements.
 
 Taking the top of the interval costs representable headroom, $H(9) = 1.8447$ against $H(8) = 18.447$. Under a fixed hard cap no process consumes that headroom, as shown in Headroom, so the cost is not realised.
 
-Two consequences are recorded rather than resolved.
+Two consequences:
 
 - The result is a function of $S_{cap} = 10^{10}$ LOGOS and of `TokenValue` being 64 bits wide. Changing either reopens the derivation.
 - Where $p / c^{\ast} > 10^{9} / 2^{33}$ the two requirements are jointly infeasible: **R1** caps $d$ before **R3** is met. The remedy lies in the Permanent Storage Gas unit $g$, which sets the boundary at $10^{9} / g$, and not in the precision.
@@ -278,7 +276,7 @@ $$
 S_{cap} \le \left\lfloor \frac{2^{64}-1}{10^9} \right\rfloor = 18{,}446{,}744{,}073 \text{ LOGOS}.
 $$
 
-The specified cap of $10^{10}$ LOGOS sits at $54.2\%$ of this ceiling. A cap above $1.8446744073 \times 10^{10}$ LOGOS is incompatible with $d = 9$ and forces $d \le 8$. By Lower Bound on Precision that narrows the region where **R3** can be met by a factor of ten, from $p / c^{\ast} \le 10^{9} / 2^{33}$ to $p / c^{\ast} \le 10^{8} / 2^{33}$, so the failure appears at high prices rather than low ones. Raising the cap is therefore constrained from two directions at once.
+The specified cap of $10^{10}$ LOGOS sits at $54.2\%$ of this ceiling. A cap above $1.8446744073 \times 10^{10}$ LOGOS is incompatible with $d = 9$ and forces $d \le 8$. By Lower Bound on Precision that narrows the region where **R3** can be met by a factor of ten, from $p / c^{\ast} \le 10^{9} / 2^{33}$ to $p / c^{\ast} \le 10^{8} / 2^{33}$, so the failure appears at high prices rather than low ones.
 
 **Supply growth.** [Block Rewards](block-rewards.md) allocates the full supply at genesis and moves tokens between circulating supply, a fee pool, and a rewards reserve. No path in that mechanism raises the total above $S_{cap}$. The bound $N(9) \le V_{max}$ therefore holds at every step, with no growth argument required. If a later revision introduces issuance above $S_{cap}$, this section must be reopened.
 
@@ -286,7 +284,7 @@ The specified cap of $10^{10}$ LOGOS sits at $54.2\%$ of this ceiling. A cap abo
 
 ## Denominations
 
-The ladder below is normative. The remaining columns give the exact conversions.
+The ladder below is normative.
 
 | Unit (singular / plural) | Symbol | In LEPTA | In LOGOS |
 | --- | --- | --- | --- |
@@ -322,7 +320,7 @@ Rendering is the inverse. The value $v$ is rendered as $\lfloor v / 10^9 \rfloor
 
 ## Rounding
 
-Fee, price, and reward mechanisms produce rational quantities. Each must be reduced to an integer count of LEPTA before it moves a balance, which makes the direction a consensus rule. This document fixes the quantum and the direction. It does not specify where the reductions occur, which belongs to the specification defining each mechanism.
+Fee, price, and reward mechanisms produce rational quantities. Each must be reduced to an integer count of LEPTA before it moves a balance, which makes the direction a consensus rule. The specification defining each mechanism states where the reductions occur.
 
 **Quantum.** Every reduction is to a whole LEPTON, so each rounded quantity carries an error below $10^{-9}$ LOGOS.
 
@@ -338,7 +336,7 @@ Fee, price, and reward mechanisms produce rational quantities. Each must be redu
 
 # Units of Account
 
-Every protocol quantity denominated in the native token is measured in LEPTA, or in LEPTA per gas unit. The table records the unit for quantities defined elsewhere in the blockchain set.
+Every protocol quantity denominated in the native token is measured in LEPTA, or in LEPTA per gas unit.
 
 | Quantity | Symbol | Specification | Unit |
 | --- | --- | --- | --- |
@@ -364,7 +362,7 @@ Both are floors, not expected prices. Both markets discover their price upward f
 
 # Naming
 
-The declarations below are normative. Each carries one line of justification.
+The declarations below are normative.
 
 | Item | Value | Rationale |
 | --- | --- | --- |
