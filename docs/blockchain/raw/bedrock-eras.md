@@ -34,12 +34,19 @@ This document specifies the era schedule and the parameter record of an era, the
 The history of the chain is divided into eras. Each era is a run of consecutive epochs under one set of rules and one set of parameters. Every release of the node software carries a schedule that says at which epoch each era begins. The schedule is not read from the chain, so a node learns of a new era by installing a release that names it.
 
 ```mermaid
-graph LR
-    e0["era 0"] -- "migration" --> e1["era 1"]
-    e1 -- "migration" --> e2["era 2"]
+flowchart TB
+    subgraph rel["schedule in the software release"]
+        direction LR
+        s0["era 0<br/>from epoch 0<br/>parameters 0"] ~~~ s1["era 1<br/>from epoch 100<br/>parameters 1"] ~~~ s2["era 2<br/>from epoch 250<br/>parameters 2"]
+    end
+    subgraph chain["chain"]
+        direction LR
+        e0["era 0<br/>epochs 0–99"] -- "migration" --> e1["era 1<br/>epochs 100–249"] -- "migration" --> e2["era 2<br/>epochs from 250"]
+    end
+    rel -- "divides the chain into eras" --> chain
 ```
 
-Each era lasts until the next one begins. At each boundary, the new era's migration carries the chain state across and leaves unchanged whatever the new era does not redefine.
+In this example, the schedule starts era 1 at epoch 100 and era 2 at epoch 250. Each era lasts until the next one begins. At each boundary, the new era's migration carries the chain state across and leaves unchanged whatever the new era does not redefine.
 
 A node judges a block by the era the block was made in, which the block's slot tells it. It talks to its peers in the era its own clock says has begun. A node that syncs from genesis therefore validates old blocks under old rules while it talks to the network under the current ones.
 
