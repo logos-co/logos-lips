@@ -34,7 +34,7 @@ The Logos Blockchain ledger holds no fractional quantities. Note values are inte
 
 Precision therefore fixes the representable range of the ledger and the price resolution of both gas markets.
 
-Section Upper Bound on Precision bounds precision from above: the supply must fit in a `uint64` note. Section Lower Bound on Precision bounds it from below: one indivisible unit is the price floor of both gas markets, so a coarse unit prices operations above their market-clearing level.
+Section Upper Bound on Precision bounds precision from above: the supply must fit in a `uint64` note. Section Lower Bound on Precision bounds it from below: one indivisible unit is the price floor of both gas markets, so a coarse unit prices operations above the target cost.
 
 The results are:
 
@@ -59,10 +59,12 @@ The first two bound precision from above. The third bounds it from below.
 
 - **R1. Representability**. Any admissible balance must be encodable in `TokenValue`. A single note holding the entire supply is admissible, so $S_{cap}$ must be representable.
 - **R2. Integrality**. No protocol quantity is fractional. Every fee, price, reward, and balance is an integer count of indivisible units.
-- **R3. Price resolution**. One indivisible unit must be small enough that the gas-market price floor stays below the market-clearing price of the operations those markets serve.
+- **R3. Price resolution**. One indivisible unit must be small enough that the gas-market price floor stays below a chosen target cost $c^{\ast}$ of the operations those markets serve.
 - **R4. Unique naming**. Each named unit denotes exactly one quantity, and each quantity has exactly one canonical name in protocol interfaces.
 
 **R1** is satisfied by lowering precision, **R3** by raising it. Sections Upper Bound on Precision and Lower Bound on Precision derive each independently, and section Choice of Precision combines them.
+
+$c^{\ast}$ is a design parameter. A floor above $c^{\ast}$ misses the target and does not stop the market from clearing. This document evaluates $c^{\ast}$ over $\$1$ to $\$30$ per GiB of permanent storage and at $\$0.01$ per Transfer Operation, and fixes no single calibrated cost.
 
 ## High-level Design
 
@@ -207,7 +209,7 @@ The gap in $g$ is a factor of $1.46 \times 10^{7}$, so the two markets saturate 
 
 - Execution is not the binding market. At $d = 8$ a transfer stays under one cent up to $\$1{,}695$ per LOGOS, which is a fully diluted valuation of $17$ trillion USD at $S_{cap} = 10^{10}$. The execution floor does not discriminate between candidate precisions at any plausible price.
 - Permanent storage is the binding market. Its boundary $p / c^{\ast} \le 10^{9} / 2^{33}$ is tighter than the execution boundary $p / c^{\ast} \le 10^{9} / 590$ by the gas ratio alone, so the ordering holds whatever target costs are assigned to the two operations.
-- At $d = 8$ and $c=\$5$/GiB, the storage floor exceeds $\$5$ per GiB once LOGOS passes $\$0.058$. That is inside the plausible price range, so $d = 8$ fails **R3**.
+- At $d = 8$ and $c=\$5$/GiB, the storage floor exceeds $\$5$ per GiB once LOGOS passes $\$0.058$. That is inside the plausible price range, so $d = 8$ misses the $\$5$ per GiB target under **R3**.
 
 Evaluating the requirement derived above at four prices and three targets gives the integer precision each combination demands.
 
