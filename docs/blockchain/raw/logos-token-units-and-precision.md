@@ -40,8 +40,8 @@ The results are:
 
 - The indivisible unit is the LEPTON, plural LEPTA, with $1 \text{ LOGOS} = 10^{9} \text{ LEPTA}$.
 - The upper bound is $d \le 9$. Precision $10^{10}$ and above is unrepresentable, and $10^{18}$ would require widening `TokenValue` to at least 128 bits.
-- The lower bound is $d \ge \log_{10}\left(p \cdot 2^{30} / c^{\ast}\right)$, which depends on the token price $p$ and the target permanent-storage cost $c^{\ast}$ only through their ratio. It is satisfied at $d = 9$ whenever $p / c^{\ast} \le 10^{9} / 2^{30}$ GiB per LOGOS.
-- The two bounds meet at $d = 9$. Above $p / c^{\ast} = 10^{9} / 2^{30}$ the requirement becomes $d \ge 10$, which **R1** excludes, so no admissible precision restores it. The boundary scales as $10^{9} / g$, so it is the Permanent Storage Gas unit $g$, and not the precision, that sets the available room.
+- The lower bound is $d \ge \log_{10}\left(p \cdot 2^{33} / c^{\ast}\right)$, which depends on the token price $p$ and the target permanent-storage cost $c^{\ast}$ only through their ratio. It is satisfied at $d = 9$ whenever $p / c^{\ast} \le 10^{9} / 2^{33}$ GiB per LOGOS.
+- The two bounds meet at $d = 9$. Above $p / c^{\ast} = 10^{9} / 2^{33}$ the requirement becomes $d \ge 10$, which **R1** excludes, so no admissible precision restores it. The boundary scales as $10^{9} / g$, so it is the Permanent Storage Gas unit $g$, and not the precision, that sets the available room.
 
 # Overview
 
@@ -96,7 +96,7 @@ Between them sit two named intermediate denominations, kilolepton and megalepton
 | $H(9)$ | Representable headroom | $1.8446744073709551$ | $V_{max}/N(9)$. |
 | $S_{cap}^{\ast}$ | Largest admissible hard cap | $18{,}446{,}744{,}073$ LOGOS | $\lfloor V_{max}/10^9 \rfloor$. Derived in Headroom. |
 | `EXECUTION_TRANSFER_GAS` | Execution gas of a Transfer Operation | $590$ | Appendix of [Bedrock v1.1 Mantle Specification](bedrock-v1.1-mantle-specification.md). |
-| Storage gas per byte | Permanent Storage gas per stored byte | $1$ | [Storage Markets](storage-markets.md). |
+| Storage gas per byte | Permanent Storage gas per stored byte | $8$ | [Storage Markets](storage-markets.md). |
 
 ## Upper Bound on Precision
 
@@ -152,13 +152,13 @@ g \cdot 10^{-d} \cdot p \le c^{\ast}
 d \ge \log_{10}\left(\frac{g \cdot p}{c^{\ast}}\right).
 $$
 
-With $g = 2^{30}$, the gas charged for one GiB of permanent storage, the requirement is
+With $g = 2^{33}$, the gas charged for one GiB of permanent storage, the requirement is
 
 $$
-d \ge \log_{10}\left(\frac{p \cdot 2^{30}}{c^{\ast}}\right).
+d \ge \log_{10}\left(\frac{p \cdot 2^{33}}{c^{\ast}}\right).
 $$
 
-The requirement depends only on the ratio $p / c^{\ast}$, not on either value separately. Scaling the token price and the target cost by the same factor leaves the right-hand side unchanged. A $1 token against a $\$5$ per GiB target imposes exactly the precision requirement of a $\$6$ token against a $\$30$ per GiB target, because both fix $p / c^{\ast} = 0.2$.
+The requirement depends only on the ratio $p / c^{\ast}$, not on either value separately. Scaling the token price and the target cost by the same factor leaves the right-hand side unchanged. A $\$1$ token against a $\$5$ per GiB target imposes exactly the precision requirement of a $\$6$ token against a $\$30$ per GiB target, because both fix $p / c^{\ast} = 0.2$.
 
 The ratio carries units of GiB per LOGOS, so it is how much permanent storage one LOGOS buys at the target cost.
 
@@ -167,10 +167,10 @@ Combining the requirement with the **R1** cap $d_{req} \le 9$ gives the admissib
 $$
 d_{req} \le 9
 \quad \Longleftrightarrow \quad
-\frac{p}{c^{\ast}} \le \frac{10^{9}}{2^{30}} = 0.9313225746 .
+\frac{p}{c^{\ast}} \le \frac{10^{9}}{2^{33}} = 0.1164153218 .
 $$
 
-The boundary is therefore a straight line, $p = 0.9313 \cdot c^{\ast}$, and the admissible region is everything below it. In words, $d = 9$ remains admissible for as long as one LOGOS buys at most $0.93$ GiB of permanent storage.
+The boundary is therefore a straight line, $p = 0.1164 \cdot c^{\ast}$, and the admissible region is everything below it. In words, $d = 9$ remains admissible for as long as one LOGOS buys at most $0.1164$ GiB of permanent storage.
 
 The argument generalizes to any operation as 
 
@@ -178,11 +178,11 @@ $$
 \dfrac{p}{c^{\ast}} \le \dfrac{ 10^{9} }{ g }.
 $$
 
-The bound scales with the gas charged, so it is the definition of the gas unit, and not the precision, that sets how much room the mechanism has. Charging Permanent Storage Gas per KiB rather than per byte replaces $g = 2^{30}$ with $g = 2^{20}$ and moves the boundary from $0.93$ to $953.7$ GiB per LOGOS.
+The bound scales with the gas charged, so it is the definition of the gas unit, and not the precision, that sets how much room the mechanism has. Charging Permanent Storage Gas at the same rate of $8$ per KiB rather than per byte replaces $g = 2^{33}$ with $g = 2^{23}$ and moves the boundary from $0.1164$ to $119.2$ GiB per LOGOS.
 
-![**Figure 1.** Required precision $d$ over a grid of token prices and storage-cost targets, with each cell holding $d_{req} = \lceil \log_{10}(p \cdot 2^{30} / c^{\ast}) \rceil$. Green marks $d_{req} \le 9$, admissible under **R1**. Red marks $d_{req} \ge 10$, which **R1** excludes.](overview-cryptoeconomics/assets/precision-admissibility-heatmap.png)
+![**Figure 1.** Required precision $d$ over a grid of token prices and storage-cost targets, with each cell holding $d_{req} = \lceil \log_{10}(p \cdot 2^{33} / c^{\ast}) \rceil$. Green marks $d_{req} \le 9$, admissible under **R1**. Red marks $d_{req} \ge 10$, which **R1** excludes.](overview-cryptoeconomics/assets/precision-admissibility-heatmap.png)
 
-**Figure 1.** Required precision $d$ over a grid of token prices and storage-cost targets, with each cell holding $d_{req} = \lceil \log_{10}(p \cdot 2^{30} / c^{\ast}) \rceil$. Green marks $d_{req} \le 9$, admissible under **R1**. Red marks $d_{req} \ge 10$, which **R1** excludes.
+**Figure 1.** Required precision $d$ over a grid of token prices and storage-cost targets, with each cell holding $d_{req} = \lceil \log_{10}(p \cdot 2^{33} / c^{\ast}) \rceil$. Green marks $d_{req} \le 9$, admissible under **R1**. Red marks $d_{req} \ge 10$, which **R1** excludes.
 
 Read as a price rather than a ratio, the same condition gives the saturation price
 
@@ -195,39 +195,39 @@ Above $p^{\ast}$ the floor binds: the market cannot clear below $c_{min}$, regar
 Two reference operations bracket the range of $g$ in the protocol:
 
 - A Transfer Operation, with $g = 590$.
-- One GiB of permanent storage, with $g = 2^{30} = 1{,}073{,}741{,}824$, since Permanent Storage Gas is charged per byte.
+- One GiB of permanent storage, with $g = 8 \cdot 2^{30} = 2^{33} = 8{,}589{,}934{,}592$, since Permanent Storage Gas is charged at $8$ per byte.
 
-The gap in $g$ is a factor of $1.82 \times 10^{6}$, so the two markets saturate at prices six orders of magnitude apart. The table gives $p^{\ast}$ in USD per LOGOS across candidate precisions and target costs.
+The gap in $g$ is a factor of $1.46 \times 10^{7}$, so the two markets saturate at prices seven orders of magnitude apart. The table gives $p^{\ast}$ in USD per LOGOS across candidate precisions and target costs.
 
 | $d$ | Transfer, $c^{\ast} = \$0.01$ | 1 GiB, $c^{\ast} = \$1$ | 1 GiB, $c^{\ast} = \$5$ | 1 GiB, $c^{\ast} = \$10$ | 1 GiB, $c^{\ast} = \$30$ |
 | --- | --- | --- | --- | --- | --- |
-| $7$ | $\$169.49$ | $\$0.0093$ | $\$0.0466$ | $\$0.0931$ | $\$0.2794$ |
-| $8$ | $\$1{,}694.92$ | $\$0.0931$ | $\$0.4657$ | $\$0.9313$ | $\$2.7940$ |
-| $9$ | $\$16{,}949.15$ | $\$0.9313$ | $\$4.6566$ | $\$9.3132$ | $\$27.9397$ |
+| $7$ | $\$169.49$ | $\$0.0012$ | $\$0.0058$ | $\$0.0116$ | $\$0.0349$ |
+| $8$ | $\$1{,}694.92$ | $\$0.0116$ | $\$0.0582$ | $\$0.1164$ | $\$0.3492$ |
+| $9$ | $\$16{,}949.15$ | $\$0.1164$ | $\$0.5821$ | $\$1.1642$ | $\$3.4925$ |
 
 Three readings follow:
 
 - Execution is not the binding market. At $d = 8$ a transfer stays under one cent up to $\$1{,}695$ per LOGOS, which is a fully diluted valuation of $17$ trillion USD at $S_{cap} = 10^{10}$. The execution floor does not discriminate between candidate precisions at any plausible price.
-- Permanent storage is the binding market. Its boundary $p / c^{\ast} \le 10^{9} / 2^{30}$ is tighter than the execution boundary $p / c^{\ast} \le 10^{9} / 590$ by the gas ratio alone, so the ordering holds whatever target costs are assigned to the two operations.
-- At $d = 8$ and $c=\$5$/GiB, the storage floor exceeds $\$5$ per GiB once LOGOS passes $\$0.47$. That is inside the plausible price range, so $d = 8$ fails **R3**.
+- Permanent storage is the binding market. Its boundary $p / c^{\ast} \le 10^{9} / 2^{33}$ is tighter than the execution boundary $p / c^{\ast} \le 10^{9} / 590$ by the gas ratio alone, so the ordering holds whatever target costs are assigned to the two operations.
+- At $d = 8$ and $c=\$5$/GiB, the storage floor exceeds $\$5$ per GiB once LOGOS passes $\$0.058$. That is inside the plausible price range, so $d = 8$ fails **R3**.
 
 Evaluating the requirement derived above at four prices and three targets gives the integer precision each combination demands.
 
 | $p$ (USD per LOGOS) | Required $d$ at $c^{\ast} = \$5$ per GiB | Required $d$ at $c^{\ast} = \$10$ per GiB | Required $d$ at $c^{\ast} = \$30$ per GiB | Admissible under R1 |
 | --- | --- | --- | --- | --- |
-| $\$1$ | $8.33 \rightarrow 9$ | $8.03 \rightarrow 9$ | $7.55 \rightarrow 8$ | yes / yes / yes |
-| $\$2$ | $8.63 \rightarrow 9$ | $8.33 \rightarrow 9$ | $7.85 \rightarrow 8$ | yes / yes / yes |
-| $\$5$ | $9.03 \rightarrow 10$ | $8.73 \rightarrow 9$ | $8.25 \rightarrow 9$ | no / yes / yes |
-| $\$10$ | $9.33 \rightarrow 10$ | $9.03 \rightarrow 10$ | $8.55 \rightarrow 9$ | no / no / yes |
+| $\$1$ | $9.24 \rightarrow 10$ | $8.93 \rightarrow 9$ | $8.46 \rightarrow 9$ | no / yes / yes |
+| $\$2$ | $9.54 \rightarrow 10$ | $9.24 \rightarrow 10$ | $8.76 \rightarrow 9$ | no / no / yes |
+| $\$5$ | $9.93 \rightarrow 10$ | $9.63 \rightarrow 10$ | $9.16 \rightarrow 10$ | no / no / no |
+| $\$10$ | $10.24 \rightarrow 11$ | $9.93 \rightarrow 10$ | $9.46 \rightarrow 10$ | no / no / no |
 
-**R3** is satisfiable under **R1** exactly when $p / c^{\ast} \le 0.9313$. At $c^{\ast} = \$5$ per GiB that is $p \le \$4.66$, at $\$10$ it is $p \le \$9.31$, and at $\$30$ it is $p \le \$27.94$. Outside that region the requirement is $d \ge 10$, which **R1** excludes.
+**R3** is satisfiable under **R1** exactly when $p / c^{\ast} \le 0.1164$. At $c^{\ast} = \$5$ per GiB that is $p \le \$0.58$, at $\$10$ it is $p \le \$1.16$, and at $\$30$ it is $p \le \$3.49$. Outside that region the requirement is $d \ge 10$, which **R1** excludes.
 
 ## Choice of Precision
 
 **R1** caps precision at $d \le 9$. **R3** requires $d \ge d_{req}$, the smallest integer meeting the bound derived above:
 
 $$
-d_{req} = \left\lceil \log_{10}\left(\frac{p \cdot 2^{30}}{c^{\ast}}\right) \right\rceil .
+d_{req} = \left\lceil \log_{10}\left(\frac{p \cdot 2^{33}}{c^{\ast}}\right) \right\rceil .
 $$
 
 The admissible set is therefore the integer interval
@@ -236,18 +236,18 @@ $$
 \mathcal{D} = \lbrace d \in \mathbb{N} : d_{req} \le d \le 9 \rbrace .
 $$
 
-Its contents depend only on the ratio $p / c^{\ast}$, through the equivalence $d_{req} \le k \Leftrightarrow p / c^{\ast} \le 10^{k} / 2^{30}$.
+Its contents depend only on the ratio $p / c^{\ast}$, through the equivalence $d_{req} \le k \Leftrightarrow p / c^{\ast} \le 10^{k} / 2^{33}$.
 
 | $p / c^{\ast}$ (GiB per LOGOS) | $d_{req}$ | Admissible set $\mathcal{D}$ |
 | --- | --- | --- |
-| $\le 10^{7} / 2^{30}$ | $\le 7$ | $\lbrace 7, 8, 9 \rbrace$ |
-| $\left( 10^{7} / 2^{30}, \; 10^{8} / 2^{30} \right]$ | $8$ | $\lbrace 8, 9 \rbrace$ |
-| $\left( 10^{8} / 2^{30}, \; 10^{9} / 2^{30} \right]$ | $9$ | $\lbrace 9 \rbrace$ |
-| $> 10^{9} / 2^{30}$ | $\ge 10$ | empty |
+| $\le 10^{7} / 2^{33}$ | $\le 7$ | $\lbrace 7, 8, 9 \rbrace$ |
+| $\left( 10^{7} / 2^{33}, \; 10^{8} / 2^{33} \right]$ | $8$ | $\lbrace 8, 9 \rbrace$ |
+| $\left( 10^{8} / 2^{33}, \; 10^{9} / 2^{33} \right]$ | $9$ | $\lbrace 9 \rbrace$ |
+| $> 10^{9} / 2^{33}$ | $\ge 10$ | empty |
 
 $\mathcal{D}$ is an interval capped at $9$ by **R1**, so its upper endpoint is $9$ whenever it is non-empty. This gives a dominance argument: $d = 9$ **is admissible whenever any precision is admissible.**
 
-No other value has this property. $d = 8$ is admissible only on $p / c^{\ast} \le 10^{8} / 2^{30}$, one tenth of the range, and $d = 7$ on one hundredth. 
+No other value has this property. $d = 8$ is admissible only on $p / c^{\ast} \le 10^{8} / 2^{33}$, one tenth of the range, and $d = 7$ on one hundredth. 
 
 Selecting $d = 9$ therefore does not require committing to a value of $p / c^{\ast}$, which is not known when the encoding is fixed and can move by an order of magnitude over its life.
 
@@ -257,7 +257,7 @@ $$
 
 What is forced and what is not:
 
-- On the band $10^{8} / 2^{30} < p / c^{\ast} \le 10^{9} / 2^{30}$, $d = 9$ is the only admissible value.
+- On the band $10^{8} / 2^{33} < p / c^{\ast} \le 10^{9} / 2^{33}$, $d = 9$ is the only admissible value.
 - Below that band $d = 9$ remains admissible but is no longer unique, and $d = 8$ satisfies both requirements as well. Here $d = 9$ is selected by dominance, not by necessity.
 - Above the band $\mathcal{D}$ is empty and no precision satisfies both requirements.
 
@@ -266,7 +266,7 @@ Taking the top of the interval costs representable headroom, $H(9) = 1.8447$ aga
 Two consequences are recorded rather than resolved.
 
 - The result is a function of $S_{cap} = 10^{10}$ LOGOS and of `TokenValue` being 64 bits wide. Changing either reopens the derivation.
-- Where $p / c^{\ast} > 10^{9} / 2^{30}$ the two requirements are jointly infeasible: **R1** caps $d$ before **R3** is met. The remedy lies in the Permanent Storage Gas unit $g$, which sets the boundary at $10^{9} / g$, and not in the precision.
+- Where $p / c^{\ast} > 10^{9} / 2^{33}$ the two requirements are jointly infeasible: **R1** caps $d$ before **R3** is met. The remedy lies in the Permanent Storage Gas unit $g$, which sets the boundary at $10^{9} / g$, and not in the precision.
 
 ## Headroom
 
@@ -278,7 +278,7 @@ $$
 S_{cap} \le \left\lfloor \frac{2^{64}-1}{10^9} \right\rfloor = 18{,}446{,}744{,}073 \text{ LOGOS}.
 $$
 
-The specified cap of $10^{10}$ LOGOS sits at $54.2\%$ of this ceiling. A cap above $1.8446744073 \times 10^{10}$ LOGOS is incompatible with $d = 9$ and forces $d \le 8$. By Lower Bound on Precision that narrows the region where **R3** can be met by a factor of ten, from $p / c^{\ast} \le 10^{9} / 2^{30}$ to $p / c^{\ast} \le 10^{8} / 2^{30}$, so the failure appears at high prices rather than low ones. Raising the cap is therefore constrained from two directions at once.
+The specified cap of $10^{10}$ LOGOS sits at $54.2\%$ of this ceiling. A cap above $1.8446744073 \times 10^{10}$ LOGOS is incompatible with $d = 9$ and forces $d \le 8$. By Lower Bound on Precision that narrows the region where **R3** can be met by a factor of ten, from $p / c^{\ast} \le 10^{9} / 2^{33}$ to $p / c^{\ast} \le 10^{8} / 2^{33}$, so the failure appears at high prices rather than low ones. Raising the cap is therefore constrained from two directions at once.
 
 **Supply growth.** [Block Rewards](block-rewards.md) allocates the full supply at genesis and moves tokens between circulating supply, a fee pool, and a rewards reserve. No path in that mechanism raises the total above $S_{cap}$. The bound $N(9) \le V_{max}$ therefore holds at every step, with no growth argument required. If a later revision introduces issuance above $S_{cap}$, this section must be reopened.
 
@@ -358,7 +358,7 @@ Specifications that state a constant in whole LOGOS must scale it by $10^9$ befo
 Two floor costs follow from the table and the gas constants:
 
 - A Transfer Operation costs at least $590$ LEPTA in execution fees, which is $5.9 \times 10^{-7}$ LOGOS.
-- Storing one GiB permanently costs at least $2^{30} = 1{,}073{,}741{,}824$ LEPTA, which is $1.0737$ LOGOS.
+- Storing one GiB permanently costs at least $2^{33} = 8{,}589{,}934{,}592$ LEPTA, which is $8.5899$ LOGOS.
 
 Both are floors, not expected prices. Both markets discover their price upward from the floor.
 
@@ -439,7 +439,7 @@ def min_precision_exponent(gas: int, price: float, target_cost: float) -> int:
     Lower bound on d (R3): smallest d such that the one-unit price floor
     keeps an operation consuming `gas` units at or below `target_cost`,
     when the token trades at `price`. Returns 9 for one GiB of permanent
-    storage at 2 USD per LOGOS and a 5 USD per GiB target.
+    storage at 0.5 USD per LOGOS and a 5 USD per GiB target.
     """
     d = 0
     while gas * 10 ** (-d) * price > target_cost:
