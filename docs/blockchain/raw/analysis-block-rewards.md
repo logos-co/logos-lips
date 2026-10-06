@@ -91,7 +91,7 @@ $$
 0 \;\le\; P_t \;=\; \underbrace{\sum_\tau R^{\text{block}}_\tau}_{\text{unbounded by the protocol}} \; + \; \underbrace{\sum_\tau \iota_\tau}_{\le \, L c} ,
 $$
 
-where the second sum is at most $`L c = 2.055 \cdot 10^6`$ LGO, or $`0.02\%`$ of $`S_{cap}`$, by [P3](#p3-block-reward-bounds-and-monotonicity). The first is bounded only by conservation, $`P_t \le S^{tot}_0`$. Implementations must size the accumulator against the conservation bound, not against the reserve-funded part.
+where the second sum is at most $`L c = 2.055 \cdot 10^6`$ LOGOS, or $`0.02\%`$ of $`S_{cap}`$, by [P3](#p3-block-reward-bounds-and-monotonicity). The first is bounded only by conservation, $`P_t \le S^{tot}_0`$. Implementations must size the accumulator against the conservation bound, not against the reserve-funded part.
 
 R6 is discharged jointly by the two accounts and is close to vacuous. The rewards pool is emptied at every boundary, and the reserve pool has no inflow, so no stock can accumulate a balance without a release rule because no stock accumulates at all.
 
@@ -124,7 +124,7 @@ $$
 $`r^{\iota}`$ is strictly decreasing in $`D_t`$ on $`(0, D_{target})`$ and continuous at both breakpoints. Three readings follow, and the middle one is the calibration statement for $`c`$.
 
 - As $`D_t \rightarrow 0`$ the yield diverges. This is the bootstrap incentive, and it is bounded only by the reserve, not by the rule.
-- The reference base for a full release is the saturation boundary $`D_{target} - \Lambda`$, not the target. There the release is still at $`c`$ and the yield takes its minimum over the saturated region, $`I_{max} S_{cap} / (D_{target} - \Lambda)`$, which is $`4.0\%`$ on a base of $`2.5 \cdot 10^9`$ LGO at the adopted parameters. Quoting the release yield at $`D_{target}`$ instead is misleading: at the target $`A_t = 0`$, the release is zero, and the block reward is pure fee recycling. Quoting it against $`\Lambda`$ is also wrong, since $`\Lambda`$ is a shortfall rather than a staked base, and $`I_{max} S_{cap} / \Lambda = 20\%`$ is the yield on a base of a $`5\%`$ security level, which is not a distinguished point of the mechanism.
+- The reference base for a full release is the saturation boundary $`D_{target} - \Lambda`$, not the target. There the release is still at $`c`$ and the yield takes its minimum over the saturated region, $`I_{max} S_{cap} / (D_{target} - \Lambda)`$, which is $`4.0\%`$ on a base of $`2.5 \cdot 10^9`$ LOGOS at the adopted parameters. Quoting the release yield at $`D_{target}`$ instead is misleading: at the target $`A_t = 0`$, the release is zero, and the block reward is pure fee recycling. Quoting it against $`\Lambda`$ is also wrong, since $`\Lambda`$ is a shortfall rather than a staked base, and $`I_{max} S_{cap} / \Lambda = 20\%`$ is the yield on a base of a $`5\%`$ security level, which is not a distinguished point of the mechanism.
 - Across the proportional band the yield falls from $`4.0\%`$ to zero, so the band is where the subsidy is withdrawn rather than where it is delivered.
 
 ![Release-funded yield against the security level](analysis-block-rewards/assets/release-yield.png)
@@ -167,7 +167,7 @@ $$
 Circulating supply is non-decreasing epoch over epoch and strictly increasing whenever any block in the epoch carries a positive release. Total net emission over the life of the chain is
 
 $$
-\sum_{t} \iota_t \;\le\; B_0 \;=\; I_{max} S_{cap} Y \;=\; 10^9 \text{ LGO} ,
+\sum_{t} \iota_t \;\le\; B_0 \;=\; I_{max} S_{cap} Y \;=\; 10^9 ~ \text{LOGOS},
 $$
 
 that is $`10\%`$ of $`S_{cap}`$, reached exactly when the shortfall persists for the full horizon. The intra-epoch sawtooth has amplitude $`\Pi_e`$, which is fee-dependent and unbounded by the protocol, per [P2](#p2-the-rewards-pool-accrues-within-an-epoch-and-discharges-at-the-boundary).
@@ -215,11 +215,11 @@ $$
 
 | $`\bar{A}`$ | annual drain | horizon | blocks |
 | --- | --- | --- | --- |
-| $`1.00`$ | $`1.0 \cdot 10^8`$ LGO | $`10.0`$ yr | $`1.05 \cdot 10^7`$ |
-| $`0.75`$ | $`7.5 \cdot 10^7`$ LGO | $`13.3`$ yr | $`1.40 \cdot 10^7`$ |
-| $`0.50`$ | $`5.0 \cdot 10^7`$ LGO | $`20.0`$ yr | $`2.10 \cdot 10^7`$ |
-| $`0.25`$ | $`2.5 \cdot 10^7`$ LGO | $`40.0`$ yr | $`4.20 \cdot 10^7`$ |
-| $`0.10`$ | $`1.0 \cdot 10^7`$ LGO | $`100.0`$ yr | $`1.05 \cdot 10^8`$ |
+| $`1.00`$ | $`1.0 \cdot 10^8`$ LOGOS | $`10.0`$ yr | $`1.05 \cdot 10^7`$ |
+| $`0.75`$ | $`7.5 \cdot 10^7`$ LOGOS | $`13.3`$ yr | $`1.40 \cdot 10^7`$ |
+| $`0.50`$ | $`5.0 \cdot 10^7`$ LOGOS | $`20.0`$ yr | $`2.10 \cdot 10^7`$ |
+| $`0.25`$ | $`2.5 \cdot 10^7`$ LOGOS | $`40.0`$ yr | $`4.20 \cdot 10^7`$ |
+| $`0.10`$ | $`1.0 \cdot 10^7`$ LOGOS | $`100.0`$ yr | $`1.05 \cdot 10^8`$ |
 
 ![Reserve horizon and release path](analysis-block-rewards/assets/reserve-horizon.png)
 
@@ -267,7 +267,7 @@ Stake then falls, $`A_t`$ rises, and the release resumes. The loop is self-corre
 
 State: $`\theta_t = 27.5\%`$.
 
-$`\delta_t = 1/12`$ and $`\delta^\ast = 1/6`$, so $`A_t = 0.5`$ and $`R_t = R^{\text{block}}_t + 0.5 c`$. The annualized release is $`5 \cdot 10^7`$ LGO and the horizon is $`20`$ years, per [P8](#p8-reserve-horizon). This is the regime the mechanism is designed to spend most of its life in, and it is the only one in which the controller is doing proportional work.
+$`\delta_t = 1/12`$ and $`\delta^\ast = 1/6`$, so $`A_t = 0.5`$ and $`R_t = R^{\text{block}}_t + 0.5 c`$. The annualized release is $`5 \cdot 10^7`$ LOGOS and the horizon is $`20`$ years, per [P8](#p8-reserve-horizon). This is the regime the mechanism is designed to spend most of its life in, and it is the only one in which the controller is doing proportional work.
 
 ## S4. High adoption
 
@@ -277,7 +277,7 @@ $`A_t = 0`$, so $`\iota_t = 0`$ and $`R_t = 3c`$. The whole fee flow reaches rec
 
 | Over 40 years at $`u = 3`$ | Amount |
 | --- | --- |
-| Paid to recipients | $`1.2 \cdot 10^{10}`$ LGO |
+| Paid to recipients | $`1.2 \cdot 10^{10}`$ LOGOS |
 | Removed from circulation | $`0`$ |
 | Reserve at the end | $`B_0`$ |
 
@@ -323,7 +323,7 @@ $`\partial R_t / \partial R^{\text{block}}_t = 1`$. A portion of the base fees a
 
 There is no direct channel. Fee revenue does not displace the release within the block, so at $`A_t = 1`$ the reserve drains at $`c`$ per block at every fee level, from $`u = 0`$ upward.
 
-Whether this is the right behaviour depends on a judgement the mechanism does not encode. The case for it is that fee revenue does not itself buy security; stake does, and the reward must be large enough to attract stake regardless of where the reward comes from. The case against is visible at $`u = 1`$ and $`\theta = 25\%`$: the annual fee flow is $`10^8`$ LGO against a staked base of $`2.5 \cdot 10^9`$, a fee yield of $`4.0\%`$, already above the $`3.33\%`$ reservation yield. Stake is rising on fees alone, and the mechanism nonetheless releases at the full rate and doubles the yield to $`8\%`$.
+Whether this is the right behaviour depends on a judgement the mechanism does not encode. The case for it is that fee revenue does not itself buy security; stake does, and the reward must be large enough to attract stake regardless of where the reward comes from. The case against is visible at $`u = 1`$ and $`\theta = 25\%`$: the annual fee flow is $`10^8`$ LOGOS against a staked base of $`2.5 \cdot 10^9`$, a fee yield of $`4.0\%`$, already above the $`3.33\%`$ reservation yield. Stake is rising on fees alone, and the mechanism nonetheless releases at the full rate and doubles the yield to $`8\%`$.
 
 The waste is transient, because the stake it attracts drives $`A_t`$ to zero and stops the release. It is bounded by the length of the transition rather than by any parameter, and it is drawn from a reserve that [P7](#p7-the-reserve-reaches-zero-in-finite-time) shows to be finite.
 
@@ -343,11 +343,11 @@ Assume the shortfall persists to $`T_{ex}`$. By [P7](#p7-the-reserve-reaches-zer
 
 | $`\theta`$ at exhaustion | $`D`$ | released APY lost in one block, $`A = 1`$ |
 | --- | --- | --- |
-| $`25\%`$ | $`2.5 \cdot 10^9`$ LGO | $`4.00\%`$ |
-| $`20\%`$ | $`2.0 \cdot 10^9`$ LGO | $`5.00\%`$ |
-| $`15\%`$ | $`1.5 \cdot 10^9`$ LGO | $`6.67\%`$ |
-| $`10\%`$ | $`1.0 \cdot 10^9`$ LGO | $`10.00\%`$ |
-| $`5\%`$ | $`5.0 \cdot 10^8`$ LGO | $`20.00\%`$ |
+| $`25\%`$ | $`2.5 \cdot 10^9`$ LOGOS | $`4.00\%`$ |
+| $`20\%`$ | $`2.0 \cdot 10^9`$ LOGOS | $`5.00\%`$ |
+| $`15\%`$ | $`1.5 \cdot 10^9`$ LOGOS | $`6.67\%`$ |
+| $`10\%`$ | $`1.0 \cdot 10^9`$ LOGOS | $`10.00\%`$ |
+| $`5\%`$ | $`5.0 \cdot 10^8`$ LOGOS | $`20.00\%`$ |
 
 The cliff is largest exactly where the chain is weakest, because the lost yield is $`I_{max} S_{cap} / D`$ and $`D`$ is small in the states where exhaustion is reached. This is the destabilizing configuration: exhaustion removes a double-digit yield, stake leaves in response, $`D`$ falls further, $`A_t`$ pins at one, and the controller is left calling for a maximum release against an empty account. The mechanism has no instrument in that state and no path back.
 
