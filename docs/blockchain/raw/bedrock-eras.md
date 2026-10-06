@@ -28,30 +28,29 @@ An era schedule embedded in the node software maps every epoch to an era and giv
 
 | Symbol | Name | Description | Value |
 | --- | --- | --- | --- |
-| $`E_n`$ | first epoch number of era $`n`$ | The epoch number of entry $`n`$ of the era schedule, counting from 0. | $`E_0 = 0`$ |
+| $`E_n`$ | first epoch number of era $`n`$ | The epoch number of entry $`n`$ of the era schedule, counting from 0. | |
 | $`P_n`$ | parameter record of era $`n`$ | The [parameter record](#era-parameters) of entry $`n`$ of the era schedule. | |
 | $`L_n`$ | epoch length of era $`n`$ | The epoch length of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) under the rules of era $`n`$. | |
 | $`\Delta_n`$ | slot length of era $`n`$ | The slot length of [Constants](cryptarchia-v1-protocol.md#constants) under the rules of era $`n`$, in nanoseconds. | |
 | $`S_n`$ | first slot of era $`n`$ | | $`S_0 = 0`$, $`S_n = S_{n-1} + (E_n - E_{n-1}) \cdot L_{n-1}`$ |
 | $`\tau_n`$ | start time of era $`n`$ | In nanoseconds since the Unix epoch, as every time $`t`$ here. `genesis_time` is from [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters). | $`\tau_0 = 10^9 \cdot \text{genesis\_time}`$, $`\tau_n = \tau_{n-1} + (S_n - S_{n-1}) \cdot \Delta_{n-1}`$ |
-| $`\textbf{era}(ep)`$ | era of an epoch | The last era whose first epoch is at or before $`ep`$. | $`\max\{n : E_n \le ep\}`$ |
-| $`\textbf{era}(sl)`$ | era of a slot | The last era whose first slot is at or before $`sl`$. | $`\max\{n : S_n \le sl\}`$ |
+| $`\textbf{era}(ep)`$ | era of an epoch | | $`\max\{n : E_n \le ep\}`$ |
+| $`\textbf{era}(sl)`$ | era of a slot | | $`\max\{n : S_n \le sl\}`$ |
 | $`\textbf{epoch}(sl)`$ | epoch of a slot | | $`E_m + \lfloor (sl - S_m) / L_m \rfloor`$ with $`m = \textbf{era}(sl)`$ |
 | $`\textbf{first\_slot}(ep)`$ | first slot of an epoch | | $`S_m + (ep - E_m) \cdot L_m`$ with $`m = \textbf{era}(ep)`$ |
-| $`\textbf{slot}(t)`$ | slot of a time | The slot that contains time $`t`$, for $`t \ge \tau_0`$. $`\textbf{wallclock\_time}().\textbf{to\_slot}()`$ of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) is $`\textbf{slot}(\textbf{wallclock\_time}())`$. | $`S_m + \lfloor (t - \tau_m) / \Delta_m \rfloor`$ with $`m = \max\{n : \tau_n \le t\}`$ |
-| *none* | era in force | The era of the slot given by the local clock. | $`\textbf{era}(\textbf{wallclock\_time}().\textbf{to\_slot}())`$ |
+| $`\textbf{slot}(t)`$ | slot of a time | Defined for $`t \ge \tau_0`$. $`\textbf{wallclock\_time}().\textbf{to\_slot}()`$ of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) is $`\textbf{slot}(\textbf{wallclock\_time}())`$. | $`S_m + \lfloor (t - \tau_m) / \Delta_m \rfloor`$ with $`m = \max\{n : \tau_n \le t\}`$ |
+| *none* | era in force | | $`\textbf{era}(\textbf{wallclock\_time}().\textbf{to\_slot}())`$ |
 | $`G`$ | genesis block ID | The [Block ID](cryptarchia-v1-protocol.md#block-id) of the [Genesis Block](bedrock-genesis-block.md). | |
 | $`D_n`$ | era digest of era $`n`$ | The `hash` of [Block ID](cryptarchia-v1-protocol.md#block-id) over $`E_n`$ as an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch) and $`P_n`$ in its [encoding](#era-parameters). | $`\textbf{hash}(\texttt{ERA\_DIGEST\_V1} \,\|\, E_n \,\|\, P_n)`$ |
 | $`F_n`$ | fork digest of era $`n`$ | The same `hash` over $`G`$, `chain_id` encoded as in [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters), and $`D_0`$ to $`D_n`$. | $`\textbf{hash}(\texttt{FORK\_DIGEST\_V1} \,\|\, G \,\|\, \text{chain\_id} \,\|\, D_0 \,\|\, \dots \,\|\, D_n)`$ |
-| $`T`$ | Transition Period | The Blend [Transition Period](blend-protocol.md#transition-period) of the era in force. | |
-| $`H`$ | horizon | The last epoch a software release interprets, per network. | set per release |
+| $`H`$ | horizon | The last epoch a software release interprets, per network. | |
 
 ## Constants
 
 | Symbol | Name | Description | Value |
 | --- | --- | --- | --- |
-| *none* | era schedule of mainnet | The first epoch number and the parameter record of each era of mainnet. | $`[(0, P_0)]`$ |
-| *none* | era schedule of testnet | The first epoch number and the parameter record of each era of testnet. | $`[(0, P_0)]`$ |
+| *none* | era schedule of mainnet | | $`[(0, P_0)]`$ |
+| *none* | era schedule of testnet | | $`[(0, P_0)]`$ |
 
 ## Era Schedule
 
@@ -138,7 +137,7 @@ The rules of an era verify the Activity Proofs and reward claims of the last epo
 
 ## Era Transition Period
 
-The Era Transition Period is the first $`T`$ [rounds](blend-protocol.md#time) after the era in force changes. It applies to the network layer only.
+The Era Transition Period is the first $`T`$ [rounds](blend-protocol.md#time) after the era in force changes, with $`T`$ the [Transition Period](blend-protocol.md#transition-period) of the new era. It applies to the network layer only.
 
 During the Era Transition Period a node must:
 
