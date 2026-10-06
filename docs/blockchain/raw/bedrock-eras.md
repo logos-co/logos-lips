@@ -93,7 +93,7 @@ A node interprets each piece of chain data under one era:
 - a transaction, when parsing it: the era whose fork digest it carries;
 - a comparison of two chains: the era of the slot of their common ancestor.
 
-[Interpreting Chain Data](#interpreting-chain-data) specifies these rules, the fork digests a block accepts, and when a node must halt.
+[Era of Chain Data](#era-of-chain-data) specifies these rules, the fork digests a block accepts, and when a node must halt.
 
 Between eras, the recorded chain state passes through a **migration** that the new era defines. A block, and a value derived for an epoch, read the state migrated to their own era ([Era Migration](#era-migration)).
 
@@ -192,7 +192,7 @@ The `stake_thresholds` ([Minimum Stake](bedrock-service-declaration-protocol.md#
 
 A software release that adds, removes or re-encodes a field defines a new layout version, used by the eras that adopt it.
 
-## Interpreting Chain Data
+## Era of Chain Data
 
 A block or proposal, and everything it carries, is parsed, validated and executed under the rules of $`\textbf{era}(sl)`$ of its slot, except that a transaction is parsed under the era whose fork digest it carries. `slot` is the first field of the header ([Block Header](cryptarchia-v1-protocol.md#block-header)) and has the same encoding in every era, and every message that carries a block or proposal begins with the header in its [canonical encoding](bedrock-v1.1-block-construction.md#canonical-encoding). Otherwise a node cannot parse a block before it knows the block's era.
 

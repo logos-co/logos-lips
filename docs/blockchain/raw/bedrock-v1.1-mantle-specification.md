@@ -102,7 +102,7 @@ def mantle_txhash(tx: MantleTx) -> Hash:
     return h.digest()
 ```
 
-`fork_digest` is the fork digest of the era in force when the transaction was signed ([Interpreting Chain Data](bedrock-eras.md#interpreting-chain-data)).
+`fork_digest` is the fork digest of the era in force when the transaction was signed ([Era of Chain Data](bedrock-eras.md#era-of-chain-data)).
 
 The [hash function used](common-cryptographic-components.md), as well as other cryptographic primitives like ZK proofs and signature schemes, are described in [Common Cryptographic Components](common-cryptographic-components.md).
 
@@ -234,7 +234,7 @@ Mantle validators will ensure the following:
     tx_priority_tip = checked_uint64(tx_balance - tx_mandatory_fee)
     ```
 
-4. The `fork_digest` of the Mantle Transaction is accepted as defined in [Interpreting Chain Data](bedrock-eras.md#interpreting-chain-data).
+4. The `fork_digest` of the Mantle Transaction is accepted as defined in [Era of Chain Data](bedrock-eras.md#era-of-chain-data).
 
 ## Execution
 
