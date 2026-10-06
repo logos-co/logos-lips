@@ -109,7 +109,7 @@ If we set $`\alpha_a=2`$, then the emission rate $`I_t`$ reaches the maximum val
 
 This section explains the rationale for defining the target $`\text{Security Level}`$ as $30\%$ of the TGE supply.
 
-The TGE supply of the LGO token has to account for:
+The TGE supply of the LOGOS token has to account for:
 
 - The tokens disbursed as rewards to team, investors, ecosystem, etc. (subject to different vesting schemes),
 - The security of the blockchain.
