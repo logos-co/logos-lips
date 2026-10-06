@@ -33,7 +33,8 @@
 | 1.6.1 | Renamed the `LockedNoteId` production of the SDP Operations into `ServiceNoteId` | 2026-08-27 |
 | 1.7.0 | Added the `ChannelConfigOpProof` and `ChannelTransferOpProof` variants and factored the three channel threshold proofs into `ChannelMultiSigProof`, carrying the index of the signing key alongside each signature | 2026-08-31 |
 | 1.8.0 | Added the `ClaimPowReward` Operation payload; its proof is a `ZkSigProof` | 2026-09-08 |
-| 1.9.0 | [\[RFC\] Bound Mantle Operation Data Payloads](mantle-transaction-encoding/appendices/rfc-bound-operation-data-size.md): Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata; retained their `UINT32` length prefixes | 2026-09-28 |
+| 1.9.0 | Swap Ed25519Signature and SignerIndex order in IndexedSignature | 2026-10-01 |
+| 1.10.0 | [\[RFC\] Bound Mantle Operation Data Payloads](mantle-transaction-encoding/appendices/rfc-bound-operation-data-size.md): Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata; retained their `UINT32` length prefixes | 2026-10-06 |
 
 # Introduction
 
@@ -194,7 +195,7 @@ ChannelTransferOpProof  = ChannelMultiSigProof
 ProofOfClaimProof       = Groth16
 
 ChannelMultiSigProof = SignatureCount *IndexedSignature
-IndexedSignature     = Ed25519Signature SignerIndex
+IndexedSignature     = SignerIndex Ed25519Signature
 
 SignatureCount = UINT16
 SignerIndex    = UINT16
