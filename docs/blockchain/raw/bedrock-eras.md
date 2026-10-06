@@ -45,7 +45,7 @@ An era schedule embedded in the node software maps every epoch to an era and giv
 | $`\textbf{era}(sl)`$ | era of a slot | The era whose first slot is the largest at or before $`sl`$. | $`\max\{n : S_n \le sl\}`$ |
 | $`\textbf{epoch}(sl)`$ | epoch of a slot | | $`E_m + \lfloor (sl - S_m) / L_m \rfloor`$ with $`m = \textbf{era}(sl)`$ |
 | $`\textbf{first\_slot}(ep)`$ | first slot of an epoch | | $`S_m + (ep - E_m) \cdot L_m`$ with $`m = \textbf{era}(ep)`$ |
-| $`\textbf{slot}(t)`$ | slot of a time | The slot that contains time $`t`$. $`\textbf{wallclock\_time}().\textbf{to\_slot}()`$ of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) is $`\textbf{slot}(\textbf{wallclock\_time}())`$. | $`S_m + \lfloor (t - \tau_m) / \Delta_m \rfloor`$ with $`m = \max\{n : \tau_n \le t\}`$ |
+| $`\textbf{slot}(t)`$ | slot of a time | The slot that contains time $`t`$, for $`t \ge \tau_0`$. $`\textbf{wallclock\_time}().\textbf{to\_slot}()`$ of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) is $`\textbf{slot}(\textbf{wallclock\_time}())`$. | $`S_m + \lfloor (t - \tau_m) / \Delta_m \rfloor`$ with $`m = \max\{n : \tau_n \le t\}`$ |
 | *none* | era in force | The era of the slot given by the local clock. | $`\textbf{era}(\textbf{wallclock\_time}().\textbf{to\_slot}())`$ |
 | $`H`$ | horizon | The last epoch a software release interprets, per network. | set per release |
 | $`T`$ | Transition Period | The Blend [Transition Period](blend-protocol.md#transition-period) of the era in force. | |
@@ -64,7 +64,7 @@ The nodes of two software releases apply different rules from the first epoch wh
 
 ## Era Parameters
 
-The parameter record of an era is a layout version followed by the fields below, in this order. A field holds the value of its source constant under the rules of the era. The layout version is a `UINT16` equal to 1. Integers are unsigned and little-endian. A ratio is its numerator, then its denominator, each a `UINT32`. A duration is its whole seconds as a `UINT64`, then the nanoseconds past them as a `UINT32`.
+The parameter record of an era is a layout version followed by the fields below, in this order. A field holds the value of its source constant under the rules of the era. The layout version is a `UINT16` equal to 1. Integers are unsigned and little-endian. A ratio is its numerator, then its denominator, each a `UINT32`. The denominator is not zero. A duration is its whole seconds as a `UINT64`, then the nanoseconds past them as a `UINT32`.
 
 | Field | Encoding | Source constant |
 | --- | --- | --- |
@@ -102,6 +102,8 @@ The parameter record of an era is a layout version followed by the fields below,
 | `expected_blocks_per_window` | `UINT64` | `EXPECTED_BLOCKS_PER_WINDOW` of [Parameters](proof-of-work.md#parameters) |
 | `slot_duration` | duration | The slot length of [Constants](cryptarchia-v1-protocol.md#constants) |
 
+In every record, the epoch length $`L_n`$ and the slot length $`\Delta_n`$ are at least 1. Otherwise $`\textbf{epoch}(sl)`$ or $`\textbf{slot}(t)`$ divides by zero.
+
 The `stake_thresholds` ([Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake)) and `parameters` ([Service Parameters](bedrock-service-declaration-protocol.md#service-parameters)) stores hold the `min_stake` and `service_params` entries of the records of the schedule.
 
 A software release that adds, removes or re-encodes a field defines a new layout version, used by the eras that adopt it.
@@ -137,7 +139,7 @@ The rules of an era verify the Activity Proofs and reward claims of the last epo
 
 ## Era Transition Period
 
-The Era Transition Period is the first $`T`$ [rounds](blend-protocol.md#time) after the era in force changes. It applies to the network layer only. $`T`$ must exceed the clock difference between any two honest nodes. Otherwise those nodes share no round in which both run one era's protocols.
+The Era Transition Period is the first $`T`$ [rounds](blend-protocol.md#time) after the era in force changes. It applies to the network layer only.
 
 During the Era Transition Period a node must:
 

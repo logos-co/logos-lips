@@ -35,7 +35,7 @@
 | 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, add a transaction as a data message payload, and align the nullifier retention period | 2026-09-08 |
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
 | 1.6.0 | Replaced the per-window statistical threshold on a connection with a share of messages a node reads from, and sends on, each connection in a round, and a liveness test, kept per identity for the epoch, on whether a neighbor delivers. Held the peering degree in live connections, at least two of them opened by the node. Restricted blacklisting to attributable faults. Sized the shares from the processing rate of the slowest node, derived the transactions the network carries from them, and made that rate the reference load of the Blend difficulty. | 2026-09-08 |
-| 1.7.0 | Removed the message and Activity Proof `version` bytes, put the fork digest in the libp2p protocol name, and linked the era rules for the transition period, for releasing and for broadcasting ([Bedrock Eras](bedrock-eras.md)). | 2026-09-30 |
+| 1.7.0 | Removed the message and Activity Proof `version` bytes, put the fork digest in the libp2p protocol name, linked the era rules for the transition period, for releasing and for broadcasting, and bounded the transition period by the clock difference between honest nodes ([Bedrock Eras](bedrock-eras.md)). | 2026-10-06 |
 | 1.7.1 | Updated `Max_Payload_Length` to 18190 bytes in the overhead calculation, following the removal of the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)). | 2026-09-30 |
 
 # Introduction
@@ -462,6 +462,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\text {CSPRNG}()`$ is a cryptographically secure pseudo-random number generator, implemented as a [ChaCha20-Based PRNG Construction](common-cryptographic-components.md#chacha20-based-prng-construction);
 - $`\eta`$ denotes the network absorption, the maximum time a message spends crossing the network on one hop;
 - $`T_M`$ denotes the message traversal time, the time a message takes to cross the network;
+- $`T_C`$ denotes the largest clock difference between two honest nodes, in rounds;
 
 ## Global Parameters
 
@@ -593,7 +594,7 @@ where:
 
 After $`T_M`$ rounds, all messages for the past epoch should have been processed and disseminated. To provide an additional safety buffer, we round the transition period up to $`T=30`$ rounds. After this period, all old connections can be safely terminated, and messages for the past epoch must not be processed anymore.
 
-The transition period must not be shorter than the message traversal time. A node that stopped processing past-epoch messages before $`T_M`$ would discard messages that are still crossing the network, and their senders would wait for a delivery that can no longer happen ([Detection](#detection)).
+The transition period must be at least the message traversal time plus the largest clock difference between two honest nodes: $`T \ge T_M + T_C`$. Otherwise a node whose clock runs ahead stops processing past-epoch messages while some are still crossing the network, and their senders wait for a delivery that can no longer happen ([Detection](#detection)). With $`T = 30`$ and $`T_M = 15`$, this holds while $`T_C \le 15`$ rounds.
 
 When a new **epoch** begins:
 

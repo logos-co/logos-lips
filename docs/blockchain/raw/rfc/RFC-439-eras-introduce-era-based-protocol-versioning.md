@@ -21,6 +21,7 @@
 |  | Transactions carry the fork digest as their first field; a block accepts its era's digest and, during the era's first epoch, the previous era's. SDP values become era parameters. | 2026-10-06 |
 |  | Merged master twice: the era rules now cover proof-of-work state and per-epoch values, transactions delivered by Blend and the Proposals topic, and the record carries the PoW reward cap and pool funding. | 2026-10-06 |
 |  | Description split into this RFC document and the PR body, per the current template. Removed the `T_era` history, the `/<network>/<era>/` identifiers, the frozen k, f and epoch length, the halting horizon, the resolved `CHAIN_ID` question, a fixed pre-existing defect and the references to other in-flight PRs. The approval of 2026-09-07 predates v4–v10, which change normative content, so approvals are collected again on v10. | 2026-10-06 |
+| v11 | Added the constraints the era arithmetic needs: epoch and slot lengths of at least 1, non-zero ratio denominators, and `slot(t)` defined from genesis on. Bounded Blend's Transition Period by the clock difference between honest nodes, `T ≥ T_M + T_C`, which replaces the weaker requirement in Bedrock Eras that `T` exceed that difference. Removed the corresponding open question and added the early-clock gap in its place. Approvals are collected on v11. | 2026-10-06 |
 
 ## Reviewer Orientation
 
@@ -32,7 +33,7 @@ Read the PR's Motivation first. Era 0 is the set of rules the specifications des
 | 2 | Critical | **Start here**: [Mantle](../bedrock-v1.1-mantle-specification.md) and [Mantle Transaction Encoding](../mantle-transaction-encoding.md), [details](#2-transaction-fork-digest) | `fork_digest` first in every transaction and inside its hash; the acceptance rule; recomputed transaction-hash vectors |
 | 3 | Critical | [Cryptarchia Protocol](../cryptarchia-v1-protocol.md), [details](#3-header-bedrock_version-removed-slot-first) | header loses `bedrock_version`, `slot` first; validation steps renumbered 1–9; `first_slot` and a monotone `commit` ([details](#4-consensus-parameters-across-eras)); same-era uncles ([details](#5-same-era-uncle-rule)); test vectors marked `TBD` |
 | 4 | Critical | [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md), [details](#3-header-bedrock_version-removed-slot-first) | header layout and encoding grammar; sizes 296, 360, proposal maximum 18,187 |
-| 5 | High | [Message Formatting](../message-formatting.md), [Message Encapsulation Mechanism](../message-encapsulation.md), [Blend Protocol](../blend-protocol.md), [details](#6-blend-version-bytes-removed) | `version` bytes removed; relay check removed; Activity Proof metadata 229 bytes; protocol name; pointers to the era rules |
+| 5 | High | [Message Formatting](../message-formatting.md), [Message Encapsulation Mechanism](../message-encapsulation.md), [Blend Protocol](../blend-protocol.md), [details](#6-blend-version-bytes-removed) | `version` bytes removed; relay check removed; Activity Proof metadata 229 bytes; protocol name; pointers to the era rules; Transition Period bound `T ≥ T_M + T_C` |
 | 6 | High | [Cryptarchia Bootstrapping & Synchronization](../cryptarchia-v1-bootstr-sync.md), [details](#8-synchronization-and-checkpoints) | `chainsync` identifier; blocks parsed under their slot's era; checkpoint state |
 | 7 | High | [Bedrock Genesis Block](../bedrock-genesis-block.md), [details](#2-transaction-fork-digest) | the zero `fork_digest` exemption; header field order |
 | 8 | Medium | [Payload Formatting](../payload-formatting.md), [details](#9-size-cascade) | `Max_Body_Length` 18,187 |
@@ -66,7 +67,7 @@ Pinning fork choice to the local clock would make a node judge an old fork under
 
 ## The transition period
 
-The era overlap reuses Blend's Transition Period T, 30 rounds. It must cover the drain of every protocol whose in-flight work cannot resume under the new era, and Blend messages are the only such traffic: sync streams resume through `KnownBlocks`. T must exceed the clock difference between honest nodes, or two nodes share no round in which both run one era's protocols. A sync stream open when the period ends is served to its end, because cutting every initial block download at once would terminate syncing nodes. Before the boundary nobody subscribes to the new era's topics. Transport connections persist, gossipsub grafts at the next heartbeat (about a second, against 30-second blocks), and Blend re-forms its network at every epoch anyway.
+The era overlap reuses Blend's Transition Period T, 30 rounds. It must cover the drain of every protocol whose in-flight work cannot resume under the new era, and Blend messages are the only such traffic: sync streams resume through `KnownBlocks`. Nodes switch by their own clocks, so a node whose clock runs ahead ends its period up to `T_C` rounds early, `T_C` being the largest clock difference between honest nodes. A message generated just before the boundary must still reach it, so Blend now requires `T ≥ T_M + T_C`; with `T = 30` and `T_M = 15` this holds while honest clocks differ by at most 15 rounds. The same bound covers Blend's own epoch boundaries, and it implies the overlap Bedrock Eras used to require separately. A sync stream open when the period ends is served to its end, because cutting every initial block download at once would terminate syncing nodes. Before the boundary nobody subscribes to the new era's topics. Transport connections persist, gossipsub grafts at the next heartbeat (about a second, against 30-second blocks), and Blend re-forms its network at every epoch anyway.
 
 ## State at the boundary
 
@@ -114,7 +115,7 @@ This PR precedes any launched network. Era 0 is today's rules. The identifier, h
 ## Open questions
 
 - Testnet's era-0 record: the Constants give testnet the specifications' values. If testnet runs other values, its record must list them.
-- The transition period protects in-flight Blend messages only if `T ≥ T_M + δ`, where `T_M` is Blend's message traversal time and δ the clock difference between honest nodes. The specifications state `T > δ` and `T ≥ T_M` separately. Today's values satisfy it: 30 ≥ 15 + δ.
+- The early-clock gap. A node whose clock runs ahead starts a new epoch, or a new era, up to `T_C` rounds before a node whose clock runs behind. Until the late node switches, it rejects the early node's new-epoch Blend messages, and it has not yet opened a new era's identifiers. Accepting the next epoch's inputs and the next era's identifiers `T_C` rounds early would close the gap. The gap already exists at every Blend epoch boundary today.
 - No specification defines a canonical encoding of the recorded chain state: the checkpoint API serves it as an opaque blob. Checkpoint interoperability and migration test vectors need one.
 - Domain-separation tags stay `_V1`. Whether a construction changed in era n should take `_V<n>` is for the leads.
 - Version-carrying file names (`bedrock-v1.1-*`, `cryptarchia-v1-*`) are not renamed.
@@ -128,7 +129,7 @@ This PR precedes any launched network. Era 0 is today's rules. The identifier, h
 
 - **Notation:** `E_n`, the parameter record `P_n`, the epoch and slot lengths `L_n` and `Δ_n`, the era start slots `S_n` and times `τ_n`, `era(ep)`, `era(sl)`, `epoch(sl)`, `first_slot(ep)`, `slot(t)`, the era in force, the horizon `H`, the Transition Period `T`, the genesis block ID `G`, the era digest `D_n` and the fork digest `F_n`.
 - **Era Schedule:** an embedded list per network of (first epoch, parameter record), first epoch 0; the frozen within-k fork comparison; the consequence of two releases' schedules differing; no change to a published era's code rules in place, and no entry for an epoch that has begun.
-- **Era Parameters:** the record, a layout version followed by 33 fields in a fixed order, each holding a named constant of Blend, Cryptarchia, Total Stake Inference, SDP or Proof of Work; their encodings; the SDP stores filled from the records; layout versioning.
+- **Era Parameters:** the record, a layout version followed by 33 fields in a fixed order, each holding a named constant of Blend, Cryptarchia, Total Stake Inference, SDP or Proof of Work; their encodings, with non-zero ratio denominators; epoch and slot lengths of at least 1; the SDP stores filled from the records; layout versioning.
 - **Interpreting Chain Data:** a block and everything it carries under `era(sl)`, except that a transaction is parsed under the era its fork digest names; `slot` first and unchanged in every era; the fork digest first in every transaction, and the acceptance rule; fork choice under the common ancestor's era; `commit` with the tip era's k; the startup and checkpoint-import halt; the mempool.
 - **Era Migration:** a function of the recorded chain state (Mantle validation state, PoW state, SDP snapshots); total; identity by default; applied per chain and at the boundary tip; epoch derivations under the epoch's era; predecessor last-epoch proofs.
 - **Era Transition Period:** the first `T` rounds after the era in force changes; both eras' identifiers; Blend messages validated under the arrival connection's era; afterwards the predecessor's identifiers dropped and open sync streams served to their end.
@@ -211,7 +212,7 @@ A new validity condition in [Uncle References](../cryptarchia-v1-protocol.md#unc
      signature: Signature
 ```
 
-[Blend Protocol](../blend-protocol.md): Relaying step 1.1, the version check, is deleted. The Activity Proof `version` row is deleted, so the metadata is 229 bytes; `metadata_type` remains `0x01`. §Releasing and §Transition Period point to the era rules. In Message Encapsulation, `encapsulate` and `decapsulate` no longer set `version`, the `decapsulate` offsets no longer use the undefined `Header.SIZE`, and `PAYLOAD_BODY_SIZE` equals `Max_Body_Length`.
+[Blend Protocol](../blend-protocol.md): Relaying step 1.1, the version check, is deleted. The Activity Proof `version` row is deleted, so the metadata is 229 bytes; `metadata_type` remains `0x01`. §Releasing and §Transition Period point to the era rules. §Transition Period requires `T ≥ T_M + T_C`, where `T_C` is the largest clock difference between two honest nodes, in rounds. In Message Encapsulation, `encapsulate` and `decapsulate` no longer set `version`, the `decapsulate` offsets no longer use the undefined `Header.SIZE`, and `PAYLOAD_BODY_SIZE` equals `Max_Body_Length`.
 
 ## 7. Protocol identifiers
 
@@ -252,6 +253,7 @@ Cryptarchia's §Versioning and Protocol Upgrades, which activated upgrades by bl
 - [x] Remove the `Version` header field and the Blend version bytes; put `slot` first ([logos-blockchain#3679](https://github.com/logos-blockchain/logos-blockchain/pull/3679))
 - [x] Era schedule with parameter records; era and fork digests; identifiers from the fork digest ([#3683](https://github.com/logos-blockchain/logos-blockchain/pull/3683), [#3687](https://github.com/logos-blockchain/logos-blockchain/pull/3687), [#3689](https://github.com/logos-blockchain/logos-blockchain/pull/3689))
 - [ ] Align `EraParameters` with layout version 1 of Era Parameters (the six differences in Discussion) and regenerate the era and fork digest vectors
+- [ ] Reject a schedule whose record has a zero ratio denominator, or an epoch or slot length below 1
 - [ ] Support more than one era: `era`, `epoch`, `first_slot` and `slot(t)` by summation; switch identifiers at the boundary, run both eras for `T` rounds, then drop the predecessor's, serving open sync streams to their end
 - [ ] Transaction fork digest: first field of every transaction, the acceptance rule, the zero digest at genesis, parsing by digest; reopen [#3692](https://github.com/logos-blockchain/logos-blockchain/pull/3692)
 - [ ] Fork choice under the common ancestor's era; `commit` with the tip era's k and a monotone `B_imm`
@@ -273,7 +275,7 @@ Cryptarchia's §Versioning and Protocol Upgrades, which activated upgrades by bl
 | [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md) | Modified | header layout, encoding grammar, size derivations |
 | [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | `fork_digest` field, validation step 4, transaction-hash vectors |
 | [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | `ForkDigest` first in `MantleTx` |
-| [Blend Protocol](../blend-protocol.md) | Modified | version checks removed, protocol name, era pointers, overhead figure |
+| [Blend Protocol](../blend-protocol.md) | Modified | version checks removed, protocol name, era pointers, overhead figure, Transition Period bound |
 | [Message Formatting](../message-formatting.md) | Modified | `version` byte removed, payload maximum |
 | [Message Encapsulation Mechanism](../message-encapsulation.md) | Modified | `version` field removed, decapsulation offsets, `PAYLOAD_BODY_SIZE` |
 | [Payload Formatting](../payload-formatting.md) | Modified | `Max_Body_Length` |
