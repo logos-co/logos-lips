@@ -29,6 +29,7 @@
 | 1.2.2 | Stated that the minimum stake of a service is locked in a service note | 2026-08-27 |
 | 1.3.0 | Add the proof of work reward pool, funded by diverting a share of the collected fees before they reach the rewards pool | 2026-08-31 |
 | 1.3.1 | Align with the reviewed Block Rewards, Execution Market and Anonymous Leaders Reward specs | 2026-10-06 |
+| 1.3.2 | Add Token Units and Precision | 2026-10-06 |
 
 > **Disclaimer**:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -70,6 +71,68 @@ In this section we present an overview of the cryptoeconomical aspects of the Lo
 - Individual leaders claim their rewards through a [Leader Claim Operation](bedrock-v1.1-mantle-specification.md) (on-chain transaction) that preserves privacy by separating the leader reward from the proposed block.
 
 # Constructions
+
+## Token Units and Precision
+
+### Introduction
+
+This section specifies the smallest indivisible unit of the Logos Blockchain native token, the precision that relates it to the display unit, and the intermediate denominations. [\[Analysis\] LOGOS Token Units and Precision](analysis-logos-token-units-and-precision.md) derives the precision and specifies the encoding of amounts and the rounding quantum that other specifications inherit.
+
+The Logos Blockchain ledger holds no fractional quantities. Note values are integers of type `TokenValue`, defined as `uint64` in [Bedrock v1.1 Mantle Specification](bedrock-v1.1-mantle-specification.md). Every fee, price, and reward reduces to an integer count of indivisible units.
+
+Precision therefore fixes the representable range of the ledger and the price resolution of both gas markets.
+
+The analysis bounds precision from above: the supply must fit in a `uint64` note. It bounds precision from below: one indivisible unit is the price floor of both gas markets, so a coarse unit prices operations above the target cost.
+
+The results are:
+
+- The indivisible unit is the LEPTON, plural LEPTA, with $`1 \text{ LOGOS} = 10^{9} \text{ LEPTA}`$.
+- The upper bound is $`d \le 9`$. Precision $`10^{10}`$ and above is unrepresentable, and $`10^{18}`$ would require widening `TokenValue` to at least 128 bits.
+- The lower bound is $`d \ge \log_{10}\left(p \cdot 2^{33} / c^{\ast}\right)`$, which depends on the token price $`p`$ and the target permanent-storage cost $`c^{\ast}`$ only through their ratio. It is satisfied at $`d = 9`$ whenever $`p / c^{\ast} \le 10^{9} / 2^{33}`$ GiB per LOGOS.
+- The two bounds meet at $`d = 9`$. Above $`p / c^{\ast} = 10^{9} / 2^{33}`$ the requirement becomes $`d \ge 10`$, which **R1** excludes, so no admissible precision restores it. The boundary scales as $`10^{9} / g`$, so it is the Permanent Storage Gas unit $`g`$, and not the precision, that sets the available room.
+
+### Key Principles
+
+Three properties of the surrounding specifications constrain the unit system:
+
+- **Integer ledger**. `Note.value` is a `TokenValue`, which is a `uint64`. All arithmetic over token values, balances, gas amounts, and fees is checked, and a Mantle Transaction is invalid if any intermediate result is not representable in its stated type. See [Bedrock v1.1 Mantle Specification](bedrock-v1.1-mantle-specification.md).
+- **Fixed supply**. The hard cap is $`S_{cap} = 10^{10}`$ LOGOS. Every precision result is a function of it. See [Block Rewards](block-rewards.md).
+- **Integer-valued prices**. The Execution base fee and the Permanent Storage price are integers with an effective floor of one base unit per gas unit. See [Execution Market](execution-market.md) and [Storage Markets](storage-markets.md).
+
+The first two bound precision from above. The third bounds it from below.
+
+### Requirements
+
+- **R1. Representability**. Any admissible balance must be encodable in `TokenValue`. A single note holding the entire supply is admissible, so $`S_{cap}`$ must be representable.
+- **R2. Integrality**. No protocol quantity is fractional. Every fee, price, reward, and balance is an integer count of indivisible units.
+- **R3. Price resolution**. One indivisible unit must be small enough that the gas-market price floor stays below a chosen target cost $`c^{\ast}`$ of the operations those markets serve. A floor above $`c^{\ast}`$ misses the target and does not stop the market from clearing.
+- **R4. Unique naming**. Each named unit denotes exactly one quantity, and each quantity has exactly one canonical name in protocol interfaces.
+
+**R1** is satisfied by lowering precision, **R3** by raising it. The analysis derives each bound independently and combines them in its [Choice of Precision](analysis-logos-token-units-and-precision.md#choice-of-precision) section.
+
+### High-level Design
+
+The unit system has two layers. The protocol layer counts LEPTA as unsigned integers and never sees a decimal point. The presentation layer renders a LEPTA count as a decimal LOGOS string with at most nine fractional digits, and parses such a string back into a LEPTA count.
+
+Between them sit two named intermediate denominations, kilolepton and megalepton. They are display aliases that make gas prices and small fees readable without a second numeric type.
+
+### Denominations
+
+The ladder below is normative.
+
+| Unit (singular / plural) | Symbol | In LEPTA | In LOGOS |
+| --- | --- | --- | --- |
+| lepton / lepta | `LEPTON` | $`1`$ | $`10^{-9}`$ |
+| kilolepton / kilolepta | `kLEPTON` | $`10^{3}`$ | $`10^{-6}`$ |
+| megalepton / megalepta | `MLEPTON` | $`10^{6}`$ | $`10^{-3}`$ |
+| logos | `LOGOS` | $`10^{9}`$ | $`1`$ |
+
+Rules, following R4:
+
+- The LEPTON is the indivisible unit. No representable balance is smaller than one LEPTON at any layer of the protocol.
+- Symbols are never pluralized. The plural applies to the spelled-out name only, so “$`500`$ `LEPTON`” and “five hundred lepta” are both correct, and “$`500`$ `LEPTA`” is not.
+- The SI-prefixed forms $`\mu\text{LOGOS}`$ and mLOGOS denote the same quantities as `kLEPTON` and `MLEPTON`. They are permitted as display aliases in user-facing surfaces, and are not permitted in protocol interfaces, RPC payloads, or specification text.
+- `GLEPTON` is not a valid unit. It would denote $`10^9`$ LEPTA, which is the LOGOS, and R4 admits one canonical name per quantity.
 
 ## Minimum Stake
 
@@ -238,6 +301,8 @@ In this section we provide references to the core specifications that define the
 - [Block Rewards](block-rewards.md). Outlines the reward model that governs leader and Blend rewards. It details how the block's fees are passed through in full, and how the release from the reserve adapts to network conditions using the inferred total stake alone, bounding emission per block and per year for as long as the reserve lasts.
 - [Execution Market](execution-market.md). Describes the fee mechanism for execution resources, including the use of a dynamic base fee and priority tips. It explains how execution demand is smoothed over time, how the base fee is routed into the rewards pool and the priority fee to the leader reward pool, and how the system mitigates manipulation risks while maintaining predictable costs.
 - [Storage Markets](storage-markets.md). Defines the transaction fee mechanism for the Permanent Storage market. It introduces a timeframe-based model where prices are fixed during an epoch and adjusted smoothly between them, ensuring predictability for users while allowing the market to adapt to long-term trends.
+
+- [\[Analysis\] LOGOS Token Units and Precision](analysis-logos-token-units-and-precision.md). Derives the precision of the LOGOS token from the representability of the hard cap and the price floor of both gas markets. It specifies the encoding, rounding, units of account and naming of token amounts.
 
 These documents serve as complementary technical references, offering the deeper mathematical and procedural foundations that support the economic model described here.
 
