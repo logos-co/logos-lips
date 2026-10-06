@@ -1508,6 +1508,38 @@ class Ledger:
     channel_notes: dict[NoteCm, (Note, ChannelId)]
 ```
 
+### Nullifier Indexed Merkle Tree
+
+The nullifiers are maintained in an indexed Merkle tree (IMT) of depth $`32`$, whose leaves are appended in insertion order. Each leaf points to the leaf holding the next greater nullifier, so the leaves form a sorted linked list. The first leaf is the sentinel `(0, 0, 0)`, and a `next_nf` of `0` means there is no greater nullifier.
+
+```python
+class NullifierLeaf:
+    nf: NoteNf
+    next_nf: NoteNf  # the next greater nullifier of the set, 0 if none
+    next_index: int  # the index of the leaf holding next_nf, 0 if none
+
+def nullifier_leaf_hash(leaf: NullifierLeaf) -> zkhash:
+    return zkhash(
+        FiniteField(b"NULLIFIER_IMT_LEAF_V1", byte_order="little", modulus= p),
+        leaf.nf,
+        leaf.next_nf,
+        FiniteField(leaf.next_index, byte_order="little", modulus= p)
+    )
+
+def insert_nullifier(leaves: list[NullifierLeaf], nf: NoteNf):
+    # walk the sorted list to the leaf of the greatest nullifier lower than nf
+    low_index = 0
+    while leaves[low_index].next_nf != 0 and leaves[low_index].next_nf < nf:
+        low_index = leaves[low_index].next_index
+    low = leaves[low_index]
+
+    leaves.append(NullifierLeaf(nf=nf, next_nf=low.next_nf, next_index=low.next_index))
+    low.next_nf = nf
+    low.next_index = len(leaves) - 1
+```
+
+A nullifier `nf` is not in the set if and only if there is a leaf `low` with `low.nf < nf` and either `nf < low.next_nf` or `low.next_nf == 0`. The root of the IMT is the Merkle root of depth $`32`$ over the hashes of its leaves, where every position past the last appended leaf holds the value $`0`$. An empty position is therefore distinct from the sentinel, whose position holds `nullifier_leaf_hash(NullifierLeaf(0, 0, 0))`.
+
 ### Input Notes Spendability Validation
 
 The following functions validate that an input of notes can be consumed:
