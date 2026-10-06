@@ -1,6 +1,6 @@
 # [RFC] Eras: Specify the form of an era migration
 
-**Motivation and proposal:** PR #TBD
+**Motivation and proposal:** [PR #476](https://github.com/logos-co/logos-lips/pull/476)
 
 ## Change log
 
