@@ -95,10 +95,10 @@ PostingTimeout             = UINT32
 ConfigThreshold            = UINT16
 TransferThreshold          = UINT16
 
-ChannelDeposit    = ChannelId Inputs Metadata
-Inputs            = InputCount *NoteId
-InputCount        = Byte
-Metadata          = UINT32 *BYTE ; ChannelDeposit: max MAX_OPERATION_DATA_SIZE bytes
+ChannelDeposit   = ChannelId Inputs DepositMetadata
+Inputs           = InputCount *NoteId
+InputCount       = Byte
+DepositMetadata  = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes
 
 ChannelTransfer = ChannelId Inputs Outputs
 
@@ -112,7 +112,13 @@ OutputCount       = Byte
 Inputs            = InputCount *NoteId
 ```
 
-`MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. This is currently seven eighths of the 2 MiB maximum block body (2,097,152 bytes), leaving headroom for transaction framing, other operations, inputs, proofs, and other transaction data. The limit is a concrete protocol value; Mantle parsing does not depend on importing the block-size constant.
+`MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. The value is chosen as seven eighths of the current 2 MiB capacity available to transaction data:
+
+```text
+2,097,152 * 7 / 8 = 1,835,008 bytes
+```
+
+This leaves 262,144 bytes of headroom for the remainder of a transaction, including transaction framing, other operations, inputs, and proofs. Overall transaction and block limits apply independently; satisfying this field-level bound does not by itself guarantee that a complete transaction fits. The limit is a concrete protocol value; Mantle parsing does not depend on importing the block-size constant.
 
 `UINT32` specifies the encoded byte-length prefix and does not define the maximum permitted payload size. Although a `UINT32` prefix can encode lengths up to `2^32 - 1`, `ChannelInscribe.Inscription` and `ChannelDeposit.Metadata` MUST each contain at most `MAX_OPERATION_DATA_SIZE` bytes. A decoder MUST reject either field when its declared or decoded length exceeds that limit. This bound applies to the channel operation fields named here; it does not constrain `SDPActive.Metadata`.
 
@@ -132,8 +138,8 @@ SDPWithdraw   = DeclarationId Nonce ServiceNoteId
 DeclarationId = Hash32
 Nonce         = UINT64
 
-SDPActive     = DeclarationId Nonce Metadata
-Metadata      = UINT32 *BYTE  ; Service-specific node activeness metadata
+SDPActive        = DeclarationId Nonce ActivityMetadata
+ActivityMetadata = UINT32 *BYTE ; Service-specific node activeness metadata
 ```
 
 ### Leader operations
