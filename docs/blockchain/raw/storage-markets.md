@@ -57,7 +57,7 @@ Justification. As will be discussed later, the tradeoff between adaptability and
 
 The proposed fee mechanism operates on a simple but powerful principle: the price for Logos Blockchain Storage is fixed and predictable within a given timeframe (epoch for Permanent Storage), but it adjusts smoothly between timeframes based on observed network usage.
 
-When a user submits data, a fee is calculated based on the Logos Blockchain Storage Gas consumption. This fee is determined by a price per Gas, $`P_{storage}`$, which is known in advance for the entire timeframe. The collected fee is routed into the network's shared rewards pool, the same pool that funds block rewards (see [Fee Routing](#fee-routing)).
+When a user submits data, a fee is calculated based on the Logos Blockchain Storage Gas consumption. This fee is determined by a price per Gas, $`P_{storage}`$, which is known in advance for the entire timeframe. The collected fee is routed in full into the network's shared rewards pool, the same pool in which block rewards accrue (see [Fee Routing](#fee-routing)).
 
 At the end of each timeframe, the protocol tallies the total amount of Logos Blockchain Storage Gas that was stored. It compares this actual usage to an adaptive target a "healthy" usage level that is itself a dynamic blend of a long-term policy goal and recent historical usage. Based on whether the actual usage was above or below this target, the price $`P_{storage}`$ for the next timeframe is adjusted slightly up or down.
 

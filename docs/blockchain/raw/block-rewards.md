@@ -299,7 +299,7 @@ The two terms are independent. The first is a pass-through of value the block al
 - $`R_\text{block} = D_{1,t}`$ denotes the per-block Execution base fees and Storage fees collected in the block and routed to the pending reward pool when the block is proposed. It is the amount the pool receives, net of the share diverted to the [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool).
 - $`\bar{R}_t = \dfrac{1}{T} \sum_{\tau=t-T+1}^{t} D_{1,\tau}`$ denotes the average pooled reward: the moving average of $`R_\text{block}`$ over the look-back window $`T`$.
 
-The recycled component distributes the average pooled reward $`\bar{R}_t`$, rather than the single-block fee $`R_\text{block}`$, which smooths it across the window $`T`$. Rearranging equation (1) isolates the role of the reserve release:
+Under a leader lottery the realized block count in an epoch is a random variable and $`L`$ is its expected value. The block reward accrues per block, so the amount settled at a boundary scales with the realized count. The annualized figures in this document assume the expected rate.
 
 $$
 \begin{equation}
@@ -354,9 +354,9 @@ The controlled total is constant: the mechanism never mints tokens. A reserve re
 
 The [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool) is a stock of the same kind, holding tokens allocated at genesis and topped up by the share of the fees diverted before they reach $`P_t`$, and paying them into circulation as claims are made. It joins the controlled total, which is $`S_t + P_t + B_t + W_t`$, writing $`W_t`$ for this pool, and is constant for the same reason: every movement is between stocks. Net circulating growth over the reserve's life is bounded by $`B_0 + W_0`$, the two stocks that begin full and drain into circulation.
 
-## Emission Rate Factor Function
+## Security Controller
 
-The emission rate factor $`A_t \in [0,1]`$ determines the portion of $`I_{max}`$ that should be emitted based on current values of $`\delta_t`$ and $`\gamma_t`$:
+The controller is the normalized deviation of the key performance indicator, saturated at a threshold $`\delta^\ast`$ and clamped below at zero:
 
 $$
 P_t = P_{t-1} + R^{\text{block}}_t + \iota_t - \Pi_e \cdot \mathbb{1} \lbrace t = T_e \rbrace = P_{t-1} + R_t - \Pi_e \cdot \mathbb{1} \lbrace t = T_e \rbrace .
