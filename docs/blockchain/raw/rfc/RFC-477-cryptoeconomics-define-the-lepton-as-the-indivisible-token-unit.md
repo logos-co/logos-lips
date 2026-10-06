@@ -1,6 +1,6 @@
 # [RFC] Cryptoeconomics: Define the LEPTON as the indivisible token unit
 
-**Motivation and proposal:** [PR #NNN](https://github.com/logos-co/logos-lips/pull/NNN)
+**Motivation and proposal:** [PR #477](https://github.com/logos-co/logos-lips/pull/477)
 
 ## Change log
 
