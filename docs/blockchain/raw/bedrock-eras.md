@@ -29,6 +29,44 @@ An era is a range of consecutive epochs ([Cryptarchia Protocol](cryptarchia-v1-p
 
 An era schedule embedded in the node software maps every epoch to an era and gives each era a parameter record. A node applies to a block the rules of the era of the block's slot, and to its network protocols the era of the slot given by its clock. Every era after the first defines a migration of the recorded chain state from its predecessor. When the era changes, a node runs the network protocols of both eras for a transition period. Protocol identifiers and transactions carry a digest of the chain's genesis and of the eras it has activated. A software release warns its operator past its horizon, the last epoch it interprets.
 
+# Protocol
+
+```mermaid
+graph TB
+    sc["era schedule<br/>of the release"] --> er["era of each<br/>slot and epoch"]
+    sc --> fd["fork digest<br/>of each era"]
+    er -- "slot of a block" --> bk["block parsed, validated<br/>and executed under its era"]
+    fd -- "carried by a transaction" --> tx["transaction parsed<br/>under its era"]
+    er -- "slot of the local clock" --> ef["era in force"]
+    ef --> nw["network protocols<br/>and mempool"]
+    fd -- "carried by identifiers<br/>and topics" --> nw
+```
+
+A software release carries one **era schedule** per network. Each entry gives the first epoch of an era and its **parameter record**, the values of the constants the era's rules read ([Era Parameters](#era-parameters)). Every slot and every epoch belongs to the last era that begins at or before it. Epoch and slot lengths may differ between eras, so slots and times are counted era by era ([Notation](#notation)). [Era Schedule](#era-schedule) limits what a release may change in a schedule.
+
+Each era has a **fork digest**, a hash of the genesis block ID, the chain ID and the digests of every era up to it ([Notation](#notation)).
+
+A node interprets each piece of chain data under one era:
+
+- a block or proposal, and everything it carries: the era of its slot;
+- a transaction, when parsing it: the era whose fork digest it carries;
+- a comparison of two chains: the era of the slot of their common ancestor.
+
+[Interpreting Chain Data](#interpreting-chain-data) specifies these rules, the fork digests a block accepts, and when a node must halt.
+
+Between eras, the recorded chain state passes through a **migration** that the new era defines. A block, and a value derived for an epoch, read the state migrated to their own era ([Era Migration](#era-migration)).
+
+A node runs its network protocols under the **era in force**, the era of the slot its clock gives. Their identifiers and gossipsub topics carry the fork digest of their era, except those of Kademlia and identify, which carry the chain ID ([Network Protocol Identity](#network-protocol-identity)). When the era in force changes, the node runs the network protocols of both eras for the **Era Transition Period**, then drops those of the predecessor era ([Era Transition Period](#era-transition-period)).
+
+A release interprets the chain up to its **horizon**, an epoch it fixes for each network. A node warns its operator once its clock passes the horizon, and when a peer advertises a fork digest the node does not know ([Horizon](#horizon)).
+
+A node keeps four values that change with the era in force:
+
+- the era in force itself, which changes when the clock reaches the first slot of the next era ([Notation](#notation));
+- the state after its local chain tip, migrated when the era in force changes ([Era Migration](#era-migration));
+- its mempool, re-validated against that state ([Era Migration](#era-migration));
+- the identifiers it accepts connections on, those of both eras during the Era Transition Period and those of the era in force otherwise ([Era Transition Period](#era-transition-period)).
+
 # Details
 
 ## Notation
