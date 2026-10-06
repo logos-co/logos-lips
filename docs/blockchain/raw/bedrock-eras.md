@@ -23,11 +23,52 @@
 
 # Introduction
 
-An era is a range of consecutive epochs ([Cryptarchia Protocol](cryptarchia-v1-protocol.md#epoch)) governed by one set of protocol rules.
+The rules and parameters of the protocol change over the life of the chain. Every node must still apply the same rules to the same block, including a node that syncs blocks made before a change.
+
+Eras make this possible. An era is a range of consecutive epochs ([Cryptarchia Protocol](cryptarchia-v1-protocol.md#epoch)) governed by one set of protocol rules. Each software release carries a schedule of eras, so every node changes rules at the same epoch and reads each block under the rules of its era.
+
+This document specifies the era schedule and the parameter record of an era, the era that governs chain data and the network layer, the migration of the chain state between eras, the transition period at an era boundary, the protocol identifiers, and the horizon of a release. The rules an era applies are specified where they are defined, in [Cryptarchia Protocol](cryptarchia-v1-protocol.md), [Mantle](bedrock-v1.1-mantle-specification.md), [Blend Protocol](blend-protocol.md), [Proof of Work](proof-of-work.md) and the other Bedrock specifications.
 
 # Overview
 
-An era schedule embedded in the node software maps every epoch to an era and gives each era a parameter record. A node applies to a block the rules of the era of the block's slot, and to its network protocols the era of the slot given by its clock. Every era after the first defines a migration of the recorded chain state from its predecessor. When the era changes, a node runs the network protocols of both eras for a transition period. Protocol identifiers and transactions carry a digest of the chain's genesis and of the eras it has activated. A software release warns its operator past its horizon, the last epoch it interprets.
+The history of the chain is divided into eras. Each era is a run of consecutive epochs under one set of rules and one set of parameters. Every release of the node software carries a schedule that says at which epoch each era begins. The schedule is not read from the chain, so a node learns of a new era by installing a release that names it.
+
+```mermaid
+graph LR
+    e0["era 0"] -- "migration" --> e1["era 1"]
+    e1 -- "migration" --> e2["era 2"]
+```
+
+Each era lasts until the next one begins. At each boundary, the new era's migration carries the chain state across and leaves unchanged whatever the new era does not redefine.
+
+A node judges a block by the era the block was made in, which the block's slot tells it. It talks to its peers in the era its own clock says has begun. A node that syncs from genesis therefore validates old blocks under old rules while it talks to the network under the current ones.
+
+```mermaid
+graph LR
+    b["a block"] -- "its slot" --> be["the block's era"]
+    be --> bv["rules that validate<br/>and execute the block"]
+    c["the local clock"] -- "the current slot" --> ce["the current era"]
+    ce --> cn["network protocols"]
+```
+
+The two paths can name different eras, as they do for a node that is catching up on old blocks.
+
+Each era has a fork digest, a fingerprint of the genesis block and of the schedule up to that era. Network protocol names and transactions carry it. Two releases whose schedules agree share their protocol names up to the first era where the schedules differ, and never again after it.
+
+```mermaid
+graph LR
+    g["genesis"] --> a0["era 0"] --> a1["era 1"]
+    a1 --> x["era 2 of release A"]
+    a1 --> y["era 2 of release B"]
+```
+
+Up to era 1, the two releases share a fork digest. From era 2 on, they have different ones.
+
+The two protocols that find peers and describe them carry the identifier of the chain in their names instead of a fork digest. No era changes it.
+
+When an era begins, a node runs the network protocols of the old and the new era side by side for a short transition period, then drops the old ones.
+
+A release knows the rules only up to its horizon, the last epoch it interprets. A node warns its operator once its clock passes the horizon, and when a peer advertises a fork digest the node does not know. A node whose release lacks the rules of an era it must apply halts when it starts or imports a checkpoint.
 
 # Protocol
 
@@ -42,7 +83,7 @@ graph TB
     fd -- "carried by identifiers<br/>and topics" --> nw
 ```
 
-A software release carries one **era schedule** per network. Each entry gives the first epoch of an era and its **parameter record**, the values of the constants the era's rules read ([Era Parameters](#era-parameters)). Every slot and every epoch belongs to the last era that begins at or before it. Epoch and slot lengths may differ between eras, so slots and times are counted era by era ([Notation](#notation)). [Era Schedule](#era-schedule) limits what a release may change in a schedule.
+A software release carries one **era schedule** per network. Each entry gives the first epoch of an era and its **parameter record**, the values of the constants the era's rules read ([Era Parameters](#era-parameters)). Every slot and every epoch belongs to the last era that begins at or before it. Epoch and slot lengths may differ between eras, so slots and times are counted era by era ([Notation](#notation)). [Era Schedule](#era-schedule) constrains what an era may change and what a release may change in a schedule.
 
 Each era has a **fork digest**, a hash of the genesis block ID, the chain ID and the digests of every era up to it ([Notation](#notation)).
 
@@ -60,7 +101,7 @@ A node runs its network protocols under the **era in force**, the era of the slo
 
 A release interprets the chain up to its **horizon**, an epoch it fixes for each network. A node warns its operator once its clock passes the horizon, and when a peer advertises a fork digest the node does not know ([Horizon](#horizon)).
 
-A node keeps four values that change with the era in force:
+A node keeps four values that depend on the era in force:
 
 - the era in force itself, which changes when the clock reaches the first slot of the next era ([Notation](#notation));
 - the state after its local chain tip, migrated when the era in force changes ([Era Migration](#era-migration));
