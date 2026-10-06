@@ -40,7 +40,7 @@ displayMode: compact
 gantt
     title Slots, epochs and eras, for an example schedule
     dateFormat X
-    axisFormat %s
+    axisFormat slot %s
     tickInterval 10second
     todayMarker off
     section Epochs
