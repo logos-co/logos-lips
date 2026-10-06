@@ -24,39 +24,38 @@ An era schedule embedded in the node software maps every epoch to an era and giv
 
 # Protocol
 
-## Constants
-
-| Symbol | Name | Description | Value |
-| --- | --- | --- | --- |
-| *none* | era schedule of mainnet | The first epoch and the parameter record of each era of mainnet. | $`[(0, P_0)]`$ |
-| *none* | era schedule of testnet | The first epoch and the parameter record of each era of testnet. | $`[(0, P_0)]`$ |
-
 ## Notation
 
 | Symbol | Name | Description | Value |
 | --- | --- | --- | --- |
-| $`E_n`$ | first epoch of era $`n`$ | The first epoch of entry $`n`$ of the era schedule, counting from 0. | $`E_0 = 0`$ |
+| $`E_n`$ | first epoch number of era $`n`$ | The epoch number of entry $`n`$ of the era schedule, counting from 0. | $`E_0 = 0`$ |
 | $`P_n`$ | parameter record of era $`n`$ | The [parameter record](#era-parameters) of entry $`n`$ of the era schedule. | |
-| $`\textbf{era}(ep)`$ | era of an epoch | The era whose first epoch is the largest at or before $`ep`$. | $`\max\{n : E_n \le ep\}`$ |
 | $`L_n`$ | epoch length of era $`n`$ | The epoch length of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) under the rules of era $`n`$. | |
 | $`\Delta_n`$ | slot length of era $`n`$ | The slot length of [Constants](cryptarchia-v1-protocol.md#constants) under the rules of era $`n`$, in nanoseconds. | |
 | $`S_n`$ | first slot of era $`n`$ | | $`S_0 = 0`$, $`S_n = S_{n-1} + (E_n - E_{n-1}) \cdot L_{n-1}`$ |
 | $`\tau_n`$ | start time of era $`n`$ | In nanoseconds since the Unix epoch, as every time $`t`$ here. `genesis_time` is from [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters). | $`\tau_0 = 10^9 \cdot \text{genesis\_time}`$, $`\tau_n = \tau_{n-1} + (S_n - S_{n-1}) \cdot \Delta_{n-1}`$ |
-| $`\textbf{era}(sl)`$ | era of a slot | The era whose first slot is the largest at or before $`sl`$. | $`\max\{n : S_n \le sl\}`$ |
+| $`\textbf{era}(ep)`$ | era of an epoch | The last era whose first epoch is at or before $`ep`$. | $`\max\{n : E_n \le ep\}`$ |
+| $`\textbf{era}(sl)`$ | era of a slot | The last era whose first slot is at or before $`sl`$. | $`\max\{n : S_n \le sl\}`$ |
 | $`\textbf{epoch}(sl)`$ | epoch of a slot | | $`E_m + \lfloor (sl - S_m) / L_m \rfloor`$ with $`m = \textbf{era}(sl)`$ |
 | $`\textbf{first\_slot}(ep)`$ | first slot of an epoch | | $`S_m + (ep - E_m) \cdot L_m`$ with $`m = \textbf{era}(ep)`$ |
 | $`\textbf{slot}(t)`$ | slot of a time | The slot that contains time $`t`$, for $`t \ge \tau_0`$. $`\textbf{wallclock\_time}().\textbf{to\_slot}()`$ of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) is $`\textbf{slot}(\textbf{wallclock\_time}())`$. | $`S_m + \lfloor (t - \tau_m) / \Delta_m \rfloor`$ with $`m = \max\{n : \tau_n \le t\}`$ |
 | *none* | era in force | The era of the slot given by the local clock. | $`\textbf{era}(\textbf{wallclock\_time}().\textbf{to\_slot}())`$ |
-| $`H`$ | horizon | The last epoch a software release interprets, per network. | set per release |
-| $`T`$ | Transition Period | The Blend [Transition Period](blend-protocol.md#transition-period) of the era in force. | |
-| $`B_\text{imm}`$ | latest immutable block | See [Cryptarchia Protocol](cryptarchia-v1-protocol.md#latest-immutable-block). | |
 | $`G`$ | genesis block ID | The [Block ID](cryptarchia-v1-protocol.md#block-id) of the [Genesis Block](bedrock-genesis-block.md). | |
 | $`D_n`$ | era digest of era $`n`$ | The `hash` of [Block ID](cryptarchia-v1-protocol.md#block-id) over $`E_n`$ as an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch) and $`P_n`$ in its [encoding](#era-parameters). | $`\textbf{hash}(\texttt{ERA\_DIGEST\_V1} \,\|\, E_n \,\|\, P_n)`$ |
 | $`F_n`$ | fork digest of era $`n`$ | The same `hash` over $`G`$, `chain_id` encoded as in [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters), and $`D_0`$ to $`D_n`$. | $`\textbf{hash}(\texttt{FORK\_DIGEST\_V1} \,\|\, G \,\|\, \text{chain\_id} \,\|\, D_0 \,\|\, \dots \,\|\, D_n)`$ |
+| $`T`$ | Transition Period | The Blend [Transition Period](blend-protocol.md#transition-period) of the era in force. | |
+| $`H`$ | horizon | The last epoch a software release interprets, per network. | set per release |
+
+## Constants
+
+| Symbol | Name | Description | Value |
+| --- | --- | --- | --- |
+| *none* | era schedule of mainnet | The first epoch number and the parameter record of each era of mainnet. | $`[(0, P_0)]`$ |
+| *none* | era schedule of testnet | The first epoch number and the parameter record of each era of testnet. | $`[(0, P_0)]`$ |
 
 ## Era Schedule
 
-The era schedule is embedded in the node software and is not read from the chain. Each network has its own schedule. The schedule is a list of entries, each a first epoch and a [parameter record](#era-parameters). The first epochs strictly increase, and the first of them is 0.
+The era schedule is embedded in the node software and is not read from the chain. Each network has its own schedule. The schedule is a list of entries, each an epoch number and a [parameter record](#era-parameters). The epoch numbers strictly increase, and the first of them is 0.
 
 An era must not change the comparison of chains that diverge by at most $`k`$ blocks ([Online Fork Choice Rule](fork-choice.md#online-fork-choice-rule)). Otherwise fork choice depends on the order in which forks were seen for the first $`k`$ blocks of the era.
 
@@ -116,7 +115,7 @@ Every transaction begins with the fork digest of the era in force when it was si
 
 [Fork choice](fork-choice.md) compares two chains under the era of the slot of their $`\textbf{common\_ancestor}`$ ([Fork Pruning](cryptarchia-v1-protocol.md#fork-pruning)). The fork choice rule of an era reads only the block tree and the slot of each block. Otherwise it is undefined on the blocks of a later era that re-encodes a field it reads. [Commit](cryptarchia-v1-protocol.md#commit) uses the $`k`$ of the era of the slot of the local chain tip.
 
-At startup and on checkpoint import, a node whose software does not implement the rules of every era from $`\textbf{era}(sl_{B_\text{imm}})`$ to the era in force must halt. A halted node stops every protocol and exits with an error to the operator.
+At startup and on checkpoint import, a node whose software does not implement the rules of every era from $`\textbf{era}(sl_{B_\text{imm}})`$ ([latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block)) to the era in force must halt. A halted node stops every protocol and exits with an error to the operator.
 
 A node keeps in its mempool only transactions valid under the era in force.
 
@@ -158,6 +157,6 @@ A node sends a message it generates over the identifiers of the era in force at 
 
 ## Horizon
 
-$`H`$ must not be smaller than the last entry of the schedule. Otherwise the node warns its operator before its last era begins.
+$`H`$ must not be smaller than $`E_n`$ of the last entry of the schedule. Otherwise the node warns its operator before its last era begins.
 
-When $`\textbf{wallclock\_time}().\textbf{to\_slot}()`$ reaches the first slot of epoch $`H+1`$, a node warns its operator that its software no longer interprets the chain. A node also warns its operator when a peer of its chain advertises an identifier whose fork digest the node does not know.
+When $`\textbf{wallclock\_time}().\textbf{to\_slot}()`$ reaches the first slot of epoch $`H+1`$, a node warns its operator that its software no longer interprets the chain. A node also warns its operator when a peer lists, in the `protocols` field of its [identify](https://github.com/libp2p/specs/blob/master/identify/README.md) message, an identifier whose fork digest the node does not know.
