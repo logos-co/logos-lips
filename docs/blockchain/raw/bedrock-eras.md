@@ -7,6 +7,13 @@
 | Status | raw |
 | Category | Standards Track |
 | Editor | Marcin Pawlowski <marcin@logos.co> |
+| Contributors |  |
+
+<!-- timeline:start -->
+
+## Timeline
+
+<!-- timeline:end -->
 
 # Revision History
 
@@ -22,35 +29,35 @@ An era is a range of consecutive epochs ([Cryptarchia Protocol](cryptarchia-v1-p
 
 An era schedule embedded in the node software maps every epoch to an era and gives each era a parameter record. A node applies to a block the rules of the era of the block's slot, and to its network protocols the era of the slot given by its clock. Every era after the first defines a migration of the recorded chain state from its predecessor. When the era changes, a node runs the network protocols of both eras for a transition period. Protocol identifiers and transactions carry a digest of the chain's genesis and of the eras it has activated. A software release warns its operator past its horizon, the last epoch it interprets.
 
-# Protocol
+# Details
 
 ## Notation
 
-| Symbol | Name | Description | Value |
-| --- | --- | --- | --- |
-| $`E_n`$ | first epoch number of era $`n`$ | The epoch number of entry $`n`$ of the era schedule, counting from 0. | |
-| $`P_n`$ | parameter record of era $`n`$ | The [parameter record](#era-parameters) of entry $`n`$ of the era schedule. | |
-| $`L_n`$ | epoch length of era $`n`$ | The epoch length of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) under the rules of era $`n`$. | |
-| $`\Delta_n`$ | slot length of era $`n`$ | The slot length of [Constants](cryptarchia-v1-protocol.md#constants) under the rules of era $`n`$, in nanoseconds. | |
-| $`S_n`$ | first slot of era $`n`$ | | $`S_0 = 0`$, $`S_n = S_{n-1} + (E_n - E_{n-1}) \cdot L_{n-1}`$ |
-| $`\tau_n`$ | start time of era $`n`$ | In nanoseconds since the Unix epoch, as every time $`t`$ here. `genesis_time` is from [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters). | $`\tau_0 = 10^9 \cdot \text{genesis\_time}`$, $`\tau_n = \tau_{n-1} + (S_n - S_{n-1}) \cdot \Delta_{n-1}`$ |
-| $`\textbf{era}(ep)`$ | era of an epoch | | $`\max\{n : E_n \le ep\}`$ |
-| $`\textbf{era}(sl)`$ | era of a slot | | $`\max\{n : S_n \le sl\}`$ |
-| $`\textbf{epoch}(sl)`$ | epoch of a slot | | $`E_m + \lfloor (sl - S_m) / L_m \rfloor`$ with $`m = \textbf{era}(sl)`$ |
-| $`\textbf{first\_slot}(ep)`$ | first slot of an epoch | | $`S_m + (ep - E_m) \cdot L_m`$ with $`m = \textbf{era}(ep)`$ |
-| $`\textbf{slot}(t)`$ | slot of a time | Defined for $`t \ge \tau_0`$. $`\textbf{wallclock\_time}().\textbf{to\_slot}()`$ of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) is $`\textbf{slot}(\textbf{wallclock\_time}())`$. | $`S_m + \lfloor (t - \tau_m) / \Delta_m \rfloor`$ with $`m = \max\{n : \tau_n \le t\}`$ |
-| *none* | era in force | | $`\textbf{era}(\textbf{wallclock\_time}().\textbf{to\_slot}())`$ |
-| $`G`$ | genesis block ID | The [Block ID](cryptarchia-v1-protocol.md#block-id) of the [Genesis Block](bedrock-genesis-block.md). | |
-| $`D_n`$ | era digest of era $`n`$ | The `hash` of [Block ID](cryptarchia-v1-protocol.md#block-id) over $`E_n`$ as an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch) and $`P_n`$ in its [encoding](#era-parameters). | $`\textbf{hash}(\texttt{ERA\_DIGEST\_V1} \,\|\, E_n \,\|\, P_n)`$ |
-| $`F_n`$ | fork digest of era $`n`$ | The same `hash` over $`G`$, `chain_id` encoded as in [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters), and $`D_0`$ to $`D_n`$. | $`\textbf{hash}(\texttt{FORK\_DIGEST\_V1} \,\|\, G \,\|\, \text{chain\_id} \,\|\, D_0 \,\|\, \dots \,\|\, D_n)`$ |
-| $`H`$ | horizon | The last epoch a software release interprets, per network. | |
+| Symbol | Name | Description |
+| --- | --- | --- |
+| $`E_n`$ | first epoch number of era $`n`$ | The epoch number of entry $`n`$ of the era schedule, counting from 0. |
+| $`P_n`$ | parameter record of era $`n`$ | The [parameter record](#era-parameters) of entry $`n`$ of the era schedule. |
+| $`L_n`$ | epoch length of era $`n`$ | The epoch length of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) under the rules of era $`n`$. |
+| $`\Delta_n`$ | slot length of era $`n`$ | The slot length of [Constants](cryptarchia-v1-protocol.md#constants) under the rules of era $`n`$, in nanoseconds. |
+| $`S_n`$ | first slot of era $`n`$ | $`S_0 = 0`$, $`S_n = S_{n-1} + (E_n - E_{n-1}) \cdot L_{n-1}`$. |
+| $`\tau_n`$ | start time of era $`n`$ | $`\tau_0 = 10^9 \cdot \text{genesis\_time}`$, $`\tau_n = \tau_{n-1} + (S_n - S_{n-1}) \cdot \Delta_{n-1}`$. In nanoseconds since the Unix epoch, as every time $`t`$ here. `genesis_time` is from [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters). |
+| $`\textbf{era}(ep)`$ | era of an epoch | $`\max\{n : E_n \le ep\}`$. |
+| $`\textbf{era}(sl)`$ | era of a slot | $`\max\{n : S_n \le sl\}`$. |
+| $`\textbf{epoch}(sl)`$ | epoch of a slot | $`E_m + \lfloor (sl - S_m) / L_m \rfloor`$ with $`m = \textbf{era}(sl)`$. |
+| $`\textbf{first\_slot}(ep)`$ | first slot of an epoch | $`S_m + (ep - E_m) \cdot L_m`$ with $`m = \textbf{era}(ep)`$. |
+| $`\textbf{slot}(t)`$ | slot of a time | $`S_m + \lfloor (t - \tau_m) / \Delta_m \rfloor`$ with $`m = \max\{n : \tau_n \le t\}`$, defined for $`t \ge \tau_0`$. $`\textbf{wallclock\_time}().\textbf{to\_slot}()`$ of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) is $`\textbf{slot}(\textbf{wallclock\_time}())`$. |
+| *none* | era in force | $`\textbf{era}(\textbf{wallclock\_time}().\textbf{to\_slot}())`$. |
+| $`G`$ | genesis block ID | The [Block ID](cryptarchia-v1-protocol.md#block-id) of the [Genesis Block](bedrock-genesis-block.md). |
+| $`D_n`$ | era digest of era $`n`$ | $`\textbf{hash}(\texttt{ERA\_DIGEST\_V1} \,\|\, E_n \,\|\, P_n)`$, with the `hash` of [Block ID](cryptarchia-v1-protocol.md#block-id), $`E_n`$ as an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch) and $`P_n`$ in its [encoding](#era-parameters). |
+| $`F_n`$ | fork digest of era $`n`$ | $`\textbf{hash}(\texttt{FORK\_DIGEST\_V1} \,\|\, G \,\|\, \text{chain\_id} \,\|\, D_0 \,\|\, \dots \,\|\, D_n)`$, with the same `hash` and `chain_id` encoded as in [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters). |
+| $`H`$ | horizon | The last epoch a software release interprets, per network. |
 
-## Constants
+## Parameters
 
-| Symbol | Name | Description | Value |
-| --- | --- | --- | --- |
-| *none* | era schedule of mainnet | | $`[(0, P_0)]`$ |
-| *none* | era schedule of testnet | | $`[(0, P_0)]`$ |
+```python
+MAINNET_ERA_SCHEDULE: list[tuple[EpochNumber, EraParameters]] = [(0, P_0)]  # (E_n, P_n) of each era of mainnet
+TESTNET_ERA_SCHEDULE: list[tuple[EpochNumber, EraParameters]] = [(0, P_0)]  # (E_n, P_n) of each era of testnet
+```
 
 ## Era Schedule
 
@@ -118,7 +125,6 @@ At startup and on checkpoint import, a node whose software does not implement th
 
 A node keeps in its mempool only transactions valid under the era in force.
 
-
 ## Era Migration
 
 Every era after the first defines a migration from its predecessor. A migration is a function of the recorded chain state alone. The recorded chain state is the state a Mantle Operation is validated against ([Validation](bedrock-v1.1-mantle-specification.md#validation), [Proof of Work Operations](bedrock-v1.1-mantle-specification.md#proof-of-work-operations)) and the [snapshots](bedrock-service-declaration-protocol.md#snapshots) of the current and later epochs.
@@ -133,7 +139,6 @@ A block reads the state after any block of an earlier era with the intervening m
 A value derived for an epoch is derived under the rules of the epoch's era: its [Epoch State](cryptarchia-v1-protocol.md#epoch-state), its `difficulty_blend` ([Blend Difficulty](proof-of-work.md#blend-difficulty)) and its `epoch_pow_reward` ([Reward Pool](proof-of-work.md#reward-pool)). A quantity measured over an epoch, such as a phase boundary, an observation window or an expected block count, uses the parameters of that epoch's era. Where a derivation reads the chain state as of a slot, it reads the state after the last block at or before that slot, migrated to the epoch's era. A value derived for an earlier epoch is used as it was derived.
 
 The rules of an era verify the Activity Proofs and reward claims of the last epoch of the predecessor era, [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) included, as the predecessor's rules do. Otherwise the rewards of that epoch are lost.
-
 
 ## Era Transition Period
 
@@ -152,7 +157,6 @@ After the Era Transition Period the node must drop the identifiers of the predec
 Every protocol identifier and gossipsub topic a Logos Blockchain specification defines is `/logos-blockchain/<chain_id>/<protocol>` for Kademlia and identify ([P2P Network](../draft/p2p-network.md)), and `/logos-blockchain/<fork_digest>/<protocol>` for every other protocol. `<chain_id>` is `chain_id` ([Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters)), percent-encoded as in [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986#section-2.1) except for its unreserved characters. `<fork_digest>` is the fork digest $`F_n`$ of an era $`n`$ in lowercase hexadecimal, and the identifier is an identifier of era $`n`$. `<protocol>` is the identifier the protocol's own specification defines.
 
 A node sends a message it generates over the identifiers of the era in force at generation. A node relays or releases a received or processed Blend message, and broadcasts its payload, over the identifiers of the era of the connection it arrived on. A node publishes a proposal it accepts, and a transaction it admits to its mempool, on the topic of the era in force. A [synchronization](cryptarchia-v1-bootstr-sync.md#downloading-blocks) response carries blocks of any era.
-
 
 ## Horizon
 
