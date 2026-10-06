@@ -28,6 +28,7 @@
 | 1.1.1 | Changing from burning/minting to pooling/distributing/releasing | 2026-08-25 |
 | 1.2.0 | The storage fee is routed to the rewards pool less the share diverted to the proof of work reward pool | 2026-08-31 |
 | 1.2.1 | Align every block-reward reference with [Block Rewards](block-rewards.md) 1.2.0: fees pass through in full and settle at the epoch boundary, the rewards pool accrues rather than funds, notation harmonised to $`R^{\text{block}}`$. No change to the price mechanism. | 2026-10-06 |
+| 1.2.2 | Made the token unit uniform: each amount names LOGOS or LEPTA/LEPTON as its context requires. | 2026-10-06 |
 
 > **Disclaimer:**
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.

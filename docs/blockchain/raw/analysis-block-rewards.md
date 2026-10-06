@@ -24,6 +24,7 @@
 | 1.0.0 | Initial revision. | 2026-04-24 |
 | 1.0.1 | Initial revision. | 2026-08-12 |
 | 1.0.2 | Re-derived against the new block reward formula $`R_t = R^{\text{block}}_t + A_t c`$ | 2026-09-02 |
+| 1.0.3 | Made the token unit uniform: each amount names LOGOS or LEPTA/LEPTON as its context requires. | 2026-10-06 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
