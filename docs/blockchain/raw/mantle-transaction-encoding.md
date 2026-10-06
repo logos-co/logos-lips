@@ -34,6 +34,7 @@
 | 1.7.0 | Added the `ChannelConfigOpProof` and `ChannelTransferOpProof` variants and factored the three channel threshold proofs into `ChannelMultiSigProof`, carrying the index of the signing key alongside each signature | 2026-08-31 |
 | 1.8.0 | Added the `ClaimPowReward` Operation payload; its proof is a `ZkSigProof` | 2026-09-08 |
 | 1.9.0 | Swap Ed25519Signature and SignerIndex order in IndexedSignature | 2026-10-01 |
+| 2.0.0 | Follow the private note ledger of Mantle 2.0.0 and remove `LeaderClaim` | 2026-10-06 |
 
 # Introduction
 
@@ -77,7 +78,6 @@ OpPayload = Transfer /
             SDPDeclare /
             SDPWithdraw /
             SDPActive /
-            LeaderClaim /
             ClaimPowReward
 ```
 
@@ -94,36 +94,32 @@ PostingTimeout             = UINT32
 ConfigThreshold            = UINT16
 TransferThreshold          = UINT16
 
-ChannelDeposit    = ChannelId Inputs Metadata
-Inputs            = InputCount *NoteId
-InputCount        = Byte
+ChannelDeposit    = ChannelId Inputs CmMerkleRoot Value ZkPublicKey Metadata
 Metadata          = UINT32 *BYTE
 
-ChannelTransfer = ChannelId Inputs Outputs
+ChannelTransfer   = ChannelId ChannelNotes ChannelOutputs
+ChannelOutputs    = OutputCount *(Value ZkPublicKey)
 
-ChannelWithdraw   = ChannelId Inputs
+ChannelWithdraw   = ChannelId ChannelNotes
 
 ChannelId         = Hash32
 Parent            = Hash32
 Signer            = Ed25519PublicKey
-Outputs           = OutputCount *Note
-OutputCount       = Byte
-Inputs            = InputCount *NoteId
+ChannelNotes      = InputCount *NoteCm
 ```
 
 ### SDP Operations
 
 ```schema
-SDPDeclare    = ServiceType Locators ProviderId ZkId ServiceNoteId
+SDPDeclare    = ServiceType Locators ProviderId ZkId Inputs CmMerkleRoot Value
 ServiceType   = Byte          ; 0 = BN
 Locators      = LocatorCount *Locator
 LocatorCount  = Byte          ; Max 8
 Locator       = 2Byte *BYTE   ; Max 329 bytes, multiaddr binary form
 ProviderId    = Ed25519PublicKey
 ZkId          = ZkPublicKey
-ServiceNoteId = NoteId
 
-SDPWithdraw   = DeclarationId Nonce ServiceNoteId
+SDPWithdraw   = DeclarationId Nonce
 DeclarationId = Hash32
 Nonce         = UINT64
 
@@ -131,39 +127,32 @@ SDPActive     = DeclarationId Nonce Metadata
 Metadata      = UINT32 *BYTE  ; Service-specific node activeness metadata
 ```
 
-### Leader operations
-
-```schema
-LeaderClaim      = RewardsRoot VoucherNullifier PublicKey
-RewardsRoot      = FieldElement ; Merkle root for voucher membership proof
-VoucherNullifier = FieldElement
-PublicKey        = ZkPublicKey
-```
-
 ### Proof of work operations
 
 ```schema
-ClaimPowReward = EpochNonce BlockHash PublicKey
+ClaimPowReward = EpochNonce BlockHash ZkPublicKey PowNonce
 EpochNonce     = FieldElement ; the epoch nonce the solution was found against
 BlockHash      = Hash32       ; recent canonical block the solution is anchored to
+PowNonce       = FieldElement ; value searched for a ticket satisfying the reward threshold
 ```
 
 ### Transfer Operations
 
 ```schema
-Transfer    = Inputs Outputs
-Inputs      = InputCount *NoteId
+Transfer    = Inputs Outputs CmMerkleRoot Value
+Inputs      = InputCount *NoteNf
 InputCount  = Byte
-Outputs     = OutputCount *Note
+Outputs     = OutputCount *NoteCm
 OutputCount = Byte
 ```
 
 ## Ledger
 
 ```schema
-Note   = Value ZkPublicKey
-Value  = UINT64
-NoteId = FieldElement
+Value        = UINT64
+NoteCm       = FieldElement
+NoteNf       = FieldElement
+CmMerkleRoot = FieldElement ; MMR root of note commitments
 ```
 
 ## Op Proofs
@@ -174,20 +163,20 @@ OpsProofs = *OpProof ; 1. Lenth must equal OpCount
                      ;    That is, type(OpProofs[i]) == ProofFor(Op[i])
 
 OpProof   = Ed25519SigProof /
-            ZkSigProof /
-            ZkAndEd25519SigsProof /
+            ZkTransferProof /
+            ZkTransferAndEd25519SigProof /
             ChannelConfigOpProof /
             ChannelWithdrawOpProof /
             ChannelTransferOpProof /
-            ProofOfClaimProof
+            EmptyProof
 
-Ed25519SigProof         = Ed25519Signature
-ZkSigProof              = ZkSignature
-ZkAndEd25519SigsProof   = ZkSignature Ed25519Signature
-ChannelConfigOpProof    = ChannelMultiSigProof
-ChannelWithdrawOpProof  = ChannelMultiSigProof
-ChannelTransferOpProof  = ChannelMultiSigProof
-ProofOfClaimProof       = Groth16
+Ed25519SigProof              = Ed25519Signature
+ZkTransferProof              = ZkTransfer
+ZkTransferAndEd25519SigProof = ZkTransfer Ed25519Signature
+ChannelConfigOpProof         = ChannelMultiSigProof
+ChannelWithdrawOpProof       = ChannelMultiSigProof
+ChannelTransferOpProof       = ChannelMultiSigProof
+EmptyProof                   = 0Byte ; no bytes
 
 ChannelMultiSigProof = SignatureCount *IndexedSignature
 IndexedSignature     = SignerIndex Ed25519Signature
@@ -199,8 +188,8 @@ SignerIndex    = UINT16
 ## Common Structures
 
 ```schema
-; Zero-knowledge signature
-ZkSignature = Groth16
+; Zero-knowledge transfer proof
+ZkTransfer = Groth16
 
 ; Cryptographic primitives
 Groth16          = 128BYTE      ; pi_a (32) + pi_b (64) + pi_c (32)
