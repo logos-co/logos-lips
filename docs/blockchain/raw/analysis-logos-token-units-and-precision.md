@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Name | [Analysis] LOGOS Token Units and Precision |
-| Slug | 245 |
+| Slug | 250 |
 | Status | raw |
 | Category | Informational |
 | Editor | Frederico Teixeira <frederico@logos.co> |
