@@ -104,7 +104,42 @@ Both releases share the fork digests of eras 0 and 1, and with them the protocol
 
 The two protocols that find peers and describe them carry the identifier of the chain in their names instead of a fork digest. No era changes it.
 
-A release knows the rules only up to its horizon, the last epoch it interprets. A node warns its operator once its clock passes the horizon, and when a peer advertises a fork digest the node does not know. A node whose release lacks the rules of an era it must apply halts when it starts or imports a checkpoint.
+A release knows the rules only up to its horizon, the last epoch it interprets. A node warns its operator once its clock passes the horizon, and when a peer advertises a fork digest the node does not know.
+
+```mermaid
+---
+displayMode: compact
+---
+gantt
+    title Two releases and a horizon, for an example schedule
+    dateFormat X
+    axisFormat slot %s
+    tickInterval 10second
+    todayMarker off
+    section Epochs
+        epoch 0 : p0, 0, 10s
+        epoch 1 : p1, after p0, 10s
+        epoch 2 : p2, after p1, 15s
+        epoch 3 : p3, after p2, 15s
+        epoch 4 : p4, after p3, 15s
+        epoch 5 : p5, after p4, 15s
+        epoch 6 : p6, after p5, 15s
+    section Release B
+        era 0 : b0, 0, 20s
+        era 1 : b1, after b0, 30s
+        era 2 : b2, after b1, 45s
+    section Release A
+        era 0 : a0, 0, 20s
+        era 1 : a1, after a0, 60s
+        past the horizon : crit, a2, after a1, 15s
+    section A warns
+        unknown fork digest : milestone, w1, after b1, 0s
+        horizon passed : milestone, w2, after a1, 0s
+```
+
+In this example, release A knows eras 0 and 1 and sets its horizon at epoch 5. Release B adds era 2 from epoch 4. At slot 50, the nodes of release B enter era 2 and advertise its fork digest. A node of release A does not know that digest and warns its operator. It keeps applying the rules of era 1. At slot 80, the first slot after its horizon, it warns its operator again.
+
+A node whose release lacks the rules of an era it must apply halts when it starts or imports a checkpoint.
 
 # Protocol
 
