@@ -187,7 +187,7 @@ $$
 r^{\iota}(D_t) = \frac{I_{max} S_{cap}}{D_t} \;\ge\; \frac{I_{max} S_{cap}}{D_{target} - \Lambda} ,
 $$
 
-which at the adopted parameters is at least $`4.0\%`$, on a base of $`2.5 \cdot 10^9`$ LEPTA, and rises without bound as the staked base falls. Across the proportional band the release-funded yield is $`A_t I_{max} S_{cap} / D_t`$, which falls monotonically from $`4.0\%`$ at $`\theta = 25\%`$ to zero at $`\theta = 30\%`$. [Failure Mode F1](analysis-block-rewards.md#f1-terminal-reserve-exhaustion-and-the-yield-cliff) tabulates $`r^{\iota}`$ across the range.
+which at the adopted parameters is at least $`4.0\%`$, on a base of $`2.5 \cdot 10^9`$ LOGOS, and rises without bound as the staked base falls. Across the proportional band the release-funded yield is $`A_t I_{max} S_{cap} / D_t`$, which falls monotonically from $`4.0\%`$ at $`\theta = 25\%`$ to zero at $`\theta = 30\%`$. [Failure Mode F1](analysis-block-rewards.md#f1-terminal-reserve-exhaustion-and-the-yield-cliff) tabulates $`r^{\iota}`$ across the range.
 
 Epochs are indexed by $`e`$, and epoch $`e`$ spans the blocks $`t \in (T_{e-1}, T_e]`$ with $`T_e = e L`$.
 
