@@ -32,6 +32,7 @@
 | 1.1.4 | Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy. | 2026-08-25 |
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
 | 1.2.0 | Seed the pow reward pool at genesis | 2026-09-08 |
+| 1.2.1 | Made the token unit uniform: each amount names LOGOS or LEPTA/LEPTON as its context requires. | 2026-10-06 |
 
 # Introduction
 
