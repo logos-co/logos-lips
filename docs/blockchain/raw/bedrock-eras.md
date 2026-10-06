@@ -14,6 +14,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-04 |
 | 1.1.0 | The recorded chain state is the list of components in [Bedrock Chain State](bedrock-chain-state.md). | 2026-10-06 |
+| 1.2.0 | An era states its migration as `migrate`, its frame and test vectors, and the migration preserves the listed properties of the recorded chain state. | 2026-10-06 |
 
 # Introduction
 
@@ -130,6 +131,22 @@ The migration must be:
 
 - **Total**: defined for every state reachable under the predecessor era. A migration undefined for a reachable state halts the network at the boundary.
 - **Identity by default**: every state component the new era does not redefine is unchanged.
+
+An era's specification states its migration in three parts:
+
+1. `migrate`, a function in pseudocode from the predecessor's recorded chain state to the era's.
+2. Its **frame**: the [components](bedrock-chain-state.md#chain-state) the era redefines.
+3. Test vectors: one or more predecessor states, each with the state `migrate` returns for it, given as their encodings and [state digests](bedrock-chain-state.md#state-digest).
+
+An era whose migration changes no component states none of the three.
+
+`migrate` preserves each of these properties, unless its era states a rule that breaks it:
+
+- The sum of the note values, `leaders_rewards`, `pending_leaders_rewards`, `blend_income`, the income of `blend_target`, `pow_reward_pool` and `pow_pool_refill` is unchanged. Otherwise the migration creates or destroys tokens.
+- No two entries of `notes` share a leaf position. Otherwise the note tree cannot hold both.
+- Every key of `channel_notes`, and the `service_note_id` of every declaration, is a key of `notes`. Otherwise a channel or a declaration refers to a note that does not exist.
+- No two declarations of the same service share a `service_note_id`, as step 5 of [SDP_DECLARE](bedrock-v1.1-mantle-specification.md#sdp_declare) requires.
+- No entry leaves `voucher_nullifier_set` or `pow_nullifiers`. Otherwise a reward can be claimed twice.
 
 A block reads the state after any block of an earlier era with the intervening migrations applied, in order. When the era in force changes, a node applies the same migrations to the state after its local chain tip; it re-validates its mempool and runs the network protocols of the new era against that state.
 
