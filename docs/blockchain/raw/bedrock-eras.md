@@ -145,21 +145,39 @@ A node whose release lacks the rules of an era it must apply halts when it start
 
 ```mermaid
 flowchart TB
-    subgraph clock["when the local clock reaches the first slot of era n"]
-        c1["era in force<br/>becomes era n"] --> c2["migrate the<br/>state after<br/>the chain tip"]
-        c2 --> c3["re-validate<br/>the mempool"]
-        c2 --> c4["Era Transition<br/>Period:<br/>identifiers of<br/>eras n−1 and n"]
-        c4 -- "when the period ends" --> c5["drop the<br/>identifiers<br/>of era n−1"]
+    subgraph rel["software release, one per network"]
+        direction LR
+        sch["era schedule:<br/>first epoch and<br/>parameter<br/>record of<br/>each era"] --> fdg["fork digest<br/>of each era:<br/>genesis block ID,<br/>chain ID and era<br/>digests up to it"]
+        fdg ~~~ hor["horizon:<br/>last epoch the<br/>release<br/>interprets"]
+        hor -.- hw["warn the<br/>operator once<br/>the clock passes<br/>it, or once a<br/>peer lists an<br/>unknown<br/>fork digest"]
     end
-    subgraph block["when a block arrives"]
-        b1["era of the<br/>block's slot"] --> b2["state after<br/>its parent,<br/>migrated to<br/>that era"]
-        b2 --> b3["parse, validate<br/>and execute<br/>under that<br/>era's rules"]
+    subgraph chain["chain data, under the era of its slot"]
+        b1["block or proposal"] --> b2["era m: the era<br/>of its slot"]
+        b2 --> b3["state after<br/>its parent,<br/>migrated<br/>to era m"]
+        b3 --> b4["parsed,<br/>validated and<br/>executed<br/>under era m"]
+        b4 --> b5["fork choice<br/>under the era<br/>of the common<br/>ancestor's slot"]
+        b3 -.- ev["a value derived<br/>for an epoch<br/>reads state<br/>migrated to<br/>the epoch's era"]
+        b4 -.- tx["each transaction<br/>parsed under the<br/>era of its<br/>fork digest"]
     end
+    subgraph net["network, under the era in force"]
+        n1["clock reaches<br/>the first slot<br/>of era n"] --> n2["era in force<br/>becomes era n"]
+        n2 --> n3["state after<br/>the chain tip,<br/>migrated<br/>to era n"]
+        n3 --> n3b["mempool<br/>re-validated"]
+        n3 --> n4["Era Transition<br/>Period: protocols<br/>of eras n−1 and n"]
+        n4 -- "when the period ends" --> n5["protocols of<br/>era n−1 dropped"]
+        n4 -.- id["each protocol is<br/>named by the<br/>fork digest of<br/>its era; Kademlia<br/>and identify by<br/>the chain ID"]
+    end
+    rel --> chain
+    rel --> net
+    classDef note stroke-dasharray: 4 3
+    class hw,ev,tx,id note
 ```
 
 A software release carries one **era schedule** per network. Each entry gives the first epoch of an era and its **parameter record**, the values of the constants the era's rules read ([Era Parameters](#era-parameters)). Every slot and every epoch belongs to the last era that begins at or before it. Epoch and slot lengths may differ between eras, so slots and times are counted era by era ([Notation](#notation)). [Era Schedule](#era-schedule) constrains what an era may change and what a release may change in a schedule.
 
-Each era has a **fork digest**, a hash of the genesis block ID, the chain ID and the digests of every era up to it ([Notation](#notation)).
+Each era has a **fork digest**, a hash of the genesis block ID, the chain ID and the era digest of every era up to it. An era digest is a hash of the era's first epoch and parameter record ([Notation](#notation)).
+
+A release interprets the chain up to its **horizon**, an epoch it fixes for each network. A node warns its operator once its clock passes the horizon, and when a peer advertises a fork digest the node does not know ([Horizon](#horizon)).
 
 A node interprets each piece of chain data under one era:
 
@@ -172,8 +190,6 @@ A node interprets each piece of chain data under one era:
 Between eras, the recorded chain state passes through a **migration** that the new era defines. A block, and a value derived for an epoch, read the state migrated to their own era ([Era Migration](#era-migration)).
 
 A node runs its network protocols under the **era in force**, the era of the slot its clock gives. Their identifiers and gossipsub topics carry the fork digest of their era, except those of Kademlia and identify, which carry the chain ID ([Network Protocol Identity](#network-protocol-identity)). When the era in force changes, the node runs the network protocols of both eras for the **Era Transition Period**, then drops those of the predecessor era ([Era Transition Period](#era-transition-period)).
-
-A release interprets the chain up to its **horizon**, an epoch it fixes for each network. A node warns its operator once its clock passes the horizon, and when a peer advertises a fork digest the node does not know ([Horizon](#horizon)).
 
 A node keeps four values that depend on the era in force:
 
