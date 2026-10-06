@@ -59,12 +59,10 @@ The first two bound precision from above. The third bounds it from below.
 
 - **R1. Representability**. Any admissible balance must be encodable in `TokenValue`. A single note holding the entire supply is admissible, so $S_{cap}$ must be representable.
 - **R2. Integrality**. No protocol quantity is fractional. Every fee, price, reward, and balance is an integer count of indivisible units.
-- **R3. Price resolution**. One indivisible unit must be small enough that the gas-market price floor stays below a chosen target cost $c^{\ast}$ of the operations those markets serve.
+- **R3. Price resolution**. One indivisible unit must be small enough that the gas-market price floor stays below a chosen target cost $c^{\ast}$ of the operations those markets serve. A floor above $c^{\ast}$ misses the target and does not stop the market from clearing.
 - **R4. Unique naming**. Each named unit denotes exactly one quantity, and each quantity has exactly one canonical name in protocol interfaces.
 
 **R1** is satisfied by lowering precision, **R3** by raising it. Sections Upper Bound on Precision and Lower Bound on Precision derive each independently, and section Choice of Precision combines them.
-
-$c^{\ast}$ is a design parameter. A floor above $c^{\ast}$ misses the target and does not stop the market from clearing. This document evaluates $c^{\ast}$ over $\$1$ to $\$30$ per GiB of permanent storage and at $\$0.01$ per Transfer Operation, and fixes no single calibrated cost.
 
 ## High-level Design
 
@@ -84,7 +82,7 @@ Between them sit two named intermediate denominations, kilolepton and megalepton
 - $S^{\ast}_{cap}$ denotes the largest admissible hard cap.
 - $g$ denotes the gas units consumed by a reference operation.
 - $p$ denotes the token price, in currency units per LOGOS.
-- $c^{\ast}$ denotes the target cost of the reference operation, in the same currency units.
+- $c^{\ast}$ denotes the target cost of the reference operation, in the same currency units. It is a design parameter, not a calibrated market price. The tables below evaluate it at $\$1$ to $\$30$ per GiB of permanent storage and at $\$0.01$ per Transfer Operation.
 - $p^{\ast}(g, d)$ denotes the saturation price: the value of $p$ above which the one-unit price floor makes the operation cost more than $c^{\ast}$.
 
 ## Parametrization
