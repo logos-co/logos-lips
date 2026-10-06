@@ -21,6 +21,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-09 |
 | 1.1.0 | Set the reference load of the Blend difficulty to the transaction rate the Blend network carries, `F_T / F_D = 130` transactions per block | 2026-09-11 |
+| 1.2.0 | Specified how `block_slots` and `pow_nullifiers` are kept for the acceptance window, and excluded the Genesis block from the blocks the Blend difficulty counts. | 2026-10-06 |
 
 # Introduction
 
@@ -189,7 +190,9 @@ $$
 \mathrm{WINDOW} = \left\lfloor \frac{W_b}{f} \right\rfloor
 $$
 
-With $`W_b = 10`$ and $`f = 1/30`$, `WINDOW` is $`300`$ slots. A claim's referenced block must be canonical and at most `WINDOW` slots older than the block including the claim; the check is step 2 of [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation. A nullifier may be discarded once the block its claim referenced has left the window.
+With $`W_b = 10`$ and $`f = 1/30`$, `WINDOW` is $`300`$ slots. A claim's referenced block must be canonical and at most `WINDOW` slots older than the block including the claim; the check is step 2 of [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation.
+
+Before the transactions of a block at slot `s` run, its `block_id` is inserted into `block_slots` with the value `s`. Every entry of `block_slots` and of `pow_nullifiers` whose slot is below `s - WINDOW` is then removed.
 
 ## Reward Difficulty
 
@@ -215,7 +218,7 @@ The update is multiplicative in the current target, so a target of zero never re
 `difficulty_blend` for epoch $`N`$ is computed at the lottery-constants snapshot of epoch $`N-1`$ specified in [Epoch](cryptarchia-v1-protocol.md#epoch), the moment epoch $`N`$'s nonce is fixed, from the blocks of epoch $`N-2`$, and is the public input `pow_blend_difficulty` of [Proof of Quota](proof-of-quota.md) for the whole of epoch $`N`$. For epochs 0 and 1 it is `BLEND_DIFFICULTY_BASE`; the schedule begins with epoch 2, computed during epoch 1 from epoch 0's blocks.
 
 ```python
-def compute_epoch_blend_difficulty(epoch_blocks: list[Block],   # the blocks of epoch N-2
+def compute_epoch_blend_difficulty(epoch_blocks: list[Block],   # the blocks of epoch N-2, without the Genesis block
                                    previous: PowTarget) -> PowTarget:  # difficulty_blend of epoch N-1
     # 512-bit integers over canonical representatives; see Puzzle Target.
     # Observed load as an exact ratio: num == den at the reference load.

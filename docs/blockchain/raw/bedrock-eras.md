@@ -13,6 +13,7 @@
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-04 |
+| 1.1.0 | The recorded chain state is the list of components in [Bedrock Chain State](bedrock-chain-state.md). | 2026-10-06 |
 
 # Introduction
 
@@ -123,7 +124,7 @@ A node keeps in its mempool only transactions valid under the era in force.
 
 ## Era Migration
 
-Every era after the first defines a migration from its predecessor. A migration is a function of the recorded chain state alone. The recorded chain state is the state a Mantle Operation is validated against ([Validation](bedrock-v1.1-mantle-specification.md#validation), [Proof of Work Operations](bedrock-v1.1-mantle-specification.md#proof-of-work-operations)) and the [snapshots](bedrock-service-declaration-protocol.md#snapshots) of the current and later epochs.
+Every era after the first defines a migration from its predecessor. A migration is a function of the recorded chain state alone, which [Bedrock Chain State](bedrock-chain-state.md) defines.
 
 The migration must be:
 

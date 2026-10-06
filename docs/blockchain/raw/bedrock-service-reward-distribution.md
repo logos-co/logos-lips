@@ -32,6 +32,7 @@
 | 1.3.2 | Pinned the encoding of `epoch_number` in the reward `op_id` preimage to the 4 bytes of an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch) | 2026-08-25 |
 | 1.3.3 | One reward note per `zk_id`, and none for a zero reward, matching the implementation | 2026-09-01 |
 | 1.3.4 | Adopted "active message" as the single name for the message | 2026-09-02 |
+| 1.4.0 | Took the Blend Network's epoch rewards from its income, and paid `Rewards^n` in the block that computes it without storing it | 2026-10-06 |
 
 # Introduction
 
@@ -77,7 +78,7 @@ $$
 Rewards^n := serviceReward(n,Rewards\_Epoch)
 $$
 
-Where $`Rewards\_Epoch`$ are the total rewards of epoch **N**. The $`Rewards\_Epoch`$ is determined by the linked reference, which calculates how much each service receives based on fees burnt during epoch N and the blockchain's state. $`Rewards^n`$ is stored as an array that maps each validator's `zk_id` to their allocated reward.
+Where $`Rewards\_Epoch`$ are the total rewards of epoch **N**. For the Blend Network it is the income $`I`$ of [Reward Calculation](blend-protocol.md#reward-calculation). $`Rewards^n`$ maps each validator's `zk_id` to its reward. It is paid in the block that computes it and is not stored.
 
 ## Service Reward Distribution
 
