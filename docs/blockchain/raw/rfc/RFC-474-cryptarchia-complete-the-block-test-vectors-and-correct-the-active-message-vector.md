@@ -1,6 +1,6 @@
 # [RFC] Cryptarchia: Complete the block test vectors and correct the active message vector
 
-**Motivation and proposal:** PR #TBD
+**Motivation and proposal:** [PR #474](https://github.com/logos-co/logos-lips/pull/474)
 
 ## Change log
 
