@@ -15,7 +15,7 @@ Every value can be recomputed from the inputs in [Details](#details) and the enc
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
 | 1 | High | **Start here**: [Mantle](../bedrock-v1.1-mantle-specification.md), [details](#1-active-message-vector) | the `UINT32` length `0xe5000000` before the 229-byte metadata, no `version` byte; the new `op_id` and the transaction hash that contains the operation |
-| 2 | Medium | [Cryptarchia Protocol](../cryptarchia-v1-protocol.md), [details](#2-block-test-vectors) | each leaf is a one-operation transaction with the test fork digest; `merkle_root`, both `body_root` values and `block_id` follow from the leaves |
+| 2 | Medium | [Cryptarchia Protocol](../cryptarchia-v1-protocol.md), [details](#2-block-test-vectors) | each leaf is a one-operation transaction with the test fork digest; `merkle_root`, both `body_root` values and `block_id` follow from the leaves; the two uncle headers are re-signed in their 296-byte form |
 
 # Discussion
 
@@ -24,7 +24,7 @@ Every value can be recomputed from the inputs in [Details](#details) and the enc
 A script implements the encodings and hashes as the specifications define them. Before computing any new value, it reproduced every value it depends on:
 
 - all 15 values of the Cryptarchia table as it stands on master, which the implementation generated: the ten leaves, both `merkle_root` values, both `body_root` values and `block_id`;
-- the Ed25519 signatures of the two carried uncle headers on master, over their headers;
+- the Ed25519 signatures of the two carried uncle headers on master. Ed25519 signing is deterministic, and signing master's 297-byte headers with the seeds `0x66` and `0x77`, each repeated 32 times, reproduces both signatures byte for byte;
 - the ten `op_id` vectors and the two transaction-hash vectors of Mantle.
 
 The 296-byte header encoding also matches the implementation's `Header` fixture byte for byte.
@@ -33,7 +33,6 @@ The 296-byte header encoding also matches the implementation's `Header` fixture 
 
 - **The Merkle node hash is not stated.** Step 3 of Block Header Validation says the transaction Merkle tree pads its leaves with zeros to a power of two, but not how two children combine. The implementation, and all vectors here, use `Hash(left || right)` with no tag; a tree of one leaf is that leaf. Step 3 could state it in one clause.
 - **`derive_op_id` hashes the payload alone.** It is written as `Hash(b"OPERATION_ID_V1" || encode(op))`, and `Op` is the opcode followed by the payload. All ten `op_id` vectors hash the payload without the opcode, so `encode(op)` there means the payload only. The definition could say so.
-- **The carried uncle headers keep their old signatures.** The two `uncle_headers` entries were re-laid-out for the 296-byte header, but their signatures were made over the earlier 297-byte headers and do not verify over the new ones. The `body_root` with two uncles is computed over the entries as written. Re-signing them with the same keys, the Ed25519 seeds `0x66` and `0x77` repeated 32 times, changes both signatures and that `body_root`.
 
 ## Implementation divergence
 
@@ -92,10 +91,17 @@ The table now names the fork digest and the source of each operation.
 | `leaf[9]` LeaderClaim | 0x840433dae7248668c9903c300103c65881f2bd2c0406f1634ede6c58d281ec20 |
 | `merkle_root(transactions)`, 16 leaves after padding | 0x5b9ec0bcf3a4e30ed76de3113af80b574fac031867a72278c3f4c4ebe31023be |
 | `body_root`, no uncles | 0xde89013d3358676d3a09bd69743db1f4417aeb76cb8f302816c67c00ce9627e5 |
-| `body_root`, the two uncle entries as written | 0x444a7e933a7712bef7f73cf97ca30349cfbd7d7e09c0fae005e8b91f6b18037e |
+| `body_root`, the two re-signed uncle entries below | 0xcd2e5e984e1296a94b026aad69ce33580d2054bee92d94eb81d5651f9210fab6 |
 | `block_id` of the header carrying the no-uncle `body_root` | 0x604b84cf816eedf450c783f91ef5d1abd6e7f66c1229695ad2e56beeb5a26a05 |
 
 The `block_id` preimage is the one of [Block ID](../cryptarchia-v1-protocol.md#block-id), without a version byte.
+
+Each carried uncle entry is a 296-byte header followed by its 64-byte signature. The headers already had the 296-byte layout, but their signatures had been made over the earlier 297-byte headers and did not verify. Each header is re-signed with its own key. The key's Ed25519 seed is the entry's fill byte repeated 32 times, and the header's `leader_key` field is the public key of that seed:
+
+| Entry | Seed | Signature before | Signature after |
+| --- | --- | --- | --- |
+| `uncle_headers[0]` | `0x66` | 0x563913f1ba7ad4129a077acd56278e743fd45120226dd315fa49f3a9c5d07af6a174ab84d4555a279afe053e79c8bb794be3f7d2e71e92b8da1b490687cb8306 | 0x810216baf4c2149463b457f0f776ab1f71a9f996915345e4f8709ffe181a2373341baa0b1080b8d07345f3cb67e446c7fa0dd4348f521523eaa37c1387520b0d |
+| `uncle_headers[1]` | `0x77` | 0xad17e45d503a16fb41c25c4b3025956c63b31015871e957f3562b47cebce784e5b392ce3dd05214afe09102e0d2ed8211a83b81f18231963a226198fd528df0c | 0x96ca0d9f04bb9d19129c8c348dd5fbb03ddf08025cc82096079b38916fa5cc8b8368ac9aa26c618b691a402e1c06812b6c7e010651ed1b9656a26afea88ba705 |
 
 # Implementation
 
@@ -108,5 +114,5 @@ The `block_id` preimage is the one of [Block ID](../cryptarchia-v1-protocol.md#b
 
 | Specification | Status | Note |
 | --- | --- | --- |
-| [Cryptarchia Protocol](../cryptarchia-v1-protocol.md) | Modified | §Test Vectors: transaction leaves, `merkle_root`, `body_root`, `block_id` |
+| [Cryptarchia Protocol](../cryptarchia-v1-protocol.md) | Modified | §Test Vectors: transaction leaves, `merkle_root`, `body_root`, `block_id`, uncle signatures |
 | [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | §Test Vectors: `SDP_ACTIVE` payload and `op_id`, the transaction hash that contains it |
