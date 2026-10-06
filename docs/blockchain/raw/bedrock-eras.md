@@ -38,39 +38,45 @@ The history of the chain is divided into eras. Each era is a run of consecutive 
 displayMode: compact
 ---
 gantt
-    title Eras over epochs, for an example schedule
+    title Slots, epochs and eras, for an example schedule
     dateFormat X
     axisFormat %s
-    tickInterval 1minute
+    tickInterval 10second
     todayMarker off
+    section Epochs
+        epoch 0 : p0, 0, 10s
+        epoch 1 : p1, after p0, 10s
+        epoch 2 : p2, after p1, 15s
+        epoch 3 : p3, after p2, 15s
+        epoch 4 : p4, after p3, 15s
     section Blocks
-        era 0 rules : r0, 0, 120s
-        era 1 rules : r1, after r0, 120s
-        era 2 rules : r2, after r1, 60s
+        era 0 rules : r0, 0, 20s
+        era 1 rules : r1, after r0, 30s
+        era 2 rules : r2, after r1, 15s
     section Chain state
-        migration to era 1 : milestone, m1, after r0, 0s
-        migration to era 2 : milestone, m2, after r1, 0s
+        migration at slot 20 : milestone, m1, after r0, 0s
+        migration at slot 50 : milestone, m2, after r1, 0s
     section Network
-        era 0 protocols : n0, 0, 128s
-        era 1 protocols : n1, after r0, 128s
-        era 2 protocols : n2, after r1, 60s
+        era 0 protocols : n0, 0, 23s
+        era 1 protocols : n1, after r0, 33s
+        era 2 protocols : n2, after r1, 15s
     section Transition
-        both eras : crit, t1, after r0, 8s
-        both eras : crit, t2, after r1, 8s
+        both eras : crit, t1, after r0, 3s
+        both eras : crit, t2, after r1, 3s
 ```
 
-In this example, the schedule starts era 1 at epoch 120 and era 2 at epoch 240. The rules for blocks change exactly at each boundary. There, a migration carries the chain state into the new era and leaves unchanged whatever the new era does not redefine. The network follows the local clock: after each boundary, a node runs the protocols of both eras for a short transition period, then drops the old ones. The diagram draws the transition periods far wider than they are: each lasts seconds, while an epoch lasts days.
+In this example, the epochs of era 0 are 10 slots long. The schedule starts era 1 at epoch 2, with epochs of 15 slots, and era 2 at epoch 4. An era begins at the first slot of its first epoch: slot 20 for era 1 and slot 50 for era 2. The rules for blocks change exactly at that slot. There, a migration carries the chain state into the new era and leaves unchanged whatever the new era does not redefine. The first block at or after that slot reads the migrated state. The network follows the local clock: when the clock reaches that slot, a node runs the protocols of both eras for a short transition period, then drops the old ones. The lengths are not to scale. An epoch lasts days, and a transition period lasts seconds.
 
 A node judges a block by the era the block was made in, which the block's slot tells it. It talks to its peers in the era its own clock says has begun. A node that syncs from genesis therefore validates old blocks under old rules while it talks to the network under the current ones.
 
 ```mermaid
 flowchart LR
     peer["a peer"] -- "blocks of every era,<br/>over the sync protocol<br/>of era 2" --> node
-    subgraph node["a node whose clock is in epoch 260, in era 2"]
+    subgraph node["a node whose clock is at slot 60, in era 2"]
         direction LR
-        b0["block of epoch 50"] -- "validated under" --> r0["era 0 rules"]
-        b1["block of epoch 180"] -- "validated under" --> r1["era 1 rules"]
-        b2["block of epoch 255"] -- "validated under" --> r2["era 2 rules"]
+        b0["block of slot 7"] -- "validated under" --> r0["era 0 rules"]
+        b1["block of slot 31"] -- "validated under" --> r1["era 1 rules"]
+        b2["block of slot 56"] -- "validated under" --> r2["era 2 rules"]
     end
 ```
 
@@ -82,13 +88,13 @@ Each era has a fork digest, a fingerprint of the genesis block and of the schedu
 flowchart LR
     subgraph both["the same in both releases: shared fork digests"]
         direction LR
-        g["genesis"] --> e0["era 0<br/>from epoch 0"] --> e1["era 1<br/>from epoch 120"]
+        g["genesis"] --> e0["era 0<br/>from epoch 0"] --> e1["era 1<br/>from epoch 2"]
     end
     subgraph A["release A: its own fork digest"]
-        a2["era 2 from epoch 240,<br/>parameters A"]
+        a2["era 2 from epoch 4,<br/>parameters A"]
     end
     subgraph B["release B: its own fork digest"]
-        b2["era 2 from epoch 240,<br/>parameters B"]
+        b2["era 2 from epoch 4,<br/>parameters B"]
     end
     e1 --> a2
     e1 --> b2
