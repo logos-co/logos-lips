@@ -73,7 +73,7 @@ A transaction is **retained** between its [Retirement](#retirement) and its [Rel
 
 `by_prefix` maps `prefix(hash, REFERENCE_PREFIX_LENGTH)` to the hashes carrying that prefix, where `REFERENCE_PREFIX_LENGTH` is defined in [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md#references).
 
-`insert_by` places a hash at the position its admission time gives it, which is not the end when a [Reorganisation](#reorganisation) re-admits a transaction.
+`insert_by` places a hash at the position its admission time gives it.
 
 ## Transaction Admission
 
