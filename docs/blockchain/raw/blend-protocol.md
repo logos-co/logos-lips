@@ -35,6 +35,7 @@
 | 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, add a transaction as a data message payload, and align the nullifier retention period | 2026-09-08 |
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
 | 1.6.0 | Replaced the per-window statistical threshold on a connection with a share of messages a node reads from, and sends on, each connection in a round, and a liveness test, kept per identity for the epoch, on whether a neighbor delivers. Held the peering degree in live connections, at least two of them opened by the node. Restricted blacklisting to attributable faults. Sized the shares from the processing rate of the slowest node, derived the transactions the network carries from them, and made that rate the reference load of the Blend difficulty. | 2026-09-08 |
+| 1.6.1 | The node count and the neighbor distinction read the `provider_id`s of the Blend declarations, which the Service Declaration Protocol keeps unique | 2026-10-01 |
 
 # Introduction
 
@@ -153,7 +154,7 @@ At the beginning of an epoch, all core nodes retrieve a fresh set of core nodesâ
 
 ### Minimal Network Size
 
-The minimal network size is $`32`$. This is the minimum number of nodes (unique `ProviderId`s from declarations) that must be retrieved from the SDP to consider the Blend protocol safe to use.
+The minimal network size is $`32`$. This is the minimum number of nodes (`ProviderId`s from declarations) that must be retrieved from the SDP to consider the Blend protocol safe to use.
 
 ### Fallback
 
@@ -511,7 +512,7 @@ The connections are established using libp2p with TLS version 1.3 (not older). T
 The Neighbor Distinction Process (NDP) enables the core node to distinguish between node types (core, edge) of its neighbors in the Blend Network. The process is straightforward:
 
 1. A node extracts `peer_id` from the TLS metadata of the accepted connection.
-2. If the `peer_id` is found in the set of `provider_id`s, then the neighbor is a core node; otherwise, the peer is an edge node.
+2. If the `peer_id` is found in the set of `provider_id`s of the Blend declarations, then the neighbor is a core node; otherwise, the peer is an edge node.
 
 ### Expected Traffic
 
@@ -1095,7 +1096,7 @@ The ledger must only accept a single active message per node per attested epoch.
 
 The node rewards for epoch $`s`$ are calculated according to the following schema:
 
-1. Rewards are not calculated if the number of nodes (unique `ProviderId`s from declarations) retrieved from the SDP protocol is lower than the [Minimal Network Size](#minimal-network-size).
+1. Rewards are not calculated if the number of nodes (`ProviderId`s from declarations) retrieved from the SDP protocol is lower than the [Minimal Network Size](#minimal-network-size).
 
 2. Count the number of true activity proofs registered on the ledger:
     $$B = \sum_{i=1}^{N}\mathrm{true}(\pi_{A}^{i,t,e})$$
