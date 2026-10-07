@@ -262,6 +262,49 @@ stateDiagram-v2
     a --> n: clock reaches the first slot of era n
 ```
 
+At the boundary into an era $`n`$, these mechanisms act in a fixed order. The numbers in the diagram match the steps below.
+
+```mermaid
+---
+config:
+  sequence:
+    mirrorActors: false
+---
+sequenceDiagram
+    autonumber
+    participant C as local clock
+    participant S as chain state<br/>and mempool
+    participant N as network layer
+    participant P as peer
+    Note over C,P: era n−1 in force
+    P->>N: messages on the identifiers of era n−1
+    C->>S: first slot of era n:<br/>the era in force becomes era n
+    S->>S: migrate the state after<br/>the chain tip to era n
+    S->>S: re-validate the mempool
+    C->>N: open the identifiers of era n,<br/>keep those of era n−1
+    rect rgba(255, 200, 0, 0.18)
+        Note over N,P: Era Transition Period
+        P->>N: Blend message on an era n−1 connection,<br/>validated under era n−1
+        P->>S: block of a slot in era n, on the topic of era n,<br/>validated under era n
+        S->>S: fork choice: a fork from before the boundary<br/>is compared under the common ancestor's era
+        N->>P: messages the node generates, under era n
+    end
+    C->>N: the period ends:<br/>drop the identifiers of era n−1
+    C->>S: the first epoch of era n ends:<br/>drop transactions carrying<br/>the fork digest of era n−1
+```
+
+1. Before the boundary, the node exchanges messages with its peers on the identifiers of era $`n-1`$.
+2. When its clock reaches the first slot of era $`n`$, the era in force becomes era $`n`$ ([Notation](#notation)).
+3. The node migrates the state after its chain tip to era $`n`$ ([Era Migration](#era-migration)).
+4. It re-validates its mempool against that state. A transaction that carries the fork digest of era $`n-1`$ stays valid until step 11 ([Era of Chain Data](#era-of-chain-data)).
+5. It opens the identifiers of era $`n`$ and keeps those of era $`n-1`$, which starts the Era Transition Period ([Era Transition Period](#era-transition-period)).
+6. A Blend message that arrives on a connection of era $`n-1`$ is validated under era $`n-1`$ ([Era Transition Period](#era-transition-period)).
+7. A block whose slot lies in era $`n`$ arrives on the topic of era $`n`$. Once the node's clock has reached the block's slot, the node validates the block under era $`n`$, from its parent's state migrated to era $`n`$ ([Era of Chain Data](#era-of-chain-data), [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation)).
+8. If the block extends a fork that left the local chain before the boundary, fork choice compares the two chains under the era of their common ancestor's slot, which precedes era $`n`$ ([Era of Chain Data](#era-of-chain-data)).
+9. The node sends the messages it generates under era $`n`$. It releases a Blend message it generates no earlier than one round after its switch ([Transition Period](blend-protocol.md#transition-period)).
+10. When the period ends, the node drops the identifiers of era $`n-1`$ ([Era Transition Period](#era-transition-period)).
+11. When the first epoch of era $`n`$ ends, blocks no longer accept transactions that carry the fork digest of era $`n-1`$, and the node drops them from its mempool ([Era of Chain Data](#era-of-chain-data)).
+
 A node keeps four values that depend on the era in force:
 
 - the era in force itself, which changes when the clock reaches the first slot of the next era ([Notation](#notation));
