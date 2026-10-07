@@ -175,7 +175,7 @@ A schedule changes only under these rules ([Era Schedule](#era-schedule)):
 
 ## Fork and Era Digests
 
-Each era has a **fork digest**, a hash of the genesis block ID, the chain ID ([Bedrock Genesis Block](bedrock-genesis-block.md)) and the era digest of every era up to it. An era digest is a hash of the era's first epoch and parameter record ([Fork Digest](#fork-digest)).
+Each era has an **era digest**, a hash of its first epoch and parameter record. It also has a **fork digest**, a hash of the genesis block ID, the chain ID ([Bedrock Genesis Block](bedrock-genesis-block.md)) and the era digest of every era up to it ([Fork Digest](#fork-digest)).
 
 ```mermaid
 ---
