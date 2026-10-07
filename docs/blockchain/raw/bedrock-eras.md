@@ -70,14 +70,21 @@ In this example, the epochs of era 0 are 10 slots long. The schedule starts era 
 A node judges a block by the era the block was made in, which the block's slot tells it. It talks to its peers in the era its own clock says has begun. A node that syncs from genesis therefore validates old blocks under old rules while it talks to the network under the current ones.
 
 ```mermaid
-flowchart LR
-    peer["a peer"] -- "blocks of every era,<br/>over the sync protocol<br/>of era 2" --> node
-    subgraph node["a node whose clock is at slot 60, in era 2"]
-        direction LR
-        b0["block of slot 7"] -- "validated under" --> r0["era 0 rules"]
-        b1["block of slot 31"] -- "validated under" --> r1["era 1 rules"]
-        b2["block of slot 56"] -- "validated under" --> r2["era 2 rules"]
-    end
+---
+config:
+  sequence:
+    mirrorActors: false
+---
+sequenceDiagram
+    participant P as a peer
+    participant N as a node in era 2
+    Note over P,N: sync protocol of era 2
+    P->>N: block of slot 7
+    Note right of N: validated under era 0
+    P->>N: block of slot 31
+    Note right of N: validated under era 1
+    P->>N: block of slot 56
+    Note right of N: validated under era 2
 ```
 
 The node fetches every block over the sync protocol of era 2, the era of its clock. It validates each block under the rules of the era of the block's slot.
@@ -85,19 +92,21 @@ The node fetches every block over the sync protocol of era 2, the era of its clo
 Each era has a fork digest, a fingerprint of the genesis block and of the schedule up to that era. Network protocol names and transactions carry it. Two releases whose schedules agree share their protocol names up to the first era where the schedules differ, and never again after it.
 
 ```mermaid
-flowchart LR
-    subgraph both["the same in both releases: shared fork digests"]
-        direction LR
-        g["genesis"] --> e0["era 0<br/>from epoch 0"] --> e1["era 1<br/>from epoch 2"]
-    end
-    subgraph A["release A: its own fork digest"]
-        a2["era 2 from epoch 4,<br/>parameters A"]
-    end
-    subgraph B["release B: its own fork digest"]
-        b2["era 2 from epoch 4,<br/>parameters B"]
-    end
-    e1 --> a2
-    e1 --> b2
+---
+config:
+  gitGraph:
+    mainBranchName: "both releases"
+    showCommitLabel: false
+---
+gitGraph
+    commit tag: "genesis"
+    commit tag: "era 0"
+    commit tag: "era 1"
+    branch "release A"
+    commit tag: "era 2, parameters A"
+    checkout "both releases"
+    branch "release B"
+    commit tag: "era 2, parameters B"
 ```
 
 Both releases share the fork digests of eras 0 and 1, and with them the protocol names of those eras. Their era 2 parameters differ, so their era 2 fork digests and protocol names differ too.
@@ -148,16 +157,23 @@ A software release carries one **era schedule** per network. Each entry gives th
 Each era has a **fork digest**, a hash of the genesis block ID, the chain ID and the era digest of every era up to it. An era digest is a hash of the era's first epoch and parameter record ([Notation](#notation)).
 
 ```mermaid
----
-config:
-  flowchart:
-    wrappingWidth: 260
----
-flowchart LR
-    g["genesis block ID"] --> f["fork digest<br/>of era 1"]
-    c["chain ID"] --> f
-    d0["era digest of era 0:<br/>its first epoch and<br/>parameter record"] --> f
-    d1["era digest of era 1:<br/>its first epoch and<br/>parameter record"] --> f
+block-beta
+    columns 4
+    space:2
+    block:e0
+        columns 1
+        f0["first epoch"] p0["parameter record"]
+    end
+    block:e1
+        columns 1
+        f1["first epoch"] p1["parameter record"]
+    end
+    space:2
+    h0<["hash"]>(down)
+    h1<["hash"]>(down)
+    g["genesis block ID"] c["chain ID"] d0["era digest<br/>of era 0"] d1["era digest<br/>of era 1"]
+    h<["hash"]>(down):4
+    f["fork digest of era 1"]:4
 ```
 
 A release interprets the chain up to its **horizon**, an epoch it fixes for each network. A node warns its operator once its clock passes the horizon, and when a peer advertises a fork digest the node does not know ([Horizon](#horizon)).
@@ -185,30 +201,39 @@ flowchart LR
 Between eras, the recorded chain state passes through a **migration** that the new era defines. A block, and a value derived for an epoch, read the state migrated to their own era ([Era Migration](#era-migration)).
 
 ```mermaid
----
-config:
-  flowchart:
-    wrappingWidth: 260
----
-flowchart LR
-    p["state after<br/>a block of era 0"] -- "migration<br/>defined by era 1" --> m1["state in era 1"]
-    m1 -- "migration<br/>defined by era 2" --> m2["state in era 2"]
-    m2 --> r["read by a block of era 2,<br/>or by a value derived<br/>for an epoch of era 2"]
+stateDiagram-v2
+    direction LR
+    s0: state in era 0
+    s1: state in era 1
+    s2: state in era 2
+    s0 --> s1: migration defined by era 1
+    s1 --> s2: migration defined by era 2
+    note right of s2
+        read by a block
+        of era 2, and by
+        a value derived
+        for an epoch
+        of era 2
+    end note
 ```
 
 A node runs its network protocols under the **era in force**, the era of the slot its clock gives. Their identifiers and gossipsub topics carry the fork digest of their era, except those of Kademlia and identify, which carry the chain ID ([Network Protocol Identity](#network-protocol-identity)). When the era in force changes, the node runs the network protocols of both eras for the **Era Transition Period**, then drops those of the predecessor era ([Era Transition Period](#era-transition-period)).
 
 ```mermaid
----
-config:
-  flowchart:
-    wrappingWidth: 260
----
-flowchart LR
-    subgraph id["Kademlia and identify: named by the chain ID throughout"]
-        a["era in force: era n−1<br/>protocols named by<br/>the fork digest of era n−1"] -- "clock reaches the<br/>first slot of era n" --> b["era in force: era n<br/>Era Transition Period:<br/>protocols of eras n−1 and n"]
-        b -- "the period ends" --> c["era in force: era n<br/>protocols named by<br/>the fork digest of era n"]
-    end
+stateDiagram-v2
+    direction LR
+    state "era n−1 in force" as a
+    a: protocols named by the fork digest of era n−1
+    state "era n in force" as n {
+        direction LR
+        state "Era Transition Period" as b
+        b: protocols of eras n−1 and n
+        state "after the period" as c
+        c: protocols named by the fork digest of era n
+        [*] --> b
+        b --> c: the period ends
+    }
+    a --> n: clock reaches the first slot of era n
 ```
 
 A node keeps four values that depend on the era in force:
