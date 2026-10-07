@@ -75,7 +75,7 @@ Four architectural constraints of Logos Blockchain determine the shape of the me
 - **Unlinkability.** Block proposal and reward collection are decoupled, so a block reward cannot be assigned to an identified proposer.
 - **Fee pooling.** Transaction fees are routed to a protocol reward pool rather than paid directly to a proposer.
 - **Global metrics.** The block reward is a function of network-wide state observable at block production time, not of proposer-local or single-transaction data.
-- **Epoch settlement.** Block rewards are computed per block but paid per epoch. The amount owed accrues over the blocks of an epoch and is transferred at the epoch boundary to the distribution protocols, which pay individual recipients.
+- **Epoch settlement.** Block rewards are computed per block but paid per epoch. An epoch is a fixed interval of slots, so the number of blocks in it is not known in advance. The amount owed accrues over the blocks whose slot falls in the epoch and is transferred at the first block of the next epoch to the distribution protocols, which pay individual recipients.
 
 The block reward is therefore an obligation accrued at block time and discharged at epoch time. The two schedules are distinct and the specification treats them separately.
 
@@ -93,7 +93,7 @@ The mechanism is specified to satisfy the following requirements. Each is discha
 | R6 | No stock accumulates without a release rule. Any token withheld from a block reward is held in an account the mechanism can later draw on. | [Derived Property P2](analysis-block-rewards.md#p2-the-rewards-pool-accrues-within-an-epoch-and-discharges-at-the-boundary) |
 | R7 | No participant profits from inflating the fees in a block. | [Incentive Analysis I1](analysis-block-rewards.md#i1-inflating-fees-is-not-profitable-but-its-effect-is-unbounded) |
 | R8 | The consensus rule is integer-valued and deterministic across nodes. | [Float Precision for Implementation](#float-precision-for-implementation) |
-| R9 | The obligation accrued over an epoch is discharged in full at the epoch boundary. The rewards pool retains no balance across epochs. | [Derived Property P2](analysis-block-rewards.md#p2-the-rewards-pool-accrues-within-an-epoch-and-discharges-at-the-boundary) |
+| R9 | The obligation accrued over an epoch is discharged in full at the first block of the next epoch. The rewards pool retains no balance across epochs. | [Derived Property P2](analysis-block-rewards.md#p2-the-rewards-pool-accrues-within-an-epoch-and-discharges-at-the-boundary) |
 
 R3 holds only over a bounded horizon. The reserve has no inflow, so a shortfall that persists long enough exhausts it and the released component goes to zero permanently. R3 is therefore a statement about the reserve's lifetime, not about all future states.
 
@@ -107,11 +107,11 @@ The mechanism controls three token stocks:
 * a reserve pool $`B_t`$ allocated at genesis, and
 * a rewards pool $`P_t`$ that accrues the obligation within an epoch.
 
-Every block, the block's Execution base fees and Permanent Storage fees move in full from circulation into the rewards pool, and the reserve pool releases $`\iota_t`$ into the rewards pool. At each epoch boundary the rewards pool is emptied into the distribution protocols. These are the only flows this mechanism applies, so $`S_t + P_t + B_t`$ is invariant under them. The Execution priority fee moves along a separate edge, from the payer to the leader reward accumulator.
+Every block, the block's Execution base fees and Permanent Storage fees move in full from circulation into the rewards pool, and the reserve pool releases $`\iota_t`$ into the rewards pool. At the first block of each epoch the rewards pool, which holds the previous epoch's obligation, is emptied into the distribution protocols. These are the only flows this mechanism applies, so $`S_t + P_t + B_t`$ is invariant under them. The Execution priority fee moves along a separate edge, from the payer to the leader reward accumulator.
 
 ![Block reward token flows](block-rewards/assets/token-flows.png)
 
-> <sub>Figure 1. Token flows. Every edge is a transfer between existing stocks. Flows 1 and 2 occur at every block; flow 3 occurs only at an epoch boundary, when the rewards pool is emptied. The reserve pool has no inflow.</sub>
+> <sub>Figure 1. Token flows. Every edge is a transfer between existing stocks. Flows 1 and 2 occur at every block; flow 3 occurs only at the first block of an epoch, when the rewards pool is emptied. The reserve pool has no inflow.</sub>
 
 The amount accrued at block $`t`$ is
 
@@ -142,23 +142,26 @@ The two components are independent. Fees do not displace the release, and the re
 | $`S_{cap}`$ | The maximum allowable token supply (hard cap). |
 | $`\Delta_t`$ | The fraction of a year in one time step. |
 | $`f`$ | The average number of block proposals within $`\Delta_t`$. |
-| $`L`$ | The number of blocks in an epoch. |
+| $`E`$ | The number of slots in an epoch, fixed by consensus. |
+| $`L`$ | The expected number of blocks in an epoch. |
 | $`I_{max}`$ | The maximum annual release rate, expressed as a fraction of $`S_{cap}`$. |
 | $`Y`$ | The lifetime, in years, of the reserve at release rate $`I_{max}`$. |
 | $`D_{target}`$ | The target inferred total stake. |
 | $`\Lambda`$ | The stake shortfall at which the security controller saturates, in tokens. Equivalently $`\delta^\ast = \Lambda / D_{target}`$, the same threshold as a normalized deviation. |
 | $`B_0`$ | The initial reserve $`I_{max} \cdot S_{cap} \cdot Y`$, allocated at genesis from $`S_{cap}`$. |
 | $`c`$ | The per-block release cap, in tokens. The maximum draw on the reserve in one block. |
-| $`e`$, $`T_e`$ | The epoch index and its last block. Epoch $`e`$ spans the blocks $`t \in (T_{e-1}, T_e]`$ with $`T_e = e L`$. |
+| $`e`$ | The epoch index. The blocks of epoch $`e`$ are those with $`\varepsilon_t = e`$. |
+| $`\sigma_t`$, $`\varepsilon_t`$ | The slot of block $`t`$ and its epoch, $`\varepsilon_t = \lfloor \sigma_t / E \rfloor`$. Epochs are numbered as in [Cryptarchia](cryptarchia-v1-protocol.md#epoch), from $`0`$ at genesis. |
+| $`\chi_t`$ | The epoch opening flag. $`\chi_t = 1`$ if $`\varepsilon_t \gt \varepsilon_{t-1}`$ and $`0`$ otherwise, so block $`t`$ is the first block of its epoch when $`\chi_t = 1`$. |
 | $`\theta_t`$, $`\theta_{target}`$ | The security level $`D_t / S_{cap}`$ and its target $`D_{target} / S_{cap}`$. |
 | $`\delta_t`$ | The normalized deviation of the key performance indicator from its target. |
 | $`A_t \in [0,1]`$ | The security controller. |
-| $`\Pi_e`$ | The epoch settlement amount, the total transferred to the distribution protocols at the boundary $`T_e`$. |
+| $`\Pi_e`$ | The epoch settlement amount, the total transferred to the distribution protocols at the first block after epoch $`e`$ ends. |
 | $`\Pi^{blend}_e`$, $`\Pi^{leader}_e`$ | The parts of $`\Pi_e`$ passed to the Blend distribution and to the leader reward pool. |
 | $`a_t`$ | The security controller scaled by $`M`$ in the integer rule. |
 | $`c^{\ast}`$, $`\Lambda^{\ast}`$, $`M`$, $`d`$ | The integer counterparts of $`c`$ and $`\Lambda`$, the fixed-point scale, and the decimal places of the base unit. Values are in [Parameters](#parameters). |
 
-Consensus state read by this mechanism is $`(B_{t-1}, D_t, R^{\text{block}}_t)`$ to compute the block reward, and $`(P_{t-1}, t \bmod L)`$ to accrue and settle it. No window or fee history is required.
+Consensus state read by this mechanism is $`(B_{t-1}, D_t, R^{\text{block}}_t)`$ to compute the block reward, and $`(P_{t-1}, \sigma_{t-1}, \sigma_t)`$ to accrue and settle it, where $`\sigma_{t-1}`$ is the slot of the parent block. No window or fee history is required.
 
 ## Parameters
 
@@ -172,13 +175,14 @@ Consensus state read by this mechanism is $`(B_{t-1}, D_t, R^{\text{block}}_t)`$
 | $`c`$ | Per-block release cap | $`62500/657 \approx 95.129`$ LGO | Derived from the four rows above. |
 | $`D_{target}`$ | Target inferred total stake | $`3 \cdot 10^9`$ LGO | $`\theta_{target} = 30\%`$. See [Parameter rationale](analysis-block-rewards.md#parameter-rationale). |
 | $`\Lambda`$ | Stake shortfall at controller saturation | $`5 \cdot 10^8`$ LGO | Equivalently $`\delta^\ast = \Lambda / D_{target} = 1/6`$, so $`A_t = 1`$ below $`\theta = 25\%`$ and the proportional band runs from there to $`30\%`$. Jointly with $`I_{max}`$ it fixes the release-funded yield floor, since the base at saturation is $`D_{target} - \Lambda`$. |
-| $`L`$ | Blocks per epoch | $`21600`$ | $`7.5`$ days at one block every 30 seconds. Sets the reserve-funded settlement float at $`L c = 2.055 \cdot 10^6`$ LGO, $`0.02\%`$ of $`S_{cap}`$. The fee-funded part of the float is unbounded by the protocol. |
+| $`E`$ | Slots per epoch | $`648000`$ | The Cryptarchia epoch length, $`7.5`$ days at one slot per second. See [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule). Epochs are counted in slots because the number of blocks in an epoch is random. |
+| $`L`$ | Expected blocks per epoch | $`21600`$ | $`E`$ divided by $`30`$, one block per $`30`$ slots in expectation. It is not a protocol input. Sets the expected reserve-funded settlement float at $`L c = 2.055 \cdot 10^6`$ LGO, $`0.02\%`$ of $`S_{cap}`$. A chain holds at most one block per slot, so the float cannot exceed $`E c = 6.164 \cdot 10^7`$ LGO, $`0.62\%`$ of $`S_{cap}`$. The fee-funded part of the float is unbounded by the protocol. |
 | $`d`$ | Decimal places of the base unit | $`18`$ | $`1`$ LGO $`= 10^{d}`$ base units. |
 | $`M`$ | Fixed-point scale of the controller | $`2^{32}`$ | Scale of $`a_t`$ in the integer rule. |
 | $`c^{\ast}`$ | Per-block release cap in base units | $`\lfloor 62500 \cdot 10^{d} / 657 \rfloor`$ | Replaces the exact rational $`c`$. The truncation is below one base unit, that is $`10^{-18}`$ LGO. |
 | $`\Lambda^{\ast}`$ | Stake shortfall at controller saturation in base units | $`5 \cdot 10^{8} \cdot 10^{d}`$ | Replaces $`\Lambda`$. |
 
-Under a leader lottery the realized block count in an epoch is a random variable and $`L`$ is its expected value. The block reward accrues per block, so the amount settled at a boundary scales with the realized count. The annualized figures in this document assume the expected rate.
+Under a leader lottery each slot is occupied with probability $`1/30`$, so the realized block count in an epoch is a random variable with expected value $`L`$. The epoch is fixed at $`E`$ slots and does not stretch or shrink with the count. The block reward accrues per block, so the amount settled for an epoch scales with the realized count. The annualized figures in this document assume the expected rate.
 
 ## Key Performance Indicator
 
@@ -276,7 +280,7 @@ $$
 $$
 
 $$
-S_t = S_{t-1} - R^{\text{block}}_t + \Pi_e \cdot \mathbb{1} \lbrace t = T_e \rbrace ,
+S_t = S_{t-1} - R^{\text{block}}_t + \Pi_{\varepsilon_{t-1}} \chi_t ,
 $$
 
 $$
@@ -284,14 +288,16 @@ B_t = B_{t-1} - \iota_t ,
 $$
 
 $$
-P_t = P_{t-1} + R^{\text{block}}_t + \iota_t - \Pi_e \cdot \mathbb{1} \lbrace t = T_e \rbrace = P_{t-1} + R_t - \Pi_e \cdot \mathbb{1} \lbrace t = T_e \rbrace .
+P_t = P_{t-1} - \Pi_{\varepsilon_{t-1}} \chi_t + R_t .
 $$
+
+The settlement term applies only at a block that opens an epoch, where $`\chi_t = 1`$ and $`\Pi_{\varepsilon_{t-1}} = P_{t-1}`$. It is applied before the block's own flows, so the opening block's reward accrues to the new epoch.
 
 The controlled total is constant: the mechanism never mints tokens. A reserve release moves tokens from $`B_t`$ into circulation, routing a fee moves tokens from circulation into $`P_t`$, and recycling moves them back. Circulating supply $`S_t`$ rises as the reserve drains, and contracts whenever the fee inflow exceeds the distributed reward, $`D_t \gt R_t`$, when tokens accumulate in the pool faster than they are paid out. This removes tokens from circulation, not from existence, and reverses if the pool is later released.
 
 The [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool) is a stock of the same kind, holding tokens allocated at genesis and topped up by the share of the fees diverted before they reach $`P_t`$, and paying them into circulation as claims are made. It joins the controlled total, which is $`S_t + P_t + B_t + W_t`$, writing $`W_t`$ for this pool, and is constant for the same reason: every movement is between stocks. Net circulating growth over the reserve's life is bounded by $`B_0 + W_0`$, the two stocks that begin full and drain into circulation.
 
-Each account has one role. The reserve pool funds released rewards and nothing else; it never touches the fees. The rewards pool receives both components of the block reward and pays out only at a boundary. Circulating supply loses the block's fees during the epoch and regains the settlement amount at the boundary.
+Each account has one role. The reserve pool funds released rewards and nothing else; it never touches the fees. The rewards pool receives both components of the block reward and pays out only at a block that opens an epoch. Circulating supply loses the block's fees during the epoch and regains the settlement amount at that block.
 
 The only debit from the reserve pool is $`\iota_t`$, and the clamp in equation (2) bounds it by $`B_{t-1}`$ unconditionally, so $`B_t \ge 0`$ holds at every block. No flow ordering constraint is required.
 
@@ -299,23 +305,24 @@ R6 is satisfied trivially. The reserve pool never accumulates, since it has no i
 
 ### Epoch settlement
 
-At the last block of epoch $`e`$ the rewards pool is emptied. The settlement amount is the sum of the block rewards accrued over the epoch,
+The epoch of a block is fixed by its slot, $`\varepsilon_t = \lfloor \sigma_t / E \rfloor`$. Membership is therefore known from the block header alone and does not depend on how many blocks the epoch holds.
+
+The last block of an epoch cannot be recognized when it is produced, because whether another block follows depends on slots not yet elapsed. Settlement runs instead at the first block of the next epoch, the first block $`t`$ with $`\chi_t = 1`$. This is also the point at which the [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md) aggregates the previous epoch's leader rewards. Before that block's reward accrues, the rewards pool is emptied. The settlement amount is the sum of the block rewards accrued over the epoch that ended,
 
 $$
-\Pi_e = \sum_{t = T_{e-1}+1}^{T_e} R_t ,
+\Pi_e = \sum_{t \,:\, \varepsilon_t = e} R_t ,
 $$
 
-and it is transferred out of $`P`$ and split between the two recipient classes, with the residual assigned so that the parts sum to the whole:
-
+with $`e = \varepsilon_{t-1}`$ at the opening block $`t`$. An epoch with no block accrues nothing. The epoch before it settles at the next block, in whichever epoch that block falls. The amount is transferred out of $`P`$ and split between the two recipient classes, with the residual assigned so that the parts sum to the whole:
 $$
 \Pi^{blend}_e = \left\lfloor \frac{3 \, \Pi_e}{5} \right\rfloor, \qquad \Pi^{leader}_e = \Pi_e - \Pi^{blend}_e .
 $$
 
 $`\Pi^{blend}_e`$ passes to the Blend distribution and $`\Pi^{leader}_e`$ to the leader reward pool. Both are outside this specification; refer to the protocols listed in the [Introduction](#introduction). The two components are settled on different downstream schedules, which does not affect the accounting here: from the perspective of this mechanism both leave $`P`$ at $`T_e`$.
 
-Splitting at the epoch aggregate rather than per block reduces the truncation residual from one base unit per block to one per epoch, a factor of $`L`$.
+Splitting at the epoch aggregate rather than per block reduces the truncation residual from one base unit per block to one per epoch, a factor equal to the number of blocks in the epoch, $`L`$ in expectation.
 
-Immediately after settlement $`P_{T_e} = 0`$. This is the only instant at which the rewards pool balance is known without reference to the epoch's history, and it is the point at which the three-stock identity reduces to two, per [Derived Property P2](analysis-block-rewards.md#p2-the-rewards-pool-accrues-within-an-epoch-and-discharges-at-the-boundary).
+Immediately after the settlement step, before the opening block's reward accrues, $`P = 0`$. This is the only instant at which the rewards pool balance is known without reference to the epoch's history, and it is the point at which the three-stock identity reduces to two, per [Derived Property P2](analysis-block-rewards.md#p2-the-rewards-pool-accrues-within-an-epoch-and-discharges-at-the-boundary). After the opening block, $`P_t = R_t`$.
 
 ## Float Precision for Implementation
 
@@ -332,17 +339,19 @@ $$
 R_t = R^{\text{block}}_t + \iota_t .
 $$
 
-The state update is then
+When $`\chi_t = 1`$ the block first runs the settlement step
+
+$$
+\Pi_e = P_{t-1}, \qquad \Pi^{blend}_e = \left\lfloor \frac{3 \Pi_e}{5} \right\rfloor, \qquad \Pi^{leader}_e = \Pi_e - \Pi^{blend}_e, \qquad S_{t-1} \leftarrow S_{t-1} + \Pi_e, \qquad P_{t-1} \leftarrow 0 ,
+$$
+
+with $`e = \varepsilon_{t-1}`$. The state update is then
 
 $$
 B_t = B_{t-1} - \iota_t, \qquad P_t = P_{t-1} + R_t, \qquad S_t = S_{t-1} - R^{\text{block}}_t ,
 $$
 
-in any order, and at $`t = T_e`$ additionally
-
-$$
-\Pi_e = P_t, \qquad \Pi^{blend}_e = \left\lfloor \frac{3 \Pi_e}{5} \right\rfloor, \qquad \Pi^{leader}_e = \Pi_e - \Pi^{blend}_e, \qquad P_t \leftarrow 0 .
-$$
+in any order.
 
 The clamp against $`B_{t-1}`$ is applied after the multiplication and floor, on a quantity already bounded by $`c^{\ast}`$, so it cannot overflow.
 
@@ -366,7 +375,7 @@ CAP      = 62_500 * ONE // 657        # c*
 LAMBDA   = 500_000_000 * ONE          # Lambda*
 D_TARGET = 3_000_000_000 * ONE
 M        = 1 << 32
-L        = 21_600                     # blocks per epoch
+E        = 648_000                    # slots per epoch
 
 
 def released(total_stake: int, reserve: int) -> int:
@@ -388,9 +397,23 @@ def block_reward(total_stake: int, gross_fees: int, reserve: int) -> int:
     return gross_fees + released(total_stake, reserve)
 
 
-def apply_block(state, height, total_stake, gross_fees):
-    """State transition. The two block flows are independent, so a node may
-    apply them in any order."""
+def epoch(slot: int) -> int:
+    return slot // E
+
+
+def apply_block(state, slot, parent_slot, total_stake, gross_fees):
+    """State transition. A block that opens an epoch first settles the rewards
+    pool, which holds the previous epoch's obligation. The two block flows are
+    independent, so a node may apply them in any order."""
+    settlement = None
+    if epoch(slot) > epoch(parent_slot):       # 3. settlement at the first block of an epoch
+        Pi = state["P"]
+        blend = Pi * 3 // 5
+        leader = Pi - blend
+        state["P"] = 0
+        state["S"] += Pi
+        settlement = (Pi, blend, leader)
+
     iota = released(total_stake, state["B"])
     R = gross_fees + iota
 
@@ -398,15 +421,7 @@ def apply_block(state, height, total_stake, gross_fees):
     state["P"] += gross_fees
     state["B"] -= iota                         # 2. iota   : B -> P
     state["P"] += iota
-
-    if height % L == 0:                        # 3. settlement at the boundary
-        Pi = state["P"]
-        blend = Pi * 3 // 5
-        leader = Pi - blend
-        state["P"] = 0
-        state["S"] += Pi
-        return R, (Pi, blend, leader)
-    return R, None
+    return R, settlement
 ```
 
 `blend` passes to the Blend distribution and `leader` to the leader reward pool; both are outside this specification.
@@ -429,7 +444,7 @@ The self-sustaining regime is reversible and the terminal regime is not. The dif
 Each claim below is a result proved in the analysis document.
 
 - **Conservation.** $`S_t + P_t + B_t`$ is invariant at every block. The mechanism never mints. [Derived Property P1](analysis-block-rewards.md#p1-conservation)
-- **Epoch discharge.** The rewards pool accrues within an epoch and returns to zero at the boundary. [Derived Property P2](analysis-block-rewards.md#p2-the-rewards-pool-accrues-within-an-epoch-and-discharges-at-the-boundary)
+- **Epoch discharge.** The rewards pool accrues within an epoch and returns to zero when the next epoch opens. [Derived Property P2](analysis-block-rewards.md#p2-the-rewards-pool-accrues-within-an-epoch-and-discharges-at-the-boundary)
 - **Bounded emission.** Released rewards are at most $`c`$ per block, that is $`I_{max} S_{cap}`$ per year, in every state and at any fee level. The bound is unconditional on fees rather than mediated by the fee gap. [Derived Property P3](analysis-block-rewards.md#p3-block-reward-bounds-and-monotonicity)
 - **Unbounded block reward.** $`R_t`$ has no upper bound, since it contains the block's fees uncapped. No ceiling on $`R_t`$ may be assumed by downstream protocols. [Derived Property P3](analysis-block-rewards.md#p3-block-reward-bounds-and-monotonicity), [Failure Mode F5](analysis-block-rewards.md#f5-the-settled-reward-is-not-a-bounded-signal)
 - **Separability.** The fee component and the released component are additively separable, with zero cross-partial. Fee revenue neither displaces nor triggers a release. [Derived Property P4](analysis-block-rewards.md#p4-the-two-components-are-additively-separable)
@@ -437,7 +452,7 @@ Each claim below is a result proved in the analysis document.
 - **Reserve solvency.** Released rewards never exceed the reserve pool balance, by the clamp in equation (2). [Derived Property P6](analysis-block-rewards.md#p6-the-reserve-pool-covers-every-released-reward)
 - **Finite reserve horizon.** The reserve reaches zero in finite time under a persistent shortfall, and the terminal state is absorbing. [Derived Property P7](analysis-block-rewards.md#p7-the-reserve-reaches-zero-in-finite-time), [Derived Property P8](analysis-block-rewards.md#p8-reserve-horizon)
 - **Manipulation resistance.** Inflating the fees in a block is never profitable for a participant whose combined share of the epoch settlement is below one. The recovered fraction is constant in the fee paid. [Incentive Analysis I1](analysis-block-rewards.md#i1-inflating-fees-is-not-profitable-but-its-effect-is-unbounded)
-- **Minimal consensus state.** The rule reads the reserve pool balance, the stake estimate, the block's fees, the rewards pool balance and the epoch position. No fee window or history is maintained.
+- **Minimal consensus state.** The rule reads the reserve pool balance, the stake estimate, the block's fees, the rewards pool balance and the slots of the block and its parent. No fee window or history is maintained.
 
 ## Calibration of the Release Cap
 
@@ -472,10 +487,12 @@ Once $`B_t = 0`$ the state is absorbing, per [Derived Property P7](analysis-bloc
 ## Supply Dynamics
 
 
-Over epoch $`e`$ the circulating supply loses the epoch's fees and regains the settlement, which is the epoch's fees plus the epoch's releases. Netting the two,
+Over epoch $`e`$ the circulating supply loses the epoch's fees and regains the settlement, which is the epoch's fees plus the epoch's releases. Netting the two, the supply measured immediately after consecutive settlement steps differs by the epoch's releases,
 
 $$
-S_{T_e} - S_{T_{e-1}} = \sum_{t = T_{e-1}+1}^{T_e} \iota_t \;\ge\; 0 .
+S^{+}_e - S^{+}_{e'} = \sum_{t \,:\, \varepsilon_t = e} \iota_t \;\ge\; 0 ,
 $$
+
+where $`S^{+}_e`$ is the circulating supply immediately after the settlement of epoch $`e`$ and $`e'`$ is the previous epoch to settle.
 
 Circulating supply is non-decreasing epoch over epoch and strictly increasing whenever any block in the epoch carries a positive release. Total net emission over the life of the chain is bounded by $`B_0 = 10^9`$ LGO, that is $`10\%`$ of $`S_{cap}`$, and is reached only if the shortfall persists for the full horizon.
