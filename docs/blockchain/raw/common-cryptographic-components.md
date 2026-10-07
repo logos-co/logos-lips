@@ -26,6 +26,7 @@
 | 1.0.2 | Clarification of the Poseidon2 function Add test values | 2026-05-07 |
 | 1.1.0 | [RFC] Replace the BLAKE2b-Based PRNG with ChaCha20 (ChaCha20Rng) | 2026-08-28 |
 | 1.2.0 | Strict EdDSA verification: reject small-order public keys and small-order `R` | 2026-09-22 |
+| 1.3.0 | Removed the ZkSignature scheme, no longer used by any Operation | 2026-10-07 |
 
 # Introduction
 
@@ -41,7 +42,7 @@ The primitives span multiple domains:
 
 - Hash functions (Poseidon2, BLAKE2b) serve as the base layer for commitments, nullifier derivation, Merkle trees, signature key derivation and general purpose hashing.
 - The stream cipher (ChaCha20) provides deterministic pseudorandom byte generation and keystream encryption.
-- Signature schemes (EdDSA, ZkSignature) authenticate messages and participants, with ZkSignature designed specifically for ownership verification within zero-knowledge circuits.
+- Signature schemes (EdDSA) authenticate messages and participants.
 - Proof systems (Groth16) enable succinct and verifiable computation. Groth16 is used in hand-written circuits.
 
 Each primitive is chosen for its suitability in a particular context, balancing efficiency, cryptographic strength, and developer usability.
@@ -54,7 +55,6 @@ The table below summarizes the recommended component for each context:
 | General Hashing | [BLAKE2b](#blake2bgeneral-purpose-hashing) |
 | PRNG & Keystreams | [ChaCha20](#chacha20-based-prng-construction) |
 | General Signatures | [EdDSA](#eddsa) |
-| ZK Signatures | [ZkSignature](#zksignature-zero-knowledge-signature) (see [Mantle - Zero Knowledge Signature Scheme (ZkSignature)](bedrock-v1.1-mantle-specification.md)) |
 | Proof System (SNARK) | [Groth16](#groth16-zk-snark) |
 
 # 1. Hash Functions
@@ -139,7 +139,7 @@ Technical Details:
 
 Use in the Logos Blockchain:
 
-Used as the hash function and compression function for all hand-written zero-knowledge circuits (e.g., note IDs, membership proofs) in the Logos Blockchain. For these protocols, the Logos Blockchain relies on the BN254 elliptic curve, so the $`\mathbb{F}_p`$ elements are taken from the prime field corresponding to BN254. The parameters of the Poseidon2 permutation are the following in the Logos Blockchain:
+Used as the hash function and compression function for all hand-written zero-knowledge circuits (e.g., note commitments, membership proofs) in the Logos Blockchain. For these protocols, the Logos Blockchain relies on the BN254 elliptic curve, so the $`\mathbb{F}_p`$ elements are taken from the prime field corresponding to BN254. The parameters of the Poseidon2 permutation are the following in the Logos Blockchain:
 
 - The rate = 1.
 - The capacity = 3.
@@ -157,7 +157,7 @@ Throughout the Logos Blockchain specifications, Poseidon2 is referred to as zkha
 
 In the Logos Blockchain, bytes and $`\mathbb{F}_p`$ elements are frequently converted between formats (such as when interpreting DST byte strings as Poseidon2 inputs). To convert from an $`\mathbb{F}_p`$ element to bytes, we interpret the little-endian unsigned representation of the $`\mathbb{F}_p`$ number as 32 bytes. Conversely, we can interpret 32 bytes as an $`\mathbb{F}_p`$ element provided the resulting number is smaller than $p$.
 
-> We use Poseidon2 in hash function mode everywhere except in: Merkle proofs, public key derivation, nullifier derivation and reward voucher derivation where we use the modified compression mode.
+> We use Poseidon2 in hash function mode everywhere except in: Merkle proofs, public key derivation and nullifier derivation where we use the modified compression mode.
 
 Rationale for Use:
 
@@ -210,58 +210,11 @@ Security Considerations:
 - Resistant to timing and side-channel attacks due to uniform implementation characteristics.
 - Small-order public keys are rejected because anyone can produce a signature under them without knowing a secret key. Honestly generated keys are never of small order. Such a key may still appear where no signature is verified, e.g. the all-zero null key of the Genesis inscription.
 
-## [ZkSignature (Zero-Knowledge Signature)](bedrock-v1.1-mantle-specification.md)
-
-Description:
-
-The ZkSignature scheme enables a prover to demonstrate cryptographic knowledge of a secret key corresponding to a publicly available key, without revealing the secret key itself. Specifically designed for efficient verification within zero-knowledge circuits, it provides both authentication and privacy, binding proofs securely to particular messages.
-
-Technical Details:
-
-Public Parameters:
-
-- Public Key:
-    A cryptographic commitment derived from the secret key using a secure collision-resistant hash function. This public key acts as a verifier’s reference to authenticate the prover without disclosing secrets.
-- Message Hash:
-    A cryptographic hash of the specific message intended to be signed. Binding the proof directly to this hash ensures that the signature is valid only for this exact message, providing protection against replay attacks and unauthorized reuse.
-
-Private Parameters (Witness):
-
-- Secret Key:
-    A securely generated secret scalar value that must remain confidential. The secret key serves as the prover’s private witness input within the zero-knowledge circuit.
-
-Security Level:
-
-The security level of a ZKSignature depends on the concrete instantiations of its underlying primitives—namely the hash function, the zero-knowledge proof system, and the elliptic curve used. Since different instantiations may offer varying security guarantees and may be evaluated under different metrics (e.g., soundness, knowledge extraction, or cryptanalytic resistance), we do not commit to a fixed bit-level security.
-
-The zk-circuit enforcing the validity of ZkSignature imposes the following conditions through arithmetic constraints:
-
-- Key Ownership Constraint:
-    The prover must demonstrate that they possess the secret key corresponding precisely to the provided public key. Within the circuit, this is validated by recomputing the public key using the secret key and the specified cryptographic hash function, then checking equivalence with the given public key.
-- Message Binding Constraint:
-    The signature is explicitly tied to a particular message by embedding its cryptographic hash into the circuit constraints. As a result, the zk-proof validity inherently ensures the prover’s knowledge of the secret key specifically with respect to this message.
-
-Use in the Logos Blockchain:
-
-ZkSignature is used to sign every object that are linked at some point to a hand-written circuit and if the signature is included in a bigger circuit.
-
-Rationale for Use:
-
-- Critically, the proof generation is fast, allowing rapid transaction processing and state updates in the Logos Blockchain without bottlenecks, which is essential for scalable systems.
-- Allows anonymous and secure verification of message ownership within zero-knowledge circuits.
-- Efficiently verifiable with minimal constraints in zk-SNARK circuits, ensuring performance in cryptographic operations.
-
-Security Considerations:
-
-- Dependent on the security properties (collision resistance and preimage resistance) of the default [hash function](#poseidon2-zk-friendly-hash-function) for zk-circuits utilized for key derivation and verification.
-- Robust against signature forgery, replay attacks, and impersonation, assuming the correct implementation of constraints and binding to the specific message hash.
-
 ## References
 
 - IETF RFC for EdDSA: [https://datatracker.ietf.org/doc/html/rfc8032](https://datatracker.ietf.org/doc/html/rfc8032)
 - EdDSA original paper: High-speed high-security signatures. Daniel J. Bernstein, Niels Duif, Tanja Lange, Peter Schwabe, Bo-Yin Yang.  [https://eprint.iacr.org/2011/368](https://eprint.iacr.org/2011/368)
 - Curve25519: [https://iacr.org/archive/pkc2006/39580209/39580209.pdf](https://iacr.org/archive/pkc2006/39580209/39580209.pdf)
-- ZkSignature: [Mantle - Zero Knowledge Signature Scheme (ZkSignature)](bedrock-v1.1-mantle-specification.md)​
 
 # 3. Proof Systems
 

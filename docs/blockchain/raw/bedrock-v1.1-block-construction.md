@@ -33,6 +33,7 @@
 | 1.2.0 | Added the `uncle_headers` field — the signed headers of the referenced uncles — to the [Proposal](#block-proposal) and to the newly defined [Block](#block), and replaced `block_root` with `body_root` in the [Header](#header), which commits to them, signatures included, as well as to the transactions. Due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
 | 1.2.1 | Precise the state each transaction of a block is validated against: the transactions are validated and executed one after the other in the order they appear, each against the state the preceding ones left, which makes block validity order-dependent. Precise that a block whose validation fails at any point is not executed at all. | 2026-08-24 |
 | 1.3.0 | Compressed Block Proposal: 16-byte transaction reference prefixes and a variable-length `references` list, reducing the proposal from 34,574 bytes to at most 18,192. Added the [Canonical Encoding](#canonical-encoding) section. | 2026-08-18 |
+| 1.4.0 | The `leader_voucher` is replaced with a one-time `reward_key`, and the leader reward is inserted in the ledger at the end of the block execution | 2026-10-07 |
 
 # Introduction
 
@@ -60,9 +61,9 @@ Below, we present a high-level description of the block lifecycle. The main focu
    3. They validate each transaction included in the block, in the order the transactions appear, each against the state the preceding ones left.
 
 6. The validators **execute** the block proposal.
-   1. They append the `leader_voucher` of the block to the set of reward vouchers, which the following epoch starts with.
-   2. They execute the [**Service Reward Distribution Protocol**](bedrock-service-reward-distribution.md) to generate reward notes locally and include them in the ledger.
-   3. They derive the new blockchain state from the previous one by executing transactions as defined in [Mantle](bedrock-v1.1-mantle-specification.md), in that same pass, adopting the result only once the whole block has validated.
+   1. They execute the [**Service Reward Distribution Protocol**](bedrock-service-reward-distribution.md) to generate reward notes locally and include them in the ledger.
+   2. They derive the new blockchain state from the previous one by executing transactions as defined in [Mantle](bedrock-v1.1-mantle-specification.md), in that same pass, adopting the result only once the whole block has validated.
+   3. They insert the leader reward of the block in the ledger, as a note under the `reward_key` of the block.
 
 # Constructions
 
@@ -113,7 +114,7 @@ class Header:                                # 297 bytes
 Where:
 
 - `bedrock_version` is the version of the proposal message structure that supports other protocols defined in linked reference; its size is 1 byte and is fixed to `0x01`.
-- `parent_block` is the block ID ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)) of the parent block, validated and accepted by the block builder. It is used for the derivation of the `AgedLedger` and `LatestLedger` values necessary for validating the PoL; the size of the `hash` is 32 bytes.
+- `parent_block` is the block ID ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)) of the parent block, validated and accepted by the block builder. It is used for the derivation of the eligible set and nullifier roots necessary for validating the PoL ([Eligible Sets](cryptarchia-proof-of-leadership.md#eligible-sets)); the size of the `hash` is 32 bytes.
 - `slot` is the consensus slot number; the size of the `SlotNumber` type is 8 bytes.
 - `body_root` is the commitment to the block body — both the carried `uncle_headers` and the transactions. It is computed as defined in step 4 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation), which combines the serialized `uncle_headers` list with the root of the Merkle tree constructed from the **full** transaction hashes (defined in [Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction)) — the same hashes used for constructing the `mempool_transactions` references list; the size of the `hash` is 32 bytes. Because that Merkle root is taken over the full hashes, `body_root` uniquely binds the proposal to a specific ordered transaction selection even when two transactions share the same `references` prefix, and it also binds the *number* of references; see [Binding of the reference list](#binding-of-the-reference-list). Since the block ID is taken over the header, committing the uncle headers here is what makes two blocks with the same ID identical byte for byte.
 - `proof_of_leadership` is the proof confirming that the sender is the leader; defined below: [Proof of Leadership](#proof-of-leadership).
@@ -147,7 +148,7 @@ class ProofOfLeadership:                     # 224 bytes
     proof: Groth16Proof                      # 128 bytes
     entropy_contribution: zkhash             # 32 bytes
     leader_key: Ed25519PublicKey             # 32 bytes
-    leader_voucher: RewardVoucher            # 32 bytes
+    reward_key: ZkPublicKey                  # 32 bytes
 ```
 
 Where:
@@ -155,9 +156,9 @@ Where:
 - `proof` is the proof confirming that the proposal is constructed by the leader; the size of the `Groth16Proof` type is 128 bytes (2 compressed $`\mathbb{G}_1`$and 1 compressed $`\mathbb{G}_2`$ BN256 elements).
 - `entropy_contribution` is the output of the PoL contribution for Cryptarchia entropy; the size of the `zkhash` type is 32 bytes.
 - `leader_key` is the one-time `Ed25519PublicKey` used for signing the `Proposal`. This binds the content of the proposal with the `ProofOfLeadership`; the size of the `Ed25519PublicKey` type is 32 bytes.
-- `leader_voucher` is the voucher value used for retrieving the reward by the leader for proposal; the size of the `RewardVoucher` is 32 bytes.
+- `reward_key` is the one-time `ZkPublicKey` the leader reward of the block is paid to ([Block Execution](#block-execution)); the size of the `ZkPublicKey` type is 32 bytes.
 
-> **Field order.** The order above is the **wire** order, i.e. the order in which these fields are concatenated by [Canonical Encoding](#canonical-encoding). The `block_id` preimage in [Cryptarchia Protocol](cryptarchia-v1-protocol.md#block-id) absorbs the same four fields in a *different* order (`leader_voucher`, `entropy_contribution`, `proof`, `leader_key`). This is deliberate, not an inconsistency: `block_id` is a domain-separated enumeration of header fields rather than a re-serialization of the header, so the two orders are independent and both are normative. Changing either one changes a different thing — the wire format in the first case, block identity in the second.
+> **Field order.** The order above is the **wire** order, i.e. the order in which these fields are concatenated by [Canonical Encoding](#canonical-encoding). The `block_id` preimage in [Cryptarchia Protocol](cryptarchia-v1-protocol.md#block-id) absorbs the same four fields in a *different* order (`reward_key`, `entropy_contribution`, `proof`, `leader_key`). This is deliberate, not an inconsistency: `block_id` is a domain-separated enumeration of header fields rather than a re-serialization of the header, so the two orders are independent and both are normative. Changing either one changes a different thing — the wire format in the first case, block identity in the second.
 
 ## Canonical Encoding
 
@@ -183,17 +184,17 @@ UncleHeaders      = UncleCount *SignedHeader
 UncleCount        = Byte            ; MUST NOT exceed MAX_UNCLES
 SignedHeader      = Header Ed25519Signature
 
-ProofOfLeadership = Groth16 EntropyContribution LeaderKey LeaderVoucher
+ProofOfLeadership = Groth16 EntropyContribution LeaderKey RewardKey
 EntropyContribution = FieldElement
 LeaderKey         = Ed25519PublicKey
-LeaderVoucher     = FieldElement
+RewardKey         = FieldElement
 
 References        = ReferenceCount *Reference
 ReferenceCount    = UINT16          ; MUST NOT exceed MAX_BLOCK_TXS
 Reference         = 16BYTE          ; REFERENCE_PREFIX_LENGTH bytes
 ```
 
-The terminals `Byte`, `UINT16`, `UINT64`, `Hash32`, `FieldElement`, `Groth16`, `Ed25519PublicKey` and `Ed25519Signature` are those defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures). Note in particular that `FieldElement` is a little-endian BN254 field element, which fixes the byte order of `entropy_contribution` and `leader_voucher`.
+The terminals `Byte`, `UINT16`, `UINT64`, `Hash32`, `FieldElement`, `Groth16`, `Ed25519PublicKey` and `Ed25519Signature` are those defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures). Note in particular that `FieldElement` is a little-endian BN254 field element, which fixes the byte order of `entropy_contribution` and `reward_key`.
 
 This yields the following sizes, where `n` is the number of references:
 
@@ -242,7 +243,7 @@ The block proposal is constructed by the leader of the current slot. The node be
 Before constructing the proposal, the block builder must:
 
 1. Select a valid parent block referenced by `ParentBlock` on which they will extend the chain.
-2. Derive the required Ledger state snapshots `AgedLedger` and `LatestLedger` from the state of the chain including the last block.
+2. Derive the eligible set and nullifier roots required by the PoL ([Eligible Sets](cryptarchia-proof-of-leadership.md#eligible-sets)) from the state of the chain including the last block.
 3. Select a valid unspent note winning the PoL.
 4. Generate a valid PoL proving leadership eligibility for `(Epoch, Slot)` based on the selected note. Attach the PoL to a one-time Ed25519 public key used to sign the block proposal.
 
@@ -257,7 +258,7 @@ Only after the PoL is generated can the block proposal be constructed (see [Proo
     - `slot`
     - `body_root` — left unset here; it is computed in step 4, once both parts of the body are known
     - `proof_of_leadership`:
-      - `leader_voucher`
+      - `reward_key`, a fresh `ZkPublicKey` of the leader
       - `entropy_contribution`
       - `proof`
       - `leader_key`
@@ -372,7 +373,9 @@ The order is constrained as well as economical. [Block Header Validation](crypta
 6. **Mempool Transactions Validation**
   `mempool_transactions` must refer to a valid sequence of Mantle Transactions from the mempool. The transactions are validated in the order the `references` resolve them, against a state that advances with them: each transaction is validated against the state the transactions preceding it left, the first one against the state the block inherits once the steps of [Block Execution](#block-execution) that precede it have been applied. Each transaction must be valid in that state according to the rules defined in the [Mantle](bedrock-v1.1-mantle-specification.md#validation), which validates and executes its Operations along that same progression. Validation and execution are therefore one pass over one state, not two.
 
-  Block validity is consequently order-dependent, and the order the transactions appear in is normative. Two transactions consuming the same note make the block invalid whatever their order, since the second consumption finds the note gone; a transaction consuming a note an earlier transaction created is valid in that order and invalid in the reverse one.
+  Block validity is consequently order-dependent, and the order the transactions appear in is normative. Two transactions consuming the same note make the block invalid whatever their order, since the second consumption finds the note spent; a transaction consuming a channel note an earlier transaction created is valid in that order and invalid in the reverse one.
+
+  A shielded note, however, cannot be consumed in the block that creates it. A transaction proves its inputs against the commitment root of one of the last 1024 blocks, extended only with the commitments created earlier in the same transaction ([Mantle Validation](bedrock-v1.1-mantle-specification.md#validation)). Shielded notes can therefore be chained within a transaction, not across the transactions of a block.
 
   In order to verify ZK proofs, they are batched for verification as explained in [Batch verification of ZK proofs](#batch-verification-of-zk-proofs) to get better performance. Batching covers the proof checks alone and does not change the state a transaction is validated in: the public inputs of every proof are taken from the state its transaction is reached in, and the state-dependent assertions still run in sequence.
 
@@ -386,13 +389,26 @@ This section specifies how a Logos Blockchain node executes a valid block propos
 
 Given a `ValidBlock` that has successfully passed proposal validation, the node must, in this order:
 
-1. Append the `leader_voucher` contained in the block to the set of reward vouchers **when the following epoch starts**.
-2. Execute the reward distribution protocol defined in [**Service Reward Distribution Protocol**](bedrock-service-reward-distribution.md) to generate reward notes locally and include them in the ledger.
-3. Execute the Mantle Transactions included in the block in the order they appear, using the execution rules defined in the [Mantle](bedrock-v1.1-mantle-specification.md).
+1. Execute the reward distribution protocol defined in [**Service Reward Distribution Protocol**](bedrock-service-reward-distribution.md) to generate reward notes locally and include them in the ledger.
+2. Execute the Mantle Transactions included in the block in the order they appear, using the execution rules defined in the [Mantle](bedrock-v1.1-mantle-specification.md).
+3. Insert the leader reward of the block in the ledger.
 
-Steps 1 and 2 read the epoch and the state of the [Service Declaration Protocol](bedrock-service-declaration-protocol.md), never the transactions of the block, which is what lets them run before those transactions are validated and makes the reward notes of step 2 available to them.
+Step 1 reads the epoch and the state of the [Service Declaration Protocol](bedrock-service-declaration-protocol.md), never the transactions of the block, which is what lets it run before those transactions are validated.
 
-The three steps stand or fall together, on a block that has validated in full: a block that fails validation at any point is not executed at all. The voucher of step 1 is appended to the set the following epoch starts with, so it lands at the epoch boundary rather than with the other two.
+The leader reward of step 3 is the one defined in [Blend Service and Consensus Leaders](overview-cryptoeconomics.md#blend-service-and-consensus-leaders), computed from the [Block Rewards](block-rewards.md) of the block and the Execution market tips of its transactions, which is why it comes after them. It is paid as a single note with a nonce of `0` under the `reward_key` of the block, and its commitment is appended to the commitment MMR of the [Mantle Ledger](bedrock-v1.1-mantle-specification.md#ledger):
+
+```python
+leader_note = Note(
+    value=get_leader_reward(block),
+    nonce=0,
+    public_key=block.header.proof_of_leadership.reward_key
+)
+ledger.execute_adding([derive_note_cm(leader_note)])
+```
+
+The note is shielded: spending it reveals neither its commitment nor its value, so the leader cannot be linked to the block through its reward. The `reward_key` must be a fresh key for every block. Reusing it links the blocks that carry it to the same leader, and two rewards of the same value under the same key share a commitment, so only one of them can be spent.
+
+The three steps stand or fall together, on a block that has validated in full: a block that fails validation at any point is not executed at all.
 
 The carried `uncle_headers` are not executed. A referenced uncle is not part of the chain; therefore, its transactions have no effect on the ledger state. The uncles are used only as evidence of consensus participation for the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference).
 
@@ -427,19 +443,15 @@ Relative to a design that carries the count in the signed header, this removes o
 
 ## Batch verification of ZK proofs
 
-### Proofs of Claim
+### ZkTransfer
 
-1. For each proof of Claim, the verifier collects the classic Groth16 elements required for verification. It includes the proof $`\pi^{(i)}`$, and the public values $`x_j^{(i)}`$ for each proof of claim.
+1. For each ZkTransfer proof, the verifier collects the classic Groth16 elements required for verification. It includes the proof $`\pi^{(i)}`$, and the public values $`x_j^{(i)}`$ for each proof.
 2. The verifier draws one random value for each proof $`r_i \overset{\$}{\leftarrow} \mathbb{F}_p`$.
 3. The verifier computes:
-1. $`\pi'_{j} := \sum_{i=1}^k r_i \cdot \pi_j^{(i)}`$ for $`j \in \{A,B,C\}`$.
+1. $`\pi'_C := \sum_{i=1}^k r_i \cdot \pi_C^{(i)}`$.
 2. $`r' := \sum_{i=1}^k r_i`$
 3. $`IC := r' \cdot \Psi_0 + \sum_{j=1}^l\left( \sum_{i=1}^k r_i \cdot x_j^{(i)} \right) \cdot \Psi_j`$
 
-4. They test if $`\sum_{i=1}^k e(r_1\pi'_A,\pi'_B) = e(r'[\alpha]_1,[\beta]_2)+ e(IC,[\gamma]_2) + e(\pi'_C,[\delta]_2)`$.
+4. They test if $`\sum_{i=1}^k e(r_i\pi_A^{(i)},\pi_B^{(i)}) = e(r'[\alpha]_1,[\beta]_2)+ e(IC,[\gamma]_2) + e(\pi'_C,[\delta]_2)`$.
 
   Note that this batch verification of Groth16 proofs is the same as what is described in the Zcash paper, Appendix B.2.
-
-### ZkSignatures
-
-The verifier follows the same procedure as in [Proofs of Claim](#proofs-of-claim) but with the Groth16 proofs of ZkSignatures.

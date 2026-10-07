@@ -32,6 +32,7 @@
 | 1.1.4 | Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy. | 2026-08-25 |
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
 | 1.2.0 | Seed the pow reward pool at genesis from the initial token distribution | 2026-09-08 |
+| 1.3.0 | Support the private ledger of Mantle: the initial distribution is made of note commitments whose preimages are published in the Cryptarchia inscription, and the declarations consume the distributed notes | 2026-10-07 |
 
 # Introduction
 
@@ -41,7 +42,7 @@ The Genesis Block defines the starting state for the Bedrock chain, including th
 
 The Genesis Block establishes the initializing values for the various protocols and services. This includes the initial token distribution, initial nodes participating in Blend Network and the result of running the epoch nonce ceremony.
 
-The block body is a single Mantle Transaction (see [Mantle](bedrock-v1.1-mantle-specification.md)) containing a Transfer Operation distributing the notes to initial token holders. The bedrock services are initialized through `SDP_DECLARE` Operations embedded in the Mantle Transaction’s Operations list and protocol initializing constants are encoded through a `CHANNEL_INSCRIBE` Operation also embedded in the Operations list.
+The block body is a single Mantle Transaction (see [Mantle](bedrock-v1.1-mantle-specification.md)) containing a Transfer Operation distributing the notes to initial token holders. The bedrock services are initialized through `SDP_DECLARE` Operations embedded in the Mantle Transaction’s Operations list and protocol initializing constants are encoded through a `CHANNEL_INSCRIBE` Operation also embedded in the Operations list, followed by a second `CHANNEL_INSCRIBE` Operation publishing the initial distribution.
 
 Not all protocol constants are encoded in the Genesis block. The principle we use to decide whether a value should be in the Genesis block or not is whether it is a value that is derived from blockchain activity or whether it is updated through a protocol update (hard / soft fork). For example, the epoch nonce is updated through normal blockchain Operations and therefore it should be specified in the Genesis block. Gas constants are only changed through protocol updates and hard forks and therefore they will be hardcoded in the node implementation.
 
@@ -51,23 +52,42 @@ The Genesis Block is composed of the Genesis Block Header and the Genesis Mantle
 
 ## Initial Token Distribution
 
-Initial tokens will be distributed through a Transfer Operation containing zero inputs and one output note for each initial stakeholder. Note that since the Ledger is transparent, the initial stake allocation is visible to everyone. Those wishing to hide their initial stake may opt to subdivide their note into a few different notes of equal value.
+Initial tokens will be distributed through a Transfer Operation containing zero inputs and one output note commitment for each initial stakeholder. The nonce of each note is its output index.
+
+The initial stake allocation is public: the value and public key of every output are published in an inscription sent to the null channel right after the [Cryptarchia Parameters](#cryptarchia-parameters) inscription, so everyone can recompute the output commitments and audit the initial supply. Those wishing to hide their initial stake may opt to subdivide their note into a few different notes of equal value.
+
+The distribution inscription is the number of outputs as one byte, followed by the value (`UINT64`) and the public key (`ZkPublicKey`) of each output, in output order, encoded as in [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures).
 
 In order to participate in the Cryptarchia lottery, stakeholders must generate their note keys in accordance with the Proof of Leadership protocol specified at [Protocol](cryptarchia-proof-of-leadership.md#protocol).
 
-The initial state of the Ledger will be derived through normal execution of this Transfer Operation, that is, each output’s note ID will be added to the unspent notes set.
+The initial state of the Ledger will be derived through normal execution of this Transfer Operation, that is, each output commitment will be appended to the commitment MMR.
 
 **Example**
 
 ```python
+STAKE_DISTRIBUTION_NOTES = [
+    Note(value=1000, nonce=0, public_key=STAKE_HOLDER_0_PK),
+    Note(value=2000, nonce=1, public_key=STAKE_HOLDER_1_PK),
+    Note(value=1500, nonce=2, public_key=STAKE_HOLDER_2_PK),
+    # ...
+]
+
 STAKE_DISTRIBUTION = Transfer(
     inputs=[],
-    outputs=[
-        Note(value=1000, public_key=STAKE_HOLDER_0_PK),
-        Note(value=2000, public_key=STAKE_HOLDER_1_PK),
-        Note(value=1500, public_key=STAKE_HOLDER_2_PK),
-        # ...
-    ]
+    outputs=[derive_note_cm(note) for note in STAKE_DISTRIBUTION_NOTES],
+    cm_merkle_root=EMPTY_MMR_ROOT,
+    excess_value=0,
+)
+
+distribution = len(STAKE_DISTRIBUTION_NOTES).to_bytes(1, "little")
+for note in STAKE_DISTRIBUTION_NOTES:
+    distribution += note.value.to_bytes(8, "little") + note.public_key.to_bytes(32, "little")
+
+DISTRIBUTION_INSCRIPTION = Inscribe(
+    channel=bytes(32),
+    inscription=distribution,
+    parent=hash(encode(CRYPTARCHIA_INSCRIPTION)),
+    signer=Ed25519PublicKey_ZERO,
 )
 ```
 
@@ -98,11 +118,14 @@ Blend enforces a minimal network size for the service to be active. Thus, in ord
 
 ```python
 BLEND_DECLARATIONS = [
-    Declaration(
-        msg=DeclarationMessage(
-            ServiceType.BLEND, ["ip://1.1.1.1:3000"], PROVIDER_ID_0, ZK_ID_0
-        ),
-        service_note_id=STAKE_DISTRIBUTION_TX.output_note_id(0)
+    DeclarationMessage(
+        service_type=ServiceType.BLEND,
+        locators=["ip://1.1.1.1:3000"],
+        provider_id=PROVIDER_ID_0,
+        zk_id=ZK_ID_0,
+        inputs=[STAKE_HOLDER_0_NF],  # nullifier of the output 0 of STAKE_DISTRIBUTION
+        cm_merkle_root=EMPTY_MMR_ROOT,
+        amount=1000,
     ),
     # ... 32 total declarations
 ]
@@ -124,7 +147,7 @@ Cryptarchia is initialized with the following parameters:
 - `genesis_epoch_nonce`: 32 bytes, hex encoded.
   The initial source of randomness for the Cryptarchia lottery. The process for selecting this value is described in detail at [Epoch Nonce Ceremony](#epoch-nonce-ceremony).
 
-These parameters are encoded in the Genesis block as an inscription sent to the null channel, signed by the null key. The null channel is the channel whose `ChannelId` is 32 zero bytes and the null key is the Ed25519 public key made of 32 zero bytes, written `Ed25519PublicKey_ZERO` in the examples below. No one holds the secret key behind it, so the null channel receives the Genesis inscription and nothing else ever after.
+These parameters are encoded in the Genesis block as an inscription sent to the null channel, signed by the null key. The null channel is the channel whose `ChannelId` is 32 zero bytes and the null key is the Ed25519 public key made of 32 zero bytes, written `Ed25519PublicKey_ZERO` in the examples below. No one holds the secret key behind it, so the null channel receives the Genesis inscriptions and nothing else ever after.
 
 **Example**
 
@@ -182,11 +205,11 @@ $$
 
 ## Genesis Mantle Transaction
 
-The initial stake distribution, service declarations and Cryptarchia inscription are components of the Genesis Mantle Transaction. This is the single transaction that forms the body of the Genesis block.
+The initial stake distribution, Cryptarchia and distribution inscriptions and service declarations are components of the Genesis Mantle Transaction. This is the single transaction that forms the body of the Genesis block.
 
 ```python
 GENESIS_MANTLE_TX = MantleTx(
-    ops=[STAKE_DISTRIBUTION, CRYPTARCHIA_INSCRIPTION] + SERVICE_DECLARATIONS,
+    ops=[STAKE_DISTRIBUTION, CRYPTARCHIA_INSCRIPTION, DISTRIBUTION_INSCRIPTION] + SERVICE_DECLARATIONS,
 )
 ```
 
@@ -199,7 +222,7 @@ The Genesis Block header fields are set to the following values:
 - `slot`: 0 (the Genesis slot).
 - `body_root`: the body commitment over an empty `uncle_headers` list (as the Genesis Block references no uncle, it encodes as a zero element count) and the Merkle root over the (single) initial transaction.
 - `proof_of_leadership`: Stubbed leadership proof.
-  - `leader_voucher`: 0 (as there is no leader block reward for the initial block).
+  - `reward_key`: 0 (as there is no leader block reward for the initial block).
   - `entropy_contribution`: 0 (no entropy is provided through the initial PoL).
   - `proof`: Null Groth16Proof, all values are set to zero.
   - `leader_key`: Null PublicKey.
@@ -213,7 +236,7 @@ GENESIS_HEADER = Header(
     slot=0,
     body_root=body_root([], [GENESIS_MANTLE_TX]),
     proof_of_leadership=ProofOfLeadership(
-        leader_voucher=bytes(32),
+        reward_key=bytes(32),
         entropy_contribution=bytes(32),
         proof=Groth16Proof(G1_ZERO, G2_ZERO, G1_ZERO),
         leader_key=Ed25519PublicKey_ZERO,
@@ -223,14 +246,18 @@ GENESIS_HEADER = Header(
 
 ```python
 # distribute NMO to all stakeholders
+STAKE_DISTRIBUTION_NOTES = [
+    Note(value=1000, nonce=0, public_key=STAKE_HOLDER_0_PK),
+    Note(value=2000, nonce=1, public_key=STAKE_HOLDER_1_PK),
+    Note(value=1500, nonce=2, public_key=STAKE_HOLDER_2_PK),
+    # ...
+]
+
 STAKE_DISTRIBUTION = Transfer(
     inputs=[],
-    outputs=[
-        Note(value=1000, public_key=STAKE_HOLDER_0_PK),
-        Note(value=2000, public_key=STAKE_HOLDER_1_PK),
-        Note(value=1500, public_key=STAKE_HOLDER_2_PK),
-        # ...
-    ]
+    outputs=[derive_note_cm(note) for note in STAKE_DISTRIBUTION_NOTES],
+    cm_merkle_root=EMPTY_MMR_ROOT,
+    excess_value=0,
 )
 
 # set Cryptarchia parameters
@@ -253,11 +280,28 @@ CRYPTARCHIA_INSCRIPTION = Inscribe(
     signer=Ed25519PublicKey_ZERO,
 )
 
+# publish the initial distribution
+distribution = len(STAKE_DISTRIBUTION_NOTES).to_bytes(1, "little")
+for note in STAKE_DISTRIBUTION_NOTES:
+    distribution += note.value.to_bytes(8, "little") + note.public_key.to_bytes(32, "little")
+
+DISTRIBUTION_INSCRIPTION = Inscribe(
+    channel=bytes(32),
+    inscription=distribution,
+    parent=hash(encode(CRYPTARCHIA_INSCRIPTION)),
+    signer=Ed25519PublicKey_ZERO,
+)
+
 # service declarations
 BLEND_DECLARATIONS = [
-    Declaration(
-        msg=DeclarationMessage(ServiceType.BLEND, ["ip://1.1.1.1:3000"], PROVIDER_ID_0, ZK_ID_0),
-        service_note_id=STAKE_DISTRIBUTION.output_note_id(0)
+    DeclarationMessage(
+        service_type=ServiceType.BLEND,
+        locators=["ip://1.1.1.1:3000"],
+        provider_id=PROVIDER_ID_0,
+        zk_id=ZK_ID_0,
+        inputs=[STAKE_HOLDER_0_NF],  # nullifier of the output 0 of STAKE_DISTRIBUTION
+        cm_merkle_root=EMPTY_MMR_ROOT,
+        amount=1000,
     ),
     # ... more declarations
 ]
@@ -265,7 +309,7 @@ SERVICE_DECLARATIONS = BLEND_DECLARATIONS
 
 # build the genesis Mantle Transaction
 GENESIS_MANTLE_TX = MantleTx(
-    ops=[STAKE_DISTRIBUTION, CRYPTARCHIA_INSCRIPTION] + SERVICE_DECLARATIONS,
+    ops=[STAKE_DISTRIBUTION, CRYPTARCHIA_INSCRIPTION, DISTRIBUTION_INSCRIPTION] + SERVICE_DECLARATIONS,
 )
 
 GENESIS_HEADER = Header(
@@ -274,7 +318,7 @@ GENESIS_HEADER = Header(
     slot=0,
     body_root=body_root([], [GENESIS_MANTLE_TX]),
     proof_of_leadership=ProofOfLeadership(
-        leader_voucher=bytes(32),
+        reward_key=bytes(32),
         entropy_contribution=bytes(32),
         proof=Groth16Proof(G1.ZERO, G2.ZERO, G1.ZERO),
         leader_key=Ed25519PublicKey_ZERO,
@@ -288,19 +332,19 @@ GENESIS_BLOCK = (GENESIS_HEADER, [GENESIS_MANTLE_TX])
 
 # Initializing Bedrock
 
-Bedrock is initialized by validating and executing the Genesis Mantle Transaction under the ordinary Mantle rules, [Validation](bedrock-v1.1-mantle-specification.md#validation) and [Execution](bedrock-v1.1-mantle-specification.md#execution), with the exemptions listed in [Genesis Validation Exemptions](#genesis-validation-exemptions) and no others. Its Operations are validated and executed one after the other in the order they appear, each against the state the preceding ones left, which is what makes the `SDP_DECLARE` Operations able to lock notes the Transfer Operation before them created.
+Bedrock is initialized by validating and executing the Genesis Mantle Transaction under the ordinary Mantle rules, [Validation](bedrock-v1.1-mantle-specification.md#validation) and [Execution](bedrock-v1.1-mantle-specification.md#execution), with the exemptions listed in [Genesis Validation Exemptions](#genesis-validation-exemptions) and no others. Its Operations are validated and executed one after the other in the order they appear, each against the state the preceding ones left, which is what makes the `SDP_DECLARE` Operations able to consume notes the Transfer Operation before them created.
 
 The Genesis block is not a block proposal and is not validated as one: none of the checks of [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation) apply, and no validation or execution is done for the Genesis block header, in particular processing of `proof_of_leadership` is skipped.
 
 Validating the Genesis Mantle Transaction is not what makes the Genesis block trustworthy. The block is agreed upon out of band, every node starts from the same one, and a node that rejected it would have no chain to join. The checks are kept for two reasons: a malformed or inconsistent Genesis block is then reported when a node is set up rather than surfacing later as unexplained runtime behaviour, and Genesis stays on the ordinary Operation processing path instead of needing an unvalidated path of its own. This is why the exemptions below are a closed list rather than a general licence to skip validation.
 
-The Genesis Mantle Transaction holds, in this order, the Transfer Operation distributing the initial tokens, the `CHANNEL_INSCRIBE` Operation carrying the Cryptarchia parameters, and one `SDP_DECLARE` Operation per initial service provider. A Genesis Mantle Transaction whose Operations do not follow that shape, or that holds an Operation of any other opcode, is invalid.
+The Genesis Mantle Transaction holds, in this order, the Transfer Operation distributing the initial tokens, the `CHANNEL_INSCRIBE` Operation carrying the Cryptarchia parameters, the `CHANNEL_INSCRIBE` Operation publishing the initial distribution, and one `SDP_DECLARE` Operation per initial service provider. A Genesis Mantle Transaction whose Operations do not follow that shape, or that holds an Operation of any other opcode, is invalid.
 
 ## Genesis Validation Exemptions
 
 The checks below, and only these, are skipped when the Genesis Mantle Transaction is processed. Each one is skipped because the Genesis block, having no state before it and no signer the chain knows about, cannot satisfy it.
 
-1. **Every proof and signature.** No Operation proof is verified at Genesis: neither the `ZkSignature` of the Transfer Operation, nor the `Ed25519Signature` of the inscription, nor the `DeclarationProof` of the `SDP_DECLARE` Operations. The Transfer Operation consumes no note and therefore has no public key to verify against, the inscription is signed by the null key whose secret key nobody holds, and the keys a declaration would prove ownership of are already fixed by the out of band agreement on the Genesis block, so verifying them would establish nothing a node does not already have to trust. The `op_proofs` list still holds one entry per Operation, of the type that Operation requires, and those entries are placeholders.
+1. **Every proof and signature.** No Operation proof is verified at Genesis: neither the `ZkTransfer` of the Transfer Operation, nor the `Ed25519Signature` of the inscriptions, nor the `DeclarationProof` of the `SDP_DECLARE` Operations. The Transfer Operation consumes no note and therefore cannot balance its outputs, the inscriptions are signed by the null key whose secret key nobody holds, and the keys a declaration would prove ownership of are already fixed by the out of band agreement on the Genesis block, so verifying them would establish nothing a node does not already have to trust. The `op_proofs` list still holds one entry per Operation, of the type that Operation requires, and those entries are placeholders.
 
 2. **The transaction balance covering the mandatory fees.** The whole initial token supply is created out of nothing by the Transfer Operation, so the balance of the Genesis Mantle Transaction is negative and no fee can be paid from it. Step 3 of [Validation](bedrock-v1.1-mantle-specification.md#validation) is skipped, no mandatory fee is charged and no `tx_priority_tip` is derived. The Genesis Mantle Transaction is accounted as costing no gas.
 
@@ -310,7 +354,9 @@ Everything else is validated as it would be in any other block, against the stat
 
 ## Mantle Ledger Initialization
 
-The Transfer Operation distributing the initial tokens is validated and executed as any other Transfer Operation, minus the two exemptions covering its inputs and the transaction balance. Its outputs are validated as [Output Notes Validation](bedrock-v1.1-mantle-specification.md#output-notes-validation) requires. The result of normal transfer execution adds all outputs to the Ledger, their `NoteId` derived from the Operation as usual.
+Before Genesis, the commitment MMR of the Ledger is empty and its root is the only commitment root of a recent block, and the [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) has a single leaf, the sentinel `NullifierLeaf(0, 0, 0)`.
+
+The Transfer Operation distributing the initial tokens is validated and executed as any other Transfer Operation, minus the exemptions covering its proof, its inputs and the transaction balance. The result of normal transfer execution appends all output commitments to the commitment MMR and to the commitment buffer of the transaction.
 
 The pow reward pool is initialized at the same time:
 
@@ -325,6 +371,8 @@ The Mantle Transaction contains an inscription sent to the null channel containi
 
 Two conditions are specific to Genesis. The inscription must be addressed to the null channel and signed by the null key, an inscription anywhere else not being a set of Cryptarchia parameters. It must also decode to exactly the three parameters, encoded as [Cryptarchia Parameters](#cryptarchia-parameters) specifies and with no trailing bytes. A node that cannot decode them has no clock, no chain identifier and no lottery randomness, and must reject the Genesis block.
 
+The distribution inscription that follows is validated as an ordinary `CHANNEL_INSCRIBE` Operation minus its signature, its `parent` being the Cryptarchia inscription. It must decode, as [Initial Token Distribution](#initial-token-distribution) specifies and with no trailing bytes, to one value and public key per output of the Transfer Operation, and the output at index `i` must be `derive_note_cm(Note(value, i, public_key))` for the value and public key published at index `i`. A node for which the published distribution does not match the outputs must reject the Genesis block.
+
 The Cryptarchia slot clock is initialized to `genesis_time`, `LIB` is set to the Genesis block and the epoch state is then initialized:
 
 ### Initial Epoch State
@@ -334,14 +382,14 @@ Cryptarchia progresses in epochs where the variables governing the lottery are f
 To initialize the Epoch State, we derive the epoch variables from the genesis block.
 
 1. $`\eta`$ : the epoch nonce is taken directly from the `genesis_epoch_nonce`.
-2. $`\mathbb{C}_\text{LEAD}`$: Eligible leader commitment is set to the the Ledger Root over all notes from the initial token distribution. The derivation of this root is specified in [Ledger Root](cryptarchia-proof-of-leadership.md#ledger-root).
+2. $`\mathbb{C}_\text{LEAD}`$: Eligible leader commitment is set to the roots of the shielded and transparent eligible sets after the execution of the Genesis Mantle Transaction. The derivation of these roots is specified in [Eligible Sets](cryptarchia-proof-of-leadership.md#eligible-sets).
 3. $`D`$: The initial estimate of total stake will be the total tokens distributed at genesis.
 
 ## Bedrock Services Initialization
 
 Blend network is initialized through normal Mantle Transaction execution. The `SDP_DECLARE` Operations in the Genesis Mantle Transaction will create the initial set of providers in each service.
 
-Beyond their proofs, the declarations carry no exemption: each is validated as [SDP_DECLARE](bedrock-v1.1-mantle-specification.md#sdp_declare) requires, against the state the Operations preceding it left, and executed with `created` set to epoch 0, the epoch the Genesis block belongs to. The service note a declaration names is an output of the Transfer Operation that precedes it, which is why the Operation order of the Genesis Mantle Transaction is normative, and the minimum stake that note is measured against is the one the node implementation starts with, the Genesis block encoding no service parameter.
+Beyond their proofs, the declarations carry no exemption: each is validated as [SDP_DECLARE](bedrock-v1.1-mantle-specification.md#sdp_declare) requires, against the state the Operations preceding it left, and executed with `created` set to epoch 0, the epoch the Genesis block belongs to. The notes a declaration consumes are outputs of the Transfer Operation that precedes it, proven against the empty MMR root extended with the commitment buffer of the transaction, which is why the Operation order of the Genesis Mantle Transaction is normative, and the minimum stake the declared amount is measured against is the one the node implementation starts with, the Genesis block encoding no service parameter.
 
 The number of declarations is a property of the Genesis block rather than of any single Operation, and is the one [Initial Service Declarations](#initial-service-declarations) requires.
 

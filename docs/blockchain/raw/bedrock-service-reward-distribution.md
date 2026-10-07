@@ -32,6 +32,7 @@
 | 1.3.2 | Pinned the encoding of `epoch_number` in the reward `op_id` preimage to the 4 bytes of an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch) | 2026-08-25 |
 | 1.3.3 | One reward note per `zk_id`, and none for a zero reward, matching the implementation | 2026-09-01 |
 | 1.3.4 | Adopted "active message" as the single name for the message | 2026-09-02 |
+| 1.4.0 | Reward notes are shielded notes whose commitments are appended to the commitment MMR, their nonce derived from `hash(ServiceType \|\| epoch_number)` and their output number | 2026-10-07 |
 
 # Introduction
 
@@ -81,7 +82,7 @@ Where $`Rewards\_Epoch`$ are the total rewards of epoch **N**. The $`Rewards\_Ep
 
 ## Service Reward Distribution
 
-Starting immediately after epoch **N+1**, service rewards are distributed in the first block of epoch **N+2.** The rewards are inserted directly in the ledger without triggering any Mantle validation. The `NoteId` is computed using the result of `hash(`[`ServiceType`](bedrock-service-declaration-protocol.md)`|| epoch_number)` as the `op_id`, where `ServiceType` is serialized as its canonical one-byte discriminant ([Service Types](bedrock-service-declaration-protocol.md#service-types)) and `epoch_number` as the 4 bytes of an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch). A `zk_id` whose reward amount is zero receives no note. The output number is the position of the `zk_id` among the rewarded `zk_id`s, sorted in ascending order.
+Starting immediately after epoch **N+1**, service rewards are distributed in the first block of epoch **N+2.** The rewards are inserted directly in the ledger without triggering any Mantle validation: the commitment of each reward note is appended to the commitment MMR of the [Mantle Ledger](bedrock-v1.1-mantle-specification.md#ledger). The nonce of each note is `derive_note_nonce(op_id, output_number, value, zk_id)` ([Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier)), using the result of `hash(`[`ServiceType`](bedrock-service-declaration-protocol.md)`|| epoch_number)` as the `op_id`, where `ServiceType` is serialized as its canonical one-byte discriminant ([Service Types](bedrock-service-declaration-protocol.md#service-types)) and `epoch_number` as the 4 bytes of an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch). A `zk_id` whose reward amount is zero receives no note. The output number is the position of the `zk_id` among the rewarded `zk_id`s, sorted in ascending order.
 
 The reward must:
 
@@ -90,6 +91,6 @@ The reward must:
   - Be distributed as exactly one note per rewarded `zk_id`. Rewards are never summed or merged into a shared note.
   - Be executed identically by every node processing the first block of epoch N+2. This happens by inserting notes in the ledger in ascending order of `zk_id`.
 
-Nodes indirectly verify the correct inclusion of rewards because all consensus-validating nodes must maintain the same ledger view to derive the latest ledger root, which serves as input for verifying the [Proof of Leadership](cryptarchia-proof-of-leadership.md).
+Nodes indirectly verify the correct inclusion of rewards because all consensus-validating nodes must maintain the same ledger view to derive the commitment roots of recent blocks and the eligible set roots, which serve as inputs for verifying the transactions and the [Proof of Leadership](cryptarchia-proof-of-leadership.md).
 
 After the epoch-**N** rewards are distributed, withdrawn declarations whose last rewardable epoch was **N** are removed by Mantle as part of the same epoch transition (see [SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).

@@ -25,6 +25,7 @@
 | 1.1.0 | [\[RFC\] Enforce NoteId uniqueness](mantle-transaction-encoding/appendices/rfc-enforce-noteid-uniqueness.md). | 2026-04-24 |
 | 1.1.1 | [\[RFC\] Simplify Mantle Transaction and Refactor Ledger Operations](mantle-transaction-encoding/appendices/rfc-simplify-mantle-transaction-and-refactor-ledger-operations.md) | 2026-05-06 |
 | 1.2.0 | Align the atomic transfer example with the `CHANNEL_DEPOSIT` execution consuming its inputs and re-creating them in the destination channel. | 2026-07-27 |
+| 1.3.0 | Align the atomic transfer example with the private ledger of Mantle: notes are named by their commitment and consumed by their nullifier | 2026-10-07 |
 
 # Introduction
 
@@ -181,25 +182,31 @@ receiving = Inscribe(
     signer=sequencer_of_zone_b
 )
 # Sequencer of Zone A encodes the withdrawal from Zone A. The note leaves the
-# channel keeping its NoteId, its value and its ZkPublicKey
+# channel keeping its NoteCm, its value and its ZkPublicKey
 withdrawal = ChannelWithdraw(
     channel=CHANNEL_ZONE_A,
-    inputs=[zone_a_channel_note_id]
+    outputs=[zone_a_channel_note_cm]
 )
-# The withdrawn note is deposited to Zone B, where it is consumed and
-# re-created as a channel note under a new NoteId
+# The withdrawn note is deposited to Zone B, where it is consumed by its
+# nullifier and re-created as a channel note under a new NoteCm
 deposit = ChannelDeposit(
     channel=CHANNEL_ZONE_B,
-    inputs=[zone_a_channel_note_id],
+    inputs=[derive_note_nf(zone_a_channel_note_cm, zone_a_note_zk_sk)],
+    cm_merkle_root=<recent_cm_root>,
+    amount=<zone_a_channel_note_value>,
+    pk=<zone_b_note_zk_pk>,
     metadata=b"transfer from Zone A"
 )
 # Build the transfer operation to pay the fees
 transfer = Transfer(
-    inputs=[<sequencer_zone_a_note_id>],
-    outputs=[<change_note>]
+    inputs=[<sequencer_zone_a_note_nf>],
+    outputs=[<change_note_cm>],
+    cm_merkle_root=<recent_cm_root>,
+    excess_value=<fee>
 )
 # Wrap it in a transaction. Operations are executed sequentially, so the
-# withdrawal must precede the deposit for the note to be spendable
+# withdrawal must precede the deposit for the withdrawn note commitment to be
+# in the commitment buffer of the transaction the deposit is proven against
 tx = MantleTx(
     ops=[Op(opcode=CHANNEL_INSCRIBE, payload=encode(sending)),
          Op(opcode=CHANNEL_INSCRIBE, payload=encode(receiving)),

@@ -1456,7 +1456,7 @@ def derive_op_id(operation: Op) -> Hash:
 
 def derive_note_nonce(op_id: Hash, output_number: int, value: TokenValue, public_key: ZkPublicKey) -> NoteNonce:
     return zkhash(
-        FiniteField(b"NOTE_ID_V1", byte_order="little", modulus= p),
+        FiniteField(b"NOTE_NONCE_V1", byte_order="little", modulus= p),
         FiniteField(op_id, byte_order="little", modulus= p),
         FiniteField(output_number, byte_order="little", modulus= p),
         FiniteField(value, byte_order="little", modulus= p),
@@ -1628,6 +1628,8 @@ class Ledger:
 
 From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md), we get the table below:
 
+<!-- TODO: update the values with the Gas Cost Determination -->
+
 | Constants | Value |
 | --- | --- |
 | EXECUTION_TRANSFER_GAS | 590 |
@@ -1637,9 +1639,9 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_CHANNEL_WITHDRAW_GAS | 56 |
 | EXECUTION_CHANNEL_TRANSFER_GAS | 56 |
 | EXECUTION_SDP_DECLARE_GAS | 646 |
-| EXECUTION_SDP_WITHDRAW_GAS | 590 |
-| EXECUTION_SDP_ACTIVE_GAS | 590 |
-| EXECUTION_CLAIM_POW_REWARD_GAS | 590 |
+| EXECUTION_SDP_WITHDRAW_GAS | 56 |
+| EXECUTION_SDP_ACTIVE_GAS | 56 |
+| EXECUTION_CLAIM_POW_REWARD_GAS | 0 |
 
 ## Zero Knowledge Transfer Proof (ZkTransfer)
 
@@ -1740,8 +1742,8 @@ The material used for the benchmarks is the following:
 
 ## Multiple Ed25519 Signatures Verification
 
-Several operations (e.g. [Channel Configuration](#channel-configuration) and
-[Channel Withdraw](#channel-withdraw)) authorize an action with a threshold of
+Several operations (e.g. [Channel Configuration](#channel_config) and
+[Channel Withdraw](#channel_withdraw)) authorize an action with a threshold of
 Ed25519 signatures produced by a list of accredited keys. Each signature comes
 with the index, in the accredited keys list, of the key that produced it. The
 verification is factored out in the following routine:
@@ -1780,6 +1782,8 @@ def MultiEd25519_verify(msg, signatures, indexes, keys, threshold):
 
 ## Test Vectors
 
+TODO: update the test vectors
+
 To see what the payloads represent, refer to [Mantle Transaction Encoding](mantle-transaction-encoding.md).
 
 ### Operation Id
@@ -1806,7 +1810,7 @@ To see what the payloads represent, refer to [Mantle Transaction Encoding](mantl
 
 ### Declaration Id
 
-The `declaration_id` ([Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage)) is `Hash(service||provider_id||zk_id||locators)` (BLAKE2b, 256-bit output, no DST), where `service` is the one-byte `ServiceType` discriminant and `locators` is the `Locators` production ([Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations)): the element count followed by each `Locator`'s binary form prefixed with its 2-byte little-endian byte length. Note that the preimage field order differs from the `SDP_DECLARE` wire order and excludes `service_note_id`. This vector reuses the fields of the `SDP_DECLARE` payload from [Operation Id](#operation-id).
+The `declaration_id` ([Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage)) is `Hash(service||provider_id||zk_id||locators)` (BLAKE2b, 256-bit output, no DST), where `service` is the one-byte `ServiceType` discriminant and `locators` is the `Locators` production ([Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations)): the element count followed by each `Locator`'s binary form prefixed with its 2-byte little-endian byte length. Note that the preimage field order differs from the `SDP_DECLARE` wire order and excludes the `inputs`, the `cm_merkle_root` and the `amount`. This vector reuses the fields of the `SDP_DECLARE` payload from [Operation Id](#operation-id).
 
 | Field | Value |
 | - | - |

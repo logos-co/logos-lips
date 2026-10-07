@@ -28,6 +28,7 @@
 | 1.2.1 | Changing from burning/minting to pooling/distributing/releasing | 2026-08-25 |
 | 1.2.2 | Stated that the minimum stake of a service is locked in a service note | 2026-08-27 |
 | 1.3.0 | Add the proof of work reward pool, funded by diverting a share of the collected fees before they reach the rewards pool | 2026-08-31 |
+| 1.4.0 | Pay the leader reward of a block in the block itself, as a shielded note under a one-time public key of the leader | 2026-10-07 |
 
 > **Disclaimer**:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -61,12 +62,11 @@ In this section we present an overview of the cryptoeconomical aspects of the Lo
     - Execution fee: covers the computational resources consumed by the transaction.
     - Permanent Storage fee: covers the permanent Ledger storage resources consumed by the transaction.
 - Execution base fees and storage fees are routed into the rewards pool for each block, removing them from circulation, except for the share diverted to the [Proof of Work Reward Pool](#proof-of-work-reward-pool).
-- Rewards are distributed on an epoch basis:
-    - Leaders (block proposers) include Mantle Transactions in every block. Each transaction pays Permanent Storage and Execution fees, which are routed into the rewards pool. For each block, a reward is calculated following the [Block Rewards](block-rewards.md). Additionally, a portion of the Execution fees is distributed back to leaders from the pool according to the [Execution Market](execution-market.md). These two sources determine the total rewards allocated to leaders, as explained in [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders), which correspond to tips from the Execution market and 40% of block rewards. For anonymity reasons, block proposers don't receive rewards directly. Instead, leader rewards accumulate in a single pool that increases on an epoch basis rather than per block (see [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md)). When a new epoch begins, the pool increases by the total leader rewards from all blocks in the previous epoch. Simultaneously, leaders from the previous epoch can start claiming their rewards, with each unclaimed reward (since genesis) representing one equal share of the pool.
+- Rewards are distributed per block for leaders and on an epoch basis for Blend nodes:
+    - Leaders (block proposers) include Mantle Transactions in every block. Each transaction pays Permanent Storage and Execution fees, which are routed into the rewards pool. For each block, a reward is calculated following the [Block Rewards](block-rewards.md). Additionally, a portion of the Execution fees is distributed back to leaders from the pool according to the [Execution Market](execution-market.md). These two sources determine the total rewards allocated to leaders, as explained in [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders), which correspond to tips from the Execution market and 40% of block rewards. The leader receives them in the block itself, as a shielded note under a one-time public key (see [Block Execution](bedrock-v1.1-block-construction.md#block-execution)).
     - Blend nodes provide Blend service to the network for at least one epoch. Using the same [Block Rewards](block-rewards.md), the protocol determines the total rewards allocated to the Blend network, as explained in [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders) which correspond to 60% of the block rewards. 
     When an epoch $`e`$  ends, Blend validators have one additional epoch $`e+1`$  to send an active message used by the [Reward Distribution Protocols](#reward-distribution-protocols) to determine reward distribution among validators. During the first block of epoch $`e+2$, Blend validators from epoch $`e`$ receive their portion of [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders) rewards, with proportions determined by the [Reward Distribution Protocols](#reward-distribution-protocols). These rewards are distributed at the start of the next epoch.
 - The [Service Rewards Distribution Protocol](#service-rewards-distribution-protocol) handles payments of rewards for Blend Services to individual nodes.
-- Individual leaders claim their rewards through a [Leader Claim Operation](bedrock-v1.1-mantle-specification.md) (on-chain transaction) that preserves privacy by separating the leader reward from the proposed block.
 
 # Constructions
 
@@ -104,7 +104,8 @@ We define "reasonable" as limiting the Execution Gas such that a potential leade
 
 Consensus nodes must validate and execute a block using a small percentage of their CPU but during a longer period than the 1 second period for leaders, as they don't have the strict timing constraints that affect consensus and would increase forking. Using only 20% of their CPU, consensus nodes can validate and execute such blocks in approximately 4 seconds.
 
-We will also assume that block verification requires an initial and fixed amount of Execution Gas for different ZK proofs. According to [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md), we will reduce the Execution Gas limit by 6,540 which is dedicated to initializing batch verification for [ZkSignature](bedrock-v1.1-block-construction.md) and [Proof of Claim](bedrock-v1.1-block-construction.md).
+TODO: update the batch verification gas and the resulting execution limit for ZkTransfer
+We will also assume that block verification requires an initial and fixed amount of Execution Gas for different ZK proofs. According to [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md), we will reduce the Execution Gas limit by 6,540 which is dedicated to initializing batch verification for [ZkTransfer](bedrock-v1.1-block-construction.md).
 
 Therefore, $`\text{limit}_{\text{Ex}} := 3,193,460`$ Execution Gas. This limit is also important to guarantee a rapid syncing of the chain.
 
@@ -139,7 +140,7 @@ The following sections explain how these principles apply to different roles in 
 The Blend service and the leaders proposing the blocks share a same block reward that is calculated for each block based on a KPI function. This KPI function takes as input the inferred total stake and the amount of Execution and Permanent Storage fees of the block. How the KPI function calculates each block reward is explained in [Block Rewards](block-rewards.md).
 
 - Blend rewards are distributed among all active Blend Nodes. Blend rewards are composed of a fraction of the block rewards. These rewards of epoch $`e`$ are defined when a new Blend epoch $`e+1`$ starts (a defined number of blocks) and are allocated to nodes based on their reported Active Messages and the [Reward Distribution Protocols](#reward-distribution-protocols) during epoch $`e+2`$ . The [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md) manages the direct payment to nodes.
-- Leaders get a voucher for each included block in epoch $`e`$ . Vouchers represent an equal share of the leader reward pool. At the start of epoch $`e+1`$ , the leaders rewards of epoch $`e`$ are added to the pool (represented by a variable) and the voucher of epoch $`e`$ can start being used. The amount added to the pool is composed of a fraction of the block rewards and a portion of the Execution fees distributed back according to the [Execution Market](execution-market.md) from all blocks of epoch $`e`$ . Vouchers can be exchanged with a reward through a [Leader Claim Operation](bedrock-v1.1-mantle-specification.md) (on-chain transaction) that preserves privacy by decoupling the leader reward from the proposed block. The reward amount, represented by a share of the pool, is computed when the claim Operation is executed (c.f. [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md)).
+- Leaders receive, for each block they propose, a single note whose value is a fraction of the block reward plus the Execution fees distributed back according to the [Execution Market](execution-market.md) for that block. The note is created during the execution of the block under a one-time public key of the leader ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)).
 
 Each block reward of each block is split as follows between the Blend service and the leader:
 
@@ -163,15 +164,13 @@ def get_blend_reward(e: epoch): # rewards for the epoch e
     return blend_rewards
 ```
 
-At the start of each epoch, the rewards are added to the leader rewards. Its amount is increased by 40% of the total block rewards of the previous epoch. The blocks from the previous epoch are denoted by B in the pseudocode below:
+For each block, the leader reward is 40% of the block reward plus the Execution market tips of the block:
 
 ```python
-def update_leader_rewards(e: epoch, # rewards for the epoch e
-    leader_rewards: int): # added to the leader reward pool
-    for b in e.blocks: # for each block of the previous epoch
-        leader_rewards += 0.4 * get_block_rewards(b) # get 40% of the rewards
-        leader_rewards += get_execution_market_tips(b) # get Execution market tips
-    return leader_rewards
+def get_leader_reward(b: block): # reward of the leader of the block b
+    leader_reward = 0.4 * get_block_rewards(b) # get 40% of the rewards
+    leader_reward += get_execution_market_tips(b) # get Execution market tips
+    return leader_reward
 ```
 
 ### Proof of Work Reward Pool
@@ -192,10 +191,10 @@ def get_pow_pool_refill(e: epoch): # refill for the epoch e
 
 No tokens are created. [Block Rewards](block-rewards.md) counts this pool as a fourth stock, beside the circulating supply, the rewards pool and the reserve. The diversion moves tokens that would otherwise have reached the rewards pool. The reserve is never drawn on to refill this pool, and a claim is paid only from what the pool holds.
 
-A block reward is a release from the reserve plus the average of the pooled fees. Diverting a share of the fees lowers that average by the same share, so it lowers the second part of the reward in the same proportion. Who bears that depends on the era:
+A block reward is a release from the reserve plus the fees pooled in the block. Diverting a share of the fees lowers the pooled fees by the same share, so it lowers the second part of the reward in the same proportion. Who bears that depends on the era:
 
 - While the reserve release dominates the reward, the reward barely moves. The diverted tokens still reach circulation, through claims instead of block rewards.
-- Once the reserve release approaches zero and the reward settles at the average pooled fee, a share diverted is a share not distributed. **The cost falls on the Blend service and the leaders**, in the 60/40 proportion in which they divide the block reward. That proportion is unchanged; the total they divide is smaller.
+- Once the reserve release approaches zero and the reward settles at the pooled fees, a share diverted is a share not distributed. **The cost falls on the Blend service and the leaders**, in the 60/40 proportion in which they divide the block reward. That proportion is unchanged; the total they divide is smaller.
 
 The emission rate factor is computed in part from the pooling rate, so the released part of the reward responds to the diversion as well. That response vanishes in both eras above, and between them it is comparable to the direct effect.
 
@@ -203,16 +202,9 @@ The emission rate factor is computed in part from the pooling rate, so the relea
 
 ## Reward Distribution Protocols
 
-### Anonymous Leaders Reward Protocol
+### Leaders
 
-To protect leaders' privacy, we must not link leaders to their blocks and rewards. Therefore, we designed a mechanism for anonymous reward claiming. A key design decision in this mechanism is that the amount of rewards a leader receives cannot be associated with or calculated based on the block they proposed. Without this approach, leaders could be linked back to their proposed blocks based on the value of their claimed rewards. This mechanism creates an anonymity pool where all leaders contribute, turning the leader-to-block assignment into a guessing game.
-
-The [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md) defines how leader rewards are maintained in the ledger and how leaders can claim them. Leader rewards follow a two-step procedure:
-
-1. When a new epoch $`e`$ starts, the unique reward pool variable for leaders is updated, increasing by the reward amount for the previous epoch $`e-1`$. This reward amount is calculated as the sum of leader block rewards from epoch $`e-1`$. Simultaneously, consensus nodes update the voucher set, adding vouchers of leaders from epoch $`e-1`$ to the global voucher set.
-1. From epoch $`e`$ onward, leaders can exchange their vouchers for shares of the rewards pool, as their vouchers are now in the set. Each unclaimed voucher represents an equal share of the leader rewards pool.
-
-Claimable rewards remain stable during an epoch because the reward pool decreases proportionally to the number of unclaimed vouchers, and the pool is neither increased nor are new vouchers added to the set during an epoch. The share being a whole number of tokens, it is rounded down, so two leaders claiming during the same epoch may still differ by one token, the last claimants of the epoch being the ones receiving the extra token. The remainder of the division is left in the pool and redistributed at the next epoch.
+To protect leaders' privacy, a leader must not be linked to the spending of its rewards. The leader reward of a block is created in the block as a note under a one-time public key the leader puts in the block header ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)). The note commitment is linked to the block, but spending the note reveals neither its commitment nor its value ([Mantle Ledger](bedrock-v1.1-mantle-specification.md#mantle-ledger)), so the reward cannot be followed once spent.
 
 ### Blend Service
 
