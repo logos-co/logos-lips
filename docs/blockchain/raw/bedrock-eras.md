@@ -160,6 +160,8 @@ A node whose release lacks the rules of an era it must apply halts when it start
 
 ## Schedule and Parameter Records
 
+Every node must apply the same rules to the same block, while the rules change over the life of the chain.
+
 A software release carries one **era schedule** per network. Each entry gives the first epoch of an era and its **parameter record**. The record holds the values the era gives to the constants that may change between eras, from [Blend Protocol](blend-protocol.md), [Cryptarchia Protocol](cryptarchia-v1-protocol.md), the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) (SDP) and [Proof of Work](proof-of-work.md). It has a fixed encoding that starts with two numbers: a layout version, which a release changes when it adds, removes or re-encodes a field, and a revision of the era's rules ([Era Parameters](#era-parameters)).
 
 Every slot and every epoch belongs to the last era that begins at or before it. An era may change the epoch length and the slot length, so a node computes the start of each era from the era before it ([Era Boundaries](#era-boundaries)):
@@ -174,6 +176,8 @@ A schedule changes only under these rules ([Era Schedule](#era-schedule)):
 - an era may not change how the [Cryptarchia Fork Choice Rule](fork-choice.md) compares chains that diverge by at most $`k`$ blocks, $`k`$ being the security parameter of [Constants](cryptarchia-v1-protocol.md#constants).
 
 ## Fork and Era Digests
+
+Nodes whose releases apply different rules must not exchange data that they would read differently.
 
 Each era has an **era digest**, a hash of its first epoch and parameter record. It also has a **fork digest**, a hash of the genesis block ID, the chain ID ([Bedrock Genesis Block](bedrock-genesis-block.md)) and the era digest of every era up to it ([Fork Digest](#fork-digest)).
 
@@ -198,6 +202,8 @@ Every transaction and most protocol identifiers carry the fork digest of their e
 
 ## Chain Data
 
+A node handles data from more than one era. A syncing node downloads old blocks, and a transaction signed just before a boundary may arrive after it.
+
 A node interprets each piece of chain data under one era:
 
 - a block or proposal, and everything it carries: the era of its slot;
@@ -212,6 +218,8 @@ A node interprets each piece of chain data under one era:
 - At startup and on checkpoint import ([Bootstrapping from Checkpoint](cryptarchia-v1-bootstr-sync.md#bootstrapping-from-checkpoint)), a node halts if its release lacks the rules of an era it must still apply, from the era of the latest immutable block to the era in force.
 
 ## Chain State
+
+A new era may change what the chain state holds and how it is laid out, while the state built under the previous era must carry over.
 
 Between eras, the **recorded chain state** passes through a **migration** that the new era defines ([Era Migration](#era-migration)). The recorded chain state is the state [Mantle](bedrock-v1.1-mantle-specification.md) Operations are validated against, together with the SDP snapshots. A migration turns the state of the previous era into the state of the new era. It:
 
@@ -229,6 +237,8 @@ Two readers see state recorded in an earlier era, and both see it migrated to th
 The values derived for an epoch, such as its epoch state, its Blend difficulty and its proof-of-work reward, follow the rules of the epoch's own era. The rules of an era still verify the Activity Proofs and reward claims of the previous era's last epoch as the previous era does ([Era Migration](#era-migration)).
 
 ## Network Layer
+
+Peers must exchange messages only under rules they share. Their clocks reach a boundary at slightly different times, and messages already on their way at the boundary must still arrive.
 
 A node runs its network protocols under the **era in force**, the era of the slot its clock gives. Their identifiers and gossipsub topics ([P2P Network](../draft/p2p-network.md)) carry the fork digest of their era. Those of Kademlia and identify carry the chain ID instead ([Network Protocol Identity](#network-protocol-identity)).
 
