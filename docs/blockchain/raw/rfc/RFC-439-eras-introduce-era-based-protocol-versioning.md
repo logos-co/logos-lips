@@ -53,7 +53,7 @@ Chain data is read under the era of its slot. The network runs under the era of 
 - Identifiers carry `F_n`, a hash of the genesis block ID, the chain ID and the era digests of the eras activated so far. Two releases that agree up to now share identifiers until their first differing epoch, and never again after it. Kademlia and identify carry the chain ID instead, so peer discovery works across boundaries.
 - Each era digest hashes the era's first epoch and its parameter record, as the implementation already does (logos-blockchain/logos-blockchain#3687). Hashing the parameters separates instances that share a genesis block but differ in a parameter. It also lets a release correct a pending era's parameters without moving its first epoch, and separates rival forks that pick the same epoch. The record also carries a revision. The digest covers an era's parameters but not its code, so a release that changes a pending era's rules or migration increments the revision. The era's digest changes without moving its first epoch.
 - The cost is that the record is normative, and every activated era's record must be encoded byte for byte the same forever. The layout version keeps that possible when a later era changes the field list. `chain_id` is implied by the genesis block ID; it stays in the digest input to match the implementation.
-- The specified record follows the specifications' constants. It differs from the implementation's `EraParameters` in seven places, each of which changes the digest. A `revision` is added. `faucet_pk` is dropped. `target_claim_per_block` duplicates `TARGET_CLAIMS_PER_BLOCK` and is dropped. `learning_rate` and `message_frequency_per_round` become ratios. `reward_pool_genesis`, a Genesis value, and `epoch_reward_genesis`, a derived value, are dropped. `min_stake` carries an epoch instead of a block-number timestamp. `slot_window` becomes `expected_blocks_per_window`, so the window follows f. These should be aligned before the next testnet release fixes its era-0 digest.
+- The specified record follows the specifications' constants. It differs from the implementation's `EraParameters` in seven places, each of which changes the digest. A `revision` is added. `faucet_pk` is dropped. `target_claim_per_block` duplicates `TARGET_CLAIMS_PER_BLOCK` and is dropped. `learning_rate` and `message_frequency_per_round` become ratios. `reward_pool_genesis`, a Genesis value, and `epoch_reward_genesis`, a derived value, are dropped. `min_stake` carries an epoch instead of a block-number timestamp. `slot_window` becomes `expected_blocks_per_window`, so the window follows f. These should be aligned before any network fixes its era-0 digest.
 
 ## Consensus parameters across eras
 
@@ -118,7 +118,6 @@ This PR precedes any launched network. Era 0 is today's rules. The identifier, h
 
 ## Open questions
 
-- Testnet's era-0 record: the Constants give testnet the specifications' values. If testnet runs other values, its record must list them.
 - Future investigation: an early-acceptance window. From a set number of rounds before its own boundary, a node would also accept proofs built on the next epoch's inputs, and connections on the next era's identifiers. This mirrors the transition period. A late node could then relay a next-epoch message instead of discarding it, and honest clocks could differ by more than one round.
 - No specification defines a canonical encoding of the recorded chain state: the checkpoint API serves it as an opaque blob. Checkpoint interoperability and migration test vectors need one.
 - Domain-separation tags stay `_V1`. Whether a construction changed in era n should take `_V<n>` is for the leads.
@@ -137,7 +136,7 @@ This PR precedes any launched network. Era 0 is today's rules. The identifier, h
 Its Details sections:
 
 - **Notation:** `E_n`, the parameter record `P_n`, the epoch and slot lengths `L_n` and `Δ_n`, `era(sl)`, `epoch(sl)`, `first_slot(ep)`, `slot(t)`, the era in force, the fork digest `F_n` and the horizon `H`, each pointing to the function or constant that defines it.
-- **Parameters:** the era schedules of mainnet and testnet, and the release's horizon for each.
+- **Parameters:** the era schedule and the release's horizon.
 - **Era Schedule:** an embedded list per network of (first epoch, parameter record), first epoch 0; the frozen within-k fork comparison; the consequence of two releases' schedules differing; a revision increment for any change to a published era's rules or migration, and no entry for an epoch that has begun.
 - **Era Parameters:** the record, a layout version and a revision followed by 33 fields in a fixed order, each holding a named constant of Blend, Cryptarchia, Total Stake Inference, SDP or Proof of Work; their encodings, with non-zero ratio denominators; epoch and slot lengths of at least 1; the SDP stores filled from the records; layout versioning, with the prefix and the fields every layout keeps.
 - **Era Boundaries:** reference code for the epoch and slot lengths read from the record, each era's first slot and start time, the era and epoch of a slot, the first slot of an epoch, the slot of a time, and the era in force.
@@ -238,7 +237,7 @@ A new validity condition in [Uncle References](../cryptarchia-v1-protocol.md#unc
 | Kademlia | `/logos-blockchain/<chain_id>/kad` |
 | Identify | `/logos-blockchain/<chain_id>/identify` |
 
-The testnet variants are gone, because the chain ID and the genesis block separate networks. The placeholders are defined in Bedrock Eras ([§1](#1-the-era-mechanism)).
+The per-network variants are gone, because the chain ID and the genesis block separate networks. The placeholders are defined in Bedrock Eras ([§1](#1-the-era-mechanism)).
 
 ## 8. Synchronization and checkpoints
 
