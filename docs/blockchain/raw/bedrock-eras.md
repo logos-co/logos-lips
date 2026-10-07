@@ -419,7 +419,7 @@ In every record, the epoch length $`L_n`$ and the slot length $`\Delta_n`$ are a
 
 The `stake_thresholds` ([Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake)) and `parameters` ([Service Parameters](bedrock-service-declaration-protocol.md#service-parameters)) stores hold the `min_stake` and `service_params` entries of the records of the schedule.
 
-A software release that adds, removes or re-encodes a field defines a new layout version, used by the eras that adopt it.
+A software release that adds, removes or re-encodes a field defines a new layout version, used by the eras that adopt it. Every layout version starts with the layout version and the revision. It keeps, with their meaning and encoding, the fields that [Era Boundaries](#era-boundaries) reads and the fields that fill the SDP stores. Otherwise a node cannot compute slots and epochs, or fill the SDP stores, across eras of different layouts.
 
 ## Era Boundaries
 
