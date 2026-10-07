@@ -9,10 +9,11 @@
 | v1 | Initial RFC | 2026-09-10 |
 | v2 | Added `TRANSACTION_MATURITY`, the age `BLEND_DELAY + BROADCAST_DELAY` (15 s + 5 s) a transaction must reach before block building sees it, and restated the retention constraint in those terms. | 2026-09-11 |
 | v3 | Renamed to cover maturity, and moved the RFC document to the matching path. | 2026-09-11 |
+| v4 | Hardened retention against competing branches. An included transaction is released when its block becomes immutable rather than at `TRANSACTION_RETENTION`, a transaction a canonical block carries is retained even if this node never admitted it, and an included hash is a duplicate at admission. `admit` loses its `at` argument, which a fork switch no longer needs. | 2026-10-07 |
 
 ## Reviewer Orientation
 
-Single-document change — read [Mempool](../mempool.md) top to bottom. Focus on the maturity gate in `Block Building View`, on the new `Release` stage, and on the constraints under `Constants`, which are what make a compliant selection reconstructable at every node.
+Single-document change — read [Mempool](../mempool.md) top to bottom. Focus on the maturity gate in `Block Building View`, on the new `Release` stage and its two triggers, on `included` in `Inclusion in a Canonical Block` and in `admit`, and on the constraints under `Constants`, which are what make a compliant selection reconstructable at every node.
 
 # Discussion
 
@@ -38,13 +39,23 @@ Maturity is a property of the leader's mempool, and Block Proposal Validation do
 
 Resolution reads `by_prefix` and `bodies`. A transaction leaves `pending` for three reasons, and two of them — inclusion in a canonical block, and inapplicability — depend on which branch the node follows. While retirement also emptied `bodies`, two honest nodes could resolve the same reference differently: a node that had already included a transaction could not reconstruct a competing proposal referencing it, and had to wait for a fork switch to re-admit it.
 
-Retention removes that dependence. A transaction resolves for `TRANSACTION_RETENTION` after its admission, whatever the node's own branch did with it in between, so resolution is a function of what the node observed.
+Retention removes that dependence. Until it is released, a transaction resolves whatever the node's own branch did with it. An included transaction is released only when its block becomes immutable, and from then on every branch the node can still adopt carries that block, so no valid block can reference the transaction again. A node observes a transaction by admitting it or by holding a canonical block that carries it, so a node that caught up by downloading blocks resolves what those blocks carry.
+
+## Why an included transaction is released at immutability
+
+`TRANSACTION_RETENTION` is measured from admission, and a transaction can be included up to `TRANSACTION_TTL` after it. Under the time bound, an included transaction could therefore be released 24 hours after its inclusion. Its block becomes immutable once `k` blocks follow it. That takes `k/f` slots on average, 18 hours, but no time bounds it: `s = 3k/f` slots, 54 hours, only suffices with high probability. A slow chain, which is when forks run deep, could release a transaction while a branch that lacks its block can still be adopted. A proposal on that branch would not resolve, and a fork switch to it would re-admit the transaction without its admission time.
+
+Immutability is the exact bound. Before it, a competing branch can carry the transaction, so the node keeps it. After it, no valid block can reference the transaction. It needs no new constant, and it holds however fast the chain runs.
+
+The bound also covers the reorganisation. A fork switch displaces only blocks that are not immutable, so every transaction it re-admits is still retained, with its admission time. `admit` keeps that time without being given it, and the `at` argument is gone. A transaction this node never admitted has no time to keep, and is admitted at the current one.
+
+An included hash is a duplicate at admission. Admitting it again would return it to `pending`. Block building would then retire it as inapplicable, and the time bound would release it, possibly before its block is immutable.
 
 ## What retention costs
 
-A node holds each body for twice as long. A chain carries at most one block per `f^{-1}` slots at `MAX_BLOCK_SIZE`, so the included transactions alone reach about 11 GiB over 48 hours, against 5.6 GiB over 24. The pool has no capacity bound, so transactions that no block carries are bounded only by what admission accepts, and retention doubles that exposure too.
+At most `k` canonical blocks are not yet immutable, so the included transactions hold at most `k · MAX_BLOCK_SIZE`, about 4.2 GiB. The time bound would have held 48 hours of blocks at one block per `f^{-1}` slots, about 11 GiB. A node that stores included bodies as an index into the blocks it already holds pays nothing extra for them.
 
-A node that stores retained bodies as an index into the blocks it already holds pays the doubling only for the transactions no block carries.
+The pool has no capacity bound, so transactions that no block carries are bounded only by what admission accepts. Holding them for `TRANSACTION_RETENTION` rather than `TRANSACTION_TTL` doubles that exposure.
 
 ## Why the retention is twice the time to live
 
@@ -65,26 +76,27 @@ This RFC states the constraint and leaves both values as they are. Raising the p
 A transaction now leaves the mempool in two stages. Retirement removes it from `pending`, which is the set [Block Building View](../mempool.md#block-building-view) offers a leader. Release discards it.
 
 ```diff
- ### Effects of Retirement
-
+-### Effects of Retirement
+-
 -Retirement removes the hash from `pending` and from `by_prefix`, and discards its `admitted_at` entry and its body.
 -
- A retired transaction that is gossiped again is admitted again.
-+
+-A retired transaction that is gossiped again is admitted again.
 +## Release
 +
-+A retained transaction whose age exceeds `TRANSACTION_RETENTION` is released.
++When a block becomes immutable, as defined in [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block), the transactions it carries are released.
 +
-+Release removes the hash from `by_prefix`, and discards its `admitted_at` entry and its body.
++A retained transaction that is not in `included` is released when its age exceeds `TRANSACTION_RETENTION`.
++
++Release removes the hash from `included` and from `by_prefix`, and discards its `admitted_at` entry and its body.
 ```
 
-Both stages measure a transaction's age from its admission, so a transaction is selectable for `TRANSACTION_TTL` and resolvable for `TRANSACTION_RETENTION`.
+Retirement and the time bound both measure a transaction's age from its admission. A transaction is therefore selectable for `TRANSACTION_TTL`, and resolvable for `TRANSACTION_RETENTION` unless a canonical block carries it. An included transaction is released when its block becomes immutable. `Effects of Retirement` goes, because `admit` already states which retired transactions are admitted again.
 
 ## The constants and their constraints
 
 ```diff
  | `TRANSACTION_TTL` | Transaction Time To Live | How long a transaction may stay pending before it is retired. | 24 hours |
-+| `TRANSACTION_RETENTION` | Transaction Retention | How long a transaction stays resolvable before it is released. | `2 * TRANSACTION_TTL` |
++| `TRANSACTION_RETENTION` | Transaction Retention | How long a transaction that no canonical block carries stays resolvable before it is released. | `2 * TRANSACTION_TTL` |
 +| `BLEND_DELAY` | Blend Delay | How long a block proposal takes to cross the Blend network. | 15 seconds |
 +| `BROADCAST_DELAY` | Broadcast Delay | How long a block proposal takes to reach every node once it leaves the Blend network. | 5 seconds |
 +| `TRANSACTION_MATURITY` | Transaction Maturity | How long a transaction must have been pending to be mature. | `BLEND_DELAY + BROADCAST_DELAY` |
@@ -114,11 +126,12 @@ Applicability passes over the mature transactions, and [Inapplicability](../memp
 
 ## The retained state
 
-`pending` holds the selectable transactions. The other three maps hold the retained transactions as well.
+`pending` holds the selectable transactions. `included` holds the retained transactions that a canonical block carries, which the release and duplicate rules treat apart. `bodies`, `admitted_at` and `by_prefix` hold the retained transactions as well.
 
 ```diff
  class Mempool:
      pending: TimeOrderedSet[TxHash]     # admitted, not yet retired, in admission order
++    included: Set[TxHash]               # retained, carried by a canonical block not yet immutable
      bodies: Map[TxHash, SignedMantleTx] # transaction bodies
 -    admitted_at: Map[TxHash, Timestamp] # admission time, per pending transaction
 -    by_prefix: Map[bytes, Set[TxHash]]  # pending hashes, keyed by reference prefix
@@ -128,16 +141,43 @@ Applicability passes over the mature transactions, and [Inapplicability](../memp
 
 [Reference Resolution](../mempool.md#reference-resolution) is unchanged: it already read `by_prefix` and `bodies`, and those now carry the retained transactions.
 
-## Admission preserves the admission time
+## Inclusion and reorganisation
 
-A retained transaction that is gossiped again keeps the time it was first admitted. Without this, anyone could hold a transaction alive indefinitely by re-gossiping it after each release.
+A block that enters the canonical chain adds its transactions to `included`, including a transaction the mempool never held:
 
 ```diff
--    mempool.admitted_at[key] = at if at is not None else now()
-+    mempool.admitted_at[key] = at if at is not None else mempool.admitted_at.get(key, now())
+-When a block enters the node's canonical chain, the transactions it carries are retired.
++When a block enters the node's canonical chain, the transactions it carries are retired and added to `included`. For a transaction the mempool does not hold, the body is taken from the block and the hash is added to `by_prefix`.
 ```
 
-The `at` argument still carries the original admission time on the [Reorganisation](../mempool.md#reorganisation) path, where the transaction may already have been released.
+A fork switch takes the displaced transactions out of `included` before it re-admits them, so `admit` does not report them as duplicates:
+
+```diff
+-When a fork switch displaces blocks from the canonical chain, the node re-admits the transactions they carried that the blocks now in the canonical chain do not carry. It re-admits each with its original admission time.
++When a fork switch displaces blocks from the canonical chain, the transactions they carried that the blocks now in the canonical chain do not carry leave `included`. The node re-admits each.
+```
+
+## Admission preserves the admission time
+
+A retained transaction that is admitted again keeps the time it was first admitted. Without this, anyone could hold a transaction alive indefinitely by re-gossiping it before each release. An included transaction is not admitted again at all, because its hash is a duplicate.
+
+```diff
+-def admit(mempool, encoded: bytes, at: Timestamp = None) -> Result:
++def admit(mempool, encoded: bytes) -> Result:
+```
+
+```diff
+     key = mantle_txhash(tx)
+-    if key in mempool.pending:
++    if key in mempool.pending or key in mempool.included:
+         return Duplicate(key)
+ 
+     mempool.bodies[key] = tx
+-    mempool.admitted_at[key] = at if at is not None else now()
++    mempool.admitted_at[key] = mempool.admitted_at.get(key, now())
+```
+
+A fork switch re-admits only transactions that are still retained, so the same line keeps their time on the [Reorganisation](../mempool.md#reorganisation) path, and the `at` argument has nothing left to carry. A displaced transaction this node never admitted has no entry, and is admitted at the current time.
 
 ## Subscription to the mempool topic
 
@@ -145,27 +185,31 @@ A node subscribes when it starts [Listening for New Blocks](../cryptarchia-v1-bo
 
 ## Persistence and status
 
-A restart must not release a transaction early, so the retained hashes, their admission times and their bodies are persisted alongside the pending ones, and `by_prefix` is rebuilt from all of them. The mempool status endpoint reports `retained` as a third state beside `pending` and unknown.
+A restart must not release a transaction early, so the retained hashes, `included`, their admission times and their bodies are persisted alongside the pending ones, and `by_prefix` is rebuilt from all of them. The mempool status endpoint reports `retained` as a third state beside `pending` and unknown.
 
 ## Chores
 
 - Narrowed the `admitted_at` and `by_prefix` comments, which said "per pending transaction" and "pending hashes".
 - Added the Blend Protocol and Cryptarchia Bootstrapping & Synchronization to the References list, which the constraints now link to.
+- Corrected the Introduction, which said the mempool holds transactions not yet in the canonical chain. It holds them until their block is immutable.
+- Transaction Admission now says the three entry points admit a transaction, not that they are how one reaches the mempool, since a canonical block also adds the transactions it carries.
 
 # Implementation
 
 - [ ]  Supply block building with mature transactions only, and retire for inapplicability only a mature transaction
 - [ ]  Keep a retired transaction's body, admission time and prefix index until it is released
-- [ ]  Release a retained transaction once its age exceeds `TRANSACTION_RETENTION`
-- [ ]  Preserve the admission time when a retained transaction is admitted again
+- [ ]  Add the transactions of every block that enters the canonical chain to `included`, taking the body from the block when the mempool does not hold it
+- [ ]  Release the transactions a block carries when the block becomes immutable, and any other retained transaction once its age exceeds `TRANSACTION_RETENTION`
+- [ ]  Report a hash in `included` as a duplicate at admission
+- [ ]  Preserve the admission time when a retained transaction is admitted again, on the reorganisation path too, and use the current time for a displaced transaction this node never admitted
 - [ ]  Subscribe to the mempool topic when listening for new blocks starts
-- [ ]  Persist the retained hashes, admission times and bodies, and rebuild `by_prefix` from every recovered hash
+- [ ]  Persist the retained hashes, `included`, admission times and bodies, and rebuild `by_prefix` from every recovered hash
 - [ ]  Report `retained` from the mempool status endpoint
-- [ ]  Add or extend tests / test vectors: a transaction younger than `TRANSACTION_MATURITY` is neither selected nor retired for inapplicability, a proposal selecting a transaction just under `TRANSACTION_TTL` reconstructs after the Blend transit, a released transaction does not resolve, and re-gossiping a retained transaction does not extend its life
+- [ ]  Add or extend tests / test vectors: a transaction younger than `TRANSACTION_MATURITY` is neither selected nor retired for inapplicability, a proposal selecting a transaction just under `TRANSACTION_TTL` reconstructs after the Blend transit, a released transaction does not resolve, re-gossiping a retained transaction does not extend its life, a competing proposal referencing a transaction this node already included reconstructs, an included transaction is released when its block becomes immutable and not before, and a fork switch re-admits a displaced transaction with its original admission time
 - [ ]  Verify the implementation matches this specification
 
 # Affected Specifications
 
 | Specification | Status | Note |
 | --- | --- | --- |
-| [Mempool](../mempool.md) | Modified | Block building waits for `TRANSACTION_MATURITY`; retirement no longer discards, and `Release` does; the document does not yet exist on master |
+| [Mempool](../mempool.md) | Modified | Block building waits for `TRANSACTION_MATURITY`; retirement no longer discards, and `Release` does, at immutability for an included transaction; the document does not yet exist on master |
