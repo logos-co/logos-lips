@@ -306,7 +306,7 @@ The checks below, and only these, are skipped when the Genesis Mantle Transactio
 
 3. **The Transfer Operation inputs.** The Genesis Transfer Operation has no inputs, no note existing before it, so the requirement that inputs be non-empty ([Input Notes Spendability Validation](bedrock-v1.1-mantle-specification.md#input-notes-spendability-validation)) does not apply and there is no spendability to check. It is the only Transfer Operation of the chain allowed to consume nothing.
 
-4. **The fork digest.** Every fork digest hashes the Genesis block ([Bedrock Eras](bedrock-eras.md#notation)), so the Genesis Mantle Transaction cannot carry one. Its `fork_digest` is 32 zero bytes, and step 4 of [Validation](bedrock-v1.1-mantle-specification.md#validation) is skipped.
+4. **The fork digest.** Every fork digest hashes the Genesis block ([Fork Digest](bedrock-eras.md#fork-digest)), so the Genesis Mantle Transaction cannot carry one. Its `fork_digest` is 32 zero bytes, and step 4 of [Validation](bedrock-v1.1-mantle-specification.md#validation) is skipped.
 
 Everything else is validated as it would be in any other block, against the state the Operations preceding it left, the transaction level check that there is one `op_proofs` entry per Operation included.
 

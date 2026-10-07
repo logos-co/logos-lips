@@ -154,11 +154,11 @@ A node whose release lacks the rules of an era it must apply halts when it start
 
 A software release carries one **era schedule** per network. Each entry gives the first epoch of an era and its **parameter record**. The record holds the values the era gives to the Blend, Cryptarchia, Service Declaration Protocol and proof-of-work constants that may change between eras. It has a fixed encoding, with a layout version that a release changes when it adds, removes or re-encodes a field ([Era Parameters](#era-parameters)).
 
-Every slot and every epoch belongs to the last era that begins at or before it. An era may change the epoch length and the slot length, so a node computes the first slot and the start time of each era from the era before it. The first slot of an era follows the epochs of the previous era, each as long as that era sets. The era's start time follows from those slots and the previous era's slot length ([Notation](#notation)).
+Every slot and every epoch belongs to the last era that begins at or before it. An era may change the epoch length and the slot length, so a node computes the first slot and the start time of each era from the era before it. The first slot of an era follows the epochs of the previous era, each as long as that era sets. The era's start time follows from those slots and the previous era's slot length ([Era Boundaries](#era-boundaries)).
 
 A release may add or change an era only for an epoch that has not begun. It may not change the rules of a published era, or the migration into it, under the same era digest. An era may not change how fork choice compares chains that diverge by at most $`k`$ blocks, $`k`$ being the security parameter of [Constants](cryptarchia-v1-protocol.md#constants) ([Era Schedule](#era-schedule)).
 
-Each era has a **fork digest**, a hash of the genesis block ID, the chain ID and the era digest of every era up to it. An era digest is a hash of the era's first epoch and parameter record ([Notation](#notation)).
+Each era has a **fork digest**, a hash of the genesis block ID, the chain ID and the era digest of every era up to it. An era digest is a hash of the era's first epoch and parameter record ([Fork Digest](#fork-digest)).
 
 ```mermaid
 ---
@@ -294,9 +294,9 @@ sequenceDiagram
 ```
 
 1. Before the boundary, the node exchanges messages with its peers on the identifiers of era $`n-1`$.
-2. When its clock reaches the first slot of era $`n`$, the era in force becomes era $`n`$ ([Notation](#notation)).
-3. The node migrates the state after its chain tip to era $`n`$ ([Era Migration](#era-migration)).
-4. It re-validates its mempool against that state. A transaction that carries the fork digest of era $`n-1`$ stays valid until step 11 ([Era of Chain Data](#era-of-chain-data)).
+2. When its clock reaches the first slot of era $`n`$, the era in force becomes era $`n`$ ([Era Boundaries](#era-boundaries)).
+3. The node migrates the state after its chain tip to era $`n`$ ([Era Change](#era-change)).
+4. It re-validates its mempool against that state ([Era Change](#era-change)). A transaction that carries the fork digest of era $`n-1`$ stays valid until step 11 ([Era of Chain Data](#era-of-chain-data)).
 5. It opens the identifiers of era $`n`$ and keeps those of era $`n-1`$, which starts the Era Transition Period ([Era Transition Period](#era-transition-period)).
 6. A Blend message that arrives on a connection of era $`n-1`$ is validated under era $`n-1`$ ([Era Transition Period](#era-transition-period)).
 7. A block whose slot lies in era $`n`$ arrives on the topic of era $`n`$. Once the node's clock has reached the block's slot, the node validates the block under era $`n`$, from its parent's state migrated to era $`n`$ ([Era of Chain Data](#era-of-chain-data), [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation)).
@@ -307,9 +307,9 @@ sequenceDiagram
 
 A node keeps four values that depend on the era in force:
 
-- the era in force itself, which changes when the clock reaches the first slot of the next era ([Notation](#notation));
-- the state after its local chain tip, migrated when the era in force changes ([Era Migration](#era-migration));
-- its mempool, re-validated against that state ([Era Migration](#era-migration));
+- the era in force itself, which changes when the clock reaches the first slot of the next era ([Era Boundaries](#era-boundaries));
+- the state after its local chain tip, migrated when the era in force changes ([Era Change](#era-change));
+- its mempool, re-validated against that state ([Era Change](#era-change));
 - the identifiers it accepts connections on, those of both eras during the Era Transition Period and those of the era in force otherwise ([Era Transition Period](#era-transition-period)).
 
 # Details
@@ -318,21 +318,16 @@ A node keeps four values that depend on the era in force:
 
 | Symbol | Name | Description |
 | --- | --- | --- |
-| $`E_n`$ | first epoch number of era $`n`$ | The epoch number of entry $`n`$ of the era schedule, counting from 0. |
+| $`E_n`$ | first epoch number of era $`n`$ | `first_epoch(n)` of [Era Boundaries](#era-boundaries), the epoch number of entry $`n`$ of the era schedule, counting from 0. |
 | $`P_n`$ | parameter record of era $`n`$ | The [parameter record](#era-parameters) of entry $`n`$ of the era schedule. |
-| $`L_n`$ | epoch length of era $`n`$ | The epoch length of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) under the rules of era $`n`$. |
-| $`\Delta_n`$ | slot length of era $`n`$ | The slot length of [Constants](cryptarchia-v1-protocol.md#constants) under the rules of era $`n`$, in nanoseconds. |
-| $`S_n`$ | first slot of era $`n`$ | $`S_0 = 0`$, $`S_n = S_{n-1} + (E_n - E_{n-1}) \cdot L_{n-1}`$. |
-| $`\tau_n`$ | start time of era $`n`$ | $`\tau_0 = 10^9 \cdot \text{genesis\_time}`$, $`\tau_n = \tau_{n-1} + (S_n - S_{n-1}) \cdot \Delta_{n-1}`$. In nanoseconds since the Unix epoch, as every time $`t`$ here. `genesis_time` is from [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters). |
-| $`\textbf{era}(ep)`$ | era of an epoch | $`\max\{n : E_n \le ep\}`$. |
-| $`\textbf{era}(sl)`$ | era of a slot | $`\max\{n : S_n \le sl\}`$. |
-| $`\textbf{epoch}(sl)`$ | epoch of a slot | $`E_m + \lfloor (sl - S_m) / L_m \rfloor`$ with $`m = \textbf{era}(sl)`$. |
-| $`\textbf{first\_slot}(ep)`$ | first slot of an epoch | $`S_m + (ep - E_m) \cdot L_m`$ with $`m = \textbf{era}(ep)`$. |
-| $`\textbf{slot}(t)`$ | slot of a time | $`S_m + \lfloor (t - \tau_m) / \Delta_m \rfloor`$ with $`m = \max\{n : \tau_n \le t\}`$, defined for $`t \ge \tau_0`$. $`\textbf{wallclock\_time}().\textbf{to\_slot}()`$ of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) is $`\textbf{slot}(\textbf{wallclock\_time}())`$. |
-| *none* | era in force | $`\textbf{era}(\textbf{wallclock\_time}().\textbf{to\_slot}())`$. |
-| $`G`$ | genesis block ID | The [Block ID](cryptarchia-v1-protocol.md#block-id) of the [Genesis Block](bedrock-genesis-block.md). |
-| $`D_n`$ | era digest of era $`n`$ | $`\textbf{hash}(\texttt{ERA\_DIGEST\_V1} \,\|\, E_n \,\|\, P_n)`$, with the `hash` of [Block ID](cryptarchia-v1-protocol.md#block-id), $`E_n`$ as an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch) and $`P_n`$ in its [encoding](#era-parameters). |
-| $`F_n`$ | fork digest of era $`n`$ | $`\textbf{hash}(\texttt{FORK\_DIGEST\_V1} \,\|\, G \,\|\, \text{chain\_id} \,\|\, D_0 \,\|\, \dots \,\|\, D_n)`$, with the same `hash` and `chain_id` encoded as in [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters). |
+| $`L_n`$ | epoch length of era $`n`$ | `epoch_length(n)` of [Era Boundaries](#era-boundaries), in slots. |
+| $`\Delta_n`$ | slot length of era $`n`$ | `slot_length(n)` of [Era Boundaries](#era-boundaries), in nanoseconds. |
+| $`\textbf{era}(sl)`$ | era of a slot | `era_of_slot(sl)` of [Era Boundaries](#era-boundaries). |
+| $`\textbf{epoch}(sl)`$ | epoch of a slot | `epoch_of_slot(sl)` of [Era Boundaries](#era-boundaries). |
+| $`\textbf{first\_slot}(ep)`$ | first slot of an epoch | `first_slot_of_epoch(ep)` of [Era Boundaries](#era-boundaries). |
+| $`\textbf{slot}(t)`$ | slot of a time | `slot_of_time(t)` of [Era Boundaries](#era-boundaries). |
+| *none* | era in force | `era_in_force()` of [Era Boundaries](#era-boundaries). |
+| $`F_n`$ | fork digest of era $`n`$ | `fork_digest(n)` of [Fork Digest](#fork-digest). |
 | $`H`$ | horizon | The last epoch a software release interprets, per network. |
 
 ## Parameters
@@ -396,11 +391,90 @@ The `stake_thresholds` ([Minimum Stake](bedrock-service-declaration-protocol.md#
 
 A software release that adds, removes or re-encodes a field defines a new layout version, used by the eras that adopt it.
 
+## Era Boundaries
+
+```python
+def first_epoch(n: int) -> EpochNumber:
+    return SCHEDULE[n][0]
+
+def epoch_length(n: int) -> uint64:
+    p = SCHEDULE[n][1]
+    f = p.slot_activation_coeff
+    return sum(p.epoch_config) * (p.security_param * f.den // f.num)
+
+def slot_length(n: int) -> uint64:
+    d = SCHEDULE[n][1].slot_duration
+    return d.seconds * 10**9 + d.nanoseconds
+
+def first_slot_of_era(n: int) -> uint64:
+    if n == 0:
+        return 0
+    return (first_slot_of_era(n - 1)
+            + (first_epoch(n) - first_epoch(n - 1)) * epoch_length(n - 1))
+
+def start_time_of_era(n: int) -> uint64:
+    if n == 0:
+        return 10**9 * genesis_time
+    return (start_time_of_era(n - 1)
+            + (first_slot_of_era(n) - first_slot_of_era(n - 1)) * slot_length(n - 1))
+
+def last_era_from(start, x) -> int:
+    # Eras start in increasing order, so the last one that starts at or before x holds x.
+    return max(n for n in range(len(SCHEDULE)) if start(n) <= x)
+
+def era_of_slot(sl: uint64) -> int:
+    return last_era_from(first_slot_of_era, sl)
+
+def epoch_of_slot(sl: uint64) -> EpochNumber:
+    m = era_of_slot(sl)
+    return first_epoch(m) + (sl - first_slot_of_era(m)) // epoch_length(m)
+
+def first_slot_of_epoch(ep: EpochNumber) -> uint64:
+    m = last_era_from(first_epoch, ep)
+    return first_slot_of_era(m) + (ep - first_epoch(m)) * epoch_length(m)
+
+def slot_of_time(t: uint64) -> uint64:
+    m = last_era_from(start_time_of_era, t)
+    return first_slot_of_era(m) + (t - start_time_of_era(m)) // slot_length(m)
+
+def era_in_force() -> int:
+    return era_of_slot(slot_of_time(wallclock_time()))
+```
+
+`SCHEDULE` is the era schedule of the node's network ([Parameters](#parameters)). `epoch_config`, `security_param`, `slot_activation_coeff` and `slot_duration` are fields of the [parameter record](#era-parameters), and a duration's two parts are its `seconds` and `nanoseconds`. A slot is an unsigned 64-bit integer, as the `slot` of a [Block Header](cryptarchia-v1-protocol.md#block-header) is. A time is an unsigned 64-bit count of nanoseconds since the Unix epoch. `genesis_time` is from [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters). `slot_of_time(t)` is defined for `t` from `start_time_of_era(0)` on. `wallclock_time().to_slot()` of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) is `slot_of_time(wallclock_time())`.
+
+## Fork Digest
+
+```python
+def era_digest(n: int) -> hash:
+    return hash(b"ERA_DIGEST_V1",
+                first_epoch(n).to_bytes(4, byteorder='little'),
+                encode(SCHEDULE[n][1]))
+
+def fork_digest(n: int) -> hash:
+    return hash(b"FORK_DIGEST_V1",
+                GENESIS_BLOCK_ID,
+                ENCODED_CHAIN_ID,
+                *(era_digest(i) for i in range(n + 1)))
+```
+
+`hash` is the hash of [Block ID](cryptarchia-v1-protocol.md#block-id), over the concatenation of its arguments. `encode` is the encoding of the [parameter record](#era-parameters). `GENESIS_BLOCK_ID` is the Block ID of the [Genesis Block](bedrock-genesis-block.md). `ENCODED_CHAIN_ID` is `chain_id` with its length prefix, encoded as in [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters).
+
 ## Era of Chain Data
 
 A block or proposal, and everything it carries, is parsed, validated and executed under the rules of $`\textbf{era}(sl)`$ of its slot, except that a transaction is parsed under the era whose fork digest it carries. `slot` is the first field of the header ([Block Header](cryptarchia-v1-protocol.md#block-header)) and has the same encoding in every era, and every message that carries a block or proposal begins with the header in its [canonical encoding](bedrock-v1.1-block-construction.md#canonical-encoding). Otherwise a node cannot parse a block before it knows the block's era.
 
-Every transaction begins with its fork digest ([Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction)), in the same encoding in every era. Otherwise a node cannot parse a transaction before it knows the transaction's era. A block of era $`m`$ accepts a transaction that carries $`F_m`$, or $`F_{m-1}`$ while the block's slot lies in epoch $`E_m`$.
+Every transaction begins with its fork digest ([Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction)), in the same encoding in every era. Otherwise a node cannot parse a transaction before it knows the transaction's era. A block accepts a transaction only if `accepts_fork_digest` holds for the block's `slot` and the transaction's `fork_digest`:
+
+```python
+def accepts_fork_digest(slot: uint64, digest: hash) -> bool:
+    m = era_of_slot(slot)
+    if digest == fork_digest(m):
+        return True
+    # A transaction signed just before the boundary carries the previous era's digest.
+    return (m > 0 and digest == fork_digest(m - 1)
+            and epoch_of_slot(slot) == first_epoch(m))
+```
 
 [Fork choice](fork-choice.md) compares two chains under the era of the slot of their $`\textbf{common\_ancestor}`$ ([Fork Pruning](cryptarchia-v1-protocol.md#fork-pruning)). The fork choice rule of an era reads only the block tree and the slot of each block. Otherwise it is undefined on the blocks of a later era that re-encodes a field it reads. [Commit](cryptarchia-v1-protocol.md#commit) uses the $`k`$ of the era of the slot of the local chain tip.
 
@@ -417,11 +491,28 @@ The migration must be:
 - **Total**: defined for every state reachable under the predecessor era. A migration undefined for a reachable state halts the network at the boundary.
 - **Identity by default**: every state component the new era does not redefine is unchanged.
 
-A block reads the state after any block of an earlier era with the intervening migrations applied, in order. When the era in force changes, a node applies the same migrations to the state after its local chain tip; it re-validates its mempool and runs the network protocols of the new era against that state.
+A block reads the state after any block of an earlier era with the intervening migrations applied, in order.
 
 A value derived for an epoch is derived under the rules of the epoch's era: its [Epoch State](cryptarchia-v1-protocol.md#epoch-state), its `difficulty_blend` ([Blend Difficulty](proof-of-work.md#blend-difficulty)) and its `epoch_pow_reward` ([Reward Pool](proof-of-work.md#reward-pool)). A quantity measured over an epoch, such as a phase boundary, an observation window or an expected block count, uses the parameters of that epoch's era. Where a derivation reads the chain state as of a slot, it reads the state after the last block at or before that slot, migrated to the epoch's era. A value derived for an earlier epoch is used as it was derived.
 
 The rules of an era verify the Activity Proofs and reward claims of the last epoch of the predecessor era, [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) included, as the predecessor's rules do. Otherwise the rewards of that epoch are lost.
+
+## Era Change
+
+When the era in force changes from era `p` to era `n`, a node replaces the state after its local chain tip and its mempool with the result of `on_era_change`, before it processes anything under era `n`:
+
+```python
+def on_era_change(p: int, n: int, tip_state: State,
+                  mempool: list[Transaction]) -> tuple[State, list[Transaction]]:
+    # Everything the node does under era n reads the state migrated to era n.
+    for m in range(p + 1, n + 1):
+        tip_state = migrations[m](tip_state)
+    mempool = [tx for tx in mempool if valid_under(n, tx, tip_state)]
+    start_era_transition_period(n)
+    return tip_state, mempool
+```
+
+`State` is the [recorded chain state](#era-migration). `migrations[m]` is the migration that era `m` defines ([Era Migration](#era-migration)). `valid_under(n, tx, state)` holds when `tx` is valid under the rules of era `n` against `state`. `start_era_transition_period(n)` starts the [Era Transition Period](#era-transition-period) into era `n`.
 
 ## Era Transition Period
 
