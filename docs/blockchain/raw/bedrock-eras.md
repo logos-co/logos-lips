@@ -209,7 +209,7 @@ A node interprets each piece of chain data under one era:
 - A node learns the era before it parses the rest. The slot comes first in every message that carries a block or proposal, and the fork digest comes first in every transaction, each in an encoding no era changes.
 - A block accepts a transaction that carries the fork digest of the block's era. In the first epoch of an era, it also accepts one that carries the previous era's.
 - The fork choice rule of every era reads only the block tree and the slots of its blocks. [Commit](cryptarchia-v1-protocol.md#commit) uses the $`k`$ of the era of the local chain tip.
-- At startup and on checkpoint import, a node halts if its release lacks the rules of an era it must still apply, from the era of the latest immutable block to the era in force.
+- At startup and on checkpoint import ([Bootstrapping from Checkpoint](cryptarchia-v1-bootstr-sync.md#bootstrapping-from-checkpoint)), a node halts if its release lacks the rules of an era it must still apply, from the era of the latest immutable block to the era in force.
 
 ## Chain State
 
@@ -487,7 +487,7 @@ def accepts_fork_digest(slot: uint64, digest: hash) -> bool:
 
 [Fork choice](fork-choice.md) compares two chains under the era of the slot of their $`\textbf{common\_ancestor}`$ ([Fork Pruning](cryptarchia-v1-protocol.md#fork-pruning)). The fork choice rule of an era reads only the block tree and the slot of each block. Otherwise it is undefined on the blocks of a later era that re-encodes a field it reads. [Commit](cryptarchia-v1-protocol.md#commit) uses the $`k`$ of the era of the slot of the local chain tip.
 
-At startup and on checkpoint import, a node whose software does not implement the rules of every era from $`\textbf{era}(sl_{B_\text{imm}})`$ ([latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block)) to the era in force must halt. A halted node stops every protocol and exits with an error to the operator.
+At startup and on checkpoint import ([Bootstrapping from Checkpoint](cryptarchia-v1-bootstr-sync.md#bootstrapping-from-checkpoint)), a node whose software does not implement the rules of every era from $`\textbf{era}(sl_{B_\text{imm}})`$ ([latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block)) to the era in force must halt. A halted node stops every protocol and exits with an error to the operator.
 
 A node keeps in its mempool only transactions valid under the era in force.
 
