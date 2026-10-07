@@ -22,7 +22,6 @@
 | Version | Changes | Date |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-24 |
-| 1.0.1 | Initial revision. | 2026-08-12 |
 | 1.0.2 | Re-derived against the new block reward formula $`R_t = R^{\text{block}}_t + A_t c`$ | 2026-09-02 |
 
 > Disclaimer:
