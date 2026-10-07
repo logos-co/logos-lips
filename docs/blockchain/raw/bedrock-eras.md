@@ -152,11 +152,22 @@ A node whose release lacks the rules of an era it must apply halts when it start
 
 # Protocol
 
-A software release carries one **era schedule** per network. Each entry gives the first epoch of an era and its **parameter record**. The record holds the values the era gives to the Blend, Cryptarchia, Service Declaration Protocol and proof-of-work constants that may change between eras. It has a fixed encoding, with a layout version that a release changes when it adds, removes or re-encodes a field ([Era Parameters](#era-parameters)).
+## Schedule and Parameter Records
 
-Every slot and every epoch belongs to the last era that begins at or before it. An era may change the epoch length and the slot length, so a node computes the first slot and the start time of each era from the era before it. The first slot of an era follows the epochs of the previous era, each as long as that era sets. The era's start time follows from those slots and the previous era's slot length ([Era Boundaries](#era-boundaries)).
+A software release carries one **era schedule** per network. Each entry gives the first epoch of an era and its **parameter record**. The record holds the values the era gives to the Blend, Cryptarchia, Service Declaration Protocol and proof-of-work constants that may change between eras. It has a fixed encoding with a layout version, which a release changes when it adds, removes or re-encodes a field ([Era Parameters](#era-parameters)).
 
-A release may add or change an era only for an epoch that has not begun. It may not change the rules of a published era, or the migration into it, under the same era digest. An era may not change how fork choice compares chains that diverge by at most $`k`$ blocks, $`k`$ being the security parameter of [Constants](cryptarchia-v1-protocol.md#constants) ([Era Schedule](#era-schedule)).
+Every slot and every epoch belongs to the last era that begins at or before it. An era may change the epoch length and the slot length, so a node computes the start of each era from the era before it ([Era Boundaries](#era-boundaries)):
+
+- the first slot of an era follows the epochs of the previous era, each as long as that era sets;
+- the start time of an era follows from those slots and the previous era's slot length.
+
+A schedule changes only under these rules ([Era Schedule](#era-schedule)):
+
+- a release may add or change an era only for an epoch that has not begun;
+- a release may not change the rules of a published era, or the migration into it, without changing the era's first epoch or parameter record;
+- an era may not change how fork choice compares chains that diverge by at most $`k`$ blocks, $`k`$ being the security parameter of [Constants](cryptarchia-v1-protocol.md#constants).
+
+## Fork and Era Digests
 
 Each era has a **fork digest**, a hash of the genesis block ID, the chain ID and the era digest of every era up to it. An era digest is a hash of the era's first epoch and parameter record ([Fork Digest](#fork-digest)).
 
@@ -179,20 +190,7 @@ flowchart BT
 
 Every transaction and most protocol identifiers carry the fork digest of their era. Two releases have the same fork digests up to the first era where their schedules differ, and different ones from that era on ([Era Schedule](#era-schedule)).
 
-Each release fixes a **horizon** for each network: the last epoch it interprets. The horizon is at least the first epoch of the release's last era. A node warns its operator once its clock passes the horizon. It also warns when a peer lists, in its identify message, a protocol identifier whose fork digest the node does not know. Neither warning stops the node ([Horizon](#horizon)).
-
-```mermaid
-stateDiagram-v2
-    direction LR
-    state "within the horizon" as w
-    w: the release interprets the chain
-    state "past the horizon" as p
-    p: the release no longer interprets the chain
-    [*] --> w
-    w --> p: clock reaches the first slot of epoch H+1 / warn
-    w --> w: a peer advertises an unknown fork digest / warn
-    p --> p: a peer advertises an unknown fork digest / warn
-```
+## Chain Data
 
 A node interprets each piece of chain data under one era:
 
@@ -212,9 +210,22 @@ flowchart LR
     c["two chains"] -- "slot of their<br/>common ancestor" --> ec["era of that slot"]
 ```
 
-A node learns the era of a block or transaction before it parses the rest. The slot comes first in every message that carries a block or proposal, and the fork digest comes first in every transaction, each in an encoding no era changes. A block accepts a transaction that carries the fork digest of the block's era. In the first epoch of an era, it also accepts one that carries the previous era's. The fork choice rule of every era reads only the block tree and the slots of its blocks. [Commit](cryptarchia-v1-protocol.md#commit) uses the $`k`$ of the era of the local chain tip. At startup and on checkpoint import, a node halts if its release lacks the rules of an era it must still apply, from the era of the latest immutable block to the era in force ([Era of Chain Data](#era-of-chain-data)).
+[Era of Chain Data](#era-of-chain-data) specifies the rules behind this list:
 
-Between eras, the **recorded chain state** passes through a **migration** that the new era defines. The recorded chain state is the state Mantle Operations are validated against, together with the Service Declaration Protocol snapshots. A migration reads that state alone. It is defined for every state the previous era can reach, and it leaves unchanged whatever the new era does not redefine. A block, and a value derived for an epoch, read the state migrated to their own era. A block whose parent lies in an earlier era reads its parent's state with every migration in between applied in order ([Era Migration](#era-migration)).
+- A node learns the era before it parses the rest. The slot comes first in every message that carries a block or proposal, and the fork digest comes first in every transaction, each in an encoding no era changes.
+- A block accepts a transaction that carries the fork digest of the block's era. In the first epoch of an era, it also accepts one that carries the previous era's.
+- The fork choice rule of every era reads only the block tree and the slots of its blocks. [Commit](cryptarchia-v1-protocol.md#commit) uses the $`k`$ of the era of the local chain tip.
+- At startup and on checkpoint import, a node halts if its release lacks the rules of an era it must still apply, from the era of the latest immutable block to the era in force.
+
+## Chain State
+
+Between eras, the **recorded chain state** passes through a **migration** that the new era defines ([Era Migration](#era-migration)). The recorded chain state is the state Mantle Operations are validated against, together with the Service Declaration Protocol snapshots. A migration:
+
+- reads that state alone;
+- is defined for every state the previous era can reach;
+- leaves unchanged whatever the new era does not redefine.
+
+A block, and a value derived for an epoch, read the state migrated to their own era. A block whose parent lies in an earlier era reads its parent's state with every migration in between applied in order.
 
 ```mermaid
 stateDiagram-v2
@@ -235,15 +246,23 @@ stateDiagram-v2
 
 The values derived for an epoch, such as its epoch state, its Blend difficulty and its proof-of-work reward, follow the rules of the epoch's own era. The rules of an era still verify the Activity Proofs and reward claims of the previous era's last epoch as the previous era does ([Era Migration](#era-migration)).
 
-A node runs its network protocols under the **era in force**, the era of the slot its clock gives. Their identifiers and gossipsub topics carry the fork digest of their era, except those of Kademlia and identify, which carry the chain ID. Each message travels under one era:
+## Network Layer
+
+A node runs its network protocols under the **era in force**, the era of the slot its clock gives. Their identifiers and gossipsub topics carry the fork digest of their era. Those of Kademlia and identify carry the chain ID instead ([Network Protocol Identity](#network-protocol-identity)).
+
+Each message travels under one era:
 
 - a message the node generates: the era in force when the node generates it;
 - a Blend message the node relays or releases, and the payload it broadcasts: the era of the connection the message arrived on;
 - a proposal the node accepts, and a transaction it admits to its mempool: the era in force, on whose topic the node publishes it.
 
-A synchronization response may carry blocks of any era ([Network Protocol Identity](#network-protocol-identity)).
+A synchronization response may carry blocks of any era.
 
-When the era in force changes, the node runs the network protocols of both eras for the **Era Transition Period**, whose length is the new era's Blend Transition Period. During the period, the node validates each Blend message under the era of the connection it arrived on. When the period ends, the node drops the identifiers of the predecessor era, and it serves any synchronization stream still open to its end ([Era Transition Period](#era-transition-period)).
+When the era in force changes, the node runs the network protocols of both eras for the **Era Transition Period**, whose length is the new era's Blend Transition Period ([Era Transition Period](#era-transition-period)):
+
+- during the period, it validates each Blend message under the era of the connection it arrived on;
+- when the period ends, it drops the identifiers of the predecessor era;
+- it serves any synchronization stream still open at that point to its end.
 
 ```mermaid
 stateDiagram-v2
@@ -261,6 +280,30 @@ stateDiagram-v2
     }
     a --> n: clock reaches the first slot of era n
 ```
+
+## Horizon and Warnings
+
+Each release fixes a **horizon** for each network: the last epoch it interprets. The horizon is at least the first epoch of the release's last era ([Horizon](#horizon)). A node warns its operator:
+
+- once its clock passes the horizon;
+- when a peer lists, in its identify message, a protocol identifier whose fork digest the node does not know.
+
+Neither warning stops the node.
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    state "within the horizon" as w
+    w: the release interprets the chain
+    state "past the horizon" as p
+    p: the release no longer interprets the chain
+    [*] --> w
+    w --> p: clock reaches the first slot of epoch H+1 / warn
+    w --> w: a peer advertises an unknown fork digest / warn
+    p --> p: a peer advertises an unknown fork digest / warn
+```
+
+## An Era Boundary Step by Step
 
 At the boundary into an era $`n`$, these mechanisms act in a fixed order. The numbers in the diagram match the steps below.
 
@@ -304,6 +347,8 @@ sequenceDiagram
 9. The node sends the messages it generates under era $`n`$. It releases a Blend message it generates no earlier than one round after its switch ([Transition Period](blend-protocol.md#transition-period)).
 10. When the period ends, the node drops the identifiers of era $`n-1`$ ([Era Transition Period](#era-transition-period)).
 11. When the first epoch of era $`n`$ ends, blocks no longer accept transactions that carry the fork digest of era $`n-1`$, and the node drops them from its mempool ([Era of Chain Data](#era-of-chain-data)).
+
+## Node State
 
 A node keeps four values that depend on the era in force:
 
