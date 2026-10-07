@@ -175,6 +175,19 @@ flowchart BT
 
 Each release fixes a **horizon** for each network: the last epoch it interprets. A node warns its operator once its clock passes the horizon, and when a peer advertises a fork digest the node does not know ([Horizon](#horizon)).
 
+```mermaid
+stateDiagram-v2
+    direction LR
+    state "within the horizon" as w
+    w: the release interprets the chain
+    state "past the horizon" as p
+    p: the release no longer interprets the chain
+    [*] --> w
+    w --> p: clock reaches the first slot of epoch H+1 / warn
+    w --> w: a peer advertises an unknown fork digest / warn
+    p --> p: a peer advertises an unknown fork digest / warn
+```
+
 A node interprets each piece of chain data under one era:
 
 - a block or proposal, and everything it carries: the era of its slot;
