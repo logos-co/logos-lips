@@ -31,38 +31,69 @@
 >
 > Nothing in this material should be relied upon for investment or business decisions. Recipients of this information assume all risks associated with its use and are responsible for seeking independent professional advice regarding any actions based on it.
 
-# Scope
+# Introduction
 
-This document analyses the mechanism specified in [Block Rewards](block-rewards.md). It derives the properties that mechanism satisfies, evaluates it across the range of its state variables, examines the incentives it creates, identifies the conditions under which it fails, and states the trade-offs taken.
+This document analyses the mechanism specified in [Block Rewards](block-rewards.md). It derives the properties the mechanism satisfies, evaluates it across its state variables, examines the incentives it creates, identifies the conditions under which it fails, and states the trade-offs taken.
 
 It defines no mechanism of its own. Every symbol, equation, and parameter used here is defined in [Block Rewards](block-rewards.md).
 
 Labels of the form R1 to R9 refer to the numbered rows of [Requirements](block-rewards.md#requirements). Results established here are labelled P for derived properties, S for scenarios, I for incentive results, and F for failure modes, and are referenced by those labels from the specification.
 
-# Design Rationale
+## Objectives
 
-This section records why the mechanism has the form specified in [Block Rewards](block-rewards.md). The results in the sections that follow do not depend on it.
+The analysis seeks to:
 
-## Choice of indicator
+- Derive the properties of the mechanism and discharge requirements R1 to R9 (P1 to P10).
+- Evaluate the reward across the security level $`\theta`$ and the reserve balance $`B`$, the two variables that select its regime (S1 to S6).
+- Examine the incentives the mechanism creates for fee inflation, staking and under-reporting of the stake indicator (I1 to I3).
+- Identify the conditions under which the mechanism fails, and state the trade-offs taken (F1 to F5, Trade-offs).
+
+## Requirements & Rationale
+
+The architecture of Logos Blockchain fixes four constraints that shape the mechanism and this analysis:
+
+- Block proposal and reward collection are decoupled, so a block reward cannot be assigned to an identified proposer.
+- Transaction fees are routed to a reward pool and not paid to a proposer.
+- The reward is a function of network-wide state, not of proposer-local or single-transaction data.
+- Rewards are computed per block and paid per epoch.
+
+The mechanism must meet requirements R1 to R9, stated in [Requirements](block-rewards.md#requirements). Each is discharged by a result in this document.
+
+The subsections below record why the mechanism has the form specified. The results that follow do not depend on them.
+
+### Choice of indicator
 
 The release is anchored to the inferred total stake rather than to a block height or a transaction count. A block height tracks time but says nothing about the state of the chain. A per-transaction count is manipulable by the proposer.
 
-## The staking loop
+### The staking loop
 
 The loop is closed. A larger deviation raises the block reward, a higher block reward raises the staking yield, and a higher yield attracts stake, which reduces the deviation. Fee revenue reinforces the same loop from the other side, since it adds to the yield without displacing the release.
 
-## Response above target
+### Response above target
 
 When $`\delta_t < 0`$ the response is clamped at zero rather than reversed, since the mechanism has no instrument for reducing stake.
 
-## Parameter rationale
+### Parameter rationale
 
 - $`I_{max} = 1\%`$ is comparable to the annual supply growth of gold.
 - $`D_{target}`$ is set at $`\theta_{target} = 30\%`$. Chains with utility exhibit a negative relation between usage and staking ratio, so a target above $`50\%`$ is not appropriate. The lower end of the observed $`30\%`$ to $`50\%`$ band stops the release sooner.
 
-# Derived Properties
+## Key Findings
 
-Refer to [Protocol constants](block-rewards.md#notation) for the definition of the parameters.
+Under the adopted parameters, the analysis shows:
+
+- The mechanism never mints. Net emission over the life of the chain is at most $`B_0 = 10^9`$ LGO, that is $`10\%`$ of $`S_{cap}`$ (P1, P5).
+- The released component is at most $`c`$ per block, that is $`1\%`$ of $`S_{cap}`$ per year, at any fee level. The block reward itself has no upper bound (P3).
+- Fees and releases are additively separable. The reserve drains at $`A_t c`$ whether the chain is empty or busy, so adoption does not extend the horizon (P4, P8, I2).
+- The reserve lasts $`Y / \bar{A}`$ years. That is $`10`$ years at a saturated controller, and indefinitely once the stake target is met (P8).
+- Reserve exhaustion is absorbing. It removes $`4\%`$ to $`20\%`$ of annual staking yield in one block, for security levels from $`25\%`$ down to $`5\%`$. The loss is largest where the chain is weakest (F1).
+- Inflating fees is a loss for any participant whose combined settlement share is below one. The effect on the settled amount is still unbounded (I1, F5).
+- With an empty reserve, the equilibrium security level is proportional to fee coverage and is not capped at the target (F2).
+- The mechanism has no value accrual, and circulating supply is non-decreasing (F4).
+
+# Analysis
+
+Refer to [Notation](block-rewards.md#notation) and [Parameters](block-rewards.md#parameters) for the definition of the parameters.
 
 ## P1. Conservation
 
