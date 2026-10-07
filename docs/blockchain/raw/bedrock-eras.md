@@ -119,7 +119,7 @@ Both releases share the fork digests of eras 0 and 1, and with them the protocol
 
 The two protocols that find peers and describe them carry the identifier of the chain in their names instead of a fork digest. No era changes it.
 
-A release knows the rules only up to its horizon, the last epoch it interprets. A node warns its operator once its clock passes the horizon, and when a peer advertises a fork digest the node does not know.
+Each release names a horizon when it is built: the last epoch up to which it assumes its schedule is complete. A node warns its operator once its clock passes the horizon. It also warns when a peer advertises a fork digest the node does not know, which shows that the peer runs a schedule the node's release lacks.
 
 ```mermaid
 ---
@@ -265,7 +265,9 @@ stateDiagram-v2
 
 ## Horizon and Warnings
 
-Each release fixes a **horizon** for each network: the last epoch it interprets. The horizon is at least the first epoch of the release's last era ([Horizon](#horizon)).
+A node learns of an era only from the schedule of its release. A node that misses an upgrade therefore keeps applying the rules it knows, while its fork digest separates it from the upgraded nodes. The horizon lets its operator notice.
+
+Each release fixes a **horizon** for each network when the release is built: the last epoch up to which the release assumes its schedule is complete. The horizon belongs to the release, not to an era, and no era that a later release adds changes it. It is at least the first epoch of the last era in the release's schedule ([Horizon](#horizon)).
 
 A node warns its operator in two cases:
 
@@ -344,13 +346,15 @@ A node keeps four values that depend on the era in force:
 | $`\textbf{slot}(t)`$ | slot of a time | `slot_of_time(t)` of [Era Boundaries](#era-boundaries). |
 | *none* | era in force | `era_in_force()` of [Era Boundaries](#era-boundaries). |
 | $`F_n`$ | fork digest of era $`n`$ | `fork_digest(n)` of [Fork Digest](#fork-digest). |
-| $`H`$ | horizon | The last epoch a software release interprets, per network. |
+| $`H`$ | horizon | `MAINNET_HORIZON` or `TESTNET_HORIZON` of [Parameters](#parameters): the last epoch up to which a software release assumes its schedule is complete. |
 
 ## Parameters
 
 ```python
 MAINNET_ERA_SCHEDULE: list[tuple[EpochNumber, EraParameters]] = [(0, P_0)]  # (E_n, P_n) of each era of mainnet
 TESTNET_ERA_SCHEDULE: list[tuple[EpochNumber, EraParameters]] = [(0, P_0)]  # (E_n, P_n) of each era of testnet
+MAINNET_HORIZON: EpochNumber                                                # H of mainnet, set in each release
+TESTNET_HORIZON: EpochNumber                                                # H of testnet, set in each release
 ```
 
 ## Era Schedule
@@ -554,4 +558,4 @@ A node sends a message it generates over the identifiers of the era in force at 
 
 $`H`$ must not be smaller than $`E_n`$ of the last entry of the schedule. Otherwise the node warns its operator before its last era begins.
 
-When $`\textbf{wallclock\_time}().\textbf{to\_slot}()`$ reaches the first slot of epoch $`H+1`$, a node warns its operator that its software no longer interprets the chain. A node also warns its operator when a peer lists, in the `protocols` field of its [identify](https://github.com/libp2p/specs/blob/master/identify/README.md) message, an identifier whose fork digest the node does not know.
+When $`\textbf{wallclock\_time}().\textbf{to\_slot}()`$ reaches the first slot of epoch $`H+1`$, a node warns its operator that its release has passed its horizon. A node also warns its operator when a peer lists, in the `protocols` field of its [identify](https://github.com/libp2p/specs/blob/master/identify/README.md) message, an identifier whose fork digest the node does not know.
