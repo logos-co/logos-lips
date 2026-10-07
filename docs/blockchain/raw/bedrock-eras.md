@@ -179,7 +179,7 @@ A schedule changes only under these rules ([Era Schedule](#era-schedule)):
 
 Nodes whose releases apply different rules must not exchange data that they would read differently.
 
-Each era has an **era digest**, a hash of its first epoch and parameter record. It also has a **fork digest**, a hash of the genesis block ID, the chain ID ([Bedrock Genesis Block](bedrock-genesis-block.md)) and the era digest of every era up to it ([Fork Digest](#fork-digest)).
+Each era has an **era digest**, a hash of its first epoch and parameter record. It also has a **[fork digest](#fork-digest)**, a hash of the genesis block ID, the chain ID ([Bedrock Genesis Block](bedrock-genesis-block.md)) and the era digest of every era up to it.
 
 ```mermaid
 ---
@@ -221,7 +221,7 @@ A node interprets each piece of chain data under one era:
 
 A new era may change what the chain state holds and how it is laid out, while the state built under the previous era must carry over.
 
-Between eras, the **recorded chain state** passes through a **migration** that the new era defines ([Era Migration](#era-migration)). The recorded chain state is the state [Mantle](bedrock-v1.1-mantle-specification.md) Operations are validated against, together with the SDP snapshots. A migration turns the state of the previous era into the state of the new era. It:
+Between eras, the **recorded chain state** passes through a **[migration](#era-migration)** that the new era defines. The recorded chain state is the state [Mantle](bedrock-v1.1-mantle-specification.md) Operations are validated against, together with the SDP snapshots. A migration turns the state of the previous era into the state of the new era. It:
 
 - depends on the recorded chain state alone;
 - is defined for every state the previous era can reach;
@@ -250,7 +250,7 @@ Each message a node sends goes out on the identifiers of one era:
 
 A synchronization response ([Cryptarchia Bootstrapping & Synchronization](cryptarchia-v1-bootstr-sync.md)) may carry blocks of any era.
 
-When the era in force changes, the node runs the network protocols of both eras for the **Era Transition Period**, whose length is the new era's Blend Transition Period ([Era Transition Period](#era-transition-period)):
+When the era in force changes, the node runs the network protocols of both eras for the **[Era Transition Period](#era-transition-period)**, whose length is the new era's Blend Transition Period:
 
 - during the period, it validates each Blend message under the era of the connection it arrived on;
 - when the period ends, it drops the identifiers of the predecessor era;
@@ -323,7 +323,7 @@ sequenceDiagram
 2. When its clock reaches the first slot of era $`n`$, the era in force becomes era $`n`$ ([Era Boundaries](#era-boundaries)).
 3. The node migrates the state after its chain tip to era $`n`$ ([Era Change](#era-change)).
 4. It re-validates its mempool against that state ([Era Change](#era-change)). A transaction that carries the fork digest of era $`n-1`$ stays valid until step 11 ([Era of Chain Data](#era-of-chain-data)).
-5. It opens the identifiers of era $`n`$ and keeps those of era $`n-1`$, which starts the Era Transition Period ([Era Transition Period](#era-transition-period)).
+5. It opens the identifiers of era $`n`$ and keeps those of era $`n-1`$, which starts the [Era Transition Period](#era-transition-period).
 6. A Blend message that arrives on a connection of era $`n-1`$ is validated under era $`n-1`$ ([Era Transition Period](#era-transition-period)).
 7. A block whose slot lies in era $`n`$ arrives on the topic of era $`n`$. Once the node's clock has reached the block's slot, the node validates the block under era $`n`$, from its parent's state migrated to era $`n`$ ([Era of Chain Data](#era-of-chain-data), [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation)).
 8. If the block extends a fork that left the local chain before the boundary, fork choice compares the two chains under the era of their common ancestor's slot, which precedes era $`n`$ ([Era of Chain Data](#era-of-chain-data)).
