@@ -62,7 +62,7 @@ When $`\delta_t < 0`$ the response is clamped at zero rather than reversed, sinc
 
 # Derived Properties
 
-Refer to [Protocol constants](block-rewards.md#protocol-constants) for the definition of the parameters.
+Refer to [Protocol constants](block-rewards.md#notation) for the definition of the parameters.
 
 ## P1. Conservation
 

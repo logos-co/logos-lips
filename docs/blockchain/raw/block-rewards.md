@@ -53,11 +53,7 @@ The properties this mechanism satisfies, its behaviour across the range of its s
 
 The word "reward" denotes three distinct quantities in this document. Each is named explicitly wherever it appears to avoid misinterpretation.
 
-| Term | Symbol | Definition |
-| --- | --- | --- |
-| Block reward | $`R_t`$ | The total amount accrued at block $`t`$. The outcome of the mechanism, and the sum of the two quantities below. |
-| Block fees | $`R^{\text{block}}_t`$ | The gross Execution base fees and Permanent Storage fees collected in block $`t`$, passed through in full. Execution priority fees are excluded. |
-| Released rewards | $`\iota_t`$ | The part drawn from the reserve pool, which is allocated at genesis out of the hard cap. |
+The three quantities are the block reward $`R_t`$, the block fees $`R^{\text{block}}_t`$ and the released rewards $`\iota_t`$, defined in [Notation](#notation).
 
 $$
 R_t = R^{\text{block}}_t + \iota_t.
@@ -130,88 +126,41 @@ the block's fees in full, plus a release from the reserve sized only by the secu
 
 The two components are independent. Fees do not displace the release, and the release does not depend on fees. The mechanism is a fee pass-through plus a stake-driven subsidy.
 
-## Lifecycle Phases
+# Protocol
 
-Let $`\theta_t`$ denote the security level. The regimes are keyed on $`\theta_t`$ and on the reserve balance. Fee revenue no longer selects a regime; it scales the reward within one. Each is evaluated in full in [Scenario Analysis](analysis-block-rewards.md#scenario-analysis).
+## Notation
 
-- **Bootstrap.** $`\theta_t \le 25\%`$, so $`A_t = 1`$. The release is at $`c`$ every block, the reserve drains at its maximum rate, and the staking yield against a small base is high. [Scenario S1](analysis-block-rewards.md#s1-bootstrap)
-- **Stabilization.** $`\theta_t \in (25\%, 30\%)`$. $`A_t`$ falls linearly with the shortfall, the release shrinks, and a growing share of the block reward is fees. [Scenario S3](analysis-block-rewards.md#s3-proportional-band)
-- **Self-sustaining.** $`\theta_t \ge 30\%`$, so $`A_t = 0`$. Nothing is released, the reward is fees alone, and the reserve is frozen at its current balance rather than drained. The mechanism spends the reserve only in the states that call for it. [Scenario S2](analysis-block-rewards.md#s2-target-reached-no-usage), [Scenario S4](analysis-block-rewards.md#s4-high-adoption)
-- **Terminal.** $`B_{t-1} = 0`$. The reserve is spent and the reward is fees alone from that block onward, whatever the security state. This state is absorbing: there is no inflow that can restore the reserve. [Scenario S5](analysis-block-rewards.md#s5-depleted-reserve-security-below-target), [Failure Mode F1](analysis-block-rewards.md#f1-terminal-reserve-exhaustion-and-the-yield-cliff)
-
-The self-sustaining regime is reversible and the terminal regime is not. The difference between them is the subject of [Reserve Horizon and Terminal State](#reserve-horizon-and-terminal-state).
-
-## Properties
-
-Each claim below is a result proved in the analysis document.
-
-- **Conservation.** $`S_t + P_t + B_t`$ is invariant at every block. The mechanism never mints. [Derived Property P1](analysis-block-rewards.md#p1-conservation)
-- **Epoch discharge.** The rewards pool accrues within an epoch and returns to zero at the boundary. [Derived Property P2](analysis-block-rewards.md#p2-the-rewards-pool-accrues-within-an-epoch-and-discharges-at-the-boundary)
-- **Bounded emission.** Released rewards are at most $`c`$ per block, that is $`I_{max} S_{cap}`$ per year, in every state and at any fee level. The bound is unconditional on fees rather than mediated by the fee gap. [Derived Property P3](analysis-block-rewards.md#p3-block-reward-bounds-and-monotonicity)
-- **Unbounded block reward.** $`R_t`$ has no upper bound, since it contains the block's fees uncapped. No ceiling on $`R_t`$ may be assumed by downstream protocols. [Derived Property P3](analysis-block-rewards.md#p3-block-reward-bounds-and-monotonicity), [Failure Mode F5](analysis-block-rewards.md#f5-the-settled-reward-is-not-a-bounded-signal)
-- **Separability.** The fee component and the released component are additively separable, with zero cross-partial. Fee revenue neither displaces nor triggers a release. [Derived Property P4](analysis-block-rewards.md#p4-the-two-components-are-additively-separable)
-- **Monotone supply.** Circulating supply is non-decreasing epoch over epoch, and strictly increasing whenever $`A_t > 0`$ over the epoch. No fee level contracts it. [Derived Property P5](analysis-block-rewards.md#p5-closed-form-for-the-stock-dynamics)
-- **Reserve solvency.** Released rewards never exceed the reserve pool balance, by the clamp in equation (2). [Derived Property P6](analysis-block-rewards.md#p6-the-reserve-pool-covers-every-released-reward)
-- **Finite reserve horizon.** The reserve reaches zero in finite time under a persistent shortfall, and the terminal state is absorbing. [Derived Property P7](analysis-block-rewards.md#p7-the-reserve-reaches-zero-in-finite-time), [Derived Property P8](analysis-block-rewards.md#p8-reserve-horizon)
-- **Manipulation resistance.** Inflating the fees in a block is never profitable for a participant whose combined share of the epoch settlement is below one. The recovered fraction is constant in the fee paid. [Incentive Analysis I1](analysis-block-rewards.md#i1-inflating-fees-is-not-profitable-but-its-effect-is-unbounded)
-- **Minimal consensus state.** The rule reads the reserve pool balance, the stake estimate, the block's fees, the rewards pool balance and the epoch position. No fee window or history is maintained.
-
-# Construction
-
-## Core Variables
-
-### Protocol constants
-
-- $`S_{cap}`$ is the maximum allowable token supply (hard cap).
-- $`\Delta_t`$ is the fraction of a year in one time step.
-- $`f`$ is the average number of block proposals within $`\Delta_t`$.
-- $`L`$ is the number of blocks in an epoch.
-- $`I_{max}`$ is the maximum annual release rate, expressed as a fraction of $`S_{cap}`$.
-- $`Y`$ is the lifetime, in years, of the reserve at release rate $`I_{max}`$.
-- $`D_{target}`$ is the target inferred total stake.
-- $`\Lambda`$ is the stake shortfall at which the security controller saturates, in tokens. Equivalently $`\delta^\ast = \Lambda / D_{target}`$, the same threshold as a normalized deviation.
-- $`B_0 = I_{max} \cdot S_{cap} \cdot Y`$ is the initial reserve, allocated at genesis from $`S_{cap}`$.
-- $`c`$ is the per-block release cap, in tokens.
-
-The per-block release cap $`c`$ is derived as:
-
-$$
-c = \frac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f} .
-$$
-
-$`c`$ has a single role: it is the maximum draw on the reserve in one block. It is not applied to fees.
-
-Its calibration is a yield statement, but the reference base is the saturation boundary and not the target. The release is at $`c`$ only while $`A_t = 1`$, that is while $`D_t \le D_{target} - \Lambda`$. At $`D_t = D_{target}`$ the controller is zero, nothing is released, and the block reward is pure fee recycling, so no release-funded yield can be quoted there at all. The largest staked base still receiving the full release is therefore $`D_{target} - \Lambda`$, and over the saturated region the release-funded annual yield is
-
-$$
-r^{\iota}(D_t) = \frac{I_{max} S_{cap}}{D_t} \;\ge\; \frac{I_{max} S_{cap}}{D_{target} - \Lambda} ,
-$$
-
-which at the adopted parameters is at least $`4.0\%`$, on a base of $`2.5 \cdot 10^9`$ LGO, and rises without bound as the staked base falls. Across the proportional band the release-funded yield is $`A_t I_{max} S_{cap} / D_t`$, which falls monotonically from $`4.0\%`$ at $`\theta = 25\%`$ to zero at $`\theta = 30\%`$. [Failure Mode F1](analysis-block-rewards.md#f1-terminal-reserve-exhaustion-and-the-yield-cliff) tabulates $`r^{\iota}`$ across the range.
-
-Epochs are indexed by $`e`$, and epoch $`e`$ spans the blocks $`t \in (T_{e-1}, T_e]`$ with $`T_e = e L`$.
-
-Under a leader lottery the realized block count in an epoch is a random variable and $`L`$ is its expected value. The block reward accrues per block, so the amount settled at a boundary scales with the realized count. The annualized figures in this document assume the expected rate.
-
-### State
-
-- $`S_t`$ is the circulating supply.
-- $`B_t`$ is the reserve pool balance. It funds every released reward and receives nothing.
-- $`P_t`$ is the rewards pool balance. It accrues the block reward obligation within an epoch and is emptied at the boundary.
-- $`D_t`$ is the inferred total stake at time $`t`$, the key performance indicator.
-- $`R^{\text{block}}_t`$ is the gross amount of Execution base fees and Permanent Storage fees collected in block $`t`$. Execution priority fees are not included.
+| Symbol | Definition |
+| --- | --- |
+| $`R_t`$ | The block reward: the total amount accrued at block $`t`$. The outcome of the mechanism, and the sum of $`R^{\text{block}}_t`$ and $`\iota_t`$. |
+| $`R^{\text{block}}_t`$ | The block fees: the gross Execution base fees and Permanent Storage fees collected in block $`t`$, passed through in full. Execution priority fees are excluded. |
+| $`\iota_t`$ | The released rewards: the part drawn from the reserve pool, which is allocated at genesis out of the hard cap. |
+| $`S_t`$ | The circulating supply. |
+| $`B_t`$ | The reserve pool balance. It funds every released reward and receives nothing. |
+| $`P_t`$ | The rewards pool balance. It accrues the block reward obligation within an epoch and is emptied at the boundary. |
+| $`D_t`$ | The inferred total stake at time $`t`$, the key performance indicator. |
+| $`S_{cap}`$ | The maximum allowable token supply (hard cap). |
+| $`\Delta_t`$ | The fraction of a year in one time step. |
+| $`f`$ | The average number of block proposals within $`\Delta_t`$. |
+| $`L`$ | The number of blocks in an epoch. |
+| $`I_{max}`$ | The maximum annual release rate, expressed as a fraction of $`S_{cap}`$. |
+| $`Y`$ | The lifetime, in years, of the reserve at release rate $`I_{max}`$. |
+| $`D_{target}`$ | The target inferred total stake. |
+| $`\Lambda`$ | The stake shortfall at which the security controller saturates, in tokens. Equivalently $`\delta^\ast = \Lambda / D_{target}`$, the same threshold as a normalized deviation. |
+| $`B_0`$ | The initial reserve $`I_{max} \cdot S_{cap} \cdot Y`$, allocated at genesis from $`S_{cap}`$. |
+| $`c`$ | The per-block release cap, in tokens. The maximum draw on the reserve in one block. |
+| $`e`$, $`T_e`$ | The epoch index and its last block. Epoch $`e`$ spans the blocks $`t \in (T_{e-1}, T_e]`$ with $`T_e = e L`$. |
+| $`\theta_t`$, $`\theta_{target}`$ | The security level $`D_t / S_{cap}`$ and its target $`D_{target} / S_{cap}`$. |
+| $`\delta_t`$ | The normalized deviation of the key performance indicator from its target. |
+| $`A_t \in [0,1]`$ | The security controller. |
+| $`\Pi_e`$ | The epoch settlement amount, the total transferred to the distribution protocols at the boundary $`T_e`$. |
+| $`\Pi^{blend}_e`$, $`\Pi^{leader}_e`$ | The parts of $`\Pi_e`$ passed to the Blend distribution and to the leader reward pool. |
+| $`a_t`$ | The security controller scaled by $`M`$ in the integer rule. |
+| $`c^{\ast}`$, $`\Lambda^{\ast}`$, $`M`$, $`d`$ | The integer counterparts of $`c`$ and $`\Lambda`$, the fixed-point scale, and the decimal places of the base unit. Values are in [Parameters](#parameters). |
 
 Consensus state read by this mechanism is $`(B_{t-1}, D_t, R^{\text{block}}_t)`$ to compute the block reward, and $`(P_{t-1}, t \bmod L)`$ to accrue and settle it. No window or fee history is required.
 
-### Derived quantities
-
-- $`\delta_t`$ is the normalized deviation of the key performance indicator from its target.
-- $`A_t \in [0,1]`$ is the security controller.
-- $`\iota_t = \min \lbrace A_t c, \; B_{t-1} \rbrace`$ is the released rewards, the part of the block reward drawn from the reserve.
-- $`R_t = R^{\text{block}}_t + \iota_t`$ is the block reward, accrued at block $`t`$ into $`P_t`$.
-- $`\Pi_e`$ is the epoch settlement amount, the total transferred to the distribution protocols at the boundary $`T_e`$.
-
-## Parametrization
+## Parameters
 
 | Symbol | Definition | Value | Basis |
 | --- | --- | --- | --- |
@@ -224,6 +173,12 @@ Consensus state read by this mechanism is $`(B_{t-1}, D_t, R^{\text{block}}_t)`$
 | $`D_{target}`$ | Target inferred total stake | $`3 \cdot 10^9`$ LGO | $`\theta_{target} = 30\%`$. See [Parameter rationale](analysis-block-rewards.md#parameter-rationale). |
 | $`\Lambda`$ | Stake shortfall at controller saturation | $`5 \cdot 10^8`$ LGO | Equivalently $`\delta^\ast = \Lambda / D_{target} = 1/6`$, so $`A_t = 1`$ below $`\theta = 25\%`$ and the proportional band runs from there to $`30\%`$. Jointly with $`I_{max}`$ it fixes the release-funded yield floor, since the base at saturation is $`D_{target} - \Lambda`$. |
 | $`L`$ | Blocks per epoch | $`21600`$ | $`7.5`$ days at one block every 30 seconds. Sets the reserve-funded settlement float at $`L c = 2.055 \cdot 10^6`$ LGO, $`0.02\%`$ of $`S_{cap}`$. The fee-funded part of the float is unbounded by the protocol. |
+| $`d`$ | Decimal places of the base unit | $`18`$ | $`1`$ LGO $`= 10^{d}`$ base units. |
+| $`M`$ | Fixed-point scale of the controller | $`2^{32}`$ | Scale of $`a_t`$ in the integer rule. |
+| $`c^{\ast}`$ | Per-block release cap in base units | $`\lfloor 62500 \cdot 10^{d} / 657 \rfloor`$ | Replaces the exact rational $`c`$. The truncation is below one base unit, that is $`10^{-18}`$ LGO. |
+| $`\Lambda^{\ast}`$ | Stake shortfall at controller saturation in base units | $`5 \cdot 10^{8} \cdot 10^{d}`$ | Replaces $`\Lambda`$. |
+
+Under a leader lottery the realized block count in an epoch is a random variable and $`L`$ is its expected value. The block reward accrues per block, so the amount settled at a boundary scales with the realized count. The annualized figures in this document assume the expected rate.
 
 ## Key Performance Indicator
 
@@ -291,12 +246,6 @@ $$
 
 The two terms are independent. The first is a pass-through of value the block already collected; the second is a subsidy sized only by how far the inferred total stake sits below target. Neither scales the other.
 
-- $`A_t`$ is the emission rate factor on a per year basis.
-- $`I_{max}`$ is the maximum emission rate per year.
-- $`S_{cap}`$ denotes the maximum allowable token supply (hard cap).
-- $`\Delta_t`$ denotes the fraction of year in one time step per e.g., epoch, block, or day.
-- $f$ be the average number of block proposal within $`\Delta_{t}`$ units.
-
 $$
 \begin{equation}
 \iota_t = \min \lbrace A_t \cdot c, \; B_{t-1} \rbrace , \qquad R_t = R^{\text{block}}_t + \iota_t .
@@ -315,19 +264,7 @@ $$
 
 Once the reserve is depleted, $`\iota_t = 0`$ and the reward reduces to the block's fees. The cap on $`\iota_t`$ makes the reserve last $`Y`$ years at the maximum release rate, and longer whenever $`A_t \lt 1`$.
 
-### Reserve Horizon and Terminal State
-
-The reserve is spent at $`\iota_t`$ per block and never replenished, so its horizon is determined at genesis by the path of the controller:
-
-$$
-B_t = B_0 - \sum_{s \le t} \iota_s , \qquad \sum_{s} \iota_s \;\le\; B_0 = I_{max} S_{cap} Y .
-$$
-
-Under a saturated controller, $`A_t = 1`$ at every block, the horizon is exactly $`B_0 / c = 1.0512 \cdot 10^7`$ blocks, that is $`Y = 10`$ years. Under a mean controller value $`\bar{A}`$ over the interval, the horizon is $`Y / \bar{A}`$ years, tabulated in [Derived Property P8](analysis-block-rewards.md#p8-reserve-horizon). The reserve is spent only in the states that call for it, so a chain that reaches its stake target early conserves the balance indefinitely; a chain that never reaches it spends the reserve in ten years.
-
-Once $`B_t = 0`$ the state is absorbing, per [Derived Property P7](analysis-block-rewards.md#p7-the-reserve-reaches-zero-in-finite-time). Released rewards are zero from that block onward, the block reward is fees alone, and the mechanism has no instrument left if the stake subsequently falls below target. The release also stops abruptly rather than tapering: it falls from $`A_t c`$ to zero across two consecutive blocks, removing up to $`I_{max} S_{cap} / D_t`$ of annual staking yield at that instant. [Failure Mode F1](analysis-block-rewards.md#f1-terminal-reserve-exhaustion-and-the-yield-cliff) quantifies the cliff and evaluates the available mitigations.
-
-## Accounting and Supply Dynamics
+## Accounting
 
 ### Stock accounting
 
@@ -346,33 +283,19 @@ $$
 B_t = B_{t-1} - \iota_t ,
 $$
 
-The controlled total is constant: the mechanism never mints tokens. A reserve release moves tokens from $`B_t`$ into circulation, routing a fee moves tokens from circulation into $`P_t`$, and recycling moves them back. Circulating supply $`S_t`$ rises as the reserve drains, and contracts whenever the fee inflow exceeds the distributed reward, $`D_{1,t} \gt R_t`$, when tokens accumulate in the pool faster than they are paid out. This removes tokens from circulation, not from existence, and reverses if the pool is later released.
-
-The [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool) is a stock of the same kind, holding tokens allocated at genesis and topped up by the share of the fees diverted before they reach $`P_t`$, and paying them into circulation as claims are made. It joins the controlled total, which is $`S_t + P_t + B_t + W_t`$, writing $`W_t`$ for this pool, and is constant for the same reason: every movement is between stocks. Net circulating growth over the reserve's life is bounded by $`B_0 + W_0`$, the two stocks that begin full and drain into circulation.
-
-## Security Controller
-
-The controller is the normalized deviation of the key performance indicator, saturated at a threshold $`\delta^\ast`$ and clamped below at zero:
-
 $$
 P_t = P_{t-1} + R^{\text{block}}_t + \iota_t - \Pi_e \cdot \mathbb{1} \lbrace t = T_e \rbrace = P_{t-1} + R_t - \Pi_e \cdot \mathbb{1} \lbrace t = T_e \rbrace .
 $$
+
+The controlled total is constant: the mechanism never mints tokens. A reserve release moves tokens from $`B_t`$ into circulation, routing a fee moves tokens from circulation into $`P_t`$, and recycling moves them back. Circulating supply $`S_t`$ rises as the reserve drains, and contracts whenever the fee inflow exceeds the distributed reward, $`D_t \gt R_t`$, when tokens accumulate in the pool faster than they are paid out. This removes tokens from circulation, not from existence, and reverses if the pool is later released.
+
+The [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool) is a stock of the same kind, holding tokens allocated at genesis and topped up by the share of the fees diverted before they reach $`P_t`$, and paying them into circulation as claims are made. It joins the controlled total, which is $`S_t + P_t + B_t + W_t`$, writing $`W_t`$ for this pool, and is constant for the same reason: every movement is between stocks. Net circulating growth over the reserve's life is bounded by $`B_0 + W_0`$, the two stocks that begin full and drain into circulation.
 
 Each account has one role. The reserve pool funds released rewards and nothing else; it never touches the fees. The rewards pool receives both components of the block reward and pays out only at a boundary. Circulating supply loses the block's fees during the epoch and regains the settlement amount at the boundary.
 
 The only debit from the reserve pool is $`\iota_t`$, and the clamp in equation (2) bounds it by $`B_{t-1}`$ unconditionally, so $`B_t \ge 0`$ holds at every block. No flow ordering constraint is required.
 
 R6 is satisfied trivially. The reserve pool never accumulates, since it has no inflow, and the rewards pool is emptied at every boundary by R9. There is no stock in which value can build up without a release rule, because there is no stock that builds up.
-
-### Supply dynamics
-
-Over epoch $`e`$ the circulating supply loses the epoch's fees and regains the settlement, which is the epoch's fees plus the epoch's releases. Netting the two,
-
-$$
-S_{T_e} - S_{T_{e-1}} = \sum_{t = T_{e-1}+1}^{T_e} \iota_t \;\ge\; 0 .
-$$
-
-Circulating supply is non-decreasing epoch over epoch and strictly increasing whenever any block in the epoch carries a positive release. Total net emission over the life of the chain is bounded by $`B_0 = 10^9`$ LGO, that is $`10\%`$ of $`S_{cap}`$, and is reached only if the shortfall persists for the full horizon.
 
 ### Epoch settlement
 
@@ -394,21 +317,11 @@ Splitting at the epoch aggregate rather than per block reduces the truncation re
 
 Immediately after settlement $`P_{T_e} = 0`$. This is the only instant at which the rewards pool balance is known without reference to the epoch's history, and it is the point at which the three-stock identity reduces to two, per [Derived Property P2](analysis-block-rewards.md#p2-the-rewards-pool-accrues-within-an-epoch-and-discharges-at-the-boundary).
 
-# Float Precision for Implementation
+## Float Precision for Implementation
 
 Block rewards affect consensus state, so the normative rule is defined in integer arithmetic. All quantities are in base units, $`1`$ LGO $`= 10^{d}`$ base units with $`d = 18`$. No floating point, no machine-epsilon comparison, and no rounding-mode dependence appears in the rule. This discharges R8.
 
-## Constants
-
-$$
-c^{\ast} = \left\lfloor \frac{62500 \cdot 10^{d}}{657} \right\rfloor, \quad
-\Lambda^{\ast} = 5 \cdot 10^{8} \cdot 10^{d}, \quad
-M = 2^{32} .
-$$
-
-$`M`$ is the fixed-point scale of the controller. $`c^{\ast}`$ replaces the exact rational $`c`$; the truncation is below one base unit, that is $`10^{-18}`$ LGO.
-
-## Rule
+### Rule
 
 $$
 a_t = \left\lfloor \frac{\min \lbrace \Lambda^{\ast}, \; \max \lbrace 0, \; D_{target} - D_t \rbrace \rbrace \cdot M}{\Lambda^{\ast}} \right\rfloor ,
@@ -433,7 +346,7 @@ $$
 
 The clamp against $`B_{t-1}`$ is applied after the multiplication and floor, on a quantity already bounded by $`c^{\ast}`$, so it cannot overflow.
 
-## Bit width
+### Bit width
 
 Any change to $`\Lambda`$ or $`M`$ must preserve
 
@@ -443,7 +356,7 @@ $$
 
 The rewards pool accumulator is sized against the conservation bound $`P_t \le S_{cap}^{\ast} = 10^{28}`$ base units, not against the reserve-funded part. The resulting widths are derived in [Derived Property P10](analysis-block-rewards.md#p10-integer-arithmetic-bounds).
 
-## Reference
+### Reference
 
 ```python
 DECIMALS = 18
@@ -497,3 +410,72 @@ def apply_block(state, height, total_stake, gross_fees):
 ```
 
 `blend` passes to the Blend distribution and `leader` to the leader reward pool; both are outside this specification.
+
+# Details
+
+## Lifecycle Phases
+
+Let $`\theta_t`$ denote the security level. The regimes are keyed on $`\theta_t`$ and on the reserve balance. Fee revenue no longer selects a regime; it scales the reward within one. Each is evaluated in full in [Scenario Analysis](analysis-block-rewards.md#scenario-analysis).
+
+- **Bootstrap.** $`\theta_t \le 25\%`$, so $`A_t = 1`$. The release is at $`c`$ every block, the reserve drains at its maximum rate, and the staking yield against a small base is high. [Scenario S1](analysis-block-rewards.md#s1-bootstrap)
+- **Stabilization.** $`\theta_t \in (25\%, 30\%)`$. $`A_t`$ falls linearly with the shortfall, the release shrinks, and a growing share of the block reward is fees. [Scenario S3](analysis-block-rewards.md#s3-proportional-band)
+- **Self-sustaining.** $`\theta_t \ge 30\%`$, so $`A_t = 0`$. Nothing is released, the reward is fees alone, and the reserve is frozen at its current balance rather than drained. The mechanism spends the reserve only in the states that call for it. [Scenario S2](analysis-block-rewards.md#s2-target-reached-no-usage), [Scenario S4](analysis-block-rewards.md#s4-high-adoption)
+- **Terminal.** $`B_{t-1} = 0`$. The reserve is spent and the reward is fees alone from that block onward, whatever the security state. This state is absorbing: there is no inflow that can restore the reserve. [Scenario S5](analysis-block-rewards.md#s5-depleted-reserve-security-below-target), [Failure Mode F1](analysis-block-rewards.md#f1-terminal-reserve-exhaustion-and-the-yield-cliff)
+
+The self-sustaining regime is reversible and the terminal regime is not. The difference between them is the subject of [Reserve Horizon and Terminal State](#reserve-horizon-and-terminal-state).
+
+## Properties
+
+Each claim below is a result proved in the analysis document.
+
+- **Conservation.** $`S_t + P_t + B_t`$ is invariant at every block. The mechanism never mints. [Derived Property P1](analysis-block-rewards.md#p1-conservation)
+- **Epoch discharge.** The rewards pool accrues within an epoch and returns to zero at the boundary. [Derived Property P2](analysis-block-rewards.md#p2-the-rewards-pool-accrues-within-an-epoch-and-discharges-at-the-boundary)
+- **Bounded emission.** Released rewards are at most $`c`$ per block, that is $`I_{max} S_{cap}`$ per year, in every state and at any fee level. The bound is unconditional on fees rather than mediated by the fee gap. [Derived Property P3](analysis-block-rewards.md#p3-block-reward-bounds-and-monotonicity)
+- **Unbounded block reward.** $`R_t`$ has no upper bound, since it contains the block's fees uncapped. No ceiling on $`R_t`$ may be assumed by downstream protocols. [Derived Property P3](analysis-block-rewards.md#p3-block-reward-bounds-and-monotonicity), [Failure Mode F5](analysis-block-rewards.md#f5-the-settled-reward-is-not-a-bounded-signal)
+- **Separability.** The fee component and the released component are additively separable, with zero cross-partial. Fee revenue neither displaces nor triggers a release. [Derived Property P4](analysis-block-rewards.md#p4-the-two-components-are-additively-separable)
+- **Monotone supply.** Circulating supply is non-decreasing epoch over epoch, and strictly increasing whenever $`A_t > 0`$ over the epoch. No fee level contracts it. [Derived Property P5](analysis-block-rewards.md#p5-closed-form-for-the-stock-dynamics)
+- **Reserve solvency.** Released rewards never exceed the reserve pool balance, by the clamp in equation (2). [Derived Property P6](analysis-block-rewards.md#p6-the-reserve-pool-covers-every-released-reward)
+- **Finite reserve horizon.** The reserve reaches zero in finite time under a persistent shortfall, and the terminal state is absorbing. [Derived Property P7](analysis-block-rewards.md#p7-the-reserve-reaches-zero-in-finite-time), [Derived Property P8](analysis-block-rewards.md#p8-reserve-horizon)
+- **Manipulation resistance.** Inflating the fees in a block is never profitable for a participant whose combined share of the epoch settlement is below one. The recovered fraction is constant in the fee paid. [Incentive Analysis I1](analysis-block-rewards.md#i1-inflating-fees-is-not-profitable-but-its-effect-is-unbounded)
+- **Minimal consensus state.** The rule reads the reserve pool balance, the stake estimate, the block's fees, the rewards pool balance and the epoch position. No fee window or history is maintained.
+
+## Calibration of the Release Cap
+
+The per-block release cap $`c`$ is derived as:
+
+$$
+c = \frac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f} .
+$$
+
+$`c`$ has a single role: it is the maximum draw on the reserve in one block. It is not applied to fees.
+
+Its calibration is a yield statement, but the reference base is the saturation boundary and not the target. The release is at $`c`$ only while $`A_t = 1`$, that is while $`D_t \le D_{target} - \Lambda`$. At $`D_t = D_{target}`$ the controller is zero, nothing is released, and the block reward is pure fee recycling, so no release-funded yield can be quoted there at all. The largest staked base still receiving the full release is therefore $`D_{target} - \Lambda`$, and over the saturated region the release-funded annual yield is
+
+$$
+r^{\iota}(D_t) = \frac{I_{max} S_{cap}}{D_t} \;\ge\; \frac{I_{max} S_{cap}}{D_{target} - \Lambda} ,
+$$
+
+which at the adopted parameters is at least $`4.0\%`$, on a base of $`2.5 \cdot 10^9`$ LGO, and rises without bound as the staked base falls. Across the proportional band the release-funded yield is $`A_t I_{max} S_{cap} / D_t`$, which falls monotonically from $`4.0\%`$ at $`\theta = 25\%`$ to zero at $`\theta = 30\%`$. [Failure Mode F1](analysis-block-rewards.md#f1-terminal-reserve-exhaustion-and-the-yield-cliff) tabulates $`r^{\iota}`$ across the range.
+
+## Reserve Horizon and Terminal State
+
+The reserve is spent at $`\iota_t`$ per block and never replenished, so its horizon is determined at genesis by the path of the controller:
+
+$$
+B_t = B_0 - \sum_{s \le t} \iota_s , \qquad \sum_{s} \iota_s \;\le\; B_0 = I_{max} S_{cap} Y .
+$$
+
+Under a saturated controller, $`A_t = 1`$ at every block, the horizon is exactly $`B_0 / c = 1.0512 \cdot 10^7`$ blocks, that is $`Y = 10`$ years. Under a mean controller value $`\bar{A}`$ over the interval, the horizon is $`Y / \bar{A}`$ years, tabulated in [Derived Property P8](analysis-block-rewards.md#p8-reserve-horizon). The reserve is spent only in the states that call for it, so a chain that reaches its stake target early conserves the balance indefinitely; a chain that never reaches it spends the reserve in ten years.
+
+Once $`B_t = 0`$ the state is absorbing, per [Derived Property P7](analysis-block-rewards.md#p7-the-reserve-reaches-zero-in-finite-time). Released rewards are zero from that block onward, the block reward is fees alone, and the mechanism has no instrument left if the stake subsequently falls below target. The release also stops abruptly rather than tapering: it falls from $`A_t c`$ to zero across two consecutive blocks, removing up to $`I_{max} S_{cap} / D_t`$ of annual staking yield at that instant. [Failure Mode F1](analysis-block-rewards.md#f1-terminal-reserve-exhaustion-and-the-yield-cliff) quantifies the cliff and evaluates the available mitigations.
+
+## Supply Dynamics
+
+
+Over epoch $`e`$ the circulating supply loses the epoch's fees and regains the settlement, which is the epoch's fees plus the epoch's releases. Netting the two,
+
+$$
+S_{T_e} - S_{T_{e-1}} = \sum_{t = T_{e-1}+1}^{T_e} \iota_t \;\ge\; 0 .
+$$
+
+Circulating supply is non-decreasing epoch over epoch and strictly increasing whenever any block in the epoch carries a positive release. Total net emission over the life of the chain is bounded by $`B_0 = 10^9`$ LGO, that is $`10\%`$ of $`S_{cap}`$, and is reached only if the shortfall persists for the full horizon.
