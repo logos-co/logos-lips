@@ -28,7 +28,7 @@
 
 # Introduction
 
-The mempool is a node's store of Mantle Transactions that have been submitted but are not yet in the canonical chain.
+The mempool is a node's store of Mantle Transactions that have been submitted but are not yet in an immutable block.
 
 # Overview
 
@@ -43,7 +43,7 @@ A transaction is admitted, disseminated, offered to block building once mature, 
 | Constant | Name | Description | Value |
 | --- | --- | --- | --- |
 | `TRANSACTION_TTL` | Transaction Time To Live | How long a transaction may stay pending before it is retired. | 24 hours |
-| `TRANSACTION_RETENTION` | Transaction Retention | How long a transaction stays resolvable before it is released. | `2 * TRANSACTION_TTL` |
+| `TRANSACTION_RETENTION` | Transaction Retention | How long a transaction that no canonical block carries stays resolvable before it is released. | `2 * TRANSACTION_TTL` |
 | `BLEND_DELAY` | Blend Delay | How long a block proposal takes to cross the Blend network. | 15 seconds |
 | `BROADCAST_DELAY` | Broadcast Delay | How long a block proposal takes to reach every node once it leaves the Blend network. | 5 seconds |
 | `TRANSACTION_MATURITY` | Transaction Maturity | How long a transaction must have been pending to be mature. | `BLEND_DELAY + BROADCAST_DELAY` |
@@ -61,6 +61,7 @@ A transaction is admitted, disseminated, offered to block building once mature, 
 ```python
 class Mempool:
     pending: TimeOrderedSet[TxHash]     # admitted, not yet retired, in admission order
+    included: Set[TxHash]               # retained, carried by a canonical block not yet immutable
     bodies: Map[TxHash, SignedMantleTx] # transaction bodies
     admitted_at: Map[TxHash, Timestamp] # admission time
     by_prefix: Map[bytes, Set[TxHash]]  # hashes keyed by reference prefix
@@ -76,10 +77,10 @@ A transaction is **retained** between its [Retirement](#retirement) and its [Rel
 
 ## Transaction Admission
 
-A transaction reaches the mempool by local submission through the [Node API](#node-api), by gossip on the mempool topic, or by re-insertion after a [Reorganisation](#reorganisation). All three follow this procedure.
+A transaction is admitted by local submission through the [Node API](#node-api), by gossip on the mempool topic, or by re-insertion after a [Reorganisation](#reorganisation). All three follow this procedure.
 
 ```python
-def admit(mempool, encoded: bytes, at: Timestamp = None) -> Result:
+def admit(mempool, encoded: bytes) -> Result:
     if len(encoded) > MAX_BLOCK_SIZE:
         return Reject(TransactionTooLarge)
 
@@ -91,11 +92,11 @@ def admit(mempool, encoded: bytes, at: Timestamp = None) -> Result:
         return Reject(FailedStatelessValidation)
 
     key = mantle_txhash(tx)
-    if key in mempool.pending:
+    if key in mempool.pending or key in mempool.included:
         return Duplicate(key)
 
     mempool.bodies[key] = tx
-    mempool.admitted_at[key] = at if at is not None else mempool.admitted_at.get(key, now())
+    mempool.admitted_at[key] = mempool.admitted_at.get(key, now())
     mempool.pending.insert_by(key, mempool.admitted_at[key])
     mempool.by_prefix[prefix(key, REFERENCE_PREFIX_LENGTH)].add(key)
     return Accept(key)
@@ -121,7 +122,7 @@ The payload is the canonical encoding defined in [Mantle Transaction Encoding](m
 
 ### Reorganisation
 
-When a fork switch displaces blocks from the canonical chain, the node re-admits the transactions they carried that the blocks now in the canonical chain do not carry. It re-admits each with its original admission time.
+When a fork switch displaces blocks from the canonical chain, the transactions they carried that the blocks now in the canonical chain do not carry leave `included`. The node re-admits each.
 
 ### Duplicates
 
@@ -182,7 +183,7 @@ A transaction leaves `pending` for one of three reasons.
 
 ### Inclusion in a Canonical Block
 
-When a block enters the node's canonical chain, the transactions it carries are retired.
+When a block enters the node's canonical chain, the transactions it carries are retired and added to `included`. For a transaction the mempool does not hold, the body is taken from the block and the hash is added to `by_prefix`.
 
 ### Inapplicability
 
@@ -192,19 +193,17 @@ A mature transaction that the applicability determination of [Block Building Vie
 
 A pending transaction whose age exceeds `TRANSACTION_TTL` is retired.
 
-### Effects of Retirement
-
-A retired transaction that is gossiped again is admitted again.
-
 ## Release
 
-A retained transaction whose age exceeds `TRANSACTION_RETENTION` is released.
+When a block becomes immutable, as defined in [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block), the transactions it carries are released.
 
-Release removes the hash from `by_prefix`, and discards its `admitted_at` entry and its body.
+A retained transaction that is not in `included` is released when its age exceeds `TRANSACTION_RETENTION`.
+
+Release removes the hash from `included` and from `by_prefix`, and discards its `admitted_at` entry and its body.
 
 ## Persistence and Recovery
 
-A node persists the pending and the retained hashes, their admission timestamps, and the transaction bodies.
+A node persists the pending and the retained hashes, `included`, their admission timestamps, and the transaction bodies.
 
 A node does not persist `by_prefix`. It rebuilds the index from the recovered hashes.
 
