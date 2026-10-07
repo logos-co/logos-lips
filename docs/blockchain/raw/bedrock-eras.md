@@ -356,15 +356,24 @@ A node keeps four values that depend on the era in force:
 | $`\textbf{slot}(t)`$ | slot of a time | `slot_of_time(t)` of [Era Boundaries](#era-boundaries). |
 | *none* | era in force | `era_in_force()` of [Era Boundaries](#era-boundaries). |
 | $`F_n`$ | fork digest of era $`n`$ | `fork_digest(n)` of [Fork Digest](#fork-digest). |
-| $`H`$ | horizon | `MAINNET_HORIZON` or `TESTNET_HORIZON` of [Parameters](#parameters): the last epoch up to which a software release assumes its schedule is complete. |
+| $`H`$ | horizon | `HORIZON` of the node's network in [Parameters](#parameters): the last epoch up to which a software release assumes its schedule is complete. |
 
 ## Parameters
 
+A node uses the parameters of its network.
+
+### Mainnet
+
 ```python
-MAINNET_ERA_SCHEDULE: list[tuple[EpochNumber, EraParameters]] = [(0, P_0)]  # (E_n, P_n) of each era of mainnet
-TESTNET_ERA_SCHEDULE: list[tuple[EpochNumber, EraParameters]] = [(0, P_0)]  # (E_n, P_n) of each era of testnet
-MAINNET_HORIZON: EpochNumber                                                # H of mainnet, set in each release
-TESTNET_HORIZON: EpochNumber                                                # H of testnet, set in each release
+SCHEDULE: list[tuple[EpochNumber, EraParameters]] = [(0, P_0)]  # (E_n, P_n) of each era
+HORIZON: EpochNumber                                            # H, set in each release
+```
+
+### Testnet
+
+```python
+SCHEDULE: list[tuple[EpochNumber, EraParameters]] = [(0, P_0)]  # (E_n, P_n) of each era
+HORIZON: EpochNumber                                            # H, set in each release
 ```
 
 ## Era Schedule
