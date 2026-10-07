@@ -158,8 +158,8 @@ A software release carries one **era schedule** per network. Each entry gives th
 
 Every slot and every epoch belongs to the last era that begins at or before it. An era may change the epoch length and the slot length, so a node computes the start of each era from the era before it ([Era Boundaries](#era-boundaries)):
 
-- the first slot of an era follows the epochs of the previous era, each as long as that era sets;
-- the start time of an era follows from those slots and the previous era's slot length.
+- the first slot of an era is the previous era's first slot plus the previous era's length in slots: its number of epochs times its epoch length;
+- the start time of an era is the previous era's start time plus the previous era's duration: its number of slots times its slot length.
 
 A schedule changes only under these rules ([Era Schedule](#era-schedule)):
 
