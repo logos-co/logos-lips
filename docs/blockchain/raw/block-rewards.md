@@ -41,7 +41,7 @@ The objective is a block reward that pays for consensus security while the netwo
 
 The design holds the token supply fixed. Block rewards are not minted. The fee component is recycled from the fees the block itself collected, the released component is drawn from a reserve allocated at genesis out of the hard cap, and the three stocks the mechanism controls sum to a constant at every block. Emission into circulation is bounded per block and per year, in every state and at any fee level.
 
-The released component is anchored to one measured indicator, the inferred total stake, compared against a target. A block height tracks time but says nothing about chain state, and a per-transaction count is manipulable by the proposer. The release depends on nothing else. Fee revenue passes through the mechanism to the recipients without altering it, and the reserve balance enters only at the solvency boundary, where it bounds what can be released.
+The released component is anchored to one measured indicator, the inferred total stake, compared against a target. Fee revenue passes through the mechanism to the recipients without altering it, and the reserve balance enters only at the solvency boundary, where it bounds what can be released.
 
 Fee computation and stake inference are out of scope. Refer to [Execution Market](execution-market.md) and [Storage Markets](storage-markets.md) for the fee amount, and to [Total Stake Inference](cryptarchia-total-stake-inference.md) for the stake estimate. Distribution to individual recipients is also out of scope. Refer to [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md) for how the leader share is held and claimed, and to [Blend Protocol](blend-protocol.md) and [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md) for the Blend share. This document only defines the amount transferred at each epoch boundary and its split between the two recipient classes. The Execution priority fee is outside that amount. It is routed in full to the leader class through the leader reward accumulator of the [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md).
 
@@ -216,12 +216,12 @@ Consensus state read by this mechanism is $`(B_{t-1}, D_t, R^{\text{block}}_t)`$
 | Symbol | Definition | Value | Basis |
 | --- | --- | --- | --- |
 | $`S_{cap}`$ | Maximum token supply | $`10^{10}`$ LGO | Hard cap. |
-| $`I_{max}`$ | Maximum annual release rate | $`1\%`$ | Sets the release-funded yield floor over the saturated region at $`I_{max} S_{cap} / (D_{target} - \Lambda) = 4.0\%`$, and the reserve at $`B_0 = I_{max} S_{cap} Y`$. Comparable to the annual supply growth of gold. |
+| $`I_{max}`$ | Maximum annual release rate | $`1\%`$ | Sets the release-funded yield floor over the saturated region at $`I_{max} S_{cap} / (D_{target} - \Lambda) = 4.0\%`$, and the reserve at $`B_0 = I_{max} S_{cap} Y`$. See [Parameter rationale](analysis-block-rewards.md#parameter-rationale). |
 | $`Y`$ | Reserve lifetime at $`I_{max}`$ | $`10`$ years | Sets $`B_0 = 10^9`$ LGO, $`10\%`$ of $`S_{cap}`$. Exact, not nominal: the reserve has no inflow, so $`Y`$ is the calendar lifetime under a saturated controller regardless of fee revenue. |
 | $`\Delta_t`$ | Time step | $`1/(365 \cdot 2880)`$ | One block every 30 seconds. |
 | $`f`$ | Block proposals per time step | $`1`$ | $`\Delta_t`$ chosen so $`f = 1`$. |
 | $`c`$ | Per-block release cap | $`62500/657 \approx 95.129`$ LGO | Derived from the four rows above. |
-| $`D_{target}`$ | Target inferred total stake | $`3 \cdot 10^9`$ LGO | $`\theta_{target} = 30\%`$. Chains with utility exhibit a negative relation between usage and staking ratio, so a target above $`50\%`$ is not appropriate; the lower end of the observed $`30\%`$ to $`50\%`$ band stops the release sooner. |
+| $`D_{target}`$ | Target inferred total stake | $`3 \cdot 10^9`$ LGO | $`\theta_{target} = 30\%`$. See [Parameter rationale](analysis-block-rewards.md#parameter-rationale). |
 | $`\Lambda`$ | Stake shortfall at controller saturation | $`5 \cdot 10^8`$ LGO | Equivalently $`\delta^\ast = \Lambda / D_{target} = 1/6`$, so $`A_t = 1`$ below $`\theta = 25\%`$ and the proportional band runs from there to $`30\%`$. Jointly with $`I_{max}`$ it fixes the release-funded yield floor, since the base at saturation is $`D_{target} - \Lambda`$. |
 | $`L`$ | Blocks per epoch | $`21600`$ | $`7.5`$ days at one block every 30 seconds. Sets the reserve-funded settlement float at $`L c = 2.055 \cdot 10^6`$ LGO, $`0.02\%`$ of $`S_{cap}`$. The fee-funded part of the float is unbounded by the protocol. |
 
@@ -249,7 +249,7 @@ $$
 
 - $`\delta_t > 0`$: stake below target. Released rewards are positive, in proportion to $`\delta_t`$.
 - $`\delta_t = 0`$: stake at target. Nothing is released.
-- $`\delta_t < 0`$: stake above target. Nothing is released, and the response is clamped rather than reversed, since the mechanism has no instrument for reducing stake.
+- $`\delta_t < 0`$: stake above target. Nothing is released.
 
 At genesis $`D_t`$ is small against the target, so $`\delta_t \rightarrow 1`$ and the response is maximal. As participation grows, $`\delta_t`$ falls toward zero and the block reward converges on the block's fees.
 
@@ -296,10 +296,6 @@ The two terms are independent. The first is a pass-through of value the block al
 - $`S_{cap}`$ denotes the maximum allowable token supply (hard cap).
 - $`\Delta_t`$ denotes the fraction of year in one time step per e.g., epoch, block, or day.
 - $f$ be the average number of block proposal within $`\Delta_{t}`$ units.
-- $`R_\text{block} = D_{1,t}`$ denotes the per-block Execution base fees and Storage fees collected in the block and routed to the pending reward pool when the block is proposed. It is the amount the pool receives, net of the share diverted to the [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool).
-- $`\bar{R}_t = \dfrac{1}{T} \sum_{\tau=t-T+1}^{t} D_{1,\tau}`$ denotes the average pooled reward: the moving average of $`R_\text{block}`$ over the look-back window $`T`$.
-
-Under a leader lottery the realized block count in an epoch is a random variable and $`L`$ is its expected value. The block reward accrues per block, so the amount settled at a boundary scales with the realized count. The annualized figures in this document assume the expected rate.
 
 $$
 \begin{equation}
@@ -317,7 +313,7 @@ $$
 R^{\text{block}}_t \;\le\; R_t \;\le\; R^{\text{block}}_t + c .
 $$
 
-Once the reserve is depleted, $`\iota_t = 0`$ and the reward reduces to the recycled component $`(1 - A_t) \cdot \bar{R}_t`$, funded entirely by pooled fees. The cap on $`\iota_t`$ makes the reserve last $`Y`$ years at the maximum release rate, and longer whenever $`A_t \lt 1`$.
+Once the reserve is depleted, $`\iota_t = 0`$ and the reward reduces to the block's fees. The cap on $`\iota_t`$ makes the reserve last $`Y`$ years at the maximum release rate, and longer whenever $`A_t \lt 1`$.
 
 ### Reserve Horizon and Terminal State
 
@@ -423,7 +419,7 @@ $$
 R_t = R^{\text{block}}_t + \iota_t .
 $$
 
-The fee term enters exactly, with no scaling and no floor, so all approximation error in $`R_t`$ is confined to the released component. The state update is then
+The state update is then
 
 $$
 B_t = B_{t-1} - \iota_t, \qquad P_t = P_{t-1} + R_t, \qquad S_t = S_{t-1} - R^{\text{block}}_t ,
@@ -439,13 +435,13 @@ The clamp against $`B_{t-1}`$ is applied after the multiplication and floor, on 
 
 ## Bit width
 
-The largest intermediate is $`\max \lbrace \Lambda^{\ast} M, \; M c^{\ast} \rbrace = \Lambda^{\ast} M = 2.15 \cdot 10^{36}`$, which fits in `uint128` with a factor of $`158`$ of headroom. `uint64` is insufficient by seventeen orders of magnitude. Any change to $`\Lambda`$ or $`M`$ must preserve
+Any change to $`\Lambda`$ or $`M`$ must preserve
 
 $$
 \max \lbrace \Lambda^{\ast} M, \; M c^{\ast} \rbrace < 2^{128} .
 $$
 
-The rewards pool accumulator is no longer bounded by a protocol constant, because the fee component of $`R_t`$ is uncapped. Its reserve-funded part is at most $`L c^{\ast} \approx 2.06 \cdot 10^{24}`$ base units, and the only bound on the total is the conservation bound $`P_t \le S_{cap}^{\ast} = 10^{28}`$ base units. `uint128` accommodates the latter with eleven orders of magnitude to spare; `uint64` does not accommodate either.
+The rewards pool accumulator is sized against the conservation bound $`P_t \le S_{cap}^{\ast} = 10^{28}`$ base units, not against the reserve-funded part. The resulting widths are derived in [Derived Property P10](analysis-block-rewards.md#p10-integer-arithmetic-bounds).
 
 ## Reference
 

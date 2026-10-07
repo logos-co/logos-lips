@@ -37,11 +37,32 @@ This document analyses the mechanism specified in [Block Rewards](block-rewards.
 
 It defines no mechanism of its own. Every symbol, equation, and parameter used here is defined in [Block Rewards](block-rewards.md).
 
-Labels of the form R1 to R9 refer to the numbered rows of [Design Requirements](block-rewards.md#requirements). Results established here are labelled P for derived properties, S for scenarios, I for incentive results, and F for failure modes, and are referenced by those labels from the specification.
+Labels of the form R1 to R9 refer to the numbered rows of [Requirements](block-rewards.md#requirements). Results established here are labelled P for derived properties, S for scenarios, I for incentive results, and F for failure modes, and are referenced by those labels from the specification.
+
+# Design Rationale
+
+This section records why the mechanism has the form specified in [Block Rewards](block-rewards.md). The results in the sections that follow do not depend on it.
+
+## Choice of indicator
+
+The release is anchored to the inferred total stake rather than to a block height or a transaction count. A block height tracks time but says nothing about the state of the chain. A per-transaction count is manipulable by the proposer.
+
+## The staking loop
+
+The loop is closed. A larger deviation raises the block reward, a higher block reward raises the staking yield, and a higher yield attracts stake, which reduces the deviation. Fee revenue reinforces the same loop from the other side, since it adds to the yield without displacing the release.
+
+## Response above target
+
+When $`\delta_t < 0`$ the response is clamped at zero rather than reversed, since the mechanism has no instrument for reducing stake.
+
+## Parameter rationale
+
+- $`I_{max} = 1\%`$ is comparable to the annual supply growth of gold.
+- $`D_{target}`$ is set at $`\theta_{target} = 30\%`$. Chains with utility exhibit a negative relation between usage and staking ratio, so a target above $`50\%`$ is not appropriate. The lower end of the observed $`30\%`$ to $`50\%`$ band stops the release sooner.
 
 # Derived Properties
 
-Refer to [Protocol constants](block-rewards.md#Protocol constants) for the definition of the parameters.
+Refer to [Protocol constants](block-rewards.md#protocol-constants) for the definition of the parameters.
 
 ## P1. Conservation
 
@@ -60,11 +81,13 @@ S^{tot}_t = S^{tot}_0 \qquad \text{for every } t .
 $$
 
 Every flow is a transfer between the three stocks: 
-* the block's fees move tokens out of circulation to the reserve pool, 
+* the block's fees move tokens out of circulation to the rewards pool, 
 * a release moves them from the reserve pool to the rewards pool, and 
 * a settlement moves them from the rewards pool back into circulation. 
 
 The mechanism never mints. This discharges R1.
+
+The [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool) is a stock of the same kind, holding tokens allocated at genesis and topped up by the share of the fees diverted before they reach $`P_t`$, and paying them into circulation as claims are made. It joins the controlled total, which is $`S_t + P_t + B_t + W_t`$, writing $`W_t`$ for this pool, and is constant for the same reason: every movement is between stocks. Net circulating growth over the reserve's life is bounded by $`B_0 + W_0`$, the two stocks that begin full and drain into circulation.
 
 Conservation holds at every block, not only at boundaries. What holds only at boundaries is the reduction to two stocks, stated next.
 
@@ -84,13 +107,15 @@ $$
 
 The rewards pool holds no balance across epochs, which discharges R9. It is a claim on block rewards already earned. It has no inflow other than $`R_t`$ and no outflow other than settlement, and in particular it never transfers to the reserve pool.
 
+R9 separates accrual from payment. Without it the rewards pool balance would be a free variable and the conservation argument would not close at any single point in time.
+
 The balance decomposes into a fee-funded and a reserve-funded part,
 
 $$
 0 \;\le\; P_t \;=\; \underbrace{\sum_\tau R^{\text{block}}_\tau}_{\text{unbounded by the protocol}} \; + \; \underbrace{\sum_\tau \iota_\tau}_{\le \, L c} ,
 $$
 
-where the second sum is at most $`L c = 2.055 \cdot 10^6`$ LGO, or $`0.02\%`$ of $`S_{cap}`$, by [P3](#p3-block-reward-bounds-and-monotonicity). The first is bounded only by conservation, $`P_t \le S^{tot}_0`$. Implementations must size the accumulator against the conservation bound, not against the reserve-funded part.
+where the second sum is at most $`L c = 2.055 \cdot 10^6`$ LGO, or $`0.02\%`$ of $`S_{cap}`$, by [P3](#p3-block-reward-bounds-and-monotonicity). The first is bounded only by conservation, $`P_t \le S^{tot}_0`$. Implementations must size the accumulator against the conservation bound, not against the reserve-funded part, per [P10](#p10-integer-arithmetic-bounds).
 
 R6 is discharged jointly by the two accounts and is close to vacuous. The rewards pool is emptied at every boundary, and the reserve pool has no inflow, so no stock can accumulate a balance without a release rule because no stock accumulates at all.
 
@@ -242,6 +267,20 @@ The absolute magnitude of that variance is small where the release dominates. Fe
 
 The reserve drawdown path remains fully predictable, since $`\iota_t`$ is a deterministic function of $`D_t`$ and $`B_{t-1}`$. It is the amount paid, not the amount emitted, that inherits the fee variance.
 
+## P10. Integer arithmetic bounds
+
+The fee term enters the integer rule exactly, with no scaling and no floor. All approximation error in $`R_t`$ is therefore confined to the released component.
+
+The largest intermediate of the rule is
+
+$$
+\max \lbrace \Lambda^{\ast} M, \; M c^{\ast} \rbrace = \Lambda^{\ast} M = 2.15 \cdot 10^{36} ,
+$$
+
+which fits in `uint128` with a factor of $`158`$ of headroom. `uint64` is insufficient by seventeen orders of magnitude.
+
+The rewards pool accumulator has a reserve-funded part of at most $`L c^{\ast} \approx 2.06 \cdot 10^{24}`$ base units. The only bound on the total is conservation, $`P_t \le S_{cap}^{\ast} = 10^{28}`$ base units. `uint128` accommodates it with a factor of $`3.4 \cdot 10^{10}`$ of headroom. `uint64` accommodates neither.
+
 # Scenario Analysis
 
 The state space is $`(\theta, B)`$. Fee coverage $`u = R^{\text{block}}_t / c`$ is used only as a convenient unit for the fee flow; by [P4](#p4-the-two-components-are-additively-separable) it selects no regime and enters every reward additively.
@@ -381,7 +420,7 @@ The reachable equilibrium security level is proportional to fee coverage, and no
 
 The equilibrium is not capped at the target. Since the fee term enters the reward uncapped, a chain with fee revenue at twice the security budget sustains a $`60\%`$ security level rather than stalling at $`\theta_{target}`$.
 
-The unsaturated form should not be read far past $`u \approx 1.5`$. The specification's own rationale for $`D_{target}`$ notes that chains with utility exhibit a negative relation between usage and staking ratio, so a high-$`u`$ chain is unlikely to sustain a high $`D^\ast/S_{cap}`$ in practice, and the table's upper rows are an upper bound.
+The unsaturated form should not be read far past $`u \approx 1.5`$. The [rationale for $`D_{target}`$](#parameter-rationale) notes that chains with utility exhibit a negative relation between usage and staking ratio, so a high-$`u`$ chain is unlikely to sustain a high $`D^\ast/S_{cap}`$ in practice, and the table's upper rows are an upper bound.
 
 ## F3. Sensitivity to the saturation shortfall
 
