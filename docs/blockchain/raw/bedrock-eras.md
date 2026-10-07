@@ -160,7 +160,7 @@ A node whose release lacks the rules of an era it must apply halts when it start
 
 ## Schedule and Parameter Records
 
-A software release carries one **era schedule** per network. Each entry gives the first epoch of an era and its **parameter record**. The record holds the values the era gives to the Blend, Cryptarchia, Service Declaration Protocol and proof-of-work constants that may change between eras. It has a fixed encoding that starts with two numbers: a layout version, which a release changes when it adds, removes or re-encodes a field, and a revision of the era's rules ([Era Parameters](#era-parameters)).
+A software release carries one **era schedule** per network. Each entry gives the first epoch of an era and its **parameter record**. The record holds the values the era gives to the Blend, Cryptarchia, Service Declaration Protocol (SDP) and proof-of-work constants that may change between eras. It has a fixed encoding that starts with two numbers: a layout version, which a release changes when it adds, removes or re-encodes a field, and a revision of the era's rules ([Era Parameters](#era-parameters)).
 
 Every slot and every epoch belongs to the last era that begins at or before it. An era may change the epoch length and the slot length, so a node computes the start of each era from the era before it ([Era Boundaries](#era-boundaries)):
 
@@ -213,7 +213,7 @@ A node interprets each piece of chain data under one era:
 
 ## Chain State
 
-Between eras, the **recorded chain state** passes through a **migration** that the new era defines ([Era Migration](#era-migration)). The recorded chain state is the state Mantle Operations are validated against, together with the Service Declaration Protocol snapshots. A migration:
+Between eras, the **recorded chain state** passes through a **migration** that the new era defines ([Era Migration](#era-migration)). The recorded chain state is the state Mantle Operations are validated against, together with the SDP snapshots. A migration:
 
 - reads that state alone;
 - is defined for every state the previous era can reach;
