@@ -219,7 +219,7 @@ Between eras, the **recorded chain state** passes through a **migration** that t
 - is defined for every state the previous era can reach;
 - leaves unchanged whatever the new era does not redefine.
 
-A block, and a value derived for an epoch, read the state migrated to their own era. A block whose parent lies in an earlier era reads its parent's state with every migration in between applied in order.
+The rules of the new era are defined on every state the migration produces. A block, and a value derived for an epoch, read the state migrated to their own era. A block whose parent lies in an earlier era reads its parent's state with every migration in between applied in order.
 
 The values derived for an epoch, such as its epoch state, its Blend difficulty and its proof-of-work reward, follow the rules of the epoch's own era. The rules of an era still verify the Activity Proofs and reward claims of the previous era's last epoch as the previous era does ([Era Migration](#era-migration)).
 
@@ -499,6 +499,8 @@ The migration must be:
 
 - **Total**: defined for every state reachable under the predecessor era. A migration undefined for a reachable state halts the network at the boundary.
 - **Identity by default**: every state component the new era does not redefine is unchanged.
+
+The rules of the new era must be defined on every state the migration produces. Otherwise a rule of the new era has no input at the era's first slot.
 
 A block reads the state after any block of an earlier era with the intervening migrations applied, in order.
 
