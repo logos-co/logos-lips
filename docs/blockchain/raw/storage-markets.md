@@ -28,6 +28,7 @@
 | 1.1.1 | Changing from burning/minting to pooling/distributing/releasing | 2026-08-25 |
 | 1.2.0 | The storage fee is routed to the rewards pool less the share diverted to the proof of work reward pool | 2026-08-31 |
 | 1.2.1 | Align every block-reward reference with [Block Rewards](block-rewards.md) 1.2.0: fees pass through in full and settle at the epoch boundary, the rewards pool accrues rather than funds, notation harmonised to $`R^{\text{block}}`$. No change to the price mechanism. | 2026-10-06 |
+| 1.2.2 | Made the token unit uniform: each amount names LOGOS or LEPTA/LEPTON as its context requires. | 2026-10-06 |
 
 > **Disclaimer:**
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -119,7 +120,7 @@ To ensure on-chain efficiency, the protocol shall use an Exponential Moving Aver
 | $\alpha$ | Max Adjustment Factor | The maximum fractional amount the price can change per timeframe. Acts as "safety brakes" to bound price volatility. | 0.125 for Permanent Storage | A $100\alpha$% cap provides strong predictability for users planning across timeframes while allowing the price to respond effectively to sustained demand changes. |
 | $\beta$ | EMA Smoothing Factor | A coefficient in $[0, 1]$ controlling the responsiveness of the usage EMA. It governs the speed of adaptation. | 0.5 for Permanent Storage | A value of $\beta$ gives significant weight to the most recent timeframe's usage while incorporating the "memory" of the system with a half-life of 1 timeframe, balancing responsiveness and stability. |
 | $`T_{\text{RA}}(-1)`$ | Initial Usage EMA | First value for EMA | 0 (=$`T_{\text{base}}`$) | Given $`T_{\text{base}} = 0`$, this is the least opinionated choice: with no prior usage data at genesis, a neutral prior of zero makes no assumption about initial market activity and anchors the EMA to the long-term policy goal from the outset. |
-| $`P_{\text{storage}}(0)`$ | Initial Price | The price on the first epoch | 1 LGO/gas | The initial price is set conservatively low at the beginning and let to discover the true market price |
+| $`P_{\text{storage}}(0)`$ | Initial Price | The price on the first epoch | 1 LOGOS ($`10^{9}`$ LEPTA) per Permanent Storage Gas unit | The initial price is set conservatively low at the beginning and let to discover the true market price |
 | $s$ | timeframe | How often things adjust | 1 epoch | Primary users of the Storage market plan operational costs over days or weeks, not block-by-block. |
 
 ### Parameter Justification
@@ -136,9 +137,9 @@ To ensure on-chain efficiency, the protocol shall use an Exponential Moving Aver
     
     For example, if $`P_{\text{storage}}(0)`$ is set to one tenth of the true equilibrium price, the mechanism reaches $`P^*`$ within at most $\lceil \ln(10)/\ln(1.125) \rceil = 20$ epochs. Starting
     one hundredth below requires at most $40$ epochs. Both are negligible relative to the expected lifetime of the network.
-    We therefore set $`P_{\text{storage}}(0) = 1\ \text{LGO per Permanent Storage Gas}`$.
+    We therefore set $`P_{\text{storage}}(0) = 1\ \text{LOGOS} = 10^{9}\ \text{LEPTA per Permanent Storage Gas unit}`$. The price is an integer count of LEPTA per gas unit, and its floor is 1 LEPTON per gas unit.
 
-    This corresponds to a cost of 1 LGO per permanently stored byte. Genesis governance may adjust this value based on the LGO price at TGE, but the adjustment has no long-term consequence: the mechanism will converge to the true market price $`P^*`$ within $`O(\log P^*/P_{\text{storage}}(0))`$ epochs regardless.
+    At 8 Permanent Storage Gas per byte, this corresponds to a cost of 8 LOGOS per permanently stored byte. This value might be adjusted based on the LOGOS price at TGE, but the adjustment has no long-term consequence: the mechanism will converge to the true market price $`P^*`$ within $`O(\log P^*/P_{\text{storage}}(0))`$ epochs regardless.
 
 - The timeframe $s$ corresponds to one epoch. The core reason is that the primary users of the Storage market plan operational costs over days or weeks, not block-by-block. An epoch-length timeframe provides price certainty over hundreds of blocks, directly fulfilling the predictability requirement. It also ensures the EMA aggregates a meaningful volume of usage data before influencing the price, rather than reacting to per-block noise.
 
@@ -148,7 +149,7 @@ The protocol must maintain the following state variables, updated at the end of 
 
 | Symbol | Name | Description |
 | --- | --- | --- |
-| $`P_{\text{storage}}(s)`$ | Price Per Logos Blockchain Storage Gas | The price per Gas of storage for the current timeframe $s$. |
+| $`P_{\text{storage}}(s)`$ | Price Per Logos Blockchain Storage Gas | The price per Gas of storage for the current timeframe $s$, in LEPTA per gas unit. |
 | $`T_{\text{RA}}(s)`$ | Usage EMA | The Exponential Moving Average of storage usage, updated with the usage from timeframe $s$. |
 
 ### Price Update Algorithm
@@ -236,7 +237,7 @@ def update_storage_fee(total_gas_consumed: int, prev_price: int, prev_usage: int
     return price, usage
 ```
 
-The two rounding directions are not interchangeable. The price is multiplied by a factor smaller than one whenever usage falls below the target, so rounding it downwards would make 0 an absorbing state: the initial price $`P_{\mathrm{storage}}(0)=1`$ would be mapped to 0 by the first downward adjustment, and every subsequent update would keep it at 0, making Permanent Storage permanently free. Rounding upwards makes 1 LGO per Permanent Storage Gas the effective floor of the price and leaves the mechanism unchanged at every other price level, as the rounding error is at most one unit against an adjustment of up to $\pm 12.5\%$. The usage EMA is a measurement rather than a price and is not subject to this failure mode, as it is additive and recovers from 0 as soon as usage resumes. Rounding it upwards would instead pin it at 1 once it has been positive, reporting residual demand on an idle market.
+The two rounding directions are not interchangeable. The price is multiplied by a factor smaller than one whenever usage falls below the target, so rounding it downwards would make 0 an absorbing state: a price that has fallen to 1 LEPTON per gas unit would be mapped to 0 by the next downward adjustment, and every subsequent update would keep it at 0, making Permanent Storage permanently free. Rounding upwards makes 1 LEPTON per Permanent Storage Gas unit the effective floor of the price and leaves the mechanism unchanged at every other price level, as the rounding error is at most one LEPTON against an adjustment of up to $\pm 12.5\%$. The usage EMA is a measurement rather than a price and is not subject to this failure mode, as it is additive and recovers from 0 as soon as usage resumes. Rounding it upwards would instead pin it at 1 once it has been positive, reporting residual demand on an idle market.
 
 ### Genesis State
 

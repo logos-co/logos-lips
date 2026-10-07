@@ -23,8 +23,8 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-24 |
 | 1.1.0 | Changing from burning/minting to pooling/distributing/releasing, removing $`S_{tge}`$ | 2026-08-25 |
-| 1.2.0 | Count the proof of work reward pool as a fourth controlled stock, bound net circulating growth by the two stocks that drain, and state that the pooled fee is net of the share diverted to that pool | 2026-08-31 |
-| 1.3.0 | Block reward redefined as $`R_t = R^{\text{block}}_t + A_t c`$. Fee cap, fee split and excess capture removed; the reserve throttle removed and replaced by a solvency clamp. | 2026-10-06 |
+| 1.3.0 | Block reward redefined as $`R_t = R^{\text{block}}_t + A_t c`$. Fee cap, fee split and excess capture removed; the reserve throttle removed and replaced by a solvency clamp. | 2026-09-12 |
+| 1.3.1 | Made the token unit uniform: each amount names LOGOS or LEPTA/LEPTON as its context requires. | 2026-10-06 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -187,7 +187,7 @@ $$
 r^{\iota}(D_t) = \frac{I_{max} S_{cap}}{D_t} \;\ge\; \frac{I_{max} S_{cap}}{D_{target} - \Lambda} ,
 $$
 
-which at the adopted parameters is at least $`4.0\%`$, on a base of $`2.5 \cdot 10^9`$ LGO, and rises without bound as the staked base falls. Across the proportional band the release-funded yield is $`A_t I_{max} S_{cap} / D_t`$, which falls monotonically from $`4.0\%`$ at $`\theta = 25\%`$ to zero at $`\theta = 30\%`$. [Failure Mode F1](analysis-block-rewards.md#f1-terminal-reserve-exhaustion-and-the-yield-cliff) tabulates $`r^{\iota}`$ across the range.
+which at the adopted parameters is at least $`4.0\%`$, on a base of $`2.5 \cdot 10^9`$ LOGOS, and rises without bound as the staked base falls. Across the proportional band the release-funded yield is $`A_t I_{max} S_{cap} / D_t`$, which falls monotonically from $`4.0\%`$ at $`\theta = 25\%`$ to zero at $`\theta = 30\%`$. [Failure Mode F1](analysis-block-rewards.md#f1-terminal-reserve-exhaustion-and-the-yield-cliff) tabulates $`r^{\iota}`$ across the range.
 
 Epochs are indexed by $`e`$, and epoch $`e`$ spans the blocks $`t \in (T_{e-1}, T_e]`$ with $`T_e = e L`$.
 
@@ -215,15 +215,15 @@ Consensus state read by this mechanism is $`(B_{t-1}, D_t, R^{\text{block}}_t)`$
 
 | Symbol | Definition | Value | Basis |
 | --- | --- | --- | --- |
-| $`S_{cap}`$ | Maximum token supply | $`10^{10}`$ LGO | Hard cap. |
+| $`S_{cap}`$ | Maximum token supply | $`10^{10}`$ LOGOS | Hard cap. |
 | $`I_{max}`$ | Maximum annual release rate | $`1\%`$ | Sets the release-funded yield floor over the saturated region at $`I_{max} S_{cap} / (D_{target} - \Lambda) = 4.0\%`$, and the reserve at $`B_0 = I_{max} S_{cap} Y`$. Comparable to the annual supply growth of gold. |
-| $`Y`$ | Reserve lifetime at $`I_{max}`$ | $`10`$ years | Sets $`B_0 = 10^9`$ LGO, $`10\%`$ of $`S_{cap}`$. Exact, not nominal: the reserve has no inflow, so $`Y`$ is the calendar lifetime under a saturated controller regardless of fee revenue. |
+| $`Y`$ | Reserve lifetime at $`I_{max}`$ | $`10`$ years | Sets $`B_0 = 10^9`$ LOGOS, $`10\%`$ of $`S_{cap}`$. Exact, not nominal: the reserve has no inflow, so $`Y`$ is the calendar lifetime under a saturated controller regardless of fee revenue. |
 | $`\Delta_t`$ | Time step | $`1/(365 \cdot 2880)`$ | One block every 30 seconds. |
 | $`f`$ | Block proposals per time step | $`1`$ | $`\Delta_t`$ chosen so $`f = 1`$. |
-| $`c`$ | Per-block release cap | $`62500/657 \approx 95.129`$ LGO | Derived from the four rows above. |
-| $`D_{target}`$ | Target inferred total stake | $`3 \cdot 10^9`$ LGO | $`\theta_{target} = 30\%`$. Chains with utility exhibit a negative relation between usage and staking ratio, so a target above $`50\%`$ is not appropriate; the lower end of the observed $`30\%`$ to $`50\%`$ band stops the release sooner. |
-| $`\Lambda`$ | Stake shortfall at controller saturation | $`5 \cdot 10^8`$ LGO | Equivalently $`\delta^\ast = \Lambda / D_{target} = 1/6`$, so $`A_t = 1`$ below $`\theta = 25\%`$ and the proportional band runs from there to $`30\%`$. Jointly with $`I_{max}`$ it fixes the release-funded yield floor, since the base at saturation is $`D_{target} - \Lambda`$. |
-| $`L`$ | Blocks per epoch | $`21600`$ | $`7.5`$ days at one block every 30 seconds. Sets the reserve-funded settlement float at $`L c = 2.055 \cdot 10^6`$ LGO, $`0.02\%`$ of $`S_{cap}`$. The fee-funded part of the float is unbounded by the protocol. |
+| $`c`$ | Per-block release cap | $`62500/657 \approx 95.129`$ LOGOS | Derived from the four rows above. |
+| $`D_{target}`$ | Target inferred total stake | $`3 \cdot 10^9`$ LOGOS | $`\theta_{target} = 30\%`$. Chains with utility exhibit a negative relation between usage and staking ratio, so a target above $`50\%`$ is not appropriate; the lower end of the observed $`30\%`$ to $`50\%`$ band stops the release sooner. |
+| $`\Lambda`$ | Stake shortfall at controller saturation | $`5 \cdot 10^8`$ LOGOS | Equivalently $`\delta^\ast = \Lambda / D_{target} = 1/6`$, so $`A_t = 1`$ below $`\theta = 25\%`$ and the proportional band runs from there to $`30\%`$. Jointly with $`I_{max}`$ it fixes the release-funded yield floor, since the base at saturation is $`D_{target} - \Lambda`$. |
+| $`L`$ | Blocks per epoch | $`21600`$ | $`7.5`$ days at one block every 30 seconds. Sets the reserve-funded settlement float at $`L c = 2.055 \cdot 10^6`$ LOGOS, $`0.02\%`$ of $`S_{cap}`$. The fee-funded part of the float is unbounded by the protocol. |
 
 ## Key Performance Indicator
 
@@ -376,7 +376,7 @@ $$
 S_{T_e} - S_{T_{e-1}} = \sum_{t = T_{e-1}+1}^{T_e} \iota_t \;\ge\; 0 .
 $$
 
-Circulating supply is non-decreasing epoch over epoch and strictly increasing whenever any block in the epoch carries a positive release. Total net emission over the life of the chain is bounded by $`B_0 = 10^9`$ LGO, that is $`10\%`$ of $`S_{cap}`$, and is reached only if the shortfall persists for the full horizon.
+Circulating supply is non-decreasing epoch over epoch and strictly increasing whenever any block in the epoch carries a positive release. Total net emission over the life of the chain is bounded by $`B_0 = 10^9`$ LOGOS, that is $`10\%`$ of $`S_{cap}`$, and is reached only if the shortfall persists for the full horizon.
 
 ### Epoch settlement
 
@@ -400,17 +400,17 @@ Immediately after settlement $`P_{T_e} = 0`$. This is the only instant at which 
 
 # Float Precision for Implementation
 
-Block rewards affect consensus state, so the normative rule is defined in integer arithmetic. All quantities are in base units, $`1`$ LGO $`= 10^{d}`$ base units with $`d = 18`$. No floating point, no machine-epsilon comparison, and no rounding-mode dependence appears in the rule. This discharges R8.
+Block rewards affect consensus state, so the normative rule is defined in integer arithmetic. All quantities are in base units, $`1`$ LOGOS $`= 10^{9}`$ LEPTA. No floating point, no machine-epsilon comparison, and no rounding-mode dependence appears in the rule. This discharges R8.
 
 ## Constants
 
 $$
-c^{\ast} = \left\lfloor \frac{62500 \cdot 10^{d}}{657} \right\rfloor, \quad
-\Lambda^{\ast} = 5 \cdot 10^{8} \cdot 10^{d}, \quad
+c^{\ast} = \left\lfloor \frac{62500 \cdot 10^{9}}{657} \right\rfloor, \quad
+\Lambda^{\ast} = 5 \cdot 10^{8} \cdot 10^{9}, \quad
 M = 2^{32} .
 $$
 
-$`M`$ is the fixed-point scale of the controller. $`c^{\ast}`$ replaces the exact rational $`c`$; the truncation is below one base unit, that is $`10^{-18}`$ LGO.
+$`M`$ is the fixed-point scale of the controller. $`c^{\ast}`$ replaces the exact rational $`c`$; the truncation is below one LEPTON, that is $`10^{-9}`$ LOGOS.
 
 ## Rule
 

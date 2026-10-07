@@ -22,6 +22,7 @@
 | Version | Changes | Date |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-24 |
+| 1.0.1 | Made the token unit uniform: each amount names LOGOS or LEPTA/LEPTON as its context requires. | 2026-10-06 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -109,7 +110,7 @@ If we set $`\alpha_a=2`$, then the emission rate $`I_t`$ reaches the maximum val
 
 This section explains the rationale for defining the target $`\text{Security Level}`$ as $30\%$ of the TGE supply.
 
-The TGE supply of the LGO token has to account for:
+The TGE supply of the LOGOS token has to account for:
 
 - The tokens disbursed as rewards to team, investors, ecosystem, etc. (subject to different vesting schemes),
 - The security of the blockchain.
