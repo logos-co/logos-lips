@@ -198,18 +198,6 @@ A node interprets each piece of chain data under one era:
 - a transaction, when parsing it: the era whose fork digest it carries;
 - a comparison of two chains: the era of the slot of their common ancestor.
 
-```mermaid
----
-config:
-  flowchart:
-    wrappingWidth: 260
----
-flowchart LR
-    b["block or proposal,<br/>and everything it carries"] -- "its slot" --> eb["era of that slot"]
-    t["transaction,<br/>when parsing it"] -- "its fork digest" --> et["era of that fork digest"]
-    c["two chains"] -- "slot of their<br/>common ancestor" --> ec["era of that slot"]
-```
-
 [Era of Chain Data](#era-of-chain-data) specifies the rules behind this list:
 
 - A node learns the era before it parses the rest. The slot comes first in every message that carries a block or proposal, and the fork digest comes first in every transaction, each in an encoding no era changes.
@@ -226,23 +214,6 @@ Between eras, the **recorded chain state** passes through a **migration** that t
 - leaves unchanged whatever the new era does not redefine.
 
 A block, and a value derived for an epoch, read the state migrated to their own era. A block whose parent lies in an earlier era reads its parent's state with every migration in between applied in order.
-
-```mermaid
-stateDiagram-v2
-    direction LR
-    s0: state in era 0
-    s1: state in era 1
-    s2: state in era 2
-    s0 --> s1: migration defined by era 1
-    s1 --> s2: migration defined by era 2
-    note right of s2
-        read by a block
-        of era 2, and by
-        a value derived
-        for an epoch
-        of era 2
-    end note
-```
 
 The values derived for an epoch, such as its epoch state, its Blend difficulty and its proof-of-work reward, follow the rules of the epoch's own era. The rules of an era still verify the Activity Proofs and reward claims of the previous era's last epoch as the previous era does ([Era Migration](#era-migration)).
 
