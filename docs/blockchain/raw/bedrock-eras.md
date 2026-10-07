@@ -227,11 +227,11 @@ The values derived for an epoch, such as its epoch state, its Blend difficulty a
 
 A node runs its network protocols under the **era in force**, the era of the slot its clock gives. Their identifiers and gossipsub topics ([P2P Network](../draft/p2p-network.md)) carry the fork digest of their era. Those of Kademlia and identify carry the chain ID instead ([Network Protocol Identity](#network-protocol-identity)).
 
-Each message travels under one era:
+Each message a node sends goes out on the identifiers of one era:
 
 - a message the node generates: the era in force when the node generates it;
-- a Blend message the node relays or releases, and the payload it broadcasts: the era of the connection the message arrived on;
-- a proposal the node accepts, and a transaction it admits to its mempool: the era in force, on whose topic the node publishes it.
+- a Blend message the node relays or releases: the era of the connection it arrived on. The node broadcasts the payload of such a message on that era's topic;
+- a proposal the node accepts, or a transaction it admits to its mempool: the era in force. The node publishes it on that era's topic.
 
 A synchronization response ([Cryptarchia Bootstrapping & Synchronization](cryptarchia-v1-bootstr-sync.md)) may carry blocks of any era.
 
