@@ -154,7 +154,7 @@ A node whose release lacks the rules of an era it must apply halts when it start
 
 ## Schedule and Parameter Records
 
-A software release carries one **era schedule** per network. Each entry gives the first epoch of an era and its **parameter record**. The record holds the values the era gives to the Blend, Cryptarchia, Service Declaration Protocol and proof-of-work constants that may change between eras. It has a fixed encoding with a layout version, which a release changes when it adds, removes or re-encodes a field ([Era Parameters](#era-parameters)).
+A software release carries one **era schedule** per network. Each entry gives the first epoch of an era and its **parameter record**. The record holds the values the era gives to the Blend, Cryptarchia, Service Declaration Protocol and proof-of-work constants that may change between eras. It has a fixed encoding that starts with two numbers: a layout version, which a release changes when it adds, removes or re-encodes a field, and a revision of the era's rules ([Era Parameters](#era-parameters)).
 
 Every slot and every epoch belongs to the last era that begins at or before it. An era may change the epoch length and the slot length, so a node computes the start of each era from the era before it ([Era Boundaries](#era-boundaries)):
 
@@ -164,7 +164,7 @@ Every slot and every epoch belongs to the last era that begins at or before it. 
 A schedule changes only under these rules ([Era Schedule](#era-schedule)):
 
 - a release may add or change an era only for an epoch that has not begun;
-- a release may not change the rules of a published era, or the migration into it, without changing the era's first epoch or parameter record;
+- a release that changes the rules of a published era, or the migration into it, increments the era's revision;
 - an era may not change how fork choice compares chains that diverge by at most $`k`$ blocks, $`k`$ being the security parameter of [Constants](cryptarchia-v1-protocol.md#constants).
 
 ## Fork and Era Digests
@@ -346,11 +346,11 @@ The era schedule is embedded in the node software and is not read from the chain
 
 An era must not change the comparison of chains that diverge by at most $`k`$ blocks ([Online Fork Choice Rule](fork-choice.md#online-fork-choice-rule)). Otherwise fork choice depends on the order in which forks were seen for the first $`k`$ blocks of the era.
 
-The nodes of two software releases apply different rules from the first epoch whose era has a different digest in the two schedules. From that epoch they use different fork digests. A software release must not change the rules of a published era, or the migration into it, while keeping the era's first epoch and parameter record. Otherwise the nodes of the two releases apply different rules under one fork digest. A software release must not publish an entry, or change the record of an entry, whose epoch has begun. Otherwise a node that installs the release holds state executed under the wrong era.
+The nodes of two software releases apply different rules from the first epoch whose era has a different digest in the two schedules. From that epoch they use different fork digests. A software release that changes the rules of a published era, or the migration into it, increments the era's revision. Otherwise the nodes of the two releases apply different rules under one fork digest. A software release must not publish an entry, or change the record of an entry, whose epoch has begun. Otherwise a node that installs the release holds state executed under the wrong era.
 
 ## Era Parameters
 
-The parameter record of an era is a layout version followed by the fields below, in this order. A field holds the value of its source constant under the rules of the era. The layout version is a `UINT16` equal to 1. Integers are unsigned and little-endian. A ratio is its numerator, then its denominator, each a `UINT32`. The denominator is not zero. A duration is its whole seconds as a `UINT64`, then the nanoseconds past them as a `UINT32`.
+The parameter record of an era is a layout version, then a revision, then the fields below, in this order. The layout version is a `UINT16` equal to 1. The revision is a `UINT16`, 0 when the era is first published. [Era Schedule](#era-schedule) states when a release increments it. A field holds the value of its source constant under the rules of the era. Integers are unsigned and little-endian. A ratio is its numerator, then its denominator, each a `UINT32`. The denominator is not zero. A duration is its whole seconds as a `UINT64`, then the nanoseconds past them as a `UINT32`.
 
 | Field | Encoding | Source constant |
 | --- | --- | --- |
