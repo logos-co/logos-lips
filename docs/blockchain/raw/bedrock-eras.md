@@ -310,7 +310,7 @@ sequenceDiagram
     C->>N: open the identifiers of era n,<br/>keep those of era n−1
     rect rgba(255, 200, 0, 0.18)
         Note over N,P: Era Transition Period
-        P->>N: Blend message on an era n−1 connection,<br/>validated under era n−1
+        P->>N: message on an identifier of era n−1,<br/>still processed
         P->>S: block of a slot in era n, on the topic of era n,<br/>validated under era n
         S->>S: fork choice: a fork from before the boundary<br/>is compared under the common ancestor's era
         N->>P: messages the node generates, under era n
@@ -324,7 +324,7 @@ sequenceDiagram
 3. The node migrates the state after its chain tip to era $`n`$ ([Era Change](#era-change)).
 4. It re-validates its mempool against that state ([Era Change](#era-change)). A transaction that carries the fork digest of era $`n-1`$ stays valid until step 11 ([Era of Chain Data](#era-of-chain-data)).
 5. It opens the identifiers of era $`n`$ and keeps those of era $`n-1`$, which starts the [Era Transition Period](#era-transition-period).
-6. A Blend message that arrives on a connection of era $`n-1`$ is validated under era $`n-1`$ ([Era Transition Period](#era-transition-period)).
+6. A message that arrives on an identifier of era $`n-1`$ is still processed ([Era Transition Period](#era-transition-period)).
 7. A block whose slot lies in era $`n`$ arrives on the topic of era $`n`$. Once the node's clock has reached the block's slot, the node validates the block under era $`n`$, from its parent's state migrated to era $`n`$ ([Era of Chain Data](#era-of-chain-data), [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation)).
 8. If the block extends a fork that left the local chain before the boundary, fork choice compares the two chains under the era of their common ancestor's slot, which precedes era $`n`$ ([Era of Chain Data](#era-of-chain-data)).
 9. The node sends the messages it generates under era $`n`$. It releases a Blend message it generates no earlier than one round after its switch ([Transition Period](blend-protocol.md#transition-period)).
@@ -555,6 +555,7 @@ During the Era Transition Period a node must:
 1. Accept and open connections on the identifiers of both eras.
 2. Validate a Blend message under the era of the connection it arrived on.
 3. Keep every input the predecessor era's message checks read until the period ends.
+4. Process any other message that arrives on an identifier of either era as it would on an identifier of the era in force ([Era of Chain Data](#era-of-chain-data), [Network Protocol Identity](#network-protocol-identity)).
 
 After the Era Transition Period the node must drop the identifiers of the predecessor era and must not process its Blend messages. A synchronization stream open at the end of the period is served to its end.
 
