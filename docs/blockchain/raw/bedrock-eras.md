@@ -74,17 +74,15 @@ A node judges a block by the era the block was made in, which the block's slot t
 config:
   sequence:
     mirrorActors: false
+    messageMargin: 20
 ---
 sequenceDiagram
     participant P as a peer
     participant N as a node in era 2
     Note over P,N: sync protocol of era 2
-    P->>N: block of slot 7
-    Note right of N: validated under era 0
-    P->>N: block of slot 31
-    Note right of N: validated under era 1
-    P->>N: block of slot 56
-    Note right of N: validated under era 2
+    P->>N: block of slot 7, validated under era 0
+    P->>N: block of slot 31, validated under era 1
+    P->>N: block of slot 56, validated under era 2
 ```
 
 The node fetches every block over the sync protocol of era 2, the era of its clock. It validates each block under the rules of the era of the block's slot.
