@@ -407,7 +407,7 @@ leader_note = Note(
 ledger.execute_adding(LEDGER_SET, [derive_note_cm(leader_note)])
 ```
 
-The note is shielded: spending it reveals neither its commitment nor its value, so the leader cannot be linked to the block through its reward. The `reward_key` must be a fresh key for every block. Reusing it links the blocks that carry it to the same leader, and two rewards of the same value under the same key share a commitment, so only one of them can be spent.
+Spending the note reveals neither its commitment nor its value, so the leader cannot be linked to the block through its reward. The `reward_key` must be a fresh key for every block. Reusing it links the blocks that carry it to the same leader, and two rewards of the same value under the same key share a commitment, so only one of them can be spent.
 
 The four steps stand or fall together, on a block that has validated in full: a block that fails validation at any point is not executed at all.
 

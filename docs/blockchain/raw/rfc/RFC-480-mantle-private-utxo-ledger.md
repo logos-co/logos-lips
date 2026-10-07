@@ -32,7 +32,7 @@ Read the PR's Motivation first. The note sets in Mantle are the base every other
 
 ## One note set per partition
 
-Every note is shielded and lives in exactly one note set: the ledger, the SDP, or a channel. A set has its own commitment MMR and nullifier IMT, so an Operation only ever touches the sets it names: a Transfer the ledger set, a step its channel's set, a withdrawal its channel's set and then the ledger set. The Proof of Leadership covers every set through one eligible root, and a note's kind no longer changes how it proves itself. This is what removes the transparent channel and service notes, the transparent eligible set and the selector of the Proof of Leadership.
+Every note is private and lives in exactly one note set: the ledger, the SDP, or a channel. A set has its own commitment MMR and nullifier IMT, so an Operation only ever touches the sets it names: a Transfer the ledger set, a step its channel's set, a withdrawal its channel's set and then the ledger set. The Proof of Leadership covers every set through one eligible root, and a note's kind no longer changes how it proves itself. This is what removes the transparent channel and service notes, the transparent eligible set and the selector of the Proof of Leadership.
 
 ## Channel notes: moved by holders, ordered by sequencers
 
