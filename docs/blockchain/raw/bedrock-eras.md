@@ -265,12 +265,14 @@ stateDiagram-v2
 
 ## Horizon and Warnings
 
-Each release fixes a **horizon** for each network: the last epoch it interprets. The horizon is at least the first epoch of the release's last era ([Horizon](#horizon)). A node warns its operator:
+Each release fixes a **horizon** for each network: the last epoch it interprets. The horizon is at least the first epoch of the release's last era ([Horizon](#horizon)).
 
-- once its clock passes the horizon;
-- when a peer lists, in its identify message, a protocol identifier whose fork digest the node does not know.
+A node warns its operator in two cases:
 
-Neither warning stops the node.
+- its clock reaches the first slot of the epoch after the horizon;
+- a peer lists, in its identify message, a protocol identifier whose fork digest is none of the fork digests of the node's schedule. The peer then runs a schedule that the node's release does not have.
+
+Neither warning stops the node. It keeps applying the rules of the eras it knows.
 
 ## An Era Boundary Step by Step
 
