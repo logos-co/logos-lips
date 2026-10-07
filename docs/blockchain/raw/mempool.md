@@ -48,7 +48,7 @@ A transaction is admitted, disseminated, offered to block building, and retired.
 
 ```python
 class Mempool:
-    pending: TimeOrderedSet[TxHash]     # admitted, not yet retired, in admission order
+    pending: OrderedSet[TxHash]         # admitted, not yet retired, in admission order
     bodies: Map[TxHash, SignedMantleTx] # transaction bodies
     admitted_at: Map[TxHash, Timestamp] # admission time, per pending transaction
     by_prefix: Map[bytes, Set[TxHash]]  # pending hashes, keyed by reference prefix
@@ -58,14 +58,12 @@ A transaction is keyed by `mantle_txhash(tx)`, defined in [Mantle](bedrock-v1.1-
 
 `by_prefix` maps `prefix(hash, REFERENCE_PREFIX_LENGTH)` to the pending hashes carrying that prefix, where `REFERENCE_PREFIX_LENGTH` is defined in [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md#references).
 
-`insert_by` places a hash at the position its admission time gives it, which is not the end when a [Reorganisation](#reorganisation) re-admits a transaction.
-
 ## Transaction Admission
 
 A transaction reaches the mempool by local submission through the [Node API](#node-api), by gossip on the mempool topic, or by re-insertion after a [Reorganisation](#reorganisation). All three follow this procedure.
 
 ```python
-def admit(mempool, encoded: bytes, at: Timestamp = None) -> Result:
+def admit(mempool, encoded: bytes) -> Result:
     if len(encoded) > MAX_BLOCK_SIZE:
         return Reject(TransactionTooLarge)
 
@@ -81,8 +79,8 @@ def admit(mempool, encoded: bytes, at: Timestamp = None) -> Result:
         return Duplicate(key)
 
     mempool.bodies[key] = tx
-    mempool.admitted_at[key] = at if at is not None else now()
-    mempool.pending.insert_by(key, mempool.admitted_at[key])
+    mempool.admitted_at[key] = now()
+    mempool.pending.add(key)
     mempool.by_prefix[prefix(key, REFERENCE_PREFIX_LENGTH)].add(key)
     return Accept(key)
 ```
@@ -105,7 +103,7 @@ The payload is the canonical encoding defined in [Mantle Transaction Encoding](m
 
 ### Reorganisation
 
-When a fork switch displaces blocks from the canonical chain, the node re-admits the transactions they carried that the blocks now in the canonical chain do not carry. It re-admits each with its original admission time.
+When a fork switch displaces blocks from the canonical chain, the node re-admits the transactions they carried that the blocks now in the canonical chain do not carry.
 
 ### Duplicates
 
