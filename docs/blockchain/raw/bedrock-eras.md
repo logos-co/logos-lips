@@ -173,7 +173,7 @@ flowchart BT
     p1["parameter record<br/>of era 1"] --> d1
 ```
 
-A release interprets the chain up to its **horizon**, an epoch it fixes for each network. A node warns its operator once its clock passes the horizon, and when a peer advertises a fork digest the node does not know ([Horizon](#horizon)).
+Each release fixes a **horizon** for each network: the last epoch it interprets. A node warns its operator once its clock passes the horizon, and when a peer advertises a fork digest the node does not know ([Horizon](#horizon)).
 
 A node interprets each piece of chain data under one era:
 
