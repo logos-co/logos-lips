@@ -160,7 +160,7 @@ A node whose release lacks the rules of an era it must apply halts when it start
 
 ## Schedule and Parameter Records
 
-A software release carries one **era schedule** per network. Each entry gives the first epoch of an era and its **parameter record**. The record holds the values the era gives to the Blend, Cryptarchia, Service Declaration Protocol (SDP) and proof-of-work constants that may change between eras. It has a fixed encoding that starts with two numbers: a layout version, which a release changes when it adds, removes or re-encodes a field, and a revision of the era's rules ([Era Parameters](#era-parameters)).
+A software release carries one **era schedule** per network. Each entry gives the first epoch of an era and its **parameter record**. The record holds the values the era gives to the constants that may change between eras, from [Blend Protocol](blend-protocol.md), [Cryptarchia Protocol](cryptarchia-v1-protocol.md), the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) (SDP) and [Proof of Work](proof-of-work.md). It has a fixed encoding that starts with two numbers: a layout version, which a release changes when it adds, removes or re-encodes a field, and a revision of the era's rules ([Era Parameters](#era-parameters)).
 
 Every slot and every epoch belongs to the last era that begins at or before it. An era may change the epoch length and the slot length, so a node computes the start of each era from the era before it ([Era Boundaries](#era-boundaries)):
 
@@ -171,11 +171,11 @@ A schedule changes only under these rules ([Era Schedule](#era-schedule)):
 
 - a release may add or change an era only for an epoch that has not begun;
 - a release that changes the rules of a published era, or the migration into it, increments the era's revision;
-- an era may not change how fork choice compares chains that diverge by at most $`k`$ blocks, $`k`$ being the security parameter of [Constants](cryptarchia-v1-protocol.md#constants).
+- an era may not change how the [Cryptarchia Fork Choice Rule](fork-choice.md) compares chains that diverge by at most $`k`$ blocks, $`k`$ being the security parameter of [Constants](cryptarchia-v1-protocol.md#constants).
 
 ## Fork and Era Digests
 
-Each era has a **fork digest**, a hash of the genesis block ID, the chain ID and the era digest of every era up to it. An era digest is a hash of the era's first epoch and parameter record ([Fork Digest](#fork-digest)).
+Each era has a **fork digest**, a hash of the genesis block ID, the chain ID ([Bedrock Genesis Block](bedrock-genesis-block.md)) and the era digest of every era up to it. An era digest is a hash of the era's first epoch and parameter record ([Fork Digest](#fork-digest)).
 
 ```mermaid
 ---
@@ -213,7 +213,7 @@ A node interprets each piece of chain data under one era:
 
 ## Chain State
 
-Between eras, the **recorded chain state** passes through a **migration** that the new era defines ([Era Migration](#era-migration)). The recorded chain state is the state Mantle Operations are validated against, together with the SDP snapshots. A migration:
+Between eras, the **recorded chain state** passes through a **migration** that the new era defines ([Era Migration](#era-migration)). The recorded chain state is the state [Mantle](bedrock-v1.1-mantle-specification.md) Operations are validated against, together with the SDP snapshots. A migration:
 
 - reads that state alone;
 - is defined for every state the previous era can reach;
@@ -225,7 +225,7 @@ The values derived for an epoch, such as its epoch state, its Blend difficulty a
 
 ## Network Layer
 
-A node runs its network protocols under the **era in force**, the era of the slot its clock gives. Their identifiers and gossipsub topics carry the fork digest of their era. Those of Kademlia and identify carry the chain ID instead ([Network Protocol Identity](#network-protocol-identity)).
+A node runs its network protocols under the **era in force**, the era of the slot its clock gives. Their identifiers and gossipsub topics ([P2P Network](../draft/p2p-network.md)) carry the fork digest of their era. Those of Kademlia and identify carry the chain ID instead ([Network Protocol Identity](#network-protocol-identity)).
 
 Each message travels under one era:
 
@@ -233,7 +233,7 @@ Each message travels under one era:
 - a Blend message the node relays or releases, and the payload it broadcasts: the era of the connection the message arrived on;
 - a proposal the node accepts, and a transaction it admits to its mempool: the era in force, on whose topic the node publishes it.
 
-A synchronization response may carry blocks of any era.
+A synchronization response ([Cryptarchia Bootstrapping & Synchronization](cryptarchia-v1-bootstr-sync.md)) may carry blocks of any era.
 
 When the era in force changes, the node runs the network protocols of both eras for the **Era Transition Period**, whose length is the new era's Blend Transition Period ([Era Transition Period](#era-transition-period)):
 
