@@ -29,6 +29,10 @@
 | 1.5.0 | Introduce the new Operation `CHANNEL_STAKE_ASSIGNATION` and update of the channel operations to reflect changes in Mantle | 2026-06-24 |
 | 1.5.1 | Reflect Channel Deposit execution modification. It now consumes inputs to update their NoteId | 2026-07-27 |
 | 1.5.2 | Renamed locked notes into service notes and stated that the Input Gas covers the check that a note is neither a service nor a channel note | 2026-08-27 |
+| 1.5.3 | Adopted "active message" as the single name for the message | 2026-09-02 |
+| 1.5.4 | Renamed the `stake_manipulation_threshold` of the channel gas derivations into `transfer_threshold` and the Channel Stake Assignation section into Channel Transfer, following Mantle | 2026-08-31 |
+| 1.6.0 | Add the Execution Gas derivation for the `CLAIM_POW_REWARD` Operation | 2026-09-04 |
+| 1.7.0 | Per-signature Ed25519 cost re-measured with strict verification ([Common Cryptographic Components](common-cryptographic-components.md) 1.2.0): 56 → 59 Execution Gas, `SDP_DECLARE_GAS` 646 → 649 | 2026-09-24 |
 
 # Introduction
 
@@ -67,15 +71,16 @@ The gas derivation of each Operation are:
 
 ```python
 TRANSFER_GAS                  = 590
-CHANNEL_INSCRIBE_GAS          = 56
-CHANNEL_CONFIG_GAS            = 56 * configuration_threshold
+CHANNEL_INSCRIBE_GAS          = 59
+CHANNEL_CONFIG_GAS            = 59 * configuration_threshold
 CHANNEL_DEPOSIT_GAS           = 590
-CHANNEL_TRANSFER_GAS          = 56 * stake_manipulation_threshold
-CHANNEL_WITHDRAW_GAS          = 56 * stake_manipulation_threshold
-SDP_DECLARE_GAS               = 646
+CHANNEL_TRANSFER_GAS          = 59 * transfer_threshold
+CHANNEL_WITHDRAW_GAS          = 59 * transfer_threshold
+SDP_DECLARE_GAS               = 649
 SDP_WITHDRAW_GAS              = 590
 SDP_ACTIVE_GAS                = 590
 LEADER_CLAIM_GAS              = 580
+CLAIM_POW_REWARD_GAS          = 590
 ```
 
 and come from our implementation observations as described in [Gas determination from measures](#gas-determination-from-measures).  To get these numbers, we based our calculations on the following measures:
@@ -84,7 +89,7 @@ and come from our implementation observations as described in [Gas determination
 | --- | --- |
 | ZkSignature batch verification | 3,900,000 + number_of_proof x 590,000 |
 | Proof of Claim batch verification | 2,640,000 + number_of_proof x 580,000 |
-| Eddsa25519 signature verification | 56,000 |
+| Eddsa25519 signature verification | 59,200 |
 
 Comparison, list searching, hashes and operation in small fields are neglected. We also supposed that the initialization cost for batch verification is paid by everyone and deduced from the block directly. The user then pay only for the part that is proportional to the number of proofs.
 
@@ -117,9 +122,9 @@ Execution: negligible.
 
 The validation process includes verifying an Eddsa25519 signature, confirming that the signer is authorized for the specified channel, and checking the chaining sequence of the channel. The execution encompasses creating channel records (if not previously used) and updating the tip of the channel.
 
-Execution: ~56k CPU cycles.
+Execution: ~59k CPU cycles.
 
-- Verification of the Ed25519 signature: 56,000 cycles.
+- Verification of the Ed25519 signature: 59,200 cycles.
 - Verification of the signer authorization: negligible.
 - Verification of channel sequencing: negligible
 - Update the channel state: negligible
@@ -141,21 +146,21 @@ Execution: ~590k CPU cycles.
 The validation process requires verifying multiple Eddsa25519 signatures.
 The execution require consuming the channel notes, deriving note Id and adding notes to the ledger.
 
-Execution: ~56k CPU cycles * transfer_threshold.
+Execution: ~59k CPU cycles * transfer_threshold.
 
-- Verification of `transfer_threshold` Ed25519Signatures: 56,000 cycles per signature.
+- Verification of `transfer_threshold` Ed25519Signatures: 59,200 cycles per signature.
 - Verification that the notes are in the ledger: negligible.
 - Verification that the notes are in the channel: negligible.
 - Removing the notes from channel notes: negligible.
 
-## Channel Stake Assignation
+## Channel Transfer
 
 The validation process requires verifying multiple Eddsa25519 signatures, and managing the channel notes.
 The execution require deriving note Id and adding notes to the ledger.
 
-Execution: ~56k CPU cycles * transfer_threshold.
+Execution: ~59k CPU cycles * transfer_threshold.
 
-- Verification of `transfer_threshold` Ed25519Signatures: 56,000 cycles per signature.
+- Verification of `transfer_threshold` Ed25519Signatures: 59,200 cycles per signature.
 - Verification that the notes are in the ledger: negligible.
 - Verification that the notes are in the channel: negligible.
 - Removing of the note from the ledger: negligible.
@@ -167,17 +172,17 @@ Execution: ~56k CPU cycles * transfer_threshold.
 
 This gas amount covers the verification of multiple Eddsa25519 signatures and ensures the operation is well-formed. This represents the computational cost associated with processing channel configuration operations.
 
-- Execution: ~56k CPU cycles * configuration_threshold.
-    - Verification of the configuration_threshold Ed25519 signatures: 56,000 cycles per signature.
+- Execution: ~59k CPU cycles * configuration_threshold.
+    - Verification of the configuration_threshold Ed25519 signatures: 59,200 cycles per signature.
     - Modification of the state of the channel: negligible.
 
 ## SDP Declaration
 
 This gas covers multiple verification processes: confirming ownership of the service note through ZkSignature verification, validating the zk_id via a second ZkSignature, and establishing ownership of the provider_id through an Eddsa25519 signature. It also includes verification of the declaration format, confirmation of note existence, validation that the note is not already used for this service, and verification of its amount. Additionally, it accounts for the computational costs associated with the note service locking mechanism and declaration management.
 
-Execution: ~ 646k CPU cycles.
+Execution: ~ 649k CPU cycles.
 
-- Verification of the Ed25519 signature: 56,000 cycles.
+- Verification of the Ed25519 signature: 59,200 cycles.
 - Verification of the ZK signature: 590,000 cycles.
 - Verification that the declaration doesn’t already exist: negligible.
 - Verification of locator length: negligible.
@@ -202,7 +207,7 @@ Execution: ~ 590k CPU cycles.
 - Unlock the note if not linked to any declaration: negligible.
 ## SDP Activation
 
-This gas funds the verification of the zk_id signature through the ZkSignature verification process, validates the existence of the declaration in the system, and ensures that the activation message's nonce is greater than any previous nonce to prevent replay attacks. The validation includes confirming that the declaration ID is present in the declarations dictionary and that the signature corresponds to the declaration's registered zk_id public key.
+This gas funds the verification of the zk_id signature through the ZkSignature verification process, validates the existence of the declaration in the system, and ensures that the active message's nonce is greater than any previous nonce to prevent replay attacks. The validation includes confirming that the declaration ID is present in the declarations dictionary and that the signature corresponds to the declaration's registered zk_id public key.
 
 - Execution: ~590k CPU cycles.
     - Verification that the declaration exist: negligible.
@@ -222,6 +227,25 @@ Execution: ~580k CPU cycles.
 - Insertion of the nullifier in the voucher nullifier set: negligible.
 - Insertion of the note in the ledger: negligible.
 - Derivation of the note identifiers: negligible
+
+## Claim PoW Reward
+
+This gas covers the verification of the [ZkSignature](bedrock-v1.1-mantle-specification.md) proof, the re-derivation of the puzzle ticket from the Operation payload, the comparison of that ticket against the reward difficulty, the lookup confirming the referenced block is canonical and within the acceptance window, the check that the ticket is not already in the nullifier set, and the check that the pool can cover a reward. Execution then inserts the nullifier, creates a single output note and decrements the pool.
+
+Execution: ~590k CPU cycles.
+
+- Verification of the ZK signature: 590,000 cycles.
+- Re-derivation of the puzzle ticket: one `zkhash` over three field elements, negligible.
+- Comparison of the ticket against the reward difficulty: negligible.
+- Lookup of the referenced block and the slot window comparison: negligible.
+- Verification that the ticket isn't already in the nullifier set: negligible.
+- Verification that the pool covers the per-claim reward: negligible.
+- Insertion of the nullifier in the set: negligible.
+- Insertion of the note in the ledger: negligible.
+- Derivation of the note identifiers: negligible.
+
+A claim is intended to pay its own fee out of the reward it creates, so this gas contributes to the floor the per-claim reward must clear, and it constrains the reward parameters rather than merely pricing the Operation.
+
 # Annex
 
 ## Gas determination from measures
@@ -238,7 +262,7 @@ The material used for the benchmarks is the following:
 
 To get the numbers, we executed the [test included in the official Rust implementation of the node](https://github.com/logos-blockchain/logos-blockchain/blob/3c249f67d11bcad6ce7cbd92cf8c6b977d35a443/tests/src/benchmarks/eddsa.rs#L17).
 
-Over 100 iterations, verifying an Eddsa25519 signature requires an average of 56,000 CPU cycles.
+Over 100 iterations, verifying an Eddsa25519 signature with strict verification (small-order checks on the public key and on `R`, see [Common Cryptographic Components](common-cryptographic-components.md#eddsa)) requires an average of 59,200 CPU cycles.
 
 ### Proof of Claim
 
