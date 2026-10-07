@@ -261,19 +261,6 @@ Each release fixes a **horizon** for each network: the last epoch it interprets.
 
 Neither warning stops the node.
 
-```mermaid
-stateDiagram-v2
-    direction LR
-    state "within the horizon" as w
-    w: the release interprets the chain
-    state "past the horizon" as p
-    p: the release no longer interprets the chain
-    [*] --> w
-    w --> p: clock reaches the first slot of epoch H+1 / warn
-    w --> w: a peer advertises an unknown fork digest / warn
-    p --> p: a peer advertises an unknown fork digest / warn
-```
-
 ## An Era Boundary Step by Step
 
 At the boundary into an era $`n`$, these mechanisms act in a fixed order. The numbers in the diagram match the steps below.
