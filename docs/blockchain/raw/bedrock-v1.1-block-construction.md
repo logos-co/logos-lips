@@ -33,7 +33,7 @@
 | 1.2.0 | Added the `uncle_headers` field — the signed headers of the referenced uncles — to the [Proposal](#block-proposal) and to the newly defined [Block](#block), and replaced `block_root` with `body_root` in the [Header](#header), which commits to them, signatures included, as well as to the transactions. Due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
 | 1.2.1 | Precise the state each transaction of a block is validated against: the transactions are validated and executed one after the other in the order they appear, each against the state the preceding ones left, which makes block validity order-dependent. Precise that a block whose validation fails at any point is not executed at all. | 2026-08-24 |
 | 1.3.0 | Compressed Block Proposal: 16-byte transaction reference prefixes and a variable-length `references` list, reducing the proposal from 34,574 bytes to at most 18,192. Added the [Canonical Encoding](#canonical-encoding) section. | 2026-08-18 |
-| 1.4.0 | The `leader_voucher` is replaced with a one-time `reward_key`, and the leader reward is inserted in the ledger at the end of the block execution | 2026-10-07 |
+| 1.4.0 | The `leader_voucher` is replaced with a one-time `reward_key`, and the leader reward is inserted in the ledger at the end of the block execution. Channel withdrawals whose due slot is reached are released before the transactions | 2026-10-07 |
 
 # Introduction
 
@@ -373,9 +373,9 @@ The order is constrained as well as economical. [Block Header Validation](crypta
 6. **Mempool Transactions Validation**
   `mempool_transactions` must refer to a valid sequence of Mantle Transactions from the mempool. The transactions are validated in the order the `references` resolve them, against a state that advances with them: each transaction is validated against the state the transactions preceding it left, the first one against the state the block inherits once the steps of [Block Execution](#block-execution) that precede it have been applied. Each transaction must be valid in that state according to the rules defined in the [Mantle](bedrock-v1.1-mantle-specification.md#validation), which validates and executes its Operations along that same progression. Validation and execution are therefore one pass over one state, not two.
 
-  Block validity is consequently order-dependent, and the order the transactions appear in is normative. Two transactions consuming the same note make the block invalid whatever their order, since the second consumption finds the note spent; a transaction consuming a channel note an earlier transaction created is valid in that order and invalid in the reverse one.
+  Block validity is consequently order-dependent, and the order the transactions appear in is normative. Two transactions consuming the same note make the block invalid whatever their order, since the second consumption finds the note spent.
 
-  A shielded note, however, cannot be consumed in the block that creates it. A transaction proves its inputs against the commitment root of one of the last 1024 blocks, extended only with the commitments created earlier in the same transaction ([Mantle Validation](bedrock-v1.1-mantle-specification.md#validation)). Shielded notes can therefore be chained within a transaction, not across the transactions of a block.
+  A note cannot be consumed in the block that creates it. A transaction proves its inputs against the commitment root of their note set at one of the last 1024 blocks, extended only with the commitments created earlier in the same transaction ([Mantle Validation](bedrock-v1.1-mantle-specification.md#validation)). Notes can therefore be chained within a transaction, not across the transactions of a block.
 
   In order to verify ZK proofs, they are batched for verification as explained in [Batch verification of ZK proofs](#batch-verification-of-zk-proofs) to get better performance. Batching covers the proof checks alone and does not change the state a transaction is validated in: the public inputs of every proof are taken from the state its transaction is reached in, and the state-dependent assertions still run in sequence.
 
@@ -390,12 +390,13 @@ This section specifies how a Logos Blockchain node executes a valid block propos
 Given a `ValidBlock` that has successfully passed proposal validation, the node must, in this order:
 
 1. Execute the reward distribution protocol defined in [**Service Reward Distribution Protocol**](bedrock-service-reward-distribution.md) to generate reward notes locally and include them in the ledger.
-2. Execute the Mantle Transactions included in the block in the order they appear, using the execution rules defined in the [Mantle](bedrock-v1.1-mantle-specification.md).
-3. Insert the leader reward of the block in the ledger.
+2. Release the channel withdrawals whose due slot is reached, appending their notes to the ledger note set, as defined in [CHANNEL_WITHDRAW](bedrock-v1.1-mantle-specification.md#channel_withdraw).
+3. Execute the Mantle Transactions included in the block in the order they appear, using the execution rules defined in the [Mantle](bedrock-v1.1-mantle-specification.md).
+4. Insert the leader reward of the block in the ledger.
 
-Step 1 reads the epoch and the state of the [Service Declaration Protocol](bedrock-service-declaration-protocol.md), never the transactions of the block, which is what lets it run before those transactions are validated.
+Steps 1 and 2 read the epoch, the slot and the state of the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) and of the pending withdrawals, never the transactions of the block, which is what lets them run before those transactions are validated.
 
-The leader reward of step 3 is the one defined in [Blend Service and Consensus Leaders](overview-cryptoeconomics.md#blend-service-and-consensus-leaders), computed from the [Block Rewards](block-rewards.md) of the block and the Execution market tips of its transactions, which is why it comes after them. It is paid as a single note with a nonce of `0` under the `reward_key` of the block, and its commitment is appended to the commitment MMR of the [Mantle Ledger](bedrock-v1.1-mantle-specification.md#ledger):
+The leader reward of step 4 is the one defined in [Blend Service and Consensus Leaders](overview-cryptoeconomics.md#blend-service-and-consensus-leaders), computed from the [Block Rewards](block-rewards.md) of the block and the Execution market tips of its transactions, which is why it comes after them. It is paid as a single note with a nonce of `0` under the `reward_key` of the block, and its commitment is appended to the ledger note set of the [Mantle Ledger](bedrock-v1.1-mantle-specification.md#ledger):
 
 ```python
 leader_note = Note(
@@ -403,12 +404,12 @@ leader_note = Note(
     nonce=0,
     public_key=block.header.proof_of_leadership.reward_key
 )
-ledger.execute_adding([derive_note_cm(leader_note)])
+ledger.execute_adding(LEDGER_SET, [derive_note_cm(leader_note)])
 ```
 
 The note is shielded: spending it reveals neither its commitment nor its value, so the leader cannot be linked to the block through its reward. The `reward_key` must be a fresh key for every block. Reusing it links the blocks that carry it to the same leader, and two rewards of the same value under the same key share a commitment, so only one of them can be spent.
 
-The three steps stand or fall together, on a block that has validated in full: a block that fails validation at any point is not executed at all.
+The four steps stand or fall together, on a block that has validated in full: a block that fails validation at any point is not executed at all.
 
 The carried `uncle_headers` are not executed. A referenced uncle is not part of the chain; therefore, its transactions have no effect on the ledger state. The uncles are used only as evidence of consensus participation for the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference).
 

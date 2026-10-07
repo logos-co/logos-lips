@@ -34,7 +34,7 @@
 | 1.4.3 | Identifier uniqueness covers every stored declaration, not only activated ones, matching the implementation | 2026-09-01 |
 | 1.5.0 | Defined `active` as the epoch of the block that contained the latest accepted active message, initialised to `created + 2`, and `withdraw_at` as the epoch at which the node stops providing the service, matching the implementation. Added the participant-set exclusion rule and [Message Timing](#message-timing) | 2026-09-02 |
 | 1.6.0 | Declarations are removed at `withdraw_at + 1`, one epoch after the node stops, making the last served epoch rewardable | 2026-09-03 |
-| 1.7.0 | Support the private ledger of Mantle: a declaration consumes notes and creates its own service note under the `zk_id`, and the active and withdraw messages are signed by the `provider_id` | 2026-10-07 |
+| 1.7.0 | Support the private ledger of Mantle: a declaration consumes notes and creates its own service note under the `zk_id` in the SDP note set, the withdrawal consumes it with a ZkTransfer, and the active and withdraw messages are signed by the `provider_id` | 2026-10-07 |
 
 # Introduction
 
@@ -223,6 +223,7 @@ class DeclarationInfo:
     service: ServiceType
     provider_id: Ed25519PublicKey
     service_note: NoteCm
+    withdraw_outputs: list[NoteCm]
     zk_id: ZkPublicKey
     locators: list[Locator]
     created: EpochNumber
@@ -235,7 +236,8 @@ Where:
 
 - `service` defines the service type of the declaration;
 - `provider_id` is an `Ed25519PublicKey` used to sign the message by the validator;
-- `service_note` is the `NoteCm` of the service note created by the declaration, used for minimum stake threshold verification purposes;
+- `service_note` is the `NoteCm` of the service note created by the declaration in the SDP note set, used for minimum stake threshold verification purposes;
+- `withdraw_outputs` are the `NoteCm` of the notes the withdrawal creates, released to the ledger when the declaration is removed; it is empty by default;
 - `zk_id` is the `ZkPublicKey` the service note and the rewards of the validator are created under;
 - `locators` is a copy of the `locators` from the `DeclarationMessage`;
 - `created` refers to the epoch number of the block that contained the declaration;
@@ -301,11 +303,14 @@ The construction of the withdraw message is as follows:
 class WithdrawMessage:
     declaration_id: DeclarationId
     nonce: Nonce
+    service_note_nf: NoteNf
+    outputs: list[NoteCm]
+    excess_value: TokenValue
 ```
 
 The message must be signed by the `provider_id` key from the `declaration_id`.
 
-The service note of the declaration is released to the ledger after withdrawal.
+The message consumes the service note of the declaration, by its nullifier `service_note_nf`, and creates the `outputs` that return its value, `excess_value` paying the fees. A [ZkTransfer](bedrock-v1.1-mantle-specification.md#sdp_withdraw) by the holder of the `zk_id` proves it, against the service note of the declaration only. The `outputs` are released to the ledger when the declaration is removed.
 
 The `nonce` must increase monotonically by every message sent for the `declaration_id`.
 
@@ -372,7 +377,7 @@ Let `e` be the epoch of the block that contained the `WithdrawMessage`; `withdra
 
 A service deriving its participant set from a snapshot must exclude every declaration for which `withdraw_at` is not `None` and `n >= withdraw_at`, where `n` is the epoch the set is derived for.
 
-The node provides the service through epoch `withdraw_at - 1`, its last rewardable epoch. The declaration is removed and its service note released to the ledger at epoch `withdraw_at + 1` ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).
+The node provides the service through epoch `withdraw_at - 1`, its last rewardable epoch. The declaration is removed and the notes of its withdrawal released to the ledger at epoch `withdraw_at + 1` ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).
 
 The logic of the withdraw action is:
 
@@ -382,9 +387,10 @@ The logic of the withdraw action is:
     2. The transaction containing `WithdrawMessage` is signed by the `provider_id`.
     3. The `withdraw_at` from `DeclarationInfo` is set to `None`.
     4. The `nonce` increases monotonically.
+    5. The ZkTransfer consumes the service note of the declaration and balances the `outputs`.
 3. If any of the above is not correct, then discard the message and stop.
-4. Set the `withdraw_at` from the `DeclarationInfo` to the current epoch number plus two.
-5. The `DeclarationInfo` is removed and its service note released to the ledger at epoch `withdraw_at + 1` ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).
+4. Set the `withdraw_at` from the `DeclarationInfo` to the current epoch number plus two, record the `outputs` in its `withdraw_outputs`, and consume the service note.
+5. The `DeclarationInfo` is removed and its `withdraw_outputs` released to the ledger at epoch `withdraw_at + 1` ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).
 
 ### Query
 

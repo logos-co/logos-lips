@@ -32,7 +32,7 @@
 | 1.1.4 | Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy. | 2026-08-25 |
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
 | 1.2.0 | Seed the pow reward pool at genesis from the initial token distribution | 2026-09-08 |
-| 1.3.0 | Support the private ledger of Mantle: the initial distribution is made of note commitments whose preimages are published in the Cryptarchia inscription, and the declarations consume the distributed notes | 2026-10-07 |
+| 1.3.0 | Support the private ledger of Mantle: the initial distribution is made of note commitments whose preimages are published in an inscription to the null channel, and the declarations consume the distributed notes | 2026-10-07 |
 
 # Introduction
 
@@ -60,7 +60,7 @@ The distribution inscription is the number of outputs as one byte, followed by t
 
 In order to participate in the Cryptarchia lottery, stakeholders must generate their note keys in accordance with the Proof of Leadership protocol specified at [Protocol](cryptarchia-proof-of-leadership.md#protocol).
 
-The initial state of the Ledger will be derived through normal execution of this Transfer Operation, that is, each output commitment will be appended to the commitment MMR.
+The initial state of the Ledger will be derived through normal execution of this Transfer Operation, that is, each output commitment will be appended to the commitment MMR of the ledger note set.
 
 **Example**
 
@@ -88,6 +88,7 @@ DISTRIBUTION_INSCRIPTION = Inscribe(
     inscription=distribution,
     parent=hash(encode(CRYPTARCHIA_INSCRIPTION)),
     signer=Ed25519PublicKey_ZERO,
+    steps=[],
 )
 ```
 
@@ -171,6 +172,7 @@ CRYPTARCHIA_INSCRIPTION = Inscribe(
     inscription=inscription,
     parent=bytes(32),
     signer=Ed25519PublicKey_ZERO,
+    steps=[],
 )
 ```
 
@@ -278,6 +280,7 @@ CRYPTARCHIA_INSCRIPTION = Inscribe(
     inscription=inscription,
     parent=bytes(32),
     signer=Ed25519PublicKey_ZERO,
+    steps=[],
 )
 
 # publish the initial distribution
@@ -290,6 +293,7 @@ DISTRIBUTION_INSCRIPTION = Inscribe(
     inscription=distribution,
     parent=hash(encode(CRYPTARCHIA_INSCRIPTION)),
     signer=Ed25519PublicKey_ZERO,
+    steps=[],
 )
 
 # service declarations
@@ -354,9 +358,9 @@ Everything else is validated as it would be in any other block, against the stat
 
 ## Mantle Ledger Initialization
 
-Before Genesis, the commitment MMR of the Ledger is empty and its root is the only commitment root of a recent block, and the [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) has a single leaf, the sentinel `NullifierLeaf(0, 0, 0)`.
+Before Genesis, the Ledger holds two [note sets](bedrock-v1.1-mantle-specification.md#ledger), the ledger note set and the SDP note set. Each is empty: its commitment MMR is empty and its root is the only commitment root of a recent block, and its [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) has a single leaf, the sentinel `NullifierLeaf(0, 0, 0)`. The null channel, created by the Cryptarchia inscription, gets the third note set.
 
-The Transfer Operation distributing the initial tokens is validated and executed as any other Transfer Operation, minus the exemptions covering its proof, its inputs and the transaction balance. The result of normal transfer execution appends all output commitments to the commitment MMR and to the commitment buffer of the transaction.
+The Transfer Operation distributing the initial tokens is validated and executed as any other Transfer Operation, minus the exemptions covering its proof, its inputs and the transaction balance. The result of normal transfer execution appends all output commitments to the commitment MMR of the ledger note set and to its commitment buffer of the transaction.
 
 The pow reward pool is initialized at the same time:
 
@@ -382,7 +386,7 @@ Cryptarchia progresses in epochs where the variables governing the lottery are f
 To initialize the Epoch State, we derive the epoch variables from the genesis block.
 
 1. $`\eta`$ : the epoch nonce is taken directly from the `genesis_epoch_nonce`.
-2. $`\mathbb{C}_\text{LEAD}`$: Eligible leader commitment is set to the roots of the shielded and transparent eligible sets after the execution of the Genesis Mantle Transaction. The derivation of these roots is specified in [Eligible Sets](cryptarchia-proof-of-leadership.md#eligible-sets).
+2. $`\mathbb{C}_\text{LEAD}`$: Eligible leader commitment is set to the eligible root after the execution of the Genesis Mantle Transaction. The derivation of this root is specified in [Eligible Sets](cryptarchia-proof-of-leadership.md#eligible-sets).
 3. $`D`$: The initial estimate of total stake will be the total tokens distributed at genesis.
 
 ## Bedrock Services Initialization

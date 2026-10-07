@@ -27,7 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-12-09 |
 | 1.1.0 | Remove the protection against adaptive adversary from PoL removing a non-enforced feature, simplifying work for engineers, improving UX and performances of PoL and PoQ. Update the performance according to the new circuit. Remove the notion of NOMOS in DSTs | 2026-01-29 |
 | 1.1.1 | Introduced a discussion for when the value of a participating note is way higher than the total estimated stake | 2026-06-24 |
-| 1.2.0 | Support the private ledger of Mantle: a note is eligible from the shielded or the transparent eligible set, and proven unspent by nullifier non-membership or by latest membership respectively | 2026-10-06 |
+| 1.2.0 | Support the private ledger of Mantle: a note is eligible from any note set of the ledger, committed together in the eligible root, and proven unspent by the non-membership of its nullifier | 2026-10-06 |
 
 # Introduction
 
@@ -51,8 +51,8 @@ The PoL mechanism ensures that a note has legitimately won the leadership electi
 - Setup: The note becomes eligible for PoS when it has aged sufficiently.
 - PoL generation:
   1. First, check if the note is winning by simulating the lottery
-  2. Prove the membership of the note commitment in an old snapshot of the shielded or the transparent eligible set, proving its age and its existence.
-  3. Prove that the note is unspent: by the non-membership of its nullifier in the most recent nullifier set for a shielded note, or by the membership of its commitment in the most recent transparent eligible set for a transparent note.
+  2. Prove the membership of the note commitment in an old snapshot of its note set, proving its age and its existence.
+  3. Prove the non-membership of its nullifier in the most recent nullifier set of the same note set, proving it's unspent.
   4. Prove that the note won the PoS lottery.
   5. The proof is bound to a cryptographic public key used for signing the leader’s proposed blocks.
 
@@ -77,58 +77,31 @@ Our description differs from the original paper proposition, proving that a note
 
 ## Eligible Sets
 
-In order to prove that the winning note exists and existed at the start of the previous epoch, and that it is unspent, every node must compute the roots of two eligible sets and of the nullifier set.
+In order to prove that the winning note exists and existed at the start of the previous epoch, and that it is unspent, every node must compute the eligible root.
 
-The **shielded eligible set** is the commitment MMR of the [Mantle Ledger](bedrock-v1.1-mantle-specification.md#ledger). Its root at the snapshot is $`shielded_{AGED}`$. A shielded note is proven unspent by the non-membership of its nullifier in the [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree), whose latest root is $`nullifiers_{LATEST}`$.
-
-The **transparent eligible set** holds the commitments of the service notes and of the channel notes. Its roots $`transparent_{AGED}`$ at the snapshot and $`transparent_{LATEST}`$ at the latest state are Merkle roots constructed over these commitments. The trees have a depth of $`32`$ (32 layers without counting the root), that is, the tree has a maximal capacity of $`2^{32}`$ commitments. The value $`0`$ represents an empty leaf. When the set is updated, during insertion, the first empty leaf is replaced with the new commitment, and during deletion, the leaf containing the deleted commitment is replaced with $`0`$. A transparent note is proven unspent by the membership of its commitment in $`transparent_{LATEST}`$, since it is deleted from the set when it is spent or released to the ledger. The following pseudo-code shows how the tree is managed:
+Every [note set](bedrock-v1.1-mantle-specification.md#ledger) of the Mantle Ledger is eligible: the ledger note set, the SDP note set and the note set of every channel. The eligible root commits to all of them. It is the root of a Merkle tree of depth $`32`$ whose leaf at position $`i`$ hashes the root of the commitment MMR and the root of the [nullifier IMT](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of the note set of index $`i`$, every position past the last note set holding the value $`0`$:
 
 ```python
-def insert_new_note(note_set: list[NoteCm], new_note: NoteCm):
-    i = 0
-    while i < len(note_set) and note_set[i] != 0:
-        i += 1
-    if i < len(note_set):
-        note_set[i] = new_note
-    else:
-        note_set.append(new_note)
-    return note_set
+def eligible_leaf(cm_root: MerkleRoot, nf_root: MerkleRoot) -> zkhash:
+    return zkhash(
+        FiniteField(b"ELIGIBLE_SET_LEAF_V1", byte_order="little", modulus= p),
+        cm_root,
+        nf_root
+    )
 
-def delete_note(note_set: list[NoteCm], note: NoteCm):
-    i = 0
-    while i < len(note_set) and note_set[i] != note:
-        i += 1
-
-    if i == len(note_set):
-        # note not in the set
-        return note_set
-
-    note_set[i] = 0
-    return note_set
-
-def empty_tree_root(depth: int):
-    root = 0
-    for i in range(depth):
-        h = hasher()   # zk hash
-        h.update(root)
-        h.update(root)
-        root = h.digest()
-    return root
-
-def get_transparent_root(note_set: list[NoteCm]):
-    assert(len(note_set) < 2**32)
-    transparent_root = get_merkle_root(note_set)  # return the Merkle root of the set
-                                                  # padded with 0 to next power of 2
-    transparent_root_height = len(note_set).bit_length()
-    for height in range(transparent_root_height, 32):
-        h= Hasher()    # zk hash
-        h.update(transparent_root)
-        h.update(empty_tree_root(height))
-        transparent_root = h.digest()
-    return transparent_root
+def eligible_root(sets: list[NoteSet]) -> MerkleRoot:
+    assert len(sets) < 2**32
+    leaves = []
+    for note_set in sets:
+        # the root of the commitment MMR and the root of the nullifier IMT of the set
+        leaves.append(eligible_leaf(note_set.cm_root(), note_set.nf_root()))
+    # Merkle root of depth 32 over the leaves, every position past the last note set holding 0
+    return get_merkle_root(leaves, depth=32)
 ```
 
-  The transparent root may not be unique because the commitment set can cycle. Indeed, even if it’s not possible to insert the same commitment twice, it’s possible to cycle on a previous set state by removing notes. However, commitment uniqueness guarantees protection against attacks on note aging.
+The first leaf is the ledger note set, the second the SDP note set, and the next ones the channels in the order they were created. Its root when the stake distribution was frozen is $`eligible_{AGED}`$, and its latest root is $`eligible_{LATEST}`$.
+
+A note is proven aged by the membership of its commitment in the commitment MMR of its note set under $`eligible_{AGED}`$, and unspent by the non-membership of its nullifier in the nullifier IMT of the same note set under $`eligible_{LATEST}`$.
 
 ## Zero-knowledge Proof Statement
 
@@ -143,15 +116,13 @@ class ProofOfLeadershipPublic:
     epoch_nonce: zkhash             # eta
     t0: FrElement                   # lottery constants
     t1: FrElement
-    shielded_aged: MerkleRoot       # shielded eligible set root when the stake distribution was frozen
-    transparent_aged: MerkleRoot    # transparent eligible set root when the stake distribution was frozen
-    nullifiers_latest: MerkleRoot   # latest nullifier IMT root
-    transparent_latest: MerkleRoot  # latest transparent eligible set root
+    eligible_aged: MerkleRoot       # eligible root when the stake distribution was frozen
+    eligible_latest: MerkleRoot     # latest eligible root
     leader_pk: (FrElement, FrElement)  # P_LEAD as 2 values of 16 bytes in little endian
     entropy_contribution: zkhash    # rho_LEAD
 ```
 
-The epoch nonce is defined in [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce) and the aged roots in [Epoch State Pseudocode](cryptarchia-v1-protocol.md#epoch-state-pseudocode). The lottery constants are computed with high precision outside the proof (see [Lottery Approximation](#lottery-approximation)), and `leader_pk` is the key signing the proposed block (see [Linking the Proof of Leadership to a Block](#linking-the-proof-of-leadership-to-a-block)).
+The epoch nonce is defined in [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce) and the aged root in [Epoch State Pseudocode](cryptarchia-v1-protocol.md#epoch-state-pseudocode). The lottery constants are computed with high precision outside the proof (see [Lottery Approximation](#lottery-approximation)), and `leader_pk` is the key signing the proposed block (see [Linking the Proof of Leadership to a Block](#linking-the-proof-of-leadership-to-a-block)).
 
 The prover knows a witness:
 
@@ -160,24 +131,19 @@ class ProofOfLeadershipWitness:
     sk: ZkSecretKey
     value: TokenValue
     nonce: NoteNonce
-    is_shielded: boolean
-    cm_aged_path: list[FrElement]
+    set_selectors: list[boolean]      # position of the note set in the eligible tree (len = 32)
+    cm_aged_path: list[FrElement]     # path of the note commitment in the commitment MMR of its set
     cm_aged_selectors: list[boolean]
-    low_leaf: NullifierLeaf           # used by a shielded note only
+    nf_root_aged: MerkleRoot          # nullifier IMT root of the set when the stake distribution was frozen
+    set_aged_path: list[FrElement]    # path of the leaf of the set to eligible_aged (len = 32)
+    low_leaf: NullifierLeaf           # IMT leaf of the greatest nullifier lower than the note nullifier
     low_leaf_path: list[FrElement]
     low_leaf_selectors: list[boolean]
-    cm_latest_path: list[FrElement]   # used by a transparent note only
-    cm_latest_selectors: list[boolean]
+    cm_root_latest: MerkleRoot        # latest commitment MMR root of the set
+    set_latest_path: list[FrElement]  # path of the leaf of the set to eligible_latest (len = 32)
 ```
 
-The circuit computes the constraints of both kinds of note, and `is_shielded` cancels those of the kind the note is not. The witness values used only by the other kind can be arbitrary.
-
 Such that the following constraints hold:
-
-- The selector is a boolean.
-  ```python
-  assert is_shielded * (1 - is_shielded) == 0
-  ```
 
 - The public key is derived from the secret key.
   ```python
@@ -189,30 +155,27 @@ Such that the following constraints hold:
   cm = zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), value, nonce, pk)
   ```
 
-- The note commitment was in the shielded or the transparent eligible set when the stake distribution was frozen.
+- The note commitment was in the commitment MMR of its note set when the stake distribution was frozen.
   ```python
-  aged_root = path_root(leaf=cm,
+  cm_root_aged = path_root(leaf=cm,
       path=cm_aged_path,
       selectors=cm_aged_selectors)
-  assert aged_root == is_shielded * shielded_aged + (1 - is_shielded) * transparent_aged
+  assert eligible_aged == path_root(leaf=eligible_leaf(cm_root_aged, nf_root_aged),
+      path=set_aged_path,
+      selectors=set_selectors)
   ```
 
-- The note is unspent: a shielded note nullifier is not in the [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of root `nullifiers_latest`, and a transparent note commitment is still in the latest transparent eligible set.
+- The note is unspent: its nullifier is not in the latest [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of the same note set, the same `set_selectors` placing both leaves at the position of that set.
   ```python
   nf = zkhash(FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p), cm, sk)
-  low_root = path_root(leaf=nullifier_leaf_hash(low_leaf),
+  nf_root_latest = path_root(leaf=nullifier_leaf_hash(low_leaf),
       path=low_leaf_path,
       selectors=low_leaf_selectors)
-  nf_above_low = low_leaf.nf < nf                                    # boolean
-  nf_below_next = nf < low_leaf.next_nf or low_leaf.next_nf == 0     # boolean
-  assert is_shielded * (nullifiers_latest - low_root) == 0
-  assert is_shielded * (1 - nf_above_low) == 0
-  assert is_shielded * (1 - nf_below_next) == 0
-
-  latest_root = path_root(leaf=cm,
-      path=cm_latest_path,
-      selectors=cm_latest_selectors)
-  assert (1 - is_shielded) * (transparent_latest - latest_root) == 0
+  assert eligible_latest == path_root(leaf=eligible_leaf(cm_root_latest, nf_root_latest),
+      path=set_latest_path,
+      selectors=set_selectors)
+  assert low_leaf.nf < nf
+  assert nf < low_leaf.next_nf or low_leaf.next_nf == 0
   ```
 
 - The note wins the lottery.

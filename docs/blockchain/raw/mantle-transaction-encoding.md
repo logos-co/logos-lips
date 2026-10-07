@@ -34,7 +34,7 @@
 | 1.7.0 | Added the `ChannelConfigOpProof` and `ChannelTransferOpProof` variants and factored the three channel threshold proofs into `ChannelMultiSigProof`, carrying the index of the signing key alongside each signature | 2026-08-31 |
 | 1.8.0 | Added the `ClaimPowReward` Operation payload; its proof is a `ZkSigProof` | 2026-09-08 |
 | 1.9.0 | Swap Ed25519Signature and SignerIndex order in IndexedSignature | 2026-10-01 |
-| 2.0.0 | Follow the private note ledger of Mantle 2.0.0 and remove `LeaderClaim` | 2026-10-06 |
+| 2.0.0 | Follow the private note ledger of Mantle 2.0.0: channel steps in `ChannelInscribe`, holder withdrawals, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim` | 2026-10-06 |
 
 # Introduction
 
@@ -74,7 +74,6 @@ OpPayload = Transfer /
             ChannelConfig /
             ChannelDeposit /
             ChannelWithdraw /
-            ChannelTransfer /
             SDPDeclare /
             SDPWithdraw /
             SDPActive /
@@ -84,28 +83,26 @@ OpPayload = Transfer /
 ### Channel Operations
 
 ```schema
-ChannelInscribe = ChannelId Inscription Parent Signer
+ChannelInscribe = ChannelId Inscription Parent Signer Steps
 Inscription     = UINT32 *BYTE 
+Steps           = StepCount *ChannelStep
+StepCount       = UINT16
+ChannelStep     = Inputs Outputs CmMerkleRoot
 
-ChannelConfig     = ChannelId Parent KeyCount *Signer PostingTimeframe PostingTimeout ConfigThreshold TransferThreshold
+ChannelConfig     = ChannelId Parent KeyCount *Signer PostingTimeframe PostingTimeout ConfigThreshold
 KeyCount                   = UINT16
 PostingTimeframe           = UINT32
 PostingTimeout             = UINT32
 ConfigThreshold            = UINT16
-TransferThreshold          = UINT16
 
-ChannelDeposit    = ChannelId Inputs CmMerkleRoot Value ZkPublicKey Metadata
+ChannelDeposit    = ChannelId Inputs CmMerkleRoot Outputs Value Metadata
 Metadata          = UINT32 *BYTE
 
-ChannelTransfer   = ChannelId ChannelNotes ChannelOutputs
-ChannelOutputs    = OutputCount *(Value ZkPublicKey)
-
-ChannelWithdraw   = ChannelId ChannelNotes
+ChannelWithdraw   = ChannelId Inputs CmMerkleRoot Outputs Value
 
 ChannelId         = Hash32
 Parent            = Hash32
 Signer            = Ed25519PublicKey
-ChannelNotes      = InputCount *NoteCm
 ```
 
 ### SDP Operations
@@ -119,7 +116,7 @@ Locator       = 2Byte *BYTE   ; Max 329 bytes, multiaddr binary form
 ProviderId    = Ed25519PublicKey
 ZkId          = ZkPublicKey
 
-SDPWithdraw   = DeclarationId Nonce
+SDPWithdraw   = DeclarationId Nonce NoteNf Outputs Value
 DeclarationId = Hash32
 Nonce         = UINT64
 
@@ -165,17 +162,15 @@ OpsProofs = *OpProof ; 1. Lenth must equal OpCount
 OpProof   = Ed25519SigProof /
             ZkTransferProof /
             ZkTransferAndEd25519SigProof /
+            ChannelInscribeOpProof /
             ChannelConfigOpProof /
-            ChannelWithdrawOpProof /
-            ChannelTransferOpProof /
             EmptyProof
 
 Ed25519SigProof              = Ed25519Signature
 ZkTransferProof              = ZkTransfer
 ZkTransferAndEd25519SigProof = ZkTransfer Ed25519Signature
+ChannelInscribeOpProof       = Ed25519Signature *ZkTransfer ; one ZkTransfer per step of the inscription
 ChannelConfigOpProof         = ChannelMultiSigProof
-ChannelWithdrawOpProof       = ChannelMultiSigProof
-ChannelTransferOpProof       = ChannelMultiSigProof
 EmptyProof                   = 0Byte ; no bytes
 
 ChannelMultiSigProof = SignatureCount *IndexedSignature

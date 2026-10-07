@@ -28,7 +28,7 @@
 | 1.0.1 | Remove the protection against adaptive adversary from PoL. It impacts the PoL section of PoQ. Update the performance according to the new circuit. Remove old project name from DSTs | 2026-04-09 |
 | 1.1.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.2.0 | Add the proof of work branch: third selector value, `pow_quota` and `pow_blend_difficulty` public inputs, a private `pow_nonce` witness, and Lagrange branch selection; benchmark the three branch circuit | 2026-09-08 |
-| 1.3.0 | Follow the Proof of Leadership of the private ledger: the leader branch proves the note commitment in the shielded or the transparent eligible set when the stake distribution was frozen | 2026-10-07 |
+| 1.3.0 | Follow the Proof of Leadership of the private ledger: the leader branch proves the note commitment in its note set under the eligible root of the time the stake distribution was frozen | 2026-10-07 |
 
 
 # Introduction
@@ -64,8 +64,7 @@ class ProofOfQuotaPublic:
     leader_quota: int     # Allowed blending operations per election win (20 bits)
     core_root: zkhash     # Merkle root of zk_id of the core nodes
     pow_quota: int        # Allowed blending operations per proof of work solution (20 bits)
-    pol_shielded_aged: zkhash    # PoL shielded eligible set root when the stake distribution was frozen
-    pol_transparent_aged: zkhash # PoL transparent eligible set root when the stake distribution was frozen
+    pol_eligible_aged: zkhash # PoL eligible root when the stake distribution was frozen
     K_part_one: int       # First part of the signature public key (16 bytes)
     K_part_two: int       # Second part of the signature public key (16 bytes)
     pow_blend_difficulty: zkhash # Blend threshold a PoW ticket must be below
@@ -95,9 +94,11 @@ class ProofOfQuotaWitness:
     pol_secret_key: int                   # PoL note secret key
     pol_note_value: int                   # PoL note value
     pol_note_nonce: zkhash                # PoL note nonce
-    pol_is_shielded: bool                 # Indicates whether the PoL note is in the shielded or the transparent eligible set
-    pol_cm_aged_path: list[zkhash]        # PoL Merkle path proving the note commitment membership in the aged eligible set (len = 32)
+    pol_cm_aged_path: list[zkhash]        # PoL Merkle path proving the note commitment membership in the commitment MMR of its note set (len = 32)
     pol_cm_aged_selectors: list[bool]     # Indicates how to read the pol_cm_aged_path (if Merkle nodes are left or right in the path)
+    pol_nf_root_aged: zkhash              # PoL nullifier IMT root of the note set when the stake distribution was frozen
+    pol_set_aged_path: list[zkhash]       # PoL Merkle path of the leaf of the note set to pol_eligible_aged (len = 32)
+    pol_set_selectors: list[bool]         # Position of the note set in the eligible tree
     # This part is filled randomly by core nodes and by potential leaders
     pow_nonce: zkhash                     # Private nonce the prover ground to solve the puzzle
 ```
@@ -117,7 +118,7 @@ Such that the following constraints hold:
 
 **Step 3:** If the prover indicated that the node is a potential leader node for the proof, the proof checks that:
 
-  1. The leader node possesses a note that would win a slot in the consensus lottery. Unlike leadership conditions, the proof of quota doesn't verify that the note is unspent. This enables potential provers to generate the PoQ well in advance. All other lottery constraints, including the membership of the note commitment in the shielded or the transparent eligible set when the stake distribution was frozen, are the same as in [Zero-knowledge Proof Statement](cryptarchia-proof-of-leadership.md#zero-knowledge-proof-statement).
+  1. The leader node possesses a note that would win a slot in the consensus lottery. Unlike leadership conditions, the proof of quota doesn't verify that the note is unspent. This enables potential provers to generate the PoQ well in advance. All other lottery constraints, including the membership of the note commitment in its note set under the eligible root of the time the stake distribution was frozen, are the same as in [Zero-knowledge Proof Statement](cryptarchia-proof-of-leadership.md#zero-knowledge-proof-statement).
   2. The index is valid: `index < leader_quota`.
 
 **Step 4:** If the prover indicated that the proof is backed by proof of work, the proof checks that:
@@ -174,15 +175,16 @@ is_registered = merkle_verify(core_root, core_path, core_path_selectors, zk_id)
 is_leader = would_win_leadership(pol_epoch_nonce,
         pol_t0,
         pol_t1,
-        pol_shielded_aged,
-        pol_transparent_aged,
+        pol_eligible_aged,
         pol_sl,
         pol_secret_key,
         pol_note_value,
         pol_note_nonce,
-        pol_is_shielded,
         pol_cm_aged_path,
-        pol_cm_aged_selectors)
+        pol_cm_aged_selectors,
+        pol_nf_root_aged,
+        pol_set_aged_path,
+        pol_set_selectors)
 
 # Check if it's a valid proof of work solution. The ticket is derived directly
 # from the private nonce and the epoch nonce, and the comparison

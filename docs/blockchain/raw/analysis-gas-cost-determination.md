@@ -33,7 +33,7 @@
 | 1.5.4 | Renamed the `stake_manipulation_threshold` of the channel gas derivations into `transfer_threshold` and the Channel Stake Assignation section into Channel Transfer, following Mantle | 2026-08-31 |
 | 1.6.0 | Add the Execution Gas derivation for the `CLAIM_POW_REWARD` Operation | 2026-09-04 |
 | 1.7.0 | Per-signature Ed25519 cost re-measured with strict verification ([Common Cryptographic Components](common-cryptographic-components.md) 1.2.0): 56 → 59 Execution Gas, `SDP_DECLARE_GAS` 646 → 649 | 2026-09-24 |
-| 1.8.0 | Follow the private ledger of Mantle: the notes are proven with a ZkTransfer and spent by nullifier, the SDP messages are signed with Ed25519, the proof of work claim carries no proof, and the `LEADER_CLAIM` Operation is removed | 2026-10-07 |
+| 1.8.0 | Follow the private ledger of Mantle: the notes are proven with a ZkTransfer and spent by nullifier, channel inscriptions carry the ZkTransfer of their steps, channel withdrawals and SDP withdrawals carry a ZkTransfer, the proof of work claim carries no proof, and the `CHANNEL_TRANSFER` and `LEADER_CLAIM` Operations are removed | 2026-10-07 |
 
 # Introduction
 
@@ -73,13 +73,12 @@ The gas derivation of each Operation are:
 TODO: update the gas values from the ZkTransfer measures
 ```python
 TRANSFER_GAS                  = 590
-CHANNEL_INSCRIBE_GAS          = 59
+CHANNEL_INSCRIBE_GAS          = 59 + 590 * steps
 CHANNEL_CONFIG_GAS            = 59 * configuration_threshold
 CHANNEL_DEPOSIT_GAS           = 590
-CHANNEL_TRANSFER_GAS          = 59 * transfer_threshold
-CHANNEL_WITHDRAW_GAS          = 59 * transfer_threshold
+CHANNEL_WITHDRAW_GAS          = 590
 SDP_DECLARE_GAS               = 649
-SDP_WITHDRAW_GAS              = 59
+SDP_WITHDRAW_GAS              = 649
 SDP_ACTIVE_GAS                = 59
 CLAIM_POW_REWARD_GAS          = 0
 ```
@@ -118,13 +117,16 @@ Execution: negligible.
 - Appending of the commitment to the commitment MMR: negligible.
 ## Channel Inscription
 
-The validation process includes verifying an Eddsa25519 signature, confirming that the signer is authorized for the specified channel, and checking the chaining sequence of the channel. The execution encompasses creating channel records (if not previously used) and updating the tip of the channel.
+The validation process includes verifying an Eddsa25519 signature, confirming that the signer is authorized for the specified channel, checking the chaining sequence of the channel, and verifying the ZkTransfer of each step. The execution encompasses creating channel records (if not previously used), applying the steps to the channel note set and updating the tip of the channel.
 
-Execution: ~59k CPU cycles.
+Execution: ~59k CPU cycles + ~590k CPU cycles * steps.
 
 - Verification of the Ed25519 signature: 59,200 cycles.
 - Verification of the signer authorization: negligible.
 - Verification of channel sequencing: negligible
+- Verification of the ZkTransfer of each step: 590,000 cycles per step.
+- Verification that the nullifiers of the steps are not in the set: negligible.
+- Insertion of the nullifiers and appending of the commitments of the steps: negligible.
 - Update the channel state: negligible
 ## Channel Deposit
 
@@ -135,34 +137,18 @@ Execution: ~590k CPU cycles.
 - Verification of the ZkTransfer: 590,000 cycles.
 - Verification that the nullifiers are not in the set: negligible.
 - Insertion of the nullifiers in the nullifier set: negligible.
-- Derivation of the channel note nonce and commitment: negligible.
-- Insertion of the channel note in the channel notes: negligible.
+- Appending of the commitments to the channel note set: negligible.
 
 ## Channel Withdraw
 
-The validation process requires verifying multiple Eddsa25519 signatures.
-The execution require removing the channel notes and appending their commitments to the commitment MMR.
+The Execution Gas of the Channel Withdraw Operation compensates for the verification of the [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) proof of the holder and for the check of the inputs.
 
-Execution: ~59k CPU cycles * transfer_threshold.
+Execution: ~590k CPU cycles.
 
-- Verification of `transfer_threshold` Ed25519Signatures: 59,200 cycles per signature.
-- Verification that the notes are in the channel: negligible.
-- Removing the notes from channel notes: negligible.
-- Appending of the commitments to the commitment MMR: negligible.
-
-## Channel Transfer
-
-The validation process requires verifying multiple Eddsa25519 signatures, and managing the channel notes.
-The execution require deriving the nonce and commitment of the outputs and adding them to the channel notes.
-
-Execution: ~59k CPU cycles * transfer_threshold.
-
-- Verification of `transfer_threshold` Ed25519Signatures: 59,200 cycles per signature.
-- Verification that the notes are in the channel: negligible.
-- Removing of the notes from the channel notes: negligible.
-- Verification of the output validity: negligible.
-- Derivation of the output nonces and commitments: negligible.
-- Insertion of the outputs in the channel notes: negligible.
+- Verification of the ZkTransfer: 590,000 cycles.
+- Verification that the nullifiers are not in the channel note set: negligible.
+- Insertion of the nullifiers in the channel note set: negligible.
+- Recording of the pending withdrawal, and its later release to the ledger note set: negligible.
 
 ## Channel Config
 
@@ -188,15 +174,17 @@ Execution: ~ 649k CPU cycles.
 - Derivation of the service note commitment: negligible.
 ## SDP Withdraw
 
-This gas covers a verification process that includes: confirming ownership of the provider_id through an Eddsa25519 signature, and confirming that the declaration exists and has not been previously withdrawn. The validation process also ensures that the withdrawal message's nonce is greater than any previous nonce, preventing replay attacks. During execution, the system updates the declaration's status to withdrawn.
+This gas covers a verification process that includes: confirming ownership of the provider_id through an Eddsa25519 signature, confirming the consumption of the service note through a ZkTransfer verification, and confirming that the declaration exists and has not been previously withdrawn. The validation process also ensures that the withdrawal message's nonce is greater than any previous nonce, preventing replay attacks. During execution, the system updates the declaration's status to withdrawn and consumes the service note.
 
-Execution: ~ 59k CPU cycles.
+Execution: ~ 649k CPU cycles.
 
 - Verification that the declaration exist: negligible.
 - Verification of the Ed25519 signature: 59,200 cycles.
+- Verification of the ZkTransfer: 590,000 cycles.
+- Derivation of the root of the service note: 32 hashes, negligible.
 - Verification that the declaration wasn’t already withdrawn: negligible.
 - Verification of nonce incrementation: negligible.
-- Update declaration: negligible.
+- Update declaration and insertion of the nullifier in the SDP note set: negligible.
 ## SDP Activation
 
 This gas funds the verification of the provider_id signature through an Eddsa25519 signature verification, validates the existence of the declaration in the system, and ensures that the active message's nonce is greater than any previous nonce to prevent replay attacks. The validation includes confirming that the declaration ID is present in the declarations dictionary and that the signature corresponds to the declaration's registered provider_id public key.

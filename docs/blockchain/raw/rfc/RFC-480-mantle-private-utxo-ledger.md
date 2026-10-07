@@ -7,139 +7,142 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-10-07 |
+| v2 | Notes live in note sets: a ledger, an SDP and one per channel, each with its commitment MMR and nullifier IMT, committed together in the eligible root of the Proof of Leadership. Channel notes are moved by the steps their holders sign, published by `CHANNEL_INSCRIBE`, and withdrawn by their holders. Removed the transparent channel and service notes, the transparent eligible set and the `is_shielded` selector, `CHANNEL_TRANSFER` and the channel `transfer_threshold`. `SDP_WITHDRAW` consumes the service note with a ZkTransfer | 2026-10-07 |
 
 ## Reviewer Orientation
 
-Read the PR's Motivation first. The ledger change in Mantle is the base every other document builds on.
+Read the PR's Motivation first. The note sets in Mantle are the base every other document builds on.
 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
-| 1 | Critical | **Start here**: [Mantle](#affected-specifications), [private notes and their ledger](#1-private-notes-commitment-mmr-and-nullifier-imt) | the commitment MMR, the nullifier IMT and its leaf hash, the 1024-block root window |
-| 2 | Critical | [Mantle](#affected-specifications), [commitment buffer of a transaction](#2-commitment-buffer-of-a-mantle-transaction) | which root a ZkTransfer is verified against; chaining outputs inside one transaction |
-| 3 | Critical | [Mantle](#affected-specifications), [Operations on private notes](#3-operations-on-private-notes) | Transfer, channel and SDP Operations consuming nullifiers; transparent channel and service notes |
-| 4 | Critical | **Start here**: [Proof of Leadership](#affected-specifications), [eligible sets](#4-proof-of-leadership-over-two-eligible-sets) | the `is_shielded` selector and the aged and latest checks it gates |
-| 5 | High | [Block Construction](#affected-specifications), [leader reward in the block](#5-leader-reward-paid-in-the-block) | `reward_key` in the header, the reward note, reuse of the key |
+| 1 | Critical | **Start here**: [Mantle](#affected-specifications), [note sets](#1-note-sets) | one commitment MMR and nullifier IMT per set; the 1024-block root window and the commitment buffer per set |
+| 2 | Critical | [Mantle](#affected-specifications), [channel Operations](#2-channel-notes-moved-by-their-holders) | steps bound to `step_msg` and verified on chain; holder withdrawals with `WITHDRAW_DELAY` |
+| 3 | Critical | **Start here**: [Proof of Leadership](#affected-specifications), [eligible root](#3-proof-of-leadership-over-the-eligible-root) | the eligible tree over the sets; the same set position for the aged and latest checks |
+| 4 | High | [Mantle](#affected-specifications), [SDP and proof of work](#4-sdp-stake-and-the-proof-of-work-claim) | the SDP note set; `single_note_root` binding the withdrawal to its service note; the unsigned PoW claim |
+| 5 | High | [Block Construction](#affected-specifications), [leader reward and block execution](#5-leader-reward-paid-in-the-block) | `reward_key`, the reward note, the release of due withdrawals |
 | 6 | High | [Block Rewards](#affected-specifications), [Cryptoeconomics overview](#affected-specifications), [reward from the block's fees](#6-block-reward-from-the-blocks-own-fees) | `T = 1`, the integer reference, the 40% leader share plus tips |
-| 7 | High | [Mantle](#affected-specifications), [SDP and proof of work Operations](#7-sdp-signatures-and-the-proof-of-work-claim) | Ed25519 by `provider_id`; the ticket over a public nonce; empty proof |
-| 8 | High | [Mantle Transaction Encoding](#affected-specifications), [encoding](#8-encoding) | new payload productions and proof variants |
-| 9 | High | [Cryptarchia](#affected-specifications), [Proof of Quota](#affected-specifications), [Message Encapsulation](#affected-specifications), [consensus inputs](#9-cryptarchia-and-proof-of-quota-inputs) | epoch state roots, uncle verification inputs, PoQ leader branch |
-| 10 | High | [Genesis Block](#affected-specifications), [genesis](#10-genesis) | the distribution inscription; declarations spending the distribution |
-| 11 | Medium | [Service Declaration Protocol](#affected-specifications), [Service Reward Distribution](#affected-specifications), [Proof of Work](#affected-specifications), [Gas Cost Determination](#affected-specifications) | follow-on changes of items 3 and 7 |
-| 12 | Medium | [Wallet Technical Standard](#affected-specifications), [note tracking](#11-wallet-note-tracking) | the MMR and IMT path updates |
-| 13 | Low | the remaining documents in [Chores](#chores) | skim |
+| 7 | High | [Mantle Transaction Encoding](#affected-specifications), [encoding](#7-encoding) | steps in `ChannelInscribe`, new payloads and proof variants |
+| 8 | High | [Cryptarchia](#affected-specifications), [Proof of Quota](#affected-specifications), [Message Encapsulation](#affected-specifications), [consensus inputs](#8-cryptarchia-and-proof-of-quota-inputs) | epoch state and uncle inputs, PoQ leader branch |
+| 9 | High | [Genesis Block](#affected-specifications), [genesis](#9-genesis) | the initial sets; the distribution inscription; declarations spending the distribution |
+| 10 | Medium | [Service Declaration Protocol](#affected-specifications), [Service Reward Distribution](#affected-specifications), [Proof of Work](#affected-specifications), [Gas Cost Determination](#affected-specifications) | follow-on changes of items 2 and 4 |
+| 11 | Medium | [Wallet Technical Standard](#affected-specifications), [note tracking](#10-wallet-note-tracking) | per-set tracking; MMR and IMT path updates |
+| 12 | Low | the remaining documents in [Chores](#chores) | skim |
 
 # Discussion
 
+## One note set per partition
+
+Every note is shielded and lives in exactly one note set: the ledger, the SDP, or a channel. A set has its own commitment MMR and nullifier IMT, so an Operation only ever touches the sets it names: a Transfer the ledger set, a step its channel's set, a withdrawal its channel's set and then the ledger set. The Proof of Leadership covers every set through one eligible root, and a note's kind no longer changes how it proves itself. This is what removes the transparent channel and service notes, the transparent eligible set and the selector of the Proof of Leadership.
+
+## Channel notes: moved by holders, ordered by sequencers
+
+A channel note is spent only by its holder. Inside the channel, the holder signs a step, a ZkTransfer bound to `step_msg` rather than to the transaction, since it is signed before the transaction exists. The sequencers collect the steps and publish them in their inscriptions, and the ledger verifies every step. A sequencer orders the moves of its channel and can delay or drop a step, but cannot move a note, and cannot create value: every step is a verified, balanced ZkTransfer.
+
+Out of the channel, the holder withdraws alone. The notes leave the channel set at once and the outputs reach the ledger set `WITHDRAW_DELAY` slots later, so the Zone sees every exit before its value is spendable on the ledger.
+
+All the data of a step lands on chain: its nullifiers, its commitments and its proof. Steps are not compressed, so a channel costs the chain as much per move as the ledger does. Steps carry no `excess_value`, so a move inside a channel pays no fee from channel funds, and the fee of the inscription comes from its sequencer.
+
+> **TODO (author):** state the compression planned for steps (proof aggregation, and later a transition proof over the hash of the nullifiers and commitments with data availability), and the step volume at which it pays off.
+
 ## Root window and commitment buffer
 
-A ZkTransfer proves its inputs against a commitment root from one of the last 1024 blocks. A wallet can therefore build its proof against a root a few blocks old and still be included, without rebuilding it for every new block. The 1024 bound keeps the set of roots a validator holds small.
+A ZkTransfer proves its inputs against a commitment root of their set from one of the last 1024 blocks. A wallet can therefore build its proof against a root a few blocks old and still be included. Inside a Mantle Transaction, the commitments created by earlier Operations go into the buffer of their set, and a proof is verified against its referenced root with that buffer appended. A note created in a block can be spent from the next block on, or later in the same transaction.
 
-Inside a Mantle Transaction, the commitments created by earlier Operations go into a buffer, and a proof is verified against its referenced root with the buffer appended. An Operation can spend an output of an earlier Operation of the same transaction, for example a channel withdrawal followed by a deposit. Across the transactions of one block this does not hold: a shielded note created in a block can be spent from the next block on.
+> **TODO (author):** explain why 1024 blocks.
 
-> **TODO (author):** explain why 1024 blocks, and whether spending across transactions of a block is planned.
+## SDP stake
 
-## Channel and service notes stay transparent
-
-A channel spends its notes with its sequencers' signatures, without the secret key of the note's public key, so it cannot derive the note's nullifier. Channel notes therefore stay in a transparent mapping, keyed by commitment and removed when spent. Service notes are created by `SDP_DECLARE` under the `zk_id`, one per declaration, and are kept with their declaration until it is removed.
-
-The Proof of Leadership covers both kinds. A shielded note proves it is unspent by nullifier non-membership. A transparent note proves it is still present in the latest transparent set. A private selector picks the check, so a leader does not reveal which kind of note won.
-
-> **TODO (author):** state the plan for giving channel notes nullifiers, which would let the transparent set go.
+The service note is created by the ledger in the SDP set, so it stakes like any note. Its withdrawal is proven against `single_note_root` of the declaration's service note, which ties the consumed nullifier to that note without exposing it in the circuit. The outputs reach the ledger set when the declaration is removed, as the stake is released today.
 
 ## Leader reward in the block
 
-With private notes, the reward note of a block can carry the block's own value and still not link the leader to its spending: the spend reveals a nullifier and no commitment. The voucher set, the pooled leader reward and `LEADER_CLAIM` existed to hide that link and are retired. The block reward follows the fees of its own block (`T = 1`), because the dependency on the block content no longer reveals anything once the note is spent.
+The reward note of a block carries the block's own value and still does not link the leader to its spending: the spend reveals a nullifier and no commitment. The voucher set, the pooled leader reward and `LEADER_CLAIM` are retired, and the block reward follows the fees of its own block (`T = 1`). The reward note has nonce `0`, so two rewards of the same value under one `reward_key` share a commitment and only one can be spent, which forces a fresh key per block.
 
-The reward note has nonce `0`. Two rewards of the same value under the same `reward_key` share a commitment, and only one can be spent. A leader that reuses a key also links its blocks together. This forces a fresh key per block.
+## Atomic swaps across zones
 
-## Proof of work claim without a proof
-
-The ticket hashes the public key the reward is paid to, so a solution only pays that key. A copied claim pays the same key, and the claim needs no signature. Its Execution Gas is `0`.
+Value moves between two channels only through a withdrawal and its delay. A cross-zone swap therefore exchanges notes inside each channel: each zone publishes the step of one party, and both inscriptions share one Mantle Transaction.
 
 ## Open questions for reviewers
 
-- How a wallet learns the value and nonce of a note it receives through a Transfer is out of scope. Only commitments are on chain.
+- How a wallet learns the value and nonce of a note it receives through a Transfer or a step is out of scope. Only commitments are on chain.
 - The ZkTransfer gas values reuse the earlier ZkSignature measures until the circuit is benchmarked.
 - The simulation behind the 10-year supply projection in Block Rewards predates `T = 1`.
 - PR #407 (SDP declaration identifiers) touches the same SDP sections. Its `service_notes` map and per-service note uniqueness do not apply once each declaration creates its own note.
 
 # Details
 
-## 1. Private notes: commitment MMR and nullifier IMT
+## 1. Note sets
 
-A note is `(value, nonce, public_key)`. The Ledger stores its commitment `derive_note_cm(note)` in the commitment MMR, and the nullifier `derive_note_nf(cm, sk)` of each spent note in the nullifier set.
+A note is `(value, nonce, public_key)`, stored as its commitment `derive_note_cm(note)`. Each note set keeps the commitments of its notes in an MMR and the nullifiers `derive_note_nf(cm, sk)` of its spent notes in an IMT.
 
 ```python
-class MantleNotes:
-    commitments: list[MerkleRoot] # the peaks of the MMR
-    nullifiers: set[NoteNf]       # the set of nullifiers, maintained in an IMT
+LEDGER_SET = 0
+SDP_SET = 1
+
+class NoteSet:
+    commitments: list[MerkleRoot]       # the peaks of the commitment MMR
+    nullifiers: set[NoteNf]             # the set of nullifiers, maintained in an IMT
+    recent_cm_roots: list[MerkleRoot]   # the commitment MMR roots of the last 1024 blocks
+    tx_cm_buffer: list[NoteCm]          # commitments added earlier in the Mantle Transaction
 
 class Ledger:
-    mantle_notes: MantleNotes
-    recent_cm_roots: list[MerkleRoot]   # the commitment MMR roots of the last 1024 blocks
-    tx_cm_buffer: list[NoteCm]          # the commitments added by the previous Operations
-                                        # of the Mantle Transaction, empty at its start
-    channel_notes: dict[NoteCm, (Note, ChannelId)]
+    sets: list[NoteSet]                              # ledger, SDP, then one per channel by creation
+    pending_withdrawals: list[(Slot, list[NoteCm])]
 ```
 
+- A channel gets the next note set when it is created, stored as `ChannelState.note_set`.
 - The nullifier IMT has depth 32 and appends leaves in insertion order. A leaf is `NullifierLeaf(nf, next_nf, next_index)`, hashed with the DST `NULLIFIER_IMT_LEAF_V1`. The first leaf is the sentinel `(0, 0, 0)`, and positions past the last leaf hold `0`.
-- `assert_spendable(inputs, cm_merkle_root)` checks non-empty, distinct inputs, a root in `recent_cm_roots`, and nullifiers absent from the set. `execute_spending` inserts the nullifiers; `execute_adding` appends commitments to the MMR and to the buffer.
-- Channel notes use `assert_spendable_channel`, `execute_spending_channel` and `execute_adding_channel`, the last deriving each nonce with `derive_note_nonce`.
-- `derive_note_nonce(op_id, output_number, value, public_key)` takes the value and key directly, with the DST `NOTE_NONCE_V1`.
+- `assert_spendable(note_set, inputs, cm_merkle_root)`, `execute_spending(note_set, inputs)` and `execute_adding(note_set, outputs)` act on one set.
+- `ZkTransfer_verify(note_set, ...)` checks the proof against the referenced root with the set's buffer appended. `ZkTransfer_verify_root(...)` checks it against a given root.
+- Every `excess_value` adds to the transaction balance, except that steps carry none.
+- `derive_note_nonce(op_id, output_number, value, public_key)` uses the DST `NOTE_NONCE_V1`.
 - Mantle is revision 2.0.0.
 
-## 2. Commitment buffer of a Mantle Transaction
-
-Every Operation referencing a commitment root references the root of one of the last 1024 blocks. `ZkTransfer_verify` checks the proof against that root with the commitments of `tx_cm_buffer` appended.
+## 2. Channel notes moved by their holders
 
 ```python
-class ZkTransferPublic:
-    inputs: list[NoteNf]       # (len = 4)
-    outputs: list[NoteCm]      # (len = 8)
-    excess_value: TokenValue
-    cm_merkle_root: MerkleRoot # a recent MMR root, with the tx_cm_buffer appended
-    msg: zkhash
+class ChannelStep:
+    inputs: list[NoteNf]
+    outputs: list[NoteCm]
+    cm_merkle_root: MerkleRoot  # a recent root of the channel note set
+
+class Inscribe:
+    # ... channel, inscription, parent, signer unchanged
+    steps: list[ChannelStep]    # new
 ```
 
-The ZkTransfer proves key ownership, commitment derivation, nullifier derivation, membership in the root, well-formed outputs, and `excess_value = inputs - outputs`. Unused input and output slots carry value `0`.
+- Each step carries a ZkTransfer with `msg = step_msg(step)`, a hash of its nullifiers and commitments under the DST `CHANNEL_STEP_V1`, and `excess_value = 0`. The `InscribeProof` holds the signer's Ed25519 signature and one ZkTransfer per step.
+- The steps are validated against the state the inscription is validated against, then applied in order to the channel note set. A channel being created carries no step.
+- `CHANNEL_DEPOSIT` consumes ledger notes and creates channel notes, `outputs` being commitments. Its `excess_value` pays fees.
+- `CHANNEL_WITHDRAW` is posted by the holder: a ZkTransfer consuming channel notes, its `outputs` released to the ledger set at the first block whose slot reaches `WITHDRAW_DELAY = 86,400` slots after it.
+- `CHANNEL_TRANSFER`, opcode `0x14`, and the channel `transfer_threshold` are removed.
+- Execution Gas: `EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_TRANSFER_GAS * len(steps)`, `EXECUTION_CHANNEL_WITHDRAW_GAS = 590`.
 
-## 3. Operations on private notes
+## 3. Proof of Leadership over the eligible root
 
-```diff
- class Transfer:
--    inputs: list[NoteId]
--    outputs: list[Note]
-+    inputs: list[NoteNf]
-+    outputs: list[NoteCm]
-+    cm_merkle_root: MerkleRoot
-+    excess_value: TokenValue
-```
-
-- `CHANNEL_DEPOSIT` consumes nullifiers with a ZkTransfer of `amount`, then creates the channel note `(amount, pk)` in the channel.
-- `CHANNEL_WITHDRAW` removes channel notes by commitment and appends the same commitments to the MMR.
-- `CHANNEL_TRANSFER` consumes channel notes by commitment and creates outputs given as `(value, public_key)`.
-- `SDP_DECLARE` carries `inputs`, `cm_merkle_root` and `amount`, proven by a ZkTransfer. It creates one service note `Note(amount, derive_note_nonce(op_id, 0, amount, zk_id), zk_id)`, stored in `DeclarationInfo.service_note: NoteCm`. At [SDP Epoch Finalization](../bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization), the declaration's removal appends the note to the MMR. The `service_notes` map is removed.
-- `LEADER_CLAIM`, the Proof of Claim appendix and `EXECUTION_LEADER_CLAIM_GAS` are removed.
-
-## 4. Proof of Leadership over two eligible sets
-
-The shielded eligible set is the commitment MMR. The transparent eligible set is a depth-32 Merkle tree over the service and channel note commitments, where insertion fills the first empty leaf and deletion writes `0`.
+The eligible root is a Merkle tree of depth 32 whose leaf `i` is `zkhash(ELIGIBLE_SET_LEAF_V1, cm_root_i, nf_root_i)` for note set `i`, positions past the last set holding `0`.
 
 ```python
 class ProofOfLeadershipPublic:
     # ... slot, epoch_nonce, t0, t1 unchanged
-    shielded_aged: MerkleRoot       # new
-    transparent_aged: MerkleRoot    # new
-    nullifiers_latest: MerkleRoot   # new
-    transparent_latest: MerkleRoot  # new
+    eligible_aged: MerkleRoot       # new
+    eligible_latest: MerkleRoot     # new
     leader_pk: (FrElement, FrElement)
     entropy_contribution: zkhash
 ```
 
-- The aged root is selected by the private boolean `is_shielded`: `aged_root == is_shielded * shielded_aged + (1 - is_shielded) * transparent_aged`.
-- A shielded note proves `nf` absent from the IMT: a leaf `low` with `low.nf < nf` and `nf < low.next_nf` or `low.next_nf == 0`, in `nullifiers_latest`. A transparent note proves `cm` in `transparent_latest`. Each check is multiplied by its selector.
-- The lottery ticket and the entropy contribution use the commitment `cm`.
-- The PoL statement uses the public values, witness and constraints layout of ZkTransfer. The PoL is revision 1.2.0.
+- The aged check proves `cm` in the commitment MMR of its set, and the leaf of that set, with the set's aged nullifier root, under `eligible_aged`.
+- The latest check proves `nf` absent from the IMT of the same set: a leaf `low` with `low.nf < nf` and `nf < low.next_nf` or `low.next_nf == 0`, and the leaf of the set, with its latest commitment root, under `eligible_latest`.
+- Both leaf paths use the same `set_selectors`, so both checks name the same set.
+- The lottery ticket and the entropy contribution use the commitment `cm`. The PoL is revision 1.2.0.
+
+## 4. SDP stake and the proof of work claim
+
+- `SDP_DECLARE` consumes ledger notes with a ZkTransfer and appends the service note `Note(amount, derive_note_nonce(op_id, 0, amount, zk_id), zk_id)` to the SDP set. `DeclarationInfo` holds `service_note` and `withdraw_outputs`.
+- `SDP_WITHDRAW` carries `service_note_nf`, `outputs` and `excess_value`, with a ZkTransfer proven against `single_note_root(declare_info.service_note)` and the `provider_id`'s Ed25519 signature. Its outputs reach the ledger set at removal.
+- `SDP_ACTIVE` is signed by the `provider_id`.
+- `CLAIM_POW_REWARD` gains a `nonce`, its ticket is `zkhash(nonce, public_key, block_hash, epoch_nonce)`, its proof is empty, and its reward note goes to the ledger set.
+- Execution Gas: `EXECUTION_SDP_WITHDRAW_GAS = 649`, `EXECUTION_SDP_ACTIVE_GAS = 59`, `EXECUTION_CLAIM_POW_REWARD_GAS = 0`.
 
 ## 5. Leader reward paid in the block
 
@@ -150,84 +153,65 @@ class ProofOfLeadershipPublic:
 +    reward_key: ZkPublicKey
 ```
 
-Block Execution runs the service rewards, then the transactions, then inserts the leader reward:
-
-```python
-leader_note = Note(
-    value=get_leader_reward(block),
-    nonce=0,
-    public_key=block.header.proof_of_leadership.reward_key
-)
-ledger.execute_adding([derive_note_cm(leader_note)])
-```
-
-`reward_key` must be fresh for every block. Block Construction is revision 1.4.0. The [Anonymous Leaders Reward](../../deprecated/bedrock-anonymous-leaders-reward.md) specification is deprecated.
+Block Execution runs the service rewards, releases the due channel withdrawals, runs the transactions, then appends the leader reward note `Note(get_leader_reward(block), 0, reward_key)` to the ledger set. `reward_key` must be fresh for every block. Block Construction is revision 1.4.0. The [Anonymous Leaders Reward](../../deprecated/bedrock-anonymous-leaders-reward.md) specification is deprecated.
 
 ## 6. Block reward from the block's own fees
 
-The block reward is `R_t = A_t * I_max * S_cap * Delta_t + (1 - A_t) * R_block`, where `R_block` is the fees pooled in the block, with a time step of one block. The integer reference uses 128-bit intermediates:
+The block reward is `R_t = A_t * I_max * S_cap * Delta_t + (1 - A_t) * R_block`, where `R_block` is the fees pooled in the block, with a time step of one block. The integer reference uses 128-bit intermediates and `FEE_NUMERATOR = 1_261_440`. The leader receives 40% of `R_t` plus the Execution market tips of the block, in one note ([Cryptoeconomics overview](../overview-cryptoeconomics.md#blend-service-and-consensus-leaders)).
 
-```python
-FEE_NUMERATOR: int64 = 1_261_440        # was: 10_512 over a window of 120 blocks
+## 7. Encoding
 
-def block_reward(total_stake: uint64, pooled_fee: uint64) -> uint64:
-    # ... int128 intermediates
-```
-
-The leader receives 40% of `R_t` plus the Execution market tips of the block, in one note ([Cryptoeconomics overview](../overview-cryptoeconomics.md#blend-service-and-consensus-leaders)).
-
-## 7. SDP signatures and the proof of work claim
-
-- `SDP_WITHDRAW` and `SDP_ACTIVE` carry an `Ed25519Signature` by the declaration's `provider_id`. `WithdrawMessage` has no `service_note_id`.
-- `CLAIM_POW_REWARD` gains a `nonce`. The ticket is `zkhash(nonce, public_key, block_hash, epoch_nonce)`, the proof is empty, and the reward note nonce is `derive_note_nonce(claim_id, 0, epoch_pow_reward, public_key)`.
-- Execution Gas: `EXECUTION_SDP_WITHDRAW_GAS = 59`, `EXECUTION_SDP_ACTIVE_GAS = 59`, `EXECUTION_CLAIM_POW_REWARD_GAS = 0`.
-
-## 8. Encoding
-
-- Payloads: `Transfer = Inputs Outputs CmMerkleRoot Value`, with `Inputs` of `NoteNf` and `Outputs` of `NoteCm`. `ChannelDeposit`, `SDPDeclare` and `ClaimPowReward` gain the fields above. `ChannelWithdraw` and `ChannelTransfer` use `ChannelNotes`, and `ChannelOutputs` is a list of `(Value ZkPublicKey)`. `SDPWithdraw = DeclarationId Nonce`. `LeaderClaim` is removed.
-- Proofs: `ZkTransferProof`, `ZkTransferAndEd25519SigProof` and `EmptyProof` replace `ZkSigProof`, `ZkAndEd25519SigsProof` and `ProofOfClaimProof`.
+- `ChannelInscribe = ChannelId Inscription Parent Signer Steps`, with `ChannelStep = Inputs Outputs CmMerkleRoot`. `ChannelInscribeOpProof = Ed25519Signature *ZkTransfer`.
+- `ChannelDeposit = ChannelId Inputs CmMerkleRoot Outputs Value Metadata`, `ChannelWithdraw = ChannelId Inputs CmMerkleRoot Outputs Value`, `SDPWithdraw = DeclarationId Nonce NoteNf Outputs Value`. `ChannelConfig` loses `TransferThreshold`.
+- `Transfer = Inputs Outputs CmMerkleRoot Value`, with `Inputs` of `NoteNf` and `Outputs` of `NoteCm`. `ClaimPowReward` gains `PowNonce`.
+- `ChannelTransfer`, `LeaderClaim` and their proofs are removed. `ZkTransferProof`, `ZkTransferAndEd25519SigProof` and `EmptyProof` replace the ZkSignature and Proof of Claim variants.
 - Mantle Transaction Encoding is revision 2.0.0.
 
-## 9. Cryptarchia and Proof of Quota inputs
+## 8. Cryptarchia and Proof of Quota inputs
 
-- The epoch state `C_LEAD` is the pair `(shielded_root_at_slot, transparent_root_at_slot)` at the start of the previous epoch.
-- An uncle's Proof of Leadership is verified against `nullifiers_LATEST` and `transparent_LATEST` as of its parent block.
+- The epoch state `C_LEAD` is `eligible_root_at_slot` at the start of the previous epoch.
+- An uncle's Proof of Leadership is verified against `eligible_LATEST` as of its parent block.
 - The `block_id` preimage and the header absorb `reward_key` in place of `leader_voucher`.
-- The PoQ leader branch takes `pol_shielded_aged` and `pol_transparent_aged`, and its witness takes `pol_note_nonce`, `pol_is_shielded` and the aged commitment path. Message Encapsulation retrieves both roots.
+- The PoQ leader branch takes `pol_eligible_aged`, and its witness takes `pol_note_nonce`, the aged commitment path, the set's aged nullifier root and the set path. Message Encapsulation retrieves `pol_eligible_aged`.
 
-## 10. Genesis
+## 9. Genesis
 
-- The Transfer outputs are commitments, the nonce of each note being its output index.
-- A second inscription to the null channel, chained after the Cryptarchia parameters, publishes `value` and `public_key` for each output. Validation checks every output against it.
-- The declarations spend the distributed notes by nullifier, proven against the empty MMR root with the commitment buffer appended. Before Genesis the empty MMR root is the only recent root, and the IMT holds only its sentinel.
+- The ledger and SDP sets start empty. The null channel, created by the Cryptarchia inscription, gets the third set.
+- The Transfer outputs are commitments in the ledger set, the nonce of each note being its output index.
+- A second inscription to the null channel publishes `value` and `public_key` for each output, and validation checks every output against it.
+- The declarations spend the distributed notes, proven against the empty MMR root of the ledger set with its buffer appended.
 
-## 11. Wallet note tracking
+## 10. Wallet note tracking
 
-The wallet keeps, for each note, the commitment path inside its MMR peak, the nullifier, and for the lottery the aged path and the IMT low leaf. A peak path grows only when its peak merges, at most 32 times. Each nullifier insertion changes two public leaves, from which the wallet updates its low leaf path with at most 32 hashes per changed leaf.
+The wallet keeps, for each note, its set, the commitment path inside its MMR peak and its nullifier, and for the lottery the aged path with the set's leaf path and the IMT low leaf of the same set. A peak path grows only when its peak merges, at most 32 times. Each nullifier insertion changes two public leaves, from which the wallet updates its low leaf path with at most 32 hashes per changed leaf.
 
 ## Chores
 
 - Common Cryptographic Components removes the ZkSignature scheme and the voucher mention.
 - Key Types derives the Non-ephemeral Quota Key public key as in Mantle.
-- Block Construction: the batch verification annex covers ZkTransfer and pairs each `pi_A` with its own `pi_B`, and the same-block limitation of shielded notes is stated.
-- The Execution Market, the Architecture Overview, Blend and the cross-channel messaging template follow the private ledger and the in-block leader reward.
+- Block Construction: the batch verification annex covers ZkTransfer and pairs each `pi_A` with its own `pi_B`, and notes cannot be spent in the block that creates them.
+- The cross-channel messaging template shows an atomic swap of steps across two zones.
+- The Execution Market, the Architecture Overview and Blend follow the in-block leader reward.
 - The Gas Cost Determination analysis follows the new Operations and drops the Proof of Claim measures and images.
 - The PoL circuit diagram, the Block Rewards figure and the test vectors carry TODO markers.
 
 # Implementation
 
-- [ ] Implement the commitment MMR with the 1024 recent roots, the nullifier IMT and the transaction commitment buffer in the ledger.
-- [ ] Implement the ZkTransfer circuit and its verifier, with buffer-extended roots.
-- [ ] Switch Transfer, channel and SDP Operations to nullifiers and commitments, and keep channel notes in the transparent mapping.
+- [ ] Implement the note sets in the ledger: one commitment MMR, nullifier IMT, 1024 recent roots and transaction buffer per set, a new set per channel.
+- [ ] Implement the ZkTransfer circuit and its verifier, with buffer-extended roots and `single_note_root`.
+- [ ] Switch Transfer, deposits and SDP declarations to nullifiers and commitments in the ledger set.
+- [ ] Add steps to `CHANNEL_INSCRIBE`, verify their ZkTransfers against `step_msg`, and apply them to the channel set.
+- [ ] Implement holder withdrawals and their release after `WITHDRAW_DELAY`.
+- [ ] Remove `CHANNEL_TRANSFER`, the channel `transfer_threshold`, the transparent channel and service notes, `LEADER_CLAIM`, the voucher set and the Proof of Claim verifier.
+- [ ] Create service notes in the SDP set, and consume them in `SDP_WITHDRAW` with a ZkTransfer.
 - [ ] Sign `SDP_WITHDRAW` and `SDP_ACTIVE` with Ed25519, and drop the proof of `CLAIM_POW_REWARD`.
-- [ ] Remove `LEADER_CLAIM`, the voucher set and the Proof of Claim verifier.
 - [ ] Add `reward_key` to the header and insert the leader reward note during block execution.
 - [ ] Compute the block reward from the block's own fees.
-- [ ] Update the PoL circuit (`mantle/pol_lib.circom` in `logos-blockchain-circuits`) and the PoQ circuit (`blend/poq.circom`) to the two eligible sets.
+- [ ] Update the PoL circuit (`mantle/pol_lib.circom` in `logos-blockchain-circuits`) and the PoQ circuit (`blend/poq.circom`) to the eligible root.
 - [ ] Update the encoding of payloads and proofs.
-- [ ] Build the genesis distribution inscription and its validation.
+- [ ] Build the genesis note sets and distribution inscription, and their validation.
 - [ ] Benchmark the ZkTransfer batch verification and update the gas values.
-- [ ] Regenerate the Mantle and Cryptarchia test vectors, and add tests for buffer chaining, the root window, IMT non-membership and the PoL selector.
+- [ ] Regenerate the Mantle and Cryptarchia test vectors, and add tests for buffer chaining, the root window, IMT non-membership, steps, withdrawals and the eligible root.
 - [ ] Verify the implementation matches this specification.
 
 # Affected Specifications
