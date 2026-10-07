@@ -213,13 +213,18 @@ A node interprets each piece of chain data under one era:
 
 ## Chain State
 
-Between eras, the **recorded chain state** passes through a **migration** that the new era defines ([Era Migration](#era-migration)). The recorded chain state is the state [Mantle](bedrock-v1.1-mantle-specification.md) Operations are validated against, together with the SDP snapshots. A migration:
+Between eras, the **recorded chain state** passes through a **migration** that the new era defines ([Era Migration](#era-migration)). The recorded chain state is the state [Mantle](bedrock-v1.1-mantle-specification.md) Operations are validated against, together with the SDP snapshots. A migration turns the state of the previous era into the state of the new era. It:
 
-- reads that state alone;
+- depends on the recorded chain state alone;
 - is defined for every state the previous era can reach;
-- leaves unchanged whatever the new era does not redefine.
+- leaves unchanged every part of the state that the new era does not redefine.
 
-The rules of the new era are defined on every state the migration produces. A block, and a value derived for an epoch, read the state migrated to their own era. A block whose parent lies in an earlier era reads its parent's state with every migration in between applied in order.
+The rules of the new era are defined on every state the migration produces.
+
+Two readers see state recorded in an earlier era, and both see it migrated to their own era:
+
+- a block reads its parent's state, with every migration between the parent's era and its own applied in order;
+- a value derived for an epoch reads the chain state as of a slot, migrated to the epoch's era.
 
 The values derived for an epoch, such as its epoch state, its Blend difficulty and its proof-of-work reward, follow the rules of the epoch's own era. The rules of an era still verify the Activity Proofs and reward claims of the previous era's last epoch as the previous era does ([Era Migration](#era-migration)).
 
