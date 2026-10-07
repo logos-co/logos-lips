@@ -115,6 +115,7 @@ FILE_ASSIGNMENTS = {
     "blockchain/raw/block-rewards.md": ("Cryptoeconomics", "Block Rewards"),
     "blockchain/raw/execution-market.md": ("Cryptoeconomics", "Execution Market"),
     "blockchain/raw/storage-markets.md": ("Cryptoeconomics", "Storage Markets"),
+    "blockchain/raw/analysis-logos-token-units-and-precision.md": ("Cryptoeconomics", "[Analysis] Logos Token Units and Precision"),
     "blockchain/raw/analysis-block-rewards.md": ("Cryptoeconomics", "[Analysis] Block Rewards"),
     "blockchain/raw/analysis-static-minimum-stake-estimation-for-service-declaration-protocol.md": ("Cryptoeconomics", "[Analysis] Static Minimum Stake Estimation for Service Declaration Protocol"),
     "blockchain/raw/analysis-block-reward-parameter-calibration.md": ("Cryptoeconomics", "[Analysis] Block Reward Parameter Calibration"),
