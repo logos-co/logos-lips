@@ -31,6 +31,7 @@
 | 1.3.1 | [RFC] One canonical encoding for `ServiceType` and `Locator` | 2026-08-14 |
 | 1.3.2 | Pinned the encoding of `epoch_number` in the reward `op_id` preimage to the 4 bytes of an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch) | 2026-08-25 |
 | 1.3.3 | One reward note per `zk_id`, and none for a zero reward, matching the implementation | 2026-09-01 |
+| 1.3.4 | Adopted "active message" as the single name for the message | 2026-09-02 |
 
 # Introduction
 
@@ -47,8 +48,8 @@ This document describes the protocol's logic for deterministically distributing 
 
 The protocol unfolds over three key phases, aligned with validator epochs:
 
-1. **Service Activity Tracking** (epoch N+1): Service validators submit signed activity messages to attest to their participation of epoch N through a Mantle Transaction, including an activity message (see [SDP_ACTIVE](bedrock-v1.1-mantle-specification.md#sdp_active)).
-2. **Service Reward Derivation** (End of epoch N+1): Nodes compute each validator’s reward based on validated activity messages and the different service reward policies.
+1. **Service Activity Tracking** (epoch N+1): Service validators submit signed active messages to attest to their participation of epoch N through a Mantle Transaction (see [SDP_ACTIVE](bedrock-v1.1-mantle-specification.md#sdp_active)).
+2. **Service Reward Derivation** (End of epoch N+1): Nodes compute each validator’s reward based on validated active messages and the different service reward policies.
 3. **Service Reward Distribution** (First block of epoch N+2): Rewards are distributed to validators marked as active for the service. This is done by inserting new notes in the ledger corresponding to the reward amount for each active validator.
 
 ![Diagram](bedrock-service-reward-distribution/assets/341261aa-09df-804b-ae7f-cec3cb5d830c.png)

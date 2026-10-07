@@ -41,6 +41,11 @@
 | 1.10.2| Precise the state validation reads: the Operations of a Mantle Transaction are validated and executed one after the other in the order they appear, each against the state the preceding ones left, and a Mantle Transaction against the state the transactions preceding it in the block left. Accumulated the transaction balance along that pass, replacing `get_transaction_balance` | 2026-08-24 |
 | 1.11.0 | Track the configuration lineage of a channel: `ChannelState` gains `config_tip_hash` and the `CHANNEL_CONFIG` payload carries the `parent` configuration it extends, ordering configurations and preventing their replay | 2026-08-27 |
 | 1.11.1 | Renamed locked notes into service notes: `service_notes`, `ServiceNote` and `service_note_id` replace their locked counterparts, and the note kind is named after the role it plays rather than after the state it is left in | 2026-08-27 |
+| 1.12.0 | Specified the `SDP_ACTIVE` execution effects, matching the implementation: `active` is set to the epoch of the including block, and a message the activity logic rejects makes the Operation invalid. Set `withdraw_at` to `current_epoch + 2`, the epoch at which the node stops providing the service, and removed declarations at `withdraw_at` | 2026-09-02 |
+| 1.13.0 | Removed the `None` case of `op_proofs`, every Operation carrying exactly one proof. A `CHANNEL_CONFIG` creating a channel is verified against a threshold of `0` and its proof carries no signature and no index. Execution Gas is derived from the Operation and the state it is validated against, the thresholds pricing the channel Operations being the ones held in the channel state | 2026-08-31 |
+| 1.14.0 | Moved SDP declaration removal to `withdraw_at + 1`; the last served epoch's reward is paid in the same first block, before removal | 2026-09-11 |
+| 1.15.0 | Add the `CLAIM_POW_REWARD` Operation and the proof of work state it is validated against; the reward pool and the difficulty controllers are specified in [Proof of Work](proof-of-work.md) | 2026-09-08 |
+| 1.16.0 | Gas Determination table updated for strict Ed25519 verification: channel Operations 56 → 59 Execution Gas per signature, `EXECUTION_SDP_DECLARE_GAS` 646 → 649, from [Gas Cost Determination](analysis-gas-cost-determination.md) 1.7.0 | 2026-09-24 |
 
 # Introduction
 
@@ -104,7 +109,7 @@ A Mantle Transaction must include all relevant signatures and proofs for each Op
 ```python
 class SignedMantleTx:
     tx: MantleTx
-    op_proofs: list[OpProof | None] # each Op has at most 1 associated proof
+    op_proofs: list[OpProof] # each Op has exactly 1 associated proof
 ```
 
 Each proof (op proof and signature) must be cryptographically bound to the `MantleTx` through the `mantle_txhash` to prevent replay attacks. This binding is achieved by including the `MantleTx` hash reduced modulo $`p`$ as a public input in every ZK proof.
@@ -135,12 +140,16 @@ def checked_int128(value: int) -> int:
         return value
 ```
 
+The proof of work difficulty updates are the exception to these bounds; they are specified in [Puzzle Target](proof-of-work.md#puzzle-target).
+
 ## Mantle Transaction Fee
 
 The transaction mandatory fee is a sum of two components: the multiplication of the total Execution Gas by the `execution_base_fee`, and the total size of the encoded signed Mantle Transaction multiplied by the `permanent_storage_gas_price`. The execution base fee and the permanent storage gas price are protocol-determined values that are the same for every Mantle Transaction in a block. They are derived following [[Execution Market](execution-market.md) and [Storage Markets](storage-markets.md).
 
 ```python
 def mandatory_fees(signed_tx: SignedMantleTx,
+                   ledger: Ledger,
+                   channels: dict[ChannelId, ChannelState],
                    permanent_storage_gas_price: TokenValue, # Given by Storage Market
                    execution_gas_base_price: TokenValue) -> uint64:  # Given by Execution Market
     mantle_tx = signed_tx.tx
@@ -149,12 +158,15 @@ def mandatory_fees(signed_tx: SignedMantleTx,
 
     for op in mantle_tx.ops:
         # Compute how much execution gas of this operation as defined
-        # in the gas determination Appendix
-        tx_execution_gas += execution_gas(op)
+        # in the gas determination Appendix, against the state this
+        # Operation is validated against
+        tx_execution_gas += execution_gas(op, ledger, channels)
     execution_base_fees = checked_uint64(tx_execution_gas * execution_gas_base_price)
 
     return checked_uint64(execution_base_fees + permanent_storage_fees)
 ```
+
+The Execution Gas of an Operation is deterministically derived from that Operation and the state it is validated against.
 
 If the Mantle Transaction is unbalanced (meaning that the Transaction consume more value than it creates) and that the leftover balance cover more than the mandatory fees, the remaining is treated as execution tip fees.
 
@@ -178,7 +190,7 @@ Atomicity is what a failed check means, not simultaneity. If any of the checks b
 
 Mantle validators will ensure the following:
 
-1. We have a proof or a `None` value for each operation.
+1. We have exactly one proof for each Operation, of the variant that Operation requires.
     ```python
     assert len(op_proofs) == len(ops)
     ```
@@ -248,9 +260,11 @@ Mantle Validators execute each Operation in `ops` according to its opcode, in th
 | SDP_DECLARE | 0x20 | Declare intention to participate as a node in a Bedrock Service, locking funds as collateral. |
 | SDP_WITHDRAW | 0x21 | Withdraw participation from a Bedrock Service, unlocking your funds in the process. |
 | SDP_ACTIVE | 0x22 | Signal that you are still an active participant of a Bedrock Service. |
-| *RESERVED* | *0x23 - 0xFF* |  |
+| *RESERVED* | *0x23 - 0x2F* |  |
 | LEADER_CLAIM | 0x30 | Claim leader reward anonymously. |
-| *RESERVED* | *0x31 - 0xFF* |  |
+| *RESERVED* | *0x31 - 0x3F* |  |
+| CLAIM_POW_REWARD | 0x40 | Claim a reward from the pow reward pool. |
+| *RESERVED* | *0x41 - 0xFF* |  |
 
 ## Channel Operations
 
@@ -524,7 +538,7 @@ class ChannelConfigOpProof:
 
 #### Execution Gas
 
-  Channel Config Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_CONFIG_GAS * configuration_threshold`. See [Gas Determination](#gas-determination) for the Execution Gas values.
+  Channel Config Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_CONFIG_GAS * configuration_threshold`, where `configuration_threshold` is the one held in the channel state, and `0` for a channel that does not exist yet. See [Gas Determination](#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -565,6 +579,14 @@ else:
     # Channel will be created automatically upon execution
     # Ensure that this configuration is the genesis configuration
     assert config.parent == ZERO
+
+    # No key is accredited yet, so the threshold to verify against is 0
+    # and the proof must carry no signature and no index (see Appendix)
+    MultiEd25519_verify(txhash,
+                        proof.signatures,
+                        proof.indexes,
+                        [],
+                        0)
 ```
 
 #### Execution
@@ -644,7 +666,7 @@ tx = MantleTx(
 
 signed_tx = SignedMantleTx(
     tx=tx,
-    op_proofs=[[Ed25519_sign(mantle_txhash(tx), old_sequencer_sk)], [0]],
+    op_proofs=[[[Ed25519_sign(mantle_txhash(tx), old_sequencer_sk)], [0]],
                transfer.prove(old_sequencer_sk)]
 )
 ```
@@ -795,7 +817,7 @@ class ChannelWithdrawOpProof:
 
 #### Execution Gas
 
-  Channel Withdraw Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_WITHDRAW_GAS * transfer_threshold`. See [Gas Determination](#gas-determination) for the Execution Gas values.
+  Channel Withdraw Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_WITHDRAW_GAS * transfer_threshold`, where `transfer_threshold` is the one held in the channel state. See [Gas Determination](#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -899,7 +921,7 @@ class ChannelTransferOpProof:
 
 #### Execution Gas
 
-`CHANNEL_TRANSFER` Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_TRANSFER_GAS * transfer_threshold`. See [Gas Determination](#gas-determination) for the Execution Gas values.
+`CHANNEL_TRANSFER` Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_TRANSFER_GAS * transfer_threshold`, where `transfer_threshold` is the one held in the channel state. See [Gas Determination](#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -1046,7 +1068,7 @@ class DeclarationInfo:
     zk_id: ZkPublicKey
     service_note_id: NoteId
     created: EpochNumber
-    active: EpochNumber | None
+    active: EpochNumber
     withdraw_at: EpochNumber | None
     # SDP ops updating a declaration must use monotonically increasing nonces
     nonce: int
@@ -1173,7 +1195,7 @@ service_notes : dict[NoteId, ServiceNote]
           service_note_id: declaration.service_note_id
           declaration,
           created=current_epoch,
-          active=None,
+          active=current_epoch + 2,
           withdraw_at=None
           nonce=0
       )
@@ -1310,17 +1332,11 @@ declarations: dict[DeclarationID, DeclarationInfo]
 
   Executes the withdrawal protocol [**Withdraw**](bedrock-service-declaration-protocol.md#withdraw).
 
-  Withdrawal only records the intent: `withdraw_at` is set to the current
-  (withdrawal) epoch `e`, the node's last rewardable epoch. The declaration is
-  removed and its stake unlocked at epoch `e+2` by the
-  [SDP Epoch Finalization](#sdp-epoch-finalization) step, right after the final
-  reward is paid out.
-
   1. Update the declaration info with the nonce and the withdrawal epoch.
       ```python
       declare_info = declarations[withdraw.declaration]
       declare_info.nonce = withdraw.nonce
-      declare_info.withdraw_at = current_epoch
+      declare_info.withdraw_at = current_epoch + 2
       ```
 
 #### Example
@@ -1352,16 +1368,14 @@ SignedMantleTx(
 ### SDP Epoch Finalization
 
 Withdrawn declarations are removed by Mantle as part of the epoch transition,
-not when the `WithdrawMessage` is processed. A node that withdrew in epoch `e`
-has `withdraw_at == e`, and its last rewardable epoch is `e`; the epoch-`e`
-rewards are distributed in the first block of epoch `e+2` (see
+not when the `WithdrawMessage` is processed. The rewards of epoch
+`withdraw_at - 1` ([Withdraw](bedrock-service-declaration-protocol.md#withdraw))
+are distributed in the first block of epoch `withdraw_at + 1` (see
 [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md)).
-In that same first block, **after** the rewards have been distributed, every
-declaration whose final reward has been paid out (`withdraw_at <= current_epoch - 2`)
-is removed and its stake unlocked. Performing the removal after the reward
-distribution guarantees a declaration is never removed before its final reward
-is paid. Declarations that withdrew without earning a final reward are removed
-by the same step, so their stake is always released.
+In that same block, after the rewards have been distributed, every declaration
+with `withdraw_at + 1 <= current_epoch` is removed and its stake unlocked.
+Declarations that withdrew without earning a final reward are removed by the
+same step.
 
   *Given*
 
@@ -1374,7 +1388,7 @@ declarations: dict[DeclarationID, DeclarationInfo]
   *Execute*
 
   For every `declare_id`, `declare_info` in `declarations` where
-  `declare_info.withdraw_at is not None and declare_info.withdraw_at <= current_epoch - 2`:
+  `declare_info.withdraw_at is not None and declare_info.withdraw_at + 1 <= current_epoch`:
 
   1. Remove the declaration from its service note.
       ```python
@@ -1441,7 +1455,25 @@ assert ZkSignature_verify(txhash, signature, declaration_info.zk_id)
 
 #### Execution
 
-  Executes the active protocol [Active](bedrock-service-declaration-protocol.md#active). The activation, i.e. setting the `declaration.active`, is handled by the service-specific logic.
+  *Given*
+
+```python
+active: Active
+
+current_epoch: EpochNumber # epoch of the block containing this operation
+declarations: dict[DeclarationID, DeclarationInfo]
+```
+
+  *Execute*
+
+  Executes the active protocol [Active](bedrock-service-declaration-protocol.md#active). If the service-specific activity logic rejects the message, the Operation is invalid.
+
+  1. Update the declaration info with the nonce and the epoch.
+      ```python
+      declaration_info = declarations[active.declaration]
+      declaration_info.nonce = active.nonce
+      declaration_info.active = current_epoch
+      ```
 
 #### Example
 
@@ -1568,6 +1600,147 @@ claim_proof = claim.prove(
 SignedMantleTx(
     tx=tx,
     op_proofs=[claim_proof, transfer.prove(fee_note_sk)]
+)
+```
+
+## Proof of Work Operations
+
+Validators must maintain the following state to process proof of work Operations:
+
+```python
+pow_reward_pool: TokenValue      # Reserve the rewards are paid from
+epoch_pow_reward: TokenValue     # Reward per claim, fixed for the epoch
+difficulty_reward: PowTarget     # the reward threshold, retargeted every block
+pow_nullifiers: set[zkhash]      # Spent solutions, retained for the acceptance window
+block_slots: dict[hash, SlotNumber]  # Slots of recently seen blocks, for the window check
+```
+
+`PowTarget`, the acceptance window, and the maintenance of `pow_reward_pool`, `epoch_pow_reward` and `difficulty_reward` between blocks are specified in [Proof of Work](proof-of-work.md).
+
+### CLAIM_POW_REWARD
+
+This Operation claims a reward from the proof of work [reward pool](proof-of-work.md#reward-pool) by presenting a puzzle solution.
+
+#### Payload
+
+```python
+class ClaimPowRewardOp:
+    epoch_nonce: zkhash        # Epoch nonce the solution was found against
+    block_hash: hash           # Recent canonical block the solution is anchored to
+    public_key: ZkPublicKey    # Key the reward note is paid to
+```
+
+#### Proof
+
+  A [ZkSignature](#zero-knowledge-signature-scheme-zksignature) by the secret key corresponding to `public_key`, over the transaction's `mantle_txhash`. The signature proves knowledge of that secret key, so a solution cannot be found by searching over public keys directly.
+
+#### Execution gas
+
+  Claim Operations have a fixed Execution Gas cost of `EXECUTION_CLAIM_POW_REWARD_GAS`. See [Gas Determination](#gas-determination) for the Execution Gas values.
+
+#### Validation
+
+  *Given*
+
+```python
+mantle_txhash: zkhash
+claim: ClaimPowRewardOp            # the CLAIM_POW_REWARD payload
+claim_proof: ZkSignature           # the op_proofs entry for this Operation
+
+current_slot: SlotNumber           # slot of the block including this claim
+epoch_nonce_current: zkhash        # Cryptarchia epoch nonce of the current epoch
+epoch_nonce_previous: zkhash       # and of the epoch before it
+WINDOW: SlotNumber                 # the acceptance window, in slots
+difficulty_reward: PowTarget       # retargeted every block
+pow_nullifiers: set[zkhash]        # spent solutions, retained for WINDOW
+pow_reward_pool: TokenValue
+epoch_pow_reward: TokenValue
+```
+
+  The epoch nonces are the Cryptarchia epoch nonce $`\eta`$ of [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce), and `WINDOW` is derived in [Acceptance Window](proof-of-work.md#acceptance-window).
+
+  *Validate*
+
+```python
+# 1. Claiming must be enabled for this block: the pool must be able to cover a reward.
+assert epoch_pow_reward > 0
+assert pow_reward_pool >= epoch_pow_reward
+
+# 2. The referenced block must be canonical and within the acceptance window.
+block = get_block_from_hash(claim.block_hash)   # None if unknown or not canonical
+assert block is not None
+assert 0 <= current_slot - block.slot <= WINDOW
+
+# 3. The solution must have been found against the current or the previous epoch.
+assert claim.epoch_nonce in (epoch_nonce_current, epoch_nonce_previous)
+
+# 4. The ticket must satisfy the reward threshold.
+puzzle_ticket = zkhash(claim.public_key,
+                       FiniteField(claim.block_hash, byte_order="little", modulus=p),
+                       claim.epoch_nonce)
+assert puzzle_ticket < difficulty_reward
+
+# 5. The solution must not have been claimed before. The nullifier is the ticket.
+assert puzzle_ticket not in pow_nullifiers
+
+# 6. The claim must be signed by the key the reward is paid to.
+assert ZkSignature_verify(mantle_txhash, claim_proof, [claim.public_key])
+```
+
+#### Execution
+
+  *Given*
+
+```python
+claim: ClaimPowRewardOp
+puzzle_ticket: zkhash              # computed in validation step 4
+
+ledger: Ledger
+pow_reward_pool: TokenValue
+epoch_pow_reward: TokenValue       # fixed for the epoch
+pow_nullifiers: set[zkhash]
+```
+
+  *Execution*
+
+  1. Add `puzzle_ticket` to the `pow_nullifiers` set. The entry is retained until the claim's referenced block leaves the [acceptance window](proof-of-work.md#acceptance-window).
+  2. Construct a single output note of value `epoch_pow_reward` under the public key given in the payload, and insert it into the Ledger:
+      ```python
+      output_note = Note(
+          value = epoch_pow_reward,
+          public_key = claim.public_key,
+      )
+      claim_id = derive_op_id(claim)
+      ledger.execute_adding(claim_id, [output_note])
+      ```
+
+  3. Reduce the `pow_reward_pool` by the same amount:
+      ```python
+      pow_reward_pool = checked_uint64(pow_reward_pool - epoch_pow_reward)
+      ```
+
+#### Example
+
+```python
+claim = ClaimPowRewardOp(
+    epoch_nonce=get_current_epoch_nonce(),
+    block_hash=recent_canonical_block_hash(),
+    public_key=reward_pk,          # a key whose ticket satisfies difficulty_reward
+)
+
+# The reward note is spendable by the following Operation, so it pays the fee
+reward_note_id = derive_note_id(derive_op_id(claim), 0,
+                                Note(value=epoch_pow_reward, public_key=reward_pk))
+transfer = Transfer(inputs=[reward_note_id], outputs=[<change_note>])
+
+tx = MantleTx(
+    ops=[Op(opcode=CLAIM_POW_REWARD, payload=encode(claim)),
+         Op(opcode=TRANSFER, payload=encode(transfer))],
+)
+
+SignedMantleTx(
+    tx=tx,
+    op_proofs=[ZkSignature(reward_sk, mantle_txhash(tx)), transfer.prove(reward_sk)]
 )
 ```
 
@@ -1799,15 +1972,16 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | Constants | Value |
 | --- | --- |
 | EXECUTION_TRANSFER_GAS | 590 |
-| EXECUTION_CHANNEL_INSCRIBE_GAS | 56 |
-| EXECUTION_CHANNEL_CONFIG_GAS | 56 |
+| EXECUTION_CHANNEL_INSCRIBE_GAS | 59 |
+| EXECUTION_CHANNEL_CONFIG_GAS | 59 |
 | EXECUTION_CHANNEL_DEPOSIT_GAS | 590 |
-| EXECUTION_CHANNEL_WITHDRAW_GAS | 56 |
-| EXECUTION_CHANNEL_TRANSFER_GAS | 56 |
-| EXECUTION_SDP_DECLARE_GAS | 646 |
+| EXECUTION_CHANNEL_WITHDRAW_GAS | 59 |
+| EXECUTION_CHANNEL_TRANSFER_GAS | 59 |
+| EXECUTION_SDP_DECLARE_GAS | 649 |
 | EXECUTION_SDP_WITHDRAW_GAS | 590 |
 | EXECUTION_SDP_ACTIVE_GAS | 590 |
 | EXECUTION_LEADER_CLAIM_GAS | 580 |
+| EXECUTION_CLAIM_POW_REWARD_GAS | 590 |
 
 ## Zero Knowledge Signature Scheme (ZkSignature)
 

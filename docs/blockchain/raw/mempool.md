@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Name | Mempool |
-| Slug | 245 |
+| Slug | 251 |
 | Status | raw |
 | Category | Standards Track |
 | Editor | Marcin Pawlowski <marcin@logos.co> |
