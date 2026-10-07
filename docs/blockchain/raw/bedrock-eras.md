@@ -157,23 +157,20 @@ A software release carries one **era schedule** per network. Each entry gives th
 Each era has a **fork digest**, a hash of the genesis block ID, the chain ID and the era digest of every era up to it. An era digest is a hash of the era's first epoch and parameter record ([Notation](#notation)).
 
 ```mermaid
-block-beta
-    columns 4
-    space:2
-    block:e0
-        columns 1
-        f0["first epoch"] p0["parameter record"]
-    end
-    block:e1
-        columns 1
-        f1["first epoch"] p1["parameter record"]
-    end
-    space:2
-    h0<["hash"]>(down)
-    h1<["hash"]>(down)
-    g["genesis block ID"] c["chain ID"] d0["era digest<br/>of era 0"] d1["era digest<br/>of era 1"]
-    h<["hash"]>(down):4
-    f["fork digest of era 1"]:4
+---
+config:
+  flowchart:
+    wrappingWidth: 260
+---
+flowchart BT
+    g["genesis block ID"] --> f["fork digest of era 1"]
+    c["chain ID"] --> f
+    d0["era digest of era 0"] --> f
+    d1["era digest of era 1"] --> f
+    e0["first epoch<br/>of era 0"] --> d0
+    p0["parameter record<br/>of era 0"] --> d0
+    e1["first epoch<br/>of era 1"] --> d1
+    p1["parameter record<br/>of era 1"] --> d1
 ```
 
 A release interprets the chain up to its **horizon**, an epoch it fixes for each network. A node warns its operator once its clock passes the horizon, and when a peer advertises a fork digest the node does not know ([Horizon](#horizon)).
