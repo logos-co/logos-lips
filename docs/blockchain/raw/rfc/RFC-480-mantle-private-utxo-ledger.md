@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-10-07 |
 | v2 | Notes live in note sets: a ledger, an SDP and one per channel, each with its commitment MMR and nullifier IMT, committed together in the eligible root of the Proof of Leadership. Channel notes are moved by the steps their holders sign, published by `CHANNEL_INSCRIBE`, and withdrawn by their holders. Removed the transparent channel and service notes, the transparent eligible set and the `is_shielded` selector, `CHANNEL_TRANSFER` and the channel `transfer_threshold`. `SDP_WITHDRAW` consumes the service note with a ZkTransfer | 2026-10-07 |
+| v3 | The spending, adding and transfer verification functions are methods of `NoteSet`. The recent commitment roots of a set keep their MMR peaks, to which `verify_transfer` appends the buffer of the Mantle Transaction. Two steps of an inscription cannot consume the same note | 2026-10-08 |
 
 ## Reviewer Orientation
 
@@ -82,7 +83,7 @@ SDP_SET = 1
 class NoteSet:
     commitments: list[MerkleRoot]       # the peaks of the commitment MMR
     nullifiers: set[NoteNf]             # the set of nullifiers, maintained in an IMT
-    recent_cm_roots: list[MerkleRoot]   # the commitment MMR roots of the last 1024 blocks
+    recent_cm_roots: dict[MerkleRoot, list[MerkleRoot]]  # roots of the last 1024 blocks, with their peaks
     tx_cm_buffer: list[NoteCm]          # commitments added earlier in the Mantle Transaction
 
 class Ledger:

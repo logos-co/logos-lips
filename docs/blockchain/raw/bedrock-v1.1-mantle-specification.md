@@ -1501,7 +1501,8 @@ The notes live in note sets, each with its own commitment MMR and nullifier IMT.
 class NoteSet:
     commitments: list[MerkleRoot]       # the peaks of the commitment MMR
     nullifiers: set[NoteNf]             # the set of nullifiers, maintained in an IMT
-    recent_cm_roots: list[MerkleRoot]   # the commitment MMR roots of the last 1024 blocks
+    recent_cm_roots: dict[MerkleRoot, list[MerkleRoot]]  # the commitment MMR roots of the last
+                                                         # 1024 blocks, each with its peaks
     tx_cm_buffer: list[NoteCm]          # the commitments added by the previous Operations
                                         # of the Mantle Transaction, empty at its start
 
@@ -1575,9 +1576,11 @@ The following method verifies the [ZkTransfer](#zero-knowledge-transfer-proof-zk
 class NoteSet:
     def verify_transfer(self, inputs: list[NoteNf], outputs: list[NoteCm], excess_value: TokenValue,
                         cm_merkle_root: MerkleRoot, msg: zkhash, proof: ZkTransfer) -> bool:
-        # root of the MMR of root cm_merkle_root once the commitments of tx_cm_buffer are appended
-        tx_cm_root = mmr_append(cm_merkle_root, self.tx_cm_buffer)
-        return ZkTransfer_verify(inputs, outputs, excess_value, tx_cm_root, msg, proof)
+        # append the commitments of tx_cm_buffer to the peaks of the MMR of root cm_merkle_root
+        peaks = copy(self.recent_cm_roots[cm_merkle_root])
+        for note_cm in self.tx_cm_buffer:
+            peaks.add(note_cm)
+        return ZkTransfer_verify(inputs, outputs, excess_value, mmr_root(peaks), msg, proof)
 ```
 
 ### Consuming Input Notes Execution
