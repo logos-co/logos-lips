@@ -46,7 +46,7 @@
 | 1.14.0 | Moved SDP declaration removal to `withdraw_at + 1`; the last served epoch's reward is paid in the same first block, before removal | 2026-09-11 |
 | 1.15.0 | Add the `CLAIM_POW_REWARD` Operation and the proof of work state it is validated against; the reward pool and the difficulty controllers are specified in [Proof of Work](proof-of-work.md) | 2026-09-08 |
 | 1.16.0 | Gas Determination table updated for strict Ed25519 verification: channel Operations 56 → 59 Execution Gas per signature, `EXECUTION_SDP_DECLARE_GAS` 646 → 649, from [Gas Cost Determination](analysis-gas-cost-determination.md) 1.7.0 | 2026-09-24 |
-| 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding. | 2026-10-06 |
+| 1.17.0 | Bound channel inscription data, channel deposit metadata, and SDP activity metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding. | 2026-10-06 |
 
 # Introduction
 
@@ -425,7 +425,7 @@ block_slot: Slot
   *Validate*
 
 ```python
-# Ensure the inscription data does not exceed the permitted size
+# Ensure the canonical encoded inscription payload, excluding its UINT32 length prefix, does not exceed the permitted size
 assert len(msg.inscription) <= MAX_OPERATION_DATA_SIZE
 
 if msg.channel in channels:
@@ -720,7 +720,7 @@ ledger: Ledger
 
   *Validate*
 
-  1. Ensure the metadata size does not exceed `MAX_OPERATION_DATA_SIZE`.
+  1. Ensure the canonical encoded metadata payload, excluding its `UINT32` length prefix, does not exceed `MAX_OPERATION_DATA_SIZE`.
       ```python
       assert len(deposit.metadata) <= MAX_OPERATION_DATA_SIZE
       ```
@@ -1458,6 +1458,9 @@ declarations: dict[DeclarationID, DeclarationInfo]
   *Validate*
 
 ```python
+# active.metadata is the canonical encoded payload; its UINT32 length prefix is excluded.
+assert len(active.metadata) <= MAX_OPERATION_DATA_SIZE
+
 assert active.declaration in declarations
 declaration_info = declarations[active.declaration]
 
