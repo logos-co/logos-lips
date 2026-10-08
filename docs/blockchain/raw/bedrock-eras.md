@@ -586,7 +586,14 @@ def migrate(state: State, from_era: int, to_era: int) -> State:
 
 `State` is the recorded chain state. `migrations` maps each era after the first to the migration it defines. The node applies `migrate` to every block it validates, on any fork and during synchronization, whatever the era in force. For example, with era 1 from slot 20 and era 2 from slot 50, take a parent at slot 18. A child at slot 19 is validated against the parent's state as it is. A child at slot 25 is validated against it after `migrations[1]`, and a child at slot 52 after `migrations[1]` and then `migrations[2]`.
 
-A value derived for an epoch is derived under the rules of the epoch's era: its [Epoch State](cryptarchia-v1-protocol.md#epoch-state), its `difficulty_blend` ([Blend Difficulty](proof-of-work.md#blend-difficulty)) and its `epoch_pow_reward` ([Reward Pool](proof-of-work.md#reward-pool)). A quantity measured over an epoch, such as a phase boundary, an observation window or an expected block count, uses the parameters of that epoch's era. Where a derivation reads the chain state as of a slot, it reads the state after the last block at or before that slot, migrated to the epoch's era with `migrate`. A value derived for an earlier epoch is used as it was derived.
+A node derives some values once per epoch: the [Epoch State](cryptarchia-v1-protocol.md#epoch-state), `difficulty_blend` ([Blend Difficulty](proof-of-work.md#blend-difficulty)) and `epoch_pow_reward` ([Reward Pool](proof-of-work.md#reward-pool)). To derive such a value for an epoch `ep`, it:
+
+- applies the rules of the era of `ep`;
+- measures a quantity over an epoch, such as a phase boundary, an observation window or an expected block count, with the parameters of the era of the epoch it is measured over;
+- reads the chain state as of a slot from the state after the last block at or before that slot, migrated to the era of `ep` with `migrate`;
+- uses a value derived for an earlier epoch as it was derived.
+
+For example, the Epoch State of epoch $`E_n`$ uses the learning rate of era $`n`$. Its observation window is the first $`\lfloor 6k/f \rfloor`$ slots of epoch $`E_n - 1`$, with the $`k`$ and $`f`$ of era $`n-1`$. Its eligible notes come from the state as of the first slot of epoch $`E_n - 1`$, migrated to era $`n`$. Its stake inference starts from the $`D`$ that era $`n-1`$ derived for epoch $`E_n - 1`$.
 
 The rules of an era verify the Activity Proofs and reward claims of the last epoch of the predecessor era, [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) included, as the predecessor's rules do. Otherwise the rewards of that epoch are lost.
 
