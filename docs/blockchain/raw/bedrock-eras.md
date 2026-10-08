@@ -162,7 +162,7 @@ A node whose release lacks the rules of an era it must apply halts when it start
 
 Every node must apply the same rules to the same block, while the rules change over the life of the chain.
 
-A software release carries one **era schedule** per network. Each entry gives the first epoch of an era and its **parameter record**. The record holds the values the era gives to the constants that may change between eras, from [Blend Protocol](blend-protocol.md), [Cryptarchia Protocol](cryptarchia-v1-protocol.md), the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) (SDP) and [Proof of Work](proof-of-work.md). It has a fixed encoding that starts with two numbers: a layout version, which a release changes when it adds, removes or re-encodes a field, and a revision of the era's rules ([Era Parameters](#era-parameters)).
+A software release carries one **era schedule** per network. Each entry gives the first epoch of an era and its **parameter record**. The record holds the values the era gives to the constants that may change between eras, from [Blend Protocol](blend-protocol.md), [Cryptarchia Protocol](cryptarchia-v1-protocol.md), the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) (SDP) and [Proof of Work](proof-of-work.md). It has a fixed encoding that starts with a layout version, which a release changes when it adds, removes or re-encodes a field ([Era Parameters](#era-parameters)).
 
 Every slot and every epoch belongs to the last era that begins at or before it. An era may change the epoch length and the slot length, so a node computes the start of each era from the era before it ([Era Boundaries](#era-boundaries)):
 
@@ -172,7 +172,7 @@ Every slot and every epoch belongs to the last era that begins at or before it. 
 A schedule changes only under these rules ([Era Schedule](#era-schedule)):
 
 - a release may add or change an era only for an epoch that has not begun;
-- a release that changes the rules of a published era, or the migration into it, increments the era's revision;
+- a release may not change the rules of a published era, or the migration into it, without changing the era's first epoch or parameter record;
 - an era may not change how the [Cryptarchia Fork Choice Rule](fork-choice.md) compares chains that diverge by at most $`k`$ blocks, $`k`$ being the security parameter of [Constants](cryptarchia-v1-protocol.md#constants).
 
 ## Fork and Era Digests
@@ -372,11 +372,13 @@ The era schedule is embedded in the node software and is not read from the chain
 
 An era must not change the comparison of chains that diverge by at most $`k`$ blocks ([Online Fork Choice Rule](fork-choice.md#online-fork-choice-rule)). Otherwise fork choice depends on the order in which forks were seen for the first $`k`$ blocks of the era.
 
-The nodes of two software releases apply different rules from the first epoch whose era has a different digest in the two schedules. From that epoch they use different fork digests. A software release that changes the rules of a published era, or the migration into it, increments the era's revision. Otherwise the nodes of the two releases apply different rules under one fork digest. A software release must not publish an entry, or change the record of an entry, whose epoch has begun. Otherwise a node that installs the release holds state executed under the wrong era.
+The rules of an era decide, under that era, which blocks, transactions and messages are valid, how they execute, how chains compare, and how the state migrates into the era. An era is published once a release that schedules it is distributed.
+
+The nodes of two software releases apply different rules from the first epoch whose era has a different digest in the two schedules. From that epoch they use different fork digests. A software release must not change the rules of a published era while keeping the era's first epoch and parameter record. Otherwise the nodes of the two releases apply different rules under one fork digest. A software release must not publish an entry, or change the record of an entry, whose epoch has begun. Otherwise a node that installs the release holds state executed under the wrong era.
 
 ## Era Parameters
 
-The parameter record of an era is a layout version, a revision and the fields below, in this order. The revision is 0 when the era is first published, and [Era Schedule](#era-schedule) states when a release increments it. A field holds the value of its source constant under the rules of the era. Its encoding names the encoder that `encode` applies to it.
+The parameter record of an era is a layout version and the fields below, in this order. A field holds the value of its source constant under the rules of the era. Its encoding names the encoder that `encode` applies to it.
 
 | Field | Encoding | Source constant |
 | --- | --- | --- |
@@ -447,7 +449,7 @@ ENCODERS = {"UINT32": uint(4), "UINT64": uint(8), "UINT128": uint(16),
             "service_params": service_params, "min_stake": min_stake}
 
 def encode(p: EraParameters) -> bytes:
-    out = uint(2)(LAYOUT_VERSION) + uint(2)(p.revision)
+    out = uint(2)(LAYOUT_VERSION)
     for name, encoding in FIELDS:
         out += ENCODERS[encoding](getattr(p, name))
     return out
@@ -459,7 +461,7 @@ In every record, the epoch length $`L_n`$ and the slot length $`\Delta_n`$ are a
 
 The `stake_thresholds` ([Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake)) and `parameters` ([Service Parameters](bedrock-service-declaration-protocol.md#service-parameters)) stores hold the `min_stake` and `service_params` entries of the records of the schedule.
 
-A software release that adds, removes or re-encodes a field defines a new layout version, used by the eras that adopt it. Every layout version starts with the layout version and the revision. It keeps, with their meaning and encoding, the fields that [Era Boundaries](#era-boundaries) reads and the fields that fill the SDP stores. Otherwise a node cannot compute slots and epochs, or fill the SDP stores, across eras of different layouts.
+A software release that adds, removes or re-encodes a field defines a new layout version, used by the eras that adopt it. Every layout version starts with the layout version. It keeps, with their meaning and encoding, the fields that [Era Boundaries](#era-boundaries) reads and the fields that fill the SDP stores. Otherwise a node cannot compute slots and epochs, or fill the SDP stores, across eras of different layouts.
 
 ## Era Boundaries
 
