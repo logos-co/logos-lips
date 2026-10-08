@@ -507,16 +507,16 @@ def era_of_slot(sl: uint64) -> int:
     return last_era_from(first_slot_of_era, sl)
 
 def epoch_of_slot(sl: uint64) -> EpochNumber:
-    m = era_of_slot(sl)
-    return first_epoch(m) + (sl - first_slot_of_era(m)) // epoch_length(m)
+    era = era_of_slot(sl)
+    return first_epoch(era) + (sl - first_slot_of_era(era)) // epoch_length(era)
 
 def first_slot_of_epoch(ep: EpochNumber) -> uint64:
-    m = last_era_from(first_epoch, ep)
-    return first_slot_of_era(m) + (ep - first_epoch(m)) * epoch_length(m)
+    era = last_era_from(first_epoch, ep)
+    return first_slot_of_era(era) + (ep - first_epoch(era)) * epoch_length(era)
 
 def slot_of_time(t: uint64) -> uint64:
-    m = last_era_from(start_time_of_era, t)
-    return first_slot_of_era(m) + (t - start_time_of_era(m)) // slot_length(m)
+    era = last_era_from(start_time_of_era, t)
+    return first_slot_of_era(era) + (t - start_time_of_era(era)) // slot_length(era)
 
 def era_in_force() -> int:
     return era_of_slot(slot_of_time(wallclock_time()))
@@ -549,12 +549,12 @@ Every transaction begins with its fork digest ([Mantle Transaction](bedrock-v1.1
 
 ```python
 def accepts_fork_digest(slot: uint64, digest: hash) -> bool:
-    m = era_of_slot(slot)
-    if digest == fork_digest(m):
+    era = era_of_slot(slot)
+    if digest == fork_digest(era):
         return True
     # A transaction signed just before the boundary carries the previous era's digest.
-    return (m > 0 and digest == fork_digest(m - 1)
-            and epoch_of_slot(slot) == first_epoch(m))
+    return (era > 0 and digest == fork_digest(era - 1)
+            and epoch_of_slot(slot) == first_epoch(era))
 ```
 
 [Fork choice](fork-choice.md) compares two chains under the era of the slot of their $`\textbf{common\_ancestor}`$ ([Fork Pruning](cryptarchia-v1-protocol.md#fork-pruning)). The fork choice rule of an era reads only the block tree and the slot of each block. Otherwise it is undefined on the blocks of a later era that re-encodes a field it reads. [Commit](cryptarchia-v1-protocol.md#commit) uses the $`k`$ of the era of the slot of the local chain tip.
@@ -582,20 +582,20 @@ The rules of an era verify the Activity Proofs and reward claims of the last epo
 
 ## Era Change
 
-When the era in force changes from era `p` to era `n`, a node replaces the state after its local chain tip and its mempool with the result of `on_era_change`, before it processes anything under era `n`:
+When the era in force changes from era `old` to era `new`, a node replaces the state after its local chain tip and its mempool with the result of `on_era_change`, before it processes anything under era `new`:
 
 ```python
-def on_era_change(p: int, n: int, tip_state: State,
+def on_era_change(old: int, new: int, tip_state: State,
                   mempool: list[Transaction]) -> tuple[State, list[Transaction]]:
-    # Everything the node does under era n reads the state migrated to era n.
-    for m in range(p + 1, n + 1):
-        tip_state = migrations[m](tip_state)
-    mempool = [tx for tx in mempool if valid_under(n, tx, tip_state)]
-    start_era_transition_period(n)
+    # Everything the node does under the new era reads the state migrated to it.
+    for era in range(old + 1, new + 1):
+        tip_state = migrations[era](tip_state)
+    mempool = [tx for tx in mempool if valid_under(new, tx, tip_state)]
+    start_era_transition_period(new)
     return tip_state, mempool
 ```
 
-`State` is the [recorded chain state](#era-migration). `migrations[m]` is the migration that era `m` defines ([Era Migration](#era-migration)). `valid_under(n, tx, state)` holds when `tx` is valid under the rules of era `n` against `state`. `start_era_transition_period(n)` starts the [Era Transition Period](#era-transition-period) into era `n`.
+`State` is the [recorded chain state](#era-migration). `migrations` maps each era after the first to the migration it defines ([Era Migration](#era-migration)). `valid_under(n, tx, state)` holds when `tx` is valid under the rules of era `n` against `state`. `start_era_transition_period(n)` starts the [Era Transition Period](#era-transition-period) into era `n`.
 
 ## Era Transition Period
 
