@@ -234,7 +234,7 @@ A node migrates state recorded in an earlier era before it uses it:
 - it validates a block against its parent's state, with every migration from the parent's era to the block's era applied in order;
 - it derives a value for an epoch from the chain state as of a slot, migrated to the epoch's era.
 
-The values derived for an epoch, such as its epoch state, its Blend difficulty and its proof-of-work reward, follow the rules of the epoch's own era. The rules of an era still verify the Activity Proofs and reward claims of the previous era's last epoch as the previous era does ([Era Migration](#era-migration)).
+The values derived for an epoch, such as its epoch state, its Blend difficulty and its proof-of-work reward, follow the rules of the epoch's own era. A node verifies Activity Proofs and reward claims under the era of the epoch they are for, even when a block of the next era carries them ([Era Migration](#era-migration)).
 
 ## Network Layer
 
@@ -595,7 +595,7 @@ A node derives some values once per epoch: the [Epoch State](cryptarchia-v1-prot
 
 For example, the Epoch State of epoch $`E_n`$ uses the learning rate of era $`n`$. Its observation window is the first $`\lfloor 6k/f \rfloor`$ slots of epoch $`E_n - 1`$, with the $`k`$ and $`f`$ of era $`n-1`$. Its eligible notes come from the state as of the first slot of epoch $`E_n - 1`$, migrated to era $`n`$. Its stake inference starts from the $`D`$ that era $`n-1`$ derived for epoch $`E_n - 1`$.
 
-The rules of an era verify the Activity Proofs and reward claims of the last epoch of the predecessor era, [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) included, as the predecessor's rules do. Otherwise the rewards of that epoch are lost.
+A node verifies an active message ([Active Message](blend-protocol.md#active-message)) or a [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) under the rules of the era of the epoch it is for, whatever the era of the block that carries it. Otherwise the rewards of the last epoch of an era, which are claimed in the next era, are lost. An active message is for the epoch in its `epoch_number`. A claim is for the epoch whose nonce it carries.
 
 ## Era Change
 
