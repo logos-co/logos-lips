@@ -27,7 +27,7 @@ The rules and parameters of the protocol change over the life of the chain. Ever
 
 Eras make this possible. An era is a range of consecutive epochs ([Cryptarchia Protocol](cryptarchia-v1-protocol.md#epoch)) governed by one set of protocol rules. Each software release carries a schedule of eras, so every node changes rules at the same epoch and reads each block under the rules of its era.
 
-This document specifies the era schedule and the parameter record of an era, the era that governs chain data and the network layer, the migration of the chain state between eras, the transition period at an era boundary, the protocol identifiers, and the horizon of a release. The rules an era applies are specified where they are defined, in [Cryptarchia Protocol](cryptarchia-v1-protocol.md), [Mantle](bedrock-v1.1-mantle-specification.md), [Blend Protocol](blend-protocol.md), [Proof of Work](proof-of-work.md) and the other Bedrock specifications.
+This document specifies the era schedule and the parameter record of an era, the era that governs chain data and the network layer, the migration of the chain state between eras, the transition period at an era boundary, and the protocol identifiers. The rules an era applies are specified where they are defined, in [Cryptarchia Protocol](cryptarchia-v1-protocol.md), [Mantle](bedrock-v1.1-mantle-specification.md), [Blend Protocol](blend-protocol.md), [Proof of Work](proof-of-work.md) and the other Bedrock specifications.
 
 # Overview
 
@@ -119,14 +119,14 @@ Both releases share the fork digests of eras 0 and 1, and with them the protocol
 
 The two protocols that find peers and describe them carry the identifier of the chain in their names instead of a fork digest. No era changes it.
 
-Each release names a horizon when it is built: the last epoch up to which it assumes its schedule is complete. A node warns its operator once its clock passes the horizon. It also warns when a peer advertises a fork digest the node does not know, which shows that the peer runs a schedule the node's release lacks.
+A node whose release misses an upgrade keeps applying the rules it knows. It warns its operator when a peer advertises a fork digest the node does not know, which shows that the peer runs a schedule the node's release lacks.
 
 ```mermaid
 ---
 displayMode: compact
 ---
 gantt
-    title Two releases and a horizon, for an example schedule
+    title Two releases, for an example schedule
     dateFormat X
     axisFormat slot %s
     tickInterval 10second
@@ -145,14 +145,12 @@ gantt
         era 2 : b2, after b1, 45s
     section Release A
         era 0 : a0, 0, 20s
-        era 1 : a1, after a0, 60s
-        past the horizon : crit, a2, after a1, 15s
+        era 1 : a1, after a0, 75s
     section A warns
         unknown fork digest : milestone, w1, after b1, 0s
-        horizon passed : milestone, w2, after a1, 0s
 ```
 
-In this example, release A knows eras 0 and 1 and sets its horizon at epoch 5. Release B adds era 2 from epoch 4. At slot 50, the nodes of release B enter era 2 and advertise its fork digest. A node of release A does not know that digest and warns its operator. It keeps applying the rules of era 1. At slot 80, the first slot after its horizon, it warns its operator again.
+In this example, release A knows eras 0 and 1. Release B adds era 2 from epoch 4. At slot 50, the nodes of release B enter era 2 and advertise its fork digest. A node of release A does not know that digest and warns its operator. It keeps applying the rules of era 1.
 
 A node whose release lacks the rules of an era it must apply halts when it starts or imports a checkpoint.
 
@@ -274,18 +272,11 @@ stateDiagram-v2
     a --> n: clock reaches the first slot of era n
 ```
 
-## Horizon and Warnings
+## Outdated Releases
 
-A node learns of an era only from the schedule of its release. A node that misses an upgrade therefore keeps applying the rules it knows, while its fork digest separates it from the upgraded nodes. The horizon lets its operator notice.
+A node learns of an era only from the schedule of its release. A node that misses an upgrade therefore keeps applying the rules it knows, while its fork digest separates it from the upgraded nodes.
 
-Each release fixes a **horizon** for each network when the release is built: the last epoch up to which the release assumes its schedule is complete. The horizon belongs to the release, not to an era, and no era that a later release adds changes it. It is at least the first epoch of the last era in the release's schedule ([Horizon](#horizon)).
-
-A node warns its operator in two cases:
-
-- its clock reaches the first slot of the epoch after the horizon;
-- a peer lists, in its identify message, a protocol identifier whose fork digest is none of the fork digests of the node's schedule. The peer then runs a schedule that the node's release does not have.
-
-Neither warning stops the node. It keeps applying the rules of the eras it knows.
+The node still meets upgraded peers, because peer discovery does not depend on the fork digest. It warns its operator when one of them advertises a fork digest the node does not know ([Network Protocol Identity](#network-protocol-identity)).
 
 ## An Era Boundary Step by Step
 
@@ -354,13 +345,11 @@ A node keeps three values that depend on the era in force:
 | $`\textbf{slot}(t)`$ | slot of a time | `slot_of_time(t)` of [Era Boundaries](#era-boundaries). |
 | *none* | era in force | `era_in_force()` of [Era Boundaries](#era-boundaries). |
 | $`F_n`$ | fork digest of era $`n`$ | `fork_digest(n)` of [Fork Digest](#fork-digest). |
-| $`H`$ | horizon | `HORIZON` of [Parameters](#parameters): the last epoch up to which a software release assumes its schedule is complete. |
 
 ## Parameters
 
 ```python
 SCHEDULE: list[tuple[EpochNumber, EraParameters]] = [(0, P_0)]  # (E_n, P_n) of each era
-HORIZON: EpochNumber                                            # H, set in each release
 ```
 
 ## Era Schedule
@@ -626,8 +615,4 @@ Every protocol identifier and gossipsub topic a Logos Blockchain specification d
 
 A node sends a message it generates over the identifiers of the era in force at generation. A node relays or releases a received or processed Blend message, and broadcasts its payload, over the identifiers of the era of the connection it arrived on. A node publishes a proposal it accepts, and a transaction it admits to its mempool, on the topic of the era in force. A [synchronization](cryptarchia-v1-bootstr-sync.md#downloading-blocks) response carries blocks of any era.
 
-## Horizon
-
-$`H`$ must not be smaller than $`E_n`$ of the last entry of the schedule. Otherwise the node warns its operator before its last era begins.
-
-When $`\textbf{wallclock\_time}().\textbf{to\_slot}()`$ reaches the first slot of epoch $`H+1`$, a node warns its operator that its release has passed its horizon. A node also warns its operator when a peer lists, in the `protocols` field of its [identify](https://github.com/libp2p/specs/blob/master/identify/README.md) message, an identifier whose fork digest the node does not know.
+A node warns its operator when a peer lists, in the `protocols` field of its [identify](https://github.com/libp2p/specs/blob/master/identify/README.md) message, an identifier whose fork digest is none of the fork digests of the node's schedule. The warning does not stop the node.
