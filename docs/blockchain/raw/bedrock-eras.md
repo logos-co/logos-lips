@@ -452,7 +452,7 @@ def encode(p: EraParameters) -> bytes:
 
 `FIELDS` is the table above, row by row, as pairs of a field and its encoding. A ratio's parts are `num` and `den`, an entry of `service_params` has `inactivity_period` and `epoch` and is keyed by its `ServiceType` byte, and `min_stake` has `stake_threshold` and `epoch`. A record that `encode` rejects is invalid.
 
-In every record, the epoch length $`L_n`$ and the slot length $`\Delta_n`$ are at least 1. Otherwise $`\textbf{epoch}(sl)`$ or $`\textbf{slot}(t)`$ divides by zero.
+In every record, the numerator of `slot_activation_coeff`, the epoch length $`L_n`$ and the slot length $`\Delta_n`$ are at least 1. Otherwise `epoch_length(n)`, $`\textbf{epoch}(sl)`$ or $`\textbf{slot}(t)`$ divides by zero.
 
 The `stake_thresholds` ([Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake)) and `parameters` ([Service Parameters](bedrock-service-declaration-protocol.md#service-parameters)) stores hold the `min_stake` and `service_params` entries of the records of the schedule.
 
