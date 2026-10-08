@@ -349,7 +349,7 @@ A node keeps four values that depend on the era in force:
 | $`E_n`$ | first epoch number of era $`n`$ | `first_epoch(n)` of [Era Boundaries](#era-boundaries), the epoch number of entry $`n`$ of the era schedule, counting from 0. |
 | $`P_n`$ | parameter record of era $`n`$ | The [parameter record](#era-parameters) of entry $`n`$ of the era schedule. |
 | $`L_n`$ | epoch length of era $`n`$ | `epoch_length(n)` of [Era Boundaries](#era-boundaries), in slots. |
-| $`\Delta_n`$ | slot length of era $`n`$ | `slot_length(n)` of [Era Boundaries](#era-boundaries), in nanoseconds. |
+| $`\Delta_n`$ | slot length of era $`n`$ | `slot_length(n)` of [Era Boundaries](#era-boundaries), in seconds. |
 | $`\textbf{era}(sl)`$ | era of a slot | `era_of_slot(sl)` of [Era Boundaries](#era-boundaries). |
 | $`\textbf{epoch}(sl)`$ | epoch of a slot | `epoch_of_slot(sl)` of [Era Boundaries](#era-boundaries). |
 | $`\textbf{first\_slot}(ep)`$ | first slot of an epoch | `first_slot_of_epoch(ep)` of [Era Boundaries](#era-boundaries). |
@@ -414,7 +414,7 @@ The parameter record of an era is a layout version and the fields below, in this
 | `pow_share` | `UINT64` | `POW_SHARE` of [Parameters](proof-of-work.md#parameters) |
 | `share_den` | `UINT64` | `SHARE_DEN` of [Parameters](proof-of-work.md#parameters) |
 | `expected_blocks_per_window` | `UINT64` | `EXPECTED_BLOCKS_PER_WINDOW` of [Parameters](proof-of-work.md#parameters) |
-| `slot_duration` | `duration` | The slot length of [Constants](cryptarchia-v1-protocol.md#constants) |
+| `slot_duration` | `UINT64` | The slot length of [Constants](cryptarchia-v1-protocol.md#constants), in seconds |
 
 ```python
 def uint(width: int) -> Callable[[int], bytes]:
@@ -424,11 +424,6 @@ def ratio(r: Ratio) -> bytes:
     # A value has one encoding only in lowest terms.
     assert r.den != 0 and gcd(r.num, r.den) == 1
     return uint(4)(r.num) + uint(4)(r.den)
-
-def duration(d: Duration) -> bytes:
-    # A value has one encoding only while the nanoseconds stay below a second.
-    assert d.nanoseconds < 10**9
-    return uint(8)(d.seconds) + uint(4)(d.nanoseconds)
 
 def phases(lengths: tuple[int, int, int]) -> bytes:
     return b"".join(uint(1)(x) for x in lengths)
@@ -445,8 +440,8 @@ def min_stake(m: MinStake) -> bytes:
     return uint(8)(m.stake_threshold) + uint(4)(m.epoch)
 
 ENCODERS = {"UINT32": uint(4), "UINT64": uint(8), "UINT128": uint(16),
-            "ratio": ratio, "duration": duration, "phases": phases,
-            "service_params": service_params, "min_stake": min_stake}
+            "ratio": ratio, "phases": phases, "service_params": service_params,
+            "min_stake": min_stake}
 
 def encode(p: EraParameters) -> bytes:
     out = uint(2)(LAYOUT_VERSION)
@@ -455,7 +450,7 @@ def encode(p: EraParameters) -> bytes:
     return out
 ```
 
-`FIELDS` is the table above, row by row, as pairs of a field and its encoding. A ratio's parts are `num` and `den`, a duration's are `seconds` and `nanoseconds`, an entry of `service_params` has `inactivity_period` and `epoch` and is keyed by its `ServiceType` byte, and `min_stake` has `stake_threshold` and `epoch`. A record that `encode` rejects is invalid.
+`FIELDS` is the table above, row by row, as pairs of a field and its encoding. A ratio's parts are `num` and `den`, an entry of `service_params` has `inactivity_period` and `epoch` and is keyed by its `ServiceType` byte, and `min_stake` has `stake_threshold` and `epoch`. A record that `encode` rejects is invalid.
 
 In every record, the epoch length $`L_n`$ and the slot length $`\Delta_n`$ are at least 1. Otherwise $`\textbf{epoch}(sl)`$ or $`\textbf{slot}(t)`$ divides by zero.
 
@@ -475,8 +470,7 @@ def epoch_length(n: int) -> uint64:
     return sum(p.epoch_config) * (p.security_param * f.den // f.num)
 
 def slot_length(n: int) -> uint64:
-    d = SCHEDULE[n][1].slot_duration
-    return d.seconds * 10**9 + d.nanoseconds
+    return SCHEDULE[n][1].slot_duration
 
 def first_slot_of_era(n: int) -> uint64:
     if n == 0:
@@ -486,7 +480,7 @@ def first_slot_of_era(n: int) -> uint64:
 
 def start_time_of_era(n: int) -> uint64:
     if n == 0:
-        return 10**9 * genesis_time
+        return genesis_time
     return (start_time_of_era(n - 1)
             + (first_slot_of_era(n) - first_slot_of_era(n - 1)) * slot_length(n - 1))
 
@@ -513,7 +507,7 @@ def era_in_force() -> int:
     return era_of_slot(slot_of_time(wallclock_time()))
 ```
 
-`SCHEDULE` is the era schedule of the node's network ([Parameters](#parameters)). `epoch_config`, `security_param`, `slot_activation_coeff` and `slot_duration` are fields of the [parameter record](#era-parameters). A slot is an unsigned 64-bit integer, as the `slot` of a [Block Header](cryptarchia-v1-protocol.md#block-header) is. A time is an unsigned 64-bit count of nanoseconds since the Unix epoch. `genesis_time` is from [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters). `slot_of_time(t)` is defined for `t` from `start_time_of_era(0)` on. `wallclock_time().to_slot()` of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) is `slot_of_time(wallclock_time())`.
+`SCHEDULE` is the era schedule of the node's network ([Parameters](#parameters)). `epoch_config`, `security_param`, `slot_activation_coeff` and `slot_duration` are fields of the [parameter record](#era-parameters). A slot is an unsigned 64-bit integer, as the `slot` of a [Block Header](cryptarchia-v1-protocol.md#block-header) is. A time is the number of whole seconds elapsed since the Unix epoch, an unsigned 64-bit integer. `genesis_time` is from [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters). `slot_of_time(t)` is defined for `t` from `start_time_of_era(0)` on. `wallclock_time().to_slot()` of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) is `slot_of_time(wallclock_time())`.
 
 ## Fork Digest
 
