@@ -1,4 +1,4 @@
-# [RFC] Mantle: Bound channel operation data payloads
+# [RFC] Mantle: Bound operation data payloads
 
 **Motivation and proposal:** [PR #467](https://github.com/logos-co/logos-lips/pull/467)
 
@@ -7,7 +7,8 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-10-08 |
-|  | Moved the existing proposal from the Mantle Transaction Encoding appendix into the canonical RFC directory and reorganized it to this template. | 2026-10-08 |
+| v2 | Moved the existing proposal from the Mantle Transaction Encoding appendix into the canonical RFC directory and reorganized it to this template. | 2026-10-08 |
+| v3 | Extended MAX_OPERATION_DATA_SIZE to SDPActive.Metadata and defined the limit over canonical encoded payloads for all three fields. | 2026-10-08
 
 ## Reviewer Orientation
 
