@@ -480,12 +480,12 @@ def first_epoch(n: int) -> EpochNumber:
     return SCHEDULE[n][0]
 
 def epoch_length(n: int) -> uint64:
-    p = SCHEDULE[n][1]
+    p = SCHEDULE[n][1].cryptarchia
     f = p.slot_activation_coeff
     return sum(p.epoch_config) * (p.security_param * f.den // f.num)
 
 def slot_length(n: int) -> uint64:
-    return SCHEDULE[n][1].slot_duration
+    return SCHEDULE[n][1].time.slot_duration
 
 def first_slot_of_era(n: int) -> uint64:
     if n == 0:
@@ -522,7 +522,7 @@ def era_in_force() -> int:
     return era_of_slot(slot_of_time(wallclock_time()))
 ```
 
-`SCHEDULE` is the era schedule of the node's network ([Parameters](#parameters)). `epoch_config`, `security_param`, `slot_activation_coeff` and `slot_duration` are fields of the [parameter record](#era-parameters). A slot is an unsigned 64-bit integer, as the `slot` of a [Block Header](cryptarchia-v1-protocol.md#block-header) is. A time is the number of whole seconds elapsed since the Unix epoch, an unsigned 64-bit integer. `genesis_time` is from [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters). `slot_of_time(t)` is defined for `t` from `start_time_of_era(0)` on. `wallclock_time().to_slot()` of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) is `slot_of_time(wallclock_time())`.
+`SCHEDULE` is the era schedule of the node's network ([Parameters](#parameters)). `cryptarchia` and `time` are sections of the [parameter record](#era-parameters). A slot is an unsigned 64-bit integer, as the `slot` of a [Block Header](cryptarchia-v1-protocol.md#block-header) is. A time is the number of whole seconds elapsed since the Unix epoch, an unsigned 64-bit integer. `genesis_time` is from [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters). `slot_of_time(t)` is defined for `t` from `start_time_of_era(0)` on. `wallclock_time().to_slot()` of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) is `slot_of_time(wallclock_time())`.
 
 ## Fork Digest
 
