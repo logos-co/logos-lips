@@ -465,15 +465,20 @@ assert Ed25519_verify(txhash, msg.signer, proof.signature)
 
 # Ensure every step is spendable in the channel note set and signed by its holder
 assert len(proof.step_proofs) == len(msg.steps)
+note_set = ledger.sets[chan.note_set]
+consumed = set()
 for step, step_proof in zip(msg.steps, proof.step_proofs):
-    ledger.assert_spendable(chan.note_set, step.inputs, step.cm_merkle_root)
-    assert ZkTransfer_verify(chan.note_set,
-                             step.inputs,
-                             step.outputs,
-                             0,  # a step balances exactly
-                             step.cm_merkle_root,
-                             step_msg(step),
-                             step_proof)
+    note_set.assert_spendable(step.inputs, step.cm_merkle_root)
+    assert note_set.verify_transfer(step.inputs,
+                                    step.outputs,
+                                    0,  # a step balances exactly
+                                    step.cm_merkle_root,
+                                    step_msg(step),
+                                    step_proof)
+    # Ensure no two steps consume the same note
+    for note_nf in step.inputs:
+        assert note_nf not in consumed
+        consumed.add(note_nf)
 ```
 
 The steps are validated against the state the Inscribe Operation is validated against, so a step cannot consume a note created by an earlier step of the same inscription, and two steps cannot consume the same note.
@@ -500,10 +505,10 @@ block_slot: Slot
 
   2. Apply the steps, in their order.
       ```python
-      chan = channels[msg.channel]
+      note_set = ledger.sets[channels[msg.channel].note_set]
       for step in msg.steps:
-          ledger.execute_spending(chan.note_set, step.inputs)
-          ledger.execute_adding(chan.note_set, step.outputs)
+          note_set.execute_spending(step.inputs)
+          note_set.execute_adding(step.outputs)
       ```
 
   3. Update the channel sequencer.
@@ -703,18 +708,17 @@ ledger: Ledger
 
   2. Ensure all inputs are spendable in the ledger note set.
       ```python
-      ledger.assert_spendable(LEDGER_SET, deposit.inputs, deposit.cm_merkle_root)
+      ledger.sets[LEDGER_SET].assert_spendable(deposit.inputs, deposit.cm_merkle_root)
       ```
 
   3. Validate ownership over deposited notes and balance.
       ```python
-      assert ZkTransfer_verify(LEDGER_SET,
-                               deposit.inputs,
-                               deposit.outputs,
-                               deposit.excess_value,
-                               deposit.cm_merkle_root,
-                               mantle_txhash,
-                               deposit_proof)
+      assert ledger.sets[LEDGER_SET].verify_transfer(deposit.inputs,
+                                                     deposit.outputs,
+                                                     deposit.excess_value,
+                                                     deposit.cm_merkle_root,
+                                                     mantle_txhash,
+                                                     deposit_proof)
       ```
 
 #### Execution
@@ -734,8 +738,8 @@ ledger: Ledger
 Consume the inputs in the ledger note set and create the outputs in the channel note set.
 
 ```python
-ledger.execute_spending(LEDGER_SET, deposit.inputs)
-ledger.execute_adding(channels[deposit.channel].note_set, deposit.outputs)
+ledger.sets[LEDGER_SET].execute_spending(deposit.inputs)
+ledger.sets[channels[deposit.channel].note_set].execute_adding(deposit.outputs)
 ```
 
 ### CHANNEL_WITHDRAW
@@ -792,18 +796,17 @@ ledger: Ledger
 
   2. Ensure all inputs are spendable in the channel note set.
       ```python
-      ledger.assert_spendable(chan.note_set, withdrawal.inputs, withdrawal.cm_merkle_root)
+      ledger.sets[chan.note_set].assert_spendable(withdrawal.inputs, withdrawal.cm_merkle_root)
       ```
 
   3. Validate ownership over the withdrawn notes and balance.
       ```python
-      assert ZkTransfer_verify(chan.note_set,
-                               withdrawal.inputs,
-                               withdrawal.outputs,
-                               withdrawal.excess_value,
-                               withdrawal.cm_merkle_root,
-                               mantle_txhash,
-                               proof)
+      assert ledger.sets[chan.note_set].verify_transfer(withdrawal.inputs,
+                                                        withdrawal.outputs,
+                                                        withdrawal.excess_value,
+                                                        withdrawal.cm_merkle_root,
+                                                        mantle_txhash,
+                                                        proof)
       ```
 
 #### Execution
@@ -823,7 +826,7 @@ block_slot: Slot
 Consume the inputs in the channel note set, and keep the outputs until their due slot.
 
 ```python
-ledger.execute_spending(channels[withdrawal.channel].note_set, withdrawal.inputs)
+ledger.sets[channels[withdrawal.channel].note_set].execute_spending(withdrawal.inputs)
 ledger.pending_withdrawals.append((block_slot + WITHDRAW_DELAY, withdrawal.outputs))
 ```
 
@@ -834,7 +837,7 @@ def release_withdrawals(block_slot: Slot):
     pending = []
     for (due, outputs) in ledger.pending_withdrawals:
         if due <= block_slot:
-            ledger.execute_adding(LEDGER_SET, outputs)
+            ledger.sets[LEDGER_SET].execute_adding(outputs)
         else:
             pending.append((due, outputs))
     ledger.pending_withdrawals = pending
@@ -938,13 +941,12 @@ declarations: dict[DeclarationID, DeclarationInfo]
 
   1. Ensure ownership over the inputs and `provider_id`.
       ```python
-      assert ZkTransfer_verify(LEDGER_SET,
-                               declaration.inputs,
-                               [], # no outputs
-                               declaration.amount,
-                               declaration.cm_merkle_root,
-                               txhash,
-                               proof.zk_proof)
+      assert ledger.sets[LEDGER_SET].verify_transfer(declaration.inputs,
+                                                     [], # no outputs
+                                                     declaration.amount,
+                                                     declaration.cm_merkle_root,
+                                                     txhash,
+                                                     proof.zk_proof)
       assert Ed25519_verify(txhash, declaration.provider_id, proof.provider_sig)
       ```
 
@@ -961,7 +963,7 @@ declarations: dict[DeclarationID, DeclarationInfo]
 
   4. Ensure the inputs are spendable and the value is sufficient for joining the service.
       ```python
-      ledger.assert_spendable(LEDGER_SET, declaration.inputs, declaration.cm_merkle_root)
+      ledger.sets[LEDGER_SET].assert_spendable(declaration.inputs, declaration.cm_merkle_root)
       assert declaration.amount >= min_stake.stake_threshold
       ```
 
@@ -980,7 +982,7 @@ declarations: dict[DeclarationID, DeclarationInfo]
 
   1. Consume the inputs in the ledger note set.
       ```python
-      ledger.execute_spending(LEDGER_SET, declaration.inputs)
+      ledger.sets[LEDGER_SET].execute_spending(declaration.inputs)
       ```
 
   2. Create the service note under the `zk_id` in the SDP note set.
@@ -991,7 +993,7 @@ declarations: dict[DeclarationID, DeclarationInfo]
           nonce=derive_note_nonce(declaration_op_id, 0, declaration.amount, declaration.zk_id),
           public_key=declaration.zk_id
       )
-      ledger.execute_adding(SDP_SET, [derive_note_cm(service_note)])
+      ledger.sets[SDP_SET].execute_adding([derive_note_cm(service_note)])
       ```
 
   3. Store the declaration as explained in [**Declaration Storage**](bedrock-service-declaration-protocol.md#declaration-storage).
@@ -1087,12 +1089,12 @@ declarations: dict[DeclarationID, DeclarationInfo]
   5. Ensure the service note of the declaration is consumed by its holder and balances the outputs.
       ```python
       assert withdraw.service_note_nf not in ledger.sets[SDP_SET].nullifiers
-      assert ZkTransfer_verify_root([withdraw.service_note_nf],
-                                    withdraw.outputs,
-                                    withdraw.excess_value,
-                                    single_note_root(declare_info.service_note),
-                                    txhash,
-                                    proof.zk_proof)
+      assert ZkTransfer_verify([withdraw.service_note_nf],
+                               withdraw.outputs,
+                               withdraw.excess_value,
+                               single_note_root(declare_info.service_note),
+                               txhash,
+                               proof.zk_proof)
       ```
 
 #### Execution
@@ -1121,7 +1123,7 @@ declarations: dict[DeclarationID, DeclarationInfo]
 
   2. Consume the service note in the SDP note set.
       ```python
-      ledger.execute_spending(SDP_SET, [withdraw.service_note_nf])
+      ledger.sets[SDP_SET].execute_spending([withdraw.service_note_nf])
       ```
 
 ### SDP Epoch Finalization
@@ -1151,7 +1153,7 @@ declarations: dict[DeclarationID, DeclarationInfo]
 
   1. Release the notes created by the withdrawal in the ledger note set.
       ```python
-      ledger.execute_adding(LEDGER_SET, declare_info.withdraw_outputs)
+      ledger.sets[LEDGER_SET].execute_adding(declare_info.withdraw_outputs)
       ```
 
   2. Remove the declaration.
@@ -1335,7 +1337,7 @@ pow_nullifiers: set[zkhash]
           nonce = derive_note_nonce(claim_id, 0, epoch_pow_reward, claim.public_key),
           public_key = claim.public_key,
       )
-      ledger.execute_adding(LEDGER_SET, [derive_note_cm(output_note)])
+      ledger.sets[LEDGER_SET].execute_adding([derive_note_cm(output_note)])
       ```
 
   3. Reduce the `pow_reward_pool` by the same amount:
@@ -1388,18 +1390,17 @@ ledger: Ledger
 
   1. Ensure all inputs are spendable.
       ```python
-      ledger.assert_spendable(LEDGER_SET, transfer.inputs, transfer.cm_merkle_root)
+      ledger.sets[LEDGER_SET].assert_spendable(transfer.inputs, transfer.cm_merkle_root)
       ```
 
   2. Validate transfer proof.
       ```python
-      assert ZkTransfer_verify(LEDGER_SET,
-                               transfer.inputs,
-                               transfer.outputs,
-                               transfer.excess_value,
-                               transfer.cm_merkle_root,
-                               mantle_txhash,
-                               transfer_proof)
+      assert ledger.sets[LEDGER_SET].verify_transfer(transfer.inputs,
+                                                     transfer.outputs,
+                                                     transfer.excess_value,
+                                                     transfer.cm_merkle_root,
+                                                     mantle_txhash,
+                                                     transfer_proof)
       ```
 
 ### Execution
@@ -1416,12 +1417,12 @@ ledger: Ledger
 
   1. Remove inputs from the ledger.
       ```python
-      ledger.execute_spending(LEDGER_SET, transfer.inputs)
+      ledger.sets[LEDGER_SET].execute_spending(transfer.inputs)
       ```
 
   2. Add outputs to the ledger.
       ```python
-      ledger.execute_adding(LEDGER_SET, transfer.outputs)
+      ledger.sets[LEDGER_SET].execute_adding(transfer.outputs)
       ```
 
 # Mantle Ledger
@@ -1549,11 +1550,11 @@ A nullifier `nf` is not in the set if and only if there is a leaf `low` with `lo
 
 ### Input Notes Spendability Validation
 
-The following function validates that an input of notes of a note set can be consumed:
+The following method validates that an input of notes of a note set can be consumed:
 
 ```python
-class Ledger:
-    def assert_spendable(note_set: int, inputs: list[NoteNf], cm_merkle_root: MerkleRoot):
+class NoteSet:
+    def assert_spendable(self, inputs: list[NoteNf], cm_merkle_root: MerkleRoot):
         # Assert inputs are not empty
         assert len(inputs) > 0
 
@@ -1561,11 +1562,22 @@ class Ledger:
         assert len(inputs) == len(set(inputs))
 
         # Check the root is the commitment MMR root of the set at one of the last 1024 blocks
-        assert cm_merkle_root in ledger.sets[note_set].recent_cm_roots
+        assert cm_merkle_root in self.recent_cm_roots
 
         # Check that each note is unspent
         for note_nf in inputs:
-            assert note_nf not in ledger.sets[note_set].nullifiers
+            assert note_nf not in self.nullifiers
+```
+
+The following method verifies the [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) of notes of a note set, against the root referenced by the Operation once the commitments of the `tx_cm_buffer` of the set are appended to it. The inputs can therefore be notes created by the previous Operations of the Mantle Transaction:
+
+```python
+class NoteSet:
+    def verify_transfer(self, inputs: list[NoteNf], outputs: list[NoteCm], excess_value: TokenValue,
+                        cm_merkle_root: MerkleRoot, msg: zkhash, proof: ZkTransfer) -> bool:
+        # root of the MMR of root cm_merkle_root once the commitments of tx_cm_buffer are appended
+        tx_cm_root = mmr_append(cm_merkle_root, self.tx_cm_buffer)
+        return ZkTransfer_verify(inputs, outputs, excess_value, tx_cm_root, msg, proof)
 ```
 
 ### Consuming Input Notes Execution
@@ -1573,10 +1585,10 @@ class Ledger:
 Consuming notes of a note set inserts their nullifiers in the nullifier IMT of the set:
 
 ```python
-class Ledger:
-    def execute_spending(note_set: int, inputs: list[NoteNf]):
+class NoteSet:
+    def execute_spending(self, inputs: list[NoteNf]):
         for note_nf in inputs:
-            ledger.sets[note_set].nullifiers.add(note_nf)
+            self.nullifiers.add(note_nf)
 ```
 
 ### Creating Output Notes Execution
@@ -1584,12 +1596,12 @@ class Ledger:
 Creating notes of a note set appends their commitments to the commitment MMR of the set and to its commitment buffer of the Mantle Transaction:
 
 ```python
-class Ledger:
-    def execute_adding(note_set: int, outputs: list[NoteCm]):
+class NoteSet:
+    def execute_adding(self, outputs: list[NoteCm]):
         for note_cm in outputs:
             # appends the commitment to the MMR of the set, updating its peaks
-            ledger.sets[note_set].commitments.add(note_cm)
-            ledger.sets[note_set].tx_cm_buffer.append(note_cm)
+            self.commitments.add(note_cm)
+            self.tx_cm_buffer.append(note_cm)
 ```
 
 # Appendix
@@ -1625,7 +1637,7 @@ class ZkTransferPublic:
     msg: zkhash
 ```
 
-`ZkTransfer_verify_root(inputs, outputs, excess_value, cm_merkle_root, msg, proof)` verifies the proof for these public values. An Operation spending notes of a note set calls `ZkTransfer_verify(note_set, inputs, outputs, excess_value, cm_merkle_root, msg, proof)`, given the root of the set referenced by the Operation, which verifies the proof against the root of that MMR once the commitments of the `tx_cm_buffer` of the set are appended to it. The inputs can therefore be notes created by the previous Operations of the Mantle Transaction.
+`ZkTransfer_verify(inputs, outputs, excess_value, cm_merkle_root, msg, proof)` verifies the proof for these public values. An Operation spending notes of a note set verifies it through the [`verify_transfer`](#input-notes-spendability-validation) method of the set, which appends the commitments created earlier in the Mantle Transaction to the referenced root.
 
 The prover knows a witness:
 

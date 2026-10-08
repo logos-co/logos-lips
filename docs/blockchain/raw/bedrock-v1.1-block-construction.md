@@ -404,7 +404,7 @@ leader_note = Note(
     nonce=0,
     public_key=block.header.proof_of_leadership.reward_key
 )
-ledger.execute_adding(LEDGER_SET, [derive_note_cm(leader_note)])
+ledger.sets[LEDGER_SET].execute_adding([derive_note_cm(leader_note)])
 ```
 
 Spending the note reveals neither its commitment nor its value, so the leader cannot be linked to the block through its reward. The `reward_key` must be a fresh key for every block. Reusing it links the blocks that carry it to the same leader, and two rewards of the same value under the same key share a commitment, so only one of them can be spent.

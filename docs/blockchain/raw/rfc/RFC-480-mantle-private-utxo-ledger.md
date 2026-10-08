@@ -92,8 +92,8 @@ class Ledger:
 
 - A channel gets the next note set when it is created, stored as `ChannelState.note_set`.
 - The nullifier IMT has depth 32 and appends leaves in insertion order. A leaf is `NullifierLeaf(nf, next_nf, next_index)`, hashed with the DST `NULLIFIER_IMT_LEAF_V1`. The first leaf is the sentinel `(0, 0, 0)`, and positions past the last leaf hold `0`.
-- `assert_spendable(note_set, inputs, cm_merkle_root)`, `execute_spending(note_set, inputs)` and `execute_adding(note_set, outputs)` act on one set.
-- `ZkTransfer_verify(note_set, ...)` checks the proof against the referenced root with the set's buffer appended. `ZkTransfer_verify_root(...)` checks it against a given root.
+- `assert_spendable(inputs, cm_merkle_root)`, `verify_transfer(...)`, `execute_spending(inputs)` and `execute_adding(outputs)` are methods of `NoteSet`, called as `ledger.sets[LEDGER_SET].execute_adding(...)`.
+- `verify_transfer` checks the ZkTransfer against the referenced root with the set's buffer appended. `ZkTransfer_verify(...)` checks it against a given root.
 - Every `excess_value` adds to the transaction balance, except that steps carry none.
 - `derive_note_nonce(op_id, output_number, value, public_key)` uses the DST `NOTE_NONCE_V1`.
 - Mantle is revision 2.0.0.
