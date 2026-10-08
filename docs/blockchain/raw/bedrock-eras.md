@@ -65,7 +65,7 @@ gantt
         both eras : crit, t2, after r1, 3s
 ```
 
-In this example, the epochs of era 0 are 10 slots long. The schedule starts era 1 at epoch 2, with epochs of 15 slots, and era 2 at epoch 4. An era begins at the first slot of its first epoch: slot 20 for era 1 and slot 50 for era 2. The rules for blocks change exactly at that slot. There, a migration carries the chain state into the new era and leaves unchanged whatever the new era does not redefine. The first block at or after that slot reads the migrated state. The network follows the local clock: when the clock reaches that slot, a node runs the protocols of both eras for a short transition period, then drops the old ones. The lengths are not to scale. An epoch lasts days, and a transition period lasts seconds.
+In this example, the epochs of era 0 are 10 slots long. The schedule starts era 1 at epoch 2, with epochs of 15 slots, and era 2 at epoch 4. An era begins at the first slot of its first epoch: slot 20 for era 1 and slot 50 for era 2. The rules for blocks change exactly at that slot. There, a migration carries the chain state into the new era and leaves unchanged whatever the new era does not redefine. Nodes validate the first block at or after that slot against the migrated state. The network follows the local clock: when the clock reaches that slot, a node runs the protocols of both eras for a short transition period, then drops the old ones. The lengths are not to scale. An epoch lasts days, and a transition period lasts seconds.
 
 A node judges a block by the era the block was made in, which the block's slot tells it. It talks to its peers in the era its own clock says has begun. A node that syncs from genesis therefore validates old blocks under old rules while it talks to the network under the current ones.
 
@@ -229,10 +229,10 @@ Between eras, the **recorded chain state** passes through a **[migration](#era-m
 
 The rules of the new era apply to every state the migration produces.
 
-Two readers see state recorded in an earlier era, and both see it migrated to their own era:
+A node migrates state recorded in an earlier era before it uses it:
 
-- a block reads its parent's state, with every migration between the parent's era and its own applied in order;
-- a value derived for an epoch reads the chain state as of a slot, migrated to the epoch's era.
+- it validates a block against its parent's state, with every migration from the parent's era to the block's era applied in order;
+- it derives a value for an epoch from the chain state as of a slot, migrated to the epoch's era.
 
 The values derived for an epoch, such as its epoch state, its Blend difficulty and its proof-of-work reward, follow the rules of the epoch's own era. The rules of an era still verify the Activity Proofs and reward claims of the previous era's last epoch as the previous era does ([Era Migration](#era-migration)).
 
@@ -574,7 +574,7 @@ The migration must be:
 
 The rules of the new era must apply to every state the migration produces. Otherwise, from the era's first slot, a rule can read a state component that is missing or still in the predecessor's form.
 
-A block reads the state after any block of an earlier era with the intervening migrations applied, in order.
+A node validates and executes a block against the state after its parent, with every migration from the parent's era to the block's era applied, in order.
 
 A value derived for an epoch is derived under the rules of the epoch's era: its [Epoch State](cryptarchia-v1-protocol.md#epoch-state), its `difficulty_blend` ([Blend Difficulty](proof-of-work.md#blend-difficulty)) and its `epoch_pow_reward` ([Reward Pool](proof-of-work.md#reward-pool)). A quantity measured over an epoch, such as a phase boundary, an observation window or an expected block count, uses the parameters of that epoch's era. Where a derivation reads the chain state as of a slot, it reads the state after the last block at or before that slot, migrated to the epoch's era. A value derived for an earlier epoch is used as it was derived.
 
