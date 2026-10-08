@@ -46,7 +46,7 @@
 | 1.14.0 | Moved SDP declaration removal to `withdraw_at + 1`; the last served epoch's reward is paid in the same first block, before removal | 2026-09-11 |
 | 1.15.0 | Add the `CLAIM_POW_REWARD` Operation and the proof of work state it is validated against; the reward pool and the difficulty controllers are specified in [Proof of Work](proof-of-work.md) | 2026-09-08 |
 | 1.16.0 | Gas Determination table updated for strict Ed25519 verification: channel Operations 56 → 59 Execution Gas per signature, `EXECUTION_SDP_DECLARE_GAS` 646 → 649, from [Gas Cost Determination](analysis-gas-cost-determination.md) 1.7.0 | 2026-09-24 |
-| 1.17.0 | [[RFC] Bound Mantle Operation Data Payloads](mantle-transaction-encoding/appendices/rfc-bound-operation-data-size.md): bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding. | 2026-10-06 |
+| 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding. | 2026-10-06 |
 
 # Introduction
 
@@ -387,7 +387,7 @@ This makes delegated staking explicit. Sequencers can assign a channel note to t
 
 Write a message to a channel with the message data being permanently stored on the Logos Blockchain.
 
-The inscription is opaque channel-specific data and its size MUST NOT exceed `MAX_OPERATION_DATA_SIZE`. The canonical limit and decoding requirement are defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md#channel-operations).
+The inscription is opaque channel-specific data.
 
 #### Payload
 
@@ -425,6 +425,9 @@ block_slot: Slot
   *Validate*
 
 ```python
+# Ensure the inscription data does not exceed the permitted size
+assert len(msg.inscription) <= MAX_OPERATION_DATA_SIZE
+
 if msg.channel in channels:
     chan = channels[msg.channel]
     current_sequencer_index = round_robin(block_slot, chan)[0]
@@ -678,7 +681,7 @@ signed_tx = SignedMantleTx(
 
 Deposit notes to a channel. The inputs are consumed and re-created as channel notes under a new `NoteId`, which resets their ageing and prevents the deposit from being replayed after a withdrawal.
 
-The `metadata` field is opaque channel-specific data. Its size MUST NOT exceed `MAX_OPERATION_DATA_SIZE`; the canonical limit and decoding requirement are defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md#channel-operations).
+The `metadata` field is opaque channel-specific data.
 
 #### Payload
 
@@ -717,17 +720,22 @@ ledger: Ledger
 
   *Validate*
 
-  1. Verify that the channel exist
+  1. Ensure the metadata size does not exceed `MAX_OPERATION_DATA_SIZE`.
+      ```python
+      assert len(deposit.metadata) <= MAX_OPERATION_DATA_SIZE
+      ```
+
+  2. Verify that the channel exist
       ```python
       assert deposit.channel in channels
       ```
 
-  2. Ensure all inputs are spendable and not already channel notes.
+  3. Ensure all inputs are spendable and not already channel notes.
       ```python
       ledger.assert_spendable(deposit.inputs)
       ```
 
-  3. Validate ownership over deposited notes.
+  4. Validate ownership over deposited notes.
       ```python
       input_notes = [ledger[input_note_id] for input_note_id in deposit.inputs]
       input_pks = [note.public_key for note in input_notes]
