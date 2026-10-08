@@ -363,6 +363,7 @@ A node keeps four values that depend on the era in force:
 ```python
 SCHEDULE: list[tuple[EpochNumber, EraParameters]] = [(0, P_0)]  # (E_n, P_n) of each era
 HORIZON: EpochNumber                                            # H, set in each release
+LAYOUT_VERSION: uint16 = 1                                      # layout of the parameter record
 ```
 
 ## Era Schedule
@@ -375,7 +376,7 @@ The nodes of two software releases apply different rules from the first epoch wh
 
 ## Era Parameters
 
-The parameter record of an era is a layout version, then a revision, then the fields below, in this order. The layout version is a `UINT16` equal to 1. The revision is a `UINT16`, 0 when the era is first published. [Era Schedule](#era-schedule) states when a release increments it. A field holds the value of its source constant under the rules of the era. Integers are unsigned and little-endian. A ratio is its numerator, then its denominator, each a `UINT32`. The denominator is not zero. A duration is its whole seconds as a `UINT64`, then the nanoseconds past them as a `UINT32`.
+The parameter record of an era is a layout version, a revision and the fields below, in this order. The revision is 0 when the era is first published, and [Era Schedule](#era-schedule) states when a release increments it. A field holds the value of its source constant under the rules of the era. Its encoding names the encoder that `encode` applies to it.
 
 | Field | Encoding | Source constant |
 | --- | --- | --- |
@@ -383,20 +384,20 @@ The parameter record of an era is a layout version, then a revision, then the fi
 | `minimum_network_size` | `UINT64` | The minimal network size of [Minimal Network Size](blend-protocol.md#minimal-network-size) |
 | `network_absorption_in_rounds` | `UINT64` | $`\eta`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `data_replication_factor` | `UINT64` | $`R_D`$ of [Global Parameters](blend-protocol.md#global-parameters) |
-| `message_frequency_per_round` | ratio | $`F_C`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `message_frequency_per_round` | `ratio` | $`F_C`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `maximum_release_delay_in_rounds` | `UINT64` | $`\Delta_{max}`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `target_peering_degree` | `UINT32` | $`\Phi_{CC}`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `verification_rate_per_second` | `UINT32` | $`V`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `edge_node_send_deadline_in_rounds` | `UINT64` | $`T_E`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `core_handshake_deadline_in_rounds` | `UINT128` | $`T_H`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `activity_threshold_sensitivity` | `UINT64` | $`\theta`$ of [Activity Threshold](blend-protocol.md#activity-threshold) |
-| `epoch_config` | three `UINT8` | The lengths of the three phases of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule), in multiples of $`\lfloor k/f \rfloor`$ |
+| `epoch_config` | `phases` | The lengths of the three phases of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule), in multiples of $`\lfloor k/f \rfloor`$ |
 | `security_param` | `UINT32` | $`k`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
-| `slot_activation_coeff` | ratio | $`f`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
-| `learning_rate` | ratio | `beta` of [Parameters and variables](cryptarchia-total-stake-inference.md#parameters-and-variables) |
+| `slot_activation_coeff` | `ratio` | $`f`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
+| `learning_rate` | `ratio` | `beta` of [Parameters and variables](cryptarchia-total-stake-inference.md#parameters-and-variables) |
 | `uncle_reference_window_in_block` | `UINT32` | $`W`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
-| `service_params` | A `UINT32` count, then for each service in ascending order of its `ServiceType` byte: that byte, `inactivity_period` as a `UINT32` and `epoch` as a `UINT32` | [Service Parameters](bedrock-service-declaration-protocol.md#service-parameters) |
-| `min_stake` | `stake_threshold` as a `UINT64`, then `epoch` as a `UINT32` | [Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake) |
+| `service_params` | `service_params` | [Service Parameters](bedrock-service-declaration-protocol.md#service-parameters) |
+| `min_stake` | `min_stake` | [Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake) |
 | `base_difficulty` | `UINT32` | $`n`$ in `BLEND_DIFFICULTY_BASE` $`= \lfloor p / 2^n \rfloor`$ of [Parameters](proof-of-work.md#parameters) |
 | `target_transactions_per_block` | `UINT64` | `TARGET_TXS_PER_BLOCK` of [Parameters](proof-of-work.md#parameters) |
 | `max_step` | `UINT64` | `BLEND_MAX_STEP` of [Parameters](proof-of-work.md#parameters) |
@@ -411,7 +412,48 @@ The parameter record of an era is a layout version, then a revision, then the fi
 | `pow_share` | `UINT64` | `POW_SHARE` of [Parameters](proof-of-work.md#parameters) |
 | `share_den` | `UINT64` | `SHARE_DEN` of [Parameters](proof-of-work.md#parameters) |
 | `expected_blocks_per_window` | `UINT64` | `EXPECTED_BLOCKS_PER_WINDOW` of [Parameters](proof-of-work.md#parameters) |
-| `slot_duration` | duration | The slot length of [Constants](cryptarchia-v1-protocol.md#constants) |
+| `slot_duration` | `duration` | The slot length of [Constants](cryptarchia-v1-protocol.md#constants) |
+
+```python
+def uint(width: int) -> Callable[[int], bytes]:
+    return lambda x: x.to_bytes(width, byteorder='little')
+
+def ratio(r: Ratio) -> bytes:
+    # A value has one encoding only in lowest terms.
+    assert r.den != 0 and gcd(r.num, r.den) == 1
+    return uint(4)(r.num) + uint(4)(r.den)
+
+def duration(d: Duration) -> bytes:
+    # A value has one encoding only while the nanoseconds stay below a second.
+    assert d.nanoseconds < 10**9
+    return uint(8)(d.seconds) + uint(4)(d.nanoseconds)
+
+def phases(lengths: tuple[int, int, int]) -> bytes:
+    return b"".join(uint(1)(x) for x in lengths)
+
+def service_params(entries: dict[int, ServiceParameters]) -> bytes:
+    # Ascending service types fix the order of the entries.
+    out = uint(4)(len(entries))
+    for service_type in sorted(entries):
+        e = entries[service_type]
+        out += uint(1)(service_type) + uint(4)(e.inactivity_period) + uint(4)(e.epoch)
+    return out
+
+def min_stake(m: MinStake) -> bytes:
+    return uint(8)(m.stake_threshold) + uint(4)(m.epoch)
+
+ENCODERS = {"UINT32": uint(4), "UINT64": uint(8), "UINT128": uint(16),
+            "ratio": ratio, "duration": duration, "phases": phases,
+            "service_params": service_params, "min_stake": min_stake}
+
+def encode(p: EraParameters) -> bytes:
+    out = uint(2)(LAYOUT_VERSION) + uint(2)(p.revision)
+    for name, encoding in FIELDS:
+        out += ENCODERS[encoding](getattr(p, name))
+    return out
+```
+
+`FIELDS` is the table above, row by row, as pairs of a field and its encoding. A ratio's parts are `num` and `den`, a duration's are `seconds` and `nanoseconds`, an entry of `service_params` has `inactivity_period` and `epoch` and is keyed by its `ServiceType` byte, and `min_stake` has `stake_threshold` and `epoch`. A record that `encode` rejects is invalid.
 
 In every record, the epoch length $`L_n`$ and the slot length $`\Delta_n`$ are at least 1. Otherwise $`\textbf{epoch}(sl)`$ or $`\textbf{slot}(t)`$ divides by zero.
 
@@ -469,7 +511,7 @@ def era_in_force() -> int:
     return era_of_slot(slot_of_time(wallclock_time()))
 ```
 
-`SCHEDULE` is the era schedule of the node's network ([Parameters](#parameters)). `epoch_config`, `security_param`, `slot_activation_coeff` and `slot_duration` are fields of the [parameter record](#era-parameters), and a duration's two parts are its `seconds` and `nanoseconds`. A slot is an unsigned 64-bit integer, as the `slot` of a [Block Header](cryptarchia-v1-protocol.md#block-header) is. A time is an unsigned 64-bit count of nanoseconds since the Unix epoch. `genesis_time` is from [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters). `slot_of_time(t)` is defined for `t` from `start_time_of_era(0)` on. `wallclock_time().to_slot()` of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) is `slot_of_time(wallclock_time())`.
+`SCHEDULE` is the era schedule of the node's network ([Parameters](#parameters)). `epoch_config`, `security_param`, `slot_activation_coeff` and `slot_duration` are fields of the [parameter record](#era-parameters). A slot is an unsigned 64-bit integer, as the `slot` of a [Block Header](cryptarchia-v1-protocol.md#block-header) is. A time is an unsigned 64-bit count of nanoseconds since the Unix epoch. `genesis_time` is from [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters). `slot_of_time(t)` is defined for `t` from `start_time_of_era(0)` on. `wallclock_time().to_slot()` of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) is `slot_of_time(wallclock_time())`.
 
 ## Fork Digest
 
