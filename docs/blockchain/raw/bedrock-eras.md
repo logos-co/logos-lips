@@ -162,7 +162,7 @@ A node whose release lacks the rules of an era it must apply halts when it start
 
 Every node must apply the same rules to the same block, while the rules change over the life of the chain.
 
-A software release carries one **era schedule** per network. Each entry gives the first epoch of an era and its **parameter record**. The record holds the values the era gives to the constants that may change between eras, from [Blend Protocol](blend-protocol.md), [Cryptarchia Protocol](cryptarchia-v1-protocol.md), the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) (SDP) and [Proof of Work](proof-of-work.md). It has a fixed encoding that starts with a layout version, which a release changes when it adds, removes or re-encodes a field ([Era Parameters](#era-parameters)).
+A software release carries one **era schedule** per network. Each entry gives the first epoch of an era and its **parameter record**. The record holds the values the era gives to the constants that may change between eras, from [Blend Protocol](blend-protocol.md), [Cryptarchia Protocol](cryptarchia-v1-protocol.md), the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) (SDP) and [Proof of Work](proof-of-work.md). Its encoding starts with a block version, which names the layout of the era's blocks, and a layout version. The fields follow in Blend, Cryptarchia and Time sections, each starting with its own version. A release changes a version when it changes what the version names ([Era Parameters](#era-parameters)).
 
 Every slot and every epoch belongs to the last era that begins at or before it. An era may change the epoch length and the slot length, so a node computes the start of each era from the era before it ([Era Boundaries](#era-boundaries)):
 
@@ -363,7 +363,6 @@ A node keeps four values that depend on the era in force:
 ```python
 SCHEDULE: list[tuple[EpochNumber, EraParameters]] = [(0, P_0)]  # (E_n, P_n) of each era
 HORIZON: EpochNumber                                            # H, set in each release
-LAYOUT_VERSION: uint16 = 1                                      # layout of the parameter record
 ```
 
 ## Era Schedule
@@ -378,43 +377,49 @@ The nodes of two software releases apply different rules from the first epoch wh
 
 ## Era Parameters
 
-The parameter record of an era is a layout version and the fields below, in this order. A field holds the value of its source constant under the rules of the era. Its encoding names the encoder that `encode` applies to it.
+The parameter record of an era is, in this order:
 
-| Field | Encoding | Source constant |
-| --- | --- | --- |
-| `num_blend_layers` | `UINT64` | $`\beta_{max}`$ of [Global Parameters](blend-protocol.md#global-parameters) |
-| `minimum_network_size` | `UINT64` | The minimal network size of [Minimal Network Size](blend-protocol.md#minimal-network-size) |
-| `network_absorption_in_rounds` | `UINT64` | $`\eta`$ of [Global Parameters](blend-protocol.md#global-parameters) |
-| `data_replication_factor` | `UINT64` | $`R_D`$ of [Global Parameters](blend-protocol.md#global-parameters) |
-| `message_frequency_per_round` | `ratio` | $`F_C`$ of [Global Parameters](blend-protocol.md#global-parameters) |
-| `maximum_release_delay_in_rounds` | `UINT64` | $`\Delta_{max}`$ of [Global Parameters](blend-protocol.md#global-parameters) |
-| `target_peering_degree` | `UINT32` | $`\Phi_{CC}`$ of [Global Parameters](blend-protocol.md#global-parameters) |
-| `verification_rate_per_second` | `UINT32` | $`V`$ of [Global Parameters](blend-protocol.md#global-parameters) |
-| `edge_node_send_deadline_in_rounds` | `UINT64` | $`T_E`$ of [Global Parameters](blend-protocol.md#global-parameters) |
-| `core_handshake_deadline_in_rounds` | `UINT128` | $`T_H`$ of [Global Parameters](blend-protocol.md#global-parameters) |
-| `activity_threshold_sensitivity` | `UINT64` | $`\theta`$ of [Activity Threshold](blend-protocol.md#activity-threshold) |
-| `epoch_config` | `phases` | The lengths of the three phases of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule), in multiples of $`\lfloor k/f \rfloor`$ |
-| `security_param` | `UINT32` | $`k`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
-| `slot_activation_coeff` | `ratio` | $`f`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
-| `learning_rate` | `ratio` | `beta` of [Parameters and variables](cryptarchia-total-stake-inference.md#parameters-and-variables) |
-| `uncle_reference_window_in_block` | `UINT32` | $`W`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
-| `service_params` | `service_params` | [Service Parameters](bedrock-service-declaration-protocol.md#service-parameters) |
-| `min_stake` | `min_stake` | [Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake) |
-| `base_difficulty` | `UINT32` | $`n`$ in `BLEND_DIFFICULTY_BASE` $`= \lfloor p / 2^n \rfloor`$ of [Parameters](proof-of-work.md#parameters) |
-| `target_transactions_per_block` | `UINT64` | `TARGET_TXS_PER_BLOCK` of [Parameters](proof-of-work.md#parameters) |
-| `max_step` | `UINT64` | `BLEND_MAX_STEP` of [Parameters](proof-of-work.md#parameters) |
-| `damping_num` | `UINT32` | `BLEND_DAMPING_NUM` of [Parameters](proof-of-work.md#parameters) |
-| `damping_den_offset` | `UINT32` | `BLEND_DAMPING_DEN` minus `BLEND_DAMPING_NUM` of [Parameters](proof-of-work.md#parameters) |
-| `minimum_difficulty` | `UINT32` | $`n`$ in `REWARD_TARGET_CAP` $`= \lfloor p / 2^n \rfloor`$ of [Parameters](proof-of-work.md#parameters) |
-| `ema_smoothing_factor` | `UINT64` | `EMA_SMOOTHING_FACTOR` of [Parameters](proof-of-work.md#parameters) |
-| `ema_smoothing_precision` | `UINT64` | `EMA_SMOOTHING_PRECISION` of [Parameters](proof-of-work.md#parameters) |
-| `target_claims_per_block` | `UINT64` | `TARGET_CLAIMS_PER_BLOCK` of [Parameters](proof-of-work.md#parameters) |
-| `rate_num` | `UINT64` | `EPOCH_POW_DISTRIBUTION_RATE_NUM` of [Parameters](proof-of-work.md#parameters) |
-| `rate_den` | `UINT64` | `EPOCH_POW_DISTRIBUTION_RATE_DEN` of [Parameters](proof-of-work.md#parameters) |
-| `pow_share` | `UINT64` | `POW_SHARE` of [Parameters](proof-of-work.md#parameters) |
-| `share_den` | `UINT64` | `SHARE_DEN` of [Parameters](proof-of-work.md#parameters) |
-| `expected_blocks_per_window` | `UINT64` | `EXPECTED_BLOCKS_PER_WINDOW` of [Parameters](proof-of-work.md#parameters) |
-| `slot_duration` | `UINT64` | The slot length of [Constants](cryptarchia-v1-protocol.md#constants), in seconds |
+- `block_version`, which names the layout of the era's blocks, headers and proposals. Version 1 is the layout that [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md) specifies.
+- `layout_version`, which names the sections that follow and their order. Version 1 is the sections of the table below, in table order.
+- The sections. Each section is its `version` followed by its fields. The table gives the fields of version 1 of each section, in order.
+
+A field holds the value of its source constant under the rules of the era. Its encoding names the encoder that `encode` applies to it.
+
+| Section | Field | Encoding | Source constant |
+| --- | --- | --- | --- |
+| `blend` | `num_blend_layers` | `UINT64` | $`\beta_{max}`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `blend` | `minimum_network_size` | `UINT64` | The minimal network size of [Minimal Network Size](blend-protocol.md#minimal-network-size) |
+| `blend` | `network_absorption_in_rounds` | `UINT64` | $`\eta`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `blend` | `data_replication_factor` | `UINT64` | $`R_D`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `blend` | `message_frequency_per_round` | `ratio` | $`F_C`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `blend` | `maximum_release_delay_in_rounds` | `UINT64` | $`\Delta_{max}`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `blend` | `target_peering_degree` | `UINT32` | $`\Phi_{CC}`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `blend` | `verification_rate_per_second` | `UINT32` | $`V`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `blend` | `edge_node_send_deadline_in_rounds` | `UINT64` | $`T_E`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `blend` | `core_handshake_deadline_in_rounds` | `UINT128` | $`T_H`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `blend` | `activity_threshold_sensitivity` | `UINT64` | $`\theta`$ of [Activity Threshold](blend-protocol.md#activity-threshold) |
+| `cryptarchia` | `epoch_config` | `phases` | The lengths of the three phases of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule), in multiples of $`\lfloor k/f \rfloor`$ |
+| `cryptarchia` | `security_param` | `UINT32` | $`k`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
+| `cryptarchia` | `slot_activation_coeff` | `ratio` | $`f`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
+| `cryptarchia` | `learning_rate` | `ratio` | `beta` of [Parameters and variables](cryptarchia-total-stake-inference.md#parameters-and-variables) |
+| `cryptarchia` | `uncle_reference_window_in_block` | `UINT32` | $`W`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
+| `cryptarchia` | `service_params` | `service_params` | [Service Parameters](bedrock-service-declaration-protocol.md#service-parameters) |
+| `cryptarchia` | `min_stake` | `min_stake` | [Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake) |
+| `cryptarchia` | `base_difficulty` | `UINT32` | $`n`$ in `BLEND_DIFFICULTY_BASE` $`= \lfloor p / 2^n \rfloor`$ of [Parameters](proof-of-work.md#parameters) |
+| `cryptarchia` | `target_transactions_per_block` | `UINT64` | `TARGET_TXS_PER_BLOCK` of [Parameters](proof-of-work.md#parameters) |
+| `cryptarchia` | `max_step` | `UINT64` | `BLEND_MAX_STEP` of [Parameters](proof-of-work.md#parameters) |
+| `cryptarchia` | `damping_num` | `UINT32` | `BLEND_DAMPING_NUM` of [Parameters](proof-of-work.md#parameters) |
+| `cryptarchia` | `damping_den_offset` | `UINT32` | `BLEND_DAMPING_DEN` minus `BLEND_DAMPING_NUM` of [Parameters](proof-of-work.md#parameters) |
+| `cryptarchia` | `minimum_difficulty` | `UINT32` | $`n`$ in `REWARD_TARGET_CAP` $`= \lfloor p / 2^n \rfloor`$ of [Parameters](proof-of-work.md#parameters) |
+| `cryptarchia` | `ema_smoothing_factor` | `UINT64` | `EMA_SMOOTHING_FACTOR` of [Parameters](proof-of-work.md#parameters) |
+| `cryptarchia` | `ema_smoothing_precision` | `UINT64` | `EMA_SMOOTHING_PRECISION` of [Parameters](proof-of-work.md#parameters) |
+| `cryptarchia` | `target_claims_per_block` | `UINT64` | `TARGET_CLAIMS_PER_BLOCK` of [Parameters](proof-of-work.md#parameters) |
+| `cryptarchia` | `rate_num` | `UINT64` | `EPOCH_POW_DISTRIBUTION_RATE_NUM` of [Parameters](proof-of-work.md#parameters) |
+| `cryptarchia` | `rate_den` | `UINT64` | `EPOCH_POW_DISTRIBUTION_RATE_DEN` of [Parameters](proof-of-work.md#parameters) |
+| `cryptarchia` | `pow_share` | `UINT64` | `POW_SHARE` of [Parameters](proof-of-work.md#parameters) |
+| `cryptarchia` | `share_den` | `UINT64` | `SHARE_DEN` of [Parameters](proof-of-work.md#parameters) |
+| `cryptarchia` | `expected_blocks_per_window` | `UINT64` | `EXPECTED_BLOCKS_PER_WINDOW` of [Parameters](proof-of-work.md#parameters) |
+| `time` | `slot_duration` | `UINT64` | The slot length of [Constants](cryptarchia-v1-protocol.md#constants), in seconds |
 
 ```python
 def uint(width: int) -> Callable[[int], bytes]:
@@ -444,19 +449,31 @@ ENCODERS = {"UINT32": uint(4), "UINT64": uint(8), "UINT128": uint(16),
             "min_stake": min_stake}
 
 def encode(p: EraParameters) -> bytes:
-    out = uint(2)(LAYOUT_VERSION)
-    for name, encoding in FIELDS:
-        out += ENCODERS[encoding](getattr(p, name))
+    # This document defines version 1 of the layout and of each section only.
+    assert p.layout_version == 1
+    out = uint(2)(p.block_version) + uint(2)(p.layout_version)
+    for section, fields in FIELDS.items():
+        s = getattr(p, section)
+        assert s.version == 1
+        out += uint(2)(s.version)
+        for name, encoding in fields:
+            out += ENCODERS[encoding](getattr(s, name))
     return out
 ```
 
-`FIELDS` is the table above, row by row, as pairs of a field and its encoding. A ratio's parts are `num` and `den`, an entry of `service_params` has `inactivity_period` and `epoch` and is keyed by its `ServiceType` byte, and `min_stake` has `stake_threshold` and `epoch`. A record that `encode` rejects is invalid.
+`FIELDS` maps each section of the table above, in table order, to its rows, as pairs of a field and its encoding. A ratio's parts are `num` and `den`, an entry of `service_params` has `inactivity_period` and `epoch` and is keyed by its `ServiceType` byte, and `min_stake` has `stake_threshold` and `epoch`. A record that `encode` rejects is invalid.
 
 In every record, the numerator of `slot_activation_coeff`, the epoch length $`L_n`$ and the slot length $`\Delta_n`$ are at least 1. Otherwise `epoch_length(n)`, $`\textbf{epoch}(sl)`$ or $`\textbf{slot}(t)`$ divides by zero.
 
 The `stake_thresholds` ([Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake)) and `parameters` ([Service Parameters](bedrock-service-declaration-protocol.md#service-parameters)) stores hold the `min_stake` and `service_params` entries of the records of the schedule.
 
-A software release that adds, removes or re-encodes a field defines a new layout version, used by the eras that adopt it. Every layout version starts with the layout version. It keeps, with their meaning and encoding, the fields that [Era Boundaries](#era-boundaries) reads and the fields that fill the SDP stores. Otherwise a node cannot compute slots and epochs, or fill the SDP stores, across eras of different layouts.
+A software release defines a new version, used by the eras that adopt it:
+
+- a new section version when it adds, removes or re-encodes a field of the section;
+- a new layout version when it adds, removes or reorders a section;
+- a new block version when it changes the layout of blocks, headers or proposals.
+
+Every layout version and every section version keeps, with their meaning and encoding, the fields that [Era Boundaries](#era-boundaries) reads and the fields that fill the SDP stores. Otherwise a node cannot compute slots and epochs, or fill the SDP stores, across eras of different versions.
 
 ## Era Boundaries
 
