@@ -574,9 +574,19 @@ The migration must be:
 
 The rules of the new era must apply to every state the migration produces. Otherwise, from the era's first slot, a rule can read a state component that is missing or still in the predecessor's form.
 
-A node validates and executes a block against the state after its parent, with every migration from the parent's era to the block's era applied, in order.
+A node validates and executes a block against the state after its parent, migrated from the era of the parent's slot to the era of the block's slot:
 
-A value derived for an epoch is derived under the rules of the epoch's era: its [Epoch State](cryptarchia-v1-protocol.md#epoch-state), its `difficulty_blend` ([Blend Difficulty](proof-of-work.md#blend-difficulty)) and its `epoch_pow_reward` ([Reward Pool](proof-of-work.md#reward-pool)). A quantity measured over an epoch, such as a phase boundary, an observation window or an expected block count, uses the parameters of that epoch's era. Where a derivation reads the chain state as of a slot, it reads the state after the last block at or before that slot, migrated to the epoch's era. A value derived for an earlier epoch is used as it was derived.
+```python
+def migrate(state: State, from_era: int, to_era: int) -> State:
+    # Each migration takes the state of the era before its own.
+    for era in range(from_era + 1, to_era + 1):
+        state = migrations[era](state)
+    return state
+```
+
+`State` is the recorded chain state. `migrations` maps each era after the first to the migration it defines. The node applies `migrate` to every block it validates, on any fork and during synchronization, whatever the era in force. For example, with era 1 from slot 20 and era 2 from slot 50, take a parent at slot 18. A child at slot 19 is validated against the parent's state as it is. A child at slot 25 is validated against it after `migrations[1]`, and a child at slot 52 after `migrations[1]` and then `migrations[2]`.
+
+A value derived for an epoch is derived under the rules of the epoch's era: its [Epoch State](cryptarchia-v1-protocol.md#epoch-state), its `difficulty_blend` ([Blend Difficulty](proof-of-work.md#blend-difficulty)) and its `epoch_pow_reward` ([Reward Pool](proof-of-work.md#reward-pool)). A quantity measured over an epoch, such as a phase boundary, an observation window or an expected block count, uses the parameters of that epoch's era. Where a derivation reads the chain state as of a slot, it reads the state after the last block at or before that slot, migrated to the epoch's era with `migrate`. A value derived for an earlier epoch is used as it was derived.
 
 The rules of an era verify the Activity Proofs and reward claims of the last epoch of the predecessor era, [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) included, as the predecessor's rules do. Otherwise the rewards of that epoch are lost.
 
@@ -588,14 +598,13 @@ When the era in force changes from era `old` to era `new`, a node replaces the s
 def on_era_change(old: int, new: int, tip_state: State,
                   mempool: list[Transaction]) -> tuple[State, list[Transaction]]:
     # Everything the node does under the new era reads the state migrated to it.
-    for era in range(old + 1, new + 1):
-        tip_state = migrations[era](tip_state)
+    tip_state = migrate(tip_state, old, new)
     mempool = [tx for tx in mempool if valid_under(new, tx, tip_state)]
     start_era_transition_period(new)
     return tip_state, mempool
 ```
 
-`State` is the [recorded chain state](#era-migration). `migrations` maps each era after the first to the migration it defines ([Era Migration](#era-migration)). `valid_under(n, tx, state)` holds when `tx` is valid under the rules of era `n` against `state`. `start_era_transition_period(n)` starts the [Era Transition Period](#era-transition-period) into era `n`.
+`State` and `migrate` are those of [Era Migration](#era-migration). `valid_under(n, tx, state)` holds when `tx` is valid under the rules of era `n` against `state`. `start_era_transition_period(n)` starts the [Era Transition Period](#era-transition-period) into era `n`.
 
 ## Era Transition Period
 
