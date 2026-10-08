@@ -227,7 +227,7 @@ Between eras, the **recorded chain state** passes through a **[migration](#era-m
 - is defined for every state the previous era can reach;
 - leaves unchanged every part of the state that the new era does not redefine.
 
-The rules of the new era are defined on every state the migration produces.
+The rules of the new era apply to every state the migration produces.
 
 Two readers see state recorded in an earlier era, and both see it migrated to their own era:
 
@@ -572,7 +572,7 @@ The migration must be:
 - **Total**: defined for every state reachable under the predecessor era. A migration undefined for a reachable state halts the network at the boundary.
 - **Identity by default**: every state component the new era does not redefine is unchanged.
 
-The rules of the new era must be defined on every state the migration produces. Otherwise a rule of the new era has no input at the era's first slot.
+The rules of the new era must apply to every state the migration produces. Otherwise, from the era's first slot, a rule can read a state component that is missing or still in the predecessor's form.
 
 A block reads the state after any block of an earlier era with the intervening migrations applied, in order.
 
