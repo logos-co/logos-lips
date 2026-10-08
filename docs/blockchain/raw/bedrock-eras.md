@@ -473,8 +473,6 @@ A software release defines a new version, used by the eras that adopt it:
 - a new layout version when it adds, removes or reorders a section;
 - a new block version when it changes the layout of blocks, headers or proposals.
 
-Every layout version and every section version keeps, with their meaning and encoding, the fields that [Era Boundaries](#era-boundaries) reads and the fields that fill the SDP stores. Otherwise a node cannot compute slots and epochs, or fill the SDP stores, across eras of different versions.
-
 ## Era Boundaries
 
 ```python
