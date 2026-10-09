@@ -25,13 +25,13 @@
 
 The rules and parameters of the protocol change over the life of the chain. Every node must still apply the same rules to the same block, including a node that syncs blocks made before a change.
 
-Eras make this possible. An era is a range of consecutive epochs ([Cryptarchia Protocol](cryptarchia-v1-protocol.md#epoch)) governed by one set of protocol rules. Each software release carries a schedule of eras, so every node changes rules at the same epoch and reads each block under the rules of its era.
+Eras make this possible. An era is a range of consecutive epochs ([Cryptarchia Protocol](cryptarchia-v1-protocol.md#epoch)) governed by one set of protocol rules. Each release of the node software carries a schedule of eras, so every node changes rules at the same epoch and validates each block under the rules of the block's era.
 
-This document specifies the era schedule and the parameter record of an era, the era that governs chain data and the network layer, the migration of the chain state between eras, the transition period at an era boundary, and the protocol identifiers. The rules an era applies are specified where they are defined, in [Cryptarchia Protocol](cryptarchia-v1-protocol.md), [Mantle](bedrock-v1.1-mantle-specification.md), [Blend Protocol](blend-protocol.md), [Proof of Work](proof-of-work.md) and the other Bedrock specifications.
+This document specifies the era schedule and the parameter record of an era, which era governs chain data and the network layer, the migration of the chain state between eras, the transition period at an era boundary, and the protocol identifiers. The rules an era applies are specified where they are defined, in [Cryptarchia Protocol](cryptarchia-v1-protocol.md), [Mantle](bedrock-v1.1-mantle-specification.md), [Blend Protocol](blend-protocol.md), [Proof of Work](proof-of-work.md) and the other Bedrock specifications.
 
 # Overview
 
-The history of the chain is divided into eras. Each era is a run of consecutive epochs under one set of rules and one set of parameters. Every release of the node software carries a schedule that says at which epoch each era begins. The schedule is not read from the chain, so a node learns of a new era by installing a release that names it.
+The history of the chain is divided into eras. Each era is a range of consecutive epochs under one set of rules and one set of parameters. Every release carries a schedule that says at which epoch each era begins. The schedule is not read from the chain, so a node learns of a new era by installing a release that names it.
 
 ```mermaid
 ---
@@ -68,9 +68,9 @@ gantt
         both eras : crit, t2, after r1, 3s
 ```
 
-In this example, the epochs of era 0 are 10 slots long. The schedule starts era 1 at epoch 2, with epochs of 15 slots, and era 2 at epoch 4. An era begins at the first slot of its first epoch: slot 20 for era 1 and slot 50 for era 2. The rules for blocks change exactly at that slot. There, a migration carries the chain state into the new era and leaves unchanged whatever the new era does not redefine. Nodes validate the first block at or after that slot against the migrated state. The network follows the local clock: when the clock reaches that slot, a node runs the protocols of both eras for a short transition period, then drops the old ones. The lengths are not to scale. An epoch lasts days, and a transition period lasts seconds.
+In this example, the epochs of era 0 are 10 slots long. The schedule starts era 1 at epoch 2, with epochs of 15 slots, and era 2 at epoch 4. An era begins at the first slot of its first epoch: slot 20 for era 1 and slot 50 for era 2. The rules for blocks change exactly at that slot. There, a migration carries the chain state into the new era and leaves unchanged everything the new era does not redefine. Nodes validate the first block at or after that slot against the migrated state. The network follows the local clock: when the clock reaches that slot, a node runs the protocols of both eras for a short transition period, then drops the old ones. The lengths are not to scale. An epoch lasts days, and a transition period lasts seconds.
 
-A node judges a block by the era the block was made in, which the block's slot tells it. It talks to its peers in the era its own clock says has begun. A node that syncs from genesis therefore validates old blocks under old rules while it talks to the network under the current ones.
+A node validates a block under the era of the block's slot. It talks to its peers under the era its own clock has reached. A node that syncs from genesis therefore validates old blocks under old rules while it talks to the network under the current ones.
 
 ```mermaid
 ---
@@ -98,7 +98,7 @@ sequenceDiagram
 
 The node fetches every block over the sync protocol of era 2, the era of its clock. It validates each block under the rules of the era of the block's slot.
 
-Each era has a fork digest, a fingerprint of the genesis block and of the schedule up to that era. Network protocol names and transactions carry it. Two releases whose schedules agree share their protocol names up to the first era where the schedules differ, and never again after it.
+Each era has a fork digest, a fingerprint of the chain and of the schedule up to that era. Protocol identifiers and transactions carry it. Two releases share their protocol identifiers for every era before the first era where their schedules differ, and for no era from it on.
 
 ```mermaid
 ---
@@ -118,9 +118,9 @@ gitGraph
     commit tag: "era 2, parameters B"
 ```
 
-Both releases share the fork digests of eras 0 and 1, and with them the protocol names of those eras. Their era 2 parameters differ, so their era 2 fork digests and protocol names differ too.
+Both releases share the fork digests of eras 0 and 1, and with them the protocol identifiers of those eras. Their era 2 parameters differ, so their era 2 fork digests and protocol identifiers differ too.
 
-The two protocols that find peers and describe them carry the identifier of the chain in their names instead of a fork digest. No era changes it.
+The two protocols that find peers and describe them carry the chain ID in their identifiers instead of a fork digest. Their identifiers are the same in every era.
 
 A node whose release misses an upgrade keeps applying the rules it knows. It warns its operator when a peer advertises a fork digest the node does not know, which shows that the peer runs a schedule the node's release lacks.
 
@@ -164,9 +164,9 @@ A node whose release lacks the rules of an era it must apply halts when it start
 
 ## Schedule and Parameter Records
 
-Every node must apply the same rules to the same block, while the rules change over the life of the chain.
+Every node must know, for any slot or epoch, which era's rules apply.
 
-A software release carries one **era schedule** per network. Each entry gives the first epoch of an era and its **parameter record**. The record holds the values the era gives to the constants that may change between eras, from [Blend Protocol](blend-protocol.md), [Cryptarchia Protocol](cryptarchia-v1-protocol.md), the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) (SDP) and [Proof of Work](proof-of-work.md). Its encoding starts with a block version, which names the layout of the era's blocks, and a layout version. The fields follow in Blend, Cryptarchia and Time sections, each starting with its own version. A release changes a version when it changes what the version names ([Era Parameters](#era-parameters)).
+A release carries one **era schedule** per network. Each entry gives the first epoch number of an era and its **parameter record**. The record holds the values the era gives to the constants that may change between eras, from [Blend Protocol](blend-protocol.md), [Cryptarchia Protocol](cryptarchia-v1-protocol.md), the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) (SDP) and [Proof of Work](proof-of-work.md). Its encoding starts with a block version, which names the layout of the era's blocks, and a layout version. The fields follow in Blend, Cryptarchia and Time sections, each starting with its own version. A release changes a version when it changes what the version names ([Era Parameters](#era-parameters)).
 
 Every slot and every epoch belongs to the last era that begins at or before it. An era may change the epoch length and the slot length, so a node computes the start of each era from the era before it ([Era Boundaries](#era-boundaries)):
 
@@ -176,14 +176,14 @@ Every slot and every epoch belongs to the last era that begins at or before it. 
 A schedule changes only under these rules ([Era Schedule](#era-schedule)):
 
 - a release may add or change an era only for an epoch that has not begun;
-- a release may not change the rules of a published era, or the migration into it, without changing the era's first epoch or parameter record;
-- an era may not change how the [Cryptarchia Fork Choice Rule](fork-choice.md) compares chains that diverge by at most $`k`$ blocks, $`k`$ being the security parameter of [Constants](cryptarchia-v1-protocol.md#constants).
+- a release must not change the rules of a published era, or the migration into it, without changing the era's first epoch number or parameter record;
+- an era must not change how the [Cryptarchia Fork Choice Rule](fork-choice.md) compares chains that diverge by at most $`k`$ blocks, where $`k`$ is the security parameter of [Constants](cryptarchia-v1-protocol.md#constants).
 
 ## Fork and Era Digests
 
 Nodes whose releases apply different rules must not exchange data that they would read differently.
 
-Each era has an **era digest**, a hash of its first epoch and parameter record. It also has a **[fork digest](#fork-digest)**, a hash of the genesis block ID, the chain ID ([Bedrock Genesis Block](bedrock-genesis-block.md)) and the era digest of every era up to it.
+Each era has an **era digest**, a hash of its first epoch number and parameter record. It also has a **[fork digest](#fork-digest)**, a hash of the genesis block ID, the chain ID ([Bedrock Genesis Block](bedrock-genesis-block.md)) and the era digest of every era up to it.
 
 ```mermaid
 ---
@@ -196,9 +196,9 @@ flowchart BT
     c["chain ID"] --> f
     d0["era digest of era 0"] --> f
     d1["era digest of era 1"] --> f
-    e0["first epoch<br/>of era 0"] --> d0
+    e0["first epoch number<br/>of era 0"] --> d0
     p0["parameter record<br/>of era 0"] --> d0
-    e1["first epoch<br/>of era 1"] --> d1
+    e1["first epoch number<br/>of era 1"] --> d1
     p1["parameter record<br/>of era 1"] --> d1
 ```
 
@@ -217,7 +217,7 @@ A node interprets each piece of chain data under one era:
 [Era of Chain Data](#era-of-chain-data) specifies the rules behind this list:
 
 - A node learns the era before it parses the rest. The slot comes first in every message that carries a block or proposal, and the fork digest comes first in every transaction, each in an encoding no era changes.
-- A block accepts a transaction that carries the fork digest of the block's era. In the first epoch of an era, it also accepts one that carries the previous era's.
+- A block may include a transaction that carries the fork digest of the block's era. In the first epoch of an era, it may also include one that carries the previous era's.
 - The fork choice rule of every era reads only the block tree and the slots of its blocks. [Commit](cryptarchia-v1-protocol.md#commit) uses the $`k`$ of the era of the local chain tip.
 - At startup and on checkpoint import ([Bootstrapping from Checkpoint](cryptarchia-v1-bootstr-sync.md#bootstrapping-from-checkpoint)), a node halts if its release lacks the rules of an era it must still apply, from the era of the latest immutable block to the era in force.
 
@@ -239,26 +239,20 @@ A node migrates state recorded in an earlier era before it uses it:
 - it derives a value for an epoch from the chain state as of a slot, migrated to the epoch's era;
 - it re-validates its mempool against the state after its local chain tip, migrated to the era in force.
 
-The values derived for an epoch, such as its epoch state, its Blend difficulty and its proof-of-work reward, follow the rules of the epoch's own era. A node verifies Activity Proofs and reward claims under the era of the epoch they are for, even when a block of the next era carries them ([Era Migration](#era-migration)).
+The values derived for an epoch, such as its epoch state, its Blend difficulty and its proof-of-work reward, follow the rules of the epoch's own era. A node verifies active messages and reward claims under the era of the epoch they are for, even when a block of the next era carries them ([Era Migration](#era-migration)).
 
 ## Network Layer
 
 Peers must exchange messages only under rules they share. Their clocks reach a boundary at slightly different times, and messages already on their way at the boundary must still arrive.
 
-A node runs its network protocols under the **era in force**, the era of the slot its clock gives. Their identifiers and gossipsub topics ([P2P Network](../draft/p2p-network.md)) carry the fork digest of their era. Those of Kademlia and identify carry the chain ID instead ([Network Protocol Identity](#network-protocol-identity)).
+A node runs its network protocols under the **era in force**, the era of the current slot by its local clock. Their identifiers and gossipsub topics ([P2P Network](../draft/p2p-network.md)) carry the fork digest of their era. Those of Kademlia and identify carry the chain ID instead ([Network Protocol Identity](#network-protocol-identity)).
 
-Each message a node sends goes out on the identifiers of one era:
-
-- a message the node generates: the era in force when the node generates it;
-- a Blend message the node relays or releases: the era of the connection it arrived on. The node broadcasts the payload of such a message on that era's topic;
-- a proposal the node accepts, or a transaction it admits to its mempool: the era in force. The node publishes it on that era's topic.
-
-A synchronization response ([Cryptarchia Bootstrapping & Synchronization](cryptarchia-v1-bootstr-sync.md)) may carry blocks of any era.
+Each message a node sends goes out on the identifiers of one era: the era in force for what it generates, accepts or admits, and the era of the arriving connection for a Blend message it relays or releases ([Network Protocol Identity](#network-protocol-identity)).
 
 When the era in force changes, the node runs the network protocols of both eras for the **[Era Transition Period](#era-transition-period)**, whose length is the new era's Blend Transition Period:
 
 - during the period, it validates each Blend message under the era of the connection it arrived on;
-- when the period ends, it drops the identifiers of the predecessor era;
+- when the period ends, it drops the identifiers of the previous era;
 - it serves any synchronization stream still open at that point to its end.
 
 ```mermaid
@@ -318,14 +312,14 @@ sequenceDiagram
 
 1. Before the boundary, the node exchanges messages with its peers on the identifiers of era $`n-1`$.
 2. When its clock reaches the first slot of era $`n`$, the era in force becomes era $`n`$ ([Era Boundaries](#era-boundaries)).
-3. The node re-validates its mempool against the state after its chain tip, migrated to era $`n`$ ([Era Change](#era-change)). A transaction that carries the fork digest of era $`n-1`$ stays valid until step 10 ([Era of Chain Data](#era-of-chain-data)).
+3. The node re-validates its mempool against the state after its local chain tip, migrated to era $`n`$ ([Era Change](#era-change)). A transaction that carries the fork digest of era $`n-1`$ stays valid until step 10 ([Era of Chain Data](#era-of-chain-data)).
 4. It opens the identifiers of era $`n`$ and keeps those of era $`n-1`$, which starts the [Era Transition Period](#era-transition-period).
 5. A message that arrives on an identifier of era $`n-1`$ is still processed ([Era Transition Period](#era-transition-period)).
-6. A block whose slot lies in era $`n`$ arrives on the topic of era $`n`$. Once the node's clock has reached the block's slot, the node validates the block under era $`n`$, from its parent's state migrated to era $`n`$ ([Era of Chain Data](#era-of-chain-data), [Era Migration](#era-migration), [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation)).
+6. A block whose slot lies in era $`n`$ arrives on the topic of era $`n`$. Once the node's clock has reached the block's slot, the node validates the block under era $`n`$, against its parent's state migrated to era $`n`$ ([Era of Chain Data](#era-of-chain-data), [Era Migration](#era-migration), [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation)).
 7. If the block extends a fork that left the local chain before the boundary, fork choice compares the two chains under the era of their common ancestor's slot, which precedes era $`n`$ ([Era of Chain Data](#era-of-chain-data)). If the node switches to that fork, it re-validates its mempool against the new tip ([Era Change](#era-change)).
-8. The node sends the messages it generates under era $`n`$. It releases a Blend message it generates no earlier than one round after its switch ([Transition Period](blend-protocol.md#transition-period)).
+8. The node sends the messages it generates under era $`n`$. It releases a Blend message it generates no earlier than one round after the era in force changes ([Transition Period](blend-protocol.md#transition-period)).
 9. When the period ends, the node drops the identifiers of era $`n-1`$ ([Era Transition Period](#era-transition-period)).
-10. When the first epoch of era $`n`$ ends, blocks no longer accept transactions that carry the fork digest of era $`n-1`$, and the node drops them from its mempool ([Era of Chain Data](#era-of-chain-data), [Era Change](#era-change)).
+10. When the first epoch of era $`n`$ ends, blocks may no longer include transactions that carry the fork digest of era $`n-1`$, and the node drops them from its mempool ([Era of Chain Data](#era-of-chain-data), [Era Change](#era-change)).
 
 ## Node State
 
@@ -360,23 +354,23 @@ SCHEDULE: list[tuple[EpochNumber, EraParameters]] = [(0, P_0)]  # (E_n, P_n) of 
 
 ## Era Schedule
 
-The era schedule is embedded in the node software and is not read from the chain. Each network has its own schedule. The schedule is a list of entries, each an epoch number and a [parameter record](#era-parameters). The epoch numbers strictly increase, and the first of them is 0.
+The era schedule is embedded in each release and is not read from the chain. Each network has its own schedule. The schedule is a list of entries, each an epoch number and a [parameter record](#era-parameters). The epoch numbers strictly increase, and the first of them is 0.
 
 An era must not change the comparison of chains that diverge by at most $`k`$ blocks ([Online Fork Choice Rule](fork-choice.md#online-fork-choice-rule)). Otherwise fork choice depends on the order in which forks were seen for the first $`k`$ blocks of the era.
 
-The rules of an era decide, under that era, which blocks, transactions and messages are valid, how they execute, how chains compare, and how the state migrates into the era. An era is published once a release that schedules it is distributed.
+The rules of an era decide which blocks, transactions and messages are valid under it, how they execute, how chains compare, and how the state migrates into it. An era is published once a release that schedules it is distributed.
 
-The nodes of two software releases apply different rules from the first epoch whose era has a different digest in the two schedules. From that epoch they use different fork digests. A software release must not change the rules of a published era while keeping the era's first epoch and parameter record. Otherwise the nodes of the two releases apply different rules under one fork digest. A software release must not publish an entry, or change the record of an entry, whose epoch has begun. Otherwise a node that installs the release holds state executed under the wrong era.
+The nodes of two releases apply different rules from the first epoch whose era has a different digest in the two schedules. From that epoch they use different fork digests. A release must not change the rules of a published era while keeping the era's first epoch number and parameter record. Otherwise the nodes of the two releases apply different rules under one fork digest. A release must not publish an entry, or change the record of an entry, whose epoch has begun. Otherwise a node that installs the release holds state executed under the wrong era.
 
 ## Era Parameters
 
 The parameter record of an era is, in this order:
 
 - `block_version`, which names the layout of the era's blocks, headers and proposals. Version 1 is the layout that [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md) specifies.
-- `layout_version`, which names the sections that follow and their order. Version 1 is the sections of the table below, in table order.
+- `layout_version`, which names the sections that follow and their order. Version 1 lists the sections of the table below, in table order.
 - The sections. Each section is its `version` followed by its fields. The table gives the fields of version 1 of each section, in order.
 
-A field holds the value of its source constant under the rules of the era. Its encoding names the encoder that `encode` applies to it.
+A field holds the value of its source constant under the rules of the era. The Encoding column names the encoder that `encode` applies to the field.
 
 | Section | Field | Encoding | Source constant |
 | --- | --- | --- | --- |
@@ -454,13 +448,13 @@ def encode(p: EraParameters) -> bytes:
     return out
 ```
 
-`FIELDS` maps each section of the table above, in table order, to its rows, as pairs of a field and its encoding. A ratio's parts are `num` and `den`, an entry of `service_params` has `inactivity_period` and `epoch` and is keyed by its `ServiceType` byte, and `min_stake` has `stake_threshold` and `epoch`. A record that `encode` rejects is invalid.
+`FIELDS` maps each section of the table above, in table order, to its rows, as pairs of a field and its encoding. A ratio's parts are `num` and `den`. An entry of `service_params` is keyed by its `ServiceType` byte and has `inactivity_period` and `epoch`. `min_stake` has `stake_threshold` and `epoch`. A record that `encode` rejects is invalid.
 
 In every record, the numerator of `slot_activation_coeff`, the epoch length $`L_n`$ and the slot length $`\Delta_n`$ are at least 1. Otherwise `epoch_length(n)`, $`\textbf{epoch}(sl)`$ or $`\textbf{slot}(t)`$ divides by zero.
 
-The `stake_thresholds` ([Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake)) and `parameters` ([Service Parameters](bedrock-service-declaration-protocol.md#service-parameters)) stores hold the `min_stake` and `service_params` entries of the records of the schedule.
+The `stake_thresholds` store ([Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake)) holds the `min_stake` of each record of the schedule. The `parameters` store ([Service Parameters](bedrock-service-declaration-protocol.md#service-parameters)) holds the `service_params` entries of each record.
 
-A software release defines a new version, used by the eras that adopt it:
+A release defines a new version, used by the eras that adopt it:
 
 - a new section version when it adds, removes or re-encodes a field of the section;
 - a new layout version when it adds, removes or reorders a section;
@@ -532,13 +526,13 @@ def fork_digest(n: int) -> hash:
                 *(era_digest(i) for i in range(n + 1)))
 ```
 
-`hash` is the hash of [Block ID](cryptarchia-v1-protocol.md#block-id), over the concatenation of its arguments. `encode` is the encoding of the [parameter record](#era-parameters). `GENESIS_BLOCK_ID` is the Block ID of the [Genesis Block](bedrock-genesis-block.md). `ENCODED_CHAIN_ID` is `chain_id` with its length prefix, encoded as in [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters).
+`hash` is the hash function of [Block ID](cryptarchia-v1-protocol.md#block-id), applied to the concatenation of its arguments. `encode` is the encoding of the [parameter record](#era-parameters). `GENESIS_BLOCK_ID` is the Block ID of the [Genesis Block](bedrock-genesis-block.md). `ENCODED_CHAIN_ID` is `chain_id` with its length prefix, encoded as in [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters).
 
 ## Era of Chain Data
 
-A block or proposal, and everything it carries, is parsed, validated and executed under the rules of $`\textbf{era}(sl)`$ of its slot, except that a transaction is parsed under the era whose fork digest it carries. `slot` is the first field of the header ([Block Header](cryptarchia-v1-protocol.md#block-header)) and has the same encoding in every era, and every message that carries a block or proposal begins with the header in its [canonical encoding](bedrock-v1.1-block-construction.md#canonical-encoding). Otherwise a node cannot parse a block before it knows the block's era.
+A block or proposal, and everything it carries, is parsed, validated and executed under the rules of the era of its slot, $`\textbf{era}(sl)`$, except that a transaction is parsed under the era whose fork digest it carries. `slot` is the first field of the header ([Block Header](cryptarchia-v1-protocol.md#block-header)) and has the same encoding in every era. Every message that carries a block or proposal begins with the header in its [canonical encoding](bedrock-v1.1-block-construction.md#canonical-encoding). Otherwise a node cannot parse a block before it knows the block's era.
 
-Every transaction begins with its fork digest ([Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction)), in the same encoding in every era. Otherwise a node cannot parse a transaction before it knows the transaction's era. A block accepts a transaction only if `accepts_fork_digest` holds for the block's `slot` and the transaction's `fork_digest`:
+Every transaction begins with its fork digest ([Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction)), in the same encoding in every era. Otherwise a node cannot parse a transaction before it knows the transaction's era. A block may include a transaction only if `accepts_fork_digest` holds for the block's `slot` and the transaction's `fork_digest`:
 
 ```python
 def accepts_fork_digest(slot: uint64, digest: hash) -> bool:
@@ -552,18 +546,18 @@ def accepts_fork_digest(slot: uint64, digest: hash) -> bool:
 
 [Fork choice](fork-choice.md) compares two chains under the era of the slot of their $`\textbf{common\_ancestor}`$ ([Fork Pruning](cryptarchia-v1-protocol.md#fork-pruning)). The fork choice rule of an era reads only the block tree and the slot of each block. Otherwise it is undefined on the blocks of a later era that re-encodes a field it reads. [Commit](cryptarchia-v1-protocol.md#commit) uses the $`k`$ of the era of the slot of the local chain tip.
 
-At startup and on checkpoint import ([Bootstrapping from Checkpoint](cryptarchia-v1-bootstr-sync.md#bootstrapping-from-checkpoint)), a node whose software does not implement the rules of every era from $`\textbf{era}(sl_{B_\text{imm}})`$ ([latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block)) to the era in force must halt. A halted node stops every protocol and exits with an error to the operator.
+At startup and on checkpoint import ([Bootstrapping from Checkpoint](cryptarchia-v1-bootstr-sync.md#bootstrapping-from-checkpoint)), a node whose release does not implement the rules of every era from $`\textbf{era}(sl_{B_\text{imm}})`$ ([latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block)) to the era in force must halt. A halted node stops every protocol and exits with an error to the operator.
 
 ## Era Migration
 
-Every era after the first defines a migration from its predecessor. A migration is a function of the recorded chain state alone. The recorded chain state is the state a Mantle Operation is validated against ([Validation](bedrock-v1.1-mantle-specification.md#validation), [Proof of Work Operations](bedrock-v1.1-mantle-specification.md#proof-of-work-operations)) and the [snapshots](bedrock-service-declaration-protocol.md#snapshots) of the current and later epochs.
+Every era after the first defines a migration from the previous era. A migration is a function of the recorded chain state alone. The recorded chain state is the state a Mantle Operation is validated against ([Validation](bedrock-v1.1-mantle-specification.md#validation), [Proof of Work Operations](bedrock-v1.1-mantle-specification.md#proof-of-work-operations)) and the [snapshots](bedrock-service-declaration-protocol.md#snapshots) of the current and later epochs.
 
-The migration must be:
+A migration must be:
 
-- **Total**: defined for every state reachable under the predecessor era. A migration undefined for a reachable state halts the network at the boundary.
+- **Total**: defined for every state reachable under the previous era. A migration undefined for a reachable state halts the network at the boundary.
 - **Identity by default**: every state component the new era does not redefine is unchanged.
 
-The rules of the new era must apply to every state the migration produces. Otherwise, from the era's first slot, a rule can read a state component that is missing or still in the predecessor's form.
+The rules of the new era must apply to every state the migration produces. Otherwise, from the era's first slot, a rule can read a state component that is missing or still in the previous era's form.
 
 A node validates and executes a block against the state after its parent, migrated from the era of the parent's slot to the era of the block's slot:
 
@@ -575,7 +569,7 @@ def migrate(state: State, from_era: int, to_era: int) -> State:
     return state
 ```
 
-`State` is the recorded chain state. `migrations` maps each era after the first to the migration it defines. The node applies `migrate` to every block it validates, on any fork and during synchronization, whatever the era in force. For example, with era 1 from slot 20 and era 2 from slot 50, take a parent at slot 18. A child at slot 19 is validated against the parent's state as it is. A child at slot 25 is validated against it after `migrations[1]`, and a child at slot 52 after `migrations[1]` and then `migrations[2]`.
+`State` is the recorded chain state. `migrations` maps each era after the first to the migration it defines. A node applies `migrate` to every block it validates, on any fork and during synchronization, whatever the era in force. For example, with era 1 from slot 20 and era 2 from slot 50, take a parent at slot 18. A child at slot 19 is validated against the parent's state as it is. A child at slot 25 is validated against it after `migrations[1]`, and a child at slot 52 after `migrations[1]` and then `migrations[2]`.
 
 A node derives some values once per epoch: the [Epoch State](cryptarchia-v1-protocol.md#epoch-state), `difficulty_blend` ([Blend Difficulty](proof-of-work.md#blend-difficulty)) and `epoch_pow_reward` ([Reward Pool](proof-of-work.md#reward-pool)). To derive such a value for an epoch `ep`, it:
 
@@ -610,14 +604,14 @@ During the Era Transition Period a node must:
 
 1. Accept and open connections on the identifiers of both eras.
 2. Validate a Blend message under the era of the connection it arrived on.
-3. Keep every input the predecessor era's message checks read until the period ends.
+3. Keep, until the period ends, every input that the previous era's Blend message checks read.
 4. Process any other message that arrives on an identifier of either era as it would on an identifier of the era in force ([Era of Chain Data](#era-of-chain-data), [Network Protocol Identity](#network-protocol-identity)).
 
-After the Era Transition Period the node must drop the identifiers of the predecessor era and must not process its Blend messages. A synchronization stream open at the end of the period is served to its end.
+After the Era Transition Period the node must drop the identifiers of the previous era and must not process its Blend messages. A synchronization stream open at the end of the period is served to its end.
 
 ## Network Protocol Identity
 
-Every protocol identifier and gossipsub topic a Logos Blockchain specification defines is `/logos-blockchain/<chain_id>/<protocol>` for Kademlia and identify ([P2P Network](../draft/p2p-network.md)), and `/logos-blockchain/<fork_digest>/<protocol>` for every other protocol. `<chain_id>` is `chain_id` ([Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters)), percent-encoded as in [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986#section-2.1), with uppercase hexadecimal digits, except for its unreserved characters. `<fork_digest>` is the fork digest $`F_n`$ of an era $`n`$ in lowercase hexadecimal, and the identifier is an identifier of era $`n`$. `<protocol>` is the identifier the protocol's own specification defines.
+Every protocol identifier and gossipsub topic a Logos Blockchain specification defines is `/logos-blockchain/<chain_id>/<protocol>` for Kademlia and identify ([P2P Network](../draft/p2p-network.md)), and `/logos-blockchain/<fork_digest>/<protocol>` for every other protocol. `<chain_id>` is `chain_id` ([Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters)), percent-encoded as in [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986#section-2.1), with uppercase hexadecimal digits, except for its unreserved characters. `<fork_digest>` is the fork digest $`F_n`$ of an era $`n`$, in lowercase hexadecimal. Such an identifier is an identifier of era $`n`$. `<protocol>` is the identifier the protocol's own specification defines.
 
 A node sends a message it generates over the identifiers of the era in force at generation. A node relays or releases a received or processed Blend message, and broadcasts its payload, over the identifiers of the era of the connection it arrived on. A node publishes a proposal it accepts, and a transaction it admits to its mempool, on the topic of the era in force. A [synchronization](cryptarchia-v1-bootstr-sync.md#downloading-blocks) response carries blocks of any era.
 
