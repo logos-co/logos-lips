@@ -5,6 +5,7 @@
 | Name | Anonymous Leaders Reward Protocol |
 | Slug | 85 |
 | Status | deprecated |
+| Type | RFC |
 | Category | Standards Track |
 | Editor | Thomas Lavaur <thomaslavaur@logos.co> |
 | Contributors | David Rusu <davidrusu@logos.co>, Mehmet Gonen <mehmet@logos.co>, Álvaro Castro-Castilla <alvaro@logos.co>, Frederico Teixeira <frederico@logos.co>, Filip Dimitrijevic <filip@logos.co> |
