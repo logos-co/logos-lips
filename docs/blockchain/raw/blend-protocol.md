@@ -35,6 +35,8 @@
 | 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, add a transaction as a data message payload, and align the nullifier retention period | 2026-09-08 |
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
 | 1.6.0 | Replaced the per-window statistical threshold on a connection with a share of messages a node reads from, and sends on, each connection in a round, and a liveness test, kept per identity for the epoch, on whether a neighbor delivers. Held the peering degree in live connections, at least two of them opened by the node. Restricted blacklisting to attributable faults. Sized the shares from the processing rate of the slowest node, derived the transactions the network carries from them, and made that rate the reference load of the Blend difficulty. | 2026-09-08 |
+| 1.7.0 | Removed the message and Activity Proof `version` bytes, put the fork digest in the libp2p protocol name, linked the era rules for the transition period, for releasing and for broadcasting, bounded the transition period and the clock difference between honest nodes, and stopped blacklisting for a next-epoch proof in an epoch's last round ([Bedrock Eras](bedrock-eras.md)). | 2026-10-06 |
+| 1.7.1 | Updated `Max_Payload_Length` to 18190 bytes in the overhead calculation, following the removal of the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)). | 2026-09-30 |
 
 # Introduction
 
@@ -365,10 +367,9 @@ For a complete description of the generation logic, refer to [Generation](#gener
 When a node receives a message from one of its neighbors, it does the following:
 
 1. Checks the public header of the message, that is:
-    1. The version of the message must be equal to `0x01`; if not, then discard the message.
-    2. The proof of quota nullifier must be unique; if not, then discard the message.
-    3. The signature must be valid; if not, then discard the message.
-    4. The proof of quota must be valid; if not, then discard the message and do not relay it.
+    1. The proof of quota nullifier must be unique; if not, then discard the message.
+    2. The signature must be valid; if not, then discard the message.
+    3. The proof of quota must be valid; if not, then discard the message and do not relay it.
 2. The message is released to the network as defined in the [Releasing](#releasing) section.
 3. Concurrently to the above, the message is handled by the processing logic as defined in the [Processing](#processing) section.
 
@@ -461,6 +462,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\text {CSPRNG}()`$ is a cryptographically secure pseudo-random number generator, implemented as a [ChaCha20-Based PRNG Construction](common-cryptographic-components.md#chacha20-based-prng-construction);
 - $`\eta`$ denotes the network absorption, the maximum time a message spends crossing the network on one hop;
 - $`T_M`$ denotes the message traversal time, the time a message takes to cross the network;
+- $`T_C`$ denotes the largest clock difference between two honest nodes, in rounds;
 
 ## Global Parameters
 
@@ -504,7 +506,7 @@ Implementations should choose a default based on the deployment they operate in,
 
 ### Connection Details
 
-The connections are established using libp2p with TLS version 1.3 (not older). The cryptographic scheme is Ed25519 with ephemeral keys**.** The libp2p protocol name is `/logos-blockchain/blend/1.0.0` for mainnet and `/logos-blockchain-testnet/blend/1.0.0` for testnet.
+The connections are established using libp2p with TLS version 1.3 (not older). The cryptographic scheme is Ed25519 with ephemeral keys**.** The libp2p protocol name is `/logos-blockchain/<fork_digest>/blend` ([Network Protocol Identity](bedrock-eras.md#network-protocol-identity)).
 
 ### Neighbor Distinction Process
 
@@ -554,7 +556,7 @@ The shares keep the messages a node reads in a round within what the slowest nod
 
 A failure of the authenticated stream is a violation of the framing of the stream.
 
-1. A connection with a core node whose authenticated stream fails, or that carries a message with a malformed header, an invalid signature, or an invalid proof of quota, is closed and its neighbor is added to the **blacklist**. A message discarded as a duplicate carries no reaction.
+1. A connection with a core node whose authenticated stream fails, or that carries a message with a malformed header, an invalid signature, or an invalid proof of quota, is closed and its neighbor is added to the **blacklist**. A message discarded as a duplicate carries no reaction. In the last round of an epoch, a message whose proof of quota is valid against the next epoch's public input carries no reaction.
 2. A blacklisted identity is refused on incoming and on outgoing connections. An entry expires after $`W`$ rounds.
 3. The blacklist holds at most $`2 \cdot \Phi_{CC}`$ entries, and the oldest is discarded when it is full.
 
@@ -592,7 +594,9 @@ where:
 
 After $`T_M`$ rounds, all messages for the past epoch should have been processed and disseminated. To provide an additional safety buffer, we round the transition period up to $`T=30`$ rounds. After this period, all old connections can be safely terminated, and messages for the past epoch must not be processed anymore.
 
-The transition period must not be shorter than the message traversal time. A node that stopped processing past-epoch messages before $`T_M`$ would discard messages that are still crossing the network, and their senders would wait for a delivery that can no longer happen ([Detection](#detection)).
+The transition period must be at least the message traversal time plus the largest clock difference between two honest nodes: $`T \ge T_M + T_C`$. Otherwise a node whose clock runs ahead stops processing past-epoch messages while some are still crossing the network, and their senders wait for a delivery that can no longer happen ([Detection](#detection)).
+
+Nodes must keep their clocks synchronized so that $`T_C`$ is below one round. A node releases a message it generates in the new epoch no earlier than one round after its own epoch changes ([Releasing](#releasing)). With a larger $`T_C`$, such a message can reach a node whose clock runs behind before that node's epoch changes, and that node discards it.
 
 When a new **epoch** begins:
 
@@ -600,6 +604,8 @@ When a new **epoch** begins:
 - The Blend threshold $`d_{blend}`$ is one of these public inputs: a proof is verified against the threshold of the epoch its public inputs belong to, so during the Transition Period messages meeting either epoch's threshold are accepted.
 - The node must open new connections to process new messages for the new epoch.
 - The node needs to maintain old connections and process all messages received from these connections for the duration of TP. A connection held for the past epoch does not count towards $`\Phi_{CC}`$.
+
+At an era boundary, the [Era Transition Period](bedrock-eras.md#era-transition-period) also applies.
 
 ## Quota
 
@@ -824,7 +830,7 @@ A core node draws its cover message schedule uniformly at random over the epoch.
 
 ### **Message Structure**
 
-For this document, we present a definition of the message structure as defined in the [Message Encapsulation Mechanism](message-encapsulation.md). For simplicity, we omit the versioning of the message as defined in [Message Formatting](message-formatting.md).
+For this document, we present a definition of the message structure as defined in the [Message Encapsulation Mechanism](message-encapsulation.md).
 
 A node $`n`$ constructs a message $`\mathbf M = (\mathbf H, \mathbf h, \mathbf P)`$ according to the format presented below.
 
@@ -844,7 +850,7 @@ A node $`n`$ constructs a message $`\mathbf M = (\mathbf H, \mathbf h, \mathbf P
 
 3. $`\mathbf P`$ is a payload.
 
->**Encapsulation Overhead Calculation:** Assuming that we use Groth16 SNARKs as a proving system, we need $`160`$ bytes per PoQ ($`128`$ for proof and $`32`$ for nullifier) quota. Which gives us $`289`$ bytes per hop (proof of quota $`160`$ bytes + proof of selection $`32`$ bytes + public key $`32`$ bytes + signature $`64`$ bytes + last flag $`1`$ byte) plus $`256`$ bytes for the public header. Which for $`3`$ hops gives us $`1123`$ bytes in total. That is added to the payload being encapsulated, which is `Max_Payload_Length` = $`18195`$ bytes ([Message Formatting](message-formatting.md)): the padded `Max_Body_Length` of [Payload Formatting](payload-formatting.md), set from the maximum size of the block proposal defined in [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md), plus the 3-byte payload header. The encapsulation therefore adds $`\approx 6.2\%`$.
+>**Encapsulation Overhead Calculation:** Assuming that we use Groth16 SNARKs as a proving system, we need $`160`$ bytes per PoQ ($`128`$ for proof and $`32`$ for nullifier) quota. Which gives us $`289`$ bytes per hop (proof of quota $`160`$ bytes + proof of selection $`32`$ bytes + public key $`32`$ bytes + signature $`64`$ bytes + last flag $`1`$ byte) plus $`256`$ bytes for the public header. Which for $`3`$ hops gives us $`1123`$ bytes in total. That is added to the payload being encapsulated, which is `Max_Payload_Length` = $`18190`$ bytes ([Message Formatting](message-formatting.md)): the padded `Max_Body_Length` of [Payload Formatting](payload-formatting.md), set from the maximum size of the block proposal defined in [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md), plus the 3-byte payload header. The encapsulation therefore adds $`\approx 6.2\%`$.
 
 ### Formatting
 
@@ -884,7 +890,7 @@ The relaying logic is defined as follows:
     3. If the header of the message is incorrect, then discard the message, close the connection and blacklist the neighbor ([Connectivity Maintenance](#connectivity-maintenance)). We assume that an adversary cannot inject any spoofed message to the connection.
     4. If the PoQ nullifier $`\nu_i \in \mathbf H`$ from the public header of the message is already in the nullifier cache, then the message is a duplicate and must be discarded. Cached entries are retained for the duration of the current epoch and the [Transition Period](#transition-period).
     5. If the signature $`\sigma_{K^{n}_{i}}(\mathbf P_i) \in \mathbf H`$ from the public header of the message is invalid, then the message must be discarded, the connection closed and the neighbor blacklisted ([Connectivity Maintenance](#connectivity-maintenance)).
-    6. If the proof of quota $`\pi^{K^{n}_i}_{Q} \in \mathbf H`$ from the public header is invalid, then the message must be discarded and must not be relayed. The connection is closed and the neighbor blacklisted, as defined in [Connectivity Maintenance](#connectivity-maintenance).
+    6. If the proof of quota $`\pi^{K^{n}_i}_{Q} \in \mathbf H`$ from the public header is invalid, then the message must be discarded and must not be relayed. The node reacts to the neighbor as defined in [Connectivity Maintenance](#connectivity-maintenance).
 2. Release the message according to the [Releasing](#releasing) logic.
 3. Concurrently to the above step, add the message to the processing queue, where it is handled by the [Processing](#processing) logic.
 
@@ -965,6 +971,8 @@ The process of releasing messages involves the following steps:
 - As soon as a **data** message carrying a block proposal is generated, one random unreleased (future) **cover** message must be removed from the release schedule to maintain the node’s statistical indistinguishability. A data message carrying a transaction removes no cover message.
 - If more than one message needs to be released for the same round, they must be randomly shuffled before release.
 
+The era of the connections a message is released on, and of the channel its payload is broadcast on, is defined in [Network Protocol Identity](bedrock-eras.md#network-protocol-identity).
+
 ### Broadcasting
 
 Every payload that is added to the broadcasting queue is processed as follows:
@@ -1030,7 +1038,7 @@ Where:
 - `ProofOfSelection` is defined in [Proof of Selection](#proof-of-selection).
 - `SigningKey` is the key used to sign the `ProofOfQuota`.
 
-The serialized form of these fields, together with the two header bytes that precede them, is defined in [Active Message](#active-message).
+The serialized form of these fields, together with the header byte that precedes them, is defined in [Active Message](#active-message).
 
 ### Activity Threshold
 
@@ -1063,17 +1071,14 @@ The `metadata` field is the concatenation of the following fields, in order:
 | Field | Size (bytes) | Value |
 | --- | --- | --- |
 | `metadata_type` | 1 | `0x01`, identifying the payload as Blend service activity metadata |
-| `version` | 1 | `0x01`, the version of the Blend [Activity Proof](#activity-proof) format |
 | `epoch_number` | 4 | the epoch $`e`$ the proof attests to, encoded as little-endian |
 | `signing_key` | 32 | the public key $`K^{n}_{l}`$ used to verify the two proofs below |
 | `proof_of_quota` | 160 | $`\pi_{Q}^{K^{n}_{l}}`$, serialized as defined in [Proof of Quota](proof-of-quota.md) |
 | `proof_of_selection` | 32 | $`\pi_{S}^{K^{n}_{l},l}`$ |
 
-The total size of the `metadata` field is therefore $`230`$ bytes.
+The total size of the `metadata` field is therefore $`229`$ bytes.
 
-The two leading bytes serve distinct purposes and must not be conflated. The `metadata_type` byte selects how the service-specific `metadata` field is interpreted, so that the SDP active message can carry activity metadata for services other than Blend. The `version` byte versions the Blend Activity Proof format itself, independently of that selector.
-
-The `metadata_type` must be equal to `0x01`; if not, then discard the message. The `version` must be equal to `0x01`; if not, then discard the message.
+The `metadata_type` must be equal to `0x01`; if not, then discard the message.
 
 The active message is stored on the ledger.
 
