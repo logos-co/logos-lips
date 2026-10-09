@@ -1,6 +1,6 @@
 # [RFC] Chain-State: Define the recorded chain state and its encoding
 
-**Motivation and proposal:** PR #TBD
+**Motivation and proposal:** [PR #473](https://github.com/logos-co/logos-lips/pull/473)
 
 ## Change log
 
