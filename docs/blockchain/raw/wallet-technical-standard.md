@@ -27,6 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-02-05 |
 | 1.0.1 | Updated project references to Logos Blockchain | 2026-04-17 |
 | 1.1.0 | Fixed the master key generation personalization string to a valid 16-byte value; aligned the public key derivation with the [Mantle specification](bedrock-v1.1-mantle-specification.md#zero-knowledge-signature-scheme-zksignature) (`KDF` DST, compression mode, applied to the Logos key); specified the final Poseidon2 step as hash mode with the `WALLET_ZK_SK_V1` DST; clarified that extended public keys derive no children | 2026-09-03 |
+| 1.2.0 | Added the note tracking a wallet keeps to spend its notes and to participate in the leadership lottery | 2026-10-07 |
 
 # Introduction
 
@@ -115,7 +116,7 @@ k_logos = zkhash(
 )  # Poseidon2 hash mode, a single field element
 ```
 
-$`k_{\text{logos}}`$ is the `ZkSecretKey` used on the network. The corresponding public key is derived exactly as the [Mantle specification](bedrock-v1.1-mantle-specification.md#zero-knowledge-signature-scheme-zksignature) prescribes, with Poseidon2 in compression mode and the `KDF` DST:
+$`k_{\text{logos}}`$ is the `ZkSecretKey` used on the network. The corresponding public key is derived exactly as the [Mantle specification](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) prescribes, with Poseidon2 in compression mode and the `KDF` DST:
 
 ```python
 public_key = zkhash(FiniteField(b"KDF", byte_order="little", modulus=p), k_logos)  # compression mode
@@ -124,6 +125,94 @@ public_key = zkhash(FiniteField(b"KDF", byte_order="little", modulus=p), k_logos
 This wallet-side step is not part of any circuit, so the DST costs nothing in proving time while preventing $`k_{\text{logos}}`$ from colliding with any other Poseidon2 output computed over the same field elements. Only the `KDF` derivation of the public key is evaluated inside proofs, and it hashes a single field element thanks to this compression.
 
   **Why not use Poseidon2 for the full derivation?** While Poseidon2 is optimized for ZK circuits, its long-term stability and parameterization are still evolving. General-purpose hash functions like Blake2b offer a more stable and audited base layer. By introducing Poseidon2 only at the last compression step we isolate ZK-dependencies from the rest of the key derivation path. This ensures the wallet hierarchy remains valid even if Poseidon2 parameters are updated.
+
+## Note Tracking
+
+The [Mantle Ledger](bedrock-v1.1-mantle-specification.md#ledger) only holds note commitments and nullifiers, in note sets: the ledger note set, the SDP note set and one note set per channel, each with its own commitment MMR and nullifier IMT. To spend its notes and to participate in the leadership lottery, a wallet keeps the data its proofs need for every note it owns, in the note set the note belongs to.
+
+To spend a note with a [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer), the wallet keeps:
+
+- The note `(value, nonce, public_key)`, its note set, and its commitment `cm = derive_note_cm(note)`.
+- The Merkle path of `cm` to the root of the MMR peak holding it. With the other peaks of the MMR, which are public and served by any node, this path proves `cm` in the MMR root. A ZkTransfer is proven against the commitment root of the note set at one of the last 1024 blocks, so the wallet keeps the path up to date with the commitments appended to the MMR of the set.
+- The nullifier `nf = derive_note_nf(cm, sk)`. The note is spent once `nf` is in the nullifier set of its note set, whichever wallet instance spent it.
+
+To prove its leadership with a note ([Proof of Leadership](cryptarchia-proof-of-leadership.md#eligible-sets)), the wallet also keeps:
+
+- The Merkle path of `cm` to the commitment root of its note set at the epoch snapshot, fixed for the epoch, and the path of the leaf of the set in the eligible tree of the snapshot.
+- The leaf of the [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of its note set holding the greatest nullifier lower than `nf`, and its Merkle path to the latest root of that IMT, with the path of the leaf of the set in the latest eligible tree. This leaf and its path change whenever a nullifier is inserted in the set, so the wallet updates them before each proof.
+
+Requesting these paths from a third party reveals which commitments and nullifiers the wallet owns. A wallet that follows every commitment appended to the MMR and every nullifier inserted in the IMT of the note sets it holds notes in computes its paths locally. The roots of the other note sets, which the paths in the eligible tree need, are public.
+
+A peak of the MMR is a perfect Merkle tree, which never changes once built: appending a commitment only adds a peak of height 0, and merges the last two peaks while they have the same height. The path of `cm` inside its peak therefore only grows, by one node each time its peak is merged, which happens at most 32 times. The wallet keeps a copy of the peaks, with their heights given by the binary decomposition of the number of commitments, and updates the paths of its notes while appending the commitments of each block:
+
+```python
+class OwnedNote:
+    note: Note
+    cm: NoteCm
+    nf: NoteNf
+    peak: int                   # index of the peak holding cm
+    path: list[zkhash]          # Merkle path of cm to the root of its peak
+    selectors: list[bool]       # whether each node of the path is left (0) or right (1)
+
+def append_commitment(peaks: list[(zkhash, int)], notes: list[OwnedNote], cm: NoteCm):
+    # peaks holds the (root, height) of every peak, from left to right
+    peaks.append((cm, 0))
+    while len(peaks) > 1 and peaks[-1][1] == peaks[-2][1]:
+        (left, height), (right, _) = peaks[-2], peaks[-1]
+        for note in notes:
+            if note.peak == len(peaks) - 2:
+                # cm is in the left peak, its new complementary node is the right peak
+                note.path.append(right)
+                note.selectors.append(1)
+            elif note.peak == len(peaks) - 1:
+                # cm is in the right peak, its new complementary node is the left peak
+                note.path.append(left)
+                note.selectors.append(0)
+                note.peak -= 1
+        peaks[-2:] = [(zkhash(left, right), height + 1)]
+```
+
+A note the wallet owns joins `notes` with `peak = len(peaks) - 1` and an empty path right after `peaks.append((cm, 0))`, before the merges of its own append. Only the notes whose peak is merged are updated, so following a block costs one hash per merge. The path of a note to the commitment root of its note set at the epoch snapshot is the path it holds at the snapshot, completed with the peaks of the snapshot.
+
+Inserting a nullifier changes exactly two leaves of the [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree): the appended leaf and the leaf of the greatest nullifier lower than the inserted one. Every insertion is public, so a wallet fetching the leaves and Merkle paths of these two positions, as they stand after each insertion, reveals nothing about the notes it owns. From them, it updates the low leaf of each of its notes in that set and its path with at most 32 hashes per changed leaf:
+
+```python
+class TrackedLowLeaf:
+    nf: NoteNf                  # nullifier of the owned note
+    index: int                  # index of the IMT leaf holding the greatest nullifier lower than nf
+    leaf: NullifierLeaf
+    path: list[zkhash]          # Merkle path of the leaf to the IMT root (len = 32)
+
+def branch_nodes(leaf_hash: zkhash, index: int, path: list[zkhash]) -> list[zkhash]:
+    # nodes of the branch of index, from the leaf up to the root
+    nodes = [leaf_hash]
+    for height in range(32):
+        if (index >> height) & 1:
+            nodes.append(zkhash(path[height], nodes[-1]))
+        else:
+            nodes.append(zkhash(nodes[-1], path[height]))
+    return nodes
+
+def update_path(tracked: TrackedLowLeaf, index: int, leaf: NullifierLeaf, path: list[zkhash]):
+    # replace the nodes of tracked.path that lie on the branch of the changed leaf
+    nodes = branch_nodes(nullifier_leaf_hash(leaf), index, path)
+    for height in range(32):
+        if (index >> height) == ((tracked.index >> height) ^ 1):
+            tracked.path[height] = nodes[height]
+
+def on_nullifier_inserted(tracked: TrackedLowLeaf, inserted_nf: NoteNf,
+                          low_index: int, low_leaf: NullifierLeaf, low_path: list[zkhash],
+                          new_index: int, new_leaf: NullifierLeaf, new_path: list[zkhash]):
+    if low_index == tracked.index and inserted_nf < tracked.nf:
+        # the inserted nullifier is now the greatest one lower than tracked.nf
+        tracked.index, tracked.leaf, tracked.path = new_index, new_leaf, new_path
+    elif low_index == tracked.index:
+        # only the pointer of the tracked leaf moved to the inserted nullifier
+        tracked.leaf, tracked.path = low_leaf, low_path
+    else:
+        update_path(tracked, low_index, low_leaf, low_path)
+        update_path(tracked, new_index, new_leaf, new_path)
+```
 
 # References
 
