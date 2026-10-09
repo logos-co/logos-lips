@@ -36,6 +36,9 @@ The history of the chain is divided into eras. Each era is a run of consecutive 
 ```mermaid
 ---
 displayMode: compact
+config:
+  gantt:
+    useWidth: 800
 ---
 gantt
     title Slots, epochs and eras, for an example schedule
@@ -124,6 +127,9 @@ A node whose release misses an upgrade keeps applying the rules it knows. It war
 ```mermaid
 ---
 displayMode: compact
+config:
+  gantt:
+    useWidth: 800
 ---
 gantt
     title Two releases, for an example schedule
