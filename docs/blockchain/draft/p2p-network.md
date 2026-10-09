@@ -33,7 +33,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-01-20 |
 | 1.0.1 | Rename Nomos to Logos Blockchain | 2026-04-17 |
-| 1.1.0 | Added the Transport Security section: TLS 1.3, cipher suites, peer authentication, and the hybrid post-quantum key exchange `X25519MLKEM768`. | 2026-08-28 |
+| 1.1.0 | Added the Transport Security section: TLS 1.3, cipher suites, peer authentication, and the hybrid post-quantum key exchange `X25519MLKEM768` as the only key exchange group. | 2026-10-09 |
 
 # Introduction
 
@@ -109,10 +109,12 @@ corresponding benefit.
 
 Nodes **MUST** offer the hybrid key exchange group `X25519MLKEM768`
 ([draft-ietf-tls-ecdhe-mlkem](https://datatracker.ietf.org/doc/draft-ietf-tls-ecdhe-mlkem/),
-IANA named group `0x11EC`), and **MUST** offer it as the most-preferred group.
+IANA named group `0x11EC`).
 
-Nodes **MUST** continue to offer `X25519`, so that peers which do not yet
-support the hybrid group remain reachable.
+Nodes **MUST NOT** offer, and **MUST NOT** accept, any other key exchange
+group. In particular, a classical-only group such as `X25519` **MUST NOT** be
+offered, and a handshake in which the peer offers no hybrid group **MUST**
+fail.
 
 `X25519MLKEM768` combines an X25519 key exchange with an ML-KEM-768
 encapsulation ([FIPS 203](https://csrc.nist.gov/pubs/fips/203/final)) and
@@ -120,10 +122,11 @@ derives the shared secret from both. The result is secure unless **both**
 components are broken: a classical adversary is defeated by X25519, and an
 adversary with a quantum computer by ML-KEM-768.
 
-Requiring the hybrid group to be *preferred* rather than merely *offered* is
-deliberate. A node that offers the group but prefers the classical one would
-negotiate away the property this requirement exists to provide, and would do
-so silently.
+Offering the hybrid group alone, rather than preferring it among others, is
+deliberate. A node that also offered a classical group could be negotiated
+down to it by any peer, and would obtain the property this requirement exists
+to provide only in proportion to what its peers support. With a single group
+there is nothing to negotiate down to.
 
 Key exchange material is **ephemeral per handshake**. It **MUST NOT** be
 persisted, reused across connections, or transmitted in any protocol message
@@ -138,7 +141,8 @@ codepoint and share encoding are specified by
 | Group | IANA codepoint | Client share | Server share |
 | --- | --- | --- | --- |
 | `X25519MLKEM768` | `0x11EC` | 1216 B | 1120 B |
-| `X25519` | `0x001D` | 32 B | 32 B |
+
+For comparison, the `X25519` shares this group replaces are 32 B each.
 
 ### Post-Quantum Scope
 
@@ -171,13 +175,15 @@ forged retroactively, so an adversary who breaks Ed25519 in the future cannot
 impersonate a peer in a handshake that has already completed. Migrating the
 node identity to a post-quantum signature is the subject of a later phase.
 
-Because `X25519` is retained for interoperability, a handshake between a
-conforming node and a non-conforming peer agrees on the classical group. This
-is intentional and is what allows the network to migrate without a coordinated
-upgrade, but it means the property is obtained per-connection, in proportion
-to adoption. An active adversary cannot force a downgrade beyond what the peer
-already supports: the group is negotiated inside the handshake, and the
-negotiation is covered by the transcript.
+No classical-only group is offered, so a handshake with a peer that does not
+support `X25519MLKEM768` fails rather than agreeing on a weaker group. The
+property therefore holds for every connection in the network, not per
+connection in proportion to adoption, and an active adversary has nothing to
+downgrade to. No migration window is kept: the network is in testnet, and
+every implementation is expected to follow this specification rather than the
+specification to follow the implementations. The TLS stacks in use already
+support the group, so conforming is a matter of restricting the offered
+groups.
 
 The hybrid key exchange increases the size of the handshake. On QUIC this is
 not amplification-relevant: a server may not send more than three times what
