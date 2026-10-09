@@ -112,7 +112,7 @@ OutputCount       = Byte
 Inputs            = InputCount *NoteId
 ```
 
-`MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. It applies to the canonical encoded payload bytes of `ChannelInscribe.Inscription`, `ChannelDeposit.Metadata`, and `SDPActive.Metadata`, excluding each outer `UINT32` length prefix. A decoder MUST reject any of these fields when its declared or decoded payload length exceeds the limit.
+`MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. The payloads of `ChannelInscribe.Inscription`, `ChannelDeposit.Metadata`, and `SDPActive.Metadata` MUST each be at most `MAX_OPERATION_DATA_SIZE` bytes, excluding the outer `UINT32` length prefix. A decoder MUST reject any of these fields when its declared or decoded payload length exceeds the limit.
 
 ### SDP Operations
 
