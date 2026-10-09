@@ -390,7 +390,7 @@ This section specifies how a Logos Blockchain node executes a valid block propos
 Given a `ValidBlock` that has successfully passed proposal validation, the node must, in this order:
 
 1. Execute the reward distribution protocol defined in [**Service Reward Distribution Protocol**](bedrock-service-reward-distribution.md) to generate reward notes locally and include them in the ledger.
-2. Release the channel withdrawals whose due slot is reached, appending their notes to the ledger note set, as defined in [CHANNEL_WITHDRAW](bedrock-v1.1-mantle-specification.md#channel_withdraw).
+2. Apply the channel withdrawals whose due slot is reached and whose inputs are still unspent, as defined in [CHANNEL_WITHDRAW](bedrock-v1.1-mantle-specification.md#channel_withdraw).
 3. Execute the Mantle Transactions included in the block in the order they appear, using the execution rules defined in the [Mantle](bedrock-v1.1-mantle-specification.md).
 4. Insert the leader reward of the block in the ledger.
 

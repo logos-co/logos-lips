@@ -1,4 +1,4 @@
-to# BLOCK-REWARDS
+# BLOCK-REWARDS
 
 | Field | Value |
 | --- | --- |

@@ -9,6 +9,7 @@
 | v1 | Initial RFC | 2026-10-07 |
 | v2 | Notes live in note sets: a ledger, an SDP and one per channel, each with its commitment MMR and nullifier IMT, committed together in the eligible root of the Proof of Leadership. Channel notes are moved by the steps their holders sign, published by `CHANNEL_INSCRIBE`, and withdrawn by their holders. Removed the transparent channel and service notes, the transparent eligible set and the `is_shielded` selector, `CHANNEL_TRANSFER` and the channel `transfer_threshold`. `SDP_WITHDRAW` consumes the service note with a ZkTransfer | 2026-10-07 |
 | v3 | The spending, adding and transfer verification functions are methods of `NoteSet`. The recent commitment roots of a set keep their MMR peaks, to which `verify_transfer` appends the buffer of the Mantle Transaction. Two steps of an inscription cannot consume the same note | 2026-10-08 |
+| v4 | Operations append their outputs to the commitment buffer when validated, and a step can consume the outputs of an earlier step of its inscription. A channel withdrawal consumes its inputs at its due slot, only if they are still unspent, so a valid step cancels it. The withdrawal of a service note is proven against the root of an MMR holding only that note. The PoW ticket hashes the public key first | 2026-10-09 |
 
 ## Reviewer Orientation
 
@@ -19,7 +20,7 @@ Read the PR's Motivation first. The note sets in Mantle are the base every other
 | 1 | Critical | **Start here**: [Mantle](#affected-specifications), [note sets](#1-note-sets) | one commitment MMR and nullifier IMT per set; the 1024-block root window and the commitment buffer per set |
 | 2 | Critical | [Mantle](#affected-specifications), [channel Operations](#2-channel-notes-moved-by-their-holders) | steps bound to `step_msg` and verified on chain; holder withdrawals with `WITHDRAW_DELAY` |
 | 3 | Critical | **Start here**: [Proof of Leadership](#affected-specifications), [eligible root](#3-proof-of-leadership-over-the-eligible-root) | the eligible tree over the sets; the same set position for the aged and latest checks |
-| 4 | High | [Mantle](#affected-specifications), [SDP and proof of work](#4-sdp-stake-and-the-proof-of-work-claim) | the SDP note set; `single_note_root` binding the withdrawal to its service note; the unsigned PoW claim |
+| 4 | High | [Mantle](#affected-specifications), [SDP and proof of work](#4-sdp-stake-and-the-proof-of-work-claim) | the SDP note set; the single-note MMR root binding the withdrawal to its service note; the unsigned PoW claim |
 | 5 | High | [Block Construction](#affected-specifications), [leader reward and block execution](#5-leader-reward-paid-in-the-block) | `reward_key`, the reward note, the release of due withdrawals |
 | 6 | High | [Block Rewards](#affected-specifications), [Cryptoeconomics overview](#affected-specifications), [reward from the block's fees](#6-block-reward-from-the-blocks-own-fees) | `T = 1`, the integer reference, the 40% leader share plus tips |
 | 7 | High | [Mantle Transaction Encoding](#affected-specifications), [encoding](#7-encoding) | steps in `ChannelInscribe`, new payloads and proof variants |
@@ -39,7 +40,7 @@ Every note is private and lives in exactly one note set: the ledger, the SDP, or
 
 A channel note is spent only by its holder. Inside the channel, the holder signs a step, a ZkTransfer bound to `step_msg` rather than to the transaction, since it is signed before the transaction exists. The sequencers collect the steps and publish them in their inscriptions, and the ledger verifies every step. A sequencer orders the moves of its channel and can delay or drop a step, but cannot move a note, and cannot create value: every step is a verified, balanced ZkTransfer.
 
-Out of the channel, the holder withdraws alone. The notes leave the channel set at once and the outputs reach the ledger set `WITHDRAW_DELAY` slots later, so the Zone sees every exit before its value is spendable on the ledger.
+Out of the channel, the holder withdraws alone. The withdrawal takes effect `WITHDRAW_DELAY` slots later, only if its notes are still unspent: until then, an inscription can consume them with a valid step, which cancels it. A holder cannot invalidate an inscription carrying one of its steps by withdrawing the same note first.
 
 All the data of a step lands on chain: its nullifiers, its commitments and its proof. Steps are not compressed, so a channel costs the chain as much per move as the ledger does. Steps carry no `excess_value`, so a move inside a channel pays no fee from channel funds, and the fee of the inscription comes from its sequencer.
 
@@ -53,7 +54,7 @@ A ZkTransfer proves its inputs against a commitment root of their set from one o
 
 ## SDP stake
 
-The service note is created by the ledger in the SDP set, so it stakes like any note. Its withdrawal is proven against `single_note_root` of the declaration's service note, which ties the consumed nullifier to that note without exposing it in the circuit. The outputs reach the ledger set when the declaration is removed, as the stake is released today.
+The service note is created by the ledger in the SDP set, so it stakes like any note. Its withdrawal is proven against the root of an MMR holding only the declaration's service note, which ties the consumed nullifier to that note without exposing it in the circuit. The outputs reach the ledger set when the declaration is removed, as the stake is released today.
 
 ## Leader reward in the block
 
@@ -88,7 +89,7 @@ class NoteSet:
 
 class Ledger:
     sets: list[NoteSet]                              # ledger, SDP, then one per channel by creation
-    pending_withdrawals: list[(Slot, list[NoteCm])]
+    pending_withdrawals: list[(Slot, int, list[NoteNf], list[NoteCm])]
 ```
 
 - A channel gets the next note set when it is created, stored as `ChannelState.note_set`.
@@ -115,7 +116,7 @@ class Inscribe:
 - Each step carries a ZkTransfer with `msg = step_msg(step)`, a hash of its nullifiers and commitments under the DST `CHANNEL_STEP_V1`, and `excess_value = 0`. The `InscribeProof` holds the signer's Ed25519 signature and one ZkTransfer per step.
 - The steps are validated against the state the inscription is validated against, then applied in order to the channel note set. A channel being created carries no step.
 - `CHANNEL_DEPOSIT` consumes ledger notes and creates channel notes, `outputs` being commitments. Its `excess_value` pays fees.
-- `CHANNEL_WITHDRAW` is posted by the holder: a ZkTransfer consuming channel notes, its `outputs` released to the ledger set at the first block whose slot reaches `WITHDRAW_DELAY = 86,400` slots after it.
+- `CHANNEL_WITHDRAW` is posted by the holder with a ZkTransfer. At the first block whose slot reaches `WITHDRAW_DELAY = 86,400` slots after it, its inputs are consumed and its `outputs` created in the ledger set if the inputs are still unspent; otherwise it is dropped.
 - `CHANNEL_TRANSFER`, opcode `0x14`, and the channel `transfer_threshold` are removed.
 - Execution Gas: `EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_TRANSFER_GAS * len(steps)`, `EXECUTION_CHANNEL_WITHDRAW_GAS = 590`.
 
@@ -140,9 +141,9 @@ class ProofOfLeadershipPublic:
 ## 4. SDP stake and the proof of work claim
 
 - `SDP_DECLARE` consumes ledger notes with a ZkTransfer and appends the service note `Note(amount, derive_note_nonce(op_id, 0, amount, zk_id), zk_id)` to the SDP set. `DeclarationInfo` holds `service_note` and `withdraw_outputs`.
-- `SDP_WITHDRAW` carries `service_note_nf`, `outputs` and `excess_value`, with a ZkTransfer proven against `single_note_root(declare_info.service_note)` and the `provider_id`'s Ed25519 signature. Its outputs reach the ledger set at removal.
+- `SDP_WITHDRAW` carries `service_note_nf`, `outputs` and `excess_value`, with a ZkTransfer proven against `mmr_root([declare_info.service_note])` and the `provider_id`'s Ed25519 signature. Its outputs reach the ledger set at removal.
 - `SDP_ACTIVE` is signed by the `provider_id`.
-- `CLAIM_POW_REWARD` gains a `nonce`, its ticket is `zkhash(nonce, public_key, block_hash, epoch_nonce)`, its proof is empty, and its reward note goes to the ledger set.
+- `CLAIM_POW_REWARD` gains a `nonce`, its ticket is `zkhash(public_key, nonce, block_hash, epoch_nonce)`, its proof is empty, and its reward note goes to the ledger set.
 - Execution Gas: `EXECUTION_SDP_WITHDRAW_GAS = 649`, `EXECUTION_SDP_ACTIVE_GAS = 59`, `EXECUTION_CLAIM_POW_REWARD_GAS = 0`.
 
 ## 5. Leader reward paid in the block
@@ -199,10 +200,10 @@ The wallet keeps, for each note, its set, the commitment path inside its MMR pea
 # Implementation
 
 - [ ] Implement the note sets in the ledger: one commitment MMR, nullifier IMT, 1024 recent roots and transaction buffer per set, a new set per channel.
-- [ ] Implement the ZkTransfer circuit and its verifier, with buffer-extended roots and `single_note_root`.
+- [ ] Implement the ZkTransfer circuit and its verifier, with buffer-extended roots.
 - [ ] Switch Transfer, deposits and SDP declarations to nullifiers and commitments in the ledger set.
 - [ ] Add steps to `CHANNEL_INSCRIBE`, verify their ZkTransfers against `step_msg`, and apply them to the channel set.
-- [ ] Implement holder withdrawals and their release after `WITHDRAW_DELAY`.
+- [ ] Implement holder withdrawals, applied after `WITHDRAW_DELAY` if their inputs are still unspent.
 - [ ] Remove `CHANNEL_TRANSFER`, the channel `transfer_threshold`, the transparent channel and service notes, `LEADER_CLAIM`, the voucher set and the Proof of Claim verifier.
 - [ ] Create service notes in the SDP set, and consume them in `SDP_WITHDRAW` with a ZkTransfer.
 - [ ] Sign `SDP_WITHDRAW` and `SDP_ACTIVE` with Ed25519, and drop the proof of `CLAIM_POW_REWARD`.

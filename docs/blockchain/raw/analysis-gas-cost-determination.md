@@ -181,7 +181,7 @@ Execution: ~ 649k CPU cycles.
 - Verification that the declaration exist: negligible.
 - Verification of the Ed25519 signature: 59,200 cycles.
 - Verification of the ZkTransfer: 590,000 cycles.
-- Derivation of the root of the service note: 32 hashes, negligible.
+- Derivation of the MMR root of the service note: zkhashes, negligible.
 - Verification that the declaration wasn’t already withdrawn: negligible.
 - Verification of nonce incrementation: negligible.
 - Update declaration and insertion of the nullifier in the SDP note set: negligible.
