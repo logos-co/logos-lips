@@ -23,6 +23,10 @@
 |  | Description split into this RFC document and the PR body, per the current template. Removed the `T_era` history, the `/<network>/<era>/` identifiers, the frozen k, f and epoch length, the halting horizon, the resolved `CHAIN_ID` question, a fixed pre-existing defect and the references to other in-flight PRs. The approval of 2026-09-07 predates v4–v10, which change normative content, so approvals are collected again on v10. | 2026-10-06 |
 | v11 | Added the constraints the era arithmetic needs: epoch and slot lengths of at least 1, non-zero ratio denominators, and `slot(t)` defined from genesis on. Bounded Blend's Transition Period by the clock difference between honest nodes, `T ≥ T_M + T_C`, which replaces the weaker requirement in Bedrock Eras that `T` exceed that difference. Removed the corresponding open question and added the early-clock gap in its place. Approvals are collected on v11. | 2026-10-06 |
 | v12 | Covered the early-clock gap: Blend requires honest clocks to differ by less than one round, and in the last round of its epoch a node does not blacklist a neighbor for a proof of quota valid for the next epoch. The early-acceptance window is recorded as future investigation instead of an open question. Approvals are collected on v12. | 2026-10-06 |
+| v13 | Review round of 7–9 October. The specification is restructured into Introduction, Overview, Protocol and Details tiers: diagrams, a Protocol part per building block that opens with its objective, a walk through an era boundary, and reference code in Details for the era arithmetic, the fork digest, the transaction fork digest check, migration and the mempool. | 2026-10-09 |
+|  | The parameter record has a canonical encoding: a block version, a layout version, and Blend, Cryptarchia and Time sections that each start with a section version; ratios in lowest terms; the slot length in whole seconds. The slot activation coefficient's numerator is at least 1. | 2026-10-09 |
+|  | The rules of an era and a published era are defined, and an era's rules apply to every state its migration produces. A node migrates on demand: a block's parent state, an epoch's input state, and its tip's state, against which it re-validates its mempool whenever the tip or the era in force changes. Active messages and reward claims are verified under the era of the epoch they are for. | 2026-10-09 |
+|  | The horizon is removed. A node warns its operator when a peer advertises an unknown fork digest. A percent-encoded chain ID uses uppercase hexadecimal digits. These change normative content, so approvals are collected again on v13. | 2026-10-09 |
 
 ## Reviewer Orientation
 
@@ -30,7 +34,7 @@ Read the PR's Motivation first. Era 0 is the set of rules the specifications des
 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
-| 1 | Critical | **Start here**: [Bedrock Eras](../bedrock-eras.md) (Created), [details](#1-the-era-mechanism) | the whole mechanism: schedule and parameter record, `era(sl)` by summation, fork digests, the schedule-change consequence, migration, the transition period, transaction acceptance, the horizon warning |
+| 1 | Critical | **Start here**: [Bedrock Eras](../bedrock-eras.md) (Created), [details](#1-the-era-mechanism) | the whole mechanism: the Overview's diagrams and the Protocol's walk through an era boundary first; then the schedule and the versioned parameter record with its canonical encoding, the era arithmetic and fork digests as reference code, the schedule rules, migration with `migrate` and the rules that apply to its output, mempool re-validation, the transition period, transaction acceptance, and the warning on an unknown fork digest |
 | 2 | Critical | **Start here**: [Mantle](../bedrock-v1.1-mantle-specification.md) and [Mantle Transaction Encoding](../mantle-transaction-encoding.md), [details](#2-transaction-fork-digest) | `fork_digest` first in every transaction and inside its hash; the acceptance rule; recomputed transaction-hash vectors |
 | 3 | Critical | [Cryptarchia Protocol](../cryptarchia-v1-protocol.md), [details](#3-header-bedrock_version-removed-slot-first) | header loses `bedrock_version`, `slot` first; validation steps renumbered 1–9; `first_slot` and a monotone `commit` ([details](#4-consensus-parameters-across-eras)); same-era uncles ([details](#5-same-era-uncle-rule)); test vectors marked `TBD` |
 | 4 | Critical | [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md), [details](#3-header-bedrock_version-removed-slot-first) | header layout and encoding grammar; sizes 296, 360, proposal maximum 18,187 |
@@ -50,9 +54,9 @@ Chain data is read under the era of its slot. The network runs under the era of 
 ## Fork digests and the parameter record
 
 - Identifiers carry `F_n`, a hash of the genesis block ID, the chain ID and the era digests of the eras activated so far. Two releases that agree up to now share identifiers until their first differing epoch, and never again after it. Kademlia and identify carry the chain ID instead, so peer discovery works across boundaries.
-- Each era digest hashes the era's first epoch and its parameter record, as the implementation already does (logos-blockchain/logos-blockchain#3687). Hashing the parameters separates instances that share a genesis block but differ in a parameter. It also lets a release correct a pending era's parameters without moving its first epoch, and separates rival forks that pick the same epoch.
-- The cost is that the record is normative, and every activated era's record must be encoded byte for byte the same forever. The layout version keeps that possible when a later era changes the field list. `chain_id` is implied by the genesis block ID; it stays in the digest input to match the implementation.
-- The specified record follows the specifications' constants. It differs from the implementation's `EraParameters` in six places, each of which changes the digest. `faucet_pk` is dropped. `target_claim_per_block` duplicates `TARGET_CLAIMS_PER_BLOCK` and is dropped. `learning_rate` and `message_frequency_per_round` become ratios. `reward_pool_genesis`, a Genesis value, and `epoch_reward_genesis`, a derived value, are dropped. `min_stake` carries an epoch instead of a block-number timestamp. `slot_window` becomes `expected_blocks_per_window`, so the window follows f. These should be aligned before the next testnet release fixes its era-0 digest.
+- Each era digest hashes the era's first epoch number and its parameter record, as the implementation already does (logos-blockchain/logos-blockchain#3687). Hashing the parameters separates instances that share a genesis block but differ in a parameter. It also lets a release correct a pending era's parameters without moving its first epoch, and separates rival forks that pick the same epoch.
+- The cost is that the record is normative, and every activated era's record must be encoded byte for byte the same forever. Versions keep that possible: a block version, a layout version for the list of sections, and a version at the start of each section. The structure follows the versioned era declaration the implementation is adopting. With the block version in the record, two releases that disagree on an era's block layout get different fork digests instead of forking under one. `chain_id` is implied by the genesis block ID; it stays in the digest input to match the implementation.
+- The specified record follows the specifications' constants. It differs from the implementation's `EraParameters` in seven places, each of which changes the digest. `faucet_pk` is dropped. `target_claim_per_block` duplicates `TARGET_CLAIMS_PER_BLOCK` and is dropped. `learning_rate` and `message_frequency_per_round` become ratios. `reward_pool_genesis`, a Genesis value, and `epoch_reward_genesis`, a derived value, are dropped. `min_stake` carries an epoch instead of a block-number timestamp. `slot_window` becomes `expected_blocks_per_window`, so the window follows f. `slot_duration` is a whole number of seconds instead of seconds and nanoseconds, because every slot length the specifications use is whole seconds. These should be aligned before any network fixes its era-0 digest.
 
 ## Consensus parameters across eras
 
@@ -60,7 +64,7 @@ An era may change k, f, the epoch phases and the slot length, as agreed in revie
 
 ## Version fields removed
 
-Once the era follows from `slot`, the `bedrock_version` byte carries nothing, so it is removed. The header shrinks to 296 bytes and every block ID changes, which is possible only before genesis. The Blend message and Activity Proof `version` bytes go too, because the identifier a message arrives on, or the slot of the including block, already names the era. Two routing rules replace them: a message travels over the identifiers of the era in force when it was generated, and Blend forwards a received or processed message on the era of the connection it arrived on.
+Once the era follows from `slot`, the `bedrock_version` byte carries nothing, so it is removed. The block version in the era's parameter record names the block layout instead. The header shrinks to 296 bytes and every block ID changes, which is possible only before genesis. The Blend message and Activity Proof `version` bytes go too, because the identifier a message arrives on, or the slot of the including block, already names the era. Two routing rules replace them: a message travels over the identifiers of the era in force when it was generated, and Blend forwards a received or processed message on the era of the connection it arrived on.
 
 ## Fork choice under the common ancestor's era
 
@@ -72,26 +76,29 @@ The era overlap reuses Blend's Transition Period T, 30 rounds. It must cover the
 
 ## State at the boundary
 
-A block reads earlier-era state with the migrations applied. At the boundary a node migrates the state of its tip for the mempool and the new era's protocols. An epoch derives its values (Epoch State, `difficulty_blend`, `epoch_pow_reward`) under its own era, from state migrated to that era; values an earlier epoch derived are used as derived. The predecessor's last-epoch Activity Proofs, reward claims and `CLAIM_POW_REWARD` solutions are verified as the predecessor does, or that epoch's rewards would be lost.
+A node migrates state on demand, with one function. It validates a block against its parent's state migrated to the block's era. It derives an epoch's values (Epoch State, `difficulty_blend`, `epoch_pow_reward`) under the epoch's era, from state migrated to that era, and uses values an earlier epoch derived as derived. It re-validates its mempool against its tip's state migrated to the era in force, whenever the tip or the era in force changes. The state after a block is never replaced by a migrated copy, so a reorganization or a restart across a boundary migrates from the tip's own era, and nothing is migrated twice. Active messages and reward claims are verified under the era of the epoch they are for, because the rewards of an era's last epoch are claimed in the next era.
+
+An era's rules must apply to every state its migration produces. That rules out one case: a new rule that reads data only another new rule can create. An example is a new Blend that needs a new kind of SDP declaration. No migration can produce declarations that nodes have not yet made, and SDP takes a declaration into a snapshot two epochs after it is made. Such a change is staged over two eras. The first introduces the new SDP logic and leaves Blend unchanged. The second starts at least two epochs later and introduces the new Blend. A per-protocol activation delay inside one era would do the same, but the rules of a slot would then depend on more than its era, and one fork digest would no longer stand for one set of rules.
 
 ## Same-era uncle references
 
-A carried uncle is validated as a block of its own era, so a cross-era uncle would pull the predecessor's encoding and proof system into current-era validation. The rule costs nothing: the stake-inference window counts an uncle only when both it and the referencing block lie in the first `6k/f` slots of one epoch, and every era boundary is an epoch boundary. Its only effect is that blocks in an era's first 360 slots reference no uncle from before the boundary.
+A carried uncle is validated as a block of its own era, so a cross-era uncle would pull the previous era's encoding and proof system into current-era validation. The rule costs nothing: the stake-inference window counts an uncle only when both it and the referencing block lie in the first `6k/f` slots of one epoch, and every era boundary is an epoch boundary. Its only effect is that blocks in an era's first 360 slots reference no uncle from before the boundary.
 
 ## Changing a published schedule
 
-The schedule is embedded in the software because it must be known before any block of the new era exists. Two releases apply different rules from the first epoch whose era digest differs between their schedules, and the fork digest separates them from then on. A release may therefore postpone a pending era, or correct its parameters in place; nodes of the earlier release split off at the old epoch unless they upgrade. Changing a published era's code rules while keeping its first epoch and record is forbidden, because both populations would share one identifier and reject each other's blocks. So is publishing an entry, or changing one, whose epoch has begun: a node would hold state executed under the wrong era.
+The schedule is embedded in the software because it must be known before any block of the new era exists. Two releases apply different rules from the first epoch whose era digest differs between their schedules, and the fork digest separates them from then on. A release may therefore postpone a pending era, or correct its parameters in place. Nodes of the earlier release split off at the old epoch unless they upgrade. Changing a published era's rules while keeping its first epoch number and record is forbidden, because both populations would share one identifier and reject each other's blocks. A correction to a pending era's rules therefore moves its first epoch, unless it changes only the block layout, which a new block version in the record names. So is publishing an entry, or changing one, whose epoch has begun: a node would hold state executed under the wrong era.
 
-## Horizon as a warning
+## Outdated releases
 
-A node that misses an upgrade keeps running on the old rules. The fork digest isolates it from upgraded nodes, but nothing tells its operator, and its users keep trusting a minority chain. The horizon warns the operator once the clock passes `H`, and whenever a peer of the chain advertises a fork digest the node does not know. It does not halt the node: a halt would also stop the whole network if no release shipped before `H`.
+A node that misses an upgrade keeps running on the old rules. The fork digest isolates it from upgraded nodes, but nothing else tells its operator, and its users keep trusting a minority chain. Peer discovery does not depend on the fork digest, so the node keeps meeting upgraded peers, and it warns its operator when one advertises a fork digest it does not know. The warning does not halt the node.
 
-- **Rollout policy:** ship a release well before the `H` of the release it replaces, and start its era after that `H`. A new release can extend `H` without adding an era: same schedule, same fork digest.
-- **Emergency eras:** an era can start at the next epoch boundary, up to 648,000 slots (7.5 days) away at the reference parameters. Nodes that do not upgrade split off.
+The release horizon is removed. It was a constant past which a node warned, and it guessed at the next era instead of detecting it. It raised a false alarm whenever a release outlived it, and when a new era came first it only repeated the fork-digest warning. The warnings carry no consensus effect, so the specification keeps only the one that detects the actual condition.
+
+An emergency era can start at the next epoch boundary, up to 648,000 slots (7.5 days) away at the reference parameters. Nodes that do not upgrade split off.
 
 ## Transaction replay protection
 
-A transaction carries the fork digest in force when it was signed, inside its hash, so a transaction signed on one fork is invalid on another. A block of era m accepts `F_m`, and also `F_{m−1}` during era m's first epoch, so a transaction in flight at a boundary survives it. The review first proposed accepting any past digest. That would let a chain that did not upgrade, which keeps signing with the old digest, replay its transactions onto the real chain forever, and every era would have to keep every earlier transaction format. The Genesis transaction carries the zero digest, because every fork digest hashes the Genesis block. Each transaction grows by 32 bytes. Operation and note IDs do not change, because `op_id` hashes the operation alone.
+A transaction carries the fork digest in force when it was signed, inside its hash, so a transaction signed on one fork is invalid on another. A block of era m may include a transaction carrying `F_m`, and also `F_{m−1}` during era m's first epoch, so a transaction in flight at a boundary survives it. During that epoch, a transaction signed on a chain that did not upgrade can also be replayed onto the upgraded chain; after it, the old digest is rejected. The review first proposed accepting any past digest. That would let a chain that did not upgrade, which keeps signing with the old digest, replay its transactions onto the real chain forever, and every era would have to keep every earlier transaction format. The Genesis transaction carries the zero digest, because every fork digest hashes the Genesis block. Each transaction grows by 32 bytes. Operation and note IDs do not change, because `op_id` hashes the operation alone.
 
 ## SDP values as era parameters
 
@@ -99,7 +106,7 @@ No Operation sets the minimum stake or the service parameters; the Genesis Block
 
 ## Migration applied per chain
 
-Near the tip the chain is not final, so "the state at the boundary" is not a single thing. The migration is a pure function applied per chain, composing across eras without blocks. Purity makes a reorg across a boundary need no rule: each branch migrates independently. Caches, key pools and connections are not chain state; the transition period governs them. A heavy migration runs once per live fork tip, in the validation of the first new-era block. No concrete migration exists yet, because era 0 has no predecessor.
+Near the tip the chain is not final, so "the state at the boundary" is not a single thing. The migration is a pure function applied per chain, composing across eras without blocks. Purity makes a reorg across a boundary need no rule: each branch migrates independently. Caches, key pools and connections are not chain state; the transition period governs them. A heavy migration runs for each live fork tip when the first new-era block on it is validated, and for the local tip when the mempool is re-validated. An implementation can cache the result, because a migration depends on the recorded chain state alone. No concrete migration exists yet, because era 0 has no previous era.
 
 ## Genesis bootstrap and accretion
 
@@ -115,27 +122,35 @@ This PR precedes any launched network. Era 0 is today's rules. The identifier, h
 
 ## Open questions
 
-- Testnet's era-0 record: the Constants give testnet the specifications' values. If testnet runs other values, its record must list them.
 - Future investigation: an early-acceptance window. From a set number of rounds before its own boundary, a node would also accept proofs built on the next epoch's inputs, and connections on the next era's identifiers. This mirrors the transition period. A late node could then relay a next-epoch message instead of discarding it, and honest clocks could differ by more than one round.
 - No specification defines a canonical encoding of the recorded chain state: the checkpoint API serves it as an opaque blob. Checkpoint interoperability and migration test vectors need one.
 - Domain-separation tags stay `_V1`. Whether a construction changed in era n should take `_V<n>` is for the leads.
+- The implementation defers transaction replay protection to a later era (logos-blockchain/logos-blockchain#3692 was closed). Until it lands, a contentious fork at a boundary lets transactions replay across the two chains indefinitely. Whether the transaction fork digest ships at genesis, as specified, is for the leads.
 - Version-carrying file names (`bedrock-v1.1-*`, `cryptarchia-v1-*`) are not renamed.
-- Pre-existing defects noticed during review, left for separate PRs: the `SDP_ACTIVE` Mantle vector omits the `UINT32` metadata length prefix and still carries the removed Activity Proof `version` byte; a checkpoint carries no Epoch State, yet `compute_epoch_state` recurses to genesis for D; `H+1` overflows a `u32` epoch number at its maximum.
+- Pre-existing defects noticed during review, left for separate PRs: the `SDP_ACTIVE` Mantle vector omits the `UINT32` metadata length prefix and still carries the removed Activity Proof `version` byte; a checkpoint carries no Epoch State, yet `compute_epoch_state` recurses to genesis for D; the implementation computes ⌊k/f⌋ in floating point, which for some values is one less than the integer result the specification uses.
 
 # Details
 
 ## 1. The era mechanism
 
-[Bedrock Eras](../bedrock-eras.md) is the specification and should be read whole. Its sections:
+[Bedrock Eras](../bedrock-eras.md) is the specification and should be read whole. Its upper tiers:
 
-- **Notation:** `E_n`, the parameter record `P_n`, the epoch and slot lengths `L_n` and `Δ_n`, the era start slots `S_n` and times `τ_n`, `era(ep)`, `era(sl)`, `epoch(sl)`, `first_slot(ep)`, `slot(t)`, the era in force, the horizon `H`, the Transition Period `T`, the genesis block ID `G`, the era digest `D_n` and the fork digest `F_n`.
-- **Era Schedule:** an embedded list per network of (first epoch, parameter record), first epoch 0; the frozen within-k fork comparison; the consequence of two releases' schedules differing; no change to a published era's code rules in place, and no entry for an epoch that has begun.
-- **Era Parameters:** the record, a layout version followed by 33 fields in a fixed order, each holding a named constant of Blend, Cryptarchia, Total Stake Inference, SDP or Proof of Work; their encodings, with non-zero ratio denominators; epoch and slot lengths of at least 1; the SDP stores filled from the records; layout versioning.
-- **Interpreting Chain Data:** a block and everything it carries under `era(sl)`, except that a transaction is parsed under the era its fork digest names; `slot` first and unchanged in every era; the fork digest first in every transaction, and the acceptance rule; fork choice under the common ancestor's era; `commit` with the tip era's k; the startup and checkpoint-import halt; the mempool.
-- **Era Migration:** a function of the recorded chain state (Mantle validation state, PoW state, SDP snapshots); total; identity by default; applied per chain and at the boundary tip; epoch derivations under the epoch's era; predecessor last-epoch proofs.
-- **Era Transition Period:** the first `T` rounds after the era in force changes; both eras' identifiers; Blend messages validated under the arrival connection's era; afterwards the predecessor's identifiers dropped and open sync streams served to their end.
-- **Network Protocol Identity:** `/logos-blockchain/<fork_digest>/<protocol>`, and `/logos-blockchain/<chain_id>/<protocol>` for Kademlia and identify; generation, forwarding and publication rules.
-- **Horizon:** `H` no smaller than the last entry; warnings past `H` and on unknown peer fork digests.
+- **Introduction and Overview:** the purpose, then the mechanism in plain words with four diagrams on one worked example: slots, epochs and eras with migrations and transition periods; a node syncing blocks of three eras; two releases whose schedules split; an outdated release that warns on an unknown fork digest.
+- **Protocol:** one part per building block (schedule and parameter records, fork and era digests, chain data, chain state, network layer, outdated releases), each opening with its objective and linking to the Details section that governs it; a numbered walk through an era boundary; the state a node keeps.
+
+Its Details sections:
+
+- **Notation:** `E_n`, the parameter record `P_n`, the epoch and slot lengths `L_n` and `Δ_n`, `era(sl)`, `epoch(sl)`, `first_slot(ep)`, `slot(t)`, the era in force and the fork digest `F_n`, each pointing to the function that defines it.
+- **Parameters:** the era schedule.
+- **Era Schedule:** an embedded list per network of (first epoch number, parameter record), the first number 0; the frozen within-k fork comparison; the rules of an era and a published era; the consequence of two releases' schedules differing; no change to a published era's rules under its first epoch number and record, and no entry for an epoch that has begun.
+- **Era Parameters:** the record: a block version, a layout version, and Blend, Cryptarchia and Time sections that each start with a section version, holding 33 fields that each carry a named constant of Blend, Cryptarchia, Total Stake Inference, SDP or Proof of Work; its canonical encoding as reference code, with ratios in lowest terms and the slot length in whole seconds; the slot activation coefficient's numerator, the epoch length and the slot length at least 1; the SDP stores filled from the records; when a release defines a new block, layout or section version.
+- **Era Boundaries:** reference code for the epoch and slot lengths read from the record's sections, each era's first slot and start time, the era and epoch of a slot, the first slot of an epoch, the slot of a time in whole seconds, and the era in force.
+- **Fork Digest:** reference code for the era digest and the fork digest.
+- **Era of Chain Data:** a block and everything it carries under `era(sl)`, except that a transaction is parsed under the era its fork digest names; `slot` first and unchanged in every era; the fork digest first in every transaction, and the acceptance rule as reference code; fork choice under the common ancestor's era; `commit` with the tip era's k; the startup and checkpoint-import halt.
+- **Era Migration:** a function of the recorded chain state (Mantle validation state, PoW state, SDP snapshots); total; identity by default; the new era's rules apply to every state it produces; `migrate` as reference code, applied to the parent state of every validated block; the rules for values derived per epoch, with the Epoch State as an example; active messages and reward claims verified under the era of the epoch they are for.
+- **Era Change:** the mempool rule as reference code: transactions re-validated against the local chain tip's state migrated to the era in force, whenever the tip or the era in force changes; the Era Transition Period started at an era change.
+- **Era Transition Period:** the first `T` rounds after the era in force changes; both eras' identifiers; Blend messages validated under the arrival connection's era; afterwards the previous era's identifiers dropped and open sync streams served to their end.
+- **Network Protocol Identity:** `/logos-blockchain/<fork_digest>/<protocol>`, and `/logos-blockchain/<chain_id>/<protocol>` for Kademlia and identify, with the chain ID percent-encoded in uppercase hexadecimal; generation, forwarding and publication rules; the warning on a peer's unknown fork digest.
 
 ## 2. Transaction fork digest
 
@@ -226,7 +241,7 @@ A new validity condition in [Uncle References](../cryptarchia-v1-protocol.md#unc
 | Kademlia | `/logos-blockchain/<chain_id>/kad` |
 | Identify | `/logos-blockchain/<chain_id>/identify` |
 
-The testnet variants are gone, because the chain ID and the genesis block separate networks. The placeholders are defined in Bedrock Eras ([§1](#1-the-era-mechanism)).
+The per-network variants are gone, because the chain ID and the genesis block separate networks. The placeholders are defined in Bedrock Eras ([§1](#1-the-era-mechanism)).
 
 ## 8. Synchronization and checkpoints
 
@@ -253,17 +268,17 @@ Cryptarchia's §Versioning and Protocol Upgrades, which activated upgrades by bl
 
 - [x] Remove the `Version` header field and the Blend version bytes; put `slot` first ([logos-blockchain#3679](https://github.com/logos-blockchain/logos-blockchain/pull/3679))
 - [x] Era schedule with parameter records; era and fork digests; identifiers from the fork digest ([#3683](https://github.com/logos-blockchain/logos-blockchain/pull/3683), [#3687](https://github.com/logos-blockchain/logos-blockchain/pull/3687), [#3689](https://github.com/logos-blockchain/logos-blockchain/pull/3689))
-- [ ] Align `EraParameters` with layout version 1 of Era Parameters (the six differences in Discussion) and regenerate the era and fork digest vectors
-- [ ] Reject a schedule whose record has a zero ratio denominator, or an epoch or slot length below 1
-- [ ] Support more than one era: `era`, `epoch`, `first_slot` and `slot(t)` by summation; switch identifiers at the boundary, run both eras for `T` rounds, then drop the predecessor's, serving open sync streams to their end
+- [ ] Align the era record with Era Parameters (the seven field differences in Discussion, with the block, layout and section versions) and regenerate the era and fork digest vectors
+- [ ] Reject a schedule whose record has a ratio not in lowest terms or with a zero denominator, a slot activation coefficient with numerator 0, a fractional slot length, or an epoch or slot length below 1; compute ⌊k/f⌋ with integers
+- [ ] Support more than one era: `era`, `epoch`, `first_slot` and `slot(t)` by summation; switch identifiers at the boundary, run both eras for `T` rounds, then drop the previous era's, serving open sync streams to their end
 - [ ] Transaction fork digest: first field of every transaction, the acceptance rule, the zero digest at genesis, parsing by digest; reopen [#3692](https://github.com/logos-blockchain/logos-blockchain/pull/3692)
 - [ ] Fork choice under the common ancestor's era; `commit` with the tip era's k and a monotone `B_imm`
 - [ ] Same-era uncle validity, in validation and in `uncle_candidates`
-- [ ] Migration hook (identity for now), applied per block and to the tip at the boundary; epoch derivations under the epoch's era; predecessor last-epoch Activity Proofs, reward claims and `CLAIM_POW_REWARD`
+- [ ] Migration hook (identity for now), applied to the parent state of every validated block, and to the tip's state for mempool re-validation whenever the tip or the era in force changes; epoch derivations under the epoch's era; active messages and `CLAIM_POW_REWARD` verified under the era of the epoch they are for
 - [ ] Message routing: generated messages under the era in force at generation; received and processed Blend messages, and their broadcast payloads, on the arrival connection's era; accepted proposals and admitted transactions on the era-in-force topic
 - [ ] In the last round of an epoch, check a failing proof of quota against the next epoch's public input; if it passes, discard the message without closing the connection or blacklisting
 - [ ] Startup and checkpoint-import halt when an era from `era(sl_B_imm)` to the era in force is not implemented; checkpoint export and import under the checkpoint block's era
-- [ ] Horizon warnings: past `H`, and when a peer advertises an unknown fork digest
+- [ ] Warn the operator when a peer's identify message lists an identifier with an unknown fork digest
 - [ ] Regenerate the Cryptarchia test vectors marked `TBD`, and the `SDP_ACTIVE` operation and transaction-hash vectors with 229-byte Activity Proof metadata and the `UINT32` length prefix
 - [ ] Add or extend tests / test vectors that exercise the change, including a devnet schedule such as `[0, 3]` with an identity era
 - [ ] Verify the implementation matches this specification

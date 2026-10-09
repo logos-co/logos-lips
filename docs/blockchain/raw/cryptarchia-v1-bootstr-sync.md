@@ -156,7 +156,7 @@ def initial_block_download(peers, local_tree):
 
 ![Diagram](cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-81f6-bb41-fdbd8907329f.png)
 
-The downloaded blocks are validated and added to the local block tree using the fork choice rule determined above. Both block headers and block bodies must be validated. Each block is parsed and validated under the era of its slot ([Interpreting Chain Data](bedrock-eras.md#interpreting-chain-data)). The header validation rules are defined in [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation).
+The downloaded blocks are validated and added to the local block tree using the fork choice rule determined above. Both block headers and block bodies must be validated. Each block is parsed and validated under the era of its slot ([Era of Chain Data](bedrock-eras.md#era-of-chain-data)). The header validation rules are defined in [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation).
 
 If the node fails to catch up with at least one IBD peer (e.g., network error or invalid blocks), the node is terminated with an error, allowing the operator to restart the node with other IBD peers.
 
