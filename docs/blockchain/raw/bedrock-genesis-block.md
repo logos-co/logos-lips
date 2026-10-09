@@ -33,6 +33,7 @@
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
 | 1.2.0 | Seed the pow reward pool at genesis from the initial token distribution | 2026-09-08 |
 | 1.3.0 | Removed the `bedrock_version` header field and moved `slot` first, and set the `fork_digest` of the Genesis Mantle Transaction to zero ([Bedrock Eras](bedrock-eras.md)). | 2026-09-30 |
+| 1.4.0 | Set `block_slots` to hold the Genesis block at slot 0. | 2026-10-06 |
 
 # Introduction
 
@@ -319,7 +320,7 @@ The pow reward pool is initialized at the same time:
 1. `pow_reward_pool` is set to `POW_REWARD_POOL_GENESIS`, as described in [Initial Proof of Work Reward Pool](#initial-proof-of-work-reward-pool).
 2. `epoch_pow_reward` is derived from it by the computation given in [Reward Pool](proof-of-work.md#reward-pool), so that claiming is productive from the first epoch rather than waiting for the first refill.
 3. `difficulty_blend` is set to `BLEND_DIFFICULTY_BASE` for **epochs 0 and 1**, as given in [Blend Difficulty](proof-of-work.md#blend-difficulty): the value for an epoch is fixed at the preceding epoch's nonce snapshot from the load of the epoch before that, and no complete input epoch exists before epoch 2. The schedule begins with epoch 2's value, computed during epoch 1 from epoch 0's load.
-4. `difficulty_reward` is set to the genesis value given in [Reward Difficulty](proof-of-work.md#reward-difficulty), and `pow_nullifiers` is empty.
+4. `difficulty_reward` is set to the genesis value given in [Reward Difficulty](proof-of-work.md#reward-difficulty), and `pow_nullifiers` is empty. `block_slots` holds the Genesis block's `block_id` with slot 0.
 
 ## Cryptarchia Initialization
 

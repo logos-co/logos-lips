@@ -47,6 +47,7 @@
 | 1.15.0 | Add the `CLAIM_POW_REWARD` Operation and the proof of work state it is validated against; the reward pool and the difficulty controllers are specified in [Proof of Work](proof-of-work.md) | 2026-09-08 |
 | 1.16.0 | Gas Determination table updated for strict Ed25519 verification: channel Operations 56 → 59 Execution Gas per signature, `EXECUTION_SDP_DECLARE_GAS` 646 → 649, from [Gas Cost Determination](analysis-gas-cost-determination.md) 1.7.0 | 2026-09-24 |
 | 1.17.0 | Added the `fork_digest` field to the Mantle Transaction, accepted as defined in [Bedrock Eras](bedrock-eras.md). | 2026-10-06 |
+| 1.18.0 | Aligned the ledger and the proof of work state with [Chain State](bedrock-chain-state.md): a note keeps its leaf position, `pow_nullifiers` keeps the slot of each claim's referenced block, and a claim's referenced block is looked up in `block_slots`. | 2026-10-06 |
 
 # Introduction
 
@@ -155,7 +156,7 @@ def mandatory_fees(signed_tx: SignedMantleTx,
                    ledger: Ledger,
                    channels: dict[ChannelId, ChannelState],
                    permanent_storage_gas_price: TokenValue, # Given by Storage Market
-                   execution_gas_base_price: TokenValue) -> uint64:  # Given by Execution Market
+                   execution_base_fee: TokenValue) -> uint64:  # Given by Execution Market
     mantle_tx = signed_tx.tx
     permanent_storage_fees = checked_uint64(len(encode(signed_tx)) * permanent_storage_gas_price)
     tx_execution_gas = 0
@@ -165,7 +166,7 @@ def mandatory_fees(signed_tx: SignedMantleTx,
         # in the gas determination Appendix, against the state this
         # Operation is validated against
         tx_execution_gas += execution_gas(op, ledger, channels)
-    execution_base_fees = checked_uint64(tx_execution_gas * execution_gas_base_price)
+    execution_base_fees = checked_uint64(tx_execution_gas * execution_base_fee)
 
     return checked_uint64(execution_base_fees + permanent_storage_fees)
 ```
@@ -185,7 +186,7 @@ signed_tx = SignedMantleTx(
 )
 
 permanent_storage_gas_price: TokenValue # Given by Storage Market
-execution_gas_base_price: TokenValue    # Given by Execution Market
+execution_base_fee: TokenValue          # Given by Execution Market
 ```
 
 The state validation reads is not a fixed snapshot: it advances as the block is processed. A Mantle Transaction is validated against the state left by the Mantle Transactions preceding it in the block, as defined in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation), and validation and execution then follow one another Operation by Operation, in the order the Operations appear: the Operation at index `i` is validated against the state the Operations at indices `0` to `i-1` left, then executed to produce the state the Operation at index `i+1` is validated against. This is what the `ledger`, `channels`, `service_notes`, `declarations` and `voucher_nullifier_set` given to each Operation below denote.
@@ -229,7 +230,7 @@ Mantle validators will ensure the following:
     ```python
     tx_mandatory_fee = mandatory_fees(signed_tx,                        # uint64
                                       permanent_storage_gas_price,
-                                      execution_gas_base_price)
+                                      execution_base_fee)
     assert tx_mandatory_fee <= tx_balance
     tx_priority_tip = checked_uint64(tx_balance - tx_mandatory_fee)
     ```
@@ -370,7 +371,7 @@ Channels let their bridged funds keep participating in Proof of Stake. When a us
 
 **Ownership vs. staking power.** A `CHANNEL_DEPOSIT` separates the two rights that a normal note bundles together:
 
-- *Ownership* moves to the channel. The note is registered in the ledger's `channel_notes` set with the channel as its owner, and the channel keeps full control over it. The deposited notes are consumed and re-created identically: they keep their value and `ZkPublicKey`, receive a new `NoteId` derived from the deposit's `OpId`, and are registered as channel-owned. The channel is now the party responsible for the note.
+- *Ownership* moves to the channel. The note is registered in the ledger's `channel_notes` map with the channel as its owner, and the channel keeps full control over it. The deposited notes are consumed and re-created identically: they keep their value and `ZkPublicKey`, receive a new `NoteId` derived from the deposit's `OpId`, and are registered as channel-owned. The channel is now the party responsible for the note.
 - *Staking power* stays with the `ZkPublicKey` carried by the note. That key does not confer ownership. It only delegates the note's value for PoL creation. Whoever controls the key is the one allowed to turn the note into a PoL and collect the resulting rewards. On deposit this key is still the depositor's, so the user keeps the PoS participation power they had before bridging.
 
 Because the channel owns the note but does not hold the delegated key, the note earns rewards for the key holder, never for the channel itself.
@@ -1129,7 +1130,7 @@ proof: DeclarationProof
 min_stake: MinStake      # the (global) minimum stake setting
 ledger: Ledger           # the set of unspent notes
 service_notes: dict[NoteId, ServiceNote]
-declarations: dict[NoteId, DeclarationInfo]
+declarations: dict[DeclarationID, DeclarationInfo]
 ```
 
   *Validate*
@@ -1626,11 +1627,11 @@ Validators must maintain the following state to process proof of work Operations
 pow_reward_pool: TokenValue      # Reserve the rewards are paid from
 epoch_pow_reward: TokenValue     # Reward per claim, fixed for the epoch
 difficulty_reward: PowTarget     # the reward threshold, retargeted every block
-pow_nullifiers: set[zkhash]      # Spent solutions, retained for the acceptance window
-block_slots: dict[hash, SlotNumber]  # Slots of recently seen blocks, for the window check
+pow_nullifiers: dict[zkhash, SlotNumber]  # Spent ticket -> slot of the block its claim referenced
+block_slots: dict[hash, SlotNumber]       # block_id -> slot, for the chain's blocks in the acceptance window
 ```
 
-`PowTarget`, the acceptance window, and the maintenance of `pow_reward_pool`, `epoch_pow_reward` and `difficulty_reward` between blocks are specified in [Proof of Work](proof-of-work.md).
+`PowTarget`, the acceptance window, and the maintenance of `pow_reward_pool`, `epoch_pow_reward`, `difficulty_reward`, `pow_nullifiers` and `block_slots` between blocks are specified in [Proof of Work](proof-of-work.md).
 
 ### CLAIM_POW_REWARD
 
@@ -1662,17 +1663,16 @@ mantle_txhash: zkhash
 claim: ClaimPowRewardOp            # the CLAIM_POW_REWARD payload
 claim_proof: ZkSignature           # the op_proofs entry for this Operation
 
-current_slot: SlotNumber           # slot of the block including this claim
 epoch_nonce_current: zkhash        # Cryptarchia epoch nonce of the current epoch
 epoch_nonce_previous: zkhash       # and of the epoch before it
-WINDOW: SlotNumber                 # the acceptance window, in slots
 difficulty_reward: PowTarget       # retargeted every block
-pow_nullifiers: set[zkhash]        # spent solutions, retained for WINDOW
+pow_nullifiers: dict[zkhash, SlotNumber]
+block_slots: dict[hash, SlotNumber]
 pow_reward_pool: TokenValue
 epoch_pow_reward: TokenValue
 ```
 
-  The epoch nonces are the Cryptarchia epoch nonce $`\eta`$ of [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce), and `WINDOW` is derived in [Acceptance Window](proof-of-work.md#acceptance-window).
+  The epoch nonces are the Cryptarchia epoch nonce $`\eta`$ of [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce), and `block_slots` holds the blocks of the [acceptance window](proof-of-work.md#acceptance-window).
 
   *Validate*
 
@@ -1682,9 +1682,7 @@ assert epoch_pow_reward > 0
 assert pow_reward_pool >= epoch_pow_reward
 
 # 2. The referenced block must be canonical and within the acceptance window.
-block = get_block_from_hash(claim.block_hash)   # None if unknown or not canonical
-assert block is not None
-assert 0 <= current_slot - block.slot <= WINDOW
+assert claim.block_hash in block_slots
 
 # 3. The solution must have been found against the current or the previous epoch.
 assert claim.epoch_nonce in (epoch_nonce_current, epoch_nonce_previous)
@@ -1713,12 +1711,13 @@ puzzle_ticket: zkhash              # computed in validation step 4
 ledger: Ledger
 pow_reward_pool: TokenValue
 epoch_pow_reward: TokenValue       # fixed for the epoch
-pow_nullifiers: set[zkhash]
+pow_nullifiers: dict[zkhash, SlotNumber]
+block_slots: dict[hash, SlotNumber]
 ```
 
   *Execution*
 
-  1. Add `puzzle_ticket` to the `pow_nullifiers` set. The entry is retained until the claim's referenced block leaves the [acceptance window](proof-of-work.md#acceptance-window).
+  1. Insert `puzzle_ticket` into `pow_nullifiers` with the value `block_slots[claim.block_hash]` ([Acceptance Window](proof-of-work.md#acceptance-window)).
   2. Construct a single output note of value `epoch_pow_reward` under the public key given in the payload, and insert it into the Ledger:
       ```python
       output_note = Note(
@@ -1893,7 +1892,7 @@ def derive_note_id(op_id: Hash, output_number: int, note: Note) -> NoteId:
 
 `op_id` is a classical 256-bit hash digest and must be reduced to a field element before being passed to the ZkHasher. We apply a direct modular reduction mod `p` (via `FiniteField(..., modulus=p)`). Since $`p \approx2^{-254}`$, the reduction is slightly non-uniform, values in $`[0, 2^{256} \mod p)`$ appear one extra time, but this is inconsequential in practice: the collision probability remains around $`2^{-254}`$, and `NoteId` uniqueness is not derived from uniformity of `op_id` over $`𝔽_p`$ but from the collision-resistance of the underlying hash and per-operation payload uniqueness.
 
-These note identifiers uniquely define notes in the system and cannot be chosen by the user. Nodes maintain the set of notes through a dictionary mapping the NoteId to the note.
+These note identifiers uniquely define notes in the system and cannot be chosen by the user.
 
 ### Service notes
 
@@ -1903,16 +1902,18 @@ Service notes are special notes in Mantle that serve as collateral for Service D
 
 Channel notes are on-ledger notes minted to represent channel funds. They are distinct from Service Notes as they can’t be used to declare a service. However, they follow the same ageing rule as ordinary notes since they are part of the ledger and can be used for PoL creation once aged enough.
 
-The system maintains a `channel_notes` set in the Ledger tracking all active channel `NoteId` and their respective `ChannelId`.
+`channel_notes` maps the `NoteId` of each channel note to the `ChannelId` that owns it.
 
 ## Ledger
 
 ```python
 class Ledger:
-    notes: list[Note]
+    notes: dict[NoteId, LedgerNote]
     service_notes: dict[NoteId, ServiceNote]
     channel_notes: dict[NoteId, ChannelId]
 ```
+
+`LedgerNote` is defined in [Chain State](bedrock-chain-state.md#chain-state).
 
 ### Input Notes Spendability Validation
 
@@ -1952,14 +1953,13 @@ class Ledger:
 
 ### Consuming Input Notes Execution
 
-Consuming a set of notes removes them from the Ledger’s Merkle tree and recycles their leaf indices:
+Consuming a set of notes removes them from the Ledger and empties their leaves in the note tree ([Ledger Root](cryptarchia-proof-of-leadership.md#ledger-root)):
 
 ```python
 class Ledger:
     def execute_spending(inputs: list[NoteId], channel_id: ChannelId | None):
         for note_id in inputs:
-            # updates the merkle tree to zero out the leaf for this entry
-            # and adds that leaf index to the list of unused leaves
+            # empties the note's leaf
             ledger.remove(note_id)
             if channel_id is not None:
                 ledger.channel_notes.pop(note_id)
@@ -1967,14 +1967,15 @@ class Ledger:
 
 ### Creating Output Notes Execution
 
-Creating notes derives their `NoteId` from the Operation’s `OpId` and insert them in the Ledger:
+Creating notes derives their `NoteId` from the Operation’s `OpId`. Each note is inserted at the first empty leaf of the note tree ([Ledger Root](cryptarchia-proof-of-leadership.md#ledger-root)):
 
 ```python
 class Ledger:
     def execute_adding(op_id: Hash, outputs: list[Note], channel_id: ChannelId | None):
         for (output_index, output_note) in enumerate(outputs):
             output_note_id = derive_note_id(op_id, output_index, output_note)
-            ledger.add(output_note_id)
+            # records op_id, output_index and output_note, and fills the first empty leaf
+            ledger.add(output_note_id, op_id, output_index, output_note)
             if channel_id is not None:
                 ledger.channel_notes[output_note_id] = channel_id
 ```

@@ -24,6 +24,7 @@
 | 1.0.0 | Initial revision. | 2026-04-24 |
 | 1.1.0 | Changing from burning/minting to pooling/distributing/releasing, removing $`S_{tge}`$ | 2026-08-25 |
 | 1.2.0 | Count the proof of work reward pool as a fourth controlled stock, bound net circulating growth by the two stocks that drain, and state that the pooled fee is net of the share diverted to that pool | 2026-08-31 |
+| 1.3.0 | Defined the contents and order of `pooled_fees_window`, with entries below height 1 set to 0 | 2026-10-06 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -562,3 +563,5 @@ def block_reward(total_stake: int64, pooled_fees_window: list[int64]) -> tuple[i
 
     return blend_reward, leader_reward
 ```
+
+`pooled_fees_window` holds $`D_{1,\tau}`$ of the last $`T`$ blocks, oldest first and ending with the current block. An entry for a height below 1 is 0.
