@@ -112,15 +112,7 @@ OutputCount       = Byte
 Inputs            = InputCount *NoteId
 ```
 
-`MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. The value is chosen as seven eighths of the current 2 MiB capacity available to transaction data:
-
-```text
-2,097,152 * 7 / 8 = 1,835,008 bytes
-```
-
-This leaves 262,144 bytes of headroom for the remainder of a transaction, including transaction framing, other operations, inputs, and proofs. Overall transaction and block limits apply independently; satisfying this field-level bound does not by itself guarantee that a complete transaction fits. The limit is a concrete protocol value; Mantle parsing does not depend on importing the block-size constant.
-
-`UINT32` specifies the encoded byte-length prefix and does not define the maximum permitted payload size. Although a `UINT32` prefix can encode lengths up to `2^32 - 1`, the canonical encoded payloads of `ChannelInscribe.Inscription`, `ChannelDeposit.Metadata`, and `SDPActive.Metadata` MUST each be at most `MAX_OPERATION_DATA_SIZE` bytes. The payload size excludes the outer `UINT32` length prefix. A decoder MUST reject any of these fields when its declared or decoded payload length exceeds that limit.
+`MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. It applies to the canonical encoded payload bytes of `ChannelInscribe.Inscription`, `ChannelDeposit.Metadata`, and `SDPActive.Metadata`, excluding each outer `UINT32` length prefix. A decoder MUST reject any of these fields when its declared or decoded payload length exceeds the limit.
 
 ### SDP Operations
 

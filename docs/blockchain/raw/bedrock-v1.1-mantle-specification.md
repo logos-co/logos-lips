@@ -425,7 +425,6 @@ block_slot: Slot
   *Validate*
 
 ```python
-# Ensure the canonical encoded inscription payload, excluding its UINT32 length prefix, does not exceed the permitted size
 assert len(msg.inscription) <= MAX_OPERATION_DATA_SIZE
 
 if msg.channel in channels:
@@ -681,8 +680,6 @@ signed_tx = SignedMantleTx(
 
 Deposit notes to a channel. The inputs are consumed and re-created as channel notes under a new `NoteId`, which resets their ageing and prevents the deposit from being replayed after a withdrawal.
 
-The `metadata` field is opaque channel-specific data.
-
 #### Payload
 
 ```python
@@ -720,7 +717,7 @@ ledger: Ledger
 
   *Validate*
 
-  1. Ensure the canonical encoded metadata payload, excluding its `UINT32` length prefix, does not exceed `MAX_OPERATION_DATA_SIZE`.
+  1. Ensure the metadata payload, excluding its `UINT32` length prefix, does not exceed `MAX_OPERATION_DATA_SIZE`.
       ```python
       assert len(deposit.metadata) <= MAX_OPERATION_DATA_SIZE
       ```
@@ -1458,7 +1455,6 @@ declarations: dict[DeclarationID, DeclarationInfo]
   *Validate*
 
 ```python
-# active.metadata is the canonical encoded payload; its UINT32 length prefix is excluded.
 assert len(active.metadata) <= MAX_OPERATION_DATA_SIZE
 
 assert active.declaration in declarations
