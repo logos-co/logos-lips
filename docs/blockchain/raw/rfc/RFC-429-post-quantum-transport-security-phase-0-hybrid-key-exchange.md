@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | v1 | Initial PR description | 2026-08-28 |
 | v2 | Split into the PR description and this RFC document per the template; rebased on master, Blend Protocol row 1.2.2 → 1.5.1; Affected Specifications reduced to the two changed documents, the Service Declaration Protocol, Service Reward Distribution and Cryptarchia rows removed (their rationale stays in Discussion) | 2026-09-14 |
+| v3 | Hybrid only: the classical `X25519` fallback is dropped after review, so `X25519MLKEM768` is the only key exchange group a node offers or accepts; rebased on master, Blend Protocol row 1.5.1 → 1.6.1; the dependency constraint updated for the libp2p 0.57 release | 2026-10-09 |
 
 ## Reviewer Orientation
 
@@ -15,7 +16,7 @@ Read the PR's Motivation first: the PR does two things at once, and only one of 
 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
-| 1 | Critical | **Start here** — [P2P Network § Transport Security](#1-key-exchange-p2p-network--transport-security): Key Exchange | Two MUSTs: offer `X25519MLKEM768`, and prefer it. Check that retaining `X25519` keeps the network reachable during migration, and that the requirement names no library. |
+| 1 | Critical | **Start here** — [P2P Network § Transport Security](#1-key-exchange-p2p-network--transport-security): Key Exchange | One group: `X25519MLKEM768` is offered, and nothing else is offered or accepted. Check that the requirement names no library, and that dropping the classical fallback is acceptable for every implementation on the network. |
 | 2 | Critical | [P2P Network § Transport Security](#2-post-quantum-scope-p2p-network--transport-security): Post-Quantum Scope | The claim that nothing SDP-visible moves. This is what confines the change to one phase; if it is wrong, the phasing is wrong. |
 | 3 | High | [P2P Network § Transport Security](#3-handshake-and-peer-authentication-p2p-network--transport-security): Handshake, Peer Authentication | First normative statement of TLS version, cipher suites and the authentication model. Confirm it describes what is deployed rather than what we would like. |
 | 4 | Medium | [Blend Protocol § Connection Details](#4-connection-details-blend-protocol) | The one place that already specified connection security. Confirm the update loses nothing normative and that the privacy motivation is stated correctly. |
@@ -122,16 +123,32 @@ per byte sent. On the reference Pi 5, X25519 yields 5.2 µs/byte; ML-KEM-768
 yields 34 ns/byte — **150× less**. The larger wire objects, normally counted as
 the migration's price, are a defensive asset against flooding.
 
-## Interoperability and rollout
+## Why no classical fallback
 
-TLS negotiates the group, so a conforming node and a peer on the current stack
-agree on `X25519` with no special handling. There is no flag day, no coordinated
-upgrade and no version gate. Nodes gain the property as they upgrade, and the
-network is protected in proportion to adoption.
+Earlier revisions kept `X25519` as a second group so that a conforming node
+and a peer on the current stack could still connect. Review (PR #429) argued
+against it, and this revision drops it, for three reasons.
 
-This also means the property is obtained per-connection rather than
-network-wide, which the Post-Quantum Scope subsection states rather than
-leaving implicit.
+The property is the point. A node that also offers `X25519` obtains
+post-quantum confidentiality only on the connections where the peer supports
+the hybrid group, and a peer can always steer a handshake to the classical
+group by not offering the hybrid one. The motivation is harvest-now-decrypt-later
+protection, for Blend in particular, and "in proportion to adoption" is not a
+guarantee Blend can build on.
+
+There is nothing to migrate from. The network is in testnet, so rolling-upgrade
+compatibility with older Logos implementations is not a requirement, and other
+implementations are expected to follow the transport specification rather than
+the specification to follow what they currently ship.
+
+The stacks already support it. rustls offers the group and libp2p 0.57 enables
+it; the Nimbos QUIC stack is backed by BoringSSL, whose default group list
+starts with `X25519_MLKEM768`, so conforming there is a matter of restricting
+the offered groups and testing interoperability.
+
+The cost is that a peer without the group cannot connect at all, rather than
+connecting with classical security. In a testnet whose implementations are all
+expected to conform, that is the intended outcome.
 
 ## Why this does not touch the Service Declaration Protocol
 
@@ -165,14 +182,14 @@ justifies doing them in this order rather than together.
 
 ## 1. Key exchange (P2P Network § Transport Security)
 
-Nodes **MUST** offer `X25519MLKEM768` (IANA named group `0x11EC`) and **MUST**
-offer it as the most-preferred group. Nodes **MUST** continue to offer `X25519`.
+Nodes **MUST** offer `X25519MLKEM768` (IANA named group `0x11EC`), **MUST NOT**
+offer or accept any other key exchange group, and a handshake in which the peer
+offers no hybrid group **MUST** fail.
 
-Both are MUSTs, and the second is the one worth arguing. Requiring the group to
-be *offered* but only recommending it be *preferred* would permit a node to
-negotiate away the property this requirement exists to provide, silently and
-by configuration alone. The preference costs nothing in practice — it is already
-the default behaviour of the stacks that support the group.
+A single group rather than a preference order is the whole change from the
+previous revision. With more than one group offered, a node obtains the property
+only when its peer also prefers the hybrid group; with one, there is nothing to
+negotiate down to, and the requirement cannot be weakened by configuration.
 
 Key exchange material is ephemeral per handshake and **MUST NOT** be persisted,
 reused across connections, or transmitted outside the handshake. No new wire
@@ -184,9 +201,9 @@ States what the phase does not affect, as a table a reviewer can check rather
 than infer: the node identity signature, the certificate signature,
 `declaration_id`, locators, declaration size, SDP messages, service rewards,
 and the record-layer AEAD. Also states what is deliberately deferred
-(authentication, until the next phase), the downgrade behaviour that
-interoperability requires, and why the larger handshake is not an amplification
-concern on QUIC.
+(authentication, until the next phase), that no classical-only group is offered
+and therefore no downgrade exists, and why the larger handshake is not an
+amplification concern on QUIC.
 
 ## 3. Handshake and peer authentication (P2P Network § Transport Security)
 
@@ -216,53 +233,37 @@ distinguished instead of conflated.
 
 # Implementation
 
-- [ ]  Adopt a transport configuration that offers `X25519MLKEM768` as the
-       preferred group while retaining `X25519`.
+- [ ]  Adopt a transport configuration that offers `X25519MLKEM768` and no
+       other group (logos-blockchain#3768 adopts the provider; its classical
+       fallback is to be removed).
 - [ ]  Assert the negotiated group in a test rather than relying on a library
        default.
-- [ ]  Verify that a conforming node and a peer on the current stack negotiate
-       `X25519` successfully.
+- [ ]  Verify that a handshake with a peer offering only `X25519` fails.
 - [x]  Measure the QUIC handshake, classical against hybrid: datagrams, first
        flight, flight structure
        ([`tools/benchmarks/pq-transport/quic-handshake`]).
 - [ ]  Record the build implications of the crypto provider change: a C
        toolchain is required, so check cross-compilation and container images.
 - [ ]  Verify the implementation matches the specification: TLS 1.3 only, the
-       hybrid group offered and preferred, `X25519` retained, no key exchange
-       material persisted.
+       hybrid group the only one offered or accepted, no key exchange material
+       persisted.
 
-## Known constraint: no released dependency offers the group yet
+## Dependency
 
-Recorded so this is not read as deployable today. This is a constraint rather
-than a decision — the mechanism is an engineering call and the specification
-deliberately mandates no stack.
-
-rust-libp2p fixes its TLS crypto provider to `ring`, which ships no ML-KEM.
-Upstream merged the change to a provider that has it
-([rust-libp2p#6568](https://github.com/libp2p/rust-libp2p/pull/6568), 2026-07-31),
-but no released version carries it: `libp2p-tls` is 0.6.2 (2025-06-27) and
-`libp2p` 0.56.0, while master has moved to 0.7.0 / 0.14.0.
-
-| option | available | cost |
-| --- | --- | --- |
-| depend on upstream master | now | unreleased code; the whole tree moves off crates.io; manual revision tracking |
-| wait for a release | unknown | 0.56.0 shipped 2025-06-27 |
-| ask upstream to cut one | — | free to ask; the change is merged and go-libp2p already ships the equivalent |
-| fork and patch | now | narrow, but two crates to patch and a fork to maintain |
-
-Patching `libp2p-tls` alone does not work: `libp2p-quic` 0.13.1 requires
-`libp2p-tls ^0.6` and master is 0.7.0.
-
-The QUIC measurement above required an equivalent dependency regardless, so the
-production mechanism does not have to be settled before the specification is
-agreed.
+When this RFC was first written, no released rust-libp2p carried a TLS crypto
+provider with ML-KEM: upstream had merged the change
+([rust-libp2p#6568](https://github.com/libp2p/rust-libp2p/pull/6568)) but
+`libp2p` 0.56 still fixed the provider to `ring`. libp2p 0.57 has since been
+released with the aws-lc-rs provider, and the node adopts it in
+logos-blockchain#3768. The specification still mandates no stack; the
+provider is an engineering choice, and a C toolchain is now part of the build.
 
 # Affected Specifications
 
 | Specification | Status | Note |
 | --- | --- | --- |
-| [P2P Network](../../draft/p2p-network.md#transport-security) | Modified | 1.0.1 → 1.1.0; new Transport Security section: the canonical TLS configuration of the stack, including the hybrid key exchange requirement |
-| [Blend Protocol](../blend-protocol.md#connection-details) | Modified | 1.5.0 → 1.5.1; Connection Details follows the new section and states the hybrid requirement with its privacy motivation |
+| [P2P Network](../../draft/p2p-network.md#transport-security) | Modified | 1.0.1 → 1.1.0; new Transport Security section: the canonical TLS configuration of the stack, with `X25519MLKEM768` as the only key exchange group |
+| [Blend Protocol](../blend-protocol.md#connection-details) | Modified | 1.6.0 → 1.6.1; Connection Details follows the new section and states the hybrid requirement with its privacy motivation |
 
 [P2P Network]: ../../draft/p2p-network.md
 [Blend Protocol]: ../blend-protocol.md
