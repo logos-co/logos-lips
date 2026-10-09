@@ -37,7 +37,7 @@
 | 1.6.0 | Replaced the per-window statistical threshold on a connection with a share of messages a node reads from, and sends on, each connection in a round, and a liveness test, kept per identity for the epoch, on whether a neighbor delivers. Held the peering degree in live connections, at least two of them opened by the node. Restricted blacklisting to attributable faults. Sized the shares from the processing rate of the slowest node, derived the transactions the network carries from them, and made that rate the reference load of the Blend difficulty. | 2026-09-08 |
 | 1.6.1 | Corrected Blend activity metadata to the canonical tagged encoding: removed the separate version byte and corrected the total size to 229 bytes. | 2026-10-13 |
 | 1.6.2 | The node count and the neighbor distinction read the `provider_id`s of the Blend declarations, which the Service Declaration Protocol keeps unique | 2026-10-27 |
-| 1.6.3 | Updated Connection Details to follow [Transport Security](../draft/p2p-network.md#transport-security) and require the hybrid post-quantum key exchange. | 2026-10-28 |
+| 1.6.3 | Updated Connection Details to follow [Transport Security](../draft/p2p-network.md#transport-security) and require the hybrid post-quantum key exchange as the only key exchange group. | 2026-10-28 |
 
 # Introduction
 
@@ -507,7 +507,7 @@ Implementations should choose a default based on the deployment they operate in,
 
 ### Connection Details
 
-The connections are established using libp2p with TLS version 1.3 (not older), following the transport security configuration of the network — the peer authentication model (Ed25519 node identity) and the key exchange — as specified in [Transport Security](../draft/p2p-network.md#transport-security). As of the first post-quantum phase, the key exchange is the hybrid group `X25519MLKEM768`, with `X25519` retained for interoperability. Blend is the sharpest reason for the hybrid requirement: traffic recorded today and decrypted by a future quantum adversary would retroactively degrade the privacy this protocol provides. The libp2p protocol name is `/logos-blockchain/blend/1.0.0` for mainnet and `/logos-blockchain-testnet/blend/1.0.0` for testnet.
+The connections are established using libp2p with TLS version 1.3 (not older), following the transport security configuration of the network — the peer authentication model (Ed25519 node identity) and the key exchange — as specified in [Transport Security](../draft/p2p-network.md#transport-security). As of the first post-quantum phase, the key exchange is the hybrid group `X25519MLKEM768`, and no classical-only group is offered. Blend is the sharpest reason for the hybrid requirement: traffic recorded today and decrypted by a future quantum adversary would retroactively degrade the privacy this protocol provides. The libp2p protocol name is `/logos-blockchain/blend/1.0.0` for mainnet and `/logos-blockchain-testnet/blend/1.0.0` for testnet.
 
 ### Neighbor Distinction Process
 
