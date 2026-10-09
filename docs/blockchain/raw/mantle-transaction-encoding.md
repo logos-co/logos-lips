@@ -34,6 +34,7 @@
 | 1.7.0 | Added the `ChannelConfigOpProof` and `ChannelTransferOpProof` variants and factored the three channel threshold proofs into `ChannelMultiSigProof`, carrying the index of the signing key alongside each signature | 2026-08-31 |
 | 1.8.0 | Added the `ClaimPowReward` Operation payload; its proof is a `ZkSigProof` | 2026-09-08 |
 | 1.9.0 | Swap Ed25519Signature and SignerIndex order in IndexedSignature | 2026-10-01 |
+| 1.10.0 | Introduced a shared maximum operation data payload size for channel inscriptions, channel deposit metadata, and SDP activity metadata; retained their `UINT32` length prefixes | 2026-10-06 |
 
 # Introduction
 
@@ -85,7 +86,7 @@ OpPayload = Transfer /
 
 ```schema
 ChannelInscribe = ChannelId Inscription Parent Signer
-Inscription     = UINT32 *BYTE 
+Inscription     = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes
 
 ChannelConfig     = ChannelId Parent KeyCount *Signer PostingTimeframe PostingTimeout ConfigThreshold TransferThreshold
 KeyCount                   = UINT16
@@ -94,10 +95,10 @@ PostingTimeout             = UINT32
 ConfigThreshold            = UINT16
 TransferThreshold          = UINT16
 
-ChannelDeposit    = ChannelId Inputs Metadata
-Inputs            = InputCount *NoteId
-InputCount        = Byte
-Metadata          = UINT32 *BYTE
+ChannelDeposit   = ChannelId Inputs DepositMetadata
+Inputs           = InputCount *NoteId
+InputCount       = Byte
+DepositMetadata  = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes
 
 ChannelTransfer = ChannelId Inputs Outputs
 
@@ -110,6 +111,8 @@ Outputs           = OutputCount *Note
 OutputCount       = Byte
 Inputs            = InputCount *NoteId
 ```
+
+`MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. The payloads of `ChannelInscribe.Inscription`, `ChannelDeposit.Metadata`, and `SDPActive.Metadata` MUST each be at most `MAX_OPERATION_DATA_SIZE` bytes, excluding the outer `UINT32` length prefix. A decoder MUST reject any of these fields when its declared or decoded payload length exceeds the limit.
 
 ### SDP Operations
 
@@ -127,8 +130,8 @@ SDPWithdraw   = DeclarationId Nonce ServiceNoteId
 DeclarationId = Hash32
 Nonce         = UINT64
 
-SDPActive     = DeclarationId Nonce Metadata
-Metadata      = UINT32 *BYTE  ; Service-specific node activeness metadata
+SDPActive        = DeclarationId Nonce ActivityMetadata
+ActivityMetadata = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes; service-specific node activeness metadata
 ```
 
 ### Leader operations
