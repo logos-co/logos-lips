@@ -22,8 +22,8 @@ so a peer's eligibility does not depend on which node evaluates it.
 The record is never shared,
 never ranks peers,
 and never weights selection.
-Eligibility excludes few of the peers a node has discovered,
-so restricting path selection to the eligible ones
+In a deployment where most discovered peers are eligible,
+restricting path selection to them
 neither concentrates forwarding load
 nor varies from sender to sender beyond the variation discovery already produces.
 The record admits only current members of the DoS protection mechanism to path selection,
@@ -314,10 +314,16 @@ implicates its path as a whole and no hop in particular.
 
 Loop outcomes MUST NOT affect eligibility or service,
 and a missing return MUST NOT be attributed to any single hop.
-A single dropped loop says only that some hop dropped it,
-and local statistics cannot separate a dropping hop from an honest hop that shares paths with it
-([Section 7.3](#73-manipulating-observations)).
-Isolating one requires evidence pooled across nodes,
+A loop outcome is an observation,
+and eligibility depends on global inputs only ([Section 4.3](#43-eligibility)):
+an adversarial peer that drops one node's loops and forwards another's normally
+would be eligible at one and not at the other,
+allowing the adversary to steer path selection
+([Section 7.4](#74-steering-path-selection)).
+Nor can a loop outcome justify refusing service:
+refusal guards a node against invalid traffic it receives,
+and a dropped loop is not invalid traffic.
+Loop outcomes could inform eligibility only as evidence pooled across nodes,
 as in [Miranda](https://www.usenix.org/conference/usenixsecurity19/presentation/leibowitz),
 which this specification leaves to future work ([Section 9](#9-future-work)).
 A node MAY record loop outcomes for its own diagnostics.
@@ -481,7 +487,7 @@ A strategy MUST NOT use any field of the record other than the eligible bit.
 ### 5.2 With Cover Traffic
 
 The record takes no input from cover traffic and alters no part of it.
-Loop outcomes are excluded for the reason given in [Section 4.2.3](#423-loop-return-outcomes);
+Loop outcomes are excluded for the reasons given in [Section 4.2.3](#423-loop-return-outcomes);
 a node that records them for diagnostics needs each loop's path and whether it returned.
 
 ### 5.3 With DoS Protection
