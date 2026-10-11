@@ -217,11 +217,11 @@ A deployment MUST provide a mechanism with the following properties.
 | Property | Requirement |
 | --- | --- |
 | Binding | An attestation binds one mix identity to one current membership of the DoS protection mechanism, and MUST be producible only by a node that controls that identity. |
-| Uniqueness | One membership MUST yield at most one attested mix identity for the life of that membership. Two valid attestations carrying the same handle MUST be verifiable evidence ([Section 4.2.1](#421-verifiable-evidence)), so that the membership is made ineligible at every node and not at the detecting node alone. |
+| Uniqueness | One membership MUST yield at most one attested mix identity for the life of that membership. Two valid attestations carrying the same handle for different mix identities MUST be verifiable evidence ([Section 4.2.1](#421-verifiable-evidence)), so that the membership is made ineligible at every node and not at the detecting node alone. |
 | Independent verifiability | Any node MUST be able to verify an attestation from the membership state it already holds, without trusting whoever relayed it, and without contacting the peer or the registry. |
 | Minimal disclosure | An attestation MUST reveal nothing about the membership beyond its handle: not the registry entry, not the stake, not the account that funded it. |
 | Handle | An attestation MUST carry a handle: an identifier determined by the membership and stable for its life, so the peer cannot change it without registering again. Verifiable evidence attaches to a peer through it ([Section 4.2.1](#421-verifiable-evidence)). |
-| Bounded expiry | An attestation MUST stop verifying within a bound of its membership ending, expressed in time or in membership updates. The bound belongs to the mechanism and sets how long a node stays eligible after its membership ends. A deployment whose bound is counted in updates MUST advance its membership state often enough to bound it in time as well. |
+| Bounded expiry | An attestation MUST stop verifying within a bound of its membership ending. The bound belongs to the mechanism and sets how long a node stays eligible after its membership ends. Where a membership's ending takes effect only when it is removed from the membership state, a deployment MUST apply removals often enough to bound it in time. |
 | Availability before contact | An attestation MUST be obtainable for a discovered peer before any packet is routed through it, because path selection precedes contact ([Section 5.1](#51-with-path-selection)). |
 
 A peer's attestation MUST be carried
@@ -230,7 +230,8 @@ on the same channel by which the DoS protection mechanism already carries eviden
 Discovery gives each node a partial sample of the network ([Section 2](#2-terminology)),
 so a duplicate presented to two parts of it might otherwise meet at no node at all.
 Published, every node can verify every attestation,
-and two valid attestations under one handle are evidence wherever they appear.
+and two valid attestations under one handle for different mix identities
+are evidence wherever they appear.
 
 A construction of the following form is RECOMMENDED:
 the peer proves in zero knowledge,
@@ -238,6 +239,8 @@ against the membership state every node already holds,
 that it holds a membership in the DoS protection mechanism's set;
 the proof is bound to the peer's mix identity and signed under it;
 and the handle is derived from the membership secret.
+A node accepts such a proof against any membership state since the last removal,
+so that adding members does not invalidate it ([Section 4.3](#43-eligibility)).
 This satisfies every property above:
 a verifier learns that the peer is a member and nothing more,
 the peer cannot change its handle without registering again,
@@ -360,9 +363,13 @@ because evidence reaches a node before the membership state that removes the mem
 
 Eligibility is evaluated when the peer is discovered,
 when it publishes a new attestation,
-and when verifiable evidence about it arrives.
-A node MUST re-verify the attestations it holds whenever its membership state updates,
-since an attestation ceases to verify once that state advances past it.
+when verifiable evidence about it arrives,
+and when the membership state removes a member.
+Adding members MUST NOT cause an attestation to cease to verify.
+Removing a member causes every attestation proved against an earlier membership state to cease to verify,
+since an attestation does not reveal which membership it proves.
+A deployment SHOULD apply removals at a fixed interval,
+so that peers publish new attestations once per interval.
 A peer that becomes ineligible on `slashed` stays ineligible for the life of that membership.
 
 ### 4.4 Service
@@ -423,6 +430,7 @@ and a set of misbehavior counters,
 whose fields are the node's own observations and the service decision they yield.
 A node also holds two node-level sets:
 the handle and identity of each published attestation it has verified ([Section 4.1](#41-membership-attestation)),
+retained while that handle's membership lasts so that a second identity under it is detected,
 and the handles it holds evidence against ([Section 4.2.1](#421-verifiable-evidence)).
 
 ```text
