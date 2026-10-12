@@ -24,7 +24,7 @@
 
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
-| 1.0.0 | Initial revision. | 2026-09-01 |
+| 1.0.0 | Initial revision. | 2026-10-12 |
 
 # Introduction
 
@@ -43,6 +43,11 @@ A transaction is admitted, disseminated, offered to block building, and retired.
 | Constant | Name | Description | Value |
 | --- | --- | --- | --- |
 | `TRANSACTION_TTL` | Transaction Time To Live | How long a transaction may stay pending before it is retired. | 24 hours |
+| `CLAIM_GRACE` | Claim Grace | How many slots a claim stays pending after its acceptance window closes. | `2 * WINDOW` |
+
+`WINDOW` is defined in [Acceptance Window](proof-of-work.md#acceptance-window).
+
+`CLAIM_GRACE` must exceed the time, in slots, that a block proposal takes to reach every node. Otherwise a node can retire a claim before a proposal that selected it in the last slot of its acceptance window arrives.
 
 ## Mempool State
 
@@ -52,11 +57,14 @@ class Mempool:
     bodies: Map[TxHash, SignedMantleTx] # transaction bodies
     admitted_at: Map[TxHash, Timestamp] # admission time, per pending transaction
     by_prefix: Map[bytes, Set[TxHash]]  # pending hashes, keyed by reference prefix
+    highest_slot: SlotNumber            # highest slot in the block tree
 ```
 
 A transaction is keyed by `mantle_txhash(tx)`, defined in [Mantle](bedrock-v1.1-mantle-specification.md#mantle-transaction-hash).
 
 `by_prefix` maps `prefix(hash, REFERENCE_PREFIX_LENGTH)` to the pending hashes carrying that prefix, where `REFERENCE_PREFIX_LENGTH` is defined in [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md#references).
+
+`highest_slot` is the highest slot of any block that [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance) has added to the node's block tree.
 
 ## Transaction Admission
 
@@ -78,6 +86,9 @@ def admit(mempool, encoded: bytes) -> Result:
     if key in mempool.pending:
         return Duplicate(key)
 
+    if claim_expired(mempool, tx):
+        return Reject(ExpiredClaim)
+
     mempool.bodies[key] = tx
     mempool.admitted_at[key] = now()
     mempool.pending.add(key)
@@ -85,9 +96,9 @@ def admit(mempool, encoded: bytes) -> Result:
     return Accept(key)
 ```
 
-Admission reads the transaction and the mempool, and no other state. A node must not treat membership of the mempool as evidence that a transaction can be applied.
+Admission reads the transaction, the mempool and the node's block tree, and no other state. A node must not treat membership of the mempool as evidence that a transaction can be applied.
 
-`MAX_BLOCK_SIZE` is defined in [Cryptarchia Protocol](cryptarchia-v1-protocol.md#constants).
+`MAX_BLOCK_SIZE` is defined in [Cryptarchia Protocol](cryptarchia-v1-protocol.md#constants). `claim_expired` is defined in [Expired Claim](#expired-claim).
 
 ### Decoding
 
@@ -156,7 +167,7 @@ How a validator uses the result, and what a failure to resolve establishes about
 
 ## Retirement
 
-A transaction leaves `pending` for one of three reasons.
+A transaction leaves `pending` for one of four reasons.
 
 ### Inclusion in a Canonical Block
 
@@ -170,17 +181,35 @@ A transaction that the applicability determination of [Block Building View](#blo
 
 A pending transaction whose age exceeds `TRANSACTION_TTL` is retired.
 
+### Expired Claim
+
+A claim is the payload of a `CLAIM_POW_REWARD` Operation, defined in [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward).
+
+```python
+def claim_expired(mempool, tx) -> bool:
+    slots = [block_slot(claim.block_hash) for claim in claims(tx)]
+    known = [slot for slot in slots if slot is not None]
+    if not known:
+        return False
+    # One claim the ledger rejects invalidates the whole transaction, so the
+    # earliest referenced block decides. A block at slot s + WINDOW is the last
+    # that can include a claim referencing a block at slot s.
+    return mempool.highest_slot >= min(known) + WINDOW + 1 + CLAIM_GRACE
+```
+
+A pending transaction for which `claim_expired` holds is retired.
+
+`claims(tx)` is the list of claims in `tx`. `block_slot(h)` is the slot of the block with hash `h` in the node's block tree, or `None` if the block tree holds no such block.
+
 ### Effects of Retirement
 
 Retirement removes the hash from `pending` and from `by_prefix`, and discards its `admitted_at` entry and its body.
-
-A retired transaction that is gossiped again is admitted again.
 
 ## Persistence and Recovery
 
 A node persists the pending hashes, their admission timestamps, and the transaction bodies.
 
-A node does not persist `by_prefix`. It rebuilds the index from the recovered pending set.
+A node does not persist `by_prefix` or `highest_slot`. It rebuilds `by_prefix` from the recovered pending set and `highest_slot` from its block tree.
 
 ## Node API
 
@@ -201,3 +230,4 @@ A node exposes the mempool to local clients through endpoints that carry no cons
 - [Mantle Transaction Encoding](mantle-transaction-encoding.md)
 - [Network Wire Format](network-wire-format.md)
 - [P2P Network](../draft/p2p-network.md)
+- [Proof of Work](proof-of-work.md)
