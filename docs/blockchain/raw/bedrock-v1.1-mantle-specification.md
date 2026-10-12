@@ -387,7 +387,8 @@ Write a message to a channel with the message data being permanently stored on t
 class ChannelStep:
     inputs: list[NoteNf]        # nullifiers of the consumed channel notes
     outputs: list[NoteCm]       # commitments of the created channel notes
-    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set
+    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set,
+                                # extended with the tx_cm_buffer of the set for the proof
 
 class Inscribe:
     channel: ChannelId       # 32 bytes Channel being written to
@@ -664,7 +665,8 @@ A Zone that credits a deposit in its own state must be sure the deposit really l
 class ChannelDeposit:
     channel: ChannelId
     inputs: list[NoteNf]        # nullifiers of the consumed notes of the ledger note set
-    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the ledger note set
+    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the ledger note set,
+                                # extended with the tx_cm_buffer of the set for the proof
     outputs: list[NoteCm]       # commitments of the created notes of the channel note set
     excess_value: TokenValue    # the excess to pay the fees
     metadata: bytes
@@ -758,7 +760,8 @@ WITHDRAW_DELAY: Slot = 86_400  # 1 day
 class ChannelWithdraw:
     channel: ChannelId
     inputs: list[NoteNf]        # nullifiers of the consumed notes of the channel note set
-    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set
+    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set,
+                                # extended with the tx_cm_buffer of the set for the proof
     outputs: list[NoteCm]       # commitments of the notes created in the ledger note set
     excess_value: TokenValue    # the excess to pay the fees
 ```
@@ -1365,7 +1368,8 @@ class Transfer:
     inputs: list[NoteNf]  		# the list of consumed note nullifiers
                           		# must be non-empty
     outputs: list[NoteCm]       # the list of created note commitments
-    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of commitments
+    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the ledger note set,
+                                # extended with the tx_cm_buffer of the set for the proof
     excess_value: TokenValue	# the excess to pay the fees
 ```
 
@@ -1652,11 +1656,11 @@ class ZkTransferPublic:
     inputs: list[NoteNf]       # (len = 4)
     outputs: list[NoteCm]      # (len = 8)
     excess_value: TokenValue
-    cm_merkle_root: MerkleRoot # the root the inputs are proven against
+    tx_cm_root: MerkleRoot     # the referenced cm_merkle_root extended with the tx_cm_buffer of the set
     msg: zkhash
 ```
 
-`ZkTransfer_verify(inputs, outputs, excess_value, cm_merkle_root, msg, proof)` verifies the proof for these public values. An Operation spending notes of a note set verifies it through the [`verify_transfer`](#input-notes-spendability-validation) method of the set, which appends the commitments created earlier in the Mantle Transaction to the referenced root.
+`ZkTransfer_verify(inputs, outputs, excess_value, tx_cm_root, msg, proof)` verifies the proof for these public values. An Operation spending notes of a note set verifies it through the [`verify_transfer`](#input-notes-spendability-validation) method of the set, which appends the commitments created earlier in the Mantle Transaction to the referenced root.
 
 The prover knows a witness:
 
@@ -1701,7 +1705,7 @@ Such that the following constraints hold:`
   )
   ```
   
-- Each input commitment is in the merkle root announced if its value isn't 0.
+- Each input commitment is in `tx_cm_root` if its value isn't 0.
 
 - Each output commitment is derived from the public key, the nonce and the value.
   ```python
