@@ -9,6 +9,7 @@
 | v1 | Initial RFC | 2026-10-08 |
 | v2 | Moved the existing proposal from the Mantle Transaction Encoding appendix into the canonical RFC directory and reorganized it to this template. | 2026-10-08 |
 | v3 | Extended MAX_OPERATION_DATA_SIZE to SDPActive.Metadata and defined the limit over canonical encoded payloads for all three fields. | 2026-10-08
+| v4 | Simplified the normative payload-bound wording and kept derivation and rationale in the RFC. | 2026-10-09 |
 
 ## Reviewer Orientation
 
