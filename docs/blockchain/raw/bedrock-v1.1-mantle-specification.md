@@ -48,6 +48,7 @@
 | 1.16.0 | Gas Determination table updated for strict Ed25519 verification: channel Operations 56 → 59 Execution Gas per signature, `EXECUTION_SDP_DECLARE_GAS` 646 → 649, from [Gas Cost Determination](analysis-gas-cost-determination.md) 1.7.0 | 2026-09-24 |
 | 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding. | 2026-10-06 |
 | 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel. Channel notes are moved by the steps their holders sign, each proven against a recent root and the part of the transaction buffer it names, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and moved `CLAIM_POW_REWARD` to the opcode `0x30` | 2026-10-01 |
+| 2.1.0 | Add programs: notes gain `program` and `data` fields, `PROGRAM_REGISTER` registers a Groth16 verification key, and channel inscriptions carry program steps made of user payments, a `ZkProgramSpend` and a program proof | 2026-10-12 |
 
 # Introduction
 
@@ -69,7 +70,7 @@ Logos Blockchain features are exposed through Mantle Operations, which can be co
 
 ## Mantle Ledger
 
-The Mantle Ledger enables asset transfers using an obfuscated UTXO model. The ledger tracks three kinds of notes, each in note sets of its own: regular notes, service notes (collateral for service declarations) and channel notes (channel bridge funds). All of them participate in Proof of Stake.
+The Mantle Ledger enables asset transfers using an obfuscated UTXO model. The ledger tracks three kinds of notes, each in note sets of its own: regular notes, service notes (collateral for service declarations) and channel notes (channel bridge funds). The notes a user holds participate in Proof of Stake, while the notes governed by a [program](#programs) inside a channel do not.
 
 ## Transaction Fees
 
@@ -253,7 +254,8 @@ Mantle Validators execute each Operation in `ops` according to its opcode, in th
 | **Operation** | **Opcode** | **Description** |
 | --- | --- | --- |
 | TRANSFER | 0x00 | Consume and create notes. |
-| *RESERVED* | *0x01 - 0x0F* |  |
+| PROGRAM_REGISTER | 0x01 | Register a program by its verification key. |
+| *RESERVED* | *0x02 - 0x0F* |  |
 | CHANNEL_CONFIG | 0x10 | Configure a channel |
 | CHANNEL_INSCRIBE | 0x11 | Write a message permanently onto Mantle. |
 | CHANNEL_DEPOSIT | 0x12 | Deposit notes into a channel |
@@ -380,6 +382,40 @@ Channels let their bridged notes keep participating in Proof of Stake. When a us
 | Holder of the note's `ZkPublicKey` | Create a PoL with the note and earn its rewards. Sign a step moving the note inside the channel. Withdraw the note alone | Spend the note in any other Operation |
 | Channel sequencers | Collect the steps of their users and publish them in the inscriptions of the channel, in the order they choose, a step consuming a note of the same Mantle Transaction coming after it | Move a note without its holder's step |
 
+### Programs
+
+A program governs notes of a channel that no single user holds, such as the reserves of a pool. It is a Groth16 circuit, registered by its verification key with [`PROGRAM_REGISTER`](#program_register), and its notes are the program notes whose `program` field is its identifier. A program runs in the program steps of the [inscriptions](#channel_inscribe) of a channel:
+
+- **Payments.** Users pay the program with ZkTransfers consuming their user notes, whose excess is the value paid to the program. Each payment commits to the program and to an intent, the hash of what its user expects from the program.
+- **Program spend.** The sequencer consumes notes of the program and creates notes of the program and the user notes the program pays, with a [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) balancing exactly with the value paid.
+- **Program proof.** The sequencer proves the rule of the program with a Groth16 proof under its registered key, over the notes of the program spend, the payments with their intents, and the `op_id` of the inscription.
+
+`Groth16_verify(key, public_inputs, proof)` verifies a [Groth16](common-cryptographic-components.md#groth16-zk-snark) proof against a verification key and its public inputs.
+
+**Holder.** A program note has a holder like any note, whose secret key derives its nullifiers and is known to whoever proves the program spend. The program chooses it. For a note open to everyone, such as the reserves of a pool, the convention is the public key of the secret key `0`: anyone can derive its nullifiers, and only the program proof authorizes its moves.
+
+**What enforces what.**
+
+| Property | Enforced by |
+| --- | --- |
+| No value is created | The ZkTransfers and the ZkProgramSpend balance exactly, and the ledger sums the paid values into the program spend |
+| A user note moves only with the key of its holder | The ZkTransfer |
+| A payment only pays the program and serves the intent its holder signed | The message of the payment, which commits to the program and the intent |
+| A program note is created and consumed only with the proof of its program | The ZkTransfer, which only derives commitments with `program` and `data` set to `0`; the ZkProgramSpend, whose inputs are notes of the program and whose outputs are notes of the program or user notes; the program proof, required by every program step |
+| A program step serves the intents over LGO as the rule of the program states | The program proof, which reads the payments and the notes of the program spend |
+| A program step serves the intents over the assets of the zone | The users of the zone, who verify the intents against the inscription and the zone state, and the sequencers of the zone, who slash a faulty sequencer |
+
+A program using LGO only, such as lending, is thus enforced by the ledger, and its users trust only the circuit of the program they pay. A program exchanging LGO with assets of the zone, such as a swap, is enforced by the ledger for its LGO only. Depending on the program, publishing the preimage of each intent in the inscription is recommended, so that the users of the zone can verify how the program step served it.
+
+**Design choices.**
+
+- Creating a program note requires the proof of its program. Otherwise anyone could create a note of the program with any `data`, such as a fake pool state, and the program could not tell it from its own.
+- A payment exists only inside its program step. A payment left unconsumed cannot happen: if the sequencer does not publish the program step, the notes of the user are not consumed.
+- The program spend and the program proof are bound to the `op_id` of the inscription, which covers the inscription and the public data of every step but no proof. A program step is thus attributable to its inscription and valid in no other.
+- Program notes take no part in Proof of Stake, since the Proof of Leadership derives the commitment of its note with `program` and `data` set to `0`. They are never withdrawn either, since a withdrawal consumes notes with a ZkTransfer.
+
+**Privacy.** The paid values are public, and so is the state a public program publishes, such as the reserves of a pool. The amount of each interaction with such a program is therefore visible, and its interactions are subject to timing attacks. The users stay hidden: payments consume notes by nullifier, and the notes the program pays are commitments.
+
 ### CHANNEL_INSCRIBE
 
 Write a message to a channel with the message data being permanently stored on the Logos Blockchain, and apply the steps the sequencer collected from the users of the channel. The list of steps can be empty, in which case the inscription only writes its message.
@@ -387,35 +423,78 @@ Write a message to a channel with the message data being permanently stored on t
 #### Payload
 
 ```python
-class ChannelStep:
-    inputs: list[NoteNf]        # nullifiers of the consumed channel notes
-    outputs: list[NoteCm]       # commitments of the created channel notes
+class UserStep:
+    inputs: list[NoteNf]        # nullifiers of the consumed user notes of the channel
+    outputs: list[NoteCm]       # commitments of the created user notes of the channel
     cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set,
                                 # extended for the proof with the first `buffered` commitments
                                 # of the tx_cm_buffer of the set
     buffered: int               # UINT16, the number of these commitments, 0 for a step over notes
                                 # created before the Mantle Transaction
 
+class Payment:
+    inputs: list[NoteNf]        # nullifiers of the consumed user notes of the channel
+    outputs: list[NoteCm]       # commitments of the change, user notes of the channel
+    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set,
+                                # extended with the tx_cm_buffer of the set for the proof
+    paid_value: TokenValue      # the value paid to the program
+    intent: zkhash              # the hash of what the user expects from the program
+
+class ProgramStep:
+    program_id: ProgramId       # the program the step executes
+    payments: list[Payment]     # the payments of the users to the program, possibly empty
+    inputs: list[NoteNf]        # nullifiers of the consumed notes of the program, possibly empty
+    outputs: list[NoteCm]       # commitments of the created notes of the program and of the user notes it pays
+    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set,
+                                # extended with the tx_cm_buffer of the set for the proof
+    spend_notes_hash: zkhash    # the hash of the input and output notes of the program spend
+
 class Inscribe:
     channel: ChannelId       # 32 bytes Channel being written to
     inscription : bytes      # Message to be written on the blockchain
     parent: hash             # Previous message in the channel
     signer: Ed25519PublicKey # Identity of message sender
-    steps: list[ChannelStep] # Moves of channel notes, in the order they apply, possibly empty
+    steps: list[UserStep | ProgramStep]  # Moves of channel notes, in the order they apply, possibly empty
 ```
 
-A step is signed by the holder of the notes it consumes, off chain and before the Mantle Transaction carrying it exists. Its ZkTransfer is therefore bound to the step itself rather than to the `mantle_txhash`, and it balances exactly, with an `excess_value` of `0`.
+A user step moves the user notes of its holder. A program step executes a [program](#programs): users pay it with their payments, and the program spend consumes and creates the notes of the program and pays users.
 
-Its proof is verified against the referenced root extended with only the first `buffered` commitments of the buffer of the channel note set, those the Operations and steps before it in the Mantle Transaction add first. The holders prove their steps independently, before the sequencer assembles the transaction, and most steps consume notes created in earlier blocks: such a step takes `buffered = 0` and is proven against its referenced root of the channel note set alone, so its proof holds at any position in any transaction. A sequencer can therefore collect the steps of many users, all proven against the same recent root, and publish them in the order it chooses. A proof extended with the whole buffer would instead hold only at the position it was proven for: each holder would have to wait for the sequencer to fix every step before its own, and the steps would be proven one after another. Only a step consuming a note created earlier in the same Mantle Transaction covers part of the buffer, up to that note, and must be placed after the commitments it covers. `buffered` is public, so such a step reveals that its inputs are among the first `buffered` commitments of the buffer: a holder may cover more of the buffer than it needs, up to its length at the position of the step, so as not to point at one note, at the cost of fixing more of the order. The message a step is bound to is:
+A user step and a payment are signed and proven by the holder of the notes they consume, off chain and before the Mantle Transaction carrying them exists. Each names, with `buffered`, how many commitments of the buffer of the channel note set its proof covers: its ZkTransfer is verified against the referenced root extended with only the first `buffered` commitments of that buffer, those the Operations, steps and payments before it in the Mantle Transaction add first. Most steps and payments consume notes created in earlier blocks: they take `buffered = 0` and are proven against their referenced root of the channel note set alone, so their proofs hold at any position in any transaction. A sequencer can therefore collect the steps and payments of many users, all proven against the same recent root, and publish them in the order it chooses. A proof extended with the whole buffer would instead hold only at the position it was proven for: each holder would have to wait for the sequencer to fix everything before its own step or payment, and they would be proven one after another. Only a step or payment consuming a note created earlier in the same Mantle Transaction covers part of the buffer, up to that note, and must be placed after the commitments it covers. `buffered` is public, so such a step or payment reveals that its inputs are among the first `buffered` commitments of the buffer: a holder may cover more of the buffer than it needs, up to its length at the position of the step or payment, so as not to point at one note, at the cost of fixing more of the order.
+
+Since they are signed before the Mantle Transaction exists, their ZkTransfer is bound to their own content rather than to the `mantle_txhash`. A user step balances exactly, with an `excess_value` of `0`. The `excess_value` of the ZkTransfer of a payment is its `paid_value`, and the message of a payment also commits to the program it pays and to its intent, so its ZkTransfer only verifies in a step of that program, for that intent:
 
 ```python
-def step_msg(step: ChannelStep) -> zkhash:
+def step_msg(step: UserStep) -> zkhash:
     return zkhash(
         FiniteField(b"CHANNEL_STEP_V1", byte_order="little", modulus=p),
         FiniteField(len(step.inputs), byte_order="little", modulus=p),
         *step.inputs,
         FiniteField(len(step.outputs), byte_order="little", modulus=p),
         *step.outputs)
+
+def payment_msg(program_id: ProgramId, payment: Payment) -> zkhash:
+    return zkhash(
+        FiniteField(b"PROGRAM_PAYMENT_V1", byte_order="little", modulus=p),
+        program_id,
+        payment.intent,
+        FiniteField(len(payment.inputs), byte_order="little", modulus=p),
+        *payment.inputs,
+        FiniteField(len(payment.outputs), byte_order="little", modulus=p),
+        *payment.outputs)
+```
+
+The program spend and the program proof of a program step are produced by the sequencer and bound to the `op_id` of the Inscribe Operation, which covers the inscription and the public data of every step but no proof. The program proof takes three public inputs: `spend_notes_hash`, the hash of the payments of the step, and the `op_id`:
+
+```python
+def payments_hash(step: ProgramStep) -> zkhash:
+    paid = []
+    for payment in step.payments:
+        paid.append(FiniteField(payment.paid_value, byte_order="little", modulus=p))
+        paid.append(payment.intent)
+    return zkhash(
+        FiniteField(b"PROGRAM_PAYMENTS_V1", byte_order="little", modulus=p),
+        FiniteField(len(step.payments), byte_order="little", modulus=p),
+        *paid)
 ```
 
 A step applies once, since its nullifiers can be inserted only once.
@@ -423,14 +502,19 @@ A step applies once, since its nullifiers can be inserted only once.
 #### Proof
 
 ```python
+class ProgramStepProof:
+    payment_proofs: list[ZkTransfer]  # one per payment, in the order of the payments
+    spend_proof: ZkProgramSpend
+    program_proof: Groth16            # under the verification key of the program
+
 class InscribeProof:
-    signature: Ed25519Signature    # by the signer, over the mantle_txhash
-    step_proofs: list[ZkTransfer]  # one per step, in the order of the steps
+    signature: Ed25519Signature                       # by the signer, over the mantle_txhash
+    step_proofs: list[ZkTransfer | ProgramStepProof]  # one per step, in the order of the steps
 ```
 
 #### Execution Gas
 
-  Channel Inscribe Operations have an Execution Gas cost of `EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_TRANSFER_GAS * len(steps)`. See [Gas Determination](#gas-determination) for the Execution Gas values.
+  Channel Inscribe Operations have an Execution Gas cost of `EXECUTION_CHANNEL_INSCRIBE_GAS`, plus `EXECUTION_TRANSFER_GAS` for each user step, plus `EXECUTION_TRANSFER_GAS * len(payments) + EXECUTION_PROGRAM_SPEND_GAS + EXECUTION_PROGRAM_PROOF_GAS` for each program step. See [Gas Determination](#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -440,6 +524,7 @@ class InscribeProof:
 txhash: hash
 msg: Inscribe
 proof: InscribeProof
+op_id: Hash          # derive_op_id of the Inscribe Operation
 
 channels: dict[ChannelId, ChannelState]
 ledger: Ledger
@@ -448,50 +533,112 @@ block_slot: Slot
  
   *Validate*
 
-```python
-assert len(msg.inscription) <= MAX_OPERATION_DATA_SIZE
+  1. Ensure the inscription does not exceed `MAX_OPERATION_DATA_SIZE`, and continues the channel or creates it.
+      ```python
+      assert len(msg.inscription) <= MAX_OPERATION_DATA_SIZE
 
-if msg.channel in channels:
-    chan = channels[msg.channel]
-    current_sequencer_index = round_robin(block_slot, chan)[0]
+      if msg.channel in channels:
+          chan = channels[msg.channel]
+          current_sequencer_index = round_robin(block_slot, chan)[0]
 
-    # Ensure the signer is the one authorized to write to the channel
-    assert msg.signer == chan.accredited_keys[current_sequencer_index]
+          # Ensure the signer is the one authorized to write to the channel
+          assert msg.signer == chan.accredited_keys[current_sequencer_index]
 
-    # Ensure message is continuing the channel sequence
-    assert msg.parent == chan.tip_hash
+          # Ensure message is continuing the channel sequence
+          assert msg.parent == chan.tip_hash
 
-    note_set = ledger.sets[chan.note_set]
-else:
-    # Channel will be created automatically upon execution
-    # Ensure that this message is the genesis message (parent == ZERO)
-    assert msg.parent == ZERO
+          note_set = ledger.sets[chan.note_set]
+      else:
+          # Channel will be created automatically upon execution
+          # Ensure that this message is the genesis message (parent == ZERO)
+          assert msg.parent == ZERO
 
-    note_set = empty_note_set()  # a step against it fails, as no note is in it
+          note_set = empty_note_set()  # a step against it fails, as no note is in it
+      ```
 
-# Ensure the msg signer signature
-assert Ed25519_verify(txhash, msg.signer, proof.signature)
+  2. Ensure the signature of the signer.
+      ```python
+      assert Ed25519_verify(txhash, msg.signer, proof.signature)
+      ```
 
-# Ensure every step is spendable in the channel note set and signed by its holder.
-# A step can consume a note created by an earlier step, never one consumed by an earlier step.
-assert len(proof.step_proofs) == len(msg.steps)
-step_nfs = set()    # the nullifiers of the previous steps
-for step, step_proof in zip(msg.steps, proof.step_proofs):
-    note_set.assert_spendable(step.inputs, step.cm_merkle_root)
-    for note_nf in step.inputs:
-        assert note_nf not in step_nfs
-        step_nfs.add(note_nf)
-    assert step.buffered <= len(note_set.tx_cm_buffer)
-    assert note_set.verify_transfer(step.inputs,
-                                    step.outputs,
-                                    0,  # a step balances exactly
-                                    step.cm_merkle_root,
-                                    step_msg(step),
-                                    step_proof,
-                                    step.buffered)
-    # the next steps are verified with the outputs of this one
-    note_set.tx_cm_buffer.extend(step.outputs)
-```
+  3. Ensure there is one proof per step.
+      ```python
+      assert len(proof.step_proofs) == len(msg.steps)
+      op_id_fr = FiniteField(op_id, byte_order="little", modulus=p)
+      step_nfs = set()  # the nullifiers of the steps already validated
+      ```
+
+  4. Validate the steps in their order, each with its proof in `step_proofs`: a user step by step 5, a program step by steps 6 to 9, then step 10. Each step is validated against the commitments the earlier steps appended to the buffer of the channel note set, so it can consume the outputs of an earlier step, and against `step_nfs`, so no two steps consume the same note.
+
+  5. For a user step, ensure it is spendable and signed by its holder.
+      ```python
+      note_set.assert_spendable(step.inputs, step.cm_merkle_root)
+      for note_nf in step.inputs:
+          assert note_nf not in step_nfs
+          step_nfs.add(note_nf)
+      assert note_set.verify_transfer(step.inputs,
+                                      step.outputs,
+                                      0,  # a user step balances exactly
+                                      step.cm_merkle_root,
+                                      step_msg(step),
+                                      step_proof)
+      ```
+
+  6. For a program step, ensure the program is registered.
+      ```python
+      assert step.program_id in ledger.programs
+      ```
+
+  7. For a program step, ensure every payment is spendable and signed by its holder, for this program and its intent, and sum the value paid to the program.
+      ```python
+      assert len(step_proof.payment_proofs) == len(step.payments)
+      paid_value = 0
+      for payment, payment_proof in zip(step.payments, step_proof.payment_proofs):
+          note_set.assert_spendable(payment.inputs, payment.cm_merkle_root)
+          for note_nf in payment.inputs:
+              assert note_nf not in step_nfs
+              step_nfs.add(note_nf)
+          assert note_set.verify_transfer(payment.inputs,
+                                          payment.outputs,
+                                          payment.paid_value,
+                                          payment.cm_merkle_root,
+                                          payment_msg(step.program_id, payment),
+                                          payment_proof)
+          # the program spend is verified with the change of the payments
+          note_set.tx_cm_buffer.extend(payment.outputs)
+          paid_value = checked_uint64(paid_value + payment.paid_value)
+      ```
+
+  8. For a program step, ensure the program spend consumes unspent notes of the program, possibly none, and balances exactly with the value paid.
+      ```python
+      if len(step.inputs) > 0:
+          note_set.assert_spendable(step.inputs, step.cm_merkle_root)
+      else:
+          assert step.cm_merkle_root in note_set.recent_cm_roots
+      for note_nf in step.inputs:
+          assert note_nf not in step_nfs
+          step_nfs.add(note_nf)
+      assert note_set.verify_program_spend(step.inputs,
+                                           step.outputs,
+                                           step.cm_merkle_root,
+                                           step.program_id,
+                                           paid_value,
+                                           step.spend_notes_hash,
+                                           op_id_fr,
+                                           step_proof.spend_proof)
+      ```
+
+  9. For a program step, ensure the program accepts the step.
+      ```python
+      assert Groth16_verify(ledger.programs[step.program_id],
+                            [step.spend_notes_hash, payments_hash(step), op_id_fr],
+                            step_proof.program_proof)
+      ```
+
+  10. Append the outputs of the step to the buffer, so the next steps are verified with them.
+      ```python
+      note_set.tx_cm_buffer.extend(step.outputs)
+      ```
 
 #### Execution
 
@@ -513,10 +660,14 @@ block_slot: Slot
           create_channel(msg.channel, block_slot, [msg.signer])
       ```
 
-  2. Apply the steps, in their order.
+  2. Apply the steps, in their order: the payments of a program step, then its program spend.
       ```python
       note_set = ledger.sets[channels[msg.channel].note_set]
       for step in msg.steps:
+          if step.is_program:
+              for payment in step.payments:
+                  note_set.execute_spending(payment.inputs)
+                  note_set.execute_adding(payment.outputs)
           note_set.execute_spending(step.inputs)
           note_set.execute_adding(step.outputs)
       ```
@@ -1376,6 +1527,87 @@ pow_nullifiers: set[zkhash]
       pow_reward_pool = checked_uint64(pow_reward_pool - epoch_pow_reward)
       ```
 
+## Program Operations
+
+### PROGRAM_REGISTER
+
+This Operation registers a [program](#programs) by its Groth16 verification key. Anyone can register a program: a program governs only the notes whose `program` field is its identifier, so a faulty program can only lose the notes its users gave it.
+
+#### Payload
+
+```python
+class Groth16VerificationKey:
+    alpha: G1
+    beta: G2
+    gamma: G2
+    delta: G2
+    ic: list[G1]  # (len = 4) one point per public input of a program proof, plus one
+
+class ProgramRegister:
+    verification_key: Groth16VerificationKey
+```
+
+A program proof always has the three public inputs `spend_notes_hash`, `payments_hash` and the `op_id` of its inscription. Since a Groth16 verification key differs from another only by its number of public inputs, every program key has the same size, and the ledger stores and verifies every program the same way.
+
+The identifier of a program is derived from its key:
+
+```python
+def derive_program_id(key: Groth16VerificationKey) -> ProgramId:
+    h = Hasher() # /!\ This is a classic hash not a zkhash /!\
+    h.update(b"PROGRAM_ID_V1")
+    h.update(encode(key))
+    return FiniteField(h.digest(), byte_order="little", modulus= p)
+```
+
+The digest is reduced modulo $`p`$ as `op_id` is, since `ProgramId` is a field of the note commitment.
+
+#### Proof
+
+  The proof is empty.
+
+#### Execution Gas
+
+  Program Register Operations have a fixed Execution Gas cost of `EXECUTION_PROGRAM_REGISTER_GAS`. See [Gas Determination](#gas-determination) for the Execution Gas values.
+
+#### Validation
+
+  *Given*
+
+```python
+register: ProgramRegister
+```
+
+  *Validate*
+
+  1. Ensure every point of the key is on its curve and in its prime-order subgroup, since an invalid point would make the proofs of the program unsound.
+      ```python
+      key = register.verification_key
+      for point in [key.alpha] + key.ic:
+          assert is_valid_g1(point)
+      for point in [key.beta, key.gamma, key.delta]:
+          assert is_valid_g2(point)
+      ```
+
+#### Execution
+
+  *Given*
+
+```python
+register: ProgramRegister
+
+ledger: Ledger
+```
+
+  *Execute*
+
+Store the key under its identifier. Registering a key already registered has no effect.
+
+```python
+program_id = derive_program_id(register.verification_key)
+if program_id not in ledger.programs:
+    ledger.programs[program_id] = register.verification_key
+```
+
 ## TRANSFER
 
 Transfer prove the correct consumption and creation of notes. Because notes aren't transparent, this is done by a ZK proof (see [Zero Knowledge Transfer Proof (ZkTransfer)](#zero-knowledge-transfer-proof-zktransfer)), proving the correctness of the transfer and outputting the excess value of the transfer balance to pay for the fees.
@@ -1466,14 +1698,18 @@ ledger: Ledger
 
 ## Notes
 
-Notes are composed of three fields representing their value and their owner:
+Notes are composed of five fields representing their value, their holder and the program governing them:
 
 ```python
 class Note:
     value: TokenValue   # uint64
     nonce: NoteNonce	# FrElement to avoid two notes having the same commitment
-    public_key: ZkPublicKey # 32 bytes
+    public_key: ZkPublicKey # 32 bytes, the holder, who derives the nullifier
+    program: ProgramId  # the program governing the note, 0 for a user note
+    data: zkhash        # the state the program commits in the note, 0 for a user note
 ```
+
+A note whose `program` is `0` is a user note, moved by its holder alone. A note whose `program` is the identifier of a [program](#programs) is a program note: it is created and consumed only with a proof of that program, and its `data` is set by that program.
 
 ### Note Commitment and Nullifier
 
@@ -1501,7 +1737,9 @@ def derive_note_cm(note: Note) -> NoteCm:
         FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p),
         FiniteField(note.value, byte_order="little", modulus= p),
         note.nonce,
-        note.public_key
+        note.public_key,
+        note.program,
+        note.data
     )
 	
 def derive_note_nf(note_cm: NoteCm, secret_key: ZkSecretKey) -> NoteNf:
@@ -1522,7 +1760,7 @@ Service notes are special notes in Mantle that serve as collateral for Service D
 
 ### Channel Notes
 
-Channel notes are the notes of the note set of a channel, created by deposits and by the steps of the channel's inscriptions. They are spent only by the steps of the channel's inscriptions and by withdrawals, and they participate in Proof of Stake.
+Channel notes are the notes of the note set of a channel, created by deposits and by the steps of the channel's inscriptions. They are spent only by the steps of the channel's inscriptions and by withdrawals. The user notes of a channel participate in Proof of Stake, while its program notes do not, since the Proof of Leadership derives the commitment of its note with `program` and `data` set to `0`.
 
 ## Ledger
 
@@ -1532,7 +1770,7 @@ The notes live in note sets, each with its own commitment MMR and nullifier IMT.
 | --- | --- | --- | --- |
 | Ledger | `LEDGER_SET = 0` | the notes of transfers, rewards and withdrawals | Transfers, deposits and declarations |
 | SDP | `SDP_SET = 1` | service notes | the Withdraw Operation of their declaration |
-| Channel | `2` onward, in the order the channels were created | channel notes | the steps of the channel's inscriptions, and withdrawals |
+| Channel | `2` onward, in the order the channels were created | channel notes, user and program notes | the steps of the channel's inscriptions, and the withdrawals of user notes |
 
 ```python
 class NoteSet:
@@ -1548,6 +1786,7 @@ class Ledger:
     sets: list[NoteSet]  # indexed as in the table above
     # the channel withdrawals waiting for their due slot: (due slot, note set, inputs, outputs)
     pending_withdrawals: list[(Slot, int, list[NoteNf], list[NoteCm])]
+    programs: dict[ProgramId, Groth16VerificationKey]  # the registered programs
 
 def empty_note_set() -> NoteSet:
     return NoteSet(
@@ -1668,20 +1907,33 @@ class NoteSet:
             assert note_nf not in self.nullifiers
 ```
 
-The following method verifies the [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) of notes of a note set, against the root referenced by the Operation once the commitments of the `tx_cm_buffer` of the set are appended to it, all of them, or only the first `buffered` for a [channel step](#channel_inscribe). The inputs can therefore be notes created by the previous Operations of the Mantle Transaction:
+The proofs spending notes of a note set are verified against the root referenced by the Operation once the commitments of the `tx_cm_buffer` of the set are appended to it, all of them, or only the first `buffered` for a user step or a payment ([CHANNEL_INSCRIBE](#channel_inscribe)). The inputs can therefore be notes created by the previous Operations of the Mantle Transaction:
 
 ```python
 class NoteSet:
-    def verify_transfer(self, inputs: list[NoteNf], outputs: list[NoteCm], excess_value: TokenValue,
-                        cm_merkle_root: MerkleRoot, msg: zkhash, proof: ZkTransfer,
-                        buffered: int | None = None) -> bool:
+    def tx_cm_root(self, cm_merkle_root: MerkleRoot, buffered: int | None = None) -> MerkleRoot:
         # append the first buffered commitments of tx_cm_buffer, all of them by default,
         # to a copy of the peaks of the MMR of root cm_merkle_root
         peaks = list(self.recent_cm_roots[cm_merkle_root])
         for note_cm in self.tx_cm_buffer[:buffered]:
             mmr_append(peaks, note_cm)
-        return ZkTransfer_verify(inputs, outputs, excess_value, mmr_root(peaks), msg, proof)
+        return mmr_root(peaks)
+
+    def verify_transfer(self, inputs: list[NoteNf], outputs: list[NoteCm], excess_value: TokenValue,
+                        cm_merkle_root: MerkleRoot, msg: zkhash, proof: ZkTransfer,
+                        buffered: int | None = None) -> bool:
+        return ZkTransfer_verify(inputs, outputs, excess_value,
+                                 self.tx_cm_root(cm_merkle_root, buffered), msg, proof)
+
+    def verify_program_spend(self, inputs: list[NoteNf], outputs: list[NoteCm],
+                             cm_merkle_root: MerkleRoot, program_id: ProgramId,
+                             paid_value: TokenValue, spend_notes_hash: zkhash, msg: zkhash,
+                             proof: ZkProgramSpend) -> bool:
+        return ZkProgramSpend_verify(inputs, outputs, self.tx_cm_root(cm_merkle_root),
+                                     program_id, paid_value, spend_notes_hash, msg, proof)
 ```
+
+See [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) and [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) for the proofs.
 
 ### Consuming Input Notes Execution
 
@@ -1722,6 +1974,9 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_SDP_WITHDRAW_GAS | 678 |
 | EXECUTION_SDP_ACTIVE_GAS | 59 |
 | EXECUTION_CLAIM_POW_REWARD_GAS | 0 |
+| EXECUTION_PROGRAM_REGISTER_GAS | TODO |
+| EXECUTION_PROGRAM_SPEND_GAS | TODO |
+| EXECUTION_PROGRAM_PROOF_GAS | TODO |
 
 ## Zero Knowledge Transfer Proof (ZkTransfer)
 
@@ -1765,11 +2020,11 @@ Such that the following constraints hold, where `inputs_pk` and `inputs_cm` are 
   )
   ```
   
-- Each input flag is boolean, and each input commitment is derived from the public key, the nonce and the value.
+- Each input flag is boolean, and each input commitment is derived from the public key, the nonce and the value, with `program` and `data` set to `0`, so a ZkTransfer only consumes user notes.
   ```python
   assert all(
       inputs_active[i] * (1 - inputs_active[i]) == 0
-      and inputs_cm[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i])
+      and inputs_cm[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i], 0, 0)
       for i in range(len(inputs_sk))
   )
   ```
@@ -1785,11 +2040,11 @@ Such that the following constraints hold, where `inputs_pk` and `inputs_cm` are 
   
 - Each active input commitment is in `tx_cm_root`.
 
-- Each output flag is boolean, each active output commitment is derived from the public key, the nonce and the value, and each inactive output has value 0.
+- Each output flag is boolean, each active output commitment is derived from the public key, the nonce and the value, with `program` and `data` set to `0`, so a ZkTransfer only creates user notes, and each inactive output has value 0.
   ```python
   assert all(
       outputs_active[i] * (1 - outputs_active[i]) == 0
-      and (outputs[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), outputs_value[i], outputs_nonce[i], outputs_pk[i])
+      and (outputs[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), outputs_value[i], outputs_nonce[i], outputs_pk[i], 0, 0)
            if outputs_active[i] else outputs_value[i] == 0)
       for i in range(len(outputs_pk))
   )
@@ -1810,6 +2065,110 @@ Such that the following constraints hold, where `inputs_pk` and `inputs_cm` are 
 - The proof is bound to `msg` (it’s the `mantle_tx_hash` reduced modulo $`p`$ in case of transactions).
 
 The circuit takes at most 4 inputs and 8 outputs. The unused ones are inactive: their entry of `inputs` (or `outputs`) and of `inputs_value` (or `outputs_value` respectively) is `0`, and their other witnesses are arbitrary.
+
+### Benchmark
+
+The material used for the benchmarks is the following:
+
+- CPU       : 13th Gen Intel(R) Core(TM) i9-13980HX (24 cores / 32 threads)
+- RAM       : 32GB - Speed: 5600 MT/s
+- Motherboard: Micro-Star International Co., Ltd. MS-17S1
+- OS        : Ubuntu 22.04.5 LTS
+- Kernel    : 6.8.0-59-generic
+
+## Zero Knowledge Program Spend Proof (ZkProgramSpend)
+
+The ZkTransfer adapted to the notes of one program. It is proven by the sequencer publishing the [program step](#programs), which knows the secret key of the holder of the program notes it consumes. A proof attesting that for the following public values:
+
+```python
+class ZkProgramSpendPublic:
+    inputs: list[NoteNf]         # (len = 4) nullifiers of notes of the program
+    outputs: list[NoteCm]        # (len = 8) notes of the program, or user notes it pays
+    tx_cm_root: MerkleRoot       # the referenced cm_merkle_root extended with the tx_cm_buffer of the set
+    program_id: ProgramId
+    paid_value: TokenValue       # the total value the payments of the step pay to the program
+    spend_notes_hash: zkhash     # the hash of the input and output notes, read by the program proof
+    msg: zkhash
+```
+
+`ZkProgramSpend_verify(inputs, outputs, tx_cm_root, program_id, paid_value, spend_notes_hash, msg, proof)` verifies the proof for these public values, through the [`verify_program_spend`](#input-notes-spendability-validation) method of the note set.
+
+The prover knows a witness:
+
+```python
+class ZkProgramSpendWitness:
+    inputs_sk: list[ZkSecretKey]   # (len = 4)
+    inputs_nonce: list[FrElement]
+    inputs_value: list[TokenValue]
+    inputs_data: list[zkhash]
+    inputs_selectors: list[boolean]
+    inputs_path: list[FrElement]
+    outputs_pk: list[ZkPublicKey]  # (len = 8)
+    outputs_nonce: list[FrElement]
+    outputs_value: list[TokenValue]
+    outputs_program: list[ProgramId]
+    outputs_data: list[zkhash]
+```
+
+Such that the following constraints hold:
+
+- Each public key is derived from the corresponding secret key, as in the ZkTransfer.
+
+- Each input commitment is derived with `program` set to `program_id`, so the inputs are notes of the program.
+  ```python
+  assert all(
+      inputs_cm[i] = zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i], program_id, inputs_data[i])
+      for i in range(len(inputs_sk))
+  )
+  ```
+
+- Each input nullifier is derived from the secret key and the input commitment if its value isn't 0, and each such input commitment is in `tx_cm_root`, as in the ZkTransfer.
+
+- Each output is a note of the program or a user note.
+  ```python
+  assert all(
+      outputs_program[i] == program_id or (outputs_program[i] == 0 and outputs_data[i] == 0)
+      for i in range(len(outputs_pk))
+  )
+  assert all(
+      outputs_cm[i] = zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), outputs_value[i], outputs_nonce[i], outputs_pk[i], outputs_program[i], outputs_data[i])
+      for i in range(len(outputs_pk))
+  )
+  ```
+
+- `spend_notes_hash` commits to every input and output note, which the program proof opens to check its rule.
+  ```python
+  assert spend_notes_hash == zkhash(
+      FiniteField(b"PROGRAM_SPEND_NOTES_V1", byte_order="little", modulus= p),
+      *[(inputs_value[i], inputs_pk[i], inputs_data[i]) for i in range(len(inputs_sk))],
+      *[(outputs_value[i], outputs_pk[i], outputs_program[i], outputs_data[i]) for i in range(len(outputs_pk))]
+  )
+  ```
+
+- The outputs are well-formed, and the inputs and the paid value balance the outputs exactly.
+  ```python
+  assert all(
+      outputs_value[i] < 2^64
+      for i in range(len(outputs_value))
+  )
+  assert sum(inputs_value) + paid_value == sum(outputs_value)
+  ```
+
+- The proof is bound to `msg`, the `op_id` of the Channel Inscribe Operation reduced modulo $`p`$.
+
+The circuit takes at most 4 inputs and 8 outputs, filled as in the ZkTransfer when fewer are used. It is the ZkTransfer circuit with the program checks, the hash of the notes and `paid_value` added.
+
+### Benchmark
+
+The material used for the benchmarks is the following:
+
+- CPU       : 13th Gen Intel(R) Core(TM) i9-13980HX (24 cores / 32 threads)
+- RAM       : 32GB - Speed: 5600 MT/s
+- Motherboard: Micro-Star International Co., Ltd. MS-17S1
+- OS        : Ubuntu 22.04.5 LTS
+- Kernel    : 6.8.0-59-generic
+
+TODO: update the benchmark
 
 ## Multiple Ed25519 Signatures Verification
 
