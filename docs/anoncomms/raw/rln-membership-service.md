@@ -104,7 +104,10 @@ A client MUST include a payload in the `authentication_payload` field,
 further defined by the authentication method.
 A client MUST include the
 [identity commitment](../draft/32/rln-v1.md#user-identity) to register in the
-`identity_commitment` field.
+`identity_commitment` field, encoded as exactly 32 bytes in little-endian
+byte order.
+The encoded value MUST be a non-zero element of the scalar field of the RLN
+circuit, that is, greater than zero and less than its modulus.
 A client MAY include a `rate_limit` value specifying the requested
 per-epoch message rate limit for the membership; if omitted, the
 membership provider applies its default rate limit. Supported values
@@ -159,17 +162,15 @@ message MembershipAllocationFailure {
 
 A membership provider SHOULD respond to the client's request with a
 `MembershipAllocationResponse` message.
-A membership provider SHOULD perform basic validation on the identity
-commitment, such as total bit length.
-A membership provider SHOULD check if the identity commitment has already
-been registered in the RLN membership contract.
 A membership provider SHOULD check if the hash of the request has already
 been processed.
 A membership provider MUST deserialize the authentication payload based
 on the authentication method specified in the `authentication_type` field.
 A membership provider MUST authenticate the client's request using the
 authentication payload.
-Upon successful authentication, a membership provider SHOULD send a
+Upon successful authentication, a membership provider MUST validate the
+request as described in [Request Validation](#request-validation).
+Only if validation passes, a membership provider SHOULD send a
 transaction to the RLN membership contract with the `identity_commitment`
 as an argument.
 A membership provider's response MUST include the `auth_success` field
@@ -181,6 +182,60 @@ a `MembershipAllocationFailure` message in the `result` field.
 A membership provider SHOULD include a descriptive error message in the
 `error_message` field of `MembershipAllocationFailure` to help clients
 diagnose the cause of failure.
+
+### Request Validation
+
+On some chains, a registration transaction that the membership contract
+rejects is still included in a block, and its fee is charged to the sender.
+On LEZ, for example, a program that panics is charged its full gas limit.
+A membership provider pays these fees, and a client can make it pay them
+without limit by sending requests that can never succeed.
+The membership provider is therefore responsible for refusing a request
+that the contract would reject, before it signs a transaction.
+
+Before submitting a registration transaction, a membership provider MUST
+check that:
+
+1. `identity_commitment` is exactly 32 bytes and, read as a little-endian
+   integer, is less than the modulus of the scalar field of the RLN circuit.
+   For [32/RLN-V1](../draft/32/rln-v1.md), this is the BN254 scalar field,
+   with modulus
+   `0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001`.
+   A value of exactly 32 bytes that is not below the modulus is not a valid
+   commitment, so a check of length alone is not sufficient.
+   `identity_commitment` MUST NOT be zero: zero is the value of an empty
+   leaf, and no identity secret is expected to derive it.
+2. the rate limit (requested or default) is within the bounds that the
+   membership contract accepts.
+3. the identity commitment is not already registered.
+4. the membership contract can accept the registration: the remaining total
+   rate limit is at least the requested rate limit, and the membership tree
+   has at least one free leaf.
+
+A membership provider SHOULD also check that the account it pays from can
+cover the membership price plus the maximum fee the transaction can be
+charged.
+A membership provider SHOULD read the membership contract state that it
+checks (bounds, totals, tree size) from the chain, not from a cached copy.
+
+If the membership contract encodes the commitment in a different byte order,
+the membership provider MUST convert it after validation.
+It MUST NOT pass the client's bytes to the contract unchanged.
+
+A membership provider that refuses a request during validation:
+
+- MUST NOT submit a transaction for it;
+- MUST respond with a `MembershipAllocationFailure` whose `error_message`
+  identifies the failed check;
+- MUST NOT treat the request's authentication credential or request hash as
+  used, so the client can retry with a corrected request.
+
+A membership provider MUST NOT resubmit a registration transaction that
+failed for a reason that a resubmission would not change, such as an invalid
+argument.
+A membership provider SHOULD distinguish, in `error_message`, a request that
+was refused before submission from a submitted transaction whose outcome is
+unknown or not yet confirmed.
 
 ## Registration Flow
 
