@@ -34,6 +34,7 @@
 | 1.2.1 | Precise the state each transaction of a block is validated against: the transactions are validated and executed one after the other in the order they appear, each against the state the preceding ones left, which makes block validity order-dependent. Precise that a block whose validation fails at any point is not executed at all. | 2026-08-24 |
 | 1.3.0 | Compressed Block Proposal: 16-byte transaction reference prefixes and a variable-length `references` list, reducing the proposal from 34,574 bytes to at most 18,192. Added the [Canonical Encoding](#canonical-encoding) section. | 2026-08-18 |
 | 1.4.0 | The `leader_voucher` is replaced with a one-time `reward_key`, and the leader reward is inserted in the ledger at the end of the block execution. Channel withdrawals whose due slot is reached are released before the transactions. The PoL is bound to the header by a hash of it and proven once the body is fixed: `leader_key`, the proposal and block signatures and the signatures of the uncle headers are removed, reducing the proposal to at most 17,712 bytes. An invalid proof of leadership condemns only the received copy, since the block ID does not cover the proof | 2026-10-07 |
+| 1.4.1 | The proof of the header uses the `Groth16Proof` terminal of the transaction encoding | 2026-10-12 |
 
 # Introduction
 
@@ -177,7 +178,7 @@ BodyRoot          = Hash32
 UncleHeaders      = UncleCount *Header
 UncleCount        = Byte            ; MUST NOT exceed MAX_UNCLES
 
-ProofOfLeadership = Groth16 EntropyContribution RewardKey
+ProofOfLeadership = Groth16Proof EntropyContribution RewardKey
 EntropyContribution = FieldElement
 RewardKey         = FieldElement
 
@@ -186,7 +187,7 @@ ReferenceCount    = UINT16          ; MUST NOT exceed MAX_BLOCK_TXS
 Reference         = 16BYTE          ; REFERENCE_PREFIX_LENGTH bytes
 ```
 
-The terminals `Byte`, `UINT16`, `UINT64`, `Hash32`, `FieldElement` and `Groth16` are those defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures). Note in particular that `FieldElement` is a little-endian BN254 field element, which fixes the byte order of `entropy_contribution` and `reward_key`.
+The terminals `Byte`, `UINT16`, `UINT64`, `Hash32`, `FieldElement` and `Groth16Proof` are those defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures). Note in particular that `FieldElement` is a little-endian BN254 field element, which fixes the byte order of `entropy_contribution` and `reward_key`.
 
 This yields the following sizes, where `n` is the number of references:
 

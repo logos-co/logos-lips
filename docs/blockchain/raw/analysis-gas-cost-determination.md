@@ -34,6 +34,7 @@
 | 1.6.0 | Add the Execution Gas derivation for the `CLAIM_POW_REWARD` Operation | 2026-09-04 |
 | 1.7.0 | Per-signature Ed25519 cost re-measured with strict verification ([Common Cryptographic Components](common-cryptographic-components.md) 1.2.0): 56 → 59 Execution Gas, `SDP_DECLARE_GAS` 646 → 649 | 2026-09-24 |
 | 1.8.0 | Follow the private ledger of Mantle: the notes are proven with a ZkTransfer and spent by nullifier, channel inscriptions carry the ZkTransfer of their steps, channel withdrawals and SDP withdrawals carry a ZkTransfer, the proof of work claim carries no proof, and the `CHANNEL_TRANSFER` and `LEADER_CLAIM` Operations are removed. The ZkTransfer is priced from the measured batch verification of Groth16 proofs, a fixed part per block and 619 Execution Gas per proof | 2026-10-07 |
+| 1.9.0 | Add the Execution Gas of program steps and of the `PROGRAM_REGISTER` Operation | 2026-10-12 |
 
 # Introduction
 
@@ -72,7 +73,11 @@ The gas derivation of each Operation are:
 
 ```python
 TRANSFER_GAS                  = 619
-CHANNEL_INSCRIBE_GAS          = 59 + 619 * steps
+CHANNEL_INSCRIBE_GAS          = 59 + 619 * user_steps + program_steps_gas
+PROGRAM_STEP_GAS              = 619 * payments + PROGRAM_SPEND_GAS + PROGRAM_PROOF_GAS
+PROGRAM_SPEND_GAS             = TODO
+PROGRAM_PROOF_GAS             = TODO
+PROGRAM_REGISTER_GAS          = TODO
 CHANNEL_CONFIG_GAS            = 59 * configuration_threshold
 CHANNEL_DEPOSIT_GAS           = 619
 CHANNEL_WITHDRAW_GAS          = 619
@@ -116,17 +121,31 @@ Execution: negligible.
 - Appending of the commitment to the commitment MMR: negligible.
 ## Channel Inscription
 
-The validation process includes verifying an Eddsa25519 signature, confirming that the signer is authorized for the specified channel, checking the chaining sequence of the channel, and verifying the ZkTransfer of each step. The execution encompasses creating channel records (if not previously used), applying the steps to the channel note set and updating the tip of the channel.
+The validation process includes verifying an Eddsa25519 signature, confirming that the signer is authorized for the specified channel, checking the chaining sequence of the channel, verifying the ZkTransfer of each user step, and verifying each program step. The execution encompasses creating channel records (if not previously used), applying the steps to the channel note set and updating the tip of the channel.
 
-Execution: ~59k CPU cycles + ~619k CPU cycles * steps.
+Execution: ~59k CPU cycles + ~619k CPU cycles * user steps + the cost of each program step.
 
 - Verification of the Ed25519 signature: 59,200 cycles.
 - Verification of the signer authorization: negligible.
 - Verification of channel sequencing: negligible
-- Verification of the ZkTransfer of each step in the batch of the block: 618,797 cycles per step.
+- Verification of the ZkTransfer of each user step in the batch of the block: 618,797 cycles per step.
 - Verification that the nullifiers of the steps are not in the set: negligible.
 - Insertion of the nullifiers and appending of the commitments of the steps: negligible.
 - Update the channel state: negligible
+
+A program step costs:
+
+- Verification of the ZkTransfer of each payment: 590,000 cycles per payment.
+- Verification of the ZkProgramSpend: batch-verified with the other ZkProgramSpend proofs of the block, as the ZkTransfer proofs are. TODO: measure.
+- Verification of the program proof: a single Groth16 verification under the key of its program, which cannot share the batch of another program. TODO: measure.
+- Verification that the program is registered and computation of the hash of the payments: negligible.
+
+## Program Register
+
+The validation checks that every point of the verification key is on its curve and in its prime-order subgroup. The execution derives the program identifier and stores the key.
+
+- Curve and subgroup checks of 5 G1 points and 3 G2 points: TODO: measure.
+- Derivation of the program identifier and storage of the key: negligible.
 ## Channel Deposit
 
 The Execution Gas of the Channel Deposit Operation compensates for the verification of the [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) proof and for the check of the inputs.

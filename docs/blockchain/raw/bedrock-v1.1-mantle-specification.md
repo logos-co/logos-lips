@@ -505,7 +505,7 @@ A step applies once, since its nullifiers can be inserted only once.
 class ProgramStepProof:
     payment_proofs: list[ZkTransfer]  # one per payment, in the order of the payments
     spend_proof: ZkProgramSpend
-    program_proof: Groth16            # under the verification key of the program
+    program_proof: Groth16Proof       # under the verification key of the program
 
 class InscribeProof:
     signature: Ed25519Signature                       # by the signer, over the mantle_txhash
@@ -1705,8 +1705,8 @@ class Note:
     value: TokenValue   # uint64
     nonce: NoteNonce	# FrElement to avoid two notes having the same commitment
     public_key: ZkPublicKey # 32 bytes, the holder, who derives the nullifier
-    program: ProgramId  # the program governing the note, 0 for a user note
-    data: zkhash        # the state the program commits in the note, 0 for a user note
+    program: ProgramId = 0  # the program governing the note, 0 for a user note
+    data: zkhash = 0        # the state the program commits in the note, 0 for a user note
 ```
 
 A note whose `program` is `0` is a user note, moved by its holder alone. A note whose `program` is the identifier of a [program](#programs) is a program note: it is created and consumed only with a proof of that program, and its `data` is set by that program.
