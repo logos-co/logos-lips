@@ -1097,7 +1097,7 @@ declarations: dict[DeclarationID, DeclarationInfo]
       assert ZkTransfer_verify([withdraw.service_note_nf],
                                withdraw.outputs,
                                withdraw.excess_value,
-                               mmr_root([declare_info.service_note]),  # one peak, the service note
+                               mmr_root([(declare_info.service_note, 0)]),  # one peak, the service note
                                txhash,
                                proof.zk_proof)
       ```
@@ -1515,10 +1515,10 @@ The notes live in note sets, each with its own commitment MMR and nullifier IMT.
 
 ```python
 class NoteSet:
-    commitments: list[MerkleRoot]       # the peaks of the commitment MMR
-    nullifiers: set[NoteNf]             # the set of nullifiers, maintained in an IMT
-    recent_cm_roots: dict[MerkleRoot, list[MerkleRoot]]  # the commitment MMR roots of the last
-                                                         # 1024 blocks, each with its peaks
+    commitments: list[(MerkleRoot, int)]  # the peaks of the commitment MMR
+    nullifiers: set[NoteNf]               # the set of nullifiers, maintained in an IMT
+    recent_cm_roots: dict[MerkleRoot, list[(MerkleRoot, int)]]  # the commitment MMR roots of the
+                                                                # last 1024 blocks, each with its peaks
     tx_cm_buffer: list[NoteCm]          # the commitments added by the previous Operations
                                         # of the Mantle Transaction, empty at its start
 
@@ -1537,6 +1537,42 @@ def empty_note_set() -> NoteSet:
 ```
 
 The note sets are what the [Proof of Leadership](cryptarchia-proof-of-leadership.md#eligible-sets) proves a note against.
+
+### Commitment Merkle Mountain Range
+
+The commitments of each note set are appended, in insertion order, to the leaves of a Merkle tree of depth $`32`$ whose every leaf past the last appended one holds $`0`$. The root of that tree is the commitment MMR root of the set, and a commitment is proven in it by a Merkle path of length $`32`$.
+
+The ledger keeps only the peaks of the tree: the roots of its largest perfect subtrees holding appended commitments, with their heights, from left to right. Appending a commitment adds a peak of height $`0`$ and merges the last two peaks while they have the same height, and the root is computed from the peaks and the roots of the empty subtrees:
+
+```python
+def mmr_append(peaks: list[(MerkleRoot, int)], note_cm: NoteCm):
+    peaks.append((note_cm, 0))
+    while len(peaks) > 1 and peaks[-1][1] == peaks[-2][1]:
+        (left, height), (right, _) = peaks[-2], peaks[-1]
+        peaks[-2:] = [(zkhash(left, right), height + 1)]
+
+def empty_root(height: int) -> MerkleRoot:
+    # the root of a perfect subtree of the given height whose leaves all hold 0
+    root = 0
+    for _ in range(height):
+        root = zkhash(root, root)
+    return root
+
+def mmr_root(peaks: list[(MerkleRoot, int)]) -> MerkleRoot:
+    # fold the peaks from the right, each peak being the left sibling of what lies after it
+    root = 0
+    height = 0
+    for (peak, peak_height) in reversed(peaks):
+        while height < peak_height:
+            root = zkhash(root, empty_root(height))
+            height += 1
+        root = zkhash(peak, root)
+        height += 1
+    while height < 32:
+        root = zkhash(root, empty_root(height))
+        height += 1
+    return root
+```
 
 ### Nullifier Indexed Merkle Tree
 
@@ -1597,10 +1633,10 @@ The following method verifies the [ZkTransfer](#zero-knowledge-transfer-proof-zk
 class NoteSet:
     def verify_transfer(self, inputs: list[NoteNf], outputs: list[NoteCm], excess_value: TokenValue,
                         cm_merkle_root: MerkleRoot, msg: zkhash, proof: ZkTransfer) -> bool:
-        # append the commitments of tx_cm_buffer to the peaks of the MMR of root cm_merkle_root
-        peaks = copy(self.recent_cm_roots[cm_merkle_root])
+        # append the commitments of tx_cm_buffer to a copy of the peaks of the MMR of root cm_merkle_root
+        peaks = list(self.recent_cm_roots[cm_merkle_root])
         for note_cm in self.tx_cm_buffer:
-            peaks.add(note_cm)
+            mmr_append(peaks, note_cm)
         return ZkTransfer_verify(inputs, outputs, excess_value, mmr_root(peaks), msg, proof)
 ```
 
@@ -1623,8 +1659,7 @@ Creating notes of a note set appends their commitments to the commitment MMR of 
 class NoteSet:
     def execute_adding(self, outputs: list[NoteCm]):
         for note_cm in outputs:
-            # appends the commitment to the MMR of the set, updating its peaks
-            self.commitments.add(note_cm)
+            mmr_append(self.commitments, note_cm)
 ```
 
 # Appendix
@@ -1715,7 +1750,7 @@ Such that the following constraints hold:`
   )
   ```
   
-- Each output is well-formed and the excess value is greater than zero and outputted.
+- Each output is well-formed and the excess value, zero or more, is outputted.
   ```python
   assert all(
       outputs_value[i] < 2^64
@@ -1723,7 +1758,7 @@ Such that the following constraints hold:`
   )
   value_inputs = sum(inputs_value)
   value_outputs = sum(outputs_value)
-  assert value_inputs > value_outputs
+  assert value_inputs >= value_outputs
   assert excess_value == value_inputs - value_outputs
   ```
 

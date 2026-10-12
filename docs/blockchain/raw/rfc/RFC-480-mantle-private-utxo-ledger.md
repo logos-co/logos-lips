@@ -83,9 +83,9 @@ LEDGER_SET = 0
 SDP_SET = 1
 
 class NoteSet:
-    commitments: list[MerkleRoot]       # the peaks of the commitment MMR
-    nullifiers: set[NoteNf]             # the set of nullifiers, maintained in an IMT
-    recent_cm_roots: dict[MerkleRoot, list[MerkleRoot]]  # roots of the last 1024 blocks, with their peaks
+    commitments: list[(MerkleRoot, int)]  # the peaks of the commitment MMR, with their heights
+    nullifiers: set[NoteNf]               # the set of nullifiers, maintained in an IMT
+    recent_cm_roots: dict[MerkleRoot, list[(MerkleRoot, int)]]  # roots of the last 1024 blocks, with their peaks
     tx_cm_buffer: list[NoteCm]          # commitments added earlier in the Mantle Transaction
 
 class Ledger:
@@ -94,6 +94,7 @@ class Ledger:
 ```
 
 - A channel gets the next note set when it is created, stored as `ChannelState.note_set`.
+- The commitment MMR root is the root of the depth-32 Merkle tree whose leaves are the commitments in insertion order, empty leaves holding `0`. The ledger keeps its peaks: `mmr_append` adds a commitment, and `mmr_root` computes the root from the peaks.
 - The nullifier IMT has depth 32 and appends leaves in insertion order. A leaf is `NullifierLeaf(nf, next_nf, next_index)`, hashed with the DST `NULLIFIER_IMT_LEAF_V1`. The first leaf is the sentinel `(0, 0, 0)`, and positions past the last leaf hold `0`.
 - `assert_spendable(inputs, cm_merkle_root)`, `verify_transfer(...)`, `execute_spending(inputs)` and `execute_adding(outputs)` are methods of `NoteSet`, called as `ledger.sets[LEDGER_SET].execute_adding(...)`.
 - An Operation references a recent `cm_merkle_root`, and its ZkTransfer is proven against `tx_cm_root`, that root with the set's buffer appended. `verify_transfer` computes `tx_cm_root` and calls `ZkTransfer_verify(...)`.
@@ -142,7 +143,7 @@ class ProofOfLeadershipPublic:
 ## 4. SDP stake and the proof of work claim
 
 - `SDP_DECLARE` consumes ledger notes with a ZkTransfer and appends the service note `Note(amount, derive_note_nonce(op_id, 0, amount, zk_id), zk_id)` to the SDP set. `DeclarationInfo` holds `service_note` and `withdraw_outputs`.
-- `SDP_WITHDRAW` carries `service_note_nf`, `outputs` and `excess_value`, with a ZkTransfer proven against `mmr_root([declare_info.service_note])` and the `provider_id`'s Ed25519 signature. Its outputs reach the ledger set at removal.
+- `SDP_WITHDRAW` carries `service_note_nf`, `outputs` and `excess_value`, with a ZkTransfer proven against `mmr_root([(declare_info.service_note, 0)])` and the `provider_id`'s Ed25519 signature. Its outputs reach the ledger set at removal.
 - `SDP_ACTIVE` is signed by the `provider_id`.
 - `CLAIM_POW_REWARD` gains a `nonce`, its ticket is `zkhash(public_key, nonce, block_hash, epoch_nonce)`, its proof is empty, and its reward note goes to the ledger set.
 - Execution Gas: `EXECUTION_SDP_WITHDRAW_GAS = 649`, `EXECUTION_SDP_ACTIVE_GAS = 59`, `EXECUTION_CLAIM_POW_REWARD_GAS = 0`.
