@@ -79,7 +79,7 @@ Users stay hidden: payments consume notes by nullifier, and the notes a program 
 
 `CHANNEL_INSCRIBE` carries `steps: list[UserStep | ProgramStep]`.
 
-- A **user step** is the former channel step: a ZkTransfer of its holder bound to `step_msg`, with an `excess_value` of `0`.
+- A **user step** is a ZkTransfer of its holder bound to `step_msg`, with an `excess_value` of `0`.
 - A **program step** carries a `program_id`, its `payments`, and a program spend over the program notes.
 
 ```python
@@ -106,7 +106,7 @@ Validation of a program step, in order:
 3. The program spend consumes unspent notes of the program, possibly none, and its `ZkProgramSpend` verifies with `paid_value` the sum of the payments, `spend_notes_hash`, and the `op_id` of the inscription.
 4. The program proof verifies under the registered key on `(spend_notes_hash, payments_hash(step), op_id)`.
 
-The `ZkProgramSpend` is the ZkTransfer with program checks: its inputs are notes of `program_id`, its outputs are notes of `program_id` or user notes, `spend_notes_hash` commits to every input and output note, and `sum(inputs_value) + paid_value == sum(outputs_value)`. It is proven by the sequencer.
+The `ZkProgramSpend` is the ZkTransfer with program checks: its inputs are notes of `program_id`, its outputs are notes of `program_id` or user notes, `spend_notes_hash` commits to the active flag and the note of every input and output, and `sum(inputs_value) + paid_value == sum(outputs_value)`. Its used inputs and outputs are marked by the public flags `inputs_active` and `outputs_active`, set from the published lists as in the ZkTransfer. It is proven by the sequencer.
 
 ## 3. What enforces what
 
@@ -124,7 +124,7 @@ def derive_program_id(key: Groth16VerificationKey) -> ProgramId:
     return FiniteField(h.digest(), byte_order="little", modulus= p)
 ```
 
-- Validation checks that every point is on its curve and in its prime-order subgroup.
+- Validation checks that every point is on its curve, in its prime-order subgroup and not the point at infinity.
 - Execution stores the key in `ledger.programs` under its identifier. Registering a key already registered has no effect.
 
 ## 5. Encoding

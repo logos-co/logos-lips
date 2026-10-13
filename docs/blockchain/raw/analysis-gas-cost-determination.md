@@ -73,7 +73,7 @@ The gas derivation of each Operation are:
 
 ```python
 TRANSFER_GAS                  = 619
-CHANNEL_INSCRIBE_GAS          = 59 + 619 * user_steps + program_steps_gas
+CHANNEL_INSCRIBE_GAS          = 59 + 619 * user_steps + sum(PROGRAM_STEP_GAS of each program step)
 PROGRAM_STEP_GAS              = 619 * payments + PROGRAM_SPEND_GAS + PROGRAM_PROOF_GAS
 PROGRAM_SPEND_GAS             = TODO
 PROGRAM_PROOF_GAS             = TODO
@@ -136,7 +136,7 @@ Execution: ~59k CPU cycles + ~619k CPU cycles * user steps + the cost of each pr
 A program step costs:
 
 - Verification of the ZkTransfer of each payment: 590,000 cycles per payment.
-- Verification of the ZkProgramSpend: batch-verified with the other ZkProgramSpend proofs of the block, as the ZkTransfer proofs are. TODO: measure.
+- Verification of the ZkProgramSpend, a circuit shared by every program. TODO: measure.
 - Verification of the program proof: a single Groth16 verification under the key of its program, which cannot share the batch of another program. TODO: measure.
 - Verification that the program is registered and computation of the hash of the payments: negligible.
 

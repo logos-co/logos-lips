@@ -28,7 +28,7 @@
 | 1.1.0 | Remove the protection against adaptive adversary from PoL removing a non-enforced feature, simplifying work for engineers, improving UX and performances of PoL and PoQ. Update the performance according to the new circuit. Remove the notion of NOMOS in DSTs | 2026-01-29 |
 | 1.1.1 | Introduced a discussion for when the value of a participating note is way higher than the total estimated stake | 2026-06-24 |
 | 1.2.0 | Support the private ledger of Mantle: a note is eligible from any note set of the ledger, committed together in the eligible root, and proven unspent by the non-membership of its nullifier. The proof is bound to its block by `msg`, a hash of the block header, replacing the leader key | 2026-10-06 |
-| 1.2.1 | The note commitment is derived with the `program` and `data` fields of the note set to `0`, so only user notes lead | 2026-10-12 |
+| 1.2.1 | The note commitment is derived with `0` as the `program` and `data` fields of the note, so only user notes lead | 2026-10-12 |
 
 # Introduction
 
