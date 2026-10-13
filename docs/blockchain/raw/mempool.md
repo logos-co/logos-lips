@@ -59,7 +59,7 @@ A transaction is admitted, disseminated, offered to block building once mature, 
 
 `TRANSACTION_MATURITY` must be less than `TRANSACTION_TTL`. Otherwise a transaction is retired before it is mature, and nothing is ever selected.
 
-`CLAIM_GRACE` must exceed the time, in slots, that a block proposal takes to reach every node. Otherwise a node can retire a claim before a proposal that selected it in the last slot of its acceptance window arrives.
+`CLAIM_GRACE` must exceed the time, in slots, that a block proposal takes to reach every node. Otherwise a node can release a claim before a proposal that selected it in the last slot of its acceptance window arrives.
 
 ## Mempool State
 
@@ -229,6 +229,8 @@ A pending transaction for which `claim_expired` holds is retired.
 When a block becomes immutable, as defined in [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block), the transactions it carries are released.
 
 A retained transaction that is not in `included` is released when its age exceeds `TRANSACTION_RETENTION`.
+
+A transaction for which [`claim_expired`](#expired-claim) holds is released.
 
 Release removes the hash from `included` and from `by_prefix`, and discards its `admitted_at` entry and its body.
 
