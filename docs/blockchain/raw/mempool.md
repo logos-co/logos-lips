@@ -64,7 +64,7 @@ The claim reaches node B before B leads, so node A can rebuild B's proposal from
 
 A leader's block building receives every transaction in its mempool, oldest first, and keeps those that apply on its chain. A transaction that applies but does not fit in the block stays for the next leader.
 
-A transaction leaves the mempool when a block on the node's chain carries it, when block building finds it can never apply, when it grows older than its time to live, or when it is a reward claim that no block may include any more.
+A transaction leaves the mempool when a block on the node's chain carries it, when a leader's block building cannot apply it, when it grows older than its time to live, or, for a reward claim, a set time after no block may include it any more.
 
 A block may include the example's claim up to slot 20. A node keeps the claim for twenty slots after that, unless a block carries it first.
 
@@ -82,8 +82,8 @@ gantt
     tickInterval 10second
     todayMarker off
     section Blocks
-        before the named block : done, b0, 0, 10s
-        may include the claim : b1, after b0, 11s
+        up to the named block : done, b0, 0, 11s
+        may include the claim : b1, after b0, 10s
     section Node A
         before the claim arrives : done, a0, 0, 12s
         holds it : a1, after a0, 9s
@@ -105,36 +105,36 @@ A transaction arrives by local submission through the [Node API](#node-api), by 
 
 - its encoding is no larger than `MAX_BLOCK_SIZE`;
 - it decodes, and decoding consumes the whole payload;
-- it passes `preverify`, the [Mantle validation rules](bedrock-v1.1-mantle-specification.md#validation) that read no ledger state;
+- it passes `preverify`, the rules of Mantle's [Validation](bedrock-v1.1-mantle-specification.md#validation) that read no ledger state;
 - it is not already pending;
-- it carries no proof-of-work reward **claim** whose **deadline** has passed.
+- it carries no [Proof of Work](proof-of-work.md) reward **claim** whose **deadline** has passed.
 
-A claim's deadline passes when the highest slot of any block that [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance) has added to the node's block tree is more than `CLAIM_GRACE` slots past the last slot whose block may include the claim. A claim that names a block the node does not hold has no deadline. A transaction that is already pending is a duplicate: it is dropped if it came by gossip, and answered as success and broadcast again if it came from a local client. [Transaction Admission](#transaction-admission) specifies the procedure.
+`highest_slot` is the highest slot in the block tree that [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance) keeps. A claim's deadline passes when `highest_slot` is more than `CLAIM_GRACE` slots past the end of its [Acceptance Window](proof-of-work.md#acceptance-window). A claim that names a block the node does not hold has no deadline. A transaction that is already pending is a duplicate: it is dropped if it came by gossip, and answered as success and broadcast again if it came from a local client. [Transaction Admission](#transaction-admission) specifies the procedure.
 
 ## Gossip
 
 A transaction must reach every node, whichever node it was submitted to. Nodes pass transactions on by gossip.
 
-Transactions travel on the mempool topic of [P2P Network](../draft/p2p-network.md), and a message is identified by the digest of its payload. A node relays a message as soon as it receives it, before it admits the transaction. It broadcasts a transaction it admits by local submission or by re-insertion, and not one it received by gossip. [Dissemination](#dissemination) specifies the rules.
+[Dissemination](#dissemination) specifies the topic, the message identity, and when a node relays and broadcasts.
 
 ## Block Building Input
 
 A leader must fill its block with transactions that apply on its chain, including transactions that depend on each other. The mempool offers it every pending transaction, and block building finds the ones that apply.
 
-The leader passes over the pending transactions in admission order and applies each one that succeeds, repeating until a pass applies nothing new. It then fills the block in the same order, up to `MAX_BLOCK_TXS` and `MAX_BLOCK_SIZE`. A transaction that never applies is retired, and one that applies but does not fit stays pending. [Block Building View](#block-building-view) specifies both steps.
+The leader passes over the pending transactions in admission order and applies each one that succeeds, repeating until a pass applies nothing new. It then fills the block in the order it applied them, up to `MAX_BLOCK_TXS` and `MAX_BLOCK_SIZE`. A transaction that applies but does not fit stays pending. [Block Building View](#block-building-view) specifies both steps.
 
 ## Proposal References
 
 A block proposal carries a short reference to each of its transactions instead of the transaction itself. Every validator rebuilds the proposal from its own mempool.
 
-A **reference** is a prefix of the transaction's hash. It resolves only when exactly one pending transaction carries that prefix. A reference with no match, or with several, is not searched further. [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md) specifies what an unresolved reference means for the proposal, and [Reference Resolution](#reference-resolution) specifies the procedure.
+A **reference** is a prefix of the transaction's hash. It resolves only when exactly one pending transaction carries that prefix. [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md) specifies what an unresolved reference means for the proposal, and [Reference Resolution](#reference-resolution) specifies the procedure.
 
 ## Retirement Reasons
 
 Without retirement, the pending set would only grow. A node retires a transaction for one of four reasons:
 
 - a block that carries it enters the node's canonical chain;
-- block building never applies it;
+- a leader's block building does not apply it in any pass;
 - its age exceeds `TRANSACTION_TTL`;
 - it carries a claim whose deadline has passed.
 
@@ -180,12 +180,12 @@ sequenceDiagram
 
 A node keeps these values for its mempool, defined in [Mempool State](#mempool-state):
 
-- `pending`, the pending hashes in admission order, which changes when the node admits a transaction ([Transaction Admission](#transaction-admission)) or retires one ([Retirement](#retirement));
-- `bodies` and `admitted_at`, the body and admission time of each pending transaction, which change with `pending`;
-- `by_prefix`, the pending hashes keyed by their reference prefix, which changes with `pending`;
+- `pending`, the pending hashes in admission order, which changes on [Transaction Admission](#transaction-admission) and on [Retirement](#retirement);
+- `bodies` and `admitted_at`, the body and admission time of each pending transaction, which change with `pending` as [Effects of Retirement](#effects-of-retirement) specifies;
+- `by_prefix`, the pending hashes keyed by their reference prefix, which changes with `pending` in the same way;
 - `highest_slot`, the highest slot in the block tree, which rises when Chain Maintenance adds a block of a higher slot.
 
-The node persists `pending`, `admitted_at` and `bodies`, and rebuilds `by_prefix` and `highest_slot` on recovery ([Persistence and Recovery](#persistence-and-recovery)). Local clients read the pending set through the [Node API](#node-api).
+[Persistence and Recovery](#persistence-and-recovery) specifies what the node persists and rebuilds. Local clients read the pending set through the [Node API](#node-api).
 
 # Details
 
@@ -205,6 +205,8 @@ TRANSACTION_TTL: uint64 = 24 * 60 * 60  # seconds a transaction may stay pending
 CLAIM_GRACE: uint64 = 2 * WINDOW        # slots a claim stays pending after its acceptance window closes
 ```
 
+With `WINDOW` at 300 slots, `CLAIM_GRACE` is 600 slots.
+
 `CLAIM_GRACE` must exceed the time, in slots, that a block proposal takes to reach every node. Otherwise a node can retire a claim before a proposal that selected it in the last slot of its acceptance window arrives.
 
 ## Mempool State
@@ -219,11 +221,11 @@ class Mempool:
     highest_slot: SlotNumber            # highest slot in the block tree
 ```
 
-A transaction is keyed by `mantle_txhash(tx)`, defined in [Mantle](bedrock-v1.1-mantle-specification.md#mantle-transaction-hash).
+A transaction `tx` is keyed by `mantle_txhash(tx)`, the [Mantle Transaction Hash](bedrock-v1.1-mantle-specification.md#mantle-transaction-hash) of `tx.tx`.
 
-An `OrderedSet` iterates in insertion order. A `Timestamp` is a time in seconds, as an unsigned 64-bit integer.
+An `OrderedSet` iterates in insertion order. A `Timestamp` is a time in seconds, as an unsigned 64-bit integer, and `now()` is the node's current time as a `Timestamp`. A transaction's age is `now()` minus its `admitted_at` entry.
 
-`by_prefix` maps `prefix(hash, REFERENCE_PREFIX_LENGTH)` to the pending hashes carrying that prefix, where `prefix` is defined in [References](bedrock-v1.1-block-construction.md#references).
+`by_prefix` maps `prefix(hash, REFERENCE_PREFIX_LENGTH)` to the pending hashes carrying that prefix, where `prefix` is defined in [References](bedrock-v1.1-block-construction.md#references). A prefix that no pending hash carries maps to an empty set.
 
 `highest_slot` is the highest slot of any block that [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance) has added to the node's block tree.
 
@@ -259,7 +261,7 @@ def admit(mempool, encoded: bytes) -> Result:
 
 Admission reads the transaction, the mempool and the node's block tree, and no other state. A node must not treat membership of the mempool as evidence that a transaction can be applied.
 
-`decode_signed_mantle_tx` returns the transaction that [Decoding](#decoding) describes, or `None` if `encoded` does not decode. `claim_expired` is defined in [Expired Claim](#expired-claim). `now()` is the node's current time as a `Timestamp`. `admit` returns `Accept(key)` when it admits the transaction, `Duplicate(key)` when the transaction is already pending, and `Reject` with the reason otherwise.
+`decode_signed_mantle_tx` returns the transaction that [Decoding](#decoding) describes, or `None` if `encoded` does not decode. `claim_expired` is defined in [Expired Claim](#expired-claim). `admit` returns `Accept(key)` when it admits the transaction, `Duplicate(key)` when the transaction is already pending, and `Reject` with the reason otherwise.
 
 ### Decoding
 
@@ -267,11 +269,10 @@ The payload is the canonical encoding defined in [Mantle Transaction Encoding](m
 
 ### Stateless Validation
 
-`preverify` applies the subset of the [Mantle validation rules](bedrock-v1.1-mantle-specification.md#validation) that reads no ledger state:
+`preverify` applies the subset of Mantle's [Validation](bedrock-v1.1-mantle-specification.md#validation) rules that reads no ledger state:
 
-1. The transaction carries one proof entry per operation, which may be the `None` entry where the opcode admits one.
-2. Each proof entry has the type its operation's opcode requires.
-3. Each proof bound only to the transaction hash and the operation payload verifies.
+1. Rule 1 of [Validation](bedrock-v1.1-mantle-specification.md#validation) holds.
+2. Each proof bound only to the transaction hash and the operation payload verifies.
 
 ### Reorganisation
 
@@ -288,16 +289,16 @@ A node runs `reorganise` when a fork switch displaces blocks from the canonical 
 
 ### Duplicates
 
-`admit` reports a duplicate. The caller decides what follows:
+When `admit` returns `Duplicate`:
 
 - A duplicate received by gossip is dropped.
 - A duplicate received by local submission is answered as success, and the transaction is broadcast again.
 
 ## Dissemination
 
-Transactions are gossiped on the mempool topic defined in [P2P Network](../draft/p2p-network.md#gossiping).
+Transactions are gossiped on the mempool topic defined in [Gossiping](../draft/p2p-network.md#gossiping).
 
-A message's identity on that topic is the Blake2b-256 digest of its payload. Implementations must not use gossipsub's default source-and-sequence-number identity.
+A message's identity on that topic is the Blake2b-256 digest of its payload.
 
 A node relays a received message to its mesh neighbours on receipt, before admission.
 
@@ -335,7 +336,7 @@ def selection(applied: list[SignedMantleTx]) -> list[SignedMantleTx]:
     return block
 ```
 
-`applicability` is the leader's **applicability determination**, and no block limit applies to it. `remaining` holds the transactions it never applies. In **selection**, the leader fills its block from `applied`, in the order the determination applied them.
+`applicability` is the leader's **applicability determination**, and no block limit applies to it. `remaining` holds the transactions it never applies.
 
 `parent_state` is the ledger state after the parent of the block being built. `apply_header(parent_state, header)` returns the state against which [Block Execution](bedrock-v1.1-block-construction.md#block-execution) executes the first transaction of a block with that header. `apply_transaction(state, tx)` returns the state after executing `tx` against `state` as [Mantle](bedrock-v1.1-mantle-specification.md) specifies, or `None` if `tx` is not valid against `state`. `encoded_size(txs)` is the size of `txs` serialized as the `transactions` of a block, which rule 2 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) bounds by `MAX_BLOCK_SIZE`.
 
@@ -352,7 +353,7 @@ def resolve(mempool, reference) -> Optional[SignedMantleTx]:
     return mempool.bodies[key]
 ```
 
-A non-unique match must not be searched.
+A node must not choose among several matches.
 
 Resolution reads the proposal, `by_prefix` and `bodies`, and nothing else.
 
@@ -364,7 +365,7 @@ A transaction leaves `pending` for one of four reasons.
 
 ### Inclusion in a Canonical Block
 
-When a block enters the node's canonical chain, the transactions it carries are retired.
+When a block enters the node's canonical chain, each pending transaction it carries is retired.
 
 ### Inapplicability
 
@@ -419,7 +420,7 @@ def recover(saved, block_tree) -> Mempool:
         by_prefix[prefix(key, REFERENCE_PREFIX_LENGTH)].add(key)
     return Mempool(pending=saved.pending, bodies=saved.bodies,
                    admitted_at=saved.admitted_at, by_prefix=by_prefix,
-                   highest_slot=max(block.slot for block in block_tree))
+                   highest_slot=max(block.header.slot for block in block_tree))
 ```
 
 `saved` holds what the node persisted, and `block_tree` holds the blocks of the node's block tree.
@@ -430,17 +431,7 @@ A node exposes the mempool to local clients through endpoints that carry no cons
 
 | Operation | Description |
 | --- | --- |
-| Submit transaction | Admit a transaction by local submission and broadcast it. Returns the outcome of [Transaction Admission](#transaction-admission). |
+| Submit transaction | Admit a transaction by local submission. Returns the outcome of [Transaction Admission](#transaction-admission). |
 | View | The hashes of the pending transactions. |
 | Status | For each queried hash, whether the transaction is pending or unknown to this node. |
 | Metrics | The number of pending transactions and the time of the most recent admission. |
-
-# References
-
-- [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md)
-- [Cryptarchia Protocol](cryptarchia-v1-protocol.md)
-- [Mantle](bedrock-v1.1-mantle-specification.md)
-- [Mantle Transaction Encoding](mantle-transaction-encoding.md)
-- [Network Wire Format](network-wire-format.md)
-- [P2P Network](../draft/p2p-network.md)
-- [Proof of Work](proof-of-work.md)
