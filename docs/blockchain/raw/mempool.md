@@ -47,6 +47,9 @@ A transaction is admitted, disseminated, offered to block building once mature, 
 | `BLEND_DELAY` | Blend Delay | How long a block proposal takes to cross the Blend network. | 15 seconds |
 | `BROADCAST_DELAY` | Broadcast Delay | How long a block proposal takes to reach every node once it leaves the Blend network. | 5 seconds |
 | `TRANSACTION_MATURITY` | Transaction Maturity | How long a transaction must have been pending to be mature. | `BLEND_DELAY + BROADCAST_DELAY` |
+| `CLAIM_GRACE` | Claim Grace | How many slots a claim stays pending after its acceptance window closes. | `2 * WINDOW` |
+
+`WINDOW` is defined in [Acceptance Window](proof-of-work.md#acceptance-window).
 
 `TRANSACTION_TTL` must not exceed the [Prolonged Bootstrap Period](cryptarchia-v1-bootstr-sync.md#prolonged-bootstrap-period). A node that has just completed that period cannot resolve a reference to a transaction admitted before the period began.
 
@@ -55,6 +58,8 @@ A transaction is admitted, disseminated, offered to block building once mature, 
 `BLEND_DELAY` must not be less than the time a message takes to cross the Blend network ([Transition Period](blend-protocol.md#transition-period)). Otherwise a mature transaction has had less time to spread than the proposal carrying it takes to arrive.
 
 `TRANSACTION_MATURITY` must be less than `TRANSACTION_TTL`. Otherwise a transaction is retired before it is mature, and nothing is ever selected.
+
+`CLAIM_GRACE` must exceed the time, in slots, that a block proposal takes to reach every node. Otherwise a node can retire a claim before a proposal that selected it in the last slot of its acceptance window arrives.
 
 ## Mempool State
 
@@ -65,6 +70,7 @@ class Mempool:
     bodies: Map[TxHash, SignedMantleTx] # transaction bodies
     admitted_at: Map[TxHash, Timestamp] # admission time
     by_prefix: Map[bytes, Set[TxHash]]  # hashes keyed by reference prefix
+    highest_slot: SlotNumber            # highest slot in the block tree
 ```
 
 A transaction is keyed by `mantle_txhash(tx)`, defined in [Mantle](bedrock-v1.1-mantle-specification.md#mantle-transaction-hash).
@@ -74,6 +80,8 @@ A transaction is **retained** between its [Retirement](#retirement) and its [Rel
 `by_prefix` maps `prefix(hash, REFERENCE_PREFIX_LENGTH)` to the hashes carrying that prefix, where `REFERENCE_PREFIX_LENGTH` is defined in [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md#references).
 
 `insert_by` places a hash at the position its admission time gives it.
+
+`highest_slot` is the highest slot of any block that [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance) has added to the node's block tree.
 
 ## Transaction Admission
 
@@ -95,6 +103,9 @@ def admit(mempool, encoded: bytes) -> Result:
     if key in mempool.pending or key in mempool.included:
         return Duplicate(key)
 
+    if claim_expired(mempool, tx):
+        return Reject(ExpiredClaim)
+
     mempool.bodies[key] = tx
     mempool.admitted_at[key] = mempool.admitted_at.get(key, now())
     mempool.pending.insert_by(key, mempool.admitted_at[key])
@@ -102,11 +113,11 @@ def admit(mempool, encoded: bytes) -> Result:
     return Accept(key)
 ```
 
-Admission reads the transaction and the mempool, and no other state. A node must not treat membership of the mempool as evidence that a transaction can be applied.
+Admission reads the transaction, the mempool and the node's block tree, and no other state. A node must not treat membership of the mempool as evidence that a transaction can be applied.
 
 Admitting a retained transaction again does not change its admission time.
 
-`MAX_BLOCK_SIZE` is defined in [Cryptarchia Protocol](cryptarchia-v1-protocol.md#constants).
+`MAX_BLOCK_SIZE` is defined in [Cryptarchia Protocol](cryptarchia-v1-protocol.md#constants). `claim_expired` is defined in [Expired Claim](#expired-claim).
 
 ### Decoding
 
@@ -179,7 +190,7 @@ How a validator uses the result, and what a failure to resolve establishes about
 
 ## Retirement
 
-A transaction leaves `pending` for one of three reasons.
+A transaction leaves `pending` for one of four reasons.
 
 ### Inclusion in a Canonical Block
 
@@ -193,6 +204,26 @@ A mature transaction that the applicability determination of [Block Building Vie
 
 A pending transaction whose age exceeds `TRANSACTION_TTL` is retired.
 
+### Expired Claim
+
+A claim is the payload of a `CLAIM_POW_REWARD` Operation, defined in [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward).
+
+```python
+def claim_expired(mempool, tx) -> bool:
+    slots = [block_slot(claim.block_hash) for claim in claims(tx)]
+    known = [slot for slot in slots if slot is not None]
+    if not known:
+        return False
+    # One claim the ledger rejects invalidates the whole transaction, so the
+    # earliest referenced block decides. A block at slot s + WINDOW is the last
+    # that can include a claim referencing a block at slot s.
+    return mempool.highest_slot >= min(known) + WINDOW + 1 + CLAIM_GRACE
+```
+
+A pending transaction for which `claim_expired` holds is retired.
+
+`claims(tx)` is the list of claims in `tx`. `block_slot(h)` is the slot of the block with hash `h` in the node's block tree, or `None` if the block tree holds no such block.
+
 ## Release
 
 When a block becomes immutable, as defined in [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block), the transactions it carries are released.
@@ -205,7 +236,7 @@ Release removes the hash from `included` and from `by_prefix`, and discards its 
 
 A node persists the pending hashes, the retained hashes that are not in `included`, the bodies of those transactions, and every admission timestamp.
 
-A node does not persist `included` or `by_prefix`. On recovery it rebuilds `by_prefix` from the recovered hashes. It then applies [Inclusion in a Canonical Block](#inclusion-in-a-canonical-block) to each block of its canonical chain after the [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block).
+A node does not persist `included`, `by_prefix` or `highest_slot`. On recovery it rebuilds `by_prefix` from the recovered hashes and `highest_slot` from its block tree. It then applies [Inclusion in a Canonical Block](#inclusion-in-a-canonical-block) to each block of its canonical chain after the [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block).
 
 ## Node API
 
@@ -228,3 +259,4 @@ A node exposes the mempool to local clients through endpoints that carry no cons
 - [Mantle Transaction Encoding](mantle-transaction-encoding.md)
 - [Network Wire Format](network-wire-format.md)
 - [P2P Network](../draft/p2p-network.md)
+- [Proof of Work](proof-of-work.md)

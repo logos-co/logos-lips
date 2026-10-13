@@ -19,6 +19,8 @@
 |  | Merged master, and moved the specification to slug 251 after master gave 245 to Proof of Work. | 2026-10-07 |
 | v9 | Review: moved the rule that a fork switch re-admits a transaction at its original admission time to [#448](https://github.com/logos-co/logos-lips/pull/448), which keeps that time past retirement. Retirement discards it here before a fork switch needs it, so this document could not honour the rule. | 2026-10-07 |
 |  | `admit` lost its `at` argument and `pending` is an insertion-ordered set again, as implemented. Removed the departure, its implementation task and its test, and added Open Issue 14. | 2026-10-07 |
+| v10 | Added the expired-claim retirement that [logos-blockchain#3789](https://github.com/logos-blockchain/logos-blockchain/pull/3789) implements: a claim is retired, and refused at admission, once the highest slot in the block tree is more than `CLAIM_GRACE` slots past its acceptance window. Added its Details entry, rationale, departure and implementation tasks, and narrowed Open Issues 2, 6 and 8 for claims. | 2026-10-13 |
+|  | Brought the departures up to date with `logos-blockchain` at `f376f9547`. Removed the three that [logos-blockchain#3610](https://github.com/logos-blockchain/logos-blockchain/pull/3610), [#3734](https://github.com/logos-blockchain/logos-blockchain/pull/3734) and [#3746](https://github.com/logos-blockchain/logos-blockchain/pull/3746) fixed, moved their reasoning to the rationale, and ticked their tasks. Stateless validation now departs only for `CLAIM_POW_REWARD`, which the implementation gives no proof, and the TTL entry records the 1-hour default. | 2026-10-13 |
 
 ## Reviewer Orientation
 
@@ -27,17 +29,18 @@ Read the PR's Motivation first.
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here** — [Mempool](#affected-specifications): [Reference resolution](#1-reference-resolution) | Resolution succeeds only on a unique prefix match, and reads the proposal, `by_prefix` and `bodies` and nothing else. Check that no other state can enter it. |
-| 2 | Critical | [Mempool](#affected-specifications): [Block building](#2-block-building) | Retirement lists three reasons a transaction leaves, and selection is not among them. Check that a transaction which merely did not fit stays resolvable. |
-| 3 | High | [Mempool](#affected-specifications): [Admission](#3-admission) | Stateless by design: no ledger reads. Confirm the `preverify` subset matches Mantle's rules, including `None` proof entries. |
-| 4 | High | [Mempool](#affected-specifications): [Retirement and persistence](#4-retirement-and-persistence) | Retirement is not rejection, and it clears every per-transaction map. |
-| 5 | High | [Block Construction, Validation and Execution](#affected-specifications): [Resolution moves to the mempool](#5-block-construction-links-to-the-mempool) | What block construction keeps is its own, and nothing it removed is lost. |
-| 6 | Medium | [Mempool](#affected-specifications): [Dissemination](#6-dissemination) | Payload-digest message identity, and relay preceding admission. |
-| 7 | Medium | [Mempool](#affected-specifications): [Mempool State](../mempool.md#mempool-state) and [Constants](../mempool.md#constants) | Only constants this specification owns are defined here. The rest are referenced. |
-| 8 | Low | [Mempool](#affected-specifications): [Node API](../mempool.md#node-api) | Skim. |
+| 2 | Critical | [Mempool](#affected-specifications): [Block building](#2-block-building) | Retirement lists four reasons a transaction leaves, and selection is not among them. Check that a transaction which merely did not fit stays resolvable. |
+| 3 | High | [Mempool](#affected-specifications): [Admission](#3-admission) | No ledger reads. The block tree is read only to refuse an expired claim. Confirm the `preverify` subset matches Mantle's rules, including `None` proof entries. |
+| 4 | High | [Mempool](#affected-specifications): [Retirement and persistence](#4-retirement-and-persistence) | Retirement is not rejection, except for an expired claim, and it clears every per-transaction map. |
+| 5 | High | [Mempool](#affected-specifications): [Expired claims](#5-expired-claims) | A claim is retired and refused more than `CLAIM_GRACE` slots after the last slot that can include it. Check the deadline, and the constraint on `CLAIM_GRACE`. |
+| 6 | High | [Block Construction, Validation and Execution](#affected-specifications): [Resolution moves to the mempool](#6-block-construction-links-to-the-mempool) | What block construction keeps is its own, and nothing it removed is lost. |
+| 7 | Medium | [Mempool](#affected-specifications): [Dissemination](#7-dissemination) | Payload-digest message identity, and relay preceding admission. |
+| 8 | Medium | [Mempool](#affected-specifications): [Mempool State](../mempool.md#mempool-state) and [Constants](../mempool.md#constants) | Only constants this specification owns are defined here. The rest are referenced. |
+| 9 | Low | [Mempool](#affected-specifications): [Node API](../mempool.md#node-api) | Skim. |
 
 # Discussion
 
-## Why admission is stateless
+## Why admission reads no ledger state
 
 Admission could check a transaction against the node's ledger state and reject what cannot be applied. It does not, for two reasons.
 
@@ -45,7 +48,9 @@ The first is view uniformity, not cost. A stateful rule makes mempool contents a
 
 The second is that transactions depend on each other. If `tx2` spends a note `tx1` creates and `tx2` arrives first, a stateful check rejects it although nothing is wrong with it. Arrival order is not dependency order. Judging `tx2` correctly means applying the other pending transactions first, which is the applicability fixpoint of block building run once per arrival instead of once per block. Stateful admission is therefore either wrong about dependent transactions, or block building repeated on every gossip message.
 
-The price is that the mempool holds transactions that can never be applied, at no charge to whoever submitted them. Only `MAX_BLOCK_SIZE` and `TRANSACTION_TTL` bound them.
+The expired-claim check reads the node's block tree, not its ledger, and neither reason applies to it. It reads no other transaction. Nodes disagree about a claim only after its deadline. The constraint on `CLAIM_GRACE` puts the deadline after a proposal that carries the claim has reached every node, if the leader sent it in its own slot.
+
+The price is that the mempool holds transactions that can never be applied, at no charge to whoever submitted them. Only `MAX_BLOCK_SIZE` and `TRANSACTION_TTL` bound them. A claim also leaves at its deadline, if the node holds the block it references.
 
 ## Rationale for individual rules
 
@@ -55,35 +60,40 @@ The specification states rules only. The reasoning behind them is recorded here.
 - **Resolution follows header authentication.** A mempool scan is the expensive step in accepting a proposal, and a proposal is unauthenticated below its header.
 - **Applicability separated from selection.** Only the applicability fixpoint retires transactions. A transaction that merely did not fit in a block is one another leader can validly include. Evicting it would stop this node from resolving that leader's reference to it.
 - **Retirement clears every per-transaction map.** A map that retirement did not clear would grow for the node's lifetime and, being persisted, across restarts.
+- **Retirement follows the canonical chain, not the tip.** Retiring on "becomes the tip" only reaches the new head of an adopted branch. The blocks beneath it were applied while that branch was losing. They become ancestors without ever being the tip, so their transactions would stay pending while being canonical.
+- **A fork switch re-admits only what the adopted branch does not carry.** Re-admitting every transaction of every displaced block would put back transactions that are canonical again. Competing branches select from similar mempools, so the overlap is routine.
+- **Size before decoding.** A bound checked on the decoded transaction does not limit the cost of decoding an oversized payload.
+- **An expired claim is refused at admission.** The submitter learns that the claim has expired, and the node does not broadcast a claim that no block can include.
+- **The claim clock is the highest slot in the block tree.** It advances with every block the node adds, on any branch. It never passes the current slot, because [Block Header Validation](../cryptarchia-v1-protocol.md#block-header-validation) accepts no block whose slot has not begun. A node therefore never retires a claim before the current slot reaches its deadline.
+- **`CLAIM_GRACE` is twice the window.** A grace of zero breaks the constraint beside it in [Constants](../mempool.md#constants). Twice the window is the implementation's value. Nothing derives it. With `WINDOW` at 300 slots, it is 600 slots, ten minutes.
 - **Payload-digest message identity.** Gossipsub's default source-and-sequence identity would let every re-publisher mint a fresh identity for the same bytes, which defeats suppression at the router.
 - **`by_prefix` is rebuilt rather than persisted.** A change to `REFERENCE_PREFIX_LENGTH` then takes effect on restart, and an index built under the previous value cannot contradict it.
+- **`highest_slot` is rebuilt rather than persisted.** It is a function of the block tree, which the node already persists.
 
 ## Where the specification departs from the implementation
 
 This document describes what runs. It departs from the implementation only where the current behaviour is not defensible as a design. Each departure is listed below, with its task under [Implementation](#implementation). Everything else that differs from an ideal mempool stays an [open issue](#open-issues), so the specification and the code can be compared line by line.
 
-The entries were checked against `logos-blockchain` at `4e0405d51`: `services/tx-service`, with the block-building and block-applied halves in `services/chain/chain-leader` and `services/chain/chain-network`. The header-validation and grace-period entries were checked at `cad13d0d9`.
+The entries were checked against `logos-blockchain`: `services/tx-service`, with the block-building and block-applied halves in `services/chain/chain-leader` and `services/chain/chain-network`. The header-validation and grace-period entries were checked at `cad13d0d9`, the stateless-validation and TTL entries at `f376f9547`, and the expired-claim entry against [logos-blockchain#3789](https://github.com/logos-blockchain/logos-blockchain/pull/3789) at `b79dd8bdb`.
 
 - **Header validation precedes resolution.** [Block Proposal Validation](../bedrock-v1.1-block-construction.md#block-proposal-validation) checks the parent's presence and the proof of leadership in step 2, before reconstruction in step 4. The implementation resolves references after checking only the latest-immutable-block bound, the genesis slot and the signature. It finds a missing parent only when it applies the reconstructed block. A proposal whose references do not resolve is therefore dropped before its missing parent is noticed, and it never reaches the orphan path. A proposal with an invalid proof of leadership also costs a mempool scan.
-- **Stateless validation.** `preverify` has no counterpart. The whole of admission validation is a size bound. No proof is counted, type-checked or verified anywhere on the ingress path, and verification first happens when the ledger applies a transaction. The pool therefore holds transactions nobody has shown to be well-formed beyond decoding, and a peer can fill it with proofless ones at no cost. This is the one place where the document specifies a check rather than describing one.
-- **Size before verification.** The size bound is checked on the raw payload before decoding. The implementation checks it on the decoded transaction, so the bound does not limit the cost of decoding an oversized payload.
-- **Retirement follows the canonical chain, not the tip.** Retiring on "becomes the tip" only reaches the new head of an adopted branch. The blocks beneath it were applied while that branch was losing. They become ancestors without ever being the tip, so their transactions stay pending while being canonical.
-- **A fork switch re-admits only what the adopted branch does not carry.** Re-admitting every transaction of every displaced block puts back transactions that are canonical again. Competing branches select from similar mempools, so the overlap is routine.
+- **Stateless validation.** The implementation counts the proofs and checks their types when it decodes a transaction. It then verifies every proof bound only to the transaction hash and the operation payload, except one. It gives `CLAIM_POW_REWARD` no proof, so the `ZkSignature` that [CLAIM_POW_REWARD](../bedrock-v1.1-mantle-specification.md#claim_pow_reward) requires is neither type-checked nor verified, at admission or by the ledger.
+- **Expired claims.** The implementation admits an expired claim, and retires it only as inapplicable or by its TTL. [logos-blockchain#3789](https://github.com/logos-blockchain/logos-blockchain/pull/3789) adds the rule as specified, except after a restart. Its clock stays empty until the node applies a block, so no claim is refused until then. The claims it recovers are never tracked again, so only the TTL retires them.
 - **Retirement discards the body.** The implementation keeps a retired body for a ten-minute grace period, but retirement removes the hash from the prefix index at once. Since [logos-blockchain#3251](https://github.com/logos-blockchain/logos-blockchain/pull/3251), no resolution reads the retained body, so the timer only delays its deletion. [#448](https://github.com/logos-co/logos-lips/pull/448) brings retention back together with the rule that reads it.
-- **`TRANSACTION_TTL` is a constant.** The implementation carries it as a configuration value that can be set to disable expiry altogether, which leaves a node with no eviction at all.
+- **`TRANSACTION_TTL` is a constant.** The implementation carries it as a configuration value that can be set to disable expiry altogether, which leaves a node with no eviction at all. Its default is 1 hour, against 24 hours here.
 
 ## Open issues
 
 Recorded here rather than in the specification.
 
 1. **No attestation that a transaction reached the network.** [Blend Protocol](../blend-protocol.md#privacy-of-proof-of-stake-systems) states that its network-level protection is not sufficient alone, and defers the other half to the mempool: a node should hold "an attestation that the transaction was seen by the majority of the network". Nothing here supplies it, so a selectively delivered transaction is proposed like any other and identifies its proposer.
-2. **A transaction has no defined end of life.** `TRANSACTION_TTL` is a local eviction policy, not a property of the transaction. Nodes drop the same transaction at different moments, and a submitter can never conclude an in-flight transaction is dead.
+2. **A transaction has no defined end of life.** `TRANSACTION_TTL` is a local eviction policy, not a property of the transaction. Nodes drop the same transaction at different moments, and a submitter can never conclude an in-flight transaction is dead. A claim is the exception. No block can include it once its acceptance window closes, and [Expired Claim](../mempool.md#expired-claim) retires it after that.
 3. **Expiry has no independent clock.** The implementation evaluates expiry only when a block is applied, so a stalled or partitioned node retains everything.
 4. **Relay precedes validation.** A malformed transaction is amplified network-wide before any node rejects it. Deferring relay until after validation would close the amplification, at the cost of one validation per hop.
 5. **Content-addressed suppression does not suppress re-proved copies.** `mantle_txhash` covers `MantleTx`, not `op_proofs`, and Groth16 proofs are re-randomizable. An adversary can therefore mint unlimited byte-distinct copies of one transaction, each with a fresh payload digest and so a fresh message identity, each relayed to the mesh before admission decodes it. Keying message identity on the transaction hash, which is computable from the payload, would collapse them, at the cost of decoding before relaying.
-6. **No capacity bound.** `pending` grows without limit. `TRANSACTION_TTL` bounds how long a transaction is held, not how many are held.
+6. **No capacity bound.** `pending` grows without limit. `TRANSACTION_TTL` bounds how long a transaction is held, not how many are held. A claim that references a block the node does not hold never expires as a claim, so only `TRANSACTION_TTL` retires it.
 7. **The applicability fixpoint is superlinear in an unbounded set.** Repeated passes until nothing applies is quadratic in `pending` in the worst case, each apply verifies the state-bound proofs that admission deliberately skips, and the leader has one slot to finish. Bounding the input to the fixpoint, or the number of passes, would bound the cost. Neither is specified.
-8. **Inapplicability retirement is only reachable on a leader.** The applicability determination runs when a node builds a block, at the rate the stake lottery grants it. For a node that rarely leads, TTL is the only eviction. A transaction is also retired the first time a fixpoint fails to apply it, even though the transaction creating its input may simply not have arrived yet.
+8. **Inapplicability retirement is only reachable on a leader.** The applicability determination runs when a node builds a block, at the rate the stake lottery grants it. For a node that rarely leads, TTL is the only eviction, except for an expired claim. A transaction is also retired the first time a fixpoint fails to apply it, even though the transaction creating its input may simply not have arrived yet.
 9. **No fee-aware selection.** [Execution Market](../execution-market.md#block-builder-mechanism-block-construction) specifies filtering by base fee and ordering by revenue. The view is ordered by admission time and carries no fee information.
 10. **A retired transaction cannot resolve a reference.** A node that has included a transaction on its own branch cannot reconstruct a competing branch's proposal that references it, until a fork switch re-admits it. Competing leaders select from similar mempools, so most forks between non-empty blocks hit this. [#448](https://github.com/logos-co/logos-lips/pull/448), stacked on this PR, closes it: an included transaction stays resolvable until its block becomes immutable.
 11. **Re-admission of included transactions.** A transaction already in a canonical block can be gossiped back in, and it occupies space until block building finds it inapplicable or its TTL expires. [#448](https://github.com/logos-co/logos-lips/pull/448) makes its hash a duplicate until its block is immutable.
@@ -105,13 +115,17 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 
 ## 3. Admission
 
-[Transaction Admission](../mempool.md#transaction-admission). Admission checks the size of the raw payload, then decodes it, requiring full consumption, then applies Mantle's stateless validation, then checks for a duplicate. Stateless validation requires one proof entry per operation, with `None` where the opcode admits it, the proof type each opcode requires, and a valid proof wherever the proof binds only the transaction hash and the operation payload. Admission reads no ledger state. A pending transaction is therefore **well-formed, not valid**, and membership must never be taken as evidence that it can be applied.
+[Transaction Admission](../mempool.md#transaction-admission). Admission checks the size of the raw payload, then decodes it, requiring full consumption, then applies Mantle's stateless validation, then checks for a duplicate, then refuses an [expired claim](#5-expired-claims). Stateless validation requires one proof entry per operation, with `None` where the opcode admits it, the proof type each opcode requires, and a valid proof wherever the proof binds only the transaction hash and the operation payload. Admission reads no ledger state. A pending transaction is therefore **well-formed, not valid**, and membership must never be taken as evidence that it can be applied.
 
 ## 4. Retirement and persistence
 
-[Retirement](../mempool.md#retirement), [Reorganisation](../mempool.md#reorganisation) and [Persistence and Recovery](../mempool.md#persistence-and-recovery). A transaction is retired when a block that carries it enters the canonical chain, when the applicability fixpoint never applies it, or when its age exceeds `TRANSACTION_TTL`. Retirement clears every per-transaction map, the body included. Retirement is **not** rejection: a re-gossiped copy is admitted again. A fork switch re-admits the displaced transactions the adopted branch does not carry. A node persists the pending hashes, their admission times and the bodies, and rebuilds the prefix index on recovery.
+[Retirement](../mempool.md#retirement), [Reorganisation](../mempool.md#reorganisation) and [Persistence and Recovery](../mempool.md#persistence-and-recovery). A transaction is retired when a block that carries it enters the canonical chain, when the applicability fixpoint never applies it, when its age exceeds `TRANSACTION_TTL`, or when a claim it carries [expires](#5-expired-claims). Retirement clears every per-transaction map, the body included. Retirement is **not** rejection: a re-gossiped copy is admitted again, unless it is an expired claim. A fork switch re-admits the displaced transactions the adopted branch does not carry. A node persists the pending hashes, their admission times and the bodies. On recovery it rebuilds the prefix index from them and `highest_slot` from its block tree.
 
-## 5. Block construction links to the mempool
+## 5. Expired claims
+
+[Expired Claim](../mempool.md#expired-claim) and [Constants](../mempool.md#constants). A block at slot `s + WINDOW` is the last that can include a claim referencing a block at slot `s`. The mempool retires the claim once `highest_slot`, the highest slot in the node's block tree, reaches `s + WINDOW + 1 + CLAIM_GRACE`, and admission refuses it from then on. A transaction with several claims expires with its earliest. A claim whose referenced block the node does not hold has no deadline. `CLAIM_GRACE` is `2 * WINDOW`, and must exceed the time a block proposal takes to reach every node.
+
+## 6. Block construction links to the mempool
 
 [Reference Resolution](../bedrock-v1.1-block-construction.md#reference-resolution) in block construction defined the same procedure, as a scan of every held transaction. It now links to the mempool's procedure, which reads the prefix index. Block construction keeps what is its own: the collision argument, the body-root check, repeated references, and what a failed resolution establishes about the block. This is its revision 1.3.1.
 
@@ -129,7 +143,7 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 +    return mempool.bodies[single(matches)]
 ```
 
-## 6. Dissemination
+## 7. Dissemination
 
 [Dissemination](../mempool.md#dissemination). Message identity on the mempool topic is the Blake2b-256 digest of the payload, not gossipsub's source-and-sequence default. A node relays a received message to its mesh before admission. It broadcasts a transaction it admits by local submission or by re-insertion, and not one it received by gossip.
 
@@ -140,14 +154,16 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 # Implementation
 
 - [ ]  Run step 2 of Block Proposal Validation, the parent's presence and the proof of leadership included, before reference resolution, so a proposal whose parent is missing reaches the orphan path
-- [ ]  Apply `preverify` at admission: one proof entry per operation, the type each opcode requires, and the self-contained proofs verified
+- [ ]  Give `CLAIM_POW_REWARD` the `ZkSignature` proof that Mantle requires, and verify it at admission
 - [x]  Move the mempool size check ahead of decoding
-- [ ]  Retire the transactions of every block that enters the canonical chain, not only those of the new tip ([logos-blockchain#3734](https://github.com/logos-blockchain/logos-blockchain/pull/3734))
-- [ ]  Exclude the transactions the adopted branch carries when a fork switch re-admits displaced ones ([logos-blockchain#3746](https://github.com/logos-blockchain/logos-blockchain/pull/3746))
-- [ ]  Decide whether expiry may be disabled by configuration, and pin `TRANSACTION_TTL` if not
+- [x]  Retire the transactions of every block that enters the canonical chain, not only those of the new tip ([logos-blockchain#3734](https://github.com/logos-blockchain/logos-blockchain/pull/3734))
+- [x]  Exclude the transactions the adopted branch carries when a fork switch re-admits displaced ones ([logos-blockchain#3746](https://github.com/logos-blockchain/logos-blockchain/pull/3746))
+- [ ]  Retire a claim once the highest slot in the block tree reaches its deadline, and refuse it at admission from then on ([logos-blockchain#3789](https://github.com/logos-blockchain/logos-blockchain/pull/3789))
+- [ ]  On recovery, rebuild the claim clock from the block tree and keep applying the rule to the recovered claims
+- [ ]  Decide whether expiry may be disabled by configuration, and pin `TRANSACTION_TTL` if not, reconciling the 1-hour default with the 24 hours specified
 - [x]  Confirm the gossipsub message-id function on the mempool topic is the payload digest, and register the topic and its message-id in the P2P Network specification
 - [ ]  Reconcile the mempool status and metrics endpoints with the Node API section
-- [ ]  Add or extend tests that exercise the change: admission ordering, resolution uniqueness, retirement clearing, restart recovery, and a proposal with a missing parent and unresolvable references reaching the orphan path
+- [ ]  Add or extend tests that exercise the change: admission ordering, resolution uniqueness, retirement clearing, restart recovery, a claim retired and refused from its deadline and not before, an expired claim still retired after a restart, and a proposal with a missing parent and unresolvable references reaching the orphan path
 - [ ]  Verify the implementation matches this specification
 
 # Affected Specifications
