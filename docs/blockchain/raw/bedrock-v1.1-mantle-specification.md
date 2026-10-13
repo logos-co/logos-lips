@@ -1783,8 +1783,6 @@ The material used for the benchmarks is the following:
 - OS        : Ubuntu 22.04.5 LTS
 - Kernel    : 6.8.0-59-generic
 
-![Diagram](bedrock-v1.1-mantle-specification/assets/zktransfer_proving_time_vs_threads.png)
-
 ## Multiple Ed25519 Signatures Verification
 
 The [Channel Configuration](#channel_config) authorizes an action with a threshold of
