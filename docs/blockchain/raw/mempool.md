@@ -28,13 +28,72 @@
 
 # Introduction
 
-The mempool is a node's store of Mantle Transactions that have been submitted but are not yet in the canonical chain.
+A leader can include only transactions it holds, and a validator can rebuild a block proposal only from transactions it holds. A transaction submitted to one node is therefore of no use until the nodes that build and check blocks hold it too.
+
+The mempool removes this obstacle. The mempool is a node's store of Mantle Transactions that have been submitted but are not yet in the canonical chain. Nodes pass these transactions to each other, offer them to block building, and resolve the references of block proposals against them.
+
+This document specifies how a node admits and disseminates transactions, what it offers to block building, how it resolves references, when it retires a transaction, what it persists, and what it exposes to local clients. [Mantle](bedrock-v1.1-mantle-specification.md) specifies when a transaction applies, [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md) specifies what a validator does with a resolved or unresolved reference, and [P2P Network](../draft/p2p-network.md) specifies the topic transactions travel on.
 
 # Overview
 
 Each node keeps its own mempool. Nodes admit and retire independently, so their pending sets differ.
 
-A transaction is admitted, disseminated, offered to block building, and retired.
+A transaction reaches a node from a local client, by gossip from another node, or back from a block that a fork switch removed from the chain. The node checks only that the transaction is well formed. It does not consult the ledger, so its mempool can hold transactions that will never apply.
+
+Take a miner who submits a reward claim to node A in slot 12. The claim names the block of slot 10, and node B leads slot 15.
+
+```mermaid
+---
+config:
+  sequence:
+    mirrorActors: false
+---
+sequenceDiagram
+    participant M as miner
+    participant A as node A
+    participant B as node B
+    M->>A: claim for the block of slot 10,<br/>submitted in slot 12
+    A->>B: gossip
+    Note over B: leads slot 15 and puts<br/>the claim in its block
+    B->>A: proposal of slot 15,<br/>with a reference to the claim
+    Note over A: rebuilds the proposal<br/>from its own mempool
+    Note over A,B: the block enters both chains,<br/>and both nodes drop the claim
+```
+
+The claim reaches node B before B leads, so node A can rebuild B's proposal from its own copy. A proposal names each transaction by a short reference. If a reference matches nothing in a node's mempool, or matches several transactions, the node cannot rebuild the proposal from its mempool.
+
+A leader's block building receives every transaction in its mempool, oldest first, and keeps those that apply on its chain. A transaction that applies but does not fit in the block stays for the next leader.
+
+A transaction leaves the mempool when a block on the node's chain carries it, when block building finds it can never apply, when it grows older than its time to live, or when it is a reward claim that no block may include any more.
+
+A block may include the example's claim up to slot 20. A node keeps the claim for twenty slots after that, unless a block carries it first.
+
+```mermaid
+---
+displayMode: compact
+config:
+  gantt:
+    useWidth: 800
+---
+gantt
+    title A claim for the block of slot 10 that no block includes
+    dateFormat X
+    axisFormat slot %s
+    tickInterval 10second
+    todayMarker off
+    section Blocks
+        before the named block : done, b0, 0, 10s
+        may include the claim : b1, after b0, 11s
+    section Node A
+        before the claim arrives : done, a0, 0, 12s
+        holds it : a1, after a0, 9s
+        grace : a2, after a1, 20s
+        drops it : milestone, a3, after a2, 0s
+```
+
+With a window of ten slots and a grace of twenty, a node drops the claim once it holds a block of slot 41 or later.
+
+A node keeps its mempool across a restart.
 
 # Protocol
 
