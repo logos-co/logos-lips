@@ -6,24 +6,24 @@ Name | Hidden Services over Mix
 Slug | TBD
 Status | raw
 Category | Standards Track
-Editor | Mohammed Alghazwi <mohalghazwi@status.im>
-Contributors | Balázs Kőműves <balazs@status.im>
+Editor | Mohammed Alghazwi <mohalghazwi@logos.co>
+Contributors | Balázs Kőműves <balazs@logos.co>
 
 ## 1. Abstract
 In this document we specify the hidden service protocol over Sphinx-style mixnet. The main goal is to allow services to: (1) Be reachable, and (2) Serve contents to clients, without revealing its identity to clients or network observers. 
 
-Mixnets already provide an anonymous way to send and receive messages with the use of Sphinx packet format and single-use reply blocks (SURBs). However, Sphinx and SURBs don't solve the whole problem of running a hidden service. A client that wishes to send a request to an anonymous service still needs to discover and reach its endpoints. This is where hidden service protocols such as the one used by Tor would be needed. The hidden services design in this document is inspired by Tor's, but adapted for Sphinx-style mixnets. 
+Mixnets already provide an anonymous way to send and receive messages with the use of Sphinx packet format and single-use reply blocks (SURBs). However, Sphinx and SURBs don't solve the whole problem of running a hidden service. A client that wishes to send a request to an anonymous service still needs to discover and reach its endpoints. This is where this hidden service protocol would be needed. The hidden services design in this document is inspired by Tor's, but adapted for Sphinx-style mixnets. 
 
 ## 2. Motivation
 A hidden service protocol is useful for many applications in which services need to serve content and stay anonymous. One of the main motivation is supporting logos-storage anonymous file-sharing.
 
-An [anonymous download protocol](https://hackmd.io/@codex-storage/rkCIGuuw-g) can be built using the Mix protocol as it is now, with an additional transport layer, i.e. a protocol for handling sending large messages, integrity, reliability, and SURBs management. However, this does not work for anonymous uploads from data providers since providers still need to be reachable. The provider's identity is revealed in two main places (See the [analysis](https://hackmd.io/@codex-storage/SySGcN5N-e) for more details):
+An [anonymous download protocol](https://hackmd.io/@codex-storage/rkCIGuuw-g) can be built using the Mix protocol as it is now, with an additional transport layer, i.e. a protocol for handling sending large messages, integrity, reliability, and SURBs management. However, this does not work for anonymous uploads from data providers since providers still need to be reachable. The provider's identity is revealed in two main places:
 1. Discovery `provide(...)` records. The provider advertizes manifestCID/blockCID which reveals its identity and network reachable address (peerId & multiaddrs). 
 2. Direct connection to peers and serving contents through the `blockExchange`. 
 
 A hidden service protocol over Mix such as the one specified in this document would allow providers to be reachable and serve contents while at the same time stay anonymous. 
 
-### 3. Definition
+## 3. Definition
 Hidden services extend normal mixnet communication by providing anonymity to both communicating parties, i.e. the sender and receiver. In this sense it provides bi-directional anonymity. 
 
 The main additional property of a hidden service is that it allows a service to be reachable without exposing its network location. More specifically, an adversary should not be able to reliably link a service identifier or descriptor to the network identity of the node or nodes operating that service.
@@ -34,20 +34,20 @@ An adversary may:
 - Control some fraction of mix nodes,
 - Participate in DHT queries/paths and control a fraction of DHT nodes.
 
-### 4. Requirements
-**4.1 Functional requirements**
+## 4. Requirements
+### 4.1 Functional requirements
 - Nodes are able to anonymously serve data. This requires: 
     - An anonymous way for nodes to advertize themselves (e.g. on a DHT) as providers for some service/content/datasets.
     - Clients are able to discover these advertized anonymous services and connect to them anonymously
     - Making contents/datasets retrievable without revealing which node(s) are providing/serving it and which node are receiving it. 
     - The protocol can support any arbitrary applications (with different payload size requirements) running on top of it. 
 
-**4.2 Desired Properties**
+### 4.2 Security requirements
 - Provider anonymity: hide provider identity (peerId/multiaddr/IP) from clients, observers, and discovery.
 - Censorship resistance: make targeted blocking of the publisher/provider harder.
 - DOS/Spam resilience: avoid attacks such as flooding intro points and services.
 
-**4.3 Assumptions**
+### 4.3 Assumptions
 For the remainder of this document we will assume the existence of the following:
 
 (1) A [transport layer over mix](https://hackmd.io/@bkomuves/BkU0yrgsbe) which gives us socket-like abstraction with bidirectional, ordered, and reliable streams between two anonymous endpoints. It allows parties to send data of arbitrary size over the mixnet with integrity protection and reliability mechanisms such as acks and erasure-code redundancy.
@@ -58,45 +58,19 @@ For the remainder of this document we will assume the existence of the following
 - Discovery/DHT nodes must validate the published `(key, value)` pair according to the specification in this document. 
 - The above might require discovery/DHT nodes to extend the protocol with a specific `publish()` call, e.g. `publish_descriptor()`. 
 
-**4.4 Out of Scope**
+(3) A path-selection strategy implementing the [Mix Path Selection specification](./mix-path-selection.md). Services use this strategy to select routes for forward messages, locally generated SURBs, and SURB-rendezvous communication. The path-selection strategy manages candidate nodes, fixed paths, and their lifetimes according to the configured strategy.
+
+Each hidden service maintains a persistent time-based path-selection state for its service identity, shared across discovery operations, introduction points, and client connections. The service can create multiple transport sessions, accept client connections, or fill-up SURBs without reseting this state. Clients can maintain their own path-selection state according to the scope and lifetime defined by their configured strategy.
+
+### 4.4 Out of Scope
 - Query privacy (hiding what dataset/block is requested) is not currently required.
 
-## 5. Background
 
-### 5.1 Sphinx Packet Format and Single-Use Reply Blocks (SURBs)
-
-Sphinx is a compact cryptographic packet format for mix networks. It allows a sender to route a fixed-size encrypted message through a path of mix nodes while hiding the full path, the sender, the recipient, and each mix node's position in the path. Sphinx uses layered encryption so that each mix node learns only the information needed to process its own layer.
-
-A key feature of Sphinx is support for Single-Use Reply Blocks (SURBs). SURBs act as an anonymous return address. Senders can give receivers SURBs, allowing them to reply without learning the sender's network identity. This is important for hidden services because as we will see in this document, it can enables bidirectional anonymous communication.
-
-For further reading, see:
-- The original Sphinx design, see the paper: [*Sphinx: A Compact and Provably Secure Mix Format*](https://cypherpunks.ca/~iang/pubs/Sphinx_Oakland09.pdf). 
-- [A write-up on Sphinx](https://hackmd.io/@bkomuves/SJzVxYMsZl) 
-- [Sphinx section of the mix specification](./mix.md#8-sphinx-packet-format)
-
-### 5.2 Mix Protocol
-The Mix Protocol is a decentralized anonymous message-routing layer for libp2p networks. It allows existing libp2p protocols to selectively anonymize messages by routing them through a mix overlay containing a set of libp2p nodes. Each message is wrapped into a Sphinx packet and routed through a randomly selected mix path. Along the path, each mix node removes one layer of encryption, applies a randomized delay, and forwards the packet to the next hop.
-
-Unlike Tor, which uses persistent low-latency circuits, the Mix Protocol is message-based and stateless. Each message (wrapped in a Sphinx packet) is self-contained and independently routed. This makes it better suited for settings where higher latency is acceptable in exchange for stronger anonymity guarantees.
-
-References:
-- [Mix protocol specification](./mix.md).
-- [Mix libp2p protocol implementation](https://github.com/logos-co/nim-libp2p-mix).
-
-### 5.3 Tor Hidden Services
-Tor hidden services (also called onion services) allow a service to be reachable without revealing its network identity. A hidden service publishes a signed descriptor to hidden service directories. This descriptor contains the information clients need to contact the service, including a set of introduction points. Clients fetch the descriptor, choose an introduction point, and use it to initiate contact with the hidden service. In Tor's design, the client and service then communicate through a rendezvous point (creating a 6-hop circuit), so neither side needs to reveal its network address to the other.
-
-The design in this document is inspired by Tor hidden services, but adapted to a Sphinx-style mixnet. The aim for this hidden service to be work with the Mix Protocol as an additional component. 
-
-References:
-- [Tor specifications](https://spec.torproject.org/rend-spec/overview.html)
-- [Blog post: Anonymity in Decentralized File Sharing](https://forum.research.logos.co/t/anonymity-in-decentralized-file-sharing/628)
-
-### 5.4 Cryptographic primitives
+## 5. Cryptographic primitives
 The hidden services protocol requires the following cryptographic building blocks. 
 
 
-**Diffie–Hellman Key Exchange**
+### 5.1 Diffie–Hellman Key Exchange
 Diffie–Hellman key exchange scheme (DH) between party $A$ and party $B$ consists of the following algorithms:
 
 $$
@@ -121,7 +95,7 @@ Where $\mathbb{G}$ is a cyclic group of prime order $q$ with generator $g$, $sk$
 
 We use DH to derive shared secrets/keys between the protocol participants, which are then passed to a key derivation function (KDF) to obtain symmetric keys for authentication and encryption. To align with the mix protocol, we instantiate Diffie-Hellman using Curve25519.
 
-**Signature Scheme**
+### 5.2 Signature Scheme
 A public-key signature scheme consists of the following algorithms: 
 
 $$
@@ -152,7 +126,7 @@ The signature scheme with key blinding must satisfy two main security requiremen
 
 For more in-depth discussion and analysis of the security requirements for signature schemes with key blinding, refer to [Eaton et al.](https://eprint.iacr.org/2023/380.pdf) and [Celi et al.](https://eprint.iacr.org/2023/1524.pdf) In [the appendix](#appendix), we provide a concrete construction of a signature scheme with key blinding based on Ed25519. 
 
-**Hash Function**
+### 5.3 Hash Function
 Let $H(\cdot)$ be a *preimage resistant*, *second-preimage resistant*, and *collision resistant* cryptographic hash function:
 
 $$
@@ -161,7 +135,7 @@ $$
 
 Where $m$ is the message and $d$ is the fixed-length digest. In this specification, we use SHA-256 as $\mathsf{H}$, which aligned with the mix specification.
 
-**Message Authentication Code (MAC)**
+### 5.4 Message Authentication Code (MAC)
 A message authentication code (MAC) takes a key and a message and outputs a fixed-length digest/tag $t$.
 
 $$
@@ -170,7 +144,7 @@ $$
 
 We require the standard security property for a MAC. In this protocol, MACs are used to authenticate various protocol messages. We assume the use of HMAC-SHA-256 with output digest truncated to 128 bits to be consistent with the Mix protocol.
 
-**Symmetric encryption**
+### 5.5 Symmetric encryption
 A symmetric encryption scheme consists of the following algorithms:
 
 $$
@@ -182,7 +156,8 @@ $$
 
 Where $k$ is a symmetric key, $iv$ is an initialization vector, $m$ is the plaintext message, and $c$ is the ciphertext. For consistency with Mix, we assume the use of AES-128 in Counter Mode (AES-128-CTR). Note that AES-CTR provides confidentiality only, integrity must be provided separately using the MAC defined above or a different symmetric encryption scheme.
 
-## 6. High-level design
+## 6. High-level overview
+The goal is to adapt the Tor-style hidden services to work in a [Sphinx](https://cypherpunks.ca/~iang/pubs/Sphinx_Oakland09.pdf)-based mixnet, specifically the [Logos Mix protocol](./mix.md). The data flows through the mixnet with help from randomly chosen intermediate nodes called introduction and rendezvous points. With the Sphinx-style mixnet (as the one we intend to use), we have SURBs for replies and we can use them to create a bidirectional connection between a client and a service with rendezvous points in the middle. 
 
 ### 6.1 Participants
 The protocol assumes the following participants:
@@ -194,10 +169,7 @@ The protocol assumes the following participants:
 
 *Note: a SURB creator is the party that created the SURB (i.e., the Sphinx header), and a SURB user is the party that uses the SURB to send a payload to the SURB creator. Clients and services play both roles since we use SURBs for bidirectional connection*
 
-### 6.2 High-level description
-The goal is to adapt the Tor-style hidden services to work in a [Sphinx](https://cypherpunks.ca/~iang/pubs/Sphinx_Oakland09.pdf)-based mixnet, specifically the [Logos Mix protocol](./mix.md). The data flows through the mixnet with help from randomly chosen intermediate nodes called introduction and rendezvous points. With the Sphinx-style mixnet (as the one we intend to use), we have SURBs for replies and we can use them to create a bidirectional connection between a client and a service with rendezvous points in the middle. 
-
-### 6.3 Workflow
+### 6.2 Workflow
 At a high-level, we can summarize the workflow as follows:
 - **Introduction protocol: establishing introduction points**
     - Service establishes multiple intro points anonymously through Mix and supplies these intro points with `intro-SURBs`. These `intro-SURBs` allow intro points to forward client requests to the service.
@@ -255,7 +227,7 @@ sequenceDiagram
     end
 ```
 
-### 6.4 High-level API
+### 6.3 High-level API
 The high-level API can be split into two: one for the service and one for the client. 
 
 **Service API**
@@ -266,7 +238,7 @@ The high-level API can be split into two: one for the service and one for the cl
     - Publish a descriptor.
 - Accept incoming anonymous requests:
     - Handle incoming requests from intro point.
-    - Respond to requests using SURB-rend connection and received `client-SURBs`, and include `service-SURBs`.
+    - Respond to requests using SURB-rendezvous connection and received `client-SURBs`, and include `service-SURBs`.
     - Respond to subsequent direct client requests coming through `service-SURBs`.
 
 ```
@@ -307,7 +279,7 @@ HiddenService.HandleRequests(
     - Query the discovery/DHT for the descriptor using the service identifier. 
     - Select a random intro point from the set in the descriptor.
     - Connect to the hidden service through the selected intro point.
-    - Send application protocol requests through a SURB-rend connection using the received `service-SURBs` + supply `client-SURBs` as needed. 
+    - Send application protocol requests through a SURB-rendezvous connection using the received `service-SURBs` + supply `client-SURBs` as needed. 
 
 ```
 HiddenServiceClient.New(config) -> client
@@ -331,23 +303,12 @@ HiddenServiceClient.Request(
 ) -> response
 ```
 
-### 6.5 Integration into Mix
-In the current libp2p-mix implementation, when you send a libp2p message in the payload of a mix sphinx packet, the exit node doesn't process the payload at all, instead it unwrapps the message revealing (codec, msg, dest, surbs) and calls the exit layer to process it.
-
-Then the exit layer will perform one of the following actions:
-- If exit is not the destination, then forward to the encoded destination address and include (codec, msg)
-- If exit==destination then the exit will run the handler for that codec, i.e. the exit speaks the protocol for that codec. Note that every Sphinx packet must contain a codec so that the exit can process it. 
-
-The hidden services can be integrated into mix as follows:
-
-Hidden services is an internal pluggable component of the Mix protocol with a reserved internal protocol codec (`"/mix/hiddenservices/1.0.0"`). As defined in the [mix protocol](./mix), these internal protocol codec are handeled internally by exit nodes without handing off to the mix exit layer. Therefore, a hidden services message defined in this specification must be wrapped in a Sphinx payload with the hidden services codec. When a mix exit node unwraps a Sphinx packet and finds the hidden-services codec, it must process the message internally according to this specification.
-
 ## 7. Establishing an introduction point
 
 ### 7.1 `EstablishIntro` request
 Before a service can announce how it can be reached, i.e., before publishing a descriptor, it must establish introduction points. The service provider establishes a set of mix nodes as introduction points. This is done as follows: 
 - Select `k` random mix nodes from discovery to act as intro points. Discovery should support unbiased random sampling from the set of live mix nodes. 
-- build `k` mix paths, where each path terminates at the selected intro points, i.e. intro points become the exit/last node.
+- build `k` mix paths, where each path terminates at the selected intro points.
 - Send the`EstablishIntro` message to each selected intro point. 
 - The default value for `k` is three, resulting in three intro points.
 
@@ -361,18 +322,18 @@ The `EstablishIntro` message contains the following:
 ```
 EstablishIntro {
     auth_key: bytes
-    surb_max: uint
+    intro_surbs: [bytes]
     auth_mac: bytes
     sig: bytes
 }
 ```
 where:
-- `surb_max`
-Note that aside from the above message, we assume the mix transport layer will handle packaging the above message in a sphix packet and include SURBs for the reciever to respond to this message. In this step of the hidden service protocol, we refer to these SURBs are `intro-SURBs` and they will be used by the intro point to relay client requests to the service. The number of `intro-SURBs` that an intro point should maintain for the service should be a maximum `surb_max`. The intro point may request for more SURBs through the transport layer to keep its supply of `intro-SURBs` close to the `surb_max` value.
-
 - `auth_key`
-The hidden service creates a signing key pair for each intro point and places the public key in the `auth_key` field. A unique key pair must be created for each intro point, i.e. no key pair is ever used with more than one intro point. These keys are used later to sign the `EstablishIntro` request. The intro points will use the `auth_key` as a public identifier for the hidden service and map client requests to the hidden service.
-The `auth_key` serves as a public identifier for the service at a specific introduction point instead of say a random value/cookie. This is because we want a way for intro points to check ownership of this identifier. i.e. intro points will only associate a public identifier to a mix node after checking ownership of this identifier to prevent unautherized use of the identifier. The hidden service provider proves ownership of the `auth_key` by signing the message content using the secret key corresponding to that public `auth_key`. 
+The hidden service creates a signing key pair for each intro point and places the public key in the `auth_key` field. A unique key pair must be created for each intro point, i.e. no key pair is ever used with more than one intro point. These keys are used to sign the `EstablishIntro` request. The intro points will use the `auth_key` as a public identifier for the hidden service and map client requests to the hidden service.
+The `auth_key` serves as a public identifier for the service at a specific introduction point instead of say a random value/cookie. This is because we want a way for intro points to check ownership of this identifier. i.e. intro points will only associate an `auth_key` to a hidden service after checking ownership of this identifier to prevent unautherized use of the identifier. The hidden service provider proves ownership of the `auth_key` by signing the message content using the secret key corresponding to that public `auth_key`. 
+
+- `intro_surbs`
+These will be used by the intro point to relay client requests to the service. The number of `intro-SURBs` that an intro point should maintain for the service is dependent on the Denial-of-Service (DoS)/Spam prevention parameters. The intro point may request for more SURBs through the transport layer to keep its supply of `intro-SURBs`.
 
 - `auth_mac`
 The `auth_mac` field contains a MAC of all earlier fields in the message, and keyed by the shared secret/key `s` derived from the service and intro point Mix path. Since the intro point is the exit/last hop as stated above, it must have a per-hop shared key material with the service i.e. `s` under the Sphinx packet construction. Refer to the [mix specification](./mix.html) for more details on how `s` is derived. This MAC binds the `EetablishIntro` request to the specific "session" in which it was sent/received.
@@ -401,7 +362,7 @@ On receiving an `EstablishIntro` message, the mix node will verify the signature
 - The mix node is already serving as an intro point for the same `auth_key`.
 - The mix node has reached its local capacity for hidden services.
 
-If all checks succeed, then the mix node will serve as an intro point for the hidden service and associate the supplied `auth_key` with a hidden service state i.e., map `auth_key -> service_state`.  Such `service_state` contains information needed to relay future client introduction messages to the service such as `intro-SURBs` and other metadata.
+If all checks succeed, then the mix node will serve as an intro point for the hidden service and associate the supplied `auth_key` with a hidden service state i.e., map `auth_key -> service_state`. This `service_state` contains information needed to relay future client introduction messages to the service such as `intro-SURBs` and other metadata.
 
 **Ack/Reply with `IntroEstablished`**
 After successfully establishing an intro point, the intro point will acknowledge success with an `IntroEstablished` reply message, which has the following contents:
@@ -430,13 +391,13 @@ At a high level, the descriptor requires the following:
 
 The following subsections describe these requirements in more detail and specify how the descriptor is constructed and published. However, as can be observed, we require multiple keys, therefore, we first summarize their definitions and uses in the following:
 - **Identity key (`hs_id`):** A "master" signing keypair used as the long-term identity for a hidden service. This key is not used on its own to sign anything, and only used to generate blinded keys. The public part of this key is encoded in the hidden service identifier (the `.mix` address). 
-- **Blinded keys (`bk`):** A signing keypair derived from `hs_id` and used to as the descriptor signing key. For each epoch `i` a different blinded key `bk_i` is generated. The key requires the security properties defined in section 5.4. Additionally, this key is used in creating the index (`disc_key`) in the discovery/DHT. 
+- **Blinded keys (`bk`):** A signing keypair derived from `hs_id` and used to as the descriptor signing key. For each epoch `i` a different blinded key `bk_i` is generated. The key requires the security properties defined in section 5.2. Additionally, this key is used in creating the index (`disc_key`) in the discovery/DHT. 
 - **Discovery key (`disc_key`):** An index in the DHT or DHT-like discovery which maps (`disc_key -> value`). It is derived from `bk_i`, epoch `i`, and public entropy `e`.
 - **Intro authentication key (`auth_key`):** A short-term signing keypair created by the service for each intro point. It is used to sign the request to establish an intro point and intro points use it to map requests to services. Client must also use it when establishing connections via an intro point so that their requests are mapped correctly. 
 - **Service encryption key (`service_key`):** A short-term encryption keypair created by the service for each intro point and included in the descriptor. It is used by the client to encrypt requests toward the service via an intro point.
 - **Client encryption key (`client_key`):** A short-term encryption keypair created by the client and included in requests toward the service via an intro point. It is used to generate a shared secret between the client and service when encrypting the request payload to the service.
 
-Note that in the above, the signing keys are keys generated using $\mathsf{Sig.KeyGen()}$ while encryption keys are generated using $\mathsf{DH.KeyGen()}$. See section 5.4 for more details. 
+Note that in the above, the signing keys are keys generated using $\mathsf{Sig.KeyGen()}$ while encryption keys are generated using $\mathsf{DH.KeyGen()}$. See section 5.2 for more details. 
 
 ### 8.1 Hidden service identifier (Mix address)
 A hidden service requires a stable identifier analogous to Tor's onion address. This identifier can then be distributed to clients out-of-band. For the remainder of this document, we refer to this identifier as the *mix address* or simply a `.mix` address.
@@ -466,10 +427,10 @@ Aside from this validity time window, we have epochs which decide where the desc
 Discovery provides a `key -> value` mapping, where the `key` determines the region of the DHT in which the mapping is stored. Only discovery nodes whose identifiers are close to that key (in the DHT space) are expected to store the descriptor. Therefore, that `key` must be different on each `epoch`. 
 
 The `key -> value` mapping in this protocol:
-- the **value** is the hidden-service descriptor.
-- the **discovery key** (`disc_key`) is a deterministic epoch-specific value derived from `hs_id`, the current epoch (`epoch`), and a public epoch-specific randomness value (`e`). See section 8.4 for how this key is derived.
+- the `key` or `disc_key` (discovery key) is a deterministic epoch-specific value derived from `hs_id`, the current epoch (`epoch`), and a public epoch-specific randomness value (`e`). See section 8.4 for how this key is derived.
+- the `value` is the hidden-service descriptor.
 
-Observe that in our setting, the discovery key `disc_key` does *not* describe the contents of the descriptor in the content-addressed sense. Instead, it identifies the service and the epoch for which the descriptor is valid.
+Observe that in our setting, `disc_key` does *not* describe the contents of the descriptor in the content-addressed sense. Instead, it identifies the service and the epoch for which the descriptor is valid.
 
 ### 8.3 Epochs and Descriptor Lifetime
 Hidden-service descriptors are bound to two related but distinct time mechanisms:
@@ -518,11 +479,11 @@ Services must periodically refresh/republish descriptors before they expire. Rep
 
 To tolerate network delays, and clients using slightly different views of time, services should publish descriptors for overlapping epochs. This overlap ensures that a service remains reachable.
 
-Services should maintain the descriptor for the previous epoch and publish the descriptor for the current epoch. Clients should download the descriptor for the current epoch.
+Services should maintain the descriptor for the previous epoch and publish the descriptor for the current epoch. Clients should try to download the descriptor for the current epoch.
 
 
 ### 8.4 Epoch-specific blinded keys
-The descriptor requires an epoch-specific discovery key (`disc_key`), but it also requires the descriptor to be authenticated in a way that is bound to both the service identity (`hs_id`) and to the current epoch. Our protocol uses **epoch-specific blinded signing keys (`bk`)** derived from the long-term service identity key (`hs_id`) using key blinding (see section 5.4 for security properties). 
+The descriptor requires an epoch-specific discovery key (`disc_key`), but it also requires the descriptor to be authenticated in a way that is bound to both the service identity (`hs_id`) and to the current epoch. Our protocol uses **epoch-specific blinded signing keys (`bk`)** derived from the long-term service identity key (`hs_id`) using key blinding (see the appendix for how the key blinding algorithms work). 
 
 **Blinded keys**
 Let `epoch_i` denote the current epoch. The service performs key blinding as follows:
@@ -552,7 +513,7 @@ The epoch-specific discovery key `disc_key` is derived from the blinded public k
 e = get_public_entropy(epoch_i)
 disc_key = H("discovery key" || bk_i || e_i)
 ```
-where `e` is public epoch-specific entropy, for example a randomness beacon, block hash, or other agreed public entropy source. Including the public entropy `e` ensures that descriptor placement is not determined solely by public long-term service identity and epoch. This makes the storage location less predictable in advance and reduces the risk that an attacker can precompute and target the responsible discovery/DHT nodes for a future epoch.
+where `e` is public epoch-specific entropy, for example a randomness beacon, block hash, or other agreed public entropy source. Including the public entropy `e` ensures that descriptor placement is not determined solely by public long-term service identity and epoch. This makes the descriptor storage location less predictable in advance and reduces the risk that an attacker can precompute and target the responsible discovery/DHT nodes for a future epoch.
 
 The `disc_key` will then be used to publish or retrieve the descriptor from discovery/DHT. More details on discovery and client behaviour is discussed in the next sections. 
 
@@ -574,7 +535,7 @@ Contains metadata needed for discovery/DHT nodes to validate it before storing i
 - `validity`: an unsigned integer specifying how long (in seconds) the descriptor should remain valid. 
 - `revision_counter`: version counter for the descriptor. Allows the service to revise the descriptor. If discovery/DHT receives multiple descriptors for the same key, it keeps the one with the higher revision counter.
 - `inner_layer`: An encrypted blob data type containing salt, encrypted data, and MAC. 
-- `signature`: A signature over all previous fields, made using the blinded signing key `bk_i` for the current epoch `i`. `signature` should is a tuple containing the pk used to sign and the signature:
+- `signature`: A signature over all previous fields, made using the blinded signing key `bk_i` for the current epoch `i`. `signature` is a tuple containing the pk used to sign and the signature:
     ```
     sig = Sig.Sign(bk_i.sk, "mix-hs-desc-outer" || validity || revision_counter || inner_layer)
     signature = Signature.new(bk_i.pk, sig)
@@ -629,7 +590,7 @@ encrypted_blob = EncryptedBlob.new(salt, blob, mac)
 
 The plaintext of this inner layer contains the following fields:
 - `intro_points`: A list of intro point objects `IntroPoint`, each containing:
-    - `info`: A `MixPubInfo` object containing mix routing information and public key for the intro point. The contents of this object depends on how mix routing is implemented, but in general it should contain sufficient information to create a sphinx packet with the intro point as the exit.
+    - `info`: A `MixPubInfo` object containing mix routing information and public key for the intro point. The contents of this object depends on how mix routing is implemented, but in general it should contain sufficient information to create a sphinx packet with the intro point as the destination.
     - `auth_key`: the authentication key for clients to use at this intro point.
     - `service_key`: an encryption key `service_key` for clients to use to encrypt requests for the service, routed through the intro point.
 
@@ -661,7 +622,7 @@ To publish a hidden service descriptor, the service will follow these steps:
 4. Create a descriptor object following section 8.4 using intro point information. 
 5. derive the discovery key `disc_key`. 
 6. publish the descriptor anonymously to discovery/DHT. 
-7. Before the descriptor validity period expires, republish the descriptor. When the epoch changes, derive the new `bk_i` and `disc_key`, starting from step 3.
+7. Before the descriptor validity period expires, republish the descriptor. When the epoch changes, derive the new `bk_i` and `disc_key`, starting from step 3 above.
 
 
 *Note: Hidden services periodically publish their descriptor as described in section 8.3, and must keep two active descriptors at any time/epoch. Therefore, overlapping descriptors might happen and services must maintain both descriptors so they can be reachable to clients with older or newer descriptors.*
@@ -698,17 +659,10 @@ The process can be summarized as follows:
 - Proceed with the intro protocol to establish a SURB-rendezvous connection to the hidden service.
 
 
-### Client Authorization / Restricted discovery mode
-In restricted discovery mode, possession of the Mix address alone is not sufficient to decrypt the descriptor inner layer contents.
-
-The outer layer and its validation remains the same and discovery key `disc_key` for the descriptor is derived in the same way. However, deriving the key to decrypt the encrypted inner layer requires additional material known only to authorized clients.
-
-*[TODO ...]*
-
 ## 9. Bootstrap connection via intro point
 
 ### 9.1 Introduction Message Types
-The following are the required message types that the hidden services protocol will use for bootstraping a connection between client.
+The following are the required message types that the hidden services protocol will use for bootstraping a connection between clients.
 
 - `Introduce1`
 A message sent from clients to the introduction points to request an introduction to the hidden service provider.
@@ -773,7 +727,7 @@ The client then proceeds as follows:
     enc_iv = SHA256( "hs intro request encryption iv" || s_intro)
     mac_key = SHA256( "hs intro request mac key" || s_intro)
     ```
-5. Construct the request `Request` which includes the plaintext application-specific request/data and `client-SURBs` for the service to reply. Note that this bootstrap connection packet is send in a normal Sphinx payload not over the transport layer. The request should contain enough `client-SURBs` for the service to then build a anonymous transport layer session.
+5. Construct the request `Request` which includes the plaintext application-specific request/data and `client-SURBs` for the service to reply. Note that these `client-SURBs` are send inside the `enc_payload` which goes in the Sphinx payload, therefore, the client expects service reply to come through these `client-SURBs` not through the normal transport layer SURBs that might be sent to the intro point. The request should contain enough `client-SURBs` for the service to then build a anonymous transport layer session.
 6. Encrypt the plaintext request and create a MAC.
     ```
     enc_payload = Enc(enc_key, enc_iv, request)
@@ -783,7 +737,7 @@ The client then proceeds as follows:
 8. If the introduction point accepts the request for forwarding, it must reply with:
     `IntroduceAck { status: Ok }`
 9. Missing ack or timeout is treated as failure. On failure, the client may retry with a different intro point, but must generate a fresh `client_key` and a fresh request (i.e. repeat from step 1). 
-10. Wait for a service reply coming through the SURBs in the request or timeout and start the process again from step 1.
+10. Wait for a service reply coming through the `client-SURBs` in the request or timeout and start the process again from step 1.
 11. On recieved reply from the service, the client creates a transport layer session over a `SURB-rendezvous` connection (see section 10) for its communication with the service. 
 12. Pass the reply plaintext to the application for further processing.
 13. all subsequent communication is done over the created session following the steps in section 10.
@@ -792,7 +746,7 @@ The client then proceeds as follows:
 The mix node after accepting the role of being an intro point must maintains a state about the service which includes:
 - authentication key `auth_key`
 - validity/expiry time.
-- transport layer session/state with the service to forward requests that the intro point recieves. The session should maintain enough SURBs up to the maximum as indicated in the `EstablishIntro` message.
+- transport layer session/state with the service to forward requests that the intro point recieves.
 
 The intro point will then act only as a forwarding node:
 1. check for replays (see section 9.5)
@@ -840,7 +794,7 @@ To describe this, we can abstract the mix connections as three types of connecti
 
 The Mix protocol already supports both 1 and 2 above. The goal here to design a solution for 3.
 
-### 10.1 SURB-rend Connection
+### 10.1 SURB-rendezvous Connection
 A **SURB-rendezvous connection** is a connection mode in which packets are sent using another party's SURB, but only after the sender first routes the SURB packet through a sender-chosen mix prefix path.
 
 To illustrate this better, let's denote the sender (SURB user) `S` and receiver/exit (SURB creator) `E`.
@@ -856,7 +810,7 @@ To illustrate this better, let's denote the sender (SURB user) `S` and receiver/
 
 If we assume that possession of the SURB by itself binds the reply/message to the sender/session, then we can modify the above approach slightly. We can drop the need for the shared secret and use the reply key in the SURB. Then, `R` only need to use the header and the already encrypted message as payload.
 
-This type of connection is not yet supported and so we don't have a flag for it to indicate how an exit (rendezvous points) should proccess it. In the future we will likely have a better way to encode packet processing behaviour in the Sphinx header. However, for now we can rely on the reserved internal hidden service protocol codec (see section 6.5) as described in the following.
+This type of connection is not yet supported and so we don't have a flag for it to indicate how an exit (rendezvous points) should proccess it. In the future we will likely have a better way to encode packet processing behaviour in the Sphinx header. However, for now we can rely on the reserved internal codec as described in the following.
 
 **Creating a `SURB-rendezvous` connection**
 For parties `A` and `B` to connect over `SURB-rendezvous` connection, they must obtain:
@@ -883,8 +837,8 @@ This state must be maintained in order to create packets and process incoming pa
 
 **Creating a `SURB-rendezvous` packet**
 To send a message `m` (a Sphinx payload) to `E` using a `SURB` created by `E`, the mix node must:
-- Choose a random mix node (rendezvous point) `R` (must not be `E`), create a mix path and prepare a Sphinx packet `P`.
-- Use the internal hidden service protocol codec (see section 6.5) as the codec for the payload. 
+- Choose a random mix node (rendezvous point) `R`, create a mix path and prepare a Sphinx packet `P`.
+- Use an internal `SURB-rendezvous` protocol codec as the codec for the payload. 
 - Pad `m` to a fixed size `j` so that `inner_payload` has fixed pre-defined size.
 - Apply one layer of encryption to `m` using a shared secret `s` between sender and `E`. This layer of encryption can be thought as a "virtual hop" where you take `m` as the sphinx payload ( i.e., $\delta$) and apply one LIONESS encryption using the shared secret `s`.
 - Place the `SURB` and the encrypted `m` in the message type:
@@ -899,7 +853,7 @@ To send a message `m` (a Sphinx payload) to `E` using a `SURB` created by `E`, t
 **Exit/Rendezvous processing behaviour**
 For an exit which in this case is a rendezvous point to process a `SURB-rendezvous` packet, it must identify it first by: 
 - parse the payload as `(codec, msg)`
-- sees the codec as the internal hidden service protocol codec.
+- sees the codec as the internal `SURB-rendezvous` protocol codec.
 - identify the `msg` as `Rendezvous`
 
 Then the exit node must:
@@ -918,7 +872,17 @@ If a `SURB-rendezvous` connection exists, then:
 *Note: again here we use a shared secret but we can easily adapt this to use reply_key instead.*
 
 ### 10.2 Client-Service communication over SURB-rend
-Once the client and service follow the intro protocol in section 9, they have SURBs and a shared secret from each other. They can then simply use these to create a `SURB-rendezvous` connection and exchange messages. 
+Once the client and service follow the intro protocol in section 9, they have SURBs and a shared secret from each other. They can then simply use these to create a `SURB-rendezvous` connection specified above and exchange messages. 
+
+
+## References
+- The original Sphinx design, see the paper: [*Sphinx: A Compact and Provably Secure Mix Format*](https://cypherpunks.ca/~iang/pubs/Sphinx_Oakland09.pdf). 
+- [A write-up on Sphinx](https://hackmd.io/@bkomuves/SJzVxYMsZl) 
+- [Sphinx section of the mix specification](./mix.md#8-sphinx-packet-format)
+- [Mix protocol specification](./mix.md).
+- [Mix libp2p protocol implementation](https://github.com/logos-co/nim-libp2p-mix).
+- [Tor specifications](https://spec.torproject.org/rend-spec/overview.html)
+- [Blog post: Anonymity in Decentralized File Sharing](https://forum.research.logos.co/t/anonymity-in-decentralized-file-sharing/628)
 
 ## Appendix
 
