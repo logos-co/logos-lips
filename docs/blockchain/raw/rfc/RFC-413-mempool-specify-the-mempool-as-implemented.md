@@ -35,7 +35,7 @@ Read the PR's Motivation first.
 | 5 | High | [Mempool](#affected-specifications): [Expired claims](#5-expired-claims) | A claim is retired and refused more than `CLAIM_GRACE` slots after the last slot that can include it. Check the deadline, and the constraint on `CLAIM_GRACE`. |
 | 6 | High | [Block Construction, Validation and Execution](#affected-specifications): [Resolution moves to the mempool](#6-block-construction-links-to-the-mempool) | What block construction keeps is its own, and nothing it removed is lost. |
 | 7 | Medium | [Mempool](#affected-specifications): [Dissemination](#7-dissemination) | Payload-digest message identity, and relay preceding admission. |
-| 8 | Medium | [Mempool](#affected-specifications): [Mempool State](../mempool.md#mempool-state) and [Constants](../mempool.md#constants) | Only constants this specification owns are defined here. The rest are referenced. |
+| 8 | Medium | [Mempool](#affected-specifications): [Mempool State](../mempool.md#mempool-state) and [Parameters](../mempool.md#parameters) | Only constants this specification owns are defined here. The rest are referenced. |
 | 9 | Low | [Mempool](#affected-specifications): [Node API](../mempool.md#node-api) | Skim. |
 
 # Discussion
@@ -65,7 +65,7 @@ The specification states rules only. The reasoning behind them is recorded here.
 - **Size before decoding.** A bound checked on the decoded transaction does not limit the cost of decoding an oversized payload.
 - **An expired claim is refused at admission.** The submitter learns that the claim has expired, and the node does not broadcast a claim that no block can include.
 - **The claim clock is the highest slot in the block tree.** It advances with every block the node adds, on any branch. It never passes the current slot, because [Block Header Validation](../cryptarchia-v1-protocol.md#block-header-validation) accepts no block whose slot has not begun. A node therefore never retires a claim before the current slot reaches its deadline.
-- **`CLAIM_GRACE` is twice the window.** A grace of zero breaks the constraint beside it in [Constants](../mempool.md#constants). Twice the window is the implementation's value. Nothing derives it. With `WINDOW` at 300 slots, it is 600 slots, ten minutes.
+- **`CLAIM_GRACE` is twice the window.** A grace of zero breaks the constraint beside it in [Parameters](../mempool.md#parameters). Twice the window is the implementation's value. Nothing derives it. With `WINDOW` at 300 slots, it is 600 slots, ten minutes.
 - **Payload-digest message identity.** Gossipsub's default source-and-sequence identity would let every re-publisher mint a fresh identity for the same bytes, which defeats suppression at the router.
 - **`by_prefix` is rebuilt rather than persisted.** A change to `REFERENCE_PREFIX_LENGTH` then takes effect on restart, and an index built under the previous value cannot contradict it.
 - **`highest_slot` is rebuilt rather than persisted.** It is a function of the block tree, which the node already persists.
@@ -123,7 +123,7 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 
 ## 5. Expired claims
 
-[Expired Claim](../mempool.md#expired-claim) and [Constants](../mempool.md#constants). A block at slot `s + WINDOW` is the last that can include a claim referencing a block at slot `s`. The mempool retires the claim once `highest_slot`, the highest slot in the node's block tree, reaches `s + WINDOW + 1 + CLAIM_GRACE`, and admission refuses it from then on. A transaction with several claims expires with its earliest. A claim whose referenced block the node does not hold has no deadline. `CLAIM_GRACE` is `2 * WINDOW`, and must exceed the time a block proposal takes to reach every node.
+[Expired Claim](../mempool.md#expired-claim) and [Parameters](../mempool.md#parameters). A block at slot `s + WINDOW` is the last that can include a claim referencing a block at slot `s`. The mempool retires the claim once `highest_slot`, the highest slot in the node's block tree, reaches `s + WINDOW + 1 + CLAIM_GRACE`, and admission refuses it from then on. A transaction with several claims expires with its earliest. A claim whose referenced block the node does not hold has no deadline. `CLAIM_GRACE` is `2 * WINDOW`, and must exceed the time a block proposal takes to reach every node.
 
 ## 6. Block construction links to the mempool
 
