@@ -44,22 +44,21 @@ A transaction is admitted, disseminated, offered to block building once mature, 
 | --- | --- | --- | --- |
 | `TRANSACTION_TTL` | Transaction Time To Live | How long a transaction may stay pending before it is retired. | 24 hours |
 | `TRANSACTION_RETENTION` | Transaction Retention | How long a transaction that no canonical block carries stays resolvable before it is released. | `2 * TRANSACTION_TTL` |
-| `BLEND_DELAY` | Blend Delay | How long a block proposal takes to cross the Blend network. | 15 seconds |
 | `BROADCAST_DELAY` | Broadcast Delay | How long a block proposal takes to reach every node once it leaves the Blend network. | 5 seconds |
-| `TRANSACTION_MATURITY` | Transaction Maturity | How long a transaction must have been pending to be mature. | `BLEND_DELAY + BROADCAST_DELAY` |
+| `TRANSACTION_MATURITY` | Transaction Maturity | How long a transaction must have been pending to be mature. | $`T_M`$ rounds + `BROADCAST_DELAY` |
 | `CLAIM_GRACE` | Claim Grace | How many slots a claim stays pending after its acceptance window closes. | `2 * WINDOW` |
 
-`WINDOW` is defined in [Acceptance Window](proof-of-work.md#acceptance-window).
+$`T_M`$ is the message traversal time defined in [Transition Period](blend-protocol.md#transition-period). A round is defined in [Time](blend-protocol.md#time). `WINDOW` is defined in [Acceptance Window](proof-of-work.md#acceptance-window).
 
 `TRANSACTION_TTL` must not exceed the [Prolonged Bootstrap Period](cryptarchia-v1-bootstr-sync.md#prolonged-bootstrap-period). A node that has just completed that period cannot resolve a reference to a transaction admitted before the period began.
 
-`TRANSACTION_RETENTION` must exceed `TRANSACTION_TTL` by more than `BLEND_DELAY + BROADCAST_DELAY`. Otherwise a proposal that selects a transaction just under `TRANSACTION_TTL` arrives after that transaction was released.
+`TRANSACTION_RETENTION` must exceed `TRANSACTION_TTL` by more than `TRANSACTION_MATURITY`. Otherwise a proposal that selects a transaction just under `TRANSACTION_TTL` arrives after that transaction was released.
 
-`BLEND_DELAY` must not be less than the time a message takes to cross the Blend network ([Transition Period](blend-protocol.md#transition-period)). Otherwise a mature transaction has had less time to spread than the proposal carrying it takes to arrive.
+`BROADCAST_DELAY` must not be less than the time a block proposal takes to reach every node by gossip. Otherwise a mature transaction has had less time to spread than the proposal carrying it takes to arrive.
 
 `TRANSACTION_MATURITY` must be less than `TRANSACTION_TTL`. Otherwise a transaction is retired before it is mature, and nothing is ever selected.
 
-`CLAIM_GRACE` must exceed the time, in slots, that a block proposal takes to reach every node. Otherwise a node can release a claim before a proposal that selected it in the last slot of its acceptance window arrives.
+`CLAIM_GRACE` slots must last longer than `TRANSACTION_MATURITY`. Otherwise a node can release a claim before a proposal that selected it in the last slot of its acceptance window arrives.
 
 ## Mempool State
 
