@@ -21,6 +21,7 @@
 |  | `admit` lost its `at` argument and `pending` is an insertion-ordered set again, as implemented. Removed the departure, its implementation task and its test, and added Open Issue 14. | 2026-10-07 |
 | v10 | Added the expired-claim retirement that [logos-blockchain#3789](https://github.com/logos-blockchain/logos-blockchain/pull/3789) implements: a claim is retired, and refused at admission, once the highest slot in the block tree is more than `CLAIM_GRACE` slots past its acceptance window. Added its Details entry, rationale, departure and implementation tasks, and narrowed Open Issues 2, 6 and 8 for claims. | 2026-10-13 |
 |  | Brought the departures up to date with `logos-blockchain` at `f376f9547`. Removed the three that [logos-blockchain#3610](https://github.com/logos-blockchain/logos-blockchain/pull/3610), [#3734](https://github.com/logos-blockchain/logos-blockchain/pull/3734) and [#3746](https://github.com/logos-blockchain/logos-blockchain/pull/3746) fixed, moved their reasoning to the rationale, and ticked their tasks. Stateless validation now departs only for `CLAIM_POW_REWARD`, which the implementation gives no proof, and the TTL entry records the 1-hour default. | 2026-10-13 |
+|  | Restructured the specification into Introduction, Overview, Protocol and Details, with Notation and Parameters opening Details. No rule changed. Links to the former Constants section now point at Parameters. | 2026-10-13 |
 
 ## Reviewer Orientation
 
@@ -150,6 +151,7 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 ## Chores
 
 - Registered the Mempool document in `scripts/blockchain_structure.py`, under Mantle.
+- Laid the specification out in four tiers. The Overview follows one reward claim from submission to inclusion, and the Protocol walks a transaction from submission to retirement. In Details, Notation lists the values read from other specifications, Parameters replaces the Constants table, and Block Building View defines its two terms instead of using run-in headings.
 
 # Implementation
 
