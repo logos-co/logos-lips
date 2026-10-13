@@ -2114,9 +2114,10 @@ Such that the following constraints hold:
 
 - Each public key is derived from the corresponding secret key, as in the ZkTransfer.
 
-- Each input commitment is derived with `program` set to `program_id`, so the inputs are notes of the program.
+- Each input flag is boolean, and each input commitment is derived with `program` set to `program_id`, so the inputs are notes of the program.
   ```python
   assert all(
+      inputs_active[i] * (1 - inputs_active[i]) == 0
       inputs_cm[i] = zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i], program_id, inputs_data[i])
       for i in range(len(inputs_sk))
   )
@@ -2124,9 +2125,10 @@ Such that the following constraints hold:
 
 - Each active input nullifier is derived from the secret key and the input commitment, each active input commitment is in `tx_cm_root`, and each inactive input has value 0, as in the ZkTransfer.
 
-- Each active output is a note of the program or a user note, whose commitment is derived from its fields, and each inactive output has value 0.
+- Each output flag is boolean, each active output is a note of the program or a user note, whose commitment is derived from its fields, and each inactive output has value 0.
   ```python
   assert all(
+      outputs_active[i] * (1 - outputs_active[i]) == 0
       if outputs_active[i]:
           outputs_program[i] == program_id or (outputs_program[i] == 0 and outputs_data[i] == 0)
           outputs[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), outputs_value[i], outputs_nonce[i], outputs_pk[i], outputs_program[i], outputs_data[i])
