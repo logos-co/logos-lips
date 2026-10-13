@@ -24,7 +24,7 @@
 
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
-| 1.0.0 | Initial revision. | 2026-10-12 |
+| 1.0.0 | Initial revision. | 2026-10-13 |
 
 # Introduction
 
@@ -36,16 +36,23 @@ Each node keeps its own mempool. Nodes admit and retire independently, so their 
 
 A transaction is admitted, disseminated, offered to block building, and retired.
 
-# Construction
+# Details
 
-## Constants
+## Notation
 
-| Constant | Name | Description | Value |
-| --- | --- | --- | --- |
-| `TRANSACTION_TTL` | Transaction Time To Live | How long a transaction may stay pending before it is retired. | 24 hours |
-| `CLAIM_GRACE` | Claim Grace | How many slots a claim stays pending after its acceptance window closes. | `2 * WINDOW` |
+| Symbol | Name | Description |
+| --- | --- | --- |
+| `WINDOW` | acceptance window | The window of [Acceptance Window](proof-of-work.md#acceptance-window), in slots. |
+| `MAX_BLOCK_SIZE` | maximum block size | From [Constants](cryptarchia-v1-protocol.md#constants). |
+| `MAX_BLOCK_TXS` | maximum block transactions | From [Constants](cryptarchia-v1-protocol.md#constants). |
+| `REFERENCE_PREFIX_LENGTH` | reference prefix length | The length of a reference in bytes, from [References](bedrock-v1.1-block-construction.md#references). |
 
-`WINDOW` is defined in [Acceptance Window](proof-of-work.md#acceptance-window).
+## Parameters
+
+```python
+TRANSACTION_TTL: uint64 = 24 * 60 * 60  # seconds a transaction may stay pending before it is retired
+CLAIM_GRACE: uint64 = 2 * WINDOW        # slots a claim stays pending after its acceptance window closes
+```
 
 `CLAIM_GRACE` must exceed the time, in slots, that a block proposal takes to reach every node. Otherwise a node can retire a claim before a proposal that selected it in the last slot of its acceptance window arrives.
 
@@ -62,7 +69,7 @@ class Mempool:
 
 A transaction is keyed by `mantle_txhash(tx)`, defined in [Mantle](bedrock-v1.1-mantle-specification.md#mantle-transaction-hash).
 
-`by_prefix` maps `prefix(hash, REFERENCE_PREFIX_LENGTH)` to the pending hashes carrying that prefix, where `REFERENCE_PREFIX_LENGTH` is defined in [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md#references).
+`by_prefix` maps `prefix(hash, REFERENCE_PREFIX_LENGTH)` to the pending hashes carrying that prefix.
 
 `highest_slot` is the highest slot of any block that [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance) has added to the node's block tree.
 
@@ -98,7 +105,7 @@ def admit(mempool, encoded: bytes) -> Result:
 
 Admission reads the transaction, the mempool and the node's block tree, and no other state. A node must not treat membership of the mempool as evidence that a transaction can be applied.
 
-`MAX_BLOCK_SIZE` is defined in [Cryptarchia Protocol](cryptarchia-v1-protocol.md#constants). `claim_expired` is defined in [Expired Claim](#expired-claim).
+`claim_expired` is defined in [Expired Claim](#expired-claim).
 
 ### Decoding
 
@@ -137,7 +144,7 @@ A node broadcasts a transaction it admits by local submission or by re-insertion
 
 The mempool supplies the bodies of every pending transaction in admission order.
 
-**Applicability.** The leader determines which transactions apply:
+The leader's **applicability determination** finds the transactions that apply:
 
 1. Apply the block header to the ledger state. This is the working state.
 2. Pass over all pending transactions in admission order. Apply each transaction that succeeds to the working state.
@@ -145,7 +152,7 @@ The mempool supplies the bodies of every pending transaction in admission order.
 
 No block limit applies to this computation.
 
-**Selection.** The leader fills the block from the applicable transactions in the same order, stopping at the first transaction that would exceed `MAX_BLOCK_TXS` or `MAX_BLOCK_SIZE`, both defined in [Cryptarchia Protocol](cryptarchia-v1-protocol.md#constants).
+In **selection**, the leader fills the block from the applicable transactions in the same order, stopping at the first transaction that would exceed `MAX_BLOCK_TXS` or `MAX_BLOCK_SIZE`.
 
 ## Reference Resolution
 
