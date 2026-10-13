@@ -32,7 +32,7 @@ A leader can include only transactions it holds, and a validator can rebuild a b
 
 The mempool removes this obstacle. The mempool is a node's store of Mantle Transactions that have been submitted but are not yet in an immutable block. Nodes pass these transactions to each other, offer them to block building, and resolve the references of block proposals against them.
 
-This document specifies how a node admits and disseminates transactions, what it offers to block building, how it resolves references, when it retires a transaction, what it persists, and what it exposes to local clients. [Mantle](bedrock-v1.1-mantle-specification.md) specifies when a transaction applies, [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md) specifies what a validator does with a resolved or unresolved reference, and [P2P Network](../draft/p2p-network.md) specifies the topic transactions travel on.
+This document specifies how a node admits and disseminates transactions, what it offers to block building, how it resolves references, when it retires a transaction and when it releases it, what it persists, and what it exposes to local clients. [Mantle](bedrock-v1.1-mantle-specification.md) specifies when a transaction applies, [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md) specifies what a validator does with a resolved or unresolved reference, and [P2P Network](../draft/p2p-network.md) specifies the topic transactions travel on.
 
 # Overview
 
@@ -40,7 +40,7 @@ Each node keeps its own mempool. Nodes admit and retire independently, so their 
 
 A transaction reaches a node from a local client, by gossip from another node, or back from a block that a fork switch removed from the chain. The node checks only that the transaction is well formed. It does not consult the ledger, so its mempool can hold transactions that will never apply.
 
-Take a miner who submits a reward claim to node A in slot 12. The claim names the block of slot 10, and node B leads slot 15.
+Take a miner who submits a reward claim to node A in slot 12. The claim names the block of slot 10, and node B leads slot 16. In this example a transaction matures two slots after a node admits it.
 
 ```mermaid
 ---
@@ -53,20 +53,21 @@ sequenceDiagram
     participant A as node A
     participant B as node B
     M->>A: claim for the block of slot 10,<br/>submitted in slot 12
-    A->>B: gossip
-    Note over B: leads slot 15 and puts<br/>the claim in its block
-    B->>A: proposal of slot 15,<br/>with a reference to the claim
+    A->>B: gossip, in slot 12
+    Note over A,B: the claim matures in slot 14
+    Note over B: leads slot 16 and puts<br/>the claim in its block
+    B->>A: proposal of slot 16,<br/>with a reference to the claim
     Note over A: rebuilds the proposal<br/>from its own mempool
-    Note over A,B: the block enters both chains,<br/>and both nodes drop the claim
+    Note over A,B: the block enters both chains, so both<br/>nodes stop offering the claim to block building
 ```
 
 The claim reaches node B before B leads, so node A can rebuild B's proposal from its own copy. A proposal names each transaction by a short reference. If a reference matches nothing in a node's mempool, or matches several transactions, the node cannot rebuild the proposal from its mempool.
 
-A leader's block building receives every transaction in its mempool, oldest first, and keeps those that apply on its chain. A transaction that applies but does not fit in the block stays for the next leader.
+A leader's block building receives the transactions that have been in its mempool long enough to have reached every node, oldest first, and keeps those that apply on its chain. A transaction that applies but does not fit in the block stays for the next leader.
 
-A transaction leaves the mempool when a block on the node's chain carries it, when block building finds it can never apply, when it grows older than its time to live, or when it is a reward claim that no block may include any more.
+A transaction leaves block building when a block on the node's chain carries it, when block building finds it can never apply, when it grows older than its time to live, or when it is a reward claim that no block may include any more. The node keeps it for a while after that, and can still rebuild a proposal that references it. It drops the transaction once the block that carries it is final, once a claim passes its deadline, or otherwise twice its time to live after it arrived.
 
-A block may include the example's claim up to slot 20. A node keeps the claim for twenty slots after that, unless a block carries it first.
+A block may include the example's claim up to slot 20, and a node keeps the claim for twenty slots after that.
 
 ```mermaid
 ---
@@ -76,7 +77,7 @@ config:
     useWidth: 800
 ---
 gantt
-    title A claim for the block of slot 10 that no block includes
+    title The claim of the example at node A
     dateFormat X
     axisFormat slot %s
     tickInterval 10second
@@ -86,14 +87,14 @@ gantt
         may include the claim : b1, after b0, 11s
     section Node A
         before the claim arrives : done, a0, 0, 12s
-        holds it : a1, after a0, 9s
-        grace : a2, after a1, 20s
-        drops it : milestone, a3, after a2, 0s
+        pending : a1, after a0, 4s
+        retained, carried by a block : a3, after a1, 25s
+        dropped : milestone, a4, after a3, 0s
 ```
 
-With a window of ten slots and a grace of twenty, a node drops the claim once it holds a block of slot 41 or later.
+Node B's block of slot 16 carries the claim, so node A stops offering it to block building in that slot. With a window of ten slots and a grace of twenty, node A drops the claim once it holds a block of slot 41 or later, whether or not a block carried it.
 
-A node keeps its mempool across a restart.
+A transaction that a fork switch puts back keeps the time it first arrived, and comes back only if it is younger than its time to live. A node keeps its mempool across a restart, and recovers from the blocks it stores which transactions they carry.
 
 # Protocol
 
@@ -106,43 +107,78 @@ A transaction arrives by local submission through the [Node API](#node-api), by 
 - its encoding is no larger than `MAX_BLOCK_SIZE`;
 - it decodes, and decoding consumes the whole payload;
 - it passes `preverify`, the [Mantle validation rules](bedrock-v1.1-mantle-specification.md#validation) that read no ledger state;
-- it is not already pending;
+- it is not already pending, and no canonical block that is not yet immutable carries it;
 - it carries no proof-of-work reward **claim** whose **deadline** has passed.
 
-A claim's deadline passes when the highest slot of any block that [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance) has added to the node's block tree is more than `CLAIM_GRACE` slots past the last slot whose block may include the claim. A claim that names a block the node does not hold has no deadline. A transaction that is already pending is a duplicate: it is dropped if it came by gossip, and answered as success and broadcast again if it came from a local client. [Transaction Admission](#transaction-admission) specifies the procedure.
+A claim's deadline passes when the highest slot of any block that [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance) has added to the node's block tree is more than `CLAIM_GRACE` slots past the last slot whose block may include the claim. A claim that names a block the node does not hold has no deadline. A transaction that fails the fourth check is a duplicate: it is dropped if it came by gossip, and answered as success and broadcast again if it came from a local client. [Transaction Admission](#transaction-admission) specifies the procedure.
 
 ## Gossip
 
 A transaction must reach every node, whichever node it was submitted to. Nodes pass transactions on by gossip.
 
-Transactions travel on the mempool topic of [P2P Network](../draft/p2p-network.md), and a message is identified by the digest of its payload. A node relays a message as soon as it receives it, before it admits the transaction. It broadcasts a transaction it admits by local submission or by re-insertion, and not one it received by gossip. [Dissemination](#dissemination) specifies the rules.
+Transactions travel on the mempool topic of [P2P Network](../draft/p2p-network.md), and a message is identified by the digest of its payload. A node subscribes to the topic when it starts [Listening for New Blocks](cryptarchia-v1-bootstr-sync.md#listening-for-new-blocks). It relays a message as soon as it receives it, before it admits the transaction. It broadcasts a transaction it admits by local submission or by re-insertion, and not one it received by gossip. [Dissemination](#dissemination) specifies the rules.
 
 ## Block Building Input
 
-A leader must fill its block with transactions that apply on its chain, including transactions that depend on each other. The mempool offers it every pending transaction, and block building finds the ones that apply.
+A leader must fill its block with transactions that apply on its chain and that every validator has had time to receive. The mempool offers it the transactions old enough to have reached every node, and block building finds the ones that apply.
 
-The leader passes over the pending transactions in admission order and applies each one that succeeds, repeating until a pass applies nothing new. It then fills the block in the same order, up to `MAX_BLOCK_TXS` and `MAX_BLOCK_SIZE`. A transaction that never applies is retired, and one that applies but does not fit stays pending. [Block Building View](#block-building-view) specifies both steps.
-
-## Proposal References
-
-A block proposal carries a short reference to each of its transactions instead of the transaction itself. Every validator rebuilds the proposal from its own mempool.
-
-A **reference** is a prefix of the transaction's hash. It resolves only when exactly one pending transaction carries that prefix. A reference with no match, or with several, is not searched further. [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md) specifies what an unresolved reference means for the proposal, and [Reference Resolution](#reference-resolution) specifies the procedure.
+A pending transaction is **mature** once it has been pending for `TRANSACTION_MATURITY`, the time a block proposal takes to cross the Blend network and reach every node. The leader passes over the mature transactions in admission order and applies each one that succeeds, repeating until a pass applies nothing new. It then fills the block in the same order, up to `MAX_BLOCK_TXS` and `MAX_BLOCK_SIZE`. A mature transaction that never applies is retired, and one that applies but does not fit stays pending. [Block Building View](#block-building-view) specifies both steps.
 
 ## Retirement Reasons
 
-Without retirement, the pending set would only grow. A node retires a transaction for one of four reasons:
+The pending set must hold only transactions that block building may still select. A node retires a transaction for one of four reasons:
 
 - a block that carries it enters the node's canonical chain;
 - block building never applies it;
 - its age exceeds `TRANSACTION_TTL`;
 - it carries a claim whose deadline has passed.
 
-Retirement discards everything the node kept for the transaction. When a fork switch displaces blocks from the canonical chain, the node re-admits the transactions they carried that the new canonical chain does not carry. [Retirement](#retirement) and [Reorganisation](#reorganisation) specify the rules.
+[Retirement](#retirement) specifies the rules.
+
+## Retained Transactions
+
+A competing chain may carry a transaction that this node's chain already includes, and a late proposal may select one that this node has retired. The node keeps a retired transaction until no valid block can reference it.
+
+A retired transaction is **retained** until the node **releases** it. A retained transaction still resolves references, and keeps its admission time if it is admitted again. The node keeps in `included` the retained transactions that a block of its canonical chain carries. It releases a transaction:
+
+- when the block that carries it becomes immutable, as [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block) defines;
+- when its age exceeds `TRANSACTION_RETENTION`, if no canonical block carries it;
+- when it carries a claim whose deadline has passed.
+
+When a fork switch displaces blocks from the canonical chain, their transactions that the new canonical chain does not carry leave `included`. The node re-admits each, except one it admitted more than `TRANSACTION_TTL` ago. [Release](#release) and [Reorganisation](#reorganisation) specify the rules.
+
+```mermaid
+stateDiagram-v2
+    direction TB
+    state "pending" as p {
+        state "immature" as im
+        state "mature" as ma
+        im --> ma: TRANSACTION_MATURITY<br/>passes
+    }
+    state "retained" as r {
+        state "in included" as inc
+        state "not in included" as ni
+    }
+    [*] --> im: admitted
+    p --> inc: a canonical block<br/>carries it
+    p --> ni: inapplicable, expired,<br/>or claim deadline
+    inc --> p: fork switch
+    inc --> ni: fork switch, admitted more<br/>than TRANSACTION_TTL ago
+    ni --> p: admitted again
+    r --> [*]: released
+```
+
+A transaction moves between the pending set and the retained set until the node releases it.
+
+## Proposal References
+
+A block proposal carries a short reference to each of its transactions instead of the transaction itself. Every validator rebuilds the proposal from its own mempool.
+
+A **reference** is a prefix of the transaction's hash. It resolves only when exactly one pending or retained transaction carries that prefix. A reference with no match, or with several, is not searched further. [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md) specifies what an unresolved reference means for the proposal, and [Reference Resolution](#reference-resolution) specifies the procedure.
 
 ## A Transaction Step by Step
 
-A transaction passes through these steps from submission to retirement. The numbers in the diagram match the list below.
+A transaction passes through these steps from submission to release. The numbers in the diagram match the list below.
 
 ```mermaid
 ---
@@ -159,33 +195,35 @@ sequenceDiagram
     A->>A: admit: size, decoding,<br/>preverify, duplicate, claim
     A->>B: broadcast on the mempool topic
     B->>B: relay to its mesh, then admit
-    B->>B: apply the pending transactions<br/>and select them into a block
+    B->>B: once it is mature, apply it<br/>and select it into a block
     B->>A: block proposal referencing<br/>the transaction
     A->>A: resolve the reference<br/>from the pending set
-    A->>A: the block enters the canonical<br/>chain: retire the transaction
-    B->>B: the block enters the canonical<br/>chain: retire the transaction
+    A->>A: the block enters the canonical<br/>chain: retire it into included
+    A->>A: the block becomes immutable:<br/>release the transaction
 ```
 
 1. A client submits the transaction to node A through the [Node API](#node-api).
 2. Node A admits it ([Transaction Admission](#transaction-admission)).
 3. Node A broadcasts it, since it arrived by local submission ([Dissemination](#dissemination)).
 4. Node B relays it to its mesh neighbours, then admits it ([Dissemination](#dissemination)).
-5. Node B leads a slot. It applies its pending transactions and selects this one into its block ([Block Building View](#block-building-view)).
+5. Node B leads a slot. Once the transaction is mature, it applies the mature transactions and selects this one into its block ([Block Building View](#block-building-view)).
 6. Node B's proposal references the transaction by a prefix of its hash ([References](bedrock-v1.1-block-construction.md#references)).
 7. Node A resolves the reference from its pending set ([Reference Resolution](#reference-resolution)).
-8. The block enters node A's canonical chain, and node A retires the transaction ([Inclusion in a Canonical Block](#inclusion-in-a-canonical-block)).
-9. The block enters node B's canonical chain, and node B retires the transaction ([Inclusion in a Canonical Block](#inclusion-in-a-canonical-block)).
+8. The block enters node A's canonical chain, and node A retires the transaction into `included` ([Inclusion in a Canonical Block](#inclusion-in-a-canonical-block)). Node B does the same.
+9. The block becomes immutable at node A, and node A releases the transaction ([Release](#release)). Node B does the same.
 
 ## Node State
 
 A node keeps these values for its mempool, defined in [Mempool State](#mempool-state):
 
 - `pending`, the pending hashes in admission order, which changes when the node admits a transaction ([Transaction Admission](#transaction-admission)) or retires one ([Retirement](#retirement));
-- `bodies` and `admitted_at`, the body and admission time of each pending transaction, which change with `pending`;
-- `by_prefix`, the pending hashes keyed by their reference prefix, which changes with `pending`;
+- `included`, the retained hashes that a canonical block carries, which changes when a block enters the canonical chain ([Inclusion in a Canonical Block](#inclusion-in-a-canonical-block)), when a fork switch displaces one ([Reorganisation](#reorganisation)), and on release ([Release](#release));
+- `bodies`, the body of each pending or retained transaction, which changes on admission, on inclusion of a transaction the node did not hold, and on release;
+- `admitted_at`, the admission time of each pending or retained transaction, which changes on admission and on release;
+- `by_prefix`, the pending and retained hashes keyed by their reference prefix, which changes on admission, on inclusion of a transaction the node did not hold, and on release;
 - `highest_slot`, the highest slot in the block tree, which rises when Chain Maintenance adds a block of a higher slot.
 
-The node persists `pending`, `admitted_at` and `bodies`, and rebuilds `by_prefix` and `highest_slot` on recovery ([Persistence and Recovery](#persistence-and-recovery)). Local clients read the pending set through the [Node API](#node-api).
+The node persists the pending hashes, the other retained hashes, their bodies and every admission time. On recovery it rebuilds `by_prefix` and `highest_slot`, and rebuilds `included` from the blocks of its canonical chain after the latest immutable block ([Persistence and Recovery](#persistence-and-recovery)). Local clients read the pending set through the [Node API](#node-api).
 
 # Details
 
