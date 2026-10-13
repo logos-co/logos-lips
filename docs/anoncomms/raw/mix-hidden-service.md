@@ -1,13 +1,13 @@
 # MiX-HIDDEN-SERVICES
 
-Field | Value
---- | ---
-Name | Hidden Services over Mix
-Slug | TBD
-Status | raw
-Category | Standards Track
-Editor | Mohammed Alghazwi <mohalghazwi@logos.co>
-Contributors | Balázs Kőműves <balazs@logos.co>
+| Field | Value |
+| --- | --- |
+| Name | Hidden Services over Mix |
+| Slug | 246 |
+| Status | raw |
+| Category | Standards Track |
+| Editor | Mohammed Alghazwi <mohalghazwi@logos.co> |
+| Contributors | Balázs Kőműves <balazs@logos.co> |
 
 ## 1. Abstract
 In this document we specify the hidden service protocol over Sphinx-style mixnet. The main goal is to allow services to: (1) Be reachable, and (2) Serve contents to clients, without revealing its identity to clients or network observers. 
@@ -91,7 +91,7 @@ s &\leftarrow (pk_B)^{sk_A} = (pk_A)^{sk_B} = g^{sk_A sk_B}
 \end{aligned}
 $$
 
-Where $\mathbb{G}$ is a cyclic group of prime order $q$ with generator $g$, $sk$ is a private key, $pk$ is the corresponding public key, and $s$ is the shared secret/key. We require the scheme to provide standard Diffie-Hellman security, so that an adversary can't recover the shared secret/key from the public keys alone.
+Where $`\mathbb{G}`$ is a cyclic group of prime order $q$ with generator $g$, $sk$ is a private key, $pk$ is the corresponding public key, and $s$ is the shared secret/key. We require the scheme to provide standard Diffie-Hellman security, so that an adversary can't recover the shared secret/key from the public keys alone.
 
 We use DH to derive shared secrets/keys between the protocol participants, which are then passed to a key derivation function (KDF) to obtain symmetric keys for authentication and encryption. To align with the mix protocol, we instantiate Diffie-Hellman using Curve25519.
 
@@ -110,8 +110,8 @@ We require that the signature scheme be secure against forgeries, i.e., an adver
 
 In addition, we require a key blinding property mechanism. We therefore extend the signature scheme with the following additional algorithms:
 
-- $\mathsf{Sig.BlindKey}(pk, sk, r) \rightarrow (pk', sk')$: Given the keypair and a blinding value $r$, output a derived blinded keypair $(pk', sk')$. 
-- $\mathsf{Sig.BlindPk}(pk, r) \rightarrow pk'$ Given only the public key $pk$ and $r$, output the corresponding $pk'$.
+- $`\mathsf{Sig.BlindKey}(pk, sk, r) \rightarrow (pk', sk')`$: Given the keypair and a blinding value $r$, output a derived blinded keypair $(pk', sk')$. 
+- $`\mathsf{Sig.BlindPk}(pk, r) \rightarrow pk'`$ Given only the public key $pk$ and $r$, output the corresponding $pk'$.
 
 In our setting, we assume that the blinding value $r$ is derived from *public information*, for example a timestamp, epoch number, or public entropy.
 
@@ -133,7 +133,7 @@ $$
 \mathsf{H}(m) \rightarrow d
 $$
 
-Where $m$ is the message and $d$ is the fixed-length digest. In this specification, we use SHA-256 as $\mathsf{H}$, which aligned with the mix specification.
+Where $m$ is the message and $d$ is the fixed-length digest. In this specification, we use SHA-256 as $`\mathsf{H}`$, which aligned with the mix specification.
 
 ### 5.4 Message Authentication Code (MAC)
 A message authentication code (MAC) takes a key and a message and outputs a fixed-length digest/tag $t$.
@@ -397,7 +397,7 @@ The following subsections describe these requirements in more detail and specify
 - **Service encryption key (`service_key`):** A short-term encryption keypair created by the service for each intro point and included in the descriptor. It is used by the client to encrypt requests toward the service via an intro point.
 - **Client encryption key (`client_key`):** A short-term encryption keypair created by the client and included in requests toward the service via an intro point. It is used to generate a shared secret between the client and service when encrypting the request payload to the service.
 
-Note that in the above, the signing keys are keys generated using $\mathsf{Sig.KeyGen()}$ while encryption keys are generated using $\mathsf{DH.KeyGen()}$. See section 5.2 for more details. 
+Note that in the above, the signing keys are keys generated using $`\mathsf{Sig.KeyGen()}`$ while encryption keys are generated using $`\mathsf{DH.KeyGen()}`$. See section 5.2 for more details. 
 
 ### 8.1 Hidden service identifier (Mix address)
 A hidden service requires a stable identifier analogous to Tor's onion address. This identifier can then be distributed to clients out-of-band. For the remainder of this document, we refer to this identifier as the *mix address* or simply a `.mix` address.
@@ -893,8 +893,8 @@ In the appendix, we provide concrete construction for a signature scheme with ke
 - $B$ be the Ed25519 base point.
 - $\ell$ be the prime order of the Ed25519 subgroup.
 - $H$ be the hash used in the protocol, e.g. SHA256.
-- $H_{512}$ be the hash used internall by Ed25519, which is SHA-512.
-- $\mathsf{Clamp}(\cdot)$ be the Ed25519 scalar clamping function, which is defined in the Ed25519 spec as:
+- $`H_{512}`$ be the hash used internall by Ed25519, which is SHA-512.
+- $`\mathsf{Clamp}(\cdot)`$ be the Ed25519 scalar clamping function, which is defined in the Ed25519 spec as:
     ```
     Clamp(h):
         h[0] &= 248;
@@ -902,7 +902,7 @@ In the appendix, we provide concrete construction for a signature scheme with ke
         h[31] |= 64;
     ```
 For a more detailed description of the the clamp function, see: [An Explainer On Ed25519 Clamping](https://jcraige.com/an-explainer-on-ed25519-clamping).
-#### Key generation ($\mathsf{Sig.KeyGen}$)
+#### Key generation ($`\mathsf{Sig.KeyGen}`$)
 The normal Ed25519 key generation algorithm is:
 
 $$
@@ -930,12 +930,12 @@ $$
 
 
 where:
-- $hs\_id$ is the long-term public identity key of the hidden service.
+- $`hs\_id`$ is the long-term public identity key of the hidden service.
 - $epoch$ is the epoch on which the blinded key is valid.
-- $r$ is the $epoch$-specific blinding value for $hs\_id$.
+- $r$ is the $epoch$-specific blinding value for $`hs\_id`$.
 
-#### Public key blinding ($\mathsf{Sig.BlindPk}$)
-Anyone who knows the hidden-service identity public key $hs\_id$ and the epoch can derive the corresponding epoch-specific blinded public key:
+#### Public key blinding ($`\mathsf{Sig.BlindPk}`$)
+Anyone who knows the hidden-service identity public key $`hs\_id`$ and the epoch can derive the corresponding epoch-specific blinded public key:
 
 $$
 \begin{aligned}
@@ -954,7 +954,7 @@ $$
 bk_i = \mathsf{Sig.BlindPk}(hs\_id, r_i)
 $$
 
-#### Blinding key generation ($\mathsf{Sig.BlindKey}$)
+#### Blinding key generation ($`\mathsf{Sig.BlindKey}`$)
 The service derives the corresponding blinded signing material from its long-term secret key and epoch as follows:
 
 $$
@@ -985,8 +985,8 @@ $$
 
 For this reason, the Tor protocol uses blinded keys mainly to "certify" short-term descriptor signing keys, and keeps the long-term identity key and precomputed blinded signing material offline.
 
-#### Sign a message ($\mathsf{Sig.Sign}$)
-Once $sk'$ has been generated by $\mathsf{Sig.BlindKey}$, signing is a normal Ed25519-style signing operation under the blinded key, which works as follows:
+#### Sign a message ($`\mathsf{Sig.Sign}`$)
+Once $sk'$ has been generated by $`\mathsf{Sig.BlindKey}`$, signing is a normal Ed25519-style signing operation under the blinded key, which works as follows:
 
 $$
 \begin{aligned}
@@ -1003,7 +1003,7 @@ A \parallel m) \bmod \ell \\
 \end{aligned}
 $$
 
-#### Verify a signature $\mathsf{Sig.VerifySig}$
+#### Verify a signature $`\mathsf{Sig.VerifySig}`$
 
 Verification is also the same as normal Ed25519 verification, except that the verifier uses the blinded public key $pk'$:
 
