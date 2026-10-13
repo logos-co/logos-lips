@@ -24,7 +24,7 @@
 
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
-| 1.0.0 | Initial revision. | 2026-09-01 |
+| 1.0.0 | Initial revision. | 2026-10-13 |
 
 # Introduction
 
@@ -122,7 +122,7 @@ The payload is the canonical encoding defined in [Mantle Transaction Encoding](m
 
 ### Reorganisation
 
-When a fork switch displaces blocks from the canonical chain, the transactions they carried that the blocks now in the canonical chain do not carry leave `included`. The node re-admits each.
+When a fork switch displaces blocks from the canonical chain, the transactions they carried that the blocks now in the canonical chain do not carry leave `included`. The node re-admits each, except one admitted more than `TRANSACTION_TTL` ago.
 
 ### Duplicates
 
@@ -203,9 +203,9 @@ Release removes the hash from `included` and from `by_prefix`, and discards its 
 
 ## Persistence and Recovery
 
-A node persists the pending and the retained hashes, `included`, their admission timestamps, and the transaction bodies.
+A node persists the pending hashes, the retained hashes that are not in `included`, the bodies of those transactions, and every admission timestamp.
 
-A node does not persist `by_prefix`. It rebuilds the index from the recovered hashes.
+A node does not persist `included` or `by_prefix`. On recovery it rebuilds `by_prefix` from the recovered hashes. It then applies [Inclusion in a Canonical Block](#inclusion-in-a-canonical-block) to each block of its canonical chain after the [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block).
 
 ## Node API
 
