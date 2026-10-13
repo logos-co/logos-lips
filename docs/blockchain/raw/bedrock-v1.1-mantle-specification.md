@@ -1723,9 +1723,10 @@ Such that the following constraints hold:`
   )
   ```
   
-- Each input commitment is derived from the public key, the nonce and the value.
+- Each input flag is boolean, and each input commitment is derived from the public key, the nonce and the value.
   ```python
   assert all(
+      inputs_active[i] * (1 - inputs_active[i]) == 0
       inputs_cm[i] = zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i])
       for i in range(len(inputs_sk))
   )
@@ -1744,9 +1745,10 @@ Such that the following constraints hold:`
   
 - Each active input commitment is in `tx_cm_root`.
 
-- Each active output commitment is derived from the public key, the nonce and the value, and each inactive output has value 0.
+- Each output flag is boolean, each active output commitment is derived from the public key, the nonce and the value, and each inactive output has value 0.
   ```python
   assert all(
+      outputs_active[i] * (1 - outputs_active[i]) == 0
       if outputs_active[i]:
           outputs[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), outputs_value[i], outputs_nonce[i], outputs_pk[i])
       else:
