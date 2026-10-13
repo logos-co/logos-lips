@@ -197,7 +197,7 @@ The wallet keeps, for each note, its set, the commitment path inside its MMR pea
 - The cross-channel messaging template shows an atomic swap of steps across two zones.
 - The Execution Market, the Architecture Overview and Blend follow the in-block leader reward.
 - The Gas Cost Determination analysis follows the new Operations and drops the Proof of Claim measures and images.
-- The PoL circuit diagram, the Block Rewards figure and the test vectors carry TODO markers.
+- The PoL circuit diagram is removed. The Block Rewards figure and the test vectors carry TODO markers.
 
 # Implementation
 

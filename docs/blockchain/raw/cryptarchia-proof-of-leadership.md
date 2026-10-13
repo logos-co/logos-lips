@@ -105,9 +105,6 @@ A note is proven aged by the membership of its commitment in the commitment MMR 
 
 ## Zero-knowledge Proof Statement
 
-<!-- TODO: update -->
-![Diagram](cryptarchia-proof-of-leadership/assets/2e9261aa-09df-80d6-b61f-d8881f0b0425.png)
-
 A proof attesting that for the following public values:
 
 ```python
