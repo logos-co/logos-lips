@@ -34,7 +34,7 @@
 | 1.7.0 | Added the `ChannelConfigOpProof` and `ChannelTransferOpProof` variants and factored the three channel threshold proofs into `ChannelMultiSigProof`, carrying the index of the signing key alongside each signature | 2026-08-31 |
 | 1.8.0 | Added the `ClaimPowReward` Operation payload; its proof is a `ZkSigProof` | 2026-09-08 |
 | 1.9.0 | Swap Ed25519Signature and SignerIndex order in IndexedSignature | 2026-10-01 |
-| 1.10.0 | Introduced a shared maximum operation data payload size for channel inscriptions, channel deposit metadata, and SDP activity metadata; retained their `UINT32` length prefixes | 2026-10-06 |
+| 1.10.0 | Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata, retaining their `UINT32` length prefixes; corrected SDP activity metadata to use its tagged variant encoding without a generic length prefix | 2026-10-06 |
 
 # Introduction
 
@@ -112,7 +112,7 @@ OutputCount       = Byte
 Inputs            = InputCount *NoteId
 ```
 
-`MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. The payloads of `ChannelInscribe.Inscription`, `ChannelDeposit.Metadata`, and `SDPActive.Metadata` MUST each be at most `MAX_OPERATION_DATA_SIZE` bytes, excluding the outer `UINT32` length prefix. A decoder MUST reject any of these fields when its declared or decoded payload length exceeds the limit.
+`MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. The payloads of `ChannelInscribe.Inscription` and `ChannelDeposit.Metadata` MUST each be at most `MAX_OPERATION_DATA_SIZE` bytes, excluding the outer `UINT32` length prefix. A decoder MUST reject either field when its declared or decoded payload length exceeds the limit.
 
 ### SDP Operations
 
@@ -130,9 +130,15 @@ SDPWithdraw   = DeclarationId Nonce ServiceNoteId
 DeclarationId = Hash32
 Nonce         = UINT64
 
-SDPActive        = DeclarationId Nonce ActivityMetadata
-ActivityMetadata = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes; service-specific node activeness metadata
+SDPActive               = DeclarationId Nonce ActivityMetadata
+ActivityMetadata        = ActivityMetadataType ActivityMetadataPayload
+ActivityMetadataType    = Byte ; 0x01 = Blend
+ActivityMetadataPayload = BlendActivityProof ; Selected by ActivityMetadataType
 ```
+
+`ActivityMetadataType` is a one-byte discriminant. The only currently valid value is `0x01`, which selects `BlendActivityProof`; a decoder MUST reject any other value. `BlendActivityProof` is the 228-byte concatenation of `epoch_number`, `signing_key`, `proof_of_quota`, and `proof_of_selection` defined in [Blend Protocol — Active Message](blend-protocol.md#active-message), excluding that section's `metadata_type` byte, which is encoded here as `ActivityMetadataType`.
+
+`ActivityMetadata` has no generic length prefix or separate version byte. The current Blend variant occupies 229 bytes including its discriminant. Its encoding and validation follow the selected variant's rules; `MAX_OPERATION_DATA_SIZE` does not apply to `SDPActive.Metadata`.
 
 ### Leader operations
 
