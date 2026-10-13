@@ -12,6 +12,7 @@
 | v4 | Hardened retention against competing branches. An included transaction is released when its block becomes immutable rather than at `TRANSACTION_RETENTION`, a transaction a canonical block carries is retained even if this node never admitted it, and an included hash is a duplicate at admission. `admit` loses its `at` argument, which a fork switch no longer needs. | 2026-10-07 |
 | v5 | Took over from [#413](https://github.com/logos-co/logos-lips/pull/413) the rule that a fork switch re-admits a transaction at its original admission time, with the time-ordered `pending` and the `insert_by` it needs. #413's retirement discards that time before a fork switch needs it, so the rule could not stay there. | 2026-10-07 |
 |  | Added the rule's rationale and implementation task. The admission diffs now start from #413's `admit`, which no longer has an `at` argument. | 2026-10-07 |
+| v6 | Added that a restart must not undo a retirement. The implementation saves its recovery state only after an admission, and retention needs it saved after every retirement and release, with an implementation task and a test. | 2026-10-13 |
 
 ## Reviewer Orientation
 
@@ -60,6 +61,14 @@ A transaction that a fork switch displaces goes back to the position its admissi
 The order also matters beyond fairness. The implementation's TTL eviction scans the front of the sequence and stops at the first transaction that has not expired. An old timestamp appended at the back would never be reached, and nothing behind it would be examined either. `insert_by` keeps `pending` sorted by admission time, which the scan relies on. Gossip that re-admits a retained transaction puts an old timestamp back as well.
 
 The rule was [#413](https://github.com/logos-co/logos-lips/pull/413)'s until [review](https://github.com/logos-co/logos-lips/pull/413#discussion_r4078757027) found that #413 discards the admission time at retirement, before a fork switch needs it. The rule needs the time to outlive retirement, so it moved here.
+
+## A restart must not undo a retirement
+
+The implementation saves the mempool's recovery state only after it admits a transaction. A restart restores that state, and the chain service replays its stored blocks without notifying the mempool. Every retirement since the last admission is therefore undone.
+
+Retention would inherit the gap. A transaction included since the last save would be missing from `included`. If this node admitted it, it is pending again. It can then be retired only as inapplicable or expired, so the time bound releases it. [Why an included transaction is released at immutability](#why-an-included-transaction-is-released-at-immutability) shows that this can be too early. If this node took it from a block, the mempool no longer holds it. A competing proposal that references it does not resolve, and a re-gossiped copy is admitted again.
+
+Saving the state after every retirement and every release closes the gap, at the cost of about one write per applied block.
 
 ## What retention costs
 
@@ -216,9 +225,10 @@ A restart must not release a transaction early, so the retained hashes, `include
 - [ ]  Preserve the admission time when a retained transaction is admitted again, on the reorganisation path too, and use the current time for a displaced transaction this node never admitted
 - [ ]  Insert a re-admitted transaction at the position its admission time gives it, which the current `IndexMap` cannot express, and keep TTL eviction correct across that insertion
 - [ ]  Subscribe to the mempool topic when listening for new blocks starts
+- [ ]  Save the mempool's recovery state after every retirement and release, not only after an admission
 - [ ]  Persist the retained hashes, `included`, admission times and bodies, and rebuild `by_prefix` from every recovered hash
 - [ ]  Report `retained` from the mempool status endpoint
-- [ ]  Add or extend tests / test vectors: a transaction younger than `TRANSACTION_MATURITY` is neither selected nor retired for inapplicability, a proposal selecting a transaction just under `TRANSACTION_TTL` reconstructs after the Blend transit, a released transaction does not resolve, re-gossiping a retained transaction does not extend its life, a competing proposal referencing a transaction this node already included reconstructs, an included transaction is released when its block becomes immutable and not before, and a fork switch re-admits a displaced transaction at its original admission time and position
+- [ ]  Add or extend tests / test vectors: a transaction younger than `TRANSACTION_MATURITY` is neither selected nor retired for inapplicability, a proposal selecting a transaction just under `TRANSACTION_TTL` reconstructs after the Blend transit, a released transaction does not resolve, re-gossiping a retained transaction does not extend its life, a competing proposal referencing a transaction this node already included reconstructs, an included transaction is released when its block becomes immutable and not before, a fork switch re-admits a displaced transaction at its original admission time and position, and a restart neither returns a retired transaction to `pending` nor loses an `included` hash
 - [ ]  Verify the implementation matches this specification
 
 # Affected Specifications
