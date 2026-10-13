@@ -33,7 +33,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-01-20 |
 | 1.0.1 | Rename Nomos to Logos Blockchain | 2026-04-17 |
-| 1.1.0 | Protocol identifiers and gossipsub topics carry the fork digest, or the chain ID for Kademlia and identify, in place of the version ([Bedrock Eras](../raw/bedrock-eras.md)). | 2026-09-04 |
+| 1.1.0 | Protocol identifiers and gossipsub topics carry the fork digest, or the genesis block ID for Kademlia and identify, in place of the version ([Bedrock Eras](../raw/bedrock-eras.md)). | 2026-10-13 |
 
 # Introduction
 
@@ -67,10 +67,10 @@ The Logos Blockchain P2P network integrates a combination of libp2p's [Kademlia]
 
 The specific protocols to be negotiated are:
 
-- Kademlia: `/logos-blockchain/<chain_id>/kad`.
-- Identify: `/logos-blockchain/<chain_id>/identify`.
+- Kademlia: `/logos-blockchain/<genesis_id>/kad`.
+- Identify: `/logos-blockchain/<genesis_id>/identify`.
 
-`<chain_id>` and `<fork_digest>` are defined in [Network Protocol Identity](../raw/bedrock-eras.md#network-protocol-identity).
+`<genesis_id>` and `<fork_digest>` are defined in [Network Protocol Identity](../raw/bedrock-eras.md#network-protocol-identity).
 
 The Logos Blockchain team acknowledges that the current Kademlia DHT implementation is only optimal for the V1 solution, as it is a heavier protocol for the limited utility the Logos Blockchain actually requires. However, it remains a viable interim approach. An ideal protocol would feature:
 
