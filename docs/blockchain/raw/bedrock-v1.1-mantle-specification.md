@@ -1715,7 +1715,7 @@ class ZkTransferWitness:
 
 Such that the following constraints hold:`
 
-- **Each public key is derived from the corresponding secret key.**
+- Each public key is derived from the corresponding secret key.
   ```python
   assert all(
       inputs_pk[i] == zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), inputs_sk[i])
