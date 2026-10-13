@@ -14,6 +14,7 @@
 |  | Added the rule's rationale and implementation task. The admission diffs now start from #413's `admit`, which no longer has an `at` argument. | 2026-10-07 |
 | v6 | Recovery rebuilds `included`, with the bodies of its transactions, by applying inclusion to each canonical block after the latest immutable block, instead of reading it from the saved state. A fork switch re-admits a displaced transaction only if it was admitted within `TRANSACTION_TTL`. Added why a restart must not undo a retirement, with the implementation tasks and tests. | 2026-10-13 |
 |  | Merged the mempool specification's expired-claim rule. An expired claim is released as soon as it expires, whether pending or retained, and the diffs that quote the mempool specification follow its current text. | 2026-10-13 |
+|  | Removed `BLEND_DELAY`, which restated Blend's message traversal time $`T_M`$. `TRANSACTION_MATURITY` is now $`T_M`$ rounds plus `BROADCAST_DELAY`, and the retention and `CLAIM_GRACE` constraints read it. Dropped the statement that Blend derives 11 rounds, which no longer holds. | 2026-10-13 |
 
 ## Reviewer Orientation
 
@@ -25,7 +26,7 @@ Single-document change — read [Mempool](../mempool.md) top to bottom. Focus on
 
 One constant bounded both stages. `Expiry` retires a transaction whose age exceeds `TRANSACTION_TTL`, and retirement discarded the body, so a transaction stopped resolving at the instant it stopped being selectable.
 
-A block proposal is not instantaneous. It crosses the Blend network and then reaches every node by gossip, which `BLEND_DELAY + BROADCAST_DELAY` puts at 20 seconds. A leader that selects a transaction just under `TRANSACTION_TTL` therefore sends a proposal that arrives when the transaction is up to 20 seconds past that bound, and every validator has discarded it.
+A block proposal is not instantaneous. It crosses the Blend network and then reaches every node by gossip, which `TRANSACTION_MATURITY` puts at 20 seconds. A leader that selects a transaction just under `TRANSACTION_TTL` therefore sends a proposal that arrives when the transaction is up to 20 seconds past that bound, and every validator has discarded it.
 
 The block is valid. Nothing in Block Proposal Validation reads a transaction's age, and a validator that cannot reconstruct a proposal records no verdict against the block, so the same block still validates on its merits if it later arrives in full through chain synchronisation. What the leader loses is the slot, with no signal that anything went wrong.
 
@@ -87,7 +88,7 @@ The pool has no capacity bound, so transactions that no block carries are bounde
 
 ## Why the retention is twice the time to live
 
-The constraint requires only that retention exceed the time to live by more than `BLEND_DELAY + BROADCAST_DELAY` — 20 seconds against 24 hours. Every margin above that covers the spread between nodes' admission times, which no specification bounds: a node admits a transaction when it first receives it, and gossip reaches nodes at different moments.
+The constraint requires only that retention exceed the time to live by more than `TRANSACTION_MATURITY` — 20 seconds against 24 hours. Every margin above that covers the spread between nodes' admission times, which no specification bounds: a node admits a transaction when it first receives it, and gossip reaches nodes at different moments.
 
 Doubling is the smallest integer multiple of the time to live that clears the constraint without the specification having to quantify that spread. A tighter value becomes available if the spread is ever bounded.
 
@@ -118,11 +119,11 @@ A transaction now leaves the mempool in two stages. Retirement removes it from `
 +Release removes the hash from `included` and from `by_prefix`, and discards its `admitted_at` entry and its body.
 ```
 
-Retirement and the time bound both measure a transaction's age from its admission. A transaction is therefore selectable for `TRANSACTION_TTL`, and resolvable for `TRANSACTION_RETENTION` unless a canonical block carries it. An included transaction is released when its block becomes immutable, and an expired claim as soon as it expires. The constraint on `CLAIM_GRACE` now guards the release:
+Retirement and the time bound both measure a transaction's age from its admission. A transaction is therefore selectable for `TRANSACTION_TTL`, and resolvable for `TRANSACTION_RETENTION` unless a canonical block carries it. An included transaction is released when its block becomes immutable, and an expired claim as soon as it expires. The constraint on `CLAIM_GRACE` now guards the release, and reads the time a proposal takes to reach every node from `TRANSACTION_MATURITY`:
 
 ```diff
 -`CLAIM_GRACE` must exceed the time, in slots, that a block proposal takes to reach every node. Otherwise a node can retire a claim before a proposal that selected it in the last slot of its acceptance window arrives.
-+`CLAIM_GRACE` must exceed the time, in slots, that a block proposal takes to reach every node. Otherwise a node can release a claim before a proposal that selected it in the last slot of its acceptance window arrives.
++`CLAIM_GRACE` slots must last longer than `TRANSACTION_MATURITY`. Otherwise a node can release a claim before a proposal that selected it in the last slot of its acceptance window arrives.
 ```
 
 ## The constants and their constraints
@@ -130,19 +131,18 @@ Retirement and the time bound both measure a transaction's age from its admissio
 ```diff
  | `TRANSACTION_TTL` | Transaction Time To Live | How long a transaction may stay pending before it is retired. | 24 hours |
 +| `TRANSACTION_RETENTION` | Transaction Retention | How long a transaction that no canonical block carries stays resolvable before it is released. | `2 * TRANSACTION_TTL` |
-+| `BLEND_DELAY` | Blend Delay | How long a block proposal takes to cross the Blend network. | 15 seconds |
 +| `BROADCAST_DELAY` | Broadcast Delay | How long a block proposal takes to reach every node once it leaves the Blend network. | 5 seconds |
-+| `TRANSACTION_MATURITY` | Transaction Maturity | How long a transaction must have been pending to be mature. | `BLEND_DELAY + BROADCAST_DELAY` |
++| `TRANSACTION_MATURITY` | Transaction Maturity | How long a transaction must have been pending to be mature. | $`T_M`$ rounds + `BROADCAST_DELAY` |
  | `CLAIM_GRACE` | Claim Grace | How many slots a claim stays pending after its acceptance window closes. | `2 * WINDOW` |
 ```
 
-`BLEND_DELAY` and `BROADCAST_DELAY` are fixed rather than derived, so this document does not move when the Blend parameters do. 15 seconds is `3 · (3 + 2)` rounds at one second a round: three blends, each holding a message for at most three rounds, and two rounds of network delay a hop. The Transition Period derives 11 rounds from half a round of network delay, so the constraint on `BLEND_DELAY` holds with a margin. 5 seconds is a gossip broadcast at one second a hop: with a peering degree of 8 it covers up to 32 768 nodes, and a larger network needs a larger `BROADCAST_DELAY`.
+Maturity reads Blend's message traversal time $`T_M`$, 15 rounds of one second, instead of fixing a value of its own, so it follows the Blend parameters. 5 seconds is a gossip broadcast at one second a hop: with a peering degree of 8 it covers up to 32 768 nodes, and a larger network needs a larger `BROADCAST_DELAY`.
 
 This RFC adds four constraints after the table, each with what breaks when it is violated:
 
 - `TRANSACTION_TTL` must not exceed the Prolonged Bootstrap Period. A node that has just completed that period cannot resolve a reference to a transaction admitted before the period began.
-- `TRANSACTION_RETENTION` must exceed `TRANSACTION_TTL` by more than `BLEND_DELAY + BROADCAST_DELAY`. Otherwise a proposal that selects a transaction just under `TRANSACTION_TTL` arrives after that transaction was released.
-- `BLEND_DELAY` must not be less than the time a message takes to cross the Blend network. Otherwise a mature transaction has had less time to spread than the proposal carrying it takes to arrive.
+- `TRANSACTION_RETENTION` must exceed `TRANSACTION_TTL` by more than `TRANSACTION_MATURITY`. Otherwise a proposal that selects a transaction just under `TRANSACTION_TTL` arrives after that transaction was released.
+- `BROADCAST_DELAY` must not be less than the time a block proposal takes to reach every node by gossip. Otherwise a mature transaction has had less time to spread than the proposal carrying it takes to arrive.
 - `TRANSACTION_MATURITY` must be less than `TRANSACTION_TTL`. Otherwise a transaction is retired before it is mature, and nothing is ever selected.
 
 ## The maturity gate
