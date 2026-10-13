@@ -210,6 +210,7 @@ CLAIM_GRACE: uint64 = 2 * WINDOW        # slots a claim stays pending after its 
 ## Mempool State
 
 ```python
+@dataclass
 class Mempool:
     pending: OrderedSet[TxHash]         # admitted, not yet retired, in admission order
     bodies: Map[TxHash, SignedMantleTx] # transaction bodies
@@ -220,7 +221,9 @@ class Mempool:
 
 A transaction is keyed by `mantle_txhash(tx)`, defined in [Mantle](bedrock-v1.1-mantle-specification.md#mantle-transaction-hash).
 
-`by_prefix` maps `prefix(hash, REFERENCE_PREFIX_LENGTH)` to the pending hashes carrying that prefix.
+An `OrderedSet` iterates in insertion order. A `Timestamp` is a time in seconds, as an unsigned 64-bit integer.
+
+`by_prefix` maps `prefix(hash, REFERENCE_PREFIX_LENGTH)` to the pending hashes carrying that prefix, where `prefix` is defined in [References](bedrock-v1.1-block-construction.md#references).
 
 `highest_slot` is the highest slot of any block that [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance) has added to the node's block tree.
 
@@ -256,7 +259,7 @@ def admit(mempool, encoded: bytes) -> Result:
 
 Admission reads the transaction, the mempool and the node's block tree, and no other state. A node must not treat membership of the mempool as evidence that a transaction can be applied.
 
-`claim_expired` is defined in [Expired Claim](#expired-claim).
+`decode_signed_mantle_tx` returns the transaction that [Decoding](#decoding) describes, or `None` if `encoded` does not decode. `claim_expired` is defined in [Expired Claim](#expired-claim). `now()` is the node's current time as a `Timestamp`. `admit` returns `Accept(key)` when it admits the transaction, `Duplicate(key)` when the transaction is already pending, and `Reject` with the reason otherwise.
 
 ### Decoding
 
@@ -272,7 +275,16 @@ The payload is the canonical encoding defined in [Mantle Transaction Encoding](m
 
 ### Reorganisation
 
-When a fork switch displaces blocks from the canonical chain, the node re-admits the transactions they carried that the blocks now in the canonical chain do not carry.
+```python
+def reorganise(mempool, displaced: list[Block], adopted: list[Block]) -> None:
+    carried = {mantle_txhash(tx) for block in adopted for tx in block.transactions}
+    for block in displaced:
+        for tx in block.transactions:
+            if mantle_txhash(tx) not in carried:
+                admit(mempool, encode_signed_mantle_tx(tx))
+```
+
+A node runs `reorganise` when a fork switch displaces blocks from the canonical chain. `displaced` holds the blocks that leave the canonical chain and `adopted` the blocks that enter it, each in chain order. `Block` is defined in [Block](bedrock-v1.1-block-construction.md#block). `encode_signed_mantle_tx` produces the payload that [Decoding](#decoding) consumes.
 
 ### Duplicates
 
@@ -295,15 +307,37 @@ A node broadcasts a transaction it admits by local submission or by re-insertion
 
 The mempool supplies the bodies of every pending transaction in admission order.
 
-The leader's **applicability determination** finds the transactions that apply:
+```python
+def applicability(mempool, parent_state, header) -> tuple[list[SignedMantleTx], list[TxHash]]:
+    state = apply_header(parent_state, header)       # the working state
+    applied, remaining = [], list(mempool.pending)   # remaining in admission order
+    progress = True
+    while progress:
+        # A transaction may spend what one admitted after it creates,
+        # so passes repeat until a pass applies nothing.
+        progress = False
+        for key in list(remaining):
+            after = apply_transaction(state, mempool.bodies[key])
+            if after is not None:
+                state = after
+                applied.append(mempool.bodies[key])
+                remaining.remove(key)
+                progress = True
+    return applied, remaining
 
-1. Apply the block header to the ledger state. This is the working state.
-2. Pass over all pending transactions in admission order. Apply each transaction that succeeds to the working state.
-3. Repeat step 2 until a pass applies no transaction.
+def selection(applied: list[SignedMantleTx]) -> list[SignedMantleTx]:
+    block = []
+    for tx in applied:
+        # Stopping, rather than skipping, keeps every transaction a later one depends on.
+        if len(block) == MAX_BLOCK_TXS or encoded_size(block + [tx]) > MAX_BLOCK_SIZE:
+            break
+        block.append(tx)
+    return block
+```
 
-No block limit applies to this computation.
+`applicability` is the leader's **applicability determination**, and no block limit applies to it. `remaining` holds the transactions it never applies. In **selection**, the leader fills its block from `applied`, in the order the determination applied them.
 
-In **selection**, the leader fills the block from the applicable transactions in the same order, stopping at the first transaction that would exceed `MAX_BLOCK_TXS` or `MAX_BLOCK_SIZE`.
+`parent_state` is the ledger state after the parent of the block being built. `apply_header(parent_state, header)` returns the state against which [Block Execution](bedrock-v1.1-block-construction.md#block-execution) executes the first transaction of a block with that header. `apply_transaction(state, tx)` returns the state after executing `tx` against `state` as [Mantle](bedrock-v1.1-mantle-specification.md) specifies, or `None` if `tx` is not valid against `state`. `encoded_size(txs)` is the size of `txs` serialized as the `transactions` of a block, which rule 2 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) bounds by `MAX_BLOCK_SIZE`.
 
 ## Reference Resolution
 
@@ -311,10 +345,11 @@ A block proposal carries a `REFERENCE_PREFIX_LENGTH`-byte prefix of each transac
 
 ```python
 def resolve(mempool, reference) -> Optional[SignedMantleTx]:
-    matches = mempool.by_prefix.get(reference, empty_set)
+    matches = mempool.by_prefix.get(reference, set())
     if len(matches) != 1:
         return None
-    return mempool.bodies[single(matches)]
+    (key,) = matches
+    return mempool.bodies[key]
 ```
 
 A non-unique match must not be searched.
@@ -361,13 +396,33 @@ A pending transaction for which `claim_expired` holds is retired.
 
 ### Effects of Retirement
 
-Retirement removes the hash from `pending` and from `by_prefix`, and discards its `admitted_at` entry and its body.
+```python
+def retire(mempool, key: TxHash) -> None:
+    mempool.pending.remove(key)
+    mempool.by_prefix[prefix(key, REFERENCE_PREFIX_LENGTH)].discard(key)
+    del mempool.admitted_at[key]
+    del mempool.bodies[key]
+```
+
+A node retires a transaction by running `retire`.
 
 ## Persistence and Recovery
 
 A node persists the pending hashes, their admission timestamps, and the transaction bodies.
 
-A node does not persist `by_prefix` or `highest_slot`. It rebuilds `by_prefix` from the recovered pending set and `highest_slot` from its block tree.
+A node does not persist `by_prefix` or `highest_slot`. It rebuilds them on recovery:
+
+```python
+def recover(saved, block_tree) -> Mempool:
+    by_prefix = defaultdict(set)
+    for key in saved.pending:
+        by_prefix[prefix(key, REFERENCE_PREFIX_LENGTH)].add(key)
+    return Mempool(pending=saved.pending, bodies=saved.bodies,
+                   admitted_at=saved.admitted_at, by_prefix=by_prefix,
+                   highest_slot=max(block.slot for block in block_tree))
+```
+
+`saved` holds what the node persisted, and `block_tree` holds the blocks of the node's block tree.
 
 ## Node API
 
