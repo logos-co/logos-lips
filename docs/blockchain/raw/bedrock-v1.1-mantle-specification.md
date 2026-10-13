@@ -1688,14 +1688,16 @@ A proof attesting that for the following public values:
 
 ```python
 class ZkTransferPublic:
-    inputs: list[NoteNf]       # (len = 4)
-    outputs: list[NoteCm]      # (len = 8)
+    inputs: list[NoteNf]           # (len = 4)
+    inputs_active: list[boolean]   # (len = 4) whether each input consumes a note
+    outputs: list[NoteCm]          # (len = 8)
+    outputs_active: list[boolean]  # (len = 8) whether each output creates a note
     excess_value: TokenValue
-    tx_cm_root: MerkleRoot     # the referenced cm_merkle_root extended with the tx_cm_buffer of the set
+    tx_cm_root: MerkleRoot         # the referenced cm_merkle_root extended with the tx_cm_buffer of the set
     msg: zkhash
 ```
 
-`ZkTransfer_verify(inputs, outputs, excess_value, tx_cm_root, msg, proof)` verifies the proof for these public values. An Operation spending notes of a note set verifies it through the [`verify_transfer`](#input-notes-spendability-validation) method of the set, which appends the commitments created earlier in the Mantle Transaction to the referenced root.
+`ZkTransfer_verify(inputs, outputs, excess_value, tx_cm_root, msg, proof)` verifies the proof for these public values. The nullifiers of `inputs` fill the first inputs of the circuit and the commitments of `outputs` its first outputs. These are active, and every other input and output is inactive and holds `0`, so the verifier sets the flags from the lengths of the two lists. An Operation spending notes of a note set verifies the proof through the [`verify_transfer`](#input-notes-spendability-validation) method of the set, which appends the commitments created earlier in the Mantle Transaction to the referenced root.
 
 The prover knows a witness:
 
@@ -1729,23 +1731,26 @@ Such that the following constraints hold:`
   )
   ```
   
-- Each input nullifier is derived from the secret key and the input commitment if its value isn't 0.
+- Each active input nullifier is derived from the secret key and the input commitment, and each inactive input has value 0.
   ```python
   assert all(
-      if inputs_value[i] != 0:
+      if inputs_active[i]:
           inputs[i] == zkhash(FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p), inputs_cm[i], inputs_sk[i])
       else:
-          inputs[i] == 0
+          inputs_value[i] == 0
       for i in range(len(inputs_sk))
   )
   ```
   
-- Each input commitment is in `tx_cm_root` if its value isn't 0.
+- Each active input commitment is in `tx_cm_root`.
 
-- Each output commitment is derived from the public key, the nonce and the value.
+- Each active output commitment is derived from the public key, the nonce and the value, and each inactive output has value 0.
   ```python
   assert all(
-      outputs_cm[i] = zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), outputs_value[i], ouputs_nonce[i], outputs_pk[i])
+      if outputs_active[i]:
+          outputs[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), outputs_value[i], outputs_nonce[i], outputs_pk[i])
+      else:
+          outputs_value[i] == 0
       for i in range(len(outputs_pk))
   )
   ```
@@ -1764,7 +1769,7 @@ Such that the following constraints hold:`
 
 - The proof is bound to `msg` (it’s the `mantle_tx_hash` reduced modulo $`p`$ in case of transactions).
 
-  For implementation, the ZkTransfer circuit will take a maximum of X inputs and Y outputs. To consume fewer inputs or create fewer outputs, the inputs (or outputs) variable will be filled with random values and `inputs_value` (or `outputs_value` respectively) with `0`.
+The circuit takes at most 4 inputs and 8 outputs. The unused ones are inactive: their entry of `inputs` (or `outputs`) and of `inputs_value` (or `outputs_value` respectively) is `0`, and their other witnesses are arbitrary.
 
 ### Benchmark
 
