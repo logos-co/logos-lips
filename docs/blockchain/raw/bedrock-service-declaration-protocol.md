@@ -34,6 +34,7 @@
 | 1.4.3 | Identifier uniqueness covers every stored declaration, not only activated ones, matching the implementation | 2026-09-01 |
 | 1.5.0 | Defined `active` as the epoch of the block that contained the latest accepted active message, initialised to `created + 2`, and `withdraw_at` as the epoch at which the node stops providing the service, matching the implementation. Added the participant-set exclusion rule and [Message Timing](#message-timing) | 2026-09-02 |
 | 1.6.0 | Declarations are removed at `withdraw_at + 1`, one epoch after the node stops, making the last served epoch rewardable | 2026-09-03 |
+| 1.7.0 | Keyed `declarations` by `declaration_id`, and ordered `DeclarationInfo` as the implementation does | 2026-10-14 |
 
 # Introduction
 
@@ -222,8 +223,8 @@ class DeclarationInfo:
     service: ServiceType
     provider_id: Ed25519PublicKey
     service_note_id: NoteId
-    zk_id: ZkPublicKey
     locators: list[Locator]
+    zk_id: ZkPublicKey
     created: EpochNumber
     active: EpochNumber
     withdraw_at: EpochNumber | None
@@ -235,8 +236,8 @@ Where:
 - `service` defines the service type of the declaration;
 - `provider_id` is an `Ed25519PublicKey` used to sign the message by the validator;
 - `service_note_id` is a `NoteId` used for minimum stake threshold verification purposes;
-- `zk_id` is used for zero-knowledge operations by the validator that includes rewarding;
 - `locators` is a copy of the `locators` from the `DeclarationMessage`;
+- `zk_id` is used for zero-knowledge operations by the validator that includes rewarding;
 - `created` refers to the epoch number of the block that contained the declaration;
 - `active` refers to the epoch of the block that contained the latest accepted active message; it is initialised to `created + 2` ([Message Timing](#message-timing));
 - `withdraw_at` refers to the epoch at which the node stops providing the service ([**Withdraw**](#withdraw)); it is set to `None` by default;
@@ -252,10 +253,10 @@ Each component of the preimage is serialized in its canonical encoding, as defin
 
 The `declaration_id` is not stored as part of the `DeclarationInfo` but it is used to index it.
 
-All `DeclarationInfo` references are stored in the `declarations` and are indexed by `declaration_id`.
+Every `DeclarationInfo` is stored in `declarations`, keyed by its `declaration_id`.
 
 ```python
-declarations: list[declaration_id]
+declarations: dict[DeclarationId, DeclarationInfo]
 ```
 
 ### Identifier Uniqueness

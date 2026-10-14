@@ -34,6 +34,7 @@
 | 1.2.1 | Precise the state each transaction of a block is validated against: the transactions are validated and executed one after the other in the order they appear, each against the state the preceding ones left, which makes block validity order-dependent. Precise that a block whose validation fails at any point is not executed at all. | 2026-08-24 |
 | 1.3.0 | Compressed Block Proposal: 16-byte transaction reference prefixes and a variable-length `references` list, reducing the proposal from 34,574 bytes to at most 18,192. Added the [Canonical Encoding](#canonical-encoding) section. | 2026-08-18 |
 | 1.4.0 | Removed the `bedrock_version` header field and moved `slot` to the first header field ([Bedrock Eras](bedrock-eras.md)): the header is 296 bytes, a signed header 360, and the maximum proposal 18,187 bytes. | 2026-09-04 |
+| 1.5.0 | Appended the `leader_voucher` of a block to the voucher tree when the block is executed, not when the following epoch starts. | 2026-10-06 |
 
 # Introduction
 
@@ -383,13 +384,13 @@ This section specifies how a Logos Blockchain node executes a valid block propos
 
 Given a `ValidBlock` that has successfully passed proposal validation, the node must, in this order:
 
-1. Append the `leader_voucher` contained in the block to the set of reward vouchers **when the following epoch starts**.
+1. Append the `leader_voucher` contained in the block to the voucher tree, as specified in [Voucher creation and inclusion](bedrock-anonymous-leaders-reward.md#voucher-creation-and-inclusion).
 2. Execute the reward distribution protocol defined in [**Service Reward Distribution Protocol**](bedrock-service-reward-distribution.md) to generate reward notes locally and include them in the ledger.
 3. Execute the Mantle Transactions included in the block in the order they appear, using the execution rules defined in the [Mantle](bedrock-v1.1-mantle-specification.md).
 
 Steps 1 and 2 read the epoch and the state of the [Service Declaration Protocol](bedrock-service-declaration-protocol.md), never the transactions of the block, which is what lets them run before those transactions are validated and makes the reward notes of step 2 available to them.
 
-The three steps stand or fall together, on a block that has validated in full: a block that fails validation at any point is not executed at all. The voucher of step 1 is appended to the set the following epoch starts with, so it lands at the epoch boundary rather than with the other two.
+The three steps stand or fall together, on a block that has validated in full: a block that fails validation at any point is not executed at all.
 
 The carried `uncle_headers` are not executed. A referenced uncle is not part of the chain; therefore, its transactions have no effect on the ledger state. The uncles are used only as evidence of consensus participation for the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference).
 
