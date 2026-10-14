@@ -214,12 +214,14 @@ A complete specification of the Sphinx packet structure and fields is provided i
 
 The Mix Protocol defines a decentralized, message-based routing layer that provides sender anonymity within the libp2p framework.
 It is agnostic to message content and semantics.
-Each message is treated as an opaque payload, wrapped into a [Sphinx packet](https://cypherpunks.ca/~iang/pubs/Sphinx_Oakland09.pdf) and routed independently through a randomly selected mix path.
+Each message is treated as an opaque payload, wrapped into a [Sphinx packet](https://cypherpunks.ca/~iang/pubs/Sphinx_Oakland09.pdf), and routed through a mix path selected according to the [Mix Path Selection specification](./mix-path-selection.md).
+The default path-selection strategy selects a fresh random path for every message.
 Along the path, each mix node removes one layer of encryption, adds a randomized delay, and forwards the packet to the next hop.
 This combination of layered encryption and per-hop delay provides resistance to traffic analysis and enables message-level unlinkability.
 
 Unlike typical custom libp2p protocols, the Mix Protocol is stateless&mdash;it does not establish persistent streams, negotiate protocols, or maintain sessions.
 Each message is self-contained and routed independently.
+Stateful path-selection strategies MAY retain selector-local state as defined in the [Mix Path Selection specification](./mix-path-selection.md); this state is not part of the Mix wire protocol and does not change the Sphinx packet format.
 
 The Mix Protocol sits above the transport layer and below the protocol layer in the libp2p stack.
 It provides a modular anonymity layer that other libp2p protocols MAY invoke selectively on a per-message basis.
@@ -467,7 +469,7 @@ When anonymization is required, the origin protocol instance forwards the messag
 
 To perform message initiation, a mix node MUST:
 
-- Select a random mix path.
+- Select a mix path using the configured strategy from the [Mix Path Selection specification](./mix-path-selection.md). The default strategy selects a fresh random path.
 - Assign a delay value for each hop and encode it into the Sphinx packet header.
 - Wrap the message in a Sphinx packet by applying layered encryption in reverse order of nodes in the selected mix path.
 - Forward the resulting packet to the first mix node in the mix path using the Mix Protocol.
@@ -780,7 +782,7 @@ The construction MUST proceed as follows:
 2. **Select A Mix Path**
 
    - First obtain an unbiased random sample of live, routable mix nodes using some discovery mechanism. The choice of discovery mechanism is deployment-specific as defined in [Section 6.1](#61-discovery). The discovery mechanism MUST be unbiased and provide, at a minimum, the multiaddress and X25519 public key of each mix node.
-   - From this sample, choose a random mix path of length $L \geq 3$. As defined in [Section 2](#2-terminology), a mix path is a non-repeating sequence of mix nodes.
+   - Using the configured strategy from the [Mix Path Selection specification](./mix-path-selection.md), choose a mix path of length $L \geq 3$. The default `RANDOM` strategy chooses a fresh random path from the sample. As defined in [Section 2](#2-terminology), a mix path is a non-repeating sequence of mix nodes.
    - For each hop $i \in \{0 \ldots L-1\}$:
      - Retrieve the multiaddress and corresponding X25519 public key $y_i$ of the $i$-th mix node.
      - Encode the multiaddress in $(tκ - 2)$ bytes as defined in [Section 8.4](#84-address-and-delay-encoding). Let the resulting encoded multiaddress be $\mathrm{addr\_i}$.
@@ -1310,7 +1312,7 @@ To construct each SURB, the initiating node MUST perform the following steps:
 
 1. **Select Return Path and Compute Ephemeral Secrets**
 
-   Select a return mix path of length $L \geq 3$ with the initiating node as the final hop. Compute the ephemeral public value $α_0$ and per-hop shared secrets $s_0, \ldots, s_{L-1}$ following the same procedure as [Section 8.5.2](#852-construction-steps) Steps 2 and 3.a.
+   Select a return mix path of length $L \geq 3$ according to the [Mix Path Selection specification](./mix-path-selection.md), with the initiating node supplied as the fixed final hop. Compute the ephemeral public value $α_0$ and per-hop shared secrets $s_0, \ldots, s_{L-1}$ following the same procedure as [Section 8.5.2](#852-construction-steps) Steps 2 and 3.a.
 
 2. **Sample SURB Identifier and Reply Key**
 
@@ -1599,6 +1601,7 @@ Deployments concerned with Sybil resistance MAY implement passive defenses such 
 More advanced mitigations such as stake-based participation or resource proofs typically require some form of trusted setup or blockchain-based coordination.
 
 Such defenses are not built into the current version of the Mix Protocol, but are critical to ensuring anonymity at scale.
+The [Mix Path Selection specification](./mix-path-selection.md) defines strategies that bound exposure to candidate nodes for sessions and long-lived services.
 Deployments that enable DoS protection (see [Section 6.6](#66-dos-protection)) may gain Sybil resistance as a side effect, depending on the approach chosen.
 
 #### 9.4.4 Vulnerability to Denial-of-Service Attacks
