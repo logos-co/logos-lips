@@ -19,7 +19,7 @@ Read [RFC-480](RFC-480-mantle-private-utxo-ledger.md) first: this RFC builds on 
 | 3 | High | [Mantle](#affected-specifications), [what enforces what](#3-what-enforces-what) | the split between what the ledger enforces and what the users of the zone check |
 | 4 | High | [Mantle](#affected-specifications), [registration](#4-program-registration) | `PROGRAM_REGISTER`, the program identifier, the key checks |
 | 5 | High | [Encoding](#affected-specifications), [encoding](#5-encoding) | step kinds, payments, program step proofs, the verification key |
-| 6 | Medium | [Proof of Leadership](#affected-specifications), [gas](#6-gas) | the commitment with `0` fields; gas constants to measure |
+| 6 | Medium | [Proof of Leadership](#affected-specifications), [gas](#6-gas) | the commitment with `0` fields; the measured gas constants and block limit |
 | 7 | Low | [Block Construction](#affected-specifications), [cross-channel template](#affected-specifications) | skim: renames |
 
 # Discussion
@@ -43,9 +43,6 @@ Users stay hidden: payments consume notes by nullifier, and the notes a program 
 - **Folding `program` and `data` into `public_key`.** Rejected: separate fields keep the commitment of a user note readable as such, and let the ZkTransfer and the Proof of Leadership fix them to `0` without a branch.
 - **A registry per channel.** Rejected: a program only governs its own notes, so a global, permissionless registry is safe, and the sequencer, who often controls the channel configuration, gains no gatekeeping power.
 
-## Open questions
-
-> **TODO (author):** the Execution Gas of `PROGRAM_REGISTER`, of the `ZkProgramSpend` and of the program proof, from measurements.
 # Details
 
 ## 1. Program notes
@@ -142,7 +139,11 @@ def derive_program_id(key: Groth16VerificationKey) -> ProgramId:
 
 ## 6. Gas
 
-A program step costs `EXECUTION_TRANSFER_GAS` per payment, plus `EXECUTION_PROGRAM_SPEND_GAS` and `EXECUTION_PROGRAM_PROOF_GAS`. `PROGRAM_REGISTER` costs `EXECUTION_PROGRAM_REGISTER_GAS`. The program proof is verified alone, since it cannot share the batch of another program. All three constants are to be measured.
+A program step costs `EXECUTION_TRANSFER_GAS` per payment, plus `EXECUTION_PROGRAM_SPEND_GAS` and `EXECUTION_PROGRAM_PROOF_GAS`. `PROGRAM_REGISTER` costs `EXECUTION_PROGRAM_REGISTER_GAS`. The values come from measurements of the node's Groth16 verifiers, 1 Execution Gas per 1,000 CPU cycles:
+
+- `EXECUTION_PROGRAM_SPEND_GAS = 619`: the ZkProgramSpend proofs of a block (29 public inputs) are verified in one batch, `3,608,664 + n * 618,796` cycles. Its fixed part is deduced from the block limit with the ZkTransfer one, so `limit_Ex = G_max = 3,192,850` and `G_target = 1,596,425`.
+- `EXECUTION_PROGRAM_PROOF_GAS = 2222`: the program proof is verified alone, since it cannot share the batch of another program, by the single proof verifier, 2,221,544 cycles at 3 public inputs.
+- `EXECUTION_PROGRAM_REGISTER_GAS = 574`: the subgroup checks of the 3 G2 points of the key, 573,324 cycles. Point decompression is the same for every key and proof and is not counted.
 
 ## Chores
 
@@ -156,7 +157,7 @@ A program step costs `EXECUTION_TRANSFER_GAS` per payment, plus `EXECUTION_PROGR
 - [ ] Implement the `ZkProgramSpend` circuit, its setup and its verifier.
 - [ ] Implement `PROGRAM_REGISTER`: the key encoding, the curve and subgroup checks, the program identifier and the `programs` map.
 - [ ] Implement user and program steps in `CHANNEL_INSCRIBE`: payments, the program spend, the program proof under its registered key, and their encoding.
-- [ ] Measure the Execution Gas of `PROGRAM_REGISTER`, the `ZkProgramSpend` and the program proof.
+- [x] Measure the Execution Gas of `PROGRAM_REGISTER`, the `ZkProgramSpend` and the program proof.
 - [ ] Add tests and test vectors for note commitments, program registration, program steps and their encoding.
 - [ ] Verify the implementation matches this specification.
 
@@ -167,6 +168,8 @@ A program step costs `EXECUTION_TRANSFER_GAS` per payment, plus `EXECUTION_PROGR
 | [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | 2.1.0 |
 | [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | 2.1.0 |
 | [Proof of Leadership](../cryptarchia-proof-of-leadership.md) | Modified | 1.2.1 |
-| [Block Construction](../bedrock-v1.1-block-construction.md) | Modified | 1.4.1, terminal rename |
+| [Block Construction](../bedrock-v1.1-block-construction.md) | Modified | 1.4.1, terminal rename, ZkProgramSpend batch |
 | [Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | 1.9.0 |
+| [Cryptoeconomics Overview](../overview-cryptoeconomics.md) | Modified | 1.4.1, Execution Gas limit |
+| [Execution Market](../execution-market.md) | Modified | 1.3.1, `G_max` and `G_target` |
 | [Cross-Channel Messaging Template](../template-cross-channel-messaging.md) | Modified | 1.3.1 |

@@ -34,7 +34,7 @@
 | 1.2.1 | Precise the state each transaction of a block is validated against: the transactions are validated and executed one after the other in the order they appear, each against the state the preceding ones left, which makes block validity order-dependent. Precise that a block whose validation fails at any point is not executed at all. | 2026-08-24 |
 | 1.3.0 | Compressed Block Proposal: 16-byte transaction reference prefixes and a variable-length `references` list, reducing the proposal from 34,574 bytes to at most 18,192. Added the [Canonical Encoding](#canonical-encoding) section. | 2026-08-18 |
 | 1.4.0 | The `leader_voucher` is replaced with a one-time `reward_key`, and the leader reward is inserted in the ledger at the end of the block execution. Channel withdrawals whose due slot is reached are released before the transactions. The PoL is bound to the header by a hash of it and proven once the body is fixed: `leader_key`, the proposal and block signatures and the signatures of the uncle headers are removed, reducing the proposal to at most 17,712 bytes. An invalid proof of leadership condemns only the received copy, since the block ID does not cover the proof | 2026-10-07 |
-| 1.4.1 | The proof of the header uses the `Groth16Proof` terminal of the transaction encoding | 2026-10-12 |
+| 1.4.1 | The proof of the header uses the `Groth16Proof` terminal of the transaction encoding. The ZkProgramSpend proofs of a block are verified in their own batch, and a program proof alone | 2026-10-12 |
 
 # Introduction
 
@@ -446,3 +446,7 @@ Relative to a design that carries the count in the header, this removes one of t
   Note that this batch verification of Groth16 proofs is the same as what is described in the Zcash paper, Appendix B.2.
 
 All the ZkTransfer proofs of a block are verified in one batch. The multi-scalar multiplication of step 3.3, the three pairings of the right-hand side and the final exponentiation are computed once per batch, while each proof adds two scalar multiplications, $`r_i \cdot \pi_A^{(i)}`$ and $`r_i \cdot \pi_C^{(i)}`$, and one pairing on the left-hand side. The cost of the batch is therefore a fixed part plus a part per proof, measured in [Gas Cost Determination](analysis-gas-cost-determination.md#groth16-proof-batch-verification): the fixed part is deducted from the Execution Gas limit of the block, and each Operation pays for its proofs.
+
+### ZkProgramSpend
+
+The ZkProgramSpend proofs of a block are verified the same way, in a second batch under the key of the ZkProgramSpend, shared by every program. A program proof is the only proof under the key of its program and is verified alone.

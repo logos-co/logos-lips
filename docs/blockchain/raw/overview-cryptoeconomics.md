@@ -29,6 +29,7 @@
 | 1.2.2 | Stated that the minimum stake of a service is locked in a service note | 2026-08-27 |
 | 1.3.0 | Add the proof of work reward pool, funded by diverting a share of the collected fees before they reach the rewards pool | 2026-08-31 |
 | 1.4.0 | Pay the leader reward of a block in the block itself, as a note under a one-time public key of the leader. Aligned the maximum block size with the 2 MiB of [Cryptarchia](cryptarchia-v1-protocol.md#constants). The Execution Gas limit deducts the measured fixed part of the ZkTransfer batch verification. The leader share is 40% of the block reward rounded down, the remainder going to the Blend reward, held in `blend_rewards_pending` until it is paid | 2026-10-07 |
+| 1.4.1 | The Execution Gas limit also deducts the fixed part of the ZkProgramSpend batch verification | 2026-10-14 |
 
 > **Disclaimer**:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -104,9 +105,9 @@ We define "reasonable" as limiting the Execution Gas such that a potential leade
 
 Consensus nodes must validate and execute a block using a small percentage of their CPU but during a longer period than the 1 second period for leaders, as they don't have the strict timing constraints that affect consensus and would increase forking. Using only 20% of their CPU, consensus nodes can validate and execute such blocks in approximately 4 seconds.
 
-Block verification also requires a fixed amount of Execution Gas for the ZK proofs it verifies in batch ([Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#batch-verification-of-zk-proofs)). The fixed part of the batch verification of the [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) proofs is 3,540,612 CPU cycles ([Gas Cost Determination](analysis-gas-cost-determination.md#groth16-proof-batch-verification)), so we reduce the Execution Gas limit by 3,541.
+Block verification also requires a fixed amount of Execution Gas for the ZK proofs it verifies in batch ([Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#batch-verification-of-zk-proofs)). The fixed parts of the batch verifications of the [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) and [ZkProgramSpend](bedrock-v1.1-mantle-specification.md#zero-knowledge-program-spend-proof-zkprogramspend) proofs are 3,540,612 and 3,608,664 CPU cycles ([Gas Cost Determination](analysis-gas-cost-determination.md#groth16-proof-batch-verification)), 7,149,276 in total, so we reduce the Execution Gas limit by 7,150.
 
-Therefore, $`\text{limit}_{\text{Ex}} := 3,196,459`$ Execution Gas. This limit is also important to guarantee a rapid syncing of the chain.
+Therefore, $`\text{limit}_{\text{Ex}} := 3,192,850`$ Execution Gas. This limit is also important to guarantee a rapid syncing of the chain.
 
 Node CPU consumption is managed by the per-block Execution Gas limit. The Execution fee market dynamically adjusts fees based on usage relative to this limit: as consumption approaches the limit, fees rise to dampen demand; when consumption drops, fees decrease to encourage additional throughput. Since execution is the bottleneck, these adjustments indirectly bound the Permanent Storage market.
 
