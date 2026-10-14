@@ -2118,7 +2118,7 @@ Such that the following constraints hold:
   ```python
   assert all(
       inputs_active[i] * (1 - inputs_active[i]) == 0
-      inputs_cm[i] = zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i], program_id, inputs_data[i])
+      inputs_cm[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i], program_id, inputs_data[i])
       for i in range(len(inputs_sk))
   )
   ```
@@ -2138,16 +2138,17 @@ Such that the following constraints hold:
   )
   ```
 
-- `spend_notes_hash` commits to the flag and the note of every input and output, which the program proof opens to check its rule. Their fields are hashed one after the other, input by input, then output by output.
+- `spend_notes_hash` commits to the flag and the note of every input and output, nonce included, which the program proof opens to check its rule. Their fields are hashed one after the other, input by input, then output by output.
   ```python
   assert spend_notes_hash == zkhash(
       FiniteField(b"PROGRAM_SPEND_NOTES_V1", byte_order="little", modulus= p),
       *[field for i in range(len(inputs_sk))
-            for field in (inputs_active[i], inputs_value[i], inputs_pk[i], inputs_data[i])],
+            for field in (inputs_active[i], inputs_value[i], inputs_nonce[i], inputs_pk[i], inputs_data[i])],
       *[field for i in range(len(outputs_pk))
-            for field in (outputs_active[i], outputs_value[i], outputs_pk[i], outputs_program[i], outputs_data[i])]
+            for field in (outputs_active[i], outputs_value[i], outputs_nonce[i], outputs_pk[i], outputs_program[i], outputs_data[i])]
   )
   ```
+  The nonces let the program proof constrain them. The sequencer picks the nonce of every note the step creates, and the holder of a note needs its nonce to spend it: a program can require each output nonce to be derived from data its users know, so that a note it pays cannot be withheld from its holder, and no two outputs share a commitment.
 
 - The outputs are well-formed, and the inputs and the paid value balance the outputs exactly.
   ```python
