@@ -29,10 +29,11 @@
 |  | The horizon is removed. A node warns its operator when a peer advertises an unknown fork digest. A percent-encoded chain ID uses uppercase hexadecimal digits. These change normative content, so approvals are collected again on v13. | 2026-10-09 |
 | v14 | The fork digest hashes the genesis block ID and the era digests, without the chain ID, which the genesis block already commits to. Kademlia and identify carry the genesis block ID in lowercase hexadecimal instead of the percent-encoded chain ID, and the unknown fork digest warning skips their identifiers. These change normative content, so approvals are collected again on v14. | 2026-10-13 |
 | v15 | Identify keeps its libp2p identifier and announces `/logos-blockchain/<genesis_id>/identify` as its protocol version, as the implementation does; only the Kademlia identifier carries the genesis block ID. The unknown fork digest warning covers only a peer that announces the node's own protocol version. This changes normative content, so approvals are collected again on v15. | 2026-10-14 |
+| v16 | Merged master, which removes the Activity Proof `version` byte in its tagged encoding of the active message metadata. This RFC no longer removes that byte itself, its note on the stale `SDP_ACTIVE` vector is dropped, and the transaction-hash vector with one of each operation is recomputed with the test fork digest. | 2026-10-14 |
 
 ## Reviewer Orientation
 
-Read the PR's Motivation first. Era 0 is the set of rules the specifications describe today, so the mechanism changes nothing until a second schedule entry exists, except four wire changes that land now, before genesis: block IDs (header byte removed, `slot` first), the Blend message and Activity Proof layouts (version bytes removed), every protocol identifier (fork digest), and the transaction encoding (fork digest first).
+Read the PR's Motivation first. Era 0 is the set of rules the specifications describe today, so the mechanism changes nothing until a second schedule entry exists, except four wire changes that land now, before genesis: block IDs (header byte removed, `slot` first), the Blend message layout (version byte removed), every protocol identifier (fork digest), and the transaction encoding (fork digest first).
 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
@@ -40,7 +41,7 @@ Read the PR's Motivation first. Era 0 is the set of rules the specifications des
 | 2 | Critical | **Start here**: [Mantle](../bedrock-v1.1-mantle-specification.md) and [Mantle Transaction Encoding](../mantle-transaction-encoding.md), [details](#2-transaction-fork-digest) | `fork_digest` first in every transaction and inside its hash; the acceptance rule; recomputed transaction-hash vectors |
 | 3 | Critical | [Cryptarchia Protocol](../cryptarchia-v1-protocol.md), [details](#3-header-bedrock_version-removed-slot-first) | header loses `bedrock_version`, `slot` first; validation steps renumbered 1–9; `first_slot` and a monotone `commit` ([details](#4-consensus-parameters-across-eras)); same-era uncles ([details](#5-same-era-uncle-rule)); test vectors marked `TBD` |
 | 4 | Critical | [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md), [details](#3-header-bedrock_version-removed-slot-first) | header layout and encoding grammar; sizes 296, 360, proposal maximum 18,187 |
-| 5 | High | [Message Formatting](../message-formatting.md), [Message Encapsulation Mechanism](../message-encapsulation.md), [Blend Protocol](../blend-protocol.md), [details](#6-blend-version-bytes-removed) | `version` bytes removed; relay check removed; Activity Proof metadata 229 bytes; protocol name; pointers to the era rules; Transition Period bound `T ≥ T_M + T_C`; clocks within one round; no blacklisting for a next-epoch proof |
+| 5 | High | [Message Formatting](../message-formatting.md), [Message Encapsulation Mechanism](../message-encapsulation.md), [Blend Protocol](../blend-protocol.md), [details](#6-blend-version-byte-removed) | `version` byte removed; relay check removed; protocol name; pointers to the era rules; Transition Period bound `T ≥ T_M + T_C`; clocks within one round; no blacklisting for a next-epoch proof |
 | 6 | High | [Cryptarchia Bootstrapping & Synchronization](../cryptarchia-v1-bootstr-sync.md), [details](#8-synchronization-and-checkpoints) | `chainsync` identifier; blocks parsed under their slot's era; checkpoint state |
 | 7 | High | [Bedrock Genesis Block](../bedrock-genesis-block.md), [details](#2-transaction-fork-digest) | the zero `fork_digest` exemption; header field order |
 | 8 | Medium | [Payload Formatting](../payload-formatting.md), [details](#9-size-cascade) | `Max_Body_Length` 18,187 |
@@ -68,7 +69,7 @@ An era may change k, f, the epoch phases and the slot length, as agreed in revie
 
 ## Version fields removed
 
-Once the era follows from `slot`, the `bedrock_version` byte carries nothing, so it is removed. The block version in the era's parameter record names the block layout instead. The header shrinks to 296 bytes and every block ID changes, which is possible only before genesis. The Blend message and Activity Proof `version` bytes go too, because the identifier a message arrives on, or the slot of the including block, already names the era. Two routing rules replace them: a message travels over the identifiers of the era in force when it was generated, and Blend forwards a received or processed message on the era of the connection it arrived on.
+Once the era follows from `slot`, the `bedrock_version` byte carries nothing, so it is removed. The block version in the era's parameter record names the block layout instead. The header shrinks to 296 bytes and every block ID changes, which is possible only before genesis. The Blend message `version` byte goes too, because the identifier a message arrives on already names the era. Two routing rules replace it: a message travels over the identifiers of the era in force when it was generated, and Blend forwards a received or processed message on the era of the connection it arrived on.
 
 ## Fork choice under the common ancestor's era
 
@@ -131,7 +132,7 @@ This PR precedes any launched network. Era 0 is today's rules. The identifier, h
 - Domain-separation tags stay `_V1`. Whether a construction changed in era n should take `_V<n>` is for the leads.
 - The implementation defers transaction replay protection to a later era (logos-blockchain/logos-blockchain#3692 was closed). Until it lands, a contentious fork at a boundary lets transactions replay across the two chains indefinitely. Whether the transaction fork digest ships at genesis, as specified, is for the leads.
 - Version-carrying file names (`bedrock-v1.1-*`, `cryptarchia-v1-*`) are not renamed.
-- Pre-existing defects noticed during review, left for separate PRs: the `SDP_ACTIVE` Mantle vector omits the `UINT32` metadata length prefix and still carries the removed Activity Proof `version` byte; a checkpoint carries no Epoch State, yet `compute_epoch_state` recurses to genesis for D; the implementation computes ⌊k/f⌋ in floating point, which for some values is one less than the integer result the specification uses.
+- Pre-existing defects noticed during review, left for separate PRs: a checkpoint carries no Epoch State, yet `compute_epoch_state` recurses to genesis for D; the implementation computes ⌊k/f⌋ in floating point, which for some values is one less than the integer result the specification uses.
 
 # Details
 
@@ -220,7 +221,7 @@ A new validity condition in [Uncle References](../cryptarchia-v1-protocol.md#unc
 
 > The uncle lies in the same era as the referencing block: `era(sl_U) = era(sl_A)`.
 
-## 6. Blend version bytes removed
+## 6. Blend version byte removed
 
 [Message Formatting](../message-formatting.md) and [Message Encapsulation Mechanism](../message-encapsulation.md):
 
@@ -232,7 +233,7 @@ A new validity condition in [Uncle References](../cryptarchia-v1-protocol.md#unc
      signature: Signature
 ```
 
-[Blend Protocol](../blend-protocol.md): Relaying step 1.1, the version check, is deleted. The Activity Proof `version` row is deleted, so the metadata is 229 bytes; `metadata_type` remains `0x01`. §Releasing and §Transition Period point to the era rules. §Transition Period requires `T ≥ T_M + T_C`, where `T_C` is the largest clock difference between two honest nodes, in rounds, and requires `T_C` to stay below one round. In Connectivity Maintenance, a message received in the last round of an epoch whose proof of quota is valid against the next epoch's public input carries no reaction, and Relaying step 6 defers its reaction to that rule. In Message Encapsulation, `encapsulate` and `decapsulate` no longer set `version`, the `decapsulate` offsets no longer use the undefined `Header.SIZE`, and `PAYLOAD_BODY_SIZE` equals `Max_Body_Length`.
+[Blend Protocol](../blend-protocol.md): Relaying step 1.1, the version check, is deleted. §Releasing and §Transition Period point to the era rules. §Transition Period requires `T ≥ T_M + T_C`, where `T_C` is the largest clock difference between two honest nodes, in rounds, and requires `T_C` to stay below one round. In Connectivity Maintenance, a message received in the last round of an epoch whose proof of quota is valid against the next epoch's public input carries no reaction, and Relaying step 6 defers its reaction to that rule. In Message Encapsulation, `encapsulate` and `decapsulate` no longer set `version`, the `decapsulate` offsets no longer use the undefined `Header.SIZE`, and `PAYLOAD_BODY_SIZE` equals `Max_Body_Length`.
 
 ## 7. Protocol identifiers
 
@@ -284,7 +285,7 @@ Cryptarchia's §Versioning and Protocol Upgrades, which activated upgrades by bl
 - [ ] In the last round of an epoch, check a failing proof of quota against the next epoch's public input; if it passes, discard the message without closing the connection or blacklisting
 - [ ] Startup and checkpoint-import halt when an era from `era(sl_B_imm)` to the era in force is not implemented; checkpoint export and import under the checkpoint block's era
 - [ ] Warn the operator when a peer whose identify message announces the node's own protocol version lists an identifier, other than that of Kademlia, with an unknown fork digest
-- [ ] Regenerate the Cryptarchia test vectors marked `TBD`, and the `SDP_ACTIVE` operation and transaction-hash vectors with 229-byte Activity Proof metadata and the `UINT32` length prefix
+- [ ] Regenerate the Cryptarchia test vectors marked `TBD`, for transactions that carry the fork digest
 - [ ] Add or extend tests / test vectors that exercise the change, including a devnet schedule such as `[0, 3]` with an identity era
 - [ ] Verify the implementation matches this specification
 
