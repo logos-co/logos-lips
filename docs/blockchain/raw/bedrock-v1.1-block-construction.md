@@ -33,6 +33,7 @@
 | 1.2.0 | Added the `uncle_headers` field — the signed headers of the referenced uncles — to the [Proposal](#block-proposal) and to the newly defined [Block](#block), and replaced `block_root` with `body_root` in the [Header](#header), which commits to them, signatures included, as well as to the transactions. Due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
 | 1.2.1 | Precise the state each transaction of a block is validated against: the transactions are validated and executed one after the other in the order they appear, each against the state the preceding ones left, which makes block validity order-dependent. Precise that a block whose validation fails at any point is not executed at all. | 2026-08-24 |
 | 1.3.0 | Compressed Block Proposal: 16-byte transaction reference prefixes and a variable-length `references` list, reducing the proposal from 34,574 bytes to at most 18,192. Added the [Canonical Encoding](#canonical-encoding) section. | 2026-08-18 |
+| 1.3.1 | Reference resolution is specified in [Mempool](mempool.md#reference-resolution), which this document now links to instead of restating the procedure. | 2026-09-02 |
 
 # Introduction
 
@@ -318,16 +319,7 @@ The process works as follows:
 
 ### Reference Resolution
 
-A reference is a 16-byte (`REFERENCE_PREFIX_LENGTH`) prefix of the transaction hash. Because two distinct transaction hashes cannot be made or found to share a 16-byte prefix at any feasible cost (see [Prefix length and collision resistance](#prefix-length-and-collision-resistance)), a validator resolves each reference to exactly one local mempool transaction:
-
-```python
-def resolve(reference, mempool):
-    matches = [tx for tx in mempool
-               if prefix(mantle_txhash(tx), REFERENCE_PREFIX_LENGTH) == reference]
-    return matches[0] if len(matches) == 1 else None
-```
-
-A reference resolves only when the match is unique. Zero matches means the transaction is absent locally; two or more would mean a prefix collision, which is infeasible to manufacture and vanishingly unlikely to occur by chance, and is treated as unresolved rather than searched, so that resolution never branches. Because the match is unique when it exists, the result does not depend on the order in which the mempool is scanned.
+A reference is a 16-byte (`REFERENCE_PREFIX_LENGTH`) prefix of the transaction hash. A validator resolves each reference against its mempool, as specified in [Reference Resolution](mempool.md#reference-resolution). Two distinct transaction hashes cannot be made or found to share a 16-byte prefix at any feasible cost (see [Prefix length and collision resistance](#prefix-length-and-collision-resistance)), so a resolved reference names the transaction the proposer selected.
 
 Reconstruction considers every entry of `references`; the list has no padding. Nothing in the encoding forbids the same reference appearing more than once: each occurrence resolves independently to the same transaction, the reconstructed sequence contains that transaction more than once, and `header.body_root` decides — as for any sequence — whether that is what the proposer committed to. Whether such a sequence is *valid* is not a reconstruction question; it is decided by [Mantle](bedrock-v1.1-mantle-specification.md) transaction validation and execution, where a repeated transaction conflicts with itself, spending the same notes twice. A proposal whose reference count exceeds `MAX_BLOCK_TXS` is rejected at decode time, as specified in [References](#references). The proposal is reconstructed when every reference resolves to a transaction and the body root over the carried `uncle_headers` and the resolved transactions' full hashes reproduces `header.body_root`; otherwise it is rejected. Resolution is a function of the proposal and the validator's mempool alone, so two validators holding the same mempool always reach the same decision.
 
