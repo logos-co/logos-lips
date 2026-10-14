@@ -33,7 +33,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-01-20 |
 | 1.0.1 | Rename Nomos to Logos Blockchain | 2026-04-17 |
-| 1.1.0 | Protocol identifiers and gossipsub topics carry the fork digest, or the genesis block ID for Kademlia and identify, in place of the version ([Bedrock Eras](../raw/bedrock-eras.md)). | 2026-10-13 |
+| 1.1.0 | Protocol identifiers and gossipsub topics carry the fork digest, or the genesis block ID for Kademlia, in place of the version, and identify announces the genesis block ID as its protocol version ([Bedrock Eras](../raw/bedrock-eras.md)). | 2026-10-14 |
 
 # Introduction
 
@@ -68,7 +68,7 @@ The Logos Blockchain P2P network integrates a combination of libp2p's [Kademlia]
 The specific protocols to be negotiated are:
 
 - Kademlia: `/logos-blockchain/<genesis_id>/kad`.
-- Identify: `/logos-blockchain/<genesis_id>/identify`.
+- Identify: the identifier of its libp2p specification, with the `protocolVersion` `/logos-blockchain/<genesis_id>/identify`.
 
 `<genesis_id>` and `<fork_digest>` are defined in [Network Protocol Identity](../raw/bedrock-eras.md#network-protocol-identity).
 
