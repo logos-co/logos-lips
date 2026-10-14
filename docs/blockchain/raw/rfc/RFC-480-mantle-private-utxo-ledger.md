@@ -200,7 +200,7 @@ The wallet keeps, for each note, its set, the commitment path inside its MMR pea
 - The cross-channel messaging template shows an atomic swap of steps across two zones.
 - The Execution Market, the Architecture Overview and Blend follow the in-block leader reward.
 - The Gas Cost Determination analysis follows the new Operations and drops the Proof of Claim measures and images. The ZkTransfer (27 public inputs) is priced from the measured batch verification of Groth16 proofs, `cycles(n, N) = A(N) + n * P`: each proof costs `P = 618,797` cycles, so `EXECUTION_TRANSFER_GAS`, `EXECUTION_CHANNEL_DEPOSIT_GAS` and `EXECUTION_CHANNEL_WITHDRAW_GAS` are 619 and the SDP declaration and withdrawal 678. The fixed part `A(27) = 3,540,612` cycles is deduced from the block limit: `limit_Ex = G_max = 3,196,459` and `G_target = 1,598,229`.
-- The PoL circuit diagram is removed. The test vectors carry TODO markers.
+- The PoL circuit diagram is removed. The Mantle and Cryptarchia test vectors are derived from the specification, for the implementation to reproduce.
 
 # Implementation
 
