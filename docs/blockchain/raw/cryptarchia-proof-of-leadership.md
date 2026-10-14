@@ -27,7 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-12-09 |
 | 1.1.0 | Remove the protection against adaptive adversary from PoL removing a non-enforced feature, simplifying work for engineers, improving UX and performances of PoL and PoQ. Update the performance according to the new circuit. Remove the notion of NOMOS in DSTs | 2026-01-29 |
 | 1.1.1 | Introduced a discussion for when the value of a participating note is way higher than the total estimated stake | 2026-06-24 |
-| 1.2.0 | Support the private ledger of Mantle: a note is eligible from any note set of the ledger, committed together in the eligible root, and proven unspent by the non-membership of its nullifier | 2026-10-06 |
+| 1.2.0 | Support the private ledger of Mantle: a note is eligible from any note set of the ledger, committed together in the eligible root, and proven unspent by the non-membership of its nullifier. The proof is bound to its block by `msg`, a hash of the block header, replacing the leader key | 2026-10-06 |
 
 # Introduction
 
@@ -115,11 +115,11 @@ class ProofOfLeadershipPublic:
     t1: FrElement
     eligible_aged: MerkleRoot       # eligible root when the stake distribution was frozen
     eligible_latest: MerkleRoot     # latest eligible root
-    leader_pk: (FrElement, FrElement)  # P_LEAD as 2 values of 16 bytes in little endian
+    msg: zkhash                     # hash of the header of the proposed block
     entropy_contribution: zkhash    # rho_LEAD
 ```
 
-The epoch nonce is defined in [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce) and the aged root in [Epoch State Pseudocode](cryptarchia-v1-protocol.md#epoch-state-pseudocode). The lottery constants are computed with high precision outside the proof (see [Lottery Approximation](#lottery-approximation)), and `leader_pk` is the key signing the proposed block (see [Linking the Proof of Leadership to a Block](#linking-the-proof-of-leadership-to-a-block)).
+The epoch nonce is defined in [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce) and the aged root in [Epoch State Pseudocode](cryptarchia-v1-protocol.md#epoch-state-pseudocode). The lottery constants are computed with high precision outside the proof (see [Lottery Approximation](#lottery-approximation)), and `msg` binds the proof to the proposed block (see [Linking the Proof of Leadership to a Block](#linking-the-proof-of-leadership-to-a-block)).
 
 The prover knows a witness:
 
@@ -193,15 +193,28 @@ Such that the following constraints hold:
   assert entropy_contribution == zkhash(FiniteField(b"NONCE_CONTRIB_V1", byte_order="little", modulus= p), slot, cm, sk)
   ```
 
-- The proof is bound to `leader_pk`.
+- The proof is bound to `msg`.
 
 # Linking the Proof of Leadership to a Block
 
-The PoL is bound to a public key from an asymmetric signature scheme. This public key $`P_\text{LEAD}`$ is given as two public inputs during the PoL proof generation, binding the proof to the key.
+The PoL is bound to the block it proposes through its public input `msg`, a hash of the [header](cryptarchia-v1-protocol.md#block-header) of that block, where `hash` is Blake2b:
 
-- The public key is represented by two public inputs of 16 bytes to guarantee the support of every possible Eddsa25519 public key.
-- This public key is later used to verify the signature $`\sigma`$ of a block when it is dispersed. This ensures that the PoL is tied to a specific block, and only the entity creating the proof can perform this binding.
-- The key is single-use, as reusing the same one could allow multiple PoLs to be linked to the same identity. An observer could then infer the stake of that identity by observing the frequency at which it emits a PoL.
+```python
+def pol_msg(header: Header) -> zkhash:
+    digest = hash(
+        b"POL_MSG_V1",
+        header.bedrock_version,
+        header.parent_block,
+        header.slot.to_bytes(8, byteorder='little'),
+        header.body_root,
+        header.proof_of_leadership.reward_key,
+    )
+    return FiniteField(digest, byte_order="little", modulus= p)
+```
+
+- `msg` covers every field of the header except the proof and the entropy contribution, which the proof itself produces. Through `body_root`, it covers the transactions and the uncle headers of the block.
+- A PoL is therefore valid for a single block: it cannot be attached to other content, and the leader reward cannot be redirected to another `reward_key`.
+- The leader proves the PoL once the content of its block is fixed.
 
 # Appendix
 

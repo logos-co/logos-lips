@@ -32,7 +32,7 @@
 | 1.1.4 | Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy. | 2026-08-25 |
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
 | 1.2.0 | Seed the pow reward pool at genesis from the initial token distribution | 2026-09-08 |
-| 1.3.0 | Support the private ledger of Mantle: the initial distribution is made of note commitments whose preimages are published in an inscription to the null channel, and the declarations consume the distributed notes | 2026-10-07 |
+| 1.3.0 | Support the private ledger of Mantle: the initial distribution is made of note commitments whose preimages are published in an inscription to the null channel, and the declarations consume the distributed notes. The genesis header has no `leader_key` | 2026-10-07 |
 
 # Introduction
 
@@ -227,7 +227,6 @@ The Genesis Block header fields are set to the following values:
   - `reward_key`: 0 (as there is no leader block reward for the initial block).
   - `entropy_contribution`: 0 (no entropy is provided through the initial PoL).
   - `proof`: Null Groth16Proof, all values are set to zero.
-  - `leader_key`: Null PublicKey.
 
 **Example**
 
@@ -241,7 +240,6 @@ GENESIS_HEADER = Header(
         reward_key=bytes(32),
         entropy_contribution=bytes(32),
         proof=Groth16Proof(G1_ZERO, G2_ZERO, G1_ZERO),
-        leader_key=Ed25519PublicKey_ZERO,
     )
 )
 ```
@@ -325,7 +323,6 @@ GENESIS_HEADER = Header(
         reward_key=bytes(32),
         entropy_contribution=bytes(32),
         proof=Groth16Proof(G1.ZERO, G2.ZERO, G1.ZERO),
-        leader_key=Ed25519PublicKey_ZERO,
     )
 )
 

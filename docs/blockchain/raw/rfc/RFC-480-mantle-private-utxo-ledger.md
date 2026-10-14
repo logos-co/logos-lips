@@ -131,7 +131,7 @@ class ProofOfLeadershipPublic:
     # ... slot, epoch_nonce, t0, t1 unchanged
     eligible_aged: MerkleRoot       # new
     eligible_latest: MerkleRoot     # new
-    leader_pk: (FrElement, FrElement)
+    msg: zkhash                     # new, replaces leader_pk
     entropy_contribution: zkhash
 ```
 
@@ -139,6 +139,7 @@ class ProofOfLeadershipPublic:
 - The latest check proves `nf` absent from the IMT of the same set: a leaf `low` with `low.nf < nf` and `nf < low.next_nf` or `low.next_nf == 0`, and the leaf of the set, with its latest commitment root, under `eligible_latest`.
 - Both leaf paths use the same `set_selectors`, so both checks name the same set.
 - The lottery ticket and the entropy contribution use the commitment `cm`. The PoL is revision 1.2.0.
+- The PoL is bound to its block by `msg = pol_msg(header)`, a Blake2b hash under the DST `POL_MSG_V1` of every header field except the proof and the entropy contribution, reduced modulo `p`. The leader proves it once `body_root` is fixed. The `leader_key` header field, the proposal and block signatures and the signatures of the uncle headers are removed: an uncle entry is a 265-byte header, and the proposal is at most 17,712 bytes, which `Max_Body_Length` follows.
 
 ## 4. SDP stake and the proof of work claim
 
@@ -152,7 +153,8 @@ class ProofOfLeadershipPublic:
 
 ```diff
  class ProofOfLeadership:
-     # ... proof, entropy_contribution, leader_key unchanged
+     # ... proof, entropy_contribution unchanged
+-    leader_key: Ed25519PublicKey
 -    leader_voucher: RewardVoucher
 +    reward_key: ZkPublicKey
 ```
@@ -242,6 +244,10 @@ The wallet keeps, for each note, its set, the commitment path inside its MMR pea
 | [Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | Revision 1.8.0 |
 | [Analysis: Execution Market](../analysis-execution-market.md) | Modified | reference to the deprecated leader reward |
 | [Architecture Overview](../bedrock-architecture-overview.md) | Modified | Revision 1.2.0 |
-| [Blend Protocol](../blend-protocol.md) | Modified | leader reward reference |
+| [Blend Protocol](../blend-protocol.md) | Modified | leader reward reference, Revision 1.6.1 |
+| [Payload Formatting](../payload-formatting.md) | Modified | Revision 1.2.1 |
+| [Message Formatting](../message-formatting.md) | Modified | Revision 1.0.3 |
+| [Bootstrapping and Synchronization](../cryptarchia-v1-bootstr-sync.md) | Modified | Revision 1.0.2 |
+| [Total Stake Inference](../cryptarchia-total-stake-inference.md) | Modified | Revision 1.1.1 |
 | [Cross-Channel Messaging Template](../template-cross-channel-messaging.md) | Modified | Revision 1.3.0 |
 | [Anonymous Leaders Reward](../../deprecated/bedrock-anonymous-leaders-reward.md) | Deprecated | moved to `deprecated/` |
