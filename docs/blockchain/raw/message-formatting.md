@@ -27,6 +27,8 @@
 | 1.0.0 | Initial revision. | 2026-04-09 |
 | 1.0.1 | Corrected `Max_Payload_Length` to 34577 bytes, so that it again matches the `Max_Body_Length` of [Payload Formatting](payload-formatting.md) plus the 3-byte payload header. | 2026-08-06 |
 | 1.0.2 | Expressed `Max_Payload_Length` as `Max_Body_Length + 3` rather than a literal, so that it tracks the payload body size automatically; it is 18195 bytes at the `Max_Body_Length` that follows from the compressed transaction references of [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md). | 2026-08-18 |
+| 1.1.0 | Removed the `version` byte from the public header ([Bedrock Eras](bedrock-eras.md)). | 2026-09-04 |
+| 1.1.1 | Updated `Max_Payload_Length` to 18190 bytes, following the removal of the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)). | 2026-09-04 |
 
 # Introduction
 
@@ -36,7 +38,7 @@ In this document we are reusing notation from [Notation](message-encapsulation.m
 
 # Overview
 
-The message contains a header and a payload. The header informs the protocol about the version of the protocol and the payload type. The message contains a drop or a non-drop payload. The length of a payload is fixed to prevent adversaries from distinguishing types of messages based on their length.
+The message contains a header and a payload. The payload is a drop or a non-drop payload. The length of a payload is fixed to prevent adversaries from distinguishing types of messages based on their length.
 
 # Construction
 
@@ -59,7 +61,6 @@ The `public_header` is defined as follows:
 
 ```python
 class PublicHeader:
-    version: byte,
     public_key: PublicKey,
     proof_of_quota: ProofOfQuota,
     signature: Signature
@@ -67,7 +68,6 @@ class PublicHeader:
 
 Where:
 
-- `version=0x01` is version of the protocol.
 - `public_key` is $`K^{n}_i`$, a public key from the set $`\mathbf K^n_h`$ as defined in the [Message Encapsulation](message-encapsulation.md) spec.
 - `proof_of_quota` is $`\pi^{K^{n}_i}_{Q}`$, a corresponding proof of quota for the key $`K^{n}_i`$ from the $`\mathbf K^n_h`$ it also contains the key nullifier.
 - `signature` is $`\sigma_{K^{n}_{i}}(\mathbf {h|P}_i)`$, a signature of the concatenation of the $`i`$-th encapsulation of the payload $`\mathbf P`$ and the private header $`\mathbf h`$, that can be verified by the public key $`K^{n}_{i}`$.
@@ -113,4 +113,4 @@ The `Max_Payload_Length` parameter defines the maximum length of the `payload`. 
 
 &nbsp;&nbsp;&nbsp;&nbsp;`Max_Payload_Length = Max_Body_Length + 3`
 
-which is 18195 bytes at the `Max_Body_Length` of 18192 currently set by [Payload Formatting](payload-formatting.md). Stating it as a derived value rather than a literal means that a change to the maximum block proposal size — which is what sets `Max_Body_Length` — reaches this parameter without an edit here. More information about payload formatting can be found in [Payload Formatting](payload-formatting.md).
+which is 18190 bytes at the `Max_Body_Length` of 18187 currently set by [Payload Formatting](payload-formatting.md). Stating it as a derived value rather than a literal means that a change to the maximum block proposal size — which is what sets `Max_Body_Length` — reaches this parameter without an edit here. More information about payload formatting can be found in [Payload Formatting](payload-formatting.md).

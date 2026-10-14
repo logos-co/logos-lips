@@ -35,6 +35,7 @@
 | 1.8.0 | Added the `ClaimPowReward` Operation payload; its proof is a `ZkSigProof` | 2026-09-08 |
 | 1.9.0 | Swap Ed25519Signature and SignerIndex order in IndexedSignature | 2026-10-01 |
 | 1.10.0 | Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata, retaining their `UINT32` length prefixes; corrected SDP activity metadata to use its tagged variant encoding without a generic length prefix | 2026-10-06 |
+| 1.11.0 | Added the `ForkDigest` as the first field of `MantleTx` ([Bedrock Eras](bedrock-eras.md)). | 2026-10-14 |
 
 # Introduction
 
@@ -59,8 +60,9 @@ SignedMantleTx = MantleTx OpsProofs
 ## Mantle Tx
 
 ```schema
-MantleTx = OpCount *Op
-OpCount  = Byte
+MantleTx   = ForkDigest OpCount *Op
+ForkDigest = Hash32
+OpCount    = Byte
 ```
 
 ## Operations

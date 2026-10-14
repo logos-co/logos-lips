@@ -28,6 +28,7 @@
 | 1.0.1 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.1.0 | [RFC] Replace the BLAKE2b-Based PRNG with ChaCha20 (ChaCha20Rng) | 2026-08-28 |
 | 1.2.0 | Add the proof of work case to the Proof of Quota generation procedure | 2026-08-31 |
+| 1.3.0 | Removed the `version` field from the public header ([Bedrock Eras](bedrock-eras.md)). | 2026-09-30 |
 
 # Introduction
 
@@ -176,17 +177,15 @@ class Message:
 ```
 
 1. $`\mathbf H`$ is a public header:
-    1. $`V`$, version of the header, it is set to $`1`$.
-    2. $`K^{n}_i`$, a public key from the set $`\mathbf K^n_h`$.
-    3. $`\pi^{K^{n}_i}_{Q}`$, a corresponding proof of quota for the key $`K^{n}_i`$ from the set $`\mathbf K^n_h`$ and contains its proof nullifier.
-    4. $`\sigma_{K^{n}_{i}}(\mathbf {h|P}_i)`$, a signature of the concatenation of the $`i`$-th encapsulation of the payload $`\mathbf P`$ and the private header $`\mathbf h`$, that can be verified by the public key $`K^{n}_{i}`$.
+    1. $`K^{n}_i`$, a public key from the set $`\mathbf K^n_h`$.
+    2. $`\pi^{K^{n}_i}_{Q}`$, a corresponding proof of quota for the key $`K^{n}_i`$ from the set $`\mathbf K^n_h`$ and contains its proof nullifier.
+    3. $`\sigma_{K^{n}_{i}}(\mathbf {h|P}_i)`$, a signature of the concatenation of the $`i`$-th encapsulation of the payload $`\mathbf P`$ and the private header $`\mathbf h`$, that can be verified by the public key $`K^{n}_{i}`$.
 
     ```python
     Signature = bytes
     SIGNATURE_SIZE = 64
 
     class PublicHeader:
-        version: int = 1  # u8
         signing_public_key: Ed25519PublicKey
         proof_of_quota: ProofOfQuota
         signature: Signature
@@ -215,7 +214,7 @@ class Message:
     ```python
     EncryptedPayload = bytes
 
-    PAYLOAD_BODY_SIZE = 34 * 1024
+    PAYLOAD_BODY_SIZE = 18187  # Max_Body_Length, Payload Formatting
 
     class Payload:
         header: PayloadHeader
@@ -464,7 +463,6 @@ def encapsulate(
         prev_keypair.signing_public_key,
         prev_keypair.proof_of_quota,
         signature=sign(private_part, prev_keypair.signing_private_key),
-        version=1,
     )
 
     return public_header.bytes() + b"".join(private_headers) + payload
@@ -572,7 +570,7 @@ def decapsulate(
     # Step 1: Derive the shared key.
     encryption_private_key = signing_private_key.derive_x25519()
     public_header = PublicHeader.from_bytes(
-        message[Header.SIZE : Header.SIZE + PublicHeader.SIZE]
+        message[0 : PublicHeader.SIZE]
     )
     shared_key = diffie_hellman(
         encryption_private_key,
@@ -581,8 +579,8 @@ def decapsulate(
 
     # Step 2: Decrypt the private header
     private_header = message[
-        Header.SIZE + PublicHeader.SIZE:
-        Header.SIZE + PublicHeader.SIZE + (BlendingHeader.SIZE * ENCAPSULATION_COUNT)
+        PublicHeader.SIZE:
+        PublicHeader.SIZE + (BlendingHeader.SIZE * ENCAPSULATION_COUNT)
     ]
     for i, _ in enumerate(private_header):
         private_header[i] = decrypt(private_header[i], shared_key)
@@ -596,12 +594,11 @@ def decapsulate(
         first_blending_header.signing_public_key,
         first_blending_header.proof_of_quota,
         first_blending_header.signature,
-        version= 1,
     )
 
     # Step 5: Decrypt the payload
     payload_offset = (
-        Header.SIZE + PublicHeader.SIZE + (BlendingHeader.SIZE * ENCAPSULATION_COUNT)
+        PublicHeader.SIZE + (BlendingHeader.SIZE * ENCAPSULATION_COUNT)
     )
     payload = message[payload_offset:]
     payload = decrypt(payload, shared_key)
@@ -629,15 +626,14 @@ def decapsulate(
         first_blending_header.signing_public_key,
     )
 
-    header = message[0:Header.SIZE]
-    return header + public_header.bytes() + b"".join(private_header) + payload
+    return public_header.bytes() + b"".join(private_header) + payload
 ```
 
 # Appendix
 
 ## **Example**
 
-Let us look at an example of the above mechanism. Let us assume that $`\beta_{max}=4,h=3`$. We are omitting protocol version in the header for simplicity.
+Let us look at an example of the above mechanism. Let us assume that $`\beta_{max}=4,h=3`$.
 
 ### **Initialization**
 
