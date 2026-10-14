@@ -23,6 +23,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-24 |
 | 1.0.1 | [RFC] Remove Concept of a Session | 2026-06-22 |
+| 1.0.2 | Made the token unit uniform: each amount names LOGOS or LEPTA/LEPTON as its context requires. | 2026-10-06 |
 
 > **Disclaimer:**
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -41,11 +42,11 @@ Given that Logos Blockchain is a pre-launch L1 blockchain with no on-chain econo
 
 - Estimating Logos Blockchain's Fully Diluted Valuation (FDV) using internal valuation models and comparable projects.
 - Defining key variables influencing staking mechanics, such as token supply at TGE, staking ratio, and target number of service providers.
-- Deriving a simple and transparent formula to calculate the required stake per service provider, both in LGO and stablecoins or fiat terms.
+- Deriving a simple and transparent formula to calculate the required stake per service provider, both in LOGOS and stablecoins or fiat terms.
 
 # Overview
 
-The SDP is a staking-based registration mechanism designed for decentralized services in the Logos Blockchain ecosystem. Its primary purpose is to assign nodes to public service registries by requiring them to lock a predefined amount of LGO tokens as stake. Only nodes who stake the required amount are allowed to offer the service they declare, thereby creating a natural filter that promotes honest behavior and sybil resistance.
+The SDP is a staking-based registration mechanism designed for decentralized services in the Logos Blockchain ecosystem. Its primary purpose is to assign nodes to public service registries by requiring them to lock a predefined amount of LOGOS tokens as stake. Only nodes who stake the required amount are allowed to offer the service they declare, thereby creating a natural filter that promotes honest behavior and sybil resistance.
 
 This protocol is parameterized by a single stake value that is:
 
@@ -54,10 +55,10 @@ This protocol is parameterized by a single stake value that is:
 
 Using the model specified [below](#generic-model), the protocol ensures that the stake requirement scales proportionally with Logos Blockchains market valuation and design goals, while remaining robust to economic fluctuations.
 
-Under the assumptions explained below, we define the [minimum stake](#minimum-stake-textstakelgo) value in LGO as
+Under the assumptions explained below, we define the [minimum stake](#minimum-stake-textstakelgo) value in LOGOS as
 
 $$
-\text{Stake}_{\text{LGO}} = 0.001\% \cdot S_{\text{TGE}}.
+\text{Stake}_{\text{LOGOS}} = 0.001\% \cdot S_{\text{TGE}}.
 $$
 
 Assuming a fully diluted valuation of $100$ million FIAT, and $`S_{\text{TGE}}=S_{\text{max}}`$, then the [minimum stake would be valued](#minimum-stake-in-fiat-terms-textstaketextfiat) at
@@ -72,21 +73,21 @@ $$
 
 Let
 
-- $`S_{\text{max}}`$ denote the maximum supply of LGO (e.g., 10 million LGO).
+- $`S_{\text{max}}`$ denote the maximum supply of LOGOS (e.g., 10 billion LOGOS).
 - $`\text{FDV}`$ denote the expected fully diluted valuation in FIAT (e.g., \$100 million).
-- $`S_{\text{TGE}}`$ denote the supply at token generation event (e.g., 1 million LGO).
+- $`S_{\text{TGE}}`$ denote the supply at token generation event (e.g., 1 million LOGOS).
 - $`M_{\text{cap}}`$ denote the market cap at TGE in FIAT: $`M_{\text{cap}} = \dfrac{S_{\text{TGE}}}{S_{\text{max}}} \times \text{FDV}`$
-- $`P_{\text{LGO}}`$ denote the Price per LGO in FIAT: $`P_{\text{LGO}} = \dfrac{M_{\text{cap}}}{S_{\text{TGE}}}`$
+- $`P_{\text{LOGOS}}`$ denote the Price per LOGOS in FIAT: $`P_{\text{LOGOS}} = \dfrac{M_{\text{cap}}}{S_{\text{TGE}}}`$
 - $`r_{\text{stake}}`$ denote the fraction of TGE supply expected to be staked by a service (e.g., 15%).
 - $`N_{\text{stakers}}`$ denote the expected initial number of stakers (e.g., 1,000).
 
 The following quantities are derived from the definitions above:
 
-- Total LGO to be staked: $`S_{\text{staked}} = r_{\text{stake}} \times S_{\text{TGE}}`$
+- Total LOGOS to be staked: $`S_{\text{staked}} = r_{\text{stake}} \times S_{\text{TGE}}`$
 
-- Amount of stake per staker in LGO: $`\text{Stake}_{LGO} = \frac{S_{\text{staked}}}{N_{\text{stakers}}} = r_{\text{stake}} \times \frac{S_{\text{TGE}}}{N_{\text{stakers}}}`$
+- Amount of stake per staker in LOGOS: $`\text{Stake}_{LOGOS} = \frac{S_{\text{staked}}}{N_{\text{stakers}}} = r_{\text{stake}} \times \frac{S_{\text{TGE}}}{N_{\text{stakers}}}`$
 
-- Amount of stake per staker in FIAT: $`\text{Stake}_{\text{FIAT}} = \text{Stake}_{LGO} \times P_{\text{LGO}} = \dfrac{r_{\text{stake}}}{N_{\text{stakers}}} \times\frac{S_{\text{TGE}}}{S_{\text{max}}} \times \text{FDV}`$
+- Amount of stake per staker in FIAT: $`\text{Stake}_{\text{FIAT}} = \text{Stake}_{LOGOS} \times P_{\text{LOGOS}} = \dfrac{r_{\text{stake}}}{N_{\text{stakers}}} \times\frac{S_{\text{TGE}}}{S_{\text{max}}} \times \text{FDV}`$
 
 ## Staking Ratio ($`r_{\text{stake}}`$)
 
@@ -98,7 +99,7 @@ A network size that is considered small has 1000 nodes. Therefore,  $`N_{\text{s
 
 <a id="minimum-stake-textstakelgo"></a>
 
-## Minimum Stake ($`\text{Stake}_{LGO}`$)
+## Minimum Stake ($`\text{Stake}_{\text{LOGOS}}`$)
 
 The stake value for the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) (SDP) must satisfy the following requirements:
 
@@ -113,13 +114,13 @@ Under the following conditions:
 Therefore, the size of the stake should facilitate at least $`N_{\text{stakers}}=1000`$ nodes to acquire at least $`r_{\text{stake}}=15\%`$ of TGE supply. This implies the following cap to the stake value (per staker):
 
 $$
-\text{Stake}_{\text{LGO}} \leq 0.015\% \cdot S_{\text{TGE}}.
+\text{Stake}_{\text{LOGOS}} \leq 0.015\% \cdot S_{\text{TGE}}.
 $$
 
 In order to lower even further any barriers to enter and promote decentralization, we set the minimum stake as:
 
 $$
-\text{Stake}_{\text{LGO}} = 0.001\% \cdot S_{\text{TGE}}.
+\text{Stake}_{\text{LOGOS}} = 0.001\% \cdot S_{\text{TGE}}.
 $$
 
 # Analysis
@@ -148,17 +149,17 @@ Given that the mean and median of the above valuations of already established pr
 For the sake of this analysis, suppose that
 
 - $`\text{FDV}= \$100`$ million.
-- $`S_{\text{max}} = 100,000,000`$ LGO.
-- $`S_{\text{TGE}} = S_{\text{max}} = 100,000,000`$ LGO.
-- $`\text{Stake}_{\text{LGO}} = 0.001\% \cdot S_{\text{TGE}}.`$
+- $`S_{\text{max}} = 100,000,000`$ LOGOS.
+- $`S_{\text{TGE}} = S_{\text{max}} = 100,000,000`$ LOGOS.
+- $`\text{Stake}_{\text{LOGOS}} = 0.001\% \cdot S_{\text{TGE}}.`$
 - $`N_{\text{stakers}}=1000`$.
 
 From the Construction section,
 
 $$
 \begin{array}{rclrclrclrcl}
-\text{Stake}_{\text{FIAT}} & = & \text{Stake}_{\text{LGO}} \times P_{\text{LGO}} = \text{Stake}_{\text{LGO}} \times \dfrac{M_{\text{cap}}}{S_{\text{TGE}}} \\\\
-& = & \text{Stake}_{\text{LGO}} \times \dfrac{\dfrac{S_{\text{TGE}}}{S_{\text{max}}} \times \text{FDV}}{S_{\text{TGE}}} = \text{Stake}_{\text{LGO}} \times \dfrac{\text{FDV}}{S_{\text{TGE}}} \\\\\\
+\text{Stake}_{\text{FIAT}} & = & \text{Stake}_{\text{LOGOS}} \times P_{\text{LOGOS}} = \text{Stake}_{\text{LOGOS}} \times \dfrac{M_{\text{cap}}}{S_{\text{TGE}}} \\\\
+& = & \text{Stake}_{\text{LOGOS}} \times \dfrac{\dfrac{S_{\text{TGE}}}{S_{\text{max}}} \times \text{FDV}}{S_{\text{TGE}}} = \text{Stake}_{\text{LOGOS}} \times \dfrac{\text{FDV}}{S_{\text{TGE}}} \\\\\\
 & = & 0.001\% \cdot S_{\text{TGE}} \times \dfrac{\text{FDV}}{S_{\text{TGE}}} = 0.001\% \cdot \text{FDV}
 \end{array}
 $$
@@ -168,7 +169,7 @@ $$
 By plugging the numbers, and considering the above-mentioned assumptions, the single stake value for the SDP would be
 
 $$
-\text{Stake}_{\text{LGO}} = 1,000 \text{ LGO},
+\text{Stake}_{\text{LOGOS}} = 1,000 \text{ LOGOS},
 $$
 
 which would be valued at
