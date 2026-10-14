@@ -436,3 +436,5 @@ Relative to a design that carries the count in the header, this removes one of t
 4. They test if $`\sum_{i=1}^k e(r_i\pi_A^{(i)},\pi_B^{(i)}) = e(r'[\alpha]_1,[\beta]_2)+ e(IC,[\gamma]_2) + e(\pi'_C,[\delta]_2)`$.
 
   Note that this batch verification of Groth16 proofs is the same as what is described in the Zcash paper, Appendix B.2.
+
+All the ZkTransfer proofs of a block are verified in one batch. The multi-scalar multiplication of step 3.3, the three pairings of the right-hand side and the final exponentiation are computed once per batch, while each proof adds one scalar multiplication and one pairing on the left-hand side. The cost of the batch is therefore a fixed part plus a part per proof, measured in [Gas Cost Determination](analysis-gas-cost-determination.md#groth16-proof-batch-verification): the fixed part is deduced from the Execution Gas limit of the block, and each Operation pays for its proofs.

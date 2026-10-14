@@ -68,7 +68,6 @@ Value moves between two channels only through a withdrawal and its delay. A cros
 ## Open questions for reviewers
 
 - How a wallet learns the value and nonce of a note it receives through a Transfer or a step is out of scope. Only commitments are on chain.
-- The ZkTransfer gas values reuse the earlier ZkSignature measures until the circuit is benchmarked.
 - The simulation behind the 10-year supply projection in Block Rewards predates `T = 1`.
 - PR #407 (SDP declaration identifiers) touches the same SDP sections. Its `service_notes` map and per-service note uniqueness do not apply once each declaration creates its own note.
 
@@ -120,7 +119,7 @@ class Inscribe:
 - `CHANNEL_DEPOSIT` consumes ledger notes and creates channel notes, `outputs` being commitments. Its `excess_value` pays fees.
 - `CHANNEL_WITHDRAW` is posted by the holder with a ZkTransfer. At the first block whose slot reaches `WITHDRAW_DELAY = 86,400` slots after it, its inputs are consumed and its `outputs` created in the ledger set if the inputs are still unspent; otherwise it is dropped.
 - `CHANNEL_TRANSFER`, opcode `0x14`, and the channel `transfer_threshold` are removed.
-- Execution Gas: `EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_TRANSFER_GAS * len(steps)`, `EXECUTION_CHANNEL_WITHDRAW_GAS = 590`.
+- Execution Gas: `EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_TRANSFER_GAS * len(steps)`, `EXECUTION_CHANNEL_WITHDRAW_GAS = 619`.
 
 ## 3. Proof of Leadership over the eligible root
 
@@ -147,7 +146,7 @@ class ProofOfLeadershipPublic:
 - `SDP_WITHDRAW` carries `service_note_nf`, `outputs` and `excess_value`, with a ZkTransfer proven against `mmr_root([(declare_info.service_note, 0)])` and the `provider_id`'s Ed25519 signature. Its outputs reach the ledger set at removal.
 - `SDP_ACTIVE` is signed by the `provider_id`.
 - `CLAIM_POW_REWARD` gains a `nonce`, its ticket is `zkhash(public_key, nonce, block_hash, epoch_nonce)`, its proof is empty, and its reward note goes to the ledger set.
-- Execution Gas: `EXECUTION_SDP_WITHDRAW_GAS = 649`, `EXECUTION_SDP_ACTIVE_GAS = 59`, `EXECUTION_CLAIM_POW_REWARD_GAS = 0`.
+- Execution Gas: `EXECUTION_SDP_WITHDRAW_GAS = 678`, `EXECUTION_SDP_ACTIVE_GAS = 59`, `EXECUTION_CLAIM_POW_REWARD_GAS = 0`.
 
 ## 5. Leader reward paid in the block
 
@@ -198,7 +197,7 @@ The wallet keeps, for each note, its set, the commitment path inside its MMR pea
 - Block Construction: the batch verification annex covers ZkTransfer and pairs each `pi_A` with its own `pi_B`, and notes cannot be spent in the block that creates them.
 - The cross-channel messaging template shows an atomic swap of steps across two zones.
 - The Execution Market, the Architecture Overview and Blend follow the in-block leader reward.
-- The Gas Cost Determination analysis follows the new Operations and drops the Proof of Claim measures and images.
+- The Gas Cost Determination analysis follows the new Operations and drops the Proof of Claim measures and images. The ZkTransfer (27 public inputs) is priced from the measured batch verification of Groth16 proofs, `cycles(n, N) = A(N) + n * P`: each proof costs `P = 618,797` cycles, so `EXECUTION_TRANSFER_GAS`, `EXECUTION_CHANNEL_DEPOSIT_GAS` and `EXECUTION_CHANNEL_WITHDRAW_GAS` are 619 and the SDP declaration and withdrawal 678. The fixed part `A(27) = 3,540,612` cycles is deduced from the block limit: `limit_Ex = G_max = 3,196,459` and `G_target = 1,598,229`.
 - The PoL circuit diagram is removed. The Block Rewards figure and the test vectors carry TODO markers.
 
 # Implementation
@@ -216,7 +215,7 @@ The wallet keeps, for each note, its set, the commitment path inside its MMR pea
 - [ ] Update the PoL circuit (`mantle/pol_lib.circom` in `logos-blockchain-circuits`) and the PoQ circuit (`blend/poq.circom`) to the eligible root.
 - [ ] Update the encoding of payloads and proofs.
 - [ ] Build the genesis note sets and distribution inscription, and their validation.
-- [ ] Benchmark the ZkTransfer batch verification and update the gas values.
+- [x] Benchmark the ZkTransfer batch verification and update the gas values.
 - [ ] Regenerate the Mantle and Cryptarchia test vectors, and add tests for buffer chaining, the root window, IMT non-membership, steps, withdrawals and the eligible root.
 - [ ] Verify the implementation matches this specification.
 
