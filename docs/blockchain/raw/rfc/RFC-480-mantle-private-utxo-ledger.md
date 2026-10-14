@@ -138,7 +138,7 @@ class ProofOfLeadershipPublic:
 - The latest check proves `nf` absent from the IMT of the same set: a leaf `low` with `low.nf < nf` and `nf < low.next_nf` or `low.next_nf == 0`, and the leaf of the set, with its latest commitment root, under `eligible_latest`.
 - Both leaf paths use the same `set_selectors`, so both checks name the same set.
 - The lottery ticket and the entropy contribution use the commitment `cm`. The PoL is revision 1.2.0.
-- The PoL is bound to its block by `msg = pol_msg(header)`, a Blake2b hash under the DST `POL_MSG_V1` of every header field except the proof and the entropy contribution, reduced modulo `p`. The leader proves it once `body_root` is fixed. The `leader_key` header field, the proposal and block signatures and the signatures of the uncle headers are removed: an uncle entry is a 265-byte header, and the proposal is at most 17,712 bytes, which `Max_Body_Length` follows.
+- The PoL is bound to its block by `msg = pol_msg(header)`, a Blake2b hash under the DST `POL_MSG_V1` of every header field except the proof and the entropy contribution, reduced modulo `p`. The leader proves it once `body_root` is fixed. The `leader_key` header field, the proposal and block signatures and the signatures of the uncle headers are removed: an uncle entry is a 265-byte header, and the proposal is at most 17,712 bytes, which `Max_Body_Length` follows. The block ID hashes the header without its proof: a Groth16 proof can be re-randomized, so including it would give one block several IDs. An invalid proof of leadership therefore condemns only the received copy, not the block ID.
 
 ## 4. SDP stake and the proof of work claim
 

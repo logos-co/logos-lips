@@ -35,7 +35,7 @@
 | 1.2.3 | Update the test vectors to reflect the parent added in the `CHANNEL_CONFIG` payload | 2026-08-27 |
 | 1.2.4 | Reordered the `ProofOfLeadership` fields to the wire order defined by the [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding), and noted that the [Block ID](#block-id) preimage absorbs the same fields in a different order by design. The `Header` layout and the `block_id` preimage are otherwise unchanged. | 2026-08-28 |
 | 1.2.5 | Required the slot of a referenced [uncle](#uncle-references) to exceed the slot of its parent. | 2026-10-06 |
-| 1.3.0 | Follow the private ledger of Mantle: the eligible leader notes commitment is the eligible root over the note sets of the ledger, and a Proof of Leadership verifies against the latest eligible root. The `leader_voucher` header field is replaced with the `reward_key` the leader reward is paid to. The Proof of Leadership is bound to the block by a hash of its header: the `leader_key` header field and the block signatures are removed, and an uncle entry is a header | 2026-10-06 |
+| 1.3.0 | Follow the private ledger of Mantle: the eligible leader notes commitment is the eligible root over the note sets of the ledger, and a Proof of Leadership verifies against the latest eligible root. The `leader_voucher` header field is replaced with the `reward_key` the leader reward is paid to. The Proof of Leadership is bound to the block by a hash of its header: the `leader_key` header field and the block signatures are removed, and an uncle entry is a header. The block ID leaves out the proof of leadership, which is not unique | 2026-10-06 |
 
 # Introduction
 
@@ -272,7 +272,7 @@ After bootstrapping we commit to the most honest looking chain we found and swit
 
 ### Block ID
 
-Block ID is defined by the hash of the block header [Block Header](#block-header), where `hash` is Blake2b as specified in [Common Cryptographic Components](common-cryptographic-components.md). The header commits to the whole block body through $`body\_root`$ (see [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md#header)), so the block ID transitively commits to the uncle headers the block carries as well as to its transactions: two blocks with the same ID are identical byte for byte.
+Block ID is defined by the hash of the block header [Block Header](#block-header), where `hash` is Blake2b as specified in [Common Cryptographic Components](common-cryptographic-components.md). The header commits to the whole block body through $`body\_root`$ (see [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md#header)), so the block ID transitively commits to the uncle headers the block carries as well as to its transactions.
 
 ```python
 def block_id(header: Header) -> hash
@@ -285,9 +285,10 @@ def block_id(header: Header) -> hash
         # PoL fields
         header.proof_of_leadership.reward_key,
         header.proof_of_leadership.entropy_contribution,
-        header.proof_of_leadership.proof.serialize(),
     )
 ```
+
+The proof of leadership is not part of the block ID. A Groth16 proof is not unique: anyone can re-randomize a valid proof into another valid proof of the same statement. Including it would give the same block as many IDs as there are proofs of it. Without it, two blocks with the same ID have the same content and the same entropy contribution, and differ at most in their proof, which is valid for both since it is bound to that content ([Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)).
 
 ### Block Header
 
@@ -305,9 +306,9 @@ class ProofOfLeadership:                     # 192 bytes
     reward_key: ZkPublicKey                  # 32 bytes
 ```
 
-The proof is bound to the header by its public input `msg`, a hash of every other field of the header (see [Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)).
+The proof is bound to the header by its public input `msg`, a hash of the header without its proof and its entropy contribution (see [Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)).
 
-The field order above is the wire order defined in [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding). The [Block ID](#block-id) preimage above absorbs the same `ProofOfLeadership` fields in a different order; that is deliberate, since the preimage is a domain-separated enumeration of header fields rather than a re-serialization of the header.
+The field order above is the wire order defined in [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding). The [Block ID](#block-id) preimage above absorbs the `ProofOfLeadership` fields other than the proof in a different order; that is deliberate, since the preimage is a domain-separated enumeration of header fields rather than a re-serialization of the header.
 
 ### Block
 
