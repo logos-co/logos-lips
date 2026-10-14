@@ -226,7 +226,7 @@ A node interprets each piece of chain data under one era:
 
 A new era may change what the chain state holds and how it is laid out, while the state built under the previous era must carry over.
 
-Between eras, the **recorded chain state** passes through a **[migration](#era-migration)** that the new era defines. The recorded chain state, which [Bedrock Chain State](bedrock-chain-state.md) lists, is the state [Mantle](bedrock-v1.1-mantle-specification.md) Operations are validated against, together with the SDP snapshots. A migration turns the state of the previous era into the state of the new era. It:
+Between eras, the **recorded chain state** passes through a **[migration](#era-migration)** that the new era defines. The recorded chain state is the state that [Bedrock Chain State](bedrock-chain-state.md) lists. A migration turns the state of the previous era into the state of the new era. It:
 
 - depends on the recorded chain state alone;
 - is defined for every state the previous era can reach;
