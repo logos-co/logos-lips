@@ -1069,7 +1069,7 @@ The `metadata` field is the concatenation of the following fields, in order:
 | `proof_of_quota` | 160 | $`\pi_{Q}^{K^{n}_{l}}`$, serialized as defined in [Proof of Quota](proof-of-quota.md) |
 | `proof_of_selection` | 32 | $`\pi_{S}^{K^{n}_{l},l}`$, the selection randomness encoded using the little-endian [field-element encoding](common-cryptographic-components.md#poseidon2-zk-friendly-hash-function) |
 
-The total size of the `metadata` field is therefore $`229`$ bytes: the one-byte type discriminant followed directly by the 228-byte Activity Proof. There is no separate version byte or generic metadata length prefix.
+The total size of the `metadata` field is therefore $`229`$ bytes: the one-byte type discriminant followed directly by the 228-byte Activity Proof.
 
 The `metadata_type` byte selects the activity-metadata variant according to [Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations); it is a discriminant, not a length prefix. The remaining fields follow the selected variant's encoding and validation rules.
 

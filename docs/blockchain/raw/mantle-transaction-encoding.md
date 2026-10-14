@@ -138,7 +138,7 @@ ActivityMetadataPayload = BlendActivityProof ; Selected by ActivityMetadataType
 
 `ActivityMetadataType` is a one-byte discriminant. The only currently valid value is `0x01`, which selects `BlendActivityProof`; a decoder MUST reject any other value. `BlendActivityProof` is the 228-byte concatenation of `epoch_number`, `signing_key`, `proof_of_quota`, and `proof_of_selection` defined in [Blend Protocol — Active Message](blend-protocol.md#active-message), excluding that section's `metadata_type` byte, which is encoded here as `ActivityMetadataType`.
 
-`ActivityMetadata` has no generic length prefix or separate version byte. The current Blend variant occupies 229 bytes including its discriminant. Its encoding and validation follow the selected variant's rules; `MAX_OPERATION_DATA_SIZE` does not apply to `SDPActive.Metadata`.
+The current Blend variant occupies 229 bytes including its discriminant. Its encoding and validation follow the selected variant's rules; `MAX_OPERATION_DATA_SIZE` does not apply to `SDPActive.Metadata`.
 
 ### Leader operations
 
