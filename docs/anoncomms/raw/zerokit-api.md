@@ -20,11 +20,17 @@
 
 ## Abstract
 
-This document specifies the Zerokit API (version 3.0.0),
+This document specifies the Zerokit API (version 3.1.0),
 an implementation of the RLN-V2 protocol.
 The specification covers the unified interface exposed through **native Rust**,
 C-compatible Foreign Function Interface (FFI) bindings,
 and WebAssembly (WASM) bindings.
+Version 3.1.0 adds the Poseidon2 protocol hash
+and the partial witness accessors;
+wire formats are unchanged and the 3.0.0 API is otherwise intact,
+except that the FFI function `ffi_rln_witness_input_to_partial_witness()`
+is renamed `ffi_rln_partial_witness_input_from_witness()`.
+Both versions interoperate on the wire, so either MAY be used.
 
 ## Motivation
 
@@ -55,9 +61,11 @@ This core is wrapped by three interface layers:
 **native Rust** for direct library integration,
 **FFI** for C-compatible bindings consumed by languages (such as C and Nim),
 and **WASM** for browser and Node.js environments.
+
 All three interfaces share identical serialization formats for
 inputs and outputs.
-Native Rust and FFI expose the full API surface,
+Native Rust and FFI expose the full API surface
+(see [FFI-Specific Notes](#ffi-specific-notes)),
 while WASM exposes the stateless subset
 (see [WASM-Specific Notes](#wasm-specific-notes)).
 
@@ -80,10 +88,10 @@ while WASM exposes the stateless subset
 
 The workspace consists of four crates:
 `rln` (protocol core, FFI bindings),
-`zerokit_utils` (Merkle trees and Poseidon primitives),
+`zerokit_utils` (Merkle trees, Poseidon and Poseidon2 primitives),
 `rln-wasm` (WASM bindings),
 and `rln-cli` (example CLI, not published).
-All published crates share the unified version 3.0.0.
+All published crates share the unified version 3.1.0.
 
 ### Type-Level Configuration
 
@@ -100,9 +108,12 @@ The core is also generic over the zkSNARK backend
 (the `RLNZkProof` / `RLNPartialZkProof` traits) and,
 through it, over the protocol hash (the `ZerokitHasher` trait);
 custom backends and hashes are **native-Rust-only** extension points.
-The shipped, proof-verifying implementation is
-`ArkGroth16Backend<PoseidonHash>` (Groth16 over BN254 with Poseidon),
-and the FFI and WASM bindings expose only this concrete combination.
+Two proof-verifying combinations ship,
+both Groth16 over BN254 and differing only in the protocol hash:
+`ArkGroth16Backend<PoseidonHash>` (Poseidon, the default) and
+`ArkGroth16Backend<Poseidon2Hash>` (Poseidon2).
+The FFI and WASM bindings expose exactly these two combinations
+(see [Protocol Hash](#protocol-hash)).
 A hash implementation without matching circuit resources (zkey and graph)
 compiles but cannot produce valid proofs.
 
@@ -145,10 +156,42 @@ by implementing the `pmtree::Database` trait for `D`.
 The FFI constructors expose only the three built-in backends,
 and WASM, being stateless, embeds no tree backend at all.
 
+#### Protocol Hash
+
+The protocol hash is the in-circuit hash behind every protocol value
+(commitments, external nullifier, nullifier, Merkle tree nodes).
+Two marker types implementing `ZerokitHasher` ship:
+
+- **Poseidon** (`PoseidonHash`): the default,
+  circomlib-compatible, sponge state `[0, inputs..]` (capacity zero first).
+- **Poseidon2** (`Poseidon2Hash`): HorizenLabs permutation and constants
+  for one to three inputs, one-shot compression layout `[inputs.., 0]`
+  (capacity zero **last**, output the first state element),
+  bit-exact with `logos-storage/rust-poseidon-bn254-pure`
+  and the Nomos compression-mode vectors,
+  and roughly twice as fast natively;
+  proving time is unchanged.
+
+The unsuffixed name is always Poseidon,
+and the Poseidon2 variant carries a `_poseidon2` / `Poseidon2` suffix
+at every boundary
+(`stateless_poseidon2()`, `ffi_rln_new_stateless_poseidon2()`,
+`WasmRLNPoseidon2`).
+All other types (witness, proof, proof values, Merkle proof, identity keys)
+carry no hash marker and share one wire format.
+
+A deployment MUST use one protocol hash consistently for identities,
+tree, circuit resources, proving and verification:
+a Rust tree/backend mismatch is a compile error,
+while a circuit of the other hash loads
+but yields proofs that verify as `Ok(false)`.
+
 #### Proof Modes
 
 Every RLN instance operates in one of two circuit modes,
-selected by the circuit resources (zkey and graph) loaded at construction:
+selected by the circuit resources (zkey and graph) loaded at construction
+(each circuit is compiled for one protocol hash,
+so the resources MUST match the constructor family):
 
 - **Single message-id mode**: one `message_id` per proof.
   This is the default circuit on native targets.
@@ -163,9 +206,17 @@ selected by the circuit resources (zkey and graph) loaded at construction:
   so proof generation is slower;
   choose it only when batching message ids per proof is needed.
 
-Embedded circuit resources are exposed as
-`default_zkey_single()` / `default_graph_single()` and
-`default_zkey_multi()` / `default_graph_multi()`.
+Four circuits are embedded on native targets,
+one per hash and mode,
+laid out as `resources/tree_depth_N/<circuit>/` with the circuit names
+`rln_single`, `rln_multi`, `rln_poseidon2_single` and `rln_poseidon2_multi`
+(matching the `circom-rln` templates they are compiled from).
+They are exposed as
+`default_zkey_single()` / `default_graph_single()`,
+`default_zkey_multi()` / `default_graph_multi()`,
+`default_zkey_poseidon2_single()` / `default_graph_poseidon2_single()` and
+`default_zkey_poseidon2_multi()` / `default_graph_poseidon2_multi()`.
+Every constructor defaults to the Single message-id circuit of its own hash.
 The default tree depth is `DEFAULT_TREE_DEPTH = 20`.
 
 #### Parallelization
@@ -231,9 +282,12 @@ use error message prefixes to distinguish error types when needed.
 ### Initialization
 
 Native Rust construction goes exclusively through `RLNBuilder`,
-a type-state builder that fixes the proof backend to
-Groth16 over BN254 with the Poseidon hash
-(`ArkGroth16Backend<PoseidonHash>`).
+a type-state builder that fixes the proof backend to Groth16 over BN254.
+The constructor family selects the protocol hash:
+`stateless()` / `stateful()` build `ArkGroth16Backend<PoseidonHash>`,
+`stateless_poseidon2()` / `stateful_poseidon2()` build
+`ArkGroth16Backend<Poseidon2Hash>`.
+The two families are otherwise identical.
 
 `RLNBuilder::stateless().build()` - *Rust | Stateless mode*
 
@@ -241,6 +295,11 @@ Groth16 over BN254 with the Poseidon hash
 - Optional setters `.zkey()` and `.graph()` accept pre-loaded circuit
   resources; on native targets both default to the Single message-id circuit.
 - On `wasm32` targets the resources MUST be supplied.
+
+`RLNBuilder::stateless_poseidon2().build()` - *Rust | Stateless mode | Poseidon2*
+
+- Same as `stateless()` with the Poseidon2 hash;
+  on native targets the resources default to the Single message-id Poseidon2 circuit.
 
 ```rust
 // A stateless instance; the embedded Single message-id circuit is used by default.
@@ -251,6 +310,10 @@ let rln = RLNBuilder::stateless()
     .graph(default_graph_multi().clone())
     .zkey(default_zkey_multi().clone())
     .build();
+
+// A stateless Poseidon2 instance; the embedded Single message-id Poseidon2
+// circuit is used by default.
+let rln = RLNBuilder::stateless_poseidon2().build();
 ```
 
 `RLNBuilder::stateful().tree(tree).build()` - *Rust | Stateful mode*
@@ -258,8 +321,15 @@ let rln = RLNBuilder::stateless()
 - Builds a stateful RLN instance around a caller-constructed Merkle tree
   (`FullMerkleTree`, `OptimalMerkleTree`, or `PmTree`).
 - The tree hasher MUST match the proof backend hash;
-  a mismatch is a compile error.
+  a mismatch is a compile error
+  (`stateful()` accepts `PoseidonHash` trees only,
+  `stateful_poseidon2()` accepts `Poseidon2Hash` trees only).
 - Optional `.zkey()` / `.graph()` setters behave as in `stateless`.
+
+`RLNBuilder::stateful_poseidon2().tree(tree).build()` - *Rust | Stateful mode | Poseidon2*
+
+- Same as `stateful()` with the Poseidon2 hash;
+  the tree MUST be built over `Poseidon2Hash`.
 
 ```rust
 // A stateful instance owning a persistent PmTree;
@@ -272,6 +342,10 @@ let config = PmTreeSledConfig::new()
     .build()?;
 let tree = PmTree::<SledDB, PoseidonHash>::new(DEFAULT_TREE_DEPTH, Fr::default(), config)?;
 let mut rln = RLNBuilder::stateful().tree(tree).build();
+
+// The same over Poseidon2: the tree hasher and the constructor family match.
+let tree = PmTree::<SledDB, Poseidon2Hash>::new(DEFAULT_TREE_DEPTH, Fr::default(), config)?;
+let mut rln = RLNBuilder::stateful_poseidon2().tree(tree).build();
 ```
 
 FFI exposes one constructor per backend and mode,
@@ -287,6 +361,21 @@ circuit and `DEFAULT_TREE_DEPTH`:
   `ffi_rln_new_with_pm_tree_default()`
   (an empty `config_path` selects the default sled configuration)
 
+Every constructor has a Poseidon2 twin with the `_poseidon2` suffix
+and the same parameters,
+whose `_default` variant uses the embedded Single message-id Poseidon2 circuit:
+
+- `ffi_rln_new_stateless_poseidon2()` / `ffi_rln_new_stateless_default_poseidon2()`
+- `ffi_rln_new_with_full_merkle_tree_poseidon2()` /
+  `ffi_rln_new_with_full_merkle_tree_default_poseidon2()`
+- `ffi_rln_new_with_optimal_merkle_tree_poseidon2()` /
+  `ffi_rln_new_with_optimal_merkle_tree_default_poseidon2()`
+- `ffi_rln_new_with_pm_tree_poseidon2()` /
+  `ffi_rln_new_with_pm_tree_default_poseidon2()`
+
+All of them return the same opaque `FFI_RLN` handle,
+so every other FFI function is shared by both hashes.
+
 WASM is **stateless only**:
 
 `WasmRLN.newWithParams(zkey_data, graph_data)` - *WASM | Stateless mode*
@@ -297,6 +386,14 @@ WASM is **stateless only**:
 - Witness calculation is performed internally by the witness graph
   supplied at construction.
 
+`WasmRLNPoseidon2.newWithParams(zkey_data, graph_data)` - *WASM | Stateless mode | Poseidon2*
+
+- Same as `WasmRLN` over the Poseidon2 hash;
+  the supplied resources MUST be a Poseidon2 circuit.
+- Exposes the same methods as `WasmRLN`
+  (`generateProof()`, `generatePartialProof()`, `finishProof()`,
+  `verify()`, `verifyWithSignal()`, `verifyWithRoots()`).
+
 ### Key Generation
 
 Identity material is represented by dedicated structs.
@@ -304,31 +401,38 @@ Secret components are wrapped in `SecretFr`,
 a zeroize-on-drop field element with a redacted `Debug` representation
 (see [Security/Privacy Considerations](#securityprivacy-considerations)).
 
-`IdentityKeys::generate::<PoseidonHash, R>(rng)`
+The constructors are generic over the protocol hash `H`
+(`PoseidonHash` or `Poseidon2Hash`),
+because the identity commitment is a hash of the secret:
+the same secret yields a different commitment under each hash,
+and keys MUST be generated with the hash of the tree they will join.
+
+`IdentityKeys::generate::<H, R>(rng)`
 
 - Generates a random identity keypair using the caller-supplied
   cryptographically secure RNG `R`.
 - Accessors: `identity_secret() -> SecretFr`, `id_commitment() -> Fr`.
 
-`IdentityKeys::generate_seeded::<PoseidonHash, R>(seed)`
+`IdentityKeys::generate_seeded::<H, R>(seed)`
 
 - Generates a deterministic identity keypair from a byte seed.
 - The seed is expanded with Keccak-256 (an out-of-circuit hash;
   see [Hash Utilities](#hash-utilities)) into the seed of the
   type-level chosen seedable RNG `R`.
 
-`ExtendedIdentityKeys::generate::<PoseidonHash, R>(rng)`
+`ExtendedIdentityKeys::generate::<H, R>(rng)`
 
 - Generates a random extended identity keypair.
 - Accessors: `identity_trapdoor()`, `identity_nullifier()`,
   `identity_secret()` (all `SecretFr`), and `id_commitment() -> Fr`.
 
-`ExtendedIdentityKeys::generate_seeded::<PoseidonHash, R>(seed)`
+`ExtendedIdentityKeys::generate_seeded::<H, R>(seed)`
 
 - Deterministic variant of the extended keypair generation.
 
 Both the hash and the RNG are spelled at the call site;
-the Merkle leaf is the rate commitment derived from the identity commitment:
+the Merkle leaf is the rate commitment derived from the identity commitment
+with the same hash:
 
 ```rust
 let identity_keys = IdentityKeys::generate::<PoseidonHash, ThreadRng>(&mut thread_rng());
@@ -336,6 +440,11 @@ let seeded_keys = IdentityKeys::generate_seeded::<PoseidonHash, ChaCha20Rng>(b"s
 
 let rate_commitment =
     Hasher::<PoseidonHash>::hash_pair(identity_keys.id_commitment(), user_message_limit);
+
+// The same identity material for a Poseidon2 deployment.
+let identity_keys = IdentityKeys::generate::<Poseidon2Hash, ThreadRng>(&mut thread_rng());
+let rate_commitment =
+    Hasher::<Poseidon2Hash>::hash_pair(identity_keys.id_commitment(), user_message_limit);
 ```
 
 FFI and WASM wrappers pin concrete RNG defaults
@@ -346,6 +455,15 @@ so seeded outputs are bit-identical across platforms:
 `ffi_extended_identity_keys_generate_seeded()`,
 `WasmIdentityKeys.generate()` / `generateSeeded()`,
 and `WasmExtendedIdentityKeys.generate()` / `generateSeeded()`.
+The Poseidon2 twins follow the suffix rule:
+`ffi_identity_keys_generate_poseidon2()` /
+`ffi_identity_keys_generate_seeded_poseidon2()`,
+`ffi_extended_identity_keys_generate_poseidon2()` /
+`ffi_extended_identity_keys_generate_seeded_poseidon2()`,
+`WasmIdentityKeys.generatePoseidon2()` / `generateSeededPoseidon2()`,
+and `WasmExtendedIdentityKeys.generatePoseidon2()` / `generateSeededPoseidon2()`.
+The returned key types are the same for both hashes;
+only the commitment value differs.
 
 ### Merkle Tree Management
 
@@ -510,11 +628,25 @@ let partial_witness = RLNPartialWitnessInput::new()
 - `build()` checks the structural invariants and returns
   `PartialWitnessInputError` on violation.
 - A partial witness can also be converted from a full witness
-  (`From<&RLNWitnessInput>`).
+  (`From<&RLNWitnessInput>`;
+  FFI `ffi_rln_partial_witness_input_from_witness()`,
+  WASM `WasmRLNPartialWitnessInput.fromWitness()`).
+- Accessors mirror the full witness:
+  `identity_secret()`, `user_message_limit()`, `path_elements()`,
+  `identity_path_index()` and `merkle_proof()`
+  (FFI `ffi_rln_partial_witness_input_get_*()`,
+  WASM `WasmRLNPartialWitnessInput.get*()`).
 
 Witness calculation is handled internally on **all** platforms,
 including WASM, by the witness graph loaded at construction
 (the embedded default on native targets, caller-supplied bytes on WASM).
+
+The witness types carry no hash marker:
+the same `RLNWitnessInput` feeds a Poseidon or a Poseidon2 instance,
+and the protocol hash is applied by the instance that consumes it.
+The caller is responsible for building the witness from material
+(identity commitment, rate commitment, Merkle path, external nullifier)
+computed with the hash of that instance.
 
 ### Proof Generation
 
@@ -524,6 +656,10 @@ including WASM, by the witness graph loaded at construction
 - Returns `(proof, proof_values)`;
   `proof_values` is an `RLNProofValues` enum (`Single` / `Multi`).
 - Fails with `GenerateProofError` on witness/graph inconsistency or backend fault.
+- The proof values (root, `y`, nullifier) are computed
+  with the protocol hash of the instance;
+  native Rust also exposes the computation standalone as
+  `RLNProofValues::from_witness::<H>(witness)`.
 
 `generate_partial_proof(partial_witness)`
 
@@ -594,6 +730,10 @@ not errors.
   nullifier (no slashing possible).
 - Recovery works across modes: Single with Single, Multi with Multi,
   and Single combined with Multi.
+- Recovery is hash-agnostic Shamir reconstruction,
+  but two proofs only share a nullifier
+  when they were produced with the same protocol hash,
+  so slashing never crosses hashes.
 
 `compute_id_secret(share1, share2)`
 
@@ -606,10 +746,17 @@ WASM: `WasmRLNProofValues.recoverIdSecret()` / `computeIdSecret()`.
 
 ### Hash Utilities
 
-`Hasher::<PoseidonHash>::hash_single(input)` / `hash_pair(left, right)` / `hash_list(inputs)`
+`Hasher::<H>::hash_single(input)` / `hash_pair(left, right)` / `hash_list(inputs)`
 
-- Computes the Poseidon hash for one, two, or a list of inputs.
+- Computes the protocol hash `H` for one, two, or a list of inputs;
+  `H` is `PoseidonHash` or `Poseidon2Hash`
+  (see [Protocol Hash](#protocol-hash)).
 - All protocol hashes route through this facade.
+- The input count MUST stay within the arity of the hash:
+  one to sixteen inputs for Poseidon, one to three for Poseidon2
+  (the RLN protocol itself uses at most three).
+  Exceeding it is a programming error and panics;
+  it is never a runtime `Err`.
 
 `hash_to_field_le(input)` / `hash_to_field_be(input)`
 
@@ -617,12 +764,17 @@ WASM: `WasmRLNProofValues.recoverIdSecret()` / `computeIdSecret()`.
   interpreting the digest with little-endian or big-endian byte order.
 - Keccak-256 is used only for this out-of-circuit byte-to-field mapping
   (and for seed expansion in seeded key generation);
-  Poseidon is the only hash evaluated inside the circuit.
+  the protocol hash is the only hash evaluated inside the circuit.
+  The signal `x` is therefore hash-agnostic:
+  the same Keccak-256 value is used with either protocol hash.
 
-Boundary equivalents: `ffi_poseidon_hash_pair()`,
+Boundary equivalents: `ffi_poseidon_hash_pair()` / `ffi_poseidon2_hash_pair()`,
 `ffi_hash_to_field_le()` / `ffi_hash_to_field_be()`, and
 `ffi_uint_to_fr()` (FFI);
-`poseidonHashPair()` and `hashToFieldLE()` / `hashToFieldBE()` (WASM).
+`poseidonHashPair()` / `poseidon2HashPair()` and
+`hashToFieldLE()` / `hashToFieldBE()` (WASM).
+The boundaries expose only the pair arity,
+which is all the Merkle tree and rate commitment computations need.
 
 ### Serialization
 
@@ -682,7 +834,16 @@ WASM bindings wrap the Rust API with JavaScript-compatible types. Key difference
   is intentionally not available. Secret persistence goes through
   `WasmIdentityKeys.toBytesLE()` / `toBytesBE()` (whole-struct).
 - Identity generation uses `WasmIdentityKeys.generate()` /
-  `generateSeeded()` and `WasmExtendedIdentityKeys` equivalents.
+  `generateSeeded()` and `WasmExtendedIdentityKeys` equivalents;
+  the Poseidon2 variants are `generatePoseidon2()` / `generateSeededPoseidon2()`.
+- The protocol hash is selected by the RLN class:
+  `WasmRLN` is Poseidon, `WasmRLNPoseidon2` is Poseidon2,
+  with an identical method set.
+  Every other wrapper type (`WasmFr`, `WasmRLNMerkleProof`,
+  `WasmRLNWitnessInput`, `WasmRLNProof`, `WasmRLNProofValues`, ...)
+  is shared by both classes;
+  there are no per-hash hasher classes,
+  only the `poseidonHashPair()` / `poseidon2HashPair()` free functions.
 - The Merkle path crosses the boundary as `WasmRLNMerkleProof`
   (built with `WasmRLNMerkleProof.new(pathElements, identityPathIndex)`,
   with its own getters and LE/BE serialization),
@@ -717,6 +878,12 @@ FFI bindings use C-compatible types with the `ffi_` function prefix
   `FFI_RLN`, `FFI_IdentityKeys`, `FFI_ExtendedIdentityKeys`,
   `FFI_RLNMerkleProof`, `FFI_RLNWitnessInput`, `FFI_RLNPartialWitnessInput`,
   `FFI_RLNProof`, `FFI_RLNPartialProof`, `FFI_RLNProofValues`.
+- The protocol hash is fixed by the constructor
+  (unsuffixed for Poseidon, `_poseidon2` for Poseidon2)
+  and carried inside the single `FFI_RLN` handle;
+  the only other hash-specific functions are the key generators
+  and `ffi_poseidon_hash_pair()` / `ffi_poseidon2_hash_pair()`.
+  Every method on `FFI_RLN` and every protocol type is shared by both hashes.
 - Memory MUST be explicitly freed with the matching `ffi_*_free` function;
   every owned vector type has one (`ffi_vec_fr_free()`, `ffi_vec_u8_free()`,
   `ffi_vec_bool_free()`, `ffi_vec_usize_free()`);
@@ -758,7 +925,9 @@ Applies when membership state is managed externally,
 such as by a smart contract or relay network.
 
 Construct the instance with `RLNBuilder::stateless()`
-(or `ffi_rln_new_stateless()` / `WasmRLN.newWithParams()`).
+(or `ffi_rln_new_stateless()` / `WasmRLN.newWithParams()`),
+or the `_poseidon2` / `WasmRLNPoseidon2` twin
+when the external membership set is built over Poseidon2.
 Obtain Merkle proofs and valid roots from the external source.
 Wrap externally provided `path_elements` and `identity_path_index` in
 `RLNMerkleProof::new()` and pass it to the witness builder.
@@ -775,7 +944,9 @@ to obtain `(proof, proof_values)` with reduced critical-path latency.
 
 ### Epoch and Rate Limit Configuration
 
-The external nullifier is computed as `poseidon_hash([epoch, rln_identifier])`.
+The external nullifier is computed as
+`Hasher::<H>::hash_pair(epoch, rln_identifier)`
+with the protocol hash `H` of the deployment (Poseidon or Poseidon2).
 The `rln_identifier` is a field element that uniquely identifies your application (e.g., a hash of your app name).
 
 All values that will be hashed MUST be represented as field elements.
@@ -804,6 +975,11 @@ Applications MUST ensure that:
 - The `message_id` counter is properly persisted to prevent accidental rate limit violations
 - External nullifiers are constructed correctly to prevent cross-application attacks
 - Merkle tree roots are validated when using stateless mode
+- One protocol hash (Poseidon or Poseidon2) is agreed upon per deployment
+  and used consistently for identities, tree, circuit resources,
+  proving and verification;
+  a proof produced under the other hash is a valid-looking payload
+  that verifies as `false`, never a distinguishable error
 - Circuit parameters (zkey and graph data) are obtained from trusted sources;
   production deployments SHOULD run or verify their own trusted setup
   ceremony (Powers of Tau plus circuit-specific phase 2) for the circuit,
@@ -837,8 +1013,12 @@ implement safeguards to prevent accidental violations.
 
 ### Informative
 
-- [Zerokit GitHub Repository](https://github.com/vacp2p/zerokit) - Reference implementation
+- [zerokit Github Repository](https://github.com/vacp2p/zerokit) - Reference implementation
+- [circom-rln Github Repository](https://github.com/vacp2p/circom-rln) - RLN circuits behind the embedded resources
 - [RLN-V2 Specification](rln-v2.md) - Rate Limit Nullifier V2 protocol
+- [Poseidon2 Paper](https://eprint.iacr.org/2023/323) - Poseidon2 hash function design
+- [HorizenLabs Poseidon2](https://github.com/HorizenLabs/poseidon2) - Reference permutation and constants
+- [rust-poseidon-bn254-pure](https://github.com/logos-storage/rust-poseidon-bn254-pure) - Poseidon2 compression layout
 - [Sled Database](https://sled.rs) - Embedded database for persistent Merkle tree storage
 
 ## Copyright
