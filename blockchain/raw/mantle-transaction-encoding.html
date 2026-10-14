@@ -192,6 +192,7 @@
 </div><!-- timeline:start -->
 <h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
 <ul>
+<li><strong>2026-10-14</strong> — <a href="https://github.com/logos-co/logos-lips/blob/949faa9563027de366514247a2a62b0de2f8c45f/docs/blockchain/raw/mantle-transaction-encoding.md"><code>949faa9</code></a> — [RFC] Mantle: Bound operation data payloads (#467)</li>
 <li><strong>2026-10-01</strong> — <a href="https://github.com/logos-co/logos-lips/blob/4deef612ce1ae1776167daf8779d4abae953201b/docs/blockchain/raw/mantle-transaction-encoding.md"><code>4deef61</code></a> — docs(blockchain): swap index and sig in multi sig (#469)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b7301a67b5364a8dbe719f8b67b96b7f198d0a13/docs/blockchain/raw/mantle-transaction-encoding.md"><code>b7301a6</code></a> — [RFC] Mantle: Enable basic EmPoWering machinery (#400)</li>
 <li><strong>2026-09-09</strong> — <a href="https://github.com/logos-co/logos-lips/blob/4b9d1ca1794f1e1b47aa40582f7793e2f84ed999/docs/blockchain/raw/mantle-transaction-encoding.md"><code>4b9d1ca</code></a> — docs(blockchain): make every Operation carry a proof and gas independent of it (#431)</li>
@@ -219,6 +220,7 @@
 <tr><td>1.7.0</td><td>Added the <code>ChannelConfigOpProof</code> and <code>ChannelTransferOpProof</code> variants and factored the three channel threshold proofs into <code>ChannelMultiSigProof</code>, carrying the index of the signing key alongside each signature</td><td>2026-08-31</td></tr>
 <tr><td>1.8.0</td><td>Added the <code>ClaimPowReward</code> Operation payload; its proof is a <code>ZkSigProof</code></td><td>2026-09-08</td></tr>
 <tr><td>1.9.0</td><td>Swap Ed25519Signature and SignerIndex order in IndexedSignature</td><td>2026-10-01</td></tr>
+<tr><td>1.10.0</td><td>Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata, retaining their <code>UINT32</code> length prefixes; corrected SDP activity metadata to use its tagged variant encoding without a generic length prefix</td><td>2026-10-06</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
@@ -256,7 +258,7 @@ OpPayload = Transfer /
 </code></pre>
 <h3 id="channel-operations"><a class="header" href="#channel-operations">Channel Operations</a></h3>
 <pre><code class="language-schema">ChannelInscribe = ChannelId Inscription Parent Signer
-Inscription     = UINT32 *BYTE 
+Inscription     = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes
 
 ChannelConfig     = ChannelId Parent KeyCount *Signer PostingTimeframe PostingTimeout ConfigThreshold TransferThreshold
 KeyCount                   = UINT16
@@ -265,10 +267,10 @@ PostingTimeout             = UINT32
 ConfigThreshold            = UINT16
 TransferThreshold          = UINT16
 
-ChannelDeposit    = ChannelId Inputs Metadata
-Inputs            = InputCount *NoteId
-InputCount        = Byte
-Metadata          = UINT32 *BYTE
+ChannelDeposit   = ChannelId Inputs DepositMetadata
+Inputs           = InputCount *NoteId
+InputCount       = Byte
+DepositMetadata  = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes
 
 ChannelTransfer = ChannelId Inputs Outputs
 
@@ -281,6 +283,7 @@ Outputs           = OutputCount *Note
 OutputCount       = Byte
 Inputs            = InputCount *NoteId
 </code></pre>
+<p><code>MAX_OPERATION_DATA_SIZE</code> MUST be exactly <strong>1,835,008 bytes</strong>. The payloads of <code>ChannelInscribe.Inscription</code> and <code>ChannelDeposit.Metadata</code> MUST each be at most <code>MAX_OPERATION_DATA_SIZE</code> bytes, excluding the outer <code>UINT32</code> length prefix. A decoder MUST reject either field when its declared or decoded payload length exceeds the limit.</p>
 <h3 id="sdp-operations"><a class="header" href="#sdp-operations">SDP Operations</a></h3>
 <pre><code class="language-schema">SDPDeclare    = ServiceType Locators ProviderId ZkId ServiceNoteId
 ServiceType   = Byte          ; 0 = BN
@@ -295,9 +298,13 @@ SDPWithdraw   = DeclarationId Nonce ServiceNoteId
 DeclarationId = Hash32
 Nonce         = UINT64
 
-SDPActive     = DeclarationId Nonce Metadata
-Metadata      = UINT32 *BYTE  ; Service-specific node activeness metadata
+SDPActive               = DeclarationId Nonce ActivityMetadata
+ActivityMetadata        = ActivityMetadataType ActivityMetadataPayload
+ActivityMetadataType    = Byte ; 0x01 = Blend
+ActivityMetadataPayload = BlendActivityProof ; Selected by ActivityMetadataType
 </code></pre>
+<p><code>ActivityMetadataType</code> is a one-byte discriminant. The only currently valid value is <code>0x01</code>, which selects <code>BlendActivityProof</code>; a decoder MUST reject any other value. <code>BlendActivityProof</code> is the 228-byte concatenation of <code>epoch_number</code>, <code>signing_key</code>, <code>proof_of_quota</code>, and <code>proof_of_selection</code> defined in <a href="blend-protocol.html#active-message">Blend Protocol — Active Message</a>, excluding that section's <code>metadata_type</code> byte, which is encoded here as <code>ActivityMetadataType</code>.</p>
+<p>The current Blend variant occupies 229 bytes including its discriminant. Its encoding and validation follow the selected variant's rules; <code>MAX_OPERATION_DATA_SIZE</code> does not apply to <code>SDPActive.Metadata</code>.</p>
 <h3 id="leader-operations"><a class="header" href="#leader-operations">Leader operations</a></h3>
 <pre><code class="language-schema">LeaderClaim      = RewardsRoot VoucherNullifier PublicKey
 RewardsRoot      = FieldElement ; Merkle root for voucher membership proof

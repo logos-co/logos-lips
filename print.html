@@ -22422,6 +22422,7 @@ With <code>transactions</code> now available, the remaining rule of <a href="blo
 </div><!-- timeline:start -->
 <h2 id="timeline-85"><a class="header" href="#timeline-85">Timeline</a></h2>
 <ul>
+<li><strong>2026-10-14</strong> — <a href="https://github.com/logos-co/logos-lips/blob/949faa9563027de366514247a2a62b0de2f8c45f/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>949faa9</code></a> — [RFC] Mantle: Bound operation data payloads (#467)</li>
 <li><strong>2026-10-04</strong> — <a href="https://github.com/logos-co/logos-lips/blob/47a73cdc412af55f1bebc5441c4783a9ac595240/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>47a73cd</code></a> — docs(blockchain): gas for strict EdDSA verification (#464)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b7301a67b5364a8dbe719f8b67b96b7f198d0a13/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>b7301a6</code></a> — [RFC] Mantle: Enable basic EmPoWering machinery (#400)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/7c2ec59fadcdc2ba0ae74ff7600a14b55d90efcd/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>7c2ec59</code></a> — [RFC] The Last Served Epoch Is Rewardable (#435)</li>
@@ -22468,6 +22469,7 @@ With <code>transactions</code> now available, the remaining rule of <a href="blo
 <tr><td>1.14.0</td><td>Moved SDP declaration removal to <code>withdraw_at + 1</code>; the last served epoch's reward is paid in the same first block, before removal</td><td>2026-09-11</td></tr>
 <tr><td>1.15.0</td><td>Add the <code>CLAIM_POW_REWARD</code> Operation and the proof of work state it is validated against; the reward pool and the difficulty controllers are specified in <a href="blockchain/raw/proof-of-work.html">Proof of Work</a></td><td>2026-09-08</td></tr>
 <tr><td>1.16.0</td><td>Gas Determination table updated for strict Ed25519 verification: channel Operations 56 → 59 Execution Gas per signature, <code>EXECUTION_SDP_DECLARE_GAS</code> 646 → 649, from <a href="blockchain/raw/analysis-gas-cost-determination.html">Gas Cost Determination</a> 1.7.0</td><td>2026-09-24</td></tr>
+<tr><td>1.17.0</td><td>Bound channel inscription data and channel deposit metadata by <code>MAX_OPERATION_DATA_SIZE</code> as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding.</td><td>2026-10-06</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction-23"><a class="header" href="#introduction-23">Introduction</a></h1>
@@ -22759,7 +22761,9 @@ channels: dict[ChannelId, ChannelState]
 block_slot: Slot
 </code></pre>
 <p><em>Validate</em></p>
-<pre><code class="language-python">if msg.channel in channels:
+<pre><code class="language-python">assert len(msg.inscription) &lt;= MAX_OPERATION_DATA_SIZE
+
+if msg.channel in channels:
     chan = channels[msg.channel]
     current_sequencer_index = round_robin(block_slot, chan)[0]
 
@@ -22999,6 +23003,11 @@ ledger: Ledger
 </code></pre>
 <p><em>Validate</em></p>
 <ol>
+<li>
+<p>Ensure the metadata does not exceed <code>MAX_OPERATION_DATA_SIZE</code>.</p>
+<pre><code class="language-python">assert len(deposit.metadata) &lt;= MAX_OPERATION_DATA_SIZE
+</code></pre>
+</li>
 <li>
 <p>Verify that the channel exist</p>
 <pre><code class="language-python">assert deposit.channel in channels
@@ -23580,7 +23589,7 @@ service_note.declarations.remove(declare_id)
 <pre><code class="language-python">class Active:
     declaration: DeclarationID
     nonce: int
-    metadata: bytes # a service-specific node activeness metadata
+    metadata: ActivityMetadata # tagged service-specific activity metadata
 </code></pre>
 <h4 id="proof-7"><a class="header" href="#proof-7">Proof</a></h4>
 <pre><code class="language-python">ZkSignature
@@ -23596,6 +23605,7 @@ signature: ZkSignature
 declarations: dict[DeclarationID, DeclarationInfo]
 </code></pre>
 <p><em>Validate</em></p>
+<p><code>active.metadata</code> MUST satisfy the encoding and validation rules of its selected <a href="blockchain/raw/mantle-transaction-encoding.html#sdp-operations">activity-metadata variant</a>. The current Blend variant follows <a href="blockchain/raw/blend-protocol.html#active-message">Blend Protocol — Active Message</a>.</p>
 <pre><code class="language-python">assert active.declaration in declarations
 declaration_info = declarations[active.declaration]
 
@@ -23621,10 +23631,11 @@ declaration_info.active = current_epoch
 </li>
 </ol>
 <h4 id="example-9"><a class="header" href="#example-9">Example</a></h4>
+<p><code>blend_activity_proof</code> is an <a href="blockchain/raw/blend-protocol.html#activity-proof">Activity Proof</a> for the attested epoch.</p>
 <pre><code class="language-python">active=Active(
     declaration=alice_declaration_id,
     nonce=1579532,
-    metadata=b"Look, I am still doing my job"
+    metadata=ActivityMetadata.Blend(blend_activity_proof)
 )
 
 # Build the transfer operation to pay the fees
@@ -24153,14 +24164,14 @@ threshold: u16                     # the number of required signatures
 <tr><td><code>CHANNEL_TRANSFER</code></td><td>0x14141414141414141414141414141414141414141414141414141414141414140115000000000000000000000000000000000000000000000000000000000000000116000000000000001700000000000000000000000000000000000000000000000000000000000000</td><td>0xfb24c17731954e8bbe1b0dedd69e4857c8083d1689aff331ba16f3ed5883f0ce</td></tr>
 <tr><td><code>SDP_DECLARE</code></td><td>0x00010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f319000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000</td><td>0x42e93fdce121a5ab4da3201a6fd2da1d42ca8b7d8c1a8c9e2a657a6cdc7aa468</td></tr>
 <tr><td><code>SDP_WITHDRAW</code></td><td>0x1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000</td><td>0xc95aea0e46f60c12a8b29b259ca1b39947093c0d88a1ea8400c49e392ca491a0</td></tr>
-<tr><td><code>SDP_ACTIVE</code></td><td>0x1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f0000000000000001010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020303030303030303030303030303030303030303030303030303030303030303</td><td>0x76afa55f5733db75a982dc5ccabb5c6a7dab992eda78cdfd5f657f314e388354</td></tr>
+<tr><td><code>SDP_ACTIVE</code></td><td>0x1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020303030303030303030303030303030303030303030303030303030303030303</td><td>0xc4a2a639034016f52728f34041cf95fc2c7adb8f54cf94b4361b2d0cb72ebb70</td></tr>
 <tr><td><code>LEADER_CLAIM</code></td><td>0x200000000000000000000000000000000000000000000000000000000000000021000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000</td><td>0x0dc1a007fdd184b4553a83d166b749a621f5be2de4b3b0429ebf0520d1dd9a51</td></tr>
 </tbody></table>
 </div>
 <h3 id="mantle-transaction-hash-1"><a class="header" href="#mantle-transaction-hash-1">Mantle Transaction Hash</a></h3>
 <div class="table-wrapper"><table><thead><tr><th>Transaction</th><th>Payload</th><th>Transaction Hash</th></tr></thead><tbody>
 <tr><td>Empty transaction</td><td>0x00</td><td>0x2eba3f667b80a508f3d44d149a1c27a90ea365a51e4fc8209289088142b364e5</td></tr>
-<tr><td>Transaction with one of each operation</td><td>0x0a000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000600000000000000000000000000000000000000000000000000000000000000100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000c000d00110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c121010101010101010101010101010101010101010101010101010101010101010011100000000000000000000000000000000000000000000000000000000000000100000006465706f7369742d6d6574616461746113121212121212121212121212121212121212121212121212121212121212121201130000000000000000000000000000000000000000000000000000000000000014141414141414141414141414141414141414141414141414141414141414141401150000000000000000000000000000000000000000000000000000000000000001160000000000000017000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f319000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f0000000000000001010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c02020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202030303030303030303030303030303030303030303030303030303030303030330200000000000000000000000000000000000000000000000000000000000000021000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000</td><td>0x11e6013847824badf33aa383cfbdb4b5b74a621acefc8296c21f48c4072e0e92</td></tr>
+<tr><td>Transaction with one of each operation</td><td>0x0a000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000600000000000000000000000000000000000000000000000000000000000000100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000c000d00110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c121010101010101010101010101010101010101010101010101010101010101010011100000000000000000000000000000000000000000000000000000000000000100000006465706f7369742d6d6574616461746113121212121212121212121212121212121212121212121212121212121212121201130000000000000000000000000000000000000000000000000000000000000014141414141414141414141414141414141414141414141414141414141414141401150000000000000000000000000000000000000000000000000000000000000001160000000000000017000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f319000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c02020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202030303030303030303030303030303030303030303030303030303030303030330200000000000000000000000000000000000000000000000000000000000000021000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000</td><td>0x01d051d472817b7b6dfd18ff9a6cc5160579c5dad22aa000db527263af851edb</td></tr>
 </tbody></table>
 </div>
 <h3 id="declaration-id"><a class="header" href="#declaration-id">Declaration Id</a></h3>
@@ -24185,6 +24196,7 @@ threshold: u16                     # the number of required signatures
 </div><!-- timeline:start -->
 <h2 id="timeline-86"><a class="header" href="#timeline-86">Timeline</a></h2>
 <ul>
+<li><strong>2026-10-14</strong> — <a href="https://github.com/logos-co/logos-lips/blob/949faa9563027de366514247a2a62b0de2f8c45f/docs/blockchain/raw/mantle-transaction-encoding.md"><code>949faa9</code></a> — [RFC] Mantle: Bound operation data payloads (#467)</li>
 <li><strong>2026-10-01</strong> — <a href="https://github.com/logos-co/logos-lips/blob/4deef612ce1ae1776167daf8779d4abae953201b/docs/blockchain/raw/mantle-transaction-encoding.md"><code>4deef61</code></a> — docs(blockchain): swap index and sig in multi sig (#469)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b7301a67b5364a8dbe719f8b67b96b7f198d0a13/docs/blockchain/raw/mantle-transaction-encoding.md"><code>b7301a6</code></a> — [RFC] Mantle: Enable basic EmPoWering machinery (#400)</li>
 <li><strong>2026-09-09</strong> — <a href="https://github.com/logos-co/logos-lips/blob/4b9d1ca1794f1e1b47aa40582f7793e2f84ed999/docs/blockchain/raw/mantle-transaction-encoding.md"><code>4b9d1ca</code></a> — docs(blockchain): make every Operation carry a proof and gas independent of it (#431)</li>
@@ -24212,6 +24224,7 @@ threshold: u16                     # the number of required signatures
 <tr><td>1.7.0</td><td>Added the <code>ChannelConfigOpProof</code> and <code>ChannelTransferOpProof</code> variants and factored the three channel threshold proofs into <code>ChannelMultiSigProof</code>, carrying the index of the signing key alongside each signature</td><td>2026-08-31</td></tr>
 <tr><td>1.8.0</td><td>Added the <code>ClaimPowReward</code> Operation payload; its proof is a <code>ZkSigProof</code></td><td>2026-09-08</td></tr>
 <tr><td>1.9.0</td><td>Swap Ed25519Signature and SignerIndex order in IndexedSignature</td><td>2026-10-01</td></tr>
+<tr><td>1.10.0</td><td>Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata, retaining their <code>UINT32</code> length prefixes; corrected SDP activity metadata to use its tagged variant encoding without a generic length prefix</td><td>2026-10-06</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction-24"><a class="header" href="#introduction-24">Introduction</a></h1>
@@ -24249,7 +24262,7 @@ OpPayload = Transfer /
 </code></pre>
 <h3 id="channel-operations-1"><a class="header" href="#channel-operations-1">Channel Operations</a></h3>
 <pre><code class="language-schema">ChannelInscribe = ChannelId Inscription Parent Signer
-Inscription     = UINT32 *BYTE 
+Inscription     = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes
 
 ChannelConfig     = ChannelId Parent KeyCount *Signer PostingTimeframe PostingTimeout ConfigThreshold TransferThreshold
 KeyCount                   = UINT16
@@ -24258,10 +24271,10 @@ PostingTimeout             = UINT32
 ConfigThreshold            = UINT16
 TransferThreshold          = UINT16
 
-ChannelDeposit    = ChannelId Inputs Metadata
-Inputs            = InputCount *NoteId
-InputCount        = Byte
-Metadata          = UINT32 *BYTE
+ChannelDeposit   = ChannelId Inputs DepositMetadata
+Inputs           = InputCount *NoteId
+InputCount       = Byte
+DepositMetadata  = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes
 
 ChannelTransfer = ChannelId Inputs Outputs
 
@@ -24274,6 +24287,7 @@ Outputs           = OutputCount *Note
 OutputCount       = Byte
 Inputs            = InputCount *NoteId
 </code></pre>
+<p><code>MAX_OPERATION_DATA_SIZE</code> MUST be exactly <strong>1,835,008 bytes</strong>. The payloads of <code>ChannelInscribe.Inscription</code> and <code>ChannelDeposit.Metadata</code> MUST each be at most <code>MAX_OPERATION_DATA_SIZE</code> bytes, excluding the outer <code>UINT32</code> length prefix. A decoder MUST reject either field when its declared or decoded payload length exceeds the limit.</p>
 <h3 id="sdp-operations"><a class="header" href="#sdp-operations">SDP Operations</a></h3>
 <pre><code class="language-schema">SDPDeclare    = ServiceType Locators ProviderId ZkId ServiceNoteId
 ServiceType   = Byte          ; 0 = BN
@@ -24288,9 +24302,13 @@ SDPWithdraw   = DeclarationId Nonce ServiceNoteId
 DeclarationId = Hash32
 Nonce         = UINT64
 
-SDPActive     = DeclarationId Nonce Metadata
-Metadata      = UINT32 *BYTE  ; Service-specific node activeness metadata
+SDPActive               = DeclarationId Nonce ActivityMetadata
+ActivityMetadata        = ActivityMetadataType ActivityMetadataPayload
+ActivityMetadataType    = Byte ; 0x01 = Blend
+ActivityMetadataPayload = BlendActivityProof ; Selected by ActivityMetadataType
 </code></pre>
+<p><code>ActivityMetadataType</code> is a one-byte discriminant. The only currently valid value is <code>0x01</code>, which selects <code>BlendActivityProof</code>; a decoder MUST reject any other value. <code>BlendActivityProof</code> is the 228-byte concatenation of <code>epoch_number</code>, <code>signing_key</code>, <code>proof_of_quota</code>, and <code>proof_of_selection</code> defined in <a href="blockchain/raw/blend-protocol.html#active-message">Blend Protocol — Active Message</a>, excluding that section's <code>metadata_type</code> byte, which is encoded here as <code>ActivityMetadataType</code>.</p>
+<p>The current Blend variant occupies 229 bytes including its discriminant. Its encoding and validation follow the selected variant's rules; <code>MAX_OPERATION_DATA_SIZE</code> does not apply to <code>SDPActive.Metadata</code>.</p>
 <h3 id="leader-operations-1"><a class="header" href="#leader-operations-1">Leader operations</a></h3>
 <pre><code class="language-schema">LeaderClaim      = RewardsRoot VoucherNullifier PublicKey
 RewardsRoot      = FieldElement ; Merkle root for voucher membership proof
@@ -40835,6 +40853,7 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 </div><!-- timeline:start -->
 <h2 id="timeline-132"><a class="header" href="#timeline-132">Timeline</a></h2>
 <ul>
+<li><strong>2026-10-14</strong> — <a href="https://github.com/logos-co/logos-lips/blob/949faa9563027de366514247a2a62b0de2f8c45f/docs/blockchain/raw/blend-protocol.md"><code>949faa9</code></a> — [RFC] Mantle: Bound operation data payloads (#467)</li>
 <li><strong>2026-09-29</strong> — <a href="https://github.com/logos-co/logos-lips/blob/96e958692700a1b4e67203158a3632d47640002f/docs/blockchain/raw/blend-protocol.md"><code>96e9586</code></a> — [RFC] Blend: Bound connection traffic at the receiver (#421)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/7244d3b05ddec91a4a7b565bd5a9340ab77ededd/docs/blockchain/raw/blend-protocol.md"><code>7244d3b</code></a> — [RFC] Blend: Failure Detection and Reaction (#412)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b7301a67b5364a8dbe719f8b67b96b7f198d0a13/docs/blockchain/raw/blend-protocol.md"><code>b7301a6</code></a> — [RFC] Mantle: Enable basic EmPoWering machinery (#400)</li>
@@ -40864,6 +40883,7 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <tr><td>1.4.0</td><td>Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, add a transaction as a data message payload, and align the nullifier retention period</td><td>2026-09-08</td></tr>
 <tr><td>1.5.0</td><td>[RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time.</td><td>2026-09-04</td></tr>
 <tr><td>1.6.0</td><td>Replaced the per-window statistical threshold on a connection with a share of messages a node reads from, and sends on, each connection in a round, and a liveness test, kept per identity for the epoch, on whether a neighbor delivers. Held the peering degree in live connections, at least two of them opened by the node. Restricted blacklisting to attributable faults. Sized the shares from the processing rate of the slowest node, derived the transactions the network carries from them, and made that rate the reference load of the Blend difficulty.</td><td>2026-09-08</td></tr>
+<tr><td>1.6.1</td><td>Corrected Blend activity metadata to the canonical tagged encoding: removed the separate version byte and corrected the total size to 229 bytes.</td><td>2026-10-13</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction-71"><a class="header" href="#introduction-71">Introduction</a></h1>
@@ -41795,7 +41815,7 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <li><code>ProofOfSelection</code> is defined in <a href="blockchain/raw/blend-protocol.html#proof-of-selection">Proof of Selection</a>.</li>
 <li><code>SigningKey</code> is the key used to sign the <code>ProofOfQuota</code>.</li>
 </ul>
-<p>The serialized form of these fields, together with the two header bytes that precede them, is defined in <a href="blockchain/raw/blend-protocol.html#active-message">Active Message</a>.</p>
+<p>The serialized form of these fields, preceded by the one-byte metadata-type discriminant, is defined in <a href="blockchain/raw/blend-protocol.html#active-message">Active Message</a>.</p>
 <h3 id="activity-threshold"><a class="header" href="#activity-threshold">Activity Threshold</a></h3>
 <p>The activity threshold <span class="math-inline" data-tex="{\mathcal A}_{\epsilon}"></span> defines the expected maximal Hamming distance from the epoch randomness to the blending token expressed as a non-negative integer smaller or equal <span class="math-inline" data-tex="\epsilon"></span>.</p>
 <p>We define the activity threshold as follows:</p>
@@ -41814,16 +41834,15 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <p>The <code>metadata</code> field is the concatenation of the following fields, in order:</p>
 <div class="table-wrapper"><table><thead><tr><th>Field</th><th>Size (bytes)</th><th>Value</th></tr></thead><tbody>
 <tr><td><code>metadata_type</code></td><td>1</td><td><code>0x01</code>, identifying the payload as Blend service activity metadata</td></tr>
-<tr><td><code>version</code></td><td>1</td><td><code>0x01</code>, the version of the Blend <a href="blockchain/raw/blend-protocol.html#activity-proof">Activity Proof</a> format</td></tr>
 <tr><td><code>epoch_number</code></td><td>4</td><td>the epoch <span class="math-inline" data-tex="e"></span> the proof attests to, encoded as little-endian</td></tr>
-<tr><td><code>signing_key</code></td><td>32</td><td>the public key <span class="math-inline" data-tex="K^{n}_{l}"></span> used to verify the two proofs below</td></tr>
+<tr><td><code>signing_key</code></td><td>32</td><td>the Ed25519 public key <span class="math-inline" data-tex="K^{n}_{l}"></span>, encoded as defined in <a href="blockchain/raw/common-cryptographic-components.html#eddsa">EdDSA</a>, used to verify the two proofs below</td></tr>
 <tr><td><code>proof_of_quota</code></td><td>160</td><td><span class="math-inline" data-tex="\pi_{Q}^{K^{n}_{l}}"></span>, serialized as defined in <a href="blockchain/raw/proof-of-quota.html">Proof of Quota</a></td></tr>
-<tr><td><code>proof_of_selection</code></td><td>32</td><td><span class="math-inline" data-tex="\pi_{S}^{K^{n}_{l},l}"></span></td></tr>
+<tr><td><code>proof_of_selection</code></td><td>32</td><td><span class="math-inline" data-tex="\pi_{S}^{K^{n}_{l},l}"></span>, the selection randomness encoded using the little-endian <a href="blockchain/raw/common-cryptographic-components.html#poseidon2-zk-friendly-hash-function">field-element encoding</a></td></tr>
 </tbody></table>
 </div>
-<p>The total size of the <code>metadata</code> field is therefore <span class="math-inline" data-tex="230"></span> bytes.</p>
-<p>The two leading bytes serve distinct purposes and must not be conflated. The <code>metadata_type</code> byte selects how the service-specific <code>metadata</code> field is interpreted, so that the SDP active message can carry activity metadata for services other than Blend. The <code>version</code> byte versions the Blend Activity Proof format itself, independently of that selector.</p>
-<p>The <code>metadata_type</code> must be equal to <code>0x01</code>; if not, then discard the message. The <code>version</code> must be equal to <code>0x01</code>; if not, then discard the message.</p>
+<p>The total size of the <code>metadata</code> field is therefore <span class="math-inline" data-tex="229"></span> bytes: the one-byte type discriminant followed directly by the 228-byte Activity Proof.</p>
+<p>The <code>metadata_type</code> byte selects the activity-metadata variant according to <a href="blockchain/raw/mantle-transaction-encoding.html#sdp-operations">Mantle Transaction Encoding</a>; it is a discriminant, not a length prefix. The remaining fields follow the selected variant's encoding and validation rules.</p>
+<p>For Blend activity metadata, <code>metadata_type</code> MUST be <code>0x01</code>. Unknown activity-metadata discriminants MUST be rejected.</p>
 <p>The active message is stored on the ledger.</p>
 <p>The active message is used for calculating the node reward.</p>
 <p>The active message is constructed after the current epoch, when the next epoch randomness is known.</p>

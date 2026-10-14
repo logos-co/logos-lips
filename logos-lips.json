@@ -554,7 +554,7 @@
     "title": "Mantle Transaction Encoding",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-10-01",
+    "updated": "2026-10-14",
     "path": "blockchain/raw/mantle-transaction-encoding.html"
   },
   {
@@ -986,7 +986,7 @@
     "title": "Blend Protocol",
     "status": "raw",
     "category": "Standards Track",
-    "updated": "2026-09-29",
+    "updated": "2026-10-14",
     "path": "blockchain/raw/blend-protocol.html"
   },
   {
@@ -1013,7 +1013,7 @@
     "title": "Mantle",
     "status": "raw",
     "category": "Informational",
-    "updated": "2026-10-04",
+    "updated": "2026-10-14",
     "path": "blockchain/raw/bedrock-v1.1-mantle-specification.html"
   },
   {
