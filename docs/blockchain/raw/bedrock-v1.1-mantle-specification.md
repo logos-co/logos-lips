@@ -1725,7 +1725,7 @@ Such that the following constraints hold:`
   ```python
   assert all(
       inputs_active[i] * (1 - inputs_active[i]) == 0
-      inputs_cm[i] = zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i])
+      inputs_cm[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i])
       for i in range(len(inputs_sk))
   )
   ```
@@ -1770,16 +1770,6 @@ Such that the following constraints hold:`
 - The proof is bound to `msg` (it’s the `mantle_tx_hash` reduced modulo $`p`$ in case of transactions).
 
 The circuit takes at most 4 inputs and 8 outputs. The unused ones are inactive: their entry of `inputs` (or `outputs`) and of `inputs_value` (or `outputs_value` respectively) is `0`, and their other witnesses are arbitrary.
-
-### Benchmark
-
-The material used for the benchmarks is the following:
-
-- CPU       : 13th Gen Intel(R) Core(TM) i9-13980HX (24 cores / 32 threads)
-- RAM       : 32GB - Speed: 5600 MT/s
-- Motherboard: Micro-Star International Co., Ltd. MS-17S1
-- OS        : Ubuntu 22.04.5 LTS
-- Kernel    : 6.8.0-59-generic
 
 ## Multiple Ed25519 Signatures Verification
 
