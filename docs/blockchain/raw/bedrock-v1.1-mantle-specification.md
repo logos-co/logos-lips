@@ -1596,13 +1596,15 @@ ledger: Ledger
 
   *Execute*
 
-Store the key under its identifier. Registering a key already registered has no effect.
+Store the prepared key under its identifier. Registering a key already registered has no effect.
 
 ```python
 program_id = derive_program_id(register.verification_key)
 if program_id not in ledger.programs:
-    ledger.programs[program_id] = register.verification_key
+    ledger.programs[program_id] = prepare(register.verification_key)
 ```
+
+`prepare(key)` returns the `Groth16PreparedKey` of the key, the key with what the verification of a proof derives from the key alone, computed once: the pairing $`e(\alpha, \beta)`$ and the line coefficients of the pairings with $`-\gamma`$ and $`-\delta`$. The ledger keeps the prepared key, so that each program proof is verified without this work, and the registration pays for it.
 
 ## TRANSFER
 
@@ -1782,7 +1784,7 @@ class Ledger:
     sets: list[NoteSet]  # indexed as in the table above
     # the channel withdrawals waiting for their due slot: (due slot, note set, inputs, outputs)
     pending_withdrawals: list[(Slot, int, list[NoteNf], list[NoteCm])]
-    programs: dict[ProgramId, Groth16VerificationKey]  # the registered programs
+    programs: dict[ProgramId, Groth16PreparedKey]  # the registered programs, by their prepared key
 
 def empty_note_set() -> NoteSet:
     return NoteSet(
@@ -1970,7 +1972,7 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_SDP_WITHDRAW_GAS | 678 |
 | EXECUTION_SDP_ACTIVE_GAS | 59 |
 | EXECUTION_CLAIM_POW_REWARD_GAS | 0 |
-| EXECUTION_PROGRAM_REGISTER_GAS | 574 |
+| EXECUTION_PROGRAM_REGISTER_GAS | 2278 |
 | EXECUTION_PROGRAM_SPEND_GAS | 619 |
 | EXECUTION_PROGRAM_PROOF_GAS | 2222 |
 

@@ -119,7 +119,7 @@ def derive_program_id(key: Groth16VerificationKey) -> ProgramId:
 ```
 
 - Validation checks that every point is on its curve, in its prime-order subgroup and not the point at infinity.
-- Execution stores the key in `ledger.programs` under its identifier. Registering a key already registered has no effect.
+- Execution prepares the key once, computing `e(α, β)` and the line coefficients of `-γ` and `-δ`, and stores the prepared key in `ledger.programs` under its identifier. Registering a key already registered has no effect.
 
 ## 5. Encoding
 
@@ -142,8 +142,8 @@ def derive_program_id(key: Groth16VerificationKey) -> ProgramId:
 A program step costs `EXECUTION_TRANSFER_GAS` per payment, plus `EXECUTION_PROGRAM_SPEND_GAS` and `EXECUTION_PROGRAM_PROOF_GAS`. `PROGRAM_REGISTER` costs `EXECUTION_PROGRAM_REGISTER_GAS`. The values come from measurements of the node's Groth16 verifiers, 1 Execution Gas per 1,000 CPU cycles:
 
 - `EXECUTION_PROGRAM_SPEND_GAS = 619`: the ZkProgramSpend proofs of a block (29 public inputs) are verified in one batch, `3,608,664 + n * 618,796` cycles. Its fixed part is deduced from the block limit with the ZkTransfer one, so `limit_Ex = G_max = 3,192,850` and `G_target = 1,596,425`.
-- `EXECUTION_PROGRAM_PROOF_GAS = 2222`: the program proof is verified alone, since it cannot share the batch of another program, by the single proof verifier, 2,221,544 cycles at 3 public inputs.
-- `EXECUTION_PROGRAM_REGISTER_GAS = 574`: the subgroup checks of the 3 G2 points of the key, 573,324 cycles. Point decompression is the same for every key and proof and is not counted.
+- `EXECUTION_PROGRAM_PROOF_GAS = 2222`: the program proof is verified alone, since it cannot share the batch of another program, by the single proof verifier on the prepared key of the program, 2,221,544 cycles at 3 public inputs.
+- `EXECUTION_PROGRAM_REGISTER_GAS = 2278`: the subgroup checks of the 3 G2 points of the key, 573,324 cycles, and the preparation of the key, 1,704,632 cycles. Point decompression is the same for every key and proof and is not counted. Preparing the key at every verification instead would raise each program proof to 4,062,923 cycles.
 
 ## Chores
 

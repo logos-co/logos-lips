@@ -77,7 +77,7 @@ CHANNEL_INSCRIBE_GAS          = 59 + 619 * user_steps + sum(PROGRAM_STEP_GAS of 
 PROGRAM_STEP_GAS              = 619 * payments + PROGRAM_SPEND_GAS + PROGRAM_PROOF_GAS
 PROGRAM_SPEND_GAS             = 619
 PROGRAM_PROOF_GAS             = 2222
-PROGRAM_REGISTER_GAS          = 574
+PROGRAM_REGISTER_GAS          = 2278
 CHANNEL_CONFIG_GAS            = 59 * configuration_threshold
 CHANNEL_DEPOSIT_GAS           = 619
 CHANNEL_WITHDRAW_GAS          = 619
@@ -95,6 +95,7 @@ and come from our implementation observations as described in [Gas determination
 | ZkProgramSpend batch verification of `n` proofs (29 public inputs) | 3,608,664 + n x 618,796 |
 | Program proof verification, alone (3 public inputs) | 2,221,544 |
 | Subgroup checks of the 3 G2 points of a verification key | 573,324 |
+| Preparation of a verification key (3 public inputs) | 1,704,632 |
 | Eddsa25519 signature verification | 59,200 |
 
 Comparison, list searching, hashes and operation in small fields are neglected. The ZkTransfer proofs of a block are verified in one batch, and so are its ZkProgramSpend proofs, each batch costing a fixed part plus a part proportional to the number of proofs. The fixed part is paid by everyone and deducted from the block directly, through the Execution Gas limit of the block ([Execution Fee Market](overview-cryptoeconomics.md#execution-fee-market)). The user then pays only for the part that is proportional to the number of proofs.
@@ -145,12 +146,13 @@ A program step costs:
 
 ## Program Register
 
-The validation checks that every point of the verification key is on its curve and in its prime-order subgroup. The execution derives the program identifier and stores the key.
+The validation checks that every point of the verification key is on its curve and in its prime-order subgroup. The execution derives the program identifier, prepares the key and stores it.
 
-Execution: ~574k CPU cycles.
+Execution: ~2,278k CPU cycles.
 
 - Subgroup checks of the 3 G2 points: 573,324 cycles.
 - Curve checks of the 5 G1 points and of the 3 G2 points: part of their decompression, not counted.
+- Preparation of the key: 1,704,632 cycles.
 - Derivation of the program identifier and storage of the key: negligible.
 ## Channel Deposit
 
@@ -309,7 +311,7 @@ The cost per proof, `A(N) / n + P`, decreases with the size of the batch towards
 
 ### Groth16 Proof Verification Alone
 
-Each program proof is verified alone under the key of its program, with the verifier of the node for a single proof, `groth16_verify`. That verifier runs three Miller loops and compares their product to the precomputed `e(α, β)`, but folds the public inputs with one scalar multiplication each, about 140k cycles per input, instead of an MSM. It is cheaper than a batch of one proof below about 12 public inputs, and more expensive above, which is why the ZkTransfer and the ZkProgramSpend are always verified in batch.
+Each program proof is verified alone under the key of its program, with the verifier of the node for a single proof, `groth16_verify`. That verifier runs three Miller loops and compares their product to `e(α, β)`, precomputed in the prepared key of the program ([Verification Key Validation](#verification-key-validation)), but folds the public inputs with one scalar multiplication each, about 140k cycles per input, instead of an MSM. It is cheaper than a batch of one proof below about 12 public inputs, and more expensive above, which is why the ZkTransfer and the ZkProgramSpend are always verified in batch.
 
 Measured with the same method as the batch verification:
 
@@ -333,4 +335,15 @@ A [`PROGRAM_REGISTER`](bedrock-v1.1-mantle-specification.md#program_register) Op
 | 5 G1 decompressions, validated | 49,319 |
 | 5 G1 and 3 G2 decompressions, validated, subgroup checks included | 749,722 |
 
-The decompression of the points is the same for every key and every proof and is not counted: the Operation is priced from the 3 G2 subgroup checks, 573,324 cycles.
+The decompression of the points is the same for every key and every proof and is not counted.
+
+The verification of a proof also needs the key prepared: the pairing `e(α, β)` and the line coefficients of the pairings with `-γ` and `-δ`, which depend on the key alone. The measure of the program proof verification above runs on a key prepared beforehand. The ledger prepares the key of a program once, at its registration, and keeps it:
+
+| Work | CPU cycles |
+| --- | --- |
+| Preparation of a key with 3 public inputs (`into_prepared`) | 1,704,632 |
+| of which `e(α, β)` | 1,322,111 |
+| of which the line coefficients of `-γ` and `-δ` | 228,669 |
+| Preparation followed by the verification of one proof | 4,062,923 |
+
+The Operation is priced from the 3 G2 subgroup checks and the preparation of the key, 573,324 + 1,704,632 = 2,277,956 cycles. Preparing the key at every verification would instead raise the cost of each program proof from 2,221,544 to 4,062,923 cycles.
