@@ -34,6 +34,7 @@
 | 1.7.0 | Added the `ChannelConfigOpProof` and `ChannelTransferOpProof` variants and factored the three channel threshold proofs into `ChannelMultiSigProof`, carrying the index of the signing key alongside each signature | 2026-08-31 |
 | 1.8.0 | Added the `ClaimPowReward` Operation payload; its proof is a `ZkSigProof` | 2026-09-08 |
 | 1.9.0 | Swap Ed25519Signature and SignerIndex order in IndexedSignature | 2026-10-01 |
+| 1.10.0 | Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata, retaining their `UINT32` length prefixes; corrected SDP activity metadata to use its tagged variant encoding without a generic length prefix | 2026-10-06 |
 | 2.0.0 | Follow the private note ledger of Mantle 2.0.0: channel steps in `ChannelInscribe`, holder withdrawals, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim` | 2026-10-06 |
 
 # Introduction
@@ -84,7 +85,7 @@ OpPayload = Transfer /
 
 ```schema
 ChannelInscribe = ChannelId Inscription Parent Signer Steps
-Inscription     = UINT32 *BYTE 
+Inscription     = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes
 Steps           = StepCount *ChannelStep
 StepCount       = UINT16
 ChannelStep     = Inputs Outputs CmMerkleRoot
@@ -95,8 +96,8 @@ PostingTimeframe           = UINT32
 PostingTimeout             = UINT32
 ConfigThreshold            = UINT16
 
-ChannelDeposit    = ChannelId Inputs CmMerkleRoot Outputs Value Metadata
-Metadata          = UINT32 *BYTE
+ChannelDeposit    = ChannelId Inputs CmMerkleRoot Outputs Value DepositMetadata
+DepositMetadata   = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes
 
 ChannelWithdraw   = ChannelId Inputs CmMerkleRoot Outputs Value
 
@@ -104,6 +105,8 @@ ChannelId         = Hash32
 Parent            = Hash32
 Signer            = Ed25519PublicKey
 ```
+
+`MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. The payloads of `ChannelInscribe.Inscription` and `ChannelDeposit.Metadata` MUST each be at most `MAX_OPERATION_DATA_SIZE` bytes, excluding the outer `UINT32` length prefix. A decoder MUST reject either field when its declared or decoded payload length exceeds the limit.
 
 ### SDP Operations
 
@@ -120,9 +123,15 @@ SDPWithdraw   = DeclarationId Nonce NoteNf Outputs Value
 DeclarationId = Hash32
 Nonce         = UINT64
 
-SDPActive     = DeclarationId Nonce Metadata
-Metadata      = UINT32 *BYTE  ; Service-specific node activeness metadata
+SDPActive               = DeclarationId Nonce ActivityMetadata
+ActivityMetadata        = ActivityMetadataType ActivityMetadataPayload
+ActivityMetadataType    = Byte ; 0x01 = Blend
+ActivityMetadataPayload = BlendActivityProof ; Selected by ActivityMetadataType
 ```
+
+`ActivityMetadataType` is a one-byte discriminant. The only currently valid value is `0x01`, which selects `BlendActivityProof`; a decoder MUST reject any other value. `BlendActivityProof` is the 228-byte concatenation of `epoch_number`, `signing_key`, `proof_of_quota`, and `proof_of_selection` defined in [Blend Protocol — Active Message](blend-protocol.md#active-message), excluding that section's `metadata_type` byte, which is encoded here as `ActivityMetadataType`.
+
+The current Blend variant occupies 229 bytes including its discriminant. Its encoding and validation follow the selected variant's rules; `MAX_OPERATION_DATA_SIZE` does not apply to `SDPActive.Metadata`.
 
 ### Proof of work operations
 

@@ -242,7 +242,7 @@ The wallet keeps, for each note, its set, the commitment path inside its MMR pea
 | [Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | Revision 1.8.0 |
 | [Analysis: Execution Market](../analysis-execution-market.md) | Modified | reference to the deprecated leader reward |
 | [Architecture Overview](../bedrock-architecture-overview.md) | Modified | Revision 1.2.0 |
-| [Blend Protocol](../blend-protocol.md) | Modified | leader reward reference, Revision 1.6.1 |
+| [Blend Protocol](../blend-protocol.md) | Modified | leader reward reference, Revision 1.6.2 |
 | [Payload Formatting](../payload-formatting.md) | Modified | Revision 1.2.1 |
 | [Message Formatting](../message-formatting.md) | Modified | Revision 1.0.3 |
 | [Bootstrapping and Synchronization](../cryptarchia-v1-bootstr-sync.md) | Modified | Revision 1.0.2 |

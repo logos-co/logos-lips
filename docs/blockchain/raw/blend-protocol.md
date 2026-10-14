@@ -35,7 +35,8 @@
 | 1.4.0 | Add the proof of work quota and the Blend difficulty, verify the proof of quota before relaying any message, add a transaction as a data message payload, and align the nullifier retention period | 2026-09-08 |
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
 | 1.6.0 | Replaced the per-window statistical threshold on a connection with a share of messages a node reads from, and sends on, each connection in a round, and a liveness test, kept per identity for the epoch, on whether a neighbor delivers. Held the peering degree in live connections, at least two of them opened by the node. Restricted blacklisting to attributable faults. Sized the shares from the processing rate of the slowest node, derived the transactions the network carries from them, and made that rate the reference load of the Blend difficulty. | 2026-09-08 |
-| 1.6.1 | Updated the encapsulation-overhead calculation to the `Max_Payload_Length` of 17715 bytes, following the removal of the leader key and of the signatures from block proposals | 2026-10-14 |
+| 1.6.1 | Corrected Blend activity metadata to the canonical tagged encoding: removed the separate version byte and corrected the total size to 229 bytes. | 2026-10-13 |
+| 1.6.2 | Updated the encapsulation-overhead calculation to the `Max_Payload_Length` of 17715 bytes, following the removal of the leader key and of the signatures from block proposals | 2026-10-14 |
 
 # Introduction
 
@@ -1031,7 +1032,7 @@ Where:
 - `ProofOfSelection` is defined in [Proof of Selection](#proof-of-selection).
 - `SigningKey` is the key used to sign the `ProofOfQuota`.
 
-The serialized form of these fields, together with the two header bytes that precede them, is defined in [Active Message](#active-message).
+The serialized form of these fields, preceded by the one-byte metadata-type discriminant, is defined in [Active Message](#active-message).
 
 ### Activity Threshold
 
@@ -1064,17 +1065,16 @@ The `metadata` field is the concatenation of the following fields, in order:
 | Field | Size (bytes) | Value |
 | --- | --- | --- |
 | `metadata_type` | 1 | `0x01`, identifying the payload as Blend service activity metadata |
-| `version` | 1 | `0x01`, the version of the Blend [Activity Proof](#activity-proof) format |
 | `epoch_number` | 4 | the epoch $`e`$ the proof attests to, encoded as little-endian |
-| `signing_key` | 32 | the public key $`K^{n}_{l}`$ used to verify the two proofs below |
+| `signing_key` | 32 | the Ed25519 public key $`K^{n}_{l}`$, encoded as defined in [EdDSA](common-cryptographic-components.md#eddsa), used to verify the two proofs below |
 | `proof_of_quota` | 160 | $`\pi_{Q}^{K^{n}_{l}}`$, serialized as defined in [Proof of Quota](proof-of-quota.md) |
-| `proof_of_selection` | 32 | $`\pi_{S}^{K^{n}_{l},l}`$ |
+| `proof_of_selection` | 32 | $`\pi_{S}^{K^{n}_{l},l}`$, the selection randomness encoded using the little-endian [field-element encoding](common-cryptographic-components.md#poseidon2-zk-friendly-hash-function) |
 
-The total size of the `metadata` field is therefore $`230`$ bytes.
+The total size of the `metadata` field is therefore $`229`$ bytes: the one-byte type discriminant followed directly by the 228-byte Activity Proof.
 
-The two leading bytes serve distinct purposes and must not be conflated. The `metadata_type` byte selects how the service-specific `metadata` field is interpreted, so that the SDP active message can carry activity metadata for services other than Blend. The `version` byte versions the Blend Activity Proof format itself, independently of that selector.
+The `metadata_type` byte selects the activity-metadata variant according to [Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations); it is a discriminant, not a length prefix. The remaining fields follow the selected variant's encoding and validation rules.
 
-The `metadata_type` must be equal to `0x01`; if not, then discard the message. The `version` must be equal to `0x01`; if not, then discard the message.
+For Blend activity metadata, `metadata_type` MUST be `0x01`. Unknown activity-metadata discriminants MUST be rejected.
 
 The active message is stored on the ledger.
 
