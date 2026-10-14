@@ -68,7 +68,7 @@ Value moves between two channels only through a withdrawal and its delay. A cros
 ## Open questions for reviewers
 
 - How a wallet learns the value and nonce of a note it receives through a Transfer or a step is out of scope. Only commitments are on chain.
-- The simulation behind the 10-year supply projection in Block Rewards predates `T = 1`.
+- The 10-year supply projection in Block Rewards follows the behavioral assumptions of the earlier baseline simulation, which were not published as code. Its fee and stake model should be checked against that reference.
 - PR #407 (SDP declaration identifiers) touches the same SDP sections. Its `service_notes` map and per-service note uniqueness do not apply once each declaration creates its own note.
 
 # Details
@@ -164,6 +164,8 @@ Block Execution runs the service rewards, releases the due channel withdrawals, 
 
 The block reward is `R_t = A_t * I_max * S_cap * Delta_t + (1 - A_t) * R_block`, where `R_block` is the fees pooled in the block, with a time step of one block. The integer reference uses 128-bit intermediates and `FEE_NUMERATOR = 1_261_440`. The leader receives 40% of `R_t` plus the Execution market tips of the block, in one note ([Cryptoeconomics overview](../overview-cryptoeconomics.md#blend-service-and-consensus-leaders)).
 
+The system design figure is redrawn around the reserve, the pool and the per-block reward, and a new annex projects the supply with a per-block simulation over 10 years: the stake and a pooling rate of 0.5% per year settle within 2 years, the inferred stake carries a noise of 0.1 per epoch, and the fees of each block follow a Poisson number of transactions. The net circulating growth is about 3% of the maximum supply after 10 years, 2.8% to 3.2% over 20 runs. How the fees vary from block to block changes it by less than 0.05 points; the noise of the inferred stake dominates `A_t`.
+
 ## 7. Encoding
 
 - `ChannelInscribe = ChannelId Inscription Parent Signer Steps`, with `ChannelStep = Inputs Outputs CmMerkleRoot`. `ChannelInscribeOpProof = Ed25519Signature *ZkTransfer`.
@@ -198,7 +200,7 @@ The wallet keeps, for each note, its set, the commitment path inside its MMR pea
 - The cross-channel messaging template shows an atomic swap of steps across two zones.
 - The Execution Market, the Architecture Overview and Blend follow the in-block leader reward.
 - The Gas Cost Determination analysis follows the new Operations and drops the Proof of Claim measures and images. The ZkTransfer (27 public inputs) is priced from the measured batch verification of Groth16 proofs, `cycles(n, N) = A(N) + n * P`: each proof costs `P = 618,797` cycles, so `EXECUTION_TRANSFER_GAS`, `EXECUTION_CHANNEL_DEPOSIT_GAS` and `EXECUTION_CHANNEL_WITHDRAW_GAS` are 619 and the SDP declaration and withdrawal 678. The fixed part `A(27) = 3,540,612` cycles is deduced from the block limit: `limit_Ex = G_max = 3,196,459` and `G_target = 1,598,229`.
-- The PoL circuit diagram is removed. The Block Rewards figure and the test vectors carry TODO markers.
+- The PoL circuit diagram is removed. The test vectors carry TODO markers.
 
 # Implementation
 

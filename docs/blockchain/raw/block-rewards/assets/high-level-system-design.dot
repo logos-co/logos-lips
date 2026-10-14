@@ -9,9 +9,9 @@
 digraph high_level_system_design {
   rankdir = LR;
   bgcolor = "#1f2020";
-  splines = ortho;
+  splines = true;
   nodesep = 0.40;
-  ranksep = 0.60;
+  ranksep = 1.10;
   pad     = 0.25;
 
   node [
@@ -34,34 +34,37 @@ digraph high_level_system_design {
     arrowsize = 0.9
   ];
 
-  /* Inputs: measured signals and fixed parameters */
-  fee_paid [label = "Transaction Fee Paid"];
-  max_rate [label = "Max Annual Rate:\n1%"];
-  control  [label = "Control Parameters"];
-  stake    [label = "Inferred Total Stake"];
-  pooling  [label = "Transaction Fee Pooling"];
+  edge [fontname = "Helvetica", fontsize = 15, fontcolor = "#d8d8d8"];
+
+  /* Inputs: the two KPIs of the block and the fixed parameters */
+  stake    [label = "KPI 1: Inferred Total Stake\nof the epoch"];
+  fees     [label = "KPI 2: Fees Pooled in the Block\n(net of the proof of work share)"];
+  params   [label = "Parameters:\nI_max = 1%, alpha_d, alpha_a, targets"];
+
+  /* Stocks allocated at genesis or fed by the fees */
+  reserve  [label = "Rewards Reserve\n(allocated at genesis)"];
+  pool     [label = "Rewards Pool"];
 
   /* Computation and output */
-  emission [label = "Emission Rate\nFactor Calculation"];
-  kpi      [label = "KPI Measurement"];
-  issuance [label = "Token Issuance"];
-  rewards  [label = "Block Rewards\nDistribution"];
+  factor   [label = "Emission Rate Factor A_t"];
+  reward   [label = "Block Reward R_t"];
+  paid     [label = "Leader and\nBlend Service"];
 
-  { rank = same; fee_paid; max_rate; control; stake; pooling; }
-  { rank = same; emission; kpi; }
+  { rank = same; stake; fees; params; }
+  { rank = same; reserve; factor; pool; }
 
-  /* Emission rate factor is bounded by the parameters and driven by fee payment */
-  fee_paid -> emission;
-  max_rate -> emission;
-  control  -> emission;
+  /* The emission rate factor combines the KPIs within the parameters */
+  stake  -> factor;
+  fees   -> factor;
+  params -> factor;
 
-  /* The two primary KPIs */
-  stake   -> kpi;
-  pooling -> kpi;
+  /* The fees of the block go to the pool */
+  fees -> pool [label = "  fees of the block  "];
 
-  /* Issuance combines the reserve release with the pooled fees */
-  emission -> issuance;
-  kpi      -> issuance;
+  /* The reward releases from the reserve and pays back part of the fees */
+  factor  -> reward;
+  reserve -> reward [label = "  A_t x maximum release  "];
+  pool    -> reward [label = "  (1 - A_t) x fees  "];
 
-  issuance -> rewards;
+  reward -> paid;
 }

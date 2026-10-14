@@ -24,7 +24,7 @@
 | 1.0.0 | Initial revision. | 2026-04-24 |
 | 1.1.0 | Changing from burning/minting to pooling/distributing/releasing, removing $`S_{tge}`$ | 2026-08-25 |
 | 1.2.0 | Count the proof of work reward pool as a fourth controlled stock, bound net circulating growth by the two stocks that drain, and state that the pooled fee is net of the share diverted to that pool | 2026-08-31 |
-| 1.3.0 | Compute the reward of a block from the fees pooled in that block, with a time step of one block | 2026-10-07 |
+| 1.3.0 | Compute the reward of a block from the fees pooled in that block, with a time step of one block. Redraw the system design and project the circulating supply over 10 years with a per-block simulation | 2026-10-07 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -65,7 +65,6 @@ A control function combines these KPIs into the emission rate factor, bounded be
 - When security participation is below target, a higher reserve release attracts more validators.
 - As usage increases and fees are pooled, the reserve release adjusts downward and the distribution of pooled fees rises to stabilize the circulating supply.
 
-TODO: update
 ![Block rewards high-level system design](block-rewards/assets/high-level-system-design.png)
 
 The reward of the block $`t`$ is given by:
@@ -91,8 +90,7 @@ This KPI-based approach delivers several advantages:
 
 - Self-regulating mechanism that automatically adjusts to network conditions.
 - Bounded supply growth: the reserve release never exceeds $`I_{max}`$ of the maximum supply per year, and net circulating growth is bounded by the reserve and the proof of work reward pool allocated at genesis.
-TODO: update the simulation for the per block pooling rate
-- Long-term sustainability with projected net circulating-supply growth of just $`1.33\%`$ after $`10`$ years (assuming constant pooling rate of $`0.5\%`$ per year).
+- Long-term sustainability with a projected net circulating-supply growth of about $`3\%`$ of the maximum supply after $`10`$ years, in a scenario where the stake and the pooling rate of $`0.5\%`$ per year settle within $`2`$ years (see [Supply Projection](#supply-projection)).
 - Predictable economic model that balances security incentives with controlled supply.
 
 # Construction
@@ -271,3 +269,28 @@ def block_reward(total_stake: uint64, pooled_fee: uint64) -> uint64:
     )
     return uint64(reward_numerator // (RELEASE_DENOMINATOR * A_SCALE))
 ```
+# Annex
+
+## Supply Projection
+
+The projection simulates the reward of every block over $`10`$ years with the [Parameters](#parameters) above, computing $`A_t`$ and $`R_t`$ as specified for each block, and the reserve and pool balances as in [Pool Accounting and Supply Dynamics](#pool-accounting-and-supply-dynamics). It assumes the following behavior of the network:
+
+- Blocks: $`2880`$ per day, for $`10`$ years.
+- Inferred total stake: it is read once per epoch, every $`21,600`$ blocks ($`10 \lfloor k/f \rfloor`$ slots of [Cryptarchia](cryptarchia-v1-protocol.md)). Its deviation $`\delta_t`$ starts at $`1`$, no stake, and converges to $`0`$, entering $`(-I_{max}, I_{max})`$ after $`2`$ years: $`\delta_t = e^{-t/\tau}`$ with $`\tau = 2 / \ln(100)`$ years. It carries a Gaussian noise of standard deviation $`0.1`$, drawn per epoch.
+- Pooling rate: the fees pooled per year converge to $`0.5\%`$ of the maximum supply with the same time constant $`\tau`$, with a daily log-normal noise of volatility $`10\%`$. The fees of a block are drawn from a Poisson number of transactions, $`100`$ per block on average, so the fees vary from one block to the next around that rate. The fees are net of the share diverted to the proof of work reward pool, whose claims are not modeled.
+
+Net circulating growth is the release from the reserve minus the share $`A_t`$ of the fees kept by the pool, in percent of the maximum supply:
+
+| Fees per block | Net circulating growth after 10 years, mean of 20 runs | Lowest run | Highest run |
+| --- | --- | --- | --- |
+| Poisson, 100 transactions on average | $`3.00\%`$ | $`2.81\%`$ | $`3.18\%`$ |
+| Poisson, 10 transactions on average | $`2.97\%`$ | $`2.77\%`$ | $`3.15\%`$ |
+| Equal for every block of a day | $`3.00\%`$ | $`2.81\%`$ | $`3.18\%`$ |
+
+![Released, pooled and net circulating supply, and the emission rate factor, over 10 years](block-rewards/assets/supply_projection.png)
+
+> <sub>One run of the first scenario: $`5.39\%`$ of the maximum supply is released from the reserve, $`2.49\%`$ is kept by the pool, and the net circulating growth is $`2.90\%`$.</sub>
+
+During the first year the stake is far below its target, $`A_t = 1`$, and the reserve releases at its maximum rate of $`1\%`$ of the maximum supply per year while the pool keeps the fees. Once the stake has settled, $`A_t`$ averages about one half. The stake term dominates it: one unit of deviation weighs $`\alpha_d / I_{max} = 25`$, so the noise of the inferred stake pushes $`A_t`$ to $`0`$ or $`1`$ from one epoch to the next, while the pooled fees add $`\alpha_a \cdot 0.5\% / I_{max} = 0.5`$ on average. The release then runs at about $`0.5\%`$ per year and the pool keeps about half of the fees, about $`0.25\%`$ per year, for a net circulating growth of about $`0.25\%`$ per year.
+
+How the fees vary from one block to the next barely changes the result: the per-block fees move $`A_t`$ by much less than the noise of the inferred stake, and the three scenarios stay within $`0.05`$ points of each other.
