@@ -21,7 +21,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-04 |
 | 1.1.0 | The recorded chain state is the list of components in [Bedrock Chain State](bedrock-chain-state.md). | 2026-10-06 |
-| 1.2.0 | An era states its migration in pseudocode, with its frame and test vectors, and the migration preserves the listed properties of the recorded chain state. | 2026-10-09 |
+| 1.2.0 | An era states its migration in pseudocode, with its frame, test vectors and a Lean certificate, and the migration preserves the listed properties of the recorded chain state. | 2026-10-14 |
 
 # Introduction
 
@@ -567,13 +567,14 @@ A migration preserves each of these properties, unless its era states a rule tha
 
 The rules of the new era must apply to every state the migration produces. Otherwise, from the era's first slot, a rule can read a state component that is missing or still in the previous era's form.
 
-An era's specification states its migration in three parts:
+An era's specification states its migration in four parts:
 
 1. The migration, a function in pseudocode from the previous era's recorded chain state to the era's.
 2. Its **frame**: the [components](bedrock-chain-state.md#chain-state) the era redefines.
 3. Test vectors: one or more states of the previous era, each with the state the migration returns for it, given as their encodings and [state digests](bedrock-chain-state.md#state-digest).
+4. Its **certificate**: the migration as a certified `Migration` of [logos-blockchain-formal](https://github.com/logos-blockchain/logos-blockchain-formal), which proves in Lean that the migration is total, changes only its frame and preserves the properties above. The test vectors are those the certified function returns.
 
-An era whose migration changes no component states none of the three.
+An era whose migration changes no component states none of the four.
 
 A node validates and executes a block against the state after its parent, migrated from the era of the parent's slot to the era of the block's slot:
 
