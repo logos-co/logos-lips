@@ -120,7 +120,7 @@ gitGraph
 
 Both releases share the fork digests of eras 0 and 1, and with them the protocol identifiers of those eras. Their era 2 parameters differ, so their era 2 fork digests and protocol identifiers differ too.
 
-The two protocols that find peers and describe them carry the genesis block ID in their identifiers instead of a fork digest. Their identifiers are the same in every era.
+The protocol that finds peers carries the genesis block ID in its identifier instead of a fork digest. The protocol that describes peers announces the genesis block ID as its protocol version. Both are the same in every era.
 
 A node whose release misses an upgrade keeps applying the rules it knows. It warns its operator when a peer advertises a fork digest the node does not know, which shows that the peer runs a schedule the node's release lacks.
 
@@ -244,7 +244,7 @@ The values derived for an epoch, such as its epoch state, its Blend difficulty a
 
 Peers must exchange messages only under rules they share. Their clocks reach a boundary at slightly different times, and messages already on their way at the boundary must still arrive.
 
-A node runs its network protocols under the **era in force**, the era of the current slot by its local clock. Their identifiers and gossipsub topics ([P2P Network](../draft/p2p-network.md)) carry the fork digest of their era. Those of Kademlia and identify carry the genesis block ID instead ([Network Protocol Identity](#network-protocol-identity)).
+A node runs its network protocols under the **era in force**, the era of the current slot by its local clock. Their identifiers and gossipsub topics ([P2P Network](../draft/p2p-network.md)) carry the fork digest of their era. The identifier of Kademlia carries the genesis block ID instead, and identify announces it as its protocol version ([Network Protocol Identity](#network-protocol-identity)).
 
 Each message a node sends goes out on the identifiers of one era: the era in force for what it generates, accepts or admits, and the era of the arriving connection for a Blend message it relays or releases ([Network Protocol Identity](#network-protocol-identity)).
 
@@ -609,8 +609,8 @@ After the Era Transition Period the node must drop the identifiers of the previo
 
 ## Network Protocol Identity
 
-Every protocol identifier and gossipsub topic a Logos Blockchain specification defines is `/logos-blockchain/<genesis_id>/<protocol>` for Kademlia and identify ([P2P Network](../draft/p2p-network.md)), and `/logos-blockchain/<fork_digest>/<protocol>` for every other protocol. `<genesis_id>` is `GENESIS_BLOCK_ID` of [Fork Digest](#fork-digest), in lowercase hexadecimal. `<fork_digest>` is the fork digest $`F_n`$ of an era $`n`$, in lowercase hexadecimal. Such an identifier is an identifier of era $`n`$. `<protocol>` is the identifier the protocol's own specification defines.
+Every protocol identifier and gossipsub topic a Logos Blockchain specification defines is `/logos-blockchain/<genesis_id>/<protocol>` for Kademlia ([P2P Network](../draft/p2p-network.md)), and `/logos-blockchain/<fork_digest>/<protocol>` for every other protocol. Identify keeps the identifier of its [libp2p specification](https://github.com/libp2p/specs/blob/master/identify/README.md). The `protocolVersion` of every identify message a node sends is `/logos-blockchain/<genesis_id>/identify`. `<genesis_id>` is `GENESIS_BLOCK_ID` of [Fork Digest](#fork-digest), in lowercase hexadecimal. `<fork_digest>` is the fork digest $`F_n`$ of an era $`n`$, in lowercase hexadecimal. Such an identifier is an identifier of era $`n`$. `<protocol>` is the identifier the protocol's own specification defines.
 
 A node sends a message it generates over the identifiers of the era in force at generation. A node relays or releases a received or processed Blend message, and broadcasts its payload, over the identifiers of the era of the connection it arrived on. A node publishes a proposal it accepts, and a transaction it admits to its mempool, on the topic of the era in force. A [synchronization](cryptarchia-v1-bootstr-sync.md#downloading-blocks) response carries blocks of any era.
 
-A node warns its operator when a peer lists, in the `protocols` field of its [identify](https://github.com/libp2p/specs/blob/master/identify/README.md) message, an identifier other than those of Kademlia and identify whose fork digest is none of the fork digests of the node's schedule. The warning does not stop the node.
+A node warns its operator when a peer whose identify message carries the node's own `protocolVersion` lists, in the `protocols` field of that message, an identifier other than that of Kademlia whose fork digest is none of the fork digests of the node's schedule. The warning does not stop the node.
