@@ -61,7 +61,7 @@ CHAIN_STATE_LAYOUT_VERSION: uint16 = 1   # the layout this document defines
 
 ## Encoding Rules
 
-The state is encoded under rules 1, 2 and 4 of [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding), with the terminals of [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures). A structure that Mantle Transaction Encoding defines, such as `Note` or `Locator`, is encoded as it defines. In addition:
+The state is encoded under rules 1, 2 and 4 of [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding), with the terminals of [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures). A structure that Mantle Transaction Encoding defines, such as `Note` or `Locators`, is encoded as it defines. In addition:
 
 1. A list, a set or a map is encoded as a `UINT32` count of its entries, followed by the entries. Every collection of the state holds fewer than $`2^{32}`$ entries, as [Ledger Root](cryptarchia-proof-of-leadership.md#ledger-root) bounds the notes. Otherwise its count does not fit.
 2. A list keeps its own order. A set lists its elements, and a map its keys, in ascending order.
@@ -79,9 +79,9 @@ The recorded chain state of layout version 1 is `CHAIN_STATE_LAYOUT_VERSION` fol
 | `notes` | map `NoteId` → `LedgerNote` | The notes of the [ledger](bedrock-v1.1-mantle-specification.md#ledger), each with its leaf position in the note tree ([Ledger Root](cryptarchia-proof-of-leadership.md#ledger-root)). |
 | `channel_notes` | map `NoteId` → `ChannelId` | [Channel Notes](bedrock-v1.1-mantle-specification.md#channel-notes) |
 | `channels` | map `ChannelId` → `ChannelState` | [Channel Operations](bedrock-v1.1-mantle-specification.md#channel-operations) |
-| `declarations` | map `DeclarationId` → `DeclarationInfo` | [Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage) |
-| `sdp_snapshot` | map `DeclarationId` → `DeclarationInfo` | The [snapshot](bedrock-service-declaration-protocol.md#snapshots) for the epoch of B. |
-| `next_sdp_snapshot` | map `DeclarationId` → `DeclarationInfo` | The snapshot for the epoch after the epoch of B. |
+| `declarations` | map `ServiceType` → map `DeclarationId` → `DeclarationInfo` | Each `ServiceType` maps to its declarations in [Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage). Every `ServiceType` has an entry, which is empty when the service has no declaration. |
+| `sdp_snapshot` | map `ServiceType` → map `DeclarationId` → `DeclarationInfo` | `declarations` as of the [snapshot](bedrock-service-declaration-protocol.md#snapshots) for the epoch of B. |
+| `next_sdp_snapshot` | map `ServiceType` → map `DeclarationId` → `DeclarationInfo` | `declarations` as of the snapshot for the epoch after the epoch of B. |
 | `voucher_tree` | list of `VoucherPeak` | The [voucher tree](bedrock-anonymous-leaders-reward.md#voucher-creation-and-inclusion), holding the `leader_voucher` of every block after the Genesis block up to B. |
 | `last_voucher_root` | `FieldElement` | The root of `voucher_tree` when the epoch of B started, or 0 in epoch 0 ([Leaders Reward](bedrock-anonymous-leaders-reward.md#leaders-reward)). |
 | `last_voucher_count` | `UINT64` | The number of vouchers in `voucher_tree` when the epoch of B started, or 0 in epoch 0. |
@@ -105,7 +105,7 @@ The recorded chain state of layout version 1 is `CHAIN_STATE_LAYOUT_VERSION` fol
 | `storage_gas_used` | `UINT64` | $`C_{usage}`$ of the epoch of B, up to B ([State Variables](storage-markets.md#state-variables)). |
 | `pooled_fees_window` | list of `UINT64` | $`D_{1,\tau}`$ of the last $`T`$ blocks, oldest first and ending with B ([Block Rewards](block-rewards.md#block-rewards)). |
 
-`service_notes` ([Service notes](bedrock-v1.1-mantle-specification.md#service-notes)) is not a component. Its keys are the `service_note_id` values of `declarations`, and each key maps to the declarations that name it.
+Of the state that Mantle keeps for [SDP Operations](bedrock-v1.1-mantle-specification.md#service-declaration-protocol-sdp-operations), only `declarations` is a component. The rest is derived from it.
 
 The key of each `notes` entry is the `NoteId` that [Note Id](bedrock-v1.1-mantle-specification.md#note-id) derives from the entry's `op_id`, `output_number` and `note`.
 
@@ -125,7 +125,7 @@ TipSlot          = UINT64
 TipSequencer     = UINT16
 TipSequencerStartingSlot = UINT64
 
-DeclarationInfo  = SDPDeclare Created Active WithdrawAt Nonce
+DeclarationInfo  = ServiceType ProviderId ServiceNoteId Locators ZkId Created Active WithdrawAt Nonce
 Created          = UINT32
 Active           = UINT32
 WithdrawAt       = %x00 / %x01 UINT32    ; absent, or the epoch of the withdrawal
@@ -135,7 +135,6 @@ Height           = Byte                  ; strictly decreasing along the list
 
 BlendTarget      = Participants LedgerAged EpochNonce Lottery0 Lottery1 BlendDifficulty Income
 Participants     = UINT32 *(ProviderId BlendParticipant)  ; ascending ProviderId
-ProviderId       = Ed25519PublicKey
 BlendParticipant = ZkPublicKey Distance
 Distance         = %x00 / %x01 UINT64    ; absent, or the Hamming distance of the accepted activity proof
 LedgerAged       = FieldElement          ; the aged note-tree root of the target epoch
@@ -150,7 +149,7 @@ Blocks           = UINT64
 Transactions     = UINT64
 ```
 
-`ConfigThreshold`, `PostingTimeframe`, `PostingTimeout`, `TransferThreshold`, `SDPDeclare` and `Nonce` are those of [Mantle Transaction Encoding](mantle-transaction-encoding.md).
+`ConfigThreshold`, `PostingTimeframe`, `PostingTimeout`, `TransferThreshold`, `ServiceType`, `ProviderId`, `ServiceNoteId`, `Locators`, `ZkId` and `Nonce` are those of [Mantle Transaction Encoding](mantle-transaction-encoding.md).
 
 ## State Digest
 

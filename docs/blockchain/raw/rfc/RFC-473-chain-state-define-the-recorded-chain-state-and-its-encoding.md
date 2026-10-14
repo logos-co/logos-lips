@@ -9,18 +9,19 @@
 | v1 | Initial RFC | 2026-10-06 |
 | v2 | Bedrock Eras defines the recorded chain state only as the list of Bedrock Chain State; the narrower definition beside the link is removed. | 2026-10-14 |
 |  | Collection counts are `UINT32`, as the implementation's canonical codec writes them for a collection bounded at `u32::MAX`, and every collection holds fewer than 2<sup>32</sup> entries. | 2026-10-14 |
+| v3 | `declarations` and the two snapshots hold one map per service type, and a declaration's fields take the implementation's order. A snapshot holds the registry as the SDP specification defines it, so §Snapshots is no longer changed. | 2026-10-14 |
 
 ## Reviewer Orientation
 
-Read the PR's Motivation first. Every resolution below follows the reference implementation, `logos-blockchain` at `5a7d8f0b`, where the specifications disagreed with each other or said nothing; [Decisions](#decisions) lists each one.
+Read the PR's Motivation first. Where the specifications disagreed with each other or said nothing, the resolutions below follow the reference implementation, `logos-blockchain` at `5a7d8f0b`. [Decisions](#decisions) lists each one, and says where the state departs from the implementation.
 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
-| 1 | Critical | **Start here**: [Bedrock Chain State](../bedrock-chain-state.md), [details](#1-the-component-list-and-its-encoding) | the 28 components and the value each holds after a block; what is left out; the rules for order, counts and optional values; the layout version and the digest |
+| 1 | Critical | **Start here**: [Bedrock Chain State](../bedrock-chain-state.md), [details](#1-the-component-list-and-its-encoding) | the 28 components and the value each holds after a block; declarations and snapshots by service type; what is left out; the rules for order, counts and optional values; the layout version and the digest |
 | 2 | Critical | **Start here**: [Mantle](../bedrock-v1.1-mantle-specification.md), [details](#2-the-ledger) | the ledger as a map with leaf positions, filled at the first empty leaf; `pow_nullifiers` with slots; claims checked against `block_slots` ([details](#4-proof-of-work-state)) |
 | 3 | Critical | [Anonymous Leaders Reward Protocol](../bedrock-anonymous-leaders-reward.md), [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md), [details](#3-the-voucher-tree) | vouchers appended with their block; root and count recorded at each epoch start; the tree's definition; the share computed at each claim |
 | 4 | High | [Proof of Work](../proof-of-work.md), [Bedrock Genesis Block](../bedrock-genesis-block.md), [details](#4-proof-of-work-state) | insertion into and pruning of `block_slots` and `pow_nullifiers`; the Genesis block in `block_slots` and out of the Blend difficulty's count |
-| 5 | High | [Service Declaration Protocol](../bedrock-service-declaration-protocol.md), [details](#5-declarations-and-snapshots) | what a snapshot holds; `declarations` keyed by `declaration_id`; the field order |
+| 5 | High | [Service Declaration Protocol](../bedrock-service-declaration-protocol.md), [Mantle](../bedrock-v1.1-mantle-specification.md), [details](#5-declarations) | `declarations` keyed by `declaration_id`; the field order of `DeclarationInfo` |
 | 6 | High | [Blend Protocol](../blend-protocol.md), [Service Reward Distribution Protocol](../bedrock-service-reward-distribution.md), [details](#6-blend-reward-records) | the ledger records distances, not messages; when an epoch's rewards are not calculated; `Rewards^n` not stored |
 | 7 | Medium | [Execution Market](../execution-market.md), [Storage Markets](../storage-markets.md), [Block Rewards](../block-rewards.md), [details](#7-fee-markets-and-the-pooled-fee-window) | starting values; the usage tally; one price update per ended epoch; the window's order |
 | 8 | Low | [Bedrock Eras](../bedrock-eras.md), [Cryptarchia Bootstrapping & Synchronization](../cryptarchia-v1-bootstr-sync.md), [details](#8-pointers) | skim: the definition and the checkpoint encoding now point to Bedrock Chain State |
@@ -33,10 +34,10 @@ The specifications did not define the recorded chain state precisely enough to e
 
 1. **The ledger.** Mantle declared `notes: list[Note]` and also "a dictionary mapping the NoteId to the note"; no declared state held a note's leaf position, which the ledger root depends on. Mantle reused leaves from "the list of unused leaves" without an order, and Proof of Leadership took "the first empty leaf". The implementation keeps `NoteId → (op_id, output_number, note, position)` and takes the smallest empty position. `notes` is that map, and the empty leaves follow from the occupied ones. `op_id` and `output_number` are kept, although no validation rule reads them: a wallet that restores from a checkpoint needs them for the leadership witnesses of its own notes. The `NoteId` key is carried and must equal its derivation.
 2. **Order of maps and sets.** Ascending key, integers and field elements by value, other keys byte by byte. The implementation keeps most maps in hash tries with no order. Its own serialized note tree is ordered by leaf position; ordering `notes` by position instead is the alternative.
-3. **Counts.** A `UINT32` count for every collection of the state. The implementation's canonical codec writes a count in 1, 2 or 4 bytes by the collection's bound, and in 4 bytes for a bound of `u32::MAX`, so the node can encode every state collection with its existing codec. The persisted state it keeps today uses 8-byte counts. Every collection holds fewer than 2<sup>32</sup> entries: Proof of Leadership already bounds the notes so, one below the note tree's 2<sup>32</sup> leaves. Counting each collection by its own bound, as the codec allows, would need a stated bound for collections that have none, such as `channels` and `declarations`. A structure that Mantle Transaction Encoding already defines, such as the `SDPDeclare` part of a declaration, keeps that encoding's widths.
-4. **Derived and unread state is left out.** `service_notes` is derived from `declarations`. The SDP `events` index is read by no rule and not stored by the implementation.
-5. **SDP snapshots.** The SDP specification snapshots "the SDP registry" and leaves exclusions to each service; Bedrock Eras recorded "the snapshots of the current and later epochs". The implementation holds exactly two, for the epoch of B and the next, each filtered to the declarations active for its epoch as of the last slot of the epoch two before. This change follows the implementation.
-6. **Declaration field order.** Mantle, the SDP specification and the implementation used three different orders. Mantle's order is kept: its first five fields are the `SDPDeclare` payload, so the record reuses that encoding.
+3. **Counts.** A `UINT32` count for every collection of the state. The implementation's canonical codec writes a count in 1, 2 or 4 bytes by the collection's bound, and in 4 bytes for a bound of `u32::MAX`, so the node can encode every state collection with its existing codec. The persisted state it keeps today uses 8-byte counts. Every collection holds fewer than 2<sup>32</sup> entries: Proof of Leadership already bounds the notes so, one below the note tree's 2<sup>32</sup> leaves. Counting each collection by its own bound, as the codec allows, would need a stated bound for collections that have none, such as `channels` and `declarations`. A structure that Mantle Transaction Encoding already defines, such as the `Locators` of a declaration, keeps that encoding's widths.
+4. **Derived and unread state is left out.** Of the state Mantle keeps for SDP Operations, only `declarations` is recorded. The rest, such as `service_notes`, is derived from it. The implementation stores `service_notes`, with a copy of each note. The SDP `events` index is read by no rule and not stored by the implementation. The implementation's leader state also stores its epoch, which is the epoch of B.
+5. **SDP snapshots.** Bedrock Eras recorded "the snapshots of the current and later epochs". Two are recorded, for the epoch of B and the next, as in the implementation. Each is the SDP registry at the block the SDP specification names, and a service excludes declarations only when it derives its participant set for an epoch. The implementation stores each snapshot already filtered to the declarations active in its epoch, and drops a service with none. Filtering when the set is derived lets an era that changes `inactivity_period` apply it to the snapshots it inherits. The cost is that the snapshots also carry the declarations a service excludes.
+6. **Declarations by service.** Mantle and the SDP specification keep one map of declarations for all services, and this change leaves their rules as they are. The implementation keeps one map per service. It creates the Blend service's map at genesis, and keeps a service's map when its last declaration is removed. The encoding groups `declarations` and both snapshots by service type in the same way, with an entry for every service type. Mantle, the SDP specification and the implementation also ordered a declaration's fields in three different ways. This change uses the implementation's order in both specifications and in the encoding.
 7. **The voucher tree.** The leader-reward specification and Block Construction appended a block's voucher "when the following epoch starts", and called the set both a depth-32 Merkle tree and an MMR frontier. The implementation appends every voucher with its block and records the root and the voucher count at each epoch start, which claims then use. Both select the same claimable vouchers. This change follows the implementation, and states the tree's leaves, empty value and node hash, which no specification gave. In epoch 0 the recorded root and count are 0, as in the implementation, not the root of an empty tree.
 8. **The leader share.** The specifications did not say what `|voucher_cm|` counts or when the share is computed. The implementation computes it at each claim, from the voucher count recorded at the epoch start and the size of the nullifier set.
 9. **Proof of work state.** Mantle declared `pow_nullifiers` a set, but each entry expires with the block its claim referenced, which needs that block's slot; `block_slots` was declared but read by no rule; and the acceptance window said a nullifier "may be discarded". The implementation maps each nullifier to the referenced block's slot, prunes both maps at every block, and checks claims against `block_slots`, which holds B and its ancestors within `WINDOW`, the Genesis block included. This change follows the implementation; pruning becomes a rule.
@@ -76,7 +77,7 @@ Bedrock has not launched. Layout version 1 is the layout of era 0, and no existi
 - proof of work: `pow_reward_pool`, `epoch_pow_reward`, `difficulty_reward`, `pow_pool_refill`, `pow_nullifiers`, `block_slots`, `epoch_tx_counts`, `closed_epoch_tx_counts`;
 - fees: `execution_base_fee`, `average_execution_gas`, `permanent_storage_gas_price`, `storage_gas_average`, `storage_gas_used`, `pooled_fees_window`.
 
-Encoding rules beyond Mantle Transaction Encoding: a collection is a `UINT32` count followed by its entries, and holds fewer than 2<sup>32</sup> entries; sets and maps are in ascending order, integers and field elements by value and other keys byte by byte; an optional value is `0x00`, or `0x01` and the value; a decoder rejects unordered or repeated keys. `service_notes` is derived from `declarations`. The `NoteId` key of a `notes` entry must equal its derivation.
+Encoding rules beyond Mantle Transaction Encoding: a collection is a `UINT32` count followed by its entries, and holds fewer than 2<sup>32</sup> entries; sets and maps are in ascending order, integers and field elements by value and other keys byte by byte; an optional value is `0x00`, or `0x01` and the value; a decoder rejects unordered or repeated keys. `declarations` maps every service type to that service's declarations, and the two snapshots are earlier values of `declarations`. The rest of the SDP state is derived from `declarations`. The `NoteId` key of a `notes` entry must equal its derivation.
 
 ```python
 def state_digest(encoded_state: bytes) -> Hash32:
@@ -125,14 +126,13 @@ Execution step 1 inserts `puzzle_ticket` with the value `block_slots[claim.block
 
 [Bedrock Genesis Block](../bedrock-genesis-block.md) §Mantle Ledger Initialization: `block_slots` holds the Genesis block at slot 0.
 
-## 5. Declarations and snapshots
+## 5. Declarations
 
-[Service Declaration Protocol](../bedrock-service-declaration-protocol.md):
-
-- §Snapshots: the snapshot for epoch $`n`$ holds the declarations stored as of the last slot of epoch $`n-2`$, except those a service excludes from its participant set for epoch $`n`$;
-- §Declaration Storage: `declarations: dict[DeclarationId, DeclarationInfo]`, keyed by `declaration_id`, and `DeclarationInfo` in Mantle's field order.
+[Service Declaration Protocol](../bedrock-service-declaration-protocol.md) §Declaration Storage: `declarations: dict[DeclarationId, DeclarationInfo]`, keyed by `declaration_id`.
 
 [Mantle](../bedrock-v1.1-mantle-specification.md) `SDP_DECLARE`: its `declarations` are keyed by the declaration identifier, not by `NoteId`.
+
+In both specifications, `DeclarationInfo` lists `service`, `provider_id`, `service_note_id`, `locators` and `zk_id`, then the lifecycle fields, as the implementation does.
 
 ## 6. Blend reward records
 
@@ -160,7 +160,8 @@ Execution step 1 inserts `puzzle_ticket` with the value `block_slots[claim.block
 
 # Implementation
 
-- [ ] Encode the recorded chain state as layout version 1, and decode it, rejecting unordered keys and trailing bytes
+- [ ] Encode the recorded chain state as layout version 1, and decode it, rejecting unordered keys and trailing bytes, and rebuilding `service_notes` from `declarations`
+- [ ] Keep the two SDP snapshots unfiltered, with an entry for every service type, and filter a snapshot when a service derives its participant set from it
 - [ ] Give every map and set of the state the canonical order, in place of hash-trie and `HashMap` iteration
 - [ ] Encode `pooled_fees_window` oldest first, and drop `block_number` from the encoded state
 - [ ] Compute the state digest
@@ -172,12 +173,12 @@ Execution step 1 inserts `puzzle_ticket` with the value `block_slots[claim.block
 | Specification | Status | Note |
 | --- | --- | --- |
 | [Bedrock Chain State](../bedrock-chain-state.md) | Created | component list, encoding rules, layout version, state digest |
-| [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | ledger map with leaf positions, proof of work state and claim checks, `execution_base_fee`, `SDP_DECLARE` key |
+| [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | ledger map with leaf positions, proof of work state and claim checks, `execution_base_fee`, `SDP_DECLARE` key, `DeclarationInfo` field order |
 | [Anonymous Leaders Reward Protocol](../bedrock-anonymous-leaders-reward.md) | Modified | voucher append and epoch-start record, tree definition, share |
 | [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md) | Modified | voucher appended with its block |
 | [Proof of Work](../proof-of-work.md) | Modified | `block_slots` and `pow_nullifiers` maintenance, Genesis block not counted for the Blend difficulty |
 | [Bedrock Genesis Block](../bedrock-genesis-block.md) | Modified | `block_slots` at Genesis |
-| [Service Declaration Protocol](../bedrock-service-declaration-protocol.md) | Modified | snapshot contents, `declarations` type, field order |
+| [Service Declaration Protocol](../bedrock-service-declaration-protocol.md) | Modified | `declarations` type, field order |
 | [Blend Protocol](../blend-protocol.md) | Modified | recorded distances, when rewards are not calculated |
 | [Service Reward Distribution Protocol](../bedrock-service-reward-distribution.md) | Modified | Blend epoch rewards, `Rewards^n` not stored |
 | [Execution Market](../execution-market.md) | Modified | starting $`G_{avg}`$ |
