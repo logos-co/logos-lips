@@ -37,6 +37,7 @@
 | 1.2.5 | Required the slot of a referenced [uncle](#uncle-references) to exceed the slot of its parent. | 2026-10-06 |
 | 1.3.0 | Versioning and upgrade activation moved to eras, uncles restricted to the era of the referencing block, the first slot of an epoch taken from the era schedule, and the latest immutable block kept from moving back ([Bedrock Eras](bedrock-eras.md)). | 2026-09-04 |
 | 1.4.0 | Removed the `bedrock_version` header field and moved `slot` to the first header field ([Bedrock Eras](bedrock-eras.md)): the header is 296 bytes and a signed header 360. | 2026-09-04 |
+| 1.5.0 | A node that bootstrapped from a checkpoint takes the values its epoch state and uncle checks read at or before the checkpoint block from the checkpoint. | 2026-10-06 |
 
 # Introduction
 
@@ -244,6 +245,8 @@ $`\text{define } \textbf{compute\_epoch\_state}(ep, tip \in T)\to(\mathbb{C}_\te
 &nbsp;&nbsp;&nbsp;&nbsp;$`D^{ep} \coloneqq \textbf{infer\_total\_active\_stake}(D^{ep-1}, N_\text{BLOCKS}^{ep-1})`$
 
 &nbsp;&nbsp;&nbsp;&nbsp;$`\textbf{return}\space (\mathbb{C}_\text{LEAD}^{ep}, \eta^{ep}, D^{ep})`$
+
+A node that bootstrapped from a checkpoint for a block $`B`$ ([Bootstrapping from Checkpoint](cryptarchia-v1-bootstr-sync.md#bootstrapping-from-checkpoint)) holds no block before $`B`$. It takes every value that this pseudocode or [Uncle References](#uncle-references) reads at or before $`B`$ from the checkpoint ([Checkpoint Contents](cryptarchia-v1-bootstr-sync.md#checkpoint-contents)). For the epoch of $`B`$ and the epoch before it, $`\textbf{compute\_epoch\_state}`$ returns the carried epoch state.
 
 ## Leadership Lottery
 
