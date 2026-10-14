@@ -2172,7 +2172,7 @@ The material used for the benchmarks is the following:
 - OS        : Ubuntu 22.04.5 LTS
 - Kernel    : 6.8.0-59-generic
 
-TODO: update the benchmark
+![Diagram](bedrock-v1.1-mantle-specification/assets/zkprogramspend_proving_time_vs_threads.png)
 
 ## Multiple Ed25519 Signatures Verification
 

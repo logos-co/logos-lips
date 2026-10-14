@@ -46,9 +46,6 @@ Users stay hidden: payments consume notes by nullifier, and the notes a program 
 ## Open questions
 
 > **TODO (author):** the Execution Gas of `PROGRAM_REGISTER`, of the `ZkProgramSpend` and of the program proof, from measurements.
-
-> **TODO (author):** the circuit of the `ZkProgramSpend`, its constraint count and its proving time.
-
 # Details
 
 ## 1. Program notes
@@ -106,7 +103,7 @@ Validation of a program step, in order:
 3. The program spend consumes unspent notes of the program, possibly none, and its `ZkProgramSpend` verifies with `paid_value` the sum of the payments, `spend_notes_hash`, and the `op_id` of the inscription.
 4. The program proof verifies under the registered key on `(spend_notes_hash, payments_hash(step), op_id)`.
 
-The `ZkProgramSpend` is the ZkTransfer with program checks: its inputs are notes of `program_id`, its outputs are notes of `program_id` or user notes, `spend_notes_hash` commits to the active flag and the note of every input and output, and `sum(inputs_value) + paid_value == sum(outputs_value)`. Its used inputs and outputs are marked by the public flags `inputs_active` and `outputs_active`, set from the published lists as in the ZkTransfer. It is proven by the sequencer.
+The `ZkProgramSpend` is the ZkTransfer with program checks: its inputs are notes of `program_id`, its outputs are notes of `program_id` or user notes, `spend_notes_hash` commits to the active flag and the note of every input and output, and `sum(inputs_value) + paid_value == sum(outputs_value)`. Its used inputs and outputs are marked by the public flags `inputs_active` and `outputs_active`, set from the published lists as in the ZkTransfer. It is proven by the sequencer. The circuit (`program_spend` in [logos-blockchain-circuits](https://github.com/logos-blockchain/logos-blockchain-circuits)) has 66,481 constraints and proves in about 2.1 s on one thread and 0.3 s on 32 threads (see the Mantle benchmark).
 
 ## 3. What enforces what
 
