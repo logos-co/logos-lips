@@ -45,13 +45,9 @@ Out of the channel, the holder withdraws alone. The withdrawal takes effect `WIT
 
 All the data of a step lands on chain: its nullifiers, its commitments and its proof. Steps are not compressed, so a channel costs the chain as much per move as the ledger does. Steps carry no `excess_value`, so a move inside a channel pays no fee from channel funds, and the fee of the inscription comes from its sequencer.
 
-> **TODO (author):** state the compression planned for steps (proof aggregation, and later a transition proof over the hash of the nullifiers and commitments with data availability), and the step volume at which it pays off.
-
 ## Root window and commitment buffer
 
 A ZkTransfer proves its inputs against a commitment root of their set from one of the last 1024 blocks. A wallet can therefore build its proof against a root a few blocks old and still be included. Inside a Mantle Transaction, the commitments created by earlier Operations go into the buffer of their set, and a proof is verified against its referenced root with that buffer appended. A note created in a block can be spent from the next block on, or later in the same transaction.
-
-> **TODO (author):** explain why 1024 blocks.
 
 ## SDP stake
 
