@@ -7,6 +7,8 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-10-06 |
+| v2 | Bedrock Eras defines the recorded chain state only as the list of Bedrock Chain State; the narrower definition beside the link is removed. | 2026-10-14 |
+|  | Collection counts are `UINT32`, as the implementation's canonical codec writes them for a collection bounded at `u32::MAX`, and every collection holds fewer than 2<sup>32</sup> entries. | 2026-10-14 |
 
 ## Reviewer Orientation
 
@@ -31,7 +33,7 @@ The specifications did not define the recorded chain state precisely enough to e
 
 1. **The ledger.** Mantle declared `notes: list[Note]` and also "a dictionary mapping the NoteId to the note"; no declared state held a note's leaf position, which the ledger root depends on. Mantle reused leaves from "the list of unused leaves" without an order, and Proof of Leadership took "the first empty leaf". The implementation keeps `NoteId → (op_id, output_number, note, position)` and takes the smallest empty position. `notes` is that map, and the empty leaves follow from the occupied ones. `op_id` and `output_number` are kept, although no validation rule reads them: a wallet that restores from a checkpoint needs them for the leadership witnesses of its own notes. The `NoteId` key is carried and must equal its derivation.
 2. **Order of maps and sets.** Ascending key, integers and field elements by value, other keys byte by byte. The implementation keeps most maps in hash tries with no order. Its own serialized note tree is ordered by leaf position; ordering `notes` by position instead is the alternative.
-3. **Counts.** A `UINT64` count for every collection of the state, so `notes` can hold all 2<sup>32</sup> leaves. A structure that Mantle Transaction Encoding already defines, such as the `SDPDeclare` part of a declaration, keeps that encoding's widths.
+3. **Counts.** A `UINT32` count for every collection of the state. The implementation's canonical codec writes a count in 1, 2 or 4 bytes by the collection's bound, and in 4 bytes for a bound of `u32::MAX`, so the node can encode every state collection with its existing codec. The persisted state it keeps today uses 8-byte counts. Every collection holds fewer than 2<sup>32</sup> entries: Proof of Leadership already bounds the notes so, one below the note tree's 2<sup>32</sup> leaves. Counting each collection by its own bound, as the codec allows, would need a stated bound for collections that have none, such as `channels` and `declarations`. A structure that Mantle Transaction Encoding already defines, such as the `SDPDeclare` part of a declaration, keeps that encoding's widths.
 4. **Derived and unread state is left out.** `service_notes` is derived from `declarations`. The SDP `events` index is read by no rule and not stored by the implementation.
 5. **SDP snapshots.** The SDP specification snapshots "the SDP registry" and leaves exclusions to each service; Bedrock Eras recorded "the snapshots of the current and later epochs". The implementation holds exactly two, for the epoch of B and the next, each filtered to the declarations active for its epoch as of the last slot of the epoch two before. This change follows the implementation.
 6. **Declaration field order.** Mantle, the SDP specification and the implementation used three different orders. Mantle's order is kept: its first five fields are the `SDPDeclare` payload, so the record reuses that encoding.
@@ -74,7 +76,7 @@ Bedrock has not launched. Layout version 1 is the layout of era 0, and no existi
 - proof of work: `pow_reward_pool`, `epoch_pow_reward`, `difficulty_reward`, `pow_pool_refill`, `pow_nullifiers`, `block_slots`, `epoch_tx_counts`, `closed_epoch_tx_counts`;
 - fees: `execution_base_fee`, `average_execution_gas`, `permanent_storage_gas_price`, `storage_gas_average`, `storage_gas_used`, `pooled_fees_window`.
 
-Encoding rules beyond Mantle Transaction Encoding: a collection is a `UINT64` count followed by its entries; sets and maps are in ascending order, integers and field elements by value and other keys byte by byte; an optional value is `0x00`, or `0x01` and the value; a decoder rejects unordered or repeated keys. `service_notes` is derived from `declarations`. The `NoteId` key of a `notes` entry must equal its derivation.
+Encoding rules beyond Mantle Transaction Encoding: a collection is a `UINT32` count followed by its entries, and holds fewer than 2<sup>32</sup> entries; sets and maps are in ascending order, integers and field elements by value and other keys byte by byte; an optional value is `0x00`, or `0x01` and the value; a decoder rejects unordered or repeated keys. `service_notes` is derived from `declarations`. The `NoteId` key of a `notes` entry must equal its derivation.
 
 ```python
 def state_digest(encoded_state: bytes) -> Hash32:
