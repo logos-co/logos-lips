@@ -63,7 +63,7 @@ CHAIN_STATE_LAYOUT_VERSION: uint16 = 1   # the layout this document defines
 
 The state is encoded under rules 1, 2 and 4 of [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding), with the terminals of [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures). A structure that Mantle Transaction Encoding defines, such as `Note` or `Locator`, is encoded as it defines. In addition:
 
-1. A list, a set or a map is encoded as a `UINT64` count of its entries, followed by the entries.
+1. A list, a set or a map is encoded as a `UINT32` count of its entries, followed by the entries. Every collection of the state holds fewer than $`2^{32}`$ entries, as [Ledger Root](cryptarchia-proof-of-leadership.md#ledger-root) bounds the notes. Otherwise its count does not fit.
 2. A list keeps its own order. A set lists its elements, and a map its keys, in ascending order.
 3. An integer or a field element compares by its value. Any other element or key compares byte by byte.
 4. A map entry is its key followed by its value.
@@ -118,7 +118,7 @@ Position         = UINT32                ; the note's leaf in the note tree
 ChannelState     = AccreditedKeys ConfigThreshold TipHash ConfigTipHash TipSlot
                    TipSequencer TipSequencerStartingSlot PostingTimeframe PostingTimeout
                    TransferThreshold
-AccreditedKeys   = UINT64 *Ed25519PublicKey   ; in configured order
+AccreditedKeys   = UINT32 *Ed25519PublicKey   ; in configured order
 TipHash          = Hash32
 ConfigTipHash    = Hash32
 TipSlot          = UINT64
@@ -134,7 +134,7 @@ VoucherPeak      = FieldElement Height   ; the root of one perfect subtree of th
 Height           = Byte                  ; strictly decreasing along the list
 
 BlendTarget      = Participants LedgerAged EpochNonce Lottery0 Lottery1 BlendDifficulty Income
-Participants     = UINT64 *(ProviderId BlendParticipant)  ; ascending ProviderId
+Participants     = UINT32 *(ProviderId BlendParticipant)  ; ascending ProviderId
 ProviderId       = Ed25519PublicKey
 BlendParticipant = ZkPublicKey Distance
 Distance         = %x00 / %x01 UINT64    ; absent, or the Hamming distance of the accepted activity proof
