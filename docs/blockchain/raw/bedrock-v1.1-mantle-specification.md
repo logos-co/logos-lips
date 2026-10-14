@@ -387,8 +387,6 @@ This makes delegated staking explicit. Sequencers can assign a channel note to t
 
 Write a message to a channel with the message data being permanently stored on the Logos Blockchain.
 
-The inscription is opaque channel-specific data.
-
 #### Payload
 
 ```python
@@ -717,7 +715,7 @@ ledger: Ledger
 
   *Validate*
 
-  1. Ensure the metadata payload, excluding its `UINT32` length prefix, does not exceed `MAX_OPERATION_DATA_SIZE`.
+  1. Ensure the metadata does not exceed `MAX_OPERATION_DATA_SIZE`.
       ```python
       assert len(deposit.metadata) <= MAX_OPERATION_DATA_SIZE
       ```
