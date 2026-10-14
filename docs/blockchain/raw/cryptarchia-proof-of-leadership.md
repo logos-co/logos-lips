@@ -133,8 +133,10 @@ class ProofOfLeadershipWitness:
     cm_aged_selectors: list[boolean]
     nf_root_aged: MerkleRoot          # nullifier IMT root of the set when the stake distribution was frozen
     set_aged_path: list[FrElement]    # path of the leaf of the set to eligible_aged (len = 32)
-    low_leaf: NullifierLeaf           # IMT leaf of the greatest nullifier lower than the note nullifier
-    low_leaf_path: list[FrElement]
+    low_leaf_nf: NoteNf               # greatest nullifier of the set lower than the note nullifier
+    low_leaf_next_nf: NoteNf          # next greater nullifier of the set, 0 if none
+    low_leaf_next_index: int          # index of the IMT leaf holding low_leaf_next_nf, 0 if none
+    low_leaf_path: list[FrElement]    # path of the IMT leaf of low_leaf_nf (len = 32)
     low_leaf_selectors: list[boolean]
     cm_root_latest: MerkleRoot        # latest commitment MMR root of the set
     set_latest_path: list[FrElement]  # path of the leaf of the set to eligible_latest (len = 32)
@@ -165,14 +167,18 @@ Such that the following constraints hold:
 - The note is unspent: its nullifier is not in the latest [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of the same note set, the same `set_selectors` placing both leaves at the position of that set.
   ```python
   nf = zkhash(FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p), cm, sk)
-  nf_root_latest = path_root(leaf=nullifier_leaf_hash(low_leaf),
+  low_leaf = zkhash(FiniteField(b"NULLIFIER_IMT_LEAF_V1", byte_order="little", modulus= p),
+      low_leaf_nf,
+      low_leaf_next_nf,
+      FiniteField(low_leaf_next_index, byte_order="little", modulus= p))
+  nf_root_latest = path_root(leaf=low_leaf,
       path=low_leaf_path,
       selectors=low_leaf_selectors)
   assert eligible_latest == path_root(leaf=eligible_leaf(cm_root_latest, nf_root_latest),
       path=set_latest_path,
       selectors=set_selectors)
-  assert low_leaf.nf < nf
-  assert nf < low_leaf.next_nf or low_leaf.next_nf == 0
+  assert low_leaf_nf < nf
+  assert nf < low_leaf_next_nf or low_leaf_next_nf == 0
   ```
 
 - The note wins the lottery.
