@@ -7,6 +7,8 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-10-06 |
+| v2 | Defined the canonical encoding of a block in Block Construction, which `checkpoint_block` uses; the open question on it is removed. | 2026-10-14 |
+|  | `recent_blocks` reaches back with the uncle window of the checkpoint block's era, and a node refuses a checkpoint when an era of its schedule that begins after the block has a window reaching further back. The consensus state's counts are `UINT32`, as in Bedrock Chain State. | 2026-10-14 |
 
 ## Reviewer Orientation
 
@@ -16,7 +18,8 @@ Read the PR's Motivation first. The recorded chain state a checkpoint carries is
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here**: [Cryptarchia Bootstrapping & Synchronization](../cryptarchia-v1-bootstr-sync.md), [details](#1-checkpoint-contents) | each consensus value against its reader; any value a block after the checkpoint reads before it that the list misses; the reach of `recent_blocks`; when the next epoch's nonce is present |
 | 2 | Critical | [Cryptarchia Protocol](../cryptarchia-v1-protocol.md), [details](#2-epoch-states-after-a-checkpoint) | the epoch-state recursion ends at the carried states; reads at or before the checkpoint block take carried values |
-| 3 | High | [Cryptarchia Bootstrapping & Synchronization](../cryptarchia-v1-bootstr-sync.md), [details](#3-checkpoint-provider-http-api) | the third part of the `GET /checkpoint` response |
+| 3 | Critical | [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md), [details](#4-block-encoding) | the field order of `Block`; the `UINT16` transaction count and its bound |
+| 4 | High | [Cryptarchia Bootstrapping & Synchronization](../cryptarchia-v1-bootstr-sync.md), [details](#3-checkpoint-provider-http-api) | the third part of the `GET /checkpoint` response |
 
 # Discussion
 
@@ -29,12 +32,12 @@ Each point is open for review.
 3. **Epoch $`e-1`$.** An uncle referenced after the checkpoint can have its parent in epoch $`e-1`$ when the checkpoint block lies within $`W \cdot f^{-1}`$ slots of the start of epoch $`e`$, and a proof-of-work claim accepts the previous epoch's nonce. The implementation keeps only that nonce, and validates uncles from the state it holds for each block; a node started from a checkpoint has no such states. The checkpoint carries the whole epoch state of epoch $`e-1`$, but not its `difficulty_blend`, which `blend_target` already holds.
 4. **Aged note sets.** The implementation keeps the aged note sets of the current and the next epoch (`EpochState.utxos`), and proving leadership needs Merkle paths in them. Carrying them lets a node started from a checkpoint lead at once. The alternative carries only their roots, and the node leads from epoch $`e+2`$, the first whose aged notes it observes itself. Each set is a full note map, the size of `notes`.
 5. **Lottery constants.** They are derived from $`D`$, as [Proof of Leadership](../cryptarchia-proof-of-leadership.md) defines them. The implementation stores them as well.
-6. **The reach of `recent_blocks`.** A block $`A`$ after the checkpoint block $`B`$ has $`sl_A \gt sl_B`$, and an uncle's parent precedes $`A`$ by at most $`W \cdot f^{-1}`$ slots. So every parent an uncle check after $`B`$ can reach has a slot greater than $`sl_B - W \cdot f^{-1}`$, and no older block is carried.
+6. **The reach of `recent_blocks`.** A block $`A`$ after the checkpoint block $`B`$ has $`sl_A \gt sl_B`$, and an uncle's parent precedes $`A`$ by at most $`W \cdot f^{-1}`$ slots. So every parent an uncle check after $`B`$ can reach has a slot greater than $`sl_B - W \cdot f^{-1}`$, and no older block is carried. This holds with the $`W`$ and $`f`$ of the era of $`B`$ as long as no later era widens the window. An era that begins at slot $`S`$ with a window $`w`$ lets its first blocks reach back to $`S - w`$, so a node refuses a checkpoint for which $`S - w`$ is not after $`sl_B - W \cdot f^{-1}`$. Forbidding wider windows instead would block an era that shortens slots and raises $`f^{-1}`$ to keep the window's duration.
 7. **Types.** $`D`$ is a `UINT64`, as `total_stake_inference` computes it. `difficulty_blend` and the nonces are field elements.
+8. **The block encoding.** No byte form of a whole block existed: Canonical Encoding covered only the proposal, and the implementation serializes its `Block` with serde, not its canonical codec. `Block` keeps the field order of the `Block` class and of the implementation's struct, and counts its transactions with a `UINT16` bounded by `MAX_BLOCK_TXS`, as the proposal counts its references. Synchronization can use the same encoding.
 
 ## Open questions
 
-- No canonical byte encoding of a `Block` is specified, so `checkpoint_block` has none.
 - Nothing in a checkpoint lets the node check the consensus state. It trusts the provider, as it trusts the recorded chain state.
 - A checkpoint carries the note set three times: the current notes and two aged sets. The aged sets differ from the current notes only by the notes created and spent since, so encoding the differences would shrink them.
 
@@ -53,7 +56,9 @@ No implementation serves or imports checkpoints yet, and Bedrock has not launche
 - `current_epoch`: the aged notes, $`\eta`$, $`D`$ and `difficulty_blend` of epoch $`e`$;
 - `next_epoch`: the aged notes of epoch $`e+1`$, and its nonce once fixed;
 - `occupied_slots`: the slots counted so far for $`N_\text{BLOCKS}`$ of epoch $`e`$;
-- `recent_blocks`: block id, slot and ledger root of the blocks of the chain whose slot is greater than $`sl_B - W \cdot f^{-1}`$.
+- `recent_blocks`: block id, slot and ledger root of the blocks of the chain whose slot is greater than $`sl_B - W \cdot f^{-1}`$, with the $`W`$ and $`f`$ of the era of $`B`$.
+
+A node refuses a checkpoint for $`B`$ when an era $`n`$ of its schedule that begins after $`B`$ has $`\textbf{first\_slot\_of\_era}(n) - W_n \cdot f_n^{-1} \le sl_B - W \cdot f^{-1}`$, and terminates with an error.
 
 ```schema
 ConsensusState   = EpochNonce PreviousEpoch CurrentEpoch NextEpoch OccupiedSlots RecentBlocks
@@ -82,10 +87,24 @@ The aged notes of epoch $`n \ge 1`$ are the `notes` as of the first slot of epoc
 +                                        format: binary
 ```
 
+## 4. Block encoding
+
+[Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md) §Canonical Encoding, after `References`:
+
+```diff
++Block             = Header Ed25519Signature UncleHeaders Transactions
++Transactions      = TransactionCount *SignedMantleTx
++TransactionCount  = UINT16          ; MUST NOT exceed MAX_BLOCK_TXS
+```
+
+The section's scope and rule 3 name the block and the `Transactions` count. §Block states that a block is encoded as `Block`, and `checkpoint_block` is that encoding.
+
 # Implementation
 
 - [ ] Build the consensus state at the checkpoint block: the running epoch nonce, the epoch states of the previous and current epoch, the aged note sets, the next epoch's nonce once fixed, the occupied slots and the recent blocks with their ledger roots
+- [ ] Encode and decode a block canonically as `Block`, rejecting a transaction count above `MAX_BLOCK_TXS` and trailing bytes
 - [ ] Serve `checkpoint_consensus_state` from `GET /checkpoint`, and import all three parts
+- [ ] Refuse a checkpoint when an era of the node's schedule that begins after the checkpoint block has an uncle window reaching before the carried `recent_blocks`
 - [ ] Start the epoch-state derivation, the epoch nonce, the stake inference and uncle validation from the carried values
 - [ ] Add tests that bootstrap from checkpoints before and after the next epoch's nonce snapshot, and within $`W \cdot f^{-1}`$ slots of an epoch start, and check that the node accepts and rejects the same blocks as a node synchronized from genesis
 - [ ] Verify the implementation matches this specification
@@ -96,3 +115,4 @@ The aged notes of epoch $`n \ge 1`$ are the `notes` as of the first slot of epoc
 | --- | --- | --- |
 | [Cryptarchia Bootstrapping & Synchronization](../cryptarchia-v1-bootstr-sync.md) | Modified | checkpoint contents, consensus state, `GET /checkpoint` response |
 | [Cryptarchia Protocol](../cryptarchia-v1-protocol.md) | Modified | epoch states and uncle checks after a checkpoint |
+| [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md) | Modified | canonical encoding of a block |

@@ -28,7 +28,7 @@
 | 1.0.1 | Noted that a streamed `Block` carries the signed headers of the uncles it references, which is what lets a synchronizing node validate those blocks and reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) without ever seeing their proposals, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
 | 1.1.0 | The sync protocol ID is `chainsync` and carries the fork digest in place of the version; blocks are parsed and validated under the era of their slot; the checkpoint state carries the recorded chain state, encoded under the era of the checkpoint block ([Bedrock Eras](bedrock-eras.md)). | 2026-09-04 |
 | 1.1.1 | The checkpoint state uses the encoding of [Bedrock Chain State](bedrock-chain-state.md). | 2026-10-06 |
-| 1.2.0 | A checkpoint also carries the consensus state that the validation of the blocks after it reads at or before it. | 2026-10-06 |
+| 1.2.0 | A checkpoint also carries the consensus state that the validation of the blocks after it reads at or before it, and its block in the canonical block encoding; a node refuses a checkpoint whose recent blocks a later era's uncle window outreaches. | 2026-10-14 |
 
 # Introduction
 
@@ -346,7 +346,7 @@ While the specific implementation is left to the discretion of implementers, one
 
 A checkpoint for a block $`B`$ of epoch $`e`$ has three parts:
 
-1. `checkpoint_block`: the block $`B`$ ([Block](bedrock-v1.1-block-construction.md#block)).
+1. `checkpoint_block`: the block $`B`$, encoded as `Block` of [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding).
 2. `checkpoint_ledger_state`: the recorded chain state after $`B`$, encoded as [Bedrock Chain State](bedrock-chain-state.md) specifies.
 3. `checkpoint_consensus_state`: the values below, encoded as `ConsensusState` under the [Encoding Rules](bedrock-chain-state.md#encoding-rules) of Bedrock Chain State.
 
@@ -359,7 +359,7 @@ The consensus state holds the values that the validation of the blocks after $`B
 | `current_epoch` | `CurrentEpoch` | The aged notes, the epoch state and `difficulty_blend` of epoch $`e`$. | [Proof of Leadership](cryptarchia-proof-of-leadership.md). `epoch_nonce_current` of `CLAIM_POW_REWARD`. The total stake of [Block Rewards](block-rewards.md#key-performance-indicators). The `previous` of [Blend Difficulty](proof-of-work.md#blend-difficulty). The `blend_target` of epoch $`e`$ ([Chain State](bedrock-chain-state.md#chain-state)). |
 | `next_epoch` | `NextEpoch` | The aged notes of epoch $`e+1`$, and its epoch nonce once it is fixed. | `compute_epoch_state` for epoch $`e+1`$ ([Epoch State Pseudocode](cryptarchia-v1-protocol.md#epoch-state-pseudocode)). |
 | `occupied_slots` | set of `UINT64` | The slots that $`N_\text{BLOCKS}`$ of epoch $`e`$ counts, among those up to the slot of $`B`$. | [Epoch State Pseudocode](cryptarchia-v1-protocol.md#epoch-state-pseudocode), for the $`D`$ of epoch $`e+1`$. |
-| `recent_blocks` | list of `RecentBlock` | The blocks of the chain of $`B`$ whose slot is greater than $`sl_B - W \cdot f^{-1}`$, $`B`$ included, oldest first. | [Uncle References](cryptarchia-v1-protocol.md#uncle-references). |
+| `recent_blocks` | list of `RecentBlock` | The blocks of the chain of $`B`$ whose slot is greater than $`sl_B - W \cdot f^{-1}`$, with the $`W`$ and $`f`$ of the era of $`B`$, $`B`$ included, oldest first. | [Uncle References](cryptarchia-v1-protocol.md#uncle-references). |
 
 ```schema
 ConsensusState   = EpochNonce PreviousEpoch CurrentEpoch NextEpoch OccupiedSlots RecentBlocks
@@ -369,13 +369,13 @@ PastEpoch        = LeadRoot Nonce TotalStake
 CurrentEpoch     = AgedNotes Nonce TotalStake BlendDifficulty
 NextEpoch        = AgedNotes NextNonce
 NextNonce        = %x00 / %x01 Nonce              ; present once fixed
-AgedNotes        = UINT64 *(NoteId LedgerNote)    ; encoded as the notes component of Chain State
+AgedNotes        = UINT32 *(NoteId LedgerNote)    ; encoded as the notes component of Chain State
 LeadRoot         = FieldElement                   ; C_LEAD
 Nonce            = FieldElement                   ; the epoch nonce
 TotalStake       = UINT64                         ; D
 BlendDifficulty  = FieldElement                   ; difficulty_blend
-OccupiedSlots    = UINT64 *UINT64                 ; ascending
-RecentBlocks     = UINT64 *RecentBlock            ; oldest first
+OccupiedSlots    = UINT32 *UINT64                 ; ascending
+RecentBlocks     = UINT32 *RecentBlock            ; oldest first
 RecentBlock      = BlockId BlockSlot LedgerRoot
 BlockId          = Hash32
 BlockSlot        = UINT64
@@ -385,6 +385,8 @@ LedgerRoot       = FieldElement                   ; the ledger root after the bl
 The epoch state of an epoch is the tuple $`(\mathbb{C}_\text{LEAD}, \eta, D)`$ of [Epoch State](cryptarchia-v1-protocol.md#epoch-state). The aged notes of epoch $`n \ge 1`$ are the `notes` of [Chain State](bedrock-chain-state.md#chain-state) as of the first slot of epoch $`n-1`$, and those of epoch 0 are the notes after the Genesis block. The $`\mathbb{C}_\text{LEAD}`$ of epochs $`e`$ and $`e+1`$ is the [Ledger Root](cryptarchia-proof-of-leadership.md#ledger-root) of their aged notes.
 
 `NextNonce` is present when the slot of $`B`$ is not before the slot at which [Epoch State Pseudocode](cryptarchia-v1-protocol.md#epoch-state-pseudocode) reads the epoch nonce of epoch $`e+1`$.
+
+A node does not import a checkpoint for $`B`$ if an era $`n`$ of its schedule that begins after the slot of $`B`$ has $`\textbf{first\_slot\_of\_era}(n) - W_n \cdot f_n^{-1} \le sl_B - W \cdot f^{-1}`$, where $`W_n`$ and $`f_n`$ are the $`W`$ and $`f`$ of era $`n`$ and `first_slot_of_era` is that of [Era Boundaries](bedrock-eras.md#era-boundaries). Otherwise a block of era $`n`$ can reference an uncle whose parent `recent_blocks` does not hold. The node is then terminated with an error, allowing the node operator to select another checkpoint.
 
 ## Checkpoint Provider HTTP API
 
