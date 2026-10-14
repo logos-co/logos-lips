@@ -309,7 +309,7 @@ The cost per proof, `A(N) / n + P`, decreases with the size of the batch towards
 
 ### Groth16 Proof Verification Alone
 
-A program proof is the only proof under the key of its program, so it is verified alone, with the verifier of the node for a single proof, `groth16_verify`. That verifier runs three Miller loops and compares their product to the precomputed `e(α, β)`, but folds the public inputs with one scalar multiplication each, about 130k cycles per input, instead of an MSM. It is cheaper than a batch of one proof below about 12 public inputs, and more expensive above, which is why the ZkTransfer and the ZkProgramSpend are always verified in batch.
+Each program proof is verified alone under the key of its program, with the verifier of the node for a single proof, `groth16_verify`. That verifier runs three Miller loops and compares their product to the precomputed `e(α, β)`, but folds the public inputs with one scalar multiplication each, about 140k cycles per input, instead of an MSM. It is cheaper than a batch of one proof below about 12 public inputs, and more expensive above, which is why the ZkTransfer and the ZkProgramSpend are always verified in batch.
 
 Measured with the same method as the batch verification:
 

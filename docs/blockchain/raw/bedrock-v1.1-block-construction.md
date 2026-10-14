@@ -449,4 +449,4 @@ All the ZkTransfer proofs of a block are verified in one batch. The multi-scalar
 
 ### ZkProgramSpend
 
-The ZkProgramSpend proofs of a block are verified the same way, in a second batch under the key of the ZkProgramSpend, shared by every program. A program proof is the only proof under the key of its program and is verified alone.
+The ZkProgramSpend proofs of a block are verified the same way, in a second batch under the key of the ZkProgramSpend, shared by every program. Each program proof is verified alone under the key of its program.
