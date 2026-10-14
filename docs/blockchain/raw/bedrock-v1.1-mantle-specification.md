@@ -715,7 +715,7 @@ ledger: Ledger
 
   *Validate*
 
-  1. Ensure the metadata payload, excluding its `UINT32` length prefix, does not exceed `MAX_OPERATION_DATA_SIZE`.
+  1. Ensure the metadata does not exceed `MAX_OPERATION_DATA_SIZE`.
       ```python
       assert len(deposit.metadata) <= MAX_OPERATION_DATA_SIZE
       ```
