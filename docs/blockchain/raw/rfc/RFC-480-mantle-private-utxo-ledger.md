@@ -93,6 +93,7 @@ class Ledger:
 - The nullifier IMT has depth 32 and appends leaves in insertion order. A leaf is `NullifierLeaf(nf, next_nf, next_index)`, hashed with the DST `NULLIFIER_IMT_LEAF_V1`. The first leaf is the sentinel `(0, 0, 0)`, and positions past the last leaf hold `0`.
 - `assert_spendable(inputs, cm_merkle_root)`, `verify_transfer(...)`, `execute_spending(inputs)` and `execute_adding(outputs)` are methods of `NoteSet`, called as `ledger.sets[LEDGER_SET].execute_adding(...)`.
 - An Operation references a recent `cm_merkle_root`, and its ZkTransfer is proven against `tx_cm_root`, that root with the set's buffer appended. `verify_transfer` computes `tx_cm_root` and calls `ZkTransfer_verify(...)`.
+- The ZkTransfer has 4 inputs and 8 outputs, marked used by the public flags `inputs_active` and `outputs_active`. The verifier sets the flags from the lengths of `inputs` and `outputs`, and an Operation with more than 4 inputs or 8 outputs is invalid. The circuit checks each flag is boolean, and an inactive input or output holds value `0`.
 - Every `excess_value` adds to the transaction balance, except that steps carry none.
 - `derive_note_nonce(op_id, output_number, value, public_key)` uses the DST `NOTE_NONCE_V1`.
 - Mantle is revision 2.0.0.

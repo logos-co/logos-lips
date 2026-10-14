@@ -553,7 +553,7 @@ Cryptarchia depends on honest nodes having relatively in-sync clocks. We are cur
 
 ## Test Vectors
 
-The transactions used to derive the transaction Merkle root are the single-Operation transactions of the [Mantle Test Vectors](bedrock-v1.1-mantle-specification.md#test-vectors), one per Operation, and each leaf is the hash of one of them. That root is no longer a header field on its own: it is one of the two inputs to the `body_root` defined in step 4 of [Block Header Validation](#block-header-validation), alongside the serialized carried `uncle_headers`. The vectors below are derived from this specification, with BLAKE2b-256 as `hash`, and a Merkle node hashing the concatenation of its two children.
+The transactions used to derive the transaction Merkle root are the single-Operation transactions of the [Mantle Test Vectors](bedrock-v1.1-mantle-specification.md#test-vectors), one per Operation, and each leaf is the hash of one of them. That root is one of the two inputs to the `body_root` defined in step 4 of [Block Header Validation](#block-header-validation), alongside the serialized carried `uncle_headers`. The vectors below are derived from this specification, with BLAKE2b-256 as `hash`, and a Merkle node hashing the concatenation of its two children.
 
 | Input | Output |
 |-|-|

@@ -1460,7 +1460,7 @@ A note can be uniquely identified by its fields. Using the same fields will lead
 
 ```python
 def derive_op_id(operation: Op) -> Hash:
-    op_bytes = encode(op)
+    op_bytes = encode(operation.payload)
     h = Hasher() # /!\ This is a classic hash not a zkhash /!\
     h.update(b"OPERATION_ID_V1")
     h.update(op_bytes)
@@ -1695,7 +1695,7 @@ class ZkTransferPublic:
     msg: zkhash
 ```
 
-`ZkTransfer_verify(inputs, outputs, excess_value, tx_cm_root, msg, proof)` verifies the proof for these public values. The nullifiers of `inputs` fill the first inputs of the circuit and the commitments of `outputs` its first outputs. These are active, and every other input and output is inactive and holds `0`, so the verifier sets the flags from the lengths of the two lists. An Operation spending notes of a note set verifies the proof through the [`verify_transfer`](#input-notes-spendability-validation) method of the set, which appends the commitments created earlier in the Mantle Transaction to the referenced root.
+`ZkTransfer_verify(inputs, outputs, excess_value, tx_cm_root, msg, proof)` verifies the proof for these public values. The nullifiers of `inputs` fill the first inputs of the circuit and the commitments of `outputs` its first outputs. These are active, and every other input and output is inactive and holds `0`, so the verifier sets the flags from the lengths of the two lists. A ZkTransfer therefore spends at most 4 notes and creates at most 8: an Operation whose `inputs` or `outputs` list is longer is invalid. An Operation spending notes of a note set verifies the proof through the [`verify_transfer`](#input-notes-spendability-validation) method of the set, which appends the commitments created earlier in the Mantle Transaction to the referenced root.
 
 The prover knows a witness:
 

@@ -54,7 +54,7 @@ The PoL mechanism ensures that a note has legitimately won the leadership electi
   2. Prove the membership of the note commitment in an old snapshot of its note set, proving its age and its existence.
   3. Prove the non-membership of its nullifier in the most recent nullifier set of the same note set, proving it's unspent.
   4. Prove that the note won the PoS lottery.
-  5. The proof is bound to a cryptographic public key used for signing the leader’s proposed blocks.
+  5. The proof is bound to the header of the proposed block through `msg`.
 
 ## Comparison with Original Crypsinous PoL
 

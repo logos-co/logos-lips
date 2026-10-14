@@ -37,7 +37,7 @@
 
 # Introduction
 
-In this document, we present the specification defining the construction of the block proposal, its validation, and execution. We define the block proposal construction that contains references to transactions (from the mempool) instead of a complete transaction to limit its length. The raw block body increases with the size of transactions it contains up to `MAX_BLOCK_SIZE`, which is 2 MiB and covers the transactions only, and the proposal compresses its size down to at most ≈18.2 kB (18,192 bytes), which saves the bandwidth necessary to broadcast new blocks.
+In this document, we present the specification defining the construction of the block proposal, its validation, and execution. We define the block proposal construction that contains references to transactions (from the mempool) instead of a complete transaction to limit its length. The raw block body increases with the size of transactions it contains up to `MAX_BLOCK_SIZE`, which is 2 MiB and covers the transactions only, and the proposal compresses its size down to at most ≈17.7 kB (17,712 bytes), which saves the bandwidth necessary to broadcast new blocks.
 
 # Overview
 
@@ -437,4 +437,4 @@ Relative to a design that carries the count in the header, this removes one of t
 
   Note that this batch verification of Groth16 proofs is the same as what is described in the Zcash paper, Appendix B.2.
 
-All the ZkTransfer proofs of a block are verified in one batch. The multi-scalar multiplication of step 3.3, the three pairings of the right-hand side and the final exponentiation are computed once per batch, while each proof adds one scalar multiplication and one pairing on the left-hand side. The cost of the batch is therefore a fixed part plus a part per proof, measured in [Gas Cost Determination](analysis-gas-cost-determination.md#groth16-proof-batch-verification): the fixed part is deduced from the Execution Gas limit of the block, and each Operation pays for its proofs.
+All the ZkTransfer proofs of a block are verified in one batch. The multi-scalar multiplication of step 3.3, the three pairings of the right-hand side and the final exponentiation are computed once per batch, while each proof adds two scalar multiplications, $`r_i \cdot \pi_A^{(i)}`$ and $`r_i \cdot \pi_C^{(i)}`$, and one pairing on the left-hand side. The cost of the batch is therefore a fixed part plus a part per proof, measured in [Gas Cost Determination](analysis-gas-cost-determination.md#groth16-proof-batch-verification): the fixed part is deduced from the Execution Gas limit of the block, and each Operation pays for its proofs.

@@ -269,6 +269,7 @@ def block_reward(total_stake: uint64, pooled_fee: uint64) -> uint64:
     )
     return uint64(reward_numerator // (RELEASE_DENOMINATOR * A_SCALE))
 ```
+
 # Annex
 
 ## Supply Projection
@@ -276,7 +277,7 @@ def block_reward(total_stake: uint64, pooled_fee: uint64) -> uint64:
 The projection simulates the reward of every block over $`10`$ years with the [Parameters](#parameters) above, computing $`A_t`$ and $`R_t`$ as specified for each block, and the reserve and pool balances as in [Pool Accounting and Supply Dynamics](#pool-accounting-and-supply-dynamics). It assumes the following behavior of the network:
 
 - Blocks: $`2880`$ per day, for $`10`$ years.
-- Inferred total stake: it is read once per epoch, every $`21,600`$ blocks ($`10 \lfloor k/f \rfloor`$ slots of [Cryptarchia](cryptarchia-v1-protocol.md)). Its deviation $`\delta_t`$ starts at $`1`$, no stake, and converges to $`0`$, entering $`(-I_{max}, I_{max})`$ after $`2`$ years: $`\delta_t = e^{-t/\tau}`$ with $`\tau = 2 / \ln(100)`$ years. It carries a Gaussian noise of standard deviation $`0.1`$, drawn per epoch.
+- Inferred total stake: it is read once per epoch of $`10 \lfloor k/f \rfloor`$ slots of [Cryptarchia](cryptarchia-v1-protocol.md), that is every $`21,600`$ blocks. Its deviation $`\delta_t`$ starts at $`1`$, no stake, and converges to $`0`$, entering $`(-I_{max}, I_{max})`$ after $`2`$ years: $`\delta_t = e^{-t/\tau}`$ with $`\tau = 2 / \ln(100)`$ years. It carries a Gaussian noise of standard deviation $`0.1`$, drawn per epoch.
 - Pooling rate: the fees pooled per year converge to $`0.5\%`$ of the maximum supply with the same time constant $`\tau`$, with a daily log-normal noise of volatility $`10\%`$. The fees of a block are drawn from a Poisson number of transactions, $`100`$ per block on average, so the fees vary from one block to the next around that rate. The fees are net of the share diverted to the proof of work reward pool, whose claims are not modeled.
 
 Net circulating growth is the release from the reserve minus the share $`A_t`$ of the fees kept by the pool, in percent of the maximum supply:
