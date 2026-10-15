@@ -166,7 +166,7 @@ A node whose release lacks the rules of an era it must apply halts when it start
 
 Every node must know, for any slot or epoch, which era's rules apply.
 
-A release carries one **era schedule** per network. Each entry gives the first epoch number of an era and its **parameter record**. The record holds the values the era gives to the constants that may change between eras, from [Blend Protocol](blend-protocol.md), [Cryptarchia Protocol](cryptarchia-v1-protocol.md), the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) (SDP) and [Proof of Work](proof-of-work.md). Its encoding starts with a block version, which names the layout of the era's blocks, and a layout version. The fields follow in Blend, Cryptarchia and Time sections, each starting with its own version. A release changes a version when it changes what the version names ([Era Parameters](#era-parameters)).
+A release carries one **era schedule** per network. Each entry gives the first epoch number of an era and its **parameter record**. The record holds the values the era gives to the constants that may change between eras, from [Blend Protocol](blend-protocol.md), [Cryptarchia Protocol](cryptarchia-v1-protocol.md), the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) (SDP) and [Proof of Work](proof-of-work.md). Its encoding starts with a version, which names the era's rules, the layout of its blocks and the fields of the record, followed by its Blend, Cryptarchia and Time fields ([Era Parameters](#era-parameters)).
 
 Every slot and every epoch belongs to the last era that begins at or before it. An era may change the epoch length and the slot length, so a node computes the start of each era from the era before it ([Era Boundaries](#era-boundaries)):
 
@@ -363,11 +363,9 @@ The nodes of two releases apply different rules from the first epoch whose era h
 
 ## Era Parameters
 
-The parameter record of an era is, in this order:
+The parameter record of an era is its `version` followed by the fields of the table below, in table order.
 
-- `block_version`, which names the layout of the era's blocks, headers and proposals. Version 1 is the layout that [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md) specifies.
-- `layout_version`, which names the sections that follow and their order. Version 1 lists the sections of the table below, in table order.
-- The sections. Each section is its `version` followed by its fields. The table gives the fields of version 1 of each section, in order.
+`version` names the era's rules, the layout of its blocks, headers and proposals, and the fields of the record with their encoding. Version 1 names the rules these specifications define, the layout that [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md) specifies and the fields of the table below.
 
 A field holds the value of its source constant under the rules of the era. The Encoding column names the encoder that `encode` applies to the field.
 
@@ -387,7 +385,7 @@ A field holds the value of its source constant under the rules of the era. The E
 | `cryptarchia` | `epoch_config` | `phases` | The lengths of the three phases of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule), in multiples of $`\lfloor k/f \rfloor`$ |
 | `cryptarchia` | `security_param` | `UINT32` | $`k`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
 | `cryptarchia` | `slot_activation_coeff` | `ratio` | $`f`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
-| `cryptarchia` | `learning_rate` | `ratio` | `beta` of [Parameters and variables](cryptarchia-total-stake-inference.md#parameters-and-variables) |
+| `cryptarchia` | `learning_rate` | `binary64` | `beta` of [Parameters and variables](cryptarchia-total-stake-inference.md#parameters-and-variables) |
 | `cryptarchia` | `uncle_reference_window_in_block` | `UINT32` | $`W`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
 | `cryptarchia` | `service_params` | `service_params` | [Service Parameters](bedrock-service-declaration-protocol.md#service-parameters) |
 | `cryptarchia` | `min_stake` | `min_stake` | [Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake) |
@@ -404,17 +402,25 @@ A field holds the value of its source constant under the rules of the era. The E
 | `cryptarchia` | `rate_den` | `UINT64` | `EPOCH_POW_DISTRIBUTION_RATE_DEN` of [Parameters](proof-of-work.md#parameters) |
 | `cryptarchia` | `pow_share` | `UINT64` | `POW_SHARE` of [Parameters](proof-of-work.md#parameters) |
 | `cryptarchia` | `share_den` | `UINT64` | `SHARE_DEN` of [Parameters](proof-of-work.md#parameters) |
-| `cryptarchia` | `expected_blocks_per_window` | `UINT64` | `EXPECTED_BLOCKS_PER_WINDOW` of [Parameters](proof-of-work.md#parameters) |
-| `time` | `slot_duration` | `UINT64` | The slot length of [Constants](cryptarchia-v1-protocol.md#constants), in seconds |
+| `cryptarchia` | `slot_window` | `UINT64` | `WINDOW` of [Parameters](proof-of-work.md#parameters) |
+| `time` | `slot_duration` | `duration` | The slot length of [Constants](cryptarchia-v1-protocol.md#constants), in seconds |
 
 ```python
 def uint(width: int) -> Callable[[int], bytes]:
     return lambda x: x.to_bytes(width, byteorder='little')
 
 def ratio(r: Ratio) -> bytes:
-    # A value has one encoding only in lowest terms.
-    assert r.den != 0 and gcd(r.num, r.den) == 1
+    assert r.den != 0
     return uint(4)(r.num) + uint(4)(r.den)
+
+def binary64(x: float) -> bytes:
+    # Excluding negative zero leaves zero a single encoding.
+    assert math.isfinite(x) and x >= 0 and math.copysign(1.0, x) > 0
+    return struct.pack('<d', x)
+
+def duration(seconds: int) -> bytes:
+    # The whole seconds, then the nanoseconds past them, which are 0.
+    return uint(8)(seconds) + uint(4)(0)
 
 def phases(lengths: tuple[int, int, int]) -> bytes:
     return b"".join(uint(1)(x) for x in lengths)
@@ -428,36 +434,30 @@ def service_params(entries: dict[int, ServiceParameters]) -> bytes:
     return out
 
 def min_stake(m: MinStake) -> bytes:
-    return uint(8)(m.stake_threshold) + uint(4)(m.epoch)
+    return uint(8)(m.stake_threshold) + uint(8)(m.epoch)
 
 ENCODERS = {"UINT32": uint(4), "UINT64": uint(8), "UINT128": uint(16),
-            "ratio": ratio, "phases": phases, "service_params": service_params,
-            "min_stake": min_stake}
+            "ratio": ratio, "binary64": binary64, "duration": duration,
+            "phases": phases, "service_params": service_params, "min_stake": min_stake}
 
 def encode(p: EraParameters) -> bytes:
-    # This document defines version 1 of the layout and of each section only.
-    assert p.layout_version == 1
-    out = uint(2)(p.block_version) + uint(2)(p.layout_version)
+    # This document defines version 1 only.
+    assert p.version == 1
+    out = uint(2)(p.version)
     for section, fields in FIELDS.items():
         s = getattr(p, section)
-        assert s.version == 1
-        out += uint(2)(s.version)
         for name, encoding in fields:
             out += ENCODERS[encoding](getattr(s, name))
     return out
 ```
 
-`FIELDS` maps each section of the table above, in table order, to its rows, as pairs of a field and its encoding. A ratio's parts are `num` and `den`. An entry of `service_params` is keyed by its `ServiceType` byte and has `inactivity_period` and `epoch`. `min_stake` has `stake_threshold` and `epoch`. A record that `encode` rejects is invalid.
+`FIELDS` maps each section of the table above, in table order, to its rows, as pairs of a field and its encoding. A ratio's parts are `num` and `den`, encoded as the record gives them, without reduction. A `binary64` field is an IEEE 754 double-precision value. An entry of `service_params` is keyed by its `ServiceType` byte and has `inactivity_period` and `epoch`. `min_stake` has `stake_threshold` and `epoch`. A record that `encode` rejects is invalid.
 
 In every record, the numerator of `slot_activation_coeff`, the epoch length $`L_n`$ and the slot length $`\Delta_n`$ are at least 1. Otherwise `epoch_length(n)`, $`\textbf{epoch}(sl)`$ or $`\textbf{slot}(t)`$ divides by zero.
 
 The `stake_thresholds` store ([Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake)) holds the `min_stake` of each record of the schedule. The `parameters` store ([Service Parameters](bedrock-service-declaration-protocol.md#service-parameters)) holds the `service_params` entries of each record.
 
-A release defines a new version, used by the eras that adopt it:
-
-- a new section version when it adds, removes or re-encodes a field of the section;
-- a new layout version when it adds, removes or reorders a section;
-- a new block version when it changes the layout of blocks, headers or proposals.
+A release that changes anything a version names defines a new version, used by the eras that adopt it.
 
 ## Era Boundaries
 

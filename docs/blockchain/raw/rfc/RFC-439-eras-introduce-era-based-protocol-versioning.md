@@ -30,6 +30,7 @@
 | v14 | The fork digest hashes the genesis block ID and the era digests, without the chain ID, which the genesis block already commits to. Kademlia and identify carry the genesis block ID in lowercase hexadecimal instead of the percent-encoded chain ID, and the unknown fork digest warning skips their identifiers. These change normative content, so approvals are collected again on v14. | 2026-10-13 |
 | v15 | Identify keeps its libp2p identifier and announces `/logos-blockchain/<genesis_id>/identify` as its protocol version, as the implementation does; only the Kademlia identifier carries the genesis block ID. The unknown fork digest warning covers only a peer that announces the node's own protocol version. This changes normative content, so approvals are collected again on v15. | 2026-10-14 |
 | v16 | Merged master, which removes the Activity Proof `version` byte in its tagged encoding of the active message metadata. This RFC no longer removes that byte itself, its note on the stale `SDP_ACTIVE` vector is dropped, and the transaction-hash vector with one of each operation is recomputed with the test fork digest. | 2026-10-14 |
+| v17 | The parameter record follows the implementation where that is safe. One `version` names the era's rules, block layout and fields, in place of the block, layout and section versions. `learning_rate` is a double-precision value, and Total Stake Inference computes with `beta` and `f` in double precision. Ratios are encoded as written, `min_stake`'s epoch takes eight bytes, and the slot length is encoded as seconds and nanoseconds. The proof-of-work acceptance window is the parameter `WINDOW`, in slots. These change the era digest, so approvals are collected again on v17. | 2026-10-15 |
 
 ## Reviewer Orientation
 
@@ -45,8 +46,9 @@ Read the PR's Motivation first. Era 0 is the set of rules the specifications des
 | 6 | High | [Cryptarchia Bootstrapping & Synchronization](../cryptarchia-v1-bootstr-sync.md), [details](#8-synchronization-and-checkpoints) | `chainsync` identifier; blocks parsed under their slot's era; checkpoint state |
 | 7 | High | [Bedrock Genesis Block](../bedrock-genesis-block.md), [details](#2-transaction-fork-digest) | the zero `fork_digest` exemption; header field order |
 | 8 | Medium | [Payload Formatting](../payload-formatting.md), [details](#9-size-cascade) | `Max_Body_Length` 18,187 |
-| 9 | Low | [P2P Network](../../draft/p2p-network.md), [details](#7-protocol-identifiers) | identifiers; skim |
-| 10 | Low | [Template Cross-Channel Messaging](../template-cross-channel-messaging.md) | example gains `fork_digest`; skim |
+| 9 | Medium | [Proof of Work](../proof-of-work.md), [Total Stake Inference](../cryptarchia-total-stake-inference.md), [details](#11-acceptance-window-and-stake-inference-arithmetic) | `WINDOW` a parameter in slots; `beta` and `f` in double precision |
+| 10 | Low | [P2P Network](../../draft/p2p-network.md), [details](#7-protocol-identifiers) | identifiers; skim |
+| 11 | Low | [Template Cross-Channel Messaging](../template-cross-channel-messaging.md) | example gains `fork_digest`; skim |
 
 # Discussion
 
@@ -60,8 +62,9 @@ Chain data is read under the era of its slot. The network runs under the era of 
 - The chain ID is not hashed again. It is part of the Genesis inscription, so the genesis block ID already commits to it. The Kademlia identifier also separates two networks that reuse a chain ID with different genesis blocks, such as a reset testnet: their nodes no longer share a DHT. The identifiers lose a readable network name, and the percent-encoding of the chain ID is gone.
 - Identify keeps the libp2p identifier `/ipfs/id/1.0.0`, as the implementation does, so two nodes of different networks that reach each other directly still exchange identify messages. They then negotiate nothing else, because each advertises identifiers the other does not run. Their `protocolVersion` values differ, so the unknown fork digest warning covers only peers that announce the node's own value, and a node of another network is not reported as running an unknown era. A node does not close the connection over a different `protocolVersion`: the libp2p identify specification revoked that requirement to let networks interoperate.
 - Each era digest hashes the era's first epoch number and its parameter record, as the implementation already does (logos-blockchain/logos-blockchain#3687). Hashing the parameters separates instances that share a genesis block but differ in a parameter. It also lets a release correct a pending era's parameters without moving its first epoch, and separates rival forks that pick the same epoch.
-- The cost is that the record is normative, and every activated era's record must be encoded byte for byte the same forever. Versions keep that possible: a block version, a layout version for the list of sections, and a version at the start of each section. The structure follows the versioned era declaration the implementation is adopting. With the block version in the record, two releases that disagree on an era's block layout get different fork digests instead of forking under one.
-- The specified record follows the specifications' constants. It differs from the implementation's `EraParameters` in seven places, each of which changes the digest. `faucet_pk` is dropped. `target_claim_per_block` duplicates `TARGET_CLAIMS_PER_BLOCK` and is dropped. `learning_rate` and `message_frequency_per_round` become ratios. `reward_pool_genesis`, a Genesis value, and `epoch_reward_genesis`, a derived value, are dropped. `min_stake` carries an epoch instead of a block-number timestamp. `slot_window` becomes `expected_blocks_per_window`, so the window follows f. `slot_duration` is a whole number of seconds instead of seconds and nanoseconds, because every slot length the specifications use is whole seconds. These should be aligned before any network fixes its era-0 digest.
+- The cost is that the record is normative, and every activated era's record must be encoded byte for byte the same forever. One version, leading the record, keeps that possible. It names the era's rules, its block layout and the record's fields, as the implementation's ruleset number does, and any change to them takes a new version. Two releases that disagree on an era's rules or block layout therefore get different fork digests instead of forking under one. Separate block, layout and section versions would carry nothing more, because no node reads a version from the wire.
+- The record follows the implementation's encoding wherever every record keeps a single byte string and every value derived from it stays exactly reproducible. `learning_rate` is a double-precision value, which Total Stake Inference already truncates in double precision. Ratios are encoded as written, `min_stake`'s epoch takes eight bytes, and the slot length is seconds followed by zero nanoseconds. The proof-of-work window is a parameter in slots, so it no longer follows f: an era that changes f sets the window too.
+- The record still differs from the implementation's in three places, each of which changes the digest. `target_claim_per_block` duplicates `TARGET_CLAIMS_PER_BLOCK`, which the payout and the retarget both use, and is dropped. `reward_pool_genesis`, a Genesis value, and `epoch_reward_genesis`, a value derived from it, are dropped. `message_frequency_per_round` stays a ratio: the core quota is the ceiling of a product with it, and a double-precision product can come out just above a whole number that the exact product equals, so the ceiling adds one. `min_stake`'s second field is also an epoch, where the implementation names a block number; both are 0. These should be aligned before any network fixes its era-0 digest.
 
 ## Consensus parameters across eras
 
@@ -69,7 +72,7 @@ An era may change k, f, the epoch phases and the slot length, as agreed in revie
 
 ## Version fields removed
 
-Once the era follows from `slot`, the `bedrock_version` byte carries nothing, so it is removed. The block version in the era's parameter record names the block layout instead. The header shrinks to 296 bytes and every block ID changes, which is possible only before genesis. The Blend message `version` byte goes too, because the identifier a message arrives on already names the era. Two routing rules replace it: a message travels over the identifiers of the era in force when it was generated, and Blend forwards a received or processed message on the era of the connection it arrived on.
+Once the era follows from `slot`, the `bedrock_version` byte carries nothing, so it is removed. The version in the era's parameter record names the block layout instead. The header shrinks to 296 bytes and every block ID changes, which is possible only before genesis. The Blend message `version` byte goes too, because the identifier a message arrives on already names the era. Two routing rules replace it: a message travels over the identifiers of the era in force when it was generated, and Blend forwards a received or processed message on the era of the connection it arrived on.
 
 ## Fork choice under the common ancestor's era
 
@@ -91,7 +94,7 @@ A carried uncle is validated as a block of its own era, so a cross-era uncle wou
 
 ## Changing a published schedule
 
-The schedule is embedded in the software because it must be known before any block of the new era exists. Two releases apply different rules from the first epoch whose era digest differs between their schedules, and the fork digest separates them from then on. A release may therefore postpone a pending era, or correct its parameters in place. Nodes of the earlier release split off at the old epoch unless they upgrade. Changing a published era's rules while keeping its first epoch number and record is forbidden, because both populations would share one identifier and reject each other's blocks. A correction to a pending era's rules therefore moves its first epoch, unless it changes only the block layout, which a new block version in the record names. So is publishing an entry, or changing one, whose epoch has begun: a node would hold state executed under the wrong era.
+The schedule is embedded in the software because it must be known before any block of the new era exists. Two releases apply different rules from the first epoch whose era digest differs between their schedules, and the fork digest separates them from then on. A release may therefore postpone a pending era, or correct its parameters in place. Nodes of the earlier release split off at the old epoch unless they upgrade. Changing a published era's rules while keeping its first epoch number and record is forbidden, because both populations would share one identifier and reject each other's blocks. A correction to a pending era's rules therefore gives the era a new version, or moves its first epoch. So is publishing an entry, or changing one, whose epoch has begun: a node would hold state executed under the wrong era.
 
 ## Outdated releases
 
@@ -148,7 +151,7 @@ Its Details sections:
 - **Notation:** `E_n`, the parameter record `P_n`, the epoch and slot lengths `L_n` and `Δ_n`, `era(sl)`, `epoch(sl)`, `first_slot(ep)`, `slot(t)`, the era in force and the fork digest `F_n`, each pointing to the function that defines it.
 - **Parameters:** the era schedule.
 - **Era Schedule:** an embedded list per network of (first epoch number, parameter record), the first number 0; the frozen within-k fork comparison; the rules of an era and a published era; the consequence of two releases' schedules differing; no change to a published era's rules under its first epoch number and record, and no entry for an epoch that has begun.
-- **Era Parameters:** the record: a block version, a layout version, and Blend, Cryptarchia and Time sections that each start with a section version, holding 33 fields that each carry a named constant of Blend, Cryptarchia, Total Stake Inference, SDP or Proof of Work; its canonical encoding as reference code, with ratios in lowest terms and the slot length in whole seconds; the slot activation coefficient's numerator, the epoch length and the slot length at least 1; the SDP stores filled from the records; when a release defines a new block, layout or section version.
+- **Era Parameters:** the record: a version naming the era's rules, block layout and fields, then 33 fields in Blend, Cryptarchia and Time sections, each carrying a named constant of Blend, Cryptarchia, Total Stake Inference, SDP or Proof of Work; its canonical encoding as reference code, with ratios as written, the learning rate in double precision and the slot length as whole seconds followed by zero nanoseconds; the slot activation coefficient's numerator, the epoch length and the slot length at least 1; the SDP stores filled from the records; a new version for any change to what a version names.
 - **Era Boundaries:** reference code for the epoch and slot lengths read from the record's sections, each era's first slot and start time, the era and epoch of a slot, the first slot of an epoch, the slot of a time in whole seconds, and the era in force.
 - **Fork Digest:** reference code for the era digest and the fork digest.
 - **Era of Chain Data:** a block and everything it carries under `era(sl)`, except that a transaction is parsed under the era its fork digest names; `slot` first and unchanged in every era; the fork digest first in every transaction, and the acceptance rule as reference code; fork choice under the common ancestor's era; `commit` with the tip era's k; the startup and checkpoint-import halt.
@@ -260,6 +263,11 @@ The proposal maximum of 18,187 bytes propagates: [Payload Formatting](../payload
 
 Cryptarchia's §Versioning and Protocol Upgrades, which activated upgrades by block height, is reduced to a link to Bedrock Eras.
 
+## 11. Acceptance window and stake-inference arithmetic
+
+- [Proof of Work](../proof-of-work.md): `WINDOW`, the acceptance window in slots, is a parameter, 300, in place of `EXPECTED_BLOCKS_PER_WINDOW` and the derivation ⌊W_b / f⌋. [Mantle](../bedrock-v1.1-mantle-specification.md) `CLAIM_POW_REWARD` takes it from there.
+- [Total Stake Inference](../cryptarchia-total-stake-inference.md): in `total_stake_inference`, `beta` and `f` are double-precision values, and their products with `PRECISION` are double-precision products.
+
 ## Chores
 
 - Registered Bedrock Eras in `scripts/blockchain_structure.py` (`FILE_ASSIGNMENTS`).
@@ -273,9 +281,9 @@ Cryptarchia's §Versioning and Protocol Upgrades, which activated upgrades by bl
 
 - [x] Remove the `Version` header field and the Blend version bytes; put `slot` first ([logos-blockchain#3679](https://github.com/logos-blockchain/logos-blockchain/pull/3679))
 - [x] Era schedule with parameter records; era and fork digests; identifiers from the fork digest ([#3683](https://github.com/logos-blockchain/logos-blockchain/pull/3683), [#3687](https://github.com/logos-blockchain/logos-blockchain/pull/3687), [#3689](https://github.com/logos-blockchain/logos-blockchain/pull/3689))
-- [ ] Align the era record with Era Parameters (the seven field differences in Discussion, with the block, layout and section versions) and regenerate the era and fork digest vectors
+- [ ] Align the era record with Era Parameters (the differences listed in Discussion) and regenerate the era and fork digest vectors
 - [ ] Drop the chain ID from the fork digest input; name Kademlia by the genesis block ID in lowercase hexadecimal, and announce `/logos-blockchain/<genesis_id>/identify` as the identify protocol version, both in place of the percent-encoded chain ID
-- [ ] Reject a schedule whose record has a ratio not in lowest terms or with a zero denominator, a slot activation coefficient with numerator 0, a fractional slot length, or an epoch or slot length below 1; compute ⌊k/f⌋ with integers
+- [ ] Reject a schedule whose record has a ratio with a zero denominator, a slot activation coefficient with numerator 0, a fractional slot length, a negative-zero learning rate, or an epoch or slot length below 1; compute ⌊k/f⌋ with integers
 - [ ] Support more than one era: `era`, `epoch`, `first_slot` and `slot(t)` by summation; switch identifiers at the boundary, run both eras for `T` rounds, then drop the previous era's, serving open sync streams to their end
 - [ ] Transaction fork digest: first field of every transaction, the acceptance rule, the zero digest at genesis, parsing by digest; reopen [#3692](https://github.com/logos-blockchain/logos-blockchain/pull/3692)
 - [ ] Fork choice under the common ancestor's era; `commit` with the tip era's k and a monotone `B_imm`
@@ -296,12 +304,14 @@ Cryptarchia's §Versioning and Protocol Upgrades, which activated upgrades by bl
 | [Bedrock Eras](../bedrock-eras.md) | Created | the mechanism |
 | [Cryptarchia Protocol](../cryptarchia-v1-protocol.md) | Modified | header field removed, `slot` first, validation renumbered, same-era uncles, `first_slot`, monotone `commit`, §Versioning replaced by a link, vectors `TBD` |
 | [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md) | Modified | header layout, encoding grammar, size derivations |
-| [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | `fork_digest` field, validation step 4, transaction-hash vectors |
+| [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | `fork_digest` field, validation step 4, transaction-hash vectors, `WINDOW` source |
 | [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | `ForkDigest` first in `MantleTx` |
 | [Blend Protocol](../blend-protocol.md) | Modified | version checks removed, protocol name, era pointers, overhead figure, Transition Period and clock bounds, no blacklisting for a next-epoch proof |
 | [Message Formatting](../message-formatting.md) | Modified | `version` byte removed, payload maximum |
 | [Message Encapsulation Mechanism](../message-encapsulation.md) | Modified | `version` field removed, decapsulation offsets, `PAYLOAD_BODY_SIZE` |
 | [Payload Formatting](../payload-formatting.md) | Modified | `Max_Body_Length` |
+| [Proof of Work](../proof-of-work.md) | Modified | `WINDOW` a parameter in slots |
+| [Total Stake Inference](../cryptarchia-total-stake-inference.md) | Modified | `beta` and `f` in double precision |
 | [Cryptarchia Bootstrapping & Synchronization](../cryptarchia-v1-bootstr-sync.md) | Modified | `chainsync` identifier, per-era parsing, checkpoint state |
 | [Bedrock Genesis Block](../bedrock-genesis-block.md) | Modified | header field order, zero `fork_digest` exemption, gas wording |
 | [P2P Network](../../draft/p2p-network.md) | Modified | identifiers |
