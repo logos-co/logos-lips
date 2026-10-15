@@ -110,7 +110,7 @@ Validation of a program step, in order:
 4. Each output flagged in `program_outputs` has an opening in `program_notes` whose commitment, with `program` set to `program_id`, is that output.
 5. The program proof verifies under the registered key on `(spend_notes_hash, payments_hash(step), op_id)`.
 
-The openings serve only the availability of the state of the program. They sit in the proof of the step, outside the `op_id` and the transaction hash, the ledger keeps nothing from them, and nodes may prune them 1024 blocks after their block, which is then validated without them.
+The openings serve only the availability of the state of the program. They sit in the proof of the step, outside the `op_id` and the transaction hash, the ledger keeps nothing from them, and they are prunable: a block whose openings were pruned is validated without them.
 
 The `ZkProgramSpend` is the ZkTransfer with program checks: its inputs are notes of `program_id`, its outputs are notes of `program_id` or user notes, `spend_notes_hash` commits to the active flag and the note of every input and output, nonce included, so that a program can constrain the nonces its sequencer picks, and `sum(inputs_value) + paid_value == sum(outputs_value)`. Its used inputs and outputs are marked by the public flags `inputs_active` and `outputs_active`, set from the published lists as in the ZkTransfer, and its outputs of the program by the public flags `outputs_of_program`, set from `program_outputs`. It is proven by the sequencer. The circuit (`program_spend` in [logos-blockchain-circuits](https://github.com/logos-blockchain/logos-blockchain-circuits)) has 69,377 constraints and proves in about 2.1 s on one thread and 0.3 s on 32 threads (see the Mantle benchmark).
 
@@ -170,7 +170,7 @@ A program step costs `EXECUTION_TRANSFER_GAS` per payment, plus `EXECUTION_PROGR
 - [ ] Fix `program` and `data` to `0` in the ZkTransfer and the Proof of Leadership circuits.
 - [ ] Implement the `ZkProgramSpend` circuit, its setup and its verifier.
 - [ ] Implement `PROGRAM_REGISTER`: the key encoding, the curve and subgroup checks, the program identifier and the `programs` map.
-- [ ] Implement user and program steps in `CHANNEL_INSCRIBE`: payments, the program spend, the program proof under its registered key, the openings of the program notes with their pruning, and their encoding.
+- [ ] Implement user and program steps in `CHANNEL_INSCRIBE`: payments, the program spend, the program proof under its registered key, the openings of the program notes, and their encoding.
 - [x] Measure the Execution Gas of `PROGRAM_REGISTER`, the `ZkProgramSpend` and the program proof.
 - [ ] Add tests and test vectors for note commitments, program registration, program steps and their encoding.
 - [ ] Verify the implementation matches this specification.
