@@ -143,10 +143,10 @@ During the window, the contract waits for a dispute from any other `indexer`.
 - Every other `indexer` acts as a `challenger`.
 It reads the proposed value from the LEZ contract and compares it with the value it computed itself.
 - If the proposed value differs, a `challenger` disputes it before the window closes.
-To dispute, it sends the observations to the LEZ contract.
-The contract verifies their signatures and membership, recomputes the median itself,
-and compares it with the proposed value.
-If they differ, the proposed value is rejected and the faulty `proposer` is slashed.
+To dispute, it sends the observation set it computed, and LEZ counts it as one vote for that set.
+When more than half of the active oracle set votes for the same set,
+the contract verifies that set, recomputes the median, and compares it with the proposed value.
+If they differ, the proposed value is replaced and the `proposer` is handled per [Slashing](#slashing).
 - If no dispute is raised before the window closes,
 this is the optimistic path, and the LEZ contract finalizes the proposed value as the attested price.
 
@@ -239,18 +239,21 @@ because the input is immutable and the code is deterministic, derives the same `
 
 The attested price is specified as follows:
 
-```protobuf
-syntax = "proto3";
+enum AttestationStatus {
+  PENDING   = 0;  // written by the proposer, dispute window open
+  FINAL     = 1;  // window closed with no dispute reaching Q_dispute, or the winning set confirmed the written value
+  CORRECTED = 2;  // replaced by the median of the set that won a dispute
+}
 
 message AttestedPrice {
-  string feed_id      = 1;  // asset pair identifier, e.g. "BTC/USDT"
-  int64  price        = 2;  // attested median, real value = price * 10^(-decimals)
-  int32  decimals     = 3;  // number of decimal places in `price`
-  uint32 valid_count  = 4;  // number of observations aggregated in this round
-  int64  round        = 5;  // round identifier, in Bedrock block-height terms
-  int64  confidence   = 6;  // OPTIONAL: dispersion of observations, scaled like `price`
+  string feed_id            = 1;  // asset pair identifier, e.g. "BTC/USDT"
+  int64  price              = 2;  // attested median, real value = price * 10^(-decimals)
+  int32  decimals           = 3;  // number of decimal places in `price`
+  uint32 valid_count        = 4;  // number of observations aggregated in this round
+  int64  round              = 5;  // round identifier, in Bedrock block-height terms
+  int64  confidence         = 6;  // OPTIONAL: dispersion of observations, scaled like `price`
+  AttestationStatus status  = 7;  // set only by the LEZ contract; a proposer's write is always PENDING
 }
-```
 
 The indexer MAY also compute an optional `confidence` value
 that reports how tightly the observations cluster around the median.
@@ -422,7 +425,8 @@ Block-time and finality parameters are properties of the LEZ and are listed for 
 | Quorum threshold | `N` | 50 | Minimum observations required to attest a price for a round. |
 | Honest-majority assumption |  | majority of the aggregated observations | Over the observations aggregated per attestation, not the total pool. |
 | Heartbeat / round cadence | `R_round` | 1 Bedrock block (`~30 s`) | Defined in block-height terms; must be `>= T_block`. |
-| Dispute window | `W_dispute` | 90 LEZ blocks (`~90 s`) | Time a proposed price waits for a dispute before it finalizes. |
+| Dispute window | `W_dispute` | 90 LEZ blocks (`~90 s`) | Time a proposed price waits for a dispute before it finalizes. 
+Counted in LEZ blocks (~1 s each), since the LEZ contract checks it against its own height. |
 | LEZ block time |  | `~1 s` | Consumer zone block time, faster than the host chain block. |
 | Aggregation function |  | median | Plain median of all valid observations. |
 | Reward band | `D_reward` | 0.5%* | Tight band around the median for reward eligibility; `D_reward < D_slash`.  |
@@ -471,13 +475,15 @@ not by replication or by slashing non-participation.
 
 3. **The optimistic path rests on honest indexers.** On the optimistic path LEZ accepts
 the proposer's value without checking it.
-A wrong value is caught only if at least one honest indexer,
+A wrong value is caught only if honest indexers,
 having recomputed the median offchain from the same finalized inscriptions,
-sees the mismatch and raises a dispute.
-To dispute, the indexer only sends the observations to LEZ.
-LEZ then resolves it, by verifying signatures and membership and recomputing the median
-over the immutable observations, so the resolution is trust-minimized and does not rely on any indexer's word.
-Safety therefore rests on a one-of-many honest assumption to raise the dispute, and on LEZ to resolve it correctly.
+see the mismatch and raise a dispute.
+To dispute, the indexer sends the set it computed, which counts as its vote for that set.
+LEZ resolves the dispute once one set has more than half of the active oracle set behind it,
+by verifying signatures and membership and recomputing the median over that set.
+One honest indexer is enough to open a dispute,
+but correcting a wrong value needs an honest majority to vote for the same set.
+In return, a minority cannot overturn a correct value, however many disputes it raises.
 
 4. **Cross-zone boundary.** The attested price and the slashing evidence
 both cross into LEZ over a cross-zone transaction.
@@ -522,11 +528,12 @@ The next section defines raising a dispute formally.
 
 ### Raising a dispute
 
-Formally, a dispute is a set of `DisputeSubmission` transactions sent by indexers
-that together deliver the round's signed `PriceObservation`s to the contract,
-ordered as they appear on Bedrock.
+Formally, a dispute is a vote among registered indexers on the observation set of a round.
+Each indexer that disagrees with the written `AttestedPrice` sends one `DisputeSubmission`
+that carries the full set it computed.
+LEZ identifies each set by a hash it computes itself and counts one vote per indexer for that set.
 It shifts a round from the optimistic path into the verification path,
-where the written `AttestedPrice` is checked against the actual observations.
+where the written `AttestedPrice` is checked against the set that a majority of indexers vote for.
 
 Each dispute transaction carries the following payload.
 
@@ -540,8 +547,17 @@ message DisputeSubmission {
   bytes sender_signature                 = 3;  // BIP-340 signature over the submission, verified against sender_oracle_id
   bytes sender_membership_proof          = 4;  // Merkle proof of sender_oracle_id in root_cycle of the disputed round's cycle
   repeated PriceObservation observations = 5;  // signed observations from Bedrock, in Bedrock order
+
 }
 ```
+
+LEZ identifies each delivered set by its `set_hash`, which it always computes itself from the observations.
+For each observation, `obs_id` is the SHA-256 of the canonical serialization of its fields 1 to 6
+followed by its 64-byte `signature`.
+The `obs_id`s are sorted by `oracle_id` in ascending byte order, and
+`set_hash = SHA-256(disputed_round as 8-byte big-endian || obs_id_1 || ... || obs_id_k)`.
+The `membership_proof` is excluded, since it is a witness and not part of the observation.
+Two honest indexers that computed the same set therefore produce the same `set_hash`.
 
 The indexer signs the submission with its own oracle key (BIP-340),
 and includes its `sender_oracle_id` and membership proof.
@@ -556,13 +572,26 @@ The `PriceObservation` type is defined in [Price Fetching](#price-fetching).
 Each `PriceObservation` carries the same `signature` and `membership_proof` it had on Bedrock.
 LEZ verifies these against the `root_cycle` frozen for the disputed round's cycle, not against the current live root.
 
-Since one transaction may not hold the full set at once,
-the delivery is split across multiple transactions inside `W_dispute`.
-LEZ collects the submitted observations into a per-round set, deduplicated by `(oracle_id, round)` as they arrive, 
-so the same observation carried by two indexers is counted once.
-Each submission is checked against `sender_signature` and `sender_membership_proof`,
-so only a registered indexer can add to the set.
+Each `DisputeSubmission` carries the full set in a single transaction,
+so a set is never split or reassembled across transactions,
+and a submission needs no `total`, `offset` or `length` fields.
+LEZ keeps, per disputed round, one entry per distinct `set_hash` with a vote counter,
+together with the set of senders that have already voted.
+On each submission LEZ checks `sender_membership_proof` against `root_cycle`,
+and rejects the submission if the sender has already voted in this round.
+Each sender has exactly one vote per round.
+LEZ computes the `set_hash` of the delivered observations
+and checks `sender_signature` over it.
+If no set with that hash is stored yet, LEZ stores the observations without their membership proofs.
+LEZ then increments the counter of that `set_hash`.
+A partial or altered set yields a different `set_hash` and only ever counts for itself.
+Sets are never merged, so observations delivered for one `set_hash` never enter another.
 No observation signatures are verified during collection.
+
+As an OPTIONAL optimization, an implementation MAY let a submission carry only the `set_hash`
+of a set already stored for the round, instead of the full observations.
+Such a submission counts as a vote for that stored set and is rejected if the hash is not stored.
+This saves re-delivering an identical set, but does not change the voting rules above.
 
 `W_dispute` opens at the LEZ block that includes the proposer's `AttestedPrice`.
 If that block is `B` and the window is `W_dispute` blocks,
@@ -581,11 +610,10 @@ its `membership_proof` against the `root_cycle` of the disputed round's cycle, d
 If fewer than `N` valid observations remain, the dispute is invalid and the written `AttestedPrice` stands.
 Otherwise LEZ computes the median over the valid set with the same rules as [Aggregation](#aggregation)
 and compares it to the written value.
-If they match, the dispute fails and the written value stands.
-If they differ, the dispute succeeds, the written `AttestedPrice` is replaced with the recomputed one,
+If they match, the dispute fails, the written value stands, and its status becomes FINAL.
+If they differ, the written AttestedPrice is replaced with the recomputed median and its status becomes CORRECTED,,
 and the proposer is slashed per [Slashing](#slashing).
-If `W_dispute` closes before `N` unique observations are collected,
-the dispute is invalid and the written value stands.
+If W_dispute closes before any set reaches `Q_dispute`, the written value stands and its status becomes FINAL.
 
 How the dispute set is stored and deduplicated,
 and whether resolution runs in one transaction or several, are left to implementation,
@@ -650,6 +678,25 @@ dispute resolution, and reward settlement, and a check that the dispute-path com
 but this version does not fix what counts as an acceptable value.
 A normal spread in a fast market can look too wide in a calm one.
 Defining this threshold, or a rule that adapts it, is left to future work together with the volatility handling above.
+
+- **Dispute voter set.** This version lets any registered indexer vote in a dispute,
+and resolves at `Q_dispute = floor(N / 2) + 1` votes.
+Since the active set is much larger than `N`, a group holding `Q_dispute` seats can push its own set past the threshold,
+and two different sets can both reach it.
+Two directions are open.
+One raises the threshold to a majority of the active set, `floor(AOS_cycle / 2) + 1`, so at most one set can reach it,
+at the cost of many more votes per dispute and a longer `W_dispute`.
+The other keeps `Q_dispute` small but restricts voting to a committee of `N` indexers per round,
+chosen independently of the disputed sets, for example from the cycle permutation used for proposer selection.
+Such a committee is predictable when derived from `root_cycle`, so its strength depends on a randomness source this version does not have.
+
+- **Disputes and later rounds.** Rounds are written every `R_round`, while each round waits `W_dispute` before it finalizes,
+so later rounds are written while an earlier round may still be under dispute.
+This version does not define how a correction of a round interacts with the rounds written after it.
+One option pauses new rounds while a dispute is open, which lets a single disputer stall the feed.
+Another defines the current value as the attested price of the latest finalized round,
+and lets a correction change only its own round,
+which keeps the feed running and never overwrites a newer finalized value.
 
 ## Copyright
 
