@@ -142,7 +142,7 @@ class ProofOfLeadershipPublic:
 - `SDP_DECLARE` consumes ledger notes with a ZkTransfer and appends the service note `Note(amount, derive_note_nonce(op_id, 0, amount, zk_id), zk_id)` to the SDP set. `DeclarationInfo` holds `service_note` and `withdraw_outputs`.
 - `SDP_WITHDRAW` carries `service_note_nf`, `outputs` and `excess_value`, with a ZkTransfer proven against `mmr_root([(declare_info.service_note, 0)])` and the `provider_id`'s Ed25519 signature. Its outputs reach the ledger set at removal.
 - `SDP_ACTIVE` is signed by the `provider_id`.
-- `CLAIM_POW_REWARD` gains a `nonce`, its ticket is `zkhash(public_key, nonce, block_hash, epoch_nonce)`, its proof is empty, and its reward note goes to the ledger set.
+- `CLAIM_POW_REWARD` moves to opcode `0x30`, freed by `LEADER_CLAIM`, gains a `nonce`, its ticket is `zkhash(public_key, nonce, block_hash, epoch_nonce)`, its proof is empty, and its reward note goes to the ledger set.
 - Execution Gas: `EXECUTION_SDP_WITHDRAW_GAS = 678`, `EXECUTION_SDP_ACTIVE_GAS = 59`, `EXECUTION_CLAIM_POW_REWARD_GAS = 0`.
 
 ## 5. Leader reward paid in the block
@@ -168,7 +168,7 @@ The system design figure is redrawn around the reserve, the pool and the per-blo
 - `ChannelInscribe = ChannelId Inscription Parent Signer Steps`, with `ChannelStep = Inputs Outputs CmMerkleRoot`. `ChannelInscribeOpProof = Ed25519Signature *ZkTransfer`.
 - `ChannelDeposit = ChannelId Inputs CmMerkleRoot Outputs Value DepositMetadata`, `ChannelWithdraw = ChannelId Inputs CmMerkleRoot Outputs Value`, `SDPDeclare = ServiceType Locators ProviderId ZkId Inputs CmMerkleRoot Value`, `SDPWithdraw = DeclarationId Nonce NoteNf Outputs Value`. `ChannelConfig` loses `TransferThreshold`.
 - `Transfer = Inputs Outputs CmMerkleRoot Value`, with `Inputs` of `NoteNf` and `Outputs` of `NoteCm`. `ClaimPowReward` gains `PowNonce`.
-- `ChannelTransfer`, `LeaderClaim` and their proofs are removed, and so is `ChannelWithdrawOpProof`: a channel withdrawal carries a `ZkTransferProof`. `ZkTransferProof`, `ZkTransferAndEd25519SigProof` and `EmptyProof` replace `ZkSigProof`, `ZkAndEd25519SigsProof` and `ProofOfClaimProof`, and `ZkTransfer = Groth16` replaces `ZkSignature = Groth16`.
+- `ChannelTransfer`, `LeaderClaim` and their proofs are removed, and so is `ChannelWithdrawOpProof`: a channel withdrawal carries a `ZkTransferProof`. `ZkTransferProof` and `ZkTransferAndEd25519SigProof` replace `ZkSigProof` and `ZkAndEd25519SigsProof`, and `ZkTransfer = Groth16` replaces `ZkSignature = Groth16`. `ChannelInscribeOpProof` is added for inscriptions and their steps, and `EmptyProof` for `ClaimPowReward`.
 - Mantle Transaction Encoding is revision 2.0.0.
 
 ## 8. Cryptarchia and Proof of Quota inputs
@@ -193,7 +193,7 @@ The wallet keeps, for each note, its set, the commitment path inside its MMR pea
 
 - Common Cryptographic Components removes the ZkSignature scheme and the voucher mention.
 - Key Types derives the Non-ephemeral Quota Key public key as in Mantle.
-- Block Construction: the batch verification annex covers ZkTransfer and pairs each `pi_A` with its own `pi_B`, and notes cannot be spent in the block that creates them.
+- Block Construction: the batch verification annex covers ZkTransfer and pairs each `pi_A` with its own `pi_B`, and a note cannot be spent by a later transaction of the block that creates it.
 - The cross-channel messaging template shows an atomic swap of steps across two zones.
 - The Execution Market, the Architecture Overview and Blend follow the in-block leader reward.
 - The Gas Cost Determination analysis follows the new Operations and drops the Proof of Claim measures and images. The ZkTransfer (27 public inputs) is priced from the measured batch verification of Groth16 proofs, `cycles(n, N) = A(N) + n * P`: each proof costs `P = 618,797` cycles, so `EXECUTION_TRANSFER_GAS`, `EXECUTION_CHANNEL_DEPOSIT_GAS` and `EXECUTION_CHANNEL_WITHDRAW_GAS` are 619 and the SDP declaration and withdrawal 678. The fixed part `A(27) = 3,540,612` cycles is deduced from the block limit: `limit_Ex = G_max = 3,196,459` and `G_target = 1,598,229`.

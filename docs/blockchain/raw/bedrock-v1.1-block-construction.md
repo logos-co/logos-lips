@@ -355,7 +355,7 @@ The order is constrained as well as economical. [Block Header Validation](crypta
 
   Block validity is consequently order-dependent, and the order the transactions appear in is normative. Two transactions consuming the same note make the block invalid whatever their order, since the second consumption finds the note spent.
 
-  A note cannot be consumed in the block that creates it. A transaction proves its inputs against the commitment root of their note set at one of the last 1024 blocks, extended only with the commitments created earlier in the same transaction ([Mantle Validation](bedrock-v1.1-mantle-specification.md#validation)). Notes can therefore be chained within a transaction, not across the transactions of a block.
+  A note cannot be consumed by a later transaction of the block that creates it. A transaction proves its inputs against the commitment root of their note set at one of the last 1024 blocks, extended only with the commitments created earlier in the same transaction ([Mantle Validation](bedrock-v1.1-mantle-specification.md#validation)). Notes can therefore be chained within a transaction, not across the transactions of a block.
 
   In order to verify ZK proofs, they are batched for verification as explained in [Batch verification of ZK proofs](#batch-verification-of-zk-proofs) to get better performance. Batching covers the proof checks alone and does not change the state a transaction is validated in: the public inputs of every proof are taken from the state its transaction is reached in, and the state-dependent assertions still run in sequence.
 
