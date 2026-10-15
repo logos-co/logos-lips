@@ -213,9 +213,7 @@ StepProof                    = ZkTransfer / ProgramStepProof ; ZkTransfer for a 
 ProgramStepProof             = *ZkTransfer ZkProgramSpend Groth16Proof *ProgramNoteOpening
                                                        ; one ZkTransfer per payment, the program spend,
                                                        ; the program proof, then one opening per bit set
-                                                       ; in the ProgramOutputs of the step, none once
-                                                       ; pruned from a block behind the latest
-                                                       ; immutable block
+                                                       ; in the ProgramOutputs of the step
 ProgramNoteOpening           = Value NoteNonce ZkPublicKey ProgramNoteData
 NoteNonce                    = FieldElement
 ProgramNoteData              = FieldElement

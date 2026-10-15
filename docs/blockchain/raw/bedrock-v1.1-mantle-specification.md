@@ -526,7 +526,7 @@ class InscribeProof:
     step_proofs: list[ZkTransfer | ProgramStepProof]  # one per step, in the order of the steps
 ```
 
-The openings of the program notes a step creates serve only the availability of the state of the program: the next sequencer needs them to consume these notes, and the users of the program may need this state to learn the notes it pays them. The ledger checks each opening against its output and keeps nothing from it. The openings are part of the proof of the step, outside the `op_id` and the Mantle transaction hash, so pruning them changes no hash. The openings are prunable from the blocks behind the [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block): such a block is validated without them, every other check of its steps unchanged. A block ahead of the latest immutable block is valid only with all its openings, so that no one can skip the check by stripping the openings of a new block.
+The openings of the program notes a step creates serve only the availability of the state of the program: the next sequencer needs them to consume these notes, and the users of the program may need this state to learn the notes it pays them. The ledger checks each opening against its output and keeps nothing from it. The openings are part of the proof of the step, outside the `op_id` and the Mantle transaction hash, so pruning them changes no hash. A block is valid only with all its openings, so no one can skip the check by stripping them. A node may prune the openings of the blocks behind its [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block), which it never validates again. A node syncing these blocks needs a peer that kept their openings, or [bootstraps from a checkpoint](cryptarchia-v1-bootstr-sync.md#bootstrapping-from-checkpoint) after them.
 
 #### Execution Gas
 
@@ -631,8 +631,6 @@ block_slot: Slot
                                                    step_proof.spend_proof)
 
               # Ensure every output of the program is opened, for the availability of its state.
-              # Required for every block ahead of the latest immutable block; a block behind it
-              # whose openings were pruned is validated without this check.
               program_cms = [cm for cm, of_program in zip(step.outputs, step.program_outputs)
                              if of_program]
               assert len(step_proof.program_notes) == len(program_cms)
