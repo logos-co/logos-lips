@@ -11,7 +11,7 @@
 | v3 | The spending, adding and transfer verification functions are methods of `NoteSet`. The recent commitment roots of a set keep their MMR peaks, to which `verify_transfer` appends the buffer of the Mantle Transaction. Two steps of an inscription cannot consume the same note | 2026-10-08 |
 | v4 | Operations append their outputs to the commitment buffer when validated, and a step can consume the outputs of an earlier step of its inscription. A channel withdrawal consumes its inputs at its due slot, only if they are still unspent, so a valid step cancels it. The withdrawal of a service note is proven against the root of an MMR holding only that note. The PoW ticket hashes the public key first | 2026-10-09 |
 | v5 | The ZkTransfer public root is `tx_cm_root`, the referenced recent `cm_merkle_root` extended with the buffer of its set | 2026-10-12 |
-| v6 | Channel withdrawals carry no fee. Each note set records its root at the end of every block. The ZkTransfer of the Genesis declarations is verified, and withdrawn declarations are released in a fixed order. The block reward keeps the 120-block average of the pooled fees, with the reserve, the pool and the pending Blend share as integer consensus state. Merkle paths are read from the leaf level up. The cross-channel messaging template is deprecated | 2026-10-15 |
+| v6 | A channel step names the commitments of the transaction buffer its proof covers, so that steps proven against the same recent root hold at any position. Channel withdrawals carry no fee. Each note set records its root at the end of every block. The ZkTransfer of the Genesis declarations is verified, and withdrawn declarations are released in a fixed order. The block reward keeps the 120-block average of the pooled fees, with the reserve, the pool and the pending Blend share as integer consensus state. Merkle paths are read from the leaf level up. The cross-channel messaging template is deprecated | 2026-10-15 |
 
 ## Reviewer Orientation
 
@@ -40,7 +40,7 @@ Every note is private and lives in exactly one note set: the ledger, the SDP, or
 
 ## Channel notes: moved by holders, ordered by sequencers
 
-A channel note is spent only by its holder. Inside the channel, the holder signs a step, a ZkTransfer bound to `step_msg` rather than to the transaction, since it is signed before the transaction exists. The sequencers collect the steps and publish them in their inscriptions, and the ledger verifies every step. A sequencer orders the moves of its channel and can delay or drop a step, but cannot move a note, and cannot create value: every step is a verified, balanced ZkTransfer. A step is proven against the referenced root extended with the commitments created before it in the transaction, so it holds only at its position, and the sequencer fixes the order before the holders prove their steps.
+A channel note is spent only by its holder. Inside the channel, the holder signs a step, a ZkTransfer bound to `step_msg` rather than to the transaction, since it is signed before the transaction exists. The sequencers collect the steps and publish them in their inscriptions, and the ledger verifies every step. A sequencer orders the moves of its channel and can delay or drop a step, but cannot move a note, and cannot create value: every step is a verified, balanced ZkTransfer. A step names, with `buffered`, how many commitments created earlier in the transaction its proof covers, and is verified against its referenced root extended with only those. The holders prove their steps independently, before the sequencer assembles the transaction, and a step over notes of earlier blocks takes `buffered = 0`: its proof holds at any position, so a sequencer can collect the steps of many users, all proven against the same recent root, and order them as it chooses. Extending every proof with the whole buffer would tie each proof to one position, and holders would have to prove one after another once the sequencer had fixed everything before them. Only a step consuming a note created in the same transaction covers part of the buffer and must come after it.
 
 Out of the channel, the holder withdraws alone. The withdrawal takes effect `WITHDRAW_DELAY` slots later, only if its notes are still unspent: until then, an inscription can consume them with a valid step, which cancels it. A holder cannot invalidate an inscription carrying one of its steps by withdrawing the same note, as long as the inscription lands before the withdrawal is due; a sequencer should not accept a step whose inputs a pending withdrawal may release before then, since the due slots and nullifiers are public. The withdrawal carries no fee: another Operation of its transaction pays it, since a fee paid at posting would stay paid if the withdrawal were dropped, and would create tokens.
 
@@ -48,7 +48,7 @@ All the data of a step lands on chain: its nullifiers, its commitments and its p
 
 ## Root window and commitment buffer
 
-A ZkTransfer proves its inputs against a commitment root of their set from one of the last 1024 blocks. A wallet can therefore build its proof against a root a few blocks old and still be included. Inside a Mantle Transaction, the commitments created by earlier Operations go into the buffer of their set, and a proof is verified against its referenced root with that buffer appended. A note created in a block can be spent from the next block on, or later in the same transaction.
+A ZkTransfer proves its inputs against a commitment root of their set from one of the last 1024 blocks. A wallet can therefore build its proof against a root a few blocks old and still be included. Inside a Mantle Transaction, the commitments created by earlier Operations go into the buffer of their set, and a proof is verified against its referenced root with that buffer appended, or for a channel step only the part of it the step names. A note created in a block can be spent from the next block on, or later in the same transaction.
 
 ## SDP stake
 
@@ -104,13 +104,14 @@ class ChannelStep:
     inputs: list[NoteNf]
     outputs: list[NoteCm]
     cm_merkle_root: MerkleRoot  # a recent root of the channel note set
+    buffered: int               # UINT16, the commitments of the transaction buffer the proof covers
 
 class Inscribe:
     # ... channel, inscription, parent, signer unchanged
     steps: list[ChannelStep]    # new
 ```
 
-- Each step carries a ZkTransfer with `msg = step_msg(step)`, a hash of its nullifiers and commitments under the DST `CHANNEL_STEP_V1`, and `excess_value = 0`. The `InscribeProof` holds the signer's Ed25519 signature and one ZkTransfer per step.
+- Each step carries a ZkTransfer with `msg = step_msg(step)`, a hash of its nullifiers and commitments under the DST `CHANNEL_STEP_V1`, and `excess_value = 0`. Its public root is `cm_merkle_root` extended with the first `buffered` commitments of the buffer of the channel set, `buffered` being at most the length of that buffer. The `InscribeProof` holds the signer's Ed25519 signature and one ZkTransfer per step.
 - The steps are validated against the state the inscription is validated against, then applied in order to the channel note set. A channel being created carries no step.
 - `CHANNEL_DEPOSIT` consumes ledger notes and creates channel notes, `outputs` being commitments. Its `excess_value` pays fees.
 - `CHANNEL_WITHDRAW` is posted by the holder with a ZkTransfer of `excess_value = 0`: another Operation of the Mantle Transaction pays its fees, since an excess paid at posting would stay paid if the withdrawal is dropped. At the first block whose slot reaches `WITHDRAW_DELAY = 86,400` slots after it, its inputs are consumed and its `outputs` created in the ledger set if the inputs are still unspent; otherwise it is dropped.
@@ -164,7 +165,7 @@ The system design figure is redrawn around the reserve, the pool and the per-blo
 
 ## 7. Encoding
 
-- `ChannelInscribe = ChannelId Inscription Parent Signer Steps`, with `ChannelStep = Inputs Outputs CmMerkleRoot`. `ChannelInscribeOpProof = Ed25519Signature *ZkTransfer`.
+- `ChannelInscribe = ChannelId Inscription Parent Signer Steps`, with `ChannelStep = Inputs Outputs CmMerkleRoot Buffered` and `Buffered = UINT16`. `ChannelInscribeOpProof = Ed25519Signature *ZkTransfer`.
 - `ChannelDeposit = ChannelId Inputs CmMerkleRoot Outputs Value DepositMetadata`, `ChannelWithdraw = ChannelId Inputs CmMerkleRoot Outputs`, `SDPDeclare = ServiceType Locators ProviderId ZkId Inputs CmMerkleRoot Value`, `SDPWithdraw = DeclarationId Nonce NoteNf Outputs Value`. `ChannelConfig` loses `TransferThreshold`.
 - `Transfer = Inputs Outputs CmMerkleRoot Value`, with `Inputs` of `NoteNf` and `Outputs` of `NoteCm`. `ClaimPowReward` gains `PowNonce`.
 - `ChannelTransfer`, `LeaderClaim` and their proofs are removed, and so is `ChannelWithdrawOpProof`: a channel withdrawal carries a `ZkTransferProof`. `ZkTransferProof` and `ZkTransferAndEd25519SigProof` replace `ZkSigProof` and `ZkAndEd25519SigsProof`, and `ZkTransfer = Groth16` replaces `ZkSignature = Groth16`. `ChannelInscribeOpProof` is added for inscriptions and their steps, and `EmptyProof` for `ClaimPowReward`.
@@ -204,7 +205,7 @@ The wallet keeps, for each note, its set, the commitment path inside its MMR pea
 - [ ] Implement the note sets in the ledger: one commitment MMR, nullifier IMT, 1024 recent roots and transaction buffer per set, a new set per channel.
 - [ ] Implement the ZkTransfer circuit and its verifier, with buffer-extended roots.
 - [ ] Switch Transfer, deposits and SDP declarations to nullifiers and commitments in the ledger set.
-- [ ] Add steps to `CHANNEL_INSCRIBE`, verify their ZkTransfers against `step_msg`, and apply them to the channel set.
+- [ ] Add steps to `CHANNEL_INSCRIBE`, verify their ZkTransfers against `step_msg` and the first `buffered` commitments of the buffer, and apply them to the channel set.
 - [ ] Implement holder withdrawals, applied after `WITHDRAW_DELAY` if their inputs are still unspent.
 - [ ] Remove `CHANNEL_TRANSFER`, the channel `transfer_threshold`, the transparent channel and service notes, `LEADER_CLAIM`, the voucher set and the Proof of Claim verifier.
 - [ ] Create service notes in the SDP set, and consume them in `SDP_WITHDRAW` with a ZkTransfer.
