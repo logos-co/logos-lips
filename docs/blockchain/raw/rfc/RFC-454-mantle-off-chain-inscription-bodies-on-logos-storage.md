@@ -7,20 +7,27 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-09-16 |
+| v2 | Added the interim deployment with writer-pinned bodies, the LEZ payload sizes and a measurement plan; the retention question narrowed accordingly. Storage status updated (live on the testnet, used by Basecamp); first measurements recorded, with the reachability condition and the relay requirement they imply | 2026-10-15 |
 
 ## Reviewer Orientation
 
-Single-document change — read [`[Template] Off-Chain Inscription Bodies`](../template-offchain-inscription-bodies.md) top to bottom. Focus on **Trust Model** (availability is social, not guaranteed by the chain) and **Requirements on Logos Storage** (the list that gates a normative specification). Read the PR's Motivation first.
+Single-document change — read [`[Template] Off-Chain Inscription Bodies`](../template-offchain-inscription-bodies.md) top to bottom. Focus on **Trust Model** (availability is social, not guaranteed by the chain), **Interim Deployment** (writer-pinned bodies, which is what makes the pattern deployable and measurable before Storage persistence exists) and **Requirements on Logos Storage** (the list that gates a normative specification). Read the PR's Motivation first.
 
 # Discussion
 
 ## Why Informational, and why no wire format
 
-Logos Storage's current scope is file sharing: datasets are content-addressed and replicated organically, and there is no persistence guarantee. The marketplace, erasure-coding and proving specifications were deprecated in January 2026, and persistence incentives are listed on the Storage roadmap as post-mainnet research. A wire format specified against today's Storage would bind to details that are expected to change, and an implementation on today's Storage would lose payloads as replicas disappear. The document therefore fixes what does not depend on those details, the split between on-chain commitment and off-chain body, the trust model and the requirements on Storage, and leaves the normative layer (envelope encoding, availability window, inline threshold, reader state machine) for a later Standards Track specification or a CFR against LEE.
+Logos Storage's current scope is file sharing: datasets are content-addressed and replicated organically, and there is no persistence guarantee. It is live on the testnet, where Basecamp downloads its packages over it, so the pattern can be measured against a running system. The marketplace, erasure-coding and proving specifications were deprecated in January 2026, and persistence incentives are listed on the Storage roadmap as post-mainnet research. A wire format specified against today's Storage would bind to details that are expected to change, and an implementation on today's Storage would lose payloads as replicas disappear. The document therefore fixes what does not depend on those details, the split between on-chain commitment and off-chain body, the trust model and the requirements on Storage, and leaves the normative layer (envelope encoding, availability window, inline threshold, reader state machine) for a later Standards Track specification or a CFR against LEE.
 
 ## Trust model
 
 The pattern changes what a reader trusts, and the document says so in one place. Integrity and order stay cryptographic: the inscribed root binds the payload and the channel's hash chain binds the order. Availability becomes social: a writer can inscribe a reference and withhold the payload, and a single holder can lose it. This is acceptable for sovereign channels because the writer already holds equivalent power to halt or censor its channel, the writer committee is on-chain and a missing payload is attributable, and re-publication needs no trust because the dataset identifier is content-derived. Persistence incentives on the Storage side, when they exist, strengthen availability without changing the pattern.
+
+## Why the measurements come later, and what they will be
+
+The numbers the normative layer needs, the availability window, the inline threshold and the retention window, depend on how fast a payload can be discovered and fetched. Measuring that against the Storage network as it runs today would measure its current composition and stability rather than the pattern, and the result would not transfer. The document therefore does two things instead. It fixes an interim deployment in which the channel's own writers pin and advertise every body, so that the providers a reader relies on are nodes the channel operates; and it states a measurement plan against that deployment, on a controlled testbed, whose results are to be read as a floor. The plan is in the document so that it can be reviewed before it is run, and so that the Storage team can see which of their properties it exercises (discovery latency, retrieval with proofs) and which it deliberately does not (persistence).
+
+A first round has been taken on the live networks with the prebuilt 0.5.3 node and is recorded in the document under *First Measurements*. Two results are design inputs already. Discovery through the live DHT takes tens of seconds, which bounds the availability window from below. And nodes without a verified direct address reach each other only through the network's circuit relays, whose per-circuit data limit (128 KiB in the libp2p implementation in use) is below one succinct receipt; the document therefore requires the pinning nodes to be directly reachable and asks the Storage side for a transfer path that does not depend on the relays. The protocol itself is fast on a private network (a 3 MB body in under half a second), so the open number is the live transfer time from a reachable provider, which the next round measures.
 
 ## Alternatives
 
@@ -44,10 +51,12 @@ The change is one new Informational document, `docs/blockchain/raw/template-offc
 2. **Objectives** and **Requirements**: fixed inscription cost independent of payload size; order and commitment kept on-chain; one pattern for zone blocks, proof bundles, logs and anchors; no Bedrock change.
 3. **Overview**: the on-chain envelope (dataset identifier, Merkle root, size, channel commitment) versus the off-chain payload, with a pros and cons table against inline inscription.
 4. **Trust Model**: integrity and order cryptographic, availability social, and the three reasons this holds for sovereign channels.
-5. **Use Cases**: LEZ zone blocks (priority profile), proof bundles, application logs, dataset anchoring.
-6. **Message Flow**: serialize, publish with a deterministic manifest, wait for DHT discoverability, inscribe the envelope, fetch and verify, stall on a missing payload. The one invariant is *upload before inscribe*.
-7. **Requirements on Logos Storage**: deterministic dataset identifiers, retrieval with proofs, bounded discovery latency, a persistence primitive, privacy-preserving publication.
-8. **Security and Privacy Considerations**, **Open Questions** (retention, hash alignment, receipts in the payload, envelope registration) and **Future Work**.
+5. **Interim Deployment: Writer-Pinned Bodies**: accredited writers pin and advertise every body while in the committee and for a retention window after; archivers may; availability then rests on the committee's liveness, and Storage is used for addressing, discovery and transport only.
+6. **Use Cases**: LEZ zone blocks (priority profile), proof bundles, application logs, dataset anchoring.
+7. **Payload Sizes**: the three risc0 receipt points a LEZ body is built from (composite 1–3 MB, succinct about 200 KB, Groth16-wrapped about 300 B; nominal, from the risc0 documentation), against which the inline threshold, the availability window and the measurements are expressed.
+8. **Message Flow**: serialize, publish with a deterministic manifest, wait for DHT discoverability, inscribe the envelope, fetch and verify, stall on a missing payload. The one invariant is *upload before inscribe*.
+9. **Requirements on Logos Storage**: deterministic dataset identifiers, retrieval with proofs, bounded discovery latency, a persistence primitive, privacy-preserving publication.
+10. **Security and Privacy Considerations**, **Measurement Plan** (discovery latency, fetch time at the three sizes, fetch under provider churn, verification on the reader; on a controlled testbed with writer-pinned providers; results read as a floor), **First Measurements** (live-network discovery and relay-limited transfer, private-network protocol floor, and the next round), **Open Questions** (retention narrowed to the window after leaving the committee, hash alignment, receipts in the payload, envelope registration) and **Future Work**.
 
 ## Chores
 
@@ -60,7 +69,12 @@ The change is one new Informational document, `docs/blockchain/raw/template-offc
 
 # Implementation
 
-- [ ]  No implementation required (Informational template); implementation is gated on the document's *Requirements on Logos Storage* being met.
+- [ ]  No implementation required (Informational template); the normative layer is gated on the document's *Requirements on Logos Storage* and on the measurement plan.
+- [ ]  Agree the interim pinning rule with the LEZ side (who pins, the retention window after leaving the committee).
+- [x]  First round on the live networks and on a private two-node network with the prebuilt 0.5.3 node (discovery latency, relay limit, protocol floor); recorded under *First Measurements*.
+- [ ]  Live transfer from a directly reachable provider: a Raspberry Pi 5 node on a public port as writer, the three receipt sizes and a 30 MB block, an empty reader elsewhere; then the same through Mix with the per-network Mix configuration of the Storage module.
+- [ ]  Build the full harness of the *Measurement Plan*: a committee-sized set of pinned providers and one empty reader on a controlled testbed; record discovery latency, fetch time, fetch under churn and reader verification time.
+- [ ]  Ask the Storage team whether the relay data limit is intended on the fleet relays, and whether hole punching is expected to work between NATed nodes.
 - [ ]  Track the Storage-side prerequisites (deterministic dataset identifiers, retrieval with proofs, discovery latency, a persistence primitive) with the Storage team, and open the normative specification or a CFR against LEE once they are met.
 
 # Affected Specifications
