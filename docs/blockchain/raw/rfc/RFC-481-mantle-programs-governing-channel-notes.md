@@ -84,7 +84,7 @@ class Payment:
     inputs: list[NoteNf]
     outputs: list[NoteCm]       # change
     cm_merkle_root: MerkleRoot
-    buffered: int               # the commitments of the transaction buffer the proof covers
+    buffered: int               # the number of commitments of the transaction buffer the proof covers
     paid_value: TokenValue      # the excess of the ZkTransfer, paid to the program
     intent: zkhash
 
