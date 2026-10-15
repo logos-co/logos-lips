@@ -409,7 +409,7 @@ A program governs notes of a channel that no single user holds, such as the rese
 | A payment only pays the program it names, in a step carrying the intent its holder signed | The message of the payment, which commits to the program and the intent |
 | A program note is created and consumed only with the proof of its program | The ZkTransfer, which only derives commitments with `program` and `data` set to `0`; the ZkProgramSpend, whose inputs are notes of the program and whose outputs are notes of the program or user notes; the program proof, required by every program step |
 | A program step serves the intents over LGO as the rule of the program states | The program proof, which reads the payments and the notes of the program spend |
-| The notes of a program can be consumed by the next sequencer | The ledger, which checks the opening of every note of the program a step creates |
+| The opening of every note of a program is available to the next sequencer | The ledger, which checks the opening of every note of the program a step creates |
 | A program step serves the intents over the assets of the zone | The users of the zone, who verify the intents against the inscription and the zone state, and, where the zone provides it, its sequencers, who can slash a faulty sequencer |
 
 A program using LGO only, such as lending, is thus enforced by the ledger, and its users trust only the circuit of the program they pay. A program exchanging LGO with assets of the zone, such as a swap, is enforced by the ledger for its LGO only. Depending on the program, publishing the preimage of each intent in the inscription is recommended, so that the users of the zone can verify how the program step served it.
@@ -534,7 +534,7 @@ class InscribeProof:
     step_proofs: list[ZkTransfer | ProgramStepProof]  # one per step, in the order of the steps
 ```
 
-The openings of the program notes a step creates serve only the availability of the state of the program: the next sequencer needs them to consume these notes, and the users of the program may need this state to learn the notes it pays them. The ledger checks each opening against its output and keeps nothing from it. The openings are part of the proof of the step, outside the `op_id` and the Mantle transaction hash, so pruning them changes no hash. A block is valid only with all its openings, so no one can skip the check by stripping them. Since the `block_id` does not cover the openings, a copy of a block lacking some of them, or carrying altered ones, fails as a copy, as in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation): it is discarded without recording a verdict against its `block_id`. A node may prune the openings of the blocks behind its [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block), which it never validates again. A node syncing these blocks needs a peer that kept their openings, or [bootstraps from a checkpoint](cryptarchia-v1-bootstr-sync.md#bootstrapping-from-checkpoint) after them.
+The openings of the program notes a step creates serve only the availability of the state of the program: the next sequencer needs them to consume these notes, and the users of the program may need this state to learn the notes it pays them. The ledger checks each opening against its output and keeps nothing from it. The openings are part of the proof of the step, outside the `op_id` and the Mantle transaction hash, so pruning them changes no hash. A block is valid only with all its openings, so no one can skip the check by stripping them. Since the `block_id` does not cover the openings, a copy of a block lacking some of them, or carrying altered ones, fails as a copy, whether received as a proposal, as in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation), or in full through synchronisation: it is discarded without recording a verdict against its `block_id`. A node may prune the openings of the blocks behind its [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block), which it never validates again. A node syncing these blocks needs a peer that kept their openings, or [bootstraps from a checkpoint](cryptarchia-v1-bootstr-sync.md#bootstrapping-from-checkpoint) after them.
 
 #### Execution Gas
 
@@ -577,7 +577,9 @@ block_slot: Slot
           # Ensure that this message is the genesis message (parent == ZERO)
           assert msg.parent == ZERO
 
-          note_set = empty_note_set()  # the note set the channel gets at its creation
+          note_set = empty_note_set()  # the note set the channel gets at its creation: the notes
+                                       # its steps create are consumed by the next steps of the
+                                       # inscription, or from the next block on
       ```
 
   2. Ensure the signature of the signer.
@@ -2188,7 +2190,7 @@ Such that the following constraints hold:
   ```
   The flags `outputs_of_program` tell the ledger which outputs are notes of the program, whose openings the step must publish.
 
-- `spend_notes_hash` commits to the flag and the note of every input and output, nonce included, which the program proof opens to check its rule. Their fields are hashed one after the other, input by input, then output by output.
+- `spend_notes_hash` commits to the flag and the note of every input and output, nonce included, which the program proof opens to check its rule. Their fields are hashed one after the other, input by input, then output by output. The fields of an inactive input or output other than its value are left to the prover, so they mean something to a program only when the flag of the input or output is set.
   ```python
   assert spend_notes_hash == zkhash(
       FiniteField(b"PROGRAM_SPEND_NOTES_V1", byte_order="little", modulus= p),

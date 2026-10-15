@@ -26,7 +26,7 @@ Read [RFC-480](RFC-480-mantle-private-utxo-ledger.md) first: this RFC builds on 
 
 ## What the ledger guarantees
 
-The ledger guarantees that no LGO is created, that a user note moves only with the key of its holder, and that a program note moves only with the proof of its program. It also checks the opening of every program note a step creates, so that the next sequencer can consume it. It does not check the assets of a zone. For a swap of LGO against a zone token, the users of the zone verify the inscription against the intents, and, where the zone provides it, its sequencers can slash a faulty sequencer. Mantle states this split in its [What enforces what](../bedrock-v1.1-mantle-specification.md#programs) table.
+The ledger guarantees that no LGO is created, that a user note moves only with the key of its holder, and that a program note moves only with the proof of its program. It also checks the opening of every program note a step creates, so that the state of the program stays available to the next sequencer. It does not check the assets of a zone. For a swap of LGO against a zone token, the users of the zone verify the inscription against the intents, and, where the zone provides it, its sequencers can slash a faulty sequencer. Mantle states this split in its [What enforces what](../bedrock-v1.1-mantle-specification.md#programs) table.
 
 ## Privacy
 
