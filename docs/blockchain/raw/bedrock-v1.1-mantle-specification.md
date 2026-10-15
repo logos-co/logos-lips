@@ -2186,6 +2186,8 @@ Such that the following constraints hold:
   ```
   The nonces let the program proof constrain them. The sequencer picks the nonce of every note the step creates, and the holder of a note needs its nonce to spend it: a program can require the nonce and the value of each output to be derived from data its users know, so that a note it pays cannot be withheld from its holder, and no two outputs share a commitment.
 
+  The recommended nonce of the output at index `k` of the program spend of the step at index `i` of the inscription is `derive_note_nonce(op_id, 8 * i + k, value, public_key)`, as for the notes the ledger creates. It differs for every output of the inscription, and the holder of a note recomputes it from the inscription, the value and the public key of the note. The program proof does not see the index of its step, so a program cannot enforce this derivation on its own.
+
 - The outputs are well-formed, and the inputs and the paid value balance the outputs exactly.
   ```python
   assert all(
