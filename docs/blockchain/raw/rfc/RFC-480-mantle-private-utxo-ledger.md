@@ -11,6 +11,7 @@
 | v3 | The spending, adding and transfer verification functions are methods of `NoteSet`. The recent commitment roots of a set keep their MMR peaks, to which `verify_transfer` appends the buffer of the Mantle Transaction. Two steps of an inscription cannot consume the same note | 2026-10-08 |
 | v4 | Operations append their outputs to the commitment buffer when validated, and a step can consume the outputs of an earlier step of its inscription. A channel withdrawal consumes its inputs at its due slot, only if they are still unspent, so a valid step cancels it. The withdrawal of a service note is proven against the root of an MMR holding only that note. The PoW ticket hashes the public key first | 2026-10-09 |
 | v5 | The ZkTransfer public root is `tx_cm_root`, the referenced recent `cm_merkle_root` extended with the buffer of its set | 2026-10-12 |
+| v6 | Channel withdrawals carry no fee. Each note set records its root at the end of every block. The ZkTransfer of the Genesis declarations is verified, and withdrawn declarations are released in a fixed order. The block reward keeps the 120-block average of the pooled fees, with the reserve, the pool and the pending Blend share as integer consensus state. Merkle paths are read from the leaf level up. The cross-channel messaging template is deprecated | 2026-10-15 |
 
 ## Reviewer Orientation
 
@@ -39,7 +40,7 @@ Every note is private and lives in exactly one note set: the ledger, the SDP, or
 
 ## Channel notes: moved by holders, ordered by sequencers
 
-A channel note is spent only by its holder. Inside the channel, the holder signs a step, a ZkTransfer bound to `step_msg` rather than to the transaction, since it is signed before the transaction exists. The sequencers collect the steps and publish them in their inscriptions, and the ledger verifies every step. A sequencer orders the moves of its channel and can delay or drop a step, but cannot move a note, and cannot create value: every step is a verified, balanced ZkTransfer.
+A channel note is spent only by its holder. Inside the channel, the holder signs a step, a ZkTransfer bound to `step_msg` rather than to the transaction, since it is signed before the transaction exists. The sequencers collect the steps and publish them in their inscriptions, and the ledger verifies every step. A sequencer orders the moves of its channel and can delay or drop a step, but cannot move a note, and cannot create value: every step is a verified, balanced ZkTransfer. A step is proven against the referenced root extended with the commitments created before it in the transaction, so it holds only at its position, and the sequencer fixes the order before the holders prove their steps.
 
 Out of the channel, the holder withdraws alone. The withdrawal takes effect `WITHDRAW_DELAY` slots later, only if its notes are still unspent: until then, an inscription can consume them with a valid step, which cancels it. A holder cannot invalidate an inscription carrying one of its steps by withdrawing the same note first. The withdrawal carries no fee: another Operation of its transaction pays it, since a fee paid at posting would stay paid if the withdrawal were dropped, and would create tokens.
 
@@ -55,7 +56,7 @@ The service note is created by the ledger in the SDP set, so it stakes like any 
 
 ## Leader reward in the block
 
-The reward note of a block carries the block's own value and still does not link the leader to its spending: the spend reveals a nullifier and no commitment. The voucher set, the pooled leader reward and `LEADER_CLAIM` are retired. The block reward keeps averaging the pooled fees over the last 120 blocks, so a leader cannot steer its own reward with the fees it pays in its block. The reward note has nonce `0`, so two rewards of the same value under one `reward_key` share a commitment and only one can be spent, which forces a fresh key per block.
+The reward note of a block carries the block's own value and still does not link the leader to its spending: the spend reveals a nullifier and no commitment. The voucher set, the pooled leader reward and `LEADER_CLAIM` are retired. The block reward keeps averaging the pooled fees over the last 120 blocks, so a leader can barely steer its own reward with the fees it pays in its block. The reward note has nonce `0`, so two rewards of the same value under one `reward_key` share a commitment and only one can be spent: a leader should use a fresh key per block.
 
 ## Open questions for reviewers
 
@@ -92,6 +93,7 @@ class Ledger:
 - The ZkTransfer has 4 inputs and 8 outputs, marked used by the public flags `inputs_active` and `outputs_active`. The verifier sets the flags from the lengths of `inputs` and `outputs`, and an Operation with more than 4 inputs or 8 outputs is invalid. The circuit checks each flag is boolean, and an inactive input or output holds value `0`.
 - The `excess_value` of `TRANSFER`, `CHANNEL_DEPOSIT` and `SDP_WITHDRAW` adds to the transaction balance. Steps and withdrawals carry none, and the excess of `SDP_DECLARE` is its stake.
 - `derive_note_nonce(op_id, output_number, value, public_key)` uses the DST `NOTE_NONCE_V1`.
+- A Merkle path lists its nodes and its selectors from the leaf level up, a selector being the bit of the leaf index at its level, `1` when the path node is on the left. The circuits follow this convention.
 - Mantle is revision 2.0.0.
 
 ## 2. Channel notes moved by their holders
@@ -151,11 +153,11 @@ class ProofOfLeadershipPublic:
 +    reward_key: ZkPublicKey
 ```
 
-Block Execution runs the service rewards, releases the due channel withdrawals, runs the transactions, then appends the leader reward note `Note(get_leader_reward(block), 0, reward_key)` to the ledger set, and finally records the commitment MMR root of every note set, evicting the root that leaves the 1024-block window. A leader should use a fresh `reward_key` for every block. Block Construction is revision 1.4.0. The [Anonymous Leaders Reward](../../deprecated/bedrock-anonymous-leaders-reward.md) specification is deprecated.
+Block Execution runs the service rewards and releases the stake of the withdrawn declarations, releases the due channel withdrawals, runs the transactions, then appends the leader reward note `Note(get_leader_reward(block), 0, reward_key)` to the ledger set and updates the fee window, the reserve, the pool and the pending Blend share, and finally records the commitment MMR root of every note set, evicting the root that leaves the 1024-block window. A leader should use a fresh `reward_key` for every block. Block Construction is revision 1.4.0. The [Anonymous Leaders Reward](../../deprecated/bedrock-anonymous-leaders-reward.md) specification is deprecated.
 
 ## 6. Block reward state and supply projection
 
-The block reward stays `R_t = A_t * I_max * S_cap * Delta_t + (1 - A_t) * R_bar_t`, where `R_bar_t` is the average of the pooled fees over the last 120 blocks. The integer reference now follows that equation, with `FEE_AVG_NUMERATOR = 10_512` over the sum of the window and 128-bit intermediates, and caps the release at the reserve balance. The reserve `rewards_reserve` and the pool `rewards_pool` are integer consensus state, set at Genesis: the block reward is the floored reserve release plus the floored pool payout. The leader receives 40% of `R_t`, rounded down, plus the Execution market tips of the block, in one note, the remainder going to the Blend reward ([Cryptoeconomics overview](../overview-cryptoeconomics.md#blend-service-and-consensus-leaders)).
+The block reward stays `R_t = A_t * I_max * S_cap * Delta_t + (1 - A_t) * R_bar_t`, where `R_bar_t` is the average of the pooled fees over the last 120 blocks. The integer reference now follows that equation, with `FEE_AVG_NUMERATOR = 10_512` over the sum of the window and 128-bit intermediates, and caps the release at the reserve balance. The reserve `rewards_reserve`, the pool `rewards_pool`, the pending Blend share `blend_rewards_pending` and the fee window are integer consensus state, set at Genesis: the block reward is the floored reserve release plus the floored pool payout, and the Blend share waits in `blend_rewards_pending` until its epoch pays it, what is not distributed returning to the pool. The leader receives 40% of `R_t`, rounded down, plus the Execution market tips of the block, in one note, the remainder going to the Blend reward ([Cryptoeconomics overview](../overview-cryptoeconomics.md#blend-service-and-consensus-leaders)).
 
 The system design figure is redrawn around the reserve, the pool and the per-block reward, and a new annex projects the supply with a per-block simulation over 10 years: the stake and a pooling rate of 0.5% per year settle within 2 years, the inferred stake carries a noise of 0.1 per epoch, and the fees of each block follow a Poisson number of transactions. The net circulating growth is about 3% of the maximum supply after 10 years, 2.8% to 3.2% over 20 runs. The moving average smooths how the fees vary from block to block; the noise of the inferred stake dominates `A_t`.
 
@@ -193,7 +195,7 @@ The wallet keeps, for each note, its set, the commitment path inside its MMR pea
 - Block Construction: the batch verification annex covers ZkTransfer and pairs each `pi_A` with its own `pi_B`, and a note cannot be spent by a later transaction of the block that creates it.
 - The cross-channel messaging template is deprecated and moved to `deprecated/`.
 - The Execution Market, the Architecture Overview and Blend follow the in-block leader reward.
-- The Gas Cost Determination analysis follows the new Operations and drops the Proof of Claim measures and images. The ZkTransfer (27 public inputs) is priced from the measured batch verification of Groth16 proofs, `cycles(n, N) = A(N) + n * P`: each proof costs `P = 618,797` cycles, so `EXECUTION_TRANSFER_GAS`, `EXECUTION_CHANNEL_DEPOSIT_GAS` and `EXECUTION_CHANNEL_WITHDRAW_GAS` are 619 and the SDP declaration and withdrawal 678. The fixed part `A(27) = 3,540,612` cycles is deduced from the block limit: `limit_Ex = G_max = 3,196,459` and `G_target = 1,598,229`.
+- The Gas Cost Determination analysis follows the new Operations and drops the Proof of Claim measures and images. The ZkTransfer (27 public inputs) is priced from the measured batch verification of Groth16 proofs, `cycles(n, N) = A(N) + n * P`: each proof costs `P = 618,797` cycles, so `EXECUTION_TRANSFER_GAS`, `EXECUTION_CHANNEL_DEPOSIT_GAS` and `EXECUTION_CHANNEL_WITHDRAW_GAS` are 619 and the SDP declaration and withdrawal 678. The fixed part `A(27) = 3,540,612` cycles is deducted from the block limit: `limit_Ex = G_max = 3,196,459` and `G_target = 1,598,229`.
 - The PoL circuit diagram and the Example sections of the Mantle Operations are removed. The Mantle and Cryptarchia test vectors are derived from the specification, for the implementation to reproduce.
 
 # Implementation

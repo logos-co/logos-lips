@@ -36,7 +36,7 @@ digraph high_level_system_design {
 
   edge [fontname = "Helvetica", fontsize = 15, fontcolor = "#d8d8d8"];
 
-  /* Inputs: the two KPIs of the block and the fixed parameters */
+  /* Inputs: the two KPIs, the stake of the epoch and the 120-block fee average, and the fixed parameters */
   stake    [label = "KPI 1: Inferred Total Stake\nof the epoch"];
   fees     [label = "KPI 2: Average Pooled Fees\nover the last T = 120 blocks\n(net of the proof of work share)"];
   params   [label = "Parameters:\nI_max = 1%, alpha_d, alpha_a, T, targets"];

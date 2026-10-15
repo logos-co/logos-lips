@@ -153,7 +153,7 @@ The reasons for this split ratio are:
 - Leaders who can afford the minimum stake are incentivized to lock it and run a Blend node to earn more rewards.
 - Leaders who cannot afford the minimum stake can still earn enough to eventually reach it.
 
-At the start of each Blend epoch, a Blend reward variable is computed. Its amount equals 60% of the total block rewards of the previous epoch:
+At the start of each Blend epoch, a Blend reward variable is computed. Its amount equals 60% of the total block rewards of the previous epoch, held until it is paid in `blend_rewards_pending` ([Block Rewards](block-rewards.md#deterministic-implementation)):
 
 ```python
 def get_blend_reward(e: epoch): # rewards for the epoch e
@@ -193,10 +193,10 @@ def get_pow_pool_refill(e: epoch): # refill for the epoch e
 
 No tokens are created. [Block Rewards](block-rewards.md) counts this pool as a fourth stock, beside the circulating supply, the rewards pool and the reserve. The diversion moves tokens that would otherwise have reached the rewards pool. The reserve is never drawn on to refill this pool, and a claim is paid only from what the pool holds.
 
-A block reward is a release from the reserve plus the fees pooled in the block. Diverting a share of the fees lowers the pooled fees by the same share, so it lowers the second part of the reward in the same proportion. Who bears that depends on the era:
+A block reward is a release from the reserve plus the average of the pooled fees. Diverting a share of the fees lowers that average by the same share, so it lowers the second part of the reward in the same proportion. Who bears that depends on the era:
 
 - While the reserve release dominates the reward, the reward barely moves. The diverted tokens still reach circulation, through claims instead of block rewards.
-- Once the reserve release approaches zero and the reward settles at the pooled fees, a share diverted is a share not distributed. **The cost falls on the Blend service and the leaders**, in the 60/40 proportion in which they divide the block reward. That proportion is unchanged; the total they divide is smaller.
+- Once the reserve release approaches zero and the reward settles at the average pooled fee, a share diverted is a share not distributed. **The cost falls on the Blend service and the leaders**, in the 60/40 proportion in which they divide the block reward. That proportion is unchanged; the total they divide is smaller.
 
 The emission rate factor is computed in part from the pooling rate, so the released part of the reward responds to the diversion as well. That response vanishes in both eras above, and between them it is comparable to the direct effect.
 

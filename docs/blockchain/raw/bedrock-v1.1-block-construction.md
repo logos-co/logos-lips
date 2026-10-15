@@ -374,7 +374,7 @@ Given a `ValidBlock` that has successfully passed proposal validation, the node 
 1. Execute the reward distribution protocol defined in [**Service Reward Distribution Protocol**](bedrock-service-reward-distribution.md) to generate reward notes locally and include them in the ledger, then remove the withdrawn declarations and release their notes, as defined in [SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization).
 2. Apply the channel withdrawals whose due slot is reached and whose inputs are still unspent, as defined in [CHANNEL_WITHDRAW](bedrock-v1.1-mantle-specification.md#channel_withdraw).
 3. Execute the Mantle Transactions included in the block in the order they appear, using the execution rules defined in the [Mantle](bedrock-v1.1-mantle-specification.md).
-4. Insert the leader reward of the block in the ledger, and update `rewards_reserve` and `rewards_pool` with the release and the payout of the block, as defined in [Block Rewards](block-rewards.md#deterministic-implementation).
+4. Insert the leader reward of the block in the ledger, and update `pooled_fees_window`, `rewards_reserve`, `rewards_pool` and `blend_rewards_pending` with the pooled fees, the release, the payout and the Blend share of the block, as defined in [Block Rewards](block-rewards.md#deterministic-implementation).
 5. Record the commitment MMR root of every note set, as defined in [Ledger](bedrock-v1.1-mantle-specification.md#ledger), so that the transactions of the next 1024 blocks can reference it:
     ```python
     for note_set in ledger.sets:

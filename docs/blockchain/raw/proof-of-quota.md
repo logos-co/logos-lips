@@ -103,7 +103,7 @@ class ProofOfQuotaWitness:
     pow_nonce: zkhash                     # Private nonce the prover ground to solve the puzzle
 ```
 
-Note that every inputs and outputs of zero-knowledge proofs are all scalar field elements.
+Note that every inputs and outputs of zero-knowledge proofs are all scalar field elements. Every path and its selectors follow the Merkle path convention of [Mantle](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range): from the leaf level up, a selector being the bit of the leaf index at its level.
 
 ### Constraints
 

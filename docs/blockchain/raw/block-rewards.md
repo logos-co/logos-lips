@@ -188,7 +188,7 @@ $$
 
 A reserve release moves tokens from $`B_t`$ into circulation, routing a fee moves tokens from circulation into $`P_t`$, and the reward pays part of them back. Circulating supply $`S_t`$ rises as the reserve drains, and contracts whenever the fees of a block exceed its reward. This removes tokens from circulation, not from existence.
 
-The [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool) is a stock of the same kind, holding tokens allocated at genesis and topped up by the share of the fees diverted before they reach $`P_t`$, and paying them into circulation as claims are made. It joins the controlled total, which is $`S_t + P_t + B_t + W_t`$, writing $`W_t`$ for this pool, and is constant for the same reason: every movement is between stocks. Net circulating growth over the reserve's life is bounded by $`B_0 + W_0`$, the two stocks that begin full and drain into circulation.
+The [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool) is a stock of the same kind, holding tokens allocated at genesis and topped up by the share of the fees diverted before they reach $`P_t`$, and paying them into circulation as claims are made. It joins the controlled total, which is $`S_t + P_t + B_t + W_t`$, writing $`W_t`$ for this pool, and is constant for the same reason: every movement is between stocks. Net circulating growth over the reserve's life is bounded by $`B_0 + W_0`$, the two stocks that begin full and drain into circulation. The Blend share of a block reward waits in a stock of the same kind, `blend_rewards_pending`, until the epoch it is paid in, and what that epoch does not distribute returns to $`P_t`$.
 
 ## Key Performance Indicators
 
@@ -250,12 +250,16 @@ $$
 R_t = \iota_t + \pi_t.
 $$
 
-The reserve balance `rewards_reserve` and the pool balance `rewards_pool` are consensus state, in LGO, set at Genesis to $`B_0 = 10^9`$ and $`0`$, and the nodes keep the pooled fees of the last $`120`$ blocks. When the leader reward of a block is computed ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), the reserve pays $`\iota_t`$ and the pool receives the pooled fees of the block and pays $`\pi_t`$:
+The reserve balance `rewards_reserve`, the pool balance `rewards_pool` and the Blend share waiting to be paid `blend_rewards_pending` are consensus state, in LGO, set at Genesis to $`B_0 = 10^9`$, $`0`$ and $`0`$. The nodes also keep `pooled_fees_window`, the pooled fees of the last $`120`$ blocks, `0` for the blocks before the first one. When the leader reward of a block is computed ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), the pooled fees of the block enter the window, the reserve pays $`\iota_t`$, the pool receives the pooled fees of the block and pays $`\pi_t`$, and the Blend share of the reward waits to be paid:
 
 ```python
 rewards_reserve -= release
-rewards_pool += pooled_fees_window[-1] - payout
+rewards_pool += pooled_fees_window[-1]
+rewards_pool -= payout
+blend_rewards_pending += release + payout - leader_share
 ```
+
+The Blend reward of an epoch is paid from `blend_rewards_pending` ([Service Reward Distribution Protocol](bedrock-service-reward-distribution.md)), and what the epoch does not distribute, when no reward is calculated or as the remainder of the division among the nodes, returns to `rewards_pool`.
 
 Every pooled fee is paid out at most once across the $`120`$ blocks of its window, so the pool never goes below zero. The reference implementation is:
 

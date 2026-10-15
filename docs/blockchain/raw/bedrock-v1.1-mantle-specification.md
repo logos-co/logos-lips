@@ -368,7 +368,7 @@ Channels let their bridged notes keep participating in Proof of Stake. When a us
 
 **Holders keep their notes.** A channel note is a note of the channel's note set, owned by the holder of its `ZkPublicKey`. Only that holder can spend it, in one of two ways:
 
-- *Inside the channel*, the holder signs a step off chain: a ZkTransfer that consumes its channel notes and creates channel notes of the same total value. The sequencers of the channel collect the steps of their users and publish them, in the order they choose, in a [`CHANNEL_INSCRIBE`](#channel_inscribe). The ledger verifies every step, so a sequencer orders the moves of a channel but never makes one.
+- *Inside the channel*, the holder signs a step off chain: a ZkTransfer that consumes its channel notes and creates channel notes of the same total value. The sequencers of the channel collect the steps of their users and publish them in a [`CHANNEL_INSCRIBE`](#channel_inscribe), in an order they fix before the holders prove their steps. The ledger verifies every step, so a sequencer orders the moves of a channel but never makes one.
 - *Out of the channel*, the holder posts a [`CHANNEL_WITHDRAW`](#channel_withdraw) alone. It takes effect `WITHDRAW_DELAY` slots later, unless an inscription of the channel consumes its notes with a valid step in the meantime.
 
 **Ageing.** Because a deposit and a step consume notes and create new ones, a channel note restarts the ageing process and must age again before it can create a PoL. Bridged funds still count toward Proof of Stake, so the goals above hold, but the participation is not continuous across these moves.
@@ -378,7 +378,7 @@ Channels let their bridged notes keep participating in Proof of Stake. When a us
 | Party | Can | Cannot |
 |---|---|---|
 | Holder of the note's `ZkPublicKey` | Create a PoL with the note and earn its rewards. Sign a step moving the note inside the channel. Withdraw the note alone | Spend the note in any other Operation |
-| Channel sequencers | Collect the steps of their users and publish them, in the order they choose, in the inscriptions of the channel | Move a note without its holder's step |
+| Channel sequencers | Collect the steps of their users and publish them in the inscriptions of the channel, in an order they fix before the holders prove their steps | Move a note without its holder's step |
 
 ### CHANNEL_INSCRIBE
 
@@ -401,7 +401,7 @@ class Inscribe:
     steps: list[ChannelStep] # Moves of channel notes, in the order they apply, possibly empty
 ```
 
-A step is signed by the holder of the notes it consumes, off chain and before the Mantle Transaction carrying it exists. Its ZkTransfer is therefore bound to the step itself rather than to the `mantle_txhash`, and it balances exactly, with an `excess_value` of `0`:
+A step is signed by the holder of the notes it consumes, off chain and before the Mantle Transaction carrying it exists. Its ZkTransfer is therefore bound to the step itself rather than to the `mantle_txhash`, and it balances exactly, with an `excess_value` of `0`. Its proof is verified against the referenced root extended with the commitments the Operations and steps before it in the Mantle Transaction add, so it holds only at its position: the sequencer fixes the order of the steps, and of the Operations before them, before their holders prove them. The message a step is bound to is:
 
 ```python
 def step_msg(step: ChannelStep) -> zkhash:
@@ -1166,7 +1166,7 @@ declarations: dict[DeclarationID, DeclarationInfo]
 
   For every `declare_id`, `declare_info` in `declarations` where
   `declare_info.withdraw_at is not None and declare_info.withdraw_at + 1 <= current_epoch`,
-  in ascending order of `declare_id`, so that every node appends the released notes in the same order:
+  in ascending lexicographic order of the 32 bytes of `declare_id`, so that every node appends the released notes in the same order:
 
   1. Release the notes created by the withdrawal in the ledger note set.
       ```python
@@ -1572,7 +1572,7 @@ The note sets are what the [Proof of Leadership](cryptarchia-proof-of-leadership
 
 The commitments of each note set are appended, in insertion order, to the leaves of a Merkle tree of depth $`32`$ whose every leaf past the last appended one holds $`0`$. The root of that tree is the commitment MMR root of the set, and a commitment is proven in it by a Merkle path of length $`32`$.
 
-A Merkle path, in this tree and in every Merkle tree the circuits prove membership in, lists its nodes from the leaf level up to the root, and its selectors in the same order: the selector of a level is the bit of the leaf index at that level, starting from the least significant, `1` when the node on the path is the right child and its sibling, the path node, is on the left.
+A Merkle path, in this tree and in every Merkle tree the circuits prove membership in, lists its nodes from the leaf level up to the root, and its selectors in the same order: the selector of a level is the bit of the leaf index at that level, starting from the least significant, `1` when the node computed at that level from the leaf is the right child, so that the path node is on the left.
 
 The ledger keeps only the peaks of the tree: the roots of its largest perfect subtrees holding appended commitments, with their heights, from left to right. Appending a commitment adds a peak of height $`0`$ and merges the last two peaks while they have the same height, and the root is computed from the peaks and the roots of the empty subtrees:
 
@@ -1788,7 +1788,7 @@ Such that the following constraints hold, where `inputs_pk` and `inputs_cm` are 
 - Each output is well-formed and the excess value, zero or more, is outputted.
   ```python
   assert all(
-      outputs_value[i] < 2^64
+      outputs_value[i] < 2**64
       for i in range(len(outputs_value))
   )
   value_inputs = sum(inputs_value)

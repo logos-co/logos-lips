@@ -90,6 +90,7 @@ The reward must:
   - Be sent to the public key `zk_id` of the validator registered during [declaration of the service](bedrock-service-declaration-protocol.md).
   - Be distributed as exactly one note per rewarded `zk_id`. Rewards are never summed or merged into a shared note.
   - Be executed identically by every node processing the first block of epoch N+2. This happens by inserting notes in the ledger in ascending order of `zk_id`.
+  - Be paid, for the Blend service, from `blend_rewards_pending` ([Block Rewards](block-rewards.md#deterministic-implementation)): the total of the reward notes is debited from it, and the part of the Blend reward of epoch N that the notes do not use, when no reward is calculated or as the remainder of the division among the nodes, moves from it back to `rewards_pool`.
 
 Nodes indirectly verify the correct inclusion of rewards because all consensus-validating nodes must maintain the same ledger view to derive the commitment roots of recent blocks and the eligible set roots, which serve as inputs for verifying the transactions and the [Proof of Leadership](cryptarchia-proof-of-leadership.md).
 

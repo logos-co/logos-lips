@@ -89,7 +89,7 @@ and come from our implementation observations as described in [Gas determination
 | ZkTransfer batch verification of `n` proofs (27 public inputs) | 3,540,612 + n x 618,797 |
 | Eddsa25519 signature verification | 59,200 |
 
-Comparison, list searching, hashes and operation in small fields are neglected. The ZkTransfer proofs of a block are verified in one batch, whose cost is a fixed part plus a part proportional to the number of proofs. The fixed part is paid by everyone and deduced from the block directly, through the Execution Gas limit of the block ([Execution Fee Market](overview-cryptoeconomics.md#execution-fee-market)). The user then pays only for the part that is proportional to the number of proofs.
+Comparison, list searching, hashes and operation in small fields are neglected. The ZkTransfer proofs of a block are verified in one batch, whose cost is a fixed part plus a part proportional to the number of proofs. The fixed part is paid by everyone and deducted from the block directly, through the Execution Gas limit of the block ([Execution Fee Market](overview-cryptoeconomics.md#execution-fee-market)). The user then pays only for the part that is proportional to the number of proofs.
 
 # Transfer
 
@@ -242,7 +242,7 @@ Its cost is therefore a fixed part `A(N)`, which grows with the number of public
 cycles(n, N) = A(N) + n * P
 ```
 
-The fixed part is paid once per block for each verification key and is deduced from the Execution Gas limit of the block ([Execution Fee Market](overview-cryptoeconomics.md#execution-fee-market)). The part `P` is paid by each Operation, once per proof it carries.
+The fixed part is paid once per block for each verification key and is deducted from the Execution Gas limit of the block ([Execution Fee Market](overview-cryptoeconomics.md#execution-fee-market)). The part `P` is paid by each Operation, once per proof it carries.
 
 **Method.**
 

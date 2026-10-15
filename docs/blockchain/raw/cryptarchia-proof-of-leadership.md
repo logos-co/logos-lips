@@ -142,6 +142,8 @@ class ProofOfLeadershipWitness:
     set_latest_path: list[FrElement]  # path of the leaf of the set to eligible_latest (len = 32)
 ```
 
+Every path and its selectors follow the Merkle path convention of [Mantle](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range): from the leaf level up, a selector being the bit of the leaf index at its level.
+
 Such that the following constraints hold:
 
 - The public key is derived from the secret key.
