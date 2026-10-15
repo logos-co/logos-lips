@@ -166,7 +166,7 @@ The system design figure is redrawn around the reserve, the pool and the per-blo
 ## 7. Encoding
 
 - `ChannelInscribe = ChannelId Inscription Parent Signer Steps`, with `ChannelStep = Inputs Outputs CmMerkleRoot`. `ChannelInscribeOpProof = Ed25519Signature *ZkTransfer`.
-- `ChannelDeposit = ChannelId Inputs CmMerkleRoot Outputs Value Metadata`, `ChannelWithdraw = ChannelId Inputs CmMerkleRoot Outputs Value`, `SDPWithdraw = DeclarationId Nonce NoteNf Outputs Value`. `ChannelConfig` loses `TransferThreshold`.
+- `ChannelDeposit = ChannelId Inputs CmMerkleRoot Outputs Value DepositMetadata`, `ChannelWithdraw = ChannelId Inputs CmMerkleRoot Outputs Value`, `SDPWithdraw = DeclarationId Nonce NoteNf Outputs Value`. `ChannelConfig` loses `TransferThreshold`.
 - `Transfer = Inputs Outputs CmMerkleRoot Value`, with `Inputs` of `NoteNf` and `Outputs` of `NoteCm`. `ClaimPowReward` gains `PowNonce`.
 - `ChannelTransfer`, `LeaderClaim` and their proofs are removed. `ZkTransferProof`, `ZkTransferAndEd25519SigProof` and `EmptyProof` replace the ZkSignature and Proof of Claim variants.
 - Mantle Transaction Encoding is revision 2.0.0.

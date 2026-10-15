@@ -36,7 +36,7 @@
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
 | 1.6.0 | Replaced the per-window statistical threshold on a connection with a share of messages a node reads from, and sends on, each connection in a round, and a liveness test, kept per identity for the epoch, on whether a neighbor delivers. Held the peering degree in live connections, at least two of them opened by the node. Restricted blacklisting to attributable faults. Sized the shares from the processing rate of the slowest node, derived the transactions the network carries from them, and made that rate the reference load of the Blend difficulty. | 2026-09-08 |
 | 1.6.1 | Corrected Blend activity metadata to the canonical tagged encoding: removed the separate version byte and corrected the total size to 229 bytes. | 2026-10-13 |
-| 1.6.2 | Updated the encapsulation-overhead calculation to the `Max_Payload_Length` of 17715 bytes, following the removal of the leader key and of the signatures from block proposals | 2026-10-14 |
+| 1.6.2 | Updated the encapsulation-overhead calculation to the `Max_Payload_Length` of 17715 bytes, following the removal of the leader key and of the signatures from block proposals. The leader reward is referenced in [Block Execution](bedrock-v1.1-block-construction.md#block-execution) | 2026-10-14 |
 
 # Introduction
 
