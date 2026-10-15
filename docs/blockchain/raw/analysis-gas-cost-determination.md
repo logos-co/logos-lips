@@ -92,7 +92,7 @@ and come from our implementation observations as described in [Gas determination
 | Operation | Number of CPU cycles |
 | --- | --- |
 | ZkTransfer batch verification of `n` proofs (27 public inputs) | 3,540,612 + n x 618,797 |
-| ZkProgramSpend batch verification of `n` proofs (29 public inputs) | 3,608,664 + n x 618,796 |
+| ZkProgramSpend batch verification of `n` proofs (37 public inputs) | 3,975,765 + n x 618,796 |
 | Program proof verification, alone (3 public inputs) | 2,221,544 |
 | Subgroup checks of the 3 G2 points of a verification key | 573,324 |
 | Preparation of a verification key (3 public inputs) | 1,704,632 |
@@ -303,7 +303,9 @@ Fitted model:
 | 27 | 3,540,612 | 618,797 | 2.9% |
 | 29 | 3,608,664 | 618,796 | 2.8% |
 
-`P` is 619k cycles whatever the number of public inputs, while `A(N)` grows by about 39k cycles per public input, the cost of one more point in the MSM. The ZkTransfer has 27 public inputs: its proofs cost `P = 618,797` cycles each, and its batch `A(27) = 3,540,612` cycles per block. The ZkProgramSpend has 29 public inputs: its proofs cost `P = 618,796` cycles each, and its batch `A(29) = 3,608,664` cycles per block.
+`P` is 619k cycles whatever the number of public inputs, while `A(N)` grows by about 39k cycles per public input, the cost of one more point in the MSM. The ZkTransfer has 27 public inputs: its proofs cost `P = 618,797` cycles each, and its batch `A(27) = 3,540,612` cycles per block.
+
+The ZkProgramSpend has 37 public inputs. `A(37)` was measured in a later run, with the same method, together with `N = 29` as a control, which came out about 1.5% below the table above. Its fixed part is therefore `A(29)` above plus the gap measured in that run, `A(37) - A(29) = 3,908,913 - 3,541,812 = 367,101` cycles, so `A(37) = 3,975,765` cycles per block. The gap is about 46k cycles per input rather than 39k, since the MSM over the 38 points of the key uses a wider window than over 30. `P` does not depend on `N` in that run either, 608,266 cycles at `N = 37` against 607,512 at `N = 29`, so the ZkProgramSpend proofs cost `P = 618,796` cycles each.
 
 ![Groth16 batch verification: cycles per proof against the batch size, measured and fitted](analysis-gas-cost-determination/assets/groth16_batch_verification.png)
 
