@@ -154,9 +154,14 @@ class OwnedNote:
     path: list[zkhash]          # Merkle path of cm to the root of its peak, from the leaf up
     selectors: list[bool]       # at each level, 1 when the path node is on the left, as in Mantle
 
-def append_commitment(peaks: list[(zkhash, int)], notes: list[OwnedNote], cm: NoteCm):
+def append_commitment(peaks: list[(zkhash, int)], notes: list[OwnedNote], cm: NoteCm,
+                      owned: OwnedNote | None = None):
     # peaks holds the (root, height) of every peak, from left to right
+    # owned is the note of cm, with an empty path, when the wallet owns it
     peaks.append((cm, 0))
+    if owned is not None:
+        owned.peak = len(peaks) - 1
+        notes.append(owned)
     while len(peaks) > 1 and peaks[-1][1] == peaks[-2][1]:
         (left, height), (right, _) = peaks[-2], peaks[-1]
         for note in notes:
@@ -172,7 +177,7 @@ def append_commitment(peaks: list[(zkhash, int)], notes: list[OwnedNote], cm: No
         peaks[-2:] = [(zkhash(left, right), height + 1)]
 ```
 
-A note the wallet owns joins `notes` with `peak = len(peaks) - 1` and an empty path right after `peaks.append((cm, 0))`, before the merges of its own append. Only the notes whose peak is merged are updated, so following a block costs one hash per merge. The path of a note to the commitment root of its note set at the epoch snapshot is the path it holds at the snapshot, completed with the peaks of the snapshot.
+A note the wallet owns is passed as `owned` with an empty path, and joins `notes` right after `peaks.append((cm, 0))`, before the merges of its own append. Only the notes whose peak is merged are updated, so following a block costs one hash per merge. The path of a note to the commitment root of its note set at the epoch snapshot is the path it holds at the snapshot, completed with the peaks of the snapshot.
 
 Inserting a nullifier changes exactly two leaves of the [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree): the appended leaf and the leaf of the greatest nullifier lower than the inserted one. Every insertion is public, so a wallet fetching the leaves and Merkle paths of these two positions, as they stand after each insertion, reveals nothing about the notes it owns. From them, it updates the low leaf of each of its notes in that set and its path with at most 32 hashes per changed leaf:
 

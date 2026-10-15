@@ -28,7 +28,7 @@
 | 1.2.1 | Changing from burning/minting to pooling/distributing/releasing | 2026-08-25 |
 | 1.2.2 | Stated that the minimum stake of a service is locked in a service note | 2026-08-27 |
 | 1.3.0 | Add the proof of work reward pool, funded by diverting a share of the collected fees before they reach the rewards pool | 2026-08-31 |
-| 1.4.0 | Pay the leader reward of a block in the block itself, as a note under a one-time public key of the leader. Aligned the maximum block size with the 2 MiB of [Cryptarchia](cryptarchia-v1-protocol.md#constants). The Execution Gas limit deducts the measured fixed part of the ZkTransfer batch verification. The leader share is 40% of the block reward rounded down, the remainder going to the Blend reward | 2026-10-07 |
+| 1.4.0 | Pay the leader reward of a block in the block itself, as a note under a one-time public key of the leader. Aligned the maximum block size with the 2 MiB of [Cryptarchia](cryptarchia-v1-protocol.md#constants). The Execution Gas limit deducts the measured fixed part of the ZkTransfer batch verification. The leader share is 40% of the block reward rounded down, the remainder going to the Blend reward, held in `blend_rewards_pending` until it is paid | 2026-10-07 |
 
 > **Disclaimer**:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -153,7 +153,7 @@ The reasons for this split ratio are:
 - Leaders who can afford the minimum stake are incentivized to lock it and run a Blend node to earn more rewards.
 - Leaders who cannot afford the minimum stake can still earn enough to eventually reach it.
 
-At the start of each Blend epoch, a Blend reward variable is computed. Its amount equals 60% of the total block rewards of the previous epoch, held until it is paid in `blend_rewards_pending` ([Block Rewards](block-rewards.md#deterministic-implementation)):
+At the start of each Blend epoch, a Blend reward variable is computed. Its amount equals 60% of the total block rewards of the previous epoch, held in `blend_rewards_pending` until it is paid ([Block Rewards](block-rewards.md#deterministic-implementation)):
 
 ```python
 def get_blend_reward(e: epoch): # rewards for the epoch e

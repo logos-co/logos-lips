@@ -32,7 +32,7 @@
 | 1.1.4 | Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy. | 2026-08-25 |
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
 | 1.2.0 | Seed the pow reward pool at genesis from the initial token distribution | 2026-09-08 |
-| 1.3.0 | Support the private ledger of Mantle: the initial distribution is made of note commitments whose preimages are published in an inscription to the null channel, and the declarations consume the distributed notes. The Genesis Transfer is exempt from the output limit of a ZkTransfer, and the ZkTransfer of every Genesis declaration is verified. Genesis initializes the block reward reserve and pool, and records the commitment roots of the note sets. The genesis header has no `leader_key` | 2026-10-07 |
+| 1.3.0 | Support the private ledger of Mantle: the initial distribution is made of note commitments whose preimages are published in an inscription to the null channel, and the declarations consume the distributed notes. The Genesis Transfer is exempt from the output limit of a ZkTransfer, and the ZkTransfer of every Genesis declaration is verified. Genesis initializes the block reward reserve, pool, pending Blend share and window of pooled fees, and records the commitment roots of the note sets. The genesis header has no `leader_key` | 2026-10-07 |
 
 # Introduction
 
@@ -368,7 +368,7 @@ The pow reward pool is initialized at the same time:
 3. `difficulty_blend` is set to `BLEND_DIFFICULTY_BASE` for **epochs 0 and 1**, as given in [Blend Difficulty](proof-of-work.md#blend-difficulty): the value for an epoch is fixed at the preceding epoch's nonce snapshot from the load of the epoch before that, and no complete input epoch exists before epoch 2. The schedule begins with epoch 2's value, computed during epoch 1 from epoch 0's load.
 4. `difficulty_reward` is set to the genesis value given in [Reward Difficulty](proof-of-work.md#reward-difficulty), and `pow_nullifiers` is empty.
 
-The block reward stocks are initialized with them: `rewards_reserve` is set to its initial balance $`B_0`$, `rewards_pool` and `blend_rewards_pending` to `0`, and `pooled_fees_window` to $`120`$ zeros, as defined in [Block Rewards](block-rewards.md#deterministic-implementation). The outputs of the Transfer Operation, the pow reward pool and the rewards reserve together make up the maximum supply $`S_{cap}`$.
+The block reward stocks are initialized with them: `rewards_reserve` is set to its initial balance $`B_0`$, `rewards_pool` and `blend_rewards_pending` to `0`, and `pooled_fees_window` to $`120`$ zeros, as defined in [Block Rewards](block-rewards.md#deterministic-implementation). The distribution is sized so that the outputs of the Transfer Operation, the pow reward pool and the rewards reserve together make up the maximum supply $`S_{cap}`$.
 
 Once the Genesis Mantle Transaction is executed, every note set records its commitment MMR root, as at the end of any block ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), so that the transactions of the next blocks can spend the notes created at Genesis.
 

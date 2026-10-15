@@ -24,7 +24,7 @@ Read the PR's Motivation first. The note sets in Mantle are the base every other
 | 3 | Critical | **Start here**: [Proof of Leadership](#affected-specifications), [eligible root](#3-proof-of-leadership-over-the-eligible-root) | the eligible tree over the sets; the same set position for the aged and latest checks |
 | 4 | High | [Mantle](#affected-specifications), [SDP and proof of work](#4-sdp-stake-and-the-proof-of-work-claim) | the SDP note set; the single-note MMR root binding the withdrawal to its service note; the unsigned PoW claim |
 | 5 | High | [Block Construction](#affected-specifications), [leader reward and block execution](#5-leader-reward-paid-in-the-block) | `reward_key`, the reward note, the release of due withdrawals |
-| 6 | High | [Block Rewards](#affected-specifications), [Cryptoeconomics overview](#affected-specifications), [block reward state](#6-block-reward-state-and-supply-projection) | the integer reference over the 120-block window, the reserve and pool state, the 40% leader share plus tips |
+| 6 | High | [Block Rewards](#affected-specifications), [Cryptoeconomics overview](#affected-specifications), [block reward state](#6-block-reward-state-and-supply-projection) | the integer reference over the 120-block window, the reserve, pool and pending Blend share state, the 40% leader share plus tips |
 | 7 | High | [Mantle Transaction Encoding](#affected-specifications), [encoding](#7-encoding) | steps in `ChannelInscribe`, new payloads and proof variants |
 | 8 | High | [Cryptarchia](#affected-specifications), [Proof of Quota](#affected-specifications), [Message Encapsulation](#affected-specifications), [consensus inputs](#8-cryptarchia-and-proof-of-quota-inputs) | epoch state and uncle inputs, PoQ leader branch |
 | 9 | High | [Genesis Block](#affected-specifications), [genesis](#9-genesis) | the initial sets; the distribution inscription; declarations spending the distribution |
@@ -42,7 +42,7 @@ Every note is private and lives in exactly one note set: the ledger, the SDP, or
 
 A channel note is spent only by its holder. Inside the channel, the holder signs a step, a ZkTransfer bound to `step_msg` rather than to the transaction, since it is signed before the transaction exists. The sequencers collect the steps and publish them in their inscriptions, and the ledger verifies every step. A sequencer orders the moves of its channel and can delay or drop a step, but cannot move a note, and cannot create value: every step is a verified, balanced ZkTransfer. A step is proven against the referenced root extended with the commitments created before it in the transaction, so it holds only at its position, and the sequencer fixes the order before the holders prove their steps.
 
-Out of the channel, the holder withdraws alone. The withdrawal takes effect `WITHDRAW_DELAY` slots later, only if its notes are still unspent: until then, an inscription can consume them with a valid step, which cancels it. A holder cannot invalidate an inscription carrying one of its steps by withdrawing the same note first. The withdrawal carries no fee: another Operation of its transaction pays it, since a fee paid at posting would stay paid if the withdrawal were dropped, and would create tokens.
+Out of the channel, the holder withdraws alone. The withdrawal takes effect `WITHDRAW_DELAY` slots later, only if its notes are still unspent: until then, an inscription can consume them with a valid step, which cancels it. A holder cannot invalidate an inscription carrying one of its steps by withdrawing the same note, as long as the inscription lands before the withdrawal is due; a sequencer should not accept a step whose inputs a pending withdrawal may release before then, since the due slots and nullifiers are public. The withdrawal carries no fee: another Operation of its transaction pays it, since a fee paid at posting would stay paid if the withdrawal were dropped, and would create tokens.
 
 All the data of a step lands on chain: its nullifiers, its commitments and its proof. Steps are not compressed, so a channel costs the chain as much per move as the ledger does. Steps carry no `excess_value`, so a move inside a channel pays no fee from channel funds, and the fee of the inscription comes from its sequencer.
 
@@ -78,6 +78,7 @@ class NoteSet:
     commitments: list[(MerkleRoot, int)]  # the peaks of the commitment MMR, with their heights
     nullifiers: set[NoteNf]               # the set of nullifiers, maintained in an IMT
     recent_cm_roots: dict[MerkleRoot, list[(MerkleRoot, int)]]  # roots of the last 1024 blocks, with their peaks
+    recent_cm_root_blocks: list[MerkleRoot]  # the root at the end of each of these blocks, oldest first
     tx_cm_buffer: list[NoteCm]          # commitments added earlier in the Mantle Transaction
 
 class Ledger:
@@ -93,7 +94,7 @@ class Ledger:
 - The ZkTransfer has 4 inputs and 8 outputs, marked used by the public flags `inputs_active` and `outputs_active`. The verifier sets the flags from the lengths of `inputs` and `outputs`, and an Operation with more than 4 inputs or 8 outputs is invalid. The circuit checks each flag is boolean, and an inactive input or output holds value `0`.
 - The `excess_value` of `TRANSFER`, `CHANNEL_DEPOSIT` and `SDP_WITHDRAW` adds to the transaction balance. Steps and withdrawals carry none, and the excess of `SDP_DECLARE` is its stake.
 - `derive_note_nonce(op_id, output_number, value, public_key)` uses the DST `NOTE_NONCE_V1`.
-- A Merkle path lists its nodes and its selectors from the leaf level up, a selector being the bit of the leaf index at its level, `1` when the path node is on the left. The circuits follow this convention.
+- A Merkle path lists its nodes and its selectors from the leaf level up, a selector being the bit of the leaf index at its level, `1` when the path node is on the left. The circuits follow this convention, the core branch of the Proof of Quota included.
 - Mantle is revision 2.0.0.
 
 ## 2. Channel notes moved by their holders
@@ -180,7 +181,7 @@ The system design figure is redrawn around the reserve, the pool and the per-blo
 
 - The ledger and SDP sets start empty. The null channel, created by the Cryptarchia inscription, gets the third set.
 - The Transfer outputs are commitments in the ledger set, the nonce of each note being its output index. The Genesis Transfer, having no proof, is exempt from the 8-output limit of a ZkTransfer.
-- The ZkTransfer of every Genesis declaration is verified, so that the stake is tied to distributed notes and the initial supply is the published distribution. After the Genesis transaction, every note set records its commitment root, and the block reward reserve and pool are initialized.
+- The ZkTransfer of every Genesis declaration is verified, so that the stake is tied to distributed notes and the initial supply is the published distribution. After the Genesis transaction, every note set records its commitment root, and the block reward reserve, pool, pending Blend share and fee window are initialized.
 - A second inscription to the null channel publishes `value` and `public_key` for each output, and validation checks every output against it.
 - The declarations spend the distributed notes, proven against the empty MMR root of the ledger set with its buffer appended.
 
@@ -209,7 +210,8 @@ The wallet keeps, for each note, its set, the commitment path inside its MMR pea
 - [ ] Create service notes in the SDP set, and consume them in `SDP_WITHDRAW` with a ZkTransfer.
 - [ ] Sign `SDP_WITHDRAW` and `SDP_ACTIVE` with Ed25519, and drop the proof of `CLAIM_POW_REWARD`.
 - [ ] Add `reward_key` to the header and insert the leader reward note during block execution.
-- [ ] Keep the pooled fees of the last 120 blocks, the reserve and the pool, and compute the block reward in integers.
+- [ ] Keep the pooled fees of the last 120 blocks, the reserve, the pool and the pending Blend share, and compute the block reward in integers.
+- [ ] Pay the Blend rewards from the pending Blend share, returning what they do not use to the pool.
 - [ ] Update the PoL circuit (`mantle/pol_lib.circom` in `logos-blockchain-circuits`) and the PoQ circuit (`blend/poq.circom`) to the eligible root.
 - [ ] Update the encoding of payloads and proofs.
 - [ ] Build the genesis note sets and distribution inscription, and their validation.
@@ -241,7 +243,7 @@ The wallet keeps, for each note, its set, the commitment path inside its MMR pea
 | [Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | Revision 1.8.0 |
 | [Analysis: Execution Market](../analysis-execution-market.md) | Modified | reference to the deprecated leader reward |
 | [Architecture Overview](../bedrock-architecture-overview.md) | Modified | Revision 1.2.0 |
-| [Blend Protocol](../blend-protocol.md) | Modified | leader reward reference and encapsulation overhead, Revision 1.6.2 |
+| [Blend Protocol](../blend-protocol.md) | Modified | leader reward reference, encapsulation overhead and rounding of the base reward, Revision 1.6.2 |
 | [Payload Formatting](../payload-formatting.md) | Modified | Revision 1.2.1 |
 | [Message Formatting](../message-formatting.md) | Modified | Revision 1.0.3 |
 | [Bootstrapping and Synchronization](../cryptarchia-v1-bootstr-sync.md) | Modified | Revision 1.0.2 |
