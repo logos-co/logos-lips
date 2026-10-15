@@ -100,7 +100,7 @@ FILE_ASSIGNMENTS = {
     "blockchain/deprecated/v1.2.0-mantle-transaction-encoding.md": ("Mantle", "[1.2.0] Mantle Transaction Encoding"),
     "blockchain/deprecated/v1.1.0-mantle-transaction-encoding.md": ("Mantle", "[1.1.0] Mantle Transaction Encoding"),
     "blockchain/deprecated/v1.0.0-mantle-transaction-encoding.md": ("Mantle", "[1.0.0] Mantle Transaction Encoding"),
-    "blockchain/raw/template-cross-channel-messaging.md": ("Mantle", "[Template] Cross-Channel Messaging"),
+    "blockchain/deprecated/template-cross-channel-messaging.md": ("Mantle", "[Template] Cross-Channel Messaging"),
     "blockchain/deprecated/v1.1.0-template-cross-channel-messaging.md": ("Mantle", "[1.1.0][Template] Cross-Channel Messaging"),
     "blockchain/deprecated/v1.0.0-template-cross-channel-messaging.md": ("Mantle", "[1.0.0] [Template] Cross-Channel Messaging"),
     "blockchain/raw/analysis-gas-cost-determination.md": ("Mantle", "[Analysis] Gas Cost Determination"),

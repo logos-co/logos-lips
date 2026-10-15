@@ -28,7 +28,7 @@
 | 1.2.1 | Changing from burning/minting to pooling/distributing/releasing | 2026-08-25 |
 | 1.2.2 | Stated that the minimum stake of a service is locked in a service note | 2026-08-27 |
 | 1.3.0 | Add the proof of work reward pool, funded by diverting a share of the collected fees before they reach the rewards pool | 2026-08-31 |
-| 1.4.0 | Pay the leader reward of a block in the block itself, as a note under a one-time public key of the leader. Aligned the maximum block size with the 2 MiB of [Cryptarchia](cryptarchia-v1-protocol.md#constants). The Execution Gas limit deducts the measured fixed part of the ZkTransfer batch verification | 2026-10-07 |
+| 1.4.0 | Pay the leader reward of a block in the block itself, as a note under a one-time public key of the leader. Aligned the maximum block size with the 2 MiB of [Cryptarchia](cryptarchia-v1-protocol.md#constants). The Execution Gas limit deducts the measured fixed part of the ZkTransfer batch verification. The leader share is 40% of the block reward rounded down, the remainder going to the Blend reward | 2026-10-07 |
 
 > **Disclaimer**:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -159,15 +159,18 @@ At the start of each Blend epoch, a Blend reward variable is computed. Its amoun
 def get_blend_reward(e: epoch): # rewards for the epoch e
     blend_rewards = 0
     for b in e.blocks: # for each block of the previous epoch
-        blend_rewards += 0.6 * get_block_rewards(b) # get 60% of the rewards
+        blend_rewards += get_block_rewards(b) - leader_share(b) # the other 60% of the rewards
     return blend_rewards
 ```
 
-For each block, the leader reward is 40% of the block reward plus the Execution market tips of the block:
+For each block, the leader reward is 40% of the block reward, rounded down, plus the Execution market tips of the block. The rounding remainder goes to the Blend reward, so the two shares add up to the block reward:
 
 ```python
-def get_leader_reward(b: block): # reward of the leader of the block b
-    leader_reward = 0.4 * get_block_rewards(b) # get 40% of the rewards
+def leader_share(b: block) -> TokenValue: # 40% of the rewards of the block b, rounded down
+    return 2 * get_block_rewards(b) // 5
+
+def get_leader_reward(b: block) -> TokenValue: # reward of the leader of the block b
+    leader_reward = leader_share(b)
     leader_reward += get_execution_market_tips(b) # get Execution market tips
     return leader_reward
 ```

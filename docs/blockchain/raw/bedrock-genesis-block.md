@@ -32,7 +32,7 @@
 | 1.1.4 | Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy. | 2026-08-25 |
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
 | 1.2.0 | Seed the pow reward pool at genesis from the initial token distribution | 2026-09-08 |
-| 1.3.0 | Support the private ledger of Mantle: the initial distribution is made of note commitments whose preimages are published in an inscription to the null channel, and the declarations consume the distributed notes. The genesis header has no `leader_key` | 2026-10-07 |
+| 1.3.0 | Support the private ledger of Mantle: the initial distribution is made of note commitments whose preimages are published in an inscription to the null channel, and the declarations consume the distributed notes. The Genesis Transfer is exempt from the output limit of a ZkTransfer. The genesis header has no `leader_key` | 2026-10-07 |
 
 # Introduction
 
@@ -347,9 +347,11 @@ The checks below, and only these, are skipped when the Genesis Mantle Transactio
 
 1. **Every proof and signature.** No Operation proof is verified at Genesis: neither the `ZkTransfer` of the Transfer Operation, nor the `Ed25519Signature` of the inscriptions, nor the `DeclarationProof` of the `SDP_DECLARE` Operations. The Transfer Operation consumes no note and therefore cannot balance its outputs, the inscriptions are signed by the null key whose secret key nobody holds, and the keys a declaration would prove ownership of are already fixed by the out of band agreement on the Genesis block, so verifying them would establish nothing a node does not already have to trust. The `op_proofs` list still holds one entry per Operation, of the type that Operation requires, and those entries are placeholders.
 
-2. **The transaction balance covering the mandatory fees.** The whole initial token supply is created out of nothing by the Transfer Operation, so the balance of the Genesis Mantle Transaction is negative and no fee can be paid from it. Step 3 of [Validation](bedrock-v1.1-mantle-specification.md#validation) is skipped, no mandatory fee is charged and no `tx_priority_tip` is derived. The Genesis Mantle Transaction is accounted as costing no gas.
+2. **The transaction balance covering the mandatory fees.** The whole initial token supply is created out of nothing by the Transfer Operation, so the Genesis Mantle Transaction has no excess to pay any fee from. Step 3 of [Validation](bedrock-v1.1-mantle-specification.md#validation) is skipped, no mandatory fee is charged and no `tx_priority_tip` is derived. The Genesis Mantle Transaction is accounted as costing no gas.
 
 3. **The Transfer Operation inputs.** The Genesis Transfer Operation has no inputs, no note existing before it, so the requirement that inputs be non-empty ([Input Notes Spendability Validation](bedrock-v1.1-mantle-specification.md#input-notes-spendability-validation)) does not apply and there is no spendability to check. It is the only Transfer Operation of the chain allowed to consume nothing.
+
+4. **The number of Transfer outputs.** The Genesis Transfer Operation creates one output per initial note, at least one per initial service provider, so it can exceed the 8 outputs of a [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer). Having no proof, it is not bound by that limit.
 
 Everything else is validated as it would be in any other block, against the state the Operations preceding it left, the transaction level check that there is one `op_proofs` entry per Operation included.
 
@@ -357,7 +359,7 @@ Everything else is validated as it would be in any other block, against the stat
 
 Before Genesis, the Ledger holds two [note sets](bedrock-v1.1-mantle-specification.md#ledger), the ledger note set and the SDP note set. Each is empty: its commitment MMR is empty and its root is the only commitment root of a recent block, and its [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) has a single leaf, the sentinel `NullifierLeaf(0, 0, 0)`. The null channel, created by the Cryptarchia inscription, gets the third note set.
 
-The Transfer Operation distributing the initial tokens is validated and executed as any other Transfer Operation, minus the exemptions covering its proof, its inputs and the transaction balance. The result of normal transfer execution appends all output commitments to the commitment MMR of the ledger note set and to its commitment buffer of the transaction.
+The Transfer Operation distributing the initial tokens is validated and executed as any other Transfer Operation, minus the exemptions covering its proof, its inputs, its number of outputs and the transaction balance. The result of normal transfer execution appends all output commitments to the commitment MMR of the ledger note set and to its commitment buffer of the transaction.
 
 The pow reward pool is initialized at the same time:
 

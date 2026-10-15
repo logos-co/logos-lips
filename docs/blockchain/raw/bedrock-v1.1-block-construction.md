@@ -62,8 +62,10 @@ Below, we present a high-level description of the block lifecycle. The main focu
 
 6. The validators **execute** the block proposal.
    1. They execute the [**Service Reward Distribution Protocol**](bedrock-service-reward-distribution.md) to generate reward notes locally and include them in the ledger.
-   2. They derive the new blockchain state from the previous one by executing transactions as defined in [Mantle](bedrock-v1.1-mantle-specification.md), in that same pass, adopting the result only once the whole block has validated.
-   3. They insert the leader reward of the block in the ledger, as a note under the `reward_key` of the block.
+   2. They apply the channel withdrawals whose due slot is reached.
+   3. They derive the new blockchain state from the previous one by executing transactions as defined in [Mantle](bedrock-v1.1-mantle-specification.md), in that same pass, adopting the result only once the whole block has validated.
+   4. They insert the leader reward of the block in the ledger, as a note under the `reward_key` of the block.
+   5. They record the commitment MMR root of every note set.
 
 # Constructions
 
@@ -373,6 +375,11 @@ Given a `ValidBlock` that has successfully passed proposal validation, the node 
 2. Apply the channel withdrawals whose due slot is reached and whose inputs are still unspent, as defined in [CHANNEL_WITHDRAW](bedrock-v1.1-mantle-specification.md#channel_withdraw).
 3. Execute the Mantle Transactions included in the block in the order they appear, using the execution rules defined in the [Mantle](bedrock-v1.1-mantle-specification.md).
 4. Insert the leader reward of the block in the ledger.
+5. Record the commitment MMR root of every note set, as defined in [Ledger](bedrock-v1.1-mantle-specification.md#ledger), so that the transactions of the next 1024 blocks can reference it:
+    ```python
+    for note_set in ledger.sets:
+        note_set.record_cm_root()
+    ```
 
 Steps 1 and 2 read the epoch, the slot and the state of the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) and of the pending withdrawals, never the transactions of the block, which is what lets them run before those transactions are validated.
 

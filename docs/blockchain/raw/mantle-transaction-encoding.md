@@ -99,7 +99,7 @@ ConfigThreshold            = UINT16
 ChannelDeposit    = ChannelId Inputs CmMerkleRoot Outputs Value DepositMetadata
 DepositMetadata   = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes
 
-ChannelWithdraw   = ChannelId Inputs CmMerkleRoot Outputs Value
+ChannelWithdraw   = ChannelId Inputs CmMerkleRoot Outputs
 
 ChannelId         = Hash32
 Parent            = Hash32
