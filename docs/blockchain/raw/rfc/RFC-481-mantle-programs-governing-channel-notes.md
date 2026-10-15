@@ -20,7 +20,7 @@ Read [RFC-480](RFC-480-mantle-private-utxo-ledger.md) first: this RFC builds on 
 | 4 | High | [Mantle](#affected-specifications), [registration](#4-program-registration) | `PROGRAM_REGISTER`, the program identifier, the key checks |
 | 5 | High | [Encoding](#affected-specifications), [encoding](#5-encoding) | step kinds, payments, `ProgramOutputs`, program step proofs with their `ProgramNoteOpening`s, the verification key |
 | 6 | Medium | [Proof of Leadership](#affected-specifications), [gas](#6-gas) | the commitment with `0` fields; the measured gas constants and block limit |
-| 7 | Low | [Block Construction](#affected-specifications), [cross-channel template](#affected-specifications) | skim: renames |
+| 7 | Low | [Block Construction](#affected-specifications) | skim: terminal rename, ZkProgramSpend batch |
 
 # Discussion
 
@@ -165,7 +165,7 @@ A program step costs `EXECUTION_TRANSFER_GAS` per payment, plus `EXECUTION_PROGR
 ## Chores
 
 - The `Groth16` terminal of the encoding is renamed `Groth16Proof`, and Block Construction follows.
-- The cross-channel messaging template builds its swap from `UserStep`s.
+- The proving time benchmarks of the Proof of Leadership, the Proof of Quota and the ZkProgramSpend are measured on the current circuits.
 
 # Implementation
 
@@ -185,9 +185,9 @@ A program step costs `EXECUTION_TRANSFER_GAS` per payment, plus `EXECUTION_PROGR
 | [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | 2.1.0 |
 | [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | 2.1.0 |
 | [Proof of Leadership](../cryptarchia-proof-of-leadership.md) | Modified | 1.2.1 |
+| [Proof of Quota](../proof-of-quota.md) | Modified | 1.3.1, benchmark |
 | [Block Construction](../bedrock-v1.1-block-construction.md) | Modified | 1.4.1, terminal rename, ZkProgramSpend batch |
 | [Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | 1.9.0 |
 | [Cryptoeconomics Overview](../overview-cryptoeconomics.md) | Modified | 1.4.1, Execution Gas limit |
 | [Execution Market](../execution-market.md) | Modified | 1.3.1, `G_max` and `G_target` |
-| [Cryptarchia Protocol](../cryptarchia-v1-protocol.md) | Modified | test vectors with `PROGRAM_REGISTER` and program steps |
-| [Cross-Channel Messaging Template](../template-cross-channel-messaging.md) | Modified | 1.3.1 |
+| [Cryptarchia Protocol](../cryptarchia-v1-protocol.md) | Modified | 1.3.1, test vectors with `PROGRAM_REGISTER` and program steps |
