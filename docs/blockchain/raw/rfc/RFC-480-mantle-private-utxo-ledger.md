@@ -166,9 +166,9 @@ The system design figure is redrawn around the reserve, the pool and the per-blo
 ## 7. Encoding
 
 - `ChannelInscribe = ChannelId Inscription Parent Signer Steps`, with `ChannelStep = Inputs Outputs CmMerkleRoot`. `ChannelInscribeOpProof = Ed25519Signature *ZkTransfer`.
-- `ChannelDeposit = ChannelId Inputs CmMerkleRoot Outputs Value DepositMetadata`, `ChannelWithdraw = ChannelId Inputs CmMerkleRoot Outputs Value`, `SDPWithdraw = DeclarationId Nonce NoteNf Outputs Value`. `ChannelConfig` loses `TransferThreshold`.
+- `ChannelDeposit = ChannelId Inputs CmMerkleRoot Outputs Value DepositMetadata`, `ChannelWithdraw = ChannelId Inputs CmMerkleRoot Outputs Value`, `SDPDeclare = ServiceType Locators ProviderId ZkId Inputs CmMerkleRoot Value`, `SDPWithdraw = DeclarationId Nonce NoteNf Outputs Value`. `ChannelConfig` loses `TransferThreshold`.
 - `Transfer = Inputs Outputs CmMerkleRoot Value`, with `Inputs` of `NoteNf` and `Outputs` of `NoteCm`. `ClaimPowReward` gains `PowNonce`.
-- `ChannelTransfer`, `LeaderClaim` and their proofs are removed. `ZkTransferProof`, `ZkTransferAndEd25519SigProof` and `EmptyProof` replace the ZkSignature and Proof of Claim variants.
+- `ChannelTransfer`, `LeaderClaim` and their proofs are removed, and so is `ChannelWithdrawOpProof`: a channel withdrawal carries a `ZkTransferProof`. `ZkTransferProof`, `ZkTransferAndEd25519SigProof` and `EmptyProof` replace `ZkSigProof`, `ZkAndEd25519SigsProof` and `ProofOfClaimProof`, and `ZkTransfer = Groth16` replaces `ZkSignature = Groth16`.
 - Mantle Transaction Encoding is revision 2.0.0.
 
 ## 8. Cryptarchia and Proof of Quota inputs
@@ -242,7 +242,7 @@ The wallet keeps, for each note, its set, the commitment path inside its MMR pea
 | [Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | Revision 1.8.0 |
 | [Analysis: Execution Market](../analysis-execution-market.md) | Modified | reference to the deprecated leader reward |
 | [Architecture Overview](../bedrock-architecture-overview.md) | Modified | Revision 1.2.0 |
-| [Blend Protocol](../blend-protocol.md) | Modified | leader reward reference, Revision 1.6.2 |
+| [Blend Protocol](../blend-protocol.md) | Modified | leader reward reference and encapsulation overhead, Revision 1.6.2 |
 | [Payload Formatting](../payload-formatting.md) | Modified | Revision 1.2.1 |
 | [Message Formatting](../message-formatting.md) | Modified | Revision 1.0.3 |
 | [Bootstrapping and Synchronization](../cryptarchia-v1-bootstr-sync.md) | Modified | Revision 1.0.2 |
