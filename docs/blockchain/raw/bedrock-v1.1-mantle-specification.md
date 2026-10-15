@@ -396,7 +396,7 @@ A program governs notes of a channel that no single user holds, such as the rese
 - **Program spend.** The sequencer consumes notes of the program and creates notes of the program and the user notes the program pays, with a [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) balancing exactly with the value paid. It publishes the opening of every note of the program it creates.
 - **Program proof.** The sequencer proves the rule of the program with a Groth16 proof under its registered key, over the notes of the program spend, the payments with their intents, and the `op_id` of the inscription.
 
-`Groth16_verify(key, public_inputs, proof)` verifies a [Groth16](common-cryptographic-components.md#groth16-zk-snark) proof against a verification key, given with the pairing $`e(\alpha, \beta)`$ stored by [`PROGRAM_REGISTER`](#program_register), and its public inputs.
+`Groth16_verify(key, public_inputs, proof)` verifies a [Groth16](common-cryptographic-components.md#groth16-zk-snark) proof against a verification key, given with the pairing $`e(\alpha, \beta)`$ stored by [`PROGRAM_REGISTER`](#program_register), and its public inputs. `pairing(P, Q)` is the optimal ate pairing of BN254, from $`\mathbb{G}_1 \times \mathbb{G}_2`$ to $`\mathbb{G}_T`$, the subgroup of order $`r`$ of $`\mathbb{F}_{q^{12}}^*`$, whose elements take 384 bytes.
 
 **Holder.** A program note has a holder like any note, whose secret key derives its nullifiers and is known to whoever proves the program spend. The program chooses it. For a note open to everyone, such as the reserves of a pool, the convention is the public key of the secret key `0`: anyone can derive its nullifiers, and only the program proof authorizes its moves.
 
@@ -1570,10 +1570,6 @@ class Groth16VerificationKey:
     delta: G2
     ic: list[G1]  # (len = 4) one point per public input of a program proof, plus one
 
-class Groth16StoredKey:
-    key: Groth16VerificationKey
-    alpha_beta: GT  # the pairing e(alpha, beta), computed at registration
-
 class ProgramRegister:
     verification_key: Groth16VerificationKey
 ```
@@ -1815,6 +1811,10 @@ class NoteSet:
     recent_cm_root_blocks: list[MerkleRoot]  # the root at the end of each of these blocks, oldest first
     tx_cm_buffer: list[NoteCm]          # the commitments added by the previous Operations
                                         # of the Mantle Transaction, empty at its start
+
+class Groth16StoredKey:
+    key: Groth16VerificationKey
+    alpha_beta: GT  # the pairing e(alpha, beta), computed at registration
 
 class Ledger:
     sets: list[NoteSet]  # indexed as in the table above

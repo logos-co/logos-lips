@@ -20,7 +20,7 @@ Read [RFC-480](RFC-480-mantle-private-utxo-ledger.md) first: this RFC builds on 
 | 4 | High | [Mantle](#affected-specifications), [registration](#4-program-registration) | `PROGRAM_REGISTER`, the program identifier, the key checks |
 | 5 | High | [Encoding](#affected-specifications), [encoding](#5-encoding) | step kinds, payments, `ProgramOutputs`, program step proofs with their `ProgramNoteOpening`s, the verification key |
 | 6 | Medium | [Proof of Leadership](#affected-specifications), [gas](#6-gas) | the commitment with `0` fields; the measured gas constants and block limit |
-| 7 | Medium | [Block Construction](#affected-specifications) | terminal rename, ZkProgramSpend batch, copies lacking openings |
+| 7 | Medium | [Block Construction](#affected-specifications) | terminal rename, ZkProgramSpend batch, copies lacking or altering openings |
 
 # Discussion
 
@@ -187,7 +187,7 @@ A program step costs `EXECUTION_TRANSFER_GAS` per payment, plus `EXECUTION_PROGR
 | [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | 2.1.0 |
 | [Proof of Leadership](../cryptarchia-proof-of-leadership.md) | Modified | 1.2.1 |
 | [Proof of Quota](../proof-of-quota.md) | Modified | 1.3.1, benchmark |
-| [Block Construction](../bedrock-v1.1-block-construction.md) | Modified | 1.4.1, terminal rename, ZkProgramSpend batch, copies lacking openings |
+| [Block Construction](../bedrock-v1.1-block-construction.md) | Modified | 1.4.1, terminal rename, ZkProgramSpend batch, copies lacking or altering openings |
 | [Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | 1.9.0 |
 | [Cryptoeconomics Overview](../overview-cryptoeconomics.md) | Modified | 1.4.1, Execution Gas limit |
 | [Execution Market](../execution-market.md) | Modified | 1.3.1, `G_max` and `G_target` |
