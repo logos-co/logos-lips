@@ -77,13 +77,14 @@ Users stay hidden: payments consume notes by nullifier, and the notes a program 
 
 - A **user step** is a ZkTransfer of its holder bound to `step_msg`, with an `excess_value` of `0`.
 - A **program step** carries a `program_id`, its `payments`, and a program spend over the program notes.
-- Like a user step, a payment is proven against the referenced root extended with the commitments created before it in the transaction, so it holds only at its position: the sequencer fixes the order of the steps and payments before the users prove them.
+- Like a user step, a payment names with `buffered` how many commitments created earlier in the transaction its proof covers, and is verified against its referenced root extended with only those. A payment over notes of earlier blocks takes `buffered = 0` and holds at any position, so a sequencer can gather the payments of many users, all proven against the same recent root, into its program steps without the users proving one after another.
 
 ```python
 class Payment:
     inputs: list[NoteNf]
     outputs: list[NoteCm]       # change
     cm_merkle_root: MerkleRoot
+    buffered: int               # the commitments of the transaction buffer the proof covers
     paid_value: TokenValue      # the excess of the ZkTransfer, paid to the program
     intent: zkhash
 
@@ -140,14 +141,14 @@ def derive_program_id(key: Groth16VerificationKey) -> ProgramId:
 
 ```diff
 -Steps           = StepCount *ChannelStep
--ChannelStep     = Inputs Outputs CmMerkleRoot
+-ChannelStep     = Inputs Outputs CmMerkleRoot Buffered
 +Steps           = StepCount *Step
 +Step            = (UserStepKind UserStep) / (ProgramStepKind ProgramStep)
-+UserStep        = Inputs Outputs CmMerkleRoot
++UserStep        = Inputs Outputs CmMerkleRoot Buffered
 +ProgramStep     = ProgramId Payments Inputs Outputs ProgramOutputs CmMerkleRoot SpendNotesHash
 +ProgramOutputs  = Byte                     ; bit i set when output i is a note of the program, the bits
 +                                           ; from OutputCount up being 0, rejected by the decoder otherwise
-+Payment         = Inputs Outputs CmMerkleRoot Value Intent
++Payment         = Inputs Outputs CmMerkleRoot Buffered Value Intent
 +ProgramRegister = Groth16VerificationKey   ; Alpha G1, Beta Gamma Delta G2, 4 IC G1: 352 bytes
 -ChannelInscribeOpProof = Ed25519Signature *ZkTransfer
 +ChannelInscribeOpProof = Ed25519Signature *StepProof
