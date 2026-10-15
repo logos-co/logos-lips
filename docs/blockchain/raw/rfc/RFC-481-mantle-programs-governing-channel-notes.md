@@ -77,6 +77,7 @@ Users stay hidden: payments consume notes by nullifier, and the notes a program 
 
 - A **user step** is a ZkTransfer of its holder bound to `step_msg`, with an `excess_value` of `0`.
 - A **program step** carries a `program_id`, its `payments`, and a program spend over the program notes.
+- Like a user step, a payment is proven against the referenced root extended with the commitments created before it in the transaction, so it holds only at its position: the sequencer fixes the order of the steps and payments before the users prove them.
 
 ```python
 class Payment:
@@ -133,7 +134,7 @@ def derive_program_id(key: Groth16VerificationKey) -> ProgramId:
 ```
 
 - Validation checks that every point is on its curve, in its prime-order subgroup and not the point at infinity.
-- Execution prepares the key once, computing `e(α, β)` and the line coefficients of `-γ` and `-δ`, and stores the prepared key in `ledger.programs` under its identifier. Registering a key already registered has no effect.
+- Execution computes the pairing `e(α, β)` once, and stores the key with it in `ledger.programs` under its identifier: 384 bytes beyond the key. The line coefficients of `-γ` and `-δ` would take tens of kilobytes per program, so each program proof computes them. Registering a key already registered has no effect.
 
 ## 5. Encoding
 
@@ -158,9 +159,9 @@ def derive_program_id(key: Groth16VerificationKey) -> ProgramId:
 
 A program step costs `EXECUTION_TRANSFER_GAS` per payment, plus `EXECUTION_PROGRAM_SPEND_GAS` and `EXECUTION_PROGRAM_PROOF_GAS`. `PROGRAM_REGISTER` costs `EXECUTION_PROGRAM_REGISTER_GAS`. The values come from measurements of the node's Groth16 verifiers, 1 Execution Gas per 1,000 CPU cycles:
 
-- `EXECUTION_PROGRAM_SPEND_GAS = 619`: the ZkProgramSpend proofs of a block (37 public inputs) are verified in one batch, `3,975,765 + n * 618,796` cycles. Its fixed part is deduced from the block limit with the ZkTransfer one, so `limit_Ex = G_max = 3,192,483` and `G_target = 1,596,241`.
-- `EXECUTION_PROGRAM_PROOF_GAS = 2222`: the program proof is verified alone, since it cannot share the batch of another program, by the single proof verifier on the prepared key of the program, 2,221,544 cycles at 3 public inputs.
-- `EXECUTION_PROGRAM_REGISTER_GAS = 2278`: the subgroup checks of the 3 G2 points of the key, 573,324 cycles, and the preparation of the key, 1,704,632 cycles. Point decompression is the same for every key and proof and is not counted. Preparing the key at every verification instead would raise each program proof to 4,062,923 cycles.
+- `EXECUTION_PROGRAM_SPEND_GAS = 619`: the ZkProgramSpend proofs of a block (37 public inputs) are verified in one batch, `3,975,765 + n * 618,796` cycles. Its fixed part is deducted from the block limit with the ZkTransfer one, so `limit_Ex = G_max = 3,192,483` and `G_target = 1,596,241`.
+- `EXECUTION_PROGRAM_PROOF_GAS = 2451`: the program proof is verified alone, since it cannot share the batch of another program, by the single proof verifier, 2,221,544 cycles at 3 public inputs, plus the line coefficients of `-γ` and `-δ` of the key, 228,669 cycles.
+- `EXECUTION_PROGRAM_REGISTER_GAS = 1896`: the subgroup checks of the 3 G2 points of the key, 573,324 cycles, and the pairing `e(α, β)`, 1,322,111 cycles. Point decompression is the same for every key and proof and is not counted.
 
 ## Chores
 

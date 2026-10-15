@@ -34,7 +34,7 @@
 | 1.6.0 | Add the Execution Gas derivation for the `CLAIM_POW_REWARD` Operation | 2026-09-04 |
 | 1.7.0 | Per-signature Ed25519 cost re-measured with strict verification ([Common Cryptographic Components](common-cryptographic-components.md) 1.2.0): 56 → 59 Execution Gas, `SDP_DECLARE_GAS` 646 → 649 | 2026-09-24 |
 | 1.8.0 | Follow the private ledger of Mantle: the notes are proven with a ZkTransfer and spent by nullifier, channel inscriptions carry the ZkTransfer of their steps, channel withdrawals and SDP withdrawals carry a ZkTransfer, the proof of work claim carries no proof, and the `CHANNEL_TRANSFER` and `LEADER_CLAIM` Operations are removed. The ZkTransfer is priced from the measured batch verification of Groth16 proofs, a fixed part per block and 619 Execution Gas per proof | 2026-10-07 |
-| 1.9.0 | Add the Execution Gas of program steps and of the `PROGRAM_REGISTER` Operation, priced from the measured batch verification of the ZkProgramSpend, the verification of a program proof alone and the subgroup checks of a verification key | 2026-10-12 |
+| 1.9.0 | Add the Execution Gas of program steps and of the `PROGRAM_REGISTER` Operation, priced from the measured batch verification of the ZkProgramSpend, the verification of a program proof alone with the line coefficients of its key, and the subgroup checks and the pairing `e(α, β)` of a verification key | 2026-10-12 |
 
 # Introduction
 
@@ -76,8 +76,8 @@ TRANSFER_GAS                  = 619
 CHANNEL_INSCRIBE_GAS          = 59 + 619 * user_steps + sum(PROGRAM_STEP_GAS of each program step)
 PROGRAM_STEP_GAS              = 619 * payments + PROGRAM_SPEND_GAS + PROGRAM_PROOF_GAS
 PROGRAM_SPEND_GAS             = 619
-PROGRAM_PROOF_GAS             = 2222
-PROGRAM_REGISTER_GAS          = 2278
+PROGRAM_PROOF_GAS             = 2451
+PROGRAM_REGISTER_GAS          = 1896
 CHANNEL_CONFIG_GAS            = 59 * configuration_threshold
 CHANNEL_DEPOSIT_GAS           = 619
 CHANNEL_WITHDRAW_GAS          = 619
@@ -94,8 +94,9 @@ and come from our implementation observations as described in [Gas determination
 | ZkTransfer batch verification of `n` proofs (27 public inputs) | 3,540,612 + n x 618,797 |
 | ZkProgramSpend batch verification of `n` proofs (37 public inputs) | 3,975,765 + n x 618,796 |
 | Program proof verification, alone (3 public inputs) | 2,221,544 |
+| Line coefficients of `-γ` and `-δ` of a verification key | 228,669 |
 | Subgroup checks of the 3 G2 points of a verification key | 573,324 |
-| Preparation of a verification key (3 public inputs) | 1,704,632 |
+| Pairing `e(α, β)` of a verification key | 1,322,111 |
 | Eddsa25519 signature verification | 59,200 |
 
 Comparison, list searching, hashes and operation in small fields are neglected. The ZkTransfer proofs of a block are verified in one batch, and so are its ZkProgramSpend proofs, each batch costing a fixed part plus a part proportional to the number of proofs. The fixed part is paid by everyone and deducted from the block directly, through the Execution Gas limit of the block ([Execution Fee Market](overview-cryptoeconomics.md#execution-fee-market)). The user then pays only for the part that is proportional to the number of proofs.
@@ -141,18 +142,18 @@ A program step costs:
 
 - Verification of the ZkTransfer of each payment in the batch of the block: 618,797 cycles per payment.
 - Verification of the ZkProgramSpend, a circuit shared by every program, in the batch of the block: 618,796 cycles.
-- Verification of the program proof: a single Groth16 verification under the key of its program, which cannot share the batch of another program: 2,221,544 cycles.
+- Verification of the program proof: a single Groth16 verification under the key of its program, which cannot share the batch of another program, with the line coefficients of `-γ` and `-δ` computed from the stored key: 2,221,544 + 228,669 = 2,450,213 cycles.
 - Verification that the program is registered, computation of the hash of the payments, and recomputation of the commitment of each opened note of the program: negligible.
 
 ## Program Register
 
-The validation checks that every point of the verification key is on its curve and in its prime-order subgroup. The execution derives the program identifier, prepares the key and stores it.
+The validation checks that every point of the verification key is on its curve and in its prime-order subgroup. The execution derives the program identifier, computes the pairing `e(α, β)` of the key and stores both.
 
-Execution: ~2,278k CPU cycles.
+Execution: ~1,896k CPU cycles.
 
 - Subgroup checks of the 3 G2 points: 573,324 cycles.
 - Curve checks of the 5 G1 points and of the 3 G2 points: part of their decompression, not counted.
-- Preparation of the key: 1,704,632 cycles.
+- Pairing `e(α, β)`: 1,322,111 cycles.
 - Derivation of the program identifier and storage of the key: negligible.
 ## Channel Deposit
 
@@ -305,7 +306,7 @@ Fitted model:
 
 `P` is 619k cycles whatever the number of public inputs, while `A(N)` grows by about 39k cycles per public input, the cost of one more point in the MSM. The ZkTransfer has 27 public inputs: its proofs cost `P = 618,797` cycles each, and its batch `A(27) = 3,540,612` cycles per block.
 
-The ZkProgramSpend has 37 public inputs. `A(37)` was measured in a later run, with the same method, together with `N = 29` as a control, which came out about 1.9% below the table above. Writing `A'` for the fixed parts measured in that run, the fixed part is therefore `A(29)` above plus the gap `A'(37) - A'(29) = 3,908,913 - 3,541,812 = 367,101` cycles, so `A(37) = 3,975,765` cycles per block. The gap is about 46k cycles per input rather than 39k, since the MSM over the 38 points of the key uses a wider window than over 30. `P` does not depend on `N` in that run either, 608,266 cycles at `N = 37` against 607,512 at `N = 29`, so the ZkProgramSpend proofs cost `P = 618,796` cycles each.
+The ZkProgramSpend has 37 public inputs. `A(37)` was measured in a later run, with the same method, together with `N = 29` as a control, which came out about 1.9% below the table above. Writing `A'` for the fixed parts measured in that run, the fixed part is therefore `A(29)` above plus the gap `A'(37) - A'(29) = 3,908,913 - 3,541,812 = 367,101` cycles, so `A(37) = 3,975,765` cycles per block. The gap is about 46k cycles per input rather than 39k, since the MSM over the 38 points of the key uses a wider window than over 30. `P` does not depend on `N` in that run either, 608,266 cycles at `N = 37` against 607,512 at `N = 29`, so the ZkProgramSpend proofs cost the `P` of `N = 29` in the table above, 618,796 cycles each.
 
 ![Groth16 batch verification: cycles per proof against the batch size, measured and fitted](analysis-gas-cost-determination/assets/groth16_batch_verification.png)
 
@@ -313,7 +314,7 @@ The cost per proof, `A(N) / n + P`, decreases with the size of the batch towards
 
 ### Groth16 Proof Verification Alone
 
-Each program proof is verified alone under the key of its program, with the verifier of the node for a single proof, `groth16_verify`. That verifier runs three Miller loops and compares their product to `e(α, β)`, precomputed in the prepared key of the program ([Verification Key Validation](#verification-key-validation)), but folds the public inputs with one scalar multiplication each, about 140k cycles per input, instead of an MSM. It is cheaper than a batch of one proof below about 12 public inputs, and more expensive above, which is why the ZkTransfer and the ZkProgramSpend are always verified in batch.
+Each program proof is verified alone under the key of its program, with the verifier of the node for a single proof, `groth16_verify`. That verifier runs three Miller loops and compares their product to `e(α, β)`, stored with the key of the program ([Verification Key Validation](#verification-key-validation)), but folds the public inputs with one scalar multiplication each, about 140k cycles per input, instead of an MSM. It is cheaper than a batch of one proof below about 12 public inputs, and more expensive above, which is why the ZkTransfer and the ZkProgramSpend are always verified in batch.
 
 Measured with the same method as the batch verification:
 
@@ -324,7 +325,7 @@ Measured with the same method as the batch verification:
 | 27 | 5,550,916 | 4,041,187 |
 | 29 | 5,846,481 | 4,113,633 |
 
-A program proof has 3 public inputs, so its verification costs 2,221,544 cycles.
+A program proof has 3 public inputs, so its verification on a prepared key costs 2,221,544 cycles, to which the line coefficients of `-γ` and `-δ`, 228,669 cycles, are added since the ledger does not store them ([Verification Key Validation](#verification-key-validation)): 2,450,213 cycles.
 
 ### Verification Key Validation
 
@@ -339,7 +340,7 @@ A [`PROGRAM_REGISTER`](bedrock-v1.1-mantle-specification.md#program_register) Op
 
 The decompression of the points is the same for every key and every proof and is not counted.
 
-The verification of a proof also needs the key prepared: the pairing `e(α, β)` and the line coefficients of the pairings with `-γ` and `-δ`, which depend on the key alone. The measure of the program proof verification above runs on a key prepared beforehand. The ledger prepares the key of a program once, at its registration, and keeps it:
+The verification of a proof also needs the key prepared: the pairing `e(α, β)` and the line coefficients of the pairings with `-γ` and `-δ`, which depend on the key alone. The measure of the program proof verification above runs on a key prepared beforehand:
 
 | Work | CPU cycles |
 | --- | --- |
@@ -348,4 +349,4 @@ The verification of a proof also needs the key prepared: the pairing `e(α, β)`
 | of which the line coefficients of `-γ` and `-δ` | 228,669 |
 | Preparation followed by the verification of one proof | 4,062,923 |
 
-The Operation is priced from the 3 G2 subgroup checks and the preparation of the key, 573,324 + 1,704,632 = 2,277,956 cycles. Preparing the key at every verification would instead raise the cost of each program proof from 2,221,544 to 4,062,923 cycles.
+The ledger computes `e(α, β)`, the costliest part, once at the registration, and stores it with the key: 384 bytes. The line coefficients would take tens of kilobytes of ledger state per program, so each program proof computes them, for 228,669 cycles. The Operation is priced from the 3 G2 subgroup checks and the pairing `e(α, β)`, 573,324 + 1,322,111 = 1,895,435 cycles, and the program proof from its verification and the line coefficients, 2,221,544 + 228,669 = 2,450,213 cycles.

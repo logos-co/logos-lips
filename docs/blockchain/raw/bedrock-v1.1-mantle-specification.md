@@ -396,7 +396,7 @@ A program governs notes of a channel that no single user holds, such as the rese
 - **Program spend.** The sequencer consumes notes of the program and creates notes of the program and the user notes the program pays, with a [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) balancing exactly with the value paid. It publishes the opening of every note of the program it creates.
 - **Program proof.** The sequencer proves the rule of the program with a Groth16 proof under its registered key, over the notes of the program spend, the payments with their intents, and the `op_id` of the inscription.
 
-`Groth16_verify(key, public_inputs, proof)` verifies a [Groth16](common-cryptographic-components.md#groth16-zk-snark) proof against a verification key, given prepared as stored by [`PROGRAM_REGISTER`](#program_register), and its public inputs.
+`Groth16_verify(key, public_inputs, proof)` verifies a [Groth16](common-cryptographic-components.md#groth16-zk-snark) proof against a verification key, given with the pairing $`e(\alpha, \beta)`$ stored by [`PROGRAM_REGISTER`](#program_register), and its public inputs.
 
 **Holder.** A program note has a holder like any note, whose secret key derives its nullifiers and is known to whoever proves the program spend. The program chooses it. For a note open to everyone, such as the reserves of a pool, the convention is the public key of the secret key `0`: anyone can derive its nullifiers, and only the program proof authorizes its moves.
 
@@ -531,7 +531,7 @@ class InscribeProof:
     step_proofs: list[ZkTransfer | ProgramStepProof]  # one per step, in the order of the steps
 ```
 
-The openings of the program notes a step creates serve only the availability of the state of the program: the next sequencer needs them to consume these notes, and the users of the program may need this state to learn the notes it pays them. The ledger checks each opening against its output and keeps nothing from it. The openings are part of the proof of the step, outside the `op_id` and the Mantle transaction hash, so pruning them changes no hash. A block is valid only with all its openings, so no one can skip the check by stripping them. Since the `block_id` does not cover the openings, a copy of a block lacking some of them fails as a copy, as in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation): it is discarded without recording a verdict against its `block_id`. A node may prune the openings of the blocks behind its [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block), which it never validates again. A node syncing these blocks needs a peer that kept their openings, or [bootstraps from a checkpoint](cryptarchia-v1-bootstr-sync.md#bootstrapping-from-checkpoint) after them.
+The openings of the program notes a step creates serve only the availability of the state of the program: the next sequencer needs them to consume these notes, and the users of the program may need this state to learn the notes it pays them. The ledger checks each opening against its output and keeps nothing from it. The openings are part of the proof of the step, outside the `op_id` and the Mantle transaction hash, so pruning them changes no hash. A block is valid only with all its openings, so no one can skip the check by stripping them. Since the `block_id` does not cover the openings, a copy of a block lacking some of them, or carrying altered ones, fails as a copy, as in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation): it is discarded without recording a verdict against its `block_id`. A node may prune the openings of the blocks behind its [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block), which it never validates again. A node syncing these blocks needs a peer that kept their openings, or [bootstraps from a checkpoint](cryptarchia-v1-bootstr-sync.md#bootstrapping-from-checkpoint) after them.
 
 #### Execution Gas
 
@@ -1570,6 +1570,10 @@ class Groth16VerificationKey:
     delta: G2
     ic: list[G1]  # (len = 4) one point per public input of a program proof, plus one
 
+class Groth16StoredKey:
+    key: Groth16VerificationKey
+    alpha_beta: GT  # the pairing e(alpha, beta), computed at registration
+
 class ProgramRegister:
     verification_key: Groth16VerificationKey
 ```
@@ -1627,15 +1631,16 @@ ledger: Ledger
 
   *Execute*
 
-Store the prepared key under its identifier. Registering a key already registered has no effect.
+Store the key under its identifier, with the pairing $`e(\alpha, \beta)`$ of its points. Registering a key already registered has no effect.
 
 ```python
 program_id = derive_program_id(register.verification_key)
 if program_id not in ledger.programs:
-    ledger.programs[program_id] = prepare(register.verification_key)
+    key = register.verification_key
+    ledger.programs[program_id] = Groth16StoredKey(key=key, alpha_beta=pairing(key.alpha, key.beta))
 ```
 
-`prepare(key)` returns the `Groth16PreparedKey` of the key, the key with what the verification of a proof derives from the key alone, computed once: the pairing $`e(\alpha, \beta)`$ and the line coefficients of the pairings with $`-\gamma`$ and $`-\delta`$. The ledger keeps the prepared key, so that each program proof is verified without this work, and the registration pays for it.
+The pairing $`e(\alpha, \beta)`$, an element of $`\mathbb{G}_T`$ of 384 bytes, is the costliest part of what a verification derives from the key alone; it is computed once and paid by the registration. The line coefficients of the pairings with $`-\gamma`$ and $`-\delta`$ are not stored, since they would take tens of kilobytes of ledger state per program: each program proof computes them, and pays for it.
 
 ## TRANSFER
 
@@ -1815,7 +1820,7 @@ class Ledger:
     sets: list[NoteSet]  # indexed as in the table above
     # the channel withdrawals waiting for their due slot: (due slot, note set, inputs, outputs)
     pending_withdrawals: list[(Slot, int, list[NoteNf], list[NoteCm])]
-    programs: dict[ProgramId, Groth16PreparedKey]  # the registered programs, by their prepared key
+    programs: dict[ProgramId, Groth16StoredKey]  # the registered programs: their key and e(alpha, beta)
 
 def empty_note_set() -> NoteSet:
     return NoteSet(
@@ -2005,9 +2010,9 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_SDP_WITHDRAW_GAS | 678 |
 | EXECUTION_SDP_ACTIVE_GAS | 59 |
 | EXECUTION_CLAIM_POW_REWARD_GAS | 0 |
-| EXECUTION_PROGRAM_REGISTER_GAS | 2278 |
+| EXECUTION_PROGRAM_REGISTER_GAS | 1896 |
 | EXECUTION_PROGRAM_SPEND_GAS | 619 |
-| EXECUTION_PROGRAM_PROOF_GAS | 2222 |
+| EXECUTION_PROGRAM_PROOF_GAS | 2451 |
 
 ## Zero Knowledge Transfer Proof (ZkTransfer)
 
