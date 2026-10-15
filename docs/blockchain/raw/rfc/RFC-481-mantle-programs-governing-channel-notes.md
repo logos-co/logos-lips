@@ -20,13 +20,13 @@ Read [RFC-480](RFC-480-mantle-private-utxo-ledger.md) first: this RFC builds on 
 | 4 | High | [Mantle](#affected-specifications), [registration](#4-program-registration) | `PROGRAM_REGISTER`, the program identifier, the key checks |
 | 5 | High | [Encoding](#affected-specifications), [encoding](#5-encoding) | step kinds, payments, `ProgramOutputs`, program step proofs with their `ProgramNoteOpening`s, the verification key |
 | 6 | Medium | [Proof of Leadership](#affected-specifications), [gas](#6-gas) | the commitment with `0` fields; the measured gas constants and block limit |
-| 7 | Low | [Block Construction](#affected-specifications) | skim: terminal rename, ZkProgramSpend batch |
+| 7 | Medium | [Block Construction](#affected-specifications) | terminal rename, ZkProgramSpend batch, copies lacking openings |
 
 # Discussion
 
 ## What the ledger guarantees
 
-The ledger guarantees that no LGO is created, that a user note moves only with the key of its holder, and that a program note moves only with the proof of its program. It also checks the opening of every program note a step creates, so that the next sequencer can consume it. It does not check the assets of a zone. For a swap of LGO against a zone token, the users of the zone verify the inscription against the intents, and the sequencers of the zone slash a faulty sequencer. Mantle states this split in its [What enforces what](../bedrock-v1.1-mantle-specification.md#programs) table.
+The ledger guarantees that no LGO is created, that a user note moves only with the key of its holder, and that a program note moves only with the proof of its program. It also checks the opening of every program note a step creates, so that the next sequencer can consume it. It does not check the assets of a zone. For a swap of LGO against a zone token, the users of the zone verify the inscription against the intents, and, where the zone provides it, its sequencers can slash a faulty sequencer. Mantle states this split in its [What enforces what](../bedrock-v1.1-mantle-specification.md#programs) table.
 
 ## Privacy
 
@@ -165,7 +165,7 @@ A program step costs `EXECUTION_TRANSFER_GAS` per payment, plus `EXECUTION_PROGR
 ## Chores
 
 - The `Groth16` terminal of the encoding is renamed `Groth16Proof`, and Block Construction follows.
-- The proving time benchmarks of the Proof of Leadership, the Proof of Quota and the ZkProgramSpend are measured on the current circuits.
+- The proving time benchmarks of the Proof of Leadership, the Proof of Quota, the ZkTransfer and the ZkProgramSpend are measured on the current circuits.
 
 # Implementation
 
@@ -186,7 +186,7 @@ A program step costs `EXECUTION_TRANSFER_GAS` per payment, plus `EXECUTION_PROGR
 | [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | 2.1.0 |
 | [Proof of Leadership](../cryptarchia-proof-of-leadership.md) | Modified | 1.2.1 |
 | [Proof of Quota](../proof-of-quota.md) | Modified | 1.3.1, benchmark |
-| [Block Construction](../bedrock-v1.1-block-construction.md) | Modified | 1.4.1, terminal rename, ZkProgramSpend batch |
+| [Block Construction](../bedrock-v1.1-block-construction.md) | Modified | 1.4.1, terminal rename, ZkProgramSpend batch, copies lacking openings |
 | [Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | 1.9.0 |
 | [Cryptoeconomics Overview](../overview-cryptoeconomics.md) | Modified | 1.4.1, Execution Gas limit |
 | [Execution Market](../execution-market.md) | Modified | 1.3.1, `G_max` and `G_target` |

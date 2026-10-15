@@ -48,7 +48,7 @@
 | 1.16.0 | Gas Determination table updated for strict Ed25519 verification: channel Operations 56 → 59 Execution Gas per signature, `EXECUTION_SDP_DECLARE_GAS` 646 → 649, from [Gas Cost Determination](analysis-gas-cost-determination.md) 1.7.0 | 2026-09-24 |
 | 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding. | 2026-10-06 |
 | 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel. Channel notes are moved by the steps their holders sign, each proven against a recent root and the part of the transaction buffer it names, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and moved `CLAIM_POW_REWARD` to the opcode `0x30` | 2026-10-01 |
-| 2.1.0 | Add programs: notes gain `program` and `data` fields, `PROGRAM_REGISTER` registers a Groth16 verification key, and channel inscriptions carry program steps made of user payments, a `ZkProgramSpend`, a program proof and the openings of the program notes they create | 2026-10-12 |
+| 2.1.0 | Add programs: notes gain `program` and `data` fields, `PROGRAM_REGISTER` registers a Groth16 verification key, and channel inscriptions carry program steps made of user payments, a `ZkProgramSpend`, a program proof and the openings of the program notes they create. Add the proving time benchmarks of the ZkTransfer and the ZkProgramSpend | 2026-10-12 |
 
 # Introduction
 
@@ -115,7 +115,12 @@ class SignedMantleTx:
     op_proofs: list[OpProof] # each Op has exactly 1 associated proof
 ```
 
-Every Operation proof (zk proofs or signatures) must be cryptographically bound to the `MantleTx` through the `mantle_txhash` to prevent replay attacks. This binding is achieved by including the `MantleTx` hash reduced modulo $`p`$ as a public input in every ZK proof. There are two exceptions: the ZkTransfer of a channel step, signed before the Mantle Transaction exists, is bound to the step itself ([CHANNEL_INSCRIBE](#channel_inscribe)), and `CLAIM_POW_REWARD` carries no proof, its ticket being publicly verifiable.
+Every Operation proof (zk proofs or signatures) must be cryptographically bound to the `MantleTx` through the `mantle_txhash` to prevent replay attacks. This binding is achieved by including the `MantleTx` hash reduced modulo $`p`$ as a public input in every ZK proof. The proofs of the steps of an inscription are the exceptions ([CHANNEL_INSCRIBE](#channel_inscribe)):
+
+- The ZkTransfer of a user step and of a payment is signed by its holder before the Mantle Transaction exists, so it is bound to its own content, through `step_msg` or `payment_msg`.
+- The ZkProgramSpend and the program proof of a program step are produced by the sequencer, and bound to the `op_id` of the inscription, which covers the public data of every step without any proof.
+
+`CLAIM_POW_REWARD` and `PROGRAM_REGISTER` carry no proof: the ticket of a claim is publicly verifiable, and a verification key needs no authorization to be registered.
 
 ```python
 mantle_txhash_fr = FiniteField(mantle_txhash, byte_order="little", modulus = p)
@@ -405,7 +410,7 @@ A program governs notes of a channel that no single user holds, such as the rese
 | A program note is created and consumed only with the proof of its program | The ZkTransfer, which only derives commitments with `program` and `data` set to `0`; the ZkProgramSpend, whose inputs are notes of the program and whose outputs are notes of the program or user notes; the program proof, required by every program step |
 | A program step serves the intents over LGO as the rule of the program states | The program proof, which reads the payments and the notes of the program spend |
 | The notes of a program can be consumed by the next sequencer | The ledger, which checks the opening of every note of the program a step creates |
-| A program step serves the intents over the assets of the zone | The users of the zone, who verify the intents against the inscription and the zone state, and the sequencers of the zone, who slash a faulty sequencer |
+| A program step serves the intents over the assets of the zone | The users of the zone, who verify the intents against the inscription and the zone state, and, where the zone provides it, its sequencers, who can slash a faulty sequencer |
 
 A program using LGO only, such as lending, is thus enforced by the ledger, and its users trust only the circuit of the program they pay. A program exchanging LGO with assets of the zone, such as a swap, is enforced by the ledger for its LGO only. Depending on the program, publishing the preimage of each intent in the inscription is recommended, so that the users of the zone can verify how the program step served it.
 
@@ -2132,8 +2137,8 @@ class ZkProgramSpendWitness:
     inputs_nonce: list[FrElement]
     inputs_value: list[TokenValue]
     inputs_data: list[zkhash]
-    inputs_selectors: list[boolean]
-    inputs_path: list[FrElement]
+    inputs_selectors: list[list[boolean]]  # (len = 4 x 32) the Merkle path direction of each input
+    inputs_path: list[list[FrElement]]     # (len = 4 x 32) the Merkle path of each input
     outputs_pk: list[ZkPublicKey]  # (len = 8)
     outputs_nonce: list[FrElement]
     outputs_value: list[TokenValue]
@@ -2149,7 +2154,7 @@ Such that the following constraints hold:
   ```python
   assert all(
       inputs_active[i] * (1 - inputs_active[i]) == 0
-      inputs_cm[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i], program_id, inputs_data[i])
+      and inputs_cm[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i], program_id, inputs_data[i])
       for i in range(len(inputs_sk))
   )
   ```
@@ -2160,15 +2165,12 @@ Such that the following constraints hold:
   ```python
   assert all(
       outputs_active[i] * (1 - outputs_active[i]) == 0
-      outputs_of_program[i] * (1 - outputs_of_program[i]) == 0
-      if outputs_active[i]:
-          if outputs_of_program[i]:
-              outputs_program[i] == program_id
-          else:
-              outputs_program[i] == 0 and outputs_data[i] == 0
-          outputs[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), outputs_value[i], outputs_nonce[i], outputs_pk[i], outputs_program[i], outputs_data[i])
-      else:
-          outputs_value[i] == 0 and outputs_of_program[i] == 0
+      and outputs_of_program[i] * (1 - outputs_of_program[i]) == 0
+      and ((outputs_program[i] == program_id if outputs_of_program[i]
+            else outputs_program[i] == 0 and outputs_data[i] == 0)
+           and outputs[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), outputs_value[i], outputs_nonce[i], outputs_pk[i], outputs_program[i], outputs_data[i])
+           if outputs_active[i]
+           else outputs_value[i] == 0 and outputs_of_program[i] == 0)
       for i in range(len(outputs_pk))
   )
   ```

@@ -122,7 +122,7 @@ Signer            = Ed25519PublicKey
 
 `MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. The payloads of `ChannelInscribe.Inscription` and `ChannelDeposit.Metadata` MUST each be at most `MAX_OPERATION_DATA_SIZE` bytes, excluding the outer `UINT32` length prefix. A decoder MUST reject either field when its declared or decoded payload length exceeds the limit.
 
-In a `ProgramStep`, a decoder MUST reject a `ProgramOutputs` with a bit set at or above the `OutputCount` of the step, so that a step has a single encoding.
+In a `ProgramStep`, a decoder MUST reject an `OutputCount` above 8, the outputs of a program spend, and a `ProgramOutputs` with a bit set at or above the `OutputCount` of the step, so that a step has a single encoding.
 
 ### SDP Operations
 

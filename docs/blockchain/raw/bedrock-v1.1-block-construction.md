@@ -34,7 +34,7 @@
 | 1.2.1 | Precise the state each transaction of a block is validated against: the transactions are validated and executed one after the other in the order they appear, each against the state the preceding ones left, which makes block validity order-dependent. Precise that a block whose validation fails at any point is not executed at all. | 2026-08-24 |
 | 1.3.0 | Compressed Block Proposal: 16-byte transaction reference prefixes and a variable-length `references` list, reducing the proposal from 34,574 bytes to at most 18,192. Added the [Canonical Encoding](#canonical-encoding) section. | 2026-08-18 |
 | 1.4.0 | The `leader_voucher` is replaced with a one-time `reward_key`, and the leader reward is inserted in the ledger at the end of the block execution. Channel withdrawals whose due slot is reached are released before the transactions. The PoL is bound to the header by a hash of it and proven once the body is fixed: `leader_key`, the proposal and block signatures and the signatures of the uncle headers are removed, reducing the proposal to at most 17,712 bytes. An invalid proof of leadership condemns only the received copy, since the block ID does not cover the proof | 2026-10-07 |
-| 1.4.1 | The proof of the header uses the `Groth16Proof` terminal of the transaction encoding. The ZkProgramSpend proofs of a block are verified in their own batch, and a program proof alone | 2026-10-12 |
+| 1.4.1 | The proof of the header uses the `Groth16Proof` terminal of the transaction encoding. The ZkProgramSpend proofs of a block are verified in their own batch, and a program proof alone. A transaction resolved without the openings of its program notes fails the copy, not the block | 2026-10-12 |
 
 # Introduction
 
