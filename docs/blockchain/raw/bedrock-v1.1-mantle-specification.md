@@ -2122,7 +2122,7 @@ class ZkProgramSpendPublic:
     msg: zkhash
 ```
 
-`ZkProgramSpend_verify(inputs, outputs, program_outputs, tx_cm_root, program_id, paid_value, spend_notes_hash, msg, proof)` verifies the proof for these public values, through the [`verify_program_spend`](#input-notes-spendability-validation) method of the note set. The flags `inputs_active` and `outputs_active` are set from `inputs` and `outputs` as in the ZkTransfer, and `outputs_of_program` is `program_outputs` padded with `False`.
+`ZkProgramSpend_verify(inputs, outputs, program_outputs, tx_cm_root, program_id, paid_value, spend_notes_hash, msg, proof)` verifies the proof for these public values, through the [`verify_program_spend`](#input-notes-spendability-validation) method of the note set. The flags `inputs_active` and `outputs_active` are set from `inputs` and `outputs` as in the ZkTransfer, and `outputs_of_program` is `program_outputs` padded with `False`. A program spend therefore consumes at most 4 notes and creates at most 8: a program step whose `inputs` or `outputs` list is longer is invalid.
 
 The prover knows a witness:
 
