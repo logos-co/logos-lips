@@ -106,7 +106,7 @@ Validation of a program step, in order:
 
 1. The program is registered.
 2. Each payment is spendable, and its ZkTransfer verifies with `payment_msg(program_id, payment)` and an excess of `paid_value`. Its change goes to the buffer.
-3. The program spend consumes unspent notes of the program, possibly none, and its `ZkProgramSpend` verifies with `paid_value` the sum of the payments, `program_outputs`, `spend_notes_hash`, and the `op_id` of the inscription.
+3. The program spend consumes unspent notes of the program, possibly none, at most 4 notes in and 8 out, and its `ZkProgramSpend` verifies with `paid_value` the sum of the payments, `program_outputs`, `spend_notes_hash`, and the `op_id` of the inscription.
 4. Each output flagged in `program_outputs` has an opening in `program_notes` whose commitment, with `program` set to `program_id`, is that output.
 5. The program proof verifies under the registered key on `(spend_notes_hash, payments_hash(step), op_id)`.
 
@@ -144,7 +144,8 @@ def derive_program_id(key: Groth16VerificationKey) -> ProgramId:
 +Step            = (UserStepKind UserStep) / (ProgramStepKind ProgramStep)
 +UserStep        = Inputs Outputs CmMerkleRoot
 +ProgramStep     = ProgramId Payments Inputs Outputs ProgramOutputs CmMerkleRoot SpendNotesHash
-+ProgramOutputs  = Byte                     ; bit i set when output i is a note of the program
++ProgramOutputs  = Byte                     ; bit i set when output i is a note of the program, the bits
++                                           ; from OutputCount up being 0, rejected by the decoder otherwise
 +Payment         = Inputs Outputs CmMerkleRoot Value Intent
 +ProgramRegister = Groth16VerificationKey   ; Alpha G1, Beta Gamma Delta G2, 4 IC G1: 352 bytes
 -ChannelInscribeOpProof = Ed25519Signature *ZkTransfer

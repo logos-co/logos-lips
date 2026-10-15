@@ -195,8 +195,8 @@ And so we propose the following code reference:
 ```python
 EMA_DENOMINATOR = 10  # from q = 9/10
 EMA_PREV_WEIGHT = 9  # from q = 9/10
-BASE_FEE_NUMERATOR = 11_174_975  # = 7 * G_target
-BASE_FEE_DENOMINATOR = 12_771_400  # = 8 * G_target
+BASE_FEE_NUMERATOR = 11_173_687  # = 7 * G_target
+BASE_FEE_DENOMINATOR = 12_769_928  # = 8 * G_target
 
 def ceil_div(numerator: int, denominator: int) -> int:
     return (numerator + denominator - 1) // denominator
