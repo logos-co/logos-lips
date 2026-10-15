@@ -26,11 +26,11 @@ Read [RFC-480](RFC-480-mantle-private-utxo-ledger.md) first: this RFC builds on 
 
 ## What the ledger guarantees
 
-The ledger guarantees that no LGO is created, that a user note moves only with the key of its holder, and that a program note moves only with the proof of its program. It does not check the assets of a zone. For a swap of LGO against a zone token, the users of the zone verify the inscription against the intents, and the sequencers of the zone slash a faulty sequencer. Mantle states this split in its [What enforces what](../bedrock-v1.1-mantle-specification.md#programs) table.
+The ledger guarantees that no LGO is created, that a user note moves only with the key of its holder, and that a program note moves only with the proof of its program. It also checks the opening of every program note a step creates, so that the next sequencer can always consume it. It does not check the assets of a zone. For a swap of LGO against a zone token, the users of the zone verify the inscription against the intents, and the sequencers of the zone slash a faulty sequencer. Mantle states this split in its [What enforces what](../bedrock-v1.1-mantle-specification.md#programs) table.
 
 ## Privacy
 
-Users stay hidden: payments consume notes by nullifier, and the notes a program pays are commitments. The amounts are public: every payment carries its `paid_value`, and a public program such as a pool publishes its state. Interactions with a public program are therefore subject to timing attacks. Hiding the amounts needs value commitments in place of public values, which changes the ZkTransfer and the fee payment across Mantle and is left to a later RFC.
+Users stay hidden: payments consume notes by nullifier, and the notes a program pays are commitments. The amounts are public: every payment carries its `paid_value`, and every program note is opened in the step that creates it, so the state of a program is public, and so is the total a program step pays to users. Interactions with a program are therefore subject to timing attacks. Hiding the amounts needs value commitments in place of public values, which changes the ZkTransfer and the fee payment across Mantle and is left to a later RFC.
 
 ## Alternatives considered
 
@@ -41,6 +41,8 @@ Users stay hidden: payments consume notes by nullifier, and the notes a program 
 - **A custom inscription hash, or a per-step flag choosing whether a proof is bound to the inscription.** Rejected: the `op_id` of the Inscribe Operation already covers the inscription and the public data of every step without any proof, and every program proof is bound to it. No circuit has to open the inscription: LGO-only programs read `payments_hash` and `spend_notes_hash`, and the users of the zone check the rest.
 - **One zkVM verifier for every program.** Rejected for now: a Groth16 key per program reuses the stack of the ZkTransfer, on BN254 with `zkhash`, and a zone can still wrap a zkVM proof in a Groth16 circuit.
 - **Folding `program` and `data` into `public_key`.** Rejected: separate fields keep the commitment of a user note readable as such, and let the ZkTransfer and the Proof of Leadership fix them to `0` without a branch.
+- **Openings of program notes left to the sequencer, in the inscription or off chain.** Rejected: the ledger cannot see whether they were published, and a sequencer withholding the opening of a program note freezes it, since program notes are never withdrawn and no sequencer can prove a program spend over a note it cannot open. The safety of a program would hold, but not its liveness.
+- **The state of a program stored on chain next to its key, as a public balance and state.** Rejected: program notes stay in the note set of their channel, in the same model as user notes, a program can hold many records as many notes, and the ledger needs no storage for program state nor a price for it.
 - **A registry per channel.** Rejected: a program only governs its own notes, so a global, permissionless registry is safe, and the sequencer, who often controls the channel configuration, gains no gatekeeping power.
 
 # Details
@@ -89,22 +91,32 @@ class ProgramStep:
     payments: list[Payment]
     inputs: list[NoteNf]        # notes of the program, possibly none
     outputs: list[NoteCm]       # notes of the program, and user notes it pays
+    program_outputs: list[bool] # whether each output is a note of the program
     cm_merkle_root: MerkleRoot
     spend_notes_hash: zkhash
+
+class ProgramStepProof:
+    payment_proofs: list[ZkTransfer]
+    spend_proof: ZkProgramSpend
+    program_proof: Groth16Proof
+    program_notes: list[ProgramNoteOpening]  # (value, nonce, public_key, data) of each output of the program
 ```
 
 Validation of a program step, in order:
 
 1. The program is registered.
 2. Each payment is spendable, and its ZkTransfer verifies with `payment_msg(program_id, payment)` and an excess of `paid_value`. Its change goes to the buffer.
-3. The program spend consumes unspent notes of the program, possibly none, and its `ZkProgramSpend` verifies with `paid_value` the sum of the payments, `spend_notes_hash`, and the `op_id` of the inscription.
-4. The program proof verifies under the registered key on `(spend_notes_hash, payments_hash(step), op_id)`.
+3. The program spend consumes unspent notes of the program, possibly none, and its `ZkProgramSpend` verifies with `paid_value` the sum of the payments, `program_outputs`, `spend_notes_hash`, and the `op_id` of the inscription.
+4. Each output flagged in `program_outputs` has an opening in `program_notes` whose commitment, with `program` set to `program_id`, is that output.
+5. The program proof verifies under the registered key on `(spend_notes_hash, payments_hash(step), op_id)`.
 
-The `ZkProgramSpend` is the ZkTransfer with program checks: its inputs are notes of `program_id`, its outputs are notes of `program_id` or user notes, `spend_notes_hash` commits to the active flag and the note of every input and output, nonce included, so that a program can constrain the nonces its sequencer picks, and `sum(inputs_value) + paid_value == sum(outputs_value)`. Its used inputs and outputs are marked by the public flags `inputs_active` and `outputs_active`, set from the published lists as in the ZkTransfer. It is proven by the sequencer. The circuit (`program_spend` in [logos-blockchain-circuits](https://github.com/logos-blockchain/logos-blockchain-circuits)) has 69,361 constraints and proves in about 2.1 s on one thread and 0.3 s on 32 threads (see the Mantle benchmark).
+The openings serve only the availability of the state of the program. They sit in the proof of the step, outside the `op_id` and the transaction hash, the ledger keeps nothing from them, and nodes may prune them 1024 blocks after their block, which is then validated without them.
+
+The `ZkProgramSpend` is the ZkTransfer with program checks: its inputs are notes of `program_id`, its outputs are notes of `program_id` or user notes, `spend_notes_hash` commits to the active flag and the note of every input and output, nonce included, so that a program can constrain the nonces its sequencer picks, and `sum(inputs_value) + paid_value == sum(outputs_value)`. Its used inputs and outputs are marked by the public flags `inputs_active` and `outputs_active`, set from the published lists as in the ZkTransfer, and its outputs of the program by the public flags `outputs_of_program`, set from `program_outputs`. It is proven by the sequencer. The circuit (`program_spend` in [logos-blockchain-circuits](https://github.com/logos-blockchain/logos-blockchain-circuits)) has 69,377 constraints and proves in about 2.1 s on one thread and 0.3 s on 32 threads (see the Mantle benchmark).
 
 ## 3. What enforces what
 
-Mantle gains a **Programs** section stating, for each guarantee, the check that enforces it, and the design choices behind them: why creating a program note needs its proof, why a payment lives inside its program step, why the proofs are bound to the `op_id`, why program notes neither stake nor withdraw. Publishing the preimage of each intent in the inscription is recommended, depending on the program.
+Mantle gains a **Programs** section stating, for each guarantee, the check that enforces it, and the design choices behind them: why creating a program note needs its proof, why a payment lives inside its program step, why the proofs are bound to the `op_id`, why program notes neither stake nor withdraw, why every program note a step creates is opened, for data availability only. Publishing the preimage of each intent in the inscription is recommended, depending on the program.
 
 ## 4. Program registration
 
@@ -129,12 +141,14 @@ def derive_program_id(key: Groth16VerificationKey) -> ProgramId:
 +Steps           = StepCount *Step
 +Step            = (UserStepKind UserStep) / (ProgramStepKind ProgramStep)
 +UserStep        = Inputs Outputs CmMerkleRoot
-+ProgramStep     = ProgramId Payments Inputs Outputs CmMerkleRoot SpendNotesHash
++ProgramStep     = ProgramId Payments Inputs Outputs ProgramOutputs CmMerkleRoot SpendNotesHash
++ProgramOutputs  = Byte                     ; bit i set when output i is a note of the program
 +Payment         = Inputs Outputs CmMerkleRoot Value Intent
 +ProgramRegister = Groth16VerificationKey   ; Alpha G1, Beta Gamma Delta G2, 4 IC G1: 352 bytes
 -ChannelInscribeOpProof = Ed25519Signature *ZkTransfer
 +ChannelInscribeOpProof = Ed25519Signature *StepProof
-+ProgramStepProof       = *ZkTransfer ZkProgramSpend Groth16Proof
++ProgramStepProof       = *ZkTransfer ZkProgramSpend Groth16Proof *ProgramNoteOpening
++ProgramNoteOpening     = Value NoteNonce ZkPublicKey ProgramNoteData   ; 104 bytes
 ```
 
 ## 6. Gas
@@ -156,7 +170,7 @@ A program step costs `EXECUTION_TRANSFER_GAS` per payment, plus `EXECUTION_PROGR
 - [ ] Fix `program` and `data` to `0` in the ZkTransfer and the Proof of Leadership circuits.
 - [ ] Implement the `ZkProgramSpend` circuit, its setup and its verifier.
 - [ ] Implement `PROGRAM_REGISTER`: the key encoding, the curve and subgroup checks, the program identifier and the `programs` map.
-- [ ] Implement user and program steps in `CHANNEL_INSCRIBE`: payments, the program spend, the program proof under its registered key, and their encoding.
+- [ ] Implement user and program steps in `CHANNEL_INSCRIBE`: payments, the program spend, the program proof under its registered key, the openings of the program notes with their pruning, and their encoding.
 - [x] Measure the Execution Gas of `PROGRAM_REGISTER`, the `ZkProgramSpend` and the program proof.
 - [ ] Add tests and test vectors for note commitments, program registration, program steps and their encoding.
 - [ ] Verify the implementation matches this specification.

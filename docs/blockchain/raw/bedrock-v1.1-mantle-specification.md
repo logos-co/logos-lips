@@ -48,7 +48,7 @@
 | 1.16.0 | Gas Determination table updated for strict Ed25519 verification: channel Operations 56 → 59 Execution Gas per signature, `EXECUTION_SDP_DECLARE_GAS` 646 → 649, from [Gas Cost Determination](analysis-gas-cost-determination.md) 1.7.0 | 2026-09-24 |
 | 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding. | 2026-10-06 |
 | 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel. Channel notes are moved by the steps their holders sign, each proven against a recent root and the part of the transaction buffer it names, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and moved `CLAIM_POW_REWARD` to the opcode `0x30` | 2026-10-01 |
-| 2.1.0 | Add programs: notes gain `program` and `data` fields, `PROGRAM_REGISTER` registers a Groth16 verification key, and channel inscriptions carry program steps made of user payments, a `ZkProgramSpend` and a program proof | 2026-10-12 |
+| 2.1.0 | Add programs: notes gain `program` and `data` fields, `PROGRAM_REGISTER` registers a Groth16 verification key, and channel inscriptions carry program steps made of user payments, a `ZkProgramSpend`, a program proof and the openings of the program notes they create | 2026-10-12 |
 
 # Introduction
 
@@ -388,7 +388,7 @@ Channels let their bridged notes keep participating in Proof of Stake. When a us
 A program governs notes of a channel that no single user holds, such as the reserves of a pool. It is a Groth16 circuit, registered by its verification key with [`PROGRAM_REGISTER`](#program_register), and its notes are the program notes whose `program` field is its identifier. A program runs in the program steps of the [inscriptions](#channel_inscribe) of a channel:
 
 - **Payments.** Users pay the program with ZkTransfers consuming their user notes, whose excess is the value paid to the program. Each payment commits to the program and to an intent, the hash of what its user expects from the program.
-- **Program spend.** The sequencer consumes notes of the program and creates notes of the program and the user notes the program pays, with a [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) balancing exactly with the value paid.
+- **Program spend.** The sequencer consumes notes of the program and creates notes of the program and the user notes the program pays, with a [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) balancing exactly with the value paid. It publishes the opening of every note of the program it creates.
 - **Program proof.** The sequencer proves the rule of the program with a Groth16 proof under its registered key, over the notes of the program spend, the payments with their intents, and the `op_id` of the inscription.
 
 `Groth16_verify(key, public_inputs, proof)` verifies a [Groth16](common-cryptographic-components.md#groth16-zk-snark) proof against a verification key and its public inputs.
@@ -404,6 +404,7 @@ A program governs notes of a channel that no single user holds, such as the rese
 | A payment only pays the program it names, in a step carrying the intent its holder signed | The message of the payment, which commits to the program and the intent |
 | A program note is created and consumed only with the proof of its program | The ZkTransfer, which only derives commitments with `program` and `data` set to `0`; the ZkProgramSpend, whose inputs are notes of the program and whose outputs are notes of the program or user notes; the program proof, required by every program step |
 | A program step serves the intents over LGO as the rule of the program states | The program proof, which reads the payments and the notes of the program spend |
+| The notes of a program can be consumed by the next sequencer | The ledger, which checks the opening of every note of the program a step creates |
 | A program step serves the intents over the assets of the zone | The users of the zone, who verify the intents against the inscription and the zone state, and the sequencers of the zone, who slash a faulty sequencer |
 
 A program using LGO only, such as lending, is thus enforced by the ledger, and its users trust only the circuit of the program they pay. A program exchanging LGO with assets of the zone, such as a swap, is enforced by the ledger for its LGO only. Depending on the program, publishing the preimage of each intent in the inscription is recommended, so that the users of the zone can verify how the program step served it.
@@ -414,8 +415,9 @@ A program using LGO only, such as lending, is thus enforced by the ledger, and i
 - A payment exists only inside its program step. A payment left unconsumed cannot happen: if the sequencer does not publish the program step, the notes of the user are not consumed.
 - The program spend and the program proof are bound to the `op_id` of the inscription, which covers the inscription and the public data of every step but no proof. A program step is thus attributable to its inscription and valid in no other.
 - Program notes take no part in Proof of Stake, since the Proof of Leadership derives the commitment of its note with `program` and `data` set to `0`. They are never withdrawn either, since a withdrawal consumes notes with a ZkTransfer.
+- The opening of every note of the program a step creates is published with the step, and checked by the ledger. A sequencer withholding the opening of a note of the program would otherwise freeze it: program notes are never withdrawn, and no sequencer can prove a program spend consuming a note it cannot open. The openings serve this data availability only: the ledger keeps nothing from them, and nodes may prune them after 1024 blocks.
 
-**Privacy.** The paid values are public, and so is the state a public program publishes, such as the reserves of a pool. The amount of each interaction with such a program is therefore visible, and its interactions are subject to timing attacks. The users stay hidden: payments consume notes by nullifier, and the notes the program pays are commitments.
+**Privacy.** The paid values are public, and so are the notes of the program, opened in the steps that create them. The amount of each interaction with a program is therefore visible, and so is the total value a program step pays to users: with a single payee, what that payee receives. Its interactions are subject to timing attacks. The users stay hidden: payments consume notes by nullifier, and the notes the program pays are commitments.
 
 ### CHANNEL_INSCRIBE
 
@@ -448,6 +450,7 @@ class ProgramStep:
     payments: list[Payment]     # the payments of the users to the program, possibly empty
     inputs: list[NoteNf]        # nullifiers of the consumed notes of the program, possibly empty
     outputs: list[NoteCm]       # commitments of the created notes of the program and of the user notes it pays
+    program_outputs: list[bool] # (len = len(outputs)) whether each output is a note of the program
     cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set,
                                 # extended with the tx_cm_buffer of the set for the proof
     spend_notes_hash: zkhash    # the hash of the input and output notes of the program spend
@@ -505,15 +508,25 @@ A step applies once, since its nullifiers can be inserted only once.
 #### Proof
 
 ```python
+class ProgramNoteOpening:
+    value: TokenValue
+    nonce: NoteNonce
+    public_key: ZkPublicKey
+    data: zkhash
+
 class ProgramStepProof:
     payment_proofs: list[ZkTransfer]  # one per payment, in the order of the payments
     spend_proof: ZkProgramSpend
     program_proof: Groth16Proof       # under the verification key of the program
+    program_notes: list[ProgramNoteOpening]  # the opening of each output of the program,
+                                             # in the order of the outputs
 
 class InscribeProof:
     signature: Ed25519Signature                       # by the signer, over the mantle_txhash
     step_proofs: list[ZkTransfer | ProgramStepProof]  # one per step, in the order of the steps
 ```
+
+The openings of the program notes a step creates serve only the availability of the state of the program: the next sequencer needs them to consume these notes, and the payees of the program may need them to learn the notes it pays them. The ledger checks each opening against its output and keeps nothing from it. The openings are part of the proof of the step, outside the `op_id` and the Mantle transaction hash, so pruning them changes no hash. A node keeps the openings for 1024 blocks after the block that includes them, and may then prune them. A block older than that is validated without them, every other check of its steps unchanged.
 
 #### Execution Gas
 
@@ -608,12 +621,25 @@ block_slot: Slot
                   step_nfs.add(note_nf)
               assert note_set.verify_program_spend(step.inputs,
                                                    step.outputs,
+                                                   step.program_outputs,
                                                    step.cm_merkle_root,
                                                    step.program_id,
                                                    paid_value,
                                                    step.spend_notes_hash,
                                                    op_id_fr,
                                                    step_proof.spend_proof)
+
+              # Ensure every output of the program is opened, for the availability of its state.
+              assert len(step.program_outputs) == len(step.outputs)
+              program_cms = [cm for cm, of_program in zip(step.outputs, step.program_outputs)
+                             if of_program]
+              assert len(step_proof.program_notes) == len(program_cms)
+              for cm, opening in zip(program_cms, step_proof.program_notes):
+                  assert cm == derive_note_cm(Note(value=opening.value,
+                                                   nonce=opening.nonce,
+                                                   public_key=opening.public_key,
+                                                   program=step.program_id,
+                                                   data=opening.data))
 
               # Ensure the program accepts the step.
               assert Groth16_verify(ledger.programs[step.program_id],
@@ -1924,11 +1950,13 @@ class NoteSet:
                                  self.tx_cm_root(cm_merkle_root, buffered), msg, proof)
 
     def verify_program_spend(self, inputs: list[NoteNf], outputs: list[NoteCm],
-                             cm_merkle_root: MerkleRoot, program_id: ProgramId,
-                             paid_value: TokenValue, spend_notes_hash: zkhash, msg: zkhash,
+                             program_outputs: list[bool], cm_merkle_root: MerkleRoot,
+                             program_id: ProgramId, paid_value: TokenValue,
+                             spend_notes_hash: zkhash, msg: zkhash,
                              proof: ZkProgramSpend) -> bool:
-        return ZkProgramSpend_verify(inputs, outputs, self.tx_cm_root(cm_merkle_root),
-                                     program_id, paid_value, spend_notes_hash, msg, proof)
+        return ZkProgramSpend_verify(inputs, outputs, program_outputs,
+                                     self.tx_cm_root(cm_merkle_root), program_id, paid_value,
+                                     spend_notes_hash, msg, proof)
 ```
 
 See [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) and [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) for the proofs.
@@ -2086,6 +2114,7 @@ class ZkProgramSpendPublic:
     inputs_active: list[boolean]   # (len = 4) whether each input consumes a note
     outputs: list[NoteCm]          # (len = 8) notes of the program, or user notes it pays
     outputs_active: list[boolean]  # (len = 8) whether each output creates a note
+    outputs_of_program: list[boolean]  # (len = 8) whether each output is a note of the program
     tx_cm_root: MerkleRoot         # the referenced cm_merkle_root extended with the tx_cm_buffer of the set
     program_id: ProgramId
     paid_value: TokenValue         # the total value the payments of the step pay to the program
@@ -2093,7 +2122,7 @@ class ZkProgramSpendPublic:
     msg: zkhash
 ```
 
-`ZkProgramSpend_verify(inputs, outputs, tx_cm_root, program_id, paid_value, spend_notes_hash, msg, proof)` verifies the proof for these public values, through the [`verify_program_spend`](#input-notes-spendability-validation) method of the note set. The flags are set from `inputs` and `outputs` as in the ZkTransfer.
+`ZkProgramSpend_verify(inputs, outputs, program_outputs, tx_cm_root, program_id, paid_value, spend_notes_hash, msg, proof)` verifies the proof for these public values, through the [`verify_program_spend`](#input-notes-spendability-validation) method of the note set. The flags `inputs_active` and `outputs_active` are set from `inputs` and `outputs` as in the ZkTransfer, and `outputs_of_program` is `program_outputs` padded with `False`.
 
 The prover knows a witness:
 
@@ -2127,18 +2156,23 @@ Such that the following constraints hold:
 
 - Each active input nullifier is derived from the secret key and the input commitment, each active input commitment is in `tx_cm_root`, and each inactive input has value 0, as in the ZkTransfer.
 
-- Each output flag is boolean, each active output is a note of the program or a user note, whose commitment is derived from its fields, and each inactive output has value 0.
+- Each output flag is boolean, each active output is a note of the program if `outputs_of_program` says so and a user note otherwise, whose commitment is derived from its fields, and each inactive output has value 0 and is not a note of the program.
   ```python
   assert all(
       outputs_active[i] * (1 - outputs_active[i]) == 0
+      outputs_of_program[i] * (1 - outputs_of_program[i]) == 0
       if outputs_active[i]:
-          outputs_program[i] == program_id or (outputs_program[i] == 0 and outputs_data[i] == 0)
+          if outputs_of_program[i]:
+              outputs_program[i] == program_id
+          else:
+              outputs_program[i] == 0 and outputs_data[i] == 0
           outputs[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), outputs_value[i], outputs_nonce[i], outputs_pk[i], outputs_program[i], outputs_data[i])
       else:
-          outputs_value[i] == 0
+          outputs_value[i] == 0 and outputs_of_program[i] == 0
       for i in range(len(outputs_pk))
   )
   ```
+  The flags `outputs_of_program` tell the ledger which outputs are notes of the program, whose openings the step must publish.
 
 - `spend_notes_hash` commits to the flag and the note of every input and output, nonce included, which the program proof opens to check its rule. Their fields are hashed one after the other, input by input, then output by output.
   ```python
@@ -2150,7 +2184,7 @@ Such that the following constraints hold:
             for field in (outputs_active[i], outputs_value[i], outputs_nonce[i], outputs_pk[i], outputs_program[i], outputs_data[i])]
   )
   ```
-  The nonces let the program proof constrain them. The sequencer picks the nonce of every note the step creates, and the holder of a note needs its nonce to spend it: a program can require each output nonce to be derived from data its users know, so that a note it pays cannot be withheld from its holder, and no two outputs share a commitment.
+  The nonces let the program proof constrain them. The sequencer picks the nonce of every note the step creates, and the holder of a note needs its nonce to spend it: a program can require the nonce and the value of each output to be derived from data its users know, so that a note it pays cannot be withheld from its holder, and no two outputs share a commitment.
 
 - The outputs are well-formed, and the inputs and the paid value balance the outputs exactly.
   ```python
@@ -2163,7 +2197,7 @@ Such that the following constraints hold:
 
 - The proof is bound to `msg`, the `op_id` of the Channel Inscribe Operation reduced modulo $`p`$.
 
-The circuit takes at most 4 inputs and 8 outputs, the unused ones being inactive as in the ZkTransfer. It is the ZkTransfer circuit with the program checks, the hash of the notes and `paid_value` added.
+The circuit takes at most 4 inputs and 8 outputs, the unused ones being inactive as in the ZkTransfer. It is the ZkTransfer circuit with the program checks, the flags of the outputs of the program, the hash of the notes and `paid_value` added.
 
 ### Benchmark
 
@@ -2227,7 +2261,7 @@ To see what the payloads represent, refer to [Mantle Transaction Encoding](mantl
 | `TRANSFER`                | 0x0201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000600000000000000 | 0xb39493d223a2fefae67c6aac3c8f9338e3272137d4ae4ce714607bcbc9d011a4 |
 | `PROGRAM_REGISTER`        | 0x3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f40404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414242424242424242424242424242424242424242424242424242424242424242434343434343434343434343434343434343434343434343434343434343434344444444444444444444444444444444444444444444444444444444444444444545454545454545454545454545454545454545454545454545454545454545 | 0xc7cc0a188f1d9aeb1dd35b8e951bafa34aebcf51bbcd2181173bf118931351d0 |
 | `CHANNEL_CONFIG`          | 0x0707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000c00 | 0xce2011caae1d309c81b201ba7dc3c7516e93fbd43359e1fe8aff423d61fd7cc1 |
-| `CHANNEL_INSCRIBE`        | 0x0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c020000012300000000000000000000000000000000000000000000000000000000000000012400000000000000000000000000000000000000000000000000000000000000250000000000000000000000000000000000000000000000000000000000000001340000000000000000000000000000000000000000000000000000000000000001013500000000000000000000000000000000000000000000000000000000000000013600000000000000000000000000000000000000000000000000000000000000370000000000000000000000000000000000000000000000000000000000000038000000000000003900000000000000000000000000000000000000000000000000000000000000013a00000000000000000000000000000000000000000000000000000000000000013b000000000000000000000000000000000000000000000000000000000000003c000000000000000000000000000000000000000000000000000000000000003d00000000000000000000000000000000000000000000000000000000000000 | 0xd8cdeb5745e4df5def2c6913e02a8464cd5f8171538a615c6072d23437867627 |
+| `CHANNEL_INSCRIBE`        | 0x0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c020000012300000000000000000000000000000000000000000000000000000000000000012400000000000000000000000000000000000000000000000000000000000000250000000000000000000000000000000000000000000000000000000000000001340000000000000000000000000000000000000000000000000000000000000001013500000000000000000000000000000000000000000000000000000000000000013600000000000000000000000000000000000000000000000000000000000000370000000000000000000000000000000000000000000000000000000000000038000000000000003900000000000000000000000000000000000000000000000000000000000000013a00000000000000000000000000000000000000000000000000000000000000013b00000000000000000000000000000000000000000000000000000000000000013c000000000000000000000000000000000000000000000000000000000000003d00000000000000000000000000000000000000000000000000000000000000 | 0xaf0f0d6db9bc5d8b63b532ccd9787436802f25d3b2d0b8fcea16e91830a29df7 |
 | `CHANNEL_DEPOSIT`         | 0x101010101010101010101010101010101010101010101010101010101010101001110000000000000000000000000000000000000000000000000000000000000026000000000000000000000000000000000000000000000000000000000000000127000000000000000000000000000000000000000000000000000000000000002800000000000000100000006465706f7369742d6d65746164617461 | 0x83eeb0ac0b7e03bb6c93c0c7596512413707b9536b2b3d56a86656f8f527d6f6 |
 | `CHANNEL_WITHDRAW`        | 0x12121212121212121212121212121212121212121212121212121212121212120113000000000000000000000000000000000000000000000000000000000000002900000000000000000000000000000000000000000000000000000000000000012a00000000000000000000000000000000000000000000000000000000000000 | 0x8d6ae69200aab259bca71e5829d43f0a289ba612383d29ddcd7d217f1ede0996 |
 | `SDP_DECLARE`             | 0x00010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f31900000000000000000000000000000000000000000000000000000000000000011a000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000002d00000000000000 | 0xeee94894496fe11261d5f649f414c586c852436ba4c6c3fdb60294894a3dc19c |
@@ -2240,7 +2274,7 @@ To see what the payloads represent, refer to [Mantle Transaction Encoding](mantl
 | Transaction | Payload | Transaction Hash                                                   |
 | - | - | - |
 | Empty transaction | 0x00 | 0x2eba3f667b80a508f3d44d149a1c27a90ea365a51e4fc8209289088142b364e5 |
-| Transaction with one of each operation | 0x0a000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000600000000000000013e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f40404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414242424242424242424242424242424242424242424242424242424242424242434343434343434343434343434343434343434343434343434343434343434344444444444444444444444444444444444444444444444444444444444444444545454545454545454545454545454545454545454545454545454545454545100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000c00110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c020000012300000000000000000000000000000000000000000000000000000000000000012400000000000000000000000000000000000000000000000000000000000000250000000000000000000000000000000000000000000000000000000000000001340000000000000000000000000000000000000000000000000000000000000001013500000000000000000000000000000000000000000000000000000000000000013600000000000000000000000000000000000000000000000000000000000000370000000000000000000000000000000000000000000000000000000000000038000000000000003900000000000000000000000000000000000000000000000000000000000000013a00000000000000000000000000000000000000000000000000000000000000013b000000000000000000000000000000000000000000000000000000000000003c000000000000000000000000000000000000000000000000000000000000003d0000000000000000000000000000000000000000000000000000000000000012101010101010101010101010101010101010101010101010101010101010101001110000000000000000000000000000000000000000000000000000000000000026000000000000000000000000000000000000000000000000000000000000000127000000000000000000000000000000000000000000000000000000000000002800000000000000100000006465706f7369742d6d657461646174611312121212121212121212121212121212121212121212121212121212121212120113000000000000000000000000000000000000000000000000000000000000002900000000000000000000000000000000000000000000000000000000000000012a000000000000000000000000000000000000000000000000000000000000002b000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f31900000000000000000000000000000000000000000000000000000000000000011a000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000002d00000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000012e000000000000000000000000000000000000000000000000000000000000002f00000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020303030303030303030303030303030303030303030303030303030303030303303000000000000000000000000000000000000000000000000000000000000000313131313131313131313131313131313131313131313131313131313131313132000000000000000000000000000000000000000000000000000000000000003300000000000000000000000000000000000000000000000000000000000000 | 0x757830079106751fe93fbdf62522a330d56c4d02bc553eacf01a7367b93b0d07 |
+| Transaction with one of each operation | 0x0a000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000600000000000000013e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f40404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414242424242424242424242424242424242424242424242424242424242424242434343434343434343434343434343434343434343434343434343434343434344444444444444444444444444444444444444444444444444444444444444444545454545454545454545454545454545454545454545454545454545454545100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000c00110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c020000012300000000000000000000000000000000000000000000000000000000000000012400000000000000000000000000000000000000000000000000000000000000250000000000000000000000000000000000000000000000000000000000000001340000000000000000000000000000000000000000000000000000000000000001013500000000000000000000000000000000000000000000000000000000000000013600000000000000000000000000000000000000000000000000000000000000370000000000000000000000000000000000000000000000000000000000000038000000000000003900000000000000000000000000000000000000000000000000000000000000013a00000000000000000000000000000000000000000000000000000000000000013b00000000000000000000000000000000000000000000000000000000000000013c000000000000000000000000000000000000000000000000000000000000003d0000000000000000000000000000000000000000000000000000000000000012101010101010101010101010101010101010101010101010101010101010101001110000000000000000000000000000000000000000000000000000000000000026000000000000000000000000000000000000000000000000000000000000000127000000000000000000000000000000000000000000000000000000000000002800000000000000100000006465706f7369742d6d657461646174611312121212121212121212121212121212121212121212121212121212121212120113000000000000000000000000000000000000000000000000000000000000002900000000000000000000000000000000000000000000000000000000000000012a000000000000000000000000000000000000000000000000000000000000002b000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f31900000000000000000000000000000000000000000000000000000000000000011a000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000002d00000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000012e000000000000000000000000000000000000000000000000000000000000002f00000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020303030303030303030303030303030303030303030303030303030303030303303000000000000000000000000000000000000000000000000000000000000000313131313131313131313131313131313131313131313131313131313131313132000000000000000000000000000000000000000000000000000000000000003300000000000000000000000000000000000000000000000000000000000000 | 0xdb2077989f87d9a6841fe8af573e64366cc32d230a9aa526c68957b1fbaf4333 |
 
 ### Declaration Id
 
