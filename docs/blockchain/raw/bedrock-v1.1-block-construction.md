@@ -148,7 +148,7 @@ class ProofOfLeadership:                     # 192 bytes
 
 Where:
 
-- `proof` is the proof confirming that the proposal is constructed by the leader. It is bound to the header by its public input `msg`, a hash of every other field of the header including `body_root` ([Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)); the size of the `Groth16Proof` type is 128 bytes (2 compressed $`\mathbb{G}_1`$and 1 compressed $`\mathbb{G}_2`$ BN256 elements).
+- `proof` is the proof confirming that the proposal is constructed by the leader. It is bound to the header by its public input `msg`, a hash of every field of the header except the proof and the entropy contribution, `body_root` included ([Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)); the size of the `Groth16Proof` type is 128 bytes (2 compressed $`\mathbb{G}_1`$and 1 compressed $`\mathbb{G}_2`$ BN256 elements).
 - `entropy_contribution` is the output of the PoL contribution for Cryptarchia entropy; the size of the `zkhash` type is 32 bytes.
 - `reward_key` is the one-time `ZkPublicKey` the leader reward of the block is paid to ([Block Execution](#block-execution)); the size of the `ZkPublicKey` type is 32 bytes.
 
@@ -371,10 +371,10 @@ This section specifies how a Logos Blockchain node executes a valid block propos
 
 Given a `ValidBlock` that has successfully passed proposal validation, the node must, in this order:
 
-1. Execute the reward distribution protocol defined in [**Service Reward Distribution Protocol**](bedrock-service-reward-distribution.md) to generate reward notes locally and include them in the ledger.
+1. Execute the reward distribution protocol defined in [**Service Reward Distribution Protocol**](bedrock-service-reward-distribution.md) to generate reward notes locally and include them in the ledger, then remove the withdrawn declarations and release their notes, as defined in [SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization).
 2. Apply the channel withdrawals whose due slot is reached and whose inputs are still unspent, as defined in [CHANNEL_WITHDRAW](bedrock-v1.1-mantle-specification.md#channel_withdraw).
 3. Execute the Mantle Transactions included in the block in the order they appear, using the execution rules defined in the [Mantle](bedrock-v1.1-mantle-specification.md).
-4. Insert the leader reward of the block in the ledger.
+4. Insert the leader reward of the block in the ledger, and update `rewards_reserve` and `rewards_pool` with the release and the payout of the block, as defined in [Block Rewards](block-rewards.md#deterministic-implementation).
 5. Record the commitment MMR root of every note set, as defined in [Ledger](bedrock-v1.1-mantle-specification.md#ledger), so that the transactions of the next 1024 blocks can reference it:
     ```python
     for note_set in ledger.sets:
@@ -394,9 +394,9 @@ leader_note = Note(
 ledger.sets[LEDGER_SET].execute_adding([derive_note_cm(leader_note)])
 ```
 
-Spending the note reveals neither its commitment nor its value, so the leader cannot be linked to the block through its reward. The `reward_key` must be a fresh key for every block. Reusing it links the blocks that carry it to the same leader, and two rewards of the same value under the same key share a commitment, so only one of them can be spent.
+Spending the note reveals neither its commitment nor its value, so the leader cannot be linked to the block through its reward. A leader should use a fresh `reward_key` for every block. Reusing it links the blocks that carry it to the same leader, and two rewards of the same value under the same key share a commitment, so only one of them can be spent.
 
-The four steps stand or fall together, on a block that has validated in full: a block that fails validation at any point is not executed at all.
+The five steps stand or fall together, on a block that has validated in full: a block that fails validation at any point is not executed at all.
 
 The carried `uncle_headers` are not executed. A referenced uncle is not part of the chain; therefore, its transactions have no effect on the ledger state. The uncles are used only as evidence of consensus participation for the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference).
 

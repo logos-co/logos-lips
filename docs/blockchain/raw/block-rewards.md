@@ -24,7 +24,7 @@
 | 1.0.0 | Initial revision. | 2026-04-24 |
 | 1.1.0 | Changing from burning/minting to pooling/distributing/releasing, removing $`S_{tge}`$ | 2026-08-25 |
 | 1.2.0 | Count the proof of work reward pool as a fourth controlled stock, bound net circulating growth by the two stocks that drain, and state that the pooled fee is net of the share diverted to that pool | 2026-08-31 |
-| 1.3.0 | Compute the reward of a block from the fees pooled in that block, with a time step of one block, its release capped at the reserve balance. Redraw the system design and project the circulating supply over 10 years with a per-block simulation | 2026-10-07 |
+| 1.3.0 | Compute the reward of a block from the fees pooled in that block, with a time step of one block, its release capped at the reserve balance, and the reserve and the pool kept as integer consensus state. Redraw the system design and project the circulating supply over 10 years with a per-block simulation | 2026-10-07 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -238,13 +238,22 @@ $$
 I_{max} \cdot S_{cap} \cdot \Delta_t = \frac{10^{-2}\cdot 10^{10}}{365\cdot 2880} = \frac{62500}{657},
 $$
 
-so the reward of the block is
+so the reward of the block is the sum of the reserve release and the pool payout, each rounded down:
 
 $$
-R_t = \frac{62500\cdot A_t' + 657\cdot(12\cdot 10^7-A_t')\cdot D_{1,t}}{657\cdot 12\cdot 10^7},
+\iota_t = \min \left\lbrace \left\lfloor \frac{62500\cdot A_t'}{657\cdot 12\cdot 10^7} \right\rfloor, \; B_{t-1} \right\rbrace, \qquad
+\pi_t = \left\lfloor \frac{(12\cdot 10^7-A_t')\cdot D_{1,t}}{12\cdot 10^7} \right\rfloor, \qquad
+R_t = \iota_t + \pi_t.
 $$
 
-rounded down, with the release term capped at the reserve balance $`B_{t-1}`$ once the reserve can no longer pay it. The reference implementation is:
+The reserve balance `rewards_reserve` and the pool balance `rewards_pool` are consensus state, in LGO, set at Genesis to $`B_0 = 10^9`$ and $`0`$. When the leader reward of a block is computed ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), the reserve pays $`\iota_t`$ and the pool receives the pooled fees of the block and pays $`\pi_t`$:
+
+```python
+rewards_reserve -= release
+rewards_pool += pooled_fee - payout
+```
+
+The payout never exceeds the pooled fees of its own block, so the pool never goes below zero. The reference implementation is:
 
 ```python
 A_SCALE: int64 = 120_000_000            # denominator of A_t
@@ -254,24 +263,24 @@ RELEASE_NUMERATOR: int64 = 62_500       # numerator of I_max * S_cap * Delta_t
 RELEASE_DENOMINATOR: int64 = 657        # denominator of I_max * S_cap * Delta_t
 
 
-def block_reward(total_stake: uint64, pooled_fee: uint64, reserve: uint64) -> uint64:
-    # Intermediates are int128: every product stays below 2**101,
-    # and the reward, a weighted average of the release cap and
-    # pooled_fee, fits back in a uint64.
+def block_reward(total_stake: uint64, pooled_fee: uint64,
+                 reserve: uint64) -> tuple[uint64, uint64]:
+    # Returns the reserve release and the pool payout of the block,
+    # whose sum is the block reward. Intermediates are int128: every
+    # product stays below 2**101.
     stake: int128 = total_stake
     fee: int128 = pooled_fee
 
     a_numerator: int128 = min(max(STAKE_TARGET - stake + FEE_NUMERATOR * fee, 0), A_SCALE)
 
     # the release cannot exceed what the reserve still holds
-    release_numerator: int128 = min(RELEASE_NUMERATOR * a_numerator,
-                                    reserve * RELEASE_DENOMINATOR * A_SCALE)
-    reward_numerator: int128 = (
-        release_numerator
-        + RELEASE_DENOMINATOR * (A_SCALE - a_numerator) * fee
-    )
-    return uint64(reward_numerator // (RELEASE_DENOMINATOR * A_SCALE))
+    release: int128 = min(RELEASE_NUMERATOR * a_numerator // (RELEASE_DENOMINATOR * A_SCALE),
+                          reserve)
+    payout: int128 = (A_SCALE - a_numerator) * fee // A_SCALE
+    return uint64(release), uint64(payout)
 ```
+
+`get_block_rewards(b)` is the sum of the two values `block_reward` returns for the block `b`.
 
 # Annex
 

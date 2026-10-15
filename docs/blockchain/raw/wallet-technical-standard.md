@@ -151,8 +151,8 @@ class OwnedNote:
     cm: NoteCm
     nf: NoteNf
     peak: int                   # index of the peak holding cm
-    path: list[zkhash]          # Merkle path of cm to the root of its peak
-    selectors: list[bool]       # whether each node of the path is left (0) or right (1)
+    path: list[zkhash]          # Merkle path of cm to the root of its peak, from the leaf up
+    selectors: list[bool]       # at each level, 1 when the path node is on the left, as in Mantle
 
 def append_commitment(peaks: list[(zkhash, int)], notes: list[OwnedNote], cm: NoteCm):
     # peaks holds the (root, height) of every peak, from left to right
@@ -163,11 +163,11 @@ def append_commitment(peaks: list[(zkhash, int)], notes: list[OwnedNote], cm: No
             if note.peak == len(peaks) - 2:
                 # cm is in the left peak, its new complementary node is the right peak
                 note.path.append(right)
-                note.selectors.append(1)
+                note.selectors.append(0)
             elif note.peak == len(peaks) - 1:
                 # cm is in the right peak, its new complementary node is the left peak
                 note.path.append(left)
-                note.selectors.append(0)
+                note.selectors.append(1)
                 note.peak -= 1
         peaks[-2:] = [(zkhash(left, right), height + 1)]
 ```

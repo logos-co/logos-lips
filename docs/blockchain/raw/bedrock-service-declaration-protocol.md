@@ -310,7 +310,7 @@ class WithdrawMessage:
 
 The message must be signed by the `provider_id` key from the `declaration_id`.
 
-The message consumes the service note of the declaration, by its nullifier `service_note_nf`, and creates the `outputs` that return its value, `excess_value` paying the fees. A [ZkTransfer](bedrock-v1.1-mantle-specification.md#sdp_withdraw) by the holder of the `zk_id` proves it, against the service note of the declaration only. The `outputs` are released to the ledger when the declaration is removed.
+The message consumes the service note of the declaration, by its nullifier `service_note_nf`, and creates the `outputs` that return its value, `excess_value` paying the fees. A [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) by the holder of the `zk_id` proves it, against the service note of the declaration only. The `outputs` are released to the ledger when the declaration is removed.
 
 The `nonce` must increase monotonically by every message sent for the `declaration_id`.
 

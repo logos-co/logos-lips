@@ -90,7 +90,7 @@ class Ledger:
 - `assert_spendable(inputs, cm_merkle_root)`, `verify_transfer(...)`, `execute_spending(inputs)` and `execute_adding(outputs)` are methods of `NoteSet`, called as `ledger.sets[LEDGER_SET].execute_adding(...)`.
 - An Operation references a recent `cm_merkle_root`, and its ZkTransfer is proven against `tx_cm_root`, that root with the set's buffer appended. `verify_transfer` computes `tx_cm_root` and calls `ZkTransfer_verify(...)`.
 - The ZkTransfer has 4 inputs and 8 outputs, marked used by the public flags `inputs_active` and `outputs_active`. The verifier sets the flags from the lengths of `inputs` and `outputs`, and an Operation with more than 4 inputs or 8 outputs is invalid. The circuit checks each flag is boolean, and an inactive input or output holds value `0`.
-- Every `excess_value` adds to the transaction balance, except that steps carry none.
+- The `excess_value` of `TRANSFER`, `CHANNEL_DEPOSIT` and `SDP_WITHDRAW` adds to the transaction balance. Steps and withdrawals carry none, and the excess of `SDP_DECLARE` is its stake.
 - `derive_note_nonce(op_id, output_number, value, public_key)` uses the DST `NOTE_NONCE_V1`.
 - Mantle is revision 2.0.0.
 
@@ -151,11 +151,11 @@ class ProofOfLeadershipPublic:
 +    reward_key: ZkPublicKey
 ```
 
-Block Execution runs the service rewards, releases the due channel withdrawals, runs the transactions, then appends the leader reward note `Note(get_leader_reward(block), 0, reward_key)` to the ledger set, and finally records the commitment MMR root of every note set, evicting the root that leaves the 1024-block window. `reward_key` must be fresh for every block. Block Construction is revision 1.4.0. The [Anonymous Leaders Reward](../../deprecated/bedrock-anonymous-leaders-reward.md) specification is deprecated.
+Block Execution runs the service rewards, releases the due channel withdrawals, runs the transactions, then appends the leader reward note `Note(get_leader_reward(block), 0, reward_key)` to the ledger set, and finally records the commitment MMR root of every note set, evicting the root that leaves the 1024-block window. A leader should use a fresh `reward_key` for every block. Block Construction is revision 1.4.0. The [Anonymous Leaders Reward](../../deprecated/bedrock-anonymous-leaders-reward.md) specification is deprecated.
 
 ## 6. Block reward from the block's own fees
 
-The block reward is `R_t = A_t * I_max * S_cap * Delta_t + (1 - A_t) * R_block`, where `R_block` is the fees pooled in the block, with a time step of one block. The integer reference uses 128-bit intermediates and `FEE_NUMERATOR = 1_261_440`, and caps the release at the reserve balance. The leader receives 40% of `R_t`, rounded down, plus the Execution market tips of the block, in one note, the remainder going to the Blend reward ([Cryptoeconomics overview](../overview-cryptoeconomics.md#blend-service-and-consensus-leaders)).
+The block reward is `R_t = A_t * I_max * S_cap * Delta_t + (1 - A_t) * R_block`, where `R_block` is the fees pooled in the block, with a time step of one block. The integer reference uses 128-bit intermediates and `FEE_NUMERATOR = 1_261_440`, and caps the release at the reserve balance. The reserve `rewards_reserve` and the pool `rewards_pool` are integer consensus state, set at Genesis: the block reward is the floored reserve release plus the floored pool payout. The leader receives 40% of `R_t`, rounded down, plus the Execution market tips of the block, in one note, the remainder going to the Blend reward ([Cryptoeconomics overview](../overview-cryptoeconomics.md#blend-service-and-consensus-leaders)).
 
 The system design figure is redrawn around the reserve, the pool and the per-block reward, and a new annex projects the supply with a per-block simulation over 10 years: the stake and a pooling rate of 0.5% per year settle within 2 years, the inferred stake carries a noise of 0.1 per epoch, and the fees of each block follow a Poisson number of transactions. The net circulating growth is about 3% of the maximum supply after 10 years, 2.8% to 3.2% over 20 runs. How the fees vary from block to block changes it by less than 0.05 points; the noise of the inferred stake dominates `A_t`.
 
@@ -178,6 +178,7 @@ The system design figure is redrawn around the reserve, the pool and the per-blo
 
 - The ledger and SDP sets start empty. The null channel, created by the Cryptarchia inscription, gets the third set.
 - The Transfer outputs are commitments in the ledger set, the nonce of each note being its output index. The Genesis Transfer, having no proof, is exempt from the 8-output limit of a ZkTransfer.
+- The ZkTransfer of every Genesis declaration is verified, so that the stake is tied to distributed notes and the initial supply is the published distribution. After the Genesis transaction, every note set records its commitment root, and the block reward reserve and pool are initialized.
 - A second inscription to the null channel publishes `value` and `public_key` for each output, and validation checks every output against it.
 - The declarations spend the distributed notes, proven against the empty MMR root of the ledger set with its buffer appended.
 

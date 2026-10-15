@@ -32,7 +32,7 @@
 | 1.3.2 | Pinned the encoding of `epoch_number` in the reward `op_id` preimage to the 4 bytes of an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch) | 2026-08-25 |
 | 1.3.3 | One reward note per `zk_id`, and none for a zero reward, matching the implementation | 2026-09-01 |
 | 1.3.4 | Adopted "active message" as the single name for the message | 2026-09-02 |
-| 1.4.0 | Reward notes are shielded notes whose commitments are appended to the commitment MMR, their nonce derived from `hash(ServiceType \|\| epoch_number)` and their output number | 2026-10-07 |
+| 1.4.0 | Reward notes are private notes whose commitments are appended to the commitment MMR of the ledger note set, their nonce derived from `hash(ServiceType \|\| epoch_number)` and their output number | 2026-10-07 |
 
 # Introduction
 

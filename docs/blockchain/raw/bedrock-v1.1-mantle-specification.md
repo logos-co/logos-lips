@@ -1165,7 +1165,8 @@ declarations: dict[DeclarationID, DeclarationInfo]
   *Execute*
 
   For every `declare_id`, `declare_info` in `declarations` where
-  `declare_info.withdraw_at is not None and declare_info.withdraw_at + 1 <= current_epoch`:
+  `declare_info.withdraw_at is not None and declare_info.withdraw_at + 1 <= current_epoch`,
+  in ascending order of `declare_id`, so that every node appends the released notes in the same order:
 
   1. Release the notes created by the withdrawal in the ledger note set.
       ```python
@@ -1571,6 +1572,8 @@ The note sets are what the [Proof of Leadership](cryptarchia-proof-of-leadership
 
 The commitments of each note set are appended, in insertion order, to the leaves of a Merkle tree of depth $`32`$ whose every leaf past the last appended one holds $`0`$. The root of that tree is the commitment MMR root of the set, and a commitment is proven in it by a Merkle path of length $`32`$.
 
+A Merkle path, in this tree and in every Merkle tree the circuits prove membership in, lists its nodes from the leaf level up to the root, and its selectors in the same order: the selector of a level is the bit of the leaf index at that level, starting from the least significant, `1` when the node on the path is the right child and its sibling, the path node, is on the left.
+
 The ledger keeps only the peaks of the tree: the roots of its largest perfect subtrees holding appended commitments, with their heights, from left to right. Appending a commitment adds a peak of height $`0`$ and merges the last two peaks while they have the same height, and the root is computed from the peaks and the roots of the empty subtrees:
 
 ```python
@@ -1756,7 +1759,7 @@ Such that the following constraints hold, where `inputs_pk` and `inputs_cm` are 
   ```python
   assert all(
       inputs_active[i] * (1 - inputs_active[i]) == 0
-      inputs_cm[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i])
+      and inputs_cm[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i])
       for i in range(len(inputs_sk))
   )
   ```
@@ -1764,10 +1767,8 @@ Such that the following constraints hold, where `inputs_pk` and `inputs_cm` are 
 - Each active input nullifier is derived from the secret key and the input commitment, and each inactive input has value 0.
   ```python
   assert all(
-      if inputs_active[i]:
-          inputs[i] == zkhash(FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p), inputs_cm[i], inputs_sk[i])
-      else:
-          inputs_value[i] == 0
+      inputs[i] == zkhash(FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p), inputs_cm[i], inputs_sk[i])
+      if inputs_active[i] else inputs_value[i] == 0
       for i in range(len(inputs_sk))
   )
   ```
@@ -1778,10 +1779,8 @@ Such that the following constraints hold, where `inputs_pk` and `inputs_cm` are 
   ```python
   assert all(
       outputs_active[i] * (1 - outputs_active[i]) == 0
-      if outputs_active[i]:
-          outputs[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), outputs_value[i], outputs_nonce[i], outputs_pk[i])
-      else:
-          outputs_value[i] == 0
+      and (outputs[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), outputs_value[i], outputs_nonce[i], outputs_pk[i])
+           if outputs_active[i] else outputs_value[i] == 0)
       for i in range(len(outputs_pk))
   )
   ```
