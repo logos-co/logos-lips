@@ -122,6 +122,8 @@ Signer            = Ed25519PublicKey
 
 `MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. The payloads of `ChannelInscribe.Inscription` and `ChannelDeposit.Metadata` MUST each be at most `MAX_OPERATION_DATA_SIZE` bytes, excluding the outer `UINT32` length prefix. A decoder MUST reject either field when its declared or decoded payload length exceeds the limit.
 
+In a `ProgramStep`, a decoder MUST reject a `ProgramOutputs` with a bit set at or above the `OutputCount` of the step, so that a step has a single encoding.
+
 ### SDP Operations
 
 ```schema
@@ -211,7 +213,9 @@ StepProof                    = ZkTransfer / ProgramStepProof ; ZkTransfer for a 
 ProgramStepProof             = *ZkTransfer ZkProgramSpend Groth16Proof *ProgramNoteOpening
                                                        ; one ZkTransfer per payment, the program spend,
                                                        ; the program proof, then one opening per bit set
-                                                       ; in the ProgramOutputs of the step
+                                                       ; in the ProgramOutputs of the step, none once
+                                                       ; pruned from a block behind the latest
+                                                       ; immutable block
 ProgramNoteOpening           = Value NoteNonce ZkPublicKey ProgramNoteData
 NoteNonce                    = FieldElement
 ProgramNoteData              = FieldElement

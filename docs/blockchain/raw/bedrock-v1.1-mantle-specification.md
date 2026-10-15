@@ -415,7 +415,7 @@ A program using LGO only, such as lending, is thus enforced by the ledger, and i
 - A payment exists only inside its program step. A payment left unconsumed cannot happen: if the sequencer does not publish the program step, the notes of the user are not consumed.
 - The program spend and the program proof are bound to the `op_id` of the inscription, which covers the inscription and the public data of every step but no proof. A program step is thus attributable to its inscription and valid in no other.
 - Program notes take no part in Proof of Stake, since the Proof of Leadership derives the commitment of its note with `program` and `data` set to `0`. They are never withdrawn either, since a withdrawal consumes notes with a ZkTransfer.
-- The opening of every note of the program a step creates is published with the step, and checked by the ledger. A sequencer withholding the opening of a note of the program would otherwise freeze it: program notes are never withdrawn, and no sequencer can prove a program spend consuming a note it cannot open. The openings serve this data availability only: the ledger keeps nothing from them, and they are prunable.
+- The opening of every note of the program a step creates is published with the step, and checked by the ledger. A sequencer withholding the opening of a note of the program would otherwise freeze it: program notes are never withdrawn, and no sequencer can prove a program spend consuming a note it cannot open. The openings serve this data availability only: the ledger keeps nothing from them, and they are prunable from the blocks behind the latest immutable block.
 
 **Privacy.** The paid values are public, and so are the notes of the program, opened in the steps that create them. The amount of each interaction with a program is therefore visible, and so is the total value a program step pays to users: with a single payee, what that payee receives. Its interactions are subject to timing attacks. The users stay hidden: payments consume notes by nullifier, and the notes the program pays are commitments.
 
@@ -526,7 +526,7 @@ class InscribeProof:
     step_proofs: list[ZkTransfer | ProgramStepProof]  # one per step, in the order of the steps
 ```
 
-The openings of the program notes a step creates serve only the availability of the state of the program: the next sequencer needs them to consume these notes, and the payees of the program may need them to learn the notes it pays them. The ledger checks each opening against its output and keeps nothing from it. The openings are part of the proof of the step, outside the `op_id` and the Mantle transaction hash, so pruning them changes no hash. The openings are prunable: a block whose openings were pruned is validated without them, every other check of its steps unchanged.
+The openings of the program notes a step creates serve only the availability of the state of the program: the next sequencer needs them to consume these notes, and the users of the program may need this state to learn the notes it pays them. The ledger checks each opening against its output and keeps nothing from it. The openings are part of the proof of the step, outside the `op_id` and the Mantle transaction hash, so pruning them changes no hash. The openings are prunable from the blocks behind the [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block): such a block is validated without them, every other check of its steps unchanged. A block ahead of the latest immutable block is valid only with all its openings, so that no one can skip the check by stripping the openings of a new block.
 
 #### Execution Gas
 
@@ -619,6 +619,7 @@ block_slot: Slot
               for note_nf in step.inputs:
                   assert note_nf not in step_nfs
                   step_nfs.add(note_nf)
+              assert len(step.program_outputs) == len(step.outputs)
               assert note_set.verify_program_spend(step.inputs,
                                                    step.outputs,
                                                    step.program_outputs,
@@ -630,7 +631,8 @@ block_slot: Slot
                                                    step_proof.spend_proof)
 
               # Ensure every output of the program is opened, for the availability of its state.
-              assert len(step.program_outputs) == len(step.outputs)
+              # Required for every block ahead of the latest immutable block; a block behind it
+              # whose openings were pruned is validated without this check.
               program_cms = [cm for cm, of_program in zip(step.outputs, step.program_outputs)
                              if of_program]
               assert len(step_proof.program_notes) == len(program_cms)
@@ -2184,9 +2186,9 @@ Such that the following constraints hold:
             for field in (outputs_active[i], outputs_value[i], outputs_nonce[i], outputs_pk[i], outputs_program[i], outputs_data[i])]
   )
   ```
-  The nonces let the program proof constrain them. The sequencer picks the nonce of every note the step creates, and the holder of a note needs its nonce to spend it: a program can require the nonce and the value of each output to be derived from data its users know, so that a note it pays cannot be withheld from its holder, and no two outputs share a commitment.
+  The nonces let the program proof constrain them. The sequencer picks the nonce of every note the step creates, and the holder of a note needs its nonce to spend it: a program can require the nonce and the value of each output to be derived from data its users know, so that a note it pays cannot be withheld from its holder, and no two outputs share a commitment. A derivation the program enforces can only use data its proof sees, such as the intents of the payments or the notes of the program spend.
 
-  The recommended nonce of the output at index `k` of the program spend of the step at index `i` of the inscription is `derive_note_nonce(hash(msg.channel + msg.parent), 8 * i + k, value, public_key)`. The `parent` is the hash of the previous inscription of the channel, known before the inscription is built, whereas the `op_id` of the inscription covers the output commitments and thus their nonces. With the channel, the nonce differs for every output of every inscription, the first inscriptions of channels included, whose `parent` is `ZERO`. The holder of a note recomputes it from the inscription, the value and the public key of the note. The program proof sees neither the `parent` nor the index of its step, so a program cannot enforce this derivation on its own.
+  The recommended nonce of the output at index `k` of the program spend of the step at index `i` of the inscription is `derive_note_nonce(hash(channel + parent), 8 * i + k, value, public_key)`, with the `channel` and the `parent` of the inscription. The `parent` is the hash of the previous inscription of the channel, known before the inscription is built, whereas the `op_id` of the inscription covers the output commitments and thus their nonces. With the channel, the nonce differs for every output of every inscription, the first inscriptions of channels included, whose `parent` is `ZERO`. The holder of a note recomputes it from the inscription, the value and the public key of the note. The program proof sees neither the `parent` nor the index of its step, so a program cannot enforce this derivation on its own.
 
 - The outputs are well-formed, and the inputs and the paid value balance the outputs exactly.
   ```python

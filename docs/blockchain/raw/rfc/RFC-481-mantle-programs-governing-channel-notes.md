@@ -15,10 +15,10 @@ Read [RFC-480](RFC-480-mantle-private-utxo-ledger.md) first: this RFC builds on 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here**: [Mantle](#affected-specifications), [program notes](#1-program-notes) | the `program` and `data` fields of the note; the ZkTransfer and the Proof of Leadership fixing both to `0` |
-| 2 | Critical | **Start here**: [Mantle](#affected-specifications), [program steps](#2-program-steps) | payments, the `ZkProgramSpend`, the program proof and its three public inputs; nothing creates value |
+| 2 | Critical | **Start here**: [Mantle](#affected-specifications), [program steps](#2-program-steps) | payments, the `ZkProgramSpend` and its `outputs_of_program` flags, the program proof and its three public inputs, the openings of the program notes; nothing creates value, and no program note is created without its opening |
 | 3 | High | [Mantle](#affected-specifications), [what enforces what](#3-what-enforces-what) | the split between what the ledger enforces and what the users of the zone check |
 | 4 | High | [Mantle](#affected-specifications), [registration](#4-program-registration) | `PROGRAM_REGISTER`, the program identifier, the key checks |
-| 5 | High | [Encoding](#affected-specifications), [encoding](#5-encoding) | step kinds, payments, program step proofs, the verification key |
+| 5 | High | [Encoding](#affected-specifications), [encoding](#5-encoding) | step kinds, payments, `ProgramOutputs`, program step proofs with their `ProgramNoteOpening`s, the verification key |
 | 6 | Medium | [Proof of Leadership](#affected-specifications), [gas](#6-gas) | the commitment with `0` fields; the measured gas constants and block limit |
 | 7 | Low | [Block Construction](#affected-specifications), [cross-channel template](#affected-specifications) | skim: renames |
 
@@ -26,7 +26,7 @@ Read [RFC-480](RFC-480-mantle-private-utxo-ledger.md) first: this RFC builds on 
 
 ## What the ledger guarantees
 
-The ledger guarantees that no LGO is created, that a user note moves only with the key of its holder, and that a program note moves only with the proof of its program. It also checks the opening of every program note a step creates, so that the next sequencer can always consume it. It does not check the assets of a zone. For a swap of LGO against a zone token, the users of the zone verify the inscription against the intents, and the sequencers of the zone slash a faulty sequencer. Mantle states this split in its [What enforces what](../bedrock-v1.1-mantle-specification.md#programs) table.
+The ledger guarantees that no LGO is created, that a user note moves only with the key of its holder, and that a program note moves only with the proof of its program. It also checks the opening of every program note a step creates, so that the next sequencer can consume it. It does not check the assets of a zone. For a swap of LGO against a zone token, the users of the zone verify the inscription against the intents, and the sequencers of the zone slash a faulty sequencer. Mantle states this split in its [What enforces what](../bedrock-v1.1-mantle-specification.md#programs) table.
 
 ## Privacy
 
@@ -110,7 +110,7 @@ Validation of a program step, in order:
 4. Each output flagged in `program_outputs` has an opening in `program_notes` whose commitment, with `program` set to `program_id`, is that output.
 5. The program proof verifies under the registered key on `(spend_notes_hash, payments_hash(step), op_id)`.
 
-The openings serve only the availability of the state of the program. They sit in the proof of the step, outside the `op_id` and the transaction hash, the ledger keeps nothing from them, and they are prunable: a block whose openings were pruned is validated without them.
+The openings serve only the availability of the state of the program. They sit in the proof of the step, outside the `op_id` and the transaction hash, the ledger keeps nothing from them, and they are prunable from the blocks behind the latest immutable block, which are then validated without them. A block ahead of it is valid only with all its openings, so stripping the openings of a new block cannot skip the check.
 
 The `ZkProgramSpend` is the ZkTransfer with program checks: its inputs are notes of `program_id`, its outputs are notes of `program_id` or user notes, `spend_notes_hash` commits to the active flag and the note of every input and output, nonce included, so that a program can constrain the nonces its sequencer picks, and `sum(inputs_value) + paid_value == sum(outputs_value)`. Its used inputs and outputs are marked by the public flags `inputs_active` and `outputs_active`, set from the published lists as in the ZkTransfer, and its outputs of the program by the public flags `outputs_of_program`, set from `program_outputs`. It is proven by the sequencer. The circuit (`program_spend` in [logos-blockchain-circuits](https://github.com/logos-blockchain/logos-blockchain-circuits)) has 69,377 constraints and proves in about 2.2 s on one thread and 0.3 s on 32 threads (see the Mantle benchmark).
 
