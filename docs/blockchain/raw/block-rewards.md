@@ -24,7 +24,7 @@
 | 1.0.0 | Initial revision. | 2026-04-24 |
 | 1.1.0 | Changing from burning/minting to pooling/distributing/releasing, removing $`S_{tge}`$ | 2026-08-25 |
 | 1.2.0 | Count the proof of work reward pool as a fourth controlled stock, bound net circulating growth by the two stocks that drain, and state that the pooled fee is net of the share diverted to that pool | 2026-08-31 |
-| 1.3.0 | Compute the reward of a block from the fees pooled in that block, with a time step of one block, its release capped at the reserve balance, and the reserve and the pool kept as integer consensus state. Redraw the system design and project the circulating supply over 10 years with a per-block simulation | 2026-10-07 |
+| 1.3.0 | Keep the reserve and the pool as integer consensus state, the release capped at the reserve balance, with the integer reference averaging the pooled fees over the 120-block window as the reward equation does. Redraw the system design and project the circulating supply over 10 years with a per-block simulation | 2026-10-07 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -35,9 +35,9 @@
 
 # Introduction
 
-This document specifies how many tokens each block of the Logos Blockchain distributes as rewards. The reward of a block combines two sources: a release from the LGO rewards reserve allocated at genesis, and the transaction fees pooled in the block, paid back out. An emission rate factor, driven by network Key Performance Indicators (KPIs), sets the balance between the two.
+This document specifies how many tokens each block of the Logos Blockchain distributes as rewards. The reward of a block combines two sources: a release from the LGO rewards reserve allocated at genesis, and the average of the transaction fees pooled over the last blocks, paid back out. An emission rate factor, driven by network Key Performance Indicators (KPIs), sets the balance between the two.
 
-The two KPIs are the inferred total stake, as a security indicator, and the fee pooling rate of the block, to keep the supply in equilibrium. The resulting model has the following properties:
+The two KPIs are the inferred total stake, as a security indicator, and the average fee pooling rate, to keep the supply in equilibrium. The resulting model has the following properties:
 
 - The release from the reserve is higher while the stake is below its target, to bootstrap network participation, and is capped at $`1\%`$ of the maximum supply per year.
 - The release from the reserve decreases as the pooled fees grow, so that block rewards are funded primarily by the fees in the long run.
@@ -51,14 +51,15 @@ How the reward of a block is divided between the block leader and the Blend serv
 
 - Fee pooling: All transaction fees (execution base fees and permanent storage fees) are collected into a rewards pool, rather than directly given to block proposers.
 - Reserve release: The rewards are topped up by releasing tokens from a reserve pre-allocated from the fixed supply cap, not by minting.
-- KPI driven: The balance between the reserve release and the pooled fees is computed at each block from the inferred total stake and the fees pooled in that block.
+- KPI driven: The balance between the reserve release and the pooled fees is computed at each block from the inferred total stake and the moving average of the pooled fees over the look-back window $`T`$.
+- Global metrics over local signals: The reward follows network-wide KPIs and averages, rather than the fees of a single block, which its leader could steer.
 
 ## High-level System Design
 
 The system adjusts the reserve release based on two KPIs:
 
 - Inferred Total Stake: Measures network security by tracking the total amount staked against a target threshold ($`30\%`$ of the maximum supply).
-- Pooling Rate: Tracks the transaction fees (both Execution base fees and Permanent Storage fees) routed to the rewards pool by the block.
+- Average Pooling Rate: Tracks the transaction fees (both Execution base fees and Permanent Storage fees) routed to the rewards pool, averaged over the look-back window $`T`$.
 
 A control function combines these KPIs into the emission rate factor, bounded between a minimum and a maximum annual reserve release. This ensures that:
 
@@ -70,10 +71,10 @@ A control function combines these KPIs into the emission rate factor, bounded be
 The reward of the block $`t`$ is given by:
 
 $$
-R_t = A_t \cdot I_{max} \cdot S_{cap} \cdot \Delta_t + (1-A_t) \cdot R_\text{block}
+R_t = A_t \cdot I_{max} \cdot S_{cap} \cdot \Delta_t + (1-A_t) \cdot \bar{R}_t
 $$
 
-where $`A_t`$ is the emission rate factor, $`I_{max} \cdot S_{cap} \cdot \Delta_t`$ the maximum reserve release of a block and $`R_\text{block}`$ the fees pooled in the block.
+where $`A_t`$ is the emission rate factor, $`I_{max} \cdot S_{cap} \cdot \Delta_t`$ the maximum reserve release of a block and $`\bar{R}_t`$ the average pooled reward, the moving average of the fees pooled over the look-back window $`T`$.
 
 ## Lifecycle Phases
 
@@ -89,6 +90,7 @@ The system is designed to evolve through different phases:
 This KPI-based approach delivers several advantages:
 
 - Self-regulating mechanism that automatically adjusts to network conditions.
+- Built-in safeguards against manipulation through moving averages and bounded functions.
 - Bounded supply growth: the reserve release never exceeds $`I_{max}`$ of the maximum supply per year, and net circulating growth is bounded by the reserve and the proof of work reward pool allocated at genesis.
 - Long-term sustainability with a projected net circulating-supply growth of about $`3\%`$ of the maximum supply after $`10`$ years, in a scenario where the stake and the pooling rate of $`0.5\%`$ per year settle within $`2`$ years (see [Supply Projection](#supply-projection)).
 - Predictable economic model that balances security incentives with controlled supply.
@@ -101,6 +103,7 @@ This KPI-based approach delivers several advantages:
 | --- | --- | --- | --- |
 | $`S_{cap}`$ | Maximum token supply (hard cap) | 10 billion LGO | N.A. |
 | $`\Delta_t`$ | Fraction of a year in one block | $`1/(365 \times 2880)`$ | One block every $`30`$ seconds; there are 2880 blocks of 30 seconds in a day. |
+| $`T`$ | The number of blocks in the look-back window for the moving average | $`120`$ | As the system is expected to produce 1 block every 30 seconds, this look-back window defines that the reward averages the fees pooled in the last hour. |
 | $`I_{max}`$ | The maximum emission rate per year | $`1\%`$ | This value guarantees that, when the total inferred stake reaches $`D_{0,target}`$, then the APY for validation is ~3.33%. |
 | $`I_{min}`$ | The minimum emission rate per year | $`0\%`$ | This avoids inflationary token emissions. |
 | $`Y`$ | Lifetime of the rewards reserve at the maximum release rate ($`I_{max}`$ of $`S_{cap}`$ per year) | $`10`$ years | Sets the reserve size $`B_0 = I_{max} \cdot S_{cap} \cdot Y = 10^9`$ LGO ($10\%$ of $`S_{cap}`$). |
@@ -115,6 +118,7 @@ The following values are read at block $`t`$:
 
 - $`D_{0,t}`$ is the inferred total stake of the epoch of the block ([Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference)).
 - $`D_{1,t} = R_\text{block}`$ is the amount of Execution base fees and Permanent Storage fees collected in the block and routed to the rewards pool, net of the share diverted to the [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool). Refer to [Execution Market](execution-market.md) and [Storage Markets](storage-markets.md) for how the fees are computed.
+- $`\bar{R}_t = \dfrac{1}{T} \sum_{\tau=t-T+1}^{t} D_{1,\tau}`$ is the average pooled reward: the moving average of $`R_\text{block}`$ over the look-back window $`T`$, the blocks before the first one counting as pooling nothing.
 
 ## Emission Rate Factor Function
 
@@ -124,11 +128,11 @@ $$
 A_t = \min \lbrace 1, \max \lbrace 0, \dfrac{ \alpha_d \cdot \delta_t + \alpha_a \cdot \gamma_t + I_{min}}{I_{max}} \rbrace \rbrace
 $$
 
-where $`\delta_t`$ is the deviation of the inferred total stake from its target and $`\gamma_t`$ is the annualized pooling rate of the block:
+where $`\delta_t`$ is the deviation of the inferred total stake from its target and $`\gamma_t`$ is the annualized average pooling rate over the look-back window:
 
 $$
 \delta_t = \dfrac{D_{0,target} - D_{0,t}}{D_{0,target}}, \qquad
-\gamma_t = \dfrac{1}{\Delta_t} \cdot \dfrac{D_{1,t}}{D_{1,target}}.
+\gamma_t = \dfrac{1}{\Delta_t} \cdot \dfrac{1}{T} \sum_{\tau=t-T+1}^{t} \dfrac{D_{1,\tau}}{D_{1,target}}.
 $$
 
 All terms are expressed in annualized form to ease comparison. It implies that:
@@ -142,21 +146,21 @@ All terms are expressed in annualized form to ease comparison. It implies that:
 The reward of the block $`t`$ is:
 
 $$
-R_t = A_t \cdot I_{max} \cdot S_{cap} \cdot \Delta_t + (1-A_t) \cdot R_\text{block}
+R_t = A_t \cdot I_{max} \cdot S_{cap} \cdot \Delta_t + (1-A_t) \cdot \bar{R}_t
 $$
 
 The following behavior is expected:
 
-- When the KPIs are far from their targets, $`A_t \rightarrow 1`$, the reward is the maximum reserve release of a block $`I_{max} \cdot S_{cap} \cdot \Delta_t`$, and the pool keeps the fees of the block.
-- When the KPIs are close to their targets, $`A_t \rightarrow 0`$, the reserve release vanishes and the reward is the fees pooled in the block, paid back.
+- When the KPIs are far from their targets, $`A_t \rightarrow 1`$, the reward is the maximum reserve release of a block $`I_{max} \cdot S_{cap} \cdot \Delta_t`$, and the pool keeps the fees.
+- When the KPIs are close to their targets, $`A_t \rightarrow 0`$, the reserve release vanishes and the reward settles at the average pooled fees $`\bar{R}_t`$, paid back.
 
-Rearranging the equation isolates the role of the reserve release:
+The recycled component distributes the average pooled reward $`\bar{R}_t`$, rather than the single-block fee $`R_\text{block}`$, which smooths it across the window $`T`$: a fee a leader pays in its own block is mostly paid out to the leaders of the next blocks. Rearranging the equation isolates the role of the reserve release:
 
 $$
-R_t = R_\text{block} + A_t \cdot \left( I_{max} \cdot S_{cap} \cdot \Delta_t - R_\text{block} \right).
+R_t = \bar{R}_t + A_t \cdot \left( I_{max} \cdot S_{cap} \cdot \Delta_t - \bar{R}_t \right).
 $$
 
-In the bootstrap regime, where activity is low and $`R_\text{block} \lt I_{max} \cdot S_{cap} \cdot \Delta_t`$, the reserve release raises the reward above the pooled fees. If the pooled fees exceed the release cap, the second term is non-positive and the pool keeps part of the fees.
+In the bootstrap regime, where activity is low and $`\bar{R}_t \lt I_{max} \cdot S_{cap} \cdot \Delta_t`$, the reserve release raises the reward above the average pooled fees. If the average pooled fees exceed the release cap, the second term is non-positive and the pool keeps part of the fees.
 
 ## Pool Accounting and Supply Dynamics
 
@@ -166,20 +170,20 @@ The flows of block $`t`$ are:
 
 - Fee inflow to the pool: $`R_\text{block}`$.
 - Reserve release: $`\iota_t = \min \lbrace A_t \cdot I_{max} \cdot S_{cap} \cdot \Delta_t, \; B_{t-1} \rbrace`$.
-- Distribution, equal to the block reward: $`R_t = (1 - A_t) \cdot R_\text{block} + \iota_t`$.
+- Distribution, equal to the block reward: $`R_t = (1 - A_t) \cdot \bar{R}_t + \iota_t`$.
 
 The reserve balance $`B_t`$ and the pool balance $`P_t`$ evolve as
 
 $$
-B_t = B_{t-1} - \iota_t, \qquad P_t = P_{t-1} + A_t \cdot R_\text{block}.
+B_t = B_{t-1} - \iota_t, \qquad P_t = P_{t-1} + R_\text{block} - (1 - A_t) \cdot \bar{R}_t.
 $$
 
-The reserve is non-increasing and bounded below by zero. Once it is depleted, $`\iota_t = 0`$ and the reward reduces to $`(1 - A_t) \cdot R_\text{block}`$, funded entirely by pooled fees. The pool keeps the share $`A_t`$ of the fees of every block.
+The reserve is non-increasing and bounded below by zero. Once it is depleted, $`\iota_t = 0`$ and the reward reduces to $`(1 - A_t) \cdot \bar{R}_t`$, funded entirely by pooled fees. The increment of the pool can take either sign: near target ($`A_t \rightarrow 0`$) the pool pays the average and banks the difference $`R_\text{block} - \bar{R}_t`$, acting as a buffer that smooths fee fluctuations; far from target ($`A_t \rightarrow 1`$) it retains the full fee while the reserve release carries the reward. Every pooled fee is paid out at most once, a $`1/T`$ share in each of the $`T`$ blocks of the window, so the pool never goes below zero.
 
 The mechanism conserves tokens. With $`S_t`$ the circulating supply, the controlled total $`S_t + P_t + B_t`$ is constant:
 
 $$
-\Delta S_t = R_t - R_\text{block}, \qquad \Delta P_t = A_t \cdot R_\text{block}, \qquad \Delta B_t = -\iota_t.
+\Delta S_t = R_t - R_\text{block}, \qquad \Delta P_t = R_\text{block} - (1 - A_t) \cdot \bar{R}_t, \qquad \Delta B_t = -\iota_t.
 $$
 
 A reserve release moves tokens from $`B_t`$ into circulation, routing a fee moves tokens from circulation into $`P_t`$, and the reward pays part of them back. Circulating supply $`S_t`$ rises as the reserve drains, and contracts whenever the fees of a block exceed its reward. This removes tokens from circulation, not from existence.
@@ -210,7 +214,7 @@ $$
 
 In the long run, Logos Blockchain should release only enough tokens to complement the pooled transaction fees, so that block rewards are funded primarily by distribution from the pool.
 
-$`D_{1,target} = S_{cap}`$ is a normalizer: $`\gamma_t`$ is the pooling rate of the block, annualized and relative to the maximum supply, which makes it comparable with $`I_{max}`$.
+$`D_{1,target} = S_{cap}`$ is a normalizer: $`\gamma_t`$ is the average pooling rate over the look-back window $`T`$, annualized and relative to the maximum supply, which makes it comparable with $`I_{max}`$. Averaging over the window keeps a single block, and its leader, from steering the release.
 
 # Deterministic Implementation
 
@@ -223,13 +227,13 @@ $$
 $$
 
 $$
-\frac{\alpha_a}{I_{max}}\gamma_t = \frac{1}{10^{-2}} \cdot (365 \cdot 2880) \cdot \frac{D_{1,t}}{10^{10}} = \frac{1261440 \cdot D_{1,t}}{12\cdot 10^7}.
+\frac{\alpha_a}{I_{max}}\gamma_t = \frac{1}{10^{-2}} \cdot (365 \cdot 2880) \cdot \frac{1}{120} \cdot \frac{1}{10^{10}} \sum_{\tau=t-119}^{t} D_{1,\tau} = \frac{10512}{12\cdot 10^7} \sum_{\tau=t-119}^{t} D_{1,\tau}.
 $$
 
 So $`A_t = A_t' / (12\cdot 10^7)`$ with
 
 $$
-A_t' = \min\!\lbrace12\cdot 10^7,\max\!\lbrace0,\; 3\cdot 10^9 - D_{0,t} + 1261440 \cdot D_{1,t}\rbrace\rbrace.
+A_t' = \min\!\lbrace12\cdot 10^7,\max\!\lbrace0,\; 3\cdot 10^9 - D_{0,t} + 10512 \sum_{\tau=t-119}^{t} D_{1,\tau}\rbrace\rbrace.
 $$
 
 The maximum reserve release of a block is
@@ -242,41 +246,43 @@ so the reward of the block is the sum of the reserve release and the pool payout
 
 $$
 \iota_t = \min \left\lbrace \left\lfloor \frac{62500\cdot A_t'}{657\cdot 12\cdot 10^7} \right\rfloor, \; B_{t-1} \right\rbrace, \qquad
-\pi_t = \left\lfloor \frac{(12\cdot 10^7-A_t')\cdot D_{1,t}}{12\cdot 10^7} \right\rfloor, \qquad
+\pi_t = \left\lfloor \frac{(12\cdot 10^7-A_t')\cdot \sum_{\tau=t-119}^{t} D_{1,\tau}}{120\cdot 12\cdot 10^7} \right\rfloor, \qquad
 R_t = \iota_t + \pi_t.
 $$
 
-The reserve balance `rewards_reserve` and the pool balance `rewards_pool` are consensus state, in LGO, set at Genesis to $`B_0 = 10^9`$ and $`0`$. When the leader reward of a block is computed ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), the reserve pays $`\iota_t`$ and the pool receives the pooled fees of the block and pays $`\pi_t`$:
+The reserve balance `rewards_reserve` and the pool balance `rewards_pool` are consensus state, in LGO, set at Genesis to $`B_0 = 10^9`$ and $`0`$, and the nodes keep the pooled fees of the last $`120`$ blocks. When the leader reward of a block is computed ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), the reserve pays $`\iota_t`$ and the pool receives the pooled fees of the block and pays $`\pi_t`$:
 
 ```python
 rewards_reserve -= release
-rewards_pool += pooled_fee - payout
+rewards_pool += pooled_fees_window[-1] - payout
 ```
 
-The payout never exceeds the pooled fees of its own block, so the pool never goes below zero. The reference implementation is:
+Every pooled fee is paid out at most once across the $`120`$ blocks of its window, so the pool never goes below zero. The reference implementation is:
 
 ```python
 A_SCALE: int64 = 120_000_000            # denominator of A_t
 STAKE_TARGET: int64 = 3_000_000_000     # D_0_target
-FEE_NUMERATOR: int64 = 1_261_440        # alpha_a / (I_max * D_1_target * Delta_t), over A_SCALE
+FEE_AVG_NUMERATOR: int64 = 10_512       # alpha_a / (I_max * D_1_target * Delta_t * T), over A_SCALE
+WINDOW: int64 = 120                     # T, the blocks of the moving average
 RELEASE_NUMERATOR: int64 = 62_500       # numerator of I_max * S_cap * Delta_t
 RELEASE_DENOMINATOR: int64 = 657        # denominator of I_max * S_cap * Delta_t
 
 
-def block_reward(total_stake: uint64, pooled_fee: uint64,
+def block_reward(total_stake: uint64, pooled_fees_window: list[uint64],
                  reserve: uint64) -> tuple[uint64, uint64]:
-    # Returns the reserve release and the pool payout of the block,
-    # whose sum is the block reward. Intermediates are int128: every
-    # product stays below 2**101.
+    # pooled_fees_window holds the pooled fees of the last 120 blocks, this block last,
+    # 0 for the blocks before the first one. Returns the reserve release and the pool
+    # payout of the block, whose sum is the block reward. Intermediates are int128:
+    # every product stays below 2**101.
     stake: int128 = total_stake
-    fee: int128 = pooled_fee
+    sum_fees: int128 = sum(pooled_fees_window)
 
-    a_numerator: int128 = min(max(STAKE_TARGET - stake + FEE_NUMERATOR * fee, 0), A_SCALE)
+    a_numerator: int128 = min(max(STAKE_TARGET - stake + FEE_AVG_NUMERATOR * sum_fees, 0), A_SCALE)
 
     # the release cannot exceed what the reserve still holds
     release: int128 = min(RELEASE_NUMERATOR * a_numerator // (RELEASE_DENOMINATOR * A_SCALE),
                           reserve)
-    payout: int128 = (A_SCALE - a_numerator) * fee // A_SCALE
+    payout: int128 = (A_SCALE - a_numerator) * sum_fees // (WINDOW * A_SCALE)
     return uint64(release), uint64(payout)
 ```
 
@@ -292,12 +298,12 @@ The projection simulates the reward of every block over $`10`$ years with the [P
 - Inferred total stake: it is read once per epoch of $`10 \lfloor k/f \rfloor`$ slots of [Cryptarchia](cryptarchia-v1-protocol.md), that is every $`21,600`$ blocks. Its deviation $`\delta_t`$ starts at $`1`$, no stake, and converges to $`0`$, entering $`(-I_{max}, I_{max})`$ after $`2`$ years: $`\delta_t = e^{-t/\tau}`$ with $`\tau = 2 / \ln(100)`$ years. It carries a Gaussian noise of standard deviation $`0.1`$, drawn per epoch.
 - Pooling rate: the fees pooled per year converge to $`0.5\%`$ of the maximum supply with the same time constant $`\tau`$, with a daily log-normal noise of volatility $`10\%`$. The fees of a block are drawn from a Poisson number of transactions, $`100`$ per block on average, so the fees vary from one block to the next around that rate. The fees are net of the share diverted to the proof of work reward pool, whose claims are not modeled.
 
-Net circulating growth is the release from the reserve minus the share $`A_t`$ of the fees kept by the pool, in percent of the maximum supply:
+Net circulating growth is the release from the reserve minus what the pool keeps of the fees, in percent of the maximum supply:
 
 | Fees per block | Net circulating growth after 10 years, mean of 20 runs | Lowest run | Highest run |
 | --- | --- | --- | --- |
 | Poisson, 100 transactions on average | $`3.00\%`$ | $`2.81\%`$ | $`3.18\%`$ |
-| Poisson, 10 transactions on average | $`2.97\%`$ | $`2.77\%`$ | $`3.15\%`$ |
+| Poisson, 10 transactions on average | $`3.00\%`$ | $`2.81\%`$ | $`3.18\%`$ |
 | Equal for every block of a day | $`3.00\%`$ | $`2.81\%`$ | $`3.18\%`$ |
 
 ![Released, pooled and net circulating supply, and the emission rate factor, over 10 years](block-rewards/assets/supply_projection.png)
@@ -306,4 +312,4 @@ Net circulating growth is the release from the reserve minus the share $`A_t`$ o
 
 During the first year the stake is far below its target, $`A_t = 1`$, and the reserve releases at its maximum rate of $`1\%`$ of the maximum supply per year while the pool keeps the fees. Once the stake has settled, $`A_t`$ averages about one half. The stake term dominates it: one unit of deviation weighs $`\alpha_d / I_{max} = 25`$, so the noise of the inferred stake pushes $`A_t`$ to $`0`$ or $`1`$ from one epoch to the next, while the pooled fees add $`\alpha_a \cdot 0.5\% / I_{max} = 0.5`$ on average. The release then runs at about $`0.5\%`$ per year and the pool keeps about half of the fees, about $`0.25\%`$ per year, for a net circulating growth of about $`0.25\%`$ per year.
 
-How the fees vary from one block to the next barely changes the result: the per-block fees move $`A_t`$ by much less than the noise of the inferred stake, and the three scenarios stay within $`0.05`$ points of each other.
+How the fees vary from one block to the next does not change the result: the moving average over $`T = 120`$ blocks smooths them out of $`A_t`$ and of the payout, and the three scenarios agree to the second decimal.

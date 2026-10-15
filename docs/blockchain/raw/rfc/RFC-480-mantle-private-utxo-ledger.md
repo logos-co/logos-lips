@@ -23,7 +23,7 @@ Read the PR's Motivation first. The note sets in Mantle are the base every other
 | 3 | Critical | **Start here**: [Proof of Leadership](#affected-specifications), [eligible root](#3-proof-of-leadership-over-the-eligible-root) | the eligible tree over the sets; the same set position for the aged and latest checks |
 | 4 | High | [Mantle](#affected-specifications), [SDP and proof of work](#4-sdp-stake-and-the-proof-of-work-claim) | the SDP note set; the single-note MMR root binding the withdrawal to its service note; the unsigned PoW claim |
 | 5 | High | [Block Construction](#affected-specifications), [leader reward and block execution](#5-leader-reward-paid-in-the-block) | `reward_key`, the reward note, the release of due withdrawals |
-| 6 | High | [Block Rewards](#affected-specifications), [Cryptoeconomics overview](#affected-specifications), [reward from the block's fees](#6-block-reward-from-the-blocks-own-fees) | `T = 1`, the integer reference, the 40% leader share plus tips |
+| 6 | High | [Block Rewards](#affected-specifications), [Cryptoeconomics overview](#affected-specifications), [block reward state](#6-block-reward-state-and-supply-projection) | the integer reference over the 120-block window, the reserve and pool state, the 40% leader share plus tips |
 | 7 | High | [Mantle Transaction Encoding](#affected-specifications), [encoding](#7-encoding) | steps in `ChannelInscribe`, new payloads and proof variants |
 | 8 | High | [Cryptarchia](#affected-specifications), [Proof of Quota](#affected-specifications), [Message Encapsulation](#affected-specifications), [consensus inputs](#8-cryptarchia-and-proof-of-quota-inputs) | epoch state and uncle inputs, PoQ leader branch |
 | 9 | High | [Genesis Block](#affected-specifications), [genesis](#9-genesis) | the initial sets; the distribution inscription; declarations spending the distribution |
@@ -55,7 +55,7 @@ The service note is created by the ledger in the SDP set, so it stakes like any 
 
 ## Leader reward in the block
 
-The reward note of a block carries the block's own value and still does not link the leader to its spending: the spend reveals a nullifier and no commitment. The voucher set, the pooled leader reward and `LEADER_CLAIM` are retired, and the block reward follows the fees of its own block (`T = 1`). The reward note has nonce `0`, so two rewards of the same value under one `reward_key` share a commitment and only one can be spent, which forces a fresh key per block.
+The reward note of a block carries the block's own value and still does not link the leader to its spending: the spend reveals a nullifier and no commitment. The voucher set, the pooled leader reward and `LEADER_CLAIM` are retired. The block reward keeps averaging the pooled fees over the last 120 blocks, so a leader cannot steer its own reward with the fees it pays in its block. The reward note has nonce `0`, so two rewards of the same value under one `reward_key` share a commitment and only one can be spent, which forces a fresh key per block.
 
 ## Open questions for reviewers
 
@@ -153,11 +153,11 @@ class ProofOfLeadershipPublic:
 
 Block Execution runs the service rewards, releases the due channel withdrawals, runs the transactions, then appends the leader reward note `Note(get_leader_reward(block), 0, reward_key)` to the ledger set, and finally records the commitment MMR root of every note set, evicting the root that leaves the 1024-block window. A leader should use a fresh `reward_key` for every block. Block Construction is revision 1.4.0. The [Anonymous Leaders Reward](../../deprecated/bedrock-anonymous-leaders-reward.md) specification is deprecated.
 
-## 6. Block reward from the block's own fees
+## 6. Block reward state and supply projection
 
-The block reward is `R_t = A_t * I_max * S_cap * Delta_t + (1 - A_t) * R_block`, where `R_block` is the fees pooled in the block, with a time step of one block. The integer reference uses 128-bit intermediates and `FEE_NUMERATOR = 1_261_440`, and caps the release at the reserve balance. The reserve `rewards_reserve` and the pool `rewards_pool` are integer consensus state, set at Genesis: the block reward is the floored reserve release plus the floored pool payout. The leader receives 40% of `R_t`, rounded down, plus the Execution market tips of the block, in one note, the remainder going to the Blend reward ([Cryptoeconomics overview](../overview-cryptoeconomics.md#blend-service-and-consensus-leaders)).
+The block reward stays `R_t = A_t * I_max * S_cap * Delta_t + (1 - A_t) * R_bar_t`, where `R_bar_t` is the average of the pooled fees over the last 120 blocks. The integer reference now follows that equation, with `FEE_AVG_NUMERATOR = 10_512` over the sum of the window and 128-bit intermediates, and caps the release at the reserve balance. The reserve `rewards_reserve` and the pool `rewards_pool` are integer consensus state, set at Genesis: the block reward is the floored reserve release plus the floored pool payout. The leader receives 40% of `R_t`, rounded down, plus the Execution market tips of the block, in one note, the remainder going to the Blend reward ([Cryptoeconomics overview](../overview-cryptoeconomics.md#blend-service-and-consensus-leaders)).
 
-The system design figure is redrawn around the reserve, the pool and the per-block reward, and a new annex projects the supply with a per-block simulation over 10 years: the stake and a pooling rate of 0.5% per year settle within 2 years, the inferred stake carries a noise of 0.1 per epoch, and the fees of each block follow a Poisson number of transactions. The net circulating growth is about 3% of the maximum supply after 10 years, 2.8% to 3.2% over 20 runs. How the fees vary from block to block changes it by less than 0.05 points; the noise of the inferred stake dominates `A_t`.
+The system design figure is redrawn around the reserve, the pool and the per-block reward, and a new annex projects the supply with a per-block simulation over 10 years: the stake and a pooling rate of 0.5% per year settle within 2 years, the inferred stake carries a noise of 0.1 per epoch, and the fees of each block follow a Poisson number of transactions. The net circulating growth is about 3% of the maximum supply after 10 years, 2.8% to 3.2% over 20 runs. The moving average smooths how the fees vary from block to block; the noise of the inferred stake dominates `A_t`.
 
 ## 7. Encoding
 
@@ -207,7 +207,7 @@ The wallet keeps, for each note, its set, the commitment path inside its MMR pea
 - [ ] Create service notes in the SDP set, and consume them in `SDP_WITHDRAW` with a ZkTransfer.
 - [ ] Sign `SDP_WITHDRAW` and `SDP_ACTIVE` with Ed25519, and drop the proof of `CLAIM_POW_REWARD`.
 - [ ] Add `reward_key` to the header and insert the leader reward note during block execution.
-- [ ] Compute the block reward from the block's own fees.
+- [ ] Keep the pooled fees of the last 120 blocks, the reserve and the pool, and compute the block reward in integers.
 - [ ] Update the PoL circuit (`mantle/pol_lib.circom` in `logos-blockchain-circuits`) and the PoQ circuit (`blend/poq.circom`) to the eligible root.
 - [ ] Update the encoding of payloads and proofs.
 - [ ] Build the genesis note sets and distribution inscription, and their validation.
