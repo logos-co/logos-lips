@@ -28,6 +28,7 @@
 | 1.2.1 | Changing from burning/minting to pooling/distributing/releasing | 2026-08-25 |
 | 1.2.2 | Stated that the minimum stake of a service is locked in a service note | 2026-08-27 |
 | 1.3.0 | Add the proof of work reward pool, funded by diverting a share of the collected fees before they reach the rewards pool | 2026-08-31 |
+| 1.4.0 | Pay the leader reward of a block in the block itself, as a note under a one-time public key of the leader. Aligned the maximum block size with the 2 MiB of [Cryptarchia](cryptarchia-v1-protocol.md#constants). The Execution Gas limit deducts the measured fixed part of the ZkTransfer batch verification. The leader share is 40% of the block reward rounded down, the remainder going to the Blend reward, held in `blend_rewards_pending` until it is paid | 2026-10-07 |
 
 > **Disclaimer**:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -61,12 +62,11 @@ In this section we present an overview of the cryptoeconomical aspects of the Lo
     - Execution fee: covers the computational resources consumed by the transaction.
     - Permanent Storage fee: covers the permanent Ledger storage resources consumed by the transaction.
 - Execution base fees and storage fees are routed into the rewards pool for each block, removing them from circulation, except for the share diverted to the [Proof of Work Reward Pool](#proof-of-work-reward-pool).
-- Rewards are distributed on an epoch basis:
-    - Leaders (block proposers) include Mantle Transactions in every block. Each transaction pays Permanent Storage and Execution fees, which are routed into the rewards pool. For each block, a reward is calculated following the [Block Rewards](block-rewards.md). Additionally, a portion of the Execution fees is distributed back to leaders from the pool according to the [Execution Market](execution-market.md). These two sources determine the total rewards allocated to leaders, as explained in [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders), which correspond to tips from the Execution market and 40% of block rewards. For anonymity reasons, block proposers don't receive rewards directly. Instead, leader rewards accumulate in a single pool that increases on an epoch basis rather than per block (see [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md)). When a new epoch begins, the pool increases by the total leader rewards from all blocks in the previous epoch. Simultaneously, leaders from the previous epoch can start claiming their rewards, with each unclaimed reward (since genesis) representing one equal share of the pool.
+- Rewards are distributed per block for leaders and on an epoch basis for Blend nodes:
+    - Leaders (block proposers) include Mantle Transactions in every block. Each transaction pays Permanent Storage and Execution fees, which are routed into the rewards pool. For each block, a reward is calculated following the [Block Rewards](block-rewards.md). Additionally, a portion of the Execution fees is distributed back to leaders from the pool according to the [Execution Market](execution-market.md). These two sources determine the total rewards allocated to leaders, as explained in [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders), which correspond to tips from the Execution market and 40% of block rewards. The leader receives them in the block itself, as a note under a one-time public key (see [Block Execution](bedrock-v1.1-block-construction.md#block-execution)).
     - Blend nodes provide Blend service to the network for at least one epoch. Using the same [Block Rewards](block-rewards.md), the protocol determines the total rewards allocated to the Blend network, as explained in [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders) which correspond to 60% of the block rewards. 
     When an epoch $`e`$  ends, Blend validators have one additional epoch $`e+1`$  to send an active message used by the [Reward Distribution Protocols](#reward-distribution-protocols) to determine reward distribution among validators. During the first block of epoch $`e+2$, Blend validators from epoch $`e`$ receive their portion of [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders) rewards, with proportions determined by the [Reward Distribution Protocols](#reward-distribution-protocols). These rewards are distributed at the start of the next epoch.
 - The [Service Rewards Distribution Protocol](#service-rewards-distribution-protocol) handles payments of rewards for Blend Services to individual nodes.
-- Individual leaders claim their rewards through a [Leader Claim Operation](bedrock-v1.1-mantle-specification.md) (on-chain transaction) that preserves privacy by separating the leader reward from the proposed block.
 
 # Constructions
 
@@ -90,11 +90,11 @@ In Logos Blockchain, Permanent Storage Gas is determined for an entire encoded M
 Users (rollup sequencers, node operators, or leaders) pay [fees in Logos Blockchain for their Mantle Transactions](bedrock-v1.1-mantle-specification.md) to compensate for service usage. Logos Blockchain operates with two distinct fee markets. The goal of each market is to ensure fair compensation, sustainability, and proper incentives. However each market has its own unique characteristics:
 
 - The Execution fee market covers the validation and execution of Mantle Transactions. The consensus does not directly limit the number of CPU cycles or Execution Gas per block but a fee regulating mechanism is necessary to be compliant with minimum hardware requirements of a node. The fees must regulate the use of CPU cycles for validation and execution of the blockchain.
-- The Permanent Storage fee market covers the permanent storage of encoded Mantle Transactions. Blocks are limited to 1MiB with a maximum of 1024 Mantle Transactions per block. However, the fees must reduce the maximum amount of Storage to meet the minimum hardware requirements.
+- The Permanent Storage fee market covers the permanent storage of encoded Mantle Transactions. Blocks are limited to 2MiB with a maximum of 1024 Mantle Transactions per block. However, the fees must reduce the maximum amount of Storage to meet the minimum hardware requirements.
 
 Both markets recompute their price with integer arithmetic, so that the result is identical on every node, and both round the updated price upwards. Each update multiplies the current price by an adjustment factor, so a price rounded downwards would reach 0 at the bottom of its range and remain there, leaving the resource permanently free. Rounding upwards keeps one unit as the effective floor of each price. The usage signals driving these updates measure consumption rather than price and are rounded downwards.
 
-All fee markets aim to ensure fair compensation, sustainability, proper incentives, and to address specific market needs. Because every Operation (except the Channel Inscribe and the Channel Config Operations), whether it involves computation, or permanent storage, requires some execution to be validated and processed, reaching the execution limit effectively constrains the Permanent Storage market (except for Channel Inscribe and Channel Config). In practice, this means that the Permanent Storage market is limited in the number of transactions it can process per block except for Channel Inscribe and Channel Config Operations.
+All fee markets aim to ensure fair compensation, sustainability, proper incentives, and to address specific market needs. Because every Operation (except the Channel Inscribe, the Channel Config and the Claim PoW Reward Operations), whether it involves computation, or permanent storage, requires some execution to be validated and processed, reaching the execution limit effectively constrains the Permanent Storage market (except for Channel Inscribe, Channel Config and Claim PoW Reward). In practice, this means that the Permanent Storage market is limited in the number of transactions it can process per block except for Channel Inscribe, Channel Config and Claim PoW Reward Operations.
 
 ### Execution Fee Market
 
@@ -104,9 +104,9 @@ We define "reasonable" as limiting the Execution Gas such that a potential leade
 
 Consensus nodes must validate and execute a block using a small percentage of their CPU but during a longer period than the 1 second period for leaders, as they don't have the strict timing constraints that affect consensus and would increase forking. Using only 20% of their CPU, consensus nodes can validate and execute such blocks in approximately 4 seconds.
 
-We will also assume that block verification requires an initial and fixed amount of Execution Gas for different ZK proofs. According to [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md), we will reduce the Execution Gas limit by 6,540 which is dedicated to initializing batch verification for [ZkSignature](bedrock-v1.1-block-construction.md) and [Proof of Claim](bedrock-v1.1-block-construction.md).
+Block verification also requires a fixed amount of Execution Gas for the ZK proofs it verifies in batch ([Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#batch-verification-of-zk-proofs)). The fixed part of the batch verification of the [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) proofs is 3,540,612 CPU cycles ([Gas Cost Determination](analysis-gas-cost-determination.md#groth16-proof-batch-verification)), so we reduce the Execution Gas limit by 3,541.
 
-Therefore, $`\text{limit}_{\text{Ex}} := 3,193,460`$ Execution Gas. This limit is also important to guarantee a rapid syncing of the chain.
+Therefore, $`\text{limit}_{\text{Ex}} := 3,196,459`$ Execution Gas. This limit is also important to guarantee a rapid syncing of the chain.
 
 Node CPU consumption is managed by the per-block Execution Gas limit. The Execution fee market dynamically adjusts fees based on usage relative to this limit: as consumption approaches the limit, fees rise to dampen demand; when consumption drops, fees decrease to encourage additional throughput. Since execution is the bottleneck, these adjustments indirectly bound the Permanent Storage market.
 
@@ -114,7 +114,7 @@ More details on the execution fee calculations can be found in [Execution Market
 
 ### Permanent Storage Fee Market
 
-Permanent Storage fees cover the permanent storage of Mantle Transactions. This market is subject to a strict maximum block size limit of 1MiB with a maximum of 1024 Mantle Transactions per block. While stored transactions consume execution resources, certain operations, such as Channel Inscribe or Channel Config, can consume only a limited amount of Execution Gas with no restriction on Permanent Storage consumption. This creates a corner case where a block could, in principle, be filled entirely with such Operations until the limit is reached. To prevent extensive usage of block space and to maintain predictability, [Cryptarchia](cryptarchia-v1-protocol.md) imposes a maximum block size limit of 1 MiB. This cap is a protocol parameter and is chosen such that it remains compatible with the storage limit defined below.
+Permanent Storage fees cover the permanent storage of Mantle Transactions. This market is subject to a strict maximum block size limit of 2MiB with a maximum of 1024 Mantle Transactions per block. While stored transactions consume execution resources, certain operations, such as Channel Inscribe or Channel Config, can consume only a limited amount of Execution Gas with no restriction on Permanent Storage consumption. This creates a corner case where a block could, in principle, be filled entirely with such Operations until the limit is reached. To prevent extensive usage of block space and to maintain predictability, [Cryptarchia](cryptarchia-v1-protocol.md) imposes a maximum block size limit of 2 MiB. This cap is a protocol parameter and is chosen such that it remains compatible with the storage limit defined below.
 
 In the storage context, the minimum hardware requirement is expressed as the amount of data to be stored per year. Assuming ideal operation the network generates roughly 1 Terabyte of data per year, which can be seen as a technical limit.
 
@@ -139,7 +139,7 @@ The following sections explain how these principles apply to different roles in 
 The Blend service and the leaders proposing the blocks share a same block reward that is calculated for each block based on a KPI function. This KPI function takes as input the inferred total stake and the amount of Execution and Permanent Storage fees of the block. How the KPI function calculates each block reward is explained in [Block Rewards](block-rewards.md).
 
 - Blend rewards are distributed among all active Blend Nodes. Blend rewards are composed of a fraction of the block rewards. These rewards of epoch $`e`$ are defined when a new Blend epoch $`e+1`$ starts (a defined number of blocks) and are allocated to nodes based on their reported Active Messages and the [Reward Distribution Protocols](#reward-distribution-protocols) during epoch $`e+2`$ . The [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md) manages the direct payment to nodes.
-- Leaders get a voucher for each included block in epoch $`e`$ . Vouchers represent an equal share of the leader reward pool. At the start of epoch $`e+1`$ , the leaders rewards of epoch $`e`$ are added to the pool (represented by a variable) and the voucher of epoch $`e`$ can start being used. The amount added to the pool is composed of a fraction of the block rewards and a portion of the Execution fees distributed back according to the [Execution Market](execution-market.md) from all blocks of epoch $`e`$ . Vouchers can be exchanged with a reward through a [Leader Claim Operation](bedrock-v1.1-mantle-specification.md) (on-chain transaction) that preserves privacy by decoupling the leader reward from the proposed block. The reward amount, represented by a share of the pool, is computed when the claim Operation is executed (c.f. [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md)).
+- Leaders receive, for each block they propose, a single note whose value is a fraction of the block reward plus the Execution fees distributed back according to the [Execution Market](execution-market.md) for that block. The note is created during the execution of the block under a one-time public key of the leader ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)).
 
 Each block reward of each block is split as follows between the Blend service and the leader:
 
@@ -153,25 +153,26 @@ The reasons for this split ratio are:
 - Leaders who can afford the minimum stake are incentivized to lock it and run a Blend node to earn more rewards.
 - Leaders who cannot afford the minimum stake can still earn enough to eventually reach it.
 
-At the start of each Blend epoch, a Blend reward variable is computed. Its amount equals 60% of the total block rewards of the previous epoch:
+At the start of each Blend epoch, a Blend reward variable is computed. Its amount equals 60% of the total block rewards of the previous epoch, held in `blend_rewards_pending` until it is paid ([Block Rewards](block-rewards.md#deterministic-implementation)):
 
 ```python
 def get_blend_reward(e: epoch): # rewards for the epoch e
     blend_rewards = 0
     for b in e.blocks: # for each block of the previous epoch
-        blend_rewards += 0.6 * get_block_rewards(b) # get 60% of the rewards
+        blend_rewards += get_block_rewards(b) - leader_share(b) # the other 60% of the rewards
     return blend_rewards
 ```
 
-At the start of each epoch, the rewards are added to the leader rewards. Its amount is increased by 40% of the total block rewards of the previous epoch. The blocks from the previous epoch are denoted by B in the pseudocode below:
+For each block, the leader reward is 40% of the block reward, rounded down, plus the Execution market tips of the block. The rounding remainder goes to the Blend reward, so the two shares add up to the block reward:
 
 ```python
-def update_leader_rewards(e: epoch, # rewards for the epoch e
-    leader_rewards: int): # added to the leader reward pool
-    for b in e.blocks: # for each block of the previous epoch
-        leader_rewards += 0.4 * get_block_rewards(b) # get 40% of the rewards
-        leader_rewards += get_execution_market_tips(b) # get Execution market tips
-    return leader_rewards
+def leader_share(b: block) -> TokenValue: # 40% of the rewards of the block b, rounded down
+    return 2 * get_block_rewards(b) // 5
+
+def get_leader_reward(b: block) -> TokenValue: # reward of the leader of the block b
+    leader_reward = leader_share(b)
+    leader_reward += get_execution_market_tips(b) # get Execution market tips
+    return leader_reward
 ```
 
 ### Proof of Work Reward Pool
@@ -203,16 +204,9 @@ The emission rate factor is computed in part from the pooling rate, so the relea
 
 ## Reward Distribution Protocols
 
-### Anonymous Leaders Reward Protocol
+### Leaders
 
-To protect leaders' privacy, we must not link leaders to their blocks and rewards. Therefore, we designed a mechanism for anonymous reward claiming. A key design decision in this mechanism is that the amount of rewards a leader receives cannot be associated with or calculated based on the block they proposed. Without this approach, leaders could be linked back to their proposed blocks based on the value of their claimed rewards. This mechanism creates an anonymity pool where all leaders contribute, turning the leader-to-block assignment into a guessing game.
-
-The [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md) defines how leader rewards are maintained in the ledger and how leaders can claim them. Leader rewards follow a two-step procedure:
-
-1. When a new epoch $`e`$ starts, the unique reward pool variable for leaders is updated, increasing by the reward amount for the previous epoch $`e-1`$. This reward amount is calculated as the sum of leader block rewards from epoch $`e-1`$. Simultaneously, consensus nodes update the voucher set, adding vouchers of leaders from epoch $`e-1`$ to the global voucher set.
-1. From epoch $`e`$ onward, leaders can exchange their vouchers for shares of the rewards pool, as their vouchers are now in the set. Each unclaimed voucher represents an equal share of the leader rewards pool.
-
-Claimable rewards remain stable during an epoch because the reward pool decreases proportionally to the number of unclaimed vouchers, and the pool is neither increased nor are new vouchers added to the set during an epoch. The share being a whole number of tokens, it is rounded down, so two leaders claiming during the same epoch may still differ by one token, the last claimants of the epoch being the ones receiving the extra token. The remainder of the division is left in the pool and redistributed at the next epoch.
+To protect leaders' privacy, a leader must not be linked to the spending of its rewards. The leader reward of a block is created in the block as a note under a one-time public key the leader puts in the block header ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)). The note commitment is linked to the block, but spending the note reveals neither its commitment nor its value ([Mantle Ledger](bedrock-v1.1-mantle-specification.md#mantle-ledger)), so the reward cannot be followed once spent.
 
 ### Blend Service
 

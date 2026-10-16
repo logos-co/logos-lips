@@ -27,6 +27,7 @@
 | 1.1.1 | Precise that greedy inclusion selects a candidate only if it is valid in the state the already selected transactions leave | 2026-08-24 |
 | 1.1.2 | Changing from burning/minting to pooling/distributing | 2026-08-26 |
 | 1.2.0 | The base fee is routed to the rewards pool less the share diverted to the proof of work reward pool | 2026-08-31 |
+| 1.3.0 | The priority fees of a block are paid to its builder in the block, within its leader reward. $`G_\text{max}`$ and $`G_\text{target}`$ follow the Execution Gas limit derived from the measured batch verification of the ZkTransfer | 2026-10-07 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -52,7 +53,7 @@ The design is founded on a target-based mechanism, philosophically aligned with 
 
 To further enhance security, this specification addresses a known vulnerability in the classic EIP-1559 design. As demonstrated by recent research ([Cachin et al., 2023](https://arxiv.org/pdf/2304.11478)), EIP-1559 is susceptible to base fee manipulation by rational, non-myopic block builders. Our design incorporates a direct mitigation for this threat, as proposed in [Cachin et al., 2023](https://arxiv.org/pdf/2304.11478): an Exponential Moving Average (EMA) based update rule for the base fee. Given the EMA nature of this update, these enhancements smooth fluctuations in execution gas consumption, making the protocol significantly more resilient to strategic manipulation without compromising its core benefits of responsiveness and predictability
 
-Furthermore, as opposed to the standard EIP-1559 mechanism, where the base fee is burned and tips are immediately given to miners, in our setting we route fees into a rewards pool, and later we distribute rewards from that pool given to the block builders at a later block through the [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md), for privacy preservation.
+Furthermore, as opposed to the standard EIP-1559 mechanism, where the base fee is burned and tips are immediately given to miners, in our setting we route the base fees into a rewards pool, and the block builder receives the tips in the block itself, within its leader reward, paid as a note whose spending does not reveal it, to preserve its privacy ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)). The base fees are not paid to the block builder directly, although the protocol fixes them: a builder receiving the base fees of its own block could fill it with its own transactions at no cost, and push the base fee up for every user, the manipulation that burning the base fee prevents in EIP-1559. The pooled base fees still reach the leaders, in their blocks, through the block reward, which averages the pooled fees over the last 120 blocks ([Block Rewards](block-rewards.md)).
 
 # Overview
 
@@ -62,7 +63,7 @@ The mechanism operates on four core principles:
 
 - Dynamic Base Fee: A protocol-defined base_fee for Execution Gas must be paid for a transaction to be included in a block. This fee adjusts automatically based on a smoothed average of recent network demand relative to a predefined capacity target, ensuring sustainable network load. This base_fee is the minimal threshold to be paid for the transaction to be accepted by the block builder.
 - Priority Fee (Tip): To incentivize faster inclusion by block builders, users add a priority_fee on top of the base fee. This creates a simple and transparent auction for block space during periods of high demand. The proceeds of this goes to the block builder.
-- Fee Splitting and Pooling: The two fee components are treated differently. The base_fee, less the share diverted to the [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool), is routed to the rewards pool, removing it from circulation. As usage grows, more base fees are routed to the pool and removed from circulation, which creates a direct link between network activity and the circulating supply of the native token. The priority_fee is not immediately distributed to the block builder (to preserve privacy), but instead it is directed into the block builders reward stream. 40% of the rewards will be allocated to block builders and the remaining 60% to Blend nodes. Rewards are privacy-preserving via [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md).
+- Fee Splitting and Pooling: The two fee components are treated differently. The base_fee, less the share diverted to the [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool), is routed to the rewards pool, removing it from circulation. As usage grows, more base fees are routed to the pool and removed from circulation, which creates a direct link between network activity and the circulating supply of the native token. The priority_fee is paid to the block builder in the block, together with 40% of the block reward, the remaining 60% going to Blend nodes. Spending the block builder reward note does not reveal it, which preserves the privacy of the builder ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)).
 
 The entire lifecycle can be visualized in the following flow:
 
@@ -99,8 +100,8 @@ A critical feature of this design is its resilience to the base fee manipulation
 | $`p_t`$ | Priority Fee | - | The portion of the Execution Gas price that serves as a tip to the block builder ($`p_t = c_t - b_{\mathrm{exec}}[s]`$). |
 | $G[s]$ | Total Execution Gas Used | - | The sum of Execution Gas consumed by all transactions in block $s$. |
 | $`G_{\mathrm{avg}}[s]`$ | Smoothed Average Execution Gas | - | The Exponential Moving Average (EMA) of Execution Gas used up to block $s$. |
-| $`G_{\max}`$ | Max Execution Gas Per Block | 3,193,460 | A protocol constant defining the hard limit on $G[s]$. |
-| $`G_{\mathrm{target}}`$ | Target Execution Gas Per Block | 1,596,730 | A protocol constant for the ideal Execution Gas usage. The TFM steers usage towards this target. This is set to half of $`G_{max}`$ execution gas units. |
+| $`G_{\max}`$ | Max Execution Gas Per Block | 3,196,459 | A protocol constant defining the hard limit on $G[s]$. |
+| $`G_{\mathrm{target}}`$ | Target Execution Gas Per Block | 1,598,229 | A protocol constant for the ideal Execution Gas usage. The TFM steers usage towards this target. This is set to half of $`G_{max}`$ execution gas units, rounded down. |
 | $\phi$ | Fee Adjustment Rate | 1/8 | A protocol constant controlling how quickly the base fee adjusts to demand. |
 | $q$ | EMA Smoothing Factor | 9/10 | A protocol constant defining the weight of historical average in the EMA update rule. |
 | $`F_t`$ | Total fee | - | $`F_t = g_t \,\cdot\bigl(b_{\mathrm{exec}}[s] + p_t\bigr)= g_t\cdot c_t`$ |
@@ -112,7 +113,7 @@ We set $\phi=1/8$, which results in up to a $\pm$12.5% increase or decrease in t
 
 We set a value of $q=0.9$ as it robustly achieves the primary security goal of mitigating base fee manipulation while retaining sufficient market responsiveness. This setting heavily dampens the influence of any single block's gas usage on the new smoothed average to a mere 10%, making manipulation attacks prohibitively expensive for their limited impact. This is economically equivalent to a lookback period of approximately 19 blocks.
 
-Furthermore, we set $`G_\text{max} = 3,193,460`$ Execution Gas units (cf as explained in [\[Overview\] Cryptoeconomics](overview-cryptoeconomics.md)), and $`G_\text{target} = 1,596,730`$ Execution Gas units. The 50% target creates a perfectly symmetrical buffer, giving the network equal capacity to elastically expand block sizes to absorb demand spikes or contract them during lulls. Any other value would create an asymmetric system, making it either too volatile and over-reactive to demand increases (e.g., a 75% target) or too sluggish to respond to periods of low activity. This rationale is also borrowed from Ethereums EIP-1559 (cf [EIP 1559: A transaction fee market proposal](https://ethereum.github.io/abm1559/notebooks/eip1559.html)) and is also used in ([Base Fee Manipulation In Ethereums EIP-1559 Transaction Fee Mechanism](https://arxiv.org/pdf/2304.11478)).
+Furthermore, we set $`G_\text{max} = 3,196,459`$ Execution Gas units (cf as explained in [\[Overview\] Cryptoeconomics](overview-cryptoeconomics.md)), and $`G_\text{target} = 1,598,229`$ Execution Gas units. The 50% target creates a perfectly symmetrical buffer, giving the network equal capacity to elastically expand block sizes to absorb demand spikes or contract them during lulls. Any other value would create an asymmetric system, making it either too volatile and over-reactive to demand increases (e.g., a 75% target) or too sluggish to respond to periods of low activity. This rationale is also borrowed from Ethereums EIP-1559 (cf [EIP 1559: A transaction fee market proposal](https://ethereum.github.io/abm1559/notebooks/eip1559.html)) and is also used in ([Base Fee Manipulation In Ethereums EIP-1559 Transaction Fee Mechanism](https://arxiv.org/pdf/2304.11478)).
 
 ## Block Builder Mechanism: Block Construction
 
@@ -193,8 +194,8 @@ And so we propose the following code reference:
 ```python
 EMA_DENOMINATOR = 10  # from q = 9/10
 EMA_PREV_WEIGHT = 9  # from q = 9/10
-BASE_FEE_NUMERATOR = 11_177_110  # = 7 * G_target
-BASE_FEE_DENOMINATOR = 12_773_840  # = 8 * G_target
+BASE_FEE_NUMERATOR = 11_187_603  # = 7 * G_target
+BASE_FEE_DENOMINATOR = 12_785_832  # = 8 * G_target
 
 def ceil_div(numerator: int, denominator: int) -> int:
     return (numerator + denominator - 1) // denominator

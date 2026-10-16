@@ -26,6 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2025-08-22 |
 | 1.1.0 | Remove references to DA Replace Nomos with Logos Blockchain | 2026-01-14 |
+| 1.2.0 | Fees and funds are carried by Transfer Operations over private notes | 2026-10-07 |
 
 # Introduction
 
@@ -39,7 +40,7 @@ Bedrock is composed of Cryptarchia and Bedrock Mantle. Bedrock is in turn suppor
 
 ## Bedrock Mantle
 
-    Mantle forms the minimal execution layer of the Logos Blockchain. Mantle Transactions consist of a sequence of Operations together with a Ledger Transaction used for paying fees and transferring funds.
+    Mantle forms the minimal execution layer of the Logos Blockchain. Mantle Transactions consist of a sequence of Operations, among which Transfer Operations pay the fees and transfer funds between private notes.
 
     Sovereign Zones make use of Mantle Transactions when posting their updates to Bedrock. This is done through the use of Mantle channels and channel Operations.
 
