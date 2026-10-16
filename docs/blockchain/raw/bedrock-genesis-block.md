@@ -357,7 +357,7 @@ Everything else is validated as it would be in any other block, against the stat
 
 ## Mantle Ledger Initialization
 
-Before Genesis, the Ledger holds two [note sets](bedrock-v1.1-mantle-specification.md#ledger), the ledger note set and the SDP note set. Each is empty: its commitment MMR is empty and its root is the only commitment root of a recent block, and its [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) has a single leaf, the sentinel `NullifierLeaf(0, 0, 0)`. The null channel, created by the Cryptarchia inscription, gets the third note set.
+Before Genesis, the Ledger holds two [note sets](bedrock-v1.1-mantle-specification.md#ledger), the ledger note set and the SDP note set. Each is empty: its commitment MMR is empty and its root is the only commitment root of a recent block, and its [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) has a single leaf, the sentinel `NullifierLeaf(0, 0, 0)`.
 
 The Transfer Operation distributing the initial tokens is validated and executed as any other Transfer Operation, minus the exemptions covering its proof, its inputs, its number of outputs and the transaction balance. The result of normal transfer execution appends all output commitments to the commitment MMR of the ledger note set and to its commitment buffer of the transaction.
 

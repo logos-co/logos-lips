@@ -128,7 +128,7 @@ This wallet-side step is not part of any circuit, so the DST costs nothing in pr
 
 ## Note Tracking
 
-The [Mantle Ledger](bedrock-v1.1-mantle-specification.md#ledger) only holds note commitments and nullifiers, in note sets: the ledger note set, the SDP note set and one note set per channel, each with its own commitment MMR and nullifier IMT. To spend its notes and to participate in the leadership lottery, a wallet keeps the data its proofs need for every note it owns, in the note set the note belongs to.
+The [Mantle Ledger](bedrock-v1.1-mantle-specification.md#ledger) only holds note commitments and nullifiers, in note sets: the ledger note set, the SDP note set and one note set per channel but the null channel, each with its own commitment MMR and nullifier IMT. To spend its notes and to participate in the leadership lottery, a wallet keeps the data its proofs need for every note it owns, in the note set the note belongs to.
 
 To spend a note with a [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer), the wallet keeps:
 
@@ -141,7 +141,7 @@ To prove its leadership with a note ([Proof of Leadership](cryptarchia-proof-of-
 - The Merkle path of `cm` to the commitment root of its note set at the epoch snapshot, fixed for the epoch, and the path of the leaf of the set in the eligible tree of the snapshot.
 - The leaf of the [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of its note set holding the greatest nullifier lower than `nf`, and its Merkle path to the latest root of that IMT, with the path of the leaf of the set in the latest eligible tree. This leaf and its path change whenever a nullifier is inserted in the set, so the wallet updates them before each proof.
 
-Requesting these paths from a third party reveals which commitments and nullifiers the wallet owns. A wallet that follows every commitment appended to the MMR and every nullifier inserted in the IMT of the note sets it holds notes in computes its paths locally. The roots of the other note sets, which the paths in the eligible tree need, are public.
+Requesting these paths from a third party reveals which commitments and nullifiers the wallet owns. A wallet that follows every commitment appended to the MMR and every nullifier inserted in the IMT of the note sets it holds notes in computes its paths locally. The roots of the other note sets, which the paths in the eligible tree need, are public. A service provider could also serve the paths through private information retrieval, without learning which ones the wallet requests.
 
 A peak of the MMR is a perfect Merkle tree, which never changes once built: appending a commitment only adds a peak of height 0, and merges the last two peaks while they have the same height. The path of `cm` inside its peak therefore only grows, by one node each time its peak is merged, which happens at most 32 times. The wallet keeps a copy of the peaks, with their heights given by the binary decomposition of the number of commitments, and updates the paths of its notes while appending the commitments of each block:
 

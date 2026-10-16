@@ -12,6 +12,7 @@
 | v4 | Operations append their outputs to the commitment buffer when validated, and a step can consume the outputs of an earlier step of its inscription. A channel withdrawal consumes its inputs at its due slot, only if they are still unspent, so a valid step cancels it. The withdrawal of a service note is proven against the root of an MMR holding only that note. The PoW ticket hashes the public key first | 2026-10-09 |
 | v5 | The ZkTransfer public root is `tx_cm_root`, the referenced recent `cm_merkle_root` extended with the buffer of its set | 2026-10-12 |
 | v6 | A channel step names the commitments of the transaction buffer its proof covers, so that steps proven against the same recent root hold at any position. Channel withdrawals carry no fee. Each note set records its root at the end of every block. The ZkTransfer of the Genesis declarations is verified, and withdrawn declarations are released in a fixed order. The block reward keeps the 120-block average of the pooled fees, with the reserve, the pool and the pending Blend share as integer consensus state. Merkle paths are read from the leaf level up. The Proof of Leadership is bound to its block by a hash of the header, which removes the `leader_key` header field, the proposal and block signatures and the signatures of the uncle headers, and the block ID hashes the header without its proof. The cross-channel messaging template is deprecated | 2026-10-15 |
+| v7 | The null channel has no note set. The operation payloads name a recent root only, the buffer being appended in validation. Channel steps can be grouped in mini-blocks sharing their `buffered`, and the withdrawal is the forced exit and the optimistic settlement of double signing. The block rewards state that the leader is paid in its block and that the maximum supply is fixed at genesis, and the execution market why base fees are pooled | 2026-10-16 |
 
 ## Reviewer Orientation
 
@@ -40,11 +41,11 @@ Every note is private and lives in exactly one note set: the ledger, the SDP, or
 
 ## Channel notes: moved by holders, ordered by sequencers
 
-A channel note is spent only by its holder. Inside the channel, the holder signs a step, a ZkTransfer bound to `step_msg` rather than to the transaction, since it is signed before the transaction exists. The sequencers collect the steps and publish them in their inscriptions, and the ledger verifies every step. A sequencer orders the moves of its channel and can delay or drop a step, but cannot move a note, and cannot create value: every step is a verified, balanced ZkTransfer. A step names, with `buffered`, how many commitments created earlier in the transaction its proof covers, and is verified against its referenced root extended with only those. The holders prove their steps independently, before the sequencer assembles the transaction, and a step over notes of earlier blocks takes `buffered = 0`: its proof holds at any position, so a sequencer can collect the steps of many users, all proven against the same recent root, and order them as it chooses. Extending every proof with the whole buffer would tie each proof to one position, and holders would have to prove one after another once the sequencer had fixed everything before them. Only a step consuming a note created in the same transaction covers part of the buffer and must come after it.
+A channel note is spent only by its holder. Inside the channel, the holder signs a step, a ZkTransfer bound to `step_msg` rather than to the transaction, since it is signed before the transaction exists. The sequencers collect the steps and publish them in their inscriptions, and the ledger verifies every step. A sequencer orders the moves of its channel and can delay or drop a step, but cannot move a note, and cannot create value: every step is a verified, balanced ZkTransfer. A step names, with `buffered`, how many commitments created earlier in the transaction its proof covers, and is verified against its referenced root extended with only those. The holders prove their steps independently, before the sequencer assembles the transaction, and a step over notes of earlier blocks takes `buffered = 0`: its proof holds at any position, so a sequencer can collect the steps of many users, all proven against the same recent root, and order them as it chooses. Extending every proof with the whole buffer would tie each proof to one position, and holders would have to prove one after another once the sequencer had fixed everything before them. Only a step consuming a note created in the same transaction covers part of the buffer and must come after it. A sequencer can thus build an inscription from several mini-blocks published together: every step of a mini-block covers the buffer the previous mini-blocks fill, and the steps of a mini-block are ordered freely among themselves.
 
-Out of the channel, the holder withdraws alone. The withdrawal takes effect `WITHDRAW_DELAY` slots later, only if its notes are still unspent: until then, an inscription can consume them with a valid step, which cancels it. A holder cannot invalidate an inscription carrying one of its steps by withdrawing the same note, as long as the inscription lands before the withdrawal is due; a sequencer should not accept a step whose inputs a pending withdrawal may release before then, since the due slots and nullifiers are public. The withdrawal carries no fee: another Operation of its transaction pays it, since a fee paid at posting would stay paid if the withdrawal were dropped, and would create tokens.
+Out of the channel, the holder withdraws alone. The withdrawal is the forced exit of a holder whose steps the sequencers do not publish, and it settles double signing optimistically: a holder signing both a step and a withdrawal of the same notes loses the withdrawal, and the fees it paid for it, if the step lands first. The withdrawal takes effect `WITHDRAW_DELAY` slots later, only if its notes are still unspent: until then, an inscription can consume them with a valid step, which cancels it. A holder cannot invalidate an inscription carrying one of its steps by withdrawing the same note, as long as the inscription lands before the withdrawal is due; a sequencer should not accept a step whose inputs a pending withdrawal may release before then, since the due slots and nullifiers are public. The withdrawal carries no fee: another Operation of its transaction pays it, since a fee paid at posting would stay paid if the withdrawal were dropped, and would create tokens.
 
-All the data of a step lands on chain: its nullifiers, its commitments and its proof. Steps are not compressed, so a channel costs the chain as much per move as the ledger does. Steps carry no `excess_value`, so a move inside a channel pays no fee from channel funds, and the fee of the inscription comes from its sequencer.
+All the data of a step lands on chain: its nullifiers, its commitments and its proof. Steps are not compressed, so a channel costs the chain as much per move as the ledger does. Steps carry no `excess_value`, so a move inside a channel pays no fee from channel funds, and the fee of the inscription comes from its sequencer. We plan later to add compression in order to bring scalability to layers 2.
 
 ## Root window and commitment buffer
 
@@ -60,7 +61,7 @@ The reward note of a block carries the block's own value and still does not link
 
 ## Open questions for reviewers
 
-- How a wallet learns the value and nonce of a note it receives through a Transfer or a step is out of scope. Only commitments are on chain.
+- How a wallet learns the value and nonce of a note it receives through a Transfer or a step is out of scope. Only commitments are on chain. This will be addressed by Mehmet in a different and stacked PR for viewing keys.
 - The 10-year supply projection in Block Rewards follows the behavioral assumptions of the earlier baseline simulation, which were not published as code. Its fee and stake model should be checked against that reference.
 - PR #407 (SDP declaration identifiers) touches the same SDP sections. Its `service_notes` map and per-service note uniqueness do not apply once each declaration creates its own note.
 
@@ -82,11 +83,12 @@ class NoteSet:
     tx_cm_buffer: list[NoteCm]          # commitments added earlier in the Mantle Transaction
 
 class Ledger:
-    sets: list[NoteSet]                              # ledger, SDP, then one per channel by creation
+    sets: list[NoteSet]                              # ledger, SDP, then one per channel by creation,
+                                                     # none for the null channel
     pending_withdrawals: list[(Slot, int, list[NoteNf], list[NoteCm])]
 ```
 
-- A channel gets the next note set when it is created, stored as `ChannelState.note_set`.
+- A channel gets the next note set when it is created, stored as `ChannelState.note_set`. The null channel, which only receives the Genesis inscriptions, gets none, and no deposit, withdrawal or step can target it.
 - The commitment MMR root is the root of the depth-32 Merkle tree whose leaves are the commitments in insertion order, empty leaves holding `0`. The ledger keeps its peaks: `mmr_append` adds a commitment, and `mmr_root` computes the root from the peaks.
 - The nullifier IMT has depth 32 and appends leaves in insertion order. A leaf is `NullifierLeaf(nf, next_nf, next_index)`, hashed with the DST `NULLIFIER_IMT_LEAF_V1`. The first leaf is the sentinel `(0, 0, 0)`, and positions past the last leaf hold `0`.
 - `assert_spendable(inputs, cm_merkle_root)`, `verify_transfer(...)`, `execute_spending(inputs)` and `execute_adding(outputs)` are methods of `NoteSet`, called as `ledger.sets[LEDGER_SET].execute_adding(...)`.
@@ -180,7 +182,7 @@ The system design figure is redrawn around the reserve, the pool and the per-blo
 
 ## 9. Genesis
 
-- The ledger and SDP sets start empty. The null channel, created by the Cryptarchia inscription, gets the third set.
+- The ledger and SDP sets start empty.
 - The Transfer outputs are commitments in the ledger set, the nonce of each note being its output index. The Genesis Transfer, having no proof, is exempt from the 8-output limit of a ZkTransfer.
 - The ZkTransfer of every Genesis declaration is verified, so that the stake is tied to distributed notes and the initial supply is the published distribution. After the Genesis transaction, every note set records its commitment root, and the block reward reserve, pool, pending Blend share and fee window are initialized.
 - A second inscription to the null channel publishes `value` and `public_key` for each output, and validation checks every output against it.
