@@ -36,6 +36,7 @@
 | 1.9.0 | Swap Ed25519Signature and SignerIndex order in IndexedSignature | 2026-10-01 |
 | 1.10.0 | Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata, retaining their `UINT32` length prefixes; corrected SDP activity metadata to use its tagged variant encoding without a generic length prefix | 2026-10-06 |
 | 2.0.0 | Follow the private note ledger of Mantle 2.0.0: nullifier inputs and commitment outputs with their `CmMerkleRoot` and `Value`, channel steps in `ChannelInscribe` with the `Buffered` count of their proof, holder withdrawals, the SDP payloads over notes, `PowNonce` in `ClaimPowReward`, the `ZkTransfer` proof variants, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim` | 2026-10-06 |
+| 2.1.0 | Follow the programs of Mantle 2.1.0: the `ProgramRegister` Operation with its `Groth16VerificationKey`, user and program steps in `ChannelInscribe` with their proofs and the openings of the program notes, the payments with the `Buffered` count of their proof, and the `Groth16` terminal renamed `Groth16Proof` | 2026-10-12 |
 
 # Introduction
 
@@ -78,7 +79,8 @@ OpPayload = Transfer /
             SDPDeclare /
             SDPWithdraw /
             SDPActive /
-            ClaimPowReward
+            ClaimPowReward /
+            ProgramRegister
 ```
 
 ### Channel Operations
@@ -86,10 +88,21 @@ OpPayload = Transfer /
 ```schema
 ChannelInscribe = ChannelId Inscription Parent Signer Steps
 Inscription     = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes
-Steps           = StepCount *ChannelStep
+Steps           = StepCount *Step
 StepCount       = UINT16
-ChannelStep     = Inputs Outputs CmMerkleRoot Buffered
-Buffered        = UINT16 ; commitments of the transaction buffer the step proof covers
+Step            = (UserStepKind UserStep) / (ProgramStepKind ProgramStep)
+UserStepKind    = %x00
+ProgramStepKind = %x01
+UserStep        = Inputs Outputs CmMerkleRoot Buffered
+Buffered        = UINT16 ; commitments of the transaction buffer the proof covers
+ProgramStep     = ProgramId Payments Inputs Outputs ProgramOutputs CmMerkleRoot SpendNotesHash
+Payments        = PaymentCount *Payment
+PaymentCount    = Byte
+Payment         = Inputs Outputs CmMerkleRoot Buffered Value Intent
+Intent          = FieldElement
+ProgramOutputs  = Byte ; bit i (least significant first) set when output i is a note of the program,
+                       ; the bits from OutputCount up being 0
+SpendNotesHash  = FieldElement
 
 ChannelConfig     = ChannelId Parent KeyCount *Signer PostingTimeframe PostingTimeout ConfigThreshold
 KeyCount                   = UINT16
@@ -108,6 +121,8 @@ Signer            = Ed25519PublicKey
 ```
 
 `MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. The payloads of `ChannelInscribe.Inscription` and `ChannelDeposit.Metadata` MUST each be at most `MAX_OPERATION_DATA_SIZE` bytes, excluding the outer `UINT32` length prefix. A decoder MUST reject either field when its declared or decoded payload length exceeds the limit.
+
+In a `ProgramStep`, a decoder MUST reject an `OutputCount` above 8, the outputs of a program spend, and a `ProgramOutputs` with a bit set at or above the `OutputCount` of the step, so that a step has a single encoding.
 
 ### SDP Operations
 
@@ -141,6 +156,19 @@ ClaimPowReward = EpochNonce BlockHash ZkPublicKey PowNonce
 EpochNonce     = FieldElement ; the epoch nonce the solution was found against
 BlockHash      = Hash32       ; recent canonical block the solution is anchored to
 PowNonce       = FieldElement ; value searched for a ticket satisfying the reward threshold
+```
+
+### Program Operations
+
+```schema
+ProgramRegister       = Groth16VerificationKey
+Groth16VerificationKey = Alpha Beta Gamma Delta IC
+Alpha                 = G1Point
+Beta                  = G2Point
+Gamma                 = G2Point
+Delta                 = G2Point
+IC                    = 4G1Point ; one point per public input of a program proof, plus one
+ProgramId             = FieldElement
 ```
 
 ### Transfer Operations
@@ -179,7 +207,16 @@ OpProof   = Ed25519SigProof /
 Ed25519SigProof              = Ed25519Signature
 ZkTransferProof              = ZkTransfer
 ZkTransferAndEd25519SigProof = ZkTransfer Ed25519Signature
-ChannelInscribeOpProof       = Ed25519Signature *ZkTransfer ; one ZkTransfer per step of the inscription
+ChannelInscribeOpProof       = Ed25519Signature *StepProof ; one StepProof per step of the inscription
+StepProof                    = ZkTransfer / ProgramStepProof ; ZkTransfer for a user step,
+                                                             ; ProgramStepProof for a program step
+ProgramStepProof             = *ZkTransfer ZkProgramSpend Groth16Proof *ProgramNoteOpening
+                                                       ; one ZkTransfer per payment, the program spend,
+                                                       ; the program proof, then one opening per bit set
+                                                       ; in the ProgramOutputs of the step
+ProgramNoteOpening           = Value NoteNonce ZkPublicKey ProgramNoteData
+NoteNonce                    = FieldElement
+ProgramNoteData              = FieldElement
 ChannelConfigOpProof         = ChannelMultiSigProof
 EmptyProof                   = 0Byte ; no bytes
 
@@ -193,11 +230,14 @@ SignerIndex    = UINT16
 ## Common Structures
 
 ```schema
-; Zero-knowledge transfer proof
-ZkTransfer = Groth16
+; Zero-knowledge transfer proofs
+ZkTransfer     = Groth16Proof
+ZkProgramSpend = Groth16Proof
 
 ; Cryptographic primitives
-Groth16          = 128BYTE      ; pi_a (32) + pi_b (64) + pi_c (32)
+Groth16Proof     = 128BYTE      ; pi_a (32) + pi_b (64) + pi_c (32)
+G1Point          = 32BYTE       ; compressed BN254 G1 point
+G2Point          = 64BYTE       ; compressed BN254 G2 point
 ZkPublicKey      = FieldElement
 Ed25519PublicKey = 32BYTE
 Ed25519Signature = 64BYTE
