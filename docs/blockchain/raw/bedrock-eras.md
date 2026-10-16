@@ -176,6 +176,7 @@ Every slot and every epoch belongs to the last era that begins at or before it. 
 A schedule changes only under these rules ([Era Schedule](#era-schedule)):
 
 - a release may add or change an era only for an epoch that has not begun;
+- a release must not move a published era to an earlier first epoch;
 - a release must not change the rules of a published era, or the migration into it, without changing the era's first epoch number or parameter record;
 - an era must not change how the [Cryptarchia Fork Choice Rule](fork-choice.md) compares chains that diverge by at most $`k`$ blocks, where $`k`$ is the security parameter of [Constants](cryptarchia-v1-protocol.md#constants).
 
@@ -217,7 +218,7 @@ A node interprets each piece of chain data under one era:
 
 - A node learns the era before it parses the rest. The slot comes first in every message that carries a block or proposal, and the fork digest comes first in every transaction, each in an encoding no era changes.
 - A block may include a transaction that carries the fork digest of the block's era. In the first epoch of an era, it may also include one that carries the previous era's.
-- The fork choice rule of every era reads only the block tree and the slots of its blocks. [Commit](cryptarchia-v1-protocol.md#commit) uses the $`k`$ of the era of the local chain tip.
+- The fork choice rule of every era reads only the block tree and the slots of its blocks. The latest immutable block moves to its child only once it lies deeper than the $`k`$ of its own era ([Commit](cryptarchia-v1-protocol.md#commit)).
 - At startup and on checkpoint import ([Bootstrapping from Checkpoint](cryptarchia-v1-bootstr-sync.md#bootstrapping-from-checkpoint)), a node halts if its release lacks the rules of an era it must still apply, from the era of the latest immutable block to the era in force.
 
 ## Chain State
@@ -359,7 +360,7 @@ An era must not change the comparison of chains that diverge by at most $`k`$ bl
 
 The rules of an era decide which blocks, transactions and messages are valid under it, how they execute, how chains compare, and how the state migrates into it. An era is published once a release that schedules it is distributed.
 
-The nodes of two releases apply different rules from the first epoch whose era has a different digest in the two schedules. From that epoch they use different fork digests. A release must not change the rules of a published era while keeping the era's first epoch number and parameter record. Otherwise the nodes of the two releases apply different rules under one fork digest. A release must not publish an entry, or change the record of an entry, whose epoch has begun. Otherwise a node that installs the release holds state executed under the wrong era.
+The nodes of two releases apply different rules from the first epoch whose era has a different digest in the two schedules. From that epoch they use different fork digests. A release must not change the rules of a published era while keeping the era's first epoch number and parameter record. Otherwise the nodes of the two releases apply different rules under one fork digest. A release must not publish an entry, or change the record of an entry, whose epoch has begun. Otherwise a node that installs the release holds state executed under the wrong era. A release must not move a published era to an earlier first epoch. Otherwise nodes that have not yet upgraded split off before the epoch their release announced.
 
 ## Era Parameters
 
@@ -542,7 +543,7 @@ def accepts_fork_digest(slot: uint64, digest: hash) -> bool:
             and epoch_of_slot(slot) == first_epoch(era))
 ```
 
-[Fork choice](fork-choice.md) compares two chains under the era of the slot of their $`\textbf{common\_ancestor}`$ ([Fork Pruning](cryptarchia-v1-protocol.md#fork-pruning)). The fork choice rule of an era reads only the block tree and the slot of each block. Otherwise it is undefined on the blocks of a later era that re-encodes a field it reads. [Commit](cryptarchia-v1-protocol.md#commit) uses the $`k`$ of the era of the slot of the local chain tip.
+[Fork choice](fork-choice.md) compares two chains under the era of the slot of their $`\textbf{common\_ancestor}`$ ([Fork Pruning](cryptarchia-v1-protocol.md#fork-pruning)). The fork choice rule of an era reads only the block tree and the slot of each block. Otherwise it is undefined on the blocks of a later era that re-encodes a field it reads. [Commit](cryptarchia-v1-protocol.md#commit) advances the latest immutable block only while it lies deeper than the $`k`$ of the era of its slot.
 
 At startup and on checkpoint import ([Bootstrapping from Checkpoint](cryptarchia-v1-bootstr-sync.md#bootstrapping-from-checkpoint)), a node whose release does not implement the rules of every era from $`\textbf{era}(sl_{B_\text{imm}})`$ ([latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block)) to the era in force must halt. A halted node stops every protocol and exits with an error to the operator.
 

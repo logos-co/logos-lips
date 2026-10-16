@@ -31,6 +31,7 @@
 | v15 | Identify keeps its libp2p identifier and announces `/logos-blockchain/<genesis_id>/identify` as its protocol version, as the implementation does; only the Kademlia identifier carries the genesis block ID. The unknown fork digest warning covers only a peer that announces the node's own protocol version. This changes normative content, so approvals are collected again on v15. | 2026-10-14 |
 | v16 | Merged master, which removes the Activity Proof `version` byte in its tagged encoding of the active message metadata. This RFC no longer removes that byte itself, its note on the stale `SDP_ACTIVE` vector is dropped, and the transaction-hash vector with one of each operation is recomputed with the test fork digest. | 2026-10-14 |
 | v17 | The parameter record follows the implementation where that is safe. One `version` names the era's rules, block layout and fields, in place of the block, layout and section versions. `learning_rate` is a double-precision value, and Total Stake Inference computes with `beta` and `f` in double precision. Ratios are encoded as written, `min_stake`'s epoch takes eight bytes, and the slot length is encoded as seconds and nanoseconds. The proof-of-work acceptance window is the parameter `WINDOW`, in slots. These change the era digest, so approvals are collected again on v17. | 2026-10-15 |
+|  | Review round of 14 October. A release must not move a published era to an earlier first epoch. `commit` advances `B_imm` only while it lies deeper than the k of its own era, so a smaller k in a new era no longer makes the previous era's blocks immutable early. The Discussion records why an outdated release warns instead of halting. | 2026-10-16 |
 
 ## Reviewer Orientation
 
@@ -40,7 +41,7 @@ Read the PR's Motivation first. Era 0 is the set of rules the specifications des
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here**: [Bedrock Eras](../bedrock-eras.md) (Created), [details](#1-the-era-mechanism) | the whole mechanism: the Overview's diagrams and the Protocol's walk through an era boundary first; then the schedule and the versioned parameter record with its canonical encoding, the era arithmetic and fork digests as reference code, the schedule rules, migration with `migrate` and the rules that apply to its output, mempool re-validation, the transition period, transaction acceptance, and the warning on an unknown fork digest |
 | 2 | Critical | **Start here**: [Mantle](../bedrock-v1.1-mantle-specification.md) and [Mantle Transaction Encoding](../mantle-transaction-encoding.md), [details](#2-transaction-fork-digest) | `fork_digest` first in every transaction and inside its hash; the acceptance rule; recomputed transaction-hash vectors |
-| 3 | Critical | [Cryptarchia Protocol](../cryptarchia-v1-protocol.md), [details](#3-header-bedrock_version-removed-slot-first) | header loses `bedrock_version`, `slot` first; validation steps renumbered 1–9; `first_slot` and a monotone `commit` ([details](#4-consensus-parameters-across-eras)); same-era uncles ([details](#5-same-era-uncle-rule)); test vectors marked `TBD` |
+| 3 | Critical | [Cryptarchia Protocol](../cryptarchia-v1-protocol.md), [details](#3-header-bedrock_version-removed-slot-first) | header loses `bedrock_version`, `slot` first; validation steps renumbered 1–9; `first_slot` and a `commit` that advances `B_imm` only while it lies deeper than its own era's k ([details](#4-consensus-parameters-across-eras)); same-era uncles ([details](#5-same-era-uncle-rule)); test vectors marked `TBD` |
 | 4 | Critical | [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md), [details](#3-header-bedrock_version-removed-slot-first) | header layout and encoding grammar; sizes 296, 360, proposal maximum 18,187 |
 | 5 | High | [Message Formatting](../message-formatting.md), [Message Encapsulation Mechanism](../message-encapsulation.md), [Blend Protocol](../blend-protocol.md), [details](#6-blend-version-byte-removed) | `version` byte removed; relay check removed; protocol name; pointers to the era rules; Transition Period bound `T ≥ T_M + T_C`; clocks within one round; no blacklisting for a next-epoch proof |
 | 6 | High | [Cryptarchia Bootstrapping & Synchronization](../cryptarchia-v1-bootstr-sync.md), [details](#8-synchronization-and-checkpoints) | `chainsync` identifier; blocks parsed under their slot's era; checkpoint state |
@@ -68,7 +69,7 @@ Chain data is read under the era of its slot. The network runs under the era of 
 
 ## Consensus parameters across eras
 
-An era may change k, f, the epoch phases and the slot length, as agreed in review. Era boundaries stay epoch boundaries. Each era's first slot and start time are sums over the earlier eras; with equal epoch lengths the sum is the old `⌊sl / EPOCH_LENGTH⌋`, so era 0 is unaffected. A measurement over an epoch uses that epoch's era: the stake-inference window of epoch e−1 uses the k and f of e−1's era. `commit` takes k from the tip's era and never moves `B_imm` back, which a growing k would otherwise do. Fork choice compares two chains under the era of their common ancestor, so its k is that era's. The longest-chain comparison of forks within k stays frozen: an era that changed it would make the result depend on the order in which forks were seen.
+An era may change k, f, the epoch phases and the slot length, as agreed in review. Era boundaries stay epoch boundaries. Each era's first slot and start time are sums over the earlier eras; with equal epoch lengths the sum is the old `⌊sl / EPOCH_LENGTH⌋`, so era 0 is unaffected. A measurement over an epoch uses that epoch's era: the stake-inference window of epoch e−1 uses the k and f of e−1's era. Fork choice compares two chains under the era of their common ancestor, so its k is that era's. `commit` advances `B_imm` only while `B_imm` lies deeper than the k of its own era. A fork that would replace the next block diverges at `B_imm`, so the two measure against the same k. With the tip era's k instead, as the review pointed out, a k that falls from 100 to 50 would make 51 blocks of the previous era immutable at once, pruning forks that its k still admits. A k that grows only delays commitment, and `B_imm` never moves back. The longest-chain comparison of forks within k stays frozen: an era that changed it would make the result depend on the order in which forks were seen.
 
 ## Version fields removed
 
@@ -94,11 +95,11 @@ A carried uncle is validated as a block of its own era, so a cross-era uncle wou
 
 ## Changing a published schedule
 
-The schedule is embedded in the software because it must be known before any block of the new era exists. Two releases apply different rules from the first epoch whose era digest differs between their schedules, and the fork digest separates them from then on. A release may therefore postpone a pending era, or correct its parameters in place. Nodes of the earlier release split off at the old epoch unless they upgrade. Changing a published era's rules while keeping its first epoch number and record is forbidden, because both populations would share one identifier and reject each other's blocks. A correction to a pending era's rules therefore gives the era a new version, or moves its first epoch. So is publishing an entry, or changing one, whose epoch has begun: a node would hold state executed under the wrong era.
+The schedule is embedded in the software because it must be known before any block of the new era exists. Two releases apply different rules from the first epoch whose era digest differs between their schedules, and the fork digest separates them from then on. A release may therefore postpone a pending era, or correct its parameters in place. Nodes of the earlier release split off at the old epoch unless they upgrade. A release may not bring a published era forward, because nodes of the earlier release would then split off before the epoch they were given to upgrade by. An emergency adds a new era instead. Changing a published era's rules while keeping its first epoch number and record is forbidden, because both populations would share one identifier and reject each other's blocks. A correction to a pending era's rules therefore gives the era a new version, or moves its first epoch. So is publishing an entry, or changing one, whose epoch has begun: a node would hold state executed under the wrong era.
 
 ## Outdated releases
 
-A node that misses an upgrade keeps running on the old rules. The fork digest isolates it from upgraded nodes, but nothing else tells its operator, and its users keep trusting a minority chain. Peer discovery does not depend on the fork digest, so the node keeps meeting upgraded peers, and it warns its operator when one advertises a fork digest it does not know. The warning does not halt the node.
+A node that misses an upgrade keeps running on the old rules. The fork digest isolates it from upgraded nodes, but nothing else tells its operator, and its users keep trusting a minority chain. Peer discovery does not depend on the fork digest, so the node keeps meeting upgraded peers, and it warns its operator when one advertises a fork digest it does not know. The warning does not halt the node. A halt is not used, because a group of nodes may stay on the old era on purpose, as a hard fork, and the warning leaves that choice to their operators.
 
 The release horizon is removed. It was a constant past which a node warned, and it guessed at the next era instead of detecting it. It raised a false alarm whenever a release outlived it, and when a new era came first it only repeated the fork-digest warning. The warnings carry no consensus effect, so the specification keeps only the one that detects the actual condition.
 
@@ -150,11 +151,11 @@ Its Details sections:
 
 - **Notation:** `E_n`, the parameter record `P_n`, the epoch and slot lengths `L_n` and `Δ_n`, `era(sl)`, `epoch(sl)`, `first_slot(ep)`, `slot(t)`, the era in force and the fork digest `F_n`, each pointing to the function that defines it.
 - **Parameters:** the era schedule.
-- **Era Schedule:** an embedded list per network of (first epoch number, parameter record), the first number 0; the frozen within-k fork comparison; the rules of an era and a published era; the consequence of two releases' schedules differing; no change to a published era's rules under its first epoch number and record, and no entry for an epoch that has begun.
+- **Era Schedule:** an embedded list per network of (first epoch number, parameter record), the first number 0; the frozen within-k fork comparison; the rules of an era and a published era; the consequence of two releases' schedules differing; no change to a published era's rules under its first epoch number and record, no published era moved to an earlier epoch, and no entry for an epoch that has begun.
 - **Era Parameters:** the record: a version naming the era's rules, block layout and fields, then 33 fields in Blend, Cryptarchia and Time sections, each carrying a named constant of Blend, Cryptarchia, Total Stake Inference, SDP or Proof of Work; its canonical encoding as reference code, with ratios as written, the learning rate in double precision and the slot length as whole seconds followed by zero nanoseconds; the slot activation coefficient's numerator, the epoch length and the slot length at least 1; the SDP stores filled from the records; a new version for any change to what a version names.
 - **Era Boundaries:** reference code for the epoch and slot lengths read from the record's sections, each era's first slot and start time, the era and epoch of a slot, the first slot of an epoch, the slot of a time in whole seconds, and the era in force.
 - **Fork Digest:** reference code for the era digest and the fork digest.
-- **Era of Chain Data:** a block and everything it carries under `era(sl)`, except that a transaction is parsed under the era its fork digest names; `slot` first and unchanged in every era; the fork digest first in every transaction, and the acceptance rule as reference code; fork choice under the common ancestor's era; `commit` with the tip era's k; the startup and checkpoint-import halt.
+- **Era of Chain Data:** a block and everything it carries under `era(sl)`, except that a transaction is parsed under the era its fork digest names; `slot` first and unchanged in every era; the fork digest first in every transaction, and the acceptance rule as reference code; fork choice under the common ancestor's era; `commit` advancing `B_imm` only while it lies deeper than its own era's k; the startup and checkpoint-import halt.
 - **Era Migration:** a function of the recorded chain state (Mantle validation state, PoW state, SDP snapshots); total; identity by default; the new era's rules apply to every state it produces; `migrate` as reference code, applied to the parent state of every validated block; the rules for values derived per epoch, with the Epoch State as an example; active messages and reward claims verified under the era of the epoch they are for.
 - **Era Change:** the mempool rule as reference code: transactions re-validated against the local chain tip's state migrated to the era in force, whenever the tip or the era in force changes; the Era Transition Period started at an era change.
 - **Era Transition Period:** the first `T` rounds after the era in force changes; both eras' identifiers; Blend messages validated under the arrival connection's era; afterwards the previous era's identifiers dropped and open sync streams served to their end.
@@ -206,17 +207,18 @@ Its Details sections:
 [Cryptarchia Protocol](../cryptarchia-v1-protocol.md):
 
 - The Epoch State pseudocode takes the start of the previous epoch from the era schedule: `sl_{ep−1} := first_slot(ep−1)`.
-- `commit` takes the current `B_imm` and moves it only to a higher block:
+- `commit` advances `B_imm` along the local chain, one block at a time, while `B_imm` lies deeper than the k of its own era:
 
 ```diff
 -define commit(T, c_loc, depth) -> (T', B_imm):
 -    B_imm := block_at_depth(c_loc, depth)
-+define commit(T, c_loc, B_imm, depth) -> (T', B_imm'):
-+    B := block_at_depth(c_loc, depth)
-+    B_imm' := B if height(B) > height(B_imm) else B_imm
++define commit(T, c_loc, B_imm) -> (T', B_imm'):
++    B_imm' := B_imm
++    while height(c_loc) - height(B_imm') > k_era(sl_B_imm'):
++        B_imm' := the child of B_imm' on the chain of c_loc
 ```
 
-The rules that choose k for `commit`, measure each epoch with its own era's parameters, and sum era start slots and times are in Bedrock Eras ([§1](#1-the-era-mechanism)).
+The rules that measure each epoch with its own era's parameters, and sum era start slots and times, are in Bedrock Eras ([§1](#1-the-era-mechanism)).
 
 ## 5. Same-era uncle rule
 
@@ -286,7 +288,7 @@ Cryptarchia's §Versioning and Protocol Upgrades, which activated upgrades by bl
 - [ ] Reject a schedule whose record has a ratio with a zero denominator, a slot activation coefficient with numerator 0, a fractional slot length, a negative-zero learning rate, or an epoch or slot length below 1; compute ⌊k/f⌋ with integers
 - [ ] Support more than one era: `era`, `epoch`, `first_slot` and `slot(t)` by summation; switch identifiers at the boundary, run both eras for `T` rounds, then drop the previous era's, serving open sync streams to their end
 - [ ] Transaction fork digest: first field of every transaction, the acceptance rule, the zero digest at genesis, parsing by digest; reopen [#3692](https://github.com/logos-blockchain/logos-blockchain/pull/3692)
-- [ ] Fork choice under the common ancestor's era; `commit` with the tip era's k and a monotone `B_imm`
+- [ ] Fork choice under the common ancestor's era; `commit` advancing `B_imm` only while it lies deeper than its own era's k
 - [ ] Same-era uncle validity, in validation and in `uncle_candidates`
 - [ ] Migration hook (identity for now), applied to the parent state of every validated block, and to the tip's state for mempool re-validation whenever the tip or the era in force changes; epoch derivations under the epoch's era; active messages and `CLAIM_POW_REWARD` verified under the era of the epoch they are for
 - [ ] Message routing: generated messages under the era in force at generation; received and processed Blend messages, and their broadcast payloads, on the arrival connection's era; accepted proposals and admitted transactions on the era-in-force topic
@@ -302,7 +304,7 @@ Cryptarchia's §Versioning and Protocol Upgrades, which activated upgrades by bl
 | Specification | Status | Note |
 | --- | --- | --- |
 | [Bedrock Eras](../bedrock-eras.md) | Created | the mechanism |
-| [Cryptarchia Protocol](../cryptarchia-v1-protocol.md) | Modified | header field removed, `slot` first, validation renumbered, same-era uncles, `first_slot`, monotone `commit`, §Versioning replaced by a link, vectors `TBD` |
+| [Cryptarchia Protocol](../cryptarchia-v1-protocol.md) | Modified | header field removed, `slot` first, validation renumbered, same-era uncles, `first_slot`, `commit` by the era of `B_imm`, §Versioning replaced by a link, vectors `TBD` |
 | [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md) | Modified | header layout, encoding grammar, size derivations |
 | [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | `fork_digest` field, validation step 4, transaction-hash vectors, `WINDOW` source |
 | [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | `ForkDigest` first in `MantleTx` |
