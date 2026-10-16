@@ -144,6 +144,8 @@ def derive_program_id(key: Groth16VerificationKey) -> ProgramId:
 -ChannelStep     = Inputs Outputs CmMerkleRoot Buffered
 +Steps           = StepCount *Step
 +Step            = (UserStepKind UserStep) / (ProgramStepKind ProgramStep)
++UserStepKind    = %x00
++ProgramStepKind = %x01
 +UserStep        = Inputs Outputs CmMerkleRoot Buffered
 +ProgramStep     = ProgramId Payments Inputs Outputs ProgramOutputs CmMerkleRoot SpendNotesHash
 +ProgramOutputs  = Byte                     ; bit i set when output i is a note of the program, the bits
@@ -152,6 +154,7 @@ def derive_program_id(key: Groth16VerificationKey) -> ProgramId:
 +ProgramRegister = Groth16VerificationKey   ; Alpha G1, Beta Gamma Delta G2, 4 IC G1: 352 bytes
 -ChannelInscribeOpProof = Ed25519Signature *ZkTransfer
 +ChannelInscribeOpProof = Ed25519Signature *StepProof
++StepProof              = ZkTransfer / ProgramStepProof   ; ZkTransfer for a user step
 +ProgramStepProof       = *ZkTransfer ZkProgramSpend Groth16Proof *ProgramNoteOpening
 +ProgramNoteOpening     = Value NoteNonce ZkPublicKey ProgramNoteData   ; 104 bytes
 ```
