@@ -7,6 +7,7 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-10-12 |
+| v2 | The users of a zone alone check how a program step serves the intents over its assets. Payments follow the mini-blocks of user steps through their `buffered`, and the Execution Gas of an inscription sums the cost of each of its program steps | 2026-10-16 |
 
 ## Reviewer Orientation
 
@@ -26,7 +27,7 @@ Read [RFC-480](RFC-480-mantle-private-utxo-ledger.md) first: this RFC builds on 
 
 ## What the ledger guarantees
 
-The ledger guarantees that no LGO is created, that a user note moves only with the key of its holder, and that a program note moves only with the proof of its program. It also checks the opening of every program note a step creates, so that the state of the program stays available to the next sequencer. It does not check the assets of a zone. For a swap of LGO against a zone token, the users of the zone verify the inscription against the intents, and, where the zone provides it, its sequencers can slash a faulty sequencer. Mantle states this split in its [What enforces what](../bedrock-v1.1-mantle-specification.md#programs) table.
+The ledger guarantees that no LGO is created, that a user note moves only with the key of its holder, and that a program note moves only with the proof of its program. It also checks the opening of every program note a step creates, so that the state of the program stays available to the next sequencer. It does not check the assets of a zone. For a swap of LGO against a zone token, the users of the zone verify the inscription against the intents. Mantle states this split in its [What enforces what](../bedrock-v1.1-mantle-specification.md#programs) table.
 
 ## Privacy
 
@@ -41,7 +42,7 @@ Users stay hidden: payments consume notes by nullifier, and the notes a program 
 - **A custom inscription hash, or a per-step flag choosing whether a proof is bound to the inscription.** Rejected: the `op_id` of the Inscribe Operation already covers the inscription and the public data of every step without any proof, and every program proof is bound to it. No circuit has to open the inscription: LGO-only programs read `payments_hash` and `spend_notes_hash`, and the users of the zone check the rest.
 - **One zkVM verifier for every program.** Rejected for now: a Groth16 key per program reuses the stack of the ZkTransfer, on BN254 with `zkhash`, and a zone can still wrap a zkVM proof in a Groth16 circuit.
 - **Folding `program` and `data` into `public_key`.** Rejected: separate fields keep the commitment of a user note readable as such, and let the ZkTransfer and the Proof of Leadership fix them to `0` without a branch.
-- **Openings of program notes left to the sequencer, in the inscription or off chain.** Rejected: the ledger cannot see whether they were published, and a sequencer withholding the opening of a program note freezes it, since program notes are never withdrawn and no sequencer can prove a program spend over a note it cannot open. The safety of a program would hold, but not its liveness.
+- **Openings of program notes left to the sequencer, in the inscription or off-chain.** Rejected: the ledger cannot see whether they were published, and a sequencer withholding the opening of a program note freezes it, since program notes are never withdrawn and no sequencer can prove a program spend over a note it cannot open. The safety of a program would hold, but not its liveness.
 - **The state of a program stored on chain next to its key, as a public balance and state.** Rejected: program notes stay in the note set of their channel, in the same model as user notes, a program can hold many records as many notes, and the ledger needs no storage for program state nor a price for it.
 - **A registry per channel.** Rejected: a program only governs its own notes, so a global, permissionless registry is safe, and the sequencer, who often controls the channel configuration, gains no gatekeeping power.
 

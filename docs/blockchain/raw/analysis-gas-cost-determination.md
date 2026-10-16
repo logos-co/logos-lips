@@ -73,8 +73,8 @@ The gas derivation of each Operation are:
 
 ```python
 TRANSFER_GAS                  = 619
-CHANNEL_INSCRIBE_GAS          = 59 + 619 * user_steps + sum(PROGRAM_STEP_GAS of each program step)
-PROGRAM_STEP_GAS              = 619 * payments + PROGRAM_SPEND_GAS + PROGRAM_PROOF_GAS
+CHANNEL_INSCRIBE_GAS          = 59 + 619 * user_steps + sum(PROGRAM_STEP_GAS(step) for step in program_steps)
+PROGRAM_STEP_GAS(step)        = 619 * len(step.payments) + PROGRAM_SPEND_GAS + PROGRAM_PROOF_GAS
 PROGRAM_SPEND_GAS             = 619
 PROGRAM_PROOF_GAS             = 2451
 PROGRAM_REGISTER_GAS          = 1896
@@ -87,7 +87,7 @@ SDP_ACTIVE_GAS                = 59
 CLAIM_POW_REWARD_GAS          = 0
 ```
 
-and come from our implementation observations as described in [Gas determination from measures](#gas-determination-from-measures).  To get these numbers, we based our calculations on the following measures:
+where `user_steps` is the number of user steps of the inscription and `program_steps` the list of its program steps, each program step costing `PROGRAM_STEP_GAS` for its own number of payments, and come from our implementation observations as described in [Gas determination from measures](#gas-determination-from-measures).  To get these numbers, we based our calculations on the following measures:
 
 | Operation | Number of CPU cycles |
 | --- | --- |
@@ -108,6 +108,7 @@ The Execution Gas of the Transfer Operation compensates for the verification of 
 Execution: ~619k CPU cycles.
 
 - Verification of the ZkTransfer in the batch of the block: 618,797 cycles.
+
 ## Input Gas
 
 Input gas covers the computational cost of verifying that one nullifier is not in the nullifier set and that the referenced commitment root is recent. Additionally, it compensates for the insertion of the nullifier in the nullifier set.
@@ -117,6 +118,7 @@ Execution: negligible.
 - Verification that the nullifier is not in the set: negligible.
 - Verification that the commitment root is one of the last 1024 blocks: negligible.
 - Insertion of the nullifier in the nullifier set: negligible.
+
 ## Output Gas
 
 Output gas accounts for the computational resources required for the inclusion of one output commitment in the Ledger.
@@ -124,6 +126,7 @@ Output gas accounts for the computational resources required for the inclusion o
 Execution: negligible.
 
 - Appending of the commitment to the commitment MMR: negligible.
+
 ## Channel Inscription
 
 The validation process includes verifying an Eddsa25519 signature, confirming that the signer is authorized for the specified channel, checking the chaining sequence of the channel, verifying the ZkTransfer of each user step, and verifying each program step. The execution encompasses creating channel records (if not previously used), applying the steps to the channel note set and updating the tip of the channel.
@@ -155,6 +158,7 @@ Execution: ~1,896k CPU cycles.
 - Curve checks of the 5 G1 points and of the 3 G2 points: part of their decompression, not counted.
 - Pairing `e(α, β)`: 1,322,111 cycles.
 - Derivation of the program identifier and storage of the key: negligible.
+
 ## Channel Deposit
 
 The Execution Gas of the Channel Deposit Operation compensates for the verification of the [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) proof and for the check of the inputs.
@@ -199,6 +203,7 @@ Execution: ~ 678k CPU cycles.
 - Verification of the amount: negligible.
 - Insertion of the nullifiers in the nullifier set: negligible.
 - Derivation of the service note commitment: negligible.
+
 ## SDP Withdraw
 
 This gas covers a verification process that includes: confirming ownership of the provider_id through an Eddsa25519 signature, confirming the consumption of the service note through a ZkTransfer verification, and confirming that the declaration exists and has not been previously withdrawn. The validation process also ensures that the withdrawal message's nonce is greater than any previous nonce, preventing replay attacks. During execution, the system updates the declaration's status to withdrawn and consumes the service note.
@@ -212,6 +217,7 @@ Execution: ~ 678k CPU cycles.
 - Verification that the declaration wasn’t already withdrawn: negligible.
 - Verification of nonce incrementation: negligible.
 - Update declaration and insertion of the nullifier in the SDP note set: negligible.
+
 ## SDP Activation
 
 This gas funds the verification of the provider_id signature through an Eddsa25519 signature verification, validates the existence of the declaration in the system, and ensures that the active message's nonce is greater than any previous nonce to prevent replay attacks. The validation includes confirming that the declaration ID is present in the declarations dictionary and that the signature corresponds to the declaration's registered provider_id public key.
@@ -276,7 +282,13 @@ The fixed part is paid once per block for each verification key and is deducted 
 
 - The measured function is the batch verifier of the node, `groth16_batch_verify` (`zk/groth16/src/verifier.rs` in the [Rust implementation of the node](https://github.com/logos-blockchain/logos-blockchain)), on random verification keys, proofs and full-size public inputs. A verification that fails costs the same as one that succeeds.
 - The node is built with its release profile (`lto = "fat"`, `codegen-units = 1`, `opt-level = 3`), single threaded, and the process is pinned to one performance core. A build with `target-cpu=native` and the `ark-ff/asm` feature is about 8% cheaper; the gas follows the release build.
-- CPU cycles are `rdtsc` ticks, which run at a constant 2.419 GHz on this machine.
+- The machine is the one of the benchmarks of the [Proof of Leadership](cryptarchia-proof-of-leadership.md#benchmarks) and of the [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer):
+  - CPU       : 13th Gen Intel(R) Core(TM) i9-13980HX (24 cores / 32 threads)
+  - RAM       : 32GB - Speed: 5600 MT/s
+  - Motherboard: Micro-Star International Co., Ltd. MS-17S1
+  - OS        : Ubuntu 22.04.5 LTS
+  - Kernel    : 6.8.0-59-generic
+- CPU cycles are `rdtsc` ticks, which run at a constant 2.419 GHz on this CPU.
 - The batch size `n` goes from 1 to 256, for `N` = 3, 8, 27 and 29 public inputs. Each value is the minimum over 15 rounds, each round visiting every case once in a new random order.
 - `A(N)` and `P` are fitted on these measures with every point weighted by its relative error. The fit stays within 3.2% of every measured point.
 - The decompression and validation of the points of each proof, about 224k cycles, is the same for every proof and is not counted.

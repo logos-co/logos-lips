@@ -47,7 +47,7 @@
 | 1.15.0 | Add the `CLAIM_POW_REWARD` Operation and the proof of work state it is validated against; the reward pool and the difficulty controllers are specified in [Proof of Work](proof-of-work.md) | 2026-09-08 |
 | 1.16.0 | Gas Determination table updated for strict Ed25519 verification: channel Operations 56 → 59 Execution Gas per signature, `EXECUTION_SDP_DECLARE_GAS` 646 → 649, from [Gas Cost Determination](analysis-gas-cost-determination.md) 1.7.0 | 2026-09-24 |
 | 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding. | 2026-10-06 |
-| 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel. Channel notes are moved by the steps their holders sign, each proven against a recent root and the part of the transaction buffer it names, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and moved `CLAIM_POW_REWARD` to the opcode `0x30` | 2026-10-01 |
+| 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each proven against a recent root and the part of the transaction buffer it names, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and moved `CLAIM_POW_REWARD` to the opcode `0x30` | 2026-10-01 |
 | 2.1.0 | Add programs: notes gain `program` and `data` fields, `PROGRAM_REGISTER` registers a Groth16 verification key, and channel inscriptions carry program steps made of user payments, a `ZkProgramSpend`, a program proof and the openings of the program notes they create. A payment, like a user step, names the buffered commitments its proof covers. Add the proving time benchmarks of the ZkTransfer and the ZkProgramSpend | 2026-10-12 |
 
 # Introduction
@@ -119,8 +119,6 @@ Every Operation proof (zk proofs or signatures) must be cryptographically bound 
 
 - The ZkTransfer of a user step and of a payment is signed by its holder before the Mantle Transaction exists, so it is bound to its own content, through `step_msg` or `payment_msg`.
 - The ZkProgramSpend and the program proof of a program step are produced by the sequencer, and bound to the `op_id` of the inscription, which covers the public data of every step without any proof.
-
-`CLAIM_POW_REWARD` and `PROGRAM_REGISTER` carry no proof: the ticket of a claim is publicly verifiable, and a verification key needs no authorization to be registered.
 
 ```python
 mantle_txhash_fr = FiniteField(mantle_txhash, byte_order="little", modulus = p)
@@ -266,8 +264,8 @@ Mantle Validators execute each Operation in `ops` according to its opcode, in th
 | CHANNEL_DEPOSIT | 0x12 | Deposit notes into a channel |
 | CHANNEL_WITHDRAW | 0x13 | Withdraw notes from a channel |
 | *RESERVED* | *0x14 - 0x1F* |  |
-| SDP_DECLARE | 0x20 | Declare intention to participate as a node in a Bedrock Service, locking notes as collateral. |
-| SDP_WITHDRAW | 0x21 | Withdraw participation from a Bedrock Service, unlocking your notes in the process. |
+| SDP_DECLARE | 0x20 | Declare intention to participate as a node in a Bedrock Service, locking funds as collateral. |
+| SDP_WITHDRAW | 0x21 | Withdraw participation from a Bedrock Service, unlocking your note in the process. |
 | SDP_ACTIVE | 0x22 | Signal that you are still an active participant of a Bedrock Service. |
 | *RESERVED* | *0x23 - 0x2F* |  |
 | CLAIM_POW_REWARD | 0x30 | Claim a reward from the pow reward pool. |
@@ -309,9 +307,10 @@ class ChannelState:
     posting_timeout: u32    # number of slots (0 = no timeout)
 
     # Bridging
-    note_set: int           # index of the note set of the channel in ledger.sets
+    note_set: int | None    # index of the note set of the channel in ledger.sets,
+                            # None for the null channel
 
-def default_channel(block_slot: Slot, keys: list[Ed25519PublicKey], note_set: int) -> ChannelState:
+def default_channel(block_slot: Slot, keys: list[Ed25519PublicKey], note_set: int | None) -> ChannelState:
     return ChannelState(
         tip_hash = ZERO,
         config_tip_hash = ZERO,
@@ -325,10 +324,16 @@ def default_channel(block_slot: Slot, keys: list[Ed25519PublicKey], note_set: in
         note_set = note_set)
 
 def create_channel(channel_id: ChannelId, block_slot: Slot, keys: list[Ed25519PublicKey]):
-    # a new channel gets the next note set, so channels are ordered by creation
-    ledger.sets.append(empty_note_set())
-    channels[channel_id] = default_channel(block_slot, keys, len(ledger.sets) - 1)
+    if channel_id == ZERO:
+        # the null channel only receives the Genesis inscriptions and holds no note
+        channels[channel_id] = default_channel(block_slot, keys, None)
+    else:
+        # a new channel gets the next note set, so channels are ordered by creation
+        ledger.sets.append(empty_note_set())
+        channels[channel_id] = default_channel(block_slot, keys, len(ledger.sets) - 1)
 ```
+
+The null channel, whose `ChannelId` is 32 zero bytes, carries the inscriptions of the [Genesis block](bedrock-genesis-block.md) and nothing after them, since it is signed by a key no one holds. It has no note set: no Operation can deposit to it, withdraw from it or publish a step in it.
 
 Note that the user chooses the ChannelId mapping to the ChannelState (but it’s restricted to 32 bytes). We don't currently impose restrictions on it, but we may do so in the future to prevent undesirable behaviors.
 
@@ -368,15 +373,15 @@ def round_robin(block_slot: Slot, channel: ChannelState) -> (u16, u64):
 
 ### Bridging
 
-Channels let their bridged notes keep participating in Proof of Stake. When a user deposits notes into a channel, they stay on the ledger and are not turned into inert collateral. They are consumed and re-created as user notes of the channel's note set, which continue to count toward Proof of Stake and can still be used to create PoLs (see [Channel Notes](#channel-notes)). Two goals motivate this design:
+Channels let their bridged notes keep participating in Proof of Stake. When a user deposits notes into a channel, they are not turned into inert collateral. They are consumed and re-created as user notes of the channel's note set, which continue to count toward Proof of Stake and can still be used to create PoLs (see [Ledger](#ledger)). Two goals motivate this design:
 
 - **More PoS participation, stronger security.** Funds deposited into a channel would otherwise leave the staking set. Keeping them as channel notes means the capital backing the application layer also backs consensus security, so bridging does not shrink the stake that secures the chain.
 - **No split between security and application.** A user no longer has to choose between staking funds or using them in a channel. The same funds do both at once. They stay usable inside the channel while still earning Proof of Leadership rewards, so capital is never fragmented between the two.
 
 **Holders keep their notes.** A user note of a channel is owned by the holder of its `ZkPublicKey`. Only that holder can spend it, in one of two ways:
 
-- *Inside the channel*, the holder signs off chain a user step, a ZkTransfer that consumes its user notes and creates user notes of the same total value, or a payment to a [program](#programs). The sequencers of the channel collect the steps and payments of their users and publish them in a [`CHANNEL_INSCRIBE`](#channel_inscribe), in the order they choose, since a step or payment proven over notes of earlier blocks holds at any position. The ledger verifies every step, so a sequencer orders the moves of the user notes of a channel but never makes one.
-- *Out of the channel*, the holder posts a [`CHANNEL_WITHDRAW`](#channel_withdraw) alone. It takes effect `WITHDRAW_DELAY` slots later, unless an inscription of the channel consumes its notes with a valid step in the meantime.
+- *Inside the channel*, the holder signs off-chain a user step, a ZkTransfer that consumes its user notes and creates user notes of the same total value, or a payment to a [program](#programs). The sequencers of the channel collect the steps and payments of their users and publish them in a [`CHANNEL_INSCRIBE`](#channel_inscribe), in the order they choose, since a step or payment proven over notes of earlier blocks holds at any position. The ledger verifies every step, so a sequencer orders the moves of the user notes of a channel but never makes one.
+- *Out of the channel*, the holder posts a [`CHANNEL_WITHDRAW`](#channel_withdraw) alone. It takes effect `WITHDRAW_DELAY` slots later, unless an inscription of the channel consumes its notes with a valid step in the meantime. The withdrawal is the forced exit of a holder whose steps the sequencers do not publish. It also settles a holder who signs both a step and a withdrawal of the same notes optimistically: the step wins if an inscription publishes it before the withdrawal is due, and the holder has then paid the fees of the withdrawal for nothing.
 
 **Ageing.** Because a deposit and a step consume notes and create new ones, a user note of a channel restarts the ageing process and must age again before it can create a PoL. Bridged funds still count toward Proof of Stake, so the goals above hold, but the participation is not continuous across these moves.
 
@@ -410,7 +415,7 @@ A program governs notes of a channel that no single user holds, such as the rese
 | A program note is created and consumed only with the proof of its program | The ZkTransfer, which only derives commitments with `program` and `data` set to `0`; the ZkProgramSpend, whose inputs are notes of the program and whose outputs are notes of the program or user notes; the program proof, required by every program step |
 | A program step serves the intents over LGO as the rule of the program states | The program proof, which reads the payments and the notes of the program spend |
 | The opening of every note of a program is available to the next sequencer | The ledger, which checks the opening of every note of the program a step creates |
-| A program step serves the intents over the assets of the zone | The users of the zone, who verify the intents against the inscription and the zone state, and, where the zone provides it, its sequencers, who can slash a faulty sequencer |
+| A program step serves the intents over the assets of the zone | The users of the zone, who verify the intents against the inscription and the zone state |
 
 A program using LGO only, such as lending, is thus enforced by the ledger, and its users trust only the circuit of the program they pay. A program exchanging LGO with assets of the zone, such as a swap, is enforced by the ledger for its LGO only. Depending on the program, publishing the preimage of each intent in the inscription is recommended, so that the users of the zone can verify how the program step served it.
 
@@ -435,20 +440,16 @@ class UserStep:
     is_program: bool = False
     inputs: list[NoteNf]        # nullifiers of the consumed user notes of the channel
     outputs: list[NoteCm]       # commitments of the created user notes of the channel
-    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set,
-                                # extended for the proof with the first `buffered` commitments
-                                # of the tx_cm_buffer of the set
-    buffered: int               # UINT16, the number of these commitments, 0 for a step over notes
-                                # created before the Mantle Transaction
+    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set
+    buffered: int               # UINT16, the number of commitments of the tx_cm_buffer of the set
+                                # the proof covers, 0 for a step over cm_merkle_root
 
 class Payment:
     inputs: list[NoteNf]        # nullifiers of the consumed user notes of the channel
     outputs: list[NoteCm]       # commitments of the change, user notes of the channel
-    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set,
-                                # extended for the proof with the first `buffered` commitments
-                                # of the tx_cm_buffer of the set
-    buffered: int               # UINT16, the number of these commitments, 0 for a payment over notes
-                                # created before the Mantle Transaction
+    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set
+    buffered: int               # UINT16, the number of commitments of the tx_cm_buffer of the set
+                                # the proof covers, 0 for a payment over cm_merkle_root
     paid_value: TokenValue      # the value paid to the program
     intent: zkhash              # the hash of what the user expects from the program
 
@@ -459,8 +460,7 @@ class ProgramStep:
     inputs: list[NoteNf]        # nullifiers of the consumed notes of the program, possibly empty
     outputs: list[NoteCm]       # commitments of the created notes of the program and of the user notes it pays
     program_outputs: list[bool] # (len = len(outputs)) whether each output is a note of the program
-    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set,
-                                # extended with the tx_cm_buffer of the set for the proof
+    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set
     spend_notes_hash: zkhash    # the hash of the input and output notes of the program spend
 
 class Inscribe:
@@ -473,7 +473,14 @@ class Inscribe:
 
 A user step moves the user notes of its holder. A program step executes a [program](#programs): users pay it with their payments, and the program spend consumes and creates the notes of the program and pays users.
 
-A user step and a payment are signed and proven by the holder of the notes they consume, off chain and before the Mantle Transaction carrying them exists. Each names, with `buffered`, how many commitments of the buffer of the channel note set its proof covers: its ZkTransfer is verified against the referenced root extended with only the first `buffered` commitments of that buffer, those the Operations, steps and payments before it in the Mantle Transaction add first. Most steps and payments consume notes created in earlier blocks: they take `buffered = 0` and are proven against their referenced root of the channel note set alone, so their proofs hold at any position in any transaction. A sequencer can therefore collect the steps and payments of many users, all proven against the same recent root, and publish them in the order it chooses. A proof extended with the whole buffer would instead hold only at the position it was proven for: each holder would have to wait for the sequencer to fix everything before its own step or payment, and they would be proven one after another. Only a step or payment consuming a note created earlier in the same Mantle Transaction covers part of the buffer, up to that note, and must be placed after the commitments it covers. `buffered` is public, so such a step or payment reveals that its inputs are among the first `buffered` commitments of the buffer: a holder may cover more of the buffer than it needs, up to its length at the position of the step or payment, so as not to point at one note, at the cost of fixing more of the order.
+A user step and a payment are signed and proven by the holder of the notes they consume, off-chain and before the Mantle Transaction carrying them exists. Each names, with `buffered`, how many commitments of the buffer of the channel note set its proof covers: its ZkTransfer is verified against the referenced root extended with the first `buffered` commitments of that buffer, those the Operations, steps and payments before it in the Mantle Transaction add first. The proof therefore depends on the commitments it covers and not on the position of the step or payment, and the holders prove theirs independently of one another:
+
+- A step or payment over notes created in earlier blocks takes `buffered = 0`. Its proof holds at any position in any transaction, so a sequencer collects the steps and payments of many users, all proven against the same recent root, and publishes them in the order it chooses.
+- A step or payment consuming a note created earlier in the same Mantle Transaction covers the buffer at least up to that note, and is placed after the commitments it covers.
+
+A sequencer can thus build an inscription from several mini-blocks and publish them together. The steps and payments of the first mini-block take `buffered = 0`. If the Operations, steps and payments before the second mini-block add 400 commitments to the buffer, every step and payment of the second mini-block takes `buffered = 400`: it can consume the outputs of the first mini-block, and the steps and payments of the second mini-block are again ordered freely among themselves. The same holds for the next mini-blocks. Extending every proof with the whole buffer would instead tie each proof to its position: each holder would have to wait for the sequencer to fix everything before its own step or payment, and they would be proven one after another.
+
+`buffered` is public, so a step or payment whose `buffered` is not `0` reveals that its inputs are among the first `buffered` commitments of the buffer. Covering the whole of the previous mini-blocks, rather than the buffer up to its own inputs, keeps it from pointing at the notes it consumes.
 
 Since they are signed before the Mantle Transaction exists, their ZkTransfer is bound to their own content rather than to the `mantle_txhash`. A user step balances exactly, with an `excess_value` of `0`. The `excess_value` of the ZkTransfer of a payment is its `paid_value`, and the message of a payment also commits to the program it pays and to its intent, so its ZkTransfer only verifies in a step of that program, for that intent:
 
@@ -511,7 +518,7 @@ def payments_hash(step: ProgramStep) -> zkhash:
         *paid)
 ```
 
-A step applies once, since its nullifiers can be inserted only once. A program step consuming no note applies only with its inscription, to whose `op_id` its proofs are bound, and an inscription extends its channel only once.
+A program step consuming no note applies only with its inscription, to whose `op_id` its proofs are bound, and an inscription extends its channel only once.
 
 #### Proof
 
@@ -571,15 +578,16 @@ block_slot: Slot
           # Ensure message is continuing the channel sequence
           assert msg.parent == chan.tip_hash
 
-          note_set = ledger.sets[chan.note_set]
+          note_set = ledger.sets[chan.note_set] if chan.note_set is not None else None
       else:
           # Channel will be created automatically upon execution
           # Ensure that this message is the genesis message (parent == ZERO)
           assert msg.parent == ZERO
 
-          note_set = empty_note_set()  # the note set the channel gets at its creation: the notes
-                                       # its steps create are consumed by the next steps of the
-                                       # inscription, or from the next block on
+          # the note set the channel gets at its creation, none for the null channel: the notes
+          # its steps create are consumed by the next steps of the inscription, or from the next
+          # block on
+          note_set = empty_note_set() if msg.channel != ZERO else None
       ```
 
   2. Ensure the signature of the signer.
@@ -587,8 +595,9 @@ block_slot: Slot
       assert Ed25519_verify(txhash, msg.signer, proof.signature)
       ```
 
-  3. Ensure there is one proof per step.
+  3. Ensure the null channel, which has no note set, receives no step, and that there is one proof per step.
       ```python
+      assert note_set is not None or len(msg.steps) == 0
       assert len(proof.step_proofs) == len(msg.steps)
       op_id_fr = FiniteField(op_id, byte_order="little", modulus=p)
       step_nfs = set()  # the nullifiers of the steps already validated
@@ -672,7 +681,8 @@ block_slot: Slot
                                               step_proof,
                                               step.buffered)
 
-          # Append the outputs of the step to the buffer, so the next steps are verified with them.
+          # Append the outputs of the step to the buffer: the next program spends cover them,
+          # and the next user steps and payments can cover them with their buffered.
           note_set.tx_cm_buffer.extend(step.outputs)
       ```
 
@@ -698,8 +708,8 @@ block_slot: Slot
 
   2. Apply the steps, in their order: the payments of a program step, then its program spend.
       ```python
-      note_set = ledger.sets[channels[msg.channel].note_set]
       for step in msg.steps:
+          note_set = ledger.sets[channels[msg.channel].note_set]
           if step.is_program:
               for payment in step.payments:
                   note_set.execute_spending(payment.inputs)
@@ -864,8 +874,7 @@ A Zone that credits a deposit in its own state must be sure the deposit really l
 class ChannelDeposit:
     channel: ChannelId
     inputs: list[NoteNf]        # nullifiers of the consumed notes of the ledger note set
-    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the ledger note set,
-                                # extended with the tx_cm_buffer of the set for the proof
+    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the ledger note set
     outputs: list[NoteCm]       # commitments of the created notes of the channel note set
     excess_value: TokenValue    # the excess to pay the fees
     metadata: bytes
@@ -904,9 +913,10 @@ ledger: Ledger
       assert len(deposit.metadata) <= MAX_OPERATION_DATA_SIZE
       ```
 
-  2. Verify that the channel exist
+  2. Verify that the channel exist and has a note set, which the null channel has not.
       ```python
       assert deposit.channel in channels
+      assert channels[deposit.channel].note_set is not None
       ```
 
   3. Ensure all inputs are spendable in the ledger note set.
@@ -964,8 +974,7 @@ WITHDRAW_DELAY: Slot = 86_400  # 1 day
 class ChannelWithdraw:
     channel: ChannelId
     inputs: list[NoteNf]        # nullifiers of the consumed notes of the channel note set
-    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set,
-                                # extended with the tx_cm_buffer of the set for the proof
+    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set
     outputs: list[NoteCm]       # commitments of the notes created in the ledger note set
 ```
 
@@ -998,10 +1007,11 @@ ledger: Ledger
 
   *Validate*
 
-  1. Check that the channel exists
+  1. Check that the channel exists and has a note set, which the null channel has not.
       ```python
       assert withdrawal.channel in channels
       chan = channels[withdrawal.channel]
+      assert chan.note_set is not None
       ```
 
   2. Ensure all inputs are spendable in the channel note set.
@@ -1660,8 +1670,7 @@ class Transfer:
     inputs: list[NoteNf]  		# the list of consumed note nullifiers
                           		# must be non-empty
     outputs: list[NoteCm]       # the list of created note commitments
-    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the ledger note set,
-                                # extended with the tx_cm_buffer of the set for the proof
+    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the ledger note set
     excess_value: TokenValue	# the excess to pay the fees
 ```
 
@@ -1797,10 +1806,6 @@ These note commitments and nullifiers uniquely define notes in the system. Nodes
 
 Service notes are special notes in Mantle that serve as collateral for Service Declarations. Executing a Declare Operation consumes notes of the ledger note set and creates one service note under the declaration's `zk_id` in the SDP note set, its commitment kept with the declaration. A note of the SDP note set is spent only by the Withdraw Operation of its declaration, and the notes that withdrawal creates enter the ledger note set when the declaration is removed. Service notes participate in Proof of Stake.
 
-### Channel Notes
-
-Channel notes are the notes of the note set of a channel, created by deposits and by the steps of the channel's inscriptions. They are spent only by the steps of the channel's inscriptions and, for the user notes, by withdrawals. The user notes of a channel participate in Proof of Stake, while its program notes do not, since the Proof of Leadership derives the commitment of its note with `program` and `data` set to `0`.
-
 ## Ledger
 
 The notes live in note sets, each with its own commitment MMR and nullifier IMT. A note belongs to one set from its creation until it is consumed, and is spent only by the Operations of that set:
@@ -1809,7 +1814,7 @@ The notes live in note sets, each with its own commitment MMR and nullifier IMT.
 | --- | --- | --- | --- |
 | Ledger | `LEDGER_SET = 0` | the notes of transfers, rewards and withdrawals | Transfers, deposits and declarations |
 | SDP | `SDP_SET = 1` | service notes | the Withdraw Operation of their declaration |
-| Channel | `2` onward, in the order the channels were created | channel notes, user and program notes | the steps of the channel's inscriptions, and the withdrawals of user notes |
+| Channel | `2` onward, in the order the channels were created, the null channel having none | channel notes, user and program notes | the steps of the channel's inscriptions, and the withdrawals of user notes |
 
 ```python
 class NoteSet:
@@ -2231,10 +2236,7 @@ The material used for the benchmarks is the following:
 
 ## Multiple Ed25519 Signatures Verification
 
-The [Channel Configuration](#channel_config) authorizes an action with a threshold of
-Ed25519 signatures produced by a list of accredited keys. Each signature comes
-with the index, in the accredited keys list, of the key that produced it. The
-verification is factored out in the following routine:
+The [Channel Configuration](#channel_config) authorizes an action with a threshold of Ed25519 signatures produced by a list of accredited keys. Each signature comes with the index, in the accredited keys list, of the key that produced it. The verification is factored out in the following routine:
 
 *Given*
 

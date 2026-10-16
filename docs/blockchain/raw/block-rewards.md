@@ -35,13 +35,13 @@
 
 # Introduction
 
-This document specifies how many tokens each block of the Logos Blockchain distributes as rewards. The reward of a block combines two sources: a release from the LGO rewards reserve allocated at genesis, and the average of the transaction fees pooled over the last blocks, paid back out. An emission rate factor, driven by network Key Performance Indicators (KPIs), sets the balance between the two.
+This document specifies how many tokens each block of the Logos Blockchain distributes as rewards. The reward of a block combines two sources: a release from the LGO rewards reserve allocated at genesis, and the average of the transaction fees pooled over the last blocks, paid back out. An emission rate factor, driven by network Key Performance Indicators (KPIs), sets the balance between the two. The leader of a block receives its share of the reward, with the tips of the block, in the block itself; only the Blend service waits for the end of its epoch.
 
 The two KPIs are the inferred total stake, as a security indicator, and the average fee pooling rate, to keep the supply in equilibrium. The resulting model has the following properties:
 
 - The release from the reserve is higher while the stake is below its target, to bootstrap network participation, and is capped at $`1\%`$ of the maximum supply per year.
 - The release from the reserve decreases as the pooled fees grow, so that block rewards are funded primarily by the fees in the long run.
-- No token is ever minted: the reward moves tokens between the reserve, the rewards pool and the circulating supply.
+- No token is ever minted: the maximum supply is fixed at genesis as the initial distribution, the rewards reserve and the proof of work reward pool, and the reward moves tokens between the reserve, the rewards pool and the circulating supply.
 
 How the reward of a block is divided between the block leader and the Blend service is specified in [Blend Service and Consensus Leaders](overview-cryptoeconomics.md#blend-service-and-consensus-leaders).
 
@@ -49,7 +49,7 @@ How the reward of a block is divided between the block leader and the Blend serv
 
 ## Key Principles
 
-- Fee pooling: All transaction fees (execution base fees and permanent storage fees) are collected into a rewards pool, rather than directly given to block proposers.
+- Fee pooling: The execution base fees and permanent storage fees of every block are collected into a rewards pool, less the share diverted to the proof of work reward pool. Each block pays out of the pool and the reserve a reward based on the average of the pooled fees over the look-back window $`T`$: 40% of it goes to the leader of the block, in the block itself, together with the tips of the block, and 60% to the Blend service, paid at the end of its epoch. The fees thus reach the leaders directly, smoothed over $`T`$ blocks.
 - Reserve release: The rewards are topped up by releasing tokens from a reserve pre-allocated from the fixed supply cap, not by minting.
 - KPI driven: The balance between the reserve release and the pooled fees is computed at each block from the inferred total stake and the moving average of the pooled fees over the look-back window $`T`$.
 - Global metrics over local signals: The reward follows network-wide KPIs and averages, rather than the fees of a single block, which its leader could steer.
@@ -154,7 +154,7 @@ The following behavior is expected:
 - When the KPIs are far from their targets, $`A_t \rightarrow 1`$, the reward is the maximum reserve release of a block $`I_{max} \cdot S_{cap} \cdot \Delta_t`$, and the pool keeps the fees.
 - When the KPIs are close to their targets, $`A_t \rightarrow 0`$, the reserve release vanishes and the reward settles at the average pooled fees $`\bar{R}_t`$, paid back.
 
-The recycled component distributes the average pooled reward $`\bar{R}_t`$, rather than the single-block fee $`R_\text{block}`$, which smooths it across the window $`T`$: a fee a leader pays in its own block is mostly paid out to the leaders of the next blocks. Rearranging the equation isolates the role of the reserve release:
+The recycled component distributes the average pooled reward $`\bar{R}_t`$, rather than the single-block fee $`R_\text{block}`$, which smooths it across the window $`T`$: the leader of a block is paid from the fees of the last $`T`$ blocks, its own included, so a rise of the fees raises the reward of the leaders gradually, and a leader paying fees in its own block gets back only a small share of them. Rearranging the equation isolates the role of the reserve release:
 
 $$
 R_t = \bar{R}_t + A_t \cdot \left( I_{max} \cdot S_{cap} \cdot \Delta_t - \bar{R}_t \right).
