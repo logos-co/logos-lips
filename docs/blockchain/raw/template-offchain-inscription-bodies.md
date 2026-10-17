@@ -145,19 +145,29 @@ The results are a floor, not a forecast: they measure the protocol with provider
 
 ## First Measurements
 
-Logos Storage is live on the testnet: the Basecamp application (0.3.2) downloads its packages over it, through the Storage module (3.0.2) and the `logos-storage-nim` node (0.5.3), with an HTTPS fallback. That makes the plan above measurable against a running system rather than a mock. A first round was taken with the prebuilt 0.5.3 node, two nodes on one laptop behind a home NAT, on the `logos.dev` and `logos.test` networks. The numbers are preliminary and will be replaced by the controlled testbed; they are recorded because two of them already shape the design.
+Logos Storage is live on the testnet: the Basecamp application (0.3.2) downloads its packages over it, through the Storage module (3.0.2) and the `logos-storage-nim` node (0.5.3), with an HTTPS fallback. That makes the plan above measurable against a running system rather than a mock. Two rounds were taken with node 0.5.3 against the `logos.dev` and `logos.test` networks, from a laptop (Apple M3) and from a Raspberry Pi 5 (Cortex-A76, 8 GB, Wi-Fi), both on a home connection. The numbers are preliminary and will be replaced by the controlled testbed; they are recorded here because the problems met on the way shape the design as much as the numbers do.
+
+**Problems met.**
+
+1. *The published arm64 binaries do not run on a Pi 5.* The 0.5.3, 0.5.1 and 0.4.5 `linux-arm64` releases fail with `SIGILL` before `main`: the release workflow disables `-march=native` only for linux/amd64, so the arm64 build is compiled for the ARMv9 GitHub runner. Building the 0.5.3 tag with `-d:disableMarchNative` works.
+2. *Home connections are not reachable.* The laptop's router created a UPnP mapping that AutoNAT never confirmed; the Pi's connection turned out to be behind carrier-grade NAT (a 100.64/10 WAN address), where no port forward can work and `--nat=extip` only advertises an unreachable address. Both ended up with relayed addresses only. For the pattern this is the reachability condition stated under Interim Deployment; for the measurements it means every live number below was taken between two relay-only nodes.
+3. *Relayed transfers are capped.* Between two nodes with no direct path, every connection runs through a fleet circuit relay, and the libp2p relay's default limit of 128 KiB per circuit decides the outcome: one 64 KiB block passes, a succinct receipt does not. Only hole punching lifts this, and it succeeded for the Pi (a direct connection through the carrier NAT) but never for the laptop.
+4. *Downloads stall when the provider is not among the first swarm peers.* With a direct path in place the Pi's downloads still delivered nothing: the trace shows the provider answering every want-have with the block range it holds while the reader keeps reporting that no peer has the range. In 0.5.3 the download swarm admits the first 16 randomly ordered connected peers with unknown availability, does not evict peers that do not have the data, and silently refuses the provider once full. On a network with more than 16 connected peers a download succeeds only if the provider happens to be admitted first. Capping the reader at `--max-peers=16` works around it, and is how the live numbers were obtained. Upstream issue logos-storage/logos-storage-nim#1556 reports an adjacent discovery problem (providers found by the DHT discarded once the lookup times out).
+
+**Numbers.**
 
 | Quantity | Observed | Setting |
 | --- | ---: | --- |
-| Discovery: upload on one node to manifest resolvable on the other | 14–144 s, typically 30–40 s | live DHT, both networks, 9 trials |
-| Download, 64 KiB (one block) | 3–4 s | live network, through a circuit relay |
-| Download, 128 KiB to 30 MB | mostly fails | live network, through a circuit relay (limit 128 KiB per circuit) |
-| Download, 200 KB | 0.11 s | private two-node network, no relay, loopback |
-| Download, 3 MB | 0.37 s | same |
-| Download, 30 MB | 2.9 s (about 11 MB/s) | same |
-| Manifest resolution | 50 ms | same |
+| Discovery: upload on one node to manifest resolvable on another | 14–144 s, typically 30–40 s | laptop, live DHT, both networks, 9 trials |
+| Discovery, same | 0.4–30 s, median about 4 s | Pi, live DHT, reader bootstrapped from the writer, 12 trials |
+| Download over a circuit relay, 64 KiB | 3–4 s | laptop, live network |
+| Download over a circuit relay, 128 KiB to 30 MB | mostly fails | laptop, live network (relay limit, problem 3) |
+| Download over a hole-punched direct path, 200 KB | 3.5 s | Pi, live network, `--max-peers=16` |
+| Download over a hole-punched direct path, 3 MB | 8.6 s (2 of 3; one lookup timed out) | same |
+| Download over a hole-punched direct path, 30 MB | 74 s (61–129 s), about 0.4 MB/s | same; traffic leaves and re-enters the carrier network over Wi-Fi |
+| Protocol floor, 200 KB / 3 MB / 30 MB | 0.11 s / 0.37 s / 2.9 s (laptop); 0.08 s / 0.31 s / 4.7 s (Pi) | private two-node network, no relay, loopback |
 
-What the two settings say. Over the live network the laptop's nodes never obtained a verified direct address (a UPnP mapping was created, AutoNAT did not confirm it), so every connection between them went through the network's relays, and the relays' per-circuit data limit decided the outcome: one block passes, a succinct receipt does not. The private network measures the protocol with no network in between: block exchange delivers a composite-receipt-sized body in well under a second and a 30 MB block of such bodies in a few seconds, so the protocol's own cost is not the constraint. The live-network transfer time for bodies above one block is therefore still unmeasured, and the next round is set up to measure it: one node with a public address (a Raspberry Pi 5 behind a port forward, the reference platform of the other measurement reports), payloads at the three receipt sizes and a 30 MB block, the laptop as the empty reader; then the same through Mix, using the Mix relay configuration the Storage module ships per network; then receipt verification on the reader.
+What the two settings say. The protocol itself is not the constraint: block exchange delivers a composite-receipt-sized body in a third of a second and a 30 MB block of such bodies in a few seconds when nothing sits between the nodes, on the Pi as on the laptop. On the live network the time is set by reachability and by the engine's peer handling, and the pessimistic path measured here (two nodes behind the same carrier NAT, hole-punched, over Wi-Fi) still fetches a succinct receipt in under four seconds and a composite one in under ten. What remains unmeasured is the representative case, a directly reachable provider and a reader elsewhere, which needs a node with a public address; the home connections used here cannot provide one. The next round uses such a node, repeats these sizes with and without the swarm workaround, then the same through Mix, then receipt verification on the reader.
 
 # Open Questions
 
