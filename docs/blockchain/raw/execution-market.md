@@ -27,7 +27,7 @@
 | 1.1.1 | Precise that greedy inclusion selects a candidate only if it is valid in the state the already selected transactions leave | 2026-08-24 |
 | 1.1.2 | Changing from burning/minting to pooling/distributing | 2026-08-26 |
 | 1.2.0 | The base fee is routed to the rewards pool less the share diverted to the proof of work reward pool | 2026-08-31 |
-| 1.3.0 | The priority fees of a block are paid to its builder in the block, within its leader reward. $`G_\text{max}`$ and $`G_\text{target}`$ follow the Execution Gas limit derived from the measured batch verification of the ZkTransfer | 2026-10-07 |
+| 1.3.0 | The priority fees of a block are paid to its builder in the block, within its leader reward. $`G_\text{max}`$ and $`G_\text{target}`$ follow the Execution Gas limit derived from the measured batch verification of the ZkTransfer. The initial base fee of 1 LGO is $`10^9`$ units of `TokenValue` | 2026-10-07 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -96,7 +96,7 @@ A critical feature of this design is its resilience to the base fee manipulation
 | $t$ | Transaction | - | A single transaction submitted by a user. |
 | $`g_t`$ | Execution Gas Consumed | - | The actual amount of Execution Gas consumed by transaction $t$ upon execution. |
 | $`c_t`$ | Execution Gas Price | - | The user-specified price per unit of execution gas they will pay. |
-| $`b_{\mathrm{exec}}[s]`$ | Base Fee | - | The protocol-defined Execution Gas price for inclusion in block $s$. This is initialized at 1 for the first block. |
+| $`b_{\mathrm{exec}}[s]`$ | Base Fee | - | The protocol-defined Execution Gas price for inclusion in block $s$. This is initialized at 1 LGO, $`10^9`$ units of `TokenValue`, for the first block. |
 | $`p_t`$ | Priority Fee | - | The portion of the Execution Gas price that serves as a tip to the block builder ($`p_t = c_t - b_{\mathrm{exec}}[s]`$). |
 | $G[s]$ | Total Execution Gas Used | - | The sum of Execution Gas consumed by all transactions in block $s$. |
 | $`G_{\mathrm{avg}}[s]`$ | Smoothed Average Execution Gas | - | The Exponential Moving Average (EMA) of Execution Gas used up to block $s$. |
