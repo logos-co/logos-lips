@@ -36,6 +36,7 @@
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
 | 1.6.0 | Replaced the per-window statistical threshold on a connection with a share of messages a node reads from, and sends on, each connection in a round, and a liveness test, kept per identity for the epoch, on whether a neighbor delivers. Held the peering degree in live connections, at least two of them opened by the node. Restricted blacklisting to attributable faults. Sized the shares from the processing rate of the slowest node, derived the transactions the network carries from them, and made that rate the reference load of the Blend difficulty. | 2026-09-08 |
 | 1.6.1 | Corrected Blend activity metadata to the canonical tagged encoding: removed the separate version byte and corrected the total size to 229 bytes. | 2026-10-13 |
+| 1.6.2 | Updated the encapsulation-overhead calculation to the `Max_Payload_Length` of 17715 bytes, following the removal of the leader key and of the signatures from block proposals. The leader reward is referenced in [Block Execution](bedrock-v1.1-block-construction.md#block-execution). The base reward is rounded down, and none is calculated without an activity proof | 2026-10-14 |
 
 # Introduction
 
@@ -230,7 +231,7 @@ A payload the Blend network fails to deliver is broadcast directly by its sender
 
 A node must be encouraged to follow the protocol, which means that it must be rewarded for the contribution it is making. Otherwise, honest nodes might become lazy nodes, nodes that are not motivated to follow the protocol due to a lack of incentives. In simple terms, a lazy node will not work until it gets paid. Therefore, we motivate the following set of protocol actions:
 
-1. **Message generation**: a node must be motivated to generate messages according to the protocol, where generation means that a new message is created that is not the outcome of the processing. This is especially important for cover messages. Data messages already incentivize the node that is generating them: a block proposal rewards its sender directly through the consensus-defined rewarding mechanism ([Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md)), and a transaction is sent because its sender wants it included in a block.
+1. **Message generation**: a node must be motivated to generate messages according to the protocol, where generation means that a new message is created that is not the outcome of the processing. This is especially important for cover messages. Data messages already incentivize the node that is generating them: a block proposal rewards its sender directly through the consensus-defined rewarding mechanism ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), and a transaction is sent because its sender wants it included in a block.
 2. **Message relaying**: a node must be motivated to relay every received message, where relaying means that a node forwards all messages it received to its neighbors to deliver messages to their next destinations (blend nodes).
 3. **Message processing**: a node must be motivated to process every received message, where processing means that a node has decapsulated and delayed the message.
 4. **Message broadcasting**: a node must be motivated to broadcast any data message it processed, where broadcasting means that a node sends the processed message to the Logos Blockchain network broadcasting channel.
@@ -845,7 +846,7 @@ A node $`n`$ constructs a message $`\mathbf M = (\mathbf H, \mathbf h, \mathbf P
 
 3. $`\mathbf P`$ is a payload.
 
->**Encapsulation Overhead Calculation:** Assuming that we use Groth16 SNARKs as a proving system, we need $`160`$ bytes per PoQ ($`128`$ for proof and $`32`$ for nullifier) quota. Which gives us $`289`$ bytes per hop (proof of quota $`160`$ bytes + proof of selection $`32`$ bytes + public key $`32`$ bytes + signature $`64`$ bytes + last flag $`1`$ byte) plus $`256`$ bytes for the public header. Which for $`3`$ hops gives us $`1123`$ bytes in total. That is added to the payload being encapsulated, which is `Max_Payload_Length` = $`18195`$ bytes ([Message Formatting](message-formatting.md)): the padded `Max_Body_Length` of [Payload Formatting](payload-formatting.md), set from the maximum size of the block proposal defined in [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md), plus the 3-byte payload header. The encapsulation therefore adds $`\approx 6.2\%`$.
+>**Encapsulation Overhead Calculation:** Assuming that we use Groth16 SNARKs as a proving system, we need $`160`$ bytes per PoQ ($`128`$ for proof and $`32`$ for nullifier) quota. Which gives us $`289`$ bytes per hop (proof of quota $`160`$ bytes + proof of selection $`32`$ bytes + public key $`32`$ bytes + signature $`64`$ bytes + last flag $`1`$ byte) plus $`256`$ bytes for the public header. Which for $`3`$ hops gives us $`1123`$ bytes in total. That is added to the payload being encapsulated, which is `Max_Payload_Length` = $`17715`$ bytes ([Message Formatting](message-formatting.md)): the padded `Max_Body_Length` of [Payload Formatting](payload-formatting.md), set from the maximum size of the block proposal defined in [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md), plus the 3-byte payload header. The encapsulation therefore adds $`\approx 6.3\%`$.
 
 ### Formatting
 
@@ -1106,8 +1107,8 @@ The node rewards for epoch $`s`$ are calculated according to the following schem
     This value is used for calculating the premium reward, which is paid for all active nodes that have their activity proofs closest to the epoch randomness.
 
 4. Calculate the base reward:
-    $$R = {I \over B + P}$$
-    where $`I`$ is the value of income for the Blend Network service for the epoch $`s`$.  For more details about the income calculation, refer to linked reference.
+    $$R = \left\lfloor {I \over B + P} \right\rfloor$$
+    where $`I`$ is the value of income for the Blend Network service for the epoch $`s`$. No reward is calculated when $`B + P = 0`$.  For more details about the income calculation, refer to linked reference.
 
 5. Calculate the reward of the node $`n`$:
     $$R(n) = R \cdot [\mathrm{true}(\pi_{A}^{i,t,e}) + \min_{\Delta_{\mathcal H}}(\mathrm{true}(\pi_{A}^{i,t,e}))]$$

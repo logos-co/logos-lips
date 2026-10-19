@@ -26,7 +26,7 @@
 | 1.0.2 | Fix invalid python indentation due to github migration | 2026-07-27 | 
 | 1.1.0 | Round the price update upwards and align the reference code with the zero target guard | 2026-07-28 |
 | 1.1.1 | Changing from burning/minting to pooling/distributing/releasing | 2026-08-25 |
-| 1.2.0 | The storage fee is routed to the rewards pool less the share diverted to the proof of work reward pool | 2026-08-31 |
+| 1.2.0 | The storage fee is routed to the rewards pool less the share diverted to the proof of work reward pool. The initial price of 1 LGO per Permanent Storage Gas is $`10^9`$ units of `TokenValue` | 2026-08-31 |
 
 > **Disclaimer:**
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -135,7 +135,7 @@ To ensure on-chain efficiency, the protocol shall use an Exponential Moving Aver
     
     For example, if $`P_{\text{storage}}(0)`$ is set to one tenth of the true equilibrium price, the mechanism reaches $`P^*`$ within at most $\lceil \ln(10)/\ln(1.125) \rceil = 20$ epochs. Starting
     one hundredth below requires at most $40$ epochs. Both are negligible relative to the expected lifetime of the network.
-    We therefore set $`P_{\text{storage}}(0) = 1\ \text{LGO per Permanent Storage Gas}`$.
+    We therefore set $`P_{\text{storage}}(0) = 1\ \text{LGO per Permanent Storage Gas}`$, $`10^9`$ units of `TokenValue`.
 
     This corresponds to a cost of 1 LGO per permanently stored byte. Genesis governance may adjust this value based on the LGO price at TGE, but the adjustment has no long-term consequence: the mechanism will converge to the true market price $`P^*`$ within $`O(\log P^*/P_{\text{storage}}(0))`$ epochs regardless.
 
@@ -235,7 +235,7 @@ def update_storage_fee(total_gas_consumed: int, prev_price: int, prev_usage: int
     return price, usage
 ```
 
-The two rounding directions are not interchangeable. The price is multiplied by a factor smaller than one whenever usage falls below the target, so rounding it downwards would make 0 an absorbing state: the initial price $`P_{\mathrm{storage}}(0)=1`$ would be mapped to 0 by the first downward adjustment, and every subsequent update would keep it at 0, making Permanent Storage permanently free. Rounding upwards makes 1 LGO per Permanent Storage Gas the effective floor of the price and leaves the mechanism unchanged at every other price level, as the rounding error is at most one unit against an adjustment of up to $\pm 12.5\%$. The usage EMA is a measurement rather than a price and is not subject to this failure mode, as it is additive and recovers from 0 as soon as usage resumes. Rounding it upwards would instead pin it at 1 once it has been positive, reporting residual demand on an idle market.
+The two rounding directions are not interchangeable. The price is multiplied by a factor smaller than one whenever usage falls below the target, so rounding it downwards would make 0 an absorbing state: a price of 1 would be mapped to 0 by the first downward adjustment, and every subsequent update would keep it at 0, making Permanent Storage permanently free. Rounding upwards makes $`10^{-9}`$ LGO per Permanent Storage Gas the effective floor of the price and leaves the mechanism unchanged at every other price level, as the rounding error is at most one unit against an adjustment of up to $\pm 12.5\%$. The usage EMA is a measurement rather than a price and is not subject to this failure mode, as it is additive and recovers from 0 as soon as usage resumes. Rounding it upwards would instead pin it at 1 once it has been positive, reporting residual demand on an idle market.
 
 ### Genesis State
 

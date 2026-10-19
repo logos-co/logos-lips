@@ -27,6 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-12-09 |
 | 1.1.0 | Remove the protection against adaptive adversary from PoL removing a non-enforced feature, simplifying work for engineers, improving UX and performances of PoL and PoQ. Update the performance according to the new circuit. Remove the notion of NOMOS in DSTs | 2026-01-29 |
 | 1.1.1 | Introduced a discussion for when the value of a participating note is way higher than the total estimated stake | 2026-06-24 |
+| 1.2.0 | Support the private ledger of Mantle: a note is eligible from any note set of the ledger, committed together in the eligible root, and proven unspent by the non-membership of its nullifier. The proof is bound to its block by `msg`, a hash of the block header, replacing the leader key. The commitment and nullifier paths have the depth 40 of the note sets, and the eligible tree has depth 40 too, as every channel adds a note set and is created at no Execution Gas | 2026-10-06 |
 
 # Introduction
 
@@ -50,10 +51,10 @@ The PoL mechanism ensures that a note has legitimately won the leadership electi
 - Setup: The note becomes eligible for PoS when it has aged sufficiently.
 - PoL generation:
   1. First, check if the note is winning by simulating the lottery
-  2. Prove the membership of the note identifier in an old snapshot of the Mantle Ledger, proving its age and its existence.
-  3. Prove the membership of the note identifier in the most recent Mantle ledger, proving it’s unspent.
+  2. Prove the membership of the note commitment in an old snapshot of its note set, proving its age and its existence.
+  3. Prove the non-membership of its nullifier in the most recent nullifier set of the same note set, proving it's unspent.
   4. Prove that the note won the PoS lottery.
-  5. The proof is bound to a cryptographic public key used for signing the leader’s proposed blocks.
+  5. The proof is bound to the header of the proposed block through `msg`.
 
 ## Comparison with Original Crypsinous PoL
 
@@ -61,8 +62,7 @@ Our description differs from the original paper proposition, proving that a note
 
 ### Advantages
 
-1. The ledger isn’t required to be private using shielded notes.
-	- Validators don’t need to maintain a nullifier list.
+1. The nullifier of the winning note is never revealed.
 	- Leaders keep their privacy unlinking their stake, block and PoL.
 
 2. There is no leader note evolution mechanism anymore ([see the paper](https://eprint.iacr.org/2018/1132.pdf) for details)
@@ -75,122 +75,148 @@ Our description differs from the original paper proposition, proving that a note
 
 # Protocol
 
-## Ledger Root
+## Eligible Sets
 
-In order to prove that the winning note exists in the ledger and existed at the start of the previous epoch, every node must compute two ledger commitments. These commitments $`ledger_{AGED}`$ and $`ledger_{LATEST}`$ are Merkle roots constructed over the Note IDs. The trees have a depth of $`32`$ (32 layers without counting the root) and are populated with note IDs, that is, the tree has a maximal capacity of $`2^{32}`$ note IDs. The value $`0`$ represents an empty leaf. When the set is updated, during insertion, the first empty leaf is replaced with the new note ID, and during deletion, the leaf containing the deleted note ID is replaced with $`0`$. The following pseudo-code shows how the tree is managed:
+In order to prove that the winning note exists and existed at the start of the previous epoch, and that it is unspent, every node must compute the eligible root.
+
+Every [note set](bedrock-v1.1-mantle-specification.md#ledger) of the Mantle Ledger is eligible: the ledger note set, the SDP note set and the note set of every channel. The eligible root commits to all of them. It is the root of a Merkle tree of depth $`40`$ whose leaf at position $`i`$ hashes the root of the commitment MMR and the root of the [nullifier IMT](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of the note set of index $`i`$, every position past the last note set holding the value $`0`$, a capacity that blocks full of channel creations take about 55 years to fill:
 
 ```python
-def insert_new_note(note_set: list[NoteId], new_note: NoteId):
-    i = 0
-    while i < len(note_set) and note_set[i] != 0:
-        i += 1
-    if i < len(note_set):
-        note_set[i] = new_note
-    else:
-        note_set.append(new_note)
-    return note_set
+def eligible_leaf(cm_root: MerkleRoot, nf_root: MerkleRoot) -> zkhash:
+    return zkhash(
+        FiniteField(b"ELIGIBLE_SET_LEAF_V1", byte_order="little", modulus= p),
+        cm_root,
+        nf_root
+    )
 
-def delete_note(note_set: list[NodeId], note: NoteId):
-    i = 0
-    while i < len(note_set) and note_set[i] != note:
-        i += 1
-
-    if i == len(note_set):
-        # note not in the set
-        return note_set
-
-    note_set[i] = 0
-    return note_set
-
-def empty_tree_root(depth: int):
-    root = 0
-    for i in range(depth):
-        h = hasher()   # zk hash
-        h.update(root)
-        h.update(root)
-        root = h.digest()
-    return root
-
-def get_ledger_root(note_set: list[NoteId]):
-    assert(len(note_set) < 2**32)
-    ledger_root = get_merkle_root(note_set)  # return the Merkle root of the set
-                                             # padded with 0 to next power of 2
-    ledger_root_height = len(note_set).bit_length()
-    for height in range(ledger_root_height, 32):
-        h= Hasher()    # zk hash
-        h.update(ledger_root)
-        h.update(empty_tree_root(height))
-        ledger_root = h.digest()
-    return ledger_root
+def eligible_root(sets: list[NoteSet]) -> MerkleRoot:
+    assert len(sets) < 2**40
+    leaves = []
+    for note_set in sets:
+        # the root of the commitment MMR and the root of the nullifier IMT of the set
+        leaves.append(eligible_leaf(note_set.cm_root(), note_set.nf_root()))
+    # Merkle root of depth 40 over the leaves, every position past the last note set holding 0
+    return get_merkle_root(leaves, depth=40)
 ```
 
-  The ledger root may not be unique because the note Ids set can cycle. Indeed, even if it’s not possible to insert the same note Id twice, it’s possible to cycle on a previous set state by removing notes. However, note Ids uniqueness guarantees protection against attacks on note aging.
+The first leaf is the ledger note set, the second the SDP note set, and the next ones the channels in the order they were created. Its root when the stake distribution was frozen is $`eligible_{AGED}`$, and its latest root is $`eligible_{LATEST}`$.
+
+A note is proven aged by the membership of its commitment in the commitment MMR of its note set under $`eligible_{AGED}`$, and unspent by the non-membership of its nullifier in the nullifier IMT of the same note set under $`eligible_{LATEST}`$.
 
 ## Zero-knowledge Proof Statement
 
-![Diagram](cryptarchia-proof-of-leadership/assets/2e9261aa-09df-80d6-b61f-d8881f0b0425.png)
+A proof attesting that for the following public values:
 
-### Circuit Public Inputs
+```python
+class ProofOfLeadershipPublic:
+    slot: int                       # sl
+    epoch_nonce: zkhash             # eta
+    t0: FrElement                   # lottery constants
+    t1: FrElement
+    eligible_aged: MerkleRoot       # eligible root when the stake distribution was frozen
+    eligible_latest: MerkleRoot     # latest eligible root
+    msg: zkhash                     # hash of the header of the proposed block
+    entropy_contribution: zkhash    # rho_LEAD
+```
 
-The prover (the leader) and the verifiers (nodes of the chain) must agree on these values:
+The epoch nonce is defined in [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce) and the aged root in [Epoch State Pseudocode](cryptarchia-v1-protocol.md#epoch-state-pseudocode). The lottery constants are computed with high precision outside the proof (see [Lottery Approximation](#lottery-approximation)), and `msg` binds the proof to the proposed block (see [Linking the Proof of Leadership to a Block](#linking-the-proof-of-leadership-to-a-block)).
 
-1. The slot number: $`sl`$.
-2. The epoch nonce: $`\eta`$.
-	- For details see [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce).
+The prover knows a witness:
 
-3. The lottery function constants: $`t_0 = -\frac{\text{VRF}\_order \ln(1-f)}{\text{inferred\_total\_stake}}`$ and $`t_1=- \frac{\text{VRF}\_order\ln^2(1-f)}{2 \cdot \text{inferred\_total\_stake}^2}`$.
-	- For details see [Lottery Approximation](#lottery-approximation).
-	- These numbers must be computed with high precision outside the proof.
+```python
+class ProofOfLeadershipWitness:
+    sk: ZkSecretKey
+    value: TokenValue
+    nonce: NoteNonce
+    set_selectors: list[boolean]      # position of the note set in the eligible tree (len = 40)
+    cm_aged_path: list[FrElement]     # path of the note commitment in the commitment MMR of its set (len = 40)
+    cm_aged_selectors: list[boolean]
+    nf_root_aged: MerkleRoot          # nullifier IMT root of the set when the stake distribution was frozen
+    set_aged_path: list[FrElement]    # path of the leaf of the set to eligible_aged (len = 40)
+    low_leaf_nf: NoteNf               # greatest nullifier of the set lower than the note nullifier
+    low_leaf_next_nf: NoteNf          # next greater nullifier of the set, 0 if none
+    low_leaf_next_index: int          # index of the IMT leaf holding low_leaf_next_nf, 0 if none
+    low_leaf_path: list[FrElement]    # path of the IMT leaf of low_leaf_nf (len = 40)
+    low_leaf_selectors: list[boolean]
+    cm_root_latest: MerkleRoot        # latest commitment MMR root of the set
+    set_latest_path: list[FrElement]  # path of the leaf of the set to eligible_latest (len = 40)
+```
 
-4. The root of the note Merkle tree when the stake distribution was frozen $`ledger_\text{AGED}`$.
-	- For details see [Epoch State Pseudocode](cryptarchia-v1-protocol.md#epoch-state-pseudocode).
+Every path and its selectors follow the Merkle path convention of [Mantle](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range): from the leaf level up, a selector being the bit of the leaf index at its level.
 
-5. The latest root of the note Merkle tree: $`ledger_\text{LATEST}`$.
-	- Used to ensure the leadership note has not been spent.
+Such that the following constraints hold:
 
-6. The leader's one-time public key $`P_\text{LEAD}`$ represented by 2 public inputs, each of 16 bytes in little endian. This key is needed to sign the proposed block.
-	- For details see [Linking the Proof of Leadership to a Block](#linking-the-proof-of-leadership-to-a-block).
+- The public key is derived from the secret key.
+  ```python
+  pk = zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), sk)
+  ```
 
-7. The entropy contribution $`\rho_{LEAD}`$ verified to be correctly derived.
-	- This is the epoch nonce entropy contribution. See [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce).
+- The note commitment is derived from the value, the nonce and the public key.
+  ```python
+  cm = zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), value, nonce, pk)
+  ```
 
-### Circuit Private Inputs
+- The note commitment was in the commitment MMR of its note set when the stake distribution was frozen.
+  ```python
+  cm_root_aged = path_root(leaf=cm,
+      path=cm_aged_path,
+      selectors=cm_aged_selectors)
+  assert eligible_aged == path_root(leaf=eligible_leaf(cm_root_aged, nf_root_aged),
+      path=set_aged_path,
+      selectors=set_selectors)
+  ```
 
-The prover has to provide these values, but they remain secret:
+- The note is unspent: its nullifier is not in the latest [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of the same note set, the same `set_selectors` placing both leaves at the position of that set.
+  ```python
+  nf = zkhash(FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p), cm, sk)
+  low_leaf = zkhash(FiniteField(b"NULLIFIER_IMT_LEAF_V1", byte_order="little", modulus= p),
+      low_leaf_nf,
+      low_leaf_next_nf,
+      FiniteField(low_leaf_next_index, byte_order="little", modulus= p))
+  nf_root_latest = path_root(leaf=low_leaf,
+      path=low_leaf_path,
+      selectors=low_leaf_selectors)
+  assert eligible_latest == path_root(leaf=eligible_leaf(cm_root_latest, nf_root_latest),
+      path=set_latest_path,
+      selectors=set_selectors)
+  assert low_leaf_nf < nf
+  assert nf < low_leaf_next_nf or low_leaf_next_nf == 0
+  ```
 
-1. The eligible note and its related information used to derive the [Note Id](bedrock-v1.1-mantle-specification.md#note-id):
-	- The note secret key: $`sk`$.
-	- The note value: $`v`$.
-	- The note transaction zk hash: $`note\_tx\_hash`$.
-	- The note outputs number: $`note\_output\_number`$.
+- The note wins the lottery.
+  ```python
+  ticket = zkhash(FiniteField(b"LEAD_V1", byte_order="little", modulus= p), epoch_nonce, slot, cm, sk)
+  threshold = value * (t0 + t1 * value)
+  assert ticket < threshold
+  ```
 
-2. The proof of membership of the note identifier in the zone ledgers $`ledger_{AGED}`$ and $`ledger_{LATEST}`$. This is done by providing the complementary Merkle nodes and indicating whether they are left (0) or right (1) through boolean selectors:
-	- The aged ledger complementary nodes: $`noteid\_aged\_path`$.
-	- The aged ledger complementary node selectors: $`note\_id\_aged\_selectors`$.
-	- The latest ledger complementary nodes: $`noteid\_latest\_path`$.
-	- The latest ledger complementary node selectors: $`note\_id\_latest\_selectors`$.
+- The entropy contribution is derived from the slot and the note.
+  ```python
+  assert entropy_contribution == zkhash(FiniteField(b"NONCE_CONTRIB_V1", byte_order="little", modulus= p), slot, cm, sk)
+  ```
 
-### Circuit Constraints
-
-The proof confirms the following relations:
-
-1. The derivation of the public key.
-2. The computation of the note identifier.
-3. The note identifier is in $`ledger_{AGED}`$ and $`ledger_{LATEST}`$.
-4. The computation of the lottery ticket: $`ticket := \text{hash}(\text{LEAD\_V1}||\eta||sl||noteID||sk)`$ using [Poseidon2](common-cryptographic-components.md).
-5. The computation of the threshold: $`t:= v(t_0+t_1\cdot v)`$.
-  The ticket must be lower than this threshold to win the lottery.
-
-6. The check that indeed $`ticket \lt t`$.
-7. Compute and output the entropy contribution $`\rho_{LEAD} := \text{hash}(\text{NONCE\_CONTRIB\_V1} || sl||noteID||sk)`$
+- The proof is bound to `msg`.
 
 # Linking the Proof of Leadership to a Block
 
-The PoL is bound to a public key from an asymmetric signature scheme. This public key $`P_\text{LEAD}`$ is given as two public inputs during the PoL proof generation, binding the proof to the key.
+The PoL is bound to the block it proposes through its public input `msg`, a hash of the [header](cryptarchia-v1-protocol.md#block-header) of that block, where `hash` is Blake2b:
 
-- The public key is represented by two public inputs of 16 bytes to guarantee the support of every possible Eddsa25519 public key.
-- This public key is later used to verify the signature $`\sigma`$ of a block when it is dispersed. This ensures that the PoL is tied to a specific block, and only the entity creating the proof can perform this binding.
-- The key is single-use, as reusing the same one could allow multiple PoLs to be linked to the same identity. An observer could then infer the stake of that identity by observing the frequency at which it emits a PoL.
+```python
+def pol_msg(header: Header) -> zkhash:
+    digest = hash(
+        b"POL_MSG_V1",
+        header.bedrock_version,
+        header.parent_block,
+        header.slot.to_bytes(8, byteorder='little'),
+        header.body_root,
+        header.proof_of_leadership.reward_key,
+    )
+    return FiniteField(digest, byte_order="little", modulus= p)
+```
+
+- `msg` covers every field of the header except the proof and the entropy contribution, which the proof itself produces. Through `body_root`, it covers the transactions and the uncle headers of the block.
+- A PoL is therefore valid for a single block: it cannot be attached to other content, and the leader reward cannot be redirected to another `reward_key`.
+- The leader proves the PoL once the content of its block is fixed.
 
 # Appendix
 
@@ -259,26 +285,28 @@ print(f"t_1_constant = {t_1_constant:#x}")
 
 | stake (%) | order 1 error | order 2 error |
 | --- | --- | --- |
-| 5% | 0.13% | -0.0001% |
-| 10% | 0.26% | -0.0004% |
-| 15% | 0.39% | -0.0010% |
-| 20% | 0.51% | -0.0018% |
-| 25% | 0.64% | -0.0027% |
-| 30% | 0.77% | -0.0040% |
-| 35% | 0.90% | -0.0054% |
-| 40% | 1.03% | -0.0071% |
-| 45% | 1.16% | -0.0089% |
-| 50% | 1.29% | -0.0110% |
-| 55% | 1.42% | -0.0134% |
-| 60% | 1.55% | -0.0159% |
-| 65% | 1.68% | -0.0187% |
-| 70% | 1.81% | -0.0217% |
-| 75% | 1.94% | -0.0249% |
-| 80% | 2.07% | -0.0284% |
-| 85% | 2.20% | -0.0320% |
-| 90% | 2.33% | -0.0359% |
-| 95% | 2.46% | -0.0406% |
-| 100% | 2.59% | -0.0444% |
+| 5% | 0.08% | -0.00005% |
+| 10% | 0.17% | -0.0002% |
+| 15% | 0.25% | -0.0004% |
+| 20% | 0.34% | -0.0008% |
+| 25% | 0.42% | -0.0012% |
+| 30% | 0.51% | -0.0017% |
+| 35% | 0.59% | -0.0024% |
+| 40% | 0.68% | -0.0031% |
+| 45% | 0.76% | -0.0039% |
+| 50% | 0.85% | -0.0048% |
+| 55% | 0.94% | -0.0058% |
+| 60% | 1.02% | -0.0069% |
+| 65% | 1.11% | -0.0081% |
+| 70% | 1.19% | -0.0094% |
+| 75% | 1.28% | -0.0108% |
+| 80% | 1.36% | -0.0123% |
+| 85% | 1.45% | -0.0139% |
+| 90% | 1.53% | -0.0156% |
+| 95% | 1.62% | -0.0174% |
+| 100% | 1.70% | -0.0193% |
+
+Unlike $`\phi_f`$, the order 2 expansion slightly rewards splitting stake: with $`c = -\ln(1-f) \approx 0.034`$ and stakes relative to $`inferred\_total\_stake`$, two notes of stakes $`a`$ and $`b`$ win with a probability higher than one note of stake $`a + b`$ by $`c^3ab(a+b)/2 - c^4a^2b^2/4`$, a third order term that is negligible in practice.
 
 ### Corner Case: Note Value Exceeding Inferred Total Stake
 The lottery threshold approximation relies on a second-order Taylor expansion of $`\phi_f(α)=1−(1−f)^\alpha`$, 
@@ -295,11 +323,11 @@ A note with value $v$ could then satisfy $`v≫\text{inferred\_total\_stake}`$, 
 #### What happens
 The threshold $`t:=v(t0+t1⋅v)t := v(t_0 + t_1 \cdot v)`$ is a downward-opening parabola in the reals.
 It peaks near $`v \approx 29 \cdot \text{inferred\_total\_stake}`$ and crosses zero again near 
-$`v \approx 58 \cdot \text{inferred\_total\_stake}`$.
-Past the peak, the real-valued threshold becomes negative.
+$`v \approx 59 \cdot \text{inferred\_total\_stake}`$.
+Past the second zero crossing, the real-valued threshold becomes negative.
 In $`\mathbb{F}_p`$ this wraps to a large value close to $`p`$, meaning the lottery ticket is almost certain to be below the threshold.
 The note wins nearly every slot.
-Past the second zero crossing, the threshold wraps back toward zero and the behavior becomes an oscillation between near-certain win and near-certain loss depending on the exact ratio $`v/\text{inferred\_total\_stake}`$
+Further out, the threshold keeps wrapping around $`p`$ and the behavior becomes an oscillation between near-certain win and near-certain loss depending on the exact ratio $`v/\text{inferred\_total\_stake}`$
 
 #### Severity
 

@@ -4,7 +4,8 @@
 | --- | --- |
 | Name | [Template] Cross-Channel Messaging |
 | Slug | 206 |
-| Status | raw |
+| Status | deprecated |
+| Type | RFC |
 | Category | Informational |
 | Editor | Thomas Lavaur <thomaslavaur@logos.co> |
 | Contributors | Filip Dimitrijevic <filip@logos.co> |
