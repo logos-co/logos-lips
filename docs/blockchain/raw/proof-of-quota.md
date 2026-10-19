@@ -28,7 +28,7 @@
 | 1.0.1 | Remove the protection against adaptive adversary from PoL. It impacts the PoL section of PoQ. Update the performance according to the new circuit. Remove old project name from DSTs | 2026-04-09 |
 | 1.1.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.2.0 | Add the proof of work branch: third selector value, `pow_quota` and `pow_blend_difficulty` public inputs, a private `pow_nonce` witness, and Lagrange branch selection; benchmark the three branch circuit | 2026-09-08 |
-| 1.3.0 | Follow the Proof of Leadership of the private ledger: the leader branch proves the note commitment in its note set under the eligible root of the time the stake distribution was frozen. Paths and selectors follow the Merkle path convention of Mantle, from the leaf level up | 2026-10-07 |
+| 1.3.0 | Follow the Proof of Leadership of the private ledger: the leader branch proves the note commitment in its note set under the eligible root of the time the stake distribution was frozen. Paths and selectors follow the Merkle path convention of Mantle, from the leaf level up, the commitment path having the depth 40 of the note sets | 2026-10-07 |
 | 1.3.1 | Proving time benchmark measured on the current circuit | 2026-10-14 |
 
 
@@ -95,7 +95,7 @@ class ProofOfQuotaWitness:
     pol_secret_key: int                   # PoL note secret key
     pol_note_value: int                   # PoL note value
     pol_note_nonce: zkhash                # PoL note nonce
-    pol_cm_aged_path: list[zkhash]        # PoL Merkle path proving the note commitment membership in the commitment MMR of its note set (len = 32)
+    pol_cm_aged_path: list[zkhash]        # PoL Merkle path proving the note commitment membership in the commitment MMR of its note set (len = 40)
     pol_cm_aged_selectors: list[bool]     # Indicates how to read the pol_cm_aged_path (if Merkle nodes are left or right in the path)
     pol_nf_root_aged: zkhash              # PoL nullifier IMT root of the note set when the stake distribution was frozen
     pol_set_aged_path: list[zkhash]       # PoL Merkle path of the leaf of the note set to pol_eligible_aged (len = 32)
