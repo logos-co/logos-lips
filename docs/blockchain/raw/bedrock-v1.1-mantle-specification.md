@@ -1487,7 +1487,7 @@ class Note:
 
 ### Note Commitment and Nullifier
 
-A note can be uniquely identified by its fields. Using the same fields will lead to the same note which is spendable only once. For notes the ledger creates itself, such as rewards and service notes, the nonce can be derived from the Operation that created it and its output number: `(op_id, output_number)` if each Operation are uniquely identifiable. For this reason, every Operation that output notes have a unique payload that is used to derive the Operation identifier.
+A note can be uniquely identified by its fields. Any two notes with the same fields share a commitment and a nullifier, so only one of them can be spent: value can be lost this way, never created. For notes the ledger creates itself, such as rewards and service notes, the nonce can be derived from the Operation that created it and its output number: `(op_id, output_number)` if each Operation are uniquely identifiable. For this reason, every Operation that output notes have a unique payload that is used to derive the Operation identifier.
 
 ```python
 def derive_op_id(operation: Op) -> Hash:
