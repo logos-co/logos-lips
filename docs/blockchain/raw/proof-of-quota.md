@@ -29,6 +29,7 @@
 | 1.1.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.2.0 | Add the proof of work branch: third selector value, `pow_quota` and `pow_blend_difficulty` public inputs, a private `pow_nonce` witness, and Lagrange branch selection; benchmark the three branch circuit | 2026-09-08 |
 | 1.3.0 | Follow the Proof of Leadership of the private ledger: the leader branch proves the note commitment in its note set under the eligible root of the time the stake distribution was frozen. Paths and selectors follow the Merkle path convention of Mantle, from the leaf level up, the commitment path and the path in the eligible tree having depth 40 | 2026-10-07 |
+| 1.3.1 | Proving time benchmark measured on the current circuit | 2026-10-14 |
 
 
 # Introduction
@@ -239,8 +240,8 @@ The material used for the benchmarks is the following:
 - CPU: 13th Gen Intel(R) Core(TM) i9-13980HX (24 cores / 32 threads)
 - RAM: 32GB - Speed: 5600 MT/s
 - Motherboard: Micro-Star International Co., Ltd. MS-17S1
-- OS: Ubuntu 22.04.5 LTS
-- Kernel: 6.8.0-59-generic
+- OS: Ubuntu 24.04.5 LTS
+- Kernel: 6.8.0-138-generic
 
 ![Median proving time of the three branch circuit against the number of threads, ten runs](proof-of-quota/assets/proving-time-three-branch.png)
 
