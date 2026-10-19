@@ -47,7 +47,7 @@
 | 1.15.0 | Add the `CLAIM_POW_REWARD` Operation and the proof of work state it is validated against; the reward pool and the difficulty controllers are specified in [Proof of Work](proof-of-work.md) | 2026-09-08 |
 | 1.16.0 | Gas Determination table updated for strict Ed25519 verification: channel Operations 56 → 59 Execution Gas per signature, `EXECUTION_SDP_DECLARE_GAS` 646 → 649, from [Gas Cost Determination](analysis-gas-cost-determination.md) 1.7.0 | 2026-09-24 |
 | 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding. | 2026-10-06 |
-| 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each proven against a recent root and the part of the transaction buffer it names, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and moved `CLAIM_POW_REWARD` to the opcode `0x30`. A `TokenValue` counts units of $`10^{-9}`$ LGO | 2026-10-01 |
+| 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each proven against a recent root and the part of the transaction buffer it names, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and moved `CLAIM_POW_REWARD` to the opcode `0x30`. A `TokenValue` counts units of $`10^{-9}`$ LGO. The commitment MMR and the nullifier IMT of a note set have depth 40, so that sustained use at the Execution Gas target takes decades to fill a set rather than months at depth 32 | 2026-10-01 |
 
 # Introduction
 
@@ -1583,7 +1583,7 @@ The note sets are what the [Proof of Leadership](cryptarchia-proof-of-leadership
 
 ### Commitment Merkle Mountain Range
 
-The commitments of each note set are appended, in insertion order, to the leaves of a Merkle tree of depth $`32`$ whose every leaf past the last appended one holds $`0`$. The root of that tree is the commitment MMR root of the set, and a commitment is proven in it by a Merkle path of length $`32`$. A note set therefore holds at most $`2^{32}`$ commitments and, its [IMT](#nullifier-indexed-merkle-tree) giving a leaf to the sentinel, $`2^{32} - 1`$ nullifiers. What happens to a set once it is full is not specified.
+The commitments of each note set are appended, in insertion order, to the leaves of a Merkle tree of depth $`40`$ whose every leaf past the last appended one holds $`0`$. The root of that tree is the commitment MMR root of the set, and a commitment is proven in it by a Merkle path of length $`40`$. A note set therefore holds at most $`2^{40}`$ commitments and, its [IMT](#nullifier-indexed-merkle-tree) giving a leaf to the sentinel, $`2^{40} - 1`$ nullifiers, a capacity that transfers of 8 outputs at the Execution Gas target take about 50 years to fill. What happens to a set once it is full is not specified.
 
 A Merkle path, in this tree and in every Merkle tree the circuits prove membership in, lists its nodes from the leaf level up to the root, and its selectors in the same order: the selector of a level is the bit of the leaf index at that level, starting from the least significant, `1` when the node computed at that level from the leaf is the right child, so that the path node is on the left.
 
@@ -1613,7 +1613,7 @@ def mmr_root(peaks: list[(MerkleRoot, int)]) -> MerkleRoot:
             height += 1
         root = zkhash(peak, root)
         height += 1
-    while height < 32:
+    while height < 40:
         root = zkhash(root, empty_root(height))
         height += 1
     return root
@@ -1621,7 +1621,7 @@ def mmr_root(peaks: list[(MerkleRoot, int)]) -> MerkleRoot:
 
 ### Nullifier Indexed Merkle Tree
 
-The nullifiers of each note set are maintained in an indexed Merkle tree (IMT) of depth $`32`$, whose leaves are appended in insertion order. Each leaf points to the leaf holding the next greater nullifier, so the leaves form a sorted linked list. The first leaf is the sentinel `(0, 0, 0)`, and a `next_nf` of `0` means there is no greater nullifier.
+The nullifiers of each note set are maintained in an indexed Merkle tree (IMT) of depth $`40`$, whose leaves are appended in insertion order. Each leaf points to the leaf holding the next greater nullifier, so the leaves form a sorted linked list. The first leaf is the sentinel `(0, 0, 0)`, and a `next_nf` of `0` means there is no greater nullifier.
 
 ```python
 class NullifierLeaf:
@@ -1649,7 +1649,7 @@ def insert_nullifier(leaves: list[NullifierLeaf], nf: NoteNf):
     low.next_index = len(leaves) - 1
 ```
 
-A nullifier `nf` is not in the set if and only if there is a leaf `low` with `low.nf < nf` and either `nf < low.next_nf` or `low.next_nf == 0`. The root of the IMT is the Merkle root of depth $`32`$ over the hashes of its leaves, where every position past the last appended leaf holds the value $`0`$. An empty position is therefore distinct from the sentinel, whose position holds `nullifier_leaf_hash(NullifierLeaf(0, 0, 0))`.
+A nullifier `nf` is not in the set if and only if there is a leaf `low` with `low.nf < nf` and either `nf < low.next_nf` or `low.next_nf == 0`. The root of the IMT is the Merkle root of depth $`40`$ over the hashes of its leaves, where every position past the last appended leaf holds the value $`0`$. An empty position is therefore distinct from the sentinel, whose position holds `nullifier_leaf_hash(NullifierLeaf(0, 0, 0))`.
 
 For a note set, `cm_root()` is `mmr_root(self.commitments)`, the root of its commitment MMR, and `nf_root()` is the root of its nullifier IMT.
 
@@ -1754,8 +1754,8 @@ class ZkTransferWitness:
     inputs_sk: list[ZkSecretKey]   # (len = 4)
     inputs_nonce: list[FrElement]
     inputs_value: list[TokenValue]
-    inputs_selectors: list[list[boolean]]  # (len = 4 x 32) the Merkle path direction of each input
-    inputs_path: list[list[FrElement]]     # (len = 4 x 32) the Merkle path of each input
+    inputs_selectors: list[list[boolean]]  # (len = 4 x 40) the Merkle path direction of each input
+    inputs_path: list[list[FrElement]]     # (len = 4 x 40) the Merkle path of each input
     outputs_pk: list[ZkPublicKey]  # (len = 8)
     outputs_nonce: list[FrElement]
     outputs_value: list[TokenValue]

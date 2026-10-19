@@ -27,7 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-02-05 |
 | 1.0.1 | Updated project references to Logos Blockchain | 2026-04-17 |
 | 1.1.0 | Fixed the master key generation personalization string to a valid 16-byte value; aligned the public key derivation with the [Mantle specification](bedrock-v1.1-mantle-specification.md#zero-knowledge-signature-scheme-zksignature) (`KDF` DST, compression mode, applied to the Logos key); specified the final Poseidon2 step as hash mode with the `WALLET_ZK_SK_V1` DST; clarified that extended public keys derive no children | 2026-09-03 |
-| 1.2.0 | Added the note tracking a wallet keeps to spend its notes and to participate in the leadership lottery | 2026-10-07 |
+| 1.2.0 | Added the note tracking a wallet keeps to spend its notes and to participate in the leadership lottery, over the note sets of depth 40 | 2026-10-07 |
 
 # Introduction
 
@@ -179,19 +179,19 @@ def append_commitment(peaks: list[(zkhash, int)], notes: list[OwnedNote], cm: No
 
 A note the wallet owns is passed as `owned` with an empty path, and joins `notes` right after `peaks.append((cm, 0))`, before the merges of its own append. Only the notes whose peak is merged are updated, so following a block costs one hash per merge. The path of a note to the commitment root of its note set at the epoch snapshot is the path it holds at the snapshot, completed with the peaks of the snapshot.
 
-Inserting a nullifier changes exactly two leaves of the [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree): the appended leaf and the leaf of the greatest nullifier lower than the inserted one. Every insertion is public, so a wallet fetching the leaves and Merkle paths of these two positions, as they stand after each insertion, reveals nothing about the notes it owns. From them, it updates the low leaf of each of its notes in that set and its path with at most 32 hashes per changed leaf:
+Inserting a nullifier changes exactly two leaves of the [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree): the appended leaf and the leaf of the greatest nullifier lower than the inserted one. Every insertion is public, so a wallet fetching the leaves and Merkle paths of these two positions, as they stand after each insertion, reveals nothing about the notes it owns. From them, it updates the low leaf of each of its notes in that set and its path with at most 40 hashes per changed leaf:
 
 ```python
 class TrackedLowLeaf:
     nf: NoteNf                  # nullifier of the owned note
     index: int                  # index of the IMT leaf holding the greatest nullifier lower than nf
     leaf: NullifierLeaf
-    path: list[zkhash]          # Merkle path of the leaf to the IMT root (len = 32)
+    path: list[zkhash]          # Merkle path of the leaf to the IMT root (len = 40)
 
 def branch_nodes(leaf_hash: zkhash, index: int, path: list[zkhash]) -> list[zkhash]:
     # nodes of the branch of index, from the leaf up to the root
     nodes = [leaf_hash]
-    for height in range(32):
+    for height in range(40):
         if (index >> height) & 1:
             nodes.append(zkhash(path[height], nodes[-1]))
         else:
@@ -201,7 +201,7 @@ def branch_nodes(leaf_hash: zkhash, index: int, path: list[zkhash]) -> list[zkha
 def update_path(tracked: TrackedLowLeaf, index: int, leaf: NullifierLeaf, path: list[zkhash]):
     # replace the nodes of tracked.path that lie on the branch of the changed leaf
     nodes = branch_nodes(nullifier_leaf_hash(leaf), index, path)
-    for height in range(32):
+    for height in range(40):
         if (index >> height) == ((tracked.index >> height) ^ 1):
             tracked.path[height] = nodes[height]
 
