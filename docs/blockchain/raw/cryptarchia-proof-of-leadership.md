@@ -27,7 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-12-09 |
 | 1.1.0 | Remove the protection against adaptive adversary from PoL removing a non-enforced feature, simplifying work for engineers, improving UX and performances of PoL and PoQ. Update the performance according to the new circuit. Remove the notion of NOMOS in DSTs | 2026-01-29 |
 | 1.1.1 | Introduced a discussion for when the value of a participating note is way higher than the total estimated stake | 2026-06-24 |
-| 1.2.0 | Support the private ledger of Mantle: a note is eligible from any note set of the ledger, committed together in the eligible root, and proven unspent by the non-membership of its nullifier. The proof is bound to its block by `msg`, a hash of the block header, replacing the leader key. The commitment and nullifier paths have the depth 40 of the note sets | 2026-10-06 |
+| 1.2.0 | Support the private ledger of Mantle: a note is eligible from any note set of the ledger, committed together in the eligible root, and proven unspent by the non-membership of its nullifier. The proof is bound to its block by `msg`, a hash of the block header, replacing the leader key. The commitment and nullifier paths have the depth 40 of the note sets, and the eligible tree has depth 40 too, as every channel adds a note set and is created at no Execution Gas | 2026-10-06 |
 
 # Introduction
 
@@ -79,7 +79,7 @@ Our description differs from the original paper proposition, proving that a note
 
 In order to prove that the winning note exists and existed at the start of the previous epoch, and that it is unspent, every node must compute the eligible root.
 
-Every [note set](bedrock-v1.1-mantle-specification.md#ledger) of the Mantle Ledger is eligible: the ledger note set, the SDP note set and the note set of every channel. The eligible root commits to all of them. It is the root of a Merkle tree of depth $`32`$ whose leaf at position $`i`$ hashes the root of the commitment MMR and the root of the [nullifier IMT](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of the note set of index $`i`$, every position past the last note set holding the value $`0`$:
+Every [note set](bedrock-v1.1-mantle-specification.md#ledger) of the Mantle Ledger is eligible: the ledger note set, the SDP note set and the note set of every channel. The eligible root commits to all of them. It is the root of a Merkle tree of depth $`40`$ whose leaf at position $`i`$ hashes the root of the commitment MMR and the root of the [nullifier IMT](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of the note set of index $`i`$, every position past the last note set holding the value $`0`$, a capacity that blocks full of channel creations take about 55 years to fill:
 
 ```python
 def eligible_leaf(cm_root: MerkleRoot, nf_root: MerkleRoot) -> zkhash:
@@ -90,13 +90,13 @@ def eligible_leaf(cm_root: MerkleRoot, nf_root: MerkleRoot) -> zkhash:
     )
 
 def eligible_root(sets: list[NoteSet]) -> MerkleRoot:
-    assert len(sets) < 2**32
+    assert len(sets) < 2**40
     leaves = []
     for note_set in sets:
         # the root of the commitment MMR and the root of the nullifier IMT of the set
         leaves.append(eligible_leaf(note_set.cm_root(), note_set.nf_root()))
-    # Merkle root of depth 32 over the leaves, every position past the last note set holding 0
-    return get_merkle_root(leaves, depth=32)
+    # Merkle root of depth 40 over the leaves, every position past the last note set holding 0
+    return get_merkle_root(leaves, depth=40)
 ```
 
 The first leaf is the ledger note set, the second the SDP note set, and the next ones the channels in the order they were created. Its root when the stake distribution was frozen is $`eligible_{AGED}`$, and its latest root is $`eligible_{LATEST}`$.
@@ -128,18 +128,18 @@ class ProofOfLeadershipWitness:
     sk: ZkSecretKey
     value: TokenValue
     nonce: NoteNonce
-    set_selectors: list[boolean]      # position of the note set in the eligible tree (len = 32)
+    set_selectors: list[boolean]      # position of the note set in the eligible tree (len = 40)
     cm_aged_path: list[FrElement]     # path of the note commitment in the commitment MMR of its set (len = 40)
     cm_aged_selectors: list[boolean]
     nf_root_aged: MerkleRoot          # nullifier IMT root of the set when the stake distribution was frozen
-    set_aged_path: list[FrElement]    # path of the leaf of the set to eligible_aged (len = 32)
+    set_aged_path: list[FrElement]    # path of the leaf of the set to eligible_aged (len = 40)
     low_leaf_nf: NoteNf               # greatest nullifier of the set lower than the note nullifier
     low_leaf_next_nf: NoteNf          # next greater nullifier of the set, 0 if none
     low_leaf_next_index: int          # index of the IMT leaf holding low_leaf_next_nf, 0 if none
     low_leaf_path: list[FrElement]    # path of the IMT leaf of low_leaf_nf (len = 40)
     low_leaf_selectors: list[boolean]
     cm_root_latest: MerkleRoot        # latest commitment MMR root of the set
-    set_latest_path: list[FrElement]  # path of the leaf of the set to eligible_latest (len = 32)
+    set_latest_path: list[FrElement]  # path of the leaf of the set to eligible_latest (len = 40)
 ```
 
 Every path and its selectors follow the Merkle path convention of [Mantle](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range): from the leaf level up, a selector being the bit of the leaf index at its level.
