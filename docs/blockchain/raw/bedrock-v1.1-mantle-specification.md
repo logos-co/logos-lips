@@ -47,7 +47,7 @@
 | 1.15.0 | Add the `CLAIM_POW_REWARD` Operation and the proof of work state it is validated against; the reward pool and the difficulty controllers are specified in [Proof of Work](proof-of-work.md) | 2026-09-08 |
 | 1.16.0 | Gas Determination table updated for strict Ed25519 verification: channel Operations 56 → 59 Execution Gas per signature, `EXECUTION_SDP_DECLARE_GAS` 646 → 649, from [Gas Cost Determination](analysis-gas-cost-determination.md) 1.7.0 | 2026-09-24 |
 | 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding. | 2026-10-06 |
-| 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each proven against a recent root and the part of the transaction buffer it names, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and moved `CLAIM_POW_REWARD` to the opcode `0x30` | 2026-10-01 |
+| 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each proven against a recent root and the part of the transaction buffer it names, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and moved `CLAIM_POW_REWARD` to the opcode `0x30`. A `TokenValue` counts units of $`10^{-9}`$ LGO | 2026-10-01 |
 
 # Introduction
 
@@ -114,7 +114,7 @@ class SignedMantleTx:
     op_proofs: list[OpProof] # each Op has exactly 1 associated proof
 ```
 
-Every Operation proof (zk proofs or signatures) must be cryptographically bound to the `MantleTx` through the `mantle_txhash` to prevent replay attacks. This binding is achieved by including the `MantleTx` hash reduced modulo $`p`$ as a public input in every ZK proof. The exception is the ZkTransfer of a channel step, signed before the Mantle Transaction exists, which is bound to the step itself ([CHANNEL_INSCRIBE](#channel_inscribe)).
+Every Operation proof (zk proofs or signatures) must be cryptographically bound to the `MantleTx` through the `mantle_txhash` to prevent replay attacks. This binding is achieved by signing the 32-byte `mantle_txhash` digest with every Ed25519 signature, and by including it reduced modulo $`p`$ as a public input in every ZK proof. The exception is the ZkTransfer of a channel step, signed before the Mantle Transaction exists, which is bound to the step itself ([CHANNEL_INSCRIBE](#channel_inscribe)).
 
 ```python
 mantle_txhash_fr = FiniteField(mantle_txhash, byte_order="little", modulus = p)
@@ -124,7 +124,7 @@ mantle_txhash_fr = FiniteField(mantle_txhash, byte_order="little", modulus = p)
 
 ## Arithmetic
 
-All arithmetic in this specification is checked. Every addition, subtraction, and multiplication over transaction balance, gas amounts, and fees is performed on the stated integer type, and a Mantle Transaction is invalid if any intermediate or final result cannot be represented in that type; results must never silently wrap around or saturate. Token value is supposed to never exceed the precision of `TokenValue` (see the [Notes](#notes) section).
+All arithmetic in this specification is checked. Every addition, subtraction, and multiplication over transaction balance, gas amounts, and fees is performed on the stated integer type, and a Mantle Transaction is invalid if any intermediate or final result cannot be represented in that type; results must never silently wrap around or saturate. A `TokenValue` counts units of $`10^{-9}`$ LGO. No token is minted after [Genesis](bedrock-genesis-block.md), so no token value exceeds the maximum supply of $`10^{19}`$ units ([Block Rewards](block-rewards.md)), which a `TokenValue` holds.
 
 The pseudocode expresses these checks with the following helpers; a failed check makes the Mantle Transaction invalid:
 
@@ -144,19 +144,10 @@ The transaction mandatory fee is a sum of two components: the multiplication of 
 
 ```python
 def mandatory_fees(signed_tx: SignedMantleTx,
-                   ledger: Ledger,
-                   channels: dict[ChannelId, ChannelState],
+                   tx_execution_gas: uint64,  # total Execution Gas of the Operations
                    permanent_storage_gas_price: TokenValue, # Given by Storage Market
                    execution_gas_base_price: TokenValue) -> uint64:  # Given by Execution Market
-    mantle_tx = signed_tx.tx
     permanent_storage_fees = checked_uint64(len(encode(signed_tx)) * permanent_storage_gas_price)
-    tx_execution_gas = 0
-
-    for op in mantle_tx.ops:
-        # Compute how much execution gas of this operation as defined
-        # in the gas determination Appendix, against the state this
-        # Operation is validated against
-        tx_execution_gas += execution_gas(op, ledger, channels)
     execution_base_fees = checked_uint64(tx_execution_gas * execution_gas_base_price)
 
     return checked_uint64(execution_base_fees + permanent_storage_fees)
@@ -199,11 +190,13 @@ Mantle validators will ensure the following:
 2. Each Operation is valid, and takes effect before the next one is validated.
     ```python
     tx_balance = 0
+    tx_execution_gas = 0
     for note_set in ledger.sets:
         note_set.tx_cm_buffer = []  # the buffers start empty with every Mantle Transaction
     for op, op_proof in zip(ops, op_proofs):
         assert op.opcode in MANTLE_OPCODES
         validate_mantle_op(mantle_txhash(tx), op.opcode, op.payload, op_proof)
+        tx_execution_gas = checked_uint64(tx_execution_gas + execution_gas(op, ledger, channels))
         # the excess of the ZkTransfer of these Operations pays the fees
         if op.opcode in (TRANSFER, CHANNEL_DEPOSIT, SDP_WITHDRAW):
             tx_balance = checked_uint64(tx_balance + op.payload.excess_value)
@@ -225,8 +218,7 @@ Mantle validators will ensure the following:
 3. The Mantle Transaction excess balance pays at least the mandatory fees.
     ```python
     tx_mandatory_fee = mandatory_fees(signed_tx,                        # uint64
-                                      ledger,
-                                      channels,
+                                      tx_execution_gas,
                                       permanent_storage_gas_price,
                                       execution_gas_base_price)
     assert tx_mandatory_fee <= tx_balance
@@ -352,6 +344,10 @@ def round_robin(block_slot: Slot, channel: ChannelState) -> (u16, u64):
             channel.tip_slot
             + sequencers_timed_out * channel.posting_timeout
         )
+    elif channel.posting_timeframe == 0:
+        # An infinite timeframe never rotates: the tip sequencer keeps its turn
+        index = channel.tip_sequencer
+        starting_slot = channel.tip_sequencer_starting_slot
     else:
         # Get the number of timeframes elapsed to get who is the sequencer
         tip_sequencer_duration = block_slot - channel.tip_sequencer_starting_slot
@@ -589,7 +585,7 @@ class ChannelConfigOpProof:
   *Given*
 
 ```python
-txhash: zkhash
+txhash: hash
 config: ChannelConfig
 proof: ChannelConfigOpProof
 channels: dict[ChannelId, ChannelState]
@@ -715,7 +711,7 @@ ZkTransfer
   *Given*
 
 ```python
-mantle_txhash: zkhash # zkhash of mantle tx containing this ledger tx
+mantle_txhash_fr: zkhash # mantle_txhash of the tx containing this Operation, reduced modulo p
 deposit: ChannelDeposit
 deposit_proof: ZkTransfer
 
@@ -748,7 +744,7 @@ ledger: Ledger
                                                      deposit.outputs,
                                                      deposit.excess_value,
                                                      deposit.cm_merkle_root,
-                                                     mantle_txhash,
+                                                     mantle_txhash_fr,
                                                      deposit_proof)
       ```
 
@@ -815,7 +811,7 @@ ZkTransfer
   *Given*
 
 ```python
-mantle_txhash: zkhash
+mantle_txhash_fr: zkhash # mantle_txhash of the tx containing this Operation, reduced modulo p
 withdrawal: ChannelWithdraw
 proof: ZkTransfer
 
@@ -843,7 +839,7 @@ ledger: Ledger
                                                         withdrawal.outputs,
                                                         0,  # a withdrawal balances exactly
                                                         withdrawal.cm_merkle_root,
-                                                        mantle_txhash,
+                                                        mantle_txhash_fr,
                                                         proof)
       ```
 
@@ -972,7 +968,7 @@ class DeclarationProof:
   *Given*
 
 ```python
-txhash: zkhash                  # the txhash of the transaction we are validating
+txhash: hash                    # the txhash of the transaction we are validating
 declaration: DeclarationMessage # the declaration we are validating
 proof: DeclarationProof
 
@@ -991,7 +987,7 @@ declarations: dict[DeclarationID, DeclarationInfo]
                                                      [], # no outputs
                                                      declaration.amount,
                                                      declaration.cm_merkle_root,
-                                                     txhash,
+                                                     FiniteField(txhash, byte_order="little", modulus = p),
                                                      proof.zk_proof)
       assert Ed25519_verify(txhash, declaration.provider_id, proof.provider_sig)
       ```
@@ -1095,7 +1091,7 @@ class WithdrawProof:
   *Given*
 
 ```python
-txhash: zkhash # Mantle transaction hash of the tx containing this operation
+txhash: hash # Mantle transaction hash of the tx containing this operation
 withdraw: WithdrawMessage
 proof: WithdrawProof
 
@@ -1131,7 +1127,7 @@ declarations: dict[DeclarationID, DeclarationInfo]
                                withdraw.outputs,
                                withdraw.excess_value,
                                mmr_root([(declare_info.service_note, 0)]),  # one peak, the service note
-                               txhash,
+                               FiniteField(txhash, byte_order="little", modulus = p),
                                proof.zk_proof)
       ```
 
@@ -1230,7 +1226,7 @@ Ed25519Signature
   *Given*
 
 ```python
-txhash: zkhash # Mantle transaction hash of the tx containing this operation
+txhash: hash # Mantle transaction hash of the tx containing this operation
 active: Active
 signature: Ed25519Signature
 
@@ -1425,7 +1421,7 @@ ZkTransfer
   *Given*
 
 ```python
-mantle_txhash: zkhash # zkhash of mantle tx containing this ledger tx
+mantle_txhash_fr: zkhash # mantle_txhash of the tx containing this Operation, reduced modulo p
 transfer: Transfer
 transfer_proof: ZkTransfer
 
@@ -1445,7 +1441,7 @@ ledger: Ledger
                                                      transfer.outputs,
                                                      transfer.excess_value,
                                                      transfer.cm_merkle_root,
-                                                     mantle_txhash,
+                                                     mantle_txhash_fr,
                                                      transfer_proof)
       ```
 
@@ -1526,7 +1522,7 @@ def derive_note_nf(note_cm: NoteCm, secret_key: ZkSecretKey) -> NoteNf:
     )
 ```
 
-`op_id` is a classical 256-bit hash digest and must be reduced to a field element before being passed to the ZkHasher. We apply a direct modular reduction mod `p` (via `FiniteField(..., modulus=p)`). Since $`p \approx2^{-254}`$, the reduction is slightly non-uniform, values in $`[0, 2^{256} \mod p)`$ appear one extra time, but this is inconsequential in practice: the collision probability remains around $`2^{-254}`$, and `NoteNonce` uniqueness is not derived from uniformity of `op_id` over $`𝔽_p`$ but from the collision-resistance of the underlying hash and per-operation payload uniqueness.
+`op_id` is a classical 256-bit hash digest and must be reduced to a field element before being passed to the ZkHasher. We apply a direct modular reduction mod `p` (via `FiniteField(..., modulus=p)`). Since $`p \approx 2^{254}`$, the reduction is slightly non-uniform, values in $`[0, 2^{256} \mod p)`$ appear one extra time, but this is inconsequential in practice: the collision probability remains around $`2^{-254}`$, and `NoteNonce` uniqueness is not derived from uniformity of `op_id` over $`𝔽_p`$ but from the collision-resistance of the underlying hash and per-operation payload uniqueness.
 
 These note commitments and nullifiers uniquely define notes in the system. Nodes maintain each [note set](#ledger) through an MMR for note commitments and an indexed merkle tree for note nullifiers.
 
@@ -1587,7 +1583,7 @@ The note sets are what the [Proof of Leadership](cryptarchia-proof-of-leadership
 
 ### Commitment Merkle Mountain Range
 
-The commitments of each note set are appended, in insertion order, to the leaves of a Merkle tree of depth $`32`$ whose every leaf past the last appended one holds $`0`$. The root of that tree is the commitment MMR root of the set, and a commitment is proven in it by a Merkle path of length $`32`$.
+The commitments of each note set are appended, in insertion order, to the leaves of a Merkle tree of depth $`32`$ whose every leaf past the last appended one holds $`0`$. The root of that tree is the commitment MMR root of the set, and a commitment is proven in it by a Merkle path of length $`32`$. A note set therefore holds at most $`2^{32}`$ commitments and, its [IMT](#nullifier-indexed-merkle-tree) giving a leaf to the sentinel, $`2^{32} - 1`$ nullifiers. What happens to a set once it is full is not specified.
 
 A Merkle path, in this tree and in every Merkle tree the circuits prove membership in, lists its nodes from the leaf level up to the root, and its selectors in the same order: the selector of a level is the bit of the leaf index at that level, starting from the least significant, `1` when the node computed at that level from the leaf is the right child, so that the path node is on the left.
 
