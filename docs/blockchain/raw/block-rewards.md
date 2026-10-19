@@ -24,7 +24,7 @@
 | 1.0.0 | Initial revision. | 2026-04-24 |
 | 1.1.0 | Changing from burning/minting to pooling/distributing/releasing, removing $`S_{tge}`$ | 2026-08-25 |
 | 1.2.0 | Count the proof of work reward pool as a fourth controlled stock, bound net circulating growth by the two stocks that drain, and state that the pooled fee is net of the share diverted to that pool | 2026-08-31 |
-| 1.3.0 | Keep the reserve, the pool, the pending Blend share and the window of pooled fees as integer consensus state, the Blend rewards an epoch does not distribute returning to the pool, the release capped at the reserve balance, with the integer reference averaging the pooled fees over the 120-block window as the reward equation does. Redraw the system design and project the circulating supply over 10 years with a per-block simulation | 2026-10-07 |
+| 1.3.0 | Keep the reserve, the pool, the pending Blend share and the window of pooled fees as integer consensus state in units of $`10^{-9}`$ LGO, the Blend rewards an epoch does not distribute returning to the pool, the release capped at the reserve balance, with the integer reference averaging the pooled fees over the 120-block window as the reward equation does. Redraw the system design and project the circulating supply over 10 years with a per-block simulation | 2026-10-07 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -218,39 +218,39 @@ $`D_{1,target} = S_{cap}`$ is a normalizer: $`\gamma_t`$ is the average pooling 
 
 # Deterministic Implementation
 
-Block rewards affect consensus state, so their computation must be deterministic across all nodes. It must not rely on floating-point arithmetic, and is defined below with integers only.
+Block rewards affect consensus state, so their computation must be deterministic across all nodes. It must not rely on floating-point arithmetic, and is defined below with integers only, counting tokens in units of $`10^{-9}`$ LGO as [Mantle](bedrock-v1.1-mantle-specification.md#arithmetic) does.
 
 With the parameters above, the two terms of the emission rate factor are:
 
 $$
-\frac{\alpha_d}{I_{max}}\delta_t = \frac{1/4}{10^{-2}} \cdot \frac{3\cdot 10^9 - D_{0,t}}{3\cdot 10^9} = \frac{3\cdot 10^9 - D_{0,t}}{12\cdot 10^7},
+\frac{\alpha_d}{I_{max}}\delta_t = \frac{1/4}{10^{-2}} \cdot \frac{3\cdot 10^{18} - D_{0,t}}{3\cdot 10^{18}} = \frac{3\cdot 10^{18} - D_{0,t}}{12\cdot 10^{16}},
 $$
 
 $$
-\frac{\alpha_a}{I_{max}}\gamma_t = \frac{1}{10^{-2}} \cdot (365 \cdot 2880) \cdot \frac{1}{120} \cdot \frac{1}{10^{10}} \sum_{\tau=t-119}^{t} D_{1,\tau} = \frac{10512}{12\cdot 10^7} \sum_{\tau=t-119}^{t} D_{1,\tau}.
+\frac{\alpha_a}{I_{max}}\gamma_t = \frac{1}{10^{-2}} \cdot (365 \cdot 2880) \cdot \frac{1}{120} \cdot \frac{1}{10^{19}} \sum_{\tau=t-119}^{t} D_{1,\tau} = \frac{10512}{12\cdot 10^{16}} \sum_{\tau=t-119}^{t} D_{1,\tau}.
 $$
 
-So $`A_t = A_t' / (12\cdot 10^7)`$ with
+So $`A_t = A_t' / (12\cdot 10^{16})`$ with
 
 $$
-A_t' = \min\!\lbrace12\cdot 10^7,\max\!\lbrace0,\; 3\cdot 10^9 - D_{0,t} + 10512 \sum_{\tau=t-119}^{t} D_{1,\tau}\rbrace\rbrace.
+A_t' = \min\!\lbrace12\cdot 10^{16},\max\!\lbrace0,\; 3\cdot 10^{18} - D_{0,t} + 10512 \sum_{\tau=t-119}^{t} D_{1,\tau}\rbrace\rbrace.
 $$
 
 The maximum reserve release of a block is
 
 $$
-I_{max} \cdot S_{cap} \cdot \Delta_t = \frac{10^{-2}\cdot 10^{10}}{365\cdot 2880} = \frac{62500}{657},
+I_{max} \cdot S_{cap} \cdot \Delta_t = \frac{10^{-2}\cdot 10^{19}}{365\cdot 2880} = \frac{62500\cdot 10^9}{657},
 $$
 
 so the reward of the block is the sum of the reserve release and the pool payout, each rounded down:
 
 $$
-\iota_t = \min \left\lbrace \left\lfloor \frac{62500\cdot A_t'}{657\cdot 12\cdot 10^7} \right\rfloor, \; B_{t-1} \right\rbrace, \qquad
-\pi_t = \left\lfloor \frac{(12\cdot 10^7-A_t')\cdot \sum_{\tau=t-119}^{t} D_{1,\tau}}{120\cdot 12\cdot 10^7} \right\rfloor, \qquad
+\iota_t = \min \left\lbrace \left\lfloor \frac{62500\cdot 10^9\cdot A_t'}{657\cdot 12\cdot 10^{16}} \right\rfloor, \; B_{t-1} \right\rbrace, \qquad
+\pi_t = \left\lfloor \frac{(12\cdot 10^{16}-A_t')\cdot \sum_{\tau=t-119}^{t} D_{1,\tau}}{120\cdot 12\cdot 10^{16}} \right\rfloor, \qquad
 R_t = \iota_t + \pi_t.
 $$
 
-The reserve balance `rewards_reserve`, the pool balance `rewards_pool` and the Blend share waiting to be paid `blend_rewards_pending` are consensus state, in LGO, set at Genesis to $`B_0 = 10^9`$, $`0`$ and $`0`$. The nodes also keep `pooled_fees_window`, the pooled fees of the last $`120`$ blocks, `0` for the blocks before the first one. When the leader reward of a block is computed ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), the pooled fees of the block enter the window, the reserve pays $`\iota_t`$, the pool receives the pooled fees of the block and pays $`\pi_t`$, and the Blend share of the reward waits to be paid:
+The reserve balance `rewards_reserve`, the pool balance `rewards_pool` and the Blend share waiting to be paid `blend_rewards_pending` are consensus state, set at Genesis to $`B_0 = 10^{18}`$, $`0`$ and $`0`$. The nodes also keep `pooled_fees_window`, the pooled fees of the last $`120`$ blocks, `0` for the blocks before the first one. When the leader reward of a block is computed ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), the pooled fees of the block enter the window, the reserve pays $`\iota_t`$, the pool receives the pooled fees of the block and pays $`\pi_t`$, and the Blend share of the reward waits to be paid:
 
 ```python
 # pooled_fees is D_1_t, the pooled fees of the block, and total_stake is D_0_t
@@ -269,11 +269,11 @@ The Blend reward of an epoch is paid from `blend_rewards_pending` ([Service Rewa
 Every pooled fee is paid out at most once across the $`120`$ blocks of its window, so the pool never goes below zero. The reference implementation is:
 
 ```python
-A_SCALE: int64 = 120_000_000            # denominator of A_t
-STAKE_TARGET: int64 = 3_000_000_000     # D_0_target
+A_SCALE: int64 = 120_000_000_000_000_000        # denominator of A_t
+STAKE_TARGET: int64 = 3_000_000_000_000_000_000  # D_0_target
 FEE_AVG_NUMERATOR: int64 = 10_512       # alpha_a / (I_max * D_1_target * Delta_t * T), over A_SCALE
 WINDOW: int64 = 120                     # T, the blocks of the moving average
-RELEASE_NUMERATOR: int64 = 62_500       # numerator of I_max * S_cap * Delta_t
+RELEASE_NUMERATOR: int64 = 62_500_000_000_000  # numerator of I_max * S_cap * Delta_t
 RELEASE_DENOMINATOR: int64 = 657        # denominator of I_max * S_cap * Delta_t
 
 
@@ -282,7 +282,8 @@ def block_reward(total_stake: uint64, pooled_fees_window: list[uint64],
     # pooled_fees_window holds the pooled fees of the last 120 blocks, this block last,
     # 0 for the blocks before the first one. Returns the reserve release and the pool
     # payout of the block, whose sum is the block reward. Intermediates are int128:
-    # every product stays below 2**101.
+    # the pooled fees of a block never exceed the maximum supply of 10**19, so every
+    # product stays below 2**127.
     stake: int128 = total_stake
     sum_fees: int128 = sum(pooled_fees_window)
 
@@ -321,4 +322,4 @@ Net circulating growth is the release from the reserve minus what the pool keeps
 
 During the first year the stake is far below its target, $`A_t = 1`$, and the reserve releases at its maximum rate of $`1\%`$ of the maximum supply per year while the pool keeps the fees. Once the stake has settled, $`A_t`$ averages about one half. The stake term dominates it: one unit of deviation weighs $`\alpha_d / I_{max} = 25`$, so the noise of the inferred stake pushes $`A_t`$ to $`0`$ or $`1`$ from one epoch to the next, while the pooled fees add $`\alpha_a \cdot 0.5\% / I_{max} = 0.5`$ on average. The release then runs at about $`0.5\%`$ per year and the pool keeps about half of the fees, about $`0.25\%`$ per year, for a net circulating growth of about $`0.25\%`$ per year.
 
-How the fees vary from one block to the next does not change the result: the moving average over $`T = 120`$ blocks smooths them out of $`A_t`$ and of the payout, and the three scenarios agree to the second decimal.
+How the fees vary from one block to the next does not change the result: the moving average over $`T = 120`$ blocks smooths them out of $`A_t`$ and of the payout, and the three scenarios agree to the second decimal. The noise of the inferred stake does change it, as it pulls $`A_t`$ toward one half while the stake settles: the net circulating growth after 10 years is $`3.25\%`$ without that noise, $`3.10\%`$ with half of it and $`2.94\%`$ with twice as much.

@@ -35,7 +35,7 @@
 | 1.8.0 | Added the `ClaimPowReward` Operation payload; its proof is a `ZkSigProof` | 2026-09-08 |
 | 1.9.0 | Swap Ed25519Signature and SignerIndex order in IndexedSignature | 2026-10-01 |
 | 1.10.0 | Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata, retaining their `UINT32` length prefixes; corrected SDP activity metadata to use its tagged variant encoding without a generic length prefix | 2026-10-06 |
-| 2.0.0 | Follow the private note ledger of Mantle 2.0.0: nullifier inputs and commitment outputs with their `CmMerkleRoot` and `Value`, channel steps in `ChannelInscribe` with the `Buffered` count of their proof, holder withdrawals, the SDP payloads over notes, `PowNonce` in `ClaimPowReward`, the `ZkTransfer` proof variants, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim` | 2026-10-06 |
+| 2.0.0 | Follow the private note ledger of Mantle 2.0.0: nullifier inputs and commitment outputs with their `CmMerkleRoot` and `Value`, channel steps in `ChannelInscribe` with the `Buffered` count of their proof, holder withdrawals, the SDP payloads over notes, `PowNonce` in `ClaimPowReward`, the `ZkTransfer` proof variants, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim`. A `FieldElement` not less than $`p`$ is rejected | 2026-10-06 |
 | 2.1.0 | Follow the programs of Mantle 2.1.0: the `ProgramRegister` Operation with its `Groth16VerificationKey`, user and program steps in `ChannelInscribe` with their proofs and the openings of the program notes, the payments with the `Buffered` count of their proof, and the `Groth16` terminal renamed `Groth16Proof` | 2026-10-12 |
 
 # Introduction
@@ -47,8 +47,9 @@ This document specifies the canonical encoding of Mantle transactions (see [Mant
 The transaction encoding is specified in ABNF form to remove any ambiguity and guarantee a canonical encoding. The high level encoding choices which were not immediately derivable from the Mantle specification are listed here:
 
 1. All multi-byte integers use little-endian encoding
-1. Any lists are length-prefixed with fixed width uints
-1. We derive number of proofs and type of proof from the Ops list parsed earlier
+2. Any lists are length-prefixed with fixed width uints
+3. We derive number of proofs and type of proof from the Ops list parsed earlier
+4. A `FieldElement` whose value is not less than the BN254 scalar field order $`p`$ is rejected, so every field element has a single encoding
 
 # Specification
 
@@ -241,7 +242,7 @@ G2Point          = 64BYTE       ; compressed BN254 G2 point
 ZkPublicKey      = FieldElement
 Ed25519PublicKey = 32BYTE
 Ed25519Signature = 64BYTE
-FieldElement     = 32BYTE      ; BN254 field element (little-endian)
+FieldElement     = 32BYTE      ; BN254 field element (little-endian), less than p
 Hash32           = 32BYTE
 
 ; Primitive types

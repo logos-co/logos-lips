@@ -286,26 +286,28 @@ print(f"t_1_constant = {t_1_constant:#x}")
 
 | stake (%) | order 1 error | order 2 error |
 | --- | --- | --- |
-| 5% | 0.13% | -0.0001% |
-| 10% | 0.26% | -0.0004% |
-| 15% | 0.39% | -0.0010% |
-| 20% | 0.51% | -0.0018% |
-| 25% | 0.64% | -0.0027% |
-| 30% | 0.77% | -0.0040% |
-| 35% | 0.90% | -0.0054% |
-| 40% | 1.03% | -0.0071% |
-| 45% | 1.16% | -0.0089% |
-| 50% | 1.29% | -0.0110% |
-| 55% | 1.42% | -0.0134% |
-| 60% | 1.55% | -0.0159% |
-| 65% | 1.68% | -0.0187% |
-| 70% | 1.81% | -0.0217% |
-| 75% | 1.94% | -0.0249% |
-| 80% | 2.07% | -0.0284% |
-| 85% | 2.20% | -0.0320% |
-| 90% | 2.33% | -0.0359% |
-| 95% | 2.46% | -0.0406% |
-| 100% | 2.59% | -0.0444% |
+| 5% | 0.08% | -0.00005% |
+| 10% | 0.17% | -0.0002% |
+| 15% | 0.25% | -0.0004% |
+| 20% | 0.34% | -0.0008% |
+| 25% | 0.42% | -0.0012% |
+| 30% | 0.51% | -0.0017% |
+| 35% | 0.59% | -0.0024% |
+| 40% | 0.68% | -0.0031% |
+| 45% | 0.76% | -0.0039% |
+| 50% | 0.85% | -0.0048% |
+| 55% | 0.94% | -0.0058% |
+| 60% | 1.02% | -0.0069% |
+| 65% | 1.11% | -0.0081% |
+| 70% | 1.19% | -0.0094% |
+| 75% | 1.28% | -0.0108% |
+| 80% | 1.36% | -0.0123% |
+| 85% | 1.45% | -0.0139% |
+| 90% | 1.53% | -0.0156% |
+| 95% | 1.62% | -0.0174% |
+| 100% | 1.70% | -0.0193% |
+
+Unlike $`\phi_f`$, the order 2 expansion slightly rewards splitting stake: with $`c = -\ln(1-f) \approx 0.034`$ and stakes relative to $`inferred\_total\_stake`$, two notes of stakes $`a`$ and $`b`$ win with a probability higher than one note of stake $`a + b`$ by $`c^3ab(a+b)/2 - c^4a^2b^2/4`$, a third order term that is negligible in practice.
 
 ### Corner Case: Note Value Exceeding Inferred Total Stake
 The lottery threshold approximation relies on a second-order Taylor expansion of $`\phi_f(α)=1−(1−f)^\alpha`$, 
@@ -322,11 +324,11 @@ A note with value $v$ could then satisfy $`v≫\text{inferred\_total\_stake}`$, 
 #### What happens
 The threshold $`t:=v(t0+t1⋅v)t := v(t_0 + t_1 \cdot v)`$ is a downward-opening parabola in the reals.
 It peaks near $`v \approx 29 \cdot \text{inferred\_total\_stake}`$ and crosses zero again near 
-$`v \approx 58 \cdot \text{inferred\_total\_stake}`$.
-Past the peak, the real-valued threshold becomes negative.
+$`v \approx 59 \cdot \text{inferred\_total\_stake}`$.
+Past the second zero crossing, the real-valued threshold becomes negative.
 In $`\mathbb{F}_p`$ this wraps to a large value close to $`p`$, meaning the lottery ticket is almost certain to be below the threshold.
 The note wins nearly every slot.
-Past the second zero crossing, the threshold wraps back toward zero and the behavior becomes an oscillation between near-certain win and near-certain loss depending on the exact ratio $`v/\text{inferred\_total\_stake}`$
+Further out, the threshold keeps wrapping around $`p`$ and the behavior becomes an oscillation between near-certain win and near-certain loss depending on the exact ratio $`v/\text{inferred\_total\_stake}`$
 
 #### Severity
 
