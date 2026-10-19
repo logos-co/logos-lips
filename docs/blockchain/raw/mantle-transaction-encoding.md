@@ -37,6 +37,7 @@
 | 1.10.0 | Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata, retaining their `UINT32` length prefixes; corrected SDP activity metadata to use its tagged variant encoding without a generic length prefix | 2026-10-06 |
 | 2.0.0 | Follow the private note ledger of Mantle 2.0.0: nullifier inputs and commitment outputs with their `CmMerkleRoot` and `Value`, channel steps in `ChannelInscribe` with the `Buffered` count of their proof, holder withdrawals, the SDP payloads over notes, `PowNonce` in `ClaimPowReward`, the `ZkTransfer` proof variants, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim`. A `FieldElement` not less than $`p`$ is rejected | 2026-10-06 |
 | 2.1.0 | Follow the programs of Mantle 2.1.0: the `ProgramRegister` Operation with its `Groth16VerificationKey`, user and program steps in `ChannelInscribe` with their proofs and the openings of the program notes, the payments with the `Buffered` count of their proof, and the `Groth16` terminal renamed `Groth16Proof` | 2026-10-12 |
+| 2.2.0 | Follow the note delivery of Mantle 2.2.0: the `Ciphertexts` list after the `Outputs` of `Transfer`, `ChannelDeposit`, `ChannelWithdraw`, `UserStep` and `Payment`, one `NoteCiphertext` per output, empty or `NOTE_CIPHERTEXT_SIZE` bytes | 2026-10-19 |
 
 # Introduction
 
@@ -94,12 +95,12 @@ StepCount       = UINT16
 Step            = (UserStepKind UserStep) / (ProgramStepKind ProgramStep)
 UserStepKind    = %x00
 ProgramStepKind = %x01
-UserStep        = Inputs Outputs CmMerkleRoot Buffered
+UserStep        = Inputs Outputs Ciphertexts CmMerkleRoot Buffered
 Buffered        = UINT16 ; commitments of the transaction buffer the proof covers
 ProgramStep     = ProgramId Payments Inputs Outputs ProgramOutputs CmMerkleRoot SpendNotesHash
 Payments        = PaymentCount *Payment
 PaymentCount    = Byte
-Payment         = Inputs Outputs CmMerkleRoot Buffered Value Intent
+Payment         = Inputs Outputs Ciphertexts CmMerkleRoot Buffered Value Intent
 Intent          = FieldElement
 ProgramOutputs  = Byte ; bit i (least significant first) set when output i is a note of the program,
                        ; the bits from OutputCount up being 0
@@ -111,10 +112,10 @@ PostingTimeframe           = UINT32
 PostingTimeout             = UINT32
 ConfigThreshold            = UINT16
 
-ChannelDeposit    = ChannelId Inputs CmMerkleRoot Outputs Value DepositMetadata
+ChannelDeposit    = ChannelId Inputs CmMerkleRoot Outputs Ciphertexts Value DepositMetadata
 DepositMetadata   = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes
 
-ChannelWithdraw   = ChannelId Inputs CmMerkleRoot Outputs
+ChannelWithdraw   = ChannelId Inputs CmMerkleRoot Outputs Ciphertexts
 
 ChannelId         = Hash32
 Parent            = Hash32
@@ -175,11 +176,14 @@ ProgramId             = FieldElement
 ### Transfer Operations
 
 ```schema
-Transfer    = Inputs Outputs CmMerkleRoot Value
+Transfer    = Inputs Outputs Ciphertexts CmMerkleRoot Value
 Inputs      = InputCount *NoteNf
 InputCount  = Byte
 Outputs     = OutputCount *NoteCm
 OutputCount = Byte
+Ciphertexts = *NoteCiphertext          ; exactly OutputCount entries, no count of its own
+NoteCiphertext = CiphertextFlag [1176BYTE] ; the note ciphertext when the flag is 0x01, nothing when 0x00
+CiphertextFlag = Byte                   ; 0x00 or 0x01
 ```
 
 ## Ledger

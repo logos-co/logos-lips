@@ -27,6 +27,7 @@
 | 1.1.0 | [RFC] Replace the BLAKE2b-Based PRNG with ChaCha20 (ChaCha20Rng) | 2026-08-28 |
 | 1.2.0 | Strict EdDSA verification: reject small-order public keys and small-order `R` | 2026-09-22 |
 | 1.3.0 | Removed the ZkSignature scheme, no longer used by any Operation | 2026-10-07 |
+| 1.4.0 | Added the Note Encryption scheme: a post-quantum/traditional hybrid KEM (X-Wing) with a BLAKE2b key derivation and ChaCha20-Poly1305, used to deliver the contents of a note to its recipient on chain | 2026-10-19 |
 
 # Introduction
 
@@ -217,6 +218,64 @@ Security Considerations:
 - Curve25519: [https://iacr.org/archive/pkc2006/39580209/39580209.pdf](https://iacr.org/archive/pkc2006/39580209/39580209.pdf)
 
 # 3. Proof Systems
+
+## Note Encryption
+
+Description:
+
+Note Encryption lets the sender of a [note](bedrock-v1.1-mantle-specification.md#notes) deliver its contents to the recipient on chain. The ledger holds only the commitment of a note; the recipient needs its `value` and `nonce` to recompute the commitment and to spend it. The scheme encrypts these two fields under the recipient's encryption public key, with a key encapsulation that stays secure against a quantum adversary, so that ciphertexts recorded today cannot be read once such an adversary exists.
+
+Technical Details:
+
+- Key encapsulation: X-Wing, the hybrid of ML-KEM-768 and X25519 specified in [draft-connolly-cfrg-xwing-kem](https://datatracker.ietf.org/doc/html/draft-connolly-cfrg-xwing-kem), used as specified: the two shared secrets are combined as $`\text{SHA3-256}(ss_M \| ss_X \| ct_X \| pk_X \| \text{label})`$. Encapsulation key 1216 bytes, decapsulation key a 32-byte seed, ciphertext 1120 bytes, shared secret 32 bytes. The same construction is registered for HPKE as `MLKEM768-X25519`.
+- Key derivation: domain-separated BLAKE2b-256, $`key = \text{BLAKE2b-256}(\texttt{LOGOS\_NOTE\_ENC\_V1} \| ss \| ct)`$, where $`ss`$ is the shared secret and $`ct`$ the 1120-byte KEM ciphertext.
+- Authenticated encryption: ChaCha20-Poly1305 ([RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439)) under $`key`$, with a zero nonce, since every key encrypts exactly once, and the note commitment `cm` as associated data.
+- Plaintext: `value` as 8 bytes little-endian followed by `nonce` as 32 bytes little-endian, 40 bytes. Ciphertext 56 bytes with the tag.
+- Note ciphertext: the KEM ciphertext followed by the authenticated ciphertext, `NOTE_CIPHERTEXT_SIZE = 1176` bytes.
+
+```python
+NOTE_CIPHERTEXT_SIZE = 1176
+
+def encrypt_note(pk_enc: XWingEncapsulationKey, cm: NoteCm, value: TokenValue, nonce: NoteNonce) -> bytes:
+    (ct, ss) = xwing_encapsulate(pk_enc)
+    key = blake2b_256(b"LOGOS_NOTE_ENC_V1" + ss + ct)
+    plaintext = value.to_bytes(8, "little") + nonce.to_bytes(32, "little")
+    return ct + chacha20poly1305_seal(key, nonce=bytes(12), aad=cm.to_bytes(32, "little"), plaintext=plaintext)
+
+def decrypt_note(sk_enc: XWingDecapsulationKey, cm: NoteCm, note_ct: bytes) -> (TokenValue, NoteNonce) | None:
+    ct, sealed = note_ct[:1120], note_ct[1120:]
+    ss = xwing_decapsulate(sk_enc, ct)
+    key = blake2b_256(b"LOGOS_NOTE_ENC_V1" + ss + ct)
+    plaintext = chacha20poly1305_open(key, nonce=bytes(12), aad=cm.to_bytes(32, "little"), ciphertext=sealed)
+    if plaintext is None:
+        return None
+    return (int.from_bytes(plaintext[:8], "little"), int.from_bytes(plaintext[8:], "little"))
+```
+
+Use in the Logos Blockchain:
+
+- The optional note ciphertext an Operation may attach to each note it creates, as specified in [Mantle - Note Delivery](bedrock-v1.1-mantle-specification.md#note-delivery). The recipient decrypts with the key it derives as the [Wallet Technical Standard](wallet-technical-standard.md#note-encryption-key-and-address) specifies, recomputes the commitment from the plaintext and its own public key, and keeps the note only if it matches.
+
+Rationale for Use:
+
+- A note ciphertext stays on chain for the life of the chain. Key encapsulation on an elliptic curve alone would let an adversary record the ciphertexts now and decrypt them once a quantum computer exists, exposing the amounts and, through the recomputed commitments, the recipients of every note. The hybrid keeps the classical security of X25519 if ML-KEM-768 is broken and the post-quantum security of ML-KEM-768 if X25519 is.
+- X-Wing is used exactly as specified, so its security proof, test vectors and implementations apply as they are. The key derivation and the authenticated encryption are the ones already used in the Logos Blockchain.
+- The encryption is outside every circuit: it costs no constraint and changes no proof.
+
+Security Considerations:
+
+- Confidentiality is IND-CCA as long as either ML-KEM-768 or X25519 holds. The ciphertexts are anonymous: ML-KEM ciphertexts and X25519 ephemeral keys reveal nothing about the recipient key, so two outputs to the same recipient cannot be linked on chain.
+- The ledger cannot check a ciphertext against its commitment. A sender publishing a wrong ciphertext only prevents the recipient from learning a note the sender paid for; no other note and no other party is affected.
+- The decapsulation key reveals the contents of every note sent to its holder, past and future, and nothing else: it derives no nullifier and spends nothing. There is no forward secrecy by design, since the key is what lets a wallet recover its notes from its seed.
+- ML-KEM uses SHA3-256, SHA3-512, SHAKE128 and SHAKE256 internally, and X-Wing combines the secrets with SHA3-256; SHA-3 enters the components of the Logos Blockchain with this scheme.
+
+## References
+
+- X-Wing: general-purpose hybrid post-quantum KEM. [https://datatracker.ietf.org/doc/html/draft-connolly-cfrg-xwing-kem](https://datatracker.ietf.org/doc/html/draft-connolly-cfrg-xwing-kem)
+- ML-KEM, FIPS 203. [https://csrc.nist.gov/pubs/fips/203/final](https://csrc.nist.gov/pubs/fips/203/final)
+- Post-quantum KEMs for HPKE. [https://datatracker.ietf.org/doc/html/draft-ietf-hpke-pq](https://datatracker.ietf.org/doc/html/draft-ietf-hpke-pq)
+- ChaCha20 and Poly1305 for IETF Protocols, RFC 8439. [https://datatracker.ietf.org/doc/html/rfc8439](https://datatracker.ietf.org/doc/html/rfc8439)
+- Maram, Xagawa. Post-Quantum Anonymity of Kyber. PKC 2023. [https://eprint.iacr.org/2022/1696](https://eprint.iacr.org/2022/1696)
 
 ## [Groth16 (zk-SNARK)](https://eprint.iacr.org/2016/260.pdf)
 

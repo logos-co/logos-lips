@@ -49,6 +49,7 @@
 | 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding. | 2026-10-06 |
 | 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each proven against a recent root and the part of the transaction buffer it names, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and moved `CLAIM_POW_REWARD` to the opcode `0x30`. A `TokenValue` counts units of $`10^{-9}`$ LGO. The commitment MMR and the nullifier IMT of a note set have depth 40, so that sustained use at the Execution Gas target takes decades to fill a set rather than months at depth 32 | 2026-10-01 |
 | 2.1.0 | Add programs: notes gain `program` and `data` fields, `PROGRAM_REGISTER` registers a Groth16 verification key, and channel inscriptions carry program steps made of user payments, a `ZkProgramSpend`, a program proof and the openings of the program notes they create. A payment, like a user step, names the buffered commitments its proof covers. Add the proving time benchmarks of the ZkTransfer and the ZkProgramSpend | 2026-10-12 |
+| 2.2.0 | Note delivery: every Operation creating user notes may attach to each output a note ciphertext, the encryption of the value and the nonce under the recipient's key as [Common Cryptographic Components](common-cryptographic-components.md#note-encryption) specifies, optional per output | 2026-10-19 |
 
 # Introduction
 
@@ -436,6 +437,7 @@ class UserStep:
     is_program: bool = False
     inputs: list[NoteNf]        # nullifiers of the consumed user notes of the channel
     outputs: list[NoteCm]       # commitments of the created user notes of the channel
+    ciphertexts: list[NoteCiphertext]  # one per output, the note ciphertext of the output or empty, see Note Delivery
     cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set
     buffered: int               # UINT16, the number of commitments of the tx_cm_buffer of the set
                                 # the proof covers, 0 for a step over cm_merkle_root
@@ -443,6 +445,7 @@ class UserStep:
 class Payment:
     inputs: list[NoteNf]        # nullifiers of the consumed user notes of the channel
     outputs: list[NoteCm]       # commitments of the change, user notes of the channel
+    ciphertexts: list[NoteCiphertext]  # one per output, the note ciphertext of the output or empty, see Note Delivery
     cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set
     buffered: int               # UINT16, the number of commitments of the tx_cm_buffer of the set
                                 # the proof covers, 0 for a payment over cm_merkle_root
@@ -612,6 +615,7 @@ block_slot: Slot
               paid_value = 0
               for payment, payment_proof in zip(step.payments, step_proof.payment_proofs):
                   note_set.assert_spendable(payment.inputs, payment.cm_merkle_root)
+                  assert_well_formed_ciphertexts(payment.outputs, payment.ciphertexts)
                   for note_nf in payment.inputs:
                       assert note_nf not in step_nfs
                       step_nfs.add(note_nf)
@@ -665,6 +669,7 @@ block_slot: Slot
           else:
               # Ensure the user step is spendable and signed by its holder.
               note_set.assert_spendable(step.inputs, step.cm_merkle_root)
+              assert_well_formed_ciphertexts(step.outputs, step.ciphertexts)
               for note_nf in step.inputs:
                   assert note_nf not in step_nfs
                   step_nfs.add(note_nf)
@@ -872,6 +877,7 @@ class ChannelDeposit:
     inputs: list[NoteNf]        # nullifiers of the consumed notes of the ledger note set
     cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the ledger note set
     outputs: list[NoteCm]       # commitments of the created notes of the channel note set
+    ciphertexts: list[NoteCiphertext]  # one per output, the note ciphertext of the output or empty, see Note Delivery
     excess_value: TokenValue    # the excess to pay the fees
     metadata: bytes
 ```
@@ -935,6 +941,11 @@ ledger: Ledger
       ledger.sets[channels[deposit.channel].note_set].tx_cm_buffer.extend(deposit.outputs)
       ```
 
+  6. Ensure the note ciphertexts are well-formed ([Note Delivery](#note-delivery)).
+      ```python
+      assert_well_formed_ciphertexts(deposit.outputs, deposit.ciphertexts)
+      ```
+
 #### Execution
 
   *Given*
@@ -972,6 +983,7 @@ class ChannelWithdraw:
     inputs: list[NoteNf]        # nullifiers of the consumed notes of the channel note set
     cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set
     outputs: list[NoteCm]       # commitments of the notes created in the ledger note set
+    ciphertexts: list[NoteCiphertext]  # one per output, the note ciphertext of the output or empty, see Note Delivery
 ```
 
 A withdrawal balances exactly and carries no fee: another Operation of its Mantle Transaction, such as a Transfer, pays the fees. An excess paid when the withdrawal is posted would stay paid even if the withdrawal is dropped later, which would create tokens.
@@ -1023,6 +1035,11 @@ ledger: Ledger
                                                         withdrawal.cm_merkle_root,
                                                         mantle_txhash_fr,
                                                         proof)
+      ```
+
+  4. Ensure the note ciphertexts are well-formed ([Note Delivery](#note-delivery)).
+      ```python
+      assert_well_formed_ciphertexts(withdrawal.outputs, withdrawal.ciphertexts)
       ```
 
 #### Execution
@@ -1666,6 +1683,7 @@ class Transfer:
     inputs: list[NoteNf]  		# the list of consumed note nullifiers
                           		# must be non-empty
     outputs: list[NoteCm]       # the list of created note commitments
+    ciphertexts: list[NoteCiphertext]  # one per output, the note ciphertext of the output or empty, see Note Delivery
     cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the ledger note set
     excess_value: TokenValue	# the excess to pay the fees
 ```
@@ -1714,6 +1732,11 @@ ledger: Ledger
   3. Add the outputs to the buffer of the ledger note set.
       ```python
       ledger.sets[LEDGER_SET].tx_cm_buffer.extend(transfer.outputs)
+      ```
+
+  4. Ensure the note ciphertexts are well-formed ([Note Delivery](#note-delivery)).
+      ```python
+      assert_well_formed_ciphertexts(transfer.outputs, transfer.ciphertexts)
       ```
 
 ### Execution
@@ -1797,6 +1820,27 @@ def derive_note_nf(note_cm: NoteCm, secret_key: ZkSecretKey) -> NoteNf:
 `op_id` is a classical 256-bit hash digest and must be reduced to a field element before being passed to the ZkHasher. We apply a direct modular reduction mod `p` (via `FiniteField(..., modulus=p)`). Since $`p \approx 2^{254}`$, the reduction is slightly non-uniform, values in $`[0, 2^{256} \mod p)`$ appear one extra time, but this is inconsequential in practice: the collision probability remains around $`2^{-254}`$, and `NoteNonce` uniqueness is not derived from uniformity of `op_id` over $`𝔽_p`$ but from the collision-resistance of the underlying hash and per-operation payload uniqueness.
 
 These note commitments and nullifiers uniquely define notes in the system. Nodes maintain each [note set](#ledger) through an MMR for note commitments and an indexed merkle tree for note nullifiers.
+
+### Note Delivery
+
+The ledger holds the commitment of a note and nothing of its contents, so the holder of a user note has to learn its `value` and `nonce` from its sender. Three cases:
+
+- Notes the ledger creates, such as rewards and service notes, and the user notes a program pays, derive their nonce from the Operation that creates them ([Note Commitment and Nullifier](#note-commitment-and-nullifier), [programs](#programs)), and their value is public or implied by the intent. Their holder recomputes the commitment alone.
+- A user note created by a Transfer, a channel deposit, a channel withdrawal, a user step or a payment may carry a **note ciphertext**: the encryption of its `value` and `nonce` under the encryption key of the recipient, with its commitment as associated data, as [Note Encryption](common-cryptographic-components.md#note-encryption) specifies. The ciphertext is exactly `NOTE_CIPHERTEXT_SIZE` bytes. The recipient tries every note ciphertext on the chain with its decapsulation key, recomputes the commitment from the plaintext and its own public key, and owns the note if it matches ([Wallet Technical Standard](wallet-technical-standard.md#note-discovery-and-recovery)).
+- A user note created without a note ciphertext is delivered off chain, by any means the sender and the recipient agree on. The ledger is indifferent to it.
+
+Attaching a note ciphertext is the sender's choice, output by output: the `ciphertexts` list of these Operations holds one entry per output, the note ciphertext or an empty entry. The Operation is valid only if the list has exactly one entry per output and every non-empty entry has `NOTE_CIPHERTEXT_SIZE` bytes; the ledger checks nothing else about it, since it cannot decrypt it. A ciphertext that does not open to its commitment deprives the recipient of that note and nothing else. The bytes of the ciphertexts are paid through the Permanent Storage Gas of the transaction like the rest of its encoding.
+
+```python
+NOTE_CIPHERTEXT_SIZE = 1176   # the X-Wing ciphertext (1120) and the sealed value and nonce (56)
+
+def assert_well_formed_ciphertexts(outputs: list[NoteCm], ciphertexts: list[NoteCiphertext]):
+    assert len(ciphertexts) == len(outputs)
+    for note_ct in ciphertexts:
+        assert len(note_ct) in (0, NOTE_CIPHERTEXT_SIZE)
+```
+
+Note ciphertexts are the only data of a note that the chain keeps for its holder. They are not prunable: a wallet recovering from its seed needs every note ciphertext ever addressed to it.
 
 ### Service notes
 
@@ -2267,6 +2311,8 @@ def MultiEd25519_verify(msg, signatures, indexes, keys, threshold):
 ```
 
 ## Test Vectors
+
+<!-- TODO: regenerate the vectors with the `ciphertexts` field of Mantle 2.2.0 -->
 
 To see what the payloads represent, refer to [Mantle Transaction Encoding](mantle-transaction-encoding.md). The vectors are derived from this specification: `op_id` is the BLAKE2b-256 hash of `OPERATION_ID_V1` and the payload, without its opcode, and the transaction hash the BLAKE2b-256 hash of `MANTLE_TXHASH_V1` and the encoded `MantleTx`. Each field holds a small distinct value, so that every field can be told apart in the payload. The verification key of the `PROGRAM_REGISTER` payload holds placeholder bytes rather than curve points: the vector covers its encoding and its `op_id`, not its validation.
 
