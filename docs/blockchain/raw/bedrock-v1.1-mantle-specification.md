@@ -2119,8 +2119,8 @@ The material used for the benchmarks is the following:
 - CPU       : 13th Gen Intel(R) Core(TM) i9-13980HX (24 cores / 32 threads)
 - RAM       : 32GB - Speed: 5600 MT/s
 - Motherboard: Micro-Star International Co., Ltd. MS-17S1
-- OS        : Ubuntu 22.04.5 LTS
-- Kernel    : 6.8.0-59-generic
+- OS        : Ubuntu 24.04.5 LTS
+- Kernel    : 6.8.0-138-generic
 
 ![Diagram](bedrock-v1.1-mantle-specification/assets/zktransfer_proving_time_vs_threads.png)
 
@@ -2225,8 +2225,8 @@ The material used for the benchmarks is the following:
 - CPU       : 13th Gen Intel(R) Core(TM) i9-13980HX (24 cores / 32 threads)
 - RAM       : 32GB - Speed: 5600 MT/s
 - Motherboard: Micro-Star International Co., Ltd. MS-17S1
-- OS        : Ubuntu 22.04.5 LTS
-- Kernel    : 6.8.0-59-generic
+- OS        : Ubuntu 24.04.5 LTS
+- Kernel    : 6.8.0-138-generic
 
 ![Diagram](bedrock-v1.1-mantle-specification/assets/zkprogramspend_proving_time_vs_threads.png)
 

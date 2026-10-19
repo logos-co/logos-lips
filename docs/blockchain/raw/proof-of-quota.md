@@ -240,8 +240,8 @@ The material used for the benchmarks is the following:
 - CPU: 13th Gen Intel(R) Core(TM) i9-13980HX (24 cores / 32 threads)
 - RAM: 32GB - Speed: 5600 MT/s
 - Motherboard: Micro-Star International Co., Ltd. MS-17S1
-- OS: Ubuntu 22.04.5 LTS
-- Kernel: 6.8.0-59-generic
+- OS: Ubuntu 24.04.5 LTS
+- Kernel: 6.8.0-138-generic
 
 ![Median proving time of the three branch circuit against the number of threads, ten runs](proof-of-quota/assets/proving-time-three-branch.png)
 
