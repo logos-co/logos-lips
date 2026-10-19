@@ -395,7 +395,7 @@ leader_note = Note(
 ledger.sets[LEDGER_SET].execute_adding([derive_note_cm(leader_note)])
 ```
 
-Spending the note reveals neither its commitment nor its value, so the leader cannot be linked to the block through its reward. A leader should use a fresh `reward_key` for every block. Reusing it links the blocks that carry it to the same leader, and two rewards of the same value under the same key share a commitment, so only one of them can be spent.
+Spending the note reveals neither its commitment nor its value, so the leader cannot be linked to the block through its reward. A leader should use a fresh `reward_key` for every block. Reusing it links the blocks that carry it to the same leader, and two rewards of the same value under the same key are identical notes, of which only one can be spent ([Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier)).
 
 The five steps stand or fall together, on a block that has validated in full: a block that fails validation at any point is not executed at all.
 
