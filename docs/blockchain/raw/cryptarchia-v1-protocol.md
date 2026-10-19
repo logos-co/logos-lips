@@ -35,7 +35,7 @@
 | 1.2.3 | Update the test vectors to reflect the parent added in the `CHANNEL_CONFIG` payload | 2026-08-27 |
 | 1.2.4 | Reordered the `ProofOfLeadership` fields to the wire order defined by the [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding), and noted that the [Block ID](#block-id) preimage absorbs the same fields in a different order by design. The `Header` layout and the `block_id` preimage are otherwise unchanged. | 2026-08-28 |
 | 1.2.5 | Required the slot of a referenced [uncle](#uncle-references) to exceed the slot of its parent. | 2026-10-06 |
-| 1.3.0 | Versioning and upgrade activation moved to eras, uncles restricted to the era of the referencing block, the first slot of an epoch taken from the era schedule, and the latest immutable block kept from moving back ([Bedrock Eras](bedrock-eras.md)). | 2026-09-04 |
+| 1.3.0 | Versioning and upgrade activation moved to eras, uncles restricted to the era of the referencing block, the first slot of an epoch taken from the era schedule, and the latest immutable block advanced only while it lies deeper than the $`k`$ of its own era ([Bedrock Eras](bedrock-eras.md)). | 2026-10-16 |
 | 1.4.0 | Removed the `bedrock_version` header field and moved `slot` to the first header field ([Bedrock Eras](bedrock-eras.md)): the header is 296 bytes and a signed header 360. | 2026-09-04 |
 | 1.4.1 | Computed the test vectors marked `TBD`, for transactions that carry the test fork digest, and re-signed the two carried uncle headers in their 296-byte form. | 2026-10-06 |
 
@@ -124,7 +124,7 @@ Our design starts from the solid foundation provided by Ouroboros Crypsinous: Pr
 
 The latest immutable block $`B_\text{imm}`$ is the most recent block considered permanently finalized. The blocks deeper than $`B_\text{imm}`$ in the local chain $`c_{loc}`$ are never to be reorganized.
 
-This is maintained locally by the [Chain Maintenance](#chain-maintenance) procedure. When the [Online fork choice rule](fork-choice.md) is in use, $`B_\text{imm}`$ corresponds to the $`k`$-deep block. However, it may be deeper than the $`k`$-deep block if the fork choice rule has been switched from Online to [Bootstrap](fork-choice.md). Unlike the $`k`$-deep block, $`B_\text{imm}`$ does not advance as new blocks are added unless the Online fork choice rule is used.
+This is maintained locally by the [Chain Maintenance](#chain-maintenance) procedure. When the [Online fork choice rule](fork-choice.md) is in use, $`B_\text{imm}`$ advances as [Commit](#commit) defines, and within one era it is the $`k`$-deep block. However, it may be deeper than the $`k`$-deep block if the fork choice rule has been switched from Online to [Bootstrap](fork-choice.md). Unlike the $`k`$-deep block, $`B_\text{imm}`$ does not advance as new blocks are added unless the Online fork choice rule is used.
 
 The details of fork choice rule transitions are defined in the bootstrap spec: [Cryptarchia Bootstrapping & Synchronization](cryptarchia-v1-bootstr-sync.md)
 
@@ -478,31 +478,35 @@ $`\text{define } \textbf{on\_block}(state, B)\to state'`$:
 
   $`\text{if } \text{fork\_choice\_rule} = \text{ONLINE}:`$
 
-> Explicitly commit to the $`k`$-deep block if the [Online Fork Choice Rule](fork-choice.md) is being used.
+> Explicitly commit to the blocks that lie deep enough if the [Online Fork Choice Rule](fork-choice.md) is being used.
 
-&nbsp;&nbsp;&nbsp;&nbsp;$`(T', B_\text{imm}) \coloneqq \textbf{commit}(T', c_{loc}', B_\text{imm}, k)`$
+&nbsp;&nbsp;&nbsp;&nbsp;$`(T', B_\text{imm}) \coloneqq \textbf{commit}(T', c_{loc}', B_\text{imm})`$
 
   $`\textbf{return} \space (c_{loc}', B_\text{imm}, T')`$
 
 ### Commit
 
-We define the procedure that commits to the block, which is $`depth`$ deep from $`c_{loc}`$. This procedure computes the new latest immutable block $`B_\text{imm}'`$ from the current one, $`B_\text{imm}`$.
+We define the procedure that commits to the blocks of $`c_{loc}`$ that lie deep enough. This procedure computes the new latest immutable block $`B_\text{imm}'`$ from the current one, $`B_\text{imm}`$.
 
-$`\text{define } \textbf{commit}(T,c_{loc},B_\text{imm},depth)\to (T', B_\text{imm}'):`$
+$`\text{define } \textbf{commit}(T,c_{loc},B_\text{imm})\to (T', B_\text{imm}'):`$
 
   $`\textbf{assert } \text{fork\_choice\_rule} = \text{ONLINE}`$
 
-> Compute the block $`depth`$ deep from $`c_{loc}`$. The latest immutable block moves to it only if it is higher.
+> Advance the latest immutable block along the chain of $`c_{loc}`$, one block at a time, while it lies more than $`k_n`$ blocks below $`c_{loc}`$, $`k_n`$ being the $`k`$ of the era $`n`$ of its slot ([Era Boundaries](bedrock-eras.md#era-boundaries)).
 
-  $`B \coloneqq \textbf{block\_at\_depth}(c_{loc}, depth)`$
+  $`B_\text{imm}' \coloneqq B_\text{imm}`$
 
-  $`B_\text{imm}' \coloneqq \begin{cases} B &\text{if } \textbf{height}(B) \gt \textbf{height}(B_\text{imm})\\ B_\text{imm} &\text{otherwise} \end{cases}`$
+  $`\textbf{while } \textbf{height}(c_{loc}) - \textbf{height}(B_\text{imm}') \gt k_{\textbf{era}(sl_{B_\text{imm}'})}:`$
+
+&nbsp;&nbsp;&nbsp;&nbsp;$`B_\text{imm}' \coloneqq C`$, the block $`C \in \textbf{ancestors}(c_{loc})`$ with $`\textbf{parent}(C) = B_\text{imm}'`$
 
 > Prune all forks diverged deeper than $`B_\text{imm}'`$, so that future blocks on those forks can be rejected by [Block Header Validation](#block-header-validation).
 
   $`T' \coloneqq \textbf{prune\_forks}(T, B_\text{imm}', c_{loc})`$
 
   $`\textbf{return} \space (T', B_\text{imm}')`$
+
+Measuring against the $`k`$ of the local chain tip's era instead would let a smaller $`k`$ in a later era make blocks of an earlier era immutable while the fork choice rule, which compares two chains under the era of their common ancestor ([Era of Chain Data](bedrock-eras.md#era-of-chain-data)), still lets a fork replace them.
 
 ### Fork Pruning
 
