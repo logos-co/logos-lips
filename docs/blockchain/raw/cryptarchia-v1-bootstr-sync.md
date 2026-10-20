@@ -382,7 +382,7 @@ BlockSlot        = UINT64
 LedgerRoot       = FieldElement                   ; the ledger root after the block
 ```
 
-The epoch state of an epoch is the tuple $`(\mathbb{C}_\text{LEAD}, \eta, D)`$ of [Epoch State](cryptarchia-v1-protocol.md#epoch-state). The aged notes of epoch $`n \ge 1`$ are the `notes` of [Chain State](bedrock-chain-state.md#chain-state) as of the first slot of epoch $`n-1`$, and those of epoch 0 are the notes after the Genesis block. The $`\mathbb{C}_\text{LEAD}`$ of epochs $`e`$ and $`e+1`$ is the [Ledger Root](cryptarchia-proof-of-leadership.md#ledger-root) of their aged notes.
+The epoch state of an epoch is the tuple $`(\mathbb{C}_\text{LEAD}, \eta, D)`$ of [Epoch State](cryptarchia-v1-protocol.md#epoch-state). The aged notes of epoch $`n \ge 1`$ are the `notes` of [Chain State](bedrock-chain-state.md#chain-state) as of the first slot of epoch $`n-1`$, migrated to the era of epoch $`n`$ ([Era Migration](bedrock-eras.md#era-migration)), and those of epoch 0 are the notes after the Genesis block. The $`\mathbb{C}_\text{LEAD}`$ of epochs $`e`$ and $`e+1`$ is the [Ledger Root](cryptarchia-proof-of-leadership.md#ledger-root) of their aged notes.
 
 `NextNonce` is present when the slot of $`B`$ is not before the slot at which [Epoch State Pseudocode](cryptarchia-v1-protocol.md#epoch-state-pseudocode) reads the epoch nonce of epoch $`e+1`$.
 
