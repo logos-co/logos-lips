@@ -48,7 +48,7 @@
 | 1.16.0 | Gas Determination table updated for strict Ed25519 verification: channel Operations 56 → 59 Execution Gas per signature, `EXECUTION_SDP_DECLARE_GAS` 646 → 649, from [Gas Cost Determination](analysis-gas-cost-determination.md) 1.7.0 | 2026-09-24 |
 | 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding. | 2026-10-06 |
 | 1.18.0 | Added the `fork_digest` field to the Mantle Transaction, accepted as defined in [Bedrock Eras](bedrock-eras.md), and took `WINDOW` from the Proof of Work parameters. | 2026-10-15 |
-| 1.19.0 | Aligned the ledger, the proof of work state and the field order of `DeclarationInfo` with [Chain State](bedrock-chain-state.md): a note keeps its leaf position, `pow_nullifiers` keeps the slot of each claim's referenced block, and a claim's referenced block is looked up in `block_slots`. | 2026-10-14 |
+| 1.19.0 | Aligned the ledger, the proof of work state and the field order of `DeclarationInfo` with [Chain State](bedrock-chain-state.md): a note keeps its leaf position, `pow_nullifiers` keeps the slot of each claim's referenced block, and a claim's referenced block is looked up in `block_slots`. | 2026-10-20 |
 
 # Introduction
 
@@ -1208,16 +1208,15 @@ service_notes : dict[NoteId, ServiceNote]
   3. Store the declaration as explained in [**Declaration Storage**](bedrock-service-declaration-protocol.md#declaration-storage).
       ```python
       declarations[declare_id] = DeclarationInfo(
-          service: declaration.service
-          locators: declaration.locators
-          provider_id: declaration.provider_id
-          zk_id: declaration.zk_id
-          service_note_id: declaration.service_note_id
-          declaration,
+          service=declaration.service,
+          provider_id=declaration.provider_id,
+          service_note_id=declaration.service_note_id,
+          locators=declaration.locators,
+          zk_id=declaration.zk_id,
           created=current_epoch,
           active=current_epoch + 2,
-          withdraw_at=None
-          nonce=0
+          withdraw_at=None,
+          nonce=0,
       )
       ```
 
