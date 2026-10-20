@@ -109,7 +109,7 @@ A transaction arrives by local submission through the [Node API](#node-api), by 
 - it is not already pending;
 - it carries no [Proof of Work](proof-of-work.md) reward **claim** whose **deadline** has passed.
 
-`highest_slot` is the highest slot in the block tree that [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance) keeps. A claim's deadline passes when `highest_slot` is more than `CLAIM_GRACE` slots past the end of its [Acceptance Window](proof-of-work.md#acceptance-window). A claim that names a block the node does not hold has no deadline. A transaction that is already pending is a duplicate: it is dropped if it came by gossip, and answered as success and broadcast again if it came from a local client. [Transaction Admission](#transaction-admission) specifies the procedure.
+`highest_slot` is the highest slot of a block that [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance) has added to the block tree since the node started. A claim's deadline passes when `highest_slot` is more than `CLAIM_GRACE` slots past the end of its [Acceptance Window](proof-of-work.md#acceptance-window). No deadline passes before the node adds a block, and a claim that names a block the node does not hold has no deadline. A transaction that is already pending is a duplicate: it is dropped if it came by gossip, and answered as success and broadcast again if it came from a local client. [Transaction Admission](#transaction-admission) specifies the procedure.
 
 ## Gossip
 
@@ -183,7 +183,7 @@ A node keeps these values for its mempool, defined in [Mempool State](#mempool-s
 - `pending`, the pending hashes in admission order, which changes on [Transaction Admission](#transaction-admission) and on [Retirement](#retirement);
 - `bodies` and `admitted_at`, the body and admission time of each pending transaction, which change with `pending` as [Effects of Retirement](#effects-of-retirement) specifies;
 - `by_prefix`, the pending hashes keyed by their reference prefix, which changes with `pending` in the same way;
-- `highest_slot`, the highest slot in the block tree, which rises when Chain Maintenance adds a block of a higher slot.
+- `highest_slot`, the highest slot of a block added since the node started, which rises when Chain Maintenance adds a block of a higher slot.
 
 [Persistence and Recovery](#persistence-and-recovery) specifies what the node persists and rebuilds. Local clients read the pending set through the [Node API](#node-api).
 
@@ -220,7 +220,7 @@ class Mempool:
     bodies: Map[TxHash, SignedMantleTx] # transaction bodies
     admitted_at: Map[TxHash, Timestamp] # admission time, per pending transaction
     by_prefix: Map[bytes, Set[TxHash]]  # pending hashes, keyed by reference prefix
-    highest_slot: SlotNumber            # highest slot in the block tree
+    highest_slot: Optional[SlotNumber]  # highest slot of a block added since the node started
 ```
 
 A transaction `tx` is keyed by `mantle_txhash(tx)`, the [Mantle Transaction Hash](bedrock-v1.1-mantle-specification.md#mantle-transaction-hash) of `tx.tx`.
@@ -229,7 +229,7 @@ An `OrderedSet` iterates in insertion order. A `Timestamp` is a time in seconds,
 
 `by_prefix` maps `prefix(hash, REFERENCE_PREFIX_LENGTH)` to the pending hashes carrying that prefix, where `prefix` is defined in [References](bedrock-v1.1-block-construction.md#references). A prefix that no pending hash carries maps to an empty set.
 
-`highest_slot` is the highest slot of any block that [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance) has added to the node's block tree.
+`highest_slot` is the highest slot of any block that [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance) has added to the node's block tree since the node started, or `None` before the first.
 
 ## Transaction Admission
 
@@ -385,7 +385,7 @@ A claim is the payload of a `CLAIM_POW_REWARD` Operation, defined in [CLAIM_POW_
 def claim_expired(mempool, tx) -> bool:
     slots = [block_slot(claim.block_hash) for claim in claims(tx)]
     known = [slot for slot in slots if slot is not None]
-    if not known:
+    if not known or mempool.highest_slot is None:
         return False
     # One claim the ledger rejects invalidates the whole transaction, so the
     # earliest referenced block decides. A block at slot s + WINDOW is the last
@@ -393,7 +393,7 @@ def claim_expired(mempool, tx) -> bool:
     return mempool.highest_slot >= min(known) + WINDOW + 1 + CLAIM_GRACE
 ```
 
-A pending transaction for which `claim_expired` holds is retired.
+A pending transaction for which `claim_expired` holds is retired, unless it has been pending since the node recovered it from persisted state.
 
 `claims(tx)` is the list of claims in `tx`. `block_slot(h)` is the slot of the block with hash `h` in the node's block tree, or `None` if the block tree holds no such block.
 
@@ -413,19 +413,19 @@ A node retires a transaction by running `retire`.
 
 A node persists the pending hashes, their admission timestamps, and the transaction bodies.
 
-A node does not persist `by_prefix` or `highest_slot`. It rebuilds them on recovery:
+A node does not persist `by_prefix` or `highest_slot`. It rebuilds `by_prefix` on recovery, and `highest_slot` starts at `None`:
 
 ```python
-def recover(saved, block_tree) -> Mempool:
+def recover(saved) -> Mempool:
     by_prefix = defaultdict(set)
     for key in saved.pending:
         by_prefix[prefix(key, REFERENCE_PREFIX_LENGTH)].add(key)
     return Mempool(pending=saved.pending, bodies=saved.bodies,
                    admitted_at=saved.admitted_at, by_prefix=by_prefix,
-                   highest_slot=max(block.header.slot for block in block_tree))
+                   highest_slot=None)
 ```
 
-`saved` holds what the node persisted, and `block_tree` holds the blocks of the node's block tree.
+`saved` holds what the node persisted.
 
 ## Node API
 
