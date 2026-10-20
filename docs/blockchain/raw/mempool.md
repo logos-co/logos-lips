@@ -24,13 +24,13 @@
 
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
-| 1.0.0 | Initial revision. | 2026-10-13 |
+| 1.0.0 | Initial revision. | 2026-10-20 |
 
 # Introduction
 
 A leader can include only transactions it holds, and a validator can rebuild a block proposal only from transactions it holds. A transaction submitted to one node is therefore of no use until the nodes that build and check blocks hold it too.
 
-The mempool removes this obstacle. The mempool is a node's store of Mantle Transactions that have been submitted but are not yet in an immutable block. Nodes pass these transactions to each other, offer them to block building, and resolve the references of block proposals against them.
+The mempool removes this obstacle. The mempool is a node's store of Mantle Transactions that have been submitted but are not yet final. Nodes pass these transactions to each other, offer them to block building, and resolve the references of block proposals against them.
 
 This document specifies how a node admits and disseminates transactions, what it offers to block building, how it resolves references, when it stops offering a transaction to block building and when it discards it, what it persists, and what it exposes to local clients. [Mantle](bedrock-v1.1-mantle-specification.md) specifies when a transaction applies, [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md) specifies what a validator does with a resolved or unresolved reference, and [P2P Network](../draft/p2p-network.md) specifies the topic transactions travel on.
 
@@ -67,7 +67,7 @@ A leader's block building receives the transactions that have been in its mempoo
 
 A transaction leaves block building when a block on the node's chain carries it, when a leader's block building cannot apply it, when it grows older than its time to live, or, for a reward claim, a set time after no block may include it any more. The node keeps it for a while after that, and can still rebuild a proposal that references it.
 
-The node drops the transaction once the block that carries it can no longer be reverted, once that set time has passed for a reward claim, or otherwise twice its time to live after it arrived.
+The node drops the transaction once the block that carries it is deep enough in the chain to be final, once that set time has passed for a reward claim, or otherwise twice its time to live after it arrived.
 
 A block may include the example's claim up to slot 20, and a node keeps the claim for twenty slots after that.
 
@@ -109,7 +109,7 @@ A transaction arrives by local submission through the [Node API](#node-api), by 
 - its encoding is no larger than `MAX_BLOCK_SIZE`;
 - it decodes, and decoding consumes the whole payload;
 - it passes `preverify`, the rules of Mantle's [Validation](bedrock-v1.1-mantle-specification.md#validation) that read no ledger state;
-- it is not already pending, and no canonical block after the [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block) carries it;
+- it is not already pending, and no canonical block after the [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block) and fewer than $`k`$ blocks deep carries it;
 - it carries no [Proof of Work](proof-of-work.md) reward **claim** whose **deadline** has passed.
 
 `highest_slot` is the highest slot in the block tree that [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance) keeps. A claim's deadline passes when `highest_slot` is more than `CLAIM_GRACE` slots past the end of its [Acceptance Window](proof-of-work.md#acceptance-window). A claim that names a block the node does not hold has no deadline. A transaction that fails the fourth check is a duplicate: it is dropped if it came by gossip, and answered as success and broadcast again if it came from a local client. [Transaction Admission](#transaction-admission) specifies the procedure.
@@ -145,11 +145,11 @@ The pending set must hold only transactions that block building may still select
 
 ## Retained Transactions
 
-A competing chain may carry a transaction that this node's chain already includes, and a late proposal may select one that this node has retired. The node keeps a retired transaction until no valid block can reference it.
+A competing chain may carry a transaction that this node's chain already includes, and a late proposal may select one that this node has retired. The node keeps a retired transaction until no fork that the [Online Fork Choice Rule](fork-choice.md#online-fork-choice-rule) accepts can reference it.
 
 A transaction that the node holds but does not offer to block building is **retained** until the node **releases** it. A retained transaction still resolves references, and keeps its admission time if it is admitted again. The node keeps in `included` the retained transactions that a block of its canonical chain carries, including ones it learned only from that block. It releases a transaction:
 
-- when the block that carries it becomes immutable;
+- when the block that carries it is $`k`$ blocks deep in the canonical chain;
 - when its age exceeds `TRANSACTION_RETENTION`, if no canonical block carries it;
 - when it carries a claim whose deadline has passed.
 
@@ -205,7 +205,7 @@ sequenceDiagram
     B->>A: block proposal referencing<br/>the transaction
     A->>A: resolve the reference<br/>from the pending set
     A->>A: the block enters the canonical<br/>chain: retire it into included
-    A->>A: the block becomes immutable:<br/>release the transaction
+    A->>A: the block is k blocks deep:<br/>release the transaction
 ```
 
 1. A client submits the transaction to node A through the [Node API](#node-api).
@@ -216,7 +216,7 @@ sequenceDiagram
 6. Node B's proposal references the transaction by a prefix of its hash ([References](bedrock-v1.1-block-construction.md#references)).
 7. Node A resolves the reference from its pending set ([Reference Resolution](#reference-resolution)).
 8. The block enters node A's canonical chain, and node A retires the transaction into `included` ([Inclusion in a Canonical Block](#inclusion-in-a-canonical-block)). Node B does the same.
-9. The block becomes immutable at node A, and node A applies [Release](#release) to the transaction. Node B does the same.
+9. The block is $`k`$ blocks deep in node A's canonical chain, and node A applies [Release](#release) to the transaction. Node B does the same.
 
 ## Node State
 
@@ -240,6 +240,7 @@ A node keeps these values for its mempool, defined in [Mempool State](#mempool-s
 | `WINDOW` | acceptance window | The window of [Acceptance Window](proof-of-work.md#acceptance-window), in slots. |
 | `MAX_BLOCK_SIZE` | maximum block size | From [Constants](cryptarchia-v1-protocol.md#constants). |
 | `MAX_BLOCK_TXS` | maximum block transactions | From [Constants](cryptarchia-v1-protocol.md#constants). |
+| $`k`$ | security parameter | From [Constants](cryptarchia-v1-protocol.md#constants). |
 | `REFERENCE_PREFIX_LENGTH` | reference prefix length | The length of a reference in bytes, from [References](bedrock-v1.1-block-construction.md#references). |
 | $`T_M`$ | message traversal time | The message traversal time of [Transition Period](blend-protocol.md#transition-period), converted from rounds to seconds by the length of a round given in [Time](blend-protocol.md#time). |
 
@@ -273,7 +274,7 @@ With `WINDOW` at 300 slots, `CLAIM_GRACE` is 600 slots. With $`T_M`$ at 15 round
 @dataclass
 class Mempool:
     pending: TimeOrderedSet[TxHash]     # admitted, not yet retired, in admission order
-    included: Set[TxHash]               # retained, carried by a canonical block not yet immutable
+    included: Set[TxHash]               # retained, carried by a canonical block after the latest immutable block and fewer than k blocks deep
     bodies: Map[TxHash, SignedMantleTx] # transaction bodies
     admitted_at: Map[TxHash, Timestamp] # admission time
     by_prefix: Map[bytes, Set[TxHash]]  # hashes keyed by reference prefix
@@ -505,7 +506,7 @@ def release_due(mempool) -> None:
             release(mempool, key)
 ```
 
-A node runs `release_block` on each block that becomes immutable, as defined in [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block). It releases a transaction as soon as the condition in `release_due` holds for it.
+A node runs `release_block` on each block of its canonical chain once the block is $`k`$ blocks deep, after it has run `include` on that block. It releases a transaction as soon as the condition in `release_due` holds for it.
 
 ## Persistence and Recovery
 
@@ -514,7 +515,7 @@ A node persists the pending hashes, the retained hashes that are not in `include
 A node does not persist `included`, `by_prefix` or `highest_slot`. It rebuilds them on recovery:
 
 ```python
-def recover(saved, block_tree, mutable: list[Block]) -> Mempool:
+def recover(saved, block_tree, recent: list[Block]) -> Mempool:
     mempool = Mempool(pending=TimeOrderedSet(), included=set(), bodies=dict(saved.bodies),
                       admitted_at=dict(saved.admitted_at), by_prefix=defaultdict(set),
                       highest_slot=max(block.header.slot for block in block_tree))
@@ -522,12 +523,12 @@ def recover(saved, block_tree, mutable: list[Block]) -> Mempool:
         mempool.pending.insert_by(key, saved.admitted_at[key])
     for key in mempool.bodies:
         mempool.by_prefix[prefix(key, REFERENCE_PREFIX_LENGTH)].add(key)
-    for block in mutable:
+    for block in recent:
         include(mempool, block)
     return mempool
 ```
 
-`saved` holds what the node persisted, and `block_tree` holds the blocks of the node's block tree. `mutable` holds the blocks of its canonical chain after the [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block), in chain order. `include` is defined in [Inclusion in a Canonical Block](#inclusion-in-a-canonical-block).
+`saved` holds what the node persisted, and `block_tree` holds the blocks of the node's block tree. `recent` holds the blocks of its canonical chain after the [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block) and fewer than $`k`$ blocks deep, in chain order. `include` is defined in [Inclusion in a Canonical Block](#inclusion-in-a-canonical-block).
 
 ## Node API
 
