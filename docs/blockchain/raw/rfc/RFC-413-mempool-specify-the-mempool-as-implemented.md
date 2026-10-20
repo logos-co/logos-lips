@@ -23,6 +23,7 @@
 |  | Brought the departures up to date with `logos-blockchain` at `f376f9547`. Removed the three that [logos-blockchain#3610](https://github.com/logos-blockchain/logos-blockchain/pull/3610), [#3734](https://github.com/logos-blockchain/logos-blockchain/pull/3734) and [#3746](https://github.com/logos-blockchain/logos-blockchain/pull/3746) fixed, moved their reasoning to the rationale, and ticked their tasks. Stateless validation now departs only for `CLAIM_POW_REWARD`, which the implementation gives no proof, and the TTL entry records the 1-hour default. | 2026-10-13 |
 |  | Restructured the specification into Introduction, Overview, Protocol and Details, with Notation and Parameters opening Details. No rule changed. Links to the former Constants section now point at Parameters. | 2026-10-13 |
 |  | Block Proposal Validation follows the implementation, which checks only the latest immutable block, the genesis slot, the block tree and the signature before reconstruction. The departure that asked for every header check first moved, with its rationale, task and test, to a submission of its own, and its consequences are Open Issue 15. | 2026-10-20 |
+|  | `TRANSACTION_TTL` is a node setting, as implemented: 1 hour by default, and `None` disables expiry. A transaction expires once its age reaches it. The departure that pinned it moved to a submission of its own, and its consequence is Open Issue 16. | 2026-10-20 |
 
 ## Reviewer Orientation
 
@@ -53,7 +54,7 @@ The second is that transactions depend on each other. If `tx2` spends a note `tx
 
 The expired-claim check reads the node's block tree, not its ledger, and neither reason applies to it. It reads no other transaction. Nodes disagree about a claim only after its deadline. The constraint on `CLAIM_GRACE` puts the deadline after a proposal that carries the claim has reached every node, if the leader sent it in its own slot.
 
-The price is that the mempool holds transactions that can never be applied, at no charge to whoever submitted them. Only `MAX_BLOCK_SIZE` and `TRANSACTION_TTL` bound them. A claim also leaves at its deadline, if the node holds the block it references.
+The price is that the mempool holds transactions that can never be applied, at no charge to whoever submitted them. Only `MAX_BLOCK_SIZE` and, unless a node disables it, `TRANSACTION_TTL` bound them. A claim also leaves at its deadline, if the node holds the block it references.
 
 ## Rationale for individual rules
 
@@ -76,12 +77,11 @@ The specification states rules only. The reasoning behind them is recorded here.
 
 This document describes what runs. It departs from the implementation only where the current behaviour is not defensible as a design. Each departure is listed below, with its task under [Implementation](#implementation). Everything else that differs from an ideal mempool stays an [open issue](#open-issues), so the specification and the code can be compared line by line.
 
-The entries were checked against `logos-blockchain`: `services/tx-service`, with the block-building and block-applied halves in `services/chain/chain-leader` and `services/chain/chain-network`. The grace-period entry was checked at `cad13d0d9`, the stateless-validation and TTL entries at `f376f9547`, and the expired-claim entry against [logos-blockchain#3789](https://github.com/logos-blockchain/logos-blockchain/pull/3789) at `b79dd8bdb`.
+The entries were checked against `logos-blockchain`: `services/tx-service`, with the block-building and block-applied halves in `services/chain/chain-leader` and `services/chain/chain-network`. The grace-period entry was checked at `cad13d0d9`, the stateless-validation entry at `f376f9547`, and the expired-claim entry against [logos-blockchain#3789](https://github.com/logos-blockchain/logos-blockchain/pull/3789) at `b79dd8bdb`.
 
 - **Stateless validation.** The implementation counts the proofs and checks their types when it decodes a transaction. It then verifies every proof bound only to the transaction hash and the operation payload, except one. It gives `CLAIM_POW_REWARD` no proof, so the `ZkSignature` that [CLAIM_POW_REWARD](../bedrock-v1.1-mantle-specification.md#claim_pow_reward) requires is neither type-checked nor verified, at admission or by the ledger.
 - **Expired claims.** The implementation admits an expired claim, and retires it only as inapplicable or by its TTL. [logos-blockchain#3789](https://github.com/logos-blockchain/logos-blockchain/pull/3789) adds the rule as specified, except after a restart. Its clock stays empty until the node applies a block, so no claim is refused until then. The claims it recovers are never tracked again, so only the TTL retires them.
 - **Retirement discards the body.** The implementation keeps a retired body for a ten-minute grace period, but retirement removes the hash from the prefix index at once. Since [logos-blockchain#3251](https://github.com/logos-blockchain/logos-blockchain/pull/3251), no resolution reads the retained body, so the timer only delays its deletion. [#448](https://github.com/logos-co/logos-lips/pull/448) brings retention back together with the rule that reads it.
-- **`TRANSACTION_TTL` is a constant.** The implementation carries it as a configuration value that can be set to disable expiry altogether, which leaves a node with no eviction at all. Its default is 1 hour, against 24 hours here.
 
 ## Open issues
 
@@ -102,6 +102,7 @@ Recorded here rather than in the specification.
 13. **The entry points are a closed list, and a fourth is coming.** [Transaction Admission](../mempool.md#transaction-admission) enumerates three ways a transaction reaches the pool, and the broadcast rule keys on which of them it arrived by. A [Blend Protocol](../blend-protocol.md) revision adds transactions as a second data-message payload, which the core node that unwraps one submits to its own mempool. That is a fourth entry point, and Blend itself broadcasts its transactions. Three things then need saying that the document currently leaves implicit. The broadcast rule reaches the right answer only by omission: Blend delivery is neither local submission nor re-insertion, so nothing is disseminated twice, but that holds by accident rather than by statement. [Decoding](../mempool.md#decoding) describes one transaction in the Network Wire Format envelope, where a Blend payload body carries a sequence of them. And the two paths admit different sizes: `MAX_BLOCK_SIZE` here, against a fixed Blend payload body two orders of magnitude smaller, so a transaction this document would admit may not be sendable over Blend at all.
 14. **A fork switch re-admits a transaction at the current time.** Retirement has already discarded its admission time, so the transaction goes to the end of `pending`, behind everything admitted since. Selection carries no fee signal that could buy the position back. [#448](https://github.com/logos-co/logos-lips/pull/448) keeps the time until the block is immutable, and re-admits the transaction at the position that time gives it.
 15. **Reconstruction precedes the parent and leadership checks.** Before reconstruction a node checks only the latest immutable block, the genesis slot, the block tree and the signature. A proposal whose parent is missing and whose references do not resolve is therefore dropped before the missing parent is noticed, and it never reaches the orphan path. A proposal with an invalid proof of leadership also costs a mempool scan.
+16. **A node can disable expiry.** `TRANSACTION_TTL` is a node setting, 1 hour by default, and `None` turns expiry off. Such a node retires a transaction only when a block carries it, when its own block building fails to apply it, or when it carries an expired claim.
 
 # Details
 
@@ -121,7 +122,7 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 
 ## 4. Retirement and persistence
 
-[Retirement](../mempool.md#retirement), [Reorganisation](../mempool.md#reorganisation) and [Persistence and Recovery](../mempool.md#persistence-and-recovery). A transaction is retired when a block that carries it enters the canonical chain, when the applicability fixpoint never applies it, when its age exceeds `TRANSACTION_TTL`, or when a claim it carries [expires](#5-expired-claims). Retirement clears every per-transaction map, the body included. Retirement is **not** rejection: a re-gossiped copy is admitted again, unless it is an expired claim. A fork switch re-admits the displaced transactions the adopted branch does not carry. A node persists the pending hashes, their admission times and the bodies. On recovery it rebuilds the prefix index from them and `highest_slot` from its block tree.
+[Retirement](../mempool.md#retirement), [Reorganisation](../mempool.md#reorganisation) and [Persistence and Recovery](../mempool.md#persistence-and-recovery). A transaction is retired when a block that carries it enters the canonical chain, when the applicability fixpoint never applies it, when its age reaches `TRANSACTION_TTL` unless the node disables expiry, or when a claim it carries [expires](#5-expired-claims). Retirement clears every per-transaction map, the body included. Retirement is **not** rejection: a re-gossiped copy is admitted again, unless it is an expired claim. A fork switch re-admits the displaced transactions the adopted branch does not carry. A node persists the pending hashes, their admission times and the bodies. On recovery it rebuilds the prefix index from them and `highest_slot` from its block tree.
 
 ## 5. Expired claims
 
@@ -183,7 +184,6 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 - [x]  Exclude the transactions the adopted branch carries when a fork switch re-admits displaced ones ([logos-blockchain#3746](https://github.com/logos-blockchain/logos-blockchain/pull/3746))
 - [ ]  Retire a claim once the highest slot in the block tree reaches its deadline, and refuse it at admission from then on ([logos-blockchain#3789](https://github.com/logos-blockchain/logos-blockchain/pull/3789))
 - [ ]  On recovery, rebuild the claim clock from the block tree and keep applying the rule to the recovered claims
-- [ ]  Decide whether expiry may be disabled by configuration, and pin `TRANSACTION_TTL` if not, reconciling the 1-hour default with the 24 hours specified
 - [x]  Confirm the gossipsub message-id function on the mempool topic is the payload digest, and register the topic and its message-id in the P2P Network specification
 - [ ]  Reconcile the mempool status and metrics endpoints with the Node API section
 - [ ]  Add or extend tests that exercise the change: admission ordering, resolution uniqueness, retirement clearing, restart recovery, a claim retired and refused from its deadline and not before, and an expired claim still retired after a restart

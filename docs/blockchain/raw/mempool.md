@@ -135,7 +135,7 @@ Without retirement, the pending set would only grow. A node retires a transactio
 
 - a block that carries it enters the node's canonical chain;
 - a leader's block building does not apply it in any pass;
-- its age exceeds `TRANSACTION_TTL`;
+- its age reaches `TRANSACTION_TTL`, unless the node disables expiry;
 - it carries a claim whose deadline has passed.
 
 Retirement discards everything the node kept for the transaction. When a fork switch displaces blocks from the canonical chain, the node re-admits the transactions they carried that the new canonical chain does not carry. [Retirement](#retirement) and [Reorganisation](#reorganisation) specify the rules.
@@ -201,9 +201,11 @@ A node keeps these values for its mempool, defined in [Mempool State](#mempool-s
 ## Parameters
 
 ```python
-TRANSACTION_TTL: uint64 = 24 * 60 * 60  # seconds a transaction may stay pending before it is retired
-CLAIM_GRACE: uint64 = 2 * WINDOW        # slots a claim stays pending after its acceptance window closes
+TRANSACTION_TTL: Optional[uint64] = 60 * 60  # seconds a transaction may stay pending before it is retired
+CLAIM_GRACE: uint64 = 2 * WINDOW             # slots a claim stays pending after its acceptance window closes
 ```
+
+`TRANSACTION_TTL` is a node setting, and the value above is its default. A node that sets it to `None` retires no transaction for its age.
 
 With `WINDOW` at 300 slots, `CLAIM_GRACE` is 600 slots.
 
@@ -373,7 +375,7 @@ A transaction that the applicability determination of [Block Building View](#blo
 
 ### Expiry
 
-A pending transaction whose age exceeds `TRANSACTION_TTL` is retired.
+A pending transaction whose age reaches `TRANSACTION_TTL` is retired, unless `TRANSACTION_TTL` is `None`.
 
 ### Expired Claim
 
