@@ -575,7 +575,7 @@ A node derives some values once per epoch: the [Epoch State](cryptarchia-v1-prot
 
 For example, the Epoch State of epoch $`E_n`$ uses the learning rate of era $`n`$. Its observation window is the first $`\lfloor 6k/f \rfloor`$ slots of epoch $`E_n - 1`$, with the $`k`$ and $`f`$ of era $`n-1`$. Its eligible notes come from the state as of the first slot of epoch $`E_n - 1`$, migrated to era $`n`$. Its stake inference starts from the $`D`$ that era $`n-1`$ derived for epoch $`E_n - 1`$.
 
-A node verifies an active message ([Active Message](blend-protocol.md#active-message)) or a [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) under the rules of the era of the epoch it is for, whatever the era of the block that carries it. Otherwise the rewards of the last epoch of an era, which are claimed in the next era, are lost. An active message is for the epoch in its `epoch_number`. A claim is for the epoch whose nonce it carries.
+A node verifies an active message ([Active Message](blend-protocol.md#active-message)) or a [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) under the rules of the era of the epoch it is for, whatever the era of the block that carries it, except for the [acceptance window](proof-of-work.md#acceptance-window) of the claim. Otherwise the rewards of the last epoch of an era, which are claimed in the next era, are lost. An active message is for the epoch in its `epoch_number`. A claim is for the epoch whose nonce it carries.
 
 ## Era Change
 
