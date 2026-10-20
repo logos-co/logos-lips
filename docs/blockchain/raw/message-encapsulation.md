@@ -28,7 +28,7 @@
 | 1.0.1 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.1.0 | [RFC] Replace the BLAKE2b-Based PRNG with ChaCha20 (ChaCha20Rng) | 2026-08-28 |
 | 1.2.0 | Add the proof of work case to the Proof of Quota generation procedure | 2026-08-31 |
-| 1.3.0 | Removed the `version` field from the public header ([Bedrock Eras](bedrock-eras.md)). | 2026-09-30 |
+| 1.3.0 | Removed the `version` field from the public header ([Bedrock Eras](bedrock-eras.md)), and set `PAYLOAD_BODY_SIZE` to `Max_Body_Length`. | 2026-10-20 |
 
 # Introduction
 
