@@ -36,7 +36,7 @@
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
 | 1.6.0 | Replaced the per-window statistical threshold on a connection with a share of messages a node reads from, and sends on, each connection in a round, and a liveness test, kept per identity for the epoch, on whether a neighbor delivers. Held the peering degree in live connections, at least two of them opened by the node. Restricted blacklisting to attributable faults. Sized the shares from the processing rate of the slowest node, derived the transactions the network carries from them, and made that rate the reference load of the Blend difficulty. | 2026-09-08 |
 | 1.6.1 | Corrected Blend activity metadata to the canonical tagged encoding: removed the separate version byte and corrected the total size to 229 bytes. | 2026-10-13 |
-| 1.7.0 | Removed the message `version` byte, put the fork digest in the libp2p protocol name, linked the era rules for the transition period, for releasing and for broadcasting, bounded the transition period by the clock difference between honest nodes, and opened a new epoch's connections a two-second slack before it begins ([Bedrock Eras](bedrock-eras.md)). | 2026-10-16 |
+| 1.7.0 | Removed the message `version` byte, put the fork digest in the libp2p protocol name, linked the era rules for the transition period, for releasing and for broadcasting, bounded the transition period and the clock difference between honest nodes, and stopped blacklisting for a next-epoch proof in an epoch's last round ([Bedrock Eras](bedrock-eras.md)). | 2026-10-20 |
 | 1.7.1 | Updated `Max_Payload_Length` to 18190 bytes in the overhead calculation, following the removal of the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)). | 2026-09-30 |
 
 # Introduction
@@ -464,7 +464,6 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\eta`$ denotes the network absorption, the maximum time a message spends crossing the network on one hop;
 - $`T_M`$ denotes the message traversal time, the time a message takes to cross the network;
 - $`T_C`$ denotes the largest clock difference between two honest nodes, in rounds;
-- $`T_S`$ denotes the clock slack, the time before a new epoch begins from which a node opens its connections;
 
 ## Global Parameters
 
@@ -558,7 +557,7 @@ The shares keep the messages a node reads in a round within what the slowest nod
 
 A failure of the authenticated stream is a violation of the framing of the stream.
 
-1. A connection with a core node whose authenticated stream fails, or that carries a message with a malformed header, an invalid signature, or an invalid proof of quota, is closed and its neighbor is added to the **blacklist**. A message discarded as a duplicate carries no reaction.
+1. A connection with a core node whose authenticated stream fails, or that carries a message with a malformed header, an invalid signature, or an invalid proof of quota, is closed and its neighbor is added to the **blacklist**. A message discarded as a duplicate carries no reaction. In the last round of an epoch, a message whose proof of quota is valid against the next epoch's public input carries no reaction.
 2. A blacklisted identity is refused on incoming and on outgoing connections. An entry expires after $`W`$ rounds.
 3. The blacklist holds at most $`2 \cdot \Phi_{CC}`$ entries, and the oldest is discarded when it is full.
 
@@ -598,13 +597,13 @@ After $`T_M`$ rounds, all messages for the past epoch should have been processed
 
 The transition period must be at least the message traversal time plus the largest clock difference between two honest nodes: $`T \ge T_M + T_C`$. Otherwise a node whose clock runs ahead stops processing past-epoch messages while some are still crossing the network, and their senders wait for a delivery that can no longer happen ([Detection](#detection)).
 
-From $`T_S = 2`$ seconds before a new epoch begins by its local clock, a node opens the connections of the new epoch and accepts those its neighbors open. It validates a message that arrives on such a connection against the new epoch's public input, which is fixed before the epoch begins. Nodes must keep their clocks synchronized so that $`T_C`$ is below $`T_S`$, a round lasting one second ([Time](#time)). Otherwise a message that a node whose clock runs ahead generates in the new epoch can reach a node that has not yet opened its connections for that epoch.
+Nodes must keep their clocks synchronized so that $`T_C`$ is below one round. A node releases a message it generates in the new epoch no earlier than one round after its own epoch changes ([Releasing](#releasing)). With a larger $`T_C`$, such a message can reach a node whose clock runs behind before that node's epoch changes, and that node discards it.
 
 When a new **epoch** begins:
 
 - The node validates message proofs against both new and past epoch-related public input for the duration of TP. This allows past-epoch messages to safely transit through the network, as their validity is bound to the epoch in which they were generated.
 - The Blend threshold $`d_{blend}`$ is one of these public inputs: a proof is verified against the threshold of the epoch its public inputs belong to, so during the Transition Period messages meeting either epoch's threshold are accepted.
-- The node processes new messages for the new epoch on the connections it opened for it.
+- The node must open new connections to process new messages for the new epoch.
 - The node needs to maintain old connections and process all messages received from these connections for the duration of TP. A connection held for the past epoch does not count towards $`\Phi_{CC}`$.
 
 At an era boundary, the [Era Transition Period](bedrock-eras.md#era-transition-period) also applies.
@@ -892,7 +891,7 @@ The relaying logic is defined as follows:
     3. If the header of the message is incorrect, then discard the message, close the connection and blacklist the neighbor ([Connectivity Maintenance](#connectivity-maintenance)). We assume that an adversary cannot inject any spoofed message to the connection.
     4. If the PoQ nullifier $`\nu_i \in \mathbf H`$ from the public header of the message is already in the nullifier cache, then the message is a duplicate and must be discarded. Cached entries are retained for the duration of the current epoch and the [Transition Period](#transition-period).
     5. If the signature $`\sigma_{K^{n}_{i}}(\mathbf P_i) \in \mathbf H`$ from the public header of the message is invalid, then the message must be discarded, the connection closed and the neighbor blacklisted ([Connectivity Maintenance](#connectivity-maintenance)).
-    6. If the proof of quota $`\pi^{K^{n}_i}_{Q} \in \mathbf H`$ from the public header is invalid, then the message must be discarded and must not be relayed. The connection is closed and the neighbor blacklisted, as defined in [Connectivity Maintenance](#connectivity-maintenance).
+    6. If the proof of quota $`\pi^{K^{n}_i}_{Q} \in \mathbf H`$ from the public header is invalid, then the message must be discarded and must not be relayed. The node reacts to the neighbor as defined in [Connectivity Maintenance](#connectivity-maintenance).
 2. Release the message according to the [Releasing](#releasing) logic.
 3. Concurrently to the above step, add the message to the processing queue, where it is handled by the [Processing](#processing) logic.
 
