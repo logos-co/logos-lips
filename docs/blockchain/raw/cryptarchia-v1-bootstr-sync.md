@@ -26,7 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.0.1 | Noted that a streamed `Block` carries the signed headers of the uncles it references, which is what lets a synchronizing node validate those blocks and reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) without ever seeing their proposals, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
-| 1.1.0 | The sync protocol ID is `chainsync` and carries the fork digest in place of the version; blocks are parsed and validated under the era of their slot; the checkpoint state carries the recorded chain state, encoded under the era of the checkpoint block ([Bedrock Eras](bedrock-eras.md)). | 2026-09-04 |
+| 1.1.0 | The sync protocol ID is `chainsync` and carries the fork digest in place of the version; blocks are parsed and validated under the era of their slot; the checkpoint state carries the recorded chain state, encoded under the era of the checkpoint block; a request dropped at the end of an Era Transition Period is not a download failure ([Bedrock Eras](bedrock-eras.md)). | 2026-10-20 |
 
 # Introduction
 
@@ -156,7 +156,7 @@ def initial_block_download(peers, local_tree):
 
 The downloaded blocks are validated and added to the local block tree using the fork choice rule determined above. Both block headers and block bodies must be validated. Each block is parsed and validated under the era of its slot ([Era of Chain Data](bedrock-eras.md#era-of-chain-data)). The header validation rules are defined in [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation).
 
-If the node fails to catch up with at least one IBD peer (e.g., network error or invalid blocks), the node is terminated with an error, allowing the operator to restart the node with other IBD peers.
+If the node fails to catch up with at least one IBD peer (e.g., network error or invalid blocks), the node is terminated with an error, allowing the operator to restart the node with other IBD peers. A request dropped at the end of an [Era Transition Period](bedrock-eras.md#era-transition-period) is not a failure.
 
 If downloading is done successfully, the node starts listening for new blocks as described in [Listening for New Blocks](#listening-for-new-blocks).
 

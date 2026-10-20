@@ -35,9 +35,9 @@
 | 1.2.3 | Update the test vectors to reflect the parent added in the `CHANNEL_CONFIG` payload | 2026-08-27 |
 | 1.2.4 | Reordered the `ProofOfLeadership` fields to the wire order defined by the [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding), and noted that the [Block ID](#block-id) preimage absorbs the same fields in a different order by design. The `Header` layout and the `block_id` preimage are otherwise unchanged. | 2026-08-28 |
 | 1.2.5 | Required the slot of a referenced [uncle](#uncle-references) to exceed the slot of its parent. | 2026-10-06 |
-| 1.3.0 | Versioning and upgrade activation moved to eras, uncles restricted to the era of the referencing block, the first slot of an epoch taken from the era schedule, and the latest immutable block advanced only while it lies deeper than the $`k`$ of its own era ([Bedrock Eras](bedrock-eras.md)). | 2026-10-16 |
-| 1.4.0 | Removed the `bedrock_version` header field and moved `slot` to the first header field ([Bedrock Eras](bedrock-eras.md)): the header is 296 bytes and a signed header 360. | 2026-09-04 |
-| 1.4.1 | Computed the test vectors marked `TBD`, for transactions that carry the test fork digest, and re-signed the two carried uncle headers in their 296-byte form. | 2026-10-06 |
+| 1.3.0 | Versioning and upgrade activation moved to eras, uncles restricted to the era of the referencing block, the first slot of an epoch taken from the era schedule, and fork choice and the latest immutable block using the $`k`$ of the era that governs them ([Bedrock Eras](bedrock-eras.md)). | 2026-10-20 |
+| 1.4.0 | Removed the `bedrock_version` header field and moved `slot` to the first header field ([Bedrock Eras](bedrock-eras.md)): the header is 296 bytes and a signed header 360. | 2026-10-20 |
+| 1.4.1 | Computed the test vectors marked `TBD`, for transactions that carry the test fork digest, and re-signed the two carried uncle headers in their 296-byte form. | 2026-10-20 |
 
 # Introduction
 
@@ -474,6 +474,8 @@ $`\text{define } \textbf{on\_block}(state, B)\to state'`$:
 
   $`T' \coloneqq T \cup \{B\}`$
 
+> Each fork is compared with $`c_{loc}`$ under the $`k`$ and $`s`$ of the era of the slot of their common ancestor ([Era of Chain Data](bedrock-eras.md#era-of-chain-data)).
+
   $`c_{loc}' \coloneqq \begin{cases} B &\text{if } \textbf{parent}(B) = c_{loc}\\ \textbf{fork\_choice}(c_{loc}, F_{T'}, k, s) &\text{if } \textbf{parent}(B) \neq c_{loc} \end{cases}`$
 
   $`\text{if } \text{fork\_choice\_rule} = \text{ONLINE}:`$
@@ -492,7 +494,7 @@ $`\text{define } \textbf{commit}(T,c_{loc},B_\text{imm})\to (T', B_\text{imm}'):
 
   $`\textbf{assert } \text{fork\_choice\_rule} = \text{ONLINE}`$
 
-> Advance the latest immutable block along the chain of $`c_{loc}`$, one block at a time, while it lies more than $`k_n`$ blocks below $`c_{loc}`$, $`k_n`$ being the $`k`$ of the era $`n`$ of its slot ([Era Boundaries](bedrock-eras.md#era-boundaries)).
+> Advance the latest immutable block along the chain of $`c_{loc}`$, one block at a time, while it lies more than $`k_n`$ blocks below $`c_{loc}`$, $`k_n`$ being the $`k`$ of the era $`n`$ of its slot ([Era Boundaries](bedrock-eras.md#era-boundaries)). Otherwise a smaller $`k`$ in a later era makes blocks of an earlier era immutable while the fork choice rule, which compares two chains under the era of their common ancestor ([Era of Chain Data](bedrock-eras.md#era-of-chain-data)), can still replace them.
 
   $`B_\text{imm}' \coloneqq B_\text{imm}`$
 
@@ -505,8 +507,6 @@ $`\text{define } \textbf{commit}(T,c_{loc},B_\text{imm})\to (T', B_\text{imm}'):
   $`T' \coloneqq \textbf{prune\_forks}(T, B_\text{imm}', c_{loc})`$
 
   $`\textbf{return} \space (T', B_\text{imm}')`$
-
-Measuring against the $`k`$ of the local chain tip's era instead would let a smaller $`k`$ in a later era make blocks of an earlier era immutable while the fork choice rule, which compares two chains under the era of their common ancestor ([Era of Chain Data](bedrock-eras.md#era-of-chain-data)), still lets a fork replace them.
 
 ### Fork Pruning
 
