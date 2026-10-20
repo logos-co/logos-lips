@@ -603,7 +603,7 @@ def revalidate_mempool(tip: Block, mempool: list[Transaction]) -> list[Transacti
 
 ## Era Transition Period
 
-The Era Transition Period into an era starts $`T_S`$ seconds before the era in force changes to it and ends $`T`$ [rounds](blend-protocol.md#time) after, with $`T_S`$ the clock slack and $`T`$ the length of the Blend [Transition Period](blend-protocol.md#transition-period), both of the previous era. It applies to the network layer only.
+The Era Transition Period into an era starts $`T_S`$ seconds before the era in force changes to it and ends $`T`$ [rounds](blend-protocol.md#time) after, with $`T_S`$ the clock slack and $`T`$ the length of the Blend [Transition Period](blend-protocol.md#transition-period), both of the previous era. It applies to the network layer only. A node that starts during the Era Transition Period into an era runs only the protocols of that era.
 
 During the Era Transition Period a node must:
 
