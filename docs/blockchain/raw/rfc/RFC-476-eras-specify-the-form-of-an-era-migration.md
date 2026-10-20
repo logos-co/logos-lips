@@ -10,6 +10,7 @@
 | v2 | The per-era migration is no longer called `migrate`, which Bedrock Eras now uses for the function that applies the migrations between two eras in order. The properties and the three parts are placed in the restructured §Era Migration. | 2026-10-09 |
 | v3 | A migration that changes a component also states a Lean certificate in logos-blockchain-formal, and its test vectors are those the certified function returns. The open question on certificates is answered, and the one on snapshots and the copies in `blend_target` is closed: identity by default keeps them unchanged unless an era's frame names them. | 2026-10-14 |
 | v4 | The uniqueness property covers `provider_id` and `zk_id` as well as `service_note_id`, since the SDP specification requires each to be unique within a service. | 2026-10-14 |
+| v5 | The service-note and uniqueness properties hold over `declarations` only: a snapshot keeps a withdrawn declaration for up to two epochs, during which its note can be spent and its `provider_id` or `zk_id` reused. The rationale no longer says step 5 of `SDP_DECLARE` enforces uniqueness, since as written it rejects nothing. | 2026-10-20 |
 
 ## Reviewer Orientation
 
@@ -26,8 +27,10 @@ The migration is stated in pseudocode, the form every other state transition in 
 Three properties hold of every state the current rules can reach:
 
 - one note per leaf position, which the note tree requires;
-- a note behind every channel note and every declaration's service note: a channel note stays in the ledger until it is consumed, and a service note is locked while a declaration names it;
-- no `service_note_id`, `provider_id` or `zk_id` shared by two declarations of one service: step 5 of `SDP_DECLARE` enforces the first, and the SDP's [Identifier Uniqueness](../bedrock-service-declaration-protocol.md#identifier-uniqueness) requires the other two.
+- a note behind every channel note and the service note of every entry of `declarations`: a channel note stays in the ledger until it is consumed, and a service note is locked while a declaration names it;
+- no `service_note_id`, `provider_id` or `zk_id` shared by two entries of `declarations` for one service: step 5 of `SDP_DECLARE` is meant to enforce the first, and the SDP's [Identifier Uniqueness](../bedrock-service-declaration-protocol.md#identifier-uniqueness) requires the other two.
+
+The snapshots are left out of both: a snapshot keeps a withdrawn declaration for up to two epochs, during which its note can be spent and its `provider_id` or `zk_id` reused.
 
 The other two relate the state before a migration to the state after it:
 
@@ -51,8 +54,8 @@ One candidate was left out: the lineage of a channel's configuration has no prop
 - A migration preserves, unless its era states a rule that breaks it:
     - the sum of the note values, `leaders_rewards`, `pending_leaders_rewards`, `blend_income`, the income of `blend_target`, `pow_reward_pool` and `pow_pool_refill`;
     - one note per leaf position;
-    - a note in `notes` behind every channel note and every declaration's service note;
-    - no two declarations of one service sharing a `service_note_id`, a `provider_id` or a `zk_id`;
+    - a note in `notes` behind every channel note and the service note of every entry of `declarations`;
+    - no two entries of `declarations` for one service sharing a `service_note_id`, a `provider_id` or a `zk_id`;
     - every entry of `voucher_nullifier_set` and `pow_nullifiers`.
 
 # Implementation
