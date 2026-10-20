@@ -22,6 +22,7 @@
 | v10 | Added the expired-claim retirement that [logos-blockchain#3789](https://github.com/logos-blockchain/logos-blockchain/pull/3789) implements: a claim is retired, and refused at admission, once the highest slot in the block tree is more than `CLAIM_GRACE` slots past its acceptance window. Added its Details entry, rationale, departure and implementation tasks, and narrowed Open Issues 2, 6 and 8 for claims. | 2026-10-13 |
 |  | Brought the departures up to date with `logos-blockchain` at `f376f9547`. Removed the three that [logos-blockchain#3610](https://github.com/logos-blockchain/logos-blockchain/pull/3610), [#3734](https://github.com/logos-blockchain/logos-blockchain/pull/3734) and [#3746](https://github.com/logos-blockchain/logos-blockchain/pull/3746) fixed, moved their reasoning to the rationale, and ticked their tasks. Stateless validation now departs only for `CLAIM_POW_REWARD`, which the implementation gives no proof, and the TTL entry records the 1-hour default. | 2026-10-13 |
 |  | Restructured the specification into Introduction, Overview, Protocol and Details, with Notation and Parameters opening Details. No rule changed. Links to the former Constants section now point at Parameters. | 2026-10-13 |
+|  | Moved the departure in which the implementation resolves references before it checks the parent, with its rationale, implementation task and test, to a submission of its own. | 2026-10-20 |
 
 ## Reviewer Orientation
 
@@ -58,7 +59,6 @@ The price is that the mempool holds transactions that can never be applied, at n
 The specification states rules only. The reasoning behind them is recorded here.
 
 - **Unique-match reference resolution.** A non-unique match is reported as unresolved rather than searched, so resolution never branches and never depends on scan order.
-- **Resolution follows header authentication.** A mempool scan is the expensive step in accepting a proposal, and a proposal is unauthenticated below its header.
 - **Applicability separated from selection.** Only the applicability fixpoint retires transactions. A transaction that merely did not fit in a block is one another leader can validly include. Evicting it would stop this node from resolving that leader's reference to it.
 - **Retirement clears every per-transaction map.** A map that retirement did not clear would grow for the node's lifetime and, being persisted, across restarts.
 - **Retirement follows the canonical chain, not the tip.** Retiring on "becomes the tip" only reaches the new head of an adopted branch. The blocks beneath it were applied while that branch was losing. They become ancestors without ever being the tip, so their transactions would stay pending while being canonical.
@@ -75,9 +75,8 @@ The specification states rules only. The reasoning behind them is recorded here.
 
 This document describes what runs. It departs from the implementation only where the current behaviour is not defensible as a design. Each departure is listed below, with its task under [Implementation](#implementation). Everything else that differs from an ideal mempool stays an [open issue](#open-issues), so the specification and the code can be compared line by line.
 
-The entries were checked against `logos-blockchain`: `services/tx-service`, with the block-building and block-applied halves in `services/chain/chain-leader` and `services/chain/chain-network`. The header-validation and grace-period entries were checked at `cad13d0d9`, the stateless-validation and TTL entries at `f376f9547`, and the expired-claim entry against [logos-blockchain#3789](https://github.com/logos-blockchain/logos-blockchain/pull/3789) at `b79dd8bdb`.
+The entries were checked against `logos-blockchain`: `services/tx-service`, with the block-building and block-applied halves in `services/chain/chain-leader` and `services/chain/chain-network`. The grace-period entry was checked at `cad13d0d9`, the stateless-validation and TTL entries at `f376f9547`, and the expired-claim entry against [logos-blockchain#3789](https://github.com/logos-blockchain/logos-blockchain/pull/3789) at `b79dd8bdb`.
 
-- **Header validation precedes resolution.** [Block Proposal Validation](../bedrock-v1.1-block-construction.md#block-proposal-validation) checks the parent's presence and the proof of leadership in step 2, before reconstruction in step 4. The implementation resolves references after checking only the latest-immutable-block bound, the genesis slot and the signature. It finds a missing parent only when it applies the reconstructed block. A proposal whose references do not resolve is therefore dropped before its missing parent is noticed, and it never reaches the orphan path. A proposal with an invalid proof of leadership also costs a mempool scan.
 - **Stateless validation.** The implementation counts the proofs and checks their types when it decodes a transaction. It then verifies every proof bound only to the transaction hash and the operation payload, except one. It gives `CLAIM_POW_REWARD` no proof, so the `ZkSignature` that [CLAIM_POW_REWARD](../bedrock-v1.1-mantle-specification.md#claim_pow_reward) requires is neither type-checked nor verified, at admission or by the ledger.
 - **Expired claims.** The implementation admits an expired claim, and retires it only as inapplicable or by its TTL. [logos-blockchain#3789](https://github.com/logos-blockchain/logos-blockchain/pull/3789) adds the rule as specified, except after a restart. Its clock stays empty until the node applies a block, so no claim is refused until then. The claims it recovers are never tracked again, so only the TTL retires them.
 - **Retirement discards the body.** The implementation keeps a retired body for a ten-minute grace period, but retirement removes the hash from the prefix index at once. Since [logos-blockchain#3251](https://github.com/logos-blockchain/logos-blockchain/pull/3251), no resolution reads the retained body, so the timer only delays its deletion. [#448](https://github.com/logos-co/logos-lips/pull/448) brings retention back together with the rule that reads it.
@@ -108,7 +107,7 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 
 ## 1. Reference resolution
 
-[Reference Resolution](../mempool.md#reference-resolution). A reference is a `REFERENCE_PREFIX_LENGTH`-byte prefix of the transaction hash. It resolves only when the match is unique. Zero matches means this node does not hold the transaction, and two or more would be a prefix collision. Both are reported as unresolved and are not searched. Resolution reads the proposal and the mempool alone, and runs only after the decode-time bounds checks and header authentication.
+[Reference Resolution](../mempool.md#reference-resolution). A reference is a `REFERENCE_PREFIX_LENGTH`-byte prefix of the transaction hash. It resolves only when the match is unique. Zero matches means this node does not hold the transaction, and two or more would be a prefix collision. Both are reported as unresolved and are not searched. Resolution reads the proposal and the mempool alone.
 
 ## 2. Block building
 
@@ -155,7 +154,6 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 
 # Implementation
 
-- [ ]  Run step 2 of Block Proposal Validation, the parent's presence and the proof of leadership included, before reference resolution, so a proposal whose parent is missing reaches the orphan path
 - [ ]  Give `CLAIM_POW_REWARD` the `ZkSignature` proof that Mantle requires, and verify it at admission
 - [x]  Move the mempool size check ahead of decoding
 - [x]  Retire the transactions of every block that enters the canonical chain, not only those of the new tip ([logos-blockchain#3734](https://github.com/logos-blockchain/logos-blockchain/pull/3734))
@@ -165,7 +163,7 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 - [ ]  Decide whether expiry may be disabled by configuration, and pin `TRANSACTION_TTL` if not, reconciling the 1-hour default with the 24 hours specified
 - [x]  Confirm the gossipsub message-id function on the mempool topic is the payload digest, and register the topic and its message-id in the P2P Network specification
 - [ ]  Reconcile the mempool status and metrics endpoints with the Node API section
-- [ ]  Add or extend tests that exercise the change: admission ordering, resolution uniqueness, retirement clearing, restart recovery, a claim retired and refused from its deadline and not before, an expired claim still retired after a restart, and a proposal with a missing parent and unresolvable references reaching the orphan path
+- [ ]  Add or extend tests that exercise the change: admission ordering, resolution uniqueness, retirement clearing, restart recovery, a claim retired and refused from its deadline and not before, and an expired claim still retired after a restart
 - [ ]  Verify the implementation matches this specification
 
 # Affected Specifications
