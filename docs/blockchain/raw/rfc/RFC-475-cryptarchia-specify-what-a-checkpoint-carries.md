@@ -9,6 +9,7 @@
 | v1 | Initial RFC | 2026-10-06 |
 | v2 | Defined the canonical encoding of a block in Block Construction, which `checkpoint_block` uses; the open question on it is removed. | 2026-10-14 |
 |  | `recent_blocks` reaches back with the uncle window of the checkpoint block's era, and a node refuses a checkpoint when an era of its schedule that begins after the block has a window reaching further back. The consensus state's counts are `UINT32`, as in Bedrock Chain State. | 2026-10-14 |
+| v3 | The aged notes of an epoch are the `notes` as of the first slot of the epoch before, migrated to the era of the epoch, so a checkpoint near an era boundary carries them in one defined form. | 2026-10-20 |
 
 ## Reviewer Orientation
 
@@ -70,7 +71,7 @@ NextNonce        = %x00 / %x01 Nonce              ; present once fixed
 RecentBlock      = BlockId BlockSlot LedgerRoot
 ```
 
-The aged notes of epoch $`n \ge 1`$ are the `notes` as of the first slot of epoch $`n-1`$, and their ledger root is the epoch's $`\mathbb{C}_\text{LEAD}`$. §Bootstrapping from Checkpoint: the node imports the three parts.
+The aged notes of epoch $`n \ge 1`$ are the `notes` as of the first slot of epoch $`n-1`$, migrated to the era of epoch $`n`$, and their ledger root is the epoch's $`\mathbb{C}_\text{LEAD}`$. §Bootstrapping from Checkpoint: the node imports the three parts.
 
 ## 2. Epoch states after a checkpoint
 
