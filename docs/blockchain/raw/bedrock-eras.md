@@ -593,7 +593,7 @@ def revalidate_mempool(tip: Block, mempool: list[Transaction]) -> list[Transacti
 
 ## Era Transition Period
 
-The Era Transition Period is the first $`T`$ [rounds](blend-protocol.md#time) after the era in force changes, with $`T`$ the [Transition Period](blend-protocol.md#transition-period) of the previous era. It applies to the network layer only.
+The Era Transition Period is the first $`T`$ [rounds](blend-protocol.md#time) after the era in force changes, with $`T`$ the [Transition Period](blend-protocol.md#transition-period) of the previous era. It applies to the network layer only. A node that starts during an Era Transition Period runs only the protocols of the era in force.
 
 During the Era Transition Period a node must:
 
