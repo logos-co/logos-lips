@@ -130,7 +130,7 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 
 ## 6. Block construction links to the mempool
 
-[Reference Resolution](../bedrock-v1.1-block-construction.md#reference-resolution) in block construction defined the same procedure, as a scan of every held transaction. It now links to the mempool's procedure, which reads the prefix index. Block construction keeps what is its own: the collision argument, the body-root check, repeated references, and what a failed resolution establishes about the block. This is its revision 1.3.1.
+[Reference Resolution](../bedrock-v1.1-block-construction.md#reference-resolution) in block construction defined the same procedure, as a scan of every held transaction. It now links to the mempool's procedure, which reads the prefix index. Block construction keeps what is its own: the collision argument, the body-root check, repeated references, and what a failed resolution establishes about the block. This is part of its revision 1.4.0.
 
 ```diff
  # Block Construction, Validation and Execution, removed
