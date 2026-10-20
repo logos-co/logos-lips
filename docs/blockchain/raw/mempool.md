@@ -153,7 +153,7 @@ A transaction that the node holds but does not offer to block building is **reta
 - when its age exceeds `TRANSACTION_RETENTION`, if no canonical block carries it;
 - when it carries a claim whose deadline has passed.
 
-When a fork switch displaces blocks from the canonical chain, their transactions that the new canonical chain does not carry leave `included`. The node re-admits each, except one it admitted more than `TRANSACTION_TTL` ago. [Release](#release) and [Reorganisation](#reorganisation) specify the rules.
+When a fork switch displaces blocks from the canonical chain, their transactions that the new canonical chain does not carry leave `included`. The node re-admits each, except one whose age exceeds `TRANSACTION_TTL`. If it holds no admission time for a transaction, it measures the age from the start of the displaced block's slot. [Release](#release) and [Reorganisation](#reorganisation) specify the rules.
 
 ```mermaid
 stateDiagram-v2
@@ -225,7 +225,7 @@ A node keeps these values for its mempool, defined in [Mempool State](#mempool-s
 - `pending`, the pending hashes in admission order, which changes on [Transaction Admission](#transaction-admission) and on [Retirement](#retirement);
 - `included`, the retained hashes that a canonical block carries, which changes on [Inclusion in a Canonical Block](#inclusion-in-a-canonical-block), on [Reorganisation](#reorganisation) and on [Release](#release);
 - `bodies`, the body of each pending or retained transaction, which changes on [Transaction Admission](#transaction-admission), on [Inclusion in a Canonical Block](#inclusion-in-a-canonical-block) and on [Release](#release);
-- `admitted_at`, the admission time of each transaction the node admitted, which changes on [Transaction Admission](#transaction-admission) and on [Release](#release);
+- `admitted_at`, the time from which each transaction's age is measured, which changes on [Transaction Admission](#transaction-admission), on [Reorganisation](#reorganisation) and on [Release](#release);
 - `by_prefix`, the pending and retained hashes keyed by their reference prefix, which changes on [Transaction Admission](#transaction-admission), on [Inclusion in a Canonical Block](#inclusion-in-a-canonical-block) and on [Release](#release);
 - `highest_slot`, the highest slot in the block tree, which rises when Chain Maintenance adds a block of a higher slot.
 
@@ -241,6 +241,8 @@ A node keeps these values for its mempool, defined in [Mempool State](#mempool-s
 | `MAX_BLOCK_SIZE` | maximum block size | From [Constants](cryptarchia-v1-protocol.md#constants). |
 | `MAX_BLOCK_TXS` | maximum block transactions | From [Constants](cryptarchia-v1-protocol.md#constants). |
 | $`k`$ | security parameter | From [Constants](cryptarchia-v1-protocol.md#constants). |
+| `SLOT_LENGTH` | slot length | The length of a slot in seconds, from [Constants](cryptarchia-v1-protocol.md#constants). |
+| `genesis_time` | genesis time | The time at which slot 0 starts, from [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters). |
 | `REFERENCE_PREFIX_LENGTH` | reference prefix length | The length of a reference in bytes, from [References](bedrock-v1.1-block-construction.md#references). |
 | $`T_M`$ | message traversal time | The message traversal time of [Transition Period](blend-protocol.md#transition-period), converted from rounds to seconds by the length of a round given in [Time](blend-protocol.md#time). |
 
@@ -285,7 +287,7 @@ A transaction `tx` is keyed by `mantle_txhash(tx)`, the [Mantle Transaction Hash
 
 A transaction is retained while it is in `bodies` and not in `pending`. `bodies` and `by_prefix` hold the retained transactions as well as the pending ones.
 
-A `TimeOrderedSet` iterates in admission order, by ascending `admitted_at`, and `insert_by` places a hash at the position its admission time gives it. A `Timestamp` is a time in seconds, as an unsigned 64-bit integer, and `now()` is the node's current time as a `Timestamp`. A transaction's age is `now()` minus its `admitted_at` entry.
+A `TimeOrderedSet` iterates in admission order, by ascending `admitted_at`, and `insert_by` places a hash at the position its admission time gives it. A `Timestamp` is a time in seconds since the Unix epoch, as an unsigned 64-bit integer, and `now()` is the node's current time as a `Timestamp`. A transaction's age is `now()` minus its `admitted_at` entry.
 
 `by_prefix` maps `prefix(hash, REFERENCE_PREFIX_LENGTH)` to the hashes carrying that prefix, where `prefix` is defined in [References](bedrock-v1.1-block-construction.md#references). A prefix that no hash carries maps to an empty set.
 
@@ -347,8 +349,13 @@ def reorganise(mempool, displaced: list[Block], adopted: list[Block]) -> None:
             if key in carried:
                 continue
             mempool.included.discard(key)
-            # Re-insertion would broadcast a transaction this node has already expired.
-            if key in mempool.admitted_at and now() - mempool.admitted_at[key] > TRANSACTION_TTL:
+            # A transaction is at least as old as the start of the slot of a block that carries it.
+            admitted = mempool.admitted_at.get(key, genesis_time + block.header.slot * SLOT_LENGTH)
+            # Re-insertion would broadcast a transaction past its time to live.
+            if now() - admitted > TRANSACTION_TTL:
+                if key in mempool.bodies:
+                    # A retained copy keeps the time its release is measured from.
+                    mempool.admitted_at[key] = admitted
                 continue
             admit(mempool, encode_signed_mantle_tx(tx))
 ```
