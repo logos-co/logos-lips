@@ -35,9 +35,9 @@
 | 1.2.3 | Update the test vectors to reflect the parent added in the `CHANNEL_CONFIG` payload | 2026-08-27 |
 | 1.2.4 | Reordered the `ProofOfLeadership` fields to the wire order defined by the [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding), and noted that the [Block ID](#block-id) preimage absorbs the same fields in a different order by design. The `Header` layout and the `block_id` preimage are otherwise unchanged. | 2026-08-28 |
 | 1.2.5 | Required the slot of a referenced [uncle](#uncle-references) to exceed the slot of its parent. | 2026-10-06 |
-| 1.3.0 | Versioning and upgrade activation moved to eras, uncles restricted to the era of the referencing block, the first slot of an epoch taken from the era schedule, and the latest immutable block advanced only while it lies deeper than the $`k`$ of its own era ([Bedrock Eras](bedrock-eras.md)). | 2026-10-16 |
-| 1.4.0 | Removed the `bedrock_version` header field and moved `slot` to the first header field ([Bedrock Eras](bedrock-eras.md)): the header is 296 bytes and a signed header 360. | 2026-09-04 |
-| 1.5.0 | A node that bootstrapped from a checkpoint takes the values its epoch state and uncle checks read at or before the checkpoint block from the checkpoint. | 2026-10-06 |
+| 1.3.0 | Versioning and upgrade activation moved to eras, uncles restricted to the era of the referencing block, the first slot of an epoch taken from the era schedule, and fork choice and the latest immutable block using the $`k`$ of the era that governs them ([Bedrock Eras](bedrock-eras.md)). | 2026-10-20 |
+| 1.4.0 | Removed the `bedrock_version` header field and moved `slot` to the first header field ([Bedrock Eras](bedrock-eras.md)): the header is 296 bytes and a signed header 360. | 2026-10-20 |
+| 1.5.0 | A node that bootstrapped from a checkpoint takes the values its epoch state and uncle checks read at or before the checkpoint block from the checkpoint. | 2026-10-20 |
 
 # Introduction
 
@@ -476,6 +476,8 @@ $`\text{define } \textbf{on\_block}(state, B)\to state'`$:
 
   $`T' \coloneqq T \cup \{B\}`$
 
+> Each fork is compared with $`c_{loc}`$ under the $`k`$ and $`s`$ of the era of the slot of their common ancestor ([Era of Chain Data](bedrock-eras.md#era-of-chain-data)).
+
   $`c_{loc}' \coloneqq \begin{cases} B &\text{if } \textbf{parent}(B) = c_{loc}\\ \textbf{fork\_choice}(c_{loc}, F_{T'}, k, s) &\text{if } \textbf{parent}(B) \neq c_{loc} \end{cases}`$
 
   $`\text{if } \text{fork\_choice\_rule} = \text{ONLINE}:`$
@@ -494,7 +496,7 @@ $`\text{define } \textbf{commit}(T,c_{loc},B_\text{imm})\to (T', B_\text{imm}'):
 
   $`\textbf{assert } \text{fork\_choice\_rule} = \text{ONLINE}`$
 
-> Advance the latest immutable block along the chain of $`c_{loc}`$, one block at a time, while it lies more than $`k_n`$ blocks below $`c_{loc}`$, $`k_n`$ being the $`k`$ of the era $`n`$ of its slot ([Era Boundaries](bedrock-eras.md#era-boundaries)).
+> Advance the latest immutable block along the chain of $`c_{loc}`$, one block at a time, while it lies more than $`k_n`$ blocks below $`c_{loc}`$, $`k_n`$ being the $`k`$ of the era $`n`$ of its slot ([Era Boundaries](bedrock-eras.md#era-boundaries)). Otherwise a smaller $`k`$ in a later era makes blocks of an earlier era immutable while the fork choice rule, which compares two chains under the era of their common ancestor ([Era of Chain Data](bedrock-eras.md#era-of-chain-data)), can still replace them.
 
   $`B_\text{imm}' \coloneqq B_\text{imm}`$
 
@@ -507,8 +509,6 @@ $`\text{define } \textbf{commit}(T,c_{loc},B_\text{imm})\to (T', B_\text{imm}'):
   $`T' \coloneqq \textbf{prune\_forks}(T, B_\text{imm}', c_{loc})`$
 
   $`\textbf{return} \space (T', B_\text{imm}')`$
-
-Measuring against the $`k`$ of the local chain tip's era instead would let a smaller $`k`$ in a later era make blocks of an earlier era immutable while the fork choice rule, which compares two chains under the era of their common ancestor ([Era of Chain Data](bedrock-eras.md#era-of-chain-data)), still lets a fork replace them.
 
 ### Fork Pruning
 
@@ -572,5 +572,5 @@ The vectors below give `merkle_root(transactions)` and `body_root` as defined in
 | empty block (no transaction) | `merkle_root(transactions)`: 0x0000000000000000000000000000000000000000000000000000000000000000 |
 | one transaction per operation kind: <br />- `leaf[0]`: TBD (Transfer)<br />- `leaf[1]`: TBD (ChannelConfig) <br />- `leaf[2]`: TBD (ChannelInscribe)<br />- `leaf[3]`: TBD (ChannelDeposit)<br />- `leaf[4]`: TBD (ChannelWithdraw)<br />- `leaf[5]`: TBD (ChannelTransfer)<br />- `leaf[6]`: TBD (SDPDeclare)<br />- `leaf[7]`: TBD (SDPWithdraw)<br />- `leaf[8]`: TBD (SDPActive)<br />- `leaf[9]`: TBD (LeaderClaim) | `merkle_root(transactions)`: TBD |
 | `uncle_headers`: empty list (encoded as the single byte 0x00)<br />- `merkle_root(transactions)`: TBD | `body_root`: TBD |
-| `uncle_headers`: 2 entries (encoded as the count byte 0x02 followed by the two 360-byte entries below, each a 296-byte header and its 64-byte signature)<br />- `uncle_headers[0]`: 0x6600000000000000666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666660000000000000000000000000000000000000000000000000000000000000034b4d9043156cb6dcf0beb0a2949b7559c940d2bcb6dbe8c53a9b30278e3a7466600000000000000000000000000000000000000000000000000000000000000563913f1ba7ad4129a077acd56278e743fd45120226dd315fa49f3a9c5d07af6a174ab84d4555a279afe053e79c8bb794be3f7d2e71e92b8da1b490687cb8306<br />- `uncle_headers[1]`: 0x77000000000000007777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777700000000000000000000000000000000000000000000000000000000000000c853ad0f0cd2b619aea92ceec4fd56a24d6499d584ce79257e45cfd8139b60a77700000000000000000000000000000000000000000000000000000000000000ad17e45d503a16fb41c25c4b3025956c63b31015871e957f3562b47cebce784e5b392ce3dd05214afe09102e0d2ed8211a83b81f18231963a226198fd528df0c<br />- `merkle_root(transactions)`: TBD | `body_root`: TBD |
+| `uncle_headers`: 2 entries (encoded as the count byte 0x02 followed by the two 360-byte entries below, each a 296-byte header and its 64-byte signature)<br />- `uncle_headers[0]`: header 0x6600000000000000666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666660000000000000000000000000000000000000000000000000000000000000034b4d9043156cb6dcf0beb0a2949b7559c940d2bcb6dbe8c53a9b30278e3a7466600000000000000000000000000000000000000000000000000000000000000, signature TBD<br />- `uncle_headers[1]`: header 0x77000000000000007777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777700000000000000000000000000000000000000000000000000000000000000c853ad0f0cd2b619aea92ceec4fd56a24d6499d584ce79257e45cfd8139b60a77700000000000000000000000000000000000000000000000000000000000000, signature TBD<br />- `merkle_root(transactions)`: TBD | `body_root`: TBD |
 | `Header`:<br />- `slot`: 42 (0x2a; encoded little-endian)<br />- `parent_block`: 0x1111111111111111111111111111111111111111111111111111111111111111<br />- `body_root`: TBD (the empty-`uncle_headers` value above)<br />- `leader_voucher`: 0x4444000000000000000000000000000000000000000000000000000000000000<br />- `entropy_contribution`: 0x5555000000000000000000000000000000000000000000000000000000000000<br />- `proof`: 0x2222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222<br />- `leader_key`: 0x17cb79fb2b4120f2b1ec65e4198d6e08b28e813feb01e4a400839b85e18080ce | `block_id`: TBD |

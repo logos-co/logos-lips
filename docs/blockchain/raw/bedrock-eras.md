@@ -178,7 +178,7 @@ A schedule changes only under these rules ([Era Schedule](#era-schedule)):
 
 - a release may add or change an era only for an epoch that has not begun;
 - a release must not move a published era to an earlier first epoch;
-- a release must not change the rules of a published era, or the migration into it, without changing the era's first epoch number or parameter record;
+- a release must not change the rules of a published era, or the migration into it, without giving the era a new version;
 - an era must not change how the [Cryptarchia Fork Choice Rule](fork-choice.md) compares chains that diverge by at most $`k`$ blocks, where $`k`$ is the security parameter of [Constants](cryptarchia-v1-protocol.md#constants).
 
 ## Fork and Era Digests
@@ -213,12 +213,13 @@ A node interprets each piece of chain data under one era:
 
 - a block or proposal, and everything it carries: the era of its slot;
 - a transaction, when parsing it: the era whose fork digest it carries;
+- an active message or a reward claim, when verifying it: the era of the epoch it is for;
 - a comparison of two chains: the era of the slot of their common ancestor.
 
 [Era of Chain Data](#era-of-chain-data) specifies the rules behind this list:
 
-- A node learns the era before it parses the rest. The slot comes first in every message that carries a block or proposal, and the fork digest comes first in every transaction, each in an encoding no era changes.
-- A block may include a transaction that carries the fork digest of the block's era or of an earlier era, unless an era whose rules change transactions has refused those of the eras before it.
+- A node learns the era before it parses the rest. The slot comes first in the encoding of every block and proposal, and the fork digest comes first in every transaction, each in an encoding no era changes.
+- A block may include a transaction that carries the fork digest of the block's era or of an earlier era, unless an era has refused those of the eras before it.
 - The fork choice rule of every era reads only the block tree and the slots of its blocks. The latest immutable block moves to its child only once it lies deeper than the $`k`$ of its own era ([Commit](cryptarchia-v1-protocol.md#commit)).
 - At startup and on checkpoint import ([Bootstrapping from Checkpoint](cryptarchia-v1-bootstr-sync.md#bootstrapping-from-checkpoint)), a node halts if its release lacks the rules of an era it must still apply, from the era of the latest immutable block to the era in force.
 
@@ -226,13 +227,7 @@ A node interprets each piece of chain data under one era:
 
 A new era may change what the chain state holds and how it is laid out, while the state built under the previous era must carry over.
 
-Between eras, the **recorded chain state** passes through a **[migration](#era-migration)** that the new era defines. The recorded chain state is the state that [Bedrock Chain State](bedrock-chain-state.md) lists. A migration turns the state of the previous era into the state of the new era. It:
-
-- depends on the recorded chain state alone;
-- is defined for every state the previous era can reach;
-- leaves unchanged every part of the state that the new era does not redefine.
-
-The rules of the new era apply to every state the migration produces.
+Between eras, the **recorded chain state**, which [Bedrock Chain State](bedrock-chain-state.md) lists, passes through a **[migration](#era-migration)** that the new era defines.
 
 A node migrates state recorded in an earlier era before it uses it:
 
@@ -240,7 +235,7 @@ A node migrates state recorded in an earlier era before it uses it:
 - it derives a value for an epoch from the chain state as of a slot, migrated to the epoch's era;
 - it re-validates its mempool against the state after its local chain tip, migrated to the era in force.
 
-The values derived for an epoch, such as its epoch state, its Blend difficulty and its proof-of-work reward, follow the rules of the epoch's own era. A node verifies active messages and reward claims under the era of the epoch they are for, even when a block of the next era carries them ([Era Migration](#era-migration)).
+The values derived for an epoch, such as its epoch state, its Blend difficulty and its proof-of-work reward, follow the rules of the epoch's own era ([Era Migration](#era-migration)).
 
 ## Network Layer
 
@@ -253,8 +248,8 @@ Each message a node sends goes out on the identifiers of one era: the era in for
 When the era in force changes, the node runs the network protocols of both eras for the **[Era Transition Period](#era-transition-period)**, whose length is the previous era's Blend Transition Period:
 
 - during the period, it validates each Blend message under the era of the connection it arrived on;
-- when the period ends, it drops the identifiers of the previous era;
-- it serves any synchronization stream still open at that point to its end.
+- when the period ends, it drops the identifiers of the previous era, with every synchronization request not yet served on them;
+- a node whose request is dropped continues downloading under the new era.
 
 ```mermaid
 stateDiagram-v2
@@ -318,7 +313,7 @@ sequenceDiagram
 6. A block whose slot lies in era $`n`$ arrives on the topic of era $`n`$. Once the node's clock has reached the block's slot, the node validates the block under era $`n`$, against its parent's state migrated to era $`n`$ ([Era of Chain Data](#era-of-chain-data), [Era Migration](#era-migration), [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation)).
 7. If the block extends a fork that left the local chain before the boundary, fork choice compares the two chains under the era of their common ancestor's slot, which precedes era $`n`$ ([Era of Chain Data](#era-of-chain-data)). If the node switches to that fork, it re-validates its mempool against the new tip ([Era Change](#era-change)).
 8. The node sends the messages it generates under era $`n`$. It releases a Blend message it generates no earlier than one round after the era in force changes ([Transition Period](blend-protocol.md#transition-period)).
-9. When the period ends, the node drops the identifiers of era $`n-1`$ ([Era Transition Period](#era-transition-period)).
+9. When the period ends, the node drops the identifiers of era $`n-1`$, with every synchronization request not yet served on them ([Era Transition Period](#era-transition-period)).
 
 ## Node State
 
@@ -359,7 +354,7 @@ An era must not change the comparison of chains that diverge by at most $`k`$ bl
 
 The rules of an era decide which blocks, transactions and messages are valid under it, how they execute, how chains compare, and how the state migrates into it. An era is published once a release that schedules it is distributed.
 
-The nodes of two releases apply different rules from the first epoch whose era has a different digest in the two schedules. From that epoch they use different fork digests. A release must not change the rules of a published era while keeping the era's first epoch number and parameter record. Otherwise the nodes of the two releases apply different rules under one fork digest. A release must not publish an entry, or change the record of an entry, whose epoch has begun. Otherwise a node that installs the release holds state executed under the wrong era. A release must not move a published era to an earlier first epoch. Otherwise nodes that have not yet upgraded split off before the epoch their release announced.
+The nodes of two releases apply different rules from the first epoch whose era has a different digest in the two schedules. From that epoch they use different fork digests. A release must not change which era governs an epoch that has begun, or that era's record. Otherwise a node that installs the release holds state executed under the wrong era. A release must not move a published era to an earlier first epoch. Otherwise nodes that have not yet upgraded split off before the epoch their release announced.
 
 ## Era Parameters
 
@@ -389,12 +384,12 @@ A field holds the value of its source constant under the rules of the era. The E
 | `cryptarchia` | `uncle_reference_window_in_block` | `UINT32` | $`W`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
 | `cryptarchia` | `service_params` | `service_params` | [Service Parameters](bedrock-service-declaration-protocol.md#service-parameters) |
 | `cryptarchia` | `min_stake` | `min_stake` | [Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake) |
-| `cryptarchia` | `base_difficulty` | `UINT32` | $`n`$ in `BLEND_DIFFICULTY_BASE` $`= \lfloor p / 2^n \rfloor`$ of [Parameters](proof-of-work.md#parameters) |
+| `cryptarchia` | `base_difficulty` | `UINT32` | $`j`$ in `BLEND_DIFFICULTY_BASE` $`= \lfloor p / 2^j \rfloor`$ of [Parameters](proof-of-work.md#parameters) |
 | `cryptarchia` | `target_transactions_per_block` | `UINT64` | `TARGET_TXS_PER_BLOCK` of [Parameters](proof-of-work.md#parameters) |
 | `cryptarchia` | `max_step` | `UINT64` | `BLEND_MAX_STEP` of [Parameters](proof-of-work.md#parameters) |
 | `cryptarchia` | `damping_num` | `UINT32` | `BLEND_DAMPING_NUM` of [Parameters](proof-of-work.md#parameters) |
 | `cryptarchia` | `damping_den_offset` | `UINT32` | `BLEND_DAMPING_DEN` minus `BLEND_DAMPING_NUM` of [Parameters](proof-of-work.md#parameters) |
-| `cryptarchia` | `minimum_difficulty` | `UINT32` | $`n`$ in `REWARD_TARGET_CAP` $`= \lfloor p / 2^n \rfloor`$ of [Parameters](proof-of-work.md#parameters) |
+| `cryptarchia` | `minimum_difficulty` | `UINT32` | $`j`$ in `REWARD_TARGET_CAP` $`= \lfloor p / 2^j \rfloor`$ of [Parameters](proof-of-work.md#parameters) |
 | `cryptarchia` | `ema_smoothing_factor` | `UINT64` | `EMA_SMOOTHING_FACTOR` of [Parameters](proof-of-work.md#parameters) |
 | `cryptarchia` | `ema_smoothing_precision` | `UINT64` | `EMA_SMOOTHING_PRECISION` of [Parameters](proof-of-work.md#parameters) |
 | `cryptarchia` | `target_claims_per_block` | `UINT64` | `TARGET_CLAIMS_PER_BLOCK` of [Parameters](proof-of-work.md#parameters) |
@@ -451,13 +446,13 @@ def encode(p: EraParameters) -> bytes:
     return out
 ```
 
-`FIELDS` maps each section of the table above, in table order, to its rows, as pairs of a field and its encoding. A ratio's parts are `num` and `den`, encoded as the record gives them, without reduction. A `binary64` field is an IEEE 754 double-precision value. An entry of `service_params` is keyed by its `ServiceType` byte and has `inactivity_period` and `epoch`. `min_stake` has `stake_threshold` and `epoch`. A record that `encode` rejects is invalid.
+`FIELDS` maps each section of the table above, in table order, to its rows, as pairs of a field and its encoding. A ratio's parts are `num` and `den`, encoded as the record gives them, without reduction. A `binary64` field is an IEEE 754 double-precision value. An entry of `service_params` is keyed by its `ServiceType` byte and has `inactivity_period` and `epoch`. `min_stake` has `stake_threshold` and `epoch`. Its `epoch` takes 8 bytes, not the 4 of an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch). A record that `encode` rejects is invalid.
 
 In every record, the numerator of `slot_activation_coeff`, the epoch length $`L_n`$ and the slot length $`\Delta_n`$ are at least 1. Otherwise `epoch_length(n)`, $`\textbf{epoch}(sl)`$ or $`\textbf{slot}(t)`$ divides by zero.
 
 The `stake_thresholds` store ([Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake)) holds the `min_stake` of each record of the schedule. The `parameters` store ([Service Parameters](bedrock-service-declaration-protocol.md#service-parameters)) holds the `service_params` entries of each record.
 
-A release that changes anything a version names defines a new version, used by the eras that adopt it.
+A release that changes anything a version names defines a new version, used by the eras that adopt it. Otherwise the nodes of two releases apply different rules under one fork digest.
 
 ## Era Boundaries
 
@@ -528,14 +523,14 @@ def fork_digest(n: int) -> hash:
 
 ## Era of Chain Data
 
-A block or proposal, and everything it carries, is parsed, validated and executed under the rules of the era of its slot, $`\textbf{era}(sl)`$, except that a transaction is parsed under the era whose fork digest it carries. `slot` is the first field of the header ([Block Header](cryptarchia-v1-protocol.md#block-header)) and has the same encoding in every era. Every message that carries a block or proposal begins with the header in its [canonical encoding](bedrock-v1.1-block-construction.md#canonical-encoding). Otherwise a node cannot parse a block before it knows the block's era.
+A block or proposal, and everything it carries, is parsed, validated and executed under the rules of the era of its slot, $`\textbf{era}(sl)`$. The exceptions are a transaction, which is parsed under the era whose fork digest it carries, and an active message or reward claim, which is verified as [Era Migration](#era-migration) specifies. `slot` is the first field of the header ([Block Header](cryptarchia-v1-protocol.md#block-header)) and has the same encoding in every era. The encoding of every block and proposal begins with its header, in its [canonical encoding](bedrock-v1.1-block-construction.md#canonical-encoding). Otherwise a node cannot parse a block before it knows the block's era.
 
-Every transaction begins with its fork digest ([Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction)), in the same encoding in every era. Otherwise a node cannot parse a transaction before it knows the transaction's era. A block may include a transaction only if `accepts_fork_digest` holds for the block's `slot` and the transaction's `fork_digest`:
+Every transaction begins with its fork digest ([Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction)), in the same encoding in every era. Otherwise a node cannot parse a transaction before it knows the transaction's era. A transaction is valid under era `n` only if `accepts_fork_digest` holds for `n` and the transaction's `fork_digest`:
 
 ```python
-def accepts_fork_digest(slot: uint64, digest: hash) -> bool:
-    # From the block's era back: an era that refuses earlier transactions ends the search.
-    for era in range(era_of_slot(slot), -1, -1):
+def accepts_fork_digest(n: int, digest: hash) -> bool:
+    # From era n back: an era that refuses earlier transactions ends the search.
+    for era in range(n, -1, -1):
         if digest == fork_digest(era):
             return True
         if refuses_earlier_transactions(era):
@@ -545,7 +540,7 @@ def accepts_fork_digest(slot: uint64, digest: hash) -> bool:
 
 `refuses_earlier_transactions(n)` holds when era `n` refuses the transactions of the eras before it. It does not hold for era 0.
 
-[Fork choice](fork-choice.md) compares two chains under the era of the slot of their $`\textbf{common\_ancestor}`$ ([Fork Pruning](cryptarchia-v1-protocol.md#fork-pruning)). The fork choice rule of an era reads only the block tree and the slot of each block. Otherwise it is undefined on the blocks of a later era that re-encodes a field it reads. [Commit](cryptarchia-v1-protocol.md#commit) advances the latest immutable block only while it lies deeper than the $`k`$ of the era of its slot.
+[Fork choice](fork-choice.md) compares two chains under the era of the slot of their $`\textbf{common\_ancestor}`$ ([Fork Pruning](cryptarchia-v1-protocol.md#fork-pruning)). The fork choice rule of an era reads only the block tree and the slot of each block. Otherwise it is undefined on the blocks of a later era that re-encodes a field it reads.
 
 At startup and on checkpoint import ([Bootstrapping from Checkpoint](cryptarchia-v1-bootstr-sync.md#bootstrapping-from-checkpoint)), a node whose release does not implement the rules of every era from $`\textbf{era}(sl_{B_\text{imm}})`$ ([latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block)) to the era in force must halt. A halted node stops every protocol and exits with an error to the operator.
 
@@ -591,7 +586,7 @@ A node keeps in its mempool only transactions valid under the era in force, agai
 def revalidate_mempool(tip: Block, mempool: list[Transaction]) -> list[Transaction]:
     # The tip's state is in the era of the tip's slot, which can precede the era in force.
     era = era_in_force()
-    state = migrate(state_after(tip), era_of_slot(tip.slot), era)
+    state = migrate(state_after(tip), era_of_slot(tip.header.slot), era)
     return [tx for tx in mempool if valid_under(era, tx, state)]
 ```
 
@@ -608,7 +603,7 @@ During the Era Transition Period a node must:
 3. Keep, until the period ends, every input that the previous era's Blend message checks read.
 4. Process any other message that arrives on an identifier of either era as it would on an identifier of the era in force ([Era of Chain Data](#era-of-chain-data), [Network Protocol Identity](#network-protocol-identity)).
 
-After the Era Transition Period the node must drop the identifiers of the previous era and must not process its Blend messages. A synchronization stream open at the end of the period is served to its end.
+After the Era Transition Period the node must drop the identifiers of the previous era, with every synchronization request on them it has not yet served, and must not process its Blend messages. A node whose request is dropped continues [downloading](cryptarchia-v1-bootstr-sync.md#downloading-blocks) over the identifiers of the era in force.
 
 ## Network Protocol Identity
 
@@ -616,4 +611,4 @@ Every protocol identifier and gossipsub topic a Logos Blockchain specification d
 
 A node sends a message it generates over the identifiers of the era in force at generation. A node relays or releases a received or processed Blend message, and broadcasts its payload, over the identifiers of the era of the connection it arrived on. A node publishes a proposal it accepts, and a transaction it admits to its mempool, on the topic of the era in force. A [synchronization](cryptarchia-v1-bootstr-sync.md#downloading-blocks) response carries blocks of any era.
 
-A node warns its operator when a peer whose identify message carries the node's own `protocolVersion` lists, in the `protocols` field of that message, an identifier other than that of Kademlia whose fork digest is none of the fork digests of the node's schedule. The warning does not stop the node.
+A node warns its operator when a peer whose identify message carries the node's own `protocolVersion` lists, in the `protocols` field of that message, an identifier `/logos-blockchain/<fork_digest>/<protocol>` other than that of Kademlia whose `<fork_digest>` is none of the fork digests of the node's schedule. The warning does not stop the node.

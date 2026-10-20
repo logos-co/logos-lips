@@ -63,7 +63,7 @@ CHAIN_STATE_LAYOUT_VERSION: uint16 = 1   # the layout this document defines
 
 The state is encoded under rules 1, 2 and 4 of [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding), with the terminals of [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures). A structure that Mantle Transaction Encoding defines, such as `Note` or `Locators`, is encoded as it defines. In addition:
 
-1. A list, a set or a map is encoded as a `UINT32` count of its entries, followed by the entries. Every collection of the state holds fewer than $`2^{32}`$ entries, as [Ledger Root](cryptarchia-proof-of-leadership.md#ledger-root) bounds the notes. Otherwise its count does not fit.
+1. A list, a set or a map is encoded as a `UINT32` count of its entries, followed by the entries. A collection of the state must hold fewer than $`2^{32}`$ entries. Otherwise its count does not fit. [Ledger Root](cryptarchia-proof-of-leadership.md#ledger-root) bounds the notes below that.
 2. A list keeps its own order. A set lists its elements, and a map its keys, in ascending order.
 3. An integer or a field element compares by its value. Any other element or key compares byte by byte.
 4. A map entry is its key followed by its value.
@@ -107,7 +107,7 @@ The recorded chain state of layout version 1 is `CHAIN_STATE_LAYOUT_VERSION` fol
 
 Of the state that Mantle keeps for [SDP Operations](bedrock-v1.1-mantle-specification.md#service-declaration-protocol-sdp-operations), only `declarations` is a component. The rest is derived from it.
 
-The key of each `notes` entry is the `NoteId` that [Note Id](bedrock-v1.1-mantle-specification.md#note-id) derives from the entry's `op_id`, `output_number` and `note`.
+The key of each `notes` entry is the `NoteId` that [Note Id](bedrock-v1.1-mantle-specification.md#note-id) derives from the entry's `op_id`, `output_number` and `note`. In `declarations`, `sdp_snapshot` and `next_sdp_snapshot`, the key of each `DeclarationInfo` is the `declaration_id` that [Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage) derives from it, and every entry under a `ServiceType` key has that `service`.
 
 ```schema
 LedgerNote       = OpId OutputNumber Note Position
