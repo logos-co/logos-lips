@@ -21,7 +21,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-09 |
 | 1.1.0 | Set the reference load of the Blend difficulty to the transaction rate the Blend network carries, `F_T / F_D = 130` transactions per block | 2026-09-11 |
-| 1.2.0 | The acceptance window is the parameter `WINDOW`, in slots, in place of `EXPECTED_BLOCKS_PER_WINDOW` ([Bedrock Eras](bedrock-eras.md)). | 2026-10-15 |
+| 1.2.0 | The acceptance window is the parameter `WINDOW`, in slots, of the era of the referenced block, in place of `EXPECTED_BLOCKS_PER_WINDOW` ([Bedrock Eras](bedrock-eras.md)). | 2026-10-20 |
 | 1.3.0 | Specified how `block_slots` and `pow_nullifiers` are kept for the acceptance window, and excluded the Genesis block from the blocks the Blend difficulty counts. | 2026-10-20 |
 
 # Introduction
@@ -188,7 +188,7 @@ The reward is fixed for the epoch while the pool shrinks with every claim. The f
 
 A claim's referenced block must be canonical and at most `WINDOW` slots older than the block including the claim; the check is step 2 of [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation.
 
-Before the transactions of a block at slot `s` run, its `block_id` is inserted into `block_slots` with the value `s`. Every entry of `block_slots` and of `pow_nullifiers` whose slot is below `s - WINDOW` is then removed.
+Before the transactions of a block at slot `s` run, its `block_id` is inserted into `block_slots` with the value `s`. Every entry of `block_slots` and of `pow_nullifiers` whose slot is below `s - WINDOW` is then removed. Both the check and the removal use the `WINDOW` of the era of the referenced block's slot, the slot an entry holds ([Era Boundaries](bedrock-eras.md#era-boundaries)). Otherwise an era that changes `WINDOW` lets a removed nullifier be claimed again.
 
 ## Reward Difficulty
 
