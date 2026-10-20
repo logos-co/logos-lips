@@ -180,7 +180,7 @@ A schedule changes only under these rules ([Era Schedule](#era-schedule)):
 - a release may add or change an era only for an epoch that has not begun;
 - a release must not move a published era to an earlier first epoch;
 - a release must not change the rules of a published era, or the migration into it, without giving the era a new version;
-- an era must not change how the [Cryptarchia Fork Choice Rule](fork-choice.md) compares chains that diverge by at most $`k`$ blocks, where $`k`$ is the security parameter of [Constants](cryptarchia-v1-protocol.md#constants).
+- an era must not change how the [Cryptarchia Fork Choice Rule](fork-choice.md) compares chains that diverge by at most $`k`$ blocks, where $`k`$ is the smaller of the security parameters ([Constants](cryptarchia-v1-protocol.md#constants)) of the era and the era before it.
 
 ## Fork and Era Digests
 
@@ -351,7 +351,7 @@ SCHEDULE: list[tuple[EpochNumber, EraParameters]] = [(0, P_0)]  # (E_n, P_n) of 
 
 The era schedule is embedded in each release and is not read from the chain. Each network has its own schedule. The schedule is a list of entries, each an epoch number and a [parameter record](#era-parameters). The epoch numbers strictly increase, and the first of them is 0.
 
-An era must not change the comparison of chains that diverge by at most $`k`$ blocks ([Online Fork Choice Rule](fork-choice.md#online-fork-choice-rule)). Otherwise fork choice depends on the order in which forks were seen for the first $`k`$ blocks of the era.
+An era must not change the comparison of chains that diverge by at most $`k`$ blocks ([Online Fork Choice Rule](fork-choice.md#online-fork-choice-rule)), with $`k`$ the smaller of its own and the previous era's. Otherwise fork choice depends on the order in which forks were seen for the first $`k`$ blocks of the era.
 
 The rules of an era decide which blocks, transactions and messages are valid under it, how they execute, how chains compare, and how the state migrates into it. An era is published once a release that schedules it is distributed.
 
