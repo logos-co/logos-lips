@@ -252,8 +252,8 @@ Each message a node sends goes out on the identifiers of one era: the era in for
 When the era in force changes, the node runs the network protocols of both eras for the **[Era Transition Period](#era-transition-period)**, whose length is the previous era's Blend Transition Period:
 
 - during the period, it validates each Blend message under the era of the connection it arrived on;
-- when the period ends, it drops the identifiers of the previous era;
-- it serves any synchronization stream still open at that point to its end.
+- when the period ends, it drops the identifiers of the previous era, with every synchronization request not yet served on them;
+- a node whose request is dropped continues downloading under the new era.
 
 ```mermaid
 stateDiagram-v2
@@ -317,7 +317,7 @@ sequenceDiagram
 6. A block whose slot lies in era $`n`$ arrives on the topic of era $`n`$. Once the node's clock has reached the block's slot, the node validates the block under era $`n`$, against its parent's state migrated to era $`n`$ ([Era of Chain Data](#era-of-chain-data), [Era Migration](#era-migration), [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation)).
 7. If the block extends a fork that left the local chain before the boundary, fork choice compares the two chains under the era of their common ancestor's slot, which precedes era $`n`$ ([Era of Chain Data](#era-of-chain-data)). If the node switches to that fork, it re-validates its mempool against the new tip ([Era Change](#era-change)).
 8. The node sends the messages it generates under era $`n`$. It releases a Blend message it generates no earlier than one round after the era in force changes ([Transition Period](blend-protocol.md#transition-period)).
-9. When the period ends, the node drops the identifiers of era $`n-1`$ ([Era Transition Period](#era-transition-period)).
+9. When the period ends, the node drops the identifiers of era $`n-1`$, with every synchronization request not yet served on them ([Era Transition Period](#era-transition-period)).
 
 ## Node State
 
@@ -607,7 +607,7 @@ During the Era Transition Period a node must:
 3. Keep, until the period ends, every input that the previous era's Blend message checks read.
 4. Process any other message that arrives on an identifier of either era as it would on an identifier of the era in force ([Era of Chain Data](#era-of-chain-data), [Network Protocol Identity](#network-protocol-identity)).
 
-After the Era Transition Period the node must drop the identifiers of the previous era and must not process its Blend messages. A synchronization stream open at the end of the period is served to its end.
+After the Era Transition Period the node must drop the identifiers of the previous era, with every synchronization request on them it has not yet served, and must not process its Blend messages. A node whose request is dropped continues [downloading](cryptarchia-v1-bootstr-sync.md#downloading-blocks) over the identifiers of the era in force.
 
 ## Network Protocol Identity
 
