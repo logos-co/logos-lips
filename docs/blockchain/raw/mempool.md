@@ -24,7 +24,7 @@
 
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
-| 1.0.0 | Initial revision. | 2026-10-13 |
+| 1.0.0 | Initial revision. | 2026-10-20 |
 
 # Introduction
 
