@@ -21,7 +21,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-04 |
 | 1.1.0 | The recorded chain state is the list of components in [Bedrock Chain State](bedrock-chain-state.md). | 2026-10-06 |
-| 1.2.0 | An era states its migration in pseudocode, with its frame, test vectors and a Lean certificate, and the migration preserves the listed properties of the recorded chain state. | 2026-10-14 |
+| 1.2.0 | An era states its migration in pseudocode, with its frame, test vectors and a Lean certificate, and the migration preserves the listed properties of the recorded chain state. | 2026-10-20 |
 
 # Introduction
 
@@ -558,8 +558,8 @@ A migration preserves each of these properties, unless its era states a rule tha
 
 - The sum of the note values, `leaders_rewards`, `pending_leaders_rewards`, `blend_income`, the income of `blend_target`, `pow_reward_pool` and `pow_pool_refill` is unchanged. Otherwise the migration creates or destroys tokens.
 - No two entries of `notes` share a leaf position. Otherwise the note tree cannot hold both.
-- Every key of `channel_notes`, and the `service_note_id` of every declaration, is a key of `notes`. Otherwise a channel or a declaration refers to a note that does not exist.
-- No two declarations of the same service share a `service_note_id`, a `provider_id` or a `zk_id`. Otherwise one note, provider or key counts twice in that service.
+- Every key of `channel_notes`, and the `service_note_id` of every entry of `declarations`, is a key of `notes`. Otherwise a channel or a declaration refers to a note that does not exist.
+- No two entries of `declarations` for the same service share a `service_note_id`, a `provider_id` or a `zk_id`. Otherwise one note, provider or key counts twice in that service.
 - No entry leaves `voucher_nullifier_set` or `pow_nullifiers`. Otherwise a reward can be claimed twice.
 
 The rules of the new era must apply to every state the migration produces. Otherwise, from the era's first slot, a rule can read a state component that is missing or still in the previous era's form.
