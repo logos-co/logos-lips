@@ -21,7 +21,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-09 |
 | 1.1.0 | Set the reference load of the Blend difficulty to the transaction rate the Blend network carries, `F_T / F_D = 130` transactions per block | 2026-09-11 |
-| 1.2.0 | The acceptance window is the parameter `WINDOW`, in slots, in place of `EXPECTED_BLOCKS_PER_WINDOW` ([Bedrock Eras](bedrock-eras.md)). | 2026-10-15 |
+| 1.2.0 | The acceptance window is the parameter `WINDOW`, in slots, of the era of the referenced block, in place of `EXPECTED_BLOCKS_PER_WINDOW` ([Bedrock Eras](bedrock-eras.md)). | 2026-10-20 |
 
 # Introduction
 
@@ -185,7 +185,7 @@ The reward is fixed for the epoch while the pool shrinks with every claim. The f
 
 ## Acceptance Window
 
-A claim's referenced block must be canonical and at most `WINDOW` slots older than the block including the claim; the check is step 2 of [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation. A nullifier may be discarded once the block its claim referenced has left the window.
+A claim's referenced block must be canonical and at most `WINDOW` slots older than the block including the claim; the check is step 2 of [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation. A nullifier may be discarded once the block its claim referenced has left the window. Both the check and the discarding use the `WINDOW` of the era of the referenced block's slot ([Era Boundaries](bedrock-eras.md#era-boundaries)). Otherwise an era that changes `WINDOW` lets a discarded nullifier be claimed again.
 
 ## Reward Difficulty
 
