@@ -22,7 +22,7 @@
 | v10 | Added the expired-claim retirement that [logos-blockchain#3789](https://github.com/logos-blockchain/logos-blockchain/pull/3789) implements: a claim is retired, and refused at admission, once the highest slot in the block tree is more than `CLAIM_GRACE` slots past its acceptance window. Added its Details entry, rationale, departure and implementation tasks, and narrowed Open Issues 2, 6 and 8 for claims. | 2026-10-13 |
 |  | Brought the departures up to date with `logos-blockchain` at `f376f9547`. Removed the three that [logos-blockchain#3610](https://github.com/logos-blockchain/logos-blockchain/pull/3610), [#3734](https://github.com/logos-blockchain/logos-blockchain/pull/3734) and [#3746](https://github.com/logos-blockchain/logos-blockchain/pull/3746) fixed, moved their reasoning to the rationale, and ticked their tasks. Stateless validation now departs only for `CLAIM_POW_REWARD`, which the implementation gives no proof, and the TTL entry records the 1-hour default. | 2026-10-13 |
 |  | Restructured the specification into Introduction, Overview, Protocol and Details, with Notation and Parameters opening Details. No rule changed. Links to the former Constants section now point at Parameters. | 2026-10-13 |
-|  | Moved the departure in which the implementation resolves references before it checks the parent, with its rationale, implementation task and test, to a submission of its own. | 2026-10-20 |
+|  | Block Proposal Validation follows the implementation, which checks only the latest immutable block, the genesis slot, the block tree and the signature before reconstruction. The departure that asked for every header check first moved, with its rationale, task and test, to a submission of its own, and its consequences are Open Issue 15. | 2026-10-20 |
 
 ## Reviewer Orientation
 
@@ -36,9 +36,10 @@ Read the PR's Motivation first.
 | 4 | High | [Mempool](#affected-specifications): [Retirement and persistence](#4-retirement-and-persistence) | Retirement is not rejection, except for an expired claim, and it clears every per-transaction map. |
 | 5 | High | [Mempool](#affected-specifications): [Expired claims](#5-expired-claims) | A claim is retired and refused more than `CLAIM_GRACE` slots after the last slot that can include it. Check the deadline, and the constraint on `CLAIM_GRACE`. |
 | 6 | High | [Block Construction, Validation and Execution](#affected-specifications): [Resolution moves to the mempool](#6-block-construction-links-to-the-mempool) | What block construction keeps is its own, and nothing it removed is lost. |
-| 7 | Medium | [Mempool](#affected-specifications): [Dissemination](#7-dissemination) | Payload-digest message identity, and relay preceding admission. |
-| 8 | Medium | [Mempool](#affected-specifications): [Mempool State](../mempool.md#mempool-state) and [Parameters](../mempool.md#parameters) | Only constants this specification owns are defined here. The rest are referenced. |
-| 9 | Low | [Mempool](#affected-specifications): [Node API](../mempool.md#node-api) | Skim. |
+| 7 | High | [Block Construction, Validation and Execution](#affected-specifications): [Validation order](#7-proposal-validation-follows-the-implementation) | Only the latest immutable block, the genesis slot, the block tree and the signature are checked before reconstruction. Check that every other rule still applies, to the reconstructed block. |
+| 8 | Medium | [Mempool](#affected-specifications): [Dissemination](#8-dissemination) | Payload-digest message identity, and relay preceding admission. |
+| 9 | Medium | [Mempool](#affected-specifications): [Mempool State](../mempool.md#mempool-state) and [Parameters](../mempool.md#parameters) | Only constants this specification owns are defined here. The rest are referenced. |
+| 10 | Low | [Mempool](#affected-specifications): [Node API](../mempool.md#node-api) | Skim. |
 
 # Discussion
 
@@ -100,6 +101,7 @@ Recorded here rather than in the specification.
 12. **No periodic re-broadcast.** A transaction lost by the gossip layer is not retried until the submitter resubmits it.
 13. **The entry points are a closed list, and a fourth is coming.** [Transaction Admission](../mempool.md#transaction-admission) enumerates three ways a transaction reaches the pool, and the broadcast rule keys on which of them it arrived by. A [Blend Protocol](../blend-protocol.md) revision adds transactions as a second data-message payload, which the core node that unwraps one submits to its own mempool. That is a fourth entry point, and Blend itself broadcasts its transactions. Three things then need saying that the document currently leaves implicit. The broadcast rule reaches the right answer only by omission: Blend delivery is neither local submission nor re-insertion, so nothing is disseminated twice, but that holds by accident rather than by statement. [Decoding](../mempool.md#decoding) describes one transaction in the Network Wire Format envelope, where a Blend payload body carries a sequence of them. And the two paths admit different sizes: `MAX_BLOCK_SIZE` here, against a fixed Blend payload body two orders of magnitude smaller, so a transaction this document would admit may not be sendable over Blend at all.
 14. **A fork switch re-admits a transaction at the current time.** Retirement has already discarded its admission time, so the transaction goes to the end of `pending`, behind everything admitted since. Selection carries no fee signal that could buy the position back. [#448](https://github.com/logos-co/logos-lips/pull/448) keeps the time until the block is immutable, and re-admits the transaction at the position that time gives it.
+15. **Reconstruction precedes the parent and leadership checks.** Before reconstruction a node checks only the latest immutable block, the genesis slot, the block tree and the signature. A proposal whose parent is missing and whose references do not resolve is therefore dropped before the missing parent is noticed, and it never reaches the orphan path. A proposal with an invalid proof of leadership also costs a mempool scan.
 
 # Details
 
@@ -143,7 +145,28 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 +    return mempool.bodies[single(matches)]
 ```
 
-## 7. Dissemination
+## 7. Proposal validation follows the implementation
+
+[Block Proposal Validation](../bedrock-v1.1-block-construction.md#block-proposal-validation) checked every header rule that reads no transactions before reconstruction, the parent's presence and the proof of leadership included. `logos-blockchain` at `8eb8a05e5` checks only that the slot is later than the latest immutable block's and is not the genesis slot, that its block tree does not already hold the block, and the signature. It applies everything else to the reconstructed block. The specification now does the same, in revision 1.4.0. The uncle check and the body-size check join the rest of [Block Header Validation](../cryptarchia-v1-protocol.md#block-header-validation) after reconstruction, where `header.body_root` already binds every byte they read.
+
+```diff
+-2. **Header Validation**
+-  The `header` must satisfy the rules of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) that range over the header and the block tree alone: the bedrock version, the slot ordering against the parent, the wallclock check, the presence of the parent in the block tree, the height against the latest immutable block, and the leader's right to propose — that is, rules 1 and 5 through 9.
+-3. **Uncle Validation**
+-  Every entry of `uncle_headers` must be a valid uncle of the block, which is rule 10 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) (see [Uncle References](cryptarchia-v1-protocol.md#uncle-references)).
++2. **Header Authentication**
++  The `header` must name a slot later than the slot of the [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block), and not the genesis slot. It must not name a block that the node's block tree already holds. `signature` must verify under the leader key that the header's proof of leadership commits to, which is the second condition of rule 9 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation).
+ 
+-4. **Block Proposal Reconstruction**
++3. **Block Proposal Reconstruction**
+ 
+-5. **Block Body Validation**
+-  With `transactions` now available, the remaining rule of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) applies: rule 2, `bytes(transactions) <= MAX_BLOCK_SIZE`.
++4. **Block Validation**
++  With `transactions` now available, the reconstructed block must satisfy [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) as written.
+```
+
+## 8. Dissemination
 
 [Dissemination](../mempool.md#dissemination). Message identity on the mempool topic is the Blake2b-256 digest of the payload, not gossipsub's source-and-sequence default. A node relays a received message to its mesh before admission. It broadcasts a transaction it admits by local submission or by re-insertion, and not one it received by gossip.
 
@@ -171,4 +194,4 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 | Specification | Status | Note |
 | --- | --- | --- |
 | [Mempool](../mempool.md) | Created | New specification. |
-| [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md) | Modified | Reference resolution is linked to the Mempool instead of restated (1.3.1). |
+| [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md) | Modified | Reference resolution is linked to the Mempool instead of restated, and proposal validation follows the implementation's order (1.4.0). |
