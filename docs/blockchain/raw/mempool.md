@@ -57,14 +57,14 @@ sequenceDiagram
     Note over B: leads slot 15 and puts<br/>the claim in its block
     B->>A: proposal of slot 15,<br/>with a reference to the claim
     Note over A: rebuilds the proposal<br/>from its own mempool
-    Note over A,B: the block enters both chains,<br/>and both nodes drop the claim
+    Note over A,B: the block enters both chains,<br/>and both nodes retire the claim
 ```
 
 The claim reaches node B before B leads, so node A can rebuild B's proposal from its own copy. A proposal names each transaction by a short reference. If a reference matches nothing in a node's mempool, or matches several transactions, the node cannot rebuild the proposal from its mempool.
 
 A leader's block building receives every transaction in its mempool, oldest first, and keeps those that apply on its chain. A transaction that applies but does not fit in the block stays for the next leader.
 
-A transaction leaves the mempool when a block on the node's chain carries it, when a leader's block building cannot apply it, when it grows older than its time to live, or, for a reward claim, a set time after no block may include it any more.
+A transaction leaves block building when a block on the node's chain carries it, when a leader's block building cannot apply it, when it grows older than its time to live, or, for a reward claim, a set time after no block may include it any more. The node keeps it for ten minutes after that, and can still rebuild a proposal that references it.
 
 A block may include the example's claim up to slot 20. A node keeps the claim for twenty slots after that, unless a block carries it first.
 
@@ -88,10 +88,10 @@ gantt
         before the claim arrives : done, a0, 0, 12s
         holds it : a1, after a0, 9s
         grace : a2, after a1, 20s
-        drops it : milestone, a3, after a2, 0s
+        retires it : milestone, a3, after a2, 0s
 ```
 
-With a window of ten slots and a grace of twenty, a node drops the claim once it holds a block of slot 41 or later.
+With a window of ten slots and a grace of twenty, a node retires the claim once it holds a block of slot 41 or later.
 
 A node keeps its mempool across a restart.
 
@@ -127,7 +127,7 @@ The leader passes over the pending transactions in admission order and applies e
 
 A block proposal carries a short reference to each of its transactions instead of the transaction itself. Every validator rebuilds the proposal from its own mempool.
 
-A **reference** is a prefix of the transaction's hash. It resolves only when exactly one pending transaction carries that prefix. [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md) specifies what an unresolved reference means for the proposal, and [Reference Resolution](#reference-resolution) specifies the procedure.
+A **reference** is a prefix of the transaction's hash. It resolves only when exactly one transaction the mempool holds carries that prefix. [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md) specifies what an unresolved reference means for the proposal, and [Reference Resolution](#reference-resolution) specifies the procedure.
 
 ## Retirement Reasons
 
@@ -138,7 +138,7 @@ Without retirement, the pending set would only grow. A node retires a transactio
 - its age reaches `TRANSACTION_TTL`, unless the node disables expiry;
 - it carries a claim whose deadline has passed.
 
-Retirement discards everything the node kept for the transaction. When a fork switch displaces blocks from the canonical chain, the node re-admits the transactions they carried that the new canonical chain does not carry. [Retirement](#retirement) and [Reorganisation](#reorganisation) specify the rules.
+A retired transaction stays in the mempool for `RETIREMENT_GRACE`, and still resolves references. The node then discards everything it kept for it. When a fork switch displaces blocks from the canonical chain, the node re-admits the transactions they carried that the new canonical chain does not carry. [Retirement](#retirement) and [Reorganisation](#reorganisation) specify the rules.
 
 ## A Transaction Step by Step
 
@@ -181,8 +181,10 @@ sequenceDiagram
 A node keeps these values for its mempool, defined in [Mempool State](#mempool-state):
 
 - `pending`, the pending hashes in admission order, which changes on [Transaction Admission](#transaction-admission) and on [Retirement](#retirement);
-- `bodies` and `admitted_at`, the body and admission time of each pending transaction, which change with `pending` as [Effects of Retirement](#effects-of-retirement) specifies;
-- `by_prefix`, the pending hashes keyed by their reference prefix, which changes with `pending` in the same way;
+- `retired`, the retirement time of each retired transaction the node still holds, which changes on [Retirement](#retirement), on [Transaction Admission](#transaction-admission) and as [Effects of Retirement](#effects-of-retirement) specifies;
+- `bodies`, the body of each pending or retired transaction, which changes on [Transaction Admission](#transaction-admission) and as [Effects of Retirement](#effects-of-retirement) specifies;
+- `admitted_at`, the admission time of each pending transaction, which changes with `pending`;
+- `by_prefix`, the pending and retired hashes keyed by their reference prefix, which changes with `bodies`;
 - `highest_slot`, the highest slot of a block added since the node started, which rises when Chain Maintenance adds a block of a higher slot.
 
 [Persistence and Recovery](#persistence-and-recovery) specifies what the node persists and rebuilds. Local clients read the pending set through the [Node API](#node-api).
@@ -202,6 +204,7 @@ A node keeps these values for its mempool, defined in [Mempool State](#mempool-s
 
 ```python
 TRANSACTION_TTL: Optional[uint64] = 60 * 60  # seconds a transaction may stay pending before it is retired
+RETIREMENT_GRACE: uint64 = 10 * 60           # seconds a retired transaction stays resolvable before it is discarded
 CLAIM_GRACE: uint64 = 2 * WINDOW             # slots a claim stays pending after its acceptance window closes
 ```
 
@@ -217,9 +220,10 @@ With `WINDOW` at 300 slots, `CLAIM_GRACE` is 600 slots.
 @dataclass
 class Mempool:
     pending: OrderedSet[TxHash]         # admitted, not yet retired, in admission order
+    retired: Map[TxHash, Timestamp]     # retirement time, per retired transaction still held
     bodies: Map[TxHash, SignedMantleTx] # transaction bodies
     admitted_at: Map[TxHash, Timestamp] # admission time, per pending transaction
-    by_prefix: Map[bytes, Set[TxHash]]  # pending hashes, keyed by reference prefix
+    by_prefix: Map[bytes, Set[TxHash]]  # pending and retired hashes, keyed by reference prefix
     highest_slot: Optional[SlotNumber]  # highest slot of a block added since the node started
 ```
 
@@ -227,7 +231,7 @@ A transaction `tx` is keyed by `mantle_txhash(tx)`, the [Mantle Transaction Hash
 
 An `OrderedSet` iterates in insertion order. A `Timestamp` is a time in seconds, as an unsigned 64-bit integer, and `now()` is the node's current time as a `Timestamp`. A transaction's age is `now()` minus its `admitted_at` entry.
 
-`by_prefix` maps `prefix(hash, REFERENCE_PREFIX_LENGTH)` to the pending hashes carrying that prefix, where `prefix` is defined in [References](bedrock-v1.1-block-construction.md#references). A prefix that no pending hash carries maps to an empty set.
+`by_prefix` maps `prefix(hash, REFERENCE_PREFIX_LENGTH)` to the pending and retired hashes carrying that prefix, where `prefix` is defined in [References](bedrock-v1.1-block-construction.md#references). A prefix that no such hash carries maps to an empty set.
 
 `highest_slot` is the highest slot of any block that [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance) has added to the node's block tree since the node started, or `None` before the first.
 
@@ -254,6 +258,7 @@ def admit(mempool, encoded: bytes) -> Result:
     if claim_expired(mempool, tx):
         return Reject(ExpiredClaim)
 
+    mempool.retired.pop(key, None)
     mempool.bodies[key] = tx
     mempool.admitted_at[key] = now()
     mempool.pending.add(key)
@@ -402,25 +407,31 @@ A pending transaction for which `claim_expired` holds is retired, unless it has 
 ```python
 def retire(mempool, key: TxHash) -> None:
     mempool.pending.remove(key)
-    mempool.by_prefix[prefix(key, REFERENCE_PREFIX_LENGTH)].discard(key)
     del mempool.admitted_at[key]
-    del mempool.bodies[key]
+    mempool.retired[key] = now()
+
+def prune(mempool) -> None:
+    for key, retired_at in list(mempool.retired.items()):
+        if now() - retired_at >= RETIREMENT_GRACE:
+            del mempool.retired[key]
+            mempool.by_prefix[prefix(key, REFERENCE_PREFIX_LENGTH)].discard(key)
+            del mempool.bodies[key]
 ```
 
-A node retires a transaction by running `retire`.
+A node retires a transaction by running `retire`. It runs `prune` before it admits a transaction, retires one, or processes a block.
 
 ## Persistence and Recovery
 
-A node persists the pending hashes, their admission timestamps, and the transaction bodies.
+A node persists the pending hashes with their admission timestamps, the retired hashes with their retirement times, and the bodies of both.
 
 A node does not persist `by_prefix` or `highest_slot`. It rebuilds `by_prefix` on recovery, and `highest_slot` starts at `None`:
 
 ```python
 def recover(saved) -> Mempool:
     by_prefix = defaultdict(set)
-    for key in saved.pending:
+    for key in list(saved.pending) + list(saved.retired):
         by_prefix[prefix(key, REFERENCE_PREFIX_LENGTH)].add(key)
-    return Mempool(pending=saved.pending, bodies=saved.bodies,
+    return Mempool(pending=saved.pending, retired=saved.retired, bodies=saved.bodies,
                    admitted_at=saved.admitted_at, by_prefix=by_prefix,
                    highest_slot=None)
 ```
@@ -435,5 +446,5 @@ A node exposes the mempool to local clients through endpoints that carry no cons
 | --- | --- |
 | Submit transaction | Admit a transaction by local submission. Returns the outcome of [Transaction Admission](#transaction-admission). |
 | View | The hashes of the pending transactions. |
-| Status | For each queried hash, whether the transaction is pending or unknown to this node. |
+| Status | For each queried hash, whether the transaction is pending. Any other hash is reported as unknown. |
 | Metrics | The number of pending transactions and the time of the most recent admission. |
