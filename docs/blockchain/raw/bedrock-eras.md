@@ -233,7 +233,7 @@ A node migrates state recorded in an earlier era before it uses it:
 
 - it validates a block against its parent's state, with every migration from the parent's era to the block's era applied in order;
 - it derives a value for an epoch from the chain state as of a slot, migrated to the epoch's era;
-- it re-validates its mempool against the state after its local chain tip, migrated to the era in force two seconds ahead of its clock.
+- it re-validates its mempool against the state after its local chain tip, migrated to the era in force one **[clock slack](blend-protocol.md#transition-period)** ahead of its clock.
 
 The values derived for an epoch, such as its epoch state, its Blend difficulty and its proof-of-work reward, follow the rules of the epoch's own era ([Era Migration](#era-migration)).
 
@@ -245,7 +245,7 @@ A node runs its network protocols under the **era in force**, the era of the cur
 
 Each message a node sends goes out on the identifiers of one era: the era in force for what it generates, accepts or admits, and the era of the arriving connection for a Blend message it relays or releases ([Network Protocol Identity](#network-protocol-identity)).
 
-The node runs the network protocols of both eras for the **[Era Transition Period](#era-transition-period)**, from two seconds before the era in force changes, Blend's clock slack, until the previous era's Blend Transition Period after it:
+The node runs the network protocols of both eras for the **[Era Transition Period](#era-transition-period)**, from one clock slack before the era in force changes until the previous era's Blend Transition Period after it:
 
 - during the period, it validates each Blend message under the era of the connection it arrived on;
 - when the period ends, it drops the identifiers of the previous era, with every synchronization request not yet served on them;
@@ -258,7 +258,7 @@ stateDiagram-v2
     a: protocols named by the fork digest of era n−1
     state "Era Transition Period" as p {
         direction LR
-        state "last two seconds of era n−1" as e
+        state "the clock slack before era n" as e
         e: protocols of eras n−1 and n
         state "era n in force" as b
         b: protocols of eras n−1 and n
@@ -267,7 +267,7 @@ stateDiagram-v2
     }
     state "after the period" as c
     c: protocols named by the fork digest of era n
-    a --> p: clock reaches two seconds before the first slot of era n
+    a --> p: clock reaches one clock slack before the first slot of era n
     p --> c: the period ends
 ```
 
@@ -295,11 +295,11 @@ sequenceDiagram
     participant P as peer
     Note over C,P: era n−1 in force
     P->>N: messages on the identifiers of era n−1
+    C->>S: one clock slack before the first slot of era n:<br/>re-validate the mempool against<br/>the tip's state migrated to era n
     rect rgba(255, 200, 0, 0.18)
         Note over N,P: Era Transition Period
-        C->>N: two seconds before the first slot of era n:<br/>open the identifiers of era n,<br/>keep those of era n−1
-        C->>S: re-validate the mempool against<br/>the tip's state migrated to era n
-        P->>N: message on an identifier of era n,<br/>processed under era n
+        C->>N: open the identifiers of era n,<br/>keep those of era n−1
+        P->>N: message on an identifier of era n,<br/>from a peer whose clock runs ahead
         C->>S: first slot of era n:<br/>the era in force becomes era n
         P->>N: message on an identifier of era n−1,<br/>still processed
         P->>S: block of a slot in era n, on the topic of era n,<br/>validated under era n
@@ -310,9 +310,9 @@ sequenceDiagram
 ```
 
 1. Before the boundary, the node exchanges messages with its peers on the identifiers of era $`n-1`$.
-2. Two seconds before the first slot of era $`n`$ by its clock, the node opens the identifiers of era $`n`$ and keeps those of era $`n-1`$, which starts the [Era Transition Period](#era-transition-period).
-3. It re-validates its mempool against the state after its local chain tip, migrated to era $`n`$ ([Era Change](#era-change)). A transaction that carries the fork digest of an earlier era stays, unless era $`n`$ refuses it ([Era of Chain Data](#era-of-chain-data)).
-4. A message that arrives on an identifier of era $`n`$, from a peer whose clock runs ahead, is processed under era $`n`$. A transaction it carries waits in the mempool for a block of era $`n`$ ([Era Transition Period](#era-transition-period)).
+2. One clock slack before the first slot of era $`n`$ by its clock, the node re-validates its mempool against the state after its local chain tip, migrated to era $`n`$ ([Era Change](#era-change)). A transaction that carries the fork digest of an earlier era stays, unless era $`n`$ refuses it ([Era of Chain Data](#era-of-chain-data)).
+3. It then opens the identifiers of era $`n`$ and keeps those of era $`n-1`$, which starts the [Era Transition Period](#era-transition-period).
+4. A message that arrives on an identifier of era $`n`$, from a peer whose clock runs ahead, is processed as the [Era Transition Period](#era-transition-period) specifies. A transaction that carries the fork digest of era $`n`$ waits in the mempool for a block of era $`n`$ ([Era of Chain Data](#era-of-chain-data)).
 5. When its clock reaches the first slot of era $`n`$, the era in force becomes era $`n`$ ([Era Boundaries](#era-boundaries)).
 6. A message that arrives on an identifier of era $`n-1`$ is still processed ([Era Transition Period](#era-transition-period)).
 7. A block whose slot lies in era $`n`$ arrives on the topic of era $`n`$. Once the node's clock has reached the block's slot, the node validates the block under era $`n`$, against its parent's state migrated to era $`n`$ ([Era of Chain Data](#era-of-chain-data), [Era Migration](#era-migration), [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation)).
@@ -325,7 +325,7 @@ sequenceDiagram
 A node keeps three values that depend on the era in force:
 
 - the era in force itself, which changes when the clock reaches the first slot of the next era ([Era Boundaries](#era-boundaries));
-- its mempool, re-validated against the state after its local chain tip, migrated to the era in force two seconds ahead of its clock, whenever the tip or that era changes ([Era Change](#era-change));
+- its mempool, re-validated against the state after its local chain tip, migrated to the era in force one clock slack ahead of its clock, whenever the tip or that era changes ([Era Change](#era-change));
 - the identifiers it accepts connections on, those of both eras during the Era Transition Period and those of the era in force otherwise ([Era Transition Period](#era-transition-period)).
 
 # Details
@@ -343,7 +343,7 @@ A node keeps three values that depend on the era in force:
 | $`\textbf{first\_slot}(ep)`$ | first slot of an epoch | `first_slot_of_epoch(ep)` of [Era Boundaries](#era-boundaries). |
 | $`\textbf{slot}(t)`$ | slot of a time | `slot_of_time(t)` of [Era Boundaries](#era-boundaries). |
 | *none* | era in force | `era_in_force()` of [Era Boundaries](#era-boundaries). |
-| $`T_S`$ | clock slack | Two seconds, from [Transition Period](blend-protocol.md#transition-period). |
+| $`T_S`$ | clock slack | $`T_S`$ of [Transition Period](blend-protocol.md#transition-period), in seconds. |
 | $`F_n`$ | fork digest of era $`n`$ | `fork_digest(n)` of [Fork Digest](#fork-digest). |
 
 ## Parameters

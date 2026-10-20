@@ -153,7 +153,7 @@ In this section, we briefly discuss the way the network is created and maintaine
 
 The process of creating a network is called bootstrapping.
 
-At the beginning of an epoch, all core nodes retrieve a fresh set of core nodes’ connectivity information from the SDP protocol. Then each core node selects at random a set of other core nodes and connects to them through fully encrypted connections. After some time, when all core nodes connect to other core nodes, a new network is formed.
+Shortly before an epoch begins, all core nodes retrieve a fresh set of core nodes’ connectivity information from the SDP protocol. Then each core node selects at random a set of other core nodes and connects to them through fully encrypted connections. After some time, when all core nodes connect to other core nodes, a new network is formed.
 
 ### Minimal Network Size
 
@@ -293,9 +293,9 @@ Since the network is built based on two types of nodes, we define two network ty
 
 **Bootstrapping**
 
-The bootstrapping defines the process of creating the network, which happens at the beginning of each epoch.
+The bootstrapping defines the process of creating the network, which happens $`T_S`$ before each epoch begins ([Transition Period](#transition-period)).
 
-1. A core node at the beginning of an epoch retrieves a set of core nodes’ information from the SDP protocol ([Service Declaration Protocol](bedrock-service-declaration-protocol.md)).
+1. A core node, $`T_S`$ before an epoch begins, retrieves a set of core nodes’ information from the SDP protocol ([Service Declaration Protocol](bedrock-service-declaration-protocol.md)).
 2. If the number of core nodes is below the minimum number of nodes ([Minimal Network Size](#minimal-network-size)), then stop and use regular broadcasting.
 3. It starts opening new connections.
     1. It selects at random (without replacement) a node from the set of core nodes, excluding the identities that are on its blacklist ([Connectivity Maintenance](#connectivity-maintenance)).
@@ -465,7 +465,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\eta`$ denotes the network absorption, the maximum time a message spends crossing the network on one hop;
 - $`T_M`$ denotes the message traversal time, the time a message takes to cross the network;
 - $`T_C`$ denotes the largest clock difference between two honest nodes, in rounds;
-- $`T_S`$ denotes the clock slack, the time before a new epoch begins from which a node opens its connections;
+- $`T_S`$ denotes the clock slack, in seconds, the time before a new epoch begins from which a node opens and accepts the connections of that epoch;
 
 ## Global Parameters
 
@@ -891,17 +891,17 @@ The relaying logic is defined as follows:
     1. If the neighbor is a core node, then the message counts towards the liveness of the connection and towards its share ([Connectivity Maintenance](#connectivity-maintenance)).
     2. If the neighbor is an edge node, then close the connection with the neighbor.
     3. If the header of the message is incorrect, then discard the message, close the connection and blacklist the neighbor ([Connectivity Maintenance](#connectivity-maintenance)). We assume that an adversary cannot inject any spoofed message to the connection.
-    4. If the PoQ nullifier $`\nu_i \in \mathbf H`$ from the public header of the message is already in the nullifier cache, then the message is a duplicate and must be discarded. Cached entries are retained for the duration of the current epoch and the [Transition Period](#transition-period).
+    4. If the PoQ nullifier $`\nu_i \in \mathbf H`$ from the public header of the message is already in the nullifier cache, then the message is a duplicate and must be discarded. An entry is retained until the [Transition Period](#transition-period) after the epoch of its message ends.
     5. If the signature $`\sigma_{K^{n}_{i}}(\mathbf P_i) \in \mathbf H`$ from the public header of the message is invalid, then the message must be discarded, the connection closed and the neighbor blacklisted ([Connectivity Maintenance](#connectivity-maintenance)).
     6. If the proof of quota $`\pi^{K^{n}_i}_{Q} \in \mathbf H`$ from the public header is invalid, then the message must be discarded and must not be relayed. The connection is closed and the neighbor blacklisted, as defined in [Connectivity Maintenance](#connectivity-maintenance).
 2. Release the message according to the [Releasing](#releasing) logic.
 3. Concurrently to the above step, add the message to the processing queue, where it is handled by the [Processing](#processing) logic.
 
-The node must cache the PoQ nullifiers ($`\nu_i`$) for every message it relays for a duration of a single epoch plus the [Transition Period](#transition-period) (TP). Then the node can clear the cache.  That means that the size of the cache must be at least:
+The node must cache the PoQ nullifiers ($`\nu_i`$) for every message it relays for a duration of a single epoch plus the clock slack $`T_S`$ and the [Transition Period](#transition-period) (TP). Then the node can clear the cache.  That means that the size of the cache must be at least:
 
 $$
 \begin{aligned}
-(E + T)\cdot \left( \max\left(F_C \cdot (1+R_C),\ F_D \cdot (1+R_D)\right) + F_T \right) \cdot \beta_{max} \cdot |\nu_i|
+(E + T_S + T)\cdot \left( \max\left(F_C \cdot (1+R_C),\ F_D \cdot (1+R_D)\right) + F_T \right) \cdot \beta_{max} \cdot |\nu_i|
 \end{aligned}
 $$
 
@@ -909,7 +909,7 @@ At the rates above:
 
 $$
 \begin{aligned}
-(648000 + 30) \cdot \left(1 + \dfrac{130}{30}\right) \cdot 3 \cdot 32 = 331791360 \approx 332\,\mathrm{MB}
+(648000 + 2 + 30) \cdot \left(1 + \dfrac{130}{30}\right) \cdot 3 \cdot 32 = 331792384 \approx 332\,\mathrm{MB}
 \end{aligned}
 $$
 

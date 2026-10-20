@@ -34,6 +34,7 @@
 | 1.4.3 | Identifier uniqueness covers every stored declaration, not only activated ones, matching the implementation | 2026-09-01 |
 | 1.5.0 | Defined `active` as the epoch of the block that contained the latest accepted active message, initialised to `created + 2`, and `withdraw_at` as the epoch at which the node stops providing the service, matching the implementation. Added the participant-set exclusion rule and [Message Timing](#message-timing) | 2026-09-02 |
 | 1.6.0 | Declarations are removed at `withdraw_at + 1`, one epoch after the node stops, making the last served epoch rewardable | 2026-09-03 |
+| 1.7.0 | Each node takes the snapshot of an epoch the Blend clock slack before the epoch starts ([Blend Protocol](blend-protocol.md#transition-period)). | 2026-10-20 |
 
 # Introduction
 
@@ -132,7 +133,7 @@ parameters: list[ServiceParameters]
 
 ### Snapshots
 
-At the start of epoch $`n`$, each node takes a snapshot of the SDP registry at the last block from the finalized epoch.
+$`T_S`$ seconds before epoch $`n`$ starts ([Transition Period](blend-protocol.md#transition-period)), each node takes a snapshot of the SDP registry at the last block from the finalized epoch.
 Each snapshot updates the common view of the registry. Changes to the declaration registry take effect with up to a two-epoch delay: messages sent during epoch `n` are included in the next snapshot (for epoch `n+2`).
 
 Epochs 0 and 1 read the snapshot at the genesis block, because the chain has not yet progressed far enough to provide a later finalized block. While at epoch 2, the last block of epoch 0 is read, and so forth according to the above logic.

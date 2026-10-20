@@ -10,7 +10,7 @@
 
 ## Reviewer Orientation
 
-Read the PR's Motivation first. The Era Transition Period and Blend's Transition Period are assumed; this change only moves their start earlier.
+Read the PR's Motivation first. The Era Transition Period now starts `T_S` before the boundary. Blend's Transition Period still starts at the epoch; Blend now opens the new epoch's connections `T_S` before it and drops two rules for the early side.
 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
@@ -83,7 +83,7 @@ No network runs these rules yet. The implementation has neither the one-round ru
 ```
 
 - §Era Boundaries: `era_in_force_after(seconds)` gives the era of the slot `seconds` ahead of the clock, and `era_in_force()` is `era_in_force_after(0)`. Notation gains `T_S`.
-- The Protocol tier follows: the Network Layer text and state diagram, the boundary walk and its diagram (the next era opened early, early messages processed under it, no one-round release delay), the Node State mempool entry, and the Overview chart and text.
+- The Protocol tier follows: the Chain State mempool entry, the Network Layer text and state diagram, the boundary walk and its diagram (the next era opened early, early messages processed as the Era Transition Period specifies, no one-round release delay), the Node State mempool entry, and the Overview chart and text.
 
 ## Chores
 
@@ -92,7 +92,7 @@ No network runs these rules yet. The implementation has neither the one-round ru
 # Implementation
 
 - [ ] Open a new Blend epoch's connections, and accept those of neighbors, `T_S` = 2 seconds before the epoch begins by the local clock, with the next epoch's public input loaded by then
-- [ ] Validate messages on new-epoch connections against the new epoch's public input; drop the one-round release delay and blacklist on any invalid proof of quota
+- [ ] Validate messages on new-epoch connections against the new epoch's public input; do not add the one-round release delay, and blacklist on any invalid proof of quota
 - [ ] Open the next era's identifiers and subscribe to its topics `T_S` before the boundary, and keep the previous era's until `T` rounds after it
 - [ ] Validate the mempool against the era in force `T_S` ahead, and re-validate it when that era changes
 - [ ] Add tests that switch epochs and eras with node clocks up to `T_S` apart, including gossip and Blend messages from a node whose clock runs ahead
