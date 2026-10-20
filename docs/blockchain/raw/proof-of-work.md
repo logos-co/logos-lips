@@ -21,7 +21,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-09 |
 | 1.1.0 | Set the reference load of the Blend difficulty to the transaction rate the Blend network carries, `F_T / F_D = 130` transactions per block | 2026-09-11 |
-| 1.2.0 | The acceptance window is the parameter `WINDOW`, in slots, of the era of the referenced block, in place of `EXPECTED_BLOCKS_PER_WINDOW` ([Bedrock Eras](bedrock-eras.md)). | 2026-10-20 |
+| 1.2.0 | The acceptance window is the parameter `WINDOW`, in slots, of the era of the referenced block, in place of `EXPECTED_BLOCKS_PER_WINDOW` ([Bedrock Eras](bedrock-eras.md)), and the pool seed is a Cryptarchia parameter of the Genesis block. | 2026-10-20 |
 | 1.3.0 | Specified how `block_slots` and `pow_nullifiers` are kept for the acceptance window, and excluded the Genesis block from the blocks the Blend difficulty counts. | 2026-10-20 |
 
 # Introduction
@@ -128,14 +128,12 @@ A node keeps a spent ticket, and the slot of a block, only while that block is i
 | $`N_b`$ | expected blocks per epoch | `EXPECTED_BLOCKS_PER_EPOCH`, the epoch length in slots of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) times $`f`$. |
 | $`F`$, $`P`$ | smoothing factor and precision | `EMA_SMOOTHING_FACTOR` and `EMA_SMOOTHING_PRECISION`; the reward update weighs the previous estimate $`F`$ out of $`P`$. |
 | $`\alpha = a / b`$ | damping exponent | `BLEND_DAMPING_NUM / BLEND_DAMPING_DEN`, the Blend update's response to the load ratio. |
-| $`S_{cap}`$ | maximum supply | The hard cap of [Block Rewards](block-rewards.md). |
 | $`f`$ | slot activation coefficient | The probability that a slot has a leader, $`1/30`$, from [Constants](cryptarchia-v1-protocol.md#constants). |
 | $`k`$ | security parameter | $`2160`$, from [Constants](cryptarchia-v1-protocol.md#constants). |
 
 ## Parameters
 
 ```python
-POW_REWARD_POOL_GENESIS: TokenValue             # 5/1000 of S_cap, set in the Genesis Block
 EPOCH_POW_DISTRIBUTION_RATE_NUM: uint64 = 1     # rho, as a fraction NUM / DEN
 EPOCH_POW_DISTRIBUTION_RATE_DEN: uint64 = 200
 TARGET_CLAIMS_PER_BLOCK: uint64 = 10            # T
@@ -168,7 +166,7 @@ The two updates below multiply and divide targets as integers rather than in the
 
 ## Reward Pool
 
-The pool is seeded once, at genesis, with `POW_REWARD_POOL_GENESIS`, five thousandths of $`S_{cap}`$, as specified in [Bedrock Genesis Block](bedrock-genesis-block.md). After that it changes through the epoch-boundary refill and through claims.
+The pool is seeded once, at genesis, with `pow_reward_pool_genesis` of the [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters). After that it changes through the epoch-boundary refill and through claims.
 
 ```python
 def compute_epoch_pow_reward(pow_reward_pool: TokenValue) -> TokenValue:
