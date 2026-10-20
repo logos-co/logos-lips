@@ -1,6 +1,6 @@
 # [RFC] Mantle: Post-quantum note encryption, optional per output
 
-**Motivation and proposal:** [PR #XXX](https://github.com/logos-co/logos-lips/pull/XXX)
+**Motivation and proposal:** [PR #486](https://github.com/logos-co/logos-lips/pull/486)
 
 ## Change log
 
