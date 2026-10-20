@@ -249,7 +249,7 @@ A node runs its network protocols under the **era in force**, the era of the cur
 
 Each message a node sends goes out on the identifiers of one era: the era in force for what it generates, accepts or admits, and the era of the arriving connection for a Blend message it relays or releases ([Network Protocol Identity](#network-protocol-identity)).
 
-The node runs the network protocols of both eras for the **[Era Transition Period](#era-transition-period)**, from two seconds before the era in force changes, Blend's clock slack, until the new era's Blend Transition Period after it:
+The node runs the network protocols of both eras for the **[Era Transition Period](#era-transition-period)**, from two seconds before the era in force changes, Blend's clock slack, until the previous era's Blend Transition Period after it:
 
 - during the period, it validates each Blend message under the era of the connection it arrived on;
 - when the period ends, it drops the identifiers of the previous era;
@@ -607,7 +607,7 @@ def revalidate_mempool(tip: Block, mempool: list[Transaction]) -> list[Transacti
 
 ## Era Transition Period
 
-The Era Transition Period into an era starts $`T_S`$ seconds before the era in force changes to it and ends $`T`$ [rounds](blend-protocol.md#time) after, with $`T_S`$ the clock slack and $`T`$ the length of the new era's Blend [Transition Period](blend-protocol.md#transition-period). It applies to the network layer only.
+The Era Transition Period into an era starts $`T_S`$ seconds before the era in force changes to it and ends $`T`$ [rounds](blend-protocol.md#time) after, with $`T_S`$ the clock slack and $`T`$ the length of the Blend [Transition Period](blend-protocol.md#transition-period), both of the previous era. It applies to the network layer only.
 
 During the Era Transition Period a node must:
 
