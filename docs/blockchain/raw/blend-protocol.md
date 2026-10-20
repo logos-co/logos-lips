@@ -38,7 +38,7 @@
 | 1.6.1 | Corrected Blend activity metadata to the canonical tagged encoding: removed the separate version byte and corrected the total size to 229 bytes. | 2026-10-13 |
 | 1.7.0 | Removed the message `version` byte, put the fork digest in the libp2p protocol name, linked the era rules for the transition period, for releasing and for broadcasting, bounded the transition period and the clock difference between honest nodes, and stopped blacklisting for a next-epoch proof in an epoch's last round ([Bedrock Eras](bedrock-eras.md)). | 2026-10-20 |
 | 1.7.1 | Updated `Max_Payload_Length` to 18190 bytes in the overhead calculation, and an encapsulated message to 19313 bytes, following the removal of the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)). | 2026-10-20 |
-| 1.8.0 | A node opens a new epoch's connections a two-second clock slack before the epoch begins, in place of the one-round clock bound and the last-round exemption from blacklisting. | 2026-10-20 |
+| 1.8.0 | A node opens a new epoch's connections, and validates messages against both epochs' public inputs, a two-second clock slack before the epoch begins, in place of the one-round clock bound and the last-round exemption from blacklisting. | 2026-10-20 |
 
 # Introduction
 
@@ -599,13 +599,13 @@ After $`T_M`$ rounds, all messages for the past epoch should have been processed
 
 The transition period must be at least the message traversal time plus the largest clock difference between two honest nodes: $`T \ge T_M + T_C`$. Otherwise a node whose clock runs ahead stops processing past-epoch messages while some are still crossing the network, and their senders wait for a delivery that can no longer happen ([Detection](#detection)).
 
-From $`T_S = 2`$ seconds before a new epoch begins by its local clock, a node opens the connections of the new epoch and accepts those its neighbors open. It validates a message that arrives on such a connection against the new epoch's public input, which is fixed before the epoch begins. Nodes must keep their clocks synchronized so that $`T_C`$ is below $`T_S`$, a round lasting one second ([Time](#time)). Otherwise a message that a node whose clock runs ahead generates in the new epoch can reach a node that has not yet opened its connections for that epoch.
+From $`T_S = 2`$ seconds before a new epoch begins by its local clock, a node opens the connections of the new epoch and accepts those its neighbors open. It counts them towards the [Degree](#connectivity-maintenance) rules apart from the connections of the current epoch. The new epoch's public input is fixed before the epoch begins. Nodes must keep their clocks synchronized so that $`T_C`$ is below $`T_S`$, a round lasting one second ([Time](#time)). Otherwise a message that a node whose clock runs ahead generates in the new epoch can reach a node that does not yet validate against that epoch's public input.
 
 When a new **epoch** begins:
 
-- The node validates message proofs against both new and past epoch-related public input for the duration of TP. This allows past-epoch messages to safely transit through the network, as their validity is bound to the epoch in which they were generated.
+- The node validates message proofs against both new and past epoch-related public input, on every connection, from $`T_S`$ before the epoch begins until the end of TP. This allows past-epoch messages to safely transit through the network, as their validity is bound to the epoch in which they were generated.
 - The Blend threshold $`d_{blend}`$ is one of these public inputs: a proof is verified against the threshold of the epoch its public inputs belong to, so during the Transition Period messages meeting either epoch's threshold are accepted.
-- The node processes new messages for the new epoch on the connections it opened for it.
+- The node processes new messages for the new epoch on the connections of the new epoch.
 - The node needs to maintain old connections and process all messages received from these connections for the duration of TP. A connection held for the past epoch does not count towards $`\Phi_{CC}`$.
 
 At an era boundary, the [Era Transition Period](bedrock-eras.md#era-transition-period) also applies.
