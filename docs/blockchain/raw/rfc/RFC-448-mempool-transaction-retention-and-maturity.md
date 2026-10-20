@@ -17,6 +17,7 @@
 |  | Removed `BLEND_DELAY`, which restated Blend's message traversal time $`T_M`$. `TRANSACTION_MATURITY` is now $`T_M`$ rounds plus `BROADCAST_DELAY`, and the retention and `CLAIM_GRACE` constraints read it. Dropped the statement that Blend derives 11 rounds, which no longer holds. | 2026-10-13 |
 |  | Merged the restructured mempool specification, and extended its Overview and Protocol to maturity, retention and release. The constants diff follows the Parameters block, and maturity must be shorter than the claim window. | 2026-10-13 |
 |  | Released an included transaction once its block is `k` blocks deep rather than immutable, which bounds `included` while a node bootstraps, and measured a displaced transaction's age from its block's slot when no admission time is held. | 2026-10-20 |
+|  | Merged the mempool specification's reference code, which the Details diffs now quote. | 2026-10-20 |
 
 ## Reviewer Orientation
 
@@ -154,11 +155,13 @@ Retirement and the time bound both measure a transaction's age from its `admitte
 Parameters gains three constants:
 
 ```diff
- TRANSACTION_TTL: uint64 = 24 * 60 * 60                # seconds a transaction may stay pending before it is retired
+-TRANSACTION_TTL: uint64 = 24 * 60 * 60  # seconds a transaction may stay pending before it is retired
+-CLAIM_GRACE: uint64 = 2 * WINDOW        # slots a claim stays pending after its acceptance window closes
++TRANSACTION_TTL: uint64 = 24 * 60 * 60                # seconds a transaction may stay pending before it is retired
 +TRANSACTION_RETENTION: uint64 = 2 * TRANSACTION_TTL   # seconds a transaction that no canonical block carries stays resolvable before it is released
 +BROADCAST_DELAY: uint64 = 5                           # seconds a block proposal takes to reach every node once it leaves the Blend network
-+TRANSACTION_MATURITY: uint64 = T_M + BROADCAST_DELAY  # seconds a transaction must have been pending to be mature
- CLAIM_GRACE: uint64 = 2 * WINDOW                      # slots a claim stays pending after its acceptance window closes
++TRANSACTION_MATURITY: uint64 = T_M + BROADCAST_DELAY  # seconds of age at which a transaction is mature
++CLAIM_GRACE: uint64 = 2 * WINDOW                      # slots a node keeps a claim after its acceptance window closes
 ```
 
 Notation gains the Blend value that maturity reads, the Cryptarchia value that release reads, and the slot clock that a fork switch reads:
@@ -185,13 +188,23 @@ This RFC adds five constraints after the Parameters block, each with what breaks
 Block building sees a transaction only once it is mature:
 
 ```diff
-+A pending transaction is **mature** once its age reaches `TRANSACTION_MATURITY`.
++A pending transaction is mature once its age reaches `TRANSACTION_MATURITY`.
 +
 -The mempool supplies the bodies of every pending transaction in admission order.
 +The mempool supplies the bodies of every mature transaction in admission order.
 ```
 
-Applicability passes over the mature transactions, and [Inapplicability](../mempool.md#inapplicability) retires a mature transaction only. Selection is unchanged.
+Applicability passes over the mature transactions only:
+
+```diff
+     state = apply_header(parent_state, header)       # the working state
+-    applied, remaining = [], list(mempool.pending)   # remaining in admission order
++    applied = []
++    remaining = [key for key in mempool.pending       # the mature ones, in admission order
++                 if now() - mempool.admitted_at[key] >= TRANSACTION_MATURITY]
+```
+
+[Inapplicability](../mempool.md#inapplicability) retires a mature transaction only. Selection is unchanged.
 
 ## The retained state
 
@@ -329,7 +342,7 @@ The mempool status endpoint reports `retained` as a third state beside `pending`
 ## Chores
 
 - Narrowed the `admitted_at` and `by_prefix` comments, which said "per pending transaction" and "pending hashes".
-- Added the Blend Protocol and Cryptarchia Bootstrapping & Synchronization to the References list, which the constraints now link to.
+- Reworded the `CLAIM_GRACE` comment, which said a claim stays pending. A claim that a block carries is retained instead.
 - Corrected the Introduction, which said the mempool holds transactions not yet in the canonical chain. It holds them until they are final.
 - Transaction Admission now says the three entry points admit a transaction, not that they are how one reaches the mempool, since a canonical block also adds the transactions it carries.
 - Extended the Overview and Protocol of the restructured specification to maturity, retention and release. The worked example matures the claim before node B leads and keeps it until its deadline, and a state diagram shows a transaction moving between the pending and retained sets.
