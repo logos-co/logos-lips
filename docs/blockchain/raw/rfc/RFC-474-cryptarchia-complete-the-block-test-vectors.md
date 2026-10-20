@@ -9,6 +9,7 @@
 | v1 | Initial RFC | 2026-10-06 |
 | v2 | Retitled from "Complete the block test vectors and correct the active message vector" and renamed the file to match. Removed the Mantle part: the active message vector, its implementation divergence, its implementation task, and the Mantle rows of Reviewer Orientation and Affected Specifications. Mantle now encodes the active message metadata as a tagged variant without a length prefix, and carries its own vectors. | 2026-10-14 |
 |  | Recomputed `leaf[8]` from Mantle's current `SDP_ACTIVE` payload, and with it `merkle_root`, both `body_root` values and `block_id`. | 2026-10-14 |
+| v3 | The base now marks the two uncle signatures `TBD`, because master's were made over the 297-byte headers. The re-signed values fill those cells, and the table keeps master's values only as the check of the seeds. | 2026-10-20 |
 
 ## Reviewer Orientation
 
@@ -64,16 +65,16 @@ The table now names the fork digest and the source of each operation.
 
 The `block_id` preimage is the one of [Block ID](../cryptarchia-v1-protocol.md#block-id), without a version byte.
 
-Each carried uncle entry is a 296-byte header followed by its 64-byte signature. The headers already had the 296-byte layout, but their signatures had been made over the earlier 297-byte headers and did not verify. Each header is re-signed with its own key. The key's Ed25519 seed is the entry's fill byte repeated 32 times, and the header's `leader_key` field is the public key of that seed:
+Each carried uncle entry is a 296-byte header followed by its 64-byte signature. The base marks both signatures `TBD`, because master's were made over the earlier 297-byte headers and do not verify over the 296-byte ones. Each header is signed with its own key. The key's Ed25519 seed is the entry's fill byte repeated 32 times, and the header's `leader_key` field is the public key of that seed:
 
-| Entry | Seed | Signature before | Signature after |
+| Entry | Seed | Master's signature, over the 297-byte header | Signature |
 | --- | --- | --- | --- |
 | `uncle_headers[0]` | `0x66` | 0x563913f1ba7ad4129a077acd56278e743fd45120226dd315fa49f3a9c5d07af6a174ab84d4555a279afe053e79c8bb794be3f7d2e71e92b8da1b490687cb8306 | 0x810216baf4c2149463b457f0f776ab1f71a9f996915345e4f8709ffe181a2373341baa0b1080b8d07345f3cb67e446c7fa0dd4348f521523eaa37c1387520b0d |
 | `uncle_headers[1]` | `0x77` | 0xad17e45d503a16fb41c25c4b3025956c63b31015871e957f3562b47cebce784e5b392ce3dd05214afe09102e0d2ed8211a83b81f18231963a226198fd528df0c | 0x96ca0d9f04bb9d19129c8c348dd5fbb03ddf08025cc82096079b38916fa5cc8b8368ac9aa26c618b691a402e1c06812b6c7e010651ed1b9656a26afea88ba705 |
 
 # Implementation
 
-- [ ] Regenerate the body-root and block ID test vectors once transactions carry the fork digest, and compare every value with these, leaves included
+- [ ] Regenerate the body-root and block ID test vectors once transactions carry the fork digest, and compare every value with these, leaves and uncle signatures included
 - [ ] Add or extend tests / test vectors that exercise the change
 - [ ] Verify the implementation matches this specification
 
