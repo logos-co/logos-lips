@@ -38,6 +38,7 @@
 |  | A broadcast that finds no peer on the topic is retried three times, waiting 1, 5 and 25 seconds, and its identity is remembered only once a peer is there, as implemented. Open Issue 12 no longer says a broadcast is never retried. | 2026-10-21 |
 |  | Decoding states the envelope as implemented: the encoding's length as an unsigned 64-bit little-endian integer, then the encoding. | 2026-10-21 |
 |  | A block's size is the total length of its transactions' canonical encodings, as implemented, and every statement of when a proposal is reconstructed now includes the size check. | 2026-10-21 |
+|  | Local submission also covers the transactions the node's own services create, such as its SDP activity, as implemented. The Overview no longer says admission checks only well-formedness. | 2026-10-21 |
 
 ## Reviewer Orientation
 
