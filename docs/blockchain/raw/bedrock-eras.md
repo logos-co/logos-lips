@@ -456,6 +456,8 @@ def encode(p: EraParameters) -> bytes:
 
 In every record, the numerator of `slot_activation_coeff`, the epoch length $`L_n`$ and the slot length $`\Delta_n`$ are at least 1. Otherwise `epoch_length(n)`, $`\textbf{epoch}(sl)`$ or $`\textbf{slot}(t)`$ divides by zero.
 
+Every era after the first keeps its uncle reference window within the finalization window of the era before it: $`W_n \cdot f_n^{-1} \le s_{n-1}/5`$, with $`W_n`$, $`f_n`$ and $`s_{n-1}`$ the $`W`$, $`f`$ and $`s`$ of [Constants](cryptarchia-v1-protocol.md#constants) of the era indicated. This adds to the bound of [Uncle Selection](cryptarchia-v1-protocol.md#uncle-selection) within each era. Otherwise, while the latest immutable block still lies in era $`n-1`$, a block of era $`n`$ can reference an uncle whose parent lies below the latest immutable block.
+
 The `stake_thresholds` store ([Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake)) holds the `min_stake` of each record of the schedule. The `parameters` store ([Service Parameters](bedrock-service-declaration-protocol.md#service-parameters)) holds the `service_params` entries of each record.
 
 A release that changes anything a version names defines a new version, used by the eras that adopt it. Otherwise the nodes of two releases apply different rules under one fork digest.
