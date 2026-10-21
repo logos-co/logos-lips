@@ -18677,6 +18677,7 @@ print("Final Prob:", delta)
 </div><!-- timeline:start -->
 <h2 id="timeline-72"><a class="header" href="#timeline-72">Timeline</a></h2>
 <ul>
+<li><strong>2026-10-21</strong> — <a href="https://github.com/logos-co/logos-lips/blob/663ae35d59d834784dd086cc5f14ec35e8dbecf5/docs/blockchain/raw/cryptarchia-v1-bootstr-sync.md"><code>663ae35</code></a> — docs(blockchain): chain-sync request fan-out (#484)</li>
 <li><strong>2026-08-19</strong> — <a href="https://github.com/logos-co/logos-lips/blob/a2a85cbe444e9727ae7f42b2f6d6f4c6bf8d63e9/docs/blockchain/raw/cryptarchia-v1-bootstr-sync.md"><code>a2a85cb</code></a> — RFC Bedrock: Cryptarchia with uncle references (#385)</li>
 <li><strong>2026-07-03</strong> — <a href="https://github.com/logos-co/logos-lips/blob/709cf7f1662affa6efa094e2fb066e9b530b5aaa/docs/blockchain/raw/cryptarchia-v1-bootstr-sync.md"><code>709cf7f</code></a> — Bedrock-RFC: Remove Concept of a Session (#365)</li>
 <li><strong>2026-05-28</strong> — <a href="https://github.com/logos-co/logos-lips/blob/d45eed23b04b2375a566bfa406bc621e7b7899c5/docs/blockchain/raw/cryptarchia-v1-bootstr-sync.md"><code>d45eed2</code></a> — Chore: mirror blochain specs into github/mdbook (#347)</li>
@@ -18689,6 +18690,7 @@ print("Final Prob:", delta)
 <div class="table-wrapper"><table><thead><tr><th><strong>Version</strong></th><th><strong>Changes</strong></th><th><strong>Date</strong></th></tr></thead><tbody>
 <tr><td>1.0.0</td><td>Initial revision.</td><td>2026-02-17</td></tr>
 <tr><td>1.0.1</td><td>Noted that a streamed <code>Block</code> carries the signed headers of the uncles it references, which is what lets a synchronizing node validate those blocks and reproduce the <a href="blockchain/raw/cryptarchia-v1-protocol.html#total-stake-inference">Total Stake Inference</a> without ever seeing their proposals, due to updated <a href="blockchain/raw/cryptarchia-v1-protocol.html">Cryptarchia Protocol</a> (uncle references).</td><td>2026-08-06</td></tr>
+<tr><td>1.0.2</td><td>Spread block download requests across connected and discovered peers instead of downloading only from the configured IBD peers, which now only provide the chain tips to catch up with. Added <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#selecting-peers-for-downloading">Selecting Peers for Downloading</a> and the <code>GetTipRequest</code> message.</td><td>2026-10-20</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction-10"><a class="header" href="#introduction-10">Introduction</a></h1>
@@ -18727,7 +18729,7 @@ print("Final Prob:", delta)
     SetOnline --&gt; IBD
     subgraph IBD[Initial Block Download]
       IBDPeersConfigured{{IBD peers configured?}} --&gt; |Yes|DownloadUpToTips
-        DownloadUpToTips[Download all blocks up to peers' tip] --&gt; |"Failed (e.g. No peers available)"| Terminate@{shape: circle, label: "Terminate"}
+        DownloadUpToTips[Download all blocks up to IBD peers' tips] --&gt; |"Failed (e.g. No peers available)"| Terminate@{shape: circle, label: "Terminate"}
     end
     IBDPeersConfigured --&gt; |No|IsBootstrapRule
     DownloadUpToTips --&gt;|Completed|IsBootstrapRule
@@ -18755,6 +18757,9 @@ print("Final Prob:", delta)
 <tr><td><span class="math-inline" data-tex="T_\text{offline}"></span></td><td>Offline Grace Period</td><td>A period during which a node can be restarted without switching to the Bootstrap rule.</td><td>20 minutes</td></tr>
 <tr><td><span class="math-inline" data-tex="T_\text{boot}"></span></td><td>Prolonged Bootstrap Period</td><td>A period during which Bootstrap fork choice rule must be continuously used after Initial Block Download is completed. This gives nodes additional time to compare their synced chain with a broader set of peers.</td><td>24 hours</td></tr>
 <tr><td><span class="math-inline" data-tex="s_\text{gen}"></span></td><td>Density Check Slot Window</td><td>A number of slots used by density check of Bootstrap rule. This constant is defined in <a href="blockchain/raw/fork-choice.html#definitions">Definitions</a>.</td><td><span class="math-inline" data-tex="\lfloor\frac{k}{4f}\rfloor"></span> (=4h30m)</td></tr>
+<tr><td><span class="math-inline" data-tex="T_\text{round}"></span></td><td>IBD Round Delay</td><td>A delay between rounds of <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#initial-block-download">Initial Block Download</a>. Implementers can choose a different value.</td><td>1 second (recommended)</td></tr>
+<tr><td><span class="math-inline" data-tex="N_\text{conn}"></span></td><td>Connected Peers per Download</td><td>The maximum number of connected peers a download request is sent to, as defined in <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#selecting-peers-for-downloading">Selecting Peers for Downloading</a>. Implementers can choose a different value.</td><td>16 (recommended)</td></tr>
+<tr><td><span class="math-inline" data-tex="N_\text{disc}"></span></td><td>Discovered Peers per Download</td><td>The maximum number of discovered but not connected peers a download request is sent to, as defined in <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#selecting-peers-for-downloading">Selecting Peers for Downloading</a>. Implementers can choose a different value.</td><td>16 (recommended)</td></tr>
 </tbody></table>
 </div>
 <h2 id="setting-the-fork-choice-rule"><a class="header" href="#setting-the-fork-choice-rule">Setting the Fork Choice Rule</a></h2>
@@ -18776,29 +18781,47 @@ In any case where the node operator is clearly aware that the node has fallen be
 </li>
 </ul>
 <h2 id="initial-block-download"><a class="header" href="#initial-block-download">Initial Block Download</a></h2>
-<p>If peers for Initial Block Download (IBD) are configured, a node performs IBD by downloading blocks to catch up with the tip of the local chain <span class="math-inline" data-tex="c_{loc}"></span> of each peer using the fork choice rule chosen in <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#setting-the-fork-choice-rule">Setting the Fork Choice Rule</a>. If no peer is configured, the node skips IBD. For example, genesis nodes will configure no IBD peer because they have to build a chain from scratch.</p>
+<p>If peers for Initial Block Download (IBD) are configured, a node performs IBD by downloading blocks to catch up with the tip of the local chain <span class="math-inline" data-tex="c_{loc}"></span> of each IBD peer using the fork choice rule chosen in <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#setting-the-fork-choice-rule">Setting the Fork Choice Rule</a>. If no peer is configured, the node skips IBD. For example, genesis nodes will configure no IBD peer because they have to build a chain from scratch.</p>
 <p>Blocks are downloaded in parent-to-child order, as defined in the <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#downloading-blocks">Downloading Blocks</a> mechanism. This mechanism applies not only when a node starts from the Genesis block, but also when it already has the local block tree (or a checkpoint block)</p>
-<pre><code class="language-python">def initial_block_download(peers, local_tree):
+<p>The configured IBD peers are used only to learn which chain tips the node must catch up with. The blocks themselves are not downloaded only from the IBD peers. Instead, each download request is spread across the connected and discovered peers, as defined in <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#selecting-peers-for-downloading">Selecting Peers for Downloading</a>. IBD peers are typically a small set of well-known nodes that every new node is configured with. If every new node downloaded the whole chain from them, they would be overloaded, and the IBD of the whole network would depend on their capacity.</p>
+<p>IBD runs in rounds. In each round, the node:</p>
+<ol>
+<li>Requests the chain tip from every IBD peer in parallel, using <code>GetTipRequest</code> defined in <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#downloading-blocks">Downloading Blocks</a>.</li>
+<li>Downloads the blocks up to each fetched tip that is not yet in the local block tree, from peers selected as defined in <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#selecting-peers-for-downloading">Selecting Peers for Downloading</a>.</li>
+<li>Waits for a short delay <span class="math-inline" data-tex="T_\text{round}"></span> before starting the next round. The delay keeps the node from flooding the IBD peers with tip requests when downloads fail immediately, and gives the node time to discover more peers.</li>
+</ol>
+<p>IBD completes when every tip fetched in a round is already in the local block tree. Because tips are fetched again in every round, the node also catches up with the blocks that the IBD peers added while the node was downloading.</p>
+<pre><code class="language-python">def initial_block_download(ibd_peers: List[Node], local_tree: Tree):
     # Skip IBD if no peer is set.
     # For example, genesis nodes should be able to skip IBD.
-    if len(peers) == 0:
+    if len(ibd_peers) == 0:
         return
 
-    # In real implementation, these downloadings can be run in parallel.
-    # Also, any optimization can be applied to minimize downloadings, such as grouping peers by tip.
-    num_success = 0
-    for peer in peers:
-        is_success = download_blocks(local_tree, peer, target_block=None)
-        num_success += 1 if is_success else 0
+    while True:
+        # Fetch tips from all IBD peers in parallel.
+        # Peers that fail to respond are ignored.
+        # In real implementation, this can be retried with backoff before giving up.
+        tips = {tip for tip in parallel(get_tip(peer) for peer in ibd_peers) if tip is not None}
+        # If none of IBD peers returns a tip (e.g. network errors),
+        # IBD is considered failed.
+        if len(tips) == 0:
+            raise IBDFailure
 
-    # If none of download succeeds (e.g. network errors or invalid blocks),
-    # IBD is considered failed.
-    if num_success == 0:
-        raise IBDFailure
+        unsynced_tips = {tip for tip in tips if not local_tree.has(tip)}
+        if len(unsynced_tips) == 0:
+            return
+
+        # Blocks are downloaded from peers selected from the connected and discovered peers,
+        # not from the IBD peers.
+        # In real implementation, these downloads can be run in parallel.
+        for tip in unsynced_tips:
+            download_blocks(local_tree, target_block=tip)
+
+        sleep(T_round)
 </code></pre>
 <p><img src="blockchain/raw/cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-81f6-bb41-fdbd8907329f.png" alt="Diagram" /></p>
 <p>The downloaded blocks are validated and added to the local block tree using the fork choice rule determined above. Both block headers and block bodies must be validated. The header validation rules are defined in <a href="blockchain/raw/cryptarchia-v1-protocol.html#block-header-validation">Block Header Validation</a>.</p>
-<p>If the node fails to catch up with at least one IBD peer (e.g., network error or invalid blocks), the node is terminated with an error, allowing the operator to restart the node with other IBD peers.</p>
+<p>If none of the IBD peers returns its tip (e.g., network errors), the node is terminated with an error, allowing the operator to restart the node with other IBD peers.</p>
 <p>If downloading is done successfully, the node starts listening for new blocks as described in <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#listening-for-new-blocks">Listening for New Blocks</a>.</p>
 <h2 id="prolonged-bootstrap-period"><a class="header" href="#prolonged-bootstrap-period">Prolonged Bootstrap Period</a></h2>
 <p>After <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#initial-block-download">Initial Block Download</a> is completed, a node must maintain the Bootstrap fork choice rule during the Bootstrap Period <span class="math-inline" data-tex="T_\text{boot}"></span>, if the node chose the Bootstrap rule at <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#setting-the-fork-choice-rule">Setting the Fork Choice Rule</a>.</p>
@@ -18809,9 +18832,9 @@ In any case where the node operator is clearly aware that the node has fallen be
 <h2 id="listening-for-new-blocks"><a class="header" href="#listening-for-new-blocks">Listening for New Blocks</a></h2>
 <p>Once <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#initial-block-download">Initial Block Download</a> is complete and <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#prolonged-bootstrap-period">Prolonged Bootstrap Period</a> is started, a node starts listening for new blocks relayed by its peers.</p>
 <p>Upon receiving a new block, the node tries to validate and add it to its local block tree, as defined in <a href="blockchain/raw/cryptarchia-v1-protocol.html#chain-maintenance">Chain Maintenance</a>.</p>
-<p>If the parent of the block is missing from the local block tree, the block cannot be fully validated and added. These blocks are called <em>orphan blocks</em>. To handle an orphan block, the node downloads missing blocks from a randomly selected peer, as described in <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#downloading-blocks">Downloading Blocks</a>. If the request fails, the node may retry with different peers before abandoning the orphan block. The retry policy can be configured by implementers.</p>
+<p>If the parent of the block is missing from the local block tree, the block cannot be fully validated and added. These blocks are called <em>orphan blocks</em>. To handle an orphan block, the node downloads missing blocks as described in <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#downloading-blocks">Downloading Blocks</a>, from peers selected as defined in <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#selecting-peers-for-downloading">Selecting Peers for Downloading</a>. If the download fails, the node may retry with newly selected peers before abandoning the orphan block. The retry policy can be configured by implementers.</p>
 <p>Note that downloading missing blocks does not need to be triggered if it is clear that the orphan block is in a fork diverged before the latest immutable (committed) block, as the node should never revert immutable blocks.</p>
-<pre><code class="language-python">def listen_and_process_new_blocks(fork_choice: ForkChoice, local_tree: Tree, peers: List[Node]):
+<pre><code class="language-python">def listen_and_process_new_blocks(fork_choice: ForkChoice, local_tree: Tree):
     for block in listen_for_new_blocks():
         try:
             # Run the chain maintenance defined in the Cryptarchia spec.
@@ -18827,10 +18850,10 @@ In any case where the node operator is clearly aware that the node has fallen be
             if block.height ≤ local_tree.latest_immutable_block().height:
                 continue
             # In real implemention, downloading can be run in background with the retry policy.
-            download_blocks(local_tree, random.choice(peers), target_block=block.id)
+            download_blocks(local_tree, target_block=block.id)
 </code></pre>
 <h2 id="downloading-blocks"><a class="header" href="#downloading-blocks">Downloading Blocks</a></h2>
-<p>For performing <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#initial-block-download">Initial Block Download</a> and handling orphan blocks while <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#listening-for-new-blocks">Listening for New Blocks</a>, a node sends a <code>DownloadBlocksRequest</code> to a peer, which must respond with blocks in parent-to-child order. This communication should be implemented based on the <a href="https://github.com/libp2p/rust-libp2p/tree/master/protocols/stream">Libp2p streaming</a>.</p>
+<p>For performing <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#initial-block-download">Initial Block Download</a> and handling orphan blocks while <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#listening-for-new-blocks">Listening for New Blocks</a>, a node sends a <code>DownloadBlocksRequest</code> to peers selected as defined in <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#selecting-peers-for-downloading">Selecting Peers for Downloading</a>. A peer must respond with blocks in parent-to-child order. To learn the tip of a peer's local chain <span class="math-inline" data-tex="c_{loc}"></span> (e.g. the tips of the IBD peers in <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#initial-block-download">Initial Block Download</a>), a node sends a <code>GetTipRequest</code> to the peer. This communication should be implemented based on the <a href="https://github.com/libp2p/rust-libp2p/tree/master/protocols/stream">Libp2p streaming</a>.</p>
 <p><strong>Libp2p Protocol ID</strong></p>
 <ul>
 <li>Mainnet: <code>/logos-blockchain/cryptarchia/sync/1.0.0</code></li>
@@ -18856,24 +18879,30 @@ class DownloadBlocksResponse:
     # The max number of blocks to be returned can be limited by implementers.
     # A requester can read the stream until the stream returns "NoMoreBlock".
     blocks: Stream[Block | "NoMoreBlock"]
+
+class GetTipRequest:
+    pass
+
+class GetTipResponse:
+    # The tip of the responder's local chain.
+    tip: BlockId
+    slot: Slot
+    height: int
 </code></pre>
+<p>A peer that cannot serve these requests yet (e.g. a peer still performing its own <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#initial-block-download">Initial Block Download</a>) may reject them. The requesting node treats the rejection as a failed request.</p>
 <p>Each streamed <code>Block</code> carries the signed headers of the uncles it references, in its <code>uncle_headers</code> field (<a href="blockchain/raw/bedrock-v1.1-block-construction.html#block">Block Construction, Validation and Execution</a>). This is what lets a synchronizing node apply the validity rules of <a href="blockchain/raw/cryptarchia-v1-protocol.html#uncle-references">Uncle References</a> to every downloaded block, and then reproduce the <a href="blockchain/raw/cryptarchia-v1-protocol.html#total-stake-inference">Total Stake Inference</a> of every past epoch from the uncles those blocks carry, even though it never receives the proposals the blocks were reconstructed from.</p>
 <p>The responding peer uses <code>KnownBlocks</code> to determine the optimal starting block for the response stream, aiming to minimize the number of blocks to be returned. The requesting node can include any block it believes could assist in this process to the <code>KnownBlocks.additional_blocks</code>. To avoid spamming responders, the size of <code>KnownBlocks.additional_blocks</code> is limited to 5.</p>
 <p>The responding peer finds the latest common ancestor (i.e. LCA) between the <code>target_block</code> and each of the known blocks. Then, it returns a stream of blocks, starting from the highest LCA. To mitigate malicious downloading requests, the peer limits the number of blocks to be returned. The detailed implementation is up to implementers, depending on their internal architecture (e.g. storage design).</p>
 <p><img src="blockchain/raw/cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-8138-b041-c737c9e0071c.png" alt="Diagram" /></p>
-<p>The requesting node should repeat <code>DownloadBlocksRequest</code>s by updating the <code>KnownBlocks</code> in order to download the next batches of blocks. The following code shows how the requesting node can be implemented.</p>
-<pre><code class="language-python">def download_blocks(local_tree: Tree, peer: Node, target_block: Optional[BlockId]):
+<p>The requesting node should repeat <code>DownloadBlocksRequest</code>s by updating the <code>KnownBlocks</code> in order to download the next batches of blocks. Each repeated request is sent to newly selected peers, as defined in <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#selecting-peers-for-downloading">Selecting Peers for Downloading</a>. The following code shows how the requesting node can be implemented.</p>
+<pre><code class="language-python">def download_blocks(local_tree: Tree, target_block: BlockId):
     latest_downloaded: Optional[Block] = None
     while True:
-        # Fetch the peer's tip if target is not specified.
-        target_block = target_block if target_block is not None else peer.tip()
         # Don't start downloading if target is already in local.
         if local_tree.has(target_block):
             return
 
         req = DownloadBlocksRequest(
-            # If target_block is None, specify the current peer's tip each time when we build DownloadBlocksRequest,
-            # so that we can catch up with the most recent peer's tip.
             target_block=target_block,
             known_blocks=KnownBlocks(
                 local_tip=local_tree.tip().id,
@@ -18884,22 +18913,59 @@ class DownloadBlocksResponse:
             )
         )
 
-        resp = send_request(peer, req)
+        # Send the request to multiple peers, and take the first valid response.
+        # See the "Selecting Peers for Downloading" section.
+        resp = send_request_to_peers(select_peers(), req)
+        if resp is None:
+            # No peer responded.
+            return
+
+        num_received = 0
         for block in resp.blocks():
+            num_received += 1
             latest_downloaded = block
             try:
                 # Run the chain maintenance defined in the Cryptarchia spec.
                 local_tree.on_block(block)
                 # Early stop if the target has been reached.
                 if block == req.target_block:
-                    break
+                    return
             except:
                 return
+
+        # Stop if the response contained no block.
+        if num_received == 0:
+            return
 </code></pre>
-<p>If the node is continuing from a previous <code>DownloadBlocksRequest</code>, it is important to include the latest downloaded block to the <code>KnownBlocks.additional_blocks</code> to avoid downloading duplicate blocks.</p>
+<p>If the node is continuing from a previous <code>DownloadBlocksRequest</code>, it is important to include the latest downloaded block to the <code>KnownBlocks.additional_blocks</code> to avoid downloading duplicate blocks. This also lets the next request be answered correctly by a different peer from the one that answered the previous request.</p>
 <p><img src="blockchain/raw/cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-81c8-b0ff-c858bf97c965.png" alt="Diagram" /></p>
-<p>If the requesting node is downloading blocks up to the peer’s tip <span class="math-inline" data-tex="c_{loc}"></span> (e.g. <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#initial-block-download">Initial Block Download</a>) by repeating <code>DownloadBlocksRequest</code>s, the <span class="math-inline" data-tex="c_{loc}"></span> may switch between requests. The algorithm described above also handles this case by specifying the most recent peer’s tip each time when a <code>DownloadBlocksRequest</code> is constructed.</p>
+<p>If the requesting node is downloading blocks up to the peer’s tip <span class="math-inline" data-tex="c_{loc}"></span> (e.g. <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#initial-block-download">Initial Block Download</a>), the <span class="math-inline" data-tex="c_{loc}"></span> may switch while the node is downloading blocks. <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#initial-block-download">Initial Block Download</a> handles this case by fetching the most recent tips of the IBD peers in each round, and downloading blocks up to those tips. Each download starts from the highest LCA between the new tip and the blocks the node already has.</p>
 <p><img src="blockchain/raw/cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-8157-b410-e2246d81a3fb.png" alt="Diagram" /></p>
+<h3 id="selecting-peers-for-downloading"><a class="header" href="#selecting-peers-for-downloading">Selecting Peers for Downloading</a></h3>
+<p>A node should spread its <code>DownloadBlocksRequest</code>s across the peers it knows, instead of sending them only to a fixed set of peers such as the IBD peers. This keeps any single peer, in particular the well-known IBD peers, from serving most of the download traffic of the network. It also lets a node download blocks even when some peers are slow, unreachable, or malicious.</p>
+<p>For each <code>DownloadBlocksRequest</code>, including each repeated request of the same download, the node selects peers as follows:</p>
+<ol>
+<li>Consider only peers that support the sync protocol (i.e. that advertise the <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#downloading-blocks">Libp2p Protocol ID</a> above).</li>
+<li>Randomly select up to <span class="math-inline" data-tex="N_\text{conn}"></span> peers from the connected peers.</li>
+<li>Randomly select up to <span class="math-inline" data-tex="N_\text{disc}"></span> peers from the peers that are discovered (e.g. via the peer discovery protocol) but not connected. The node connects to them to send the request.</li>
+</ol>
+<p>The node sends the same request to all selected peers concurrently. It reads the first item of each response, and uses the response of the first peer whose first item is not an error. All other responses are dropped. If no peer returns a usable response, the request is considered failed.</p>
+<p>If no peer can be selected, the request fails immediately.</p>
+<p>Selecting discovered peers that are not connected spreads the requests beyond the current connections, which are often the same well-known peers that the node bootstrapped from. It also lets a node with few connections download blocks.</p>
+<pre><code class="language-python">def select_peers() -&gt; List[Node]:
+    eligible = sync_protocol_peers()
+    connected = connected_peers() &amp; eligible
+    discovered = (discovered_peers() &amp; eligible) - connected
+    return random.sample(connected, min(N_conn, len(connected))) \
+        + random.sample(discovered, min(N_disc, len(discovered)))
+
+def send_request_to_peers(peers: List[Node], req: DownloadBlocksRequest) -&gt; Optional[DownloadBlocksResponse]:
+    # Send the request to all peers concurrently.
+    # Return the first response whose first item is not an error.
+    # Return None if no such response arrives.
+    ...
+</code></pre>
+<p>Sending one request to many peers costs some duplicate traffic, because peers that respond later have their responses dropped. Implementers can limit this cost by lowering <span class="math-inline" data-tex="N_\text{conn}"></span> and <span class="math-inline" data-tex="N_\text{disc}"></span>, or by closing the dropped streams as early as possible.</p>
 <h2 id="proposing-new-blocks"><a class="header" href="#proposing-new-blocks">Proposing New Blocks</a></h2>
 <p>Unlike <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#listening-for-new-blocks">Listening for New Blocks</a>, a node can start proposing blocks after <a href="blockchain/raw/cryptarchia-v1-bootstr-sync.html#prolonged-bootstrap-period">Prolonged Bootstrap Period</a> is complete. In other words, the node should not propose blocks before switching to the Online fork choice rule.</p>
 <h2 id="bootstrapping-from-checkpoint"><a class="header" href="#bootstrapping-from-checkpoint">Bootstrapping from Checkpoint</a></h2>
