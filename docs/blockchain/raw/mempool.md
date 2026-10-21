@@ -38,9 +38,9 @@ This document specifies how a node admits and disseminates transactions, what it
 
 Each node keeps its own mempool. Nodes admit and retire independently, so their pending sets differ.
 
-A transaction reaches a node from a local client, by gossip from another node, or back from a block that a fork switch removed from the chain. The node checks only that the transaction is well formed. It does not consult the ledger, so its mempool can hold transactions that will never apply.
+A transaction reaches a node from a local client, out of the Blend network, by gossip from another node, or back from a block that a fork switch removed from the chain. The node checks only that the transaction is well formed. It does not consult the ledger, so its mempool can hold transactions that will never apply.
 
-Take a miner who submits a reward claim to node A in slot 12. The claim names the block of slot 10, and node B leads slot 15.
+Take a miner whose reward claim leaves the Blend network at node A in slot 12. The claim names the block of slot 10, and node B leads slot 15.
 
 ```mermaid
 ---
@@ -52,7 +52,7 @@ sequenceDiagram
     participant M as miner
     participant A as node A
     participant B as node B
-    M->>A: claim for the block of slot 10,<br/>submitted in slot 12
+    M->>A: claim for the block of slot 10,<br/>through Blend in slot 12
     A->>B: gossip
     Note over B: leads slot 15 and puts<br/>the claim in its block
     B->>A: proposal of slot 15,<br/>with a reference to the claim
@@ -101,7 +101,7 @@ A node keeps its mempool across a restart.
 
 A node accepts transactions from local clients and from any peer, so it must turn malformed ones away before it stores them. It does so without reading ledger state.
 
-A transaction arrives by local submission through the [Node API](#node-api), by gossip, or by re-insertion after a fork switch. It becomes **pending** if it passes these checks, in this order, and stays pending until the node **retires** it:
+A transaction arrives by local submission, by gossip, or by re-insertion after a fork switch. Local submission covers a transaction submitted through the [Node API](#node-api) and one extracted from a [Blend Protocol](blend-protocol.md) data message. It becomes **pending** if it passes these checks, in this order, and stays pending until the node **retires** it:
 
 - its encoding is no larger than `MAX_BLOCK_SIZE`;
 - it decodes, and decoding consumes the whole payload;
@@ -241,7 +241,7 @@ An `OrderedSet` iterates in insertion order. A `Timestamp` is a time in seconds,
 
 ## Transaction Admission
 
-A transaction reaches the mempool by local submission through the [Node API](#node-api), by gossip on the mempool topic, or by re-insertion after a [Reorganisation](#reorganisation). All three follow this procedure.
+A transaction reaches the mempool by local submission, by gossip on the mempool topic, or by re-insertion after a [Reorganisation](#reorganisation). A local submission is a transaction submitted through the [Node API](#node-api), or one extracted from a data message as [Message Lifecycle](blend-protocol.md#message-lifecycle) in Blend Protocol specifies. All three follow this procedure.
 
 ```python
 def admit(mempool, encoded: bytes) -> Result:
