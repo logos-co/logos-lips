@@ -39,6 +39,7 @@
 |  | Decoding states the envelope as implemented: the encoding's length as an unsigned 64-bit little-endian integer, then the encoding. | 2026-10-21 |
 |  | A block's size is the total length of its transactions' canonical encodings, as implemented, and every statement of when a proposal is reconstructed now includes the size check. | 2026-10-21 |
 |  | Local submission also covers the transactions the node's own services create, such as its SDP activity, as implemented. The Overview no longer says admission checks only well-formedness. | 2026-10-21 |
+|  | A `CLAIM_POW_REWARD` has an empty proof, and admission and block building check no signature for it, as implemented. The departure that required the signature moved to a submission of its own, so none is left, and its consequence is Open Issue 19. | 2026-10-21 |
 
 ## Reviewer Orientation
 
@@ -48,7 +49,7 @@ Read the PR's Motivation first.
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here** — [Mempool](#affected-specifications): [Reference resolution](#1-reference-resolution) | Resolution succeeds only on a unique prefix match, and reads the proposal, `by_prefix` and `bodies` and nothing else. Check that no other state can enter it. |
 | 2 | Critical | [Mempool](#affected-specifications): [Block building](#2-block-building) | Retirement lists four reasons a transaction leaves, and selection is not among them. Check that a transaction which merely did not fit stays resolvable, and that stopping at `G_max` retires nothing the passes did not finish. |
-| 3 | High | [Mempool](#affected-specifications): [Admission](#3-admission) | No ledger reads. The block tree is read only to refuse an expired claim. Confirm that each `preverify` rule is Mantle's and reads no ledger state. |
+| 3 | High | [Mempool](#affected-specifications): [Admission](#3-admission) | No ledger reads. The block tree is read only to refuse an expired claim. Confirm that each `preverify` rule is Mantle's and reads no ledger state, and that a claim's empty proof is the only exception. |
 | 4 | High | [Mempool](#affected-specifications): [Retirement and persistence](#4-retirement-and-persistence) | Retirement is not rejection, except for an expired claim or a gossiped message whose identity the node remembers. A retired transaction resolves for `RETIREMENT_GRACE`, and pruning then clears every per-transaction map. |
 | 5 | High | [Mempool](#affected-specifications): [Expired claims](#5-expired-claims) | A claim is retired and refused more than `CLAIM_GRACE` slots after the last slot that can include it. Check the deadline, and the constraint on `CLAIM_GRACE`. |
 | 6 | High | [Block Construction, Validation and Execution](#affected-specifications): [Resolution moves to the mempool](#6-block-construction-links-to-the-mempool) | What block construction keeps is its own, and nothing it removed is lost. |
@@ -87,13 +88,9 @@ The specification states rules only. The reasoning behind them is recorded here.
 - **Payload-digest message identity.** Gossipsub's default source-and-sequence identity would let every re-publisher mint a fresh identity for the same bytes, which defeats suppression at the router.
 - **`by_prefix` is rebuilt rather than persisted.** A change to `REFERENCE_PREFIX_LENGTH` then takes effect on restart, and an index built under the previous value cannot contradict it.
 
-## Where the specification departs from the implementation
+## Agreement with the implementation
 
-This document describes what runs. It departs from the implementation only where the current behaviour is not defensible as a design. Each departure is listed below, with its task under [Implementation](#implementation). Everything else that differs from an ideal mempool stays an [open issue](#open-issues), so the specification and the code can be compared line by line.
-
-The entries were checked against `logos-blockchain`: `services/tx-service`, with the block-building and block-applied halves in `services/chain/chain-leader` and `services/chain/chain-network`. The stateless-validation entry was checked at `60744b8e7`.
-
-- **Stateless validation.** The implementation counts the proofs and checks their types when it decodes a transaction. It then verifies every proof bound only to the transaction hash and the operation payload, except one. It gives `CLAIM_POW_REWARD` no proof, so the `ZkSignature` that [CLAIM_POW_REWARD](../bedrock-v1.1-mantle-specification.md#claim_pow_reward) requires is neither type-checked nor verified, at admission or by the ledger.
+This document describes what runs, and departs from it nowhere. It was checked against `logos-blockchain` at `60744b8e7`: `services/tx-service`, with the block-building and block-applied halves in `services/chain/chain-leader` and `services/chain/chain-network`. What differs from an ideal mempool stays an [open issue](#open-issues), so the specification and the code can be compared line by line.
 
 ## Open issues
 
@@ -117,6 +114,7 @@ Recorded here rather than in the specification.
 16. **A node can disable expiry.** `TRANSACTION_TTL` is a node setting, 1 hour by default, and `None` turns expiry off. Such a node retires a transaction only when a block carries it, when its own block building fails to apply it, or when it carries an expired claim.
 17. **A restart suspends the claim rule.** `highest_slot` is unset until the node adds a block after it starts, so until then admission refuses no expired claim. A claim that has been pending since the node recovered it never expires as a claim, and only `TRANSACTION_TTL` or inapplicability retires it.
 18. **The gas limit is checked before the batched ZK proofs.** Block building counts a transaction's Execution Gas before it verifies the transaction's batched ZK proofs. A transaction whose only fault is a ZK proof can therefore end the determination at `G_max`, and it is then not retired. It cuts short each block whose applied gas leaves no room for it, until `TRANSACTION_TTL` retires it. Its task is under [Implementation](#implementation).
+19. **A reward claim carries no signature.** [CLAIM_POW_REWARD](../bedrock-v1.1-mantle-specification.md#claim_pow_reward) requires a `ZkSignature` by the key the reward is paid to, and [Mantle Transaction Encoding](../mantle-transaction-encoding.md) gives it 128 bytes. The implementation's claim has an empty proof, and neither admission nor the ledger checks a signature. A claim encoded as Mantle specifies therefore fails to decode here, and the reverse holds too. A solver can also search public keys without knowing their secret keys, which makes draining the pool and raising `difficulty_reward` cheaper, though no one can redirect a reward.
 
 # Details
 
@@ -132,7 +130,7 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 
 ## 3. Admission
 
-[Transaction Admission](../mempool.md#transaction-admission). Admission checks the size of the raw payload, then decodes it, requiring full consumption, then applies Mantle's stateless validation, then checks for a duplicate, then refuses an [expired claim](#5-expired-claims). A local submission is decoded and preverified before the size check. Stateless validation requires exactly one proof per operation, of the type its opcode requires, and a valid proof wherever the proof binds only the transaction hash and the operation payload. It also requires an input where an operation spends one, no output of value `0`, and a channel configuration with non-zero thresholds and a key. Admission reads no ledger state. A pending transaction is therefore **well-formed, not valid**, and membership must never be taken as evidence that it can be applied.
+[Transaction Admission](../mempool.md#transaction-admission). Admission checks the size of the raw payload, then decodes it, requiring full consumption, then applies Mantle's stateless validation, then checks for a duplicate, then refuses an [expired claim](#5-expired-claims). A local submission is decoded and preverified before the size check. Stateless validation requires exactly one proof per operation, of the type its opcode requires, which for `CLAIM_POW_REWARD` is an empty one, and a valid proof wherever the proof binds only the transaction hash and the operation payload. It also requires an input where an operation spends one, no output of value `0`, and a channel configuration with non-zero thresholds and a key. Admission reads no ledger state. A pending transaction is therefore **well-formed, not valid**, and membership must never be taken as evidence that it can be applied.
 
 ## 4. Retirement and persistence
 
@@ -193,7 +191,6 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 
 # Implementation
 
-- [ ]  Give `CLAIM_POW_REWARD` the `ZkSignature` proof that Mantle requires, and verify it at admission
 - [ ]  Verify a transaction's batched ZK proofs before its Execution Gas counts against `G_max` in block building, so that a transaction whose proof fails cannot end the determination (Open Issue 18)
 - [x]  Move the mempool size check ahead of decoding
 - [x]  Retire the transactions of every block that enters the canonical chain, not only those of the new tip ([logos-blockchain#3734](https://github.com/logos-blockchain/logos-blockchain/pull/3734))

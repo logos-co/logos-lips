@@ -284,13 +284,13 @@ For a local submission, a node decodes the transaction and runs `preverify` firs
 
 ### Decoding
 
-The payload is the canonical encoding defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md), carried in the envelope defined in [Network Wire Format](network-wire-format.md): the length of the encoding as an unsigned 64-bit little-endian integer, followed by the encoding. Decoding must consume the payload exactly. A transaction submitted through the [Node API](#node-api) arrives in JSON instead.
+The payload is the canonical encoding defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md), carried in the envelope defined in [Network Wire Format](network-wire-format.md): the length of the encoding as an unsigned 64-bit little-endian integer, followed by the encoding. The proof of a `CLAIM_POW_REWARD` is empty, in place of the `ZkSigProof` that Mantle Transaction Encoding gives it. Decoding must consume the payload exactly. A transaction submitted through the [Node API](#node-api) arrives in JSON instead.
 
 ### Stateless Validation
 
 `preverify` applies these rules of Mantle's [Validation](bedrock-v1.1-mantle-specification.md#validation), none of which reads ledger state:
 
-1. Rule 1 of [Validation](bedrock-v1.1-mantle-specification.md#validation) holds.
+1. Rule 1 of [Validation](bedrock-v1.1-mantle-specification.md#validation) holds, with an empty proof for a `CLAIM_POW_REWARD`.
 2. Each proof bound only to the transaction hash and the operation payload verifies.
 3. A `TRANSFER`, `CHANNEL_DEPOSIT`, `CHANNEL_WITHDRAW` or `CHANNEL_TRANSFER` has at least one input.
 4. No output of a `TRANSFER` or `CHANNEL_TRANSFER` has a value of `0`.
@@ -375,7 +375,7 @@ def selection(applied: list[SignedMantleTx]) -> list[SignedMantleTx]:
 
 `applicability` is the leader's **applicability determination**. Its second result holds the inapplicable transactions.
 
-`parent_state` is the ledger state after the parent of the block being built. `apply_header(parent_state, header)` returns the state against which [Block Execution](bedrock-v1.1-block-construction.md#block-execution) executes the first transaction of a block with that header. `apply_transaction(state, tx)` returns the state after executing `tx` against `state` as [Mantle](bedrock-v1.1-mantle-specification.md) specifies, or `None` if `tx` is not valid against `state`. It does not verify the ZK proofs that [Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#batch-verification-of-zk-proofs) verifies together, and `batched_proofs_verify(state, tx)` holds when those of `tx` verify. `execution_gas(state, tx)` is the Execution Gas of `tx` against `state`, as [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) derives it. `encoded_size(txs)` is the total length of the canonical encodings of the transactions in `txs`, which rule 2 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) bounds by `MAX_BLOCK_SIZE`.
+`parent_state` is the ledger state after the parent of the block being built. `apply_header(parent_state, header)` returns the state against which [Block Execution](bedrock-v1.1-block-construction.md#block-execution) executes the first transaction of a block with that header. `apply_transaction(state, tx)` returns the state after executing `tx` against `state` as [Mantle](bedrock-v1.1-mantle-specification.md) specifies, or `None` if `tx` is not valid against `state`. It skips step 6 of the [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation, the signature check, since a claim's proof is empty. It does not verify the ZK proofs that [Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#batch-verification-of-zk-proofs) verifies together, and `batched_proofs_verify(state, tx)` holds when those of `tx` verify. `execution_gas(state, tx)` is the Execution Gas of `tx` against `state`, as [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) derives it. `encoded_size(txs)` is the total length of the canonical encodings of the transactions in `txs`, which rule 2 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) bounds by `MAX_BLOCK_SIZE`.
 
 ## Reference Resolution
 
