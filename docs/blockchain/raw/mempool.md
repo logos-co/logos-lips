@@ -438,7 +438,7 @@ def prune(mempool) -> None:
             del mempool.bodies[key]
 ```
 
-A node retires a transaction by running `retire`. It runs `prune` before it admits a transaction, retires one, or processes a block.
+A node retires a transaction by running `retire`. It runs `prune` before it admits a transaction, retires one, or processes a block. It retires the transactions that [Expiry](#expiry) and [Expired Claim](#expired-claim) select when it processes a block, and after it retires transactions for [Inclusion in a Canonical Block](#inclusion-in-a-canonical-block) or [Inapplicability](#inapplicability).
 
 ## Persistence and Recovery
 

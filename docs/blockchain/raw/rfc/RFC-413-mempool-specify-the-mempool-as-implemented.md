@@ -30,6 +30,7 @@
 |  | A node remembers a message identity for `SEEN_TTL`, 24 hours by default, drops a received message it remembers and sends nothing for a broadcast of one, as implemented. A duplicate that arrives by re-insertion is broadcast again. Open Issue 12 now covers the broadcasts this suppresses. | 2026-10-21 |
 |  | A transaction extracted from a Blend data message is a local submission, as implemented, so the node broadcasts it. Open Issue 13 keeps only the size mismatch. | 2026-10-21 |
 |  | `preverify` also requires an input where an operation spends one, no output of value `0`, and a channel configuration with non-zero thresholds and a key, as implemented. The stateless-validation departure still holds at `60744b8e7`. | 2026-10-21 |
+|  | A node retires expired transactions and expired claims when it processes a block, and after it retires others for inclusion or inapplicability, as implemented. | 2026-10-21 |
 
 ## Reviewer Orientation
 
@@ -92,7 +93,7 @@ Recorded here rather than in the specification.
 
 1. **No attestation that a transaction reached the network.** [Blend Protocol](../blend-protocol.md#privacy-of-proof-of-stake-systems) states that its network-level protection is not sufficient alone, and defers the other half to the mempool: a node should hold "an attestation that the transaction was seen by the majority of the network". Nothing here supplies it, so a selectively delivered transaction is proposed like any other and identifies its proposer.
 2. **A transaction has no defined end of life.** `TRANSACTION_TTL` is a local eviction policy, not a property of the transaction. Nodes drop the same transaction at different moments, and a submitter can never conclude an in-flight transaction is dead. A claim is the exception. No block can include it once its acceptance window closes, and [Expired Claim](../mempool.md#expired-claim) retires it after that.
-3. **Expiry has no independent clock.** The implementation evaluates expiry only when a block is applied, so a stalled or partitioned node retains everything.
+3. **Expiry has no independent clock.** A node retires expired transactions only when it processes a block or retires others, so a stalled or partitioned node keeps them pending, and offers them to block building.
 4. **Relay precedes validation.** A malformed transaction is amplified network-wide before any node rejects it. Deferring relay until after validation would close the amplification, at the cost of one validation per hop.
 5. **Content-addressed suppression does not suppress re-proved copies.** `mantle_txhash` covers `MantleTx`, not `op_proofs`, and Groth16 proofs are re-randomizable. An adversary can therefore mint unlimited byte-distinct copies of one transaction, each with a fresh payload digest and so a fresh message identity, each relayed to the mesh before admission decodes it. Keying message identity on the transaction hash, which is computable from the payload, would collapse them, at the cost of decoding before relaying.
 6. **No capacity bound.** `pending` grows without limit. `TRANSACTION_TTL` bounds how long a transaction is held, not how many are held. A claim that references a block the node does not hold never expires as a claim, so only `TRANSACTION_TTL` retires it.
