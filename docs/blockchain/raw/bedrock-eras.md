@@ -20,7 +20,7 @@
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-04 |
-| 1.1.0 | The Era Transition Period starts a two-second clock slack before the boundary, and the mempool follows the era in force that slack ahead. | 2026-10-20 |
+| 1.1.0 | The Era Transition Period starts a two-second clock slack before the boundary, and the mempool follows the era in force that slack ahead. | 2026-10-21 |
 
 # Introduction
 
@@ -233,7 +233,7 @@ A node migrates state recorded in an earlier era before it uses it:
 
 - it validates a block against its parent's state, with every migration from the parent's era to the block's era applied in order;
 - it derives a value for an epoch from the chain state as of a slot, migrated to the epoch's era;
-- it re-validates its mempool against the state after its local chain tip, migrated to the era in force one **[clock slack](blend-protocol.md#transition-period)** ahead of its clock.
+- it builds a block from its mempool against its parent's state, migrated to the block's era ([Block Building View](mempool.md#block-building-view)).
 
 The values derived for an epoch, such as its epoch state, its Blend difficulty and its proof-of-work reward, follow the rules of the epoch's own era ([Era Migration](#era-migration)).
 
@@ -243,9 +243,9 @@ Peers must exchange messages only under rules they share. Their clocks reach a b
 
 A node runs its network protocols under the **era in force**, the era of the current slot by its local clock. Their identifiers and gossipsub topics ([P2P Network](../draft/p2p-network.md)) carry the fork digest of their era. The identifier of Kademlia carries the genesis block ID instead, and identify announces it as its protocol version ([Network Protocol Identity](#network-protocol-identity)).
 
-Each message a node sends goes out on the identifiers of one era: the era in force for what it generates, accepts or admits, and the era of the arriving connection for a Blend message it relays or releases ([Network Protocol Identity](#network-protocol-identity)).
+Each message a node sends goes out on the identifiers of one era: the era in force for what it generates, accepts or broadcasts, and the era of the arriving connection for a Blend message it relays or releases and for the proposal that message carries ([Network Protocol Identity](#network-protocol-identity)).
 
-The node runs the network protocols of both eras for the **[Era Transition Period](#era-transition-period)**, from one clock slack before the era in force changes until the previous era's Blend Transition Period after it:
+The node runs the network protocols of both eras for the **[Era Transition Period](#era-transition-period)**, from one **[clock slack](blend-protocol.md#transition-period)** before the era in force changes until the previous era's Blend Transition Period after it:
 
 - during the period, it validates each Blend message under the era of the connection it arrived on;
 - when the period ends, it drops the identifiers of the previous era, with every synchronization request not yet served on them;
@@ -295,7 +295,7 @@ sequenceDiagram
     participant P as peer
     Note over C,P: era n−1 in force
     P->>N: messages on the identifiers of era n−1
-    C->>S: one clock slack before the first slot of era n:<br/>re-validate the mempool against<br/>the tip's state migrated to era n
+    C->>S: one clock slack before the first slot of era n:<br/>retire the pending transactions<br/>whose fork digest era n does not accept
     rect rgba(255, 200, 0, 0.18)
         Note over N,P: Era Transition Period
         C->>N: open the identifiers of era n,<br/>keep those of era n−1
@@ -310,13 +310,13 @@ sequenceDiagram
 ```
 
 1. Before the boundary, the node exchanges messages with its peers on the identifiers of era $`n-1`$.
-2. One clock slack before the first slot of era $`n`$ by its clock, the node re-validates its mempool against the state after its local chain tip, migrated to era $`n`$ ([Era Change](#era-change)). A transaction that carries the fork digest of an earlier era stays, unless era $`n`$ refuses it ([Era of Chain Data](#era-of-chain-data)).
+2. One clock slack before the first slot of era $`n`$ by its clock, the node retires the pending transactions whose fork digest era $`n`$ does not accept ([Era Change](#era-change)). A transaction that carries the fork digest of an earlier era stays, unless era $`n`$ refuses it ([Era of Chain Data](#era-of-chain-data)).
 3. It then opens the identifiers of era $`n`$ and keeps those of era $`n-1`$, which starts the [Era Transition Period](#era-transition-period).
-4. A message that arrives on an identifier of era $`n`$, from a peer whose clock runs ahead, is processed as the [Era Transition Period](#era-transition-period) specifies. A transaction that carries the fork digest of era $`n`$ waits in the mempool for a block of era $`n`$ ([Era of Chain Data](#era-of-chain-data)).
+4. A message that arrives on an identifier of era $`n`$, from a peer whose clock runs ahead, is processed as the [Era Transition Period](#era-transition-period) specifies. A transaction that carries the fork digest of era $`n`$ waits in the mempool for a block of era $`n`$ ([Block Building View](mempool.md#block-building-view)).
 5. When its clock reaches the first slot of era $`n`$, the era in force becomes era $`n`$ ([Era Boundaries](#era-boundaries)).
 6. A message that arrives on an identifier of era $`n-1`$ is still processed ([Era Transition Period](#era-transition-period)).
 7. A block whose slot lies in era $`n`$ arrives on the topic of era $`n`$. Once the node's clock has reached the block's slot, the node validates the block under era $`n`$, against its parent's state migrated to era $`n`$ ([Era of Chain Data](#era-of-chain-data), [Era Migration](#era-migration), [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation)).
-8. If the block extends a fork that left the local chain before the boundary, fork choice compares the two chains under the era of their common ancestor's slot, which precedes era $`n`$ ([Era of Chain Data](#era-of-chain-data)). If the node switches to that fork, it re-validates its mempool against the new tip ([Era Change](#era-change)).
+8. If the block extends a fork that left the local chain before the boundary, fork choice compares the two chains under the era of their common ancestor's slot, which precedes era $`n`$ ([Era of Chain Data](#era-of-chain-data)).
 9. The node sends the messages it generates under era $`n`$ ([Network Protocol Identity](#network-protocol-identity)).
 10. When the period ends, the node drops the identifiers of era $`n-1`$, with every synchronization request not yet served on them ([Era Transition Period](#era-transition-period)).
 
@@ -325,7 +325,7 @@ sequenceDiagram
 A node keeps three values that depend on the era in force:
 
 - the era in force itself, which changes when the clock reaches the first slot of the next era ([Era Boundaries](#era-boundaries));
-- its mempool, re-validated against the state after its local chain tip, migrated to the era in force one clock slack ahead of its clock, whenever the tip or that era changes ([Era Change](#era-change));
+- its mempool, which admits only transactions whose fork digest the era in force one clock slack ahead of its clock accepts, and retires the others when that era changes ([Mempool](mempool.md#era-change));
 - the identifiers it accepts connections on, those of both eras during the Era Transition Period and those of the era in force otherwise ([Era Transition Period](#era-transition-period)).
 
 # Details
@@ -591,17 +591,7 @@ A node verifies an active message ([Active Message](blend-protocol.md#active-mes
 
 ## Era Change
 
-A node keeps in its mempool only transactions valid under the era in force $`T_S`$ seconds ahead of its clock, against the state after its local chain tip migrated to that era:
-
-```python
-def revalidate_mempool(tip: Block, mempool: list[Transaction]) -> list[Transaction]:
-    # The tip's state is in the era of the tip's slot, which can precede the mempool's era.
-    era = era_in_force_after(T_S)
-    state = migrate(state_after(tip), era_of_slot(tip.header.slot), era)
-    return [tx for tx in mempool if valid_under(era, tx, state)]
-```
-
-`state_after(b)` is the [recorded chain state](#era-migration) after block `b`. `valid_under(n, tx, state)` holds when `tx` is valid under the rules of era `n` against `state`. A node applies `revalidate_mempool` whenever its local chain tip changes. When `era_in_force_after(T_S)` changes to era `new`, it applies `revalidate_mempool` and starts the [Era Transition Period](#era-transition-period) into era `new`, before it processes anything under era `new`.
+When `era_in_force_after(T_S)` changes to era `new`, a node retires the pending transactions whose fork digest era `new` does not accept ([Era Change](mempool.md#era-change) of Mempool) and starts the [Era Transition Period](#era-transition-period) into era `new`, before it processes anything under era `new`. [Mempool](mempool.md) specifies how `era_in_force_after(T_S)` governs admission, and the era of a block's slot governs block building.
 
 ## Era Transition Period
 
@@ -620,6 +610,6 @@ After the Era Transition Period the node must drop the identifiers of the previo
 
 Every protocol identifier and gossipsub topic a Logos Blockchain specification defines is `/logos-blockchain/<genesis_id>/<protocol>` for Kademlia ([P2P Network](../draft/p2p-network.md)), and `/logos-blockchain/<fork_digest>/<protocol>` for every other protocol. Identify keeps the identifier of its [libp2p specification](https://github.com/libp2p/specs/blob/master/identify/README.md). The `protocolVersion` of every identify message a node sends is `/logos-blockchain/<genesis_id>/identify`. `<genesis_id>` is `GENESIS_BLOCK_ID` of [Fork Digest](#fork-digest), in lowercase hexadecimal. `<fork_digest>` is the fork digest $`F_n`$ of an era $`n`$, in lowercase hexadecimal. Such an identifier is an identifier of era $`n`$. `<protocol>` is the identifier the protocol's own specification defines.
 
-A node sends a message it generates over the identifiers of the era in force at generation. A node relays or releases a received or processed Blend message, and broadcasts its payload, over the identifiers of the era of the connection it arrived on. A node publishes a proposal it accepts, and a transaction it admits to its mempool, on the topic of the era in force. A [synchronization](cryptarchia-v1-bootstr-sync.md#downloading-blocks) response carries blocks of any era.
+A node sends a message it generates over the identifiers of the era in force at generation. A node relays or releases a received or processed Blend message, and broadcasts the proposal it carries, over the identifiers of the era of the connection it arrived on. A node publishes a proposal it accepts, and a transaction it broadcasts, on the topic of the era in force. A [synchronization](cryptarchia-v1-bootstr-sync.md#downloading-blocks) response carries blocks of any era.
 
 A node warns its operator when a peer whose identify message carries the node's own `protocolVersion` lists, in the `protocols` field of that message, an identifier `/logos-blockchain/<fork_digest>/<protocol>` other than that of Kademlia whose `<fork_digest>` is none of the fork digests of the node's schedule. The warning does not stop the node.
