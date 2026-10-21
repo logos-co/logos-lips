@@ -69,6 +69,12 @@ The following additional terms are used throughout this specification:
   A single rate-limit token within an epoch's budget of `R` tokens, as defined by the DoS protection mechanism.
   Each outgoing packet — whether cover or non-cover — consumes exactly one slot.
 
+- **SURB reply**
+  A mix packet originated by an exit node using a Single-Use Reply Block
+  ([Mix Protocol §8.7](mix.md#87-single-use-reply-blocks)).
+  For slot accounting it is origination, paid from that exit's `R`.
+  It is not a locally originated message: the Mix Entry Layer is not involved.
+
 - **Slot Pool**
   The collection of rate-limit slots available for a given epoch.
 
@@ -110,14 +116,14 @@ An observer still sees packets leaving the node,
 but can no longer tell from the pattern alone whether those packets are real or dummy.
 
 The node operates under a rate limit that bounds total packets emitted per epoch ([§4](#4-rate-limit-budget-model)).
-Every packet — cover, locally originated, or forwarded — consumes one slot from this shared budget.
+Every packet — cover, locally originated, SURB reply, or forwarded — consumes one slot from this shared budget.
 Forwarding typically takes a large share of the budget because each originated packet traverses multiple hops,
 so the maximum cover rate is naturally bounded below the total.
 
 Cover is emitted at a steady configurable rate, up to this bound ([§7.1](#71-constant-rate-cover-traffic)).
 A `cover_rate_fraction` parameter scales cover down from the maximum,
 leaving headroom in the budget for spikes in real traffic.
-Real traffic (locally originated and forwarded) claims slots from the same pool as it arrives;
+Real traffic (locally originated messages, SURB replies, and forwarded packets) claims slots from the same pool as it arrives;
 cover yields whatever slots remain.
 
 Cover packets follow round-trip paths — the sender is also the final destination,
@@ -127,7 +133,7 @@ and revalidated at send time in case the underlying state has changed ([§6.5](#
 
 Each epoch begins by discarding previous state and initializing a fresh slot budget,
 loading any pre-built cover packets prepared during the prior epoch.
-Throughout the epoch, cover, locally originated, and forwarded packets independently claim slots.
+Throughout the epoch, cover, locally originated, SURB reply, and forwarded packets independently claim slots.
 Near the midpoint, the node starts pre-computing cover packets for the next epoch.
 At epoch end, unused slots are discarded and the cycle repeats.
 
@@ -137,12 +143,18 @@ An alternative Poisson-Rate strategy, where cover emission times are randomized,
 ## 4. Rate Limit Budget Model
 
 Each mix node receives a budget of `R` slots per epoch from the DoS protection mechanism.
-Cover emission, locally originated message sending, and packet forwarding all draw from the same pool.
+Cover emission, locally originated message sending, SURB reply origination, and packet forwarding all draw from the same pool.
 Since each originated packet traverses `L` forwarding hops — where `L` is the mix path length
 as defined in [Mix Protocol §6](mix.md#6-pluggable-components) —
 forwarding traffic naturally consumes a significant portion of the budget.
 
-If every node originates at rate `C` packets per epoch (cover plus locally originated combined),
+Origination is cover packets, locally originated messages, and SURB replies.
+A SURB reply is originated by the exit of the forward path
+([Mix Protocol §8.7.3](mix.md#873-using-a-surb)), not by the Mix Entry Layer.
+It still consumes one slot from that exit's `R` and then traverses `L` hops,
+so it counts in both origination and the forwarding term below.
+
+If every node originates at rate `C` packets per epoch (cover, locally originated messages, and SURB replies combined),
 each node forwards approximately `C * L` packets per epoch.
 Since origination and forwarding share the same budget `R`:
 
@@ -153,13 +165,21 @@ C ≤ R / (1 + L)
 
 `R / (1 + L)` is therefore the **upper bound on total origination**,
 not a target for cover emission alone.
-Cover rate does not need to be explicitly reduced by a node's locally originated rate,
+Cover rate does not need to be explicitly reduced by a node's locally originated or reply rate,
 because the slot pool is self-balancing (see below).
+
+When a node is the exit of a request, it may originate up to `n` SURB replies for that request,
+where `n` is the number of SURBs the initiator attached
+([Mix Protocol §8.7.2](mix.md#872-surb-creation)).
+Those replies consume from the exit's `C`, and because they traverse `L` hops they also raise `C * L`.
+Relative to request origination alone, both terms scale by up to `(1 + n)`.
+The bound `C ≤ R / (1 + L)` still holds once `C` includes replies.
+Sizing cover as if `C` excluded replies overstates the cover a busy exit can emit.
 
 This means the actual cover traffic emitted by a node is always less than `R` and depends on:
 
 - **Path length `L`**: longer paths consume more forwarding slots, leaving fewer for cover.
-  For `L=3`, approximately 25% of slots are available for cover and locally originated message sending.
+  For `L=3`, approximately 25% of slots are available for cover, locally originated sending, and SURB replies.
 - **Network size `N` and forwarding variance**: with random path selection, forwarding load is not uniform.
   Some nodes receive more forwarding traffic than the equilibrium average, leaving even fewer slots for cover.
   The actual cover output per node therefore varies with network conditions.
@@ -222,7 +242,7 @@ The cover packet is then transmitted to the first hop following the standard Mix
 
 **Procedure:** `ClaimSlot() -> success`
 
-**Trigger:** The Mix Protocol needs to send a message or forward a packet and requires a slot from the budget.
+**Trigger:** The Mix Protocol needs to send a locally originated message, originate a SURB reply, or forward a packet and requires a slot from the budget.
 
 The mechanism atomically claims a slot from the pool using the following procedure:
 
@@ -242,7 +262,16 @@ where `binding_data` is the packet-specific data as defined by the DoS protectio
 If the claim fails, the packet SHOULD be handled as follows to avoid hitting DoS protection limits:
 
 - **Locally originated messages**: queued for the next epoch.
+- **SURB replies**: queued for the next epoch.
 - **Forwarded packets**: dropped.
+
+A SURB reply is origination, so it follows the same failure handling as a locally originated send.
+The exit cannot observe the initiator's remaining credential lifetime
+([Mix Protocol §8.7.2](mix.md#872-surb-creation) Step 4).
+That timeout is configurable and SHOULD be set to `k * P`,
+where `P` is the epoch duration and `k` is a positive integer large enough
+that a reply queued for the next epoch still arrives while credentials are live.
+The concrete value of `k` is not fixed in this specification.
 
 ### 5.3 Epoch Boundary
 
@@ -266,6 +295,13 @@ A cover packet whose pre-send delay ([§6.2](#62-cover-emission)) is still elaps
 is discarded rather than transmitted:
 its slot was claimed from the previous epoch's pool,
 so transmitting it in the new epoch would exceed the fresh budget by one packet.
+The message identifier bound to the discarded packet MAY be offered for reclaim
+where the DoS protection mechanism permits ([§6.5](#65-pre-computed-proof-validation-at-send-time)).
+The mechanism decides whether the identifier is reusable:
+one bound to the closed epoch is rejected,
+while one already generated against the new epoch
+(possible when generation completes after the boundary but before the epoch signal is processed)
+can be reused.
 
 ### 5.4 Cover Packet Reception
 
@@ -355,10 +391,15 @@ Implementations MUST therefore validate pre-computed proofs at send time
 (see [§6.5](#65-pre-computed-proof-validation-at-send-time)).
 
 **Fallback caveat:**
-On-demand generation when pre-computation falls behind adds load-dependent delay
-on top of the sampled pre-send delay ([§6.2](#62-cover-emission)),
-skewing emission timing in a way that correlates with pre-computation load
-and weakens timing unobservability.
+When a slot is selected for cover emission without a pre-built packet,
+on-demand generation SHOULD start at slot-claim time
+and run concurrently with the sampled pre-send delay ([§6.2](#62-cover-emission)),
+so the first-hop write occurs at the later of the two, not after their sum.
+Sequential composition (delay first, then generation) shifts every fallback emission
+by the full generation time, while pre-built emissions depart after the delay alone;
+the offset makes the two distinguishable and leaks pre-computation load.
+With concurrent generation the skew reduces to the excess of generation time over the delay,
+which still correlates with load when generation outlasts the delay.
 Implementations SHOULD size the pre-computation pipeline ([§9.1](#91-pre-computation-scheduling))
 to avoid the fallback path in steady state.
 
@@ -393,9 +434,18 @@ have already been deducted, so their slots are unavailable to any later claim.
 >      Validation happens after the delay so the staleness window between validation and transmission stays minimal.
 >    - e. Transmit the `packet` field of [`PrebuiltCoverPacket`](#55-data-structures) to the first hop
 >      (other fields are internal and MUST NOT be sent).
-> 3. If `cover_queue` is empty for the remainder of the epoch
->    (because pre-built packets were exhausted by emission or reclaimed under heavy non-cover load),
->    cover emission is suppressed until the next epoch boundary.
+> 3. If the strategy schedules an emission and `cover_queue` is empty
+>    (pre-built packets exhausted by emission, reclaimed under heavy non-cover load,
+>    or pre-computation disabled),
+>    the node MAY generate the packet on demand:
+>    if `slots_remaining > 0`, decrement it, begin generation immediately,
+>    and run it concurrently with the pre-send delay of step 2.b
+>    (see the fallback caveat in [§6.1](#61-at-epoch-boundary));
+>    once both complete, apply steps 2.c and 2.e.
+>    Step 2.d does not apply: the proof was generated within this emission, not pre-computed.
+>    If the node does not generate on demand,
+>    cover emission is suppressed until pre-built packets become available
+>    or the next epoch boundary refills the pool.
 
 **Pre-send delay:**
 Locally originated packets and SURB replies apply a sampled pre-send delay before their first-hop write
@@ -452,6 +502,18 @@ A pre-built packet with a stale proof MUST NOT be sent.
 When regenerating, implementations MAY reuse the message identifier bound to the cover packet
 where the DoS protection mechanism permits (see [Mix RLN DoS Protection](mix-dos-protection-rln.md)).
 
+### 6.6 SURB Reply Origination
+
+**[When using a SURB](mix.md#873-using-a-surb):**
+When the Exit Layer originates a reply via a SURB
+([Mix Protocol §8.7.3](mix.md#873-using-a-surb)),
+the Mix Protocol instance MUST call `ClaimSlot()` ([§5.2](#52-non-cover-slot-claim))
+before the first-hop write.
+If no slot can be claimed, the reply is queued for the next epoch ([§5.2](#52-non-cover-slot-claim)).
+Otherwise, the Mix Protocol instance proceeds with SURB reply construction and transmission.
+
+The Mix Entry Layer is not on this path. Skipping the claim would emit origination outside `R`.
+
 ## 7. Recommended Strategy
 
 This section defines the Constant-Rate cover emission strategy, which is the normative strategy for this specification.
@@ -461,13 +523,13 @@ because forwarding traffic claims slots at unpredictable times.
 Cover is emitted at up to `R / (1 + L)` packets per epoch —
 a maximum, not a target;
 the self-balancing pool ([§4](#4-rate-limit-budget-model))
-accommodates locally originated messages without explicit adjustment.
+accommodates locally originated messages and SURB replies without explicit adjustment.
 
 **Cover rate fraction `f`:**
 The strategy takes a configurable `cover_rate_fraction` `f ∈ (0.0, 1.0]` ([§5.5](#55-data-structures))
 that scales the configured cover rate relative to the maximum safe rate `R / ((1 + L) × P)`.
 A value of `f = 1.0` emits cover at the maximum; lower values reduce cover output
-and leave more headroom in the slot budget for locally originated messages and forwarded traffic.
+and leave more headroom in the slot budget for locally originated messages, SURB replies, and forwarded traffic.
 The RECOMMENDED default is `f = 0.7`,
 which reserves roughly 30% of the per-node slot budget as headroom against forwarding variance.
 All mix nodes in a deployment SHOULD use the same `f` to preserve a uniform anonymity set across the network.
@@ -482,7 +544,7 @@ Non-cover traffic claims slots via `ClaimSlot()` ([§5.2](#52-non-cover-slot-cla
 making total output inherently irregular even though the cover emission rate is constant.
 
 At the configured rate, up to `f × R / (1 + L)` cover packets are emitted per epoch;
-the actual count is lower when locally originated messages or forwarding variance claim slots first.
+the actual count is lower when locally originated messages, SURB replies, or forwarding variance claim slots first.
 The originated cover emission rate is perfectly constant,
 so an adversary cannot distinguish epochs with heavy locally originated traffic from idle epochs
 by observing cover timing alone.
@@ -604,7 +666,7 @@ by ensuring the cover proof is discarded before the slot is reused.
 If non-cover traffic consumes all `R` slots before the epoch ends,
 the node cannot emit further cover traffic.
 This is a natural consequence of DoS protection compliance ([§3](#3-design-principles)).
-Locally originated messages that arrive after slot exhaustion MUST be queued for the next epoch.
+Locally originated messages and SURB replies that arrive after slot exhaustion MUST be queued for the next epoch.
 Cover emission ceases when no slots remain.
 
 ### 10.3 Network-Wide Cover-Rate Correlation
@@ -634,7 +696,7 @@ regardless of forwarding load.
 Constant-Rate therefore provides volume unobservability but not timing unobservability.
 Under Constant-Rate, the pre-scheduled emission timing enhancement ([§11.3](#113-pre-scheduled-emission-timing))
 is the only design that closes this gap,
-by assigning all outgoing packets — cover, locally originated, and forwarded —
+by assigning all outgoing packets — cover, locally originated, SURB reply, and forwarded —
 to a shared fixed-time grid determined at epoch start.
 
 ### 10.5 Cover Priority and Forwarded Packet Drops
@@ -675,7 +737,7 @@ to enable path health monitoring.
 ### 11.3 Pre-Scheduled Emission Timing
 
 Inspired by the [Blend Protocol](../../blockchain/raw/blend-protocol.md), a future enhancement MAY define pre-scheduled emission slots
-where all outgoing packets — cover, locally originated, and forwarded — are assigned to
+where all outgoing packets — cover, locally originated, SURB reply, and forwarded — are assigned to
 fixed time slots determined at epoch start.
 All traffic types would share the same timing grid,
 producing a perfectly periodic total output regardless of traffic mix.
