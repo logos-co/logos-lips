@@ -33,6 +33,7 @@
 |  | A node retires expired transactions and expired claims when it processes a block, and after it retires others for inclusion or inapplicability, as implemented. | 2026-10-21 |
 |  | A fork switch re-admits the transactions of the newest displaced block first, as implemented. | 2026-10-21 |
 |  | A local submission is decoded and preverified before the size check, and arrives through the Node API in JSON. The Node API section describes the endpoints as implemented, which ticks their task. | 2026-10-21 |
+|  | Reconstruction checks the size of the resolved transactions before the body root, as implemented, so an oversized body is a reconstruction failure. Block construction's 1.4.0 row says so. | 2026-10-21 |
 
 ## Reviewer Orientation
 
@@ -156,7 +157,7 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 
 ## 7. Proposal validation follows the implementation
 
-[Block Proposal Validation](../bedrock-v1.1-block-construction.md#block-proposal-validation) checked every header rule that reads no transactions before reconstruction, the parent's presence and the proof of leadership included. `logos-blockchain` at `8eb8a05e5` checks only that the slot is later than the latest immutable block's and is not the genesis slot, that its block tree does not already hold the block, and the signature. It applies everything else to the reconstructed block. The specification now does the same, in revision 1.4.0. The uncle check and the body-size check join the rest of [Block Header Validation](../cryptarchia-v1-protocol.md#block-header-validation) after reconstruction, where `header.body_root` already binds every byte they read.
+[Block Proposal Validation](../bedrock-v1.1-block-construction.md#block-proposal-validation) checked every header rule that reads no transactions before reconstruction, the parent's presence and the proof of leadership included. `logos-blockchain` at `8eb8a05e5` checks only that the slot is later than the latest immutable block's and is not the genesis slot, that its block tree does not already hold the block, and the signature. It applies everything else to the reconstructed block. The specification now does the same, in revision 1.4.0. The uncle check joins the rest of [Block Header Validation](../cryptarchia-v1-protocol.md#block-header-validation) after reconstruction, where `header.body_root` already binds every byte it reads. The body-size check moves into reconstruction, ahead of the body root, so its failure establishes nothing about the block.
 
 ```diff
 -2. **Header Validation**
