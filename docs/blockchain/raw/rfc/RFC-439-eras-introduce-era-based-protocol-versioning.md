@@ -41,6 +41,7 @@
 |  | The pow reward pool seed and the consensus-excluded keys are Cryptarchia parameters of the Genesis block instead of era values. The initial total stake leaves out the excluded keys' genesis notes, and a node does not lead with their notes. Removed from Discussion: the narration of earlier drafts, and the floating-point ⌊k/f⌋ from the pre-existing defects, which an implementation task covers. These change normative content, so approvals are collected again on v19. | 2026-10-20 |
 | v20 | Every era after the first keeps its uncle reference window within the finalization window of the era before it, `W_n · f_n⁻¹ ≤ s_{n−1}/5`, since the latest immutable block of an era's first blocks still lies in the era before. This changes normative content, so approvals are collected again on v20. | 2026-10-21 |
 | v21 | The Genesis inscription's section is named Genesis Parameters, since it holds the pow reward pool seed, which is no Cryptarchia parameter, and the seed's field is `genesis_pow_reward_pool`, apart from the running balance `pow_reward_pool`. No rule changes. | 2026-10-21 |
+| v22 | The Genesis Parameters take the implementation's field names: `epoch_nonce` and `pow_reward_pool` in place of `genesis_epoch_nonce` and `genesis_pow_reward_pool`. A reference from outside the section names the field as that of the Genesis Parameters, so the seed is not confused with the running balance. No rule changes. | 2026-10-21 |
 
 ## Reviewer Orientation
 
@@ -283,16 +284,17 @@ Cryptarchia's §Versioning and Protocol Upgrades, which activated upgrades by bl
 
 ## 12. Genesis parameters
 
-[Bedrock Genesis Block](../bedrock-genesis-block.md): the inscription, renamed Genesis Parameters, gains two fields after `genesis_epoch_nonce`, and must decode to exactly five parameters.
+[Bedrock Genesis Block](../bedrock-genesis-block.md): the inscription, renamed Genesis Parameters, takes the implementation's field names, gains two fields after `epoch_nonce`, and must decode to exactly five parameters.
 
 ```diff
- inscription = (chain_id_len + chain_id + genesis_time + genesis_epoch_nonce
-+               + genesis_pow_reward_pool        # u64, little-endian
+-inscription = chain_id_len + chain_id + genesis_time + genesis_epoch_nonce
++inscription = (chain_id_len + chain_id + genesis_time + epoch_nonce
++               + pow_reward_pool                # u64, little-endian
 +               + consensus_excluded_keys)       # u32 count, then ZkPublicKeys in increasing order
 ```
 
 - The initial total stake `D` leaves out the genesis notes of the keys in `consensus_excluded_keys`, and a node must not prove leadership with a note of one of them.
-- `pow_reward_pool` starts at `genesis_pow_reward_pool`. [Proof of Work](../proof-of-work.md) drops the constant `POW_REWARD_POOL_GENESIS`, and the first epoch's `epoch_pow_reward` stays derived from the pool.
+- `pow_reward_pool` starts at the `pow_reward_pool` of the Genesis Parameters. [Proof of Work](../proof-of-work.md) drops the constant `POW_REWARD_POOL_GENESIS`, and the first epoch's `epoch_pow_reward` stays derived from the pool.
 
 ## Chores
 
