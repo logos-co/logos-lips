@@ -34,6 +34,7 @@
 |  | A fork switch re-admits the transactions of the newest displaced block first, as implemented. | 2026-10-21 |
 |  | A local submission is decoded and preverified before the size check, and arrives through the Node API in JSON. The Node API section describes the endpoints as implemented, which ticks their task. | 2026-10-21 |
 |  | Reconstruction checks the size of the resolved transactions before the body root, as implemented, so an oversized body is a reconstruction failure. Block construction's 1.4.0 row says so. | 2026-10-21 |
+|  | Corrected the walkthrough, which resolved references from the pending set and checked a local submission's size first, and the `resolve` snippet in Details. The P2P Network registration, ticked but never made, is now Open Issue 19. | 2026-10-21 |
 
 ## Reviewer Orientation
 
@@ -112,6 +113,7 @@ Recorded here rather than in the specification.
 16. **A node can disable expiry.** `TRANSACTION_TTL` is a node setting, 1 hour by default, and `None` turns expiry off. Such a node retires a transaction only when a block carries it, when its own block building fails to apply it, or when it carries an expired claim.
 17. **A restart suspends the claim rule.** `highest_slot` is unset until the node adds a block after it starts, so until then admission refuses no expired claim. A claim that has been pending since the node recovered it never expires as a claim, and only `TRANSACTION_TTL` or inapplicability retires it.
 18. **The gas limit is checked before the batched ZK proofs.** Block building counts a transaction's Execution Gas before it verifies the transaction's batched ZK proofs. A transaction whose only fault is a ZK proof can therefore end the determination at `G_max`, and it is then not retired. It cuts short each block whose applied gas leaves no room for it, until `TRANSACTION_TTL` retires it.
+19. **P2P Network does not name the mempool topic as implemented.** [Gossiping](../../draft/p2p-network.md#gossiping) names `/logos-blockchain/mempool/1.0.0`, where the implementation gossips on `/logos-blockchain/<fork digest>/mempool`. It also leaves out the message identity that [Dissemination](../mempool.md#dissemination) defines.
 
 # Details
 
@@ -149,10 +151,11 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 -    return matches[0] if len(matches) == 1 else None
  # Mempool, the procedure block construction now links to
 +def resolve(mempool, reference) -> Optional[SignedMantleTx]:
-+    matches = mempool.by_prefix.get(reference, empty_set)
++    matches = mempool.by_prefix.get(reference, set())
 +    if len(matches) != 1:
 +        return None
-+    return mempool.bodies[single(matches)]
++    (key,) = matches
++    return mempool.bodies[key]
 ```
 
 ## 7. Proposal validation follows the implementation
@@ -192,7 +195,7 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 - [x]  Retire the transactions of every block that enters the canonical chain, not only those of the new tip ([logos-blockchain#3734](https://github.com/logos-blockchain/logos-blockchain/pull/3734))
 - [x]  Exclude the transactions the adopted branch carries when a fork switch re-admits displaced ones ([logos-blockchain#3746](https://github.com/logos-blockchain/logos-blockchain/pull/3746))
 - [x]  Retire a claim once the highest slot of a block added since the node started reaches its deadline, and refuse it at admission from then on ([logos-blockchain#3789](https://github.com/logos-blockchain/logos-blockchain/pull/3789))
-- [x]  Confirm the gossipsub message-id function on the mempool topic is the payload digest, and register the topic and its message-id in the P2P Network specification
+- [x]  Confirm the gossipsub message-id function on the mempool topic is the payload digest
 - [x]  Reconcile the mempool status and metrics endpoints with the Node API section
 - [ ]  Add or extend tests that exercise the change: admission ordering, resolution uniqueness, retirement clearing, restart recovery, and a claim retired and refused from its deadline and not before
 - [ ]  Verify the implementation matches this specification

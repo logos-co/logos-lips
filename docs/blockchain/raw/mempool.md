@@ -156,12 +156,12 @@ sequenceDiagram
     participant A as node A
     participant B as node B, a leader
     C->>A: submit through the Node API
-    A->>A: admit: size, decoding,<br/>preverify, duplicate, claim
+    A->>A: admit: decoding, preverify,<br/>size, duplicate, claim
     A->>B: broadcast on the mempool topic
     B->>B: relay to its mesh, then admit
     B->>B: apply the pending transactions<br/>and select them into a block
     B->>A: block proposal referencing<br/>the transaction
-    A->>A: resolve the reference<br/>from the pending set
+    A->>A: resolve the reference<br/>from its mempool
     A->>A: the block enters the canonical<br/>chain: retire the transaction
     B->>B: the block enters the canonical<br/>chain: retire the transaction
 ```
@@ -172,7 +172,7 @@ sequenceDiagram
 4. Node B relays it to its mesh neighbours, then admits it ([Dissemination](#dissemination)).
 5. Node B leads a slot. It applies its pending transactions and selects this one into its block ([Block Building View](#block-building-view)).
 6. Node B's proposal references the transaction by a prefix of its hash ([References](bedrock-v1.1-block-construction.md#references)).
-7. Node A resolves the reference from its pending set ([Reference Resolution](#reference-resolution)).
+7. Node A resolves the reference from its mempool ([Reference Resolution](#reference-resolution)).
 8. The block enters node A's canonical chain, and node A retires the transaction ([Inclusion in a Canonical Block](#inclusion-in-a-canonical-block)).
 9. The block enters node B's canonical chain, and node B retires the transaction ([Inclusion in a Canonical Block](#inclusion-in-a-canonical-block)).
 
