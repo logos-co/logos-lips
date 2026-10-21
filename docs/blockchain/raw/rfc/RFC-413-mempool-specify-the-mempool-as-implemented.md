@@ -31,6 +31,7 @@
 |  | A transaction extracted from a Blend data message is a local submission, as implemented, so the node broadcasts it. Open Issue 13 keeps only the size mismatch. | 2026-10-21 |
 |  | `preverify` also requires an input where an operation spends one, no output of value `0`, and a channel configuration with non-zero thresholds and a key, as implemented. The stateless-validation departure still holds at `60744b8e7`. | 2026-10-21 |
 |  | A node retires expired transactions and expired claims when it processes a block, and after it retires others for inclusion or inapplicability, as implemented. | 2026-10-21 |
+|  | A fork switch re-admits the transactions of the newest displaced block first, as implemented. | 2026-10-21 |
 
 ## Reviewer Orientation
 
