@@ -24,7 +24,7 @@
 
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
-| 1.0.0 | Initial revision. | 2026-10-20 |
+| 1.0.0 | Initial revision. | 2026-10-21 |
 
 # Introduction
 
@@ -121,7 +121,7 @@ A transaction must reach every node, whichever node it was submitted to. Nodes p
 
 A leader must fill its block with transactions that apply on its chain, including transactions that depend on each other. The mempool offers it every pending transaction, and block building finds the ones that apply.
 
-The leader passes over the pending transactions in admission order and applies each one that succeeds, repeating until a pass applies nothing new. It then fills the block in the order it applied them, up to `MAX_BLOCK_TXS` and `MAX_BLOCK_SIZE`. A transaction that applies but does not fit stays pending. [Block Building View](#block-building-view) specifies both steps.
+The leader passes over the pending transactions in admission order and applies each one that succeeds, repeating until a pass applies nothing new. It stops early at the first transaction that would take the block's Execution Gas past `G_max`. A transaction is **inapplicable** if its own Execution Gas exceeds `G_max`, or if no pass applies it and the leader did not stop early. The leader then fills the block in the order it applied the transactions, up to `MAX_BLOCK_TXS` and `MAX_BLOCK_SIZE`. A transaction that applies but does not fit stays pending. [Block Building View](#block-building-view) specifies both steps.
 
 ## Proposal References
 
@@ -134,7 +134,7 @@ A **reference** is a prefix of the transaction's hash. It resolves only when exa
 Without retirement, the pending set would only grow. A node retires a transaction for one of four reasons:
 
 - a block that carries it enters the node's canonical chain;
-- a leader's block building does not apply it in any pass;
+- a leader's block building finds it inapplicable;
 - its age reaches `TRANSACTION_TTL`, unless the node disables expiry;
 - it carries a claim whose deadline has passed.
 
@@ -198,6 +198,7 @@ A node keeps these values for its mempool, defined in [Mempool State](#mempool-s
 | `WINDOW` | acceptance window | The window of [Acceptance Window](proof-of-work.md#acceptance-window), in slots. |
 | `MAX_BLOCK_SIZE` | maximum block size | From [Constants](cryptarchia-v1-protocol.md#constants). |
 | `MAX_BLOCK_TXS` | maximum block transactions | From [Constants](cryptarchia-v1-protocol.md#constants). |
+| `G_max` | maximum Execution Gas per block | The limit on a block's total Execution Gas, $`G_{\max}`$ in the [Notation](execution-market.md#notation) of Execution Market. |
 | `REFERENCE_PREFIX_LENGTH` | reference prefix length | The length of a reference in bytes, from [References](bedrock-v1.1-block-construction.md#references). |
 
 ## Parameters
@@ -319,19 +320,31 @@ The mempool supplies the bodies of every pending transaction in admission order.
 def applicability(mempool, parent_state, header) -> tuple[list[SignedMantleTx], list[TxHash]]:
     state = apply_header(parent_state, header)       # the working state
     applied, remaining = [], list(mempool.pending)   # remaining in admission order
+    over_limit, gas = [], 0                          # gas: the Execution Gas applied so far
     progress = True
     while progress:
         # A transaction may spend what one admitted after it creates,
         # so passes repeat until a pass applies nothing.
         progress = False
         for key in list(remaining):
-            after = apply_transaction(state, mempool.bodies[key])
-            if after is not None:
-                state = after
-                applied.append(mempool.bodies[key])
+            tx = mempool.bodies[key]
+            after = apply_transaction(state, tx)
+            if after is None:
+                continue
+            tx_gas = execution_gas(state, tx)
+            if tx_gas > G_max:
+                over_limit.append(key)
+                remaining.remove(key)
+            elif gas + tx_gas > G_max:
+                # The transactions not yet applied may fit another block,
+                # so none of them is inapplicable.
+                return applied, over_limit
+            elif batched_proofs_verify(state, tx):
+                state, gas = after, gas + tx_gas
+                applied.append(tx)
                 remaining.remove(key)
                 progress = True
-    return applied, remaining
+    return applied, over_limit + remaining
 
 def selection(applied: list[SignedMantleTx]) -> list[SignedMantleTx]:
     block = []
@@ -343,9 +356,9 @@ def selection(applied: list[SignedMantleTx]) -> list[SignedMantleTx]:
     return block
 ```
 
-`applicability` is the leader's **applicability determination**, and no block limit applies to it. `remaining` holds the transactions it never applies.
+`applicability` is the leader's **applicability determination**. Its second result holds the inapplicable transactions.
 
-`parent_state` is the ledger state after the parent of the block being built. `apply_header(parent_state, header)` returns the state against which [Block Execution](bedrock-v1.1-block-construction.md#block-execution) executes the first transaction of a block with that header. `apply_transaction(state, tx)` returns the state after executing `tx` against `state` as [Mantle](bedrock-v1.1-mantle-specification.md) specifies, or `None` if `tx` is not valid against `state`. `encoded_size(txs)` is the size of `txs` serialized as the `transactions` of a block, which rule 2 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) bounds by `MAX_BLOCK_SIZE`.
+`parent_state` is the ledger state after the parent of the block being built. `apply_header(parent_state, header)` returns the state against which [Block Execution](bedrock-v1.1-block-construction.md#block-execution) executes the first transaction of a block with that header. `apply_transaction(state, tx)` returns the state after executing `tx` against `state` as [Mantle](bedrock-v1.1-mantle-specification.md) specifies, or `None` if `tx` is not valid against `state`. It does not verify the ZK proofs that [Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#batch-verification-of-zk-proofs) verifies together, and `batched_proofs_verify(state, tx)` holds when those of `tx` verify. `execution_gas(state, tx)` is the Execution Gas of `tx` against `state`, as [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) derives it. `encoded_size(txs)` is the size of `txs` serialized as the `transactions` of a block, which rule 2 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) bounds by `MAX_BLOCK_SIZE`.
 
 ## Reference Resolution
 
@@ -376,7 +389,7 @@ When a block enters the node's canonical chain, each pending transaction it carr
 
 ### Inapplicability
 
-A transaction that the applicability determination of [Block Building View](#block-building-view) never applies is retired.
+A transaction that the applicability determination of [Block Building View](#block-building-view) finds inapplicable is retired.
 
 ### Expiry
 

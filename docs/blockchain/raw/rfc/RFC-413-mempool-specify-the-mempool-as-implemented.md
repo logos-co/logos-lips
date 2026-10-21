@@ -26,6 +26,7 @@
 |  | `TRANSACTION_TTL` is a node setting, as implemented: 1 hour by default, and `None` disables expiry. A transaction expires once its age reaches it. The departure that pinned it moved to a submission of its own, and its consequence is Open Issue 16. | 2026-10-20 |
 |  | `highest_slot` counts only blocks added since the node started, and a claim pending since recovery is not retired as a claim, as [logos-blockchain#3789](https://github.com/logos-blockchain/logos-blockchain/pull/3789) implements. The departure that rebuilt the clock moved to a submission of its own, and its consequence is Open Issue 17. | 2026-10-20 |
 |  | A retired transaction keeps its body and prefix entry for `RETIREMENT_GRACE`, ten minutes, and still resolves, as implemented. The departure that discarded the body at retirement goes, and Open Issue 10 now covers forks that outlast the grace. | 2026-10-20 |
+|  | Block building stops at the first transaction that would take the block past `G_max`, and then retires only a transaction whose own Execution Gas exceeds it, as implemented. The gas check comes before the batched ZK proofs, and its consequence is Open Issue 18. | 2026-10-21 |
 
 ## Reviewer Orientation
 
@@ -34,7 +35,7 @@ Read the PR's Motivation first.
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here** — [Mempool](#affected-specifications): [Reference resolution](#1-reference-resolution) | Resolution succeeds only on a unique prefix match, and reads the proposal, `by_prefix` and `bodies` and nothing else. Check that no other state can enter it. |
-| 2 | Critical | [Mempool](#affected-specifications): [Block building](#2-block-building) | Retirement lists four reasons a transaction leaves, and selection is not among them. Check that a transaction which merely did not fit stays resolvable. |
+| 2 | Critical | [Mempool](#affected-specifications): [Block building](#2-block-building) | Retirement lists four reasons a transaction leaves, and selection is not among them. Check that a transaction which merely did not fit stays resolvable, and that stopping at `G_max` retires nothing the passes did not finish. |
 | 3 | High | [Mempool](#affected-specifications): [Admission](#3-admission) | No ledger reads. The block tree is read only to refuse an expired claim. Confirm the `preverify` subset matches Mantle's rules, including `None` proof entries. |
 | 4 | High | [Mempool](#affected-specifications): [Retirement and persistence](#4-retirement-and-persistence) | Retirement is not rejection, except for an expired claim. A retired transaction resolves for `RETIREMENT_GRACE`, and pruning then clears every per-transaction map. |
 | 5 | High | [Mempool](#affected-specifications): [Expired claims](#5-expired-claims) | A claim is retired and refused more than `CLAIM_GRACE` slots after the last slot that can include it. Check the deadline, and the constraint on `CLAIM_GRACE`. |
@@ -103,6 +104,7 @@ Recorded here rather than in the specification.
 15. **Reconstruction precedes the parent and leadership checks.** Before reconstruction a node checks only the latest immutable block, the genesis slot, the block tree and the signature. A proposal whose parent is missing and whose references do not resolve is therefore dropped before the missing parent is noticed, and it never reaches the orphan path. A proposal with an invalid proof of leadership also costs a mempool scan.
 16. **A node can disable expiry.** `TRANSACTION_TTL` is a node setting, 1 hour by default, and `None` turns expiry off. Such a node retires a transaction only when a block carries it, when its own block building fails to apply it, or when it carries an expired claim.
 17. **A restart suspends the claim rule.** `highest_slot` is unset until the node adds a block after it starts, so until then admission refuses no expired claim. A claim that has been pending since the node recovered it never expires as a claim, and only `TRANSACTION_TTL` or inapplicability retires it.
+18. **The gas limit is checked before the batched ZK proofs.** Block building counts a transaction's Execution Gas before it verifies the transaction's batched ZK proofs. A transaction whose only fault is a ZK proof can therefore end the determination at `G_max`, and it is then not retired. It cuts short each block whose applied gas leaves no room for it, until `TRANSACTION_TTL` retires it.
 
 # Details
 
@@ -114,7 +116,7 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 
 ## 2. Block building
 
-[Block Building View](../mempool.md#block-building-view). Block building makes two separate determinations. **Applicability** is a fixpoint over all pending transactions against the working ledger state, repeated until a pass applies nothing new, which resolves dependencies within a block. A transaction that never becomes applicable is invalid against this branch, and is retired. **Selection** then fills the block from the applicable set, up to `MAX_BLOCK_TXS` and `MAX_BLOCK_SIZE`, and retires nothing.
+[Block Building View](../mempool.md#block-building-view). Block building makes two separate determinations. **Applicability** is a fixpoint over all pending transactions against the working ledger state, repeated until a pass applies nothing new, which resolves dependencies within a block. It stops early at the first transaction that would take the block's Execution Gas past `G_max`. A transaction whose own Execution Gas exceeds `G_max` is retired, and so is one that never becomes applicable, unless the fixpoint stopped early. **Selection** then fills the block from the applicable set, up to `MAX_BLOCK_TXS` and `MAX_BLOCK_SIZE`, and retires nothing.
 
 ## 3. Admission
 
@@ -122,7 +124,7 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 
 ## 4. Retirement and persistence
 
-[Retirement](../mempool.md#retirement), [Reorganisation](../mempool.md#reorganisation) and [Persistence and Recovery](../mempool.md#persistence-and-recovery). A transaction is retired when a block that carries it enters the canonical chain, when the applicability fixpoint never applies it, when its age reaches `TRANSACTION_TTL` unless the node disables expiry, or when a claim it carries [expires](#5-expired-claims). A retired transaction keeps its body and its prefix entry for `RETIREMENT_GRACE`, ten minutes, and still resolves. Pruning then clears every per-transaction map. Retirement is **not** rejection: a re-gossiped copy is admitted again, unless it is an expired claim. A fork switch re-admits the displaced transactions the adopted branch does not carry. A node persists the pending hashes with their admission times, the retired hashes with their retirement times, and the bodies. On recovery it rebuilds the prefix index from both, and `highest_slot` starts unset.
+[Retirement](../mempool.md#retirement), [Reorganisation](../mempool.md#reorganisation) and [Persistence and Recovery](../mempool.md#persistence-and-recovery). A transaction is retired when a block that carries it enters the canonical chain, when block building finds it inapplicable, when its age reaches `TRANSACTION_TTL` unless the node disables expiry, or when a claim it carries [expires](#5-expired-claims). A retired transaction keeps its body and its prefix entry for `RETIREMENT_GRACE`, ten minutes, and still resolves. Pruning then clears every per-transaction map. Retirement is **not** rejection: a re-gossiped copy is admitted again, unless it is an expired claim. A fork switch re-admits the displaced transactions the adopted branch does not carry. A node persists the pending hashes with their admission times, the retired hashes with their retirement times, and the bodies. On recovery it rebuilds the prefix index from both, and `highest_slot` starts unset.
 
 ## 5. Expired claims
 
