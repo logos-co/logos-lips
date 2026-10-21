@@ -42,6 +42,7 @@
 | v20 | Every era after the first keeps its uncle reference window within the finalization window of the era before it, `W_n · f_n⁻¹ ≤ s_{n−1}/5`, since the latest immutable block of an era's first blocks still lies in the era before. This changes normative content, so approvals are collected again on v20. | 2026-10-21 |
 | v21 | The Genesis inscription's section is named Genesis Parameters, since it holds the pow reward pool seed, which is no Cryptarchia parameter, and the seed's field is `genesis_pow_reward_pool`, apart from the running balance `pow_reward_pool`. No rule changes. | 2026-10-21 |
 | v22 | The Genesis Parameters take the implementation's field names: `epoch_nonce` and `pow_reward_pool` in place of `genesis_epoch_nonce` and `genesis_pow_reward_pool`. A reference from outside the section names the field as that of the Genesis Parameters, so the seed is not confused with the running balance. No rule changes. | 2026-10-21 |
+| v23 | `genesis_time` is `start_time`, so no field of the Genesis Parameters repeats the section's name. No rule changes. | 2026-10-21 |
 
 ## Reviewer Orientation
 
@@ -284,11 +285,11 @@ Cryptarchia's §Versioning and Protocol Upgrades, which activated upgrades by bl
 
 ## 12. Genesis parameters
 
-[Bedrock Genesis Block](../bedrock-genesis-block.md): the inscription, renamed Genesis Parameters, takes the implementation's field names, gains two fields after `epoch_nonce`, and must decode to exactly five parameters.
+[Bedrock Genesis Block](../bedrock-genesis-block.md): the inscription, renamed Genesis Parameters, drops the genesis prefix from its field names, gains two fields after `epoch_nonce`, and must decode to exactly five parameters.
 
 ```diff
 -inscription = chain_id_len + chain_id + genesis_time + genesis_epoch_nonce
-+inscription = (chain_id_len + chain_id + genesis_time + epoch_nonce
++inscription = (chain_id_len + chain_id + start_time + epoch_nonce
 +               + pow_reward_pool                # u64, little-endian
 +               + consensus_excluded_keys)       # u32 count, then ZkPublicKeys in increasing order
 ```
@@ -311,7 +312,7 @@ Cryptarchia's §Versioning and Protocol Upgrades, which activated upgrades by bl
 - [x] Remove the `Version` header field and the Blend version bytes; put `slot` first ([logos-blockchain#3679](https://github.com/logos-blockchain/logos-blockchain/pull/3679))
 - [x] Era schedule with parameter records; era and fork digests; identifiers from the fork digest ([#3683](https://github.com/logos-blockchain/logos-blockchain/pull/3683), [#3687](https://github.com/logos-blockchain/logos-blockchain/pull/3687), [#3689](https://github.com/logos-blockchain/logos-blockchain/pull/3689))
 - [ ] Align the era record with Era Parameters (the differences listed in Discussion) and regenerate the era and fork digest vectors
-- [ ] Move `reward_pool_genesis` and `consensus_excluded_keys` from the era ruleset to the Genesis Parameters, and derive the first epoch's pow reward from the pool in place of `epoch_reward_genesis`
+- [ ] Move `reward_pool_genesis` and `consensus_excluded_keys` from the era ruleset to the Genesis Parameters, and derive the first epoch's pow reward from the pool in place of `epoch_reward_genesis`; name the fields `chain_id`, `start_time`, `epoch_nonce`, `pow_reward_pool` and `consensus_excluded_keys`
 - [ ] Drop the chain ID from the fork digest input; name Kademlia by the genesis block ID in lowercase hexadecimal, and announce `/logos-blockchain/<genesis_id>/identify` as the identify protocol version, both in place of the percent-encoded chain ID
 - [ ] Reject a schedule whose record has a ratio with a zero denominator, a slot activation coefficient with numerator 0, a fractional slot length, a learning rate that is negative, negative zero or not finite, or an epoch or slot length below 1, and a schedule whose era has `W_n · f_n⁻¹` above `s_{n−1}/5`; compute ⌊k/f⌋ with integers
 - [ ] Support more than one era: `era`, `epoch`, `first_slot` and `slot(t)` by summation; switch identifiers at the boundary and, for the previous era's `T` rounds, accept and open connections on both eras' identifiers; then drop the previous era's identifiers with the sync requests not yet served on them, and let the requester continue under the new era without counting the drop as a download failure; a node that starts during the period runs only the era in force

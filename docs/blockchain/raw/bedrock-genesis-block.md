@@ -32,7 +32,7 @@
 | 1.1.4 | Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy. | 2026-08-25 |
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
 | 1.2.0 | Seed the pow reward pool at genesis from the initial token distribution | 2026-09-08 |
-| 1.3.0 | Removed the `bedrock_version` header field and moved `slot` first, and set the `fork_digest` of the Genesis Mantle Transaction to zero, parsing it under era 0 ([Bedrock Eras](bedrock-eras.md)); the inscription, renamed Genesis Parameters with the field names of the implementation, also carries the pow reward pool seed and the consensus-excluded keys. | 2026-10-21 |
+| 1.3.0 | Removed the `bedrock_version` header field and moved `slot` first, and set the `fork_digest` of the Genesis Mantle Transaction to zero, parsing it under era 0 ([Bedrock Eras](bedrock-eras.md)); the inscription, renamed Genesis Parameters with field names that drop the genesis prefix, also carries the pow reward pool seed and the consensus-excluded keys. | 2026-10-21 |
 | 1.4.0 | Set `block_slots` to hold the Genesis block at slot 0. | 2026-10-21 |
 
 # Introduction
@@ -109,8 +109,8 @@ SERVICE_DECLARATIONS = BLEND_DECLARATIONS
 
 The Genesis block sets the following parameters:
 
-- `genesis_time`: u32 unix timestamp (seconds since the Unix epoch).
-  A unix timestamp is conventionally an `i64`; `genesis_time` is restricted to the `u32` range (0 to 2^32 - 1), which covers all plausible genesis dates (through February 2106).
+- `start_time`: u32 unix timestamp (seconds since the Unix epoch).
+  A unix timestamp is conventionally an `i64`; `start_time` is restricted to the `u32` range (0 to 2^32 - 1), which covers all plausible genesis dates (through February 2106).
   Cryptarchia uses slots as a measure of time offset from some start time. This timestamp must be agreed upon by all nodes in order to have a common clock.
 
 - `chain_id`: UTF-8 string, encoded with a u8 length prefix (at most 255 bytes).
@@ -131,21 +131,21 @@ These parameters are encoded in the Genesis block as an inscription sent to the 
 
 ```python
 CHAIN_ID = "logos-blockchain-mainnet"
-GENESIS_TIME = 1767640835  # 2026-01-05T19:20:35Z
+START_TIME = 1767640835  # 2026-01-05T19:20:35Z
 EPOCH_NONCE = "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
 POW_REWARD_POOL = 300_000_000_000
 CONSENSUS_EXCLUDED_KEYS = []  # ZkPublicKey values
 
 chain_id_enc = CHAIN_ID.encode("utf-8")
 chain_id_len = len(chain_id_enc).to_bytes(1, "little")
-genesis_time = GENESIS_TIME.to_bytes(4, "little")
+start_time = START_TIME.to_bytes(4, "little")
 epoch_nonce = bytes.fromhex(EPOCH_NONCE)
 pow_reward_pool = POW_REWARD_POOL.to_bytes(8, "little")
 consensus_excluded_keys = len(CONSENSUS_EXCLUDED_KEYS).to_bytes(4, "little") + b"".join(
     key.to_bytes(32, "little") for key in sorted(CONSENSUS_EXCLUDED_KEYS)
 )
 
-inscription = (chain_id_len + chain_id_enc + genesis_time + epoch_nonce
+inscription = (chain_id_len + chain_id_enc + start_time + epoch_nonce
                + pow_reward_pool + consensus_excluded_keys)
 
 # >>> inscription.hex()
@@ -242,7 +242,7 @@ STAKE_DISTRIBUTION = Transfer(
 
 # set the Genesis Parameters
 CHAIN_ID = "logos-blockchain-mainnet"
-GENESIS_TIME = 1767640835  # 2026-01-05T19:20:35Z
+START_TIME = 1767640835  # 2026-01-05T19:20:35Z
 EPOCH_NONCE = "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
 POW_REWARD_POOL = 300_000_000_000
 CONSENSUS_EXCLUDED_KEYS = []  # ZkPublicKey values
@@ -251,7 +251,7 @@ chain_id_enc = CHAIN_ID.encode("utf-8")
 inscription = (
     len(chain_id_enc).to_bytes(1, "little")
     + chain_id_enc
-    + GENESIS_TIME.to_bytes(4, "little")
+    + START_TIME.to_bytes(4, "little")
     + bytes.fromhex(EPOCH_NONCE)
     + POW_REWARD_POOL.to_bytes(8, "little")
     + len(CONSENSUS_EXCLUDED_KEYS).to_bytes(4, "little")
@@ -339,7 +339,7 @@ The Mantle Transaction contains an inscription sent to the null channel containi
 
 Two conditions are specific to Genesis. The inscription must be addressed to the null channel and signed by the null key, an inscription anywhere else not being a set of Genesis Parameters. It must also decode to exactly the five parameters, encoded as [Genesis Parameters](#genesis-parameters) specifies and with no trailing bytes. A node that cannot decode them has no clock, no chain identifier and no lottery randomness, and must reject the Genesis block.
 
-The Cryptarchia slot clock is initialized to `genesis_time`, `LIB` is set to the Genesis block and the epoch state is then initialized:
+The Cryptarchia slot clock is initialized to the `start_time` of the [Genesis Parameters](#genesis-parameters), `LIB` is set to the Genesis block and the epoch state is then initialized:
 
 ### Initial Epoch State
 
