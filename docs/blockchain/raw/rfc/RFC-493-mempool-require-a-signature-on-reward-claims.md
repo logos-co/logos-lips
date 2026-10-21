@@ -1,6 +1,6 @@
 # [RFC] Mempool: Require a signature on reward claims
 
-**Motivation and proposal:** PR #TBD
+**Motivation and proposal:** [PR #493](https://github.com/logos-co/logos-lips/pull/493)
 
 ## Change log
 
