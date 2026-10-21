@@ -43,6 +43,7 @@
 | v21 | The Genesis inscription's section is named Genesis Parameters, since it holds the pow reward pool seed, which is no Cryptarchia parameter, and the seed's field is `genesis_pow_reward_pool`, apart from the running balance `pow_reward_pool`. No rule changes. | 2026-10-21 |
 | v22 | The Genesis Parameters take the implementation's field names: `epoch_nonce` and `pow_reward_pool` in place of `genesis_epoch_nonce` and `genesis_pow_reward_pool`. A reference from outside the section names the field as that of the Genesis Parameters, so the seed is not confused with the running balance. No rule changes. | 2026-10-21 |
 | v23 | `genesis_time` is `start_time`, so no field of the Genesis Parameters repeats the section's name. No rule changes. | 2026-10-21 |
+| v24 | A node broadcasts the proposal a Blend message carries on the era of its connection, where it said every payload; a transaction in it goes to the mempool, as Blend specifies. A node publishes on the era-in-force topic a transaction it broadcasts, where it said every transaction it admits, which read as re-publishing gossiped ones. | 2026-10-21 |
 
 ## Reviewer Orientation
 
