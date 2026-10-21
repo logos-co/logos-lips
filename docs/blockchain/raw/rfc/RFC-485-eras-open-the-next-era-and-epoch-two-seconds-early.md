@@ -11,6 +11,7 @@
 |  | Core nodes retrieve the next epoch's core nodes, and every node takes the SDP snapshot, `T_S` before the epoch. The nullifier cache keeps an entry until the Transition Period after its message's epoch, and its size bound covers `T_S`. The boundary walk re-validates the mempool before it opens the next era, as Era Change does, and the Protocol tier names the clock slack instead of its value. A node that starts during the Era Transition Period into an era runs only that era. | 2026-10-20 |
 |  | Removed: the claim that an honest node never sends a new-epoch message on an old-epoch connection, which no rule made true. Corrected: the Reviewer Orientation no longer says the change only moves the transition periods, and the implementation is asked not to add the one-round delay rather than to drop it. | 2026-10-20 |
 | v3 | Blend's protocol name for an epoch's connections ends in the epoch digest, a hash of the epoch number and the proof-of-quota public inputs fixed for the epoch, so a connection shows its epoch. A node validates a message against the epoch of its connection and sends it only on connections of that epoch. Removed: validating every message against both epochs, and holding a next-epoch message until the node's own switch, which per-epoch connections make unnecessary. Nodes whose epoch inputs differ never connect. | 2026-10-20 |
+| v4 | [Mempool](../mempool.md) follows the clock slack: admission, `preverify` and the retirement at an era change use the era in force `T_S` ahead, and block building leaves out the transactions whose fork digest the block's era does not accept, so a leader of an era's last blocks does not retire an early transaction as inapplicable. Removed: re-validating the mempool against the chain tip, which the era rules of Mempool replace. | 2026-10-21 |
 
 ## Reviewer Orientation
 
@@ -19,7 +20,8 @@ Read the PR's Motivation first. The Era Transition Period now starts `T_S` befor
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here**: [Blend Protocol](../blend-protocol.md) and [Service Declaration Protocol](../bedrock-service-declaration-protocol.md), [details](#1-blend-epochs) | the epoch digest in the protocol name, and what it binds; from `T_S` before an epoch: its connections opened and counted apart, bootstrapping and the SDP snapshot; each message validated against, and sent only on, connections of its epoch; the nullifier cache; `T_C < T_S`; the removed one-round bound and last-round exemption from blacklisting |
-| 2 | High | [Bedrock Eras](../bedrock-eras.md), [details](#2-era-boundaries) | the Era Transition Period starting `T_S` before the boundary; the mempool following the era in force `T_S` ahead; a node that starts during the period; the boundary walk |
+| 2 | High | [Bedrock Eras](../bedrock-eras.md), [details](#2-era-boundaries) | the Era Transition Period, and the retirement of pending transactions at an era change, starting `T_S` before the boundary; a node that starts during the period; the boundary walk |
+| 3 | High | [Mempool](../mempool.md), [details](#3-mempool) | admission, `preverify` and the era-change retirement under the era in force `T_S` ahead; block building leaving out the transactions whose fork digest the block's era does not accept |
 
 # Discussion
 
@@ -42,7 +44,7 @@ With the slack, every honest node has opened the next era's identifiers and the 
 
 ## Early transactions
 
-The mempool validates against the era in force `T_S` ahead of the clock. A transaction carrying the new era's fork digest, published early by a node ahead, is therefore admitted, and waits. No block of the old era accepts a later digest ([Era of Chain Data](../bedrock-eras.md#era-of-chain-data)), and transaction maturity ([Block Construction](../bedrock-v1.1-block-construction.md)) takes longer than the slack. A transaction the new era refuses leaves the mempool `T_S` early, at a cost of at most two slots in which it could still have been included.
+The mempool admits under the era in force `T_S` ahead of the clock. A transaction carrying the new era's fork digest, published early by a node ahead, is therefore admitted, and waits. No block of the old era accepts a later digest ([Era of Chain Data](../bedrock-eras.md#era-of-chain-data)), so block building leaves it out of the old era's last blocks, and a leader of those blocks does not retire it as inapplicable. Transaction maturity ([Block Construction](../bedrock-v1.1-block-construction.md)) takes longer than the slack. A transaction whose fork digest the new era refuses leaves the mempool `T_S` early, and one that arrives in that time passes `preverify` under the new era's rules. Each costs at most two slots in which the transaction could still have been included.
 
 ## The value of the slack
 
@@ -93,21 +95,35 @@ def epoch_digest(epoch: EpochNumber, p: ProofOfQuotaPublic) -> hash:
 [Bedrock Eras](../bedrock-eras.md):
 
 - §Era Transition Period: the period starts `T_S` seconds before the era in force changes and ends `T` rounds after it, `T_S` and `T` both of the previous era. A node that starts during the period into an era runs only the protocols of that era.
-- §Era Change: the mempool keeps the transactions valid under the era in force `T_S` ahead, and a node re-validates it and starts the Era Transition Period when that era changes.
+- §Era Change: a node retires the pending transactions whose fork digest the new era does not accept, and starts the Era Transition Period, when `era_in_force_after(T_S)` changes rather than when the era in force does.
+- §Era Boundaries: `era_in_force_after(seconds)` gives the era of the slot `seconds` ahead of the clock, and `era_in_force()` is `era_in_force_after(0)`. Notation gains `T_S`.
+- The Protocol tier follows: the Network Layer text and state diagram, the boundary walk and its diagram (the pending transactions retired, then the next era opened, one clock slack early; early messages processed as the Era Transition Period specifies; no one-round release delay), the Node State mempool entry, and the Overview chart and text.
+
+## 3. Mempool
+
+[Mempool](../mempool.md):
+
+- §Transaction Admission: `admit` checks the fork digest against the era in force `T_S` ahead, and `preverify` applies the rules of that era.
 
 ```diff
- def revalidate_mempool(tip: Block, mempool: list[Transaction]) -> list[Transaction]:
--    era = era_in_force()
-+    era = era_in_force_after(T_S)
-     # ... unchanged lines elided
+-    if not accepts_fork_digest(era_in_force(), tx.tx.fork_digest):
++    if not accepts_fork_digest(era_in_force_after(T_S), tx.tx.fork_digest):
 ```
 
-- §Era Boundaries: `era_in_force_after(seconds)` gives the era of the slot `seconds` ahead of the clock, and `era_in_force()` is `era_in_force_after(0)`. Notation gains `T_S`.
-- The Protocol tier follows: the Chain State mempool entry, the Network Layer text and state diagram, the boundary walk and its diagram (the mempool re-validated, then the next era opened, one clock slack early; early messages processed as the Era Transition Period specifies; no one-round release delay), the Node State mempool entry, and the Overview chart and text.
+- §Block Building View: `applicability` leaves out the pending transactions whose fork digest the era of the block's slot does not accept, so they stay pending instead of becoming inapplicable.
+
+```python
+    era = era_of_slot(header.slot)
+    applied, remaining = [], [key for key in mempool.pending
+                              if accepts_fork_digest(era, mempool.bodies[key].tx.fork_digest)]
+```
+
+- §Era Change: a pending transaction is retired when `era_in_force_after(T_S)` does not accept its fork digest, checked when that era changes and on recovery.
+- The Overview, the Admission Pipeline, Block Building Input and Retirement Reasons follow, and Notation gains `T_S`.
 
 ## Chores
 
-- Revision-history rows added to Bedrock Eras, Blend Protocol and Service Declaration Protocol.
+- Revision-history rows added to Bedrock Eras, Blend Protocol, Mempool and Service Declaration Protocol.
 
 # Implementation
 
@@ -116,7 +132,7 @@ def epoch_digest(epoch: EpochNumber, p: ProofOfQuotaPublic) -> hash:
 - [ ] Validate each message, edge messages included, against the epoch of its connection, and send it only on connections of that epoch; do not add the one-round release delay, and blacklist on any invalid proof of quota
 - [ ] Keep a nullifier until the Transition Period after its message's epoch ends
 - [ ] Open the next era's identifiers and subscribe to its topics `T_S` before the boundary, and keep the previous era's until `T` rounds after it; a node that starts during the period runs only the new era
-- [ ] Validate the mempool against the era in force `T_S` ahead, and re-validate it when that era changes
+- [ ] Admit and preverify transactions under the era in force `T_S` ahead, retire those whose fork digest it does not accept when it changes, and leave out of block building the transactions whose fork digest the block's era does not accept
 - [ ] Add tests that switch epochs and eras with node clocks up to `T_S` apart, including gossip and Blend messages from a node whose clock runs ahead, a next-epoch message an attacker sends as a node's window opens, and nodes whose epoch inputs differ
 - [ ] Verify the implementation matches this specification
 
@@ -125,5 +141,6 @@ def epoch_digest(epoch: EpochNumber, p: ProofOfQuotaPublic) -> hash:
 | Specification | Status | Note |
 | --- | --- | --- |
 | [Blend Protocol](../blend-protocol.md) | Modified | clock slack at every epoch: per-epoch protocol names from the epoch digest, early connections counted apart, messages sent only on connections of their epoch, bootstrapping and the nullifier cache; one-round clock bound and last-round exemption from blacklisting removed |
-| [Bedrock Eras](../bedrock-eras.md) | Modified | Era Transition Period from the clock slack before the boundary; mempool under the era in force that slack ahead; a node starting during the period runs only the new era |
+| [Bedrock Eras](../bedrock-eras.md) | Modified | Era Transition Period and the era-change retirement of pending transactions from the clock slack before the boundary; a node starting during the period runs only the new era |
+| [Mempool](../mempool.md) | Modified | admission, `preverify` and the era-change retirement under the era in force the clock slack ahead; block building leaves out transactions whose fork digest the block's era does not accept |
 | [Service Declaration Protocol](../bedrock-service-declaration-protocol.md) | Modified | snapshot taken the clock slack before its epoch |
