@@ -505,7 +505,7 @@ def era_in_force() -> int:
     return era_of_slot(slot_of_time(wallclock_time()))
 ```
 
-`SCHEDULE` is the era schedule of the node's network ([Parameters](#parameters)). `cryptarchia` and `time` are sections of the [parameter record](#era-parameters). A slot is an unsigned 64-bit integer, as the `slot` of a [Block Header](cryptarchia-v1-protocol.md#block-header) is. A time is the number of whole seconds elapsed since the Unix epoch, an unsigned 64-bit integer. `genesis_time` is from [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters). `slot_of_time(t)` is defined for `t` from `start_time_of_era(0)` on. `wallclock_time().to_slot()` of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) is `slot_of_time(wallclock_time())`.
+`SCHEDULE` is the era schedule of the node's network ([Parameters](#parameters)). `cryptarchia` and `time` are sections of the [parameter record](#era-parameters). A slot is an unsigned 64-bit integer, as the `slot` of a [Block Header](cryptarchia-v1-protocol.md#block-header) is. A time is the number of whole seconds elapsed since the Unix epoch, an unsigned 64-bit integer. `genesis_time` is from [Genesis Parameters](bedrock-genesis-block.md#genesis-parameters). `slot_of_time(t)` is defined for `t` from `start_time_of_era(0)` on. `wallclock_time().to_slot()` of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) is `slot_of_time(wallclock_time())`.
 
 ## Fork Digest
 

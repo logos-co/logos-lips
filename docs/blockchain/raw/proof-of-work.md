@@ -21,8 +21,8 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-09 |
 | 1.1.0 | Set the reference load of the Blend difficulty to the transaction rate the Blend network carries, `F_T / F_D = 130` transactions per block | 2026-09-11 |
-| 1.2.0 | The acceptance window is the parameter `WINDOW`, in slots, of the era of the referenced block, in place of `EXPECTED_BLOCKS_PER_WINDOW` ([Bedrock Eras](bedrock-eras.md)), and the pool seed is a Cryptarchia parameter of the Genesis block. | 2026-10-20 |
-| 1.3.0 | Specified how `block_slots` and `pow_nullifiers` are kept for the acceptance window, and excluded the Genesis block from the blocks the Blend difficulty counts. | 2026-10-20 |
+| 1.2.0 | The acceptance window is the parameter `WINDOW`, in slots, of the era of the referenced block, in place of `EXPECTED_BLOCKS_PER_WINDOW` ([Bedrock Eras](bedrock-eras.md)), and the pool seed is one of the Genesis Parameters. | 2026-10-21 |
+| 1.3.0 | Specified how `block_slots` and `pow_nullifiers` are kept for the acceptance window, and excluded the Genesis block from the blocks the Blend difficulty counts. | 2026-10-21 |
 
 # Introduction
 
@@ -166,7 +166,7 @@ The two updates below multiply and divide targets as integers rather than in the
 
 ## Reward Pool
 
-The pool is seeded once, at genesis, with `pow_reward_pool_genesis` of the [Cryptarchia Parameters](bedrock-genesis-block.md#cryptarchia-parameters). After that it changes through the epoch-boundary refill and through claims.
+The pool is seeded once, at genesis, with `genesis_pow_reward_pool` of the [Genesis Parameters](bedrock-genesis-block.md#genesis-parameters). After that it changes through the epoch-boundary refill and through claims.
 
 ```python
 def compute_epoch_pow_reward(pow_reward_pool: TokenValue) -> TokenValue:
