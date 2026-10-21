@@ -1,6 +1,6 @@
 # [RFC] Mempool: Rebuild the claim clock on recovery
 
-**Motivation and proposal:** PR #TBD
+**Motivation and proposal:** [PR #494](https://github.com/logos-co/logos-lips/pull/494)
 
 ## Change log
 
