@@ -1,6 +1,6 @@
 # [RFC] Mempool: Make the transaction time to live a protocol constant
 
-**Motivation and proposal:** PR #TBD
+**Motivation and proposal:** [PR #492](https://github.com/logos-co/logos-lips/pull/492)
 
 ## Change log
 
