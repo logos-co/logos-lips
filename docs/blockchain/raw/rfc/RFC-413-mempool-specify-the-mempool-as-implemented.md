@@ -26,7 +26,7 @@
 |  | `TRANSACTION_TTL` is a node setting, as implemented: 1 hour by default, and `None` disables expiry. A transaction expires once its age reaches it. The departure that pinned it moved to a submission of its own, and its consequence is Open Issue 16. | 2026-10-20 |
 |  | `highest_slot` counts only blocks added since the node started, and a claim pending since recovery is not retired as a claim, as [logos-blockchain#3789](https://github.com/logos-blockchain/logos-blockchain/pull/3789) implements. The departure that rebuilt the clock moved to a submission of its own, and its consequence is Open Issue 17. | 2026-10-20 |
 |  | A retired transaction keeps its body and prefix entry for `RETIREMENT_GRACE`, ten minutes, and still resolves, as implemented. The departure that discarded the body at retirement goes, and Open Issue 10 now covers forks that outlast the grace. | 2026-10-20 |
-|  | Block building stops at the first transaction that would take the block past `G_max`, and then retires only a transaction whose own Execution Gas exceeds it, as implemented. The gas check comes before the batched ZK proofs, and its consequence is Open Issue 18. | 2026-10-21 |
+|  | Block building stops at the first transaction that would take the block past `G_max`, and then retires only a transaction whose own Execution Gas exceeds it, as implemented. The gas check comes before the batched ZK proofs. Its consequence is Open Issue 18, with an implementation task. | 2026-10-21 |
 |  | A node remembers a message identity for `SEEN_TTL`, 24 hours by default, drops a received message it remembers and sends nothing for a broadcast of one, as implemented. A duplicate that arrives by re-insertion is broadcast again. Open Issue 12 now covers the broadcasts this suppresses. | 2026-10-21 |
 |  | A transaction extracted from a Blend data message is a local submission, as implemented, so the node broadcasts it. Open Issue 13 keeps only the size mismatch. | 2026-10-21 |
 |  | `preverify` also requires an input where an operation spends one, no output of value `0`, and a channel configuration with non-zero thresholds and a key, as implemented. The stateless-validation departure still holds at `60744b8e7`. | 2026-10-21 |
@@ -34,7 +34,7 @@
 |  | A fork switch re-admits the transactions of the newest displaced block first, as implemented. | 2026-10-21 |
 |  | A local submission is decoded and preverified before the size check, and arrives through the Node API in JSON. The Node API section describes the endpoints as implemented, which ticks their task. | 2026-10-21 |
 |  | Reconstruction checks the size of the resolved transactions before the body root, as implemented, so an oversized body is a reconstruction failure. Block construction's 1.4.0 row says so. | 2026-10-21 |
-|  | Corrected the walkthrough, which resolved references from the pending set and checked a local submission's size first, and the `resolve` snippet in Details. The P2P Network registration, ticked but never made, is now Open Issue 19. | 2026-10-21 |
+|  | Corrected the walkthrough, which resolved references from the pending set and checked a local submission's size first, and the `resolve` snippet in Details. The ticked message-id task no longer claims a P2P Network registration, which P2P Network makes itself. | 2026-10-21 |
 
 ## Reviewer Orientation
 
@@ -112,8 +112,7 @@ Recorded here rather than in the specification.
 15. **Reconstruction precedes the parent and leadership checks.** Before reconstruction a node checks only the latest immutable block, the genesis slot, the block tree and the signature. A proposal whose parent is missing and whose references do not resolve is therefore dropped before the missing parent is noticed, and it never reaches the orphan path. A proposal with an invalid proof of leadership also costs a mempool scan.
 16. **A node can disable expiry.** `TRANSACTION_TTL` is a node setting, 1 hour by default, and `None` turns expiry off. Such a node retires a transaction only when a block carries it, when its own block building fails to apply it, or when it carries an expired claim.
 17. **A restart suspends the claim rule.** `highest_slot` is unset until the node adds a block after it starts, so until then admission refuses no expired claim. A claim that has been pending since the node recovered it never expires as a claim, and only `TRANSACTION_TTL` or inapplicability retires it.
-18. **The gas limit is checked before the batched ZK proofs.** Block building counts a transaction's Execution Gas before it verifies the transaction's batched ZK proofs. A transaction whose only fault is a ZK proof can therefore end the determination at `G_max`, and it is then not retired. It cuts short each block whose applied gas leaves no room for it, until `TRANSACTION_TTL` retires it.
-19. **P2P Network does not name the mempool topic as implemented.** [Gossiping](../../draft/p2p-network.md#gossiping) names `/logos-blockchain/mempool/1.0.0`, where the implementation gossips on `/logos-blockchain/<fork digest>/mempool`. It also leaves out the message identity that [Dissemination](../mempool.md#dissemination) defines.
+18. **The gas limit is checked before the batched ZK proofs.** Block building counts a transaction's Execution Gas before it verifies the transaction's batched ZK proofs. A transaction whose only fault is a ZK proof can therefore end the determination at `G_max`, and it is then not retired. It cuts short each block whose applied gas leaves no room for it, until `TRANSACTION_TTL` retires it. Its task is under [Implementation](#implementation).
 
 # Details
 
@@ -191,6 +190,7 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 # Implementation
 
 - [ ]  Give `CLAIM_POW_REWARD` the `ZkSignature` proof that Mantle requires, and verify it at admission
+- [ ]  Verify a transaction's batched ZK proofs before its Execution Gas counts against `G_max` in block building, so that a transaction whose proof fails cannot end the determination (Open Issue 18)
 - [x]  Move the mempool size check ahead of decoding
 - [x]  Retire the transactions of every block that enters the canonical chain, not only those of the new tip ([logos-blockchain#3734](https://github.com/logos-blockchain/logos-blockchain/pull/3734))
 - [x]  Exclude the transactions the adopted branch carries when a fork switch re-admits displaced ones ([logos-blockchain#3746](https://github.com/logos-blockchain/logos-blockchain/pull/3746))
