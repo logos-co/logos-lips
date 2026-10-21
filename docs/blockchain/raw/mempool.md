@@ -284,7 +284,7 @@ For a local submission, a node decodes the transaction and runs `preverify` firs
 
 ### Decoding
 
-The payload is the canonical encoding defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md), carried in the envelope defined in [Network Wire Format](network-wire-format.md). Decoding must consume the payload exactly. A transaction submitted through the [Node API](#node-api) arrives in JSON instead.
+The payload is the canonical encoding defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md), carried in the envelope defined in [Network Wire Format](network-wire-format.md): the length of the encoding as an unsigned 64-bit little-endian integer, followed by the encoding. Decoding must consume the payload exactly. A transaction submitted through the [Node API](#node-api) arrives in JSON instead.
 
 ### Stateless Validation
 

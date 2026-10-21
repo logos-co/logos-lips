@@ -36,6 +36,7 @@
 |  | Reconstruction checks the size of the resolved transactions before the body root, as implemented, so an oversized body is a reconstruction failure. Block construction's 1.4.0 row says so. | 2026-10-21 |
 |  | Corrected the walkthrough, which resolved references from the pending set and checked a local submission's size first, and the `resolve` snippet in Details. The ticked message-id task no longer claims a P2P Network registration, which P2P Network makes itself. | 2026-10-21 |
 |  | A broadcast that finds no peer on the topic is retried three times, waiting 1, 5 and 25 seconds, and its identity is remembered only once a peer is there, as implemented. Open Issue 12 no longer says a broadcast is never retried. | 2026-10-21 |
+|  | Decoding states the envelope as implemented: the encoding's length as an unsigned 64-bit little-endian integer, then the encoding. | 2026-10-21 |
 
 ## Reviewer Orientation
 
