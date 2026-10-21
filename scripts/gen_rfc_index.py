@@ -20,7 +20,7 @@ DOCS = ROOT / "docs"
 OUTPUT = DOCS / "logos-lips.json"
 
 EXCLUDE_FILES = {"README.md", "SUMMARY.md", "about.md", "template.md"}
-EXCLUDE_PARTS = {"previous-versions", "appendix", "appendices"}
+EXCLUDE_PARTS = {"previous-versions", "appendix", "appendices", "rfc"}
 
 
 def parse_meta_from_markdown_table(text: str) -> Optional[Dict[str, str]]:
