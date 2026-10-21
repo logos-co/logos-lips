@@ -1,6 +1,6 @@
 # [RFC] Block Construction: Validate the header before resolving references
 
-**Motivation and proposal:** PR #TBD
+**Motivation and proposal:** [PR #495](https://github.com/logos-co/logos-lips/pull/495)
 
 ## Change log
 
