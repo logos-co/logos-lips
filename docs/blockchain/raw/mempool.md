@@ -109,6 +109,8 @@ A transaction arrives by local submission, by gossip, or by re-insertion after a
 - it is not already pending;
 - it carries no [Proof of Work](proof-of-work.md) reward **claim** whose **deadline** has passed.
 
+A local submission is decoded and passes `preverify` before its size is checked.
+
 `highest_slot` is the highest slot of a block that [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance) has added to the block tree since the node started. A claim's deadline passes when `highest_slot` is more than `CLAIM_GRACE` slots past the end of its [Acceptance Window](proof-of-work.md#acceptance-window). No deadline passes before the node adds a block, and a claim that names a block the node does not hold has no deadline. A transaction that is already pending is a duplicate. It is dropped if it came by gossip, and broadcast again otherwise, and a local client is answered as success. [Transaction Admission](#transaction-admission) specifies the procedure.
 
 ## Gossip
