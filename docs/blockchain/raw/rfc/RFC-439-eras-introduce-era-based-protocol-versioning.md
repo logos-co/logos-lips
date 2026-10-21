@@ -308,7 +308,7 @@ Cryptarchia's §Versioning and Protocol Upgrades, which activated upgrades by bl
      tx = decode_signed_mantle_tx(encoded)   # under the era its fork digest names
      if tx is None:
          return Reject(Malformed)
-+    if not accepts_fork_digest(era_in_force(), tx.fork_digest):
++    if not accepts_fork_digest(era_in_force(), tx.tx.fork_digest):
 +        return Reject(UnacceptedForkDigest)
      if not preverify(tx):                    # under the era in force
 ```
