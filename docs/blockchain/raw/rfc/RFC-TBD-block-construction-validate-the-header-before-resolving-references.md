@@ -6,7 +6,7 @@
 
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
-| v1 | Initial RFC | 2026-10-20 |
+| v1 | Initial RFC | 2026-10-21 |
 
 ## Reviewer Orientation
 
@@ -18,7 +18,7 @@ Single-document change — read [Block Proposal Validation](../bedrock-v1.1-bloc
 
 A mempool scan is the expensive step in accepting a proposal, and a proposal is unauthenticated below its header. [Block Proposal Validation](../bedrock-v1.1-block-construction.md#block-proposal-validation) therefore checks every rule of [Block Header Validation](../cryptarchia-v1-protocol.md#block-header-validation) that reads no transactions before it resolves a reference.
 
-Until this change it described what `logos-blockchain` does at `8eb8a05e5`. Before reconstruction the implementation checks only that the slot is later than the latest immutable block's and is not the genesis slot, that its block tree does not already hold the block, and the signature. It finds a missing parent only when it applies the reconstructed block. Two things follow:
+Until this change it described what `logos-blockchain` does at `60744b8e7`. Before reconstruction the implementation checks only that the slot is later than the latest immutable block's and is not the genesis slot, that its block tree does not already hold the block, and the signature. It finds a missing parent only when it applies the reconstructed block. Two things follow:
 
 - A proposal whose parent is missing and whose references do not resolve is dropped before the missing parent is noticed. It never reaches the orphan path of [Listening for New Blocks](../cryptarchia-v1-bootstr-sync.md#listening-for-new-blocks), so the node does not download the missing blocks.
 - A proposal with an invalid proof of leadership costs a mempool scan before it is rejected.
@@ -33,7 +33,7 @@ Block Proposal Validation rejects a proposal that fails any check, and it record
 
 ## Header and uncle validation precede reconstruction
 
-[Block Proposal Validation](../bedrock-v1.1-block-construction.md#block-proposal-validation) checks rules 1 and 5 through 9 of [Block Header Validation](../cryptarchia-v1-protocol.md#block-header-validation) in step 2, the parent's presence and the proof of leadership included, and the uncle rule, rule 10, in step 3. Reconstruction becomes step 4, and the size rule, rule 2, takes step 5. This is revision 1.5.0 of [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md).
+[Block Proposal Validation](../bedrock-v1.1-block-construction.md#block-proposal-validation) checks rules 1 and 5 through 9 of [Block Header Validation](../cryptarchia-v1-protocol.md#block-header-validation) in step 2, the parent's presence and the proof of leadership included, and the uncle rule, rule 10, in step 3. Reconstruction becomes step 4 and keeps the size rule, rule 2. The step that applied Block Header Validation to the reconstructed block goes, since every rule it applied now runs before reconstruction or in it. This is revision 1.5.0 of [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md).
 
 ```diff
 -2. **Header Authentication**
@@ -48,8 +48,8 @@ Block Proposal Validation rejects a proposal that fails any check, and it record
  
 -4. **Block Validation**
 -  With `transactions` now available, the reconstructed block must satisfy [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) as written.
-+5. **Block Body Validation**
-+  With `transactions` now available, the remaining rule of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) applies: rule 2, `bytes(transactions) <= MAX_BLOCK_SIZE`.
+-
+ 5. **Mempool Transactions Validation**
 ```
 
 The paragraph after the steps counts an invalid uncle entry, step 3, among the failures that discard only the received copy, and cites the other steps by their new numbers. The note on the cost of reconstruction says it follows signature and PoL verification.
