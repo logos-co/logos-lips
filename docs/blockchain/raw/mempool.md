@@ -274,9 +274,11 @@ Admission reads the transaction, the mempool and the node's block tree, and no o
 
 `decode_signed_mantle_tx` returns the transaction that [Decoding](#decoding) describes, or `None` if `encoded` does not decode. `claim_expired` is defined in [Expired Claim](#expired-claim). `admit` returns `Accept(key)` when it admits the transaction, `Duplicate(key)` when the transaction is already pending, and `Reject` with the reason otherwise.
 
+For a local submission, a node decodes the transaction and runs `preverify` first, and then checks the size of its canonical encoding.
+
 ### Decoding
 
-The payload is the canonical encoding defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md), carried in the envelope defined in [Network Wire Format](network-wire-format.md). Decoding must consume the payload exactly.
+The payload is the canonical encoding defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md), carried in the envelope defined in [Network Wire Format](network-wire-format.md). Decoding must consume the payload exactly. A transaction submitted through the [Node API](#node-api) arrives in JSON instead.
 
 ### Stateless Validation
 
@@ -464,7 +466,8 @@ A node exposes the mempool to local clients through endpoints that carry no cons
 
 | Operation | Description |
 | --- | --- |
-| Submit transaction | Admit a transaction by local submission. Returns the outcome of [Transaction Admission](#transaction-admission). |
-| View | The hashes of the pending transactions. |
+| Submit transaction | Admit a transaction by local submission. Returns success when [Transaction Admission](#transaction-admission) admits the transaction or finds it a duplicate, and an error otherwise. |
+| View | The hashes of the pending transactions, in admission order. |
 | Status | For each queried hash, whether the transaction is pending. Any other hash is reported as unknown. |
-| Metrics | The number of pending transactions and the time of the most recent admission. |
+| Metrics | The number of pending transactions, and the time of the most recent admission, which survives a restart, in milliseconds since the Unix epoch, or `0` before the first. |
+| Transaction | The body of a pending or retired transaction that the node holds, by its hash. |

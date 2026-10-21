@@ -32,6 +32,7 @@
 |  | `preverify` also requires an input where an operation spends one, no output of value `0`, and a channel configuration with non-zero thresholds and a key, as implemented. The stateless-validation departure still holds at `60744b8e7`. | 2026-10-21 |
 |  | A node retires expired transactions and expired claims when it processes a block, and after it retires others for inclusion or inapplicability, as implemented. | 2026-10-21 |
 |  | A fork switch re-admits the transactions of the newest displaced block first, as implemented. | 2026-10-21 |
+|  | A local submission is decoded and preverified before the size check, and arrives through the Node API in JSON. The Node API section describes the endpoints as implemented, which ticks their task. | 2026-10-21 |
 
 ## Reviewer Orientation
 
@@ -73,7 +74,7 @@ The specification states rules only. The reasoning behind them is recorded here.
 - **Pruning clears every per-transaction map.** A map that pruning did not clear would grow for the node's lifetime and, being persisted, across restarts.
 - **Retirement follows the canonical chain, not the tip.** Retiring on "becomes the tip" only reaches the new head of an adopted branch. The blocks beneath it were applied while that branch was losing. They become ancestors without ever being the tip, so their transactions would stay pending while being canonical.
 - **A fork switch re-admits only what the adopted branch does not carry.** Re-admitting every transaction of every displaced block would put back transactions that are canonical again. Competing branches select from similar mempools, so the overlap is routine.
-- **Size before decoding.** A bound checked on the decoded transaction does not limit the cost of decoding an oversized payload.
+- **Size before decoding, on gossip.** A bound checked on the decoded transaction does not limit the cost of decoding an oversized payload. A local submission arrives through the Node API or a Blend payload, which bound its size already.
 - **An expired claim is refused at admission.** The submitter learns that the claim has expired, and the node does not broadcast a claim that no block can include.
 - **The claim clock is the highest slot of a block added since the node started.** It advances with every block the node adds, on any branch. It never passes the current slot, because [Block Header Validation](../cryptarchia-v1-protocol.md#block-header-validation) accepts no block whose slot has not begun. A node therefore never retires a claim before the current slot reaches its deadline.
 - **`CLAIM_GRACE` is twice the window.** A grace of zero breaks the constraint beside it in [Parameters](../mempool.md#parameters). Twice the window is the implementation's value. Nothing derives it. With `WINDOW` at 300 slots, it is 600 slots, ten minutes.
@@ -125,7 +126,7 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 
 ## 3. Admission
 
-[Transaction Admission](../mempool.md#transaction-admission). Admission checks the size of the raw payload, then decodes it, requiring full consumption, then applies Mantle's stateless validation, then checks for a duplicate, then refuses an [expired claim](#5-expired-claims). Stateless validation requires exactly one proof per operation, of the type its opcode requires, and a valid proof wherever the proof binds only the transaction hash and the operation payload. It also requires an input where an operation spends one, no output of value `0`, and a channel configuration with non-zero thresholds and a key. Admission reads no ledger state. A pending transaction is therefore **well-formed, not valid**, and membership must never be taken as evidence that it can be applied.
+[Transaction Admission](../mempool.md#transaction-admission). Admission checks the size of the raw payload, then decodes it, requiring full consumption, then applies Mantle's stateless validation, then checks for a duplicate, then refuses an [expired claim](#5-expired-claims). A local submission is decoded and preverified before the size check. Stateless validation requires exactly one proof per operation, of the type its opcode requires, and a valid proof wherever the proof binds only the transaction hash and the operation payload. It also requires an input where an operation spends one, no output of value `0`, and a channel configuration with non-zero thresholds and a key. Admission reads no ledger state. A pending transaction is therefore **well-formed, not valid**, and membership must never be taken as evidence that it can be applied.
 
 ## 4. Retirement and persistence
 
@@ -191,7 +192,7 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 - [x]  Exclude the transactions the adopted branch carries when a fork switch re-admits displaced ones ([logos-blockchain#3746](https://github.com/logos-blockchain/logos-blockchain/pull/3746))
 - [x]  Retire a claim once the highest slot of a block added since the node started reaches its deadline, and refuse it at admission from then on ([logos-blockchain#3789](https://github.com/logos-blockchain/logos-blockchain/pull/3789))
 - [x]  Confirm the gossipsub message-id function on the mempool topic is the payload digest, and register the topic and its message-id in the P2P Network specification
-- [ ]  Reconcile the mempool status and metrics endpoints with the Node API section
+- [x]  Reconcile the mempool status and metrics endpoints with the Node API section
 - [ ]  Add or extend tests that exercise the change: admission ordering, resolution uniqueness, retirement clearing, restart recovery, and a claim retired and refused from its deadline and not before
 - [ ]  Verify the implementation matches this specification
 
