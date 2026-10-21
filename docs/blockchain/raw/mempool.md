@@ -137,7 +137,7 @@ Without retirement, the pending set would only grow. A node retires a transactio
 
 - a block that carries it enters the node's canonical chain;
 - a leader's block building finds it inapplicable;
-- its age reaches `TRANSACTION_TTL`, unless the node disables expiry;
+- its age reaches `TRANSACTION_TTL`;
 - it carries a claim whose deadline has passed.
 
 A retired transaction stays in the mempool for `RETIREMENT_GRACE`, and still resolves references. The node then discards everything it kept for it. When a fork switch displaces blocks from the canonical chain, the node re-admits the transactions they carried that the new canonical chain does not carry. [Retirement](#retirement) and [Reorganisation](#reorganisation) specify the rules.
@@ -206,15 +206,13 @@ A node keeps these values for its mempool, defined in [Mempool State](#mempool-s
 ## Parameters
 
 ```python
-TRANSACTION_TTL: Optional[uint64] = 60 * 60  # seconds a transaction may stay pending before it is retired
+TRANSACTION_TTL: uint64 = 60 * 60            # seconds a transaction may stay pending before it is retired
 RETIREMENT_GRACE: uint64 = 10 * 60           # seconds a retired transaction stays resolvable before it is discarded
 CLAIM_GRACE: uint64 = 2 * WINDOW             # slots a claim stays pending after its acceptance window closes
 SEEN_TTL: uint64 = 24 * 60 * 60              # seconds a node remembers a message identity on the mempool topic
 BROADCAST_RETRIES: uint64 = 3                # retries of a broadcast that finds no peer on the mempool topic
 BROADCAST_BACKOFF: uint64 = 5                # base, in seconds, of the wait before each retry
 ```
-
-`TRANSACTION_TTL` is a node setting, and the value above is its default. A node that sets it to `None` retires no transaction for its age.
 
 `SEEN_TTL` is a node setting, and the value above is its default.
 
@@ -223,6 +221,8 @@ The wait before retry `i`, counting from `0`, is `BROADCAST_BACKOFF ** i` second
 With `WINDOW` at 300 slots, `CLAIM_GRACE` is 600 slots.
 
 `CLAIM_GRACE` must exceed the time, in slots, that a block proposal takes to reach every node. Otherwise a node can retire a claim before a proposal that selected it in the last slot of its acceptance window arrives.
+
+`RETIREMENT_GRACE` must exceed the time a transaction takes to reach every node by gossip, plus the time between two consecutive blocks, plus the time a block proposal takes to reach every node. Otherwise a node can discard a transaction that it retired for its age before a proposal that selected it arrives.
 
 ## Mempool State
 
@@ -410,7 +410,7 @@ A transaction that the applicability determination of [Block Building View](#blo
 
 ### Expiry
 
-A pending transaction whose age reaches `TRANSACTION_TTL` is retired, unless `TRANSACTION_TTL` is `None`.
+A pending transaction whose age reaches `TRANSACTION_TTL` is retired.
 
 ### Expired Claim
 
