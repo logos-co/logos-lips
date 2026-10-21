@@ -24,7 +24,7 @@
 
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
-| 1.0.0 | Initial revision. | 2026-10-20 |
+| 1.0.0 | Initial revision. | 2026-10-21 |
 
 # Introduction
 
@@ -135,7 +135,7 @@ Without retirement, the pending set would only grow. A node retires a transactio
 
 - a block that carries it enters the node's canonical chain;
 - a leader's block building does not apply it in any pass;
-- its age reaches `TRANSACTION_TTL`, unless the node disables expiry;
+- its age reaches `TRANSACTION_TTL`;
 - it carries a claim whose deadline has passed.
 
 A retired transaction stays in the mempool for `RETIREMENT_GRACE`, and still resolves references. The node then discards everything it kept for it. When a fork switch displaces blocks from the canonical chain, the node re-admits the transactions they carried that the new canonical chain does not carry. [Retirement](#retirement) and [Reorganisation](#reorganisation) specify the rules.
@@ -203,12 +203,10 @@ A node keeps these values for its mempool, defined in [Mempool State](#mempool-s
 ## Parameters
 
 ```python
-TRANSACTION_TTL: Optional[uint64] = 60 * 60  # seconds a transaction may stay pending before it is retired
+TRANSACTION_TTL: uint64 = 60 * 60            # seconds a transaction may stay pending before it is retired
 RETIREMENT_GRACE: uint64 = 10 * 60           # seconds a retired transaction stays resolvable before it is discarded
 CLAIM_GRACE: uint64 = 2 * WINDOW             # slots a claim stays pending after its acceptance window closes
 ```
-
-`TRANSACTION_TTL` is a node setting, and the value above is its default. A node that sets it to `None` retires no transaction for its age.
 
 With `WINDOW` at 300 slots, `CLAIM_GRACE` is 600 slots.
 
@@ -380,7 +378,7 @@ A transaction that the applicability determination of [Block Building View](#blo
 
 ### Expiry
 
-A pending transaction whose age reaches `TRANSACTION_TTL` is retired, unless `TRANSACTION_TTL` is `None`.
+A pending transaction whose age reaches `TRANSACTION_TTL` is retired.
 
 ### Expired Claim
 
