@@ -319,7 +319,7 @@ Transactions are gossiped on the mempool topic defined in [Gossiping](../draft/p
 
 A message's identity on that topic is the Blake2b-256 digest of its payload. A node remembers the identity of each message it receives or publishes on that topic for `SEEN_TTL`.
 
-A node drops a received message whose identity it remembers. It relays any other received message to its mesh neighbours on receipt, before admission.
+A node drops a received message whose identity it remembers, or whose payload is larger than a `MAX_BLOCK_SIZE`-byte encoding in its [Network Wire Format](network-wire-format.md) envelope. It relays any other received message to its mesh neighbours on receipt, before admission.
 
 A node broadcasts a transaction it admits by local submission or by re-insertion. It does not broadcast a transaction it received by gossip. A broadcast of a message whose identity the node remembers sends nothing.
 
