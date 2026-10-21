@@ -165,7 +165,7 @@ The two updates below multiply and divide targets as integers rather than in the
 
 ## Reward Pool
 
-The pool is seeded once, at genesis, with `genesis_pow_reward_pool` of the [Genesis Parameters](bedrock-genesis-block.md#genesis-parameters). After that it changes through the epoch-boundary refill and through claims.
+The pool is seeded once, at genesis, with the `pow_reward_pool` of the [Genesis Parameters](bedrock-genesis-block.md#genesis-parameters). After that it changes through the epoch-boundary refill and through claims.
 
 ```python
 def compute_epoch_pow_reward(pow_reward_pool: TokenValue) -> TokenValue:
