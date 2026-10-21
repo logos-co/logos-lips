@@ -40,6 +40,7 @@
 |  | A proof-of-work claim's window, for its check and for discarding its nullifier, is the `WINDOW` of the era of its referenced block. The fork-choice constraint uses the smaller k of the two eras. A request dropped at the end of an Era Transition Period is not a download failure, and a node that starts during the period runs only the era in force. | 2026-10-20 |
 |  | The pow reward pool seed and the consensus-excluded keys are Cryptarchia parameters of the Genesis block instead of era values. The initial total stake leaves out the excluded keys' genesis notes, and a node does not lead with their notes. Removed from Discussion: the narration of earlier drafts, and the floating-point ⌊k/f⌋ from the pre-existing defects, which an implementation task covers. These change normative content, so approvals are collected again on v19. | 2026-10-20 |
 | v20 | Every era after the first keeps its uncle reference window within the finalization window of the era before it, `W_n · f_n⁻¹ ≤ s_{n−1}/5`, since the latest immutable block of an era's first blocks still lies in the era before. This changes normative content, so approvals are collected again on v20. | 2026-10-21 |
+| v21 | The Genesis inscription's section is named Genesis Parameters, since it holds the pow reward pool seed, which is no Cryptarchia parameter, and the seed's field is `genesis_pow_reward_pool`, apart from the running balance `pow_reward_pool`. No rule changes. | 2026-10-21 |
 
 ## Reviewer Orientation
 
@@ -53,7 +54,7 @@ Read the PR's Motivation first. Era 0 is the set of rules the specifications des
 | 4 | Critical | [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md), [details](#3-header-bedrock_version-removed-slot-first) | header layout and encoding grammar; sizes 296, 360, proposal maximum 18,187 |
 | 5 | High | [Message Formatting](../message-formatting.md), [Message Encapsulation Mechanism](../message-encapsulation.md), [Blend Protocol](../blend-protocol.md), [details](#6-blend-version-byte-removed) | `version` byte removed; relay check removed; protocol name; pointers to the era rules; Transition Period bound `T ≥ T_M + T_C`; clocks within one round; no blacklisting for a next-epoch proof |
 | 6 | High | [Cryptarchia Bootstrapping & Synchronization](../cryptarchia-v1-bootstr-sync.md), [details](#8-synchronization-and-checkpoints) | `chainsync` identifier; blocks parsed under their slot's era; checkpoint state; a request dropped at the end of an Era Transition Period is not a failure |
-| 7 | High | [Bedrock Genesis Block](../bedrock-genesis-block.md), [details](#12-genesis-parameters) | the pool seed and the consensus-excluded keys in the Cryptarchia parameters, and the initial total stake without the excluded keys; the zero `fork_digest` exemption ([details](#2-transaction-fork-digest)); header field order |
+| 7 | High | [Bedrock Genesis Block](../bedrock-genesis-block.md), [details](#12-genesis-parameters) | the pool seed and the consensus-excluded keys in the Genesis Parameters, and the initial total stake without the excluded keys; the zero `fork_digest` exemption ([details](#2-transaction-fork-digest)); header field order |
 | 8 | Medium | [Payload Formatting](../payload-formatting.md), [details](#9-size-cascade) | `Max_Body_Length` 18,187 |
 | 9 | Medium | [Proof of Work](../proof-of-work.md), [Total Stake Inference](../cryptarchia-total-stake-inference.md), [details](#11-acceptance-window-and-stake-inference-arithmetic) | `WINDOW` a parameter in slots, of the era of the referenced block; the pool seed from the Genesis block; `beta` and `f` in double precision |
 | 10 | Low | [P2P Network](../../draft/p2p-network.md), [details](#7-protocol-identifiers) | identifiers; skim |
@@ -73,7 +74,7 @@ Chain data is read under the era of its slot. The network runs under the era of 
 - Each era digest hashes the era's first epoch number and its parameter record, as the implementation already does (logos-blockchain/logos-blockchain#3687). Hashing the parameters separates instances that share a genesis block but differ in a parameter. It also lets a release correct a pending era's parameters without moving its first epoch, and separates rival forks that pick the same epoch.
 - The cost is that the record is normative, and every activated era's record must be encoded byte for byte the same forever. One version, leading the record, keeps that possible. It names the era's rules, its block layout and the record's fields, as the implementation's ruleset number does, and any change to them takes a new version. Two releases that disagree on an era's rules or block layout therefore get different fork digests instead of forking under one. Separate block, layout and section versions would carry nothing more, because no node reads a version from the wire.
 - The record follows the implementation's encoding wherever every record keeps a single byte string and every value derived from it stays exactly reproducible. `learning_rate` is a double-precision value, which Total Stake Inference already truncates in double precision. Ratios are encoded as written, `min_stake`'s epoch takes eight bytes, and the slot length is seconds followed by zero nanoseconds. The proof-of-work window is a parameter in slots, so it no longer follows f: an era that changes f sets the window too.
-- The record still differs from the implementation's in four places, each of which changes the digest. `target_claim_per_block` duplicates `TARGET_CLAIMS_PER_BLOCK`, which the payout and the retarget both use, and is dropped. `reward_pool_genesis` and `consensus_excluded_keys` are fixed at genesis and never change with an era, so they are Cryptarchia parameters of the Genesis block, which the fork digest commits to through the genesis block ID; a structure next to the Genesis block would need its own fork-digest input. `epoch_reward_genesis` is dropped, because the first epoch's reward is derived from the pool like every later epoch's. `message_frequency_per_round` stays a ratio: the core quota is the ceiling of a product with it, and a double-precision product can come out just above a whole number that the exact product equals, so the ceiling adds one. `min_stake`'s second field is also an epoch, where the implementation names a block number; both are 0. These should be aligned before any network fixes its era-0 digest.
+- The record still differs from the implementation's in four places, each of which changes the digest. `target_claim_per_block` duplicates `TARGET_CLAIMS_PER_BLOCK`, which the payout and the retarget both use, and is dropped. `reward_pool_genesis` and `consensus_excluded_keys` are fixed at genesis and never change with an era, so they are Genesis Parameters, which the fork digest commits to through the genesis block ID; a structure next to the Genesis block would need its own fork-digest input. `epoch_reward_genesis` is dropped, because the first epoch's reward is derived from the pool like every later epoch's. `message_frequency_per_round` stays a ratio: the core quota is the ceiling of a product with it, and a double-precision product can come out just above a whole number that the exact product equals, so the ceiling adds one. `min_stake`'s second field is also an epoch, where the implementation names a block number; both are 0. These should be aligned before any network fixes its era-0 digest.
 
 ## Consensus parameters across eras
 
@@ -282,16 +283,16 @@ Cryptarchia's §Versioning and Protocol Upgrades, which activated upgrades by bl
 
 ## 12. Genesis parameters
 
-[Bedrock Genesis Block](../bedrock-genesis-block.md): the Cryptarchia Parameters inscription gains two fields after `genesis_epoch_nonce`, and must decode to exactly five parameters.
+[Bedrock Genesis Block](../bedrock-genesis-block.md): the inscription, renamed Genesis Parameters, gains two fields after `genesis_epoch_nonce`, and must decode to exactly five parameters.
 
 ```diff
  inscription = (chain_id_len + chain_id + genesis_time + genesis_epoch_nonce
-+               + pow_reward_pool_genesis        # u64, little-endian
++               + genesis_pow_reward_pool        # u64, little-endian
 +               + consensus_excluded_keys)       # u32 count, then ZkPublicKeys in increasing order
 ```
 
 - The initial total stake `D` leaves out the genesis notes of the keys in `consensus_excluded_keys`, and a node must not prove leadership with a note of one of them.
-- `pow_reward_pool` starts at `pow_reward_pool_genesis`. [Proof of Work](../proof-of-work.md) drops the constant `POW_REWARD_POOL_GENESIS`, and the first epoch's `epoch_pow_reward` stays derived from the pool.
+- `pow_reward_pool` starts at `genesis_pow_reward_pool`. [Proof of Work](../proof-of-work.md) drops the constant `POW_REWARD_POOL_GENESIS`, and the first epoch's `epoch_pow_reward` stays derived from the pool.
 
 ## Chores
 
@@ -308,7 +309,7 @@ Cryptarchia's §Versioning and Protocol Upgrades, which activated upgrades by bl
 - [x] Remove the `Version` header field and the Blend version bytes; put `slot` first ([logos-blockchain#3679](https://github.com/logos-blockchain/logos-blockchain/pull/3679))
 - [x] Era schedule with parameter records; era and fork digests; identifiers from the fork digest ([#3683](https://github.com/logos-blockchain/logos-blockchain/pull/3683), [#3687](https://github.com/logos-blockchain/logos-blockchain/pull/3687), [#3689](https://github.com/logos-blockchain/logos-blockchain/pull/3689))
 - [ ] Align the era record with Era Parameters (the differences listed in Discussion) and regenerate the era and fork digest vectors
-- [ ] Move `reward_pool_genesis` and `consensus_excluded_keys` from the era ruleset to the Genesis block's Cryptarchia parameters, and derive the first epoch's pow reward from the pool in place of `epoch_reward_genesis`
+- [ ] Move `reward_pool_genesis` and `consensus_excluded_keys` from the era ruleset to the Genesis Parameters, and derive the first epoch's pow reward from the pool in place of `epoch_reward_genesis`
 - [ ] Drop the chain ID from the fork digest input; name Kademlia by the genesis block ID in lowercase hexadecimal, and announce `/logos-blockchain/<genesis_id>/identify` as the identify protocol version, both in place of the percent-encoded chain ID
 - [ ] Reject a schedule whose record has a ratio with a zero denominator, a slot activation coefficient with numerator 0, a fractional slot length, a learning rate that is negative, negative zero or not finite, or an epoch or slot length below 1, and a schedule whose era has `W_n · f_n⁻¹` above `s_{n−1}/5`; compute ⌊k/f⌋ with integers
 - [ ] Support more than one era: `era`, `epoch`, `first_slot` and `slot(t)` by summation; switch identifiers at the boundary and, for the previous era's `T` rounds, accept and open connections on both eras' identifiers; then drop the previous era's identifiers with the sync requests not yet served on them, and let the requester continue under the new era without counting the drop as a download failure; a node that starts during the period runs only the era in force
@@ -341,6 +342,6 @@ Cryptarchia's §Versioning and Protocol Upgrades, which activated upgrades by bl
 | [Proof of Work](../proof-of-work.md) | Modified | `WINDOW` a parameter in slots, of the referenced block's era; the pool seed from the Genesis block |
 | [Total Stake Inference](../cryptarchia-total-stake-inference.md) | Modified | `beta` and `f` in double precision |
 | [Cryptarchia Bootstrapping & Synchronization](../cryptarchia-v1-bootstr-sync.md) | Modified | `chainsync` identifier, per-era parsing, checkpoint state, dropped requests not failures |
-| [Bedrock Genesis Block](../bedrock-genesis-block.md) | Modified | header field order, zero `fork_digest` exemption and era-0 parsing, pool seed and consensus-excluded keys in the Cryptarchia parameters, gas wording |
+| [Bedrock Genesis Block](../bedrock-genesis-block.md) | Modified | header field order, zero `fork_digest` exemption and era-0 parsing, pool seed and consensus-excluded keys in the inscription, renamed Genesis Parameters, gas wording |
 | [P2P Network](../../draft/p2p-network.md) | Modified | identifiers |
 | [Template Cross-Channel Messaging](../template-cross-channel-messaging.md) | Modified | example sets `fork_digest` |
