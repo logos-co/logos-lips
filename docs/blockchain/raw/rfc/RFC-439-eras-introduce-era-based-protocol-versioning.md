@@ -43,6 +43,8 @@
 | v21 | The Genesis inscription's section is named Genesis Parameters, since it holds the pow reward pool seed, which is no Cryptarchia parameter, and the seed's field is `genesis_pow_reward_pool`, apart from the running balance `pow_reward_pool`. No rule changes. | 2026-10-21 |
 | v22 | The Genesis Parameters take the implementation's field names: `epoch_nonce` and `pow_reward_pool` in place of `genesis_epoch_nonce` and `genesis_pow_reward_pool`. A reference from outside the section names the field as that of the Genesis Parameters, so the seed is not confused with the running balance. No rule changes. | 2026-10-21 |
 | v23 | `genesis_time` is `start_time`, so no field of the Genesis Parameters repeats the section's name. No rule changes. | 2026-10-21 |
+| v24 | A node broadcasts the proposal a Blend message carries on the era of its connection, where it said every payload; a transaction in it goes to the mempool, as Blend specifies. A node publishes on the era-in-force topic a transaction it broadcasts, where it said every transaction it admits, which read as re-publishing gossiped ones. | 2026-10-21 |
+| v25 | Built on the mempool specification, whose rules now follow the eras: a transaction is decoded under the era its fork digest names, admitted only when the era in force accepts that digest, applied under the era of the block's slot against the parent's state migrated to it, and retired when the era in force stops accepting its digest. A claim's deadline uses the `WINDOW` of its referenced block's era. Removed: `revalidate_mempool`, which re-validated the mempool against the tip's state, since the mempool reads no ledger state. The Block Construction row is 1.5.0, after the mempool's 1.4.0, and the proposal validation steps cite the renumbered header rules. These change normative content, so approvals are collected again on v25. | 2026-10-21 |
 
 ## Reviewer Orientation
 
@@ -57,10 +59,11 @@ Read the PR's Motivation first. Era 0 is the set of rules the specifications des
 | 5 | High | [Message Formatting](../message-formatting.md), [Message Encapsulation Mechanism](../message-encapsulation.md), [Blend Protocol](../blend-protocol.md), [details](#6-blend-version-byte-removed) | `version` byte removed; relay check removed; protocol name; pointers to the era rules; Transition Period bound `T ≥ T_M + T_C`; clocks within one round; no blacklisting for a next-epoch proof |
 | 6 | High | [Cryptarchia Bootstrapping & Synchronization](../cryptarchia-v1-bootstr-sync.md), [details](#8-synchronization-and-checkpoints) | `chainsync` identifier; blocks parsed under their slot's era; checkpoint state; a request dropped at the end of an Era Transition Period is not a failure |
 | 7 | High | [Bedrock Genesis Block](../bedrock-genesis-block.md), [details](#12-genesis-parameters) | the pool seed and the consensus-excluded keys in the Genesis Parameters, and the initial total stake without the excluded keys; the zero `fork_digest` exemption ([details](#2-transaction-fork-digest)); header field order |
-| 8 | Medium | [Payload Formatting](../payload-formatting.md), [details](#9-size-cascade) | `Max_Body_Length` 18,187 |
-| 9 | Medium | [Proof of Work](../proof-of-work.md), [Total Stake Inference](../cryptarchia-total-stake-inference.md), [details](#11-acceptance-window-and-stake-inference-arithmetic) | `WINDOW` a parameter in slots, of the era of the referenced block; the pool seed from the Genesis block; `beta` and `f` in double precision |
-| 10 | Low | [P2P Network](../../draft/p2p-network.md), [details](#7-protocol-identifiers) | identifiers; skim |
-| 11 | Low | [Template Cross-Channel Messaging](../template-cross-channel-messaging.md) | example gains `fork_digest`; skim |
+| 8 | High | [Mempool](../mempool.md), [details](#13-mempool) | admission only for a fork digest the era in force accepts; decoding by the digest's era; block building under the block's era; retirement at an era change; the claim deadline's per-era window |
+| 9 | Medium | [Payload Formatting](../payload-formatting.md), [details](#9-size-cascade) | `Max_Body_Length` 18,187 |
+| 10 | Medium | [Proof of Work](../proof-of-work.md), [Total Stake Inference](../cryptarchia-total-stake-inference.md), [details](#11-acceptance-window-and-stake-inference-arithmetic) | `WINDOW` a parameter in slots, of the era of the referenced block; the pool seed from the Genesis block; `beta` and `f` in double precision |
+| 11 | Low | [P2P Network](../../draft/p2p-network.md), [details](#7-protocol-identifiers) | identifiers; skim |
+| 12 | Low | [Template Cross-Channel Messaging](../template-cross-channel-messaging.md) | example gains `fork_digest`; skim |
 
 # Discussion
 
@@ -96,7 +99,7 @@ The era overlap reuses Blend's Transition Period T, 30 rounds, of the previous e
 
 ## State at the boundary
 
-A node migrates state on demand, with one function. It validates a block against its parent's state migrated to the block's era. It derives an epoch's values (Epoch State, `difficulty_blend`, `epoch_pow_reward`) under the epoch's era, from state migrated to that era, and uses values an earlier epoch derived as derived. It re-validates its mempool against its tip's state migrated to the era in force, whenever the tip or the era in force changes. The state after a block is never replaced by a migrated copy, so a reorganization or a restart across a boundary migrates from the tip's own era, and nothing is migrated twice. Active messages and reward claims are verified under the era of the epoch they are for, because the rewards of an era's last epoch are claimed in the next era. A claim's acceptance window is the exception: its check and the discarding of its nullifier both use the `WINDOW` of the era of the referenced block. Each nullifier then has one fixed window, so it is never discarded while a claim on it can still pass, whichever way an era changes `WINDOW`.
+A node migrates state on demand, with one function. It validates a block against its parent's state migrated to the block's era. It derives an epoch's values (Epoch State, `difficulty_blend`, `epoch_pow_reward`) under the epoch's era, from state migrated to that era, and uses values an earlier epoch derived as derived. Its mempool reads no ledger state: it admits a transaction only when the era in force accepts its fork digest and retires those an era change stops accepting, and block building applies the rest under the era of the block's slot, against the parent's state migrated to that era. The state after a block is never replaced by a migrated copy, so a reorganization or a restart across a boundary migrates from the tip's own era, and nothing is migrated twice. Active messages and reward claims are verified under the era of the epoch they are for, because the rewards of an era's last epoch are claimed in the next era. A claim's acceptance window is the exception: its check and the discarding of its nullifier both use the `WINDOW` of the era of the referenced block. Each nullifier then has one fixed window, so it is never discarded while a claim on it can still pass, whichever way an era changes `WINDOW`.
 
 An era's rules must apply to every state its migration produces. That rules out one case: a new rule that reads data only another new rule can create. An example is a new Blend that needs a new kind of SDP declaration. No migration can produce declarations that nodes have not yet made, and SDP takes a declaration into a snapshot two epochs after it is made. Such a change is staged over two eras. The first introduces the new SDP logic and leaves Blend unchanged. The second starts at least two epochs later and introduces the new Blend. A per-protocol activation delay inside one era would do the same, but the rules of a slot would then depend on more than its era, and one fork digest would no longer stand for one set of rules.
 
@@ -169,7 +172,7 @@ Its Details sections:
 - **Fork Digest:** reference code for the era digest and the fork digest.
 - **Era of Chain Data:** a block and everything it carries under `era(sl)`, except that a transaction is parsed under the era its fork digest names and an active message or reward claim is verified as Era Migration specifies; `slot` first and unchanged in every era; the fork digest first in every transaction, and the acceptance rule as reference code: a transaction is valid under era n when it carries the digest of n or of an earlier era, unless an era up to n refuses the transactions of the eras before it; fork choice under the common ancestor's era; the startup and checkpoint-import halt.
 - **Era Migration:** a function of the recorded chain state (Mantle validation state, PoW state, SDP snapshots), stated with whether the era refuses earlier transactions; total; identity by default; the new era's rules apply to every state it produces; `migrate` as reference code, applied to the parent state of every validated block; the rules for values derived per epoch, with the Epoch State as an example; active messages and reward claims verified under the era of the epoch they are for, except for a claim's acceptance window.
-- **Era Change:** the mempool rule as reference code: transactions re-validated against the local chain tip's state migrated to the era in force, whenever the tip or the era in force changes; the Era Transition Period started at an era change.
+- **Era Change:** at an era change, the pending transactions whose fork digest the new era does not accept are retired and the Era Transition Period starts; Mempool holds the other era rules of the mempool ([§13](#13-mempool)).
 - **Era Transition Period:** the first `T` rounds after the era in force changes, `T` from the previous era's Blend Transition Period; both eras' identifiers; Blend messages validated under the arrival connection's era; afterwards the previous era's identifiers dropped and sync requests not yet served dropped with them, the requesting node continuing under the new era; a node that starts during the period runs only the era in force.
 - **Network Protocol Identity:** `/logos-blockchain/<fork_digest>/<protocol>`, and `/logos-blockchain/<genesis_id>/kad` for Kademlia, with the genesis block ID in lowercase hexadecimal; identify under its libp2p identifier, with the protocol version `/logos-blockchain/<genesis_id>/identify`; generation, forwarding and publication rules; the warning on an identifier `/logos-blockchain/<fork_digest>/<protocol>` with an unknown fork digest, from a peer that announces the node's own protocol version, which skips the Kademlia identifier.
 
@@ -297,6 +300,25 @@ Cryptarchia's §Versioning and Protocol Upgrades, which activated upgrades by bl
 - The initial total stake `D` leaves out the genesis notes of the keys in `consensus_excluded_keys`, and a node must not prove leadership with a note of one of them.
 - `pow_reward_pool` starts at the `pow_reward_pool` of the Genesis Parameters. [Proof of Work](../proof-of-work.md) drops the constant `POW_REWARD_POOL_GENESIS`, and the first epoch's `epoch_pow_reward` stays derived from the pool.
 
+## 13. Mempool
+
+[Mempool](../mempool.md), which stays free of ledger state:
+
+```diff
+     tx = decode_signed_mantle_tx(encoded)   # under the era its fork digest names
+     if tx is None:
+         return Reject(Malformed)
++    if not accepts_fork_digest(era_in_force(), tx.tx.fork_digest):
++        return Reject(UnacceptedForkDigest)
+     if not preverify(tx):                    # under the era in force
+```
+
+- A transaction encodes under the era whose fork digest it carries, and a fork digest of no era of the node's schedule does not decode. Admission reads the era in force as well.
+- Block building takes the parent's state migrated to the era of the block's slot, and applies that era's rules.
+- A fifth retirement reason: when the era in force changes, and when the node recovers its mempool, a pending transaction whose fork digest the era in force does not accept is retired.
+- A transaction's claim deadline is the smallest `s + window(s)` over the slots `s` of the blocks its claims reference, plus `1 + CLAIM_GRACE`, with `window(s)` the `WINDOW` of the era of `s`.
+- The mempool topic carries an era's fork digest, and Bedrock Eras specifies which era's topic a node broadcasts on. The size bound is rule 1 of the renumbered Block Header Validation.
+
 ## Chores
 
 - Registered Bedrock Eras in `scripts/blockchain_structure.py` (`FILE_ASSIGNMENTS`).
@@ -320,7 +342,7 @@ Cryptarchia's §Versioning and Protocol Upgrades, which activated upgrades by bl
 - [ ] Fork choice under the common ancestor's era, with that era's k and s; `commit` advancing `B_imm` only while it lies deeper than its own era's k
 - [ ] `CLAIM_POW_REWARD`: check the acceptance window, and discard nullifiers, with the `WINDOW` of the era of the referenced block's slot
 - [ ] Same-era uncle validity, in validation and in `uncle_candidates`
-- [ ] Migration hook (identity for now), applied to the parent state of every validated block, and to the tip's state for mempool re-validation whenever the tip or the era in force changes; epoch derivations under the epoch's era; active messages and `CLAIM_POW_REWARD` verified under the era of the epoch they are for
+- [ ] Migration hook (identity for now), applied to the parent state of every validated or built block; epoch derivations under the epoch's era; active messages and `CLAIM_POW_REWARD` verified under the era of the epoch they are for
 - [ ] Message routing: generated messages under the era in force at generation; received and processed Blend messages, and their broadcast payloads, on the arrival connection's era; accepted proposals and admitted transactions on the era-in-force topic
 - [ ] In the last round of an epoch, check a failing proof of quota against the next epoch's public input; if it passes, discard the message without closing the connection or blacklisting
 - [ ] Startup and checkpoint-import halt when an era from `era(sl_B_imm)` to the era in force is not implemented; checkpoint export and import under the checkpoint block's era
@@ -335,7 +357,8 @@ Cryptarchia's §Versioning and Protocol Upgrades, which activated upgrades by bl
 | --- | --- | --- |
 | [Bedrock Eras](../bedrock-eras.md) | Created | the mechanism |
 | [Cryptarchia Protocol](../cryptarchia-v1-protocol.md) | Modified | header field removed, `slot` first, validation renumbered, same-era uncles, `first_slot`, fork choice and `commit` with per-era k, §Versioning replaced by a link, vectors `TBD` |
-| [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md) | Modified | header layout, encoding grammar, size derivations |
+| [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md) | Modified | header layout, encoding grammar, size derivations, proposal validation citing the renumbered header rules |
+| [Mempool](../mempool.md) | Modified | admission, decoding, block building, retirement and claim deadlines under eras |
 | [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | `fork_digest` field, validation step 4, transaction-hash vectors, `WINDOW` of the referenced block's era |
 | [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | `ForkDigest` first in `MantleTx` |
 | [Blend Protocol](../blend-protocol.md) | Modified | version checks removed, protocol name, era pointers, overhead figure and message size, Transition Period and clock bounds, no blacklisting for a next-epoch proof |
