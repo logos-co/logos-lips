@@ -109,7 +109,7 @@ A transaction arrives by local submission through the [Node API](#node-api), by 
 - it is not already pending;
 - it carries no [Proof of Work](proof-of-work.md) reward **claim** whose **deadline** has passed.
 
-`highest_slot` is the highest slot of a block that [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance) has added to the block tree since the node started. A claim's deadline passes when `highest_slot` is more than `CLAIM_GRACE` slots past the end of its [Acceptance Window](proof-of-work.md#acceptance-window). No deadline passes before the node adds a block, and a claim that names a block the node does not hold has no deadline. A transaction that is already pending is a duplicate: it is dropped if it came by gossip, and answered as success and broadcast again if it came from a local client. [Transaction Admission](#transaction-admission) specifies the procedure.
+`highest_slot` is the highest slot of a block that [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance) has added to the block tree since the node started. A claim's deadline passes when `highest_slot` is more than `CLAIM_GRACE` slots past the end of its [Acceptance Window](proof-of-work.md#acceptance-window). No deadline passes before the node adds a block, and a claim that names a block the node does not hold has no deadline. A transaction that is already pending is a duplicate. It is dropped if it came by gossip, and broadcast again otherwise, and a local client is answered as success. [Transaction Admission](#transaction-admission) specifies the procedure.
 
 ## Gossip
 
@@ -207,9 +207,12 @@ A node keeps these values for its mempool, defined in [Mempool State](#mempool-s
 TRANSACTION_TTL: Optional[uint64] = 60 * 60  # seconds a transaction may stay pending before it is retired
 RETIREMENT_GRACE: uint64 = 10 * 60           # seconds a retired transaction stays resolvable before it is discarded
 CLAIM_GRACE: uint64 = 2 * WINDOW             # slots a claim stays pending after its acceptance window closes
+SEEN_TTL: uint64 = 24 * 60 * 60              # seconds a node remembers a message identity on the mempool topic
 ```
 
 `TRANSACTION_TTL` is a node setting, and the value above is its default. A node that sets it to `None` retires no transaction for its age.
+
+`SEEN_TTL` is a node setting, and the value above is its default.
 
 With `WINDOW` at 300 slots, `CLAIM_GRACE` is 600 slots.
 
@@ -301,16 +304,17 @@ When `admit` returns `Duplicate`:
 
 - A duplicate received by gossip is dropped.
 - A duplicate received by local submission is answered as success, and the transaction is broadcast again.
+- A duplicate received by re-insertion is broadcast again.
 
 ## Dissemination
 
 Transactions are gossiped on the mempool topic defined in [Gossiping](../draft/p2p-network.md#gossiping).
 
-A message's identity on that topic is the Blake2b-256 digest of its payload.
+A message's identity on that topic is the Blake2b-256 digest of its payload. A node remembers the identity of each message it receives or publishes on that topic for `SEEN_TTL`.
 
-A node relays a received message to its mesh neighbours on receipt, before admission.
+A node drops a received message whose identity it remembers. It relays any other received message to its mesh neighbours on receipt, before admission.
 
-A node broadcasts a transaction it admits by local submission or by re-insertion. It does not broadcast a transaction it received by gossip.
+A node broadcasts a transaction it admits by local submission or by re-insertion. It does not broadcast a transaction it received by gossip. A broadcast of a message whose identity the node remembers sends nothing.
 
 ## Block Building View
 
