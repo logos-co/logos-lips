@@ -210,11 +210,15 @@ TRANSACTION_TTL: Optional[uint64] = 60 * 60  # seconds a transaction may stay pe
 RETIREMENT_GRACE: uint64 = 10 * 60           # seconds a retired transaction stays resolvable before it is discarded
 CLAIM_GRACE: uint64 = 2 * WINDOW             # slots a claim stays pending after its acceptance window closes
 SEEN_TTL: uint64 = 24 * 60 * 60              # seconds a node remembers a message identity on the mempool topic
+BROADCAST_RETRIES: uint64 = 3                # retries of a broadcast that finds no peer on the mempool topic
+BROADCAST_BACKOFF: uint64 = 5                # base, in seconds, of the wait before each retry
 ```
 
 `TRANSACTION_TTL` is a node setting, and the value above is its default. A node that sets it to `None` retires no transaction for its age.
 
 `SEEN_TTL` is a node setting, and the value above is its default.
+
+The wait before retry `i`, counting from `0`, is `BROADCAST_BACKOFF ** i` seconds. With `BROADCAST_BACKOFF` at 5, the retries follow the first attempt by 1, 6 and 31 seconds.
 
 With `WINDOW` at 300 slots, `CLAIM_GRACE` is 600 slots.
 
@@ -322,6 +326,8 @@ A message's identity on that topic is the Blake2b-256 digest of its payload. A n
 A node drops a received message whose identity it remembers. It relays any other received message to its mesh neighbours on receipt, before admission.
 
 A node broadcasts a transaction it admits by local submission or by re-insertion. It does not broadcast a transaction it received by gossip. A broadcast of a message whose identity the node remembers sends nothing.
+
+A broadcast that finds no connected peer subscribed to the topic sends nothing and leaves the identity unremembered. The node retries it up to `BROADCAST_RETRIES` times.
 
 ## Block Building View
 
