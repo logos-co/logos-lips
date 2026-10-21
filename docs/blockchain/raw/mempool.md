@@ -105,7 +105,7 @@ A transaction arrives by local submission, by gossip, or by re-insertion after a
 
 - its encoding is no larger than `MAX_BLOCK_SIZE`;
 - it decodes, and decoding consumes the whole payload;
-- it passes `preverify`, the rules of Mantle's [Validation](bedrock-v1.1-mantle-specification.md#validation) that read no ledger state;
+- it passes `preverify`, a set of rules of Mantle's [Validation](bedrock-v1.1-mantle-specification.md#validation) that read no ledger state;
 - it is not already pending;
 - it carries no [Proof of Work](proof-of-work.md) reward **claim** whose **deadline** has passed.
 
@@ -280,10 +280,13 @@ The payload is the canonical encoding defined in [Mantle Transaction Encoding](m
 
 ### Stateless Validation
 
-`preverify` applies the subset of Mantle's [Validation](bedrock-v1.1-mantle-specification.md#validation) rules that reads no ledger state:
+`preverify` applies these rules of Mantle's [Validation](bedrock-v1.1-mantle-specification.md#validation), none of which reads ledger state:
 
 1. Rule 1 of [Validation](bedrock-v1.1-mantle-specification.md#validation) holds.
 2. Each proof bound only to the transaction hash and the operation payload verifies.
+3. A `TRANSFER`, `CHANNEL_DEPOSIT`, `CHANNEL_WITHDRAW` or `CHANNEL_TRANSFER` has at least one input.
+4. No output of a `TRANSFER` or `CHANNEL_TRANSFER` has a value of `0`.
+5. A `CHANNEL_CONFIG` has a `configuration_threshold` and a `transfer_threshold` greater than `0`, and at least one key.
 
 ### Reorganisation
 

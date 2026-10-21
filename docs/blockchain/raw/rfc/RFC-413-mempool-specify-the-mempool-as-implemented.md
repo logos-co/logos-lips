@@ -29,6 +29,7 @@
 |  | Block building stops at the first transaction that would take the block past `G_max`, and then retires only a transaction whose own Execution Gas exceeds it, as implemented. The gas check comes before the batched ZK proofs, and its consequence is Open Issue 18. | 2026-10-21 |
 |  | A node remembers a message identity for `SEEN_TTL`, 24 hours by default, drops a received message it remembers and sends nothing for a broadcast of one, as implemented. A duplicate that arrives by re-insertion is broadcast again. Open Issue 12 now covers the broadcasts this suppresses. | 2026-10-21 |
 |  | A transaction extracted from a Blend data message is a local submission, as implemented, so the node broadcasts it. Open Issue 13 keeps only the size mismatch. | 2026-10-21 |
+|  | `preverify` also requires an input where an operation spends one, no output of value `0`, and a channel configuration with non-zero thresholds and a key, as implemented. The stateless-validation departure still holds at `60744b8e7`. | 2026-10-21 |
 
 ## Reviewer Orientation
 
@@ -38,7 +39,7 @@ Read the PR's Motivation first.
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here** — [Mempool](#affected-specifications): [Reference resolution](#1-reference-resolution) | Resolution succeeds only on a unique prefix match, and reads the proposal, `by_prefix` and `bodies` and nothing else. Check that no other state can enter it. |
 | 2 | Critical | [Mempool](#affected-specifications): [Block building](#2-block-building) | Retirement lists four reasons a transaction leaves, and selection is not among them. Check that a transaction which merely did not fit stays resolvable, and that stopping at `G_max` retires nothing the passes did not finish. |
-| 3 | High | [Mempool](#affected-specifications): [Admission](#3-admission) | No ledger reads. The block tree is read only to refuse an expired claim. Confirm the `preverify` subset matches Mantle's rules, including `None` proof entries. |
+| 3 | High | [Mempool](#affected-specifications): [Admission](#3-admission) | No ledger reads. The block tree is read only to refuse an expired claim. Confirm that each `preverify` rule is Mantle's and reads no ledger state. |
 | 4 | High | [Mempool](#affected-specifications): [Retirement and persistence](#4-retirement-and-persistence) | Retirement is not rejection, except for an expired claim or a gossiped message whose identity the node remembers. A retired transaction resolves for `RETIREMENT_GRACE`, and pruning then clears every per-transaction map. |
 | 5 | High | [Mempool](#affected-specifications): [Expired claims](#5-expired-claims) | A claim is retired and refused more than `CLAIM_GRACE` slots after the last slot that can include it. Check the deadline, and the constraint on `CLAIM_GRACE`. |
 | 6 | High | [Block Construction, Validation and Execution](#affected-specifications): [Resolution moves to the mempool](#6-block-construction-links-to-the-mempool) | What block construction keeps is its own, and nothing it removed is lost. |
@@ -81,7 +82,7 @@ The specification states rules only. The reasoning behind them is recorded here.
 
 This document describes what runs. It departs from the implementation only where the current behaviour is not defensible as a design. Each departure is listed below, with its task under [Implementation](#implementation). Everything else that differs from an ideal mempool stays an [open issue](#open-issues), so the specification and the code can be compared line by line.
 
-The entries were checked against `logos-blockchain`: `services/tx-service`, with the block-building and block-applied halves in `services/chain/chain-leader` and `services/chain/chain-network`. The stateless-validation entry was checked at `f376f9547`.
+The entries were checked against `logos-blockchain`: `services/tx-service`, with the block-building and block-applied halves in `services/chain/chain-leader` and `services/chain/chain-network`. The stateless-validation entry was checked at `60744b8e7`.
 
 - **Stateless validation.** The implementation counts the proofs and checks their types when it decodes a transaction. It then verifies every proof bound only to the transaction hash and the operation payload, except one. It gives `CLAIM_POW_REWARD` no proof, so the `ZkSignature` that [CLAIM_POW_REWARD](../bedrock-v1.1-mantle-specification.md#claim_pow_reward) requires is neither type-checked nor verified, at admission or by the ledger.
 
@@ -122,7 +123,7 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 
 ## 3. Admission
 
-[Transaction Admission](../mempool.md#transaction-admission). Admission checks the size of the raw payload, then decodes it, requiring full consumption, then applies Mantle's stateless validation, then checks for a duplicate, then refuses an [expired claim](#5-expired-claims). Stateless validation requires one proof entry per operation, with `None` where the opcode admits it, the proof type each opcode requires, and a valid proof wherever the proof binds only the transaction hash and the operation payload. Admission reads no ledger state. A pending transaction is therefore **well-formed, not valid**, and membership must never be taken as evidence that it can be applied.
+[Transaction Admission](../mempool.md#transaction-admission). Admission checks the size of the raw payload, then decodes it, requiring full consumption, then applies Mantle's stateless validation, then checks for a duplicate, then refuses an [expired claim](#5-expired-claims). Stateless validation requires exactly one proof per operation, of the type its opcode requires, and a valid proof wherever the proof binds only the transaction hash and the operation payload. It also requires an input where an operation spends one, no output of value `0`, and a channel configuration with non-zero thresholds and a key. Admission reads no ledger state. A pending transaction is therefore **well-formed, not valid**, and membership must never be taken as evidence that it can be applied.
 
 ## 4. Retirement and persistence
 
