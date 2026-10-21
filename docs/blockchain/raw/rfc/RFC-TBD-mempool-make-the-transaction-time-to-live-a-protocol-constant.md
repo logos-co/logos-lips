@@ -10,7 +10,7 @@
 
 ## Reviewer Orientation
 
-Single-document change — read [Parameters](../mempool.md#parameters) and [Expiry](../mempool.md#expiry) in the [Mempool](../mempool.md), and focus on `TRANSACTION_TTL`, which is now the same on every node.
+Single-document change — read [Parameters](../mempool.md#parameters) and [Expiry](../mempool.md#expiry) in the [Mempool](../mempool.md), and focus on `TRANSACTION_TTL`, which is now the same on every node, and on the bound this gives `RETIREMENT_GRACE`.
 
 # Discussion
 
@@ -30,6 +30,18 @@ One value does not remove every difference. After a fork switch, a node re-admit
 A constant also leaves no node without expiry. Every node retires a transaction that no block includes once its age reaches `TRANSACTION_TTL`, and discards it `RETIREMENT_GRACE` later.
 
 The change alters no message, encoding or consensus rule. It removes a node setting.
+
+## The bound one value gives `RETIREMENT_GRACE`
+
+A leader can select a transaction for as long as its own copy is pending. A node retires an expired transaction only when it processes a block, or when it retires others ([Effects of Retirement](../mempool.md#effects-of-retirement)), so the leader's copy can stay pending until the first block after its age reaches `TRANSACTION_TTL`. A validator retires its own copy at the first block after that copy expires, and resolves it for `RETIREMENT_GRACE` more. With one value, the leader's proposal still resolves at the validator if `RETIREMENT_GRACE` exceeds the sum of three times:
+
+- how much earlier the validator admitted the transaction, which for a transaction both nodes received by gossip is at most the time gossip takes to reach every node;
+- the time between two consecutive blocks;
+- the time the proposal takes to reach the validator.
+
+[Parameters](../mempool.md#parameters) states this bound beside `RETIREMENT_GRACE`. With a value per node, no grace bounds it.
+
+With a slot activation coefficient of 1/30, two consecutive blocks are more than nine and a half minutes apart with probability $`(29/30)^{570} \approx 4 \times 10^{-9}`$. Ten minutes therefore leaves 30 seconds for gossip and delivery in all but about one gap in 250 million. The bound does not cover a transaction re-admitted after a fork switch, whose two copies can differ by more than gossip takes.
 
 ## Why one hour
 
@@ -68,6 +80,16 @@ It also drops the sentence that made the value a node setting:
 +- its age reaches `TRANSACTION_TTL`;
 ```
 
+## A bound for `RETIREMENT_GRACE`
+
+[Parameters](../mempool.md#parameters) states the constraint on `RETIREMENT_GRACE`:
+
+```diff
+ `CLAIM_GRACE` must exceed the time, in slots, that a block proposal takes to reach every node. Otherwise a node can retire a claim before a proposal that selected it in the last slot of its acceptance window arrives.
++
++`RETIREMENT_GRACE` must exceed the time a transaction takes to reach every node by gossip, plus the time between two consecutive blocks, plus the time a block proposal takes to reach every node. Otherwise a node can discard a transaction that it retired for its age before a proposal that selected it arrives.
+```
+
 # Implementation
 
 - [ ]  Replace the `tx_ttl` setting, in the mempool settings and in the node configuration, with the constant `TRANSACTION_TTL` of one hour, so that no node can change the time to live or disable expiry
@@ -78,4 +100,4 @@ It also drops the sentence that made the value a node setting:
 
 | Specification | Status | Note |
 | --- | --- | --- |
-| [Mempool](../mempool.md) | Modified | `TRANSACTION_TTL` is a protocol constant of one hour, and no node disables expiry. |
+| [Mempool](../mempool.md) | Modified | `TRANSACTION_TTL` is a protocol constant of one hour, no node disables expiry, and `RETIREMENT_GRACE` states its bound. |

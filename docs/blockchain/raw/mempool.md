@@ -212,6 +212,8 @@ With `WINDOW` at 300 slots, `CLAIM_GRACE` is 600 slots.
 
 `CLAIM_GRACE` must exceed the time, in slots, that a block proposal takes to reach every node. Otherwise a node can retire a claim before a proposal that selected it in the last slot of its acceptance window arrives.
 
+`RETIREMENT_GRACE` must exceed the time a transaction takes to reach every node by gossip, plus the time between two consecutive blocks, plus the time a block proposal takes to reach every node. Otherwise a node can discard a transaction that it retired for its age before a proposal that selected it arrives.
+
 ## Mempool State
 
 ```python
