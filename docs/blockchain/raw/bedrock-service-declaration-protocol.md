@@ -34,7 +34,8 @@
 | 1.4.3 | Identifier uniqueness covers every stored declaration, not only activated ones, matching the implementation | 2026-09-01 |
 | 1.5.0 | Defined `active` as the epoch of the block that contained the latest accepted active message, initialised to `created + 2`, and `withdraw_at` as the epoch at which the node stops providing the service, matching the implementation. Added the participant-set exclusion rule and [Message Timing](#message-timing) | 2026-09-02 |
 | 1.6.0 | Declarations are removed at `withdraw_at + 1`, one epoch after the node stops, making the last served epoch rewardable | 2026-09-03 |
-| 1.7.0 | Keyed `declarations` by `declaration_id`, and ordered `DeclarationInfo` as the implementation does | 2026-10-14 |
+| 1.7.0 | The minimum stake and the service parameters are those of the era of a block's slot, and carry no epoch ([Bedrock Eras](bedrock-eras.md)) | 2026-10-22 |
+| 1.8.0 | Keyed `declarations` by `declaration_id`, and ordered `DeclarationInfo` as the implementation does | 2026-10-22 |
 
 # Introduction
 
@@ -94,20 +95,13 @@ Each service type is assigned a one-byte discriminant, given by the enum value a
 
 ### Minimum Stake
 
-The minimum stake is a global value that defines the minimum stake a node must have to perform any service.
+The minimum stake defines the minimum stake a node must have to perform any service. It is an era parameter, the `min_stake` of the era's parameter record ([Era Parameters](bedrock-eras.md#era-parameters)). The minimum stake in force for a block is that of the era of the block's slot ([Era of Chain Data](bedrock-eras.md#era-of-chain-data)).
 
-The `MinStake` is a structure that holds the value of the stake `stake_threshold` and the `epoch`, which is an epoch number at which the threshold was set; it is an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch).
+The `MinStake` is a structure that holds the value of the stake `stake_threshold`.
 
 ```python
 class MinStake:
     stake_threshold: StakeThreshold
-    epoch: EpochNumber
-```
-
-The `stake_thresholds` is a structure aggregating all defined `MinStake` values.
-
-```python
-stake_thresholds: list[MinStake]
 ```
 
 For more information on how the minimum stake is calculated, please refer to the [\[Analysis\] Static Minimum Stake Estimation for Service Declaration Protocol](analysis-static-minimum-stake-estimation-for-service-declaration-protocol.md).
@@ -117,19 +111,13 @@ For more information on how the minimum stake is calculated, please refer to the
 The service parameters structure defines the parameters set necessary for correctly handling interaction between the protocol and services. Each of the service types defined above must be mapped to a set of the following parameters:
 
 - `inactivity_period` defines the number of epochs after the epoch recorded in `active` for which the declaration remains active; after that, it is inactive and excluded from the service's participant set in the same way as a withdrawn declaration ([**Withdraw**](#withdraw)). A value of `2 + k` tolerates `k` consecutive missed reports ([Message Timing](#message-timing)). Any value below 2 excludes every declaration.
-- `epoch` defines the epoch number at which the parameter was set; it is an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch).
 
 ```python
 class ServiceParameters:
     inactivity_period: NumberOfEpochs
-    epoch: EpochNumber
 ```
 
-The `parameters` is a structure aggregating all defined `ServiceParameters` values.
-
-```python
-parameters: list[ServiceParameters]
-```
+The service parameters are an era parameter, the `service_params` of the era's parameter record ([Era Parameters](bedrock-eras.md#era-parameters)). Those in force for a block are those of the era of the block's slot ([Era of Chain Data](bedrock-eras.md#era-of-chain-data)).
 
 ### Snapshots
 
@@ -397,11 +385,11 @@ The protocol must enable querying the ledger in at least the following manner:
 - `GetAllDeclarationInfoSince(epoch)`, returns all `DeclarationInfo` entries since the `epoch`.
 - `GetDeclarationInfo(provider_id)`, returns the `DeclarationInfo` entry identified by the `provider_id`.
 - `GetDeclarationInfo(declaration_id)`, returns the `DeclarationInfo` entry identified by the `declaration_id`.
-- `GetAllServiceParameters(epoch)`, returns all entries of the `ServiceParameters` store for the requested `epoch`.
-- `GetAllServiceParametersSince(epoch)`, returns all entries of the `ServiceParameters` store since the requested `epoch`.
-- `GetServiceParameters(service_type, epoch)`, returns the service parameter entry from the `ServiceParameters` store of a `service_type` for a specified `epoch`.
-- `GetMinStake(epoch)`, returns the `MinStake` structure at the requested `epoch`.
-- `GetMinStakeSince(epoch)`, returns a set of `MinStake` structures since the requested `epoch`.
+- `GetAllServiceParameters(epoch)`, returns the service parameters of the era of the requested `epoch`.
+- `GetAllServiceParametersSince(epoch)`, returns the service parameters of each era from the era of the requested `epoch` on.
+- `GetServiceParameters(service_type, epoch)`, returns the service parameters of a `service_type` in the era of the requested `epoch`.
+- `GetMinStake(epoch)`, returns the `MinStake` of the era of the requested `epoch`.
+- `GetMinStakeSince(epoch)`, returns the `MinStake` of each era from the era of the requested `epoch` on.
 
 The query must return an error if the requested information is not available.
 
@@ -420,5 +408,4 @@ For more information about Mantle and ZK proofs, please refer to [Mantle](bedroc
 ```python
 class BlendNetworkServiceParameters:
     inactivity_period: 2
-    epoch: 0
 ```
