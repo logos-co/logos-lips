@@ -427,11 +427,11 @@ def service_params(entries: dict[int, ServiceParameters]) -> bytes:
     out = uint(4)(len(entries))
     for service_type in sorted(entries):
         e = entries[service_type]
-        out += uint(1)(service_type) + uint(4)(e.inactivity_period) + uint(4)(e.epoch)
+        out += uint(1)(service_type) + uint(4)(e.inactivity_period)
     return out
 
 def min_stake(m: MinStake) -> bytes:
-    return uint(8)(m.stake_threshold) + uint(8)(m.epoch)
+    return uint(8)(m.stake_threshold)
 
 ENCODERS = {"UINT32": uint(4), "UINT64": uint(8), "UINT128": uint(16),
             "ratio": ratio, "binary64": binary64, "duration": duration,
@@ -448,13 +448,11 @@ def encode(p: EraParameters) -> bytes:
     return out
 ```
 
-`FIELDS` maps each section of the table above, in table order, to its rows, as pairs of a field and its encoding. A ratio's parts are `num` and `den`, encoded as the record gives them, without reduction. A `binary64` field is an IEEE 754 double-precision value. An entry of `service_params` is keyed by its `ServiceType` byte and has `inactivity_period` and `epoch`. `min_stake` has `stake_threshold` and `epoch`. Its `epoch` takes 8 bytes, not the 4 of an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch). A record that `encode` rejects is invalid.
+`FIELDS` maps each section of the table above, in table order, to its rows, as pairs of a field and its encoding. A ratio's parts are `num` and `den`, encoded as the record gives them, without reduction. A `binary64` field is an IEEE 754 double-precision value. An entry of `service_params` is keyed by its `ServiceType` byte and has `inactivity_period`. `min_stake` has `stake_threshold`. A record that `encode` rejects is invalid.
 
 In every record, the numerator of `slot_activation_coeff`, the epoch length $`L_n`$ and the slot length $`\Delta_n`$ are at least 1. Otherwise `epoch_length(n)`, $`\textbf{epoch}(sl)`$ or $`\textbf{slot}(t)`$ divides by zero.
 
 Every era after the first keeps its uncle reference window within the finalization window of the era before it: $`W_n \cdot f_n^{-1} \le s_{n-1}/5`$, with $`W_n`$, $`f_n`$ and $`s_{n-1}`$ the $`W`$, $`f`$ and $`s`$ of [Constants](cryptarchia-v1-protocol.md#constants) of the era indicated. This adds to the bound of [Uncle Selection](cryptarchia-v1-protocol.md#uncle-selection) within each era. Otherwise, while the latest immutable block still lies in era $`n-1`$, a block of era $`n`$ can reference an uncle whose parent lies below the latest immutable block.
-
-The `stake_thresholds` store ([Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake)) holds the `min_stake` of each record of the schedule. The `parameters` store ([Service Parameters](bedrock-service-declaration-protocol.md#service-parameters)) holds the `service_params` entries of each record.
 
 A release that changes anything a version names defines a new version, used by the eras that adopt it. Otherwise the nodes of two releases apply different rules under one fork digest.
 
