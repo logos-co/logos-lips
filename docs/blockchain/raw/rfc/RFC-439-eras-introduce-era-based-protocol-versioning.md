@@ -46,6 +46,7 @@
 | v24 | A node broadcasts the proposal a Blend message carries on the era of its connection, where it said every payload; a transaction in it goes to the mempool, as Blend specifies. A node publishes on the era-in-force topic a transaction it broadcasts, where it said every transaction it admits, which read as re-publishing gossiped ones. | 2026-10-21 |
 | v25 | Built on the mempool specification, whose rules now follow the eras: a transaction is decoded under the era its fork digest names, admitted only when the era in force accepts that digest, applied under the era of the block's slot against the parent's state migrated to it, and retired when the era in force stops accepting its digest. A claim's deadline uses the `WINDOW` of its referenced block's era. Removed: `revalidate_mempool`, which re-validated the mempool against the tip's state, since the mempool reads no ledger state. The Block Construction row is 1.5.0, after the mempool's 1.4.0, and the proposal validation steps cite the renumbered header rules. These change normative content, so approvals are collected again on v25. | 2026-10-21 |
 | v26 | During the Era Transition Period the identifiers of the previous era serve only what is already in flight on them: a node opens and accepts no new connection, request or topic subscription on them, Blend included, as Blend keeps a past epoch's connections. Removed: accepting and opening connections on the identifiers of both eras. This changes normative content, so approvals are collected again on v26. | 2026-10-22 |
+| v27 | The minimum stake and the service parameters carry no epoch: those in force for a block are the era's of the block's slot, so a change takes effect at the first slot of an era. The record encodes `min_stake` as its threshold alone, and a service-parameter entry without an epoch. Removed: the `stake_thresholds` and `parameters` histories, and the epoch fields, which no rule read. Corrected: the Reviewer Orientation named mempool re-validation, which v25 replaced. This changes normative content and the record's encoding, so approvals are collected again on v27. | 2026-10-22 |
 
 ## Reviewer Orientation
 
@@ -53,7 +54,7 @@ Read the PR's Motivation first. Era 0 is the set of rules the specifications des
 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
-| 1 | Critical | **Start here**: [Bedrock Eras](../bedrock-eras.md) (Created), [details](#1-the-era-mechanism) | the whole mechanism: the Overview's diagrams and the Protocol's walk through an era boundary first; then the schedule and the versioned parameter record with its canonical encoding, the era arithmetic and fork digests as reference code, the schedule rules, migration with `migrate` and the rules that apply to its output, mempool re-validation, the transition period, transaction acceptance, and the warning on an unknown fork digest |
+| 1 | Critical | **Start here**: [Bedrock Eras](../bedrock-eras.md) (Created), [details](#1-the-era-mechanism) | the whole mechanism: the Overview's diagrams and the Protocol's walk through an era boundary first; then the schedule and the versioned parameter record with its canonical encoding, the era arithmetic and fork digests as reference code, the schedule rules, migration with `migrate` and the rules that apply to its output, the retirement of pending transactions at an era change, the transition period, transaction acceptance, and the warning on an unknown fork digest |
 | 2 | Critical | **Start here**: [Mantle](../bedrock-v1.1-mantle-specification.md) and [Mantle Transaction Encoding](../mantle-transaction-encoding.md), [details](#2-transaction-fork-digest) | `fork_digest` first in every transaction and inside its hash; the acceptance rule; recomputed transaction-hash vectors |
 | 3 | Critical | [Cryptarchia Protocol](../cryptarchia-v1-protocol.md), [details](#3-header-bedrock_version-removed-slot-first) | header loses `bedrock_version`, `slot` first; validation steps renumbered 1–9; `first_slot`, fork choice with the common ancestor's era's k and s, and a `commit` that advances `B_imm` only while it lies deeper than its own era's k ([details](#4-consensus-parameters-across-eras)); same-era uncles ([details](#5-same-era-uncle-rule)); test vectors marked `TBD` |
 | 4 | Critical | [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md), [details](#3-header-bedrock_version-removed-slot-first) | header layout and encoding grammar; sizes 296, 360, proposal maximum 18,187 |
@@ -61,10 +62,11 @@ Read the PR's Motivation first. Era 0 is the set of rules the specifications des
 | 6 | High | [Cryptarchia Bootstrapping & Synchronization](../cryptarchia-v1-bootstr-sync.md), [details](#8-synchronization-and-checkpoints) | `chainsync` identifier; blocks parsed under their slot's era; checkpoint state; a request dropped at the end of an Era Transition Period is not a failure |
 | 7 | High | [Bedrock Genesis Block](../bedrock-genesis-block.md), [details](#12-genesis-parameters) | the pool seed and the consensus-excluded keys in the Genesis Parameters, and the initial total stake without the excluded keys; the zero `fork_digest` exemption ([details](#2-transaction-fork-digest)); header field order |
 | 8 | High | [Mempool](../mempool.md), [details](#13-mempool) | admission only for a fork digest the era in force accepts; decoding by the digest's era; block building under the block's era; retirement at an era change; the claim deadline's per-era window |
-| 9 | Medium | [Payload Formatting](../payload-formatting.md), [details](#9-size-cascade) | `Max_Body_Length` 18,187 |
-| 10 | Medium | [Proof of Work](../proof-of-work.md), [Total Stake Inference](../cryptarchia-total-stake-inference.md), [details](#11-acceptance-window-and-stake-inference-arithmetic) | `WINDOW` a parameter in slots, of the era of the referenced block; the pool seed from the Genesis block; `beta` and `f` in double precision |
-| 11 | Low | [P2P Network](../../draft/p2p-network.md), [details](#7-protocol-identifiers) | identifiers; skim |
-| 12 | Low | [Template Cross-Channel Messaging](../template-cross-channel-messaging.md) | example gains `fork_digest`; skim |
+| 9 | Medium | [Service Declaration Protocol](../bedrock-service-declaration-protocol.md) and [Mantle](../bedrock-v1.1-mantle-specification.md), [details](#14-sdp-values-per-era) | the minimum stake and the service parameters of the era of a block's slot, with no epoch and no history; the queries per era |
+| 10 | Medium | [Payload Formatting](../payload-formatting.md), [details](#9-size-cascade) | `Max_Body_Length` 18,187 |
+| 11 | Medium | [Proof of Work](../proof-of-work.md), [Total Stake Inference](../cryptarchia-total-stake-inference.md), [details](#11-acceptance-window-and-stake-inference-arithmetic) | `WINDOW` a parameter in slots, of the era of the referenced block; the pool seed from the Genesis block; `beta` and `f` in double precision |
+| 12 | Low | [P2P Network](../../draft/p2p-network.md), [details](#7-protocol-identifiers) | identifiers; skim |
+| 13 | Low | [Template Cross-Channel Messaging](../template-cross-channel-messaging.md) | example gains `fork_digest`; skim |
 
 # Discussion
 
@@ -80,7 +82,7 @@ Chain data is read under the era of its slot. The network runs under the era of 
 - Each era digest hashes the era's first epoch number and its parameter record, as the implementation already does (logos-blockchain/logos-blockchain#3687). Hashing the parameters separates instances that share a genesis block but differ in a parameter. It also lets a release correct a pending era's parameters without moving its first epoch, and separates rival forks that pick the same epoch.
 - The cost is that the record is normative, and every activated era's record must be encoded byte for byte the same forever. One version, leading the record, keeps that possible. It names the era's rules, its block layout and the record's fields, as the implementation's ruleset number does, and any change to them takes a new version. Two releases that disagree on an era's rules or block layout therefore get different fork digests instead of forking under one. Separate block, layout and section versions would carry nothing more, because no node reads a version from the wire.
 - The record follows the implementation's encoding wherever every record keeps a single byte string and every value derived from it stays exactly reproducible. `learning_rate` is a double-precision value, which Total Stake Inference already truncates in double precision. Ratios are encoded as written, `min_stake`'s epoch takes eight bytes, and the slot length is seconds followed by zero nanoseconds. The proof-of-work window is a parameter in slots, so it no longer follows f: an era that changes f sets the window too.
-- The record still differs from the implementation's in four places, each of which changes the digest. `target_claim_per_block` duplicates `TARGET_CLAIMS_PER_BLOCK`, which the payout and the retarget both use, and is dropped. `reward_pool_genesis` and `consensus_excluded_keys` are fixed at genesis and never change with an era, so they are Genesis Parameters, which the fork digest commits to through the genesis block ID; a structure next to the Genesis block would need its own fork-digest input. `epoch_reward_genesis` is dropped, because the first epoch's reward is derived from the pool like every later epoch's. `message_frequency_per_round` stays a ratio: the core quota is the ceiling of a product with it, and a double-precision product can come out just above a whole number that the exact product equals, so the ceiling adds one. `min_stake`'s second field is also an epoch, where the implementation names a block number; both are 0. These should be aligned before any network fixes its era-0 digest.
+- The record still differs from the implementation's in five places, each of which changes the digest. `target_claim_per_block` duplicates `TARGET_CLAIMS_PER_BLOCK`, which the payout and the retarget both use, and is dropped. `reward_pool_genesis` and `consensus_excluded_keys` are fixed at genesis and never change with an era, so they are Genesis Parameters, which the fork digest commits to through the genesis block ID; a structure next to the Genesis block would need its own fork-digest input. `epoch_reward_genesis` is dropped, because the first epoch's reward is derived from the pool like every later epoch's. `message_frequency_per_round` stays a ratio: the core quota is the ceiling of a product with it, and a double-precision product can come out just above a whole number that the exact product equals, so the ceiling adds one. `min_stake` holds only its threshold, and a service-parameter entry only its inactivity period, where the implementation also encodes a block number and an epoch that it reads nowhere.
 
 ## Consensus parameters across eras
 
@@ -126,7 +128,7 @@ A transaction carries the fork digest in force when it was signed, inside its ha
 
 ## SDP values as era parameters
 
-No Operation sets the minimum stake or the service parameters; the Genesis Block takes them from the node software. They are therefore era parameters, set through the parameter record. Their entries keep an `epoch`, so a value can take effect inside an era. The SDP stores leave the migrated chain state.
+No Operation sets the minimum stake or the service parameters; the Genesis Block takes them from the node software. They are therefore era parameters, set through the parameter record, and take effect with their era: those in force for a block are the era's of the block's slot. A change takes effect at the first slot of an era, so the entries carry no epoch, and SDP keeps no history of them beyond the schedule. The implementation reads neither the block number it keeps in `MinStake` nor the epoch of a service-parameter entry.
 
 ## Migration applied per chain
 
@@ -320,6 +322,18 @@ Cryptarchia's §Versioning and Protocol Upgrades, which activated upgrades by bl
 - A transaction's claim deadline is the smallest `s + window(s)` over the slots `s` of the blocks its claims reference, plus `1 + CLAIM_GRACE`, with `window(s)` the `WINDOW` of the era of `s`.
 - The mempool topic carries an era's fork digest, and Bedrock Eras specifies which era's topic a node broadcasts on. The size bound is rule 1 of the renumbered Block Header Validation.
 
+## 14. SDP values per era
+
+[Service Declaration Protocol](../bedrock-service-declaration-protocol.md):
+
+- §Minimum Stake: the minimum stake is the `min_stake` of the era's parameter record, and the one in force for a block is that of the era of the block's slot. `MinStake` keeps only `stake_threshold`, and the `stake_thresholds` history is removed.
+- §Service Parameters: the same for `service_params`. `ServiceParameters` keeps only `inactivity_period`, and the `parameters` history is removed.
+- The five service-parameter and minimum-stake queries answer per era, and the default Blend Network parameters lose `epoch: 0`.
+
+[Mantle](../bedrock-v1.1-mantle-specification.md): `MinStake` and `ServiceParameters` lose their `epoch`, and SDP_DECLARE checks the minimum stake of the era of the block's slot.
+
+In the parameter record ([Era Parameters](../bedrock-eras.md#era-parameters)), `min_stake` is encoded as its threshold, a `UINT64`, and a service-parameter entry as its service type and inactivity period.
+
 ## Chores
 
 - Registered Bedrock Eras in `scripts/blockchain_structure.py` (`FILE_ASSIGNMENTS`).
@@ -360,7 +374,8 @@ Cryptarchia's §Versioning and Protocol Upgrades, which activated upgrades by bl
 | [Cryptarchia Protocol](../cryptarchia-v1-protocol.md) | Modified | header field removed, `slot` first, validation renumbered, same-era uncles, `first_slot`, fork choice and `commit` with per-era k, §Versioning replaced by a link, vectors `TBD` |
 | [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md) | Modified | header layout, encoding grammar, size derivations, proposal validation citing the renumbered header rules |
 | [Mempool](../mempool.md) | Modified | admission, decoding, block building, retirement and claim deadlines under eras |
-| [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | `fork_digest` field, validation step 4, transaction-hash vectors, `WINDOW` of the referenced block's era |
+| [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | `fork_digest` field, validation step 4, transaction-hash vectors, `WINDOW` of the referenced block's era, `MinStake` and `ServiceParameters` without an epoch |
+| [Service Declaration Protocol](../bedrock-service-declaration-protocol.md) | Modified | minimum stake and service parameters of the era of a block's slot, without an epoch or a history |
 | [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | `ForkDigest` first in `MantleTx` |
 | [Blend Protocol](../blend-protocol.md) | Modified | version checks removed, protocol name, era pointers, overhead figure and message size, Transition Period and clock bounds, no blacklisting for a next-epoch proof |
 | [Message Formatting](../message-formatting.md) | Modified | `version` byte removed, payload maximum |
