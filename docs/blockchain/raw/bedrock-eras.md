@@ -20,6 +20,7 @@
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-04 |
+| 1.1.0 | The recorded chain state is the list of components in [Bedrock Chain State](bedrock-chain-state.md). | 2026-10-06 |
 
 # Introduction
 
@@ -226,7 +227,7 @@ A node interprets each piece of chain data under one era:
 
 A new era may change what the chain state holds and how it is laid out, while the state built under the previous era must carry over.
 
-Between eras, the **recorded chain state** passes through a **[migration](#era-migration)** that the new era defines.
+Between eras, the **recorded chain state**, which [Bedrock Chain State](bedrock-chain-state.md) lists, passes through a **[migration](#era-migration)** that the new era defines.
 
 A node migrates state recorded in an earlier era before it uses it:
 
@@ -546,7 +547,7 @@ At startup and on checkpoint import ([Bootstrapping from Checkpoint](cryptarchia
 
 ## Era Migration
 
-Every era after the first defines a migration from the previous era, and states with it whether the era refuses the transactions of earlier eras ([Era of Chain Data](#era-of-chain-data)). A migration is a function of the recorded chain state alone. The recorded chain state is the state a Mantle Operation is validated against ([Validation](bedrock-v1.1-mantle-specification.md#validation), [Proof of Work Operations](bedrock-v1.1-mantle-specification.md#proof-of-work-operations)) and the [snapshots](bedrock-service-declaration-protocol.md#snapshots) of the current and later epochs.
+Every era after the first defines a migration from the previous era, and states with it whether the era refuses the transactions of earlier eras ([Era of Chain Data](#era-of-chain-data)). A migration is a function of the recorded chain state alone, which [Bedrock Chain State](bedrock-chain-state.md) defines.
 
 A migration must be:
 
