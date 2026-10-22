@@ -47,7 +47,7 @@
 | 1.15.0 | Add the `CLAIM_POW_REWARD` Operation and the proof of work state it is validated against; the reward pool and the difficulty controllers are specified in [Proof of Work](proof-of-work.md) | 2026-09-08 |
 | 1.16.0 | Gas Determination table updated for strict Ed25519 verification: channel Operations 56 → 59 Execution Gas per signature, `EXECUTION_SDP_DECLARE_GAS` 646 → 649, from [Gas Cost Determination](analysis-gas-cost-determination.md) 1.7.0 | 2026-09-24 |
 | 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding. | 2026-10-06 |
-| 1.18.0 | Added the `fork_digest` field to the Mantle Transaction, accepted as defined in [Bedrock Eras](bedrock-eras.md), and took `WINDOW` from the era of the claim's referenced block ([Acceptance Window](proof-of-work.md#acceptance-window)). | 2026-10-20 |
+| 1.18.0 | Added the `fork_digest` field to the Mantle Transaction, accepted as defined in [Bedrock Eras](bedrock-eras.md), took `WINDOW` from the era of the claim's referenced block ([Acceptance Window](proof-of-work.md#acceptance-window)), and dropped the `epoch` of `MinStake` and `ServiceParameters`, whose values are those of the era. | 2026-10-22 |
 
 # Introduction
 
@@ -1074,11 +1074,9 @@ class Locator(bytes):
 
 class MinStake:
     stake_threshold: int # stake value
-    epoch: EpochNumber # epoch number
 
 class ServiceParameters:
     inactivity_period: NumberOfEpochs # number of epochs
-    epoch: EpochNumber                # epoch number at which the Service Parameters were set
 
 class DeclarationInfo:
     service: ServiceType
@@ -1134,7 +1132,7 @@ txhash: zkhash                  # the txhash of the transaction we are validatin
 declaration: DeclarationMessage # the declaration we are validating
 proof: DeclarationProof
 
-min_stake: MinStake      # the (global) minimum stake setting
+min_stake: MinStake      # the minimum stake of the era of the block's slot
 ledger: Ledger           # the set of unspent notes
 service_notes: dict[NoteId, ServiceNote]
 declarations: dict[NoteId, DeclarationInfo]
