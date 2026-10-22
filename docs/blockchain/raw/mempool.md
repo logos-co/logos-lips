@@ -25,6 +25,7 @@
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-10-21 |
+| 1.1.0 | A transaction is decoded under the era its fork digest names, admitted only when the era in force accepts that digest, applied under the era of the block's slot, and retired when the era in force stops accepting its digest ([Bedrock Eras](bedrock-eras.md)). | 2026-10-21 |
 
 # Introduction
 
@@ -38,7 +39,7 @@ This document specifies how a node admits and disseminates transactions, what it
 
 Each node keeps its own mempool. Nodes admit and retire independently, so their pending sets differ.
 
-A transaction reaches a node from a local client, out of the Blend network, by gossip from another node, or back from a block that a fork switch removed from the chain. The node checks only that the transaction is well formed, and that a reward claim it carries has not expired. It does not consult the ledger, so its mempool can hold transactions that will never apply.
+A transaction reaches a node from a local client, out of the Blend network, by gossip from another node, or back from a block that a fork switch removed from the chain. The node checks only that the transaction is well formed, that the era in force accepts its fork digest, and that a reward claim it carries has not expired. It does not consult the ledger, so its mempool can hold transactions that will never apply.
 
 Take a miner whose reward claim leaves the Blend network at node A in slot 12. The claim names the block of slot 10, and node B leads slot 15.
 
@@ -105,6 +106,7 @@ A transaction arrives by local submission, from a client, the node itself or the
 
 - its encoding is no larger than `MAX_BLOCK_SIZE`;
 - it decodes, and decoding consumes the whole payload;
+- the era in force accepts its fork digest ([Era of Chain Data](bedrock-eras.md#era-of-chain-data));
 - it passes `preverify`, a set of rules of Mantle's [Validation](bedrock-v1.1-mantle-specification.md#validation) that read no ledger state;
 - it is not already pending;
 - it carries no [Proof of Work](proof-of-work.md) reward **claim** whose **deadline** has passed.
@@ -133,12 +135,13 @@ A **reference** is a prefix of the transaction's hash. It resolves only when exa
 
 ## Retirement Reasons
 
-Without retirement, the pending set would only grow. A node retires a transaction for one of four reasons:
+Without retirement, the pending set would only grow. A node retires a transaction for one of five reasons:
 
 - a block that carries it enters the node's canonical chain;
 - a leader's block building finds it inapplicable;
 - its age reaches `TRANSACTION_TTL`, unless the node disables expiry;
-- it carries a claim whose deadline has passed.
+- it carries a claim whose deadline has passed;
+- the era in force changes to one that does not accept its fork digest.
 
 A retired transaction stays in the mempool for `RETIREMENT_GRACE`, and still resolves references. The node then discards everything it kept for it. When a fork switch displaces blocks from the canonical chain, the node re-admits the transactions they carried that the new canonical chain does not carry. [Retirement](#retirement) and [Reorganisation](#reorganisation) specify the rules.
 
@@ -158,7 +161,7 @@ sequenceDiagram
     participant A as node A
     participant B as node B, a leader
     C->>A: submit through the Node API
-    A->>A: admit: decoding, preverify,<br/>size, duplicate, claim
+    A->>A: admit: decoding, fork digest,<br/>preverify, size, duplicate, claim
     A->>B: broadcast on the mempool topic
     B->>B: relay to its mesh, then admit
     B->>B: apply the pending transactions<br/>and select them into a block
@@ -258,6 +261,9 @@ def admit(mempool, encoded: bytes) -> Result:
     if tx is None:
         return Reject(Malformed)
 
+    if not accepts_fork_digest(era_in_force(), tx.tx.fork_digest):
+        return Reject(UnacceptedForkDigest)
+
     if not preverify(tx):
         return Reject(FailedStatelessValidation)
 
@@ -276,19 +282,19 @@ def admit(mempool, encoded: bytes) -> Result:
     return Accept(key)
 ```
 
-Admission reads the transaction, the mempool and the node's block tree, and no other state. A node must not treat membership of the mempool as evidence that a transaction can be applied.
+Admission reads the transaction, the mempool, the node's block tree and the era in force, and no other state. A node must not treat membership of the mempool as evidence that a transaction can be applied.
 
-`decode_signed_mantle_tx` returns the transaction that [Decoding](#decoding) describes, or `None` if `encoded` does not decode. `claim_expired` is defined in [Expired Claim](#expired-claim). `admit` returns `Accept(key)` when it admits the transaction, `Duplicate(key)` when the transaction is already pending, and `Reject` with the reason otherwise.
+`decode_signed_mantle_tx` returns the transaction that [Decoding](#decoding) describes, or `None` if `encoded` does not decode. `claim_expired` is defined in [Expired Claim](#expired-claim). `accepts_fork_digest` is that of [Era of Chain Data](bedrock-eras.md#era-of-chain-data), and `era_in_force` that of [Era Boundaries](bedrock-eras.md#era-boundaries). `admit` returns `Accept(key)` when it admits the transaction, `Duplicate(key)` when the transaction is already pending, and `Reject` with the reason otherwise.
 
 For a local submission, a node decodes the transaction and runs `preverify` first, and then checks the size of its canonical encoding.
 
 ### Decoding
 
-The payload is the canonical encoding defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md), carried in the envelope defined in [Network Wire Format](network-wire-format.md): the length of the encoding as an unsigned 64-bit little-endian integer, followed by the encoding. The proof of a `CLAIM_POW_REWARD` is empty, in place of the `ZkSigProof` that Mantle Transaction Encoding gives it. Decoding must consume the payload exactly. A transaction submitted through the [Node API](#node-api) arrives in JSON instead.
+The payload is the canonical encoding defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md), carried in the envelope defined in [Network Wire Format](network-wire-format.md): the length of the encoding as an unsigned 64-bit little-endian integer, followed by the encoding. The proof of a `CLAIM_POW_REWARD` is empty, in place of the `ZkSigProof` that Mantle Transaction Encoding gives it. The encoding is that of the era whose fork digest the transaction carries ([Era of Chain Data](bedrock-eras.md#era-of-chain-data)), and a fork digest of no era of the node's schedule does not decode. Decoding must consume the payload exactly. A transaction submitted through the [Node API](#node-api) arrives in JSON instead.
 
 ### Stateless Validation
 
-`preverify` applies these rules of Mantle's [Validation](bedrock-v1.1-mantle-specification.md#validation), none of which reads ledger state:
+`preverify` applies these rules of Mantle's [Validation](bedrock-v1.1-mantle-specification.md#validation), under the era in force, none of which reads ledger state:
 
 1. Rule 1 of [Validation](bedrock-v1.1-mantle-specification.md#validation) holds, with an empty proof for a `CLAIM_POW_REWARD`.
 2. Each proof bound only to the transaction hash and the operation payload verifies.
@@ -319,7 +325,7 @@ When `admit` returns `Duplicate`:
 
 ## Dissemination
 
-Transactions are gossiped on the mempool topic defined in [Gossiping](../draft/p2p-network.md#gossiping).
+Transactions are gossiped on the mempool topic defined in [Gossiping](../draft/p2p-network.md#gossiping), which carries the fork digest of an era. [Network Protocol Identity](bedrock-eras.md#network-protocol-identity) specifies which era's topic a node broadcasts on.
 
 A message's identity on that topic is the Blake2b-256 digest of its payload. A node remembers the identity of each message it receives or publishes on that topic for `SEEN_TTL`.
 
@@ -375,7 +381,7 @@ def selection(applied: list[SignedMantleTx]) -> list[SignedMantleTx]:
 
 `applicability` is the leader's **applicability determination**. Its second result holds the inapplicable transactions.
 
-`parent_state` is the ledger state after the parent of the block being built. `apply_header(parent_state, header)` returns the state against which [Block Execution](bedrock-v1.1-block-construction.md#block-execution) executes the first transaction of a block with that header. `apply_transaction(state, tx)` returns the state after executing `tx` against `state` as [Mantle](bedrock-v1.1-mantle-specification.md) specifies, or `None` if `tx` is not valid against `state`. It skips step 6 of the [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation, the signature check, since a claim's proof is empty. It does not verify the ZK proofs that [Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#batch-verification-of-zk-proofs) verifies together, and `batched_proofs_verify(state, tx)` holds when those of `tx` verify. `execution_gas(state, tx)` is the Execution Gas of `tx` against `state`, as [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) derives it. `encoded_size(txs)` is the total length of the canonical encodings of the transactions in `txs`, which rule 2 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) bounds by `MAX_BLOCK_SIZE`.
+`parent_state` is the ledger state after the parent of the block being built, migrated to the era of the block's slot ([Era Migration](bedrock-eras.md#era-migration)), and the functions below apply the rules of that era. `apply_header(parent_state, header)` returns the state against which [Block Execution](bedrock-v1.1-block-construction.md#block-execution) executes the first transaction of a block with that header. `apply_transaction(state, tx)` returns the state after executing `tx` against `state` as [Mantle](bedrock-v1.1-mantle-specification.md) specifies, or `None` if `tx` is not valid against `state`. It skips step 6 of the [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation, the signature check, since a claim's proof is empty. It does not verify the ZK proofs that [Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#batch-verification-of-zk-proofs) verifies together, and `batched_proofs_verify(state, tx)` holds when those of `tx` verify. `execution_gas(state, tx)` is the Execution Gas of `tx` against `state`, as [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) derives it. `encoded_size(txs)` is the total length of the canonical encodings of the transactions in `txs`, which rule 1 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) bounds by `MAX_BLOCK_SIZE`.
 
 ## Reference Resolution
 
@@ -398,7 +404,7 @@ How a validator uses the result, and what a failure to resolve establishes about
 
 ## Retirement
 
-A transaction leaves `pending` for one of four reasons.
+A transaction leaves `pending` for one of five reasons.
 
 ### Inclusion in a Canonical Block
 
@@ -423,14 +429,18 @@ def claim_expired(mempool, tx) -> bool:
     if not known or mempool.highest_slot is None:
         return False
     # One claim the ledger rejects invalidates the whole transaction, so the
-    # earliest referenced block decides. A block at slot s + WINDOW is the last
+    # earliest deadline decides. A block at slot s + window(s) is the last
     # that can include a claim referencing a block at slot s.
-    return mempool.highest_slot >= min(known) + WINDOW + 1 + CLAIM_GRACE
+    return mempool.highest_slot >= min(s + window(s) for s in known) + 1 + CLAIM_GRACE
 ```
 
 A pending transaction for which `claim_expired` holds is retired, unless it has been pending since the node recovered it from persisted state.
 
-`claims(tx)` is the list of claims in `tx`. `block_slot(h)` is the slot of the block with hash `h` in the node's block tree, or `None` if the block tree holds no such block.
+`claims(tx)` is the list of claims in `tx`. `block_slot(h)` is the slot of the block with hash `h` in the node's block tree, or `None` if the block tree holds no such block. `window(s)` is the `WINDOW` of the era of slot `s` ([Acceptance Window](proof-of-work.md#acceptance-window)).
+
+### Era Change
+
+A pending transaction whose fork digest the era in force does not accept, by `accepts_fork_digest` of [Era of Chain Data](bedrock-eras.md#era-of-chain-data), is retired.
 
 ### Effects of Retirement
 
@@ -448,7 +458,7 @@ def prune(mempool) -> None:
             del mempool.bodies[key]
 ```
 
-A node retires a transaction by running `retire`. It runs `prune` before it admits a transaction, retires one, or processes a block. It retires the transactions that [Expiry](#expiry) and [Expired Claim](#expired-claim) select when it processes a block, and after it retires transactions for [Inclusion in a Canonical Block](#inclusion-in-a-canonical-block) or [Inapplicability](#inapplicability).
+A node retires a transaction by running `retire`. It runs `prune` before it admits a transaction, retires one, or processes a block. It retires the transactions that [Expiry](#expiry) and [Expired Claim](#expired-claim) select when it processes a block, and after it retires transactions for [Inclusion in a Canonical Block](#inclusion-in-a-canonical-block) or [Inapplicability](#inapplicability). It retires those that [Era Change](#era-change) selects when the era in force changes and when it recovers its mempool.
 
 ## Persistence and Recovery
 

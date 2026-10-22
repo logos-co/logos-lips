@@ -47,6 +47,7 @@
 | 1.15.0 | Add the `CLAIM_POW_REWARD` Operation and the proof of work state it is validated against; the reward pool and the difficulty controllers are specified in [Proof of Work](proof-of-work.md) | 2026-09-08 |
 | 1.16.0 | Gas Determination table updated for strict Ed25519 verification: channel Operations 56 → 59 Execution Gas per signature, `EXECUTION_SDP_DECLARE_GAS` 646 → 649, from [Gas Cost Determination](analysis-gas-cost-determination.md) 1.7.0 | 2026-09-24 |
 | 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding. | 2026-10-06 |
+| 1.18.0 | Added the `fork_digest` field to the Mantle Transaction, accepted as defined in [Bedrock Eras](bedrock-eras.md), took `WINDOW` from the era of the claim's referenced block ([Acceptance Window](proof-of-work.md#acceptance-window)), and dropped the `epoch` of `MinStake` and `ServiceParameters`, whose values are those of the era. | 2026-10-22 |
 
 # Introduction
 
@@ -85,6 +86,7 @@ Mantle Transactions form the core of Mantle, enabling users to combine multiple 
 
 ```python
 class MantleTx:
+    fork_digest: hash
     ops: list[Op]
 
 class Op:
@@ -100,6 +102,8 @@ def mantle_txhash(tx: MantleTx) -> Hash:
 
     return h.digest()
 ```
+
+`fork_digest` is the fork digest of the era in force when the transaction was signed ([Era of Chain Data](bedrock-eras.md#era-of-chain-data)).
 
 The [hash function used](common-cryptographic-components.md), as well as other cryptographic primitives like ZK proofs and signature schemes, are described in [Common Cryptographic Components](common-cryptographic-components.md).
 
@@ -177,7 +181,7 @@ If the Mantle Transaction is unbalanced (meaning that the Transaction consume mo
 
 ```python
 signed_tx = SignedMantleTx(
-    tx=MantleTx(ops),
+    tx=MantleTx(fork_digest, ops),
     op_proofs
 )
 
@@ -231,13 +235,15 @@ Mantle validators will ensure the following:
     tx_priority_tip = checked_uint64(tx_balance - tx_mandatory_fee)
     ```
 
+4. The `fork_digest` of the Mantle Transaction is accepted as defined in [Era of Chain Data](bedrock-eras.md#era-of-chain-data).
+
 ## Execution
 
 *Given*
 
 ```python
 SignedMantleTx(
-    tx=MantleTx(ops),
+    tx=MantleTx(fork_digest, ops),
     op_proofs
 )
 ```
@@ -495,6 +501,7 @@ transfer = Transfer(inputs=[<spocks_note_id>], outputs=[<change_note>])
 
 # Wrap it in a transaction
 tx = MantleTx(
+    fork_digest=<fork_digest>,
     ops=[Op(opcode=CHANNEL_INSCRIBE, payload=encode(greeting)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -663,6 +670,7 @@ config = ChannelConfig(
 transfer = Transfer(inputs=[old_sequencer_funds], outputs=[<change_note>])
 
 tx = MantleTx(
+    fork_digest=<fork_digest>,
     ops=[Op(opcode=CHANNEL_CONFIG, payload=encode(config)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -782,6 +790,7 @@ transfer = Transfer(inputs=[Alice_funds], outputs=[<change_note>])
 
 
 tx = MantleTx(
+    fork_digest=<fork_digest>,
     ops=[Op(opcode=CHANNEL_DEPOSIT, payload=encode(deposit)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -894,6 +903,7 @@ withdrawal = ChannelWithdraw(
 transfer = Transfer(inputs=[Sequencer_funds], outputs=[<change_note>])
 
 tx = MantleTx(
+    fork_digest=<fork_digest>,
     ops=[Op(opcode=CHANNEL_WITHDRAW, payload=encode(withdrawal)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -1023,6 +1033,7 @@ chan_transfer = ChannelTransfer(
 transfer = Transfer(inputs=[Sequencer_funds], outputs=[<change_note>])
 
 tx = MantleTx(
+    fork_digest=<fork_digest>,
     ops=[Op(opcode=CHANNEL_TRANSFER, payload=encode(chan_transfer)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -1063,11 +1074,9 @@ class Locator(bytes):
 
 class MinStake:
     stake_threshold: int # stake value
-    epoch: EpochNumber # epoch number
 
 class ServiceParameters:
     inactivity_period: NumberOfEpochs # number of epochs
-    epoch: EpochNumber                # epoch number at which the Service Parameters were set
 
 class DeclarationInfo:
     service: ServiceType
@@ -1123,7 +1132,7 @@ txhash: zkhash                  # the txhash of the transaction we are validatin
 declaration: DeclarationMessage # the declaration we are validating
 proof: DeclarationProof
 
-min_stake: MinStake      # the (global) minimum stake setting
+min_stake: MinStake      # the minimum stake of the era of the block's slot
 ledger: Ledger           # the set of unspent notes
 service_notes: dict[NoteId, ServiceNote]
 declarations: dict[NoteId, DeclarationInfo]
@@ -1233,6 +1242,7 @@ transfer = Transfer(inputs=[fee_note_id], outputs=[])
 
 
 tx = MantleTx(
+    fork_digest=<fork_digest>,
     ops=[Op(opcode=SDP_DECLARE, payload=encode(declaration)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -1361,6 +1371,7 @@ transfer = Transfer(inputs=[alices_service_note_id],
                     outputs=[Note(100, alice_note_pk)])
 
 tx = MantleTx(
+    fork_digest=<fork_digest>,
     ops=[Op(opcode=SDP_WITHDRAW, payload=encode(withdraw)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -1500,6 +1511,7 @@ active=Active(
 transfer = Transfer(inputs=[fee_note_id], outputs=[])
 
 tx = MantleTx(
+    fork_digest=<fork_digest>,
     ops=[Op(opcode=SDP_ACTIVE, payload=encode(active))],
 )
 txhash = mantle_txhash(tx)
@@ -1599,6 +1611,7 @@ claim=ClaimRequest(
 transfer = Transfer(inputs=[<fee_note>], outputs=[<change_note>])
 
 tx = MantleTx(
+    fork_digest=<fork_digest>,
     ops=[Op(opcode=LEADER_CLAIM, payload=encode(claim)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -1669,7 +1682,7 @@ pow_reward_pool: TokenValue
 epoch_pow_reward: TokenValue
 ```
 
-  The epoch nonces are the Cryptarchia epoch nonce $`\eta`$ of [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce), and `WINDOW` is derived in [Acceptance Window](proof-of-work.md#acceptance-window).
+  The epoch nonces are the Cryptarchia epoch nonce $`\eta`$ of [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce), and `WINDOW` is that of the era of the referenced block's slot ([Acceptance Window](proof-of-work.md#acceptance-window)).
 
   *Validate*
 
@@ -1746,6 +1759,7 @@ reward_note_id = derive_note_id(derive_op_id(claim), 0,
 transfer = Transfer(inputs=[reward_note_id], outputs=[<change_note>])
 
 tx = MantleTx(
+    fork_digest=<fork_digest>,
     ops=[Op(opcode=CLAIM_POW_REWARD, payload=encode(claim)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -2164,8 +2178,8 @@ To see what the payloads represent, refer to [Mantle Transaction Encoding](mantl
 
 | Transaction | Payload | Transaction Hash                                                   |
 | - | - | - |
-| Empty transaction | 0x00 | 0x2eba3f667b80a508f3d44d149a1c27a90ea365a51e4fc8209289088142b364e5 |
-| Transaction with one of each operation | 0x0a000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000600000000000000000000000000000000000000000000000000000000000000100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000c000d00110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c121010101010101010101010101010101010101010101010101010101010101010011100000000000000000000000000000000000000000000000000000000000000100000006465706f7369742d6d6574616461746113121212121212121212121212121212121212121212121212121212121212121201130000000000000000000000000000000000000000000000000000000000000014141414141414141414141414141414141414141414141414141414141414141401150000000000000000000000000000000000000000000000000000000000000001160000000000000017000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f319000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c02020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202030303030303030303030303030303030303030303030303030303030303030330200000000000000000000000000000000000000000000000000000000000000021000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000 | 0x01d051d472817b7b6dfd18ff9a6cc5160579c5dad22aa000db527263af851edb |
+| Empty transaction | 0x111111111111111111111111111111111111111111111111111111111111111100 | 0xac507795dbdd19eccf42c7006f7719916601c8733d3c0b975bcc589e09fd1436 |
+| Transaction with one of each operation | 0x11111111111111111111111111111111111111111111111111111111111111110a000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000600000000000000000000000000000000000000000000000000000000000000100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000c000d00110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c121010101010101010101010101010101010101010101010101010101010101010011100000000000000000000000000000000000000000000000000000000000000100000006465706f7369742d6d6574616461746113121212121212121212121212121212121212121212121212121212121212121201130000000000000000000000000000000000000000000000000000000000000014141414141414141414141414141414141414141414141414141414141414141401150000000000000000000000000000000000000000000000000000000000000001160000000000000017000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f319000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c02020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202030303030303030303030303030303030303030303030303030303030303030330200000000000000000000000000000000000000000000000000000000000000021000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000 | 0xf59b9b41ff825385353ae00a5e72a4eb31fa576019403c552f9800df5e66b4c2 |
 
 ### Declaration Id
 
