@@ -38,7 +38,8 @@
 | 1.6.1 | Corrected Blend activity metadata to the canonical tagged encoding: removed the separate version byte and corrected the total size to 229 bytes. | 2026-10-13 |
 | 1.7.0 | Removed the message `version` byte, put the fork digest in the libp2p protocol name, linked the era rules for the transition period, for releasing and for broadcasting, bounded the transition period and the clock difference between honest nodes, and stopped blacklisting for a next-epoch proof in an epoch's last round ([Bedrock Eras](bedrock-eras.md)). | 2026-10-20 |
 | 1.7.1 | Updated `Max_Payload_Length` to 18190 bytes in the overhead calculation, and an encapsulated message to 19313 bytes, following the removal of the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)). | 2026-10-20 |
-| 1.8.0 | A node opens a new epoch's connections, named by a digest of the epoch's proof-of-quota public input, a two-second clock slack before the epoch begins, and sends a message only on connections of its epoch, in place of the one-round clock bound and the last-round exemption from blacklisting. | 2026-10-20 |
+| 1.8.0 | Named each epoch's connections by a digest of the epoch's proof-of-quota public input. A node opens and accepts connections only of its current epoch, and sends a message only on connections of its epoch, in place of the one-round release delay and the last-round exemption from blacklisting. | 2026-10-22 |
+| 1.9.0 | A node opens and accepts a new epoch's connections, and bootstraps that epoch's network, a two-second clock slack before the epoch begins, and honest clocks must differ by less than that slack. | 2026-10-22 |
 
 # Introduction
 
@@ -615,7 +616,7 @@ After $`T_M`$ rounds, all messages for the past epoch should have been processed
 
 The transition period must be at least the message traversal time plus the largest clock difference between two honest nodes: $`T \ge T_M + T_C`$. Otherwise a node whose clock runs ahead stops processing past-epoch messages while some are still crossing the network, and their senders wait for a delivery that can no longer happen ([Detection](#detection)).
 
-From $`T_S = 2`$ seconds before a new epoch begins by its local clock, a node opens the connections of the new epoch, under its protocol name ([Connection Details](#connection-details)), and accepts those its neighbors open. It counts them towards the [Degree](#connectivity-maintenance) rules apart from the connections of the current epoch. The new epoch's public input is fixed before the epoch begins. Nodes must keep their clocks synchronized so that $`T_C`$ is below $`T_S`$, a round lasting one second ([Time](#time)). Otherwise a node whose clock runs ahead can send a message of the new epoch before a node whose clock runs behind has opened that epoch's connections.
+A node opens and accepts connections only of its current epoch, by its local clock, and from $`T_S = 2`$ seconds before a new epoch begins also those of the new epoch ([Connection Details](#connection-details)). It counts the new epoch's connections towards the [Degree](#connectivity-maintenance) rules apart from the connections of the current epoch. The new epoch's public input is fixed before the epoch begins. Nodes must keep their clocks synchronized so that $`T_C`$ is below $`T_S`$, a round lasting one second ([Time](#time)). Otherwise a neighbor whose clock runs behind a node can still refuse its connections of the new epoch after its epoch changes, and the messages it generates in that time reach none of those neighbors.
 
 When a new **epoch** begins:
 
@@ -909,7 +910,7 @@ The relaying logic is defined as follows:
     3. If the header of the message is incorrect, then discard the message, close the connection and blacklist the neighbor ([Connectivity Maintenance](#connectivity-maintenance)). We assume that an adversary cannot inject any spoofed message to the connection.
     4. If the PoQ nullifier $`\nu_i \in \mathbf H`$ from the public header of the message is already in the nullifier cache, then the message is a duplicate and must be discarded. An entry is retained until the [Transition Period](#transition-period) after the epoch of its message ends.
     5. If the signature $`\sigma_{K^{n}_{i}}(\mathbf P_i) \in \mathbf H`$ from the public header of the message is invalid, then the message must be discarded, the connection closed and the neighbor blacklisted ([Connectivity Maintenance](#connectivity-maintenance)).
-    6. If the proof of quota $`\pi^{K^{n}_i}_{Q} \in \mathbf H`$ from the public header is invalid, then the message must be discarded and must not be relayed. The connection is closed and the neighbor blacklisted, as defined in [Connectivity Maintenance](#connectivity-maintenance).
+    6. If the proof of quota $`\pi^{K^{n}_i}_{Q} \in \mathbf H`$ from the public header is invalid, then the message must be discarded and must not be relayed. The node reacts to the neighbor as defined in [Connectivity Maintenance](#connectivity-maintenance).
 2. Release the message according to the [Releasing](#releasing) logic.
 3. Concurrently to the above step, add the message to the processing queue, where it is handled by the [Processing](#processing) logic.
 
