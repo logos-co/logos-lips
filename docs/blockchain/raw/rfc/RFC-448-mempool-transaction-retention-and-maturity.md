@@ -18,10 +18,11 @@
 |  | Merged the restructured mempool specification, and extended its Overview and Protocol to maturity, retention and release. The constants diff follows the Parameters block, and maturity must be shorter than the claim window. | 2026-10-13 |
 |  | Released an included transaction once its block is `k` blocks deep rather than immutable, which bounds `included` while a node bootstraps, and measured a displaced transaction's age from its block's slot when no admission time is held. | 2026-10-20 |
 |  | Merged the mempool specification's reference code, which the Details diffs now quote. | 2026-10-20 |
+|  | A transaction that a fork switch re-admits is no longer broadcast. | 2026-10-23 |
 
 ## Reviewer Orientation
 
-Single-document change — read [Mempool](../mempool.md) top to bottom. Focus on the maturity gate in `Block Building View`, on the new `Release` stage and its two triggers, on `included` in `Inclusion in a Canonical Block` and in `admit`, on the admission time and position `admit` keeps for a retained transaction, on which displaced transactions `Reorganisation` re-admits, on how `Persistence and Recovery` rebuilds `included`, on the release of an expired claim, and on the constraints under `Constants`, which are what make a compliant selection reconstructable at every node.
+Single-document change — read [Mempool](../mempool.md) top to bottom. Focus on the maturity gate in `Block Building View`, on the new `Release` stage and its two triggers, on `included` in `Inclusion in a Canonical Block` and in `admit`, on the admission time and position `admit` keeps for a retained transaction, on which displaced transactions `Reorganisation` re-admits, on `Dissemination`, which does not broadcast them, on how `Persistence and Recovery` rebuilds `included`, on the release of an expired claim, and on the constraints under `Constants`, which are what make a compliant selection reconstructable at every node.
 
 # Discussion
 
@@ -61,7 +62,7 @@ Releasing at depth `k` while bootstrapping costs only delay. Nothing reads what 
 
 Under the Online rule the bound also covers the reorganisation. A fork switch displaces only blocks fewer than `k` deep, so every transaction it re-admits is still retained, and `admit` keeps its admission time. Under the Bootstrap rule a fork switch can displace deeper blocks, whose transactions were released together with their admission times. A transaction this node holds no admission time for, because it learned the transaction only from a block or has released it, is admitted at the current time.
 
-A displaced transaction older than `TRANSACTION_TTL` is not re-admitted. This node would not select it, and re-inserting it would broadcast it to nodes that never held it, which would admit it at the current time. It stays retained until its age exceeds `TRANSACTION_RETENTION`. For a transaction without an admission time, the node measures the age from the start of the displaced block's slot, since a transaction is at least as old as the block that carries it. Without that, a deep fork switch while bootstrapping would re-admit and broadcast every displaced transaction the new chain lacks, however old. A retained copy that is not re-admitted keeps the slot start as its time, which the time bound then measures. With the implementation's 1-hour default, a fork switch returns to block building only the displaced transactions admitted in the last hour. The 24 hours here cover a reorganisation back to depth `k`, 18 hours on average.
+A displaced transaction older than `TRANSACTION_TTL` is not re-admitted. This node would not select it. It stays retained until its age exceeds `TRANSACTION_RETENTION`. For a transaction without an admission time, the node measures the age from the start of the displaced block's slot, since a transaction is at least as old as the block that carries it. Without that, a deep fork switch while bootstrapping would re-admit every displaced transaction the new chain lacks, however old. A retained copy that is not re-admitted keeps the slot start as its time, which the time bound then measures. With the implementation's 1-hour default, a fork switch returns to block building only the displaced transactions admitted in the last hour. The 24 hours here cover a reorganisation back to depth `k`, 18 hours on average.
 
 An included hash is a duplicate at admission. Admitting it again would return it to `pending`. Block building would then retire it as inapplicable, and the time bound would release it, possibly before its block is `k` blocks deep.
 
@@ -76,6 +77,14 @@ A transaction that a fork switch displaces goes back to the position its admissi
 The order also matters beyond fairness. The implementation's TTL eviction scans the front of the sequence and stops at the first transaction that has not expired. An old timestamp appended at the back would never be reached, and nothing behind it would be examined either. `insert_by` keeps `pending` sorted by admission time, which the scan relies on. Gossip that re-admits a retained transaction puts an old timestamp back as well.
 
 The rule was [#413](https://github.com/logos-co/logos-lips/pull/413)'s until [review](https://github.com/logos-co/logos-lips/pull/413#discussion_r4078757027) found that #413 discards the admission time at retirement, before a fork switch needs it. The rule needs the time to outlive retirement, so it moved here.
+
+## Why a re-admitted transaction is not broadcast
+
+A fork switch displaces the same blocks on every node that makes it, and each of those nodes re-admits the displaced transactions itself. A node that followed the adopted branch, and received a transaction by gossip, still holds it. The nodes that lack it are those that joined, or were cut off, when it was gossiped.
+
+A broadcast would not reach them either. In the implementation, a node remembers the identity of each message it receives or publishes on the mempool topic for 24 hours, and a broadcast of a message it remembers sends nothing. A re-admitted transaction is at most `TRANSACTION_TTL` old, which does not exceed 24 hours, so every node that received it by gossip still remembers its identity. A broadcast would go out only from a node that learned the transaction from a block, or that has restarted since. Most of its peers would drop it as a duplicate.
+
+The cost of a broadcast would also rest on a node setting. A node that remembers identities for a shorter time would broadcast every re-admitted transaction older than that, to peers that mostly hold it already.
 
 ## A restart must not undo a retirement
 
@@ -264,13 +273,19 @@ A fork switch takes the displaced transactions out of `included` before it re-ad
 +            mempool.included.discard(key)
 +            # A transaction is at least as old as the start of the slot of a block that carries it.
 +            admitted = mempool.admitted_at.get(key, genesis_time + block.header.slot * SLOT_LENGTH)
-+            # Re-insertion would broadcast a transaction past its time to live.
 +            if now() - admitted > TRANSACTION_TTL:
 +                if key in mempool.bodies:
 +                    # A retained copy keeps the time its release is measured from.
 +                    mempool.admitted_at[key] = admitted
 +                continue
 +            admit(mempool, encode_signed_mantle_tx(tx))
+```
+
+A transaction that a fork switch re-admits is not broadcast:
+
+```diff
+-A node broadcasts a transaction it admits by local submission or by re-insertion. It does not broadcast a transaction it received by gossip.
++A node broadcasts a transaction it admits by local submission. It does not broadcast a transaction it received by gossip or by re-insertion.
 ```
 
 ## Admission preserves the admission time
@@ -357,6 +372,7 @@ The mempool status endpoint reports `retained` as a third state beside `pending`
 - [ ]  Report a hash in `included` as a duplicate at admission
 - [ ]  Preserve the admission time when a retained transaction is admitted again, on the reorganisation path too, and use the current time for a displaced transaction this node holds no admission time for
 - [ ]  Re-admit a displaced transaction on a fork switch only if its age is within `TRANSACTION_TTL`, measured from the start of the displaced block's slot when the node holds no admission time, and keep that time for a retained copy that is not re-admitted
+- [ ]  Do not broadcast a transaction that a fork switch re-admits
 - [ ]  Keep admission times in seconds since the Unix epoch, the clock of `genesis_time`
 - [ ]  Insert a re-admitted transaction at the position its admission time gives it, which the current `IndexMap` cannot express, and keep TTL eviction correct across that insertion
 - [ ]  Subscribe to the mempool topic when listening for new blocks starts
