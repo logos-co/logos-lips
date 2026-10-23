@@ -7,7 +7,7 @@
 | Status | raw |
 | Category | Standards Track |
 | Editor | Ugur Sen [ugur@status.im](mailto:ugur@status.im) |
-| Contributors |  Sylvain [ugusylvainr@status.im](mailto:sylvain@status.im) |
+| Contributors |  Sylvain [sylvainr@status.im](mailto:sylvain@status.im) |
 
 <!-- timeline:start -->
 
