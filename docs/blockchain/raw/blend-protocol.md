@@ -36,6 +36,7 @@
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
 | 1.6.0 | Replaced the per-window statistical threshold on a connection with a share of messages a node reads from, and sends on, each connection in a round, and a liveness test, kept per identity for the epoch, on whether a neighbor delivers. Held the peering degree in live connections, at least two of them opened by the node. Restricted blacklisting to attributable faults. Sized the shares from the processing rate of the slowest node, derived the transactions the network carries from them, and made that rate the reference load of the Blend difficulty. | 2026-09-08 |
 | 1.6.1 | Corrected Blend activity metadata to the canonical tagged encoding: removed the separate version byte and corrected the total size to 229 bytes. | 2026-10-13 |
+| 1.7.0 | Derived the observation window $`W`$ from cover traffic in place of the maximal release delay. | 2026-10-23 |
 
 # Introduction
 
@@ -472,7 +473,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\beta_D=3`$, the expected number of blending operations for each data message;
 - $`\eta=2`$ rounds, the network absorption of one hop.
 - $`T_M = 15`$ rounds, the message traversal time, as derived in the [Transition Period](#transition-period) section.
-- $`W=10 \cdot \Delta_{max}=30`$, the observation window is $`30`$ rounds.
+- $`W = \lceil 90 / (F_C \cdot (1 + R_C) \cdot \beta_C) \rceil = 30`$ rounds, the observation window: the rounds in which a core connection carries $`90`$ messages from cover traffic alone ([Expected Traffic](#expected-traffic)). With fewer messages in the window, a node more often reads an honest neighbor as not live and closes its connection ([Connectivity Maintenance](#connectivity-maintenance)).
 - $`F_C=1`$, the network generates one cover message per round on average.
 - $`F_D=1/30`$, the network generates one block proposal every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)).
 - $`F_T = 130/30`$, the network carries $`130`$ messages per slot of $`30`$ rounds, each carrying one transaction ([Payload Formatting](payload-formatting.md)), whatever quota backs them: $`\left(F_1 / \beta_{max} - \max(F_C \cdot (1 + R_C), F_D \cdot (1 + R_D))\right) \cdot 30 = 130`$ at $`F_1 = 16`$ ([Expected Traffic](#expected-traffic)).
