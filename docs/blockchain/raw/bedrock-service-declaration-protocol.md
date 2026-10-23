@@ -34,6 +34,7 @@
 | 1.4.3 | Identifier uniqueness covers every stored declaration, not only activated ones, matching the implementation | 2026-09-01 |
 | 1.5.0 | Defined `active` as the epoch of the block that contained the latest accepted active message, initialised to `created + 2`, and `withdraw_at` as the epoch at which the node stops providing the service, matching the implementation. Added the participant-set exclusion rule and [Message Timing](#message-timing) | 2026-09-02 |
 | 1.6.0 | Declarations are removed at `withdraw_at + 1`, one epoch after the node stops, making the last served epoch rewardable | 2026-09-03 |
+| 1.7.0 | The minimum stake is one `MinStake` of `threshold` and the block number `timestamp`, matching the implementation; its epoch-addressed queries are removed | 2026-10-23 |
 
 # Introduction
 
@@ -95,18 +96,12 @@ Each service type is assigned a one-byte discriminant, given by the enum value a
 
 The minimum stake is a global value that defines the minimum stake a node must have to perform any service.
 
-The `MinStake` is a structure that holds the value of the stake `stake_threshold` and the `epoch`, which is an epoch number at which the threshold was set; it is an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch).
+The minimum stake is one `MinStake`, which holds the `threshold`, a [`TokenValue`](bedrock-v1.1-mantle-specification.md#notes), and the `timestamp`, the number of the block at which the threshold was set. A `BlockNumber` is a 64-bit unsigned integer, counting the genesis block as 0.
 
 ```python
 class MinStake:
-    stake_threshold: StakeThreshold
-    epoch: EpochNumber
-```
-
-The `stake_thresholds` is a structure aggregating all defined `MinStake` values.
-
-```python
-stake_thresholds: list[MinStake]
+    threshold: TokenValue
+    timestamp: BlockNumber
 ```
 
 For more information on how the minimum stake is calculated, please refer to the [\[Analysis\] Static Minimum Stake Estimation for Service Declaration Protocol](analysis-static-minimum-stake-estimation-for-service-declaration-protocol.md).
@@ -399,8 +394,6 @@ The protocol must enable querying the ledger in at least the following manner:
 - `GetAllServiceParameters(epoch)`, returns all entries of the `ServiceParameters` store for the requested `epoch`.
 - `GetAllServiceParametersSince(epoch)`, returns all entries of the `ServiceParameters` store since the requested `epoch`.
 - `GetServiceParameters(service_type, epoch)`, returns the service parameter entry from the `ServiceParameters` store of a `service_type` for a specified `epoch`.
-- `GetMinStake(epoch)`, returns the `MinStake` structure at the requested `epoch`.
-- `GetMinStakeSince(epoch)`, returns a set of `MinStake` structures since the requested `epoch`.
 
 The query must return an error if the requested information is not available.
 

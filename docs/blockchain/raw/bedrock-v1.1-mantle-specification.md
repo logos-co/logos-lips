@@ -47,6 +47,7 @@
 | 1.15.0 | Add the `CLAIM_POW_REWARD` Operation and the proof of work state it is validated against; the reward pool and the difficulty controllers are specified in [Proof of Work](proof-of-work.md) | 2026-09-08 |
 | 1.16.0 | Gas Determination table updated for strict Ed25519 verification: channel Operations 56 → 59 Execution Gas per signature, `EXECUTION_SDP_DECLARE_GAS` 646 → 649, from [Gas Cost Determination](analysis-gas-cost-determination.md) 1.7.0 | 2026-09-24 |
 | 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding. | 2026-10-06 |
+| 1.18.0 | `MinStake` holds `threshold` and the block number `timestamp`, following the Service Declaration Protocol | 2026-10-23 |
 
 # Introduction
 
@@ -1062,8 +1063,8 @@ class Locator(bytes):
         assert validate_multiaddr(self)
 
 class MinStake:
-    stake_threshold: int # stake value
-    epoch: EpochNumber # epoch number
+    threshold: TokenValue # stake value
+    timestamp: BlockNumber # block number at which the threshold was set
 
 class ServiceParameters:
     inactivity_period: NumberOfEpochs # number of epochs
@@ -1156,7 +1157,7 @@ declarations: dict[NoteId, DeclarationInfo]
       ```python
       assert ledger.is_unspent(declaration.service_note_id)
       note = ledger.get_note(declaration.service_note_id)
-      assert note.value >= min_stake.stake_threshold
+      assert note.value >= min_stake.threshold
       ```
 
   5. Ensure the note has not already been used for this service.
