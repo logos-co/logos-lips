@@ -24,7 +24,7 @@
 
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
-| 1.0.0 | Initial revision. | 2026-10-20 |
+| 1.0.0 | Initial revision. | 2026-10-23 |
 
 # Introduction
 
@@ -351,7 +351,6 @@ def reorganise(mempool, displaced: list[Block], adopted: list[Block]) -> None:
             mempool.included.discard(key)
             # A transaction is at least as old as the start of the slot of a block that carries it.
             admitted = mempool.admitted_at.get(key, genesis_time + block.header.slot * SLOT_LENGTH)
-            # Re-insertion would broadcast a transaction past its time to live.
             if now() - admitted > TRANSACTION_TTL:
                 if key in mempool.bodies:
                     # A retained copy keeps the time its release is measured from.
@@ -379,7 +378,7 @@ A message's identity on that topic is the Blake2b-256 digest of its payload.
 
 A node relays a received message to its mesh neighbours on receipt, before admission.
 
-A node broadcasts a transaction it admits by local submission or by re-insertion. It does not broadcast a transaction it received by gossip.
+A node broadcasts a transaction it admits by local submission. It does not broadcast a transaction it received by gossip or by re-insertion.
 
 ## Block Building View
 
