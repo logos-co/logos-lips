@@ -36,7 +36,7 @@
 | 1.5.0 | [RFC] Detect the failure of the Blend network to deliver a data message and react to it, by directly broadcasting any payload the network has not delivered within the message traversal time. | 2026-09-04 |
 | 1.6.0 | Replaced the per-window statistical threshold on a connection with a share of messages a node reads from, and sends on, each connection in a round, and a liveness test, kept per identity for the epoch, on whether a neighbor delivers. Held the peering degree in live connections, at least two of them opened by the node. Restricted blacklisting to attributable faults. Sized the shares from the processing rate of the slowest node, derived the transactions the network carries from them, and made that rate the reference load of the Blend difficulty. | 2026-09-08 |
 | 1.6.1 | Corrected Blend activity metadata to the canonical tagged encoding: removed the separate version byte and corrected the total size to 229 bytes. | 2026-10-13 |
-| 1.7.0 | Derived the observation window $`W`$ from cover traffic in place of the maximal release delay, and refused a neighbor closed as not live for $`W`$ rounds, restarting its liveness count. | 2026-10-23 |
+| 1.7.0 | Derived the observation window $`W`$ from cover traffic in place of the maximal release delay. | 2026-10-23 |
 
 # Introduction
 
@@ -296,7 +296,7 @@ The bootstrapping defines the process of creating the network, which happens at 
 1. A core node at the beginning of an epoch retrieves a set of core nodes’ information from the SDP protocol ([Service Declaration Protocol](bedrock-service-declaration-protocol.md)).
 2. If the number of core nodes is below the minimum number of nodes ([Minimal Network Size](#minimal-network-size)), then stop and use regular broadcasting.
 3. It starts opening new connections.
-    1. It selects at random (without replacement) a node from the set of core nodes, excluding the identities it refuses ([Connectivity Maintenance](#connectivity-maintenance)).
+    1. It selects at random (without replacement) a node from the set of core nodes, excluding the identities that are on its blacklist ([Connectivity Maintenance](#connectivity-maintenance)).
     2. It establishes a secure connection with the selected node, that is:
         1. It opens a TLS connection using ephemeral keys to the node according to the [Connection Details](#connection-details).
         2. It identifies its neighbor using the [Neighbor Distinction Process](#neighbor-distinction-process) (NDP).
@@ -542,13 +542,13 @@ The shares keep the messages a node reads in a round within what the slowest nod
 **Liveness**
 
 1. A connection with a core node is **live** when the neighbor has delivered a message, duplicate or not, within its last $`W`$ connected rounds, or has been connected for fewer than $`W`$ rounds in total.
-2. Connected rounds and deliveries are counted per identity, for the epoch, over every connection the node has held with it. The count restarts when the node closes a connection with the identity for not being live.
-3. A neighbor whose connection is not live is not blacklisted. It is refused on incoming and on outgoing connections for $`W`$ rounds after the node closes the connection.
+2. Connected rounds and deliveries are counted per identity, for the epoch, over every connection the node has held with it.
+3. A neighbor whose connection is not live is not blacklisted.
 
 **Degree**
 
 1. A core node holds between $`\Phi_{CC} - 1`$ and $`\Phi_{CC} + 1`$ connections with core nodes. It opens a connection while it holds fewer than $`\Phi_{CC} - 1`$ live ones, or fewer than $`\Phi_{CC} - 2`$ live ones that it opened. It accepts a connection while it holds fewer than $`\Phi_{CC} + 1`$ connections and fewer than $`(\Phi_{CC} + 1) - (\Phi_{CC} - 2) = 3`$ accepted ones, and closes a connection offered above either.
-2. It draws the nodes it opens uniformly at random and without replacement from the set returned by the SDP protocol, excluding itself, the identities it refuses and its current neighbors.
+2. It draws the nodes it opens uniformly at random and without replacement from the set returned by the SDP protocol, excluding itself, blacklisted identities and its current neighbors.
 3. A connection that is not live is closed.
 4. A connection whose handshake is in progress counts towards $`\Phi_{CC}`$ once the [Neighbor Distinction Process](#neighbor-distinction-process) has identified the neighbor as a core node, and its peer is a current neighbor for rule 2. A handshake that has not completed within $`T_H`$ is abandoned and its slot released. At most $`\Phi_{CC} + 1 + \Phi_{CE}^{Max}`$ handshakes are in progress at once, and one offered above that is closed.
 
