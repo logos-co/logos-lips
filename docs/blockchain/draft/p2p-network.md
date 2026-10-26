@@ -69,6 +69,7 @@ A node removes a peer from its Kademlia routing table when at least three attemp
 
 - An attempt fails if the node tries every address that its routing table holds for the peer and cannot connect to the peer at any of them.
 - A failed attempt does not count while the node has no connection to any peer.
+- The node keeps a peer's only remaining address even if a different peer answers at it.
 - The node does not remove a bootstrap node, as defined in [P2P Network Bootstrapping](../raw/p2p-network-bootstrapping.md).
 
 The specific protocols to be negotiated are:
