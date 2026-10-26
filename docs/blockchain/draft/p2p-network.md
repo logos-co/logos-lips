@@ -33,7 +33,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-01-20 |
 | 1.0.1 | Rename Nomos to Logos Blockchain | 2026-04-17 |
-| 1.1.0 | A node removes a peer from its Kademlia routing table after three consecutive failed attempts to connect to it. | 2026-10-26 |
+| 1.1.0 | A node removes a peer from its Kademlia routing table after three failed attempts to connect to it over at least one hour. | 2026-10-26 |
 
 # Introduction
 
@@ -65,7 +65,11 @@ Following an evaluation of existing protocols and network requirements, the opti
 
 The Logos Blockchain P2P network integrates a combination of libp2p's [Kademlia](https://docs.libp2p.io/concepts/discovery-routing/kaddht/) and [Identify](https://github.com/libp2p/specs/blob/master/identify/README.md) protocols to facilitate peer discovery. Kademlia enables the identification and connection to new peers by employing proximity-based heuristics, optimizing the discovery process. Complementing this, the Identify protocol supports the exchange of peer information, including details about the protocols each peer supports, thereby enhancing interoperability and network coordination.
 
-A node removes a peer from its Kademlia routing table after three consecutive failed attempts to connect to it. A failed attempt does not count while the node has no connection to any peer. The node does not remove a bootstrap node, as defined in [P2P Network Bootstrapping](../raw/p2p-network-bootstrapping.md). Implementers can choose a different number of attempts.
+A node removes a peer from its Kademlia routing table when at least three attempts to connect to it have failed since the node was last connected to it, and the latest failed at least one hour after the first. Implementers can choose a different number of attempts and a different duration.
+
+- An attempt fails if the node tries every address that its routing table holds for the peer and cannot connect to the peer at any of them.
+- A failed attempt does not count while the node has no connection to any peer.
+- The node does not remove a bootstrap node, as defined in [P2P Network Bootstrapping](../raw/p2p-network-bootstrapping.md).
 
 The specific protocols to be negotiated are:
 
