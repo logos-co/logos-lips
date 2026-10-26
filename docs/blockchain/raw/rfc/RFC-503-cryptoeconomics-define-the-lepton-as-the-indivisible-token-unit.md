@@ -10,14 +10,15 @@
 
 ## Reviewer Orientation
 
-Read the PR's Motivation first, then the Discussion, which derives the precision of nine and the initial storage price. [Mantle](../bedrock-v1.1-mantle-specification.md) and [Execution Market](../execution-market.md) are unchanged but assumed: their amounts and prices count LEPTA.
+Read the PR's Motivation first, then the Discussion, which derives the precision of nine and the initial storage price. [Mantle](../bedrock-v1.1-mantle-specification.md) is unchanged but assumed: its amounts count LEPTA, as do the prices of [Execution Market](../execution-market.md).
 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here**: [Overview Cryptoeconomics → Token Units and Precision](../overview-cryptoeconomics.md#token-units-and-precision) ([details](#1-the-lepton)) | the hard cap, $`10^{19}`$ LEPTA, fits a `TokenValue`; a parser rejects a tenth fractional digit |
 | 2 | Critical | **Start here**: [Block Rewards → Float Precision for Implementation](../block-rewards.md#float-precision-for-implementation) ([details](#2-the-block-rewards-integer-rule-in-lepta)) | three constants carry $`10^{9}`$ and nothing else changes; the intermediates outgrow 64 bits |
 | 3 | High | [Storage Markets → Parameter Justification](../storage-markets.md#parameter-justification) ([details](#3-the-initial-storage-price)) | the initial price, $`8 \cdot 10^{5}`$ LEPTA per gas, sets the level the price keeps |
-| 4 | Low | Four documents ([chores](#chores)) | skim: LGO becomes LOGOS |
+| 4 | Medium | [Execution Market → Base Fee Update Rule](../execution-market.md#base-fee-update-rule), [Storage Markets → Implementation](../storage-markets.md#implementation) and [Overview Cryptoeconomics → Fee Markets](../overview-cryptoeconomics.md#fee-markets) ([details](#4-the-reachable-price-floor)) | a price of 7 LEPTA per gas unit or less is never lowered, and a higher price never falls below 7 |
+| 5 | Low | Four documents ([chores](#chores)) | skim: LGO becomes LOGOS |
 
 # Discussion
 
@@ -29,7 +30,7 @@ Three facts about the surrounding specifications constrain $`d`$:
 
 - `Note.value` is a `TokenValue`, which is a `uint64`, and all token arithmetic is checked.
 - The hard cap is $`S_{cap} = 10^{10}`$ LOGOS.
-- The Execution base fee and the Permanent Storage price are integers with a floor of one LEPTON per gas unit.
+- The Execution base fee and the Permanent Storage price are integers with a reachable floor of 7 LEPTA per gas unit. An update never lowers a price of 7 or less, and never takes a higher price below 7.
 
 The requirements are:
 
@@ -47,9 +48,10 @@ The requirements are:
 - $`H(d) = V_{max} / N(d)`$ denotes the representable headroom, in multiples of $`S_{cap}`$.
 - $`S^{\ast}_{cap}`$ denotes the largest admissible hard cap.
 - $`g`$ denotes the gas units consumed by a reference operation.
+- $`\varphi`$ denotes the reachable price floor of the gas markets, in LEPTA per gas unit.
 - $`p`$ denotes the token price, in currency units per LOGOS.
 - $`c^{\ast}`$ denotes the target cost of the reference operation, in the same currency units. It is a design parameter, not a calibrated market price. The tables below evaluate it at $`\$1`$ to $`\$30`$ per GiB of permanent storage and at $`\$0.01`$ per Transfer Operation.
-- $`p^{\ast}(g, d)`$ denotes the saturation price: the value of $`p`$ above which the one-unit price floor makes the operation cost more than $`c^{\ast}`$.
+- $`p^{\ast}(g, d)`$ denotes the saturation price: the value of $`p`$ above which the price floor $`\varphi`$ makes the operation cost more than $`c^{\ast}`$.
 
 ## Parametrization
 
@@ -63,6 +65,7 @@ The requirements are:
 | $`S_{cap}^{\ast}`$ | Largest admissible hard cap | $`18{,}446{,}744{,}073`$ LOGOS | $`\lfloor V_{max}/10^9 \rfloor`$. Derived in [Headroom](#headroom). |
 | `EXECUTION_TRANSFER_GAS` | Execution Gas of a Transfer Operation | $`590`$ | Appendix of [Mantle](../bedrock-v1.1-mantle-specification.md). |
 | Storage gas per byte | Permanent Storage Gas per stored byte | $`1`$ | [Overview Cryptoeconomics → Gas](../overview-cryptoeconomics.md#gas). |
+| $`\varphi`$ | Reachable price floor | $`7`$ LEPTA per gas unit | An update lowers a price $`P`$ by at most $`\lfloor P/8 \rfloor`$ in [Execution Market](../execution-market.md#base-fee-update-rule) and [Storage Markets](../storage-markets.md#implementation), which is $`0`$ for $`P \le 7`$. |
 
 ## Upper bound on precision
 
@@ -102,26 +105,26 @@ Any change to the hard cap changes the admissible set, as recorded in [Headroom]
 
 ## Lower bound on precision
 
-Both gas markets price in integers with a floor of one unit. The minimum cost of an operation consuming $`g`$ gas units is therefore $`g`$ base units, independent of demand. In currency terms,
+Both gas markets price in integers with the reachable floor $`\varphi`$. Once a price has passed $`\varphi`$, the minimum cost of an operation consuming $`g`$ gas units is $`\varphi \cdot g`$ LEPTA, independent of demand. In currency terms,
 
 $$
-c_{min}(g, d, p) = g \cdot 10^{-d} \cdot p .
+c_{min}(g, d, p) = \varphi \cdot g \cdot 10^{-d} \cdot p .
 $$
 
 Requirement **R3** is $`c_{min} \le c^{\ast}`$. Substituting $`c_{min}`$ and solving for $`d`$:
 
 $$
-g \cdot 10^{-d} \cdot p \le c^{\ast}
+\varphi \cdot g \cdot 10^{-d} \cdot p \le c^{\ast}
 \quad \Longleftrightarrow \quad
-10^{d} \ge \frac{g \cdot p}{c^{\ast}}
+10^{d} \ge \frac{\varphi \cdot g \cdot p}{c^{\ast}}
 \quad \Longleftrightarrow \quad
-d \ge \log_{10}\left(\frac{g \cdot p}{c^{\ast}}\right).
+d \ge \log_{10}\left(\frac{\varphi \cdot g \cdot p}{c^{\ast}}\right).
 $$
 
 With $`g = 2^{30}`$, the gas charged for one GiB of permanent storage, the requirement is
 
 $$
-d \ge \log_{10}\left(\frac{p \cdot 2^{30}}{c^{\ast}}\right).
+d \ge \log_{10}\left(\frac{\varphi \cdot p \cdot 2^{30}}{c^{\ast}}\right).
 $$
 
 The requirement depends only on the ratio $`p / c^{\ast}`$, not on either value separately. Scaling the token price and the target cost by the same factor leaves the right-hand side unchanged. A $`\$1`$ token against a $`\$5`$ per GiB target imposes exactly the precision requirement of a $`\$6`$ token against a $`\$30`$ per GiB target, because both fix $`p / c^{\ast} = 0.2`$.
@@ -133,27 +136,27 @@ Combining the requirement with the **R1** cap $`d_{req} \le 9`$ gives the admiss
 $$
 d_{req} \le 9
 \quad \Longleftrightarrow \quad
-\frac{p}{c^{\ast}} \le \frac{10^{9}}{2^{30}} = 0.9313225746 .
+\frac{p}{c^{\ast}} \le \frac{10^{9}}{\varphi \cdot 2^{30}} = 0.1330460821 .
 $$
 
-The boundary is therefore a straight line, $`p = 0.9313 \cdot c^{\ast}`$, and the admissible region is everything below it. In words, $`d = 9`$ remains admissible for as long as one LOGOS buys at most $`0.9313`$ GiB of permanent storage.
+The boundary is therefore a straight line, $`p = 0.1330 \cdot c^{\ast}`$, and the admissible region is everything below it. In words, $`d = 9`$ remains admissible for as long as one LOGOS buys at most $`0.1330`$ GiB of permanent storage.
 
 The argument generalizes to any operation as
 
 $$
-\dfrac{p}{c^{\ast}} \le \dfrac{ 10^{9} }{ g }.
+\dfrac{p}{c^{\ast}} \le \dfrac{ 10^{9} }{ \varphi \cdot g }.
 $$
 
-The bound scales with the gas charged, so it is the definition of the gas unit, and not the precision, that sets how much room the mechanism has. Charging Permanent Storage Gas per KiB rather than per byte replaces $`g = 2^{30}`$ with $`g = 2^{20}`$ and moves the boundary from $`0.9313`$ to $`953.7`$ GiB per LOGOS.
+The bound scales with the gas charged, so it is the definition of the gas unit, and not the precision, that sets how much room the mechanism has. Charging Permanent Storage Gas per KiB rather than per byte replaces $`g = 2^{30}`$ with $`g = 2^{20}`$ and moves the boundary from $`0.1330`$ to $`136.2`$ GiB per LOGOS.
 
 ![Heatmap of the required precision d over a grid of token prices and storage-cost targets](RFC-503-cryptoeconomics-define-the-lepton-as-the-indivisible-token-unit/assets/precision-admissibility-heatmap.png)
 
-**Figure 1.** Required precision $`d`$ over a grid of token prices and storage-cost targets, with each cell holding $`d_{req} = \lceil \log_{10}(p \cdot 2^{30} / c^{\ast}) \rceil`$. Green marks $`d_{req} \le 9`$, admissible under **R1**. Red marks $`d_{req} \ge 10`$, which **R1** excludes.
+**Figure 1.** Required precision $`d`$ over a grid of token prices and storage-cost targets, with each cell holding $`d_{req} = \lceil \log_{10}(\varphi \cdot p \cdot 2^{30} / c^{\ast}) \rceil`$. Green marks $`d_{req} \le 9`$, admissible under **R1**. Red marks $`d_{req} \ge 10`$, which **R1** excludes.
 
 Read as a price rather than a ratio, the same condition gives the saturation price
 
 $$
-p^{\ast}(g, d) = \frac{c^{\ast} \cdot 10^{d}}{g} .
+p^{\ast}(g, d) = \frac{c^{\ast} \cdot 10^{d}}{\varphi \cdot g} .
 $$
 
 Above $`p^{\ast}`$ the floor binds: the market cannot clear below $`c_{min}`$, regardless of demand. Below $`p^{\ast}`$ the floor is slack, and the price update rules in [Execution Market](../execution-market.md) and [Storage Markets](../storage-markets.md) set the price.
@@ -167,31 +170,31 @@ The gap in $`g`$ is a factor of $`1.82 \times 10^{6}`$, so the two markets satur
 
 | $`d`$ | Transfer, $`c^{\ast} = \$0.01`$ | 1 GiB, $`c^{\ast} = \$1`$ | 1 GiB, $`c^{\ast} = \$5`$ | 1 GiB, $`c^{\ast} = \$10`$ | 1 GiB, $`c^{\ast} = \$30`$ |
 | --- | --- | --- | --- | --- | --- |
-| $`7`$ | $`\$169.49`$ | $`\$0.0093`$ | $`\$0.0466`$ | $`\$0.0931`$ | $`\$0.2794`$ |
-| $`8`$ | $`\$1{,}694.92`$ | $`\$0.0931`$ | $`\$0.4657`$ | $`\$0.9313`$ | $`\$2.7940`$ |
-| $`9`$ | $`\$16{,}949.15`$ | $`\$0.9313`$ | $`\$4.6566`$ | $`\$9.3132`$ | $`\$27.9397`$ |
+| $`7`$ | $`\$24.21`$ | $`\$0.0013`$ | $`\$0.0067`$ | $`\$0.0133`$ | $`\$0.0399`$ |
+| $`8`$ | $`\$242.13`$ | $`\$0.0133`$ | $`\$0.0665`$ | $`\$0.1330`$ | $`\$0.3991`$ |
+| $`9`$ | $`\$2{,}421.31`$ | $`\$0.1330`$ | $`\$0.6652`$ | $`\$1.3305`$ | $`\$3.9914`$ |
 
-- Execution is not the binding market. At $`d = 8`$ a transfer stays under one cent up to $`\$1{,}695`$ per LOGOS, which is a fully diluted valuation of $`17`$ trillion USD at $`S_{cap} = 10^{10}`$. The execution floor does not discriminate between candidate precisions at any plausible price.
-- Permanent storage is the binding market. Its boundary $`p / c^{\ast} \le 10^{9} / 2^{30}`$ is tighter than the execution boundary $`p / c^{\ast} \le 10^{9} / 590`$ by the gas ratio alone, so the ordering holds whatever target costs are assigned to the two operations.
-- At $`d = 8`$ and $`c^{\ast} = \$5`$ per GiB, the storage floor exceeds $`\$5`$ per GiB once LOGOS passes $`\$0.4657`$. That is inside the plausible price range, so $`d = 8`$ misses the $`\$5`$ per GiB target under **R3**.
+- Execution is not the binding market. At $`d = 8`$ a transfer stays under one cent up to $`\$242`$ per LOGOS, which is a fully diluted valuation of $`2.4`$ trillion USD at $`S_{cap} = 10^{10}`$. The execution floor does not discriminate between candidate precisions at any plausible price.
+- Permanent storage is the binding market. Its boundary $`p / c^{\ast} \le 10^{9} / (\varphi \cdot 2^{30})`$ is tighter than the execution boundary $`p / c^{\ast} \le 10^{9} / (\varphi \cdot 590)`$ by the gas ratio alone, so the ordering holds whatever target costs are assigned to the two operations.
+- At $`d = 8`$ and $`c^{\ast} = \$5`$ per GiB, the storage floor exceeds $`\$5`$ per GiB once LOGOS passes $`\$0.0665`$. That is inside the plausible price range, so $`d = 8`$ misses the $`\$5`$ per GiB target under **R3**.
 
 Evaluating the requirement derived above at four prices and three targets gives the integer precision each combination demands.
 
 | $`p`$ (USD per LOGOS) | Required $`d`$ at $`c^{\ast} = \$5`$ per GiB | Required $`d`$ at $`c^{\ast} = \$10`$ per GiB | Required $`d`$ at $`c^{\ast} = \$30`$ per GiB | Admissible under R1 |
 | --- | --- | --- | --- | --- |
-| $`\$1`$ | $`8.33 \rightarrow 9`$ | $`8.03 \rightarrow 9`$ | $`7.55 \rightarrow 8`$ | yes / yes / yes |
-| $`\$2`$ | $`8.63 \rightarrow 9`$ | $`8.33 \rightarrow 9`$ | $`7.85 \rightarrow 8`$ | yes / yes / yes |
-| $`\$5`$ | $`9.03 \rightarrow 10`$ | $`8.73 \rightarrow 9`$ | $`8.25 \rightarrow 9`$ | no / yes / yes |
-| $`\$10`$ | $`9.33 \rightarrow 10`$ | $`9.03 \rightarrow 10`$ | $`8.55 \rightarrow 9`$ | no / no / yes |
+| $`\$1`$ | $`9.18 \rightarrow 10`$ | $`8.88 \rightarrow 9`$ | $`8.40 \rightarrow 9`$ | no / yes / yes |
+| $`\$2`$ | $`9.48 \rightarrow 10`$ | $`9.18 \rightarrow 10`$ | $`8.70 \rightarrow 9`$ | no / no / yes |
+| $`\$5`$ | $`9.88 \rightarrow 10`$ | $`9.57 \rightarrow 10`$ | $`9.10 \rightarrow 10`$ | no / no / no |
+| $`\$10`$ | $`10.18 \rightarrow 11`$ | $`9.88 \rightarrow 10`$ | $`9.40 \rightarrow 10`$ | no / no / no |
 
-**R3** is satisfiable under **R1** exactly when $`p / c^{\ast} \le 0.9313`$. At $`c^{\ast} = \$5`$ per GiB that is $`p \le \$4.66`$, at $`\$10`$ it is $`p \le \$9.31`$, and at $`\$30`$ it is $`p \le \$27.94`$. Outside that region the requirement is $`d \ge 10`$, which **R1** excludes.
+**R3** is satisfiable under **R1** exactly when $`p / c^{\ast} \le 0.1330`$. At $`c^{\ast} = \$5`$ per GiB that is $`p \le \$0.67`$, at $`\$10`$ it is $`p \le \$1.33`$, and at $`\$30`$ it is $`p \le \$3.99`$. Outside that region the requirement is $`d \ge 10`$, which **R1** excludes.
 
 ## Choice of precision
 
 **R1** caps precision at $`d \le 9`$. **R3** requires $`d \ge d_{req}`$, the smallest integer meeting the bound derived above:
 
 $$
-d_{req} = \left\lceil \log_{10}\left(\frac{p \cdot 2^{30}}{c^{\ast}}\right) \right\rceil .
+d_{req} = \left\lceil \log_{10}\left(\frac{\varphi \cdot p \cdot 2^{30}}{c^{\ast}}\right) \right\rceil .
 $$
 
 The admissible set is therefore the integer interval
@@ -200,18 +203,18 @@ $$
 \mathcal{D} = \lbrace d \in \mathbb{N} : d_{req} \le d \le 9 \rbrace .
 $$
 
-Its contents depend only on the ratio $`p / c^{\ast}`$, through the equivalence $`d_{req} \le k \Leftrightarrow p / c^{\ast} \le 10^{k} / 2^{30}`$.
+Its contents depend only on the ratio $`p / c^{\ast}`$, through the equivalence $`d_{req} \le k \Leftrightarrow p / c^{\ast} \le 10^{k} / (\varphi \cdot 2^{30})`$.
 
 | $`p / c^{\ast}`$ (GiB per LOGOS) | $`d_{req}`$ | Admissible set $`\mathcal{D}`$ |
 | --- | --- | --- |
-| $`\le 10^{7} / 2^{30}`$ | $`\le 7`$ | $`\lbrace 7, 8, 9 \rbrace`$ |
-| $`\left( 10^{7} / 2^{30}, \; 10^{8} / 2^{30} \right]`$ | $`8`$ | $`\lbrace 8, 9 \rbrace`$ |
-| $`\left( 10^{8} / 2^{30}, \; 10^{9} / 2^{30} \right]`$ | $`9`$ | $`\lbrace 9 \rbrace`$ |
-| $`\gt 10^{9} / 2^{30}`$ | $`\ge 10`$ | empty |
+| $`\le 10^{7} / (\varphi \cdot 2^{30})`$ | $`\le 7`$ | $`\lbrace 7, 8, 9 \rbrace`$ |
+| $`\left( 10^{7} / (\varphi \cdot 2^{30}), \; 10^{8} / (\varphi \cdot 2^{30}) \right]`$ | $`8`$ | $`\lbrace 8, 9 \rbrace`$ |
+| $`\left( 10^{8} / (\varphi \cdot 2^{30}), \; 10^{9} / (\varphi \cdot 2^{30}) \right]`$ | $`9`$ | $`\lbrace 9 \rbrace`$ |
+| $`\gt 10^{9} / (\varphi \cdot 2^{30})`$ | $`\ge 10`$ | empty |
 
 $`\mathcal{D}`$ is an interval capped at $`9`$ by **R1**, so its upper endpoint is $`9`$ whenever it is non-empty. Therefore $`d = 9`$ **is admissible whenever any precision is admissible.**
 
-No other value has this property. $`d = 8`$ is admissible only on $`p / c^{\ast} \le 10^{8} / 2^{30}`$, one tenth of the range, and $`d = 7`$ on one hundredth.
+No other value has this property. $`d = 8`$ is admissible only on $`p / c^{\ast} \le 10^{8} / (\varphi \cdot 2^{30})`$, one tenth of the range, and $`d = 7`$ on one hundredth.
 
 Selecting $`d = 9`$ therefore does not require committing to a value of $`p / c^{\ast}`$, which is not known when the encoding is fixed and can move by an order of magnitude over its life.
 
@@ -221,7 +224,7 @@ $$
 
 What is forced and what is not:
 
-- On the band $`10^{8} / 2^{30} \lt p / c^{\ast} \le 10^{9} / 2^{30}`$, $`d = 9`$ is the only admissible value.
+- On the band $`10^{8} / (\varphi \cdot 2^{30}) \lt p / c^{\ast} \le 10^{9} / (\varphi \cdot 2^{30})`$, $`d = 9`$ is the only admissible value.
 - Below that band $`d = 9`$ remains admissible but is no longer unique, and $`d = 8`$ satisfies both requirements as well.
 - Above the band $`\mathcal{D}`$ is empty and no precision satisfies both requirements.
 
@@ -230,7 +233,7 @@ Taking the top of the interval costs representable headroom, $`H(9) = 1.8447`$ a
 Two consequences:
 
 - The result is a function of $`S_{cap} = 10^{10}`$ LOGOS and of `TokenValue` being 64 bits wide. Changing either reopens the derivation.
-- Where $`p / c^{\ast} \gt 10^{9} / 2^{30}`$ the two requirements are jointly infeasible: **R1** caps $`d`$ before **R3** is met. The remedy lies in the Permanent Storage Gas unit $`g`$, which sets the boundary at $`10^{9} / g`$, and not in the precision.
+- Where $`p / c^{\ast} \gt 10^{9} / (\varphi \cdot 2^{30})`$ the two requirements are jointly infeasible: **R1** caps $`d`$ before **R3** is met. The remedy lies in the Permanent Storage Gas unit $`g`$, which sets the boundary at $`10^{9} / (\varphi \cdot g)`$, and not in the precision.
 
 ## Headroom
 
@@ -242,7 +245,7 @@ $$
 S_{cap} \le \left\lfloor \frac{2^{64}-1}{10^9} \right\rfloor = 18{,}446{,}744{,}073 \text{ LOGOS}.
 $$
 
-The specified cap of $`10^{10}`$ LOGOS sits at $`54.2\%`$ of this ceiling. A cap above $`1.8446744073 \times 10^{10}`$ LOGOS is incompatible with $`d = 9`$ and forces $`d \le 8`$. By the lower bound on precision, that narrows the region where **R3** can be met by a factor of ten, from $`p / c^{\ast} \le 10^{9} / 2^{30}`$ to $`p / c^{\ast} \le 10^{8} / 2^{30}`$, so the failure appears at high prices rather than low ones.
+The specified cap of $`10^{10}`$ LOGOS sits at $`54.2\%`$ of this ceiling. A cap above $`1.8446744073 \times 10^{10}`$ LOGOS is incompatible with $`d = 9`$ and forces $`d \le 8`$. By the lower bound on precision, that narrows the region where **R3** can be met by a factor of ten, from $`p / c^{\ast} \le 10^{9} / (\varphi \cdot 2^{30})`$ to $`p / c^{\ast} \le 10^{8} / (\varphi \cdot 2^{30})`$, so the failure appears at high prices rather than low ones.
 
 **Supply growth.** [Block Rewards](../block-rewards.md) allocates the full supply at genesis and moves tokens between circulating supply, the rewards pool, the rewards reserve and the proof of work reward pool. No path in that mechanism raises the total above $`S_{cap}`$. The bound $`N(9) \le V_{max}`$ therefore holds at every step, with no growth argument required. If a later revision introduces issuance above $`S_{cap}`$, this section must be reopened.
 
@@ -267,12 +270,12 @@ Every protocol quantity denominated in the native token is measured in LEPTA, or
 
 Specifications that state a constant in whole LOGOS must scale it by $`10^9`$ before evaluating it against ledger quantities. Ratios of two same-unit quantities are scale-invariant and are unaffected.
 
-Two floor costs follow from the table and the gas constants:
+Two floor costs follow from $`\varphi`$ and the gas constants:
 
-- A Transfer Operation costs at least $`590`$ LEPTA in execution fees, which is $`5.9 \times 10^{-7}`$ LOGOS.
-- Storing one GiB permanently costs at least $`2^{30} = 1{,}073{,}741{,}824`$ LEPTA, which is $`1.0737`$ LOGOS.
+- A Transfer Operation costs at least $`\varphi \cdot 590 = 4{,}130`$ LEPTA in execution fees once the base fee has passed $`\varphi`$, which is $`4.13 \times 10^{-6}`$ LOGOS. The base fee starts at 1, where a transfer costs 590 LEPTA.
+- Storing one GiB permanently costs at least $`\varphi \cdot 2^{30} = 7{,}516{,}192{,}768`$ LEPTA, which is $`7.5162`$ LOGOS.
 
-Both are floors. The execution base fee starts on its floor. The storage price starts above it, as [Initial storage price](#initial-storage-price) derives.
+The storage price starts above $`\varphi`$, as [Initial storage price](#initial-storage-price) derives.
 
 ## Rounding
 
@@ -280,7 +283,7 @@ Every rounding in the fee, price and reward mechanisms now rounds to a whole LEP
 
 | Class of quantity | Direction | Reason |
 | --- | --- | --- |
-| Amounts charged to a user | away from zero | Keeps one LEPTON as the effective price floor. Rounding down makes $`0`$ an absorbing state for the base fee, after which execution is permanently free. |
+| Amounts charged to a user | away from zero | Keeps every price at one LEPTON or more. Rounding down makes $`0`$ an absorbing state for the base fee, after which execution is permanently free. |
 | Amounts credited to a participant | toward zero | The sum of credited shares never exceeds the exact entitlement. |
 | Measurements, such as usage averages | toward zero | The usage EMA in [Storage Markets](../storage-markets.md) is additive and recovers from $`0`$ once demand resumes. Rounding up reports residual demand on an idle network. |
 
@@ -341,7 +344,7 @@ The encoding does not change. `Note.value` is already a `uint64`, and this chang
 
 LOGOS is both the token name and its ticker. ISO 4217 reserves codes beginning with X for units that are not specific to a country ([ISO 4217](https://en.wikipedia.org/wiki/ISO_4217), accessed 2026-08-11), so XLG would be the conventional code. It is not an assigned code. The lepton was the smallest denomination of Ancient Greek coinage ([Lesson of the widow’s mite](https://en.wikipedia.org/wiki/Lesson_of_the_widow%27s_mite), accessed 2026-08-11).
 
-## Specifications the change leaves unmodified
+## Specifications that do not name the unit
 
 [Mantle](../bedrock-v1.1-mantle-specification.md) types every amount as `TokenValue`, and [Execution Market](../execution-market.md) starts its base fee at 1. Neither names the unit. Token Units and Precision covers both, and each is a candidate for a one-line link to it.
 
@@ -434,8 +437,11 @@ def format_logos(value: int, trim: bool = False) -> str:
 
 - sets $`P_{\text{storage}}(0)`$ to $`8 \cdot 10^{5}`$ LEPTA per Permanent Storage Gas, which is $`8 \cdot 10^{5}`$ LEPTA per stored byte. It was 1 LGO per gas;
 - replaces the claim that the price converges to the market price from any start, and the epoch counts derived from it, with the behaviour of the rule: the price follows changes in usage, so the start sets the level;
-- removes the adjustment of the start by genesis governance at TGE;
-- names the floor in the rounding paragraph 1 LEPTON per Permanent Storage Gas, since the start no longer sits on it.
+- removes the adjustment of the start by genesis governance at TGE.
+
+## 4. The reachable price floor
+
+The rounding paragraphs of [Execution Market](../execution-market.md#base-fee-update-rule), [Storage Markets](../storage-markets.md#implementation) and [Overview Cryptoeconomics](../overview-cryptoeconomics.md#fee-markets) state the floor that upward rounding leaves. A price of 7 LEPTA per gas unit or less is never lowered, and a higher price never falls below 7. All three said the floor was one unit. Execution Market records this as revision 1.2.1.
 
 ## Chores
 
@@ -456,9 +462,10 @@ def format_logos(value: int, trim: bool = False) -> str:
 
 | Specification | Status | Note |
 | --- | --- | --- |
-| [\[Overview\] Cryptoeconomics](../overview-cryptoeconomics.md) | Modified | Token Units and Precision added |
+| [\[Overview\] Cryptoeconomics](../overview-cryptoeconomics.md) | Modified | Token Units and Precision added; reachable price floor |
 | [Block Rewards](../block-rewards.md) | Modified | integer rule in LEPTA; LGO becomes LOGOS |
-| [Storage Markets](../storage-markets.md) | Modified | initial price $`8 \cdot 10^{5}`$ LEPTA per gas, and its justification |
+| [Storage Markets](../storage-markets.md) | Modified | initial price $`8 \cdot 10^{5}`$ LEPTA per gas, and its justification; reachable price floor |
+| [Execution Market](../execution-market.md) | Modified | reachable floor of the base fee |
 | [Bedrock Genesis Block](../bedrock-genesis-block.md) | Modified | LGO becomes LOGOS |
 | [\[Analysis\] Block Rewards](../analysis-block-rewards.md) | Modified | LGO becomes LOGOS |
 | [\[Analysis\] Block Reward Parameter Calibration](../analysis-block-reward-parameter-calibration.md) | Modified | LGO becomes LOGOS |
