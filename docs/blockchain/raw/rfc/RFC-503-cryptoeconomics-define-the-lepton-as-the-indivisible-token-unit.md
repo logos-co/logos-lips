@@ -329,7 +329,7 @@ At the start a 429-byte claim costs $`0.34`$ LOGOS ($`\$0.017`$), a 1.75 MiB ins
 
 Open questions:
 
-- The value assumes $`\$0.05`$ per LOGOS. The same price per byte is $`4 \times 10^{4}`$ divided by the USD price of one LOGOS, in LEPTA per gas: $`4 \times 10^{6}`$ at $`\$0.01`$ and $`1.6 \times 10^{5}`$ at $`\$0.25`$. Storage Markets lets genesis governance adjust the start at TGE.
+- The value assumes $`\$0.05`$ per LOGOS. The same price per byte is $`4 \times 10^{4}`$ divided by the USD price of one LOGOS, in LEPTA per gas: $`4 \times 10^{6}`$ at $`\$0.01`$ and $`1.6 \times 10^{5}`$ at $`\$0.25`$.
 - The ten prices are not like for like. Solana and NEAR take refundable deposits, and the Ethereum and Bitcoin rows float with demand. Fixed per-transaction costs are left out.
 - The price still does not respond to the level of usage. Whether Storage Markets should anchor its target with $`w \gt 0`$ is left to a separate change.
 
@@ -434,6 +434,7 @@ def format_logos(value: int, trim: bool = False) -> str:
 
 - sets $`P_{\text{storage}}(0)`$ to $`8 \cdot 10^{5}`$ LEPTA per Permanent Storage Gas, which is $`8 \cdot 10^{5}`$ LEPTA per stored byte. It was 1 LGO per gas;
 - replaces the claim that the price converges to the market price from any start, and the epoch counts derived from it, with the behaviour of the rule: the price follows changes in usage, so the start sets the level;
+- removes the adjustment of the start by genesis governance at TGE;
 - names the floor in the rounding paragraph 1 LEPTON per Permanent Storage Gas, since the start no longer sits on it.
 
 ## Chores
