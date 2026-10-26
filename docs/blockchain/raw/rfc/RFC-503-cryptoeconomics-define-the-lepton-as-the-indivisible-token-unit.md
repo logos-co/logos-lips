@@ -7,6 +7,7 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-10-26 |
+| v2 | Reachable price floor of 7 LEPTA per gas, with Execution Market added; yearly storage costs under the price updates; the block-reward rule fits 128 bits; the storage start is not adjusted at TGE | 2026-10-26 |
 
 ## Reviewer Orientation
 
