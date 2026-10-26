@@ -22,6 +22,7 @@
 | Version | Changes | Date |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-24 |
+| 1.0.1 | Renamed the token LGO to LOGOS | 2026-10-26 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -39,7 +40,7 @@ This document presents an analysis of Logos Blockchain's block rewards mechanism
 The analysis seeks to:
 
 - Model how a KPI-based emission system behaves under different assumptions.
-- Quantify the long-term supply curve and inflation path for LGO.
+- Quantify the long-term supply curve and inflation path for LOGOS.
 - Assess how quickly the system converges to equilibrium once network participation and fee burning stabilize.
 - Identify risks related to delayed convergence, volatility, or adversarial manipulation of inputs.
 
@@ -86,7 +87,7 @@ It is assumed here that $`S_{t-1}`$ already accounts for the burned tokens. This
 
 Assume the following parameters for the model:
 
-- $`S_{tge}=1`$ LGO (this allows us to understand the system behavior in $\%$ terms)
+- $`S_{tge}=1`$ LOGOS (this allows us to understand the system behavior in $\%$ terms)
 - $`S_{cap} = \infty`$
 - $`\Delta_t = 1/365`$ (1 day)
 - $f=2880$ (the number of 30 seconds intervals in 1 day)
@@ -193,7 +194,7 @@ At this stage, by the definition of the burning rate KPI, the total token supply
 
 > After certain level of usage, service providers are being overloaded but do not receive payment at the 1:1 ratio. This is done for a few reasons:
 >
-> - This is equivalent to being paid in two different methods: actual LGO tokens (until $`I_{max}`$ is fulfilled) plus larger stake of the supply (which is decreased more than it is increased).
+> - This is equivalent to being paid in two different methods: actual LOGOS tokens (until $`I_{max}`$ is fulfilled) plus larger stake of the supply (which is decreased more than it is increased).
 > - In the beginning, when the network usage is very small and not many nodes participate in PoS, nodes are also paid at the maximum rate of $`I_{max}`$.
 
 If adoption grows and the burning rate exceeds $`I_{max}`$, then the token supply becomes deflationary because the burning rate will be greater than the maximum allowed minting rate.
