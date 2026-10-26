@@ -288,7 +288,7 @@ Block Rewards rounds the Blend and leader shares down separately, so less than t
 
 ## Width of the Block Rewards integer rule
 
-Restated in LEPTA, the Block Rewards integer rule no longer fits 64-bit integers: `657 · A_SCALE` alone is $`7.9 \times 10^{19}`$. With every input below $`2^{64}`$, the intermediates stay between $`-2^{64}`$ and $`2^{133}`$, as Block Rewards now states. The node computes the rule in `u128`, which holds every intermediate while a block pools less than $`7.19 \times 10^{8}`$ LOGOS of fees, $`7.2\%`$ of the hard cap.
+Restated in LEPTA, the Block Rewards integer rule no longer fits 64-bit integers: `657 · A_SCALE` alone is $`7.9 \times 10^{19}`$. The fee product `(A_SCALE - a_numerator) * last_pooled_fee` is non-zero only while `sum_fees` is below $`1.49 \times 10^{15}`$ LEPTA, as Block Rewards now derives. Every intermediate therefore lies between $`-2^{64}`$ and $`2^{120}`$, and the largest, `6 · reward_numerator`, peaks at $`2^{119.1}`$. A signed 128-bit integer holds the rule. The node computes it in `u128` and floors the stake expression at 0 with `saturating_sub`, so it never overflows.
 
 ## Initial storage price
 
@@ -424,7 +424,7 @@ def format_logos(value: int, trim: bool = False) -> str:
  FEE_AVG_NUMERATOR = 10_512       # unchanged
 ```
 
-- The reference code uses Python integers in place of `numpy.int64`. Block Rewards states the width they need: a signed 256-bit integer holds every intermediate.
+- The reference code uses Python integers in place of `numpy.int64`. Block Rewards states the width they need: a signed 128-bit integer holds every intermediate.
 - The rule pays the same amounts in LOGOS, now resolved to one LEPTON. With no stake and no fees the Blend and leader shares sum to $`95{,}129{,}375{,}950`$ LEPTA, the per-block release of $`62500/657`$ LOGOS less the rounding.
 - The hard cap's row in the parameter table links to Token Units and Precision for its upper bound.
 
@@ -444,7 +444,7 @@ def format_logos(value: int, trim: bool = False) -> str:
 # Implementation
 
 - [ ] Count every `TokenValue`, gas price and fee in LEPTA, with no whole-token scaling
-- [ ] Scale `STAKE_TARGET`, `A_SCALE` and `INFLATION_NUMERATOR` by $`10^{9}`$ in the block-reward computation (`ledger/src/lib.rs` in logos-blockchain), and keep every product there exact: `u128` overflows once a block pools $`7.19 \times 10^{8}`$ LOGOS of fees
+- [ ] Scale `STAKE_TARGET`, `A_SCALE` and `INFLATION_NUMERATOR` by $`10^{9}`$ in the block-reward computation (`ledger/src/lib.rs` in logos-blockchain), and keep its `u128` arithmetic and the `saturating_sub` that floors the stake expression at 0
 - [ ] Set `GENESIS_STORAGE_GAS_PRICE` to `800_000` (`core/src/mantle/transactions/gas.rs`)
 - [ ] Parse and render decimal LOGOS amounts per Token Units and Precision, with no floating point
 - [ ] Use the unit names and symbols of Token Units and Precision in interfaces and RPC payloads, and reject `GLEPTON`

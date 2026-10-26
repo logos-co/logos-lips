@@ -565,4 +565,4 @@ def block_reward(total_stake: int, pooled_fees_window: list[int]) -> tuple[int, 
     return blend_reward, leader_reward
 ```
 
-With the inferred total stake and every pooled fee below $`2^{64}`$, every intermediate value lies strictly between $`-2^{64}`$ and $`2^{133}`$, so a signed 256-bit integer holds each one exactly.
+The product `(A_SCALE - a_numerator) * last_pooled_fee` is non-zero only while `FEE_AVG_NUMERATOR * sum_fees < A_SCALE - STAKE_TARGET + total_stake`. With the inferred total stake and every pooled fee below $`2^{64}`$, it is therefore non-zero only while `sum_fees` is below $`1.49 \cdot 10^{15}`$. Every intermediate value lies strictly between $`-2^{64}`$ and $`2^{120}`$, so a signed 128-bit integer holds each one exactly.
