@@ -300,7 +300,7 @@ Storage Markets sets the anchor weight $`w`$ and the base target $`T_{\text{base
 Master's start of 1 LGO per gas reads two ways in LEPTA, and neither works:
 
 - 1 LOGOS, $`10^{9}`$ LEPTA per gas, prices one GiB at $`1.07 \times 10^{9}`$ LOGOS, $`10.7\%`$ of the hard cap.
-- 1 LEPTON per gas leaves storage on its floor. A year of full blocks, $`2.2 \times 10^{12}`$ bytes, then costs $`2{,}205`$ LOGOS.
+- 1 LEPTON per gas keeps storage near its floor. Under a year of full blocks, $`2.2 \times 10^{12}`$ bytes, the price climbs by about one LEPTON per epoch to 50 LEPTA per gas, and the year costs $`54{,}751`$ LOGOS.
 
 The proposal starts at $`8 \cdot 10^{5}`$ LEPTA per gas, $`\$0.00004`$ per byte at an assumed $`\$0.05`$ per LOGOS. This is the median of what ten chains charge to store a byte they keep. The table converts each price at $`\$0.05`$ per LOGOS and 1 gas per byte, with token prices and fees as of 23 October 2026.
 
@@ -323,7 +323,7 @@ The start meets these bounds:
 
 | Requirement | Bound on the start, LEPTA per gas | At $`8 \cdot 10^{5}`$ |
 | --- | --- | --- |
-| A year of full blocks costs at least 10% of the hard cap | at least $`4.5 \times 10^{5}`$ | $`1.76 \times 10^{9}`$ LOGOS, $`17.6\%`$ |
+| A year of full blocks, priced by the update rule, costs at least 10% of the hard cap | at least $`2.9 \times 10^{5}`$ | $`2.79 \times 10^{9}`$ LOGOS, $`27.9\%`$ |
 | No dearer than Bitcoin's non-witness bytes | at most $`1.6 \times 10^{7}`$ | 20 times below |
 | Replication is paid for, at 1,000 copies and $`\$100`$ per TB | at least $`2{,}000`$ | $`\$43{,}000`$ per GiB against $`\$107`$ |
 | A $`\pm 12.5\%`$ step stays far above the one-LEPTON rounding | at least about $`1{,}000`$ | steps of $`10^{5}`$ |
