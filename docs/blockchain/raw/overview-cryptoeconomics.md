@@ -28,6 +28,7 @@
 | 1.2.1 | Changing from burning/minting to pooling/distributing/releasing | 2026-08-25 |
 | 1.2.2 | Stated that the minimum stake of a service is locked in a service note | 2026-08-27 |
 | 1.3.0 | Add the proof of work reward pool, funded by diverting a share of the collected fees before they reach the rewards pool | 2026-08-31 |
+| 1.4.0 | Define the LEPTON as the indivisible token unit, with one LOGOS equal to $`10^{9}`$ LEPTA | 2026-10-26 |
 
 > **Disclaimer**:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -69,6 +70,24 @@ In this section we present an overview of the cryptoeconomical aspects of the Lo
 - Individual leaders claim their rewards through a [Leader Claim Operation](bedrock-v1.1-mantle-specification.md) (on-chain transaction) that preserves privacy by separating the leader reward from the proposed block.
 
 # Constructions
+
+## Token Units and Precision
+
+The **LEPTON**, plural LEPTA, is the indivisible unit of the native token. One LOGOS is $`10^{9}`$ LEPTA. Every token amount is an integer count of LEPTA, and every gas price is an integer count of LEPTA per gas unit.
+
+The hard cap $`S_{cap}`$ of [Block Rewards](block-rewards.md), $`10^{10}`$ LOGOS, is $`10^{19}`$ LEPTA. Counted in LEPTA, the hard cap must not exceed $`2^{64}-1`$, the largest `TokenValue` of [Mantle](bedrock-v1.1-mantle-specification.md#notes), or no note could hold the whole supply. At $`10^{9}`$ LEPTA per LOGOS, this bounds the hard cap at $`\lfloor (2^{64}-1)/10^{9} \rfloor = 18{,}446{,}744{,}073`$ LOGOS.
+
+| Unit (singular / plural) | Symbol | In LEPTA | In LOGOS |
+| --- | --- | --- | --- |
+| lepton / lepta | `LEPTON` | $`1`$ | $`10^{-9}`$ |
+| kilolepton / kilolepta | `kLEPTON` | $`10^{3}`$ | $`10^{-6}`$ |
+| megalepton / megalepta | `MLEPTON` | $`10^{6}`$ | $`10^{-3}`$ |
+| logos | `LOGOS` | $`10^{9}`$ | $`1`$ |
+
+- A symbol is never pluralized: `500 LEPTON` is correct and `500 LEPTA` is not.
+- $`\mu\text{LOGOS}`$ and mLOGOS are display aliases of `kLEPTON` and `MLEPTON`. They must not appear in protocol interfaces, RPC payloads or specification text.
+- `GLEPTON` is invalid, because it would denote the LOGOS.
+- A decimal LOGOS amount has at most nine fractional digits. A parser must reject a tenth fractional digit and any amount above $`2^{64}-1`$ LEPTA, and must convert the amount with integer arithmetic only.
 
 ## Minimum Stake
 
