@@ -103,8 +103,8 @@ def spend_gas(inputs, outputs, buffered) -> int:
 and the Execution Gas of each Operation is:
 
 ```python
-TRANSFER          = 30 + spend_gas(inputs, outputs, buffered)
-CHANNEL_INSCRIBE  = 13 + EXECUTION_SIGNATURE_GAS
+TRANSFER          = EXECUTION_TRANSFER_GAS + spend_gas(inputs, outputs, buffered)
+CHANNEL_INSCRIBE  = EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_SIGNATURE_GAS
                     + sum(EXECUTION_USER_STEP_GAS + spend_gas(step.inputs, step.outputs, step.buffered)
                           for step in user_steps)
                     + sum(PROGRAM_STEP_GAS(step) for step in program_steps)
@@ -113,17 +113,34 @@ PROGRAM_STEP_GAS  = EXECUTION_PROGRAM_STEP_GAS + EXECUTION_PROGRAM_PROOF_GAS
                     + EXECUTION_OPENING_GAS * len(step.program_notes)
                     + sum(EXECUTION_PAYMENT_GAS + spend_gas(p.inputs, p.outputs, p.buffered)
                           for p in step.payments)
-CHANNEL_CONFIG    = 18 + EXECUTION_SIGNATURE_GAS * configuration_threshold
-CHANNEL_DEPOSIT   = 16 + spend_gas(inputs, outputs, buffered)
-CHANNEL_WITHDRAW  = 13 + spend_gas(inputs, outputs, buffered)
-SDP_DECLARE       = 669 + EXECUTION_SIGNATURE_GAS + spend_gas(inputs, [service_note], buffered)
-SDP_WITHDRAW      = 889 + EXECUTION_SIGNATURE_GAS + spend_gas([service_note], outputs, buffered)
-SDP_ACTIVE        = 6975 + EXECUTION_SIGNATURE_GAS
-CLAIM_POW_REWARD  = 569
-PROGRAM_REGISTER  = 6843
+CHANNEL_CONFIG    = EXECUTION_CHANNEL_CONFIG_GAS + EXECUTION_SIGNATURE_GAS * configuration_threshold
+CHANNEL_DEPOSIT   = EXECUTION_CHANNEL_DEPOSIT_GAS + spend_gas(inputs, outputs, buffered)
+CHANNEL_WITHDRAW  = EXECUTION_CHANNEL_WITHDRAW_GAS + spend_gas(inputs, outputs, buffered)
+SDP_DECLARE       = EXECUTION_SDP_DECLARE_GAS + EXECUTION_SIGNATURE_GAS
+                    + spend_gas(inputs, [service_note], buffered)
+SDP_WITHDRAW      = EXECUTION_SDP_WITHDRAW_GAS + EXECUTION_SIGNATURE_GAS
+                    + spend_gas([service_note], outputs, buffered)
+SDP_ACTIVE        = EXECUTION_SDP_ACTIVE_GAS + EXECUTION_SIGNATURE_GAS
+CLAIM_POW_REWARD  = EXECUTION_CLAIM_POW_REWARD_GAS
+PROGRAM_REGISTER  = EXECUTION_PROGRAM_REGISTER_GAS
 ```
 
-with the constants:
+with the constants of the Operations:
+
+| Constant | Execution Gas | Measure |
+| --- | --- | --- |
+| `EXECUTION_TRANSFER_GAS` | 30 | [Transfer](#transfer) |
+| `EXECUTION_CHANNEL_INSCRIBE_GAS` | 13 | [Channel Inscription](#channel-inscription) |
+| `EXECUTION_CHANNEL_CONFIG_GAS` | 18 | [Channel Config](#channel-config) |
+| `EXECUTION_CHANNEL_DEPOSIT_GAS` | 16 | [Channel Deposit](#channel-deposit) |
+| `EXECUTION_CHANNEL_WITHDRAW_GAS` | 13 | [Channel Withdraw](#channel-withdraw) |
+| `EXECUTION_SDP_DECLARE_GAS` | 669 | [SDP Declaration](#sdp-declaration) |
+| `EXECUTION_SDP_WITHDRAW_GAS` | 889 | [SDP Withdraw](#sdp-withdraw) |
+| `EXECUTION_SDP_ACTIVE_GAS` | 6975 | [SDP Activation](#sdp-activation) |
+| `EXECUTION_CLAIM_POW_REWARD_GAS` | 569 | [Claim PoW Reward](#claim-pow-reward) |
+| `EXECUTION_PROGRAM_REGISTER_GAS` | 6843 | [Program Register](#program-register) |
+
+and the constants of the components:
 
 | Constant | Execution Gas | Measure |
 | --- | --- | --- |
