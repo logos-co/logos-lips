@@ -30,6 +30,7 @@
 | v22 | Split the submission into this RFC document and a PR description that holds only the Motivation, the Proposal and the status tracker, per the current template, and retitled it `[RFC] SDP: Identify declarations by service and zk_id` | 2026-10-06 |
 |  | Removed what the diff no longer supports: the Details entry on re-anchoring the locator-list serialization, which the specification now drops; the claim that the initial value of `active` is new, which master defines; the chore on the `ActiveMessage` metadata type, which the diff does not change; and the note on two broken anchors unrelated to this change | 2026-10-06 |
 |  | Corrected the revisions the Motivation cites, the nonce and Declare snippets against master, and the Implementation task on when a withdrawn declaration leaves the active set. Moved the test vectors into Details, and added the `DeclarationInfo` field order to Chores, nonce values to Backwards compatibility, and the queries to the Reviewer Orientation | 2026-10-06 |
+| v23 | Merged master, which removed the Blend activity-proof `version` byte: the transaction with one of each operation is regenerated, and the Mantle, Mantle Transaction Encoding and Blend revisions are renumbered past master's | 2026-10-27 |
 
 ## Reviewer Orientation
 
@@ -242,7 +243,7 @@ In [Mantle](../bedrock-v1.1-mantle-specification.md):
 
 - The **Declaration Id** vector is regenerated for the preimage `service || zk_id`, from the same `SDP_DECLARE` fields. The `declaration_id` is `0x67fa7d1fe7f1391195fdd479bba30dd97c9e6d2e1525436ac2427f2bf8567a0d`.
 - The `SDP_WITHDRAW` payload drops the note, leaving 40 bytes. Its `op_id` is `0xa9f938ca71aa93a05f19aff553757b2707041daf0630b7c2d6d3da0705be8aaa`.
-- The transaction with one of each operation carries all eleven Operations, `CLAIM_POW_REWARD` included, so its operation count is `0x0b`. Its hash is `0x4e1307fb13446da7aba6b60f5d8bd899a6d5f68dab8993d00c671f3ccb0ffc6c`. The vector on master carries ten.
+- The transaction with one of each operation carries all eleven Operations, `CLAIM_POW_REWARD` included, so its operation count is `0x0b`. Its hash is `0xfa9bb4104085f58ecf14fe698f72c1eb1de893c239bfdcf01d308590e56b341c`. The vector on master carries ten.
 - `SDP_ACTIVE` is unchanged and keeps its `op_id`.
 
 ## Chores
@@ -275,8 +276,8 @@ In [Mantle](../bedrock-v1.1-mantle-specification.md):
 | Specification | Status | Note |
 | --- | --- | --- |
 | [Service Declaration Protocol](../bedrock-service-declaration-protocol.md) | Modified | Revision 1.7.0 |
-| [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | Revision 1.17.0 |
-| [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | Revision 1.10.0 |
+| [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | Revision 1.18.0 |
+| [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | Revision 1.11.0 |
 | [Genesis Block](../bedrock-genesis-block.md) | Modified | Revision 1.2.1 |
-| [Blend Protocol](../blend-protocol.md) | Modified | Revision 1.6.1 |
+| [Blend Protocol](../blend-protocol.md) | Modified | Revision 1.6.2 |
 | [Analysis: Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | Revision 1.7.1 |
