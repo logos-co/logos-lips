@@ -19,7 +19,8 @@ Read the PR's Motivation first, then the Discussion, which derives the precision
 | 2 | Critical | **Start here**: [Block Rewards → Float Precision for Implementation](../block-rewards.md#float-precision-for-implementation) ([details](#2-the-block-rewards-integer-rule-in-lepta)) | three constants carry $`10^{9}`$ and nothing else changes; the intermediates outgrow 64 bits |
 | 3 | High | [Storage Markets → Parameter Justification](../storage-markets.md#parameter-justification) ([details](#3-the-initial-storage-price)) | the initial price, $`8 \cdot 10^{5}`$ LEPTA per gas, sets the level the price keeps |
 | 4 | Medium | [Execution Market → Base Fee Update Rule](../execution-market.md#base-fee-update-rule), [Storage Markets → Implementation](../storage-markets.md#implementation) and [Overview Cryptoeconomics → Fee Markets](../overview-cryptoeconomics.md#fee-markets) ([details](#4-the-reachable-price-floor)) | a price of 7 LEPTA per gas unit or less is never lowered, and a higher price never falls below 7 |
-| 5 | Low | Four documents ([chores](#chores)) | skim: LGO becomes LOGOS |
+| 5 | Medium | [Total Stake Inference → Algorithm](../cryptarchia-total-stake-inference.md#algorithm) ([details](#5-the-width-of-the-scaled-stake-estimate)) | `tse_p` becomes a signed 128-bit integer, as in the node, and nothing else changes |
+| 6 | Low | Four documents ([chores](#chores)) | skim: LGO becomes LOGOS |
 
 # Discussion
 
@@ -266,7 +267,7 @@ Every protocol quantity denominated in the native token is measured in LEPTA, or
 | Execution Gas price | $`c_t`$ | [Execution Market](../execution-market.md) | LEPTA per Execution Gas unit |
 | Permanent Storage price | $`P_{\text{storage}}(s)`$ | [Storage Markets](../storage-markets.md) | LEPTA per Permanent Storage Gas unit |
 | Block reward | $`R_t`$ | [Block Rewards](../block-rewards.md) | LEPTA |
-| Inferred total stake | $`D_{0,t}`$ | [Block Rewards](../block-rewards.md) | LEPTA |
+| Inferred total stake | $`D_{0,t}`$, `total_stake_estimate` | [Block Rewards](../block-rewards.md), [Total Stake Inference](../cryptarchia-total-stake-inference.md) | LEPTA |
 | Hard cap | $`S_{cap}`$ | [Block Rewards](../block-rewards.md) | $`10^{19}`$ LEPTA |
 
 Specifications that state a constant in whole LOGOS must scale it by $`10^9`$ before evaluating it against ledger quantities. Ratios of two same-unit quantities are scale-invariant and are unaffected.
@@ -444,6 +445,21 @@ def format_logos(value: int, trim: bool = False) -> str:
 
 The rounding paragraphs of [Execution Market](../execution-market.md#base-fee-update-rule), [Storage Markets](../storage-markets.md#implementation) and [Overview Cryptoeconomics](../overview-cryptoeconomics.md#fee-markets) state the floor that upward rounding leaves. A price of 7 LEPTA per gas unit or less is never lowered, and a higher price never falls below 7. All three said the floor was one unit. Execution Market records this as revision 1.2.1.
 
+## 5. The width of the scaled stake estimate
+
+[Total Stake Inference](../cryptarchia-total-stake-inference.md#algorithm) computes `tse_p`, the stake estimate times `PRECISION`, in a signed 128-bit integer:
+
+```diff
+-    let tse_p: u64 = total_stake_estimate * PRECISION
++    let tse_p: i128 = (total_stake_estimate as i128) * (PRECISION as i128)
+```
+
+- In LEPTA, a `u64` holds `tse_p` only while the estimate is at most $`(2^{64}-1)/10^{3}`$ LEPTA, about $`18.4`$ million LOGOS. The stake target, $`3 \cdot 10^{9}`$ LOGOS, is $`163`$ times that bound.
+- The products after `tse_p` were already signed 128-bit integers. The largest, `tse_p * density_diff_p`, stays below $`2^{103}`$ for every `u64` estimate.
+- The new estimate tracks the total stake, which the hard cap bounds at $`10^{19}`$ LEPTA, and its expected value exceeds the stake by at most 3%. The `u64` the function returns therefore still holds it.
+- The node already computes `tse_p` in `i128` (`ledger/src/cryptarchia/stake.rs` in logos-blockchain).
+- Total Stake Inference records this as revision 1.1.1.
+
 ## Chores
 
 - LGO becomes LOGOS in [Block Rewards](../block-rewards.md), [Bedrock Genesis Block](../bedrock-genesis-block.md), [\[Analysis\] Block Rewards](../analysis-block-rewards.md), [\[Analysis\] Block Reward Parameter Calibration](../analysis-block-reward-parameter-calibration.md) and [\[Analysis\] Static Minimum Stake Estimation for the Service Declaration Protocol](../analysis-static-minimum-stake-estimation-for-service-declaration-protocol.md).
@@ -456,7 +472,7 @@ The rounding paragraphs of [Execution Market](../execution-market.md#base-fee-up
 - [ ] Set `GENESIS_STORAGE_GAS_PRICE` to `800_000` (`core/src/mantle/transactions/gas.rs`)
 - [ ] Parse and render decimal LOGOS amounts per Token Units and Precision, with no floating point
 - [ ] Use the unit names and symbols of Token Units and Precision in interfaces and RPC payloads, and reject `GLEPTON`
-- [ ] Add tests: parsing and rendering at 0, one LEPTON, $`10^{9}-1`$ LEPTA and 18,446,744,073.709551615 LOGOS; block rewards at the scaled constants, with fees up to $`2^{64}-1`$
+- [ ] Add tests: parsing and rendering at 0, one LEPTON, $`10^{9}-1`$ LEPTA and 18,446,744,073.709551615 LOGOS; block rewards at the scaled constants, with fees up to $`2^{64}-1`$; total stake inference at estimates up to $`10^{19}`$ LEPTA
 - [ ] Verify the implementation matches this specification
 
 # Affected Specifications
@@ -467,6 +483,7 @@ The rounding paragraphs of [Execution Market](../execution-market.md#base-fee-up
 | [Block Rewards](../block-rewards.md) | Modified | integer rule in LEPTA; LGO becomes LOGOS |
 | [Storage Markets](../storage-markets.md) | Modified | initial price $`8 \cdot 10^{5}`$ LEPTA per gas, and its justification; reachable price floor |
 | [Execution Market](../execution-market.md) | Modified | reachable floor of the base fee |
+| [Total Stake Inference](../cryptarchia-total-stake-inference.md) | Modified | the stake estimate times `PRECISION` in a signed 128-bit integer |
 | [Bedrock Genesis Block](../bedrock-genesis-block.md) | Modified | LGO becomes LOGOS |
 | [\[Analysis\] Block Rewards](../analysis-block-rewards.md) | Modified | LGO becomes LOGOS |
 | [\[Analysis\] Block Reward Parameter Calibration](../analysis-block-reward-parameter-calibration.md) | Modified | LGO becomes LOGOS |
