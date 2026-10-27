@@ -209,7 +209,7 @@ Its contents depend only on the ratio $`p / c^{\ast}`$, through the equivalence 
 
 | $`p / c^{\ast}`$ (GiB per LOGOS) | $`d_{req}`$ | Admissible set $`\mathcal{D}`$ |
 | --- | --- | --- |
-| $`\le 10^{7} / (\varphi \cdot 2^{30})`$ | $`\le 7`$ | $`\lbrace 7, 8, 9 \rbrace`$ |
+| $`\le 10^{7} / (\varphi \cdot 2^{30})`$ | $`\le 7`$ | $`\lbrace d_{req}, \dots, 9 \rbrace`$ |
 | $`\left( 10^{7} / (\varphi \cdot 2^{30}), \; 10^{8} / (\varphi \cdot 2^{30}) \right]`$ | $`8`$ | $`\lbrace 8, 9 \rbrace`$ |
 | $`\left( 10^{8} / (\varphi \cdot 2^{30}), \; 10^{9} / (\varphi \cdot 2^{30}) \right]`$ | $`9`$ | $`\lbrace 9 \rbrace`$ |
 | $`\gt 10^{9} / (\varphi \cdot 2^{30})`$ | $`\ge 10`$ | empty |
