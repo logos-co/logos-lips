@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-10-23 |
 | v2 | Narrowed to the size of `W`: removed the refusal of a neighbor closed as not live, with its Details entry, its Discussion, its alternatives and its implementation tasks. Renamed the document from `RFC-499-blend-size-the-observation-window-by-cover-traffic-and-readmit-not-live-neighbors.md` to match the new title, and added a larger fixed `W` as an alternative. | 2026-10-23 |
+| v3 | Merged master, which added Blend Protocol 1.6.2. Re-dated the 1.7.0 revision, and compared it with 1.6.2 in place of 1.6.1 in the window table and Compatibility. | 2026-10-27 |
 
 ## Reviewer Orientation
 
@@ -21,7 +22,7 @@ The liveness test works only if an honest neighbor almost never goes `W` connect
 
 For deliveries arriving at random at a rate `λ` per round, the mean time before a gap of `W` rounds is `(e^(λW) − 1)/λ` rounds. For a neighbor that forwards half of the cover messages:
 
-| Deployment | Cover messages per round | `W`, 1.6.1 → 1.7.0 | Deliveries expected per window | Mean time to a false reading per connection |
+| Deployment | Cover messages per round | `W`, 1.6.2 → 1.7.0 | Deliveries expected per window | Mean time to a false reading per connection |
 | --- | --- | --- | --- | --- |
 | Reference | 3 | 30 → 30 | 45 → 45 | over 10⁵ years in both |
 | Testnet (`F_C = 1`, one layer) | 1 | 10 → 90 | 5 → 45 | 4.9 min → over 10⁵ years |
@@ -38,7 +39,7 @@ The model is crude, and how far it holds is an open question. Arrivals are not i
 
 ## Compatibility
 
-The change is local to each node: no message, wire format or consensus rule changes, and nodes following 1.6.1 and 1.7.0 interoperate. Where cover traffic is lower than at the reference parameters, `W` grows, and with it the blacklist expiry and the time a dead neighbor holds a slot: 90 rounds on the testnet. Bedrock has no deployed network, so the change needs no migration.
+The change is local to each node: no message, wire format or consensus rule changes, and nodes following 1.6.2 and 1.7.0 interoperate. Where cover traffic is lower than at the reference parameters, `W` grows, and with it the blacklist expiry and the time a dead neighbor holds a slot: 90 rounds on the testnet. Bedrock has no deployed network, so the change needs no migration.
 
 # Details
 
