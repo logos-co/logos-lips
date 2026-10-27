@@ -7,6 +7,7 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-10-23 |
+| v2 | Merged master, which added Blend Protocol 1.6.2. Re-dated the 1.8.0 revision. | 2026-10-27 |
 
 ## Reviewer Orientation
 
