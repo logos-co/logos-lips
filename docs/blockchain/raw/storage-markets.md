@@ -228,10 +228,3 @@ def update_storage_fee(total_gas_consumed: int, prev_price: int, prev_usage: int
 ```
 
 The two rounding directions are not interchangeable. The price is multiplied by a factor smaller than one whenever usage falls below the target, so rounding it downwards would make 0 an absorbing state: a price of 1 LEPTON per Permanent Storage Gas would be mapped to 0 by the next downward adjustment, and every subsequent update would keep it at 0, making Permanent Storage permanently free. With upward rounding, an update lowers the price $`P_{\text{storage}}(s)`$ by at most $`\lfloor P_{\text{storage}}(s) / 8 \rfloor`$. A price of 7 LEPTA per Permanent Storage Gas or less is therefore never lowered, and a price above 7 never falls below 7. The usage EMA is a measurement rather than a price and is not subject to this failure mode, as it is additive and recovers from 0 as soon as usage resumes. Rounding it upwards would instead pin it at 1 once it has been positive, reporting residual demand on an idle market.
-
-### Genesis State
-
-The initial state of the TFM at network launch shall be configured as follows:
-
-- Initial Price P_STR(0): Set to a pre-determined value established by genesis governance.
-- Initial Usage EMA T_RA(-1): Set to the value of the baseline target, $`T_{\text{base}}`$. This anchors the mechanism to its long-term policy goal from the outset.

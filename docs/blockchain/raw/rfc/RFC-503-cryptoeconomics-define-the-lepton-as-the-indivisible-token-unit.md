@@ -439,7 +439,8 @@ def format_logos(value: int, trim: bool = False) -> str:
 
 - sets $`P_{\text{storage}}(0)`$ to $`8 \cdot 10^{5}`$ LEPTA per Permanent Storage Gas, which is $`8 \cdot 10^{5}`$ LEPTA per stored byte. It was 1 LGO per gas;
 - replaces the claim that the price converges to the market price from any start, and the epoch counts derived from it, with the behaviour of the rule: the price follows changes in usage, so the start sets the level;
-- removes the adjustment of the start by genesis governance at TGE.
+- removes the adjustment of the start by genesis governance at TGE;
+- deletes Genesis State, which left the start to genesis governance and otherwise restated two rows of the Protocol Constants table.
 
 ## 4. The reachable price floor
 
@@ -481,7 +482,7 @@ The rounding paragraphs of [Execution Market](../execution-market.md#base-fee-up
 | --- | --- | --- |
 | [\[Overview\] Cryptoeconomics](../overview-cryptoeconomics.md) | Modified | Token Units and Precision added; reachable price floor |
 | [Block Rewards](../block-rewards.md) | Modified | integer rule in LEPTA; LGO becomes LOGOS |
-| [Storage Markets](../storage-markets.md) | Modified | initial price $`8 \cdot 10^{5}`$ LEPTA per gas, and its justification; reachable price floor |
+| [Storage Markets](../storage-markets.md) | Modified | initial price $`8 \cdot 10^{5}`$ LEPTA per gas, and its justification; reachable price floor; Genesis State removed |
 | [Execution Market](../execution-market.md) | Modified | reachable floor of the base fee |
 | [Total Stake Inference](../cryptarchia-total-stake-inference.md) | Modified | the stake estimate times `PRECISION` in a signed 128-bit integer |
 | [Bedrock Genesis Block](../bedrock-genesis-block.md) | Modified | LGO becomes LOGOS |
