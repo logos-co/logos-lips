@@ -192,6 +192,7 @@
 </div><!-- timeline:start -->
 <h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
 <ul>
+<li><strong>2026-10-27</strong> — <a href="https://github.com/logos-co/logos-lips/blob/6b84187f0ae37a0e8c28c32d3bb1e6f619cec147/docs/blockchain/raw/bedrock-genesis-block.md"><code>6b84187</code></a> — [RFC] SDP: Identify declarations by service and <code>zk_id</code> (#407)</li>
 <li><strong>2026-10-01</strong> — <a href="https://github.com/logos-co/logos-lips/blob/760f5ee6f27cdb0b7b4d2fc1c79a49831dfcba6a/docs/blockchain/raw/bedrock-genesis-block.md"><code>760f5ee</code></a> — [RFC] Mantle: EmPoWering — retarget bounds and pool funding (#443)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b7301a67b5364a8dbe719f8b67b96b7f198d0a13/docs/blockchain/raw/bedrock-genesis-block.md"><code>b7301a6</code></a> — [RFC] Mantle: Enable basic EmPoWering machinery (#400)</li>
 <li><strong>2026-08-31</strong> — <a href="https://github.com/logos-co/logos-lips/blob/3cac48f3f3c7db46eddf3bbb70c1567d96e2b213/docs/blockchain/raw/bedrock-genesis-block.md"><code>3cac48f</code></a> — docs(blockchain): rename locked notes to service notes (#423)</li>
@@ -215,6 +216,7 @@
 <tr><td>1.1.4</td><td>Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy.</td><td>2026-08-25</td></tr>
 <tr><td>1.1.5</td><td>Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a <code>service_note_id</code></td><td>2026-08-27</td></tr>
 <tr><td>1.2.0</td><td>Seed the pow reward pool at genesis from the initial token distribution</td><td>2026-09-08</td></tr>
+<tr><td>1.2.1</td><td>Align the initial service declarations with the Service Declaration Protocol: the <code>BN</code> service type, the full <code>DeclarationMessage</code> shape, and multiaddr locators</td><td>2026-10-01</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
@@ -254,12 +256,13 @@
 <p>Blend enforces a minimal network size for the service to be active. Thus, in order to have an active Blend service at Genesis, we MUST have at least as many declarations in the Genesis block to meet Blend service’s minimal network size <a href="blend-protocol.html#minimal-network-size">Minimal Network Size</a>.</p>
 <p><strong>Example</strong></p>
 <pre><code class="language-python">BLEND_DECLARATIONS = [
-    Declaration(
-        msg=DeclarationMessage(
-            ServiceType.BLEND, ["ip://1.1.1.1:3000"], PROVIDER_ID_0, ZK_ID_0
-        ),
-        service_note_id=STAKE_DISTRIBUTION_TX.output_note_id(0)
-    ),
+    Op(opcode=SDP_DECLARE, payload=encode(DeclarationMessage(
+        service_type=ServiceType.BN,
+        locators=["/ip4/1.1.1.1/tcp/3000"],
+        provider_id=PROVIDER_ID_0,
+        service_note_id=STAKE_DISTRIBUTION_TX.output_note_id(0),
+        zk_id=ZK_ID_0,
+    ))),
     # ... 32 total declarations
 ]
 
@@ -398,10 +401,13 @@ CRYPTARCHIA_INSCRIPTION = Inscribe(
 
 # service declarations
 BLEND_DECLARATIONS = [
-    Declaration(
-        msg=DeclarationMessage(ServiceType.BLEND, ["ip://1.1.1.1:3000"], PROVIDER_ID_0, ZK_ID_0),
-        service_note_id=STAKE_DISTRIBUTION.output_note_id(0)
-    ),
+    Op(opcode=SDP_DECLARE, payload=encode(DeclarationMessage(
+        service_type=ServiceType.BN,
+        locators=["/ip4/1.1.1.1/tcp/3000"],
+        provider_id=PROVIDER_ID_0,
+        service_note_id=STAKE_DISTRIBUTION.output_note_id(0),
+        zk_id=ZK_ID_0,
+    ))),
     # ... more declarations
 ]
 SERVICE_DECLARATIONS = BLEND_DECLARATIONS

@@ -192,6 +192,7 @@
 </div><!-- timeline:start -->
 <h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
 <ul>
+<li><strong>2026-10-27</strong> — <a href="https://github.com/logos-co/logos-lips/blob/6b84187f0ae37a0e8c28c32d3bb1e6f619cec147/docs/blockchain/raw/analysis-gas-cost-determination.md"><code>6b84187</code></a> — [RFC] SDP: Identify declarations by service and <code>zk_id</code> (#407)</li>
 <li><strong>2026-10-04</strong> — <a href="https://github.com/logos-co/logos-lips/blob/47a73cdc412af55f1bebc5441c4783a9ac595240/docs/blockchain/raw/analysis-gas-cost-determination.md"><code>47a73cd</code></a> — docs(blockchain): gas for strict EdDSA verification (#464)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b7301a67b5364a8dbe719f8b67b96b7f198d0a13/docs/blockchain/raw/analysis-gas-cost-determination.md"><code>b7301a6</code></a> — [RFC] Mantle: Enable basic EmPoWering machinery (#400)</li>
 <li><strong>2026-09-09</strong> — <a href="https://github.com/logos-co/logos-lips/blob/4b9d1ca1794f1e1b47aa40582f7793e2f84ed999/docs/blockchain/raw/analysis-gas-cost-determination.md"><code>4b9d1ca</code></a> — docs(blockchain): make every Operation carry a proof and gas independent of it (#431)</li>
@@ -217,6 +218,7 @@
 <tr><td>1.5.4</td><td>Renamed the <code>stake_manipulation_threshold</code> of the channel gas derivations into <code>transfer_threshold</code> and the Channel Stake Assignation section into Channel Transfer, following Mantle</td><td>2026-08-31</td></tr>
 <tr><td>1.6.0</td><td>Add the Execution Gas derivation for the <code>CLAIM_POW_REWARD</code> Operation</td><td>2026-09-04</td></tr>
 <tr><td>1.7.0</td><td>Per-signature Ed25519 cost re-measured with strict verification (<a href="common-cryptographic-components.html">Common Cryptographic Components</a> 1.2.0): 56 → 59 Execution Gas, <code>SDP_DECLARE_GAS</code> 646 → 649</td><td>2026-09-24</td></tr>
+<tr><td>1.7.1</td><td>[RFC] The SDP costs price the per-service identifier checks and no lock-period check</td><td>2026-10-05</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
@@ -335,31 +337,31 @@ The execution require deriving note Id and adding notes to the ledger.</p>
 </li>
 </ul>
 <h2 id="sdp-declaration"><a class="header" href="#sdp-declaration">SDP Declaration</a></h2>
-<p>This gas covers multiple verification processes: confirming ownership of the service note through ZkSignature verification, validating the zk_id via a second ZkSignature, and establishing ownership of the provider_id through an Eddsa25519 signature. It also includes verification of the declaration format, confirmation of note existence, validation that the note is not already used for this service, and verification of its amount. Additionally, it accounts for the computational costs associated with the note service locking mechanism and declaration management.</p>
+<p>This gas covers multiple verification processes: confirming ownership of the service note through ZkSignature verification, validating the zk_id via a second ZkSignature, and establishing ownership of the provider_id through an Eddsa25519 signature. It also includes verification of the declaration format, confirmation of note existence, validation that the note is not already used for the service, and verification of its amount. Additionally, it accounts for the computational costs associated with the note service locking mechanism and declaration management.</p>
 <p>Execution: ~ 649k CPU cycles.</p>
 <ul>
 <li>Verification of the Ed25519 signature: 59,200 cycles.</li>
 <li>Verification of the ZK signature: 590,000 cycles.</li>
 <li>Verification that the declaration doesn’t already exist: negligible.</li>
+<li>Verification that the <code>provider_id</code> is not already bound in the service: negligible.</li>
 <li>Verification of locator length: negligible.</li>
 <li>Verification of service note existence: negligible.</li>
 <li>Verification of service note value: negligible.</li>
-<li>Verification that the note isn’t already used for the service: negligible.</li>
-<li>Register the note as a service note: negligible.</li>
+<li>Verification that the note isn’t already used: negligible.</li>
+<li>Register the note as a service note and index the provider identity: negligible.</li>
 </ul>
 <h2 id="sdp-withdraw"><a class="header" href="#sdp-withdraw">SDP Withdraw</a></h2>
-<p>This gas covers a verification process that includes: confirming ownership of the zk_id through ZkSignature verification, validating the existence of the service note, verifying that the note has exceeded its lock period, and confirming that the declaration exists and has not been previously withdrawn. The validation process also ensures that the withdrawal message's nonce is greater than any previous nonce, preventing replay attacks. During execution, the system updates the declaration's status to withdrawn, removes the declaration from the service note's associated declarations, and—if the note has no remaining declarations—removes it from the service notes dictionary.</p>
+<p>This gas covers a verification process that includes: confirming ownership of the zk_id through ZkSignature verification, confirming that the declaration exists and has not been previously withdrawn, and validating that the service note it holds is still bound to it. The validation process also ensures that the withdrawal message's nonce is greater than any previous nonce, preventing replay attacks. During execution, the system records the withdrawal epoch on the declaration; the declaration is removed and its note released by the epoch finalization at <code>withdraw_at + 1</code>.</p>
 <p>Execution: ~ 590k CPU cycles.</p>
 <ul>
 <li>Verification that the service note exists and is bound to the declaration: negligible.</li>
-<li>Verification that the note can be unlocked: negligible.</li>
 <li>Verification that the declaration exist: negligible.</li>
 <li>Verification of the ZK signature: 590,000 cycles.</li>
 <li>Verification that the declaration wasn’t already withdrawn: negligible.</li>
 <li>Verification of nonce incrementation: negligible.</li>
 <li>Update declaration: negligible.</li>
-<li>Remove declaration from service note: negligible.</li>
-<li>Unlock the note if not linked to any declaration: negligible.</li>
+<li>Remove the declaration and release its service note for the service: negligible.</li>
+<li>Unlock the note once no service holds it: negligible.</li>
 </ul>
 <h2 id="sdp-activation"><a class="header" href="#sdp-activation">SDP Activation</a></h2>
 <p>This gas funds the verification of the zk_id signature through the ZkSignature verification process, validates the existence of the declaration in the system, and ensures that the active message's nonce is greater than any previous nonce to prevent replay attacks. The validation includes confirming that the declaration ID is present in the declarations dictionary and that the signature corresponds to the declaration's registered zk_id public key.</p>

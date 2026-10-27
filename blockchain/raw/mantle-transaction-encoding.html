@@ -192,6 +192,7 @@
 </div><!-- timeline:start -->
 <h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
 <ul>
+<li><strong>2026-10-27</strong> — <a href="https://github.com/logos-co/logos-lips/blob/6b84187f0ae37a0e8c28c32d3bb1e6f619cec147/docs/blockchain/raw/mantle-transaction-encoding.md"><code>6b84187</code></a> — [RFC] SDP: Identify declarations by service and <code>zk_id</code> (#407)</li>
 <li><strong>2026-10-14</strong> — <a href="https://github.com/logos-co/logos-lips/blob/949faa9563027de366514247a2a62b0de2f8c45f/docs/blockchain/raw/mantle-transaction-encoding.md"><code>949faa9</code></a> — [RFC] Mantle: Bound operation data payloads (#467)</li>
 <li><strong>2026-10-01</strong> — <a href="https://github.com/logos-co/logos-lips/blob/4deef612ce1ae1776167daf8779d4abae953201b/docs/blockchain/raw/mantle-transaction-encoding.md"><code>4deef61</code></a> — docs(blockchain): swap index and sig in multi sig (#469)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/b7301a67b5364a8dbe719f8b67b96b7f198d0a13/docs/blockchain/raw/mantle-transaction-encoding.md"><code>b7301a6</code></a> — [RFC] Mantle: Enable basic EmPoWering machinery (#400)</li>
@@ -221,6 +222,7 @@
 <tr><td>1.8.0</td><td>Added the <code>ClaimPowReward</code> Operation payload; its proof is a <code>ZkSigProof</code></td><td>2026-09-08</td></tr>
 <tr><td>1.9.0</td><td>Swap Ed25519Signature and SignerIndex order in IndexedSignature</td><td>2026-10-01</td></tr>
 <tr><td>1.10.0</td><td>Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata, retaining their <code>UINT32</code> length prefixes; corrected SDP activity metadata to use its tagged variant encoding without a generic length prefix</td><td>2026-10-06</td></tr>
+<tr><td>1.11.0</td><td>[RFC] <code>SDPWithdraw</code> drops the redundant <code>ServiceNoteId</code></td><td>2026-10-27</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
@@ -294,7 +296,7 @@ ProviderId    = Ed25519PublicKey
 ZkId          = ZkPublicKey
 ServiceNoteId = NoteId
 
-SDPWithdraw   = DeclarationId Nonce ServiceNoteId
+SDPWithdraw   = DeclarationId Nonce
 DeclarationId = Hash32
 Nonce         = UINT64
 
