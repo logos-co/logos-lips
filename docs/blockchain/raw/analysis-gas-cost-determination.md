@@ -57,7 +57,7 @@ The Execution Gas is derived from measurements of the [Rust implementation of th
 - the insertion of nullifiers and the appending of commitments to the note sets, and the hashing of the trees of every changed note set at the end of the block;
 - the checks and the state updates of each Operation.
 
-The Execution Gas of a Mantle Transaction is a sum of per-component constants, each fitted on these measurements ([Gas determination from measures](#gas-determination-from-measures)). A full block of mixed transactions, measured whole, costs within 5.1% of what the constants predict, the constants being the higher.
+The Execution Gas of a Mantle Transaction is a sum of per-component constants, each fitted on these measurements ([Gas determination from measures](#gas-determination-from-measures)). A full block of mixed transactions, measured whole, costs 6.9% less than the constants predict when the end of block work of each note set is counted once ([Fit and cross-check](#fit-and-cross-check)).
 
 Gas can also be adjusted to incentivize or disincentivize the usage of certain Operations compared to others.
 
@@ -81,9 +81,11 @@ The Execution Gas of a Mantle Transaction is:
 
 ```python
 def tx_execution_gas(tx_signed) -> int:
+    # note_sets_changed_by(op): the channel and SDP note sets the Operation creates,
+    # spends from or adds to, at its execution or at the release of its withdrawal
+    tx_note_sets = set().union(*(note_sets_changed_by(op) for op in tx_signed.ops))
     return (len(encode(tx_signed)) * EXECUTION_KB_GAS // 1000
-            # every channel and SDP note set the transaction changes, created sets included
-            + EXECUTION_NOTE_SET_GAS * len(changed_note_sets(tx_signed))
+            + EXECUTION_NOTE_SET_GAS * len(tx_note_sets)
             + sum(execution_gas(op) for op in tx_signed.ops))
 
 # The extension of the root a proof is verified against by the commitments
@@ -110,7 +112,7 @@ CHANNEL_INSCRIBE  = EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_SIGNATURE_GAS
                     + sum(PROGRAM_STEP_GAS(step) for step in program_steps)
 PROGRAM_STEP_GAS  = EXECUTION_PROGRAM_STEP_GAS + EXECUTION_PROGRAM_PROOF_GAS
                     + spend_gas(step.inputs, step.outputs, buffered)
-                    + EXECUTION_OPENING_GAS * len(step.program_notes)
+                    + EXECUTION_OPENING_GAS * len(step_proof.program_notes)
                     + sum(EXECUTION_PAYMENT_GAS + spend_gas(p.inputs, p.outputs, p.buffered)
                           for p in step.payments)
 CHANNEL_CONFIG    = EXECUTION_CHANNEL_CONFIG_GAS + EXECUTION_SIGNATURE_GAS * configuration_threshold
@@ -145,7 +147,7 @@ and the constants of the components:
 | Constant | Execution Gas | Measure |
 | --- | --- | --- |
 | `EXECUTION_KB_GAS` | 26 per 1,000 bytes | 26.0 cycles per byte of the signed transaction |
-| `EXECUTION_NOTE_SET_GAS` | 4235 | end of block of a changed note set, with its first nullifier, 4,234,282 cycles |
+| `EXECUTION_NOTE_SET_GAS` | 4285 | end of block of a changed note set, with its first nullifier, at most 4,284,489 cycles |
 | `EXECUTION_PROOF_GAS` | 1946 | decompression and batch verification of a ZkTransfer or a ZkProgramSpend, 1,945,084 cycles |
 | `EXECUTION_ROOT_GAS` | 887 | root of a recent commitment MMR extended by buffered commitments, 886,479 cycles |
 | `EXECUTION_BUFFERED_GAS` | 23 | append of a buffered commitment to that MMR, 22,715 cycles |
@@ -153,8 +155,8 @@ and the constants of the components:
 | `EXECUTION_COMMITMENT_GAS` | 25 | append of a commitment, 24,598 cycles |
 | `EXECUTION_SIGNATURE_GAS` | 167 | Ed25519 signature, 166,641 cycles |
 | `EXECUTION_USER_STEP_GAS` | 137 | a user step beyond its spend, 136,096 cycles |
-| `EXECUTION_PAYMENT_GAS` | 326 | a payment beyond its spend, 325,877 cycles |
-| `EXECUTION_PROGRAM_STEP_GAS` | 239 | a program step beyond its spend, its proof, its payments and its openings, 238,264 cycles |
+| `EXECUTION_PAYMENT_GAS` | 211 | a payment beyond its spend and the append of its commitments to the root of its program spend, 210,789 cycles |
+| `EXECUTION_PROGRAM_STEP_GAS` | 60 | a program step beyond its spend, its proof, its payments and its openings, 59,438 cycles |
 | `EXECUTION_OPENING_GAS` | 157 | the commitment of an opened program note, 156,367 cycles |
 | `EXECUTION_PROGRAM_PROOF_GAS` | 6305 | verification of a program proof under its registered key, 6,304,980 cycles |
 
@@ -198,13 +200,13 @@ A nullifier is inserted in the nullifier IMT of its set (depth 40) in two parts:
 
 ## Commitments
 
-Appending a commitment to the commitment MMR of its set merges one peak per trailing one bit of the length of the MMR, 24,443 cycles per merge, and costs 24,598 cycles on average over the outputs of an Operation. `EXECUTION_COMMITMENT_GAS = 25`.
+Appending a commitment to the commitment MMR of its set merges one peak per trailing one bit of the length of the MMR, 23,673 cycles per merge, and costs 24,598 cycles on average over the outputs of an Operation. `EXECUTION_COMMITMENT_GAS = 25`.
 
 ## Note sets
 
-At the end of a block, each note set the block changed records its commitment root among its recent roots, expires the roots older than 1024 blocks, and updates its leaf in the eligible tree (depth 40). For a set holding a full window of recent roots, this costs 2,687,667 cycles, among which the commitment root (886,479), the eligible leaf (89,939) and the path of the eligible tree, and 4,234,282 cycles with the first nullifier and a commitment the block added to the set.
+At the end of a block, each note set the block changed records its commitment root among its recent roots, expires the roots older than 1024 blocks, and updates its leaf in the eligible tree (depth 40). For a set holding a full window of recent roots, this costs 2,687,667 cycles, among which the commitment root (886,479), the eligible leaf (89,939) and the path of the eligible tree, and 4,234,282 to 4,284,489 cycles with the first nullifier and a commitment the block added to the set, among 1 to 1,024 recent roots.
 
-A Mantle Transaction pays `EXECUTION_NOTE_SET_GAS = 4235` once for each channel or SDP note set it changes, whatever the number of its Operations changing that set. A set created by the transaction counts as changed: its creation inserts its leaf in the eligible tree, a path of 40 compressions of 23,856 cycles, below the cost of a changed set. The ledger set changes in every block with the leader note, and its cost is part of the fixed costs of the block.
+A Mantle Transaction pays `EXECUTION_NOTE_SET_GAS = 4285`, the largest of these measures, once for each channel or SDP note set it changes, whatever the number of its Operations changing that set. A set created by the transaction counts as changed: its creation inserts its leaf in the eligible tree, a path of 40 compressions of 23,856 cycles, below the cost of a changed set. The ledger set changes in every block with the leader note, and its cost is part of the fixed costs of the block.
 
 ## Signatures
 
@@ -235,14 +237,15 @@ The validation verifies the Ed25519 signature of the sequencer, its accreditatio
 | Inscription without steps | 178,826 |
 | of which the signature | 149,291 |
 | each user step of 1 input and 1 output, beyond its proof | 191,341 |
-| each payment of 1 input, beyond its proof | 356,524 |
+| first payment of a program step, with the extension of the root of the program spend by its commitment | 1,215,676 |
+| each further payment of 1 input and 1 output, beyond its proof | 288,750 |
 | program step without input nor payment, 1 output | 262,862 |
 | each input of the program spend | 29,469 |
 | each output of the program spend | 25,068 |
 | each opening of a program note | 156,367 |
 | program proof | 6,304,980 |
 
-A user step derives its `step_msg` and checks its inputs and outputs, 136,096 cycles beyond its nullifier and its commitment. A payment derives its `payment_msg` and enters the hash of the payments of its step, 325,877 cycles beyond its nullifier. A program step checks that its program is registered, checks the flags of its outputs and derives the public inputs of its proofs, 238,264 cycles beyond its commitment. An opening recomputes the commitment of the opened note and compares it to the output.
+A user step derives its `step_msg` and checks its inputs and outputs, 136,096 cycles beyond its nullifier and its commitment. A payment derives its `payment_msg` and enters the hash of the payments of its step, 210,789 cycles beyond its nullifier, its commitment and the append of that commitment to the root of the program spend, whose extension the first payment of a step causes (`EXECUTION_ROOT_GAS`). A program step checks that its program is registered, checks the flags of its outputs and derives the public inputs of its proofs, 59,438 cycles beyond the inscription without steps and its commitment. An opening recomputes the commitment of the opened note and compares it to the output.
 
 ## Channel Config
 
@@ -259,7 +262,7 @@ The 18 Execution Gas cover the checks of the configuration and the update of the
 | --- | --- |
 | Deposit of 1 input and 1 output | 70,806 |
 | each further input | 32,028 |
-| each further output | 23,129 |
+| each further output | 23,128 |
 | decompression and batch verification of the ZkTransfer | 1,945,084 |
 
 The deposit spends notes of the ledger set and appends its outputs to the note set of the channel.
@@ -313,7 +316,7 @@ The validation checks that the declaration exists, the nonce, the signature of t
 | Claim | 568,305 |
 | of which the re-derivation of the puzzle ticket, one `zkhash` over four field elements | 111,833 |
 
-The validation re-derives the ticket, compares it to the reward difficulty, checks that the referenced block is canonical and within the acceptance window, that the ticket is not in the nullifier set and that the pool covers a reward. The execution inserts the nullifier, derives the note and appends its commitment, and decrements the pool. A claim pays its fee out of the reward it creates, so the per-claim reward clears the Permanent Storage fee of the transaction, these 569 Execution Gas, and the Execution Gas of the Transfer spending the reward note.
+The validation re-derives the ticket, compares it to the reward difficulty, checks that the referenced block is canonical and within the acceptance window, that the ticket is not in the nullifier set and that the pool covers a reward. The execution inserts the nullifier, derives the note and appends its commitment, and decrements the pool. A claim pays its fee out of the reward it creates, so the per-claim reward clears the Permanent Storage fee of the transaction, these 569 Execution Gas and the Execution Gas of its bytes, and the Execution Gas of the Transfer spending the reward note.
 
 ## Program Register
 
@@ -364,7 +367,7 @@ The machine:
 
 Each constant is the slope of the measures of the Operation along one dimension, or the measure of a component alone where the Operation cannot isolate it, rounded up to the next 1,000 cycles.
 
-A block of 64 transactions on one channel, measured whole (40 Transfers of 2 inputs and 2 outputs, 16 inscriptions of one user step, 7 inscriptions of one program step with one payment, one input, two outputs and one opening, and one deposit; 111 nullifiers, 118 commitments, 27,047 bytes), costs 241.2 million cycles with its header, its Proof of Leadership and the verification of its proofs. Its Execution Gas, with the note set of the channel counted once and the fixed costs of the block, comes to 253.5 million cycles, 5.1% above.
+A block of 64 transactions on one channel, measured whole (40 Transfers of 2 inputs and 2 outputs, 16 inscriptions of one user step, 7 inscriptions of one program step with one payment, one input, two outputs and one opening, and one deposit; 111 nullifiers, 118 commitments, 27,047 bytes), costs 241.2 million cycles with its header, its Proof of Leadership and the verification of its proofs. The constants, with the end of block work of the channel set counted once and the fixed costs of the block, come to 257.9 million cycles, 6.9% above. The 24 transactions changing the channel set each pay that work, as every transaction changing a set does, and the Execution Gas of the block comes to 356.4 million cycles, 47.8% above: the end of block work of a set is paid by each transaction changing it, so that the price of a transaction does not depend on the other transactions of its block.
 
 ### Groth16 Proof Batch Verification
 
@@ -426,7 +429,7 @@ The ledger computes `e(α, β)`, the costliest part of the preparation, once at 
 | `zkhash` of four field elements | 111,833 |
 | Blake2b-256 of 0, 1,024 and 65,536 bytes | 1,703, 4,908, 232,544 |
 | Root of the commitment MMR of a filled set | 886,479 |
-| Append to the commitment MMR, per merged peak | 24,443 |
+| Append to the commitment MMR, per merged peak | 23,673 |
 | End of block of a set, nullifiers inserted in the block: 0, 1, 2, 4, 16, 64, 256 | 2,687,667, 4,158,078, 4,333,964, 4,651,871, 6,257,256, 12,632,150, 37,755,518 |
 | End of block of a set, among 1, 256 and 1,024 recent roots | 4,238,782, 4,284,489, 4,234,282 |
 | Decoding of an inscription of 0, 1,024 and 65,536 bytes of payload | 19,133, 25,365, 178,124 |

@@ -203,8 +203,8 @@ Mantle validators will ensure the following:
         note_set.tx_cm_buffer = []  # the buffers start empty with every Mantle Transaction
     for op, op_proof in zip(ops, op_proofs):
         assert op.opcode in MANTLE_OPCODES
-        validate_mantle_op(mantle_txhash(tx), op.opcode, op.payload, op_proof)
         tx_execution_gas = checked_uint64(tx_execution_gas + execution_gas(op, ledger, channels))
+        validate_mantle_op(mantle_txhash(tx), op.opcode, op.payload, op_proof)
         # the excess of the ZkTransfer of these Operations pays the fees
         if op.opcode in (TRANSFER, CHANNEL_DEPOSIT, SDP_WITHDRAW):
             tx_balance = checked_uint64(tx_balance + op.payload.excess_value)
@@ -551,7 +551,7 @@ The openings of the program notes a step creates serve only the availability of 
 
 #### Execution Gas
 
-  Channel Inscribe Operations have an Execution Gas cost of `EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_SIGNATURE_GAS`, plus `EXECUTION_USER_STEP_GAS + spend_gas(step.inputs, step.outputs, step.buffered)` for each user step, plus `EXECUTION_PROGRAM_STEP_GAS + EXECUTION_PROGRAM_PROOF_GAS + spend_gas(step.inputs, step.outputs, len(tx_cm_buffer)) + EXECUTION_OPENING_GAS * len(program_notes)` for each program step, `tx_cm_buffer` being the buffer of the channel note set when the step is validated, plus `EXECUTION_PAYMENT_GAS + spend_gas(payment.inputs, payment.outputs, payment.buffered)` for each payment of a program step. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
+  Channel Inscribe Operations have an Execution Gas cost of `EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_SIGNATURE_GAS`, plus `EXECUTION_USER_STEP_GAS + spend_gas(step.inputs, step.outputs, step.buffered)` for each user step, plus `EXECUTION_PROGRAM_STEP_GAS + EXECUTION_PROGRAM_PROOF_GAS + spend_gas(step.inputs, step.outputs, len(tx_cm_buffer)) + EXECUTION_OPENING_GAS * len(program_notes)` for each program step, `tx_cm_buffer` being the buffer of the channel note set its program spend is verified against, the changes of its payments included, plus `EXECUTION_PAYMENT_GAS + spend_gas(payment.inputs, payment.outputs, payment.buffered)` for each payment of a program step. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
 
 #### Validation
 
@@ -896,7 +896,7 @@ ZkTransfer
 
 #### Execution Gas
 
-  Channel Deposit Operations have an Execution Gas cost of `EXECUTION_CHANNEL_DEPOSIT_GAS + spend_gas(inputs, outputs, len(tx_cm_buffer))`, `tx_cm_buffer` being the buffer of the ledger note set when the Operation is validated. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
+  Channel Deposit Operations have an Execution Gas cost of `EXECUTION_CHANNEL_DEPOSIT_GAS + spend_gas(inputs, outputs, len(tx_cm_buffer))`, `tx_cm_buffer` being the buffer of the ledger note set before the Operation is validated. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
 
 #### Validation
 
@@ -996,7 +996,7 @@ ZkTransfer
 
 #### Execution Gas
 
-  Channel Withdraw Operations have an Execution Gas cost of `EXECUTION_CHANNEL_WITHDRAW_GAS + spend_gas(inputs, outputs, len(tx_cm_buffer))`, `tx_cm_buffer` being the buffer of the channel note set when the Operation is validated. The Operation pays in advance the release of the withdrawal at its slot. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
+  Channel Withdraw Operations have an Execution Gas cost of `EXECUTION_CHANNEL_WITHDRAW_GAS + spend_gas(inputs, outputs, len(tx_cm_buffer))`, `tx_cm_buffer` being the buffer of the channel note set before the Operation is validated. The Operation pays in advance the release of the withdrawal at its slot. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
 
 #### Validation
 
@@ -1153,7 +1153,7 @@ class DeclarationProof:
 
 #### Execution Gas
 
-  SDP Declare Operations have an Execution Gas cost of `EXECUTION_SDP_DECLARE_GAS + EXECUTION_SIGNATURE_GAS + spend_gas(inputs, [service_note], len(tx_cm_buffer))`, `tx_cm_buffer` being the buffer of the ledger note set when the Operation is validated. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
+  SDP Declare Operations have an Execution Gas cost of `EXECUTION_SDP_DECLARE_GAS + EXECUTION_SIGNATURE_GAS + spend_gas(inputs, [service_note], len(tx_cm_buffer))`, `tx_cm_buffer` being the buffer of the ledger note set before the Operation is validated. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
 
 #### Validation
 
@@ -1276,7 +1276,7 @@ class WithdrawProof:
 
 #### Execution Gas
 
-  SDP Withdraw Operations have an Execution Gas cost of `EXECUTION_SDP_WITHDRAW_GAS + EXECUTION_SIGNATURE_GAS + spend_gas([service_note], outputs, len(tx_cm_buffer))`, `tx_cm_buffer` being the buffer of the SDP note set when the Operation is validated. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
+  SDP Withdraw Operations have an Execution Gas cost of `EXECUTION_SDP_WITHDRAW_GAS + EXECUTION_SIGNATURE_GAS + spend_gas([service_note], outputs, len(tx_cm_buffer))`, `tx_cm_buffer` being the buffer of the SDP note set before the Operation is validated. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
 
 #### Validation
 
@@ -1690,7 +1690,7 @@ ZkTransfer
 
 ### Execution Gas
 
-  Transfer have an Execution Gas cost of `EXECUTION_TRANSFER_GAS + spend_gas(inputs, outputs, len(tx_cm_buffer))`, `tx_cm_buffer` being the buffer of the ledger note set when the Operation is validated. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
+  Transfer have an Execution Gas cost of `EXECUTION_TRANSFER_GAS + spend_gas(inputs, outputs, len(tx_cm_buffer))`, `tx_cm_buffer` being the buffer of the ledger note set before the Operation is validated. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
 
 ### Validation
 
@@ -1879,7 +1879,7 @@ The note sets are what the [Proof of Leadership](cryptarchia-proof-of-leadership
 
 ### Commitment Merkle Mountain Range
 
-The commitments of each note set are appended, in insertion order, to the leaves of a Merkle tree of depth $`40`$ whose every leaf past the last appended one holds $`0`$. The root of that tree is the commitment MMR root of the set, and a commitment is proven in it by a Merkle path of length $`40`$. A note set therefore holds at most $`2^{40}`$ commitments and, its [IMT](#nullifier-indexed-merkle-tree) giving a leaf to the sentinel, $`2^{40} - 1`$ nullifiers, a capacity that transfers of 8 outputs at the Execution Gas target take about 50 years to fill. An Operation adding a commitment or a nullifier to a full set is invalid.
+The commitments of each note set are appended, in insertion order, to the leaves of a Merkle tree of depth $`40`$ whose every leaf past the last appended one holds $`0`$. The root of that tree is the commitment MMR root of the set, and a commitment is proven in it by a Merkle path of length $`40`$. A note set therefore holds at most $`2^{40}`$ commitments and, its [IMT](#nullifier-indexed-merkle-tree) giving a leaf to the sentinel, $`2^{40} - 1`$ nullifiers, a capacity that transfers of 8 outputs at the Execution Gas target take about 200 years to fill. An Operation adding a commitment or a nullifier to a full set is invalid.
 
 A Merkle path, in this tree and in every Merkle tree the circuits prove membership in, lists its nodes from the leaf level up to the root, and its selectors in the same order: the selector of a level is the bit of the leaf index at that level, starting from the least significant, `1` when the node computed at that level from the leaf is the right child, so that the path node is on the left. The root of a path is computed as follows:
 
@@ -2054,7 +2054,7 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_CLAIM_POW_REWARD_GAS | 569 |
 | EXECUTION_PROGRAM_REGISTER_GAS | 6843 |
 | EXECUTION_KB_GAS | 26 |
-| EXECUTION_NOTE_SET_GAS | 4235 |
+| EXECUTION_NOTE_SET_GAS | 4285 |
 | EXECUTION_PROOF_GAS | 1946 |
 | EXECUTION_ROOT_GAS | 887 |
 | EXECUTION_BUFFERED_GAS | 23 |
@@ -2062,8 +2062,8 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_COMMITMENT_GAS | 25 |
 | EXECUTION_SIGNATURE_GAS | 167 |
 | EXECUTION_USER_STEP_GAS | 137 |
-| EXECUTION_PAYMENT_GAS | 326 |
-| EXECUTION_PROGRAM_STEP_GAS | 239 |
+| EXECUTION_PAYMENT_GAS | 211 |
+| EXECUTION_PROGRAM_STEP_GAS | 60 |
 | EXECUTION_OPENING_GAS | 157 |
 | EXECUTION_PROGRAM_PROOF_GAS | 6305 |
 
