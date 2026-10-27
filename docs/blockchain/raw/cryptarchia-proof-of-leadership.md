@@ -29,6 +29,7 @@
 | 1.1.1 | Introduced a discussion for when the value of a participating note is way higher than the total estimated stake | 2026-06-24 |
 | 1.2.0 | Support the private ledger of Mantle: a note is eligible from any note set of the ledger, committed together in the eligible root, and proven unspent by the non-membership of its nullifier. The proof is bound to its block by `msg`, a hash of the block header, replacing the leader key. The commitment and nullifier paths have the depth 40 of the note sets, and the eligible tree has depth 40 too, as every channel adds a note set and is created at no Execution Gas | 2026-10-06 |
 | 1.2.1 | The note commitment is derived with `0` as the `program` and `data` fields of the note, so only user notes lead. The proving time benchmark is measured on the current circuit | 2026-10-12 |
+| 1.2.2 | A channel creation pays the Execution Gas of a changed note set ([Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0), so blocks full of channel creations take about 1,400 years to fill the eligible tree | 2026-10-27 |
 
 # Introduction
 
@@ -80,7 +81,7 @@ Our description differs from the original paper proposition, proving that a note
 
 In order to prove that the winning note exists and existed at the start of the previous epoch, and that it is unspent, every node must compute the eligible root.
 
-Every [note set](bedrock-v1.1-mantle-specification.md#ledger) of the Mantle Ledger is eligible: the ledger note set, the SDP note set and the note set of every channel. The eligible root commits to all of them. It is the root of a Merkle tree of depth $`40`$ whose leaf at position $`i`$ hashes the root of the commitment MMR and the root of the [nullifier IMT](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of the note set of index $`i`$, every position past the last note set holding the value $`0`$, a capacity that blocks full of channel creations take about 55 years to fill:
+Every [note set](bedrock-v1.1-mantle-specification.md#ledger) of the Mantle Ledger is eligible: the ledger note set, the SDP note set and the note set of every channel. The eligible root commits to all of them. It is the root of a Merkle tree of depth $`40`$ whose leaf at position $`i`$ hashes the root of the commitment MMR and the root of the [nullifier IMT](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of the note set of index $`i`$, every position past the last note set holding the value $`0`$, a capacity that blocks full of channel creations take about 1,400 years to fill:
 
 ```python
 def eligible_leaf(cm_root: MerkleRoot, nf_root: MerkleRoot) -> zkhash:
