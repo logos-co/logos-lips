@@ -57,7 +57,7 @@ The Execution Gas is derived from measurements of the [Rust implementation of th
 - the insertion of nullifiers and the appending of commitments to the note sets, and the hashing of the trees of every changed note set at the end of the block;
 - the checks and the state updates of each Operation.
 
-The Execution Gas of a Mantle Transaction is a sum of per-component constants, each fitted on these measurements ([Gas determination from measures](#gas-determination-from-measures)). A full block of mixed transactions, measured whole, costs 14.8% less than the constants predict when the end of block work of each note set is counted once ([Fit and cross-check](#fit-and-cross-check)).
+The Execution Gas of a Mantle Transaction is a sum of per-component constants, each fitted on these measurements ([Gas determination from measures](#gas-determination-from-measures)). A full block of mixed transactions, measured whole, costs 15.2% less than the constants predict when the end of block work of each note set is counted once ([Fit and cross-check](#fit-and-cross-check)).
 
 Gas can also be adjusted to incentivize or disincentivize the usage of certain Operations compared to others.
 
@@ -151,8 +151,8 @@ and the constants of the components:
 | Constant | Execution Gas | Measure |
 | --- | --- | --- |
 | `EXECUTION_KB_GAS` | 26 per 1,000 bytes | 26.0 cycles per byte of the signed transaction |
-| `EXECUTION_NOTE_SET_GAS` | 4285 | end of block of a changed note set, with its first nullifier, at most 4,284,489 cycles |
-| `EXECUTION_PROOF_GAS` | 1946 | decompression and batch verification of a ZkTransfer or a ZkProgramSpend, 1,945,084 cycles |
+| `EXECUTION_NOTE_SET_GAS` | 3485 | end of block of a changed note set, with its first nullifier, at most 3,484,113 cycles |
+| `EXECUTION_PROOF_GAS` | 1773 | decompression and batch verification of a ZkTransfer or a ZkProgramSpend, at most 1,772,669 cycles |
 | `EXECUTION_ROOT_GAS` | 887 | root of a recent commitment MMR extended by buffered commitments, 886,479 cycles |
 | `EXECUTION_BUFFERED_GAS` | 23 | append of a buffered commitment to that MMR, 22,715 cycles |
 | `EXECUTION_NULLIFIER_GAS` | 838 | insertion of a nullifier and its share of the hashing of the nullifier tree, 837,443 cycles |
@@ -166,7 +166,7 @@ and the constants of the components:
 
 The constants of each Operation are what remains of its measure once its components are counted: the decoding and the checks of its fields, and the updates of the ledger state proper to the Operation. Each section below lists the steps behind them.
 
-The fixed costs of a block, paid once whatever its transactions, are deducted from the Execution Gas limit of the block ([Execution Fee Market](overview-cryptoeconomics.md#execution-fee-market)): 27,758,938 cycles, or 27,759 Execution Gas ([Fixed costs of a block](#fixed-costs-of-a-block)).
+The fixed costs of a block, paid once whatever its transactions, are deducted from the Execution Gas limit of the block ([Execution Fee Market](overview-cryptoeconomics.md#execution-fee-market)): 26,451,295 cycles, or 26,452 Execution Gas ([Fixed costs of a block](#fixed-costs-of-a-block)).
 
 # Components
 
@@ -182,10 +182,10 @@ The ZkTransfer proofs of a block are verified in one batch, and so are its ZkPro
 
 | Proof | Public inputs | `A(N)` | `P` |
 | --- | --- | --- | --- |
-| ZkTransfer | 27 | 7,602,306 | 1,945,084 |
-| ZkProgramSpend | 37 | 8,574,612 | 1,946,009 |
+| ZkTransfer | 27 | 7,287,831 | 1,772,332 |
+| ZkProgramSpend | 37 | 8,280,395 | 1,772,669 |
 
-`P` includes the decompression and the validation of the points of the proof, 542,443 cycles of it: 22,616 for each G1 point and 497,211 for the G2 point, whose subgroup check takes 497,538. The fixed parts are deducted from the limit of the block, and each proof pays `EXECUTION_PROOF_GAS = 1946`.
+`P` includes the decompression and the validation of the points of the proof, 542,443 cycles of it: 22,616 for each G1 point and 497,211 for the G2 point, whose subgroup check takes 497,538. The batch draws its random coefficients `r_i` on 128 bits, which bound the probability that an invalid proof passes to `2^-128` and halve the multiplication of `π_A` by `r_i` against coefficients of the full field. The fixed parts are deducted from the limit of the block, and each proof pays `EXECUTION_PROOF_GAS = 1773`.
 
 A program proof is verified alone under the key of its program, which no other program shares. The verification, 6,304,980 cycles, decompresses the proof, computes the line coefficients of `-γ` and `-δ` of the key (657,383 cycles), and runs a Groth16 verification against the pairing `e(α, β)` stored at the registration of the program.
 
@@ -198,7 +198,7 @@ A proof is verified against a root of a recent commitment MMR of its note set, e
 A nullifier is inserted in the nullifier IMT of its set (depth 40) in two parts:
 
 - In the Operation: the check that it is absent (3,449 cycles), the update of the low leaf and of the sorted index, and the append of its leaf, 37,824 cycles alone and at most 64,298 for each further input of an Operation.
-- At the end of the block: the hashing of the leaves the block wrote and of every node above them, each node once. The first nullifier of a set in a block costs 1,470,411 cycles, the hashing of two paths of the tree. Every further one costs at most 773,145 cycles: its leaf lands next to the leaves appended before it, but its low leaf is anywhere in the tree, and the path of the low leaf shares only its upper levels with the other paths of the block. Over 256 nullifiers of a set, each further one costs 506,686 cycles.
+- At the end of the block: the hashing of the leaves the block wrote and of every node above them, each node once. The first nullifier of a set in a block costs 1,573,013 cycles, the hashing of two paths of the tree. Every further one costs at most 773,145 cycles: its leaf lands next to the leaves appended before it, but its low leaf is anywhere in the tree, and the path of the low leaf shares only its upper levels with the other paths of the block. From 64 to 256 nullifiers of a set, each further one costs 509,605 cycles.
 
 `EXECUTION_NULLIFIER_GAS = 838` prices the largest cost of each part, 837,443 cycles. The first nullifier of a set is paid by `EXECUTION_NOTE_SET_GAS` for the channel and SDP sets, and by the fixed costs of a block for the ledger set.
 
@@ -208,9 +208,9 @@ Appending a commitment to the commitment MMR of its set merges one peak per trai
 
 ## Note sets
 
-At the end of a block, each note set the block changed records its commitment root among its recent roots, expires the roots older than 1024 blocks, and updates its leaf in the eligible tree (depth 40). For a set holding a full window of recent roots, this costs 2,687,667 cycles, among which the commitment root (886,479), the eligible leaf (89,939) and the path of the eligible tree, and 4,234,282 to 4,284,489 cycles with the first nullifier and a commitment the block added to the set, among 1 to 1,024 recent roots.
+At the end of a block, each note set the block changed records its commitment root among its recent roots, expires the roots older than 1024 blocks, and updates its leaf in the eligible tree (depth 40). For a set holding a full window of recent roots, this costs 1,913,193 cycles, among which the commitment root (886,479), computed once and recorded for both the recent roots and the eligible leaf, the eligible leaf (89,939) and the path of the eligible tree, and 3,454,483 to 3,484,113 cycles with the first nullifier and a commitment the block added to the set, among 1 to 1,024 recent roots.
 
-A Mantle Transaction pays `EXECUTION_NOTE_SET_GAS = 4285`, the largest of these measures, once for each channel or SDP note set it changes, whatever the number of its Operations changing that set. A set created by the transaction counts as changed: its creation inserts its leaf in the eligible tree, a path of 40 compressions of 23,856 cycles, below the cost of a changed set. The ledger set changes in every block with the leader note, and its cost is part of the fixed costs of the block.
+A Mantle Transaction pays `EXECUTION_NOTE_SET_GAS = 3485`, the largest of these measures, once for each channel or SDP note set it changes, whatever the number of its Operations changing that set. A set created by the transaction counts as changed: its creation inserts its leaf in the eligible tree, a path of 40 compressions of 23,856 cycles, below the cost of a changed set. The ledger set changes in every block with the leader note, and its cost is part of the fixed costs of the block.
 
 ## Signatures
 
@@ -227,7 +227,7 @@ The measures below are the cycles of the whole Operation in a Mantle Transaction
 | Transfer of 1 input and 1 output | 84,686 |
 | each further input | 40,362 |
 | each further output | 24,598 |
-| decompression and batch verification of the ZkTransfer | 1,945,084 |
+| decompression and batch verification of the ZkTransfer | 1,772,332 |
 | hashing of each nullifier at the end of the block, beyond the first of the set | at most 773,145 |
 
 The 30 Execution Gas of the Transfer cover the decoding of its fields, the check of its balance and the check that its referenced root is recent.
@@ -267,7 +267,7 @@ The 18 Execution Gas cover the checks of the configuration and the update of the
 | Deposit of 1 input and 1 output | 70,806 |
 | each further input | 64,298 |
 | each further output | 23,128 |
-| decompression and batch verification of the ZkTransfer | 1,945,084 |
+| decompression and batch verification of the ZkTransfer | 1,772,332 |
 
 The deposit spends notes of the ledger set and appends its outputs to the note set of the channel.
 
@@ -279,7 +279,7 @@ The deposit spends notes of the ledger set and appends its outputs to the note s
 | release at its slot: insertion of 1 nullifier in the channel set and append of 1 commitment to the ledger set | 46,894 |
 | each further input released | 57,590 |
 | each further output released | 21,503 |
-| decompression and batch verification of the ZkTransfer | 1,945,084 |
+| decompression and batch verification of the ZkTransfer | 1,772,332 |
 
 The release runs in the header of the block at the slot of the withdrawal, and the Operation pays it in advance.
 
@@ -289,7 +289,7 @@ The release runs in the header of the block at the slot of the withdrawal, and t
 | --- | --- |
 | Declaration with 1 input, among 1,024 declarations of the service | 890,885 |
 | of which the signature | 149,291 |
-| decompression and batch verification of the ZkTransfer | 1,945,084 |
+| decompression and batch verification of the ZkTransfer | 1,772,332 |
 
 The validation checks the format of the declaration, the length of its locators, the amount, and that its `provider_id` and `zk_id` are not declared in the service, through keys of the declarations of each service: 812,189 cycles among no declaration, 890,885 among 1,024. The execution inserts the nullifiers, creates the declaration and appends the service note to the SDP note set.
 
@@ -300,7 +300,7 @@ The validation checks the format of the declaration, the length of its locators,
 | Withdrawal | 1,092,618 |
 | of which the signature | 149,291 |
 | release at the end of the epoch | 18,128 |
-| decompression and batch verification of the ZkTransfer | 1,945,084 |
+| decompression and batch verification of the ZkTransfer | 1,772,332 |
 
 The validation checks that the declaration exists and is not withdrawn, the nonce, and the ZkTransfer consuming the service note. The execution records the withdrawal, inserts the nullifier of the service note in the SDP note set, and releases the output at the end of the epoch.
 
@@ -338,13 +338,13 @@ The execution derives the program identifier and stores the key with `e(α, β)`
 | --- | --- |
 | Header, without its Proof of Leadership | 105,594 |
 | Proof of Leadership | 7,123,958 |
-| Leader note and end of block of the ledger set | 2,882,057 |
-| First nullifier of the ledger set | 1,470,411 |
-| Fixed part of the ZkTransfer batch, `A(27)` | 7,602,306 |
-| Fixed part of the ZkProgramSpend batch, `A(37)` | 8,574,612 |
-| Total | 27,758,938 |
+| Leader note and end of block of the ledger set | 2,080,504 |
+| First nullifier of the ledger set | 1,573,013 |
+| Fixed part of the ZkTransfer batch, `A(27)` | 7,287,831 |
+| Fixed part of the ZkProgramSpend batch, `A(37)` | 8,280,395 |
+| Total | 26,451,295 |
 
-The total, 27,759 Execution Gas, is deducted from the Execution Gas limit of the block.
+The total, 26,452 Execution Gas, is deducted from the Execution Gas limit of the block.
 
 The releases of the withdrawals due at a block, paid in advance by their Operations, are not deducted: they run in the headroom between the Execution Gas target and the limit, the target being half the limit. The SDP withdrawals of an epoch are all released at its end, 18,128 cycles each, so 10,000 of them take 5.7% of the limit.
 
@@ -354,7 +354,7 @@ The releases of the withdrawals due at a block, paid in advance by their Operati
 
 ### Method
 
-- The measured code is the [gas benchmark of the node](https://github.com/logos-blockchain/logos-blockchain/tree/1b9cc8b4b77f7be6de4301bdbf4f50469b651b47/ledger/benches/gas), which runs the functions of the ledger the node runs: decoding, preverification, `try_apply_transaction`, `try_apply_header`, `try_apply_block_contents`, the batch verifiers and the end of the block.
+- The measured code is the [gas benchmark of the node](https://github.com/logos-blockchain/logos-blockchain/tree/9729c4e22e7cc24385fd7ef5e3e3564b0c170871/ledger/benches/gas), which runs the functions of the ledger the node runs: decoding, preverification, `try_apply_transaction`, `try_apply_header`, `try_apply_block_contents`, the batch verifiers and the end of the block.
 - Cycles are core cycles counted by the hardware performance counters of the CPU (`perf_event`, user and kernel), for the measured function only, its inputs being prepared outside the count.
 - The node is built with its release profile (`lto = "fat"`, `codegen-units = 1`, `opt-level = 3`), single threaded, pinned to one performance core whose sibling thread stays idle.
 - The ledger note set and the note set of the channel of the measures each hold 1,000,000 nullifiers and 1,000,000 commitments. The nullifiers an Operation spends are drawn like the filled ones, so the low leaf of each is anywhere in the tree. One dimension of each Operation varies at a time.
@@ -373,13 +373,13 @@ The machine:
 
 Each constant is the slope of the measures of the Operation along one dimension, or the measure of a component alone where the Operation cannot isolate it, rounded up to the next 1,000 cycles.
 
-A block of 64 transactions on one channel, measured whole (40 Transfers of 2 inputs and 2 outputs, 16 inscriptions of one user step, 7 inscriptions of one program step with one payment, one input, two outputs and one opening, and one deposit; 111 nullifiers, 118 commitments, 27,047 bytes), costs 285.7 million cycles with its header, its Proof of Leadership and the verification of its proofs. The constants, with the end of block work of the channel set counted once and the fixed costs of the block, come to 327.9 million cycles, 14.8% above. The 24 transactions changing the channel set each pay that work, as every transaction changing a set does, and the Execution Gas of the block comes to 426.5 million cycles, 49.3% above: the end of block work of a set is paid by each transaction changing it, so that the price of a transaction does not depend on the other transactions of its block.
+A block of 64 transactions on one channel, measured whole (40 Transfers of 2 inputs and 2 outputs, 16 inscriptions of one user step, 7 inscriptions of one program step with one payment, one input, two outputs and one opening, and one deposit; 111 nullifiers, 118 commitments, 27,047 bytes), costs 272.2 million cycles with its header, its Proof of Leadership and the verification of its proofs. The constants, with the end of block work of the channel set counted once and the fixed costs of the block, come to 313.5 million cycles, 15.2% above. The 24 transactions changing the channel set each pay that work, as every transaction changing a set does, and the Execution Gas of the block comes to 393.7 million cycles, 44.6% above: the end of block work of a set is paid by each transaction changing it, so that the price of a transaction does not depend on the other transactions of its block.
 
 ### Groth16 Proof Batch Verification
 
 For `n` proofs under one verification key with `N` public inputs, the batch verifier of the node does the following work:
 
-- Once per batch, whatever `n`: it folds the public inputs of all the proofs with random coefficients `r_i`, computes one multi-scalar multiplication over the `N + 1` input points of the key, runs the Miller loops of the three terms of the key (`α`, the folded inputs and `π_C`), and one final exponentiation.
+- Once per batch, whatever `n`: it folds the public inputs of all the proofs with random coefficients `r_i` of 128 bits, computes one multi-scalar multiplication over the `N + 1` input points of the key, runs the Miller loops of the three terms of the key (`α`, the folded inputs and `π_C`), and one final exponentiation.
 - Once per proof: it decompresses and validates the points of the proof, multiplies `π_A` by `r_i`, runs the Miller loop of `(r_i π_A, π_B)`, and adds `π_C` to a multi-scalar multiplication over the `n` proofs.
 
 Its cost is therefore a fixed part `A(N)` plus a part `P` per proof:
@@ -392,27 +392,27 @@ Measured cycles of one batch verification of `n` proofs. `N = 3` runs the generi
 
 | Proofs `n` | N = 3 | N = 27 | N = 37 |
 | --- | --- | --- | --- |
-| 1 | 6,715,117 | 9,325,898 | 10,278,876 |
-| 2 | 8,464,988 | 11,680,397 | 12,646,992 |
-| 4 | 10,990,399 | 15,525,494 | 16,515,547 |
-| 8 | 16,323,543 | 23,389,023 | 24,375,769 |
-| 16 | 26,781,415 | 38,990,112 | 40,053,986 |
-| 32 | 47,589,818 | 70,092,575 | 71,053,064 |
-| 64 | 88,875,599 | 131,914,268 | 132,974,217 |
-| 128 | 170,595,447 | 254,685,819 | 255,554,715 |
-| 256 | 333,552,429 | 499,748,965 | 501,373,537 |
+| 1 | 6,232,679 | 8,859,294 | 9,879,433 |
+| 2 | 7,802,691 | 11,060,716 | 12,050,967 |
+| 4 | 9,896,154 | 14,460,686 | 15,372,598 |
+| 8 | 14,451,227 | 21,573,908 | 22,520,429 |
+| 16 | 23,572,698 | 35,737,201 | 36,782,364 |
+| 32 | 41,688,972 | 64,123,759 | 65,129,305 |
+| 64 | 77,801,128 | 120,706,049 | 121,752,378 |
+| 128 | 149,670,051 | 232,921,169 | 234,272,886 |
+| 256 | 293,072,014 | 457,912,860 | 459,752,327 |
 
 Fitted with every point weighted by its relative error:
 
 | N | `A(N)` | `P` | Maximum deviation from the fit |
 | --- | --- | --- | --- |
-| 3 | 5,650,753 | 1,302,821 | 3.6% |
-| 27 | 7,602,306 | 1,945,084 | 2.4% |
-| 37 | 8,574,612 | 1,946,009 | 2.4% |
+| 3 | 5,296,654 | 1,134,386 | 3.2% |
+| 27 | 7,287,831 | 1,772,332 | 2.3% |
+| 37 | 8,280,395 | 1,772,669 | 1.9% |
 
 ![Groth16 batch verification: cycles per proof against the batch size, measured and fitted](analysis-gas-cost-determination/assets/groth16_batch_verification.png)
 
-The cost per proof, `A(N) / n + P`, decreases with the size of the batch towards `P`. `P` does not depend on `N`, while `A(N)` grows by about 97k cycles per public input from 27 to 37, the cost of one more point in the multi-scalar multiplication of the batch.
+The cost per proof, `A(N) / n + P`, decreases with the size of the batch towards `P`. `P` does not depend on `N`, while `A(N)` grows by about 99k cycles per public input from 27 to 37, the cost of one more point in the multi-scalar multiplication of the batch.
 
 ### Verification Key Validation
 
@@ -436,6 +436,6 @@ The ledger computes `e(α, β)`, the costliest part of the preparation, once at 
 | Blake2b-256 of 0, 1,024 and 65,536 bytes | 1,703, 4,908, 232,544 |
 | Root of the commitment MMR of a filled set | 886,479 |
 | Append to the commitment MMR, per merged peak | 23,673 |
-| End of block of a set, nullifiers inserted in the block: 0, 1, 2, 4, 16, 64, 256 | 2,687,667, 4,158,078, 4,333,964, 4,651,871, 6,257,256, 12,632,150, 37,755,518 |
-| End of block of a set, among 1, 256 and 1,024 recent roots | 4,238,782, 4,284,489, 4,234,282 |
+| End of block of a set, nullifiers inserted in the block: 0, 1, 2, 4, 16, 64, 256 | 1,913,193, 3,486,206, 4,238,452, 5,582,784, 12,837,085, 39,556,341, 137,400,593 |
+| End of block of a set, among 1, 256 and 1,024 recent roots | 3,484,113, 3,454,483, 3,462,867 |
 | Decoding of an inscription of 0, 1,024 and 65,536 bytes of payload | 19,133, 25,365, 178,124 |
