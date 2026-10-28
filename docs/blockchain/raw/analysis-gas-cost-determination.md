@@ -352,7 +352,7 @@ The total, 27,759 Execution Gas, is deducted from the Execution Gas limit of the
 
 ### Method
 
-- The measured code is the [gas benchmark of the node](https://github.com/logos-blockchain/logos-blockchain/tree/4e2397acbcbf07716c5ed906b2a5984a39c25449/ledger/benches/gas), which runs the functions of the ledger the node runs: decoding, preverification, `try_apply_transaction`, `try_apply_header`, `try_apply_block_contents`, the batch verifiers and the end of the block.
+- The measured code is the [gas benchmark of the node](https://github.com/logos-blockchain/logos-blockchain/tree/1b9cc8b4b77f7be6de4301bdbf4f50469b651b47/ledger/benches/gas), which runs the functions of the ledger the node runs: decoding, preverification, `try_apply_transaction`, `try_apply_header`, `try_apply_block_contents`, the batch verifiers and the end of the block.
 - Cycles are core cycles counted by the hardware performance counters of the CPU (`perf_event`, user and kernel), for the measured function only, its inputs being prepared outside the count.
 - The node is built with its release profile (`lto = "fat"`, `codegen-units = 1`, `opt-level = 3`), single threaded, pinned to one performance core whose sibling thread stays idle.
 - The ledger note set and the note set of the channel of the measures each hold 1,000,000 nullifiers and 1,000,000 commitments. The nullifiers an Operation spends are drawn like the filled ones, so the low leaf of each is anywhere in the tree. One dimension of each Operation varies at a time.
