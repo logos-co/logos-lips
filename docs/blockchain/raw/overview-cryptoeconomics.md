@@ -30,6 +30,7 @@
 | 1.3.0 | Add the proof of work reward pool, funded by diverting a share of the collected fees before they reach the rewards pool | 2026-08-31 |
 | 1.4.0 | Pay the leader reward of a block in the block itself, as a note under a one-time public key of the leader. Aligned the maximum block size with the 2 MiB of [Cryptarchia](cryptarchia-v1-protocol.md#constants). The Execution Gas limit deducts the measured fixed part of the ZkTransfer batch verification. The leader share is 40% of the block reward rounded down, the remainder going to the Blend reward, held in `blend_rewards_pending` until it is paid | 2026-10-07 |
 | 1.4.1 | The Execution Gas limit also deducts the fixed part of the ZkProgramSpend batch verification | 2026-10-14 |
+| 1.4.2 | The Execution Gas limit deducts every fixed cost of a block measured in [Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0, $`\text{limit}_{\text{Ex}} = 3,173,548`$. Every Mantle Transaction consumes Execution Gas for its bytes | 2026-10-27 |
 
 > **Disclaimer**:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -81,10 +82,10 @@ Mantle Transactions (see [Mantle - Mantle Transaction](bedrock-v1.1-mantle-speci
 
 The two types of Gas are:
 
-- Execution Gas (corresponding to 1,000 CPU cycles).
+- Execution Gas (corresponding to 1,000 core cycles).
 - Permanent Storage Gas (corresponding to 1 permanently stored byte).
 
-In Logos Blockchain, Permanent Storage Gas is determined for an entire encoded Mantle Transaction. Execution Gas, however, is determined differently for each Operation and Ledger Transaction. For more details on how the Gas amounts were determined for each Operation, we invite the reader to read [\[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md).
+In Logos Blockchain, Permanent Storage Gas is determined for an entire encoded Mantle Transaction. Execution Gas, however, is determined from the bytes of a Mantle Transaction, the note sets it changes and each of its Operations. For more details on how the Gas amounts were determined for each Operation, we invite the reader to read [\[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md).
 
 ## Fee Markets
 
@@ -95,19 +96,19 @@ Users (rollup sequencers, node operators, or leaders) pay [fees in Logos Blockch
 
 Both markets recompute their price with integer arithmetic, so that the result is identical on every node, and both round the updated price upwards. Each update multiplies the current price by an adjustment factor, so a price rounded downwards would reach 0 at the bottom of its range and remain there, leaving the resource permanently free. Rounding upwards keeps one unit as the effective floor of each price. The usage signals driving these updates measure consumption rather than price and are rounded downwards.
 
-All fee markets aim to ensure fair compensation, sustainability, proper incentives, and to address specific market needs. Because every Operation (except the Channel Inscribe, the Channel Config and the Claim PoW Reward Operations), whether it involves computation, or permanent storage, requires some execution to be validated and processed, reaching the execution limit effectively constrains the Permanent Storage market (except for Channel Inscribe, Channel Config and Claim PoW Reward). In practice, this means that the Permanent Storage market is limited in the number of transactions it can process per block except for Channel Inscribe, Channel Config and Claim PoW Reward Operations.
+All fee markets aim to ensure fair compensation, sustainability, proper incentives, and to address specific market needs. Every Mantle Transaction requires some execution to be validated and processed, at least the decoding and hashing of its bytes, so reaching the execution limit constrains the number of transactions the Permanent Storage market can process per block. The bytes themselves consume little execution: a full block of 2 MiB costs 54,525 Execution Gas for its bytes, 1.7% of the limit, so the Permanent Storage of blocks made of large inscriptions is bounded by the maximum block size.
 
 ### Execution Fee Market
 
 Execution fees cover the validation and execution of Mantle Transactions. The protocol does not directly cap the number of CPU cycles per block, but fees must enforce an Execution Gas limit to ensure compliance with the minimum hardware requirements of a node. The execution limit ( $`\text{limit}_{\text{Ex}}`$ ) represents the maximum acceptable number of Execution Gas per block that a node with the minimum-specification CPU can process to validate and execute the block in a reasonable time.
 
-We define "reasonable" as limiting the Execution Gas such that a potential leader can verify and execute it in 1 second using 80% (arbitrary) of its CPU (based on minimum CPU specifications in [Hardware Requirements - Basic Bedrock Node (Validator)](../deprecated/p2p-hardware-requirements.md)). This corresponds to a maximum of 3,200,000,000 CPU cycles for a leader, which converts to 3,200,000 Execution Gas. We require this 1-second verification for leaders to ensure they can quickly identify the correct chain and extend it with their own produced block in time when they are close to proposing a new block.
+We define "reasonable" as limiting the Execution Gas such that a potential leader can verify and execute it in 1 second using 80% (arbitrary) of its CPU (based on minimum CPU specifications in [Hardware Requirements - Basic Bedrock Node (Validator)](../deprecated/p2p-hardware-requirements.md)). This corresponds to a maximum of 3,200,000,000 core cycles for a leader, which converts to 3,200,000 Execution Gas. We require this 1-second verification for leaders to ensure they can quickly identify the correct chain and extend it with their own produced block in time when they are close to proposing a new block.
 
 Consensus nodes must validate and execute a block using a small percentage of their CPU but during a longer period than the 1 second period for leaders, as they don't have the strict timing constraints that affect consensus and would increase forking. Using only 20% of their CPU, consensus nodes can validate and execute such blocks in approximately 4 seconds.
 
-Block verification also requires a fixed amount of Execution Gas for the ZK proofs it verifies in batch ([Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#batch-verification-of-zk-proofs)). The fixed parts of the batch verifications of the [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) and [ZkProgramSpend](bedrock-v1.1-mantle-specification.md#zero-knowledge-program-spend-proof-zkprogramspend) proofs are 3,540,612 and 3,975,765 CPU cycles ([Gas Cost Determination](analysis-gas-cost-determination.md#groth16-proof-batch-verification)), 7,516,377 in total, so we reduce the Execution Gas limit by 7,517.
+Block verification also has fixed costs, paid once per block whatever its transactions: the header and its Proof of Leadership, the leader note and the end of block work of the ledger note set with its first nullifier, and the fixed parts of the batch verifications of the [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) and [ZkProgramSpend](bedrock-v1.1-mantle-specification.md#zero-knowledge-program-spend-proof-zkprogramspend) proofs ([Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#batch-verification-of-zk-proofs)). They amount to 26,451,295 cycles ([Gas Cost Determination](analysis-gas-cost-determination.md#fixed-costs-of-a-block)), so we reduce the Execution Gas limit by 26,452.
 
-Therefore, $`\text{limit}_{\text{Ex}} := 3,192,483`$ Execution Gas. This limit is also important to guarantee a rapid syncing of the chain.
+Therefore, $`\text{limit}_{\text{Ex}} := 3,173,548`$ Execution Gas. This limit is also important to guarantee a rapid syncing of the chain.
 
 Node CPU consumption is managed by the per-block Execution Gas limit. The Execution fee market dynamically adjusts fees based on usage relative to this limit: as consumption approaches the limit, fees rise to dampen demand; when consumption drops, fees decrease to encourage additional throughput. Since execution is the bottleneck, these adjustments indirectly bound the Permanent Storage market.
 
@@ -115,7 +116,7 @@ More details on the execution fee calculations can be found in [Execution Market
 
 ### Permanent Storage Fee Market
 
-Permanent Storage fees cover the permanent storage of Mantle Transactions. This market is subject to a strict maximum block size limit of 2MiB with a maximum of 1024 Mantle Transactions per block. While stored transactions consume execution resources, certain operations, such as Channel Inscribe or Channel Config, can consume only a limited amount of Execution Gas with no restriction on Permanent Storage consumption. This creates a corner case where a block could, in principle, be filled entirely with such Operations until the limit is reached. To prevent extensive usage of block space and to maintain predictability, [Cryptarchia](cryptarchia-v1-protocol.md) imposes a maximum block size limit of 2 MiB. This cap is a protocol parameter and is chosen such that it remains compatible with the storage limit defined below.
+Permanent Storage fees cover the permanent storage of Mantle Transactions. This market is subject to a strict maximum block size limit of 2MiB with a maximum of 1024 Mantle Transactions per block. While stored transactions consume execution resources, their bytes cost only 26 Execution Gas per 1,000 bytes, so Operations such as Channel Inscribe can consume little Execution Gas for a large Permanent Storage consumption. This creates a corner case where a block could, in principle, be filled entirely with such Operations until the limit is reached. To prevent extensive usage of block space and to maintain predictability, [Cryptarchia](cryptarchia-v1-protocol.md) imposes a maximum block size limit of 2 MiB. This cap is a protocol parameter and is chosen such that it remains compatible with the storage limit defined below.
 
 In the storage context, the minimum hardware requirement is expressed as the amount of data to be stored per year. Assuming ideal operation the network generates roughly 1 Terabyte of data per year, which can be seen as a technical limit.
 
