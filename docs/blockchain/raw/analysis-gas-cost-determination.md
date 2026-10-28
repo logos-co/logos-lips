@@ -100,6 +100,14 @@ def spend_gas(inputs, outputs, buffered) -> int:
     return (EXECUTION_PROOF_GAS + root_gas(buffered)
             + EXECUTION_NULLIFIER_GAS * len(inputs)
             + EXECUTION_COMMITMENT_GAS * len(outputs))
+
+# A program step of a Channel Inscribe, with its proofs, its openings and its payments.
+def program_step_gas(step, step_proof, buffered) -> int:
+    return (EXECUTION_PROGRAM_STEP_GAS + EXECUTION_PROGRAM_PROOF_GAS
+            + spend_gas(step.inputs, step.outputs, buffered)
+            + EXECUTION_OPENING_GAS * len(step_proof.program_notes)
+            + sum(EXECUTION_PAYMENT_GAS + spend_gas(p.inputs, p.outputs, p.buffered)
+                  for p in step.payments))
 ```
 
 and the Execution Gas of each Operation is:
@@ -109,12 +117,8 @@ TRANSFER          = EXECUTION_TRANSFER_GAS + spend_gas(inputs, outputs, buffered
 CHANNEL_INSCRIBE  = EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_SIGNATURE_GAS
                     + sum(EXECUTION_USER_STEP_GAS + spend_gas(step.inputs, step.outputs, step.buffered)
                           for step in user_steps)
-                    + sum(PROGRAM_STEP_GAS(step) for step in program_steps)
-PROGRAM_STEP_GAS  = EXECUTION_PROGRAM_STEP_GAS + EXECUTION_PROGRAM_PROOF_GAS
-                    + spend_gas(step.inputs, step.outputs, buffered)
-                    + EXECUTION_OPENING_GAS * len(step_proof.program_notes)
-                    + sum(EXECUTION_PAYMENT_GAS + spend_gas(p.inputs, p.outputs, p.buffered)
-                          for p in step.payments)
+                    + sum(program_step_gas(step, step_proof, buffered)
+                          for step, step_proof in program_steps)
 CHANNEL_CONFIG    = EXECUTION_CHANNEL_CONFIG_GAS + EXECUTION_SIGNATURE_GAS * configuration_threshold
 CHANNEL_DEPOSIT   = EXECUTION_CHANNEL_DEPOSIT_GAS + spend_gas(inputs, outputs, buffered)
 CHANNEL_WITHDRAW  = EXECUTION_CHANNEL_WITHDRAW_GAS + spend_gas(inputs, outputs, buffered)
