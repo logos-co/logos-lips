@@ -57,7 +57,7 @@ The Execution Gas is derived from measurements of the [Rust implementation of th
 - the insertion of nullifiers and the appending of commitments to the note sets, and the hashing of the trees of every changed note set at the end of the block;
 - the checks and the state updates of each Operation.
 
-The Execution Gas of a Mantle Transaction is a sum of per-component constants, each fitted on these measurements ([Gas determination from measures](#gas-determination-from-measures)). A full block of mixed transactions, measured whole, costs 6.9% less than the constants predict when the end of block work of each note set is counted once ([Fit and cross-check](#fit-and-cross-check)).
+The Execution Gas of a Mantle Transaction is a sum of per-component constants, each fitted on these measurements ([Gas determination from measures](#gas-determination-from-measures)). A full block of mixed transactions, measured whole, costs 14.8% less than the constants predict when the end of block work of each note set is counted once ([Fit and cross-check](#fit-and-cross-check)).
 
 Gas can also be adjusted to incentivize or disincentivize the usage of certain Operations compared to others.
 
@@ -155,7 +155,7 @@ and the constants of the components:
 | `EXECUTION_PROOF_GAS` | 1946 | decompression and batch verification of a ZkTransfer or a ZkProgramSpend, 1,945,084 cycles |
 | `EXECUTION_ROOT_GAS` | 887 | root of a recent commitment MMR extended by buffered commitments, 886,479 cycles |
 | `EXECUTION_BUFFERED_GAS` | 23 | append of a buffered commitment to that MMR, 22,715 cycles |
-| `EXECUTION_NULLIFIER_GAS` | 207 | insertion of a nullifier and its share of the hashing of the nullifier tree, 206,534 cycles |
+| `EXECUTION_NULLIFIER_GAS` | 838 | insertion of a nullifier and its share of the hashing of the nullifier tree, 837,443 cycles |
 | `EXECUTION_COMMITMENT_GAS` | 25 | append of a commitment, 24,598 cycles |
 | `EXECUTION_SIGNATURE_GAS` | 167 | Ed25519 signature, 166,641 cycles |
 | `EXECUTION_USER_STEP_GAS` | 137 | a user step beyond its spend, 136,096 cycles |
@@ -197,10 +197,10 @@ A proof is verified against a root of a recent commitment MMR of its note set, e
 
 A nullifier is inserted in the nullifier IMT of its set (depth 40) in two parts:
 
-- In the Operation: the check that it is absent (2,619 cycles), the update of the low leaf and of the sorted index, and the append of its leaf, 30,648 cycles in total.
-- At the end of the block: the hashing of the leaves the block wrote and of every node above them, each node once. The first nullifier of a set in a block costs 1,470,411 cycles, the hashing of two paths of the tree. Every further one costs at most 175,886 cycles, since the nullifiers of a block share the upper levels of their paths.
+- In the Operation: the check that it is absent (3,449 cycles), the update of the low leaf and of the sorted index, and the append of its leaf, 37,824 cycles alone and at most 64,298 for each further input of an Operation.
+- At the end of the block: the hashing of the leaves the block wrote and of every node above them, each node once. The first nullifier of a set in a block costs 1,470,411 cycles, the hashing of two paths of the tree. Every further one costs at most 773,145 cycles: its leaf lands next to the leaves appended before it, but its low leaf is anywhere in the tree, and the path of the low leaf shares only its upper levels with the other paths of the block. Over 256 nullifiers of a set, each further one costs 506,686 cycles.
 
-`EXECUTION_NULLIFIER_GAS = 207` prices the first part and the largest cost of a further nullifier. The first nullifier of a set is paid by `EXECUTION_NOTE_SET_GAS` for the channel and SDP sets, and by the fixed costs of a block for the ledger set.
+`EXECUTION_NULLIFIER_GAS = 838` prices the largest cost of each part, 837,443 cycles. The first nullifier of a set is paid by `EXECUTION_NOTE_SET_GAS` for the channel and SDP sets, and by the fixed costs of a block for the ledger set.
 
 ## Commitments
 
@@ -225,10 +225,10 @@ The measures below are the cycles of the whole Operation in a Mantle Transaction
 | Step | Cycles |
 | --- | --- |
 | Transfer of 1 input and 1 output | 84,686 |
-| each further input | 30,648 |
+| each further input | 40,362 |
 | each further output | 24,598 |
 | decompression and batch verification of the ZkTransfer | 1,945,084 |
-| hashing of each nullifier at the end of the block, beyond the first of the set | at most 175,886 |
+| hashing of each nullifier at the end of the block, beyond the first of the set | at most 773,145 |
 
 The 30 Execution Gas of the Transfer cover the decoding of its fields, the check of its balance and the check that its referenced root is recent.
 
@@ -244,7 +244,7 @@ The validation verifies the Ed25519 signature of the sequencer, its accreditatio
 | first payment of a program step, with the extension of the root of the program spend by its commitment | 1,215,676 |
 | each further payment of 1 input and 1 output, beyond its proof | 288,750 |
 | program step without input nor payment, 1 output | 262,862 |
-| each input of the program spend | 29,469 |
+| each input of the program spend | 57,599 |
 | each output of the program spend | 25,068 |
 | each opening of a program note | 156,367 |
 | program proof | 6,304,980 |
@@ -265,7 +265,7 @@ The 18 Execution Gas cover the checks of the configuration and the update of the
 | Step | Cycles |
 | --- | --- |
 | Deposit of 1 input and 1 output | 70,806 |
-| each further input | 32,028 |
+| each further input | 64,298 |
 | each further output | 23,128 |
 | decompression and batch verification of the ZkTransfer | 1,945,084 |
 
@@ -277,7 +277,7 @@ The deposit spends notes of the ledger set and appends its outputs to the note s
 | --- | --- |
 | Withdraw of 1 input and 1 output, recorded as pending | 20,861 |
 | release at its slot: insertion of 1 nullifier in the channel set and append of 1 commitment to the ledger set | 46,894 |
-| each further input released | 27,409 |
+| each further input released | 57,590 |
 | each further output released | 21,503 |
 | decompression and batch verification of the ZkTransfer | 1,945,084 |
 
@@ -355,7 +355,7 @@ The total, 27,759 Execution Gas, is deducted from the Execution Gas limit of the
 - The measured code is the [gas benchmark of the node](https://github.com/logos-blockchain/logos-blockchain/tree/4e2397acbcbf07716c5ed906b2a5984a39c25449/ledger/benches/gas), which runs the functions of the ledger the node runs: decoding, preverification, `try_apply_transaction`, `try_apply_header`, `try_apply_block_contents`, the batch verifiers and the end of the block.
 - Cycles are core cycles counted by the hardware performance counters of the CPU (`perf_event`, user and kernel), for the measured function only, its inputs being prepared outside the count.
 - The node is built with its release profile (`lto = "fat"`, `codegen-units = 1`, `opt-level = 3`), single threaded, pinned to one performance core whose sibling thread stays idle.
-- The ledger note set and the note set of the channel of the measures each hold 1,000,000 nullifiers and 1,000,000 commitments. One dimension of each Operation varies at a time.
+- The ledger note set and the note set of the channel of the measures each hold 1,000,000 nullifiers and 1,000,000 commitments. The nullifiers an Operation spends are drawn like the filled ones, so the low leaf of each is anywhere in the tree. One dimension of each Operation varies at a time.
 - Each value is the minimum over 15 rounds, each round visiting every case once in a new random order.
 - The proofs of the Operations are made of valid curve points and decompress as real proofs do. A batch whose proofs do not verify costs what a verified one does: it decompresses every proof and runs every multi-scalar multiplication and the multi-pairing before it compares.
 
@@ -371,7 +371,7 @@ The machine:
 
 Each constant is the slope of the measures of the Operation along one dimension, or the measure of a component alone where the Operation cannot isolate it, rounded up to the next 1,000 cycles.
 
-A block of 64 transactions on one channel, measured whole (40 Transfers of 2 inputs and 2 outputs, 16 inscriptions of one user step, 7 inscriptions of one program step with one payment, one input, two outputs and one opening, and one deposit; 111 nullifiers, 118 commitments, 27,047 bytes), costs 241.2 million cycles with its header, its Proof of Leadership and the verification of its proofs. The constants, with the end of block work of the channel set counted once and the fixed costs of the block, come to 257.9 million cycles, 6.9% above. The 24 transactions changing the channel set each pay that work, as every transaction changing a set does, and the Execution Gas of the block comes to 356.4 million cycles, 47.8% above: the end of block work of a set is paid by each transaction changing it, so that the price of a transaction does not depend on the other transactions of its block.
+A block of 64 transactions on one channel, measured whole (40 Transfers of 2 inputs and 2 outputs, 16 inscriptions of one user step, 7 inscriptions of one program step with one payment, one input, two outputs and one opening, and one deposit; 111 nullifiers, 118 commitments, 27,047 bytes), costs 285.7 million cycles with its header, its Proof of Leadership and the verification of its proofs. The constants, with the end of block work of the channel set counted once and the fixed costs of the block, come to 327.9 million cycles, 14.8% above. The 24 transactions changing the channel set each pay that work, as every transaction changing a set does, and the Execution Gas of the block comes to 426.5 million cycles, 49.3% above: the end of block work of a set is paid by each transaction changing it, so that the price of a transaction does not depend on the other transactions of its block.
 
 ### Groth16 Proof Batch Verification
 
