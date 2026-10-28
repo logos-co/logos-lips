@@ -27,18 +27,18 @@ One Execution Gas is 1,000 core cycles, counted by the hardware performance coun
 
 ## Measured end to end, explained by components
 
-Each constant is fitted on the node's own functions, run on a whole Mantle Transaction from its encoded bytes to the updated state, varying one dimension of its shape at a time. Micro-benchmarks of the trees, hashes and verifiers explain each constant. Summing micro-benchmarks alone would have priced at zero everything not benchmarked, which is how the earlier constants missed the trees. A block of 64 mixed transactions measured whole costs 14.8% less than the constants predict with the end of block work of its one channel set counted once. Its 24 transactions changing that set each pay the work, so its Execution Gas is 49.3% above its cost; [Nullifiers and note sets](#nullifiers-and-note-sets) explains why.
+Each constant is fitted on the node's own functions, run on a whole Mantle Transaction from its encoded bytes to the updated state, varying one dimension of its shape at a time. Micro-benchmarks of the trees, hashes and verifiers explain each constant. Summing micro-benchmarks alone would have priced at zero everything not benchmarked, which is how the earlier constants missed the trees. A block of 64 mixed transactions measured whole costs 15.2% less than the constants predict with the end of block work of its one channel set counted once. Its 24 transactions changing that set each pay the work, so its Execution Gas is 44.6% above its cost; [Nullifiers and note sets](#nullifiers-and-note-sets) explains why.
 
 ## Nullifiers and note sets
 
-The nullifiers of a block are hashed into their tree once, at the end of the block. The first nullifier of a set costs two paths of the tree, 1,470,411 cycles. Every further one costs at most 773,145: its leaf lands next to the leaves appended before it, but its low leaf is anywhere in the tree, and the path of the low leaf shares only its upper levels with the other paths of the block. The measures draw the spent nullifiers like the nullifiers of real notes for that reason. `EXECUTION_NULLIFIER_GAS` prices the largest cost of a further nullifier, so the price of an Operation never depends on the other transactions of its block. The first nullifier of a set is paid with the end of block work of that set.
+The nullifiers of a block are hashed into their tree once, at the end of the block. The first nullifier of a set costs two paths of the tree, 1,573,013 cycles. Every further one costs at most 773,145: its leaf lands next to the leaves appended before it, but its low leaf is anywhere in the tree, and the path of the low leaf shares only its upper levels with the other paths of the block. The measures draw the spent nullifiers like the nullifiers of real notes for that reason. `EXECUTION_NULLIFIER_GAS` prices the largest cost of a further nullifier, so the price of an Operation never depends on the other transactions of its block. The first nullifier of a set is paid with the end of block work of that set.
 
 `EXECUTION_NOTE_SET_GAS` is paid once per transaction for each channel or SDP note set it changes. Alternatives:
 
 - **Once per Operation.** Rejected: the Operations of one transaction changing the same set share one end of block work, and a transaction of several deposits or inscriptions to one channel would pay it several times.
 - **Once per block, by the first transaction changing the set.** Rejected: the price of a transaction would depend on its position in the block and on the other transactions, which a block builder controls, and a user could not predict it.
 
-A transaction changing a set pays its full end of block work, the largest measure of what a block spends on that set. The cost of this predictability falls on blocks where many transactions change one set: on the measured block, whose 24 inscriptions and deposit change one channel set, the Execution Gas is 49.3% above the work.
+A transaction changing a set pays its full end of block work, the largest measure of what a block spends on that set. The cost of this predictability falls on blocks where many transactions change one set: on the measured block, whose 24 inscriptions and deposit change one channel set, the Execution Gas is 44.6% above the work.
 
 ## Bytes
 
@@ -83,8 +83,8 @@ def spend_gas(inputs, outputs, buffered) -> int:
 | Constant | Value | | Constant | Value |
 | --- | --- | --- | --- | --- |
 | `EXECUTION_TRANSFER_GAS` | 30 | | `EXECUTION_KB_GAS` | 26 |
-| `EXECUTION_CHANNEL_INSCRIBE_GAS` | 13 | | `EXECUTION_NOTE_SET_GAS` | 4285 |
-| `EXECUTION_CHANNEL_CONFIG_GAS` | 18 | | `EXECUTION_PROOF_GAS` | 1946 |
+| `EXECUTION_CHANNEL_INSCRIBE_GAS` | 13 | | `EXECUTION_NOTE_SET_GAS` | 3485 |
+| `EXECUTION_CHANNEL_CONFIG_GAS` | 18 | | `EXECUTION_PROOF_GAS` | 1773 |
 | `EXECUTION_CHANNEL_DEPOSIT_GAS` | 16 | | `EXECUTION_ROOT_GAS` | 887 |
 | `EXECUTION_CHANNEL_WITHDRAW_GAS` | 13 | | `EXECUTION_BUFFERED_GAS` | 23 |
 | `EXECUTION_SDP_DECLARE_GAS` | 669 | | `EXECUTION_NULLIFIER_GAS` | 838 |
@@ -100,27 +100,29 @@ def spend_gas(inputs, outputs, buffered) -> int:
 
 ## 3. Execution Gas limit
 
-The fixed costs of a block are deducted from the 3,200,000 Execution Gas of a block: the header (105,594 cycles), its Proof of Leadership (7,123,958), the leader note and the end of block of the ledger set (2,882,057), its first nullifier (1,470,411), and the fixed parts of the ZkTransfer and ZkProgramSpend batches (7,602,306 and 8,574,612). Total 27,758,938 cycles, so `limit_Ex = G_max = 3,172,241`, `G_target = 1,586,120`, `BASE_FEE_NUMERATOR = 11_102_840` and `BASE_FEE_DENOMINATOR = 12_688_960`.
+The fixed costs of a block are deducted from the 3,200,000 Execution Gas of a block: the header (105,594 cycles), its Proof of Leadership (7,123,958), the leader note and the end of block of the ledger set (2,080,504), its first nullifier (1,573,013), and the fixed parts of the ZkTransfer and ZkProgramSpend batches (7,287,831 and 8,280,395). Total 26,451,295 cycles, so `limit_Ex = G_max = 3,173,548`, `G_target = 1,586,774`, `BASE_FEE_NUMERATOR = 11_107_418` and `BASE_FEE_DENOMINATOR = 12_694_192`.
 
-A note set takes about 250 years to fill with transfers of 8 outputs at the Execution Gas target (Mantle), and the eligible tree about 1,400 years with blocks full of channel creations, each paying `EXECUTION_NOTE_SET_GAS` (Proof of Leadership).
+A note set takes about 230 years to fill with transfers of 8 outputs at the Execution Gas target (Mantle), and the eligible tree about 1,150 years with blocks full of channel creations, each paying `EXECUTION_NOTE_SET_GAS` (Proof of Leadership).
 
 The Cryptoeconomics Overview states that every Mantle Transaction consumes Execution Gas for its bytes, and that a full 2 MiB block of large inscriptions costs 54,525 Execution Gas for its bytes, so the maximum block size bounds such blocks.
 
 ## 4. Node optimizations
 
-The constants assume four optimizations of the node, which change no validity rule and no root:
+The constants assume six optimizations of the node, which change no validity rule and no root:
 
 - the nullifiers of a block are hashed into their tree once, at its end, each dirty node once;
 - a proof whose root no buffered commitment extends is verified against the referenced root itself;
 - the recent roots of a set expire in the order of their blocks rather than by a scan;
-- the `provider_id` and `zk_id` of a declaration are looked up in keys of each service rather than by a scan.
+- the `provider_id` and `zk_id` of a declaration are looked up in keys of each service rather than by a scan;
+- the commitment root of a changed set is computed once at the end of the block, for both its recent roots and its eligible leaf;
+- the batch verification of Groth16 proofs draws its random coefficients on 128 bits, which keeps the probability that an invalid proof passes at `2^-128`.
 
 # Implementation
 
 - [ ] Merge the ledger optimizations of [Details 4](#4-node-optimizations) ([logos-blockchain#3921](https://github.com/logos-blockchain/logos-blockchain/pull/3921))
 - [ ] Merge the gas benchmark of the node ([logos-blockchain#3922](https://github.com/logos-blockchain/logos-blockchain/pull/3922))
 - [ ] Implement the Execution Gas of each Operation from the per-component constants and `spend_gas`, and the bytes and note set terms of the transaction
-- [ ] Set the Execution Gas limit to 3,172,241 and the base fee constants of the Execution Market
+- [ ] Set the Execution Gas limit to 3,173,548 and the base fee constants of the Execution Market
 - [ ] Update the tests and test vectors whose fees or gas depend on these constants
 - [ ] Re-run the gas benchmark and check every constant against the Gas Cost Determination
 - [ ] Verify the implementation matches this specification
