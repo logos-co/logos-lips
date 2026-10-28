@@ -346,6 +346,8 @@ The execution derives the program identifier and stores the key with `e(α, β)`
 
 The total, 27,759 Execution Gas, is deducted from the Execution Gas limit of the block.
 
+The releases of the withdrawals due at a block, paid in advance by their Operations, are not deducted: they run in the headroom between the Execution Gas target and the limit, the target being half the limit. The SDP withdrawals of an epoch are all released at its end, 18,128 cycles each, so 10,000 of them take 5.7% of the limit.
+
 # Annex
 
 ## Gas determination from measures
