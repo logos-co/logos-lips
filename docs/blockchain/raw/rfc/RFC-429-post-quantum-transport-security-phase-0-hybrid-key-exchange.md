@@ -263,7 +263,7 @@ provider is an engineering choice, and a C toolchain is now part of the build.
 | Specification | Status | Note |
 | --- | --- | --- |
 | [P2P Network](../../draft/p2p-network.md#transport-security) | Modified | 1.0.1 → 1.1.0; new Transport Security section: the canonical TLS configuration of the stack, with `X25519MLKEM768` as the only key exchange group |
-| [Blend Protocol](../blend-protocol.md#connection-details) | Modified | 1.6.1 → 1.6.2; Connection Details follows the new section and states the hybrid requirement with its privacy motivation |
+| [Blend Protocol](../blend-protocol.md#connection-details) | Modified | 1.6.2 → 1.6.3; Connection Details follows the new section and states the hybrid requirement with its privacy motivation |
 
 [P2P Network]: ../../draft/p2p-network.md
 [Blend Protocol]: ../blend-protocol.md
