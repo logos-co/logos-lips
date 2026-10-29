@@ -9,6 +9,7 @@
 | v1 | Initial RFC | 2026-10-26 |
 | v2 | Reachable price floor of 7 LEPTA per gas, with Execution Market added; yearly storage costs under the price updates; the block-reward rule fits 128 bits; the storage start is not adjusted at TGE | 2026-10-26 |
 | v3 | Total Stake Inference added, with the stake estimate times `PRECISION` in 128 bits; the first band of the admissible set starts at $`d_{req}`$; Storage Markets drops Genesis State | 2026-10-27 |
+| v4 | Block Rewards' reference code states the width of every value | 2026-10-29 |
 ## Reviewer Orientation
 
 Read the PR's Motivation first, then the Discussion, which derives the precision of nine and the initial storage price. [Mantle](../bedrock-v1.1-mantle-specification.md) is unchanged but assumed: its amounts count LEPTA, as do the prices of [Execution Market](../execution-market.md).
