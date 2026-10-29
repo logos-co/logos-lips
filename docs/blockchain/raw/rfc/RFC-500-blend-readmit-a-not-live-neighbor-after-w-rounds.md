@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-10-23 |
 | v2 | Merged master, which added Blend Protocol 1.6.2. Re-dated the 1.8.0 revision. | 2026-10-27 |
-| v3 | Merged the amended 1.7.0 revision, which names the constant `90` in `W` as `M_W`. Re-dated the 1.8.0 revision. | 2026-10-29 |
+| v3 | Merged the amended 1.7.0 revision, which names the constant `90` in `W` as `M_W`, and added the refusal to what a larger `M_W` lengthens. Re-dated the 1.8.0 revision. | 2026-10-29 |
 
 ## Reviewer Orientation
 
@@ -66,6 +66,16 @@ A node now refuses blacklisted identities and identities under this refusal. The
 -   neighbors.
 +   returned by the SDP protocol, excluding itself, the identities it refuses and its
 +   current neighbors.
+```
+
+The refusal lasts `W` rounds, so in Global Parameters a larger `M_W` lengthens it too:
+
+```diff
+ M_W = 90 messages. With a smaller M_W, a node more often reads an honest neighbor as not
+ live and closes its connection. With a larger one, a neighbor that delivers nothing
+-holds a connection slot for longer, and a blacklist entry lasts longer.
++holds a connection slot for longer, a neighbor closed as not live is refused for longer,
++and a blacklist entry lasts longer.
 ```
 
 # Implementation
