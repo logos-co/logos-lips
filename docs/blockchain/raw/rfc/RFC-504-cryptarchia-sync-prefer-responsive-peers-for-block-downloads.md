@@ -8,10 +8,11 @@
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-10-26 |
 | v2 | An unresponsive peer is chosen after every other peer instead of being left out, and an IBD peer is never unresponsive, so that an attacker who drops some of a node's requests cannot keep honest peers out of its downloads | 2026-10-26 |
+| v3 | A peer also times out when the node cannot connect to it, unless a different peer answers the connection, so that a discovered peer that cannot be reached is chosen last | 2026-10-29 |
 
 ## Reviewer Orientation
 
-Single-document change. Read the PR's Motivation first, then [the timeout](#1-a-peer-times-out) and [the selection rule](#3-unresponsive-peers-come-last) in [Cryptarchia Bootstrapping & Synchronization](#affected-specifications). Check that timeouts are counted in the order they happen, and that an unresponsive peer still takes any place that no other peer can fill.
+Single-document change. Read the PR's Motivation first, then [the timeout](#1-a-peer-times-out) and [the selection rule](#3-unresponsive-peers-come-last) in [Cryptarchia Bootstrapping & Synchronization](#affected-specifications). Check that timeouts are counted in the order they happen, that a connection a different peer answers is not a timeout, and that an unresponsive peer still takes any place that no other peer can fill.
 
 # Discussion
 
@@ -39,6 +40,12 @@ A fixed `T_unresp` needs one parameter. When the period ends, a silent peer comp
 
 A peer rejects a request it cannot serve yet, for example while its own Initial Block Download runs. It answers at once, so it costs the request a place but no waiting, and it becomes useful once it is ready. In the reference implementation, a peer over its limit of concurrent requests also rejects at once, so an attacker who floods an honest peer with requests makes it reject, not time out.
 
+## Why a failed connection counts
+
+The node connects to a discovered peer to send it the request. If the peer has left the network, the connection fails and the request is never sent. Counting the failure as a timeout lets the node choose such a peer last, instead of spending a place and a 5-second QUIC handshake on it in every request that selects it.
+
+A connection that a different peer answers does not count. A dial also tries the addresses that other peers sent for the peer in answer to the node's ongoing Kademlia queries, and the first handshake to complete ends it. If such dials counted, any peer the node queries could list honest peers at its own address and make them time out without being on the node's path. In the reference implementation, a dial that a different peer answers already removes that address from the routing table, so a peer whose only address now answers under another key leaves the table at the first such dial. A connection that the node cancels or refuses itself is not the peer's doing and does not count either.
+
 ## What the rule does not defend against
 
 The rule limits the cost of faulty peers. A malicious peer can avoid becoming unresponsive by answering one request in three, by sending each block just under `T_resp` after the previous one, or by returning under a new peer identity.
@@ -57,6 +64,8 @@ Without a time limit, a node cannot tell a silent peer from a slow one, and two 
  The requesting node treats the rejection as a failed request.
 +A peer **times out** on a request if it neither rejects the request nor begins its response within $`T_\text{resp}`$ of the node sending it.
 +It also times out if the node is reading its `DownloadBlocksResponse` and the next item does not arrive within $`T_\text{resp}`$ of the previous one.
++It also times out if the node cannot connect to it to send the request.
++It does not time out if a different peer answers the connection, or if the node itself cancels or refuses the connection.
 ```
 
 ## 2. Three constants
@@ -115,8 +124,9 @@ It selects an unresponsive peer only for a place that no other peer can take:
 - [ ] Select responsive peers first and fill the remaining places with unresponsive ones, both in `choose_peers_to_request_download` and in the tip poll's `sample_tips` (`services/chain/chain-network/src/network/adapters/libp2p.rs`).
 - [ ] Keep reading the first item of every selected peer's response until it arrives or the peer times out, even after another peer's response is used. Today `select_ok` in `request_blocks_from_peers` drops the other streams as soon as one first item is valid.
 - [ ] Count a `Failure` reply, and a stream the peer closes, as an answer, not as a timeout.
+- [ ] Count a failed connection as a timeout on the request it was opened for, except a dial that ends with `WrongPeerId` or `LocalPeerId`, or that the node aborts or denies. Today a failed dial comes back as an `OpenStreamError` from `send_blocks_request` (`consensus/cryptarchia-sync/src/libp2p/downloader.rs`), and `peer_response_timeout` starts only once the request is written (`on_blocks_request_sent`).
 - [ ] Drop a peer's record once it is neither connected nor in the Kademlia routing table, so that new peer identities cannot grow the state.
-- [ ] Add tests: three timeouts in a row make a peer unresponsive for `T_unresp`; an answer between timeouts resets the count; one further timeout after the period makes the peer unresponsive again; an unresponsive peer fills a place that no responsive peer takes; an IBD peer is never unresponsive.
+- [ ] Add tests: three timeouts in a row make a peer unresponsive for `T_unresp`; an answer between timeouts resets the count; one further timeout after the period makes the peer unresponsive again; a failed connection counts as a timeout, and one that a different peer answers does not; an unresponsive peer fills a place that no responsive peer takes; an IBD peer is never unresponsive.
 - [ ] Verify the implementation matches this specification.
 
 # Affected Specifications
