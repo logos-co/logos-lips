@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-10-23 |
 | v2 | Merged master, which added Blend Protocol 1.6.2. Re-dated the 1.8.0 revision. | 2026-10-27 |
+| v3 | Merged the amended 1.7.0 revision, which names the constant `90` in `W` as `M_W`. Re-dated the 1.8.0 revision. | 2026-10-29 |
 
 ## Reviewer Orientation
 
