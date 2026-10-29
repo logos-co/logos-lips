@@ -24,7 +24,7 @@
 | 1.0.0 | Initial revision. | 2026-04-24 |
 | 1.1.0 | Changing from burning/minting to pooling/distributing/releasing, removing $`S_{tge}`$ | 2026-08-25 |
 | 1.2.0 | Count the proof of work reward pool as a fourth controlled stock, bound net circulating growth by the two stocks that drain, and state that the pooled fee is net of the share diverted to that pool | 2026-08-31 |
-| 1.3.0 | Count every amount in LEPTA, which scales three constants of the integer rule by $`10^{9}`$ | 2026-10-26 |
+| 1.3.0 | Count every amount in LEPTA, which scales three constants of the integer rule by $`10^{9}`$ and widens its intermediates to 128 bits | 2026-10-29 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -535,34 +535,34 @@ $$
 So we propose a reference implementation that uses integers:
 
 ```python
-LEPTA_PER_LOGOS = 10**9
+LEPTA_PER_LOGOS: int128 = 10**9
 
-A_SCALE = 120_000_000 * LEPTA_PER_LOGOS          # denominator of 1/(I_max * D1_target * Delta_t * T)
-INFLATION_NUMERATOR = 62_500 * LEPTA_PER_LOGOS   # numerator of I_max * S_CAP * DELTA_t / f
-INFLATION_DENOMINATOR = 657                      # denominator of I_max * S_CAP * DELTA_t / f
-FEE_AVG_NUMERATOR = 10_512                       # numerator of 1/(I_max * D1_target * Delta_t * T)
-STAKE_TARGET = 3_000_000_000 * LEPTA_PER_LOGOS
+A_SCALE: int128 = 120_000_000 * LEPTA_PER_LOGOS          # denominator of 1/(I_max * D1_target * Delta_t * T)
+INFLATION_NUMERATOR: int128 = 62_500 * LEPTA_PER_LOGOS   # numerator of I_max * S_CAP * DELTA_t / f
+INFLATION_DENOMINATOR: int128 = 657                      # denominator of I_max * S_CAP * DELTA_t / f
+FEE_AVG_NUMERATOR: int128 = 10_512                       # numerator of 1/(I_max * D1_target * Delta_t * T)
+STAKE_TARGET: int128 = 3_000_000_000 * LEPTA_PER_LOGOS
 
 
-def block_reward(total_stake: int, pooled_fees_window: list[int]) -> tuple[int, int]:
-    sum_fees = sum(pooled_fees_window)
-    last_pooled_fee = pooled_fees_window[-1]
+def block_reward(total_stake: TokenValue, pooled_fees_window: list[TokenValue]) -> tuple[TokenValue, TokenValue]:
+    sum_fees: int128 = sum(pooled_fees_window)
+    last_pooled_fee: int128 = pooled_fees_window[-1]
 
-    a_numerator = min(
+    a_numerator: int128 = min(
         max(STAKE_TARGET + FEE_AVG_NUMERATOR * sum_fees - total_stake, 0),
         A_SCALE,
     )
 
-    reward_numerator = (
+    reward_numerator: int128 = (
         INFLATION_NUMERATOR * a_numerator
         + INFLATION_DENOMINATOR * (A_SCALE - a_numerator) * last_pooled_fee
     )
-    reward_denominator = INFLATION_DENOMINATOR * A_SCALE
+    reward_denominator: int128 = INFLATION_DENOMINATOR * A_SCALE
 
-    blend_reward = reward_numerator * 6 // (reward_denominator * 10)
-    leader_reward = reward_numerator * 4 // (reward_denominator * 10)
+    blend_reward: TokenValue = reward_numerator * 6 // (reward_denominator * 10)
+    leader_reward: TokenValue = reward_numerator * 4 // (reward_denominator * 10)
 
     return blend_reward, leader_reward
 ```
 
-The product `(A_SCALE - a_numerator) * last_pooled_fee` is non-zero only while `FEE_AVG_NUMERATOR * sum_fees < A_SCALE - STAKE_TARGET + total_stake`. With the inferred total stake and every pooled fee below $`2^{64}`$, it is therefore non-zero only while `sum_fees` is below $`1.49 \cdot 10^{15}`$. Every intermediate value lies strictly between $`-2^{64}`$ and $`2^{120}`$, so a signed 128-bit integer holds each one exactly.
+The product `(A_SCALE - a_numerator) * last_pooled_fee` is non-zero only while `FEE_AVG_NUMERATOR * sum_fees < A_SCALE - STAKE_TARGET + total_stake`. With the inferred total stake and every pooled fee below $`2^{64}`$, it is therefore non-zero only while `sum_fees` is below $`1.49 \cdot 10^{15}`$. Every intermediate value lies strictly between $`-2^{64}`$ and $`2^{120}`$, so `int128`, a signed 128-bit integer, holds each one exactly. The two rewards sum to at most the larger of `INFLATION_NUMERATOR / INFLATION_DENOMINATOR` and `last_pooled_fee`, so each fits a `TokenValue`.

@@ -9,7 +9,6 @@
 | v1 | Initial RFC | 2026-10-26 |
 | v2 | Reachable price floor of 7 LEPTA per gas, with Execution Market added; yearly storage costs under the price updates; the block-reward rule fits 128 bits; the storage start is not adjusted at TGE | 2026-10-26 |
 | v3 | Total Stake Inference added, with the stake estimate times `PRECISION` in 128 bits; the first band of the admissible set starts at $`d_{req}`$; Storage Markets drops Genesis State | 2026-10-27 |
-
 ## Reviewer Orientation
 
 Read the PR's Motivation first, then the Discussion, which derives the precision of nine and the initial storage price. [Mantle](../bedrock-v1.1-mantle-specification.md) is unchanged but assumed: its amounts count LEPTA, as do the prices of [Execution Market](../execution-market.md).
@@ -17,7 +16,7 @@ Read the PR's Motivation first, then the Discussion, which derives the precision
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here**: [Overview Cryptoeconomics → Token Units and Precision](../overview-cryptoeconomics.md#token-units-and-precision) ([details](#1-the-lepton)) | the hard cap, $`10^{19}`$ LEPTA, fits a `TokenValue`; a parser rejects a tenth fractional digit |
-| 2 | Critical | **Start here**: [Block Rewards → Float Precision for Implementation](../block-rewards.md#float-precision-for-implementation) ([details](#2-the-block-rewards-integer-rule-in-lepta)) | three constants carry $`10^{9}`$ and nothing else changes; the intermediates outgrow 64 bits |
+| 2 | Critical | **Start here**: [Block Rewards → Float Precision for Implementation](../block-rewards.md#float-precision-for-implementation) ([details](#2-the-block-rewards-integer-rule-in-lepta)) | three constants carry $`10^{9}`$; the intermediates outgrow 64 bits, and the code types them `int128` |
 | 3 | High | [Storage Markets → Parameter Justification](../storage-markets.md#parameter-justification) ([details](#3-the-initial-storage-price)) | the initial price, $`8 \cdot 10^{5}`$ LEPTA per gas, sets the level the price keeps |
 | 4 | Medium | [Execution Market → Base Fee Update Rule](../execution-market.md#base-fee-update-rule), [Storage Markets → Implementation](../storage-markets.md#implementation) and [Overview Cryptoeconomics → Fee Markets](../overview-cryptoeconomics.md#fee-markets) ([details](#4-the-reachable-price-floor)) | a price of 7 LEPTA per gas unit or less is never lowered, and a higher price never falls below 7 |
 | 5 | Medium | [Total Stake Inference → Algorithm](../cryptarchia-total-stake-inference.md#algorithm) ([details](#5-the-width-of-the-scaled-stake-estimate)) | `tse_p` becomes a signed 128-bit integer, as in the node, and nothing else changes |
@@ -421,16 +420,18 @@ def format_logos(value: int, trim: bool = False) -> str:
 ```diff
 -A_SCALE = int64(120_000_000)
 -INFLATION_NUMERATOR = int64(62_500)
+-INFLATION_DENOMINATOR = int64(657)
+-FEE_AVG_NUMERATOR = int64(10_512)
 -STAKE_TARGET = int64(3_000_000_000)
-+LEPTA_PER_LOGOS = 10**9
-+A_SCALE = 120_000_000 * LEPTA_PER_LOGOS
-+INFLATION_NUMERATOR = 62_500 * LEPTA_PER_LOGOS
-+STAKE_TARGET = 3_000_000_000 * LEPTA_PER_LOGOS
- INFLATION_DENOMINATOR = 657      # unchanged
- FEE_AVG_NUMERATOR = 10_512       # unchanged
++LEPTA_PER_LOGOS: int128 = 10**9
++A_SCALE: int128 = 120_000_000 * LEPTA_PER_LOGOS
++INFLATION_NUMERATOR: int128 = 62_500 * LEPTA_PER_LOGOS
++INFLATION_DENOMINATOR: int128 = 657
++FEE_AVG_NUMERATOR: int128 = 10_512
++STAKE_TARGET: int128 = 3_000_000_000 * LEPTA_PER_LOGOS
 ```
 
-- The reference code uses Python integers in place of `numpy.int64`. Block Rewards states the width they need: a signed 128-bit integer holds every intermediate.
+- The reference code drops numpy and states every width. The constants and intermediates are `int128`, and the stake, the pooled fees and the two rewards are `TokenValue`s. Block Rewards derives both bounds.
 - The rule pays the same amounts in LOGOS, now resolved to one LEPTON. With no stake and no fees the Blend and leader shares sum to $`95{,}129{,}375{,}950`$ LEPTA, the per-block release of $`62500/657`$ LOGOS less the rounding.
 - The hard cap's row in the parameter table links to Token Units and Precision for its upper bound.
 
