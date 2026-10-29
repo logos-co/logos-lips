@@ -97,7 +97,7 @@ Each service type is assigned a one-byte discriminant, given by the enum value a
 
 The minimum stake is a global value that defines the minimum stake a node must have to perform any service.
 
-The minimum stake is one `MinStake`, which holds the `threshold`, a [`TokenValue`](bedrock-v1.1-mantle-specification.md#notes), and the `timestamp`, the number of the block at which the threshold was set. A `BlockNumber` is a 64-bit unsigned integer, counting the genesis block as 0.
+The minimum stake is one `MinStake`, which holds the `threshold`, a [`TokenValue`](bedrock-v1.1-mantle-specification.md#notes), and the `timestamp`, a `BlockNumber`. A `BlockNumber` is a 64-bit unsigned integer. The `timestamp` exists only to match the deployment configuration of the implementation. No rule reads it.
 
 ```python
 class MinStake:
