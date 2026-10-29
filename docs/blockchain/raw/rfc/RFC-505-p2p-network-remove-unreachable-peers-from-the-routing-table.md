@@ -9,6 +9,7 @@
 | v1 | Initial RFC | 2026-10-26 |
 | v2 | A failed attempt counts only if every address in the routing table fails, and the failures must span at least an hour, so that other peers and short outages cannot make a node remove an honest peer | 2026-10-26 |
 | v3 | A node keeps a peer's only remaining address even if a different peer answers at it, so that one redirected connection cannot remove an honest peer | 2026-10-26 |
+| v4 | Explain why the rule needs three failed attempts as well as the hour | 2026-10-29 |
 
 ## Reviewer Orientation
 
@@ -31,6 +32,10 @@ In the reference implementation, the routing table holds only the addresses that
 The node attempts a connection only when something needs the peer. While it downloads blocks, every request can pick the peer as a discovered peer. Each attempt at an unreachable peer waits out the 5-second QUIC handshake timeout, so three attempts can fail within about 15 seconds. Without a minimum duration, every node that needed a peer while it restarted would remove it, and an attacker could do the same by making the peer unreachable for 15 seconds. A removed peer returns only when one of the node's Kademlia queries leads it to the peer again, or when the peer connects to the node.
 
 An hour is longer than a restart or a short outage. A peer that has left the network is removed at the first failed attempt an hour or more after the first one.
+
+## Why three attempts
+
+A node that keeps picking a peer for block downloads reaches three failed attempts within seconds, so for that peer only the hour decides. A peer the node needs less often may be tried only twice in an hour. It stays until a third attempt also fails, so that two isolated failures do not remove a peer that was reachable in between.
 
 ## Why a redirected connection does not remove a peer
 
