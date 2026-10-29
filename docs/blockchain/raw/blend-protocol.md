@@ -477,7 +477,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\eta=2`$ rounds, the network absorption of one hop.
 - $`T_M = 15`$ rounds, the message traversal time, as derived in the [Transition Period](#transition-period) section.
 - $`W = \lceil M_W / (F_C \cdot (1 + R_C) \cdot \beta_C) \rceil = 30`$ rounds, the observation window: the rounds in which a core connection carries $`M_W`$ messages from cover traffic alone ([Expected Traffic](#expected-traffic)).
-- $`M_W = 90`$ messages. With a smaller $`M_W`$, a node more often reads an honest neighbor as not live and closes its connection ([Connectivity Maintenance](#connectivity-maintenance)). With a larger one, a neighbor that delivers nothing holds a connection slot for longer, and a blacklist entry lasts longer.
+- $`M_W = 90`$ messages. With a smaller $`M_W`$, a node more often reads an honest neighbor as not live and closes its connection ([Connectivity Maintenance](#connectivity-maintenance)). With a larger one, a neighbor that delivers nothing holds a connection slot for longer, a neighbor closed as not live is refused for longer, and a blacklist entry lasts longer.
 - $`F_C=1`$, the network generates one cover message per round on average.
 - $`F_D=1/30`$, the network generates one block proposal every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)).
 - $`F_T = 130/30`$, the network carries $`130`$ messages per slot of $`30`$ rounds, each carrying one transaction ([Payload Formatting](payload-formatting.md)), whatever quota backs them: $`\left(F_1 / \beta_{max} - \max(F_C \cdot (1 + R_C), F_D \cdot (1 + R_D))\right) \cdot 30 = 130`$ at $`F_1 = 16`$ ([Expected Traffic](#expected-traffic)).
