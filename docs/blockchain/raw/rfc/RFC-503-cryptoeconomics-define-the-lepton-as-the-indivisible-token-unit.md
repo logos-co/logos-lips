@@ -9,7 +9,7 @@
 | v1 | Initial RFC | 2026-10-26 |
 | v2 | Reachable price floor of 7 LEPTA per gas, with Execution Market added; yearly storage costs under the price updates; the block-reward rule fits 128 bits; the storage start is not adjusted at TGE | 2026-10-26 |
 | v3 | Total Stake Inference added, with the stake estimate times `PRECISION` in 128 bits; the first band of the admissible set starts at $`d_{req}`$; Storage Markets drops Genesis State | 2026-10-27 |
-| v4 | Block Rewards' reference code states the width of every value | 2026-10-29 |
+| v4 | Block Rewards' reference code states the width of every value; a PoW claim's reward bounds the storage start | 2026-10-29 |
 ## Reviewer Orientation
 
 Read the PR's Motivation first, then the Discussion, which derives the precision of nine and the initial storage price. [Mantle](../bedrock-v1.1-mantle-specification.md) is unchanged but assumed: its amounts count LEPTA, as do the prices of [Execution Market](../execution-market.md).
@@ -327,6 +327,7 @@ The start meets these bounds:
 | Requirement | Bound on the start, LEPTA per gas | At $`8 \cdot 10^{5}`$ |
 | --- | --- | --- |
 | A year of full blocks, priced by the update rule, costs at least 10% of the hard cap | at least $`2.9 \times 10^{5}`$ | $`2.79 \times 10^{9}`$ LOGOS, $`27.9\%`$ |
+| A PoW claim's 429 bytes cost less than its reward, $`1.157`$ LOGOS at genesis in [Proof of Work](../proof-of-work.md#parameters) | at most $`2.7 \times 10^{6}`$ | $`0.34`$ LOGOS, $`30\%`$ of the reward |
 | No dearer than Bitcoin's non-witness bytes | at most $`1.6 \times 10^{7}`$ | 20 times below |
 | Replication is paid for, at 1,000 copies and $`\$100`$ per TB | at least $`2{,}000`$ | $`\$43{,}000`$ per GiB against $`\$107`$ |
 | A $`\pm 12.5\%`$ step stays far above the one-LEPTON rounding | at least about $`1{,}000`$ | steps of $`10^{5}`$ |
