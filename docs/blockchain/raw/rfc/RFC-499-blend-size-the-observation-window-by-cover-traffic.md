@@ -9,6 +9,7 @@
 | v1 | Initial RFC | 2026-10-23 |
 | v2 | Narrowed to the size of `W`: removed the refusal of a neighbor closed as not live, with its Details entry, its Discussion, its alternatives and its implementation tasks. Renamed the document from `RFC-499-blend-size-the-observation-window-by-cover-traffic-and-readmit-not-live-neighbors.md` to match the new title, and added a larger fixed `W` as an alternative. | 2026-10-23 |
 | v3 | Merged master, which added Blend Protocol 1.6.2. Re-dated the 1.7.0 revision, and compared it with 1.6.2 in place of 1.6.1 in the window table and Compatibility. | 2026-10-27 |
+| v4 | Named the constant `90` in `W` as the parameter `M_W`, and stated what a smaller and a larger value change. Re-dated the 1.7.0 revision, and corrected the path in the implementation task. | 2026-10-29 |
 
 ## Reviewer Orientation
 
@@ -28,7 +29,7 @@ For deliveries arriving at random at a rate `λ` per round, the mean time before
 | Testnet (`F_C = 1`, one layer) | 1 | 10 → 90 | 5 → 45 | 4.9 min → over 10⁵ years |
 | Testnet, if a third of its members emit nothing | 0.67 | 10 → 90 | 3.3 → 30 | 1.4 min → over 10⁵ years |
 
-The constant `90` keeps `W` at 30 rounds at the reference parameters, so neither the liveness test nor the blacklist expiry changes there. A deployment with less cover traffic gets a proportionally longer window, and the same expected number of deliveries in it.
+`M_W = 90` keeps `W` at 30 rounds at the reference parameters, so neither the liveness test nor the blacklist expiry changes there. A deployment with less cover traffic gets a proportionally longer window, and the same expected number of deliveries in it.
 
 The model is crude, and how far it holds is an open question. Arrivals are not independent, and the share of messages a neighbor forwards depends on the topology and on latency. A slow node that receives nearly every message first from one fast neighbor forwards little back to that neighbor. If it forwards a tenth of the cover messages, the fast neighbor reads it as not live about every 7.5 hours at the reference parameters, and about every 22.5 hours on the testnet with the new `W`. Each such reading still shuts the slow node out of that neighbor for the rest of the epoch.
 
@@ -45,19 +46,28 @@ The change is local to each node: no message, wire format or consensus rule chan
 
 ## 1. `W` is sized by cover traffic
 
+In Notation, `M_W` is added for the messages that size `W`:
+
+```diff
+ W denote the observation window expressed in the number of rounds;
++M_W denote the number of messages a core connection carries from cover traffic alone
++in an observation window;
+```
+
 In Global Parameters, `W` no longer depends on `Δ_max`. It keeps both of its uses, the liveness window and the blacklist expiry:
 
 ```diff
 -W = 10·Δ_max = 30, the observation window is 30 rounds.
-+W = ⌈90 / (F_C·(1 + R_C)·β_C)⌉ = 30 rounds, the observation window: the rounds in which
-+a core connection carries 90 messages from cover traffic alone. With fewer messages in
-+the window, a node more often reads an honest neighbor as not live and closes its
-+connection.
++W = ⌈M_W / (F_C·(1 + R_C)·β_C)⌉ = 30 rounds, the observation window: the rounds in which
++a core connection carries M_W messages from cover traffic alone.
++M_W = 90 messages. With a smaller M_W, a node more often reads an honest neighbor as not
++live and closes its connection. With a larger one, a neighbor that delivers nothing
++holds a connection slot for longer, and a blacklist entry lasts longer.
 ```
 
 # Implementation
 
-- [ ] Compute the observation window as `⌈90 / (message_frequency_per_round · num_blend_layers)⌉` in `rounds_per_observation_window` (`nodes/node/binary/src/config/blend/deployment.rs`), in place of `10 · maximum_release_delay_in_rounds`. No deployment replicates cover messages, so `R_C = 0`. The testnet window becomes 90 rounds.
+- [ ] Add `M_W` to the Blend `CoreSettings` as `cover_messages_per_observation_window`, 90 in every deployment. Compute the observation window as `⌈M_W / (message_frequency_per_round · num_blend_layers)⌉` in `rounds_per_observation_window` (`nodes/node/binary/src/config/deployment/era/ruleset/v1/blend/mod.rs`), in place of `10 · maximum_release_delay_in_rounds`. No deployment replicates cover messages, so `R_C = 0`. The testnet window becomes 90 rounds.
 - [ ] Add tests: the window is 30 rounds at the reference settings and 90 at the testnet's.
 - [ ] Verify the implementation matches this specification.
 
