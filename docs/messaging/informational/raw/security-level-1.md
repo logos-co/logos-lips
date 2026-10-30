@@ -49,7 +49,7 @@ Every goal must hold against every threat below. Attackers may delay progress, b
 | SL1-PCS | Post-compromise security | After a compromise, confidentiality is eventually restored. Once that member's keys are refreshed and the other members have processed the change, whoever holds the leaked state can no longer read new messages. | A leaked key heals itself. It doesn't keep exposing messages far into the future. |
 | SL1-GA | Group agreement | All members converge on the same membership for each group state. | When someone is removed, every member can be sure they are really gone. Without agreement, members can't be certain who is in the group, so they can't know who is reading. |
 | SL1-MSU | Member-only state updates | Members accept a group state update only if a valid member made it. A valid member is a current member that has not been revoked. | A stranger or a provider can't slip into a private group to read along, or kick members out. |
-| SL1-REV | Revocation | A member its owner revokes is eventually removed from the group. | Without revocation, a lost device would give permanent access to an unintended participant. |
+| SL1-REV | Revocation | A member which is no longer considered valid by its account, is eventually removed from the group. | Without revocation, a lost device would give permanent access to an unintended participant. |
 | SL1-CR1 | Censorship resistance (single provider) | No single malicious provider can stop members from communicating. If one provider withholds or drops traffic, members still reach each other through another. | One provider going down, or dropping traffic can't silence the group. |
 
 ## Threats
