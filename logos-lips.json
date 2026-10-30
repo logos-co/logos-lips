@@ -1423,6 +1423,15 @@
   },
   {
     "component": "messaging",
+    "slug": "252",
+    "title": "Security Level: SL-1 (ASTRO)",
+    "status": "raw",
+    "category": "informational",
+    "updated": "2026-10-30",
+    "path": "messaging/informational/raw/security-level-1.html"
+  },
+  {
+    "component": "messaging",
     "slug": "26",
     "title": "Waku Message Payload Encryption",
     "status": "draft",
