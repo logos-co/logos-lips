@@ -38,6 +38,7 @@
 | 1.6.1 | Corrected Blend activity metadata to the canonical tagged encoding: removed the separate version byte and corrected the total size to 229 bytes. | 2026-10-13 |
 | 1.7.0 | Removed the message `version` byte, put the fork digest in the libp2p protocol name, linked the era rules for the transition period, for releasing and for broadcasting, bounded the transition period and the clock difference between honest nodes, and stopped blacklisting for a next-epoch proof in an epoch's last round ([Bedrock Eras](bedrock-eras.md)). | 2026-10-20 |
 | 1.7.1 | Updated `Max_Payload_Length` to 18190 bytes in the overhead calculation, and an encapsulated message to 19313 bytes, following the removal of the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)). | 2026-10-20 |
+| 1.8.0 | Named each epoch's connections by a digest of the epoch's proof-of-quota public input. A node opens and accepts connections only of its current epoch, and sends a message only on connections of its epoch, in place of the one-round release delay and the last-round exemption from blacklisting. | 2026-10-22 |
 
 # Introduction
 
@@ -507,7 +508,23 @@ Implementations should choose a default based on the deployment they operate in,
 
 ### Connection Details
 
-The connections are established using libp2p with TLS version 1.3 (not older). The cryptographic scheme is Ed25519 with ephemeral keys**.** The libp2p protocol name is `/logos-blockchain/<fork_digest>/blend` ([Network Protocol Identity](bedrock-eras.md#network-protocol-identity)).
+The connections are established using libp2p with TLS version 1.3 (not older). The cryptographic scheme is Ed25519 with ephemeral keys**.** The libp2p protocol name of the connections of an epoch is `/logos-blockchain/<fork_digest>/blend/<epoch_digest>` ([Network Protocol Identity](bedrock-eras.md#network-protocol-identity)), with `<epoch_digest>` the [epoch digest](#epoch-digest) of the epoch in lowercase hexadecimal.
+
+### Epoch Digest
+
+The epoch digest binds the connections of an epoch to the public input its proofs of quota are verified against ([Proof of Quota](proof-of-quota.md)):
+
+```python
+def epoch_digest(epoch: EpochNumber, p: ProofOfQuotaPublic) -> hash:
+    # Every public input fixed for the epoch, in the circuit's order. The signing
+    # key and the nullifier change with each message, so they are left out.
+    inputs = (p.core_quota, p.leader_quota, p.core_root, p.pow_quota, p.pol_ledger_aged,
+              p.pow_blend_difficulty, p.pol_epoch_nonce, p.pol_t0, p.pol_t1)
+    return hash(b"BLEND_EPOCH_V1", epoch.to_bytes(4, "little"),
+                *(field_element(x) for x in inputs))
+```
+
+`hash` is the hash function of [Block ID](cryptarchia-v1-protocol.md#block-id), applied to the concatenation of its arguments. `field_element(x)` is `x` as a `FieldElement` of [Mantle Transaction Encoding](mantle-transaction-encoding.md).
 
 ### Neighbor Distinction Process
 
@@ -557,7 +574,7 @@ The shares keep the messages a node reads in a round within what the slowest nod
 
 A failure of the authenticated stream is a violation of the framing of the stream.
 
-1. A connection with a core node whose authenticated stream fails, or that carries a message with a malformed header, an invalid signature, or an invalid proof of quota, is closed and its neighbor is added to the **blacklist**. A message discarded as a duplicate carries no reaction. In the last round of an epoch, a message whose proof of quota is valid against the next epoch's public input carries no reaction.
+1. A connection with a core node whose authenticated stream fails, or that carries a message with a malformed header, an invalid signature, or an invalid proof of quota, is closed and its neighbor is added to the **blacklist**. A message discarded as a duplicate carries no reaction.
 2. A blacklisted identity is refused on incoming and on outgoing connections. An entry expires after $`W`$ rounds.
 3. The blacklist holds at most $`2 \cdot \Phi_{CC}`$ entries, and the oldest is discarded when it is full.
 
@@ -597,13 +614,13 @@ After $`T_M`$ rounds, all messages for the past epoch should have been processed
 
 The transition period must be at least the message traversal time plus the largest clock difference between two honest nodes: $`T \ge T_M + T_C`$. Otherwise a node whose clock runs ahead stops processing past-epoch messages while some are still crossing the network, and their senders wait for a delivery that can no longer happen ([Detection](#detection)).
 
-Nodes must keep their clocks synchronized so that $`T_C`$ is below one round. A node releases a message it generates in the new epoch no earlier than one round after its own epoch changes ([Releasing](#releasing)). With a larger $`T_C`$, such a message can reach a node whose clock runs behind before that node's epoch changes, and that node discards it.
+A node opens and accepts connections only of its current epoch, by its local clock ([Connection Details](#connection-details)). Nodes must keep their clocks synchronized so that $`T_C`$ is below one round. Otherwise the neighbors whose clocks run behind a node can refuse its connections of the new epoch for more than a round after its epoch changes, and the messages it generates in that time reach none of them.
 
 When a new **epoch** begins:
 
-- The node validates message proofs against both new and past epoch-related public input for the duration of TP. This allows past-epoch messages to safely transit through the network, as their validity is bound to the epoch in which they were generated.
+- The node validates the proof of quota of each message against the public input of the epoch of the connection it arrived on, the past epoch's until the end of TP. This allows past-epoch messages to safely transit through the network, as their validity is bound to the epoch in which they were generated.
 - The Blend threshold $`d_{blend}`$ is one of these public inputs: a proof is verified against the threshold of the epoch its public inputs belong to, so during the Transition Period messages meeting either epoch's threshold are accepted.
-- The node must open new connections to process new messages for the new epoch.
+- The node processes new messages for the new epoch on the connections of the new epoch.
 - The node needs to maintain old connections and process all messages received from these connections for the duration of TP. A connection held for the past epoch does not count towards $`\Phi_{CC}`$.
 
 At an era boundary, the [Era Transition Period](bedrock-eras.md#era-transition-period) also applies.
@@ -972,7 +989,7 @@ The process of releasing messages involves the following steps:
 - As soon as a **data** message carrying a block proposal is generated, one random unreleased (future) **cover** message must be removed from the release schedule to maintain the node’s statistical indistinguishability. A data message carrying a transaction removes no cover message.
 - If more than one message needs to be released for the same round, they must be randomly shuffled before release.
 
-The era of the connections a message is released on, and of the channel its payload is broadcast on, is defined in [Network Protocol Identity](bedrock-eras.md#network-protocol-identity).
+The era of the connections a message is released on, and of the channel its payload is broadcast on, is defined in [Network Protocol Identity](bedrock-eras.md#network-protocol-identity). A node releases a received or processed message only on connections of the epoch of the connection it arrived on, and a generated message only on connections of the epoch it was generated in.
 
 ### Broadcasting
 
