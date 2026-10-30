@@ -192,6 +192,7 @@
 </div><!-- timeline:start -->
 <h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
 <ul>
+<li><strong>2026-10-30</strong> — <a href="https://github.com/logos-co/logos-lips/blob/0cde98ec9d910e8e2554b9dd395e654ea2d471a9/docs/blockchain/raw/blend-protocol.md"><code>0cde98e</code></a> — [RFC] Blend: Readmit a not-live neighbor after W rounds (#500)</li>
 <li><strong>2026-10-30</strong> — <a href="https://github.com/logos-co/logos-lips/blob/386b39f949621010aa88bedf74a789b1615ef235/docs/blockchain/raw/blend-protocol.md"><code>386b39f</code></a> — [RFC] Blend: Size the observation window by cover traffic (#499)</li>
 <li><strong>2026-10-27</strong> — <a href="https://github.com/logos-co/logos-lips/blob/6b84187f0ae37a0e8c28c32d3bb1e6f619cec147/docs/blockchain/raw/blend-protocol.md"><code>6b84187</code></a> — [RFC] SDP: Identify declarations by service and <code>zk_id</code> (#407)</li>
 <li><strong>2026-10-14</strong> — <a href="https://github.com/logos-co/logos-lips/blob/949faa9563027de366514247a2a62b0de2f8c45f/docs/blockchain/raw/blend-protocol.md"><code>949faa9</code></a> — [RFC] Mantle: Bound operation data payloads (#467)</li>
@@ -227,6 +228,7 @@
 <tr><td>1.6.1</td><td>Corrected Blend activity metadata to the canonical tagged encoding: removed the separate version byte and corrected the total size to 229 bytes.</td><td>2026-10-13</td></tr>
 <tr><td>1.6.2</td><td>The node count and the neighbor distinction read the <code>provider_id</code>s of the Blend declarations, which the Service Declaration Protocol keeps unique</td><td>2026-10-27</td></tr>
 <tr><td>1.7.0</td><td>Derived the observation window <span class="math-inline" data-tex="W"></span> from cover traffic in place of the maximal release delay.</td><td>2026-10-29</td></tr>
+<tr><td>1.8.0</td><td>Refused a neighbor closed as not live for <span class="math-inline" data-tex="W"></span> rounds, restarting its liveness count, in place of shutting it out for the rest of the epoch.</td><td>2026-10-30</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
@@ -503,7 +505,7 @@
 <li>It starts opening new connections.
 <ol>
 <li>
-<p>It selects at random (without replacement) a node from the set of core nodes, excluding the identities that are on its blacklist (<a href="#connectivity-maintenance">Connectivity Maintenance</a>).</p>
+<p>It selects at random (without replacement) a node from the set of core nodes, excluding the identities it refuses (<a href="#connectivity-maintenance">Connectivity Maintenance</a>).</p>
 </li>
 <li>
 <p>It establishes a secure connection with the selected node, that is:</p>
@@ -704,7 +706,7 @@
 <li><span class="math-inline" data-tex="\eta=2"></span> rounds, the network absorption of one hop.</li>
 <li><span class="math-inline" data-tex="T_M = 15"></span> rounds, the message traversal time, as derived in the <a href="#transition-period">Transition Period</a> section.</li>
 <li><span class="math-inline" data-tex="W = \lceil M_W / (F_C \cdot (1 + R_C) \cdot \beta_C) \rceil = 30"></span> rounds, the observation window: the rounds in which a core connection carries <span class="math-inline" data-tex="M_W"></span> messages from cover traffic alone (<a href="#expected-traffic">Expected Traffic</a>).</li>
-<li><span class="math-inline" data-tex="M_W = 90"></span> messages. With a smaller <span class="math-inline" data-tex="M_W"></span>, a node more often reads an honest neighbor as not live and closes its connection (<a href="#connectivity-maintenance">Connectivity Maintenance</a>). With a larger one, a neighbor that delivers nothing holds a connection slot for longer, and a blacklist entry lasts longer.</li>
+<li><span class="math-inline" data-tex="M_W = 90"></span> messages. With a smaller <span class="math-inline" data-tex="M_W"></span>, a node more often reads an honest neighbor as not live and closes its connection (<a href="#connectivity-maintenance">Connectivity Maintenance</a>). With a larger one, a neighbor that delivers nothing holds a connection slot for longer, a neighbor closed as not live is refused for longer, and a blacklist entry lasts longer.</li>
 <li><span class="math-inline" data-tex="F_C=1"></span>, the network generates one cover message per round on average.</li>
 <li><span class="math-inline" data-tex="F_D=1/30"></span>, the network generates one block proposal every <span class="math-inline" data-tex="30"></span> rounds on average (<a href="cryptarchia-v1-protocol.html">Cryptarchia Protocol</a>).</li>
 <li><span class="math-inline" data-tex="F_T = 130/30"></span>, the network carries <span class="math-inline" data-tex="130"></span> messages per slot of <span class="math-inline" data-tex="30"></span> rounds, each carrying one transaction (<a href="payload-formatting.html">Payload Formatting</a>), whatever quota backs them: <span class="math-inline" data-tex="\left(F_1 / \beta_{max} - \max(F_C \cdot (1 + R_C), F_D \cdot (1 + R_D))\right) \cdot 30 = 130"></span> at <span class="math-inline" data-tex="F_1 = 16"></span> (<a href="#expected-traffic">Expected Traffic</a>).</li>
@@ -755,13 +757,13 @@
 <p><strong>Liveness</strong></p>
 <ol>
 <li>A connection with a core node is <strong>live</strong> when the neighbor has delivered a message, duplicate or not, within its last <span class="math-inline" data-tex="W"></span> connected rounds, or has been connected for fewer than <span class="math-inline" data-tex="W"></span> rounds in total.</li>
-<li>Connected rounds and deliveries are counted per identity, for the epoch, over every connection the node has held with it.</li>
-<li>A neighbor whose connection is not live is not blacklisted.</li>
+<li>Connected rounds and deliveries are counted per identity, for the epoch, over every connection the node has held with it. The count restarts when the node closes a connection with the identity for not being live.</li>
+<li>A neighbor whose connection is not live is not blacklisted. It is refused on incoming and on outgoing connections for <span class="math-inline" data-tex="W"></span> rounds after the node closes the connection.</li>
 </ol>
 <p><strong>Degree</strong></p>
 <ol>
 <li>A core node holds between <span class="math-inline" data-tex="\Phi_{CC} - 1"></span> and <span class="math-inline" data-tex="\Phi_{CC} + 1"></span> connections with core nodes. It opens a connection while it holds fewer than <span class="math-inline" data-tex="\Phi_{CC} - 1"></span> live ones, or fewer than <span class="math-inline" data-tex="\Phi_{CC} - 2"></span> live ones that it opened. It accepts a connection while it holds fewer than <span class="math-inline" data-tex="\Phi_{CC} + 1"></span> connections and fewer than <span class="math-inline" data-tex="(\Phi_{CC} + 1) - (\Phi_{CC} - 2) = 3"></span> accepted ones, and closes a connection offered above either.</li>
-<li>It draws the nodes it opens uniformly at random and without replacement from the set returned by the SDP protocol, excluding itself, blacklisted identities and its current neighbors.</li>
+<li>It draws the nodes it opens uniformly at random and without replacement from the set returned by the SDP protocol, excluding itself, the identities it refuses and its current neighbors.</li>
 <li>A connection that is not live is closed.</li>
 <li>A connection whose handshake is in progress counts towards <span class="math-inline" data-tex="\Phi_{CC}"></span> once the <a href="#neighbor-distinction-process">Neighbor Distinction Process</a> has identified the neighbor as a core node, and its peer is a current neighbor for rule 2. A handshake that has not completed within <span class="math-inline" data-tex="T_H"></span> is abandoned and its slot released. At most <span class="math-inline" data-tex="\Phi_{CC} + 1 + \Phi_{CE}^{Max}"></span> handshakes are in progress at once, and one offered above that is closed.</li>
 </ol>
