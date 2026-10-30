@@ -6,7 +6,7 @@
  */
 
 digraph overview_cryptoeconomics {
-  rankdir = LR;
+  rankdir = TB;
   bgcolor = "#1f2020";
   splines = true;
   nodesep = 0.35;
@@ -80,10 +80,10 @@ digraph overview_cryptoeconomics {
   leader   -> storage_fees;
 
   exec_fees    -> pool        [label = "  base fees  "];
-  storage_fees -> pool;
+  storage_fees -> pool        [label = "  storage fees  "];
   exec_fees    -> leader_note [label = "  tips  "];
-  exec_fees    -> pow_pool    [label = "  share  ", style = dashed];
-  storage_fees -> pow_pool    [label = "  share  ", style = dashed];
+  exec_fees    -> pow_pool    [style = dashed];
+  storage_fees -> pow_pool    [xlabel = "share of the fees,\ncredited each epoch", style = dashed];
   pow_pool     -> miners;
 
   reserve -> reward [label = "  release  "];

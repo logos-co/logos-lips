@@ -64,7 +64,7 @@ The system adjusts the reserve release based on two KPIs:
 A control function combines these KPIs into the emission rate factor, bounded between a minimum and a maximum annual reserve release. This ensures that:
 
 - When security participation is below target, a higher reserve release attracts more validators.
-- As usage increases and fees are pooled, the reserve release adjusts downward and the distribution of pooled fees rises to stabilize the circulating supply.
+- As usage increases and fees are pooled, the reserve release rises with them, complementing the share of the pooled fees the reward does not pay back, to stabilize the circulating supply.
 
 ![Block rewards high-level system design](block-rewards/assets/high-level-system-design.png)
 

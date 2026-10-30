@@ -61,7 +61,7 @@ digraph execution_market_lifecycle {
 
   subgraph cluster_rewards {
     label = "Rewards";
-    block_reward  [label = "Block Reward\npaid from the pool over the next blocks"];
+    block_reward  [label = "Block Reward\npaying back the average pooled fees\nof the last 120 blocks"];
   }
 
   tx       -> mempool;
