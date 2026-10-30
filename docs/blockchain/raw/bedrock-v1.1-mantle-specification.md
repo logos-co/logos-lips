@@ -2202,7 +2202,7 @@ Such that the following constraints hold:
   )
   ```
 
-- Each active input nullifier is derived from the secret key and the input commitment, each active input commitment is in `tx_cm_root`, its path computed by [`path_root`](#commitment-merkle-mountain-range), and each inactive input has value 0, as in the ZkTransfer.
+- Each active input nullifier is derived from the secret key and the input commitment, each selector is a bit, each active input commitment is in `tx_cm_root`, its path computed by [`path_root`](#commitment-merkle-mountain-range), and each inactive input has value 0, as in the ZkTransfer.
 
 - Each output flag is boolean, each active output is a note of the program if `outputs_of_program` says so and a user note otherwise, whose commitment is derived from its fields, and each inactive output has value 0 and is not a note of the program.
   ```python
