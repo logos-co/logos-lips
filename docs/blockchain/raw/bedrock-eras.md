@@ -372,7 +372,6 @@ A field holds the value of its source constant under the rules of the era. The E
 | `blend` | `data_replication_factor` | `UINT64` | $`R_D`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `blend` | `message_frequency_per_round` | `ratio` | $`F_C`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `blend` | `maximum_release_delay_in_rounds` | `UINT64` | $`\Delta_{max}`$ of [Global Parameters](blend-protocol.md#global-parameters) |
-| `blend` | `target_peering_degree` | `UINT32` | $`\Phi_{CC}`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `blend` | `verification_rate_per_second` | `UINT32` | $`V`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `blend` | `edge_node_send_deadline_in_rounds` | `UINT64` | $`T_E`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `blend` | `core_handshake_deadline_in_rounds` | `UINT128` | $`T_H`$ of [Global Parameters](blend-protocol.md#global-parameters) |
@@ -398,7 +397,7 @@ A field holds the value of its source constant under the rules of the era. The E
 | `cryptarchia` | `pow_share` | `UINT64` | `POW_SHARE` of [Parameters](proof-of-work.md#parameters) |
 | `cryptarchia` | `share_den` | `UINT64` | `SHARE_DEN` of [Parameters](proof-of-work.md#parameters) |
 | `cryptarchia` | `slot_window` | `UINT64` | `WINDOW` of [Parameters](proof-of-work.md#parameters) |
-| `time` | `slot_duration` | `duration` | The slot length of [Constants](cryptarchia-v1-protocol.md#constants), in seconds |
+| `time` | `slot_duration_in_seconds` | `UINT64` | The slot length of [Constants](cryptarchia-v1-protocol.md#constants), in seconds |
 
 ```python
 def uint(width: int) -> Callable[[int], bytes]:
@@ -413,27 +412,22 @@ def binary64(x: float) -> bytes:
     assert math.isfinite(x) and x >= 0 and math.copysign(1.0, x) > 0
     return struct.pack('<d', x)
 
-def duration(seconds: int) -> bytes:
-    # The whole seconds, then the nanoseconds past them, which are 0.
-    return uint(8)(seconds) + uint(4)(0)
-
 def phases(lengths: tuple[int, int, int]) -> bytes:
     return b"".join(uint(1)(x) for x in lengths)
 
 def service_params(entries: dict[int, ServiceParameters]) -> bytes:
-    # Ascending service types fix the order of the entries.
-    out = uint(4)(len(entries))
-    for service_type in sorted(entries):
-        e = entries[service_type]
-        out += uint(1)(service_type) + uint(4)(e.inactivity_period)
-    return out
+    # Version 1 fixes the service types, so the ascending order of their bytes
+    # places each entry, and every type must have one.
+    types = sorted(t.value for t in ServiceType)
+    assert sorted(entries) == types
+    return b"".join(uint(4)(entries[t].inactivity_period) for t in types)
 
 def min_stake(m: MinStake) -> bytes:
     return uint(8)(m.stake_threshold)
 
 ENCODERS = {"UINT32": uint(4), "UINT64": uint(8), "UINT128": uint(16),
-            "ratio": ratio, "binary64": binary64, "duration": duration,
-            "phases": phases, "service_params": service_params, "min_stake": min_stake}
+            "ratio": ratio, "binary64": binary64, "phases": phases,
+            "service_params": service_params, "min_stake": min_stake}
 
 def encode(p: EraParameters) -> bytes:
     # This document defines version 1 only.
@@ -446,7 +440,7 @@ def encode(p: EraParameters) -> bytes:
     return out
 ```
 
-`FIELDS` maps each section of the table above, in table order, to its rows, as pairs of a field and its encoding. A ratio's parts are `num` and `den`, encoded as the record gives them, without reduction. A `binary64` field is an IEEE 754 double-precision value. An entry of `service_params` is keyed by its `ServiceType` byte and has `inactivity_period`. `min_stake` has `stake_threshold`. A record that `encode` rejects is invalid.
+`FIELDS` maps each section of the table above, in table order, to its rows, as pairs of a field and its encoding. A ratio's parts are `num` and `den`, encoded as the record gives them, without reduction. A `binary64` field is an IEEE 754 double-precision value. `service_params` has one entry for each [`ServiceType`](bedrock-service-declaration-protocol.md#service-types), keyed by its byte, with `inactivity_period`. `min_stake` has `stake_threshold`. A record that `encode` rejects is invalid.
 
 In every record, the numerator of `slot_activation_coeff`, the epoch length $`L_n`$ and the slot length $`\Delta_n`$ are at least 1. Otherwise `epoch_length(n)`, $`\textbf{epoch}(sl)`$ or $`\textbf{slot}(t)`$ divides by zero.
 
@@ -466,7 +460,7 @@ def epoch_length(n: int) -> uint64:
     return sum(p.epoch_config) * (p.security_param * f.den // f.num)
 
 def slot_length(n: int) -> uint64:
-    return SCHEDULE[n][1].time.slot_duration
+    return SCHEDULE[n][1].time.slot_duration_in_seconds
 
 def first_slot_of_era(n: int) -> uint64:
     if n == 0:
