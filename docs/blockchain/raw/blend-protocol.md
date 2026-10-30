@@ -39,6 +39,7 @@
 | 1.7.0 | Removed the message `version` byte, put the fork digest in the libp2p protocol name, linked the era rules for the transition period, for releasing and for broadcasting, bounded the transition period and the clock difference between honest nodes, and stopped blacklisting for a next-epoch proof in an epoch's last round ([Bedrock Eras](bedrock-eras.md)). | 2026-10-20 |
 | 1.7.1 | Updated `Max_Payload_Length` to 18190 bytes in the overhead calculation, and an encapsulated message to 19313 bytes, following the removal of the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)). | 2026-10-20 |
 | 1.8.0 | Named each epoch's connections by a digest of the epoch's proof-of-quota public input. A node opens and accepts connections only of its current epoch, and sends a message only on connections of its epoch, in place of the one-round release delay and the last-round exemption from blacklisting. | 2026-10-22 |
+| 1.9.0 | A node opens and accepts a new epoch's connections, and bootstraps that epoch's network, a two-second clock slack before the epoch begins, and honest clocks must differ by less than that slack. | 2026-10-22 |
 
 # Introduction
 
@@ -153,7 +154,7 @@ In this section, we briefly discuss the way the network is created and maintaine
 
 The process of creating a network is called bootstrapping.
 
-At the beginning of an epoch, all core nodes retrieve a fresh set of core nodes’ connectivity information from the SDP protocol. Then each core node selects at random a set of other core nodes and connects to them through fully encrypted connections. After some time, when all core nodes connect to other core nodes, a new network is formed.
+Shortly before an epoch begins, all core nodes retrieve a fresh set of core nodes’ connectivity information from the SDP protocol. Then each core node selects at random a set of other core nodes and connects to them through fully encrypted connections. After some time, when all core nodes connect to other core nodes, a new network is formed.
 
 ### Minimal Network Size
 
@@ -293,9 +294,9 @@ Since the network is built based on two types of nodes, we define two network ty
 
 **Bootstrapping**
 
-The bootstrapping defines the process of creating the network, which happens at the beginning of each epoch.
+The bootstrapping defines the process of creating the network, which happens $`T_S`$ before each epoch begins ([Transition Period](#transition-period)).
 
-1. A core node at the beginning of an epoch retrieves a set of core nodes’ information from the SDP protocol ([Service Declaration Protocol](bedrock-service-declaration-protocol.md)).
+1. A core node, $`T_S`$ before an epoch begins, retrieves a set of core nodes’ information from the SDP protocol ([Service Declaration Protocol](bedrock-service-declaration-protocol.md)).
 2. If the number of core nodes is below the minimum number of nodes ([Minimal Network Size](#minimal-network-size)), then stop and use regular broadcasting.
 3. It starts opening new connections.
     1. It selects at random (without replacement) a node from the set of core nodes, excluding the identities that are on its blacklist ([Connectivity Maintenance](#connectivity-maintenance)).
@@ -465,6 +466,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\eta`$ denotes the network absorption, the maximum time a message spends crossing the network on one hop;
 - $`T_M`$ denotes the message traversal time, the time a message takes to cross the network;
 - $`T_C`$ denotes the largest clock difference between two honest nodes, in rounds;
+- $`T_S`$ denotes the clock slack, in seconds, the time before a new epoch begins from which a node opens and accepts the connections of that epoch;
 
 ## Global Parameters
 
@@ -614,11 +616,11 @@ After $`T_M`$ rounds, all messages for the past epoch should have been processed
 
 The transition period must be at least the message traversal time plus the largest clock difference between two honest nodes: $`T \ge T_M + T_C`$. Otherwise a node whose clock runs ahead stops processing past-epoch messages while some are still crossing the network, and their senders wait for a delivery that can no longer happen ([Detection](#detection)).
 
-A node opens and accepts connections only of its current epoch, by its local clock ([Connection Details](#connection-details)). Nodes must keep their clocks synchronized so that $`T_C`$ is below one round. Otherwise the neighbors whose clocks run behind a node can refuse its connections of the new epoch for more than a round after its epoch changes, and the messages it generates in that time reach none of them.
+A node opens and accepts connections only of its current epoch, by its local clock, and from $`T_S = 2`$ seconds before a new epoch begins also those of the new epoch ([Connection Details](#connection-details)). It counts the new epoch's connections towards the [Degree](#connectivity-maintenance) rules apart from the connections of the current epoch. The new epoch's public input is fixed before the epoch begins. Nodes must keep their clocks synchronized so that $`T_C`$ is below $`T_S`$, a round lasting one second ([Time](#time)). Otherwise a neighbor whose clock runs behind a node can still refuse its connections of the new epoch after its epoch changes, and the messages it generates in that time reach none of those neighbors.
 
 When a new **epoch** begins:
 
-- The node validates the proof of quota of each message against the public input of the epoch of the connection it arrived on, the past epoch's until the end of TP. This allows past-epoch messages to safely transit through the network, as their validity is bound to the epoch in which they were generated.
+- The node validates the proof of quota of each message against the public input of the epoch of the connection it arrived on: the new epoch's from $`T_S`$ before the epoch begins, and the past epoch's until the end of TP. This allows past-epoch messages to safely transit through the network, as their validity is bound to the epoch in which they were generated.
 - The Blend threshold $`d_{blend}`$ is one of these public inputs: a proof is verified against the threshold of the epoch its public inputs belong to, so during the Transition Period messages meeting either epoch's threshold are accepted.
 - The node processes new messages for the new epoch on the connections of the new epoch.
 - The node needs to maintain old connections and process all messages received from these connections for the duration of TP. A connection held for the past epoch does not count towards $`\Phi_{CC}`$.
@@ -906,17 +908,17 @@ The relaying logic is defined as follows:
     1. If the neighbor is a core node, then the message counts towards the liveness of the connection and towards its share ([Connectivity Maintenance](#connectivity-maintenance)).
     2. If the neighbor is an edge node, then close the connection with the neighbor.
     3. If the header of the message is incorrect, then discard the message, close the connection and blacklist the neighbor ([Connectivity Maintenance](#connectivity-maintenance)). We assume that an adversary cannot inject any spoofed message to the connection.
-    4. If the PoQ nullifier $`\nu_i \in \mathbf H`$ from the public header of the message is already in the nullifier cache, then the message is a duplicate and must be discarded. Cached entries are retained for the duration of the current epoch and the [Transition Period](#transition-period).
+    4. If the PoQ nullifier $`\nu_i \in \mathbf H`$ from the public header of the message is already in the nullifier cache, then the message is a duplicate and must be discarded. An entry is retained until the [Transition Period](#transition-period) after the epoch of its message ends.
     5. If the signature $`\sigma_{K^{n}_{i}}(\mathbf P_i) \in \mathbf H`$ from the public header of the message is invalid, then the message must be discarded, the connection closed and the neighbor blacklisted ([Connectivity Maintenance](#connectivity-maintenance)).
     6. If the proof of quota $`\pi^{K^{n}_i}_{Q} \in \mathbf H`$ from the public header is invalid, then the message must be discarded and must not be relayed. The node reacts to the neighbor as defined in [Connectivity Maintenance](#connectivity-maintenance).
 2. Release the message according to the [Releasing](#releasing) logic.
 3. Concurrently to the above step, add the message to the processing queue, where it is handled by the [Processing](#processing) logic.
 
-The node must cache the PoQ nullifiers ($`\nu_i`$) for every message it relays for a duration of a single epoch plus the [Transition Period](#transition-period) (TP). Then the node can clear the cache.  That means that the size of the cache must be at least:
+The node must cache the PoQ nullifiers ($`\nu_i`$) for every message it relays for a duration of a single epoch plus the clock slack $`T_S`$ and the [Transition Period](#transition-period) (TP). Then the node can clear the cache.  That means that the size of the cache must be at least:
 
 $$
 \begin{aligned}
-(E + T)\cdot \left( \max\left(F_C \cdot (1+R_C),\ F_D \cdot (1+R_D)\right) + F_T \right) \cdot \beta_{max} \cdot |\nu_i|
+(E + T_S + T)\cdot \left( \max\left(F_C \cdot (1+R_C),\ F_D \cdot (1+R_D)\right) + F_T \right) \cdot \beta_{max} \cdot |\nu_i|
 \end{aligned}
 $$
 
@@ -924,7 +926,7 @@ At the rates above:
 
 $$
 \begin{aligned}
-(648000 + 30) \cdot \left(1 + \dfrac{130}{30}\right) \cdot 3 \cdot 32 = 331791360 \approx 332\,\mathrm{MB}
+(648000 + 2 + 30) \cdot \left(1 + \dfrac{130}{30}\right) \cdot 3 \cdot 32 = 331792384 \approx 332\,\mathrm{MB}
 \end{aligned}
 $$
 

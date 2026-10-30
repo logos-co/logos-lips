@@ -21,6 +21,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-04 |
 | 1.0.1 | The boundary walk no longer delays a generated Blend message by one round, following [Blend Protocol](blend-protocol.md#transition-period). | 2026-10-22 |
+| 1.1.0 | The Era Transition Period starts a two-second clock slack before the boundary, and the mempool follows the era in force that slack ahead. | 2026-10-22 |
 
 # Introduction
 
@@ -62,14 +63,14 @@ gantt
         migration at slot 50 : milestone, m2, after r1, 0s
     section Network
         era 0 protocols : n0, 0, 23s
-        era 1 protocols : n1, after r0, 33s
-        era 2 protocols : n2, after r1, 15s
+        era 1 protocols : n1, 19, 34s
+        era 2 protocols : n2, 49, 16s
     section Transition
-        old era draining : crit, t1, after r0, 3s
-        old era draining : crit, t2, after r1, 3s
+        transition period : crit, t1, 19, 4s
+        transition period : crit, t2, 49, 4s
 ```
 
-In this example, the epochs of era 0 are 10 slots long. The schedule starts era 1 at epoch 2, with epochs of 15 slots, and era 2 at epoch 4. An era begins at the first slot of its first epoch: slot 20 for era 1 and slot 50 for era 2. The rules for blocks change exactly at that slot. There, a migration carries the chain state into the new era and leaves unchanged everything the new era does not redefine. Nodes validate the first block at or after that slot against the migrated state. The network follows the local clock: when the clock reaches that slot, a node moves to the protocols of the new era. It keeps those of the old era for a short transition period, only for the messages already in flight, then drops them. The lengths are not to scale. An epoch lasts days, and a transition period lasts seconds.
+In this example, the epochs of era 0 are 10 slots long. The schedule starts era 1 at epoch 2, with epochs of 15 slots, and era 2 at epoch 4. An era begins at the first slot of its first epoch: slot 20 for era 1 and slot 50 for era 2. The rules for blocks change exactly at that slot. There, a migration carries the chain state into the new era and leaves unchanged everything the new era does not redefine. Nodes validate the first block at or after that slot against the migrated state. The network follows the local clock: from two seconds before that slot a node also runs the protocols of the new era, and when its clock reaches the slot it moves to them. It keeps those of the old era for a short transition period, only for the messages already in flight, then drops them. The lengths are not to scale. An epoch lasts days, and a transition period lasts seconds.
 
 A node validates a block under the era of the block's slot. It talks to its peers under the era its own clock has reached. A node that syncs from genesis therefore validates old blocks under old rules while it talks to the network under the current ones.
 
@@ -245,9 +246,9 @@ A node runs its network protocols under the **era in force**, the era of the cur
 
 Each message a node sends goes out on the identifiers of one era: the era in force for what it generates, accepts or broadcasts, and the era of the arriving connection for a Blend message it relays or releases and for the proposal that message carries ([Network Protocol Identity](#network-protocol-identity)).
 
-When the era in force changes, the node keeps the network protocols of the previous era for the **[Era Transition Period](#era-transition-period)**, whose length is the previous era's Blend Transition Period, only for what is already in flight on them:
+The node runs the network protocols of both eras for the **[Era Transition Period](#era-transition-period)**, from one **[clock slack](blend-protocol.md#transition-period)** before the era in force changes until the previous era's Blend Transition Period after it:
 
-- it opens and accepts no new connection, request or subscription under the previous era;
+- from the change on, it keeps the protocols of the previous era only for what is already in flight on them, and opens and accepts no new connection, request or subscription under that era;
 - during the period, it validates each Blend message under the era of the connection it arrived on;
 - when the period ends, it drops the identifiers of the previous era, with every synchronization request not yet served on them;
 - a node whose request is dropped continues downloading under the new era.
@@ -257,16 +258,19 @@ stateDiagram-v2
     direction LR
     state "era n−1 in force" as a
     a: protocols named by the fork digest of era n−1
-    state "era n in force" as n {
+    state "Era Transition Period" as p {
         direction LR
-        state "Era Transition Period" as b
+        state "the clock slack before era n" as e
+        e: protocols of eras n−1 and n
+        state "era n in force" as b
         b: protocols of era n, and of era n−1 for what is in flight
-        state "after the period" as c
-        c: protocols named by the fork digest of era n
-        [*] --> b
-        b --> c: the period ends
+        [*] --> e
+        e --> b: clock reaches the first slot of era n
     }
-    a --> n: clock reaches the first slot of era n
+    state "after the period" as c
+    c: protocols named by the fork digest of era n
+    a --> p: clock reaches one clock slack before the first slot of era n
+    p --> c: the period ends
 ```
 
 ## Outdated Releases
@@ -293,11 +297,12 @@ sequenceDiagram
     participant P as peer
     Note over C,P: era n−1 in force
     P->>N: messages on the identifiers of era n−1
-    C->>S: first slot of era n:<br/>the era in force becomes era n
-    S->>S: retire the pending transactions<br/>whose fork digest era n does not accept
-    C->>N: open the identifiers of era n,<br/>keep those of era n−1 for what is in flight
+    C->>S: one clock slack before the first slot of era n:<br/>retire the pending transactions<br/>whose fork digest era n does not accept
     rect rgba(255, 200, 0, 0.18)
         Note over N,P: Era Transition Period
+        C->>N: open the identifiers of era n,<br/>keep those of era n−1
+        P->>N: message on an identifier of era n,<br/>from a peer whose clock runs ahead
+        C->>S: first slot of era n:<br/>the era in force becomes era n,<br/>era n−1 kept for what is in flight
         P->>N: message on an identifier of era n−1,<br/>still processed
         P->>S: block of a slot in era n, on the topic of era n,<br/>validated under era n
         S->>S: fork choice: a fork from before the boundary<br/>is compared under the common ancestor's era
@@ -307,22 +312,23 @@ sequenceDiagram
 ```
 
 1. Before the boundary, the node exchanges messages with its peers on the identifiers of era $`n-1`$.
-2. When its clock reaches the first slot of era $`n`$, the era in force becomes era $`n`$ ([Era Boundaries](#era-boundaries)).
-3. The node retires the pending transactions whose fork digest era $`n`$ does not accept ([Era Change](#era-change)). A transaction that carries the fork digest of an earlier era stays, unless era $`n`$ refuses it ([Era of Chain Data](#era-of-chain-data)).
-4. It opens the identifiers of era $`n`$ and keeps those of era $`n-1`$ only for what is in flight on them, which starts the [Era Transition Period](#era-transition-period). It opens and accepts no new connection, request or subscription on those of era $`n-1`$.
-5. A message that arrives on an identifier of era $`n-1`$ is still processed ([Era Transition Period](#era-transition-period)).
-6. A block whose slot lies in era $`n`$ arrives on the topic of era $`n`$. Once the node's clock has reached the block's slot, the node validates the block under era $`n`$, against its parent's state migrated to era $`n`$ ([Era of Chain Data](#era-of-chain-data), [Era Migration](#era-migration), [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation)).
-7. If the block extends a fork that left the local chain before the boundary, fork choice compares the two chains under the era of their common ancestor's slot, which precedes era $`n`$ ([Era of Chain Data](#era-of-chain-data)).
-8. The node sends the messages it generates under era $`n`$ ([Network Protocol Identity](#network-protocol-identity)).
-9. When the period ends, the node drops the identifiers of era $`n-1`$, with every synchronization request not yet served on them ([Era Transition Period](#era-transition-period)).
+2. One clock slack before the first slot of era $`n`$ by its clock, the node retires the pending transactions whose fork digest era $`n`$ does not accept ([Era Change](#era-change)). A transaction that carries the fork digest of an earlier era stays, unless era $`n`$ refuses it ([Era of Chain Data](#era-of-chain-data)).
+3. It then opens the identifiers of era $`n`$ and keeps those of era $`n-1`$, which starts the [Era Transition Period](#era-transition-period).
+4. A message that arrives on an identifier of era $`n`$, from a peer whose clock runs ahead, is processed as the [Era Transition Period](#era-transition-period) specifies. A transaction that carries the fork digest of era $`n`$ waits in the mempool for a block of era $`n`$ ([Block Building View](mempool.md#block-building-view)).
+5. When its clock reaches the first slot of era $`n`$, the era in force becomes era $`n`$ ([Era Boundaries](#era-boundaries)). From then on, the node keeps the identifiers of era $`n-1`$ only for what is in flight on them, and opens and accepts no new connection, request or subscription on them ([Era Transition Period](#era-transition-period)).
+6. A message that arrives on an identifier of era $`n-1`$ is still processed ([Era Transition Period](#era-transition-period)).
+7. A block whose slot lies in era $`n`$ arrives on the topic of era $`n`$. Once the node's clock has reached the block's slot, the node validates the block under era $`n`$, against its parent's state migrated to era $`n`$ ([Era of Chain Data](#era-of-chain-data), [Era Migration](#era-migration), [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation)).
+8. If the block extends a fork that left the local chain before the boundary, fork choice compares the two chains under the era of their common ancestor's slot, which precedes era $`n`$ ([Era of Chain Data](#era-of-chain-data)).
+9. The node sends the messages it generates under era $`n`$ ([Network Protocol Identity](#network-protocol-identity)).
+10. When the period ends, the node drops the identifiers of era $`n-1`$, with every synchronization request not yet served on them ([Era Transition Period](#era-transition-period)).
 
 ## Node State
 
 A node keeps three values that depend on the era in force:
 
 - the era in force itself, which changes when the clock reaches the first slot of the next era ([Era Boundaries](#era-boundaries));
-- its mempool, which admits only transactions whose fork digest the era in force accepts, and retires the others when the era in force changes ([Mempool](mempool.md#era-change));
-- the identifiers it opens and accepts connections on, those of the era in force, while it keeps those of the previous era during the Era Transition Period only for what is already in flight on them ([Era Transition Period](#era-transition-period)).
+- its mempool, which admits only transactions whose fork digest the era in force one clock slack ahead of its clock accepts, and retires the others when that era changes ([Mempool](mempool.md#era-change));
+- the identifiers it opens and accepts connections on, those of the era in force and, from one clock slack before the next era, those of that era too. After the era in force changes, it keeps those of the previous era until the Era Transition Period ends, only for what is already in flight on them ([Era Transition Period](#era-transition-period)).
 
 # Details
 
@@ -339,6 +345,7 @@ A node keeps three values that depend on the era in force:
 | $`\textbf{first\_slot}(ep)`$ | first slot of an epoch | `first_slot_of_epoch(ep)` of [Era Boundaries](#era-boundaries). |
 | $`\textbf{slot}(t)`$ | slot of a time | `slot_of_time(t)` of [Era Boundaries](#era-boundaries). |
 | *none* | era in force | `era_in_force()` of [Era Boundaries](#era-boundaries). |
+| $`T_S`$ | clock slack | $`T_S`$ of [Transition Period](blend-protocol.md#transition-period), in seconds. |
 | $`F_n`$ | fork digest of era $`n`$ | `fork_digest(n)` of [Fork Digest](#fork-digest). |
 
 ## Parameters
@@ -494,8 +501,11 @@ def slot_of_time(t: uint64) -> uint64:
     era = last_era_from(start_time_of_era, t)
     return first_slot_of_era(era) + (t - start_time_of_era(era)) // slot_length(era)
 
+def era_in_force_after(seconds: uint64) -> int:
+    return era_of_slot(slot_of_time(wallclock_time() + seconds))
+
 def era_in_force() -> int:
-    return era_of_slot(slot_of_time(wallclock_time()))
+    return era_in_force_after(0)
 ```
 
 `SCHEDULE` is the era schedule of the node's network ([Parameters](#parameters)). `cryptarchia` and `time` are sections of the [parameter record](#era-parameters). A slot is an unsigned 64-bit integer, as the `slot` of a [Block Header](cryptarchia-v1-protocol.md#block-header) is. A time is the number of whole seconds elapsed since the Unix epoch, an unsigned 64-bit integer. `start_time` is that of the [Genesis Parameters](bedrock-genesis-block.md#genesis-parameters). `slot_of_time(t)` is defined for `t` from `start_time_of_era(0)` on. `wallclock_time().to_slot()` of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) is `slot_of_time(wallclock_time())`.
@@ -575,15 +585,15 @@ A node verifies an active message ([Active Message](blend-protocol.md#active-mes
 
 ## Era Change
 
-When the era in force changes to era `new`, a node retires the pending transactions whose fork digest era `new` does not accept ([Era Change](mempool.md#era-change) of Mempool) and starts the [Era Transition Period](#era-transition-period) into era `new`, before it processes anything under era `new`. [Mempool](mempool.md) specifies how the era in force governs admission, and the era of a block's slot governs block building.
+When `era_in_force_after(T_S)` changes to era `new`, a node retires the pending transactions whose fork digest era `new` does not accept ([Era Change](mempool.md#era-change) of Mempool) and starts the [Era Transition Period](#era-transition-period) into era `new`, before it processes anything under era `new`. [Mempool](mempool.md) specifies how `era_in_force_after(T_S)` governs admission, and the era of a block's slot governs block building.
 
 ## Era Transition Period
 
-The Era Transition Period is the first $`T`$ [rounds](blend-protocol.md#time) after the era in force changes, with $`T`$ the [Transition Period](blend-protocol.md#transition-period) of the previous era. It applies to the network layer only. A node that starts during an Era Transition Period runs only the protocols of the era in force.
+The Era Transition Period into an era starts $`T_S`$ seconds before the era in force changes to it and ends $`T`$ [rounds](blend-protocol.md#time) after, with $`T_S`$ the clock slack and $`T`$ the length of the Blend [Transition Period](blend-protocol.md#transition-period), both of the previous era. It applies to the network layer only. A node that starts during the Era Transition Period into an era runs only the protocols of that era.
 
-During the Era Transition Period, a node keeps the identifiers of the previous era only for what is already in flight on them, as Blend keeps the connections of a past epoch ([Transition Period](blend-protocol.md#transition-period)). A node must:
+From the change of the era in force until the period ends, a node keeps the identifiers of the previous era only for what is already in flight on them, as Blend keeps the connections of a past epoch ([Transition Period](blend-protocol.md#transition-period)). During the Era Transition Period a node must:
 
-1. Open and accept no new connection, request or topic subscription on an identifier of the previous era. This holds for Blend as for every other protocol.
+1. Open and accept connections on the identifiers of both eras until the era in force changes. After it changes, open and accept no new connection, request or topic subscription on an identifier of the previous era. This holds for Blend as for every other protocol.
 2. Validate a Blend message under the era of the connection it arrived on.
 3. Keep, until the period ends, every input that the previous era's Blend message checks read.
 4. Process any other message that arrives on an identifier of either era as it would on an identifier of the era in force ([Era of Chain Data](#era-of-chain-data), [Network Protocol Identity](#network-protocol-identity)).
