@@ -32,10 +32,9 @@ The goals only have to hold while these do. If one fails, the goals that depend 
 | --- | --- | --- |
 | SL1-A1 | Identity keys are never compromised or lost. | Identity keys authorize and revoke members. Whoever holds one controls that person's members. |
 | SL1-A2 | Members are honest but faulty. They act in good faith, but may crash, go offline, fall behind, or keep stale state. | SL-1 limits what outsiders can do. It doesn't defend a group against its own members. |
-| SL1-A3 | Compromised members stay under the fault threshold of the group's ordering mechanism. | Above that threshold, compromised members can block or fork group state changes. |
+| SL1-A3 | The cryptographic primitives are secure. | Every goal rests on them. |
 | SL1-A4 | All clients see the same history of keys for each identity. | Without this, an attacker could show different members different keys for the same person. |
 | SL1-A5 | Clients implement the protocol correctly, including deleting key material when required. | Forward secrecy and post-compromise security depend on old keys actually being deleted. |
-| SL1-A6 | The cryptographic primitives are secure. | Every goal rests on them. |
 
 ## Goals
 
