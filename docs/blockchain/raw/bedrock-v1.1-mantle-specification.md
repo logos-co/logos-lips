@@ -1587,13 +1587,12 @@ The note sets are what the [Proof of Leadership](cryptarchia-proof-of-leadership
 
 The commitments of each note set are appended, in insertion order, to the leaves of a Merkle tree of depth $`40`$ whose every leaf past the last appended one holds $`0`$. The root of that tree is the commitment MMR root of the set, and a commitment is proven in it by a Merkle path of length $`40`$. A note set therefore holds at most $`2^{40}`$ commitments and, its [IMT](#nullifier-indexed-merkle-tree) giving a leaf to the sentinel, $`2^{40} - 1`$ nullifiers, a capacity that transfers of 8 outputs at the Execution Gas target take about 50 years to fill. An Operation adding a commitment or a nullifier to a full set is invalid.
 
-A Merkle path, in this tree and in every Merkle tree the circuits prove membership in, lists its nodes from the leaf level up to the root, and its selectors in the same order: the selector of a level is the bit of the leaf index at that level, starting from the least significant, `1` when the node computed at that level from the leaf is the right child, so that the path node is on the left. A circuit constrains every selector to be a bit and computes the root of a path as follows:
+A Merkle path, in this tree and in every Merkle tree the circuits prove membership in, lists its nodes from the leaf level up to the root, and its selectors in the same order: the selector of a level is the bit of the leaf index at that level, starting from the least significant, `1` when the node computed at that level from the leaf is the right child, so that the path node is on the left. The root of a path is computed as follows:
 
 ```python
-def path_root(leaf: zkhash, path: list[zkhash], selectors: list[FrElement]) -> MerkleRoot:
+def path_root(leaf: zkhash, path: list[zkhash], selectors: list[boolean]) -> MerkleRoot:
     node = leaf
     for (sibling, selector) in zip(path, selectors):
-        assert selector * (1 - selector) == 0  # the selector is a bit
         node = zkhash(sibling, node) if selector == 1 else zkhash(node, sibling)
     return node
 ```
@@ -1805,7 +1804,7 @@ Such that the following constraints hold, where `inputs_pk` and `inputs_cm` are 
   )
   ```
   
-- Each selector is a bit, and each active input commitment is in `tx_cm_root`, its path computed by [`path_root`](#commitment-merkle-mountain-range).
+- Each active input commitment is in `tx_cm_root`, its path computed by [`path_root`](#commitment-merkle-mountain-range).
   ```python
   assert all(
       path_root(inputs_cm[i], inputs_path[i], inputs_selectors[i]) == tx_cm_root
