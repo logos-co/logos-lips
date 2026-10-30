@@ -36,6 +36,7 @@
 | 1.4.0 | Reference resolution is specified in [Mempool](mempool.md#reference-resolution), which this document now links to instead of restating the procedure. Before reconstruction a proposal is checked only against the latest immutable block, the genesis slot, the block tree and its signature, as implemented, and Block Header Validation applies to the reconstructed block. Reconstruction checks the size of the resolved transactions before the body root. | 2026-10-21 |
 | 1.5.0 | Removed the `bedrock_version` header field and moved `slot` to the first header field ([Bedrock Eras](bedrock-eras.md)): the header is 296 bytes, a signed header 360, and the maximum proposal 18,187 bytes. | 2026-10-21 |
 | 1.6.0 | Appended the `leader_voucher` of a block to the voucher tree when the block is executed, not when the following epoch starts. | 2026-10-21 |
+| 1.7.0 | Defined the canonical encoding of a block. | 2026-10-21 |
 
 # Introduction
 
@@ -162,13 +163,13 @@ Where:
 
 ## Canonical Encoding
 
-This section defines the byte-level wire format of the block proposal. It follows the same conventions as the [Mantle Transaction Encoding](mantle-transaction-encoding.md), in particular *"All multi-byte integers use little-endian encoding"* and *"Any lists are length-prefixed with fixed width uints"*, and reuses its primitive terminals rather than redefining them.
+This section defines the byte-level wire format of the block proposal and of the [block](#block). It follows the same conventions as the [Mantle Transaction Encoding](mantle-transaction-encoding.md), in particular *"All multi-byte integers use little-endian encoding"* and *"Any lists are length-prefixed with fixed width uints"*, and reuses its primitive terminals rather than redefining them.
 
-The encoding is canonical: every valid proposal has exactly one byte representation, and every byte string decodes to at most one proposal. The following rules are normative.
+The encoding is canonical: every valid proposal and every valid block has exactly one byte representation, and every byte string decodes to at most one proposal or block. The following rules are normative.
 
 1. All multi-byte integers are little-endian.
 2. The fields of a structure are concatenated in the order in which they are declared, with no separators, no alignment padding, and no per-field framing.
-3. A list is encoded as a fixed-width little-endian element count followed by that many elements, each encoded individually. The width is given per list below — a `UINT16` for `References`, a single byte for `UncleHeaders`, whose `MAX_UNCLES` bound one byte covers — following the [Mantle Transaction Encoding](mantle-transaction-encoding.md) convention that lists are *"length-prefixed with fixed width uints"*. The count must not exceed the list's declared bound.
+3. A list is encoded as a fixed-width little-endian element count followed by that many elements, each encoded individually. The width is given per list below — a `UINT16` for `References` and for `Transactions`, a single byte for `UncleHeaders`, whose `MAX_UNCLES` bound one byte covers — following the [Mantle Transaction Encoding](mantle-transaction-encoding.md) convention that lists are *"length-prefixed with fixed width uints"*. The count must not exceed the list's declared bound.
 4. Decoding must consume the input exactly. A decoder must reject input that ends before the structure is complete, and must equally reject input with bytes remaining after it. Accepting trailing bytes would allow two distinct wire messages to decode to the same proposal, which is a parser differential and therefore a consensus-split risk.
 
 ```schema
@@ -191,9 +192,13 @@ LeaderVoucher     = FieldElement
 References        = ReferenceCount *Reference
 ReferenceCount    = UINT16          ; MUST NOT exceed MAX_BLOCK_TXS
 Reference         = 16BYTE          ; REFERENCE_PREFIX_LENGTH bytes
+
+Block             = Header Ed25519Signature UncleHeaders Transactions
+Transactions      = TransactionCount *SignedMantleTx
+TransactionCount  = UINT16          ; MUST NOT exceed MAX_BLOCK_TXS
 ```
 
-The terminals `Byte`, `UINT16`, `UINT64`, `Hash32`, `FieldElement`, `Groth16`, `Ed25519PublicKey` and `Ed25519Signature` are those defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures). Note in particular that `FieldElement` is a little-endian BN254 field element, which fixes the byte order of `entropy_contribution` and `leader_voucher`.
+The terminals `Byte`, `UINT16`, `UINT64`, `Hash32`, `FieldElement`, `Groth16`, `Ed25519PublicKey` and `Ed25519Signature` are those defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures), and `SignedMantleTx` is that of [Signed Mantle Tx](mantle-transaction-encoding.md#signed-mantle-tx). Note in particular that `FieldElement` is a little-endian BN254 field element, which fixes the byte order of `entropy_contribution` and `leader_voucher`.
 
 This yields the following sizes, where `n` is the number of references:
 
@@ -219,6 +224,8 @@ class Block:
     uncle_headers: list[SignedHeader]        # 1 + n × 360 bytes, n <= MAX_UNCLES
     transactions: list[SignedMantleTx]       # up to MAX_BLOCK_SIZE
 ```
+
+A block is encoded as `Block` of [Canonical Encoding](#canonical-encoding).
 
 Where:
 
