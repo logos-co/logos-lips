@@ -38,6 +38,7 @@
 | 1.6.1 | Corrected Blend activity metadata to the canonical tagged encoding: removed the separate version byte and corrected the total size to 229 bytes. | 2026-10-13 |
 | 1.6.2 | The node count and the neighbor distinction read the `provider_id`s of the Blend declarations, which the Service Declaration Protocol keeps unique | 2026-10-27 |
 | 1.7.0 | Derived the observation window $`W`$ from cover traffic in place of the maximal release delay. | 2026-10-29 |
+| 1.8.0 | Refused a neighbor closed as not live for $`W`$ rounds, restarting its liveness count, in place of shutting it out for the rest of the epoch. | 2026-10-30 |
 
 # Introduction
 
@@ -297,7 +298,7 @@ The bootstrapping defines the process of creating the network, which happens at 
 1. A core node at the beginning of an epoch retrieves a set of core nodes’ information from the SDP protocol ([Service Declaration Protocol](bedrock-service-declaration-protocol.md)).
 2. If the number of core nodes is below the minimum number of nodes ([Minimal Network Size](#minimal-network-size)), then stop and use regular broadcasting.
 3. It starts opening new connections.
-    1. It selects at random (without replacement) a node from the set of core nodes, excluding the identities that are on its blacklist ([Connectivity Maintenance](#connectivity-maintenance)).
+    1. It selects at random (without replacement) a node from the set of core nodes, excluding the identities it refuses ([Connectivity Maintenance](#connectivity-maintenance)).
     2. It establishes a secure connection with the selected node, that is:
         1. It opens a TLS connection using ephemeral keys to the node according to the [Connection Details](#connection-details).
         2. It identifies its neighbor using the [Neighbor Distinction Process](#neighbor-distinction-process) (NDP).
@@ -476,7 +477,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\eta=2`$ rounds, the network absorption of one hop.
 - $`T_M = 15`$ rounds, the message traversal time, as derived in the [Transition Period](#transition-period) section.
 - $`W = \lceil M_W / (F_C \cdot (1 + R_C) \cdot \beta_C) \rceil = 30`$ rounds, the observation window: the rounds in which a core connection carries $`M_W`$ messages from cover traffic alone ([Expected Traffic](#expected-traffic)).
-- $`M_W = 90`$ messages. With a smaller $`M_W`$, a node more often reads an honest neighbor as not live and closes its connection ([Connectivity Maintenance](#connectivity-maintenance)). With a larger one, a neighbor that delivers nothing holds a connection slot for longer, and a blacklist entry lasts longer.
+- $`M_W = 90`$ messages. With a smaller $`M_W`$, a node more often reads an honest neighbor as not live and closes its connection ([Connectivity Maintenance](#connectivity-maintenance)). With a larger one, a neighbor that delivers nothing holds a connection slot for longer, a neighbor closed as not live is refused for longer, and a blacklist entry lasts longer.
 - $`F_C=1`$, the network generates one cover message per round on average.
 - $`F_D=1/30`$, the network generates one block proposal every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)).
 - $`F_T = 130/30`$, the network carries $`130`$ messages per slot of $`30`$ rounds, each carrying one transaction ([Payload Formatting](payload-formatting.md)), whatever quota backs them: $`\left(F_1 / \beta_{max} - \max(F_C \cdot (1 + R_C), F_D \cdot (1 + R_D))\right) \cdot 30 = 130`$ at $`F_1 = 16`$ ([Expected Traffic](#expected-traffic)).
@@ -545,13 +546,13 @@ The shares keep the messages a node reads in a round within what the slowest nod
 **Liveness**
 
 1. A connection with a core node is **live** when the neighbor has delivered a message, duplicate or not, within its last $`W`$ connected rounds, or has been connected for fewer than $`W`$ rounds in total.
-2. Connected rounds and deliveries are counted per identity, for the epoch, over every connection the node has held with it.
-3. A neighbor whose connection is not live is not blacklisted.
+2. Connected rounds and deliveries are counted per identity, for the epoch, over every connection the node has held with it. The count restarts when the node closes a connection with the identity for not being live.
+3. A neighbor whose connection is not live is not blacklisted. It is refused on incoming and on outgoing connections for $`W`$ rounds after the node closes the connection.
 
 **Degree**
 
 1. A core node holds between $`\Phi_{CC} - 1`$ and $`\Phi_{CC} + 1`$ connections with core nodes. It opens a connection while it holds fewer than $`\Phi_{CC} - 1`$ live ones, or fewer than $`\Phi_{CC} - 2`$ live ones that it opened. It accepts a connection while it holds fewer than $`\Phi_{CC} + 1`$ connections and fewer than $`(\Phi_{CC} + 1) - (\Phi_{CC} - 2) = 3`$ accepted ones, and closes a connection offered above either.
-2. It draws the nodes it opens uniformly at random and without replacement from the set returned by the SDP protocol, excluding itself, blacklisted identities and its current neighbors.
+2. It draws the nodes it opens uniformly at random and without replacement from the set returned by the SDP protocol, excluding itself, the identities it refuses and its current neighbors.
 3. A connection that is not live is closed.
 4. A connection whose handshake is in progress counts towards $`\Phi_{CC}`$ once the [Neighbor Distinction Process](#neighbor-distinction-process) has identified the neighbor as a core node, and its peer is a current neighbor for rule 2. A handshake that has not completed within $`T_H`$ is abandoned and its slot released. At most $`\Phi_{CC} + 1 + \Phi_{CE}^{Max}`$ handshakes are in progress at once, and one offered above that is closed.
 
