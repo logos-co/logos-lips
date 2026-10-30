@@ -41,7 +41,7 @@ In this document, we present the specification defining the construction of the 
 
 # Overview
 
-For the consensus protocol to make progress, a new **leader** is elected through the leader lottery. The new leader is in possession of a proof of leadership (PoL) that confirms that it is indeed the leader. The main objective of the leader is to construct a new block, hence becoming a **block builder,** and share it with other members of the network as a **block proposer**. The block must be correctly constructed; otherwise, it will be rejected by the consensus nodes who are validating every block. Only a block that validates in full modifies the state of the chain: the transactions it includes are interpreted by all nodes, one after the other in the order they appear, and the state of the chain is modified according to the instructions embedded in them.
+For the consensus protocol to make progress, a new **leader** is elected through the leader lottery. The new leader holds a note winning the lottery, and proves it with a proof of leadership (PoL) bound to the block it builds. The main objective of the leader is to construct a new block, hence becoming a **block builder,** and share it with other members of the network as a **block proposer**. The block must be correctly constructed; otherwise, it will be rejected by the consensus nodes who are validating every block. Only a block that validates in full modifies the state of the chain: the transactions it includes are interpreted by all nodes, one after the other in the order they appear, and the state of the chain is modified according to the instructions embedded in them.
 
 ## High-level Flow
 
@@ -110,9 +110,9 @@ class Header:                                # 265 bytes
 Where:
 
 - `bedrock_version` is the version of the proposal message structure that supports other protocols defined in linked reference; its size is 1 byte and is fixed to `0x01`.
-- `parent_block` is the block ID ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)) of the parent block, validated and accepted by the block builder. It is used for the derivation of the eligible set and nullifier roots necessary for validating the PoL ([Eligible Sets](cryptarchia-proof-of-leadership.md#eligible-sets)); the size of the `hash` is 32 bytes.
+- `parent_block` is the block ID ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)) of the parent block, validated and accepted by the block builder. It is used for the derivation of the eligible roots necessary for validating the PoL ([Eligible Sets](cryptarchia-proof-of-leadership.md#eligible-sets)); the size of the `hash` is 32 bytes.
 - `slot` is the consensus slot number; the size of the `SlotNumber` type is 8 bytes.
-- `body_root` is the commitment to the block body — both the carried `uncle_headers` and the transactions. It is computed as defined in step 4 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation), which combines the serialized `uncle_headers` list with the root of the Merkle tree constructed from the **full** transaction hashes (defined in [Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction)) — the same hashes used for constructing the `mempool_transactions` references list; the size of the `hash` is 32 bytes. Because that Merkle root is taken over the full hashes, `body_root` uniquely binds the proposal to a specific ordered transaction selection even when two transactions share the same `references` prefix, and it also binds the *number* of references; see [Binding of the reference list](#binding-of-the-reference-list). Since the block ID is taken over the header, committing the uncle headers here is what makes two blocks with the same ID carry the same content, differing at most in the proof of leadership of their header, which the block ID does not cover ([Block ID](cryptarchia-v1-protocol.md#block-id)).
+- `body_root` is the commitment to the block body: both the carried `uncle_headers` and the transactions. It is computed as defined in step 4 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation), which combines the serialized `uncle_headers` list with the root of the Merkle tree constructed from the **full** transaction hashes (defined in [Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction)), the same hashes used for constructing the `mempool_transactions` references list; the size of the `hash` is 32 bytes. Because that Merkle root is taken over the full hashes, `body_root` uniquely binds the proposal to a specific ordered transaction selection even when two transactions share the same `references` prefix, and it also binds the *number* of references; see [Binding of the reference list](#binding-of-the-reference-list). Since the block ID is taken over the header, committing the uncle headers here is what makes two blocks with the same ID carry the same content, differing at most in their proofs: the proof of leadership of their header and the Operation proofs of their transactions, which neither the block ID nor the transaction hashes cover ([Block ID](cryptarchia-v1-protocol.md#block-id)).
 - `proof_of_leadership` is the proof confirming that the header is produced by the leader; defined below: [Proof of Leadership](#proof-of-leadership).
 
 ### References
@@ -225,14 +225,14 @@ As with the header, `uncle_headers` does not count towards `MAX_BLOCK_SIZE`, whi
 
 In this section, we explain how the block proposal structure presented above is populated by the consensus leader.
 
-The block proposal is constructed by the leader of the current slot. The node becomes a leader only after successfully generating a valid PoL for a given `(Epoch, Slot)`.
+The block proposal is constructed by the leader of the current slot, a node holding a note that wins the lottery for a given `(Epoch, Slot)`. It proves its leadership once the block is built.
 
 ### Prerequisites
 
 Before constructing the proposal, the block builder must:
 
 1. Select a valid parent block referenced by `ParentBlock` on which they will extend the chain.
-2. Derive the eligible set and nullifier roots required by the PoL ([Eligible Sets](cryptarchia-proof-of-leadership.md#eligible-sets)) from the state of the chain including the last block.
+2. Derive the eligible roots required by the PoL ([Eligible Sets](cryptarchia-proof-of-leadership.md#eligible-sets)) from the state of the chain including the last block.
 3. Select a valid unspent note winning the PoL.
 
 The PoL is bound to the header of the proposal, so it is generated in step 5 of the construction procedure, once the content of the block is fixed (see [Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)).
@@ -371,10 +371,10 @@ This section specifies how a Logos Blockchain node executes a valid block propos
 
 Given a `ValidBlock` that has successfully passed proposal validation, the node must, in this order:
 
-1. Execute the reward distribution protocol defined in [**Service Reward Distribution Protocol**](bedrock-service-reward-distribution.md) to generate reward notes locally and include them in the ledger, debiting the Blend reward notes from `blend_rewards_pending` and returning what they do not use to `rewards_pool`, then remove the withdrawn declarations and release their notes, as defined in [SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization). At the first block of an epoch, also credit the pow reward pool with its refill and set the epoch PoW reward, as defined in [Reward Pool](proof-of-work.md#reward-pool).
+1. Execute the reward distribution protocol defined in [**Service Reward Distribution Protocol**](bedrock-service-reward-distribution.md) to generate reward notes locally and include them in the ledger, debiting the Blend reward notes from `blend_rewards_pending` and returning what they do not use to `rewards_pool`, then remove the withdrawn declarations and release their notes, as defined in [SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization). At the first block of an epoch, also credit the pow reward pool with `pow_rewards_pending`, reset it to `0` and set the epoch PoW reward, as defined in [Reward Pool](proof-of-work.md#reward-pool).
 2. Apply the channel withdrawals whose due slot is reached and whose inputs are still unspent, as defined in [CHANNEL_WITHDRAW](bedrock-v1.1-mantle-specification.md#channel_withdraw).
 3. Execute the Mantle Transactions included in the block in the order they appear, using the execution rules defined in the [Mantle](bedrock-v1.1-mantle-specification.md).
-4. Insert the leader reward of the block in the ledger, and update `pooled_fees_window`, `rewards_reserve`, `rewards_pool` and `blend_rewards_pending` with the pooled fees, the release, the payout and the Blend share of the block, as defined in [Block Rewards](block-rewards.md#deterministic-implementation).
+4. Update `pooled_fees_window`, `rewards_reserve`, `rewards_pool`, `blend_rewards_pending` and `pow_rewards_pending` with the pooled fees, the release, the payout, the Blend share and the proof of work share of the block, as defined in [Block Rewards](block-rewards.md#deterministic-implementation), and insert the leader reward of the block in the ledger, its value computed from the release and the payout of that update.
 5. Record the commitment MMR root of every note set, as defined in [Ledger](bedrock-v1.1-mantle-specification.md#ledger), so that the transactions of the next 1024 blocks can reference it:
     ```python
     for note_set in ledger.sets:
@@ -394,7 +394,7 @@ leader_note = Note(
 ledger.sets[LEDGER_SET].execute_adding([derive_note_cm(leader_note)])
 ```
 
-Spending the note reveals neither its commitment nor its value, so the leader cannot be linked to the block through its reward. A leader should use a fresh `reward_key` for every block. Reusing it links the blocks that carry it to the same leader, and two rewards of the same value under the same key are identical notes, of which only one can be spent ([Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier)).
+Spending the note reveals neither its commitment nor its value, so the leader cannot be linked to the block through its reward, as long as the leader does not publish its value. An `SDP_DECLARE` publishes the amount it stakes, the sum of the notes it consumes, and every reward value is public: staking reward notes, alone or with notes of known value, can link the blocks they were won in to the declaration. A leader should use a fresh `reward_key` for every block. Reusing it links the blocks that carry it to the same leader, and two rewards of the same value under the same key are identical notes, of which only one can be spent ([Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier)).
 
 The five steps stand or fall together, on a block that has validated in full: a block that fails validation at any point is not executed at all.
 

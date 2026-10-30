@@ -1,0 +1,94 @@
+/*
+ * Cryptoeconomics overview: tokens, fees and rewards
+ *
+ * Render:
+ *   dot -Tpng -Gdpi=160 overview-cryptoeconomics.dot -o bbe261aa-09df-827f-a6a9-8115aeb10f94.png
+ */
+
+digraph overview_cryptoeconomics {
+  rankdir = LR;
+  bgcolor = "#1f2020";
+  splines = true;
+  nodesep = 0.35;
+  ranksep = 0.80;
+  pad     = 0.25;
+
+  node [
+    shape     = box,
+    style     = "rounded,filled",
+    fillcolor = "#1f2020",
+    color     = "#cfcfcf",
+    penwidth  = 1.5,
+    fontname  = "Helvetica",
+    fontsize  = 16,
+    fontcolor = "#d8d8d8",
+    margin    = "0.18,0.12"
+  ];
+
+  edge [color = "#cfcfcf", penwidth = 1.8, arrowsize = 0.8,
+        fontname = "Helvetica", fontsize = 13, fontcolor = "#d8d8d8"];
+
+  graph [fontname = "Helvetica", fontsize = 16, fontcolor = "#d8d8d8", color = "#8a8a8a", style = "rounded,dashed"];
+
+  tokens   [label = "Tokens", shape = ellipse];
+
+  subgraph cluster_users {
+    label = "Users";
+    rollup   [label = "Rollup Operator"];
+    operator [label = "Node Operator"];
+    staker   [label = "Leader"];
+  }
+
+  sdp      [label = "Service Declaration Protocol\n(Blend)", shape = cylinder];
+  lottery  [label = "Leader Lottery\n(Cryptarchia)"];
+  mempool  [label = "Mempool"];
+  leader   [label = "Leader of the Block", shape = ellipse];
+
+  subgraph cluster_block {
+    label = "Block";
+    exec_fees    [label = "Execution Fees"];
+    storage_fees [label = "Storage Fees"];
+  }
+
+  pow_pool [label = "Proof of Work\nReward Pool"];
+  miners   [label = "Proof of Work Claims"];
+  pool     [label = "Rewards Pool"];
+  reserve  [label = "Rewards Reserve\n(allocated at genesis)"];
+  reward   [label = "Block Reward\n(per block)"];
+
+  subgraph cluster_consensus {
+    label = "Consensus";
+    leader_note [label = "Leader Reward Note\n(in the block, one-time key)"];
+  }
+
+  subgraph cluster_blend {
+    label = "Blend Service";
+    pending [label = "Pending Blend Share"];
+    srdp    [label = "Service Rewards\nDistribution Protocol\n(Active Messages)"];
+    blend   [label = "Blend Nodes"];
+    pending -> srdp [label = "  first block of epoch e+2  "];
+    srdp -> blend;
+  }
+
+  tokens   -> rollup   [label = "  buys, earns  "];
+  operator -> sdp      [label = "  locks  ", style = dashed];
+  staker   -> lottery  [label = "  stakes  ", style = dashed];
+  rollup   -> mempool  [label = "  transactions  "];
+  lottery  -> leader;
+  mempool  -> leader   [style = dashed];
+  leader   -> exec_fees;
+  leader   -> storage_fees;
+
+  exec_fees    -> pool        [label = "  base fees  "];
+  storage_fees -> pool;
+  exec_fees    -> leader_note [label = "  tips  "];
+  exec_fees    -> pow_pool    [label = "  share  ", style = dashed];
+  storage_fees -> pow_pool    [label = "  share  ", style = dashed];
+  pow_pool     -> miners;
+
+  reserve -> reward [label = "  release  "];
+  pool    -> reward [label = "  payout  "];
+  reward  -> leader_note [label = "  40%  "];
+  reward  -> pending     [label = "  60%  "];
+  srdp    -> pool        [label = "  unused  ", style = dashed];
+}

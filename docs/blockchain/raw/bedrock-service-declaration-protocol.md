@@ -34,7 +34,7 @@
 | 1.4.3 | Identifier uniqueness covers every stored declaration, not only activated ones, matching the implementation | 2026-09-01 |
 | 1.5.0 | Defined `active` as the epoch of the block that contained the latest accepted active message, initialised to `created + 2`, and `withdraw_at` as the epoch at which the node stops providing the service, matching the implementation. Added the participant-set exclusion rule and [Message Timing](#message-timing) | 2026-09-02 |
 | 1.6.0 | Declarations are removed at `withdraw_at + 1`, one epoch after the node stops, making the last served epoch rewardable | 2026-09-03 |
-| 1.7.0 | Support the private ledger of Mantle: a declaration consumes notes and creates its own service note under the `zk_id` in the SDP note set, the withdrawal consumes it with a ZkTransfer, and the active and withdraw messages are signed by the `provider_id` | 2026-10-07 |
+| 1.7.0 | Support the private ledger of Mantle: a declaration consumes notes and creates its own service note under the `zk_id` in the SDP note set, the withdrawal consumes it with a ZkTransfer, and the active and withdraw messages are signed by the `provider_id`. The stake threshold is a `TokenValue` | 2026-10-07 |
 
 # Introduction
 
@@ -100,7 +100,7 @@ The `MinStake` is a structure that holds the value of the stake `stake_threshold
 
 ```python
 class MinStake:
-    stake_threshold: StakeThreshold
+    stake_threshold: TokenValue  # in units of 10**-9 LGO, as every amount of Mantle
     epoch: EpochNumber
 ```
 

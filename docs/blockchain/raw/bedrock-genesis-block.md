@@ -32,7 +32,7 @@
 | 1.1.4 | Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy. | 2026-08-25 |
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
 | 1.2.0 | Seed the pow reward pool at genesis from the initial token distribution | 2026-09-08 |
-| 1.3.0 | Support the private ledger of Mantle: the initial distribution is made of note commitments whose preimages are published in an inscription to the null channel, and the declarations consume the distributed notes. The Genesis Transfer is exempt from the output limit of a ZkTransfer, and the ZkTransfer of every Genesis declaration is verified. Genesis initializes the block reward reserve, pool, pending Blend share and window of pooled fees, and records the commitment roots of the note sets. The genesis header has no `leader_key` | 2026-10-07 |
+| 1.3.0 | Support the private ledger of Mantle: the initial distribution is made of note commitments whose preimages are published in an inscription to the null channel, and the declarations consume the distributed notes. Genesis initializes the block reward stocks and records the commitment roots of the note sets | 2026-10-07 |
 
 # Introduction
 
@@ -60,7 +60,7 @@ The distribution inscription is the number of outputs as one byte, followed by t
 
 In order to participate in the Cryptarchia lottery, stakeholders must generate their note keys in accordance with the Proof of Leadership protocol specified at [Protocol](cryptarchia-proof-of-leadership.md#protocol).
 
-The initial state of the Ledger will be derived through normal execution of this Transfer Operation, that is, each output commitment will be appended to the commitment MMR of the ledger note set.
+The initial state of the Ledger will be derived through normal execution of this Transfer Operation, that is, each output commitment will be appended to the commitment MMR of the ledger note set. `EMPTY_MMR_ROOT` is `mmr_root([])`, the root of the empty [commitment MMR](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range).
 
 **Example**
 
@@ -345,7 +345,7 @@ The Genesis Mantle Transaction holds, in this order, the Transfer Operation dist
 
 The checks below, and only these, are skipped when the Genesis Mantle Transaction is processed. Each one is skipped because the Genesis block, having no state before it and no signer the chain knows about, cannot satisfy it.
 
-1. **Every proof and signature but the ZkTransfer of the declarations.** Neither the `ZkTransfer` of the Transfer Operation, nor the `Ed25519Signature` of the inscriptions, nor the `provider_sig` of the `SDP_DECLARE` Operations is verified at Genesis. The Transfer Operation consumes no note and therefore cannot balance its outputs, the inscriptions are signed by the null key whose secret key nobody holds, and the provider keys are already fixed by the out of band agreement on the Genesis block, so verifying them would establish nothing a node does not already have to trust. The `zk_proof` of every declaration is verified as at any other time, against the empty commitment MMR root extended with the commitment buffer: it is what ties the stake of the declaration to distributed notes it consumes, so that the initial supply is exactly the published distribution. The `op_proofs` entries that are not verified still hold one entry per Operation, of the type that Operation requires, and are placeholders.
+1. **Every proof and signature.** No Operation proof is verified at Genesis: neither the `ZkTransfer` of the Transfer Operation, nor the `Ed25519Signature` of the inscriptions, nor the `provider_sig` and the `zk_proof` of the `SDP_DECLARE` Operations. The Transfer Operation consumes no note and therefore cannot balance its outputs, the inscriptions are signed by the null key whose secret key nobody holds, and the keys and the distributed notes a declaration would prove are already fixed by the out of band agreement on the Genesis block, so verifying them would establish nothing a node does not already have to trust. The `op_proofs` list still holds one entry per Operation, of the type that Operation requires, and those entries are placeholders.
 
 2. **The transaction balance covering the mandatory fees.** The whole initial token supply is created out of nothing by the Transfer Operation, so the Genesis Mantle Transaction has no excess to pay any fee from. Step 3 of [Validation](bedrock-v1.1-mantle-specification.md#validation) is skipped, no mandatory fee is charged and no `tx_priority_tip` is derived. The Genesis Mantle Transaction is accounted as costing no gas.
 
@@ -368,7 +368,7 @@ The pow reward pool is initialized at the same time:
 3. `difficulty_blend` is set to `BLEND_DIFFICULTY_BASE` for **epochs 0 and 1**, as given in [Blend Difficulty](proof-of-work.md#blend-difficulty): the value for an epoch is fixed at the preceding epoch's nonce snapshot from the load of the epoch before that, and no complete input epoch exists before epoch 2. The schedule begins with epoch 2's value, computed during epoch 1 from epoch 0's load.
 4. `difficulty_reward` is set to the genesis value given in [Reward Difficulty](proof-of-work.md#reward-difficulty), and `pow_nullifiers` is empty.
 
-The block reward stocks are initialized with them: `rewards_reserve` is set to its initial balance $`B_0`$, `rewards_pool` and `blend_rewards_pending` to `0`, and `pooled_fees_window` to $`120`$ zeros, as defined in [Block Rewards](block-rewards.md#deterministic-implementation). The distribution is sized so that the outputs of the Transfer Operation, the pow reward pool and the rewards reserve together make up the maximum supply $`S_{cap}`$.
+The block reward stocks are initialized with them: `rewards_reserve` is set to its initial balance $`B_0`$, `rewards_pool`, `blend_rewards_pending` and `pow_rewards_pending` to `0`, and `pooled_fees_window` to $`120`$ zeros, as defined in [Block Rewards](block-rewards.md#deterministic-implementation). The distribution is sized so that the outputs of the Transfer Operation, the pow reward pool and the rewards reserve together make up the maximum supply $`S_{cap}`$.
 
 Once the Genesis Mantle Transaction is executed, every note set records its commitment MMR root, as at the end of any block ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), so that the transactions of the next blocks can spend the notes created at Genesis.
 
@@ -396,7 +396,7 @@ To initialize the Epoch State, we derive the epoch variables from the genesis bl
 
 Blend network is initialized through normal Mantle Transaction execution. The `SDP_DECLARE` Operations in the Genesis Mantle Transaction will create the initial set of providers in each service.
 
-Beyond their provider signatures, the declarations carry no exemption: each is validated as [SDP_DECLARE](bedrock-v1.1-mantle-specification.md#sdp_declare) requires, against the state the Operations preceding it left, and executed with `created` set to epoch 0, the epoch the Genesis block belongs to. The notes a declaration consumes are outputs of the Transfer Operation that precedes it, proven against the empty MMR root extended with the commitment buffer of the transaction, which is why the Operation order of the Genesis Mantle Transaction is normative, and the minimum stake the declared amount is measured against is the one the node implementation starts with, the Genesis block encoding no service parameter.
+Beyond their proofs, the declarations carry no exemption: each is validated as [SDP_DECLARE](bedrock-v1.1-mantle-specification.md#sdp_declare) requires, against the state the Operations preceding it left, and executed with `created` set to epoch 0, the epoch the Genesis block belongs to. The notes a declaration consumes are outputs of the Transfer Operation that precedes it, referenced against the empty MMR root extended with the commitment buffer of the transaction, which is why the Operation order of the Genesis Mantle Transaction is normative, and the minimum stake the declared amount is measured against is the one the node implementation starts with, the Genesis block encoding no service parameter.
 
 The number of declarations is a property of the Genesis block rather than of any single Operation, and is the one [Initial Service Declarations](#initial-service-declarations) requires.
 

@@ -288,7 +288,7 @@ def block_id(header: Header) -> hash
     )
 ```
 
-The proof of leadership is not part of the block ID. A Groth16 proof is not unique: anyone can re-randomize a valid proof into another valid proof of the same statement. Including it would give the same block as many IDs as there are proofs of it. Without it, two blocks with the same ID have the same content and the same entropy contribution, and differ at most in their proof, which is valid for both since it is bound to that content ([Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)).
+The proof of leadership is not part of the block ID. A Groth16 proof is not unique: anyone can re-randomize a valid proof into another valid proof of the same statement. Including it would give the same block as many IDs as there are proofs of it. Without it, two blocks with the same ID have the same content and the same entropy contribution, and differ at most in their proofs: the proof of leadership, which is valid for both since it is bound to that content ([Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)), and the Operation proofs of their transactions, which the transaction hashes do not cover and which can be re-randomized as well.
 
 ### Block Header
 
@@ -348,7 +348,7 @@ def uncle_candidates(B) -> Set[Block]:
     # Inference counts occupied slots, so an uncle whose slot is already occupied adds nothing —
     # referencing it would waste an entry. Slots occupied on *other* branches are deliberately
     # not excluded: they do not count unless that branch becomes canonical.
-    referenced_uncles = { U for A in ancestors(B) for (U, _) in A.uncle_headers }
+    referenced_uncles = { U for A in ancestors(B) for U in A.uncle_headers }
     occupied = { sl_A for A in ancestors(B) } | { sl_U for U in referenced_uncles }
 
     # Accepted fork blocks that are valid uncles for B and would add a new occupied slot

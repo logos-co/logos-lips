@@ -26,7 +26,7 @@
 | 1.0.2 | Clarification of the Poseidon2 function Add test values | 2026-05-07 |
 | 1.1.0 | [RFC] Replace the BLAKE2b-Based PRNG with ChaCha20 (ChaCha20Rng) | 2026-08-28 |
 | 1.2.0 | Strict EdDSA verification: reject small-order public keys and small-order `R` | 2026-09-22 |
-| 1.3.0 | Removed the ZkSignature scheme, no longer used by any Operation | 2026-10-07 |
+| 1.3.0 | Removed the ZkSignature scheme, no longer used by any Operation. The three-element nullifier uses the hash function mode | 2026-10-07 |
 
 # Introduction
 
@@ -157,7 +157,7 @@ Throughout the Logos Blockchain specifications, Poseidon2 is referred to as zkha
 
 In the Logos Blockchain, bytes and $`\mathbb{F}_p`$ elements are frequently converted between formats (such as when interpreting DST byte strings as Poseidon2 inputs). To convert from an $`\mathbb{F}_p`$ element to bytes, we interpret the little-endian unsigned representation of the $`\mathbb{F}_p`$ number as 32 bytes. Conversely, we can interpret 32 bytes as an $`\mathbb{F}_p`$ element provided the resulting number is smaller than $p$.
 
-> We use Poseidon2 in hash function mode everywhere except in: Merkle proofs, public key derivation and nullifier derivation where we use the modified compression mode.
+> We use Poseidon2 in hash function mode everywhere except in Merkle proofs and public key derivation, where we use the modified compression mode. The nullifier `zkhash(NOTE_NF_V1, cm, sk)` hashes three elements and uses the hash function mode.
 
 Rationale for Use:
 

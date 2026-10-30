@@ -224,7 +224,7 @@ We updated the execution gas computation formula:
 We updated names and the paragraph on the Ledger Transaction Gas determination. We removed the inclusion of the Mantle Transaction cost (balance and computation of the hash that was negligeable):
 >
 
-  The Execution Gas of the~~ Ledger Transaction~~Transfer Operation compensates for the verification of the [ZkSignature](../../common-cryptographic-components.md#zksignature-zero-knowledge-signature) proof ~~and the validation of the overall Mantle Transaction balance~~. ~~This fundamental gas cost ensures proper cryptographic verification and data integrity of both the Ledger Transaction and the Mantle Transaction. It covers the cost of computing the Mantle Transaction hash.~~
+  The Execution Gas of the~~ Ledger Transaction~~Transfer Operation compensates for the verification of the [ZkSignature](../../../deprecated/v1.4.0-mantle.md#zero-knowledge-signature-scheme-zksignature) proof ~~and the validation of the overall Mantle Transaction balance~~. ~~This fundamental gas cost ensures proper cryptographic verification and data integrity of both the Ledger Transaction and the Mantle Transaction. It covers the cost of computing the Mantle Transaction hash.~~
   **Execution: ~590k CPU cycles.**
     - Verification of the ZK signature: 590,000 cycles.
     - ~~Verification of the balance: negligible.~~

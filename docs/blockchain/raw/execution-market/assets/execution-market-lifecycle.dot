@@ -1,0 +1,72 @@
+/*
+ * Execution market: lifecycle of the fees of a block
+ *
+ * Render:
+ *   dot -Tsvg execution-market-lifecycle.dot -o execution-market-lifecycle.svg
+ */
+
+digraph execution_market_lifecycle {
+  rankdir = TB;
+  bgcolor = "#1f2020";
+  splines = true;
+  nodesep = 0.50;
+  ranksep = 0.55;
+  pad     = 0.25;
+
+  node [
+    shape     = box,
+    style     = "rounded,filled",
+    fillcolor = "#1f2020",
+    color     = "#cfcfcf",
+    penwidth  = 1.5,
+    fontname  = "Helvetica",
+    fontsize  = 16,
+    fontcolor = "#d8d8d8",
+    margin    = "0.20,0.15",
+    width     = 3.00
+  ];
+
+  edge [color = "#cfcfcf", penwidth = 2, arrowsize = 0.9,
+        fontname = "Helvetica", fontsize = 14, fontcolor = "#d8d8d8"];
+
+  graph [fontname = "Helvetica", fontsize = 16, fontcolor = "#d8d8d8", color = "#8a8a8a", style = "rounded,dashed"];
+
+  subgraph cluster_protocol {
+    label = "Protocol Logic";
+    prev_block    [label = "Previous Block's Execution Usage"];
+    ema           [label = "Calculate Smoothed Average"];
+    base_fee      [label = "Update Base Fee for Block s\nb_exec[s]"];
+    prev_block -> ema -> base_fee;
+  }
+
+  subgraph cluster_user {
+    label = "User";
+    tx            [label = "User Transaction\nspecifies the price it pays: c_t"];
+  }
+
+  subgraph cluster_builder {
+    label = "Block Builder Actions";
+    mempool       [label = "Mempool"];
+    filter        [label = "Filter Mempool\nc_t >= b_exec[s]"];
+    sort          [label = "Sort Valid Transactions by Revenue"];
+    fill          [label = "Fill Block up to G_max"];
+    mempool -> filter -> sort -> fill;
+  }
+
+  subgraph cluster_fees {
+    label = "Fees of the Block";
+    pooled        [label = "Base Fees\nrouted to the rewards pool,\nless the proof of work share"];
+    tips          [label = "Priority Fees (Tips)\npaid to the block builder\nin its leader reward note"];
+  }
+
+  subgraph cluster_rewards {
+    label = "Rewards";
+    block_reward  [label = "Block Reward\npaid from the pool over the next blocks"];
+  }
+
+  tx       -> mempool;
+  base_fee -> filter;
+  fill     -> pooled [label = "  g_t x b_exec[s]  "];
+  fill     -> tips   [label = "  g_t x p_t  "];
+  pooled   -> block_reward;
+}

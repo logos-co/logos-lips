@@ -562,7 +562,7 @@ This needs a full update that changes its price from 0 to 590 Execution Gas.
 >
 
   ~~The validation process is free as it doesn't require any verification and its execution only requires modifying the balance of the channel.~~
-  The Execution Gas of the Channel Deposit Operation compensates for the verification of the [ZkSignature](../../common-cryptographic-components.md#zksignature-zero-knowledge-signature) proof and for the check of the inputs.
+  The Execution Gas of the Channel Deposit Operation compensates for the verification of the [ZkSignature](../../../deprecated/v1.4.0-mantle.md#zero-knowledge-signature-scheme-zksignature) proof and for the check of the inputs.
   **Execution: **~~**negligible**~~**. ~590k CPU cycles.**
   - Verification of the ZK signature: 590,000 cycles.
   - Verification that the notes are in the ledger: negligible.

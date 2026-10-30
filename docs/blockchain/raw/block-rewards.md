@@ -35,12 +35,12 @@
 
 # Introduction
 
-This document specifies how many tokens each block of the Logos Blockchain distributes as rewards. The reward of a block combines two sources: a release from the LGO rewards reserve allocated at genesis, and the average of the transaction fees pooled over the last blocks, paid back out. An emission rate factor, driven by network Key Performance Indicators (KPIs), sets the balance between the two. The leader of a block receives its share of the reward, with the tips of the block, in the block itself; only the Blend service waits for the end of its epoch.
+This document specifies how many tokens each block of the Logos Blockchain distributes as rewards. The reward of a block combines two sources: a release from the LGO rewards reserve allocated at genesis, and the average of the transaction fees pooled over the last blocks, paid back out. An emission rate factor, driven by network Key Performance Indicators (KPIs), sets the balance between the two. The leader of a block receives its share of the reward, with the tips of the block, in the block itself; the Blend service is paid its share of the rewards of an epoch at the first block of the epoch after next.
 
 The two KPIs are the inferred total stake, as a security indicator, and the average fee pooling rate, to keep the supply in equilibrium. The resulting model has the following properties:
 
 - The release from the reserve is higher while the stake is below its target, to bootstrap network participation, and is capped at $`1\%`$ of the maximum supply per year.
-- The release from the reserve decreases as the pooled fees grow, so that block rewards are funded primarily by the fees in the long run.
+- The release from the reserve rises with the pooled fees, complementing the share of them that the reward does not pay back.
 - No token is ever minted: the maximum supply is fixed at genesis as the initial distribution, the rewards reserve and the proof of work reward pool, and the reward moves tokens between the reserve, the rewards pool and the circulating supply.
 
 How the reward of a block is divided between the block leader and the Blend service is specified in [Blend Service and Consensus Leaders](overview-cryptoeconomics.md#blend-service-and-consensus-leaders).
@@ -188,7 +188,7 @@ $$
 
 A reserve release moves tokens from $`B_t`$ into circulation, routing a fee moves tokens from circulation into $`P_t`$, and the reward pays part of them back. Circulating supply $`S_t`$ rises as the reserve drains, and contracts whenever the fees of a block exceed its reward. This removes tokens from circulation, not from existence.
 
-The [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool) is a stock of the same kind, holding tokens allocated at genesis and topped up by the share of the fees diverted before they reach $`P_t`$, and paying them into circulation as claims are made. It joins the controlled total, which is $`S_t + P_t + B_t + W_t`$, writing $`W_t`$ for this pool, and is constant for the same reason: every movement is between stocks. Net circulating growth over the reserve's life is bounded by $`B_0 + W_0`$, the two stocks that begin full and drain into circulation. The Blend share of a block reward waits in a stock of the same kind, `blend_rewards_pending`, written $`E_t`$, until the epoch it is paid in: at a block, circulation gains only the leader share of $`R_t`$ and $`E_t`$ the rest, and the Blend reward notes later move it into circulation, what they do not use returning to $`P_t`$. The controlled total is therefore $`S_t + P_t + B_t + W_t + E_t`$, constant since every movement is between stocks.
+The [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool) is a stock of the same kind, holding tokens allocated at genesis and topped up by the share of the fees diverted before they reach $`P_t`$, and paying them into circulation as claims are made. It joins the controlled total, which is $`S_t + P_t + B_t + W_t`$, writing $`W_t`$ for this pool together with the share of the fees waiting in `pow_rewards_pending` for the epoch boundary that credits it, and is constant for the same reason: every movement is between stocks. Net circulating growth over the reserve's life is bounded by $`B_0 + W_0`$, the two stocks that begin full and drain into circulation. The Blend share of a block reward waits in a stock of the same kind, `blend_rewards_pending`, written $`E_t`$, until the epoch it is paid in: at a block, circulation gains only the leader share of $`R_t`$ and $`E_t`$ the rest, and the Blend reward notes later move it into circulation, what they do not use returning to $`P_t`$. The controlled total is therefore $`S_t + P_t + B_t + W_t + E_t`$, constant since every movement is between stocks.
 
 ## Key Performance Indicators
 
@@ -250,7 +250,7 @@ $$
 R_t = \iota_t + \pi_t.
 $$
 
-The reserve balance `rewards_reserve`, the pool balance `rewards_pool` and the Blend share waiting to be paid `blend_rewards_pending` are consensus state, set at Genesis to $`B_0 = 10^{18}`$, $`0`$ and $`0`$. The nodes also keep `pooled_fees_window`, the pooled fees of the last $`120`$ blocks, `0` for the blocks before the first one. When the leader reward of a block is computed ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), the pooled fees of the block enter the window, the reserve pays $`\iota_t`$, the pool receives the pooled fees of the block and pays $`\pi_t`$, and the Blend share of the reward waits to be paid:
+The reserve balance `rewards_reserve`, the pool balance `rewards_pool`, the Blend share waiting to be paid `blend_rewards_pending` and the proof of work share waiting for the next epoch boundary `pow_rewards_pending` are consensus state, set at Genesis to $`B_0 = 10^{18}`$, $`0`$, $`0`$ and $`0`$. The nodes also keep `pooled_fees_window`, the pooled fees of the last $`120`$ blocks, `0` for the blocks before the first one. When the leader reward of a block is computed ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), the pooled fees of the block enter the window, the reserve pays $`\iota_t`$, the pool receives the pooled fees of the block and pays $`\pi_t`$, the Blend share of the reward waits to be paid, and the proof of work share of the fees of the block waits to be credited to the [Proof of Work Reward Pool](proof-of-work.md#reward-pool):
 
 ```python
 # pooled_fees is D_1_t, the pooled fees of the block, and total_stake is D_0_t
@@ -260,9 +260,10 @@ rewards_reserve -= release
 rewards_pool += pooled_fees
 rewards_pool -= payout
 blend_rewards_pending += release + payout - leader_share(block)
+pow_rewards_pending += get_collected_fees(block) * POW_SHARE // SHARE_DEN
 ```
 
-`leader_share` is defined in [Blend Service and Consensus Leaders](overview-cryptoeconomics.md#blend-service-and-consensus-leaders).
+`leader_share`, `get_collected_fees`, `POW_SHARE` and `SHARE_DEN` are defined in [Blend Service and Consensus Leaders](overview-cryptoeconomics.md#blend-service-and-consensus-leaders) and [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool). At the first block of an epoch, `pow_rewards_pending` is credited to the proof of work reward pool and reset to `0` ([Proof of Work](proof-of-work.md#reward-pool)).
 
 The Blend reward of an epoch is paid from `blend_rewards_pending` ([Service Reward Distribution Protocol](bedrock-service-reward-distribution.md)), and what the epoch does not distribute, when no reward is calculated or as the remainder of the division among the nodes, returns to `rewards_pool`.
 
@@ -272,7 +273,7 @@ Every pooled fee is paid out at most once across the $`120`$ blocks of its windo
 A_SCALE: int64 = 120_000_000_000_000_000        # denominator of A_t
 STAKE_TARGET: int64 = 3_000_000_000_000_000_000  # D_0_target
 FEE_AVG_NUMERATOR: int64 = 10_512       # alpha_a / (I_max * D_1_target * Delta_t * T), over A_SCALE
-WINDOW: int64 = 120                     # T, the blocks of the moving average
+FEE_WINDOW: int64 = 120                 # T, the blocks of the moving average
 RELEASE_NUMERATOR: int64 = 62_500_000_000_000  # numerator of I_max * S_cap * Delta_t
 RELEASE_DENOMINATOR: int64 = 657        # denominator of I_max * S_cap * Delta_t
 
@@ -292,11 +293,11 @@ def block_reward(total_stake: uint64, pooled_fees_window: list[uint64],
     # the release cannot exceed what the reserve still holds
     release: int128 = min(RELEASE_NUMERATOR * a_numerator // (RELEASE_DENOMINATOR * A_SCALE),
                           reserve)
-    payout: int128 = (A_SCALE - a_numerator) * sum_fees // (WINDOW * A_SCALE)
+    payout: int128 = (A_SCALE - a_numerator) * sum_fees // (FEE_WINDOW * A_SCALE)
     return uint64(release), uint64(payout)
 ```
 
-`get_block_rewards(b)` is the sum of the two values `block_reward` returns for the block `b`.
+`get_block_rewards(b)` is `release + payout`, the sum of the two values `block_reward` returns in the update of the block `b` above, once the pooled fees of `b` have entered the window.
 
 # Annex
 

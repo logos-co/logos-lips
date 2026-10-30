@@ -76,10 +76,10 @@ Each `voucher_cm` is added to a Merkle tree of voucher commitments by validators
 
 ### Protocol
 
-Each leader may submit a [LEADER_CLAIM](bedrock-v1.1-mantle-specification.md#leader_claim) Operation to claim their reward. This Operation includes:
+Each leader may submit a [LEADER_CLAIM](v1.4.0-mantle.md#leader_claim) Operation to claim their reward. This Operation includes:
 
 - The Merkle root of the global voucher set when the Mantle Transaction containing the claim is submitted.
-- A [Proof of Claim](bedrock-v1.1-mantle-specification.md#proof-of-claim).
+- A [Proof of Claim](v1.4.0-mantle.md#proof-of-claim).
 
 This Operation increases the balance of a Mantle Transaction by the leader reward amount, letting the leader move the funds as desired through the Ledger transaction or another Operation.
 

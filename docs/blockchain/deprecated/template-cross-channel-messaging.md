@@ -31,7 +31,7 @@
 
 This document outlines the cross-channel messaging framework. A channel is a reserved identifier where only authorized keys can post messages on-chain, while anyone can read them. Cross-channel messaging allows different channels (including channels representing a Zone) to communicate and coordinate actions (such as Zone state transitions), enabling interoperability while maintaining security and decentralization.
 
-## Reference: [Mantle](bedrock-v1.1-mantle-specification.md).
+## Reference: [Mantle](../raw/bedrock-v1.1-mantle-specification.md).
 
 ## Objectives
 
@@ -91,7 +91,7 @@ Use Asynchronous Messaging when:
 Cross-channel messaging follows this general flow:
 
 1. The source channel's sequencer generates a message for one or more destination channels.
-1. The message is included in a Mantle Transaction (through an [Inscription](bedrock-v1.1-mantle-specification.md)[Operation](bedrock-v1.1-mantle-specification.md)):
+1. The message is included in a Mantle Transaction (through an [Inscription](../raw/bedrock-v1.1-mantle-specification.md)[Operation](../raw/bedrock-v1.1-mantle-specification.md)):
     1. For asynchronous messaging: the channel's sequencer includes it in a separate transaction.
     1. For synchronous messaging: a coordinator gathers Operations from different channel sequencers and includes them in a common transaction.
 1. Once the Mantle Transaction is built, each channel sequencer signs their Operation using the Mantle Transaction hash as input.
