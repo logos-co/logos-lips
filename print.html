@@ -40942,6 +40942,7 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 </div><!-- timeline:start -->
 <h2 id="timeline-132"><a class="header" href="#timeline-132">Timeline</a></h2>
 <ul>
+<li><strong>2026-10-30</strong> — <a href="https://github.com/logos-co/logos-lips/blob/386b39f949621010aa88bedf74a789b1615ef235/docs/blockchain/raw/blend-protocol.md"><code>386b39f</code></a> — [RFC] Blend: Size the observation window by cover traffic (#499)</li>
 <li><strong>2026-10-27</strong> — <a href="https://github.com/logos-co/logos-lips/blob/6b84187f0ae37a0e8c28c32d3bb1e6f619cec147/docs/blockchain/raw/blend-protocol.md"><code>6b84187</code></a> — [RFC] SDP: Identify declarations by service and <code>zk_id</code> (#407)</li>
 <li><strong>2026-10-14</strong> — <a href="https://github.com/logos-co/logos-lips/blob/949faa9563027de366514247a2a62b0de2f8c45f/docs/blockchain/raw/blend-protocol.md"><code>949faa9</code></a> — [RFC] Mantle: Bound operation data payloads (#467)</li>
 <li><strong>2026-09-29</strong> — <a href="https://github.com/logos-co/logos-lips/blob/96e958692700a1b4e67203158a3632d47640002f/docs/blockchain/raw/blend-protocol.md"><code>96e9586</code></a> — [RFC] Blend: Bound connection traffic at the receiver (#421)</li>
@@ -40975,6 +40976,7 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <tr><td>1.6.0</td><td>Replaced the per-window statistical threshold on a connection with a share of messages a node reads from, and sends on, each connection in a round, and a liveness test, kept per identity for the epoch, on whether a neighbor delivers. Held the peering degree in live connections, at least two of them opened by the node. Restricted blacklisting to attributable faults. Sized the shares from the processing rate of the slowest node, derived the transactions the network carries from them, and made that rate the reference load of the Blend difficulty.</td><td>2026-09-08</td></tr>
 <tr><td>1.6.1</td><td>Corrected Blend activity metadata to the canonical tagged encoding: removed the separate version byte and corrected the total size to 229 bytes.</td><td>2026-10-13</td></tr>
 <tr><td>1.6.2</td><td>The node count and the neighbor distinction read the <code>provider_id</code>s of the Blend declarations, which the Service Declaration Protocol keeps unique</td><td>2026-10-27</td></tr>
+<tr><td>1.7.0</td><td>Derived the observation window <span class="math-inline" data-tex="W"></span> from cover traffic in place of the maximal release delay.</td><td>2026-10-29</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction-71"><a class="header" href="#introduction-71">Introduction</a></h1>
@@ -41425,6 +41427,7 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <li><span class="math-inline" data-tex="\beta_{max}"></span> denotes a maximum number of processing rounds for a single message;</li>
 <li><span class="math-inline" data-tex="E"></span> denotes a number of rounds in an epoch;</li>
 <li><span class="math-inline" data-tex="W"></span> denote the observation window expressed in the number of rounds;</li>
+<li><span class="math-inline" data-tex="M_W"></span> denote the number of messages a core connection carries from cover traffic alone in an observation window;</li>
 <li><span class="math-inline" data-tex="F_1"></span> denote the number of messages a core connection carries per round;</li>
 <li><span class="math-inline" data-tex="V"></span> denote the number of messages per second the slowest node the protocol targets processes;</li>
 <li><span class="math-inline" data-tex="r_1"></span> denote the number of messages a node reads from a core connection in a round;</li>
@@ -41450,7 +41453,8 @@ We are interested in the random variable <span class="math-inline" data-tex="c_i
 <li><span class="math-inline" data-tex="\beta_D=3"></span>, the expected number of blending operations for each data message;</li>
 <li><span class="math-inline" data-tex="\eta=2"></span> rounds, the network absorption of one hop.</li>
 <li><span class="math-inline" data-tex="T_M = 15"></span> rounds, the message traversal time, as derived in the <a href="blockchain/raw/blend-protocol.html#transition-period">Transition Period</a> section.</li>
-<li><span class="math-inline" data-tex="W=10 \cdot \Delta_{max}=30"></span>, the observation window is <span class="math-inline" data-tex="30"></span> rounds.</li>
+<li><span class="math-inline" data-tex="W = \lceil M_W / (F_C \cdot (1 + R_C) \cdot \beta_C) \rceil = 30"></span> rounds, the observation window: the rounds in which a core connection carries <span class="math-inline" data-tex="M_W"></span> messages from cover traffic alone (<a href="blockchain/raw/blend-protocol.html#expected-traffic">Expected Traffic</a>).</li>
+<li><span class="math-inline" data-tex="M_W = 90"></span> messages. With a smaller <span class="math-inline" data-tex="M_W"></span>, a node more often reads an honest neighbor as not live and closes its connection (<a href="blockchain/raw/blend-protocol.html#connectivity-maintenance">Connectivity Maintenance</a>). With a larger one, a neighbor that delivers nothing holds a connection slot for longer, and a blacklist entry lasts longer.</li>
 <li><span class="math-inline" data-tex="F_C=1"></span>, the network generates one cover message per round on average.</li>
 <li><span class="math-inline" data-tex="F_D=1/30"></span>, the network generates one block proposal every <span class="math-inline" data-tex="30"></span> rounds on average (<a href="blockchain/raw/cryptarchia-v1-protocol.html">Cryptarchia Protocol</a>).</li>
 <li><span class="math-inline" data-tex="F_T = 130/30"></span>, the network carries <span class="math-inline" data-tex="130"></span> messages per slot of <span class="math-inline" data-tex="30"></span> rounds, each carrying one transaction (<a href="blockchain/raw/payload-formatting.html">Payload Formatting</a>), whatever quota backs them: <span class="math-inline" data-tex="\left(F_1 / \beta_{max} - \max(F_C \cdot (1 + R_C), F_D \cdot (1 + R_D))\right) \cdot 30 = 130"></span> at <span class="math-inline" data-tex="F_1 = 16"></span> (<a href="blockchain/raw/blend-protocol.html#expected-traffic">Expected Traffic</a>).</li>
