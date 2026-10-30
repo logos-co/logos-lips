@@ -27,7 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-12-09 |
 | 1.1.0 | Remove the protection against adaptive adversary from PoL removing a non-enforced feature, simplifying work for engineers, improving UX and performances of PoL and PoQ. Update the performance according to the new circuit. Remove the notion of NOMOS in DSTs | 2026-01-29 |
 | 1.1.1 | Introduced a discussion for when the value of a participating note is way higher than the total estimated stake | 2026-06-24 |
-| 1.2.0 | Support the private ledger of Mantle: a note is eligible from any note set of the ledger, committed together in the eligible root, and proven unspent by the non-membership of its nullifier. The proof is bound to its block by `msg`, a hash of the block header, replacing the leader key. The commitment and nullifier paths have the depth 40 of the note sets, and the eligible tree has depth 40 too, as every channel adds a note set and is created at no Execution Gas | 2026-10-06 |
+| 1.2.0 | Support the private ledger of Mantle: a note is eligible from any note set of the ledger, committed together in the eligible root, and proven unspent by the non-membership of its nullifier. The proof is bound to its block by `msg`, a hash of the block header, replacing the leader key. The commitment, nullifier and eligible tree paths have depth 40 | 2026-10-06 |
 | 1.2.1 | The note commitment is derived with `0` as the `program` and `data` fields of the note, so only user notes lead. The proving time benchmark is measured on the current circuit | 2026-10-12 |
 
 # Introduction
@@ -91,14 +91,15 @@ def eligible_leaf(cm_root: MerkleRoot, nf_root: MerkleRoot) -> zkhash:
     )
 
 def eligible_root(sets: list[NoteSet]) -> MerkleRoot:
-    assert len(sets) < 2**40
-    leaves = []
+    peaks = []
     for note_set in sets:
         # the root of the commitment MMR and the root of the nullifier IMT of the set
-        leaves.append(eligible_leaf(note_set.cm_root(), note_set.nf_root()))
+        mmr_append(peaks, eligible_leaf(note_set.cm_root(), note_set.nf_root()))
     # Merkle root of depth 40 over the leaves, every position past the last note set holding 0
-    return get_merkle_root(leaves, depth=40)
+    return mmr_root(peaks)
 ```
+
+`mmr_append` and `mmr_root` are those of the [commitment MMR](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range), which compute the same tree.
 
 The first leaf is the ledger note set, the second the SDP note set, and the next ones the channels in the order they were created. Its root when the stake distribution was frozen is $`eligible_{AGED}`$, and its latest root is $`eligible_{LATEST}`$.
 
@@ -143,7 +144,7 @@ class ProofOfLeadershipWitness:
     set_latest_path: list[FrElement]  # path of the leaf of the set to eligible_latest (len = 40)
 ```
 
-Every path and its selectors follow the Merkle path convention of [Mantle](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range): from the leaf level up, a selector being the bit of the leaf index at its level.
+Every path and its selectors follow the Merkle path convention of [Mantle](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range): from the leaf level up, a selector being the bit of the leaf index at its level. `path_root`, defined there, computes the root of a path and constrains every selector to be a bit.
 
 Such that the following constraints hold:
 
