@@ -32,6 +32,7 @@
 | 1.1.4 | Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy. | 2026-08-25 |
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
 | 1.2.0 | Seed the pow reward pool at genesis from the initial token distribution | 2026-09-08 |
+| 1.3.0 | Removed the `bedrock_version` header field and moved `slot` first, and set the `fork_digest` of the Genesis Mantle Transaction to zero, parsing it under era 0 ([Bedrock Eras](bedrock-eras.md)); the inscription, renamed Genesis Parameters with field names that drop the genesis prefix, also carries the pow reward pool seed and the consensus-excluded keys. | 2026-10-21 |
 
 # Introduction
 
@@ -43,7 +44,7 @@ The Genesis Block establishes the initializing values for the various protocols 
 
 The block body is a single Mantle Transaction (see [Mantle](bedrock-v1.1-mantle-specification.md)) containing a Transfer Operation distributing the notes to initial token holders. The bedrock services are initialized through `SDP_DECLARE` Operations embedded in the Mantle Transaction’s Operations list and protocol initializing constants are encoded through a `CHANNEL_INSCRIBE` Operation also embedded in the Operations list.
 
-Not all protocol constants are encoded in the Genesis block. The principle we use to decide whether a value should be in the Genesis block or not is whether it is a value that is derived from blockchain activity or whether it is updated through a protocol update (hard / soft fork). For example, the epoch nonce is updated through normal blockchain Operations and therefore it should be specified in the Genesis block. Gas constants are only changed through protocol updates and hard forks and therefore they will be hardcoded in the node implementation.
+Not all protocol constants are encoded in the Genesis block. The principle we use to decide whether a value should be in the Genesis block or not is whether it is a value that is derived from blockchain activity or whether it is updated through an era change ([Bedrock Eras](bedrock-eras.md)). For example, the epoch nonce is updated through normal blockchain Operations and therefore it should be specified in the Genesis block. Gas constants are only changed through an era change and therefore they are not encoded in the Genesis block.
 
 # Genesis Block Data Structure
 
@@ -73,20 +74,13 @@ STAKE_DISTRIBUTION = Transfer(
 
 ## Initial Proof of Work Reward Pool
 
-The pow reward pool is seeded once, at genesis, with a fixed quantity of tokens:
-
-```python
-POW_REWARD_POOL_GENESIS: TokenValue   # Initial balance of the pow reward pool
-                                      # = 5/1000 of the maximum supply
-```
-
-The seed is five thousandths of the maximum supply $`S_{cap}`$, as specified in [Reward Pool](proof-of-work.md#reward-pool).
+The pow reward pool is seeded once, at genesis, with the `pow_reward_pool` of the [Genesis Parameters](#genesis-parameters).
 
 This allocation is drawn from the initial token distribution, not created in addition to it: the tokens exist from genesis, and the seed determines how many of them are held in the pool rather than distributed to stakeholders directly.
 
 The pool holds a balance rather than notes, so unlike the stakeholder allocations above it does not appear as an output of the initial Transfer Operation. It is consensus state maintained as specified in [Reward Pool](proof-of-work.md#reward-pool), and after genesis it changes through the epoch-boundary refill and through claims.
 
-The seed is not part of the Cryptarchia parameter inscription, because it is not a Cryptarchia parameter. It is established during [Mantle Ledger Initialization](#mantle-ledger-initialization).
+The pool is established during [Mantle Ledger Initialization](#mantle-ledger-initialization).
 
 ## Initial Service Declarations
 
@@ -110,19 +104,25 @@ BLEND_DECLARATIONS = [
 SERVICE_DECLARATIONS = BLEND_DECLARATIONS
 ```
 
-## Cryptarchia Parameters
+## Genesis Parameters
 
-Cryptarchia is initialized with the following parameters:
+The Genesis block sets the following parameters:
 
-- `genesis_time`: u32 unix timestamp (seconds since the Unix epoch).
-  A unix timestamp is conventionally an `i64`; `genesis_time` is restricted to the `u32` range (0 to 2^32 - 1), which covers all plausible genesis dates (through February 2106).
+- `start_time`: u32 unix timestamp (seconds since the Unix epoch).
+  A unix timestamp is conventionally an `i64`; `start_time` is restricted to the `u32` range (0 to 2^32 - 1), which covers all plausible genesis dates (through February 2106).
   Cryptarchia uses slots as a measure of time offset from some start time. This timestamp must be agreed upon by all nodes in order to have a common clock.
 
 - `chain_id`: UTF-8 string, encoded with a u8 length prefix (at most 255 bytes).
   It is useful to differentiate testnets from mainnet. To avoid confusion, we place the chain ID in the Genesis block to guarantee that the networks are disjoint.
 
-- `genesis_epoch_nonce`: 32 bytes, hex encoded.
+- `epoch_nonce`: 32 bytes, hex encoded.
   The initial source of randomness for the Cryptarchia lottery. The process for selecting this value is described in detail at [Epoch Nonce Ceremony](#epoch-nonce-ceremony).
+
+- `pow_reward_pool`: u64, little-endian.
+  The initial balance of the pow reward pool, five thousandths of the maximum supply $`S_{cap}`$ ([Initial Proof of Work Reward Pool](#initial-proof-of-work-reward-pool)).
+
+- `consensus_excluded_keys`: a u32 little-endian count, then that many distinct `ZkPublicKey`s ([Mantle Transaction Encoding](mantle-transaction-encoding.md)) in increasing numeric order.
+  A node must not prove leadership with a note of one of these keys ([Proof of Leadership](cryptarchia-proof-of-leadership.md)).
 
 These parameters are encoded in the Genesis block as an inscription sent to the null channel, signed by the null key. The null channel is the channel whose `ChannelId` is 32 zero bytes and the null key is the Ed25519 public key made of 32 zero bytes, written `Ed25519PublicKey_ZERO` in the examples below. No one holds the secret key behind it, so the null channel receives the Genesis inscription and nothing else ever after.
 
@@ -130,20 +130,27 @@ These parameters are encoded in the Genesis block as an inscription sent to the 
 
 ```python
 CHAIN_ID = "logos-blockchain-mainnet"
-GENESIS_TIME = 1767640835  # 2026-01-05T19:20:35Z
-GENESIS_EPOCH_NONCE = "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+START_TIME = 1767640835  # 2026-01-05T19:20:35Z
+EPOCH_NONCE = "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+POW_REWARD_POOL = 300_000_000_000
+CONSENSUS_EXCLUDED_KEYS = []  # ZkPublicKey values
 
 chain_id_enc = CHAIN_ID.encode("utf-8")
 chain_id_len = len(chain_id_enc).to_bytes(1, "little")
-genesis_time = GENESIS_TIME.to_bytes(4, "little")
-genesis_epoch_nonce = bytes.fromhex(GENESIS_EPOCH_NONCE)
+start_time = START_TIME.to_bytes(4, "little")
+epoch_nonce = bytes.fromhex(EPOCH_NONCE)
+pow_reward_pool = POW_REWARD_POOL.to_bytes(8, "little")
+consensus_excluded_keys = len(CONSENSUS_EXCLUDED_KEYS).to_bytes(4, "little") + b"".join(
+    key.to_bytes(32, "little") for key in sorted(CONSENSUS_EXCLUDED_KEYS)
+)
 
-inscription = chain_id_len + chain_id_enc + genesis_time + genesis_epoch_nonce
+inscription = (chain_id_len + chain_id_enc + start_time + epoch_nonce
+               + pow_reward_pool + consensus_excluded_keys)
 
 # >>> inscription.hex()
-# '186c6f676f732d626c6f636b636861696e2d6d61696e6e6574030f5c69abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
+# '186c6f676f732d626c6f636b636861696e2d6d61696e6e6574030f5c69abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456789000b864d94500000000000000'
 
-CRYPTARCHIA_INSCRIPTION = Inscribe(
+GENESIS_INSCRIPTION = Inscribe(
     channel=bytes(32),
     inscription=inscription,
     parent=bytes(32),
@@ -182,11 +189,12 @@ $$
 
 ## Genesis Mantle Transaction
 
-The initial stake distribution, service declarations and Cryptarchia inscription are components of the Genesis Mantle Transaction. This is the single transaction that forms the body of the Genesis block.
+The initial stake distribution, service declarations and the inscription of the Genesis Parameters are components of the Genesis Mantle Transaction. This is the single transaction that forms the body of the Genesis block.
 
 ```python
 GENESIS_MANTLE_TX = MantleTx(
-    ops=[STAKE_DISTRIBUTION, CRYPTARCHIA_INSCRIPTION] + SERVICE_DECLARATIONS,
+    fork_digest=bytes(32),
+    ops=[STAKE_DISTRIBUTION, GENESIS_INSCRIPTION] + SERVICE_DECLARATIONS,
 )
 ```
 
@@ -194,9 +202,8 @@ GENESIS_MANTLE_TX = MantleTx(
 
 The Genesis Block header fields are set to the following values:
 
-- `bedrock_version`: Protocol version (e.g., 1).
-- `parent_block`: 0 (as this is the first block).
 - `slot`: 0 (the Genesis slot).
+- `parent_block`: 0 (as this is the first block).
 - `body_root`: the body commitment over an empty `uncle_headers` list (as the Genesis Block references no uncle, it encodes as a zero element count) and the Merkle root over the (single) initial transaction.
 - `proof_of_leadership`: Stubbed leadership proof.
   - `leader_voucher`: 0 (as there is no leader block reward for the initial block).
@@ -208,9 +215,8 @@ The Genesis Block header fields are set to the following values:
 
 ```python
 GENESIS_HEADER = Header(
-    bedrock_version=1,
-    parent_block=0,
     slot=0,
+    parent_block=0,
     body_root=body_root([], [GENESIS_MANTLE_TX]),
     proof_of_leadership=ProofOfLeadership(
         leader_voucher=bytes(32),
@@ -233,20 +239,25 @@ STAKE_DISTRIBUTION = Transfer(
     ]
 )
 
-# set Cryptarchia parameters
+# set the Genesis Parameters
 CHAIN_ID = "logos-blockchain-mainnet"
-GENESIS_TIME = 1767640835  # 2026-01-05T19:20:35Z
-GENESIS_EPOCH_NONCE = "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+START_TIME = 1767640835  # 2026-01-05T19:20:35Z
+EPOCH_NONCE = "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+POW_REWARD_POOL = 300_000_000_000
+CONSENSUS_EXCLUDED_KEYS = []  # ZkPublicKey values
 
 chain_id_enc = CHAIN_ID.encode("utf-8")
 inscription = (
     len(chain_id_enc).to_bytes(1, "little")
     + chain_id_enc
-    + GENESIS_TIME.to_bytes(4, "little")
-    + bytes.fromhex(GENESIS_EPOCH_NONCE)
+    + START_TIME.to_bytes(4, "little")
+    + bytes.fromhex(EPOCH_NONCE)
+    + POW_REWARD_POOL.to_bytes(8, "little")
+    + len(CONSENSUS_EXCLUDED_KEYS).to_bytes(4, "little")
+    + b"".join(key.to_bytes(32, "little") for key in sorted(CONSENSUS_EXCLUDED_KEYS))
 )
 
-CRYPTARCHIA_INSCRIPTION = Inscribe(
+GENESIS_INSCRIPTION = Inscribe(
     channel=bytes(32),
     inscription=inscription,
     parent=bytes(32),
@@ -265,13 +276,13 @@ SERVICE_DECLARATIONS = BLEND_DECLARATIONS
 
 # build the genesis Mantle Transaction
 GENESIS_MANTLE_TX = MantleTx(
-    ops=[STAKE_DISTRIBUTION, CRYPTARCHIA_INSCRIPTION] + SERVICE_DECLARATIONS,
+    fork_digest=bytes(32),
+    ops=[STAKE_DISTRIBUTION, GENESIS_INSCRIPTION] + SERVICE_DECLARATIONS,
 )
 
 GENESIS_HEADER = Header(
-    bedrock_version=1,
-    parent_block=bytes(32),
     slot=0,
+    parent_block=bytes(32),
     body_root=body_root([], [GENESIS_MANTLE_TX]),
     proof_of_leadership=ProofOfLeadership(
         leader_voucher=bytes(32),
@@ -294,7 +305,7 @@ The Genesis block is not a block proposal and is not validated as one: none of t
 
 Validating the Genesis Mantle Transaction is not what makes the Genesis block trustworthy. The block is agreed upon out of band, every node starts from the same one, and a node that rejected it would have no chain to join. The checks are kept for two reasons: a malformed or inconsistent Genesis block is then reported when a node is set up rather than surfacing later as unexplained runtime behaviour, and Genesis stays on the ordinary Operation processing path instead of needing an unvalidated path of its own. This is why the exemptions below are a closed list rather than a general licence to skip validation.
 
-The Genesis Mantle Transaction holds, in this order, the Transfer Operation distributing the initial tokens, the `CHANNEL_INSCRIBE` Operation carrying the Cryptarchia parameters, and one `SDP_DECLARE` Operation per initial service provider. A Genesis Mantle Transaction whose Operations do not follow that shape, or that holds an Operation of any other opcode, is invalid.
+The Genesis Mantle Transaction holds, in this order, the Transfer Operation distributing the initial tokens, the `CHANNEL_INSCRIBE` Operation carrying the Genesis Parameters, and one `SDP_DECLARE` Operation per initial service provider. A Genesis Mantle Transaction whose Operations do not follow that shape, or that holds an Operation of any other opcode, is invalid.
 
 ## Genesis Validation Exemptions
 
@@ -306,6 +317,8 @@ The checks below, and only these, are skipped when the Genesis Mantle Transactio
 
 3. **The Transfer Operation inputs.** The Genesis Transfer Operation has no inputs, no note existing before it, so the requirement that inputs be non-empty ([Input Notes Spendability Validation](bedrock-v1.1-mantle-specification.md#input-notes-spendability-validation)) does not apply and there is no spendability to check. It is the only Transfer Operation of the chain allowed to consume nothing.
 
+4. **The fork digest.** Every fork digest hashes the Genesis block ([Fork Digest](bedrock-eras.md#fork-digest)), so the Genesis Mantle Transaction cannot carry one. Its `fork_digest` is 32 zero bytes. It is parsed under era 0, and step 4 of [Validation](bedrock-v1.1-mantle-specification.md#validation) is skipped.
+
 Everything else is validated as it would be in any other block, against the state the Operations preceding it left, the transaction level check that there is one `op_proofs` entry per Operation included.
 
 ## Mantle Ledger Initialization
@@ -314,18 +327,18 @@ The Transfer Operation distributing the initial tokens is validated and executed
 
 The pow reward pool is initialized at the same time:
 
-1. `pow_reward_pool` is set to `POW_REWARD_POOL_GENESIS`, as described in [Initial Proof of Work Reward Pool](#initial-proof-of-work-reward-pool).
+1. `pow_reward_pool` is set to the `pow_reward_pool` of the [Genesis Parameters](#genesis-parameters).
 2. `epoch_pow_reward` is derived from it by the computation given in [Reward Pool](proof-of-work.md#reward-pool), so that claiming is productive from the first epoch rather than waiting for the first refill.
 3. `difficulty_blend` is set to `BLEND_DIFFICULTY_BASE` for **epochs 0 and 1**, as given in [Blend Difficulty](proof-of-work.md#blend-difficulty): the value for an epoch is fixed at the preceding epoch's nonce snapshot from the load of the epoch before that, and no complete input epoch exists before epoch 2. The schedule begins with epoch 2's value, computed during epoch 1 from epoch 0's load.
 4. `difficulty_reward` is set to the genesis value given in [Reward Difficulty](proof-of-work.md#reward-difficulty), and `pow_nullifiers` is empty.
 
 ## Cryptarchia Initialization
 
-The Mantle Transaction contains an inscription sent to the null channel containing the parameters for initializing Cryptarchia. It is validated as an ordinary `CHANNEL_INSCRIBE` Operation minus its signature: the null channel does not exist yet, so the inscription must carry a `parent` of `ZERO`, and its execution creates that channel with the null key as its only accredited key.
+The Mantle Transaction contains an inscription sent to the null channel containing the [Genesis Parameters](#genesis-parameters). It is validated as an ordinary `CHANNEL_INSCRIBE` Operation minus its signature: the null channel does not exist yet, so the inscription must carry a `parent` of `ZERO`, and its execution creates that channel with the null key as its only accredited key.
 
-Two conditions are specific to Genesis. The inscription must be addressed to the null channel and signed by the null key, an inscription anywhere else not being a set of Cryptarchia parameters. It must also decode to exactly the three parameters, encoded as [Cryptarchia Parameters](#cryptarchia-parameters) specifies and with no trailing bytes. A node that cannot decode them has no clock, no chain identifier and no lottery randomness, and must reject the Genesis block.
+Two conditions are specific to Genesis. The inscription must be addressed to the null channel and signed by the null key, an inscription anywhere else not being a set of Genesis Parameters. It must also decode to exactly the five parameters, encoded as [Genesis Parameters](#genesis-parameters) specifies and with no trailing bytes. A node that cannot decode them has no clock, no chain identifier and no lottery randomness, and must reject the Genesis block.
 
-The Cryptarchia slot clock is initialized to `genesis_time`, `LIB` is set to the Genesis block and the epoch state is then initialized:
+The Cryptarchia slot clock is initialized to the `start_time` of the [Genesis Parameters](#genesis-parameters), `LIB` is set to the Genesis block and the epoch state is then initialized:
 
 ### Initial Epoch State
 
@@ -333,9 +346,9 @@ Cryptarchia progresses in epochs where the variables governing the lottery are f
 
 To initialize the Epoch State, we derive the epoch variables from the genesis block.
 
-1. $`\eta`$ : the epoch nonce is taken directly from the `genesis_epoch_nonce`.
+1. $`\eta`$ : the epoch nonce is taken directly from the `epoch_nonce` of the [Genesis Parameters](#genesis-parameters).
 2. $`\mathbb{C}_\text{LEAD}`$: Eligible leader commitment is set to the the Ledger Root over all notes from the initial token distribution. The derivation of this root is specified in [Ledger Root](cryptarchia-proof-of-leadership.md#ledger-root).
-3. $`D`$: The initial estimate of total stake will be the total tokens distributed at genesis.
+3. $`D`$: The initial estimate of total stake is the total of the tokens distributed at genesis, leaving out the notes of the keys in [`consensus_excluded_keys`](#genesis-parameters).
 
 ## Bedrock Services Initialization
 
