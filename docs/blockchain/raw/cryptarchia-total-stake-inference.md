@@ -26,6 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-01-20 |
 | 1.1.0 | Changed `density_over_slots` to count **distinct occupied slots** instead of blocks, including the slots of the [uncles](cryptarchia-v1-protocol.md#uncle-references) referenced by the honest chain's in-period blocks, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md). | 2026-08-06 |
+| 1.1.1 | Changed `tse_p` to a signed 128-bit integer, as the stake estimate counts [LEPTA](overview-cryptoeconomics.md#token-units-and-precision). | 2026-10-27 |
 
 # Introduction
 
@@ -72,7 +73,7 @@ fn total_stake_inference(total_stake_estimate: u64, epoch_slot: u64) -> u64 {
 
     let beta_p: u64 = truncate(beta * PRECISION)
     let f_p: u64 = truncate(f * PRECISION)
-    let tse_p: u64 = total_stake_estimate * PRECISION
+    let tse_p: i128 = (total_stake_estimate as i128) * (PRECISION as i128)
 
     let measured_density_p: u64 = density_over_slots(epoch_slot, PERIOD) * PRECISION
     let expected_density_p: u64 = PERIOD * f_p

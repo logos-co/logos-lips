@@ -28,6 +28,7 @@
 | 1.2.1 | Changing from burning/minting to pooling/distributing/releasing | 2026-08-25 |
 | 1.2.2 | Stated that the minimum stake of a service is locked in a service note | 2026-08-27 |
 | 1.3.0 | Add the proof of work reward pool, funded by diverting a share of the collected fees before they reach the rewards pool | 2026-08-31 |
+| 1.4.0 | Define the LEPTON as the indivisible token unit, with one LOGOS equal to $`10^{9}`$ LEPTA | 2026-10-26 |
 
 > **Disclaimer**:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -70,6 +71,24 @@ In this section we present an overview of the cryptoeconomical aspects of the Lo
 
 # Constructions
 
+## Token Units and Precision
+
+The **LEPTON**, plural LEPTA, is the indivisible unit of the native token. One LOGOS is $`10^{9}`$ LEPTA. Every token amount is an integer count of LEPTA, and every gas price is an integer count of LEPTA per gas unit.
+
+The hard cap $`S_{cap}`$ of [Block Rewards](block-rewards.md), $`10^{10}`$ LOGOS, is $`10^{19}`$ LEPTA. Counted in LEPTA, the hard cap must not exceed $`2^{64}-1`$, the largest `TokenValue` of [Mantle](bedrock-v1.1-mantle-specification.md#notes), or no note could hold the whole supply. At $`10^{9}`$ LEPTA per LOGOS, this bounds the hard cap at $`\lfloor (2^{64}-1)/10^{9} \rfloor = 18{,}446{,}744{,}073`$ LOGOS.
+
+| Unit (singular / plural) | Symbol | In LEPTA | In LOGOS |
+| --- | --- | --- | --- |
+| lepton / lepta | `LEPTON` | $`1`$ | $`10^{-9}`$ |
+| kilolepton / kilolepta | `kLEPTON` | $`10^{3}`$ | $`10^{-6}`$ |
+| megalepton / megalepta | `MLEPTON` | $`10^{6}`$ | $`10^{-3}`$ |
+| logos | `LOGOS` | $`10^{9}`$ | $`1`$ |
+
+- A symbol is never pluralized: `500 LEPTON` is correct and `500 LEPTA` is not.
+- $`\mu\text{LOGOS}`$ and mLOGOS are display aliases of `kLEPTON` and `MLEPTON`. They must not appear in protocol interfaces, RPC payloads or specification text.
+- `GLEPTON` is invalid, because it would denote the LOGOS.
+- A decimal LOGOS amount has at most nine fractional digits. A parser must reject a tenth fractional digit and any amount above $`2^{64}-1`$ LEPTA, and must convert the amount with integer arithmetic only.
+
 ## Minimum Stake
 
 To provide a service, a node must lock in a service note a minimum number of tokens to be considered valid. This stake is locked through the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) and can be withdrawn after the node stops providing the service. The minimum stake enhances economic security by increasing the cost of connecting to the network, which makes Sybil attacks more expensive. While the stake value must be sufficiently high for security, it also raises the barrier to network participation, potentially reducing decentralization. We therefore aim to balance security needs with decentralization goals. The [\[Analysis\] Static Minimum Stake Estimation for Service Declaration Protocol](analysis-static-minimum-stake-estimation-for-service-declaration-protocol.md) defines the methodology on how to calculate the minimum stake value.
@@ -92,7 +111,7 @@ Users (rollup sequencers, node operators, or leaders) pay [fees in Logos Blockch
 - The Execution fee market covers the validation and execution of Mantle Transactions. The consensus does not directly limit the number of CPU cycles or Execution Gas per block but a fee regulating mechanism is necessary to be compliant with minimum hardware requirements of a node. The fees must regulate the use of CPU cycles for validation and execution of the blockchain.
 - The Permanent Storage fee market covers the permanent storage of encoded Mantle Transactions. Blocks are limited to 1MiB with a maximum of 1024 Mantle Transactions per block. However, the fees must reduce the maximum amount of Storage to meet the minimum hardware requirements.
 
-Both markets recompute their price with integer arithmetic, so that the result is identical on every node, and both round the updated price upwards. Each update multiplies the current price by an adjustment factor, so a price rounded downwards would reach 0 at the bottom of its range and remain there, leaving the resource permanently free. Rounding upwards keeps one unit as the effective floor of each price. The usage signals driving these updates measure consumption rather than price and are rounded downwards.
+Both markets recompute their price with integer arithmetic, so that the result is identical on every node, and both round the updated price upwards. Each update multiplies the current price by an adjustment factor, so a price rounded downwards would reach 0 at the bottom of its range and remain there, leaving the resource permanently free. With upward rounding, a price of 7 LEPTA per gas unit or less is never lowered, and a higher price never falls below 7. The usage signals driving these updates measure consumption rather than price and are rounded downwards.
 
 All fee markets aim to ensure fair compensation, sustainability, proper incentives, and to address specific market needs. Because every Operation (except the Channel Inscribe and the Channel Config Operations), whether it involves computation, or permanent storage, requires some execution to be validated and processed, reaching the execution limit effectively constrains the Permanent Storage market (except for Channel Inscribe and Channel Config). In practice, this means that the Permanent Storage market is limited in the number of transactions it can process per block except for Channel Inscribe and Channel Config Operations.
 
