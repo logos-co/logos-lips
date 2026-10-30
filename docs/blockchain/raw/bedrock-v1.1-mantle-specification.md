@@ -1804,8 +1804,13 @@ Such that the following constraints hold, where `inputs_pk` and `inputs_cm` are 
   )
   ```
   
-- Each active input commitment is in `tx_cm_root`, its path computed by [`path_root`](#commitment-merkle-mountain-range).
+- Each selector is a bit, and each active input commitment is in `tx_cm_root`, its path computed by [`path_root`](#commitment-merkle-mountain-range).
   ```python
+  assert all(
+      inputs_selectors[i][j] * (1 - inputs_selectors[i][j]) == 0
+      for i in range(len(inputs_sk))
+      for j in range(len(inputs_selectors[i]))
+  )
   assert all(
       path_root(inputs_cm[i], inputs_path[i], inputs_selectors[i]) == tx_cm_root
       or not inputs_active[i]
