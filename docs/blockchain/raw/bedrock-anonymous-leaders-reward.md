@@ -26,6 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-03-30 |
 | 1.1.0 | Round the leader share downwards and align the voucher commitment and nullifier domain separation tags with Mantle | 2026-08-05 |
+| 1.2.0 | Appended each voucher to the voucher tree in its own block, recorded the tree's root and voucher count at each epoch start for that epoch's claims, and defined the tree. | 2026-10-06 |
 
 # Introduction
 
@@ -35,13 +36,13 @@ This document specifies the mechanism for anonymous reward distribution based on
 
 # Overview
 
-The protocol introduces a concept of *vouchers* to unlink the block reward claim from the block itself. Instead of directly crediting themselves in the block, leaders include a commitment (a zkhash in this protocol) to a secret voucher. These commitments are gathered into a Merkle tree. In the first block of an epoch, we add all vouchers from the previous epoch to the voucher Merkle tree, accumulating the vouchers together in a set and guaranteeing a minimal anonymity set. Leaders may anonymously claim their reward using a ZK proof later, proving the ownership of their voucher. This is summarized in the following diagram:
+The protocol introduces a concept of *vouchers* to unlink the block reward claim from the block itself. Instead of directly crediting themselves in the block, leaders include a commitment (a zkhash in this protocol) to a secret voucher. These commitments are gathered into a Merkle tree. In the first block of an epoch, the vouchers of the previous epoch become claimable, accumulating the vouchers together in a set and guaranteeing a minimal anonymity set. Leaders may anonymously claim their reward using a ZK proof later, proving the ownership of their voucher. This is summarized in the following diagram:
 
 ```mermaid
 graph LR
     A[Leader block] --> B[reward voucher]
-    B --> F[wait until next epoch] --> C[Merkle tree]
-    C --> D[Claim with ZK proof]
+    B --> C[Merkle tree] --> F[wait until next epoch]
+    F --> D[Claim with ZK proof]
     D --> E[Reward]
 ```
 
@@ -52,7 +53,7 @@ Key properties of the protocol:
 - **Anonymity**: Block rewards are unlinkable to the blocks they originate from (avoiding deanonymization).
 - **Soundness**: No reward can be claimed twice.
 
-In parallel, the blockchain maintains the value `leaders_rewards` accumulating the rewards for leaders over time. Each voucher included in the Merkle tree represents the same share of `leaders_rewards`. Just like for voucher inclusion, more rewards are added to this variable on an epoch-by-epoch basis, which guarantees a stable and equal claimable reward for leaders over an epoch.
+In parallel, the blockchain maintains the value `leaders_rewards` accumulating the rewards for leaders over time. Each claimable voucher represents the same share of `leaders_rewards`. Just like the claimable vouchers, more rewards are added to this variable on an epoch-by-epoch basis, which guarantees a stable and equal claimable reward for leaders over an epoch.
 
 # Protocol
 
@@ -69,7 +70,7 @@ voucher_cm = zkhash(
 ```
 3. Include the `voucher_cm` in the block header.
 
-Each `voucher_cm` is added to a Merkle tree of voucher commitments by validators during the execution of the first block of the following epoch, maintained throughout the entire blockchain history by everyone.
+Validators append each `voucher_cm` to the voucher tree when they execute its block. In the first block of each epoch, before appending that block's `voucher_cm`, validators record the root of the voucher tree as `last_voucher_root`, and its number of vouchers. Claims in that epoch use these recorded values.
 
 ## Claiming the reward
 
@@ -77,7 +78,7 @@ Each `voucher_cm` is added to a Merkle tree of voucher commitments by validators
 
 Each leader may submit a [LEADER_CLAIM](bedrock-v1.1-mantle-specification.md#leader_claim) Operation to claim their reward. This Operation includes:
 
-- The Merkle root of the global voucher set when the Mantle Transaction containing the claim is submitted.
+- The voucher tree root recorded at the start of the current epoch.
 - A [Proof of Claim](bedrock-v1.1-mantle-specification.md#proof-of-claim).
 
 This Operation increases the balance of a Mantle Transaction by the leader reward amount, letting the leader move the funds as desired through the Ledger transaction or another Operation.
@@ -88,18 +89,20 @@ Note that every leader will receive a reward that is independent of the block co
 
 ### Leaders Reward
 
-At the start of epoch **N+1**, validators aggregate the leaders rewards of epoch **N** into the leader rewards variable. The amount of the reward claimable with a voucher corresponds to a share of the `leaders_rewards`. This share is equal to the total value of rewards divided by the size of the anonymity set of leaders, rounded down, that is:
+At the start of epoch **N+1**, validators aggregate the leaders rewards of epoch **N** into `leaders_rewards`. The amount of the reward claimable with a voucher corresponds to a share of the `leaders_rewards`. This share is equal to the total value of rewards divided by the size of the anonymity set of leaders, rounded down, that is:
 
 $$
 share = \begin{cases}
   0 &\textbf{if } |voucher\_cm|=|voucher\_nf| \\
-\left\lfloor\frac{leader\_rewards}{|voucher\_cm| - |voucher\_nf|}\right\rfloor &\textbf{if } |voucher\_cm| \neq |voucher\_nf|
+\left\lfloor\frac{leaders\_rewards}{|voucher\_cm| - |voucher\_nf|}\right\rfloor &\textbf{if } |voucher\_cm| \neq |voucher\_nf|
 \end{cases}
 $$
 
-The division is the integer division over `TokenValue`, so the share is a whole number of tokens and its computation is deterministic for every node. Rounding down guarantees that $`share \times (|voucher\_cm| - |voucher\_nf|) \leq leader\_rewards`$, an inequality that every claim preserves since it decreases both sides by one share and one voucher respectively. The pool can therefore never be overdrawn and every unclaimed voucher remains payable.
+`|voucher_cm|` is the number of vouchers recorded at the start of the epoch. `|voucher_nf|` is the size of the voucher nullifier set. The share is computed at each claim.
 
-This amount is almost stable through an epoch because when a leader withdraws, both the pool value and the number of unclaimed vouchers decrease proportionally, so the exact price per share remains unchanged and only its rounding may move. Writing $`leader\_rewards = q \times n + r`$ at the start of the epoch, where $`n`$ is the number of unclaimed vouchers and $`r < n`$ the remainder of the division, the first $`n-r`$ leaders to claim receive $`q`$ and the last $`r`$ receive $`q+1`$. Two leaders claiming during the same epoch therefore never differ by more than one token, which is small enough not to justify freezing the share for the duration of the epoch. Nothing is lost to the rounding either: the remainder stays in `leader_rewards` until it is claimed or aggregated with the rewards of the next epoch. The marginally larger reward of the late claimants also mildly encourages leaders to spread their claims over time, which keeps the set of unclaimed vouchers large. However, the share value will vary across epochs if the leader rewards are variable.
+The division is the integer division over `TokenValue`, so the share is a whole number of tokens and its computation is deterministic for every node. Rounding down guarantees that $`share \times (|voucher\_cm| - |voucher\_nf|) \leq leaders\_rewards`$, an inequality that every claim preserves since it decreases both sides by one share and one voucher respectively. The pool can therefore never be overdrawn and every unclaimed voucher remains payable.
+
+This amount is almost stable through an epoch because when a leader withdraws, both the pool value and the number of unclaimed vouchers decrease proportionally, so the exact price per share remains unchanged and only its rounding may move. Writing $`leaders\_rewards = q \times n + r`$ at the start of the epoch, where $`n`$ is the number of unclaimed vouchers and $`r \lt n`$ the remainder of the division, the first $`n-r`$ leaders to claim receive $`q`$ and the last $`r`$ receive $`q+1`$. Two leaders claiming during the same epoch therefore never differ by more than one token, which is small enough not to justify freezing the share for the duration of the epoch. Nothing is lost to the rounding either: the remainder stays in `leaders_rewards` until it is claimed or aggregated with the rewards of the next epoch. The marginally larger reward of the late claimants also mildly encourages leaders to spread their claims over time, which keeps the set of unclaimed vouchers large. However, the share value will vary across epochs if the leader rewards are variable.
 
 ## Validation
 
@@ -120,7 +123,7 @@ Each reward voucher is a cryptographic commitment derived from a voucher secret.
 
 Crucially, when the leader reward is claimed and the voucher nullifier revealed, a third party cannot link this nullifier to the initial voucher commitment. A reward is claimable if its reward voucher is in the reward voucher set and its voucher nullifier is not in the voucher nullifier set.
 
-The reward voucher set will be maintained as a Merkle tree of depth 32, and validators will be required to hold the frontier of the MMR in memory to continue appending to the set. The voucher nullifier set will be maintained as a searchable database.
+The voucher tree is a Merkle tree of depth 32. Its leaves are the `voucher_cm` values in append order, followed by leaves of value 0. Each node is the Poseidon2 compression of its two children ([Common Cryptographic Components](common-cryptographic-components.md)). Validators keep the root and height of each maximal perfect subtree of the appended leaves, as `voucher_tree` of [Chain State](bedrock-chain-state.md#chain-state). The voucher nullifier set will be maintained as a searchable database.
 
 ## ZK Proof of Membership
 

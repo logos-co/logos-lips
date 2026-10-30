@@ -38,6 +38,7 @@
 | 1.6.1 | Corrected Blend activity metadata to the canonical tagged encoding: removed the separate version byte and corrected the total size to 229 bytes. | 2026-10-13 |
 | 1.7.0 | Removed the message `version` byte, put the fork digest in the libp2p protocol name, linked the era rules for the transition period, for releasing and for broadcasting, bounded the transition period and the clock difference between honest nodes, and stopped blacklisting for a next-epoch proof in an epoch's last round ([Bedrock Eras](bedrock-eras.md)). | 2026-10-20 |
 | 1.7.1 | Updated `Max_Payload_Length` to 18190 bytes in the overhead calculation, and an encapsulated message to 19313 bytes, following the removal of the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)). | 2026-10-20 |
+| 1.8.0 | Recorded the Hamming distance of each accepted activity proof instead of the active message, and stated when the rewards of an epoch are not calculated. | 2026-10-20 |
 
 # Introduction
 
@@ -272,7 +273,7 @@ We address the above motivations in the following manner:
 ### Mechanics
 
 1. Every node during the epoch of the protocol collects some bits of information, which are called blending tokens, from processed messages.
-2. After the epoch, every node selects a single blending token that has a certain property: it is most similar to the next [Epoch Randomness](#epoch-randomness). This token is registered on the ledger.
+2. After the epoch, every node selects a single blending token that has a certain property: it is most similar to the next [Epoch Randomness](#epoch-randomness). The ledger records its Hamming distance.
 3. Every node that submitted a token receives a **base** reward if the token’s similarity to the next epoch randomness is above a certain (predefined) threshold (called the activity threshold).
 4. Every node that submitted a token receives a **premium** reward if the token is in the set of the most similar tokens (as defined below) to the next epoch randomness.
 
@@ -1083,7 +1084,7 @@ The `metadata_type` byte selects the activity-metadata variant according to [Man
 
 For Blend activity metadata, `metadata_type` MUST be `0x01`. Unknown activity-metadata discriminants MUST be rejected.
 
-The active message is stored on the ledger.
+For each accepted active message, the ledger records the Hamming distance of its activity proof under the sender's `provider_id` ([Chain State](bedrock-chain-state.md#chain-state)). The message itself is not stored.
 
 The active message is used for calculating the node reward.
 
@@ -1103,7 +1104,7 @@ The ledger must only accept a single active message per node per attested epoch.
 
 The node rewards for epoch $`s`$ are calculated according to the following schema:
 
-1. Rewards are not calculated if the number of nodes (unique `ProviderId`s from declarations) retrieved from the SDP protocol is lower than the [Minimal Network Size](#minimal-network-size).
+1. Rewards for epoch $`s`$ are not calculated if the chain has no block in epoch $`s`$ or in epoch $`s+1`$, or if the number of nodes (unique `ProviderId`s from declarations) retrieved from the SDP protocol for epoch $`s`$ is lower than the [Minimal Network Size](#minimal-network-size). An active message for such an epoch is rejected. The epoch's income is not distributed.
 
 2. Count the number of true activity proofs registered on the ledger:
     $$B = \sum_{i=1}^{N}\mathrm{true}(\pi_{A}^{i,t,e})$$

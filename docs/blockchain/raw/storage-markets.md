@@ -27,6 +27,7 @@
 | 1.1.0 | Round the price update upwards and align the reference code with the zero target guard | 2026-07-28 |
 | 1.1.1 | Changing from burning/minting to pooling/distributing/releasing | 2026-08-25 |
 | 1.2.0 | The storage fee is routed to the rewards pool less the share diverted to the proof of work reward pool | 2026-08-31 |
+| 1.3.0 | Kept the usage tally as a state variable each block adds to, ran the price update at the epoch boundary once per ended timeframe, and took the genesis price from the protocol constants | 2026-10-06 |
 
 > **Disclaimer:**
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -137,24 +138,25 @@ To ensure on-chain efficiency, the protocol shall use an Exponential Moving Aver
     one hundredth below requires at most $40$ epochs. Both are negligible relative to the expected lifetime of the network.
     We therefore set $`P_{\text{storage}}(0) = 1\ \text{LGO per Permanent Storage Gas}`$.
 
-    This corresponds to a cost of 1 LGO per permanently stored byte. Genesis governance may adjust this value based on the LGO price at TGE, but the adjustment has no long-term consequence: the mechanism will converge to the true market price $`P^*`$ within $`O(\log P^*/P_{\text{storage}}(0))`$ epochs regardless.
+    This corresponds to a cost of 1 LGO per permanently stored byte.
 
 - The timeframe $s$ corresponds to one epoch. The core reason is that the primary users of the Storage market plan operational costs over days or weeks, not block-by-block. An epoch-length timeframe provides price certainty over hundreds of blocks, directly fulfilling the predictability requirement. It also ensures the EMA aggregates a meaningful volume of usage data before influencing the price, rather than reacting to per-block noise.
 
 ### State Variables
 
-The protocol must maintain the following state variables, updated at the end of each timeframe:
+The protocol must maintain the following state variables:
 
 | Symbol | Name | Description |
 | --- | --- | --- |
 | $`P_{\text{storage}}(s)`$ | Price Per Logos Blockchain Storage Gas | The price per Gas of storage for the current timeframe $s$. |
 | $`T_{\text{RA}}(s)`$ | Usage EMA | The Exponential Moving Average of storage usage, updated with the usage from timeframe $s$. |
+| $`C_{\text{usage}}(s)`$ | Usage Tally | The Logos Blockchain Storage Gas consumed so far in timeframe $s$. Each block adds its own after its transactions. It is 0 when a timeframe starts. |
 
 ### Price Update Algorithm
 
-At the conclusion of each timeframe $s$, the protocol shall execute the following algorithm to determine the price for the next timeframe, $`P_{\text{storage}}(s+1)`$. This is done as follows.
+At each epoch boundary, before any block of the new epoch is processed, the protocol runs the following algorithm once for each timeframe $s$ that ended, in order, to determine the price for the next timeframe, $`P_{\text{storage}}(s+1)`$. A timeframe without blocks has $`C_{\text{usage}}(s) = 0`$.
 
- 1. Tally Usage: Aggregate the total Logos Blockchain Storage Gas consumed during timeframe $s$ into a final value, $`C_{\text{usage}}(s)=\sum_{t\in\mathcal{B}_s}\mathsf{StorageGasUsed}[t]`$, where $`\mathcal{B}_s`$ corresponds to one block in timeframe $s$ and $`\mathsf{StorageGasUsed}[t]`$ corresponds to the Logos Blockchain Storage Gas used by transaction $t$.
+ 1. Tally Usage: Aggregate the total Logos Blockchain Storage Gas consumed during timeframe $s$ into a final value, $`C_{\text{usage}}(s)=\sum_{t\in\mathcal{B}_s}\mathsf{StorageGasUsed}[t]`$, where $`\mathcal{B}_s`$ is the set of transactions in the blocks of timeframe $s$ and $`\mathsf{StorageGasUsed}[t]`$ corresponds to the Logos Blockchain Storage Gas used by transaction $t$.
 
  2. Update Usage EMA: Update the Exponential Moving Average of usage: $`T_{\text{RA}}(s) = \beta \cdot C_{\text{usage}}(s) + (1-\beta) \cdot T_{\text{RA}}(s-1)`$
 
@@ -241,5 +243,5 @@ The two rounding directions are not interchangeable. The price is multiplied by 
 
 The initial state of the TFM at network launch shall be configured as follows:
 
-- Initial Price P_STR(0): Set to a pre-determined value established by genesis governance.
+- Initial Price $`P_{\text{storage}}(0)`$: as given in [Protocol Constants](#protocol-constants).
 - Initial Usage EMA T_RA(-1): Set to the value of the baseline target, $`T_{\text{base}}`$. This anchors the mechanism to its long-term policy goal from the outset.
