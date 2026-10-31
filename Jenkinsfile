@@ -1,5 +1,5 @@
 #!/usr/bin/env groovy
-library 'status-jenkins-lib@v1.9.40'
+library 'status-jenkins-lib@v1.10.1'
 
 pipeline {
   agent {
@@ -39,7 +39,6 @@ pipeline {
           script {
             nix.develop("""
               ghp-import \
-                -o \
                 -b ${deployBranch()} \
                 -c ${deployDomain()} \
                 -p book

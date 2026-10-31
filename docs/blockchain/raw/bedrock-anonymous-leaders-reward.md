@@ -25,6 +25,7 @@
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-03-30 |
+| 1.1.0 | Round the leader share downwards and align the voucher commitment and nullifier domain separation tags with Mantle | 2026-08-05 |
 
 # Introduction
 
@@ -60,7 +61,12 @@ In parallel, the blockchain maintains the value `leaders_rewards` accumulating t
 When producing a block, a leader performs the following:
 
 1. Generate a one-time random secret $`voucher \overset{\$}{\leftarrow} \mathbb F_p`$.
-2. Compute the commitment: `voucher_cm := zkHash(b"LEAD_VOUCHER_CM_V1, voucher)`.
+2. Compute the commitment:
+```python
+voucher_cm = zkhash(
+    FiniteField(b"REWARD_VOUCHER", byte_order="little", modulus= p),
+    voucher)
+```
 3. Include the `voucher_cm` in the block header.
 
 Each `voucher_cm` is added to a Merkle tree of voucher commitments by validators during the execution of the first block of the following epoch, maintained throughout the entire blockchain history by everyone.
@@ -82,16 +88,18 @@ Note that every leader will receive a reward that is independent of the block co
 
 ### Leaders Reward
 
-At the start of epoch **N+1**, validators aggregate the leaders rewards of epoch **N** into the leader rewards variable. The amount of the reward claimable with a voucher corresponds to a share of the `leaders_rewards`. This share is exactly equal to the total value of rewards divided by the size of the anonymity set of leaders, that is:
+At the start of epoch **N+1**, validators aggregate the leaders rewards of epoch **N** into the leader rewards variable. The amount of the reward claimable with a voucher corresponds to a share of the `leaders_rewards`. This share is equal to the total value of rewards divided by the size of the anonymity set of leaders, rounded down, that is:
 
 $$
 share = \begin{cases}
   0 &\textbf{if } |voucher\_cm|=|voucher\_nf| \\
-\frac{leader\_rewards}{|voucher\_cm| - |voucher\_nf|} &\textbf{if } |voucher\_cm| \neq |voucher\_nf|
+\left\lfloor\frac{leader\_rewards}{|voucher\_cm| - |voucher\_nf|}\right\rfloor &\textbf{if } |voucher\_cm| \neq |voucher\_nf|
 \end{cases}
 $$
 
-This amount is stable through an epoch because when a leader withdraws, both the pool value and the number of unclaimed vouchers decrease proportionally, so the price per share remains unchanged. However, the share value will vary across epochs if the leader rewards are variable.
+The division is the integer division over `TokenValue`, so the share is a whole number of tokens and its computation is deterministic for every node. Rounding down guarantees that $`share \times (|voucher\_cm| - |voucher\_nf|) \leq leader\_rewards`$, an inequality that every claim preserves since it decreases both sides by one share and one voucher respectively. The pool can therefore never be overdrawn and every unclaimed voucher remains payable.
+
+This amount is almost stable through an epoch because when a leader withdraws, both the pool value and the number of unclaimed vouchers decrease proportionally, so the exact price per share remains unchanged and only its rounding may move. Writing $`leader\_rewards = q \times n + r`$ at the start of the epoch, where $`n`$ is the number of unclaimed vouchers and $`r < n`$ the remainder of the division, the first $`n-r`$ leaders to claim receive $`q`$ and the last $`r`$ receive $`q+1`$. Two leaders claiming during the same epoch therefore never differ by more than one token, which is small enough not to justify freezing the share for the duration of the epoch. Nothing is lost to the rounding either: the remainder stays in `leader_rewards` until it is claimed or aggregated with the rewards of the next epoch. The marginally larger reward of the late claimants also mildly encourages leaders to spread their claims over time, which keeps the set of unclaimed vouchers large. However, the share value will vary across epochs if the leader rewards are variable.
 
 ## Validation
 
@@ -120,4 +128,12 @@ When claiming a reward, the leader provides a ZK proof that they know a leaf in 
 
 ## Preventing Double Claims Without Breaking Privacy
 
-To prevent double claiming, the leader derives a voucher nullifier. This nullifier is unique to the voucher but reveals nothing about the original reward voucher or block. It acts as a one-way identifier that allows nodes to track whether a voucher has already been claimed, without compromising the anonymity of the claim.
+To prevent double claiming, the leader derives a voucher nullifier from the same secret voucher:
+
+```python
+voucher_nf = zkhash(
+    FiniteField(b"VOUCHER_NF", byte_order="little", modulus= p),
+    voucher)
+```
+
+This nullifier is unique to the voucher but reveals nothing about the original reward voucher or block. It acts as a one-way identifier that allows nodes to track whether a voucher has already been claimed, without compromising the anonymity of the claim.

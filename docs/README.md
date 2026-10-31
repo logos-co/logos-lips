@@ -24,6 +24,7 @@ specification.
       <span class="chip" data-component="blockchain" data-label="Blockchain">Blockchain</span>
       <span class="chip" data-component="storage" data-label="Storage">Storage</span>
       <span class="chip" data-component="anoncomms" data-label="AnonComms">AnonComms</span>
+      <span class="chip" data-component="identity" data-label="Identity">Identity</span>
       <span class="chip" data-component="research" data-label="Research">Research</span>
     </div>
   </div>

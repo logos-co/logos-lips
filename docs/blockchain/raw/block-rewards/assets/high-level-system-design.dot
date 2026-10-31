@@ -1,0 +1,67 @@
+/*
+ * Block rewards: high-level system design
+ *
+ * Render:
+ *   dot -Tpng -Gdpi=160 high-level-system-design.dot -o high-level-system-design.png
+ *   dot -Tsvg           high-level-system-design.dot -o high-level-system-design.svg
+ */
+
+digraph high_level_system_design {
+  rankdir = LR;
+  bgcolor = "#1f2020";
+  splines = ortho;
+  nodesep = 0.40;
+  ranksep = 0.60;
+  pad     = 0.25;
+
+  node [
+    shape     = box,
+    style     = "rounded,filled",
+    fillcolor = "#1f2020",
+    color     = "#cfcfcf",
+    penwidth  = 1.5,
+    fontname  = "Helvetica",
+    fontsize  = 18,
+    fontcolor = "#d8d8d8",
+    margin    = "0.20,0.22",
+    width     = 3.40,
+    height    = 0.85
+  ];
+
+  edge [
+    color     = "#cfcfcf",
+    penwidth  = 2,
+    arrowsize = 0.9
+  ];
+
+  /* Inputs: measured signals and fixed parameters */
+  fee_paid [label = "Transaction Fee Paid"];
+  max_rate [label = "Max Annual Rate:\n1%"];
+  control  [label = "Control Parameters"];
+  stake    [label = "Inferred Total Stake"];
+  pooling  [label = "Transaction Fee Pooling"];
+
+  /* Computation and output */
+  emission [label = "Emission Rate\nFactor Calculation"];
+  kpi      [label = "KPI Measurement"];
+  issuance [label = "Token Issuance"];
+  rewards  [label = "Block Rewards\nDistribution"];
+
+  { rank = same; fee_paid; max_rate; control; stake; pooling; }
+  { rank = same; emission; kpi; }
+
+  /* Emission rate factor is bounded by the parameters and driven by fee payment */
+  fee_paid -> emission;
+  max_rate -> emission;
+  control  -> emission;
+
+  /* The two primary KPIs */
+  stake   -> kpi;
+  pooling -> kpi;
+
+  /* Issuance combines the reserve release with the pooled fees */
+  emission -> issuance;
+  kpi      -> issuance;
+
+  issuance -> rewards;
+}

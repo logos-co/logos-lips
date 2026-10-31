@@ -234,9 +234,13 @@ For a single advertisement object we use `ad`.
 An advertisement logically represents:
 
 - **Service identification**: Which service the node participates in (via `service_id_hash`)
-- **Peer identification**: The advertiser's unique peer ID
-- **Network addresses**: How to reach the advertiser (multiaddrs)
-- **Authentication**: Cryptographic proof that the advertiser controls the peer ID
+- **Peer identification**: The node's unique peer ID
+- **Network addresses**: How to reach the node (multiaddrs)
+- **Authentication**: Cryptographic proof that the node controls the peer ID
+
+> Ads are authenticated but the containing information can still be false.
+It is trivial to create valid ads that refer to nodes that don't exist.
+Similarly, the advertiser's IP and peer ID should not be confused with the ad's, they may be different.
 
 Implementations are RECOMMENDED to use ExtensiblePeerRecord (XPR) encoding for advertisements.
 See the [Advertisement Encoding](#advertisement-encoding) section
@@ -409,8 +413,8 @@ message Message {
         GET_PROVIDERS = 3;
         FIND_NODE = 4;
         PING = 5;
-        REGISTER = 6; // New DISC-NG capability discovery type
-        GET_ADS = 7; // New DISC-NG capability discovery type
+        REGISTER = 6; // New
+        GET_ADS = 7; // New
     }
 
     enum ConnectionType {
@@ -489,6 +493,16 @@ Advertisements in the `Register.advertisement` and `GetAds.advertisements` field
 Alternative encodings MAY be used if they provide equivalent functionality
 and can be verified by discoverers.
 
+Where the encoding carries a services field (e.g. XPR's `services`), it
+MUST include the `ServiceInfo` entry for the `service_id_hash` being
+registered; it MAY also list `ServiceInfo` entries for other services
+the advertiser supports (see
+[Advertisement Signature Verification](#advertisement-signature-verification)
+for how those other entries are treated).
+Per [Advertisement](#advertisement),
+each `REGISTER` is still scoped to
+exactly one `service_id_hash`.
+
 ### REGISTER Message
 
 Used by advertisers to register their advertisements with registrars.
@@ -534,6 +548,13 @@ Message {
 }
 ```
 
+Each `REGISTER` request MUST register an advertisement against exactly one
+`service_id_hash` - the request's `key` field - and the resulting
+`ad_cache` entry is scoped to that one service
+(see [Advertisement Cache](#advertisement-cache)).
+The advertisement's content MAY encode any further service information
+as required by the discovering application.
+
 #### REGISTER Response
 
 | Field | Usage | Value |
@@ -548,7 +569,7 @@ Message {
 
 - `CONFIRMED`: Advertisement stored in cache
 - `WAIT`: Not yet accepted, wait and retry with ticket
-- `REJECTED`: Invalid signature, duplicate, or error
+- `REJECTED`: Invalid signature, invalid ticket, or error
 
 **Example (WAIT):**
 
@@ -665,7 +686,6 @@ Registrars MUST validate:
    - Retry within window: `ticket.t_mod + ticket.t_wait_for ≤ NOW() ≤ ticket.t_mod + ticket.t_wait_for + δ`
 5. Advertisement signature is valid
 (see [Advertisement Signature Verification](#advertisement-signature-verification))
-6. Advertisement not already in `ad_cache`
 
 Respond with `register.status = REJECTED` if validation fails.
 
@@ -703,6 +723,15 @@ VERIFY_ADVERTISEMENT(encoded_ad_bytes, service_id_hash):
 ```
 
 Discard advertisements with invalid signatures or that don't advertise the requested service.
+
+> **Note:** The loop over `xpr.services` above is a signature-binding check,
+confirming the requested `service_id_hash`
+is among the services the advertiser signed.
+An advertisement supports exactly the `service_id_hash`
+it was registered or queried against.
+Any other entries in `xpr.services` are opaque to registrars and
+discoverers - they are meaningful only to the application that
+ultimately receives the advertisement.
 
 > **Note:** ExtensiblePeerRecord uses protocol strings (e.g., `/waku/store/1.0.0`) in `ServiceInfo.id`.
 Logos discovery uses `service_id_hash = SHA256(ServiceInfo.id)` for routing.
@@ -749,6 +778,7 @@ The advertiser MAY bootstrap `AdvT(service_id_hash)`
 from the `KadDHT(peerID)` routing table using the formula
 described in the [Distance section](#distance).
 
+Each registration is scoped to one `service_id_hash`.
 The advertiser SHOULD try to maintain up to `K_register`
 active registrations per bucket.
 It does so by selecting random registrars
@@ -919,9 +949,9 @@ and serve cached advertisements,
 by handling `GET_ADS` requests.
 Registrars MUST maintain a cache of advertisements, `ad_cache`,
 that associates each `advertisement`
-to its `service_id`,
-and an expiry timestamp based on admission time plus configured expiry time, `E`.
-Once an `ad` has expired, it SHOULD be removed from the `ad_cache`
+to only one advertiser's `peer_id`, `service_id`
+and expiry timestamp based on admission time plus configured expiry time, `E`.
+Once an `ad` has expired, it SHOULD be removed from the `ad_cache`.
 
 ### Handling REGISTER requests
 
@@ -934,15 +964,13 @@ using the algorithm described in [Peer Table Updates](#peer-table-updates) secti
 
 To populate the rest of the response, the registrar MUST:
 
-1. If an identical `ad` already exists in the `ad_cache`,
-reject the request and respond with status `Rejected`.
-2. Calculate (or recalculate, if this is a resubmission) a waiting time for the `ad`, `t_wait`,
+1. Calculate a waiting time for the `ad`, `t_wait`,
 using the formula in [Waiting Time Calculation](#waiting-time-calculation).
-3. If no `ticket` is provided in the `REGISTER` request
+2. If no `ticket` is provided in the `REGISTER` request
 this is the advertiser's first registration attempt for the `ad`.
 Create a new signed `ticket` based on `t_wait`,
 and return the signed `ticket` in a response with status `Wait`.
-4. If a `ticket` is provided in the `REGISTER` request,
+3. If a `ticket` is provided in the `REGISTER` request,
 validate the ticket and respond with the status `Rejected` if any of the following fails:
 
     - `ticket.signature` contains a valid signature, issued by this registrar
@@ -956,13 +984,14 @@ validate the ticket and respond with the status `Rejected` if any of the followi
     but SHOULD be just enough to accommodate for
     the maximum delay between the advertiser and the registrar.
 
-5. Calculate remaining wait time
+4. Calculate remaining wait time
 `t_remaining = t_wait - (current_time - ticket.t_init)`.
 This ensures advertisers accumulate waiting time across retries
-6. If `t_remaining ≤ 0`, add the `ad` to the `ad_cache`,
+5. If `t_remaining ≤ 0`, add the `ad` to the `ad_cache`,
 with an expiry timestamp set to `current_time + E`.
-The registrar SHOULD return a response with status `Confirmed`.
-7. If `t_remaining > 0`, issue a new signed `ticket`
+If an entry for this `peer_id` and `service_id` already exists,
+this replaces it.
+6. If `t_remaining > 0`, issue a new signed `ticket`
 with `ticket.t_mod` set to `current_time`
 and `ticket.t_wait_for = min(E, t_remaining)`.
 The registrar SHOULD return the signed `ticket` in a response with status `Wait`.
@@ -974,7 +1003,6 @@ Registrars MAY follow this example.
 
 ```text
 procedure REGISTER(ad, ticket):
-    assert(ad not in ad_cache)
     response.ticket.ad ← ad
     t_wait ← CALCULATE_WAITING_TIME(ad)
 
@@ -985,13 +1013,16 @@ procedure REGISTER(ad, ticket):
     else:
         assert(ticket.hasValidSignature())
         assert(ticket.ad = ad)
-        assert(ad.notInAdCache())
         t_scheduled ← ticket.t_mod + ticket.t_wait_for
         assert(t_scheduled ≤ NOW() ≤ t_scheduled + δ)
         t_remaining ← t_wait - (NOW() - ticket.t_init)
     end if
     if t_remaining ≤ 0:
-        ad_cache.add(ad)
+        if ad_cache.contains(ad.peer_id, ad.service_id_hash):
+            ad_cache.replace(ad)
+        else:
+            ad_cache.add(ad)
+        end if
         response.status ← Confirmed
     else:
         response.status ← Wait
@@ -1110,20 +1141,20 @@ while still learning rare peers in buckets close to `service_id_hash`.
 
 The waiting time is the time advertisers have to
 wait before their `ad` is admitted to the `ad_cache`.
-The waiting time is given based on the `ad` itself
+The waiting time is given based on the `ad` itself, the advertiser
 and the current state of the registrar’s `ad_cache`.
 
 The waiting time for an advertisement MUST be calculated using:
 
 ```text
-w(ad) = E × (1/(1 - c/C)^P_occ) × (c(ad.service_id_hash)/C + score(getIP(ad.addrs)) + G)
+w(ad) = E × (1/(1 - c/C)^P_occ) × (c(ad.service_id_hash)/C + score(getIP(advertiser.addrs)) + G)
 ```
 
 - `c`: Current cache occupancy
 - `c(ad.service_id_hash)`: Number of advertisements for `service_id_hash` in cache
-- `getIP(ad.addrs)` is a function to get the IP address
-from the multiaddress of the advertisement.
-- `score(getIP(ad.addrs))`: IP similarity score (0 to 1).
+- `getIP(advertiser.addrs)` is a function to get the IP addresses
+from the multiaddresses of the advertiser's connection information.
+- `score(getIP(advertiser.addrs))`: IP similarity score (0 to 1).
 Refer to the [IP Similarity Score section](#ip-similarity-score)
 
 Section [System Parameters](#system-parameters) can be referred
@@ -1169,20 +1200,23 @@ The service similarity score promotes diversity:
 ### IP Similarity Score
 
 The IP similarity score is used to detect and limit
-Sybil attacks where malicious actors create multiple advertisements
+Sybil attacks where malicious advertisers create multiple advertisement requests
 from the same network or IP prefix.
 
+> The IP being refered to here is NOT the ad's but the one from the advertiser connection information.
+
 Registrars MUST use an IP similarity score to
-limit the number of `ads` coming from the same subnetwork
+limit the number of requests coming from the same subnetwork
 by increasing their waiting time.
 The IP similarity mechanism MUST:
 
 - Calculate a score (0-1): higher scores indicate similar IP prefixes (potential Sybil attacks)
-- Track IP addresses of `ads` currently in the `ad_cache`.
-- MUST update its tracking structure when:
-  - A new `ad` is admitted to the `ad_cache`: MUST add the IP
-  - An `ad` expires after time `E`:
-  MUST remove IP if there are no other active `ads` from the same IP
+- Track IP addresses as a multiset: each IP is counted once per
+`ad_cache` entry that uses it
+(see [Advertisement Cache](#advertisement-cache) for what constitutes an entry)
+- MUST update the count once per `ad_cache` entry, when:
+  - A new entry is admitted to the `ad_cache`: MUST increment the count for that IP
+  - An entry expires after time `E`: MUST decrement the count for that IP
 - Recalculate score for each registration attempt
 
 #### Tree Structure
@@ -1190,28 +1224,30 @@ The IP similarity mechanism MUST:
 We RECOMMEND using an IP tree data structure
 to efficiently track and calculate IP similarity scores.
 An IP tree is a binary tree that stores
-IPs used by `ads` currently present in the `ad_cache`.
+IPs used by advertiser currently present in the `ad_cache`.
 This data structure provides logarithmic time complexity
 for insertion, deletion, and score calculation.
 Implementations MAY use alternative data structures
 as long as they satisfy the requirements specified above.
 Apart from root, the IP tree is a 32-level binary tree where:
 
-- Each vertex stores `IP_counter` (number of IPs passing through).
-It is initially set to 0.
+- Each vertex stores `IP_counter`, a count of `ad_cache` entries whose
+IP passes through it. It is initially set to 0.
 - Edges represent bits (0/1) in IPv4 binary representation
-- When an `ad` is admitted to the `ad_cache`,
-its IPv4 address is added to the IP tracking structure
-using the [`ADD_IP_TO_TREE()` algorithm](#add_ip_to_tree-algorithm).
+- When an entry is admitted to the `ad_cache`, its IPv4 address
+increments the counters along its path once for that entry, using the
+[`ADD_IP_TO_TREE()` algorithm](#add_ip_to_tree-algorithm) - a multi-service
+advertiser's IP is incremented once per service, one entry per service.
 - Every time a waiting time is calculated for a registration attempt,
 the registrar calculates the IP similarity score for the advertiser's IP address.
 using [`CALCULATE_IP_SCORE()` algorithm](#calculate_ip_score-algorithm).
-- When an `ad` is removed from the `ad_cache` after `E`,
-The registrar also removes the IP from IP tracking structure
-using the [`REMOVE_FROM_IP_TREE()` algorithm](#remove_from_ip_tree-algorithm)
-if there are no other active `ad` in `ad_cache` from the same IP.
+- When an entry is removed from the `ad_cache` after `E`, the registrar
+decrements the counters along its IP's path once for that entry, using the
+[`REMOVE_FROM_IP_TREE()` algorithm](#remove_from_ip_tree-algorithm) -
+the IP's effect on the score reaches zero only once every entry using
+it has been removed.
 - All the algorithms work efficiently with O(32) time complexity.
-- The root `IP_counter` tracks total IPs currently in `ad_cache`
+- The root `IP_counter` tracks the total count of `ad_cache` entries
 
 #### `ADD_IP_TO_TREE()` algorithm
 
@@ -1637,36 +1673,37 @@ Implementations should consider these trade-offs carefully when selecting approp
 
 Refer to the [Register Algorithm section](#example-register-algorithm) for the pseudocode
 
-1. Make sure this advertisement `ad` is not already in the registrar’s advertisement cache `ad_cache`.
-2. Prepare a response ticket `response.ticket` linked to this `ad`.
-3. Then calculate how long the advertiser should wait `t_wait` before being admitted.
+1. Prepare a response ticket `response.ticket` linked to this `ad`.
+2. Calculate how long the advertiser should wait `t_wait` before being admitted.
 Refer to the [Waiting Time Calculation section](#waiting-time-calculation) for details.
-4. Check if this is the first registration attempt (no ticket yet):
+3. Check if this is the first registration attempt (no ticket yet):
     1. If yes then it’s the first try. The advertiser must wait for the full waiting time `t_wait`.
     The ticket’s creation time `t_init` and last-modified time `t_mod` are both set to `NOW()`.
     2. If no, then this is a retry, so a previous ticket exists.
-        1. Validate that the ticket is properly signed by the registrar,
-        belongs to this same advertisement and that the `ad` is still not already in the `ad_cache`.
+        1. Validate that the ticket is properly signed by the registrar
+        and belongs to this same advertisement.
         2. Ensure the retry is happening within the allowed time window `δ` after the scheduled time.
         If the advertiser waits too long or too short, the ticket is invalid.
         3. Calculate how much waiting time is left `t_remaining`
         by subtracting how long the advertiser has already waited
         (`NOW() - ticket.t_init`) from `t_wait`.
-5. Check if the remaining waiting time `t_remaining` is less than or equal to 0.
-This means  the waiting time is over.
+4. Check if the remaining waiting time `t_remaining` is less than or equal to 0.
+This means the waiting time is over.
 `t_remaining` can be 0 also when the registrar decides that
 the advertiser doesn’t have to wait for admission to the `ad_cache`(waiting time `t_wait` is 0).
     1. If yes, add the `ad` to `ad_cache` and confirm registration.
+    If an entry for this `peer_id` and `service_id` already exists,
+    this replaces it.
     The advertisement is now officially registered.
     2. If no, then there is still time to wait.
     In this case registrar does not store `ad` but instead issues a ticket.
-        1. set `reponse.status` to `wait`
+        1. set `response.status` to `wait`
         2. Update the ticket with the new remaining waiting time `t_wait_for`
         3. Update the ticket last modification time `t_mod`
         4. Sign the ticket again. The advertiser will retry later using this new ticket.
-6. Add a list of peers closer to the `ad.service_id_hash` using the `GETPEERS()` function
+5. Add a list of peers closer to the `ad.service_id_hash` using the `GETPEERS()` function
 to the response (the advertiser uses this to update `AdvT(service_id_hash)`).
-7. Send the full response back to the advertiser
+6. Send the full response back to the advertiser
 
 Upon receiving a ticket, the advertiser waits for the specified `t_wait` time
 before trying to register again with the same registrar.

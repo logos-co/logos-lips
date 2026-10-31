@@ -26,6 +26,7 @@
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-02-17 |
+| 1.1.0 | Clarified that `density` counts only the blocks of the chain being measured and excludes the [uncle references](cryptarchia-v1-protocol.md#uncle-references) those blocks carry, since uncles carry no fork-choice weight. | 2026-07-09 |
 
 # Introduction
 
@@ -94,7 +95,7 @@ Nodes will remain on the honest chain if they reject forks that diverge further 
   ![Diagram](fork-choice/assets/21b261aa-09df-8128-a35a-d2f0affc2031.png)
 
 - $`\textbf{density}(b_i, d, s_{gen})`$
-  *Returns the number of blocks produced in the* $`s`$ slots following block $`b_{i-d}`$.
+  *Returns the number of blocks produced in the* $`s`$ slots following block $`b_{i-d}`$. Only the blocks of the chain being measured are counted; the [uncle references](cryptarchia-v1-protocol.md#uncle-references) carried by those blocks give no weight to the chain and are excluded from this count.
 
   For example, in the following diagram, count the number of blocks produced in the $`s_{gen}`$ slots of the highlighted area.
 

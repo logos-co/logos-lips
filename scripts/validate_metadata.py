@@ -20,12 +20,12 @@ ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 
 EXCLUDE_FILES = {"README.md", "SUMMARY.md", "about.md", "template.md"}
-EXCLUDE_PARTS = {"appendix", "appendices"}
+EXCLUDE_PARTS = {"appendix", "appendices", "rfc"}
 # Fields required for draft and above; raw specs only need name + status.
 REQUIRED_FIELDS_ALL = ("name", "slug", "status", "type", "category", "editor")
 REQUIRED_FIELDS_RAW = ("name", "status")
 ALLOWED_STATUS = {"raw", "draft", "approved", "stable", "verified", "deprecated", "retired", "deleted"}
-STATUS_SCOPED_COMPONENTS = {"messaging", "blockchain", "storage", "anoncomms", "research"}
+STATUS_SCOPED_COMPONENTS = {"messaging", "blockchain", "storage", "anoncomms", "identity", "research"}
 ALLOWED_TYPES = {"rfc", "cfr"}
 ALLOWED_CATEGORIES = {
     "standards track",

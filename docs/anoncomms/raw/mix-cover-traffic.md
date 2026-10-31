@@ -50,7 +50,7 @@ The Mix Protocol defines cover traffic as a pluggable component (see [Mix Protoc
 This specification provides a concrete instantiation of that component,
 defining the cover traffic architecture, the rate-limit budget model, and two concrete scheduling strategies.
 The architecture is designed to be compatible with the DoS protection mechanism defined in [Mix DoS Protection](mix-dos-protection.md)
-and specifically with the [Mix RLN DoS Protection](mix-spam-protection-rln.md) mechanism.
+and specifically with the [Mix RLN DoS Protection](mix-dos-protection-rln.md) mechanism.
 
 ## 2. Terminology
 
@@ -260,7 +260,12 @@ are loaded into the new pool.
 
 Cover packets emitted near epoch end may arrive at later hops in a subsequent epoch.
 The DoS protection mechanism is responsible for accepting proofs within a configurable epoch window
-(_e.g.,_ the `max_epoch_gap` parameter in [Mix RLN DoS Protection](mix-spam-protection-rln.md)).
+(_e.g.,_ the `max_epoch_gap` parameter in [Mix RLN DoS Protection](mix-dos-protection-rln.md)).
+
+A cover packet whose pre-send delay ([§6.2](#62-cover-emission)) is still elapsing at the boundary
+is discarded rather than transmitted:
+its slot was claimed from the previous epoch's pool,
+so transmitting it in the new epoch would exceed the fresh budget by one packet.
 
 ### 5.4 Cover Packet Reception
 
@@ -343,15 +348,16 @@ Pre-computed proofs are bound to a specific epoch and MUST NOT be reused in subs
 
 **Proof validity over time:**
 Pre-computed proofs may be invalidated within their target epoch, not just across epochs.
-For example, in [Mix RLN DoS Protection](mix-spam-protection-rln.md),
+For example, in [Mix RLN DoS Protection](mix-dos-protection-rln.md),
 accumulating membership updates can push the root used at generation time
 out of the current `acceptable_root_window_size` before the epoch ends.
 Implementations MUST therefore validate pre-computed proofs at send time
 (see [§6.5](#65-pre-computed-proof-validation-at-send-time)).
 
 **Fallback caveat:**
-On-demand generation when pre-computation falls behind introduces timing jitter,
-which shifts emissions off-grid for deterministic strategies (_e.g.,_ [§7.1](#71-constant-rate-cover-traffic))
+On-demand generation when pre-computation falls behind adds load-dependent delay
+on top of the sampled pre-send delay ([§6.2](#62-cover-emission)),
+skewing emission timing in a way that correlates with pre-computation load
 and weakens timing unobservability.
 Implementations SHOULD size the pre-computation pipeline ([§9.1](#91-pre-computation-scheduling))
 to avoid the fallback path in steady state.
@@ -371,14 +377,36 @@ have already been deducted, so their slots are unavailable to any later claim.
 > The following steps repeat continuously throughout each epoch:
 >
 > 1. Wait for the next emission event as determined by the configured strategy.
+>    Emission events occur at fixed times independent of when previous transmissions completed;
+>    the pre-send delay of step 2.b MUST NOT shift subsequent emission events.
 > 2. If the strategy schedules an emission **and** `cover_queue` is non-empty:
 >    - a. Dequeue the head of `cover_queue` and decrement `slots_remaining`.
->    - b. Validate the proof per [§6.5](#65-pre-computed-proof-validation-at-send-time).
->    - c. Transmit the `packet` field of [`PrebuiltCoverPacket`](#55-data-structures) to the first hop
+>    - b. Sample a pre-send delay from the same distribution used for locally originated sends
+>      ([mix.md §8.5.2](mix.md#852-construction-steps) Step 3.f)
+>      and schedule steps 2.c–2.e to run once it elapses, without blocking step 1.
+>      Otherwise, a delay longer than the emission interval would compress the gap
+>      between consecutive transmits to the delay itself — a cover timing signature.
+>    - c. If the epoch changed while the delay elapsed, discard the packet:
+>      its slot was claimed from a pool that has since been discarded ([§5.3](#53-epoch-boundary)),
+>      and transmitting would exceed the new epoch's budget by one packet.
+>    - d. Validate the proof per [§6.5](#65-pre-computed-proof-validation-at-send-time).
+>      Validation happens after the delay so the staleness window between validation and transmission stays minimal.
+>    - e. Transmit the `packet` field of [`PrebuiltCoverPacket`](#55-data-structures) to the first hop
 >      (other fields are internal and MUST NOT be sent).
 > 3. If `cover_queue` is empty for the remainder of the epoch
 >    (because pre-built packets were exhausted by emission or reclaimed under heavy non-cover load),
 >    cover emission is suppressed until the next epoch boundary.
+
+**Pre-send delay:**
+Locally originated packets and SURB replies apply a sampled pre-send delay before their first-hop write
+([mix.md §8.5.2](mix.md#852-construction-steps) Step 3.f).
+Cover transmissions MUST apply the same delay, sampled from the same distribution:
+a packet class that departs exactly on the strategy schedule while every other class jitters
+would be identifiable by the absence of jitter alone.
+This blurs individual emissions off the strategy grid,
+restoring the separability baseline from before non-cover traffic jittered;
+it does not provide timing unobservability
+([§10.4](#104-timing-separability-of-cover-and-non-cover-packets)).
 
 ### 6.3 Locally Originated Message Sending
 
@@ -411,7 +439,7 @@ independently of the cover emission schedule.
 Before transmitting a pre-built cover packet,
 the mechanism MUST validate the carried DoS protection proof against the current state
 (see [§6.1](#61-at-epoch-boundary) for rationale).
-For [Mix RLN DoS Protection](mix-spam-protection-rln.md),
+For [Mix RLN DoS Protection](mix-dos-protection-rln.md),
 this means verifying the `merkle_root` bound into the proof
 is still within the node's `acceptable_root_window_size`.
 
@@ -422,7 +450,7 @@ If validation fails, implementations MUST either:
 
 A pre-built packet with a stale proof MUST NOT be sent.
 When regenerating, implementations MAY reuse the message identifier bound to the cover packet
-where the DoS protection mechanism permits (see [Mix RLN DoS Protection](mix-spam-protection-rln.md)).
+where the DoS protection mechanism permits (see [Mix RLN DoS Protection](mix-dos-protection-rln.md)).
 
 ## 7. Recommended Strategy
 
@@ -460,10 +488,12 @@ so an adversary cannot distinguish epochs with heavy locally originated traffic 
 by observing cover timing alone.
 
 **Tradeoff — timing separability:**
-Cover packets fire on a fixed grid,
-while forwarded packets fire at arrival time plus mixing delay —
-always off-grid relative to the cover schedule.
-Over enough observations, an adversary can separate cover from non-cover by timing alone,
+Cover packets are scheduled on a fixed grid;
+the pre-send delay ([§6.2](#62-cover-emission)) blurs each transmission off that grid,
+but the constant mean spacing remains.
+Forwarded packets fire at arrival time plus mixing delay,
+uncorrelated with the cover schedule.
+Over enough observations, an adversary can still separate cover from non-cover by timing alone,
 regardless of forwarding load.
 Constant-Rate therefore provides **volume unobservability**
 (the node's emission count does not leak non-cover activity)
@@ -594,8 +624,11 @@ making individual slot consumption events unobservable.
 ### 10.4 Timing Separability of Cover and Non-Cover Packets
 
 The default Constant-Rate strategy ([§7.1](#71-constant-rate-cover-traffic))
-emits cover packets on a fixed grid while forwarded packets are dispatched at arrival time plus mixing delay.
-With enough observations, a passive adversary can classify individual packets by timing alone,
+schedules cover packets on a fixed grid while forwarded packets are dispatched at arrival time plus mixing delay.
+The pre-send delay applied at emission ([§6.2](#62-cover-emission)) removes exact grid alignment,
+but the constant underlying spacing survives averaging:
+with enough observations, a passive adversary can recover the emission schedule
+and classify packets near grid points with high confidence,
 regardless of forwarding load.
 
 Constant-Rate therefore provides volume unobservability but not timing unobservability.
@@ -657,6 +690,8 @@ Poisson-Rate, where emission times are sampled at runtime, cannot support pre-sc
 Note that pre-scheduled slots would require changes to the mixing delay strategy
 in the Mix Protocol, as forwarded packets would need to be held until their assigned slot time
 rather than forwarded after the sampled delay elapses.
+The pre-send delays ([mix.md §8.5.2](mix.md#852-construction-steps) Step 3.f, [§6.2](#62-cover-emission))
+would likewise be superseded by slot assignment.
 
 ### 11.4 Budget Model for Sender-Generated Proofs
 
@@ -709,7 +744,7 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 
 - [libp2p Mix Protocol](mix.md)
 - [Mix DoS Protection](mix-dos-protection.md)
-- [Mix RLN DoS Protection](mix-spam-protection-rln.md)
+- [Mix RLN DoS Protection](mix-dos-protection-rln.md)
 - [Loopix: Providing Anonymity in a Message Passing System](https://www.usenix.org/conference/usenixsecurity17/technical-sessions/presentation/piotrowska)
 - [Nym: Mixnet for Network-Level Privacy](https://nymtech.net/nym-whitepaper.pdf)
 - [Blend Protocol](../../blockchain/raw/blend-protocol.md)

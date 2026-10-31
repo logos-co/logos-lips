@@ -136,7 +136,7 @@ See [SEGMENTATION](segmentation.md).
 The Rate Limit Manager ensures compliance with [RLN](https://lip.logos.co/messaging/draft/17/rln-relay.html) rate constraints.
 
 - It tracks how many messages have been sent in the current epoch.
-- When the limit is approached, segment dispatch MUST be delayed to the next epoch.
+- When the number of messages sent in the current epoch has reached the limit, further segment dispatch MUST be delayed until the next epoch.
 - The epoch size MUST match the `[epochPeriodSec](https://lip.logos.co/messaging/draft/17/rln-relay.html#epoch-length)` configured in `RateLimitConfig`.
 
 ### Encryption Hook

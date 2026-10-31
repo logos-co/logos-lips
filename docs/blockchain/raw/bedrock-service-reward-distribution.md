@@ -28,6 +28,10 @@
 | 1.1.0 | Removed references to DA Replaced references to Nomos with Logos Blockchain | 2026-04-17 |
 | 1.2.1 | [[RFC] Enforce NoteId uniqueness](mantle-transaction-encoding/appendices/rfc-enforce-noteid-uniqueness.md). | 2026-04-24 |
 | 1.3.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
+| 1.3.1 | [RFC] One canonical encoding for `ServiceType` and `Locator` | 2026-08-14 |
+| 1.3.2 | Pinned the encoding of `epoch_number` in the reward `op_id` preimage to the 4 bytes of an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch) | 2026-08-25 |
+| 1.3.3 | One reward note per `zk_id`, and none for a zero reward, matching the implementation | 2026-09-01 |
+| 1.3.4 | Adopted "active message" as the single name for the message | 2026-09-02 |
 
 # Introduction
 
@@ -44,8 +48,8 @@ This document describes the protocol's logic for deterministically distributing 
 
 The protocol unfolds over three key phases, aligned with validator epochs:
 
-1. **Service Activity Tracking** (epoch N+1): Service validators submit signed activity messages to attest to their participation of epoch N through a Mantle Transaction, including an activity message (see [SDP_ACTIVE](bedrock-v1.1-mantle-specification.md#sdp_active)).
-2. **Service Reward Derivation** (End of epoch N+1): Nodes compute each validator’s reward based on validated activity messages and the different service reward policies.
+1. **Service Activity Tracking** (epoch N+1): Service validators submit signed active messages to attest to their participation of epoch N through a Mantle Transaction (see [SDP_ACTIVE](bedrock-v1.1-mantle-specification.md#sdp_active)).
+2. **Service Reward Derivation** (End of epoch N+1): Nodes compute each validator’s reward based on validated active messages and the different service reward policies.
 3. **Service Reward Distribution** (First block of epoch N+2): Rewards are distributed to validators marked as active for the service. This is done by inserting new notes in the ledger corresponding to the reward amount for each active validator.
 
 ![Diagram](bedrock-service-reward-distribution/assets/341261aa-09df-804b-ae7f-cec3cb5d830c.png)
@@ -77,13 +81,13 @@ Where $`Rewards\_Epoch`$ are the total rewards of epoch **N**. The $`Rewards\_Ep
 
 ## Service Reward Distribution
 
-Starting immediately after epoch **N+1**, service rewards are distributed in the first block of epoch **N+2.** The rewards are inserted directly in the ledger without triggering any Mantle validation. The `NoteId` is computed using the result of `hash(`[`ServiceType`](bedrock-service-declaration-protocol.md)`|| epoch_number)` as the `op_id`. The output number corresponds to the position of the `zk_id` when sorted in ascending order.
+Starting immediately after epoch **N+1**, service rewards are distributed in the first block of epoch **N+2.** The rewards are inserted directly in the ledger without triggering any Mantle validation. The `NoteId` is computed using the result of `hash(`[`ServiceType`](bedrock-service-declaration-protocol.md)`|| epoch_number)` as the `op_id`, where `ServiceType` is serialized as its canonical one-byte discriminant ([Service Types](bedrock-service-declaration-protocol.md#service-types)) and `epoch_number` as the 4 bytes of an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch). A `zk_id` whose reward amount is zero receives no note. The output number is the position of the `zk_id` among the rewarded `zk_id`s, sorted in ascending order.
 
 The reward must:
 
   - Transfer the correct reward amount according to [Service Reward Calculation](#service-reward-calculation).2
   - Be sent to the public key `zk_id` of the validator registered during [declaration of the service](bedrock-service-declaration-protocol.md).
-  - Be distributed into a single note if several rewards share the same `zk_id`.
+  - Be distributed as exactly one note per rewarded `zk_id`. Rewards are never summed or merged into a shared note.
   - Be executed identically by every node processing the first block of epoch N+2. This happens by inserting notes in the ledger in ascending order of `zk_id`.
 
 Nodes indirectly verify the correct inclusion of rewards because all consensus-validating nodes must maintain the same ledger view to derive the latest ledger root, which serves as input for verifying the [Proof of Leadership](cryptarchia-proof-of-leadership.md).

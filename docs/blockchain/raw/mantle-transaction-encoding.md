@@ -28,6 +28,14 @@
 | 1.4.0 | [\[RFC\] Simplify Mantle Transaction and Refactor Ledger Operations](mantle-transaction-encoding/appendices/rfc-simplify-mantle-transaction-and-refactor-ledger-operations.md) | 2026-05-06 |
 | 1.4.1 | Removed mention of DA. Updated KeyCount from Byte to UINT16 to follow Mantle. | 2026-05-21 |
 | 1.5.0 | Introduce the new Operation `CHANNEL_STAKE_ASSIGNATION` and update of the channel operations to reflect changes in Mantle | 2026-06-24 |
+| 1.5.1 | [RFC] One canonical encoding for `ServiceType` and `Locator`: pin `Locator` bytes to the multiaddr binary form | 2026-08-14 |
+| 1.6.0 | Added the `Parent` of the `ChannelConfig` to follow Mantle | 2026-08-27 |
+| 1.6.1 | Renamed the `LockedNoteId` production of the SDP Operations into `ServiceNoteId` | 2026-08-27 |
+| 1.7.0 | Added the `ChannelConfigOpProof` and `ChannelTransferOpProof` variants and factored the three channel threshold proofs into `ChannelMultiSigProof`, carrying the index of the signing key alongside each signature | 2026-08-31 |
+| 1.8.0 | Added the `ClaimPowReward` Operation payload; its proof is a `ZkSigProof` | 2026-09-08 |
+| 1.9.0 | Swap Ed25519Signature and SignerIndex order in IndexedSignature | 2026-10-01 |
+| 1.10.0 | Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata, retaining their `UINT32` length prefixes; corrected SDP activity metadata to use its tagged variant encoding without a generic length prefix | 2026-10-06 |
+| 1.11.0 | [RFC] `SDPWithdraw` drops the redundant `ServiceNoteId` | 2026-10-27 |
 
 # Introduction
 
@@ -71,26 +79,27 @@ OpPayload = Transfer /
             SDPDeclare /
             SDPWithdraw /
             SDPActive /
-            LeaderClaim 
+            LeaderClaim /
+            ClaimPowReward
 ```
 
 ### Channel Operations
 
 ```schema
 ChannelInscribe = ChannelId Inscription Parent Signer
-Inscription     = UINT32 *BYTE 
+Inscription     = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes
 
-ChannelConfig     = ChannelId KeyCount *Signer PostingTimeframe PostingTimeout ConfigThreshold TransferThreshold
+ChannelConfig     = ChannelId Parent KeyCount *Signer PostingTimeframe PostingTimeout ConfigThreshold TransferThreshold
 KeyCount                   = UINT16
 PostingTimeframe           = UINT32
 PostingTimeout             = UINT32
 ConfigThreshold            = UINT16
 TransferThreshold          = UINT16
 
-ChannelDeposit    = ChannelId Inputs Metadata
-Inputs            = InputCount *NoteId
-InputCount        = Byte
-Metadata          = UINT32 *BYTE
+ChannelDeposit   = ChannelId Inputs DepositMetadata
+Inputs           = InputCount *NoteId
+InputCount       = Byte
+DepositMetadata  = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes
 
 ChannelTransfer = ChannelId Inputs Outputs
 
@@ -104,24 +113,33 @@ OutputCount       = Byte
 Inputs            = InputCount *NoteId
 ```
 
+`MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. The payloads of `ChannelInscribe.Inscription` and `ChannelDeposit.Metadata` MUST each be at most `MAX_OPERATION_DATA_SIZE` bytes, excluding the outer `UINT32` length prefix. A decoder MUST reject either field when its declared or decoded payload length exceeds the limit.
+
 ### SDP Operations
 
 ```schema
-SDPDeclare    = ServiceType LocatorCount *Locator ProviderId ZkId LockedNoteId
+SDPDeclare    = ServiceType Locators ProviderId ZkId ServiceNoteId
 ServiceType   = Byte          ; 0 = BN
+Locators      = LocatorCount *Locator
 LocatorCount  = Byte          ; Max 8
-Locator       = 2Byte *BYTE   ; Max 329 bytes, multiaddr format
+Locator       = 2Byte *BYTE   ; Max 329 bytes, multiaddr binary form
 ProviderId    = Ed25519PublicKey
 ZkId          = ZkPublicKey
-LockedNoteId  = NoteId
+ServiceNoteId = NoteId
 
-SDPWithdraw   = DeclarationId Nonce LockedNoteId
+SDPWithdraw   = DeclarationId Nonce
 DeclarationId = Hash32
 Nonce         = UINT64
 
-SDPActive     = DeclarationId Nonce Metadata
-Metadata      = UINT32 *BYTE  ; Service-specific node activeness metadata
+SDPActive               = DeclarationId Nonce ActivityMetadata
+ActivityMetadata        = ActivityMetadataType ActivityMetadataPayload
+ActivityMetadataType    = Byte ; 0x01 = Blend
+ActivityMetadataPayload = BlendActivityProof ; Selected by ActivityMetadataType
 ```
+
+`ActivityMetadataType` is a one-byte discriminant. The only currently valid value is `0x01`, which selects `BlendActivityProof`; a decoder MUST reject any other value. `BlendActivityProof` is the 228-byte concatenation of `epoch_number`, `signing_key`, `proof_of_quota`, and `proof_of_selection` defined in [Blend Protocol — Active Message](blend-protocol.md#active-message), excluding that section's `metadata_type` byte, which is encoded here as `ActivityMetadataType`.
+
+The current Blend variant occupies 229 bytes including its discriminant. Its encoding and validation follow the selected variant's rules; `MAX_OPERATION_DATA_SIZE` does not apply to `SDPActive.Metadata`.
 
 ### Leader operations
 
@@ -130,6 +148,14 @@ LeaderClaim      = RewardsRoot VoucherNullifier PublicKey
 RewardsRoot      = FieldElement ; Merkle root for voucher membership proof
 VoucherNullifier = FieldElement
 PublicKey        = ZkPublicKey
+```
+
+### Proof of work operations
+
+```schema
+ClaimPowReward = EpochNonce BlockHash PublicKey
+EpochNonce     = FieldElement ; the epoch nonce the solution was found against
+BlockHash      = Hash32       ; recent canonical block the solution is anchored to
 ```
 
 ### Transfer Operations
@@ -160,16 +186,24 @@ OpsProofs = *OpProof ; 1. Lenth must equal OpCount
 OpProof   = Ed25519SigProof /
             ZkSigProof /
             ZkAndEd25519SigsProof /
+            ChannelConfigOpProof /
             ChannelWithdrawOpProof /
+            ChannelTransferOpProof /
             ProofOfClaimProof
 
 Ed25519SigProof         = Ed25519Signature
 ZkSigProof              = ZkSignature
 ZkAndEd25519SigsProof   = ZkSignature Ed25519Signature
-ChannelWithdrawOpProof  = SignatureCount *Ed25519Signature
+ChannelConfigOpProof    = ChannelMultiSigProof
+ChannelWithdrawOpProof  = ChannelMultiSigProof
+ChannelTransferOpProof  = ChannelMultiSigProof
 ProofOfClaimProof       = Groth16
 
+ChannelMultiSigProof = SignatureCount *IndexedSignature
+IndexedSignature     = SignerIndex Ed25519Signature
+
 SignatureCount = UINT16
+SignerIndex    = UINT16
 ```
 
 ## Common Structures

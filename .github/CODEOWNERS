@@ -2,3 +2,6 @@
 
 # Raw specs do not require CODEOWNER review.
 /docs/**/raw/
+
+# CI changes require DevOps review.
+/Jenkinsfile @logos-co/devops
