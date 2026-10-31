@@ -123,7 +123,7 @@ Liveness of attestation depends on this oversizing.
 
 The roles used in the Oracle Zone are as follows:
 
-- `LBC`: The Logos Blockchain ordering layer.
+- `LBC`: The LBC ordering layer.
 It totally orders and finalizes the inscriptions,
 giving every indexer the same immutable input to aggregate over.
 - `oracle node`: An off-chain agent run by an oracle operator.
@@ -243,7 +243,7 @@ sequenceDiagram
     participant LBC as Logos Blockchain (LBC)
     participant LEZ as LEZ contracts
 
-    rect rgb(235, 243, 255)
+    rect rgba(66, 133, 244, 0.12)
     Note over A,LEZ: 1. Registration
     A->>A: Generate Zone-Private/Zone-Public (Ed25519)<br/>and LEZ-Private/LEZ-Public (BIP-340) key pairs
     A->>LBC: Open channel_i with Zone-Private key (channel deposit)
@@ -252,7 +252,7 @@ sequenceDiagram
     LEZ-->>A: leaf index_i (leaf = H(oracle_id, channel_id_i)), oracle_id = x-only LEZ-Public key
     end
 
-    rect rgb(240, 250, 240)
+    rect rgba(52, 168, 83, 0.12)
     Note over A,LEZ: 2. Observation (round r)
     A->>A: Fetch from at least the minimum number of sources, median = P_i_r
     A->>A: obs_i_r = PriceObservation(feed_id, P_i_r, decimals, r, timestamp, oracle_id_i, channel_id_i)<br/>sig_i_r = BIP-340(LEZ-Private_i, tagged_hash("LON/PriceObservation/v1", canon(obs_i_r)))
@@ -262,7 +262,7 @@ sequenceDiagram
     Note over O,LBC: Fewer than N valid observations: round r stays empty
     end
 
-    rect rgb(255, 248, 235)
+    rect rgba(251, 188, 4, 0.12)
     Note over A,LEZ: 3. Proposing
     Note over P: Primary proposer + 2 backups from the rotation (cycleStartRound, root_cycle)
     LBC-->>P: Read finalized channels
