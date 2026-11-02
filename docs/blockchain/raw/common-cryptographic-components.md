@@ -260,7 +260,6 @@ Rationale for Use:
 
 - A note ciphertext stays on chain for the life of the chain. Key encapsulation on an elliptic curve alone would let an adversary record the ciphertexts now and decrypt them once a quantum computer exists, exposing the amounts and, through the recomputed commitments, the recipients of every note. The hybrid keeps the classical security of X25519 if ML-KEM-768 is broken and the post-quantum security of ML-KEM-768 if X25519 is.
 - X-Wing is used exactly as specified, so its security proof, test vectors and implementations apply as they are. The key derivation and the authenticated encryption are the ones already used in the Logos Blockchain.
-- The encryption is outside every circuit: it costs no constraint and changes no proof.
 
 Security Considerations:
 
