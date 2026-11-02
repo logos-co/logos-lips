@@ -10,6 +10,7 @@
 | v2 | Retitled from "Complete the block test vectors and correct the active message vector" and renamed the file to match. Removed the Mantle part: the active message vector, its implementation divergence, its implementation task, and the Mantle rows of Reviewer Orientation and Affected Specifications. Mantle now encodes the active message metadata as a tagged variant without a length prefix, and carries its own vectors. | 2026-10-14 |
 |  | Recomputed `leaf[8]` from Mantle's current `SDP_ACTIVE` payload, and with it `merkle_root`, both `body_root` values and `block_id`. | 2026-10-14 |
 | v3 | The base now marks the two uncle signatures `TBD`, because master's were made over the 297-byte headers. The re-signed values fill those cells, and the table keeps master's values only as the check of the seeds. | 2026-10-20 |
+| v4 | The base's `SDP_WITHDRAW` no longer names the service note, so its leaf, the Merkle root, both body roots and the block ID are recomputed. | 2026-11-02 |
 
 ## Reviewer Orientation
 
@@ -55,13 +56,13 @@ The table now names the fork digest and the source of each operation.
 | `leaf[4]` ChannelWithdraw | 0xf187a0ea956243e8fde25f36551afef7a06f74b8a37b8ee30fdba9e6b03b71b3 |
 | `leaf[5]` ChannelTransfer | 0xa265377e0251954fbeb0174cfd62826989eaa4838aa2c0be1020a27daab442e2 |
 | `leaf[6]` SDPDeclare | 0x5105d0d1f429bbf97c75f5d7d67626a5ed419f27a4d1838f88ef032e45d98d3d |
-| `leaf[7]` SDPWithdraw | 0x38a43680e28f72fc64887fd118ed240d1e31acba3dd4a97de2881ba7cb5f4e60 |
+| `leaf[7]` SDPWithdraw | 0x60f7cbe6d8e009b1eef795e00414fd2c6fe6daef4ecd2d05b8baed34474c1589 |
 | `leaf[8]` SDPActive | 0x6c92ea8b434c2be4c6d4de85f1d846207600c2ee067c4e07a769902e61e37e88 |
 | `leaf[9]` LeaderClaim | 0x840433dae7248668c9903c300103c65881f2bd2c0406f1634ede6c58d281ec20 |
-| `merkle_root(transactions)`, 16 leaves after padding | 0x06e94c5a0876f4c190703ae2de8127721a731b9fddf2cef5807bcf1537f9bcdb |
-| `body_root`, no uncles | 0x052e55428b0df36aaa6d15d45af3d5c4b6d6fcea52df654ad0f339edf0cae0ad |
-| `body_root`, the two re-signed uncle entries below | 0x8d29dcb941df1a7356789acf71f0671a6638b0e3da251896560ac18b51c5d3cf |
-| `block_id` of the header carrying the no-uncle `body_root` | 0x7b6d789888d076dfdd2dfbc4f8373e40e493bd261cd9e0d6efa256db045beabe |
+| `merkle_root(transactions)`, 16 leaves after padding | 0x4777aa33d76e5acf0489e174a4a22bb7c2750549f68133fccf8db577c202afcc |
+| `body_root`, no uncles | 0x282eb6484338c4dc8f86c6649dd6776e753c4509bebbe6438a949cb78f420024 |
+| `body_root`, the two re-signed uncle entries below | 0x1b346e3bc042318406e7bf6cddeae569c26222bcd2c1bc8e7ea9e81c3c7e7b0a |
+| `block_id` of the header carrying the no-uncle `body_root` | 0x713115eeadc60d9d94fb2b762f4146831e65008cdff34ad07f67e88bd55e1f1a |
 
 The `block_id` preimage is the one of [Block ID](../cryptarchia-v1-protocol.md#block-id), without a version byte.
 
