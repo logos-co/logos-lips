@@ -15,6 +15,7 @@
 | v7 | The null channel has no note set. The operation payloads name a recent root only, the buffer being appended in validation. Channel steps can be grouped in mini-blocks sharing their `buffered`, and the withdrawal is the forced exit and the optimistic settlement of double signing. The block rewards state that the leader is paid in its block and that the maximum supply is fixed at genesis, and the execution market why base fees are pooled | 2026-10-16 |
 | v8 | A `TokenValue` counts units of $`10^{-9}`$ LGO, in which the integer block reward is expressed. The Execution Gas of each Operation is summed against the state it is validated against. Ed25519 signatures sign the `mantle_txhash` digest and the proofs take it reduced modulo $`p`$. A `FieldElement` not less than $`p`$ is rejected. A channel with an infinite posting timeframe keeps its sequencer. The commitment MMR and the nullifier IMT have depth 40, a note set then taking about 50 years of transfers at the Execution Gas target to fill instead of 72 days at depth 32, and of any two identical notes only one can be spent. The eligible tree has depth 40, since channel creations, which cost no Execution Gas, would fill a tree of depth 32 in about 79 days of full blocks. The Proof of Leadership error table is computed for $`f = 1/30`$ | 2026-10-19 |
 | v9 | No proof of the Genesis transaction is verified. The proof of work share of the fees waits in `pow_rewards_pending` until the epoch boundary. Mantle defines `path_root`, the root of a Merkle path, the ZkTransfer, PoL and PoQ check that every path selector is a bit, and the eligible root uses the commitment MMR functions. The nullifier IMT keeps its leaves, a full note set rejects new commitments and nullifiers, and the indexes of a multi-signature are bounded by the keys. The leader reward reads the release and payout of the block update. The limits of channel re-inclusion after a reorg, of the forced exit fee, of leader reward privacy and of wallet tracking are stated. Storage Markets and the initial base fee keep their master values. The Execution Market and overview figures are redrawn | 2026-10-30 |
+| v10 | The specifications no longer reference deprecated documents, and historical documents are left as they are | 2026-11-02 |
 
 ## Reviewer Orientation
 
@@ -249,7 +250,7 @@ The wallet keeps, for each note, its set, the commitment path inside its MMR pea
 | [Key Types and Generation](../key-types-and-generation.md) | Modified | Revision 1.1.1 |
 | [Execution Market](../execution-market.md) | Modified | Revision 1.3.0 |
 | [Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | Revision 1.8.0 |
-| [Analysis: Execution Market](../analysis-execution-market.md) | Modified | reference to the deprecated leader reward |
+| [Analysis: Execution Market](../analysis-execution-market.md) | Modified | reference to the deprecated leader reward removed |
 | [Architecture Overview](../bedrock-architecture-overview.md) | Modified | Revision 1.2.0 |
 | [Blend Protocol](../blend-protocol.md) | Modified | leader reward reference, encapsulation overhead and rounding of the base reward, Revision 1.6.2 |
 | [Payload Formatting](../payload-formatting.md) | Modified | Revision 1.2.1 |
