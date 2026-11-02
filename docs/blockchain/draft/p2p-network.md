@@ -33,6 +33,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-01-20 |
 | 1.0.1 | Rename Nomos to Logos Blockchain | 2026-04-17 |
+| 1.1.0 | Added Transport Security, with `X25519MLKEM768` as the only key exchange group. | 2026-10-09 |
 
 # Introduction
 
@@ -57,6 +58,30 @@ The Logos Blockchain network uses production-tested protocols to ensure all of t
 The Logos Blockchain network extensively leverages the [libp2p](https://docs.libp2p.io/) suite of plug-and-play protocols, which forms a foundational component for delivering the essential functionalities outlined previously.
 
 At its core, the Logos Blockchain network employs the [*QUIC*](https://docs.libp2p.io/concepts/transports/quic/) transport protocol. QUIC provides rapid connection establishment and offers several advantages, including enhanced NAT traversal capabilities stemming from its UDP foundation. Additionally, its default multiplexing feature simplifies configuration processes.
+
+## Transport Security
+
+Traffic recorded today becomes readable once the key exchange that protected it is broken. A hybrid key exchange keeps every connection confidential unless both X25519 and ML-KEM-768 are broken.
+
+This section applies to every libp2p connection a node establishes, whatever protocol it carries.
+
+### Handshake
+
+The QUIC handshake is TLS 1.3 ([RFC 9001](https://www.rfc-editor.org/rfc/rfc9001)). Nodes must support the cipher suites:
+
+- `TLS_CHACHA20_POLY1305_SHA256`
+- `TLS_AES_256_GCM_SHA384`
+- `TLS_AES_128_GCM_SHA256`
+
+### Peer Authentication
+
+Peers authenticate as specified by the [libp2p TLS handshake](https://github.com/libp2p/specs/blob/master/tls/tls.md). The node identity key is Ed25519.
+
+### Key Exchange
+
+Nodes must offer and accept only the key exchange group `X25519MLKEM768` ([draft-ietf-tls-ecdhe-mlkem](https://datatracker.ietf.org/doc/draft-ietf-tls-ecdhe-mlkem/), IANA named group `0x11EC`).
+
+A node must generate a new key share for every handshake. It must not write the private keys of the key exchange, or any secret derived from them, to storage.
 
 ## Peer Discovery
 
