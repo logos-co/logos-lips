@@ -90,8 +90,9 @@ def tx_execution_gas(tx_signed) -> int:
 
 # The extension of the root a proof is verified against by the commitments
 # buffered before it in the transaction: none for a proof over notes of earlier
-# blocks, `buffered` for a user step or a payment, the whole buffer of the set
-# for the other proofs.
+# blocks and for an SDP withdrawal, whose root holds only its service note,
+# `buffered` for a user step or a payment, the whole buffer of the set for the
+# other proofs.
 def root_gas(buffered: int) -> int:
     return 0 if buffered == 0 else EXECUTION_ROOT_GAS + EXECUTION_BUFFERED_GAS * buffered
 
@@ -125,7 +126,7 @@ CHANNEL_WITHDRAW  = EXECUTION_CHANNEL_WITHDRAW_GAS + spend_gas(inputs, outputs, 
 SDP_DECLARE       = EXECUTION_SDP_DECLARE_GAS + EXECUTION_SIGNATURE_GAS
                     + spend_gas(inputs, [service_note], buffered)
 SDP_WITHDRAW      = EXECUTION_SDP_WITHDRAW_GAS + EXECUTION_SIGNATURE_GAS
-                    + spend_gas([service_note], outputs, buffered)
+                    + spend_gas([service_note], outputs, 0)
 SDP_ACTIVE        = EXECUTION_SDP_ACTIVE_GAS + EXECUTION_SIGNATURE_GAS
 CLAIM_POW_REWARD  = EXECUTION_CLAIM_POW_REWARD_GAS
 PROGRAM_REGISTER  = EXECUTION_PROGRAM_REGISTER_GAS
@@ -173,8 +174,6 @@ The fixed costs of a block, paid once whatever its transactions, are deducted fr
 ## Transaction bytes
 
 Decoding a transaction, hashing it into its `mantle_txhash` and deriving the identifier of each of its Operations each read every byte of it. Measured on inscriptions whose payload goes from 0 to 16,384 bytes, a transaction costs 26.0 cycles per byte beyond its fixed parts. Alone, decoding costs 2.4 cycles per byte and each Blake2b pass 3.5.
-
-The note ciphertexts of [Note Delivery](bedrock-v1.1-mantle-specification.md#note-delivery) are paid through this term: the ledger only checks their count and their size, and their bytes are decoded and hashed with the rest of the transaction.
 
 ## Proofs
 
@@ -281,7 +280,7 @@ The deposit spends notes of the ledger set and appends its outputs to the note s
 | each further output released | 21,503 |
 | decompression and batch verification of the ZkTransfer | 1,772,332 |
 
-The release runs in the header of the block at the slot of the withdrawal, and the Operation pays it in advance.
+The release runs before the transactions of the block at the slot of the withdrawal, and the Operation pays it in advance.
 
 ## SDP Declaration
 
@@ -302,7 +301,7 @@ The validation checks the format of the declaration, the length of its locators,
 | release at the end of the epoch | 18,128 |
 | decompression and batch verification of the ZkTransfer | 1,772,332 |
 
-The validation checks that the declaration exists and is not withdrawn, the nonce, and the ZkTransfer consuming the service note. The execution records the withdrawal, inserts the nullifier of the service note in the SDP note set, and releases the output at the end of the epoch.
+The validation checks that the declaration exists and is not withdrawn, the nonce, and the ZkTransfer consuming the service note, whose root is computed from that note alone, which takes most of the 889 Execution Gas of the Operation. The execution records the withdrawal, inserts the nullifier of the service note in the SDP note set, and releases the output at the end of the epoch.
 
 ## SDP Activation
 

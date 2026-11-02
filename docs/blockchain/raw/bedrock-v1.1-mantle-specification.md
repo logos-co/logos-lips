@@ -1276,7 +1276,7 @@ class WithdrawProof:
 
 #### Execution Gas
 
-  SDP Withdraw Operations have an Execution Gas cost of `EXECUTION_SDP_WITHDRAW_GAS + EXECUTION_SIGNATURE_GAS + spend_gas([service_note], outputs, len(tx_cm_buffer))`, `tx_cm_buffer` being the buffer of the SDP note set before the Operation is validated. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
+  SDP Withdraw Operations have an Execution Gas cost of `EXECUTION_SDP_WITHDRAW_GAS + EXECUTION_SIGNATURE_GAS + spend_gas([service_note], outputs, 0)`: no buffer extends the root of an MMR holding only the service note, and `EXECUTION_SDP_WITHDRAW_GAS` covers its computation. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
 
 #### Validation
 

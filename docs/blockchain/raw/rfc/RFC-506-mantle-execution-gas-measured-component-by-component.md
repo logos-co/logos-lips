@@ -10,7 +10,7 @@
 
 ## Reviewer Orientation
 
-Read [RFC-480](RFC-480-mantle-private-utxo-ledger.md), [RFC-481](RFC-481-mantle-programs-governing-channel-notes.md) and [RFC-486](RFC-486-mantle-post-quantum-note-encryption.md) first: this RFC prices the ledger they define.
+Read [RFC-480](RFC-480-mantle-private-utxo-ledger.md) and [RFC-481](RFC-481-mantle-programs-governing-channel-notes.md) first: this RFC prices the ledger they define.
 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
@@ -42,7 +42,7 @@ A transaction changing a set pays its full end of block work, the largest measur
 
 ## Bytes
 
-A transaction costs 26.0 cycles per byte for its decoding, its hash and the identifiers of its Operations. The term is integer: `len * 26 // 1000`. Note ciphertexts are paid through it.
+A transaction costs 26.0 cycles per byte for its decoding, its hash and the identifiers of its Operations. The term is integer: `len * 26 // 1000`.
 
 ## Rejected alternatives
 
@@ -54,6 +54,7 @@ A transaction costs 26.0 cycles per byte for its decoding, its hash and the iden
 - SDP declarations are measured among up to 1,024 declarations of a service. Through the keys of the declarations of each service, their cost grows from 812,189 cycles among none to 890,885 among 1,024.
 - `CLAIM_POW_REWARD` is measured on a state with an eased reward difficulty, the fixture difficulty requiring about 2^26 grinds to build a claim.
 - Creating a channel creates its note set, priced as a change of that set; the creation itself, an insertion in the eligible tree, was not measured alone.
+- The measured node does not yet keep `pow_rewards_pending`: one integer addition per block and one credit per epoch, not counted in the fixed costs of a block.
 
 # Details
 
@@ -78,7 +79,7 @@ def spend_gas(inputs, outputs, buffered) -> int:
 - Transfer, Channel Deposit and Channel Withdraw: their constant plus `spend_gas`. A withdrawal pays in advance its release at its slot.
 - Channel Inscribe: its constant and a signature, `EXECUTION_USER_STEP_GAS + spend_gas` per user step, and per program step `EXECUTION_PROGRAM_STEP_GAS + EXECUTION_PROGRAM_PROOF_GAS + spend_gas + EXECUTION_OPENING_GAS` per opening, plus `EXECUTION_PAYMENT_GAS + spend_gas` per payment.
 - Channel Config: its constant plus a signature per unit of `configuration_threshold`.
-- SDP Declare and SDP Withdraw: their constant, a signature and `spend_gas`. SDP Active: its constant, which includes the Proof of Quota, and a signature.
+- SDP Declare and SDP Withdraw: their constant, a signature and `spend_gas`. An SDP Withdraw passes `buffered = 0`: its root holds only its service note, and its constant covers that root. SDP Active: its constant, which includes the Proof of Quota, and a signature.
 
 | Constant | Value | | Constant | Value |
 | --- | --- | --- | --- | --- |
@@ -132,7 +133,8 @@ The constants assume six optimizations of the node, which change no validity rul
 | Specification | Status | Note |
 | --- | --- | --- |
 | [Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | 2.0.0 |
-| [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | 2.3.0 |
+| [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | 2.2.0 |
 | [Cryptoeconomics Overview](../overview-cryptoeconomics.md) | Modified | 1.4.2 |
 | [Execution Market](../execution-market.md) | Modified | 1.3.2 |
 | [Proof of Leadership](../cryptarchia-proof-of-leadership.md) | Modified | 1.2.2, time to fill the eligible tree |
+| [Block Construction](../bedrock-v1.1-block-construction.md) | Modified | 1.4.2, 128-bit batch coefficients |
