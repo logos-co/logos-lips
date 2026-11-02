@@ -32,6 +32,7 @@
 | 1.1.4 | Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy. | 2026-08-25 |
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
 | 1.2.0 | Seed the pow reward pool at genesis from the initial token distribution | 2026-09-08 |
+| 1.2.1 | Align the initial service declarations with the Service Declaration Protocol: the `BN` service type, the full `DeclarationMessage` shape, and multiaddr locators | 2026-10-01 |
 | 1.3.0 | Removed the `bedrock_version` header field and moved `slot` first, and set the `fork_digest` of the Genesis Mantle Transaction to zero, parsing it under era 0 ([Bedrock Eras](bedrock-eras.md)); the inscription, renamed Genesis Parameters with field names that drop the genesis prefix, also carries the pow reward pool seed and the consensus-excluded keys. | 2026-10-21 |
 
 # Introduction
@@ -92,12 +93,13 @@ Blend enforces a minimal network size for the service to be active. Thus, in ord
 
 ```python
 BLEND_DECLARATIONS = [
-    Declaration(
-        msg=DeclarationMessage(
-            ServiceType.BLEND, ["ip://1.1.1.1:3000"], PROVIDER_ID_0, ZK_ID_0
-        ),
-        service_note_id=STAKE_DISTRIBUTION_TX.output_note_id(0)
-    ),
+    Op(opcode=SDP_DECLARE, payload=encode(DeclarationMessage(
+        service_type=ServiceType.BN,
+        locators=["/ip4/1.1.1.1/tcp/3000"],
+        provider_id=PROVIDER_ID_0,
+        service_note_id=STAKE_DISTRIBUTION_TX.output_note_id(0),
+        zk_id=ZK_ID_0,
+    ))),
     # ... 32 total declarations
 ]
 
@@ -266,10 +268,13 @@ GENESIS_INSCRIPTION = Inscribe(
 
 # service declarations
 BLEND_DECLARATIONS = [
-    Declaration(
-        msg=DeclarationMessage(ServiceType.BLEND, ["ip://1.1.1.1:3000"], PROVIDER_ID_0, ZK_ID_0),
-        service_note_id=STAKE_DISTRIBUTION.output_note_id(0)
-    ),
+    Op(opcode=SDP_DECLARE, payload=encode(DeclarationMessage(
+        service_type=ServiceType.BN,
+        locators=["/ip4/1.1.1.1/tcp/3000"],
+        provider_id=PROVIDER_ID_0,
+        service_note_id=STAKE_DISTRIBUTION.output_note_id(0),
+        zk_id=ZK_ID_0,
+    ))),
     # ... more declarations
 ]
 SERVICE_DECLARATIONS = BLEND_DECLARATIONS
