@@ -26,7 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2025-08-22 |
 | 1.1.0 | Remove references to DA Replace Nomos with Logos Blockchain | 2026-01-14 |
-| 1.2.0 | Fees and funds are carried by Transfer Operations over private notes | 2026-10-07 |
+| 1.2.0 | Fees and funds are carried by Transfer Operations over private notes, and every channel has a note set of its own | 2026-10-07 |
 
 # Introduction
 
@@ -58,7 +58,7 @@ Bedrock is composed of Cryptarchia and Bedrock Mantle. Bedrock is in turn suppor
 
 Channel messages can be used by Sovereign Zone sequencers to asynchronously communicate and coordinate actions amongst themselves. This could include planning cross-Zone transactions that affect the state of several Zones, or agreeing to modify a channel's properties.
 
-Every Mantle channel also has an associated token balance. This balance allows users to bridge tokens from Bedrock to Sovereign Zones and vice versa. Channel balances also facilitate atomic token transfers between several Sovereign Zones.
+Every Mantle channel also has a note set of its own. Users bridge tokens from Bedrock to a Sovereign Zone by depositing ledger notes into the note set of its channel, move them inside the channel with steps the sequencers publish, and bridge them back by withdrawing them to the ledger note set.
 
 ## Cryptarchia
 
