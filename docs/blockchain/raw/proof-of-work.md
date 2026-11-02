@@ -22,6 +22,7 @@
 | 1.0.0 | Initial revision. | 2026-09-09 |
 | 1.1.0 | Set the reference load of the Blend difficulty to the transaction rate the Blend network carries, `F_T / F_D = 130` transactions per block | 2026-09-11 |
 | 1.2.0 | The acceptance window is the parameter `WINDOW`, in slots, of the era of the referenced block, in place of `EXPECTED_BLOCKS_PER_WINDOW` ([Bedrock Eras](bedrock-eras.md)), and the pool seed is one of the Genesis Parameters. | 2026-10-21 |
+| 1.3.0 | Specified how `block_slots` and `pow_nullifiers` are kept for the acceptance window, and excluded the Genesis block from the blocks the Blend difficulty counts. | 2026-10-21 |
 
 # Introduction
 
@@ -111,9 +112,9 @@ A validator checks a claim against the `difficulty_reward` the previous block pr
 
 [Mantle](bedrock-v1.1-mantle-specification.md#claim_pow_reward) specifies these checks and the order they run in. A claim that fails any of them makes its transaction invalid. On acceptance the node pays `epoch_pow_reward` to the key, marks the ticket spent, and subtracts the same amount from `pow_reward_pool`.
 
-A node computes five values from the chain. `pow_reward_pool` and the set of spent tickets change when a claim is accepted. `difficulty_reward` is recomputed after every block, from the number of claims in that block. `pow_reward_pool` is credited at each epoch boundary with a share of the fees of the epoch that ended, and `epoch_pow_reward` is then recomputed from it. `difficulty_blend` is recomputed once per epoch, from the transactions of the epoch before last, at the snapshot that fixes the epoch nonce. [Reward Difficulty](#reward-difficulty), [Reward Pool](#reward-pool) and [Blend Difficulty](#blend-difficulty) specify the three computations.
+A node computes six values from the chain. `pow_reward_pool` and the spent tickets change when a claim is accepted, and `block_slots` gains every block. `difficulty_reward` is recomputed after every block, from the number of claims in that block. `pow_reward_pool` is credited at each epoch boundary with a share of the fees of the epoch that ended, and `epoch_pow_reward` is then recomputed from it. `difficulty_blend` is recomputed once per epoch, from the transactions of the epoch before last, at the snapshot that fixes the epoch nonce. [Reward Difficulty](#reward-difficulty), [Reward Pool](#reward-pool) and [Blend Difficulty](#blend-difficulty) specify the three computations.
 
-A node keeps a spent ticket only while its referenced block is inside the window, so the set stays small. The window is `WINDOW` slots ([Acceptance Window](#acceptance-window)).
+A node keeps a spent ticket, and the slot of a block, only while that block is inside the window, so both stay small. The window is `WINDOW` slots ([Acceptance Window](#acceptance-window)).
 
 # Details
 
@@ -183,7 +184,9 @@ The reward is fixed for the epoch while the pool shrinks with every claim. The f
 
 ## Acceptance Window
 
-A claim's referenced block must be canonical and at most `WINDOW` slots older than the block including the claim; the check is step 2 of [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation. A nullifier may be discarded once the block its claim referenced has left the window. Both the check and the discarding use the `WINDOW` of the era of the referenced block's slot ([Era Boundaries](bedrock-eras.md#era-boundaries)). Otherwise an era that changes `WINDOW` lets a discarded nullifier be claimed again.
+A claim's referenced block must be canonical and at most `WINDOW` slots older than the block including the claim; the check is step 2 of [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation.
+
+Before the transactions of a block at slot `s` run, its `block_id` is inserted into `block_slots` with the value `s`. Every entry of `block_slots` and of `pow_nullifiers` whose slot is below `s - WINDOW` is then removed. Both the check and the removal use the `WINDOW` of the era of the referenced block's slot, the slot an entry holds ([Era Boundaries](bedrock-eras.md#era-boundaries)). Otherwise an era that changes `WINDOW` lets a removed nullifier be claimed again.
 
 ## Reward Difficulty
 
@@ -209,7 +212,7 @@ The update is multiplicative in the current target, so a target of zero never re
 `difficulty_blend` for epoch $`N`$ is computed at the lottery-constants snapshot of epoch $`N-1`$ specified in [Epoch](cryptarchia-v1-protocol.md#epoch), the moment epoch $`N`$'s nonce is fixed, from the blocks of epoch $`N-2`$, and is the public input `pow_blend_difficulty` of [Proof of Quota](proof-of-quota.md) for the whole of epoch $`N`$. For epochs 0 and 1 it is `BLEND_DIFFICULTY_BASE`; the schedule begins with epoch 2, computed during epoch 1 from epoch 0's blocks.
 
 ```python
-def compute_epoch_blend_difficulty(epoch_blocks: list[Block],   # the blocks of epoch N-2
+def compute_epoch_blend_difficulty(epoch_blocks: list[Block],   # the blocks of epoch N-2, without the Genesis block
                                    previous: PowTarget) -> PowTarget:  # difficulty_blend of epoch N-1
     # 512-bit integers over canonical representatives; see Puzzle Target.
     # Observed load as an exact ratio: num == den at the reference load.
