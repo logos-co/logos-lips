@@ -9,7 +9,7 @@
 | v1 | Initial PR description | 2026-08-28 |
 | v2 | Split into the PR description and this RFC document per the template; rebased on master, Blend Protocol row 1.2.2 → 1.5.1; Affected Specifications reduced to the two changed documents, the Service Declaration Protocol, Service Reward Distribution and Cryptarchia rows removed (their rationale stays in Discussion) | 2026-09-14 |
 | v3 | Hybrid only: the classical `X25519` fallback is dropped after review, so `X25519MLKEM768` is the only key exchange group a node offers or accepts; rebased on master, Blend Protocol row 1.5.1 → 1.6.2; the dependency constraint updated for the libp2p 0.57 release | 2026-10-09 |
-| v4 | After review: the Transport Security section reduced to its rules, the motivation and the restatements of RFC 9001 and the libp2p TLS specification moved here; the Post-Quantum Scope subsection and the `provider_id` identity sentence removed; Blend's Connection Details reduced to a pointer; the dependency corrected to rust-libp2p#6435 or a patched libp2p-tls, since libp2p 0.57 cannot restrict the groups; the implementation list rewritten per implementation, with key logging, Nimbos and the rollout order; `declaration_id` updated to #407 | 2026-11-02 |
+| v4 | After review: the Transport Security section reduced to its rules, the motivation and the restatements of RFC 9001 and the libp2p TLS specification moved here; the Post-Quantum Scope subsection and the `provider_id` identity sentence removed; Blend's Connection Details reduced to a pointer; the dependency corrected to rust-libp2p#6435 or a patched libp2p-tls, since libp2p 0.57 cannot restrict the groups; the implementation list rewritten per implementation, with key logging, Nimbos and the rollout order; `declaration_id` updated to #407; rebased on master, Blend Protocol row 1.6.3 → 1.8.1 | 2026-11-02 |
 
 ## Reviewer Orientation
 
@@ -248,7 +248,7 @@ The Connection Details section read *"TLS 1.3 … the cryptographic scheme is
 Ed25519 with ephemeral keys"*, which packs a static identity key together with
 two different ephemeral objects. It now points at Transport Security, and keeps
 the protocol-name sentence. Nothing normative is lost, and since the paragraph
-states no rule of its own, the change is the patch version 1.6.3.
+states no rule of its own, the change is the patch version 1.8.1.
 
 # Implementation
 
@@ -324,7 +324,7 @@ stack.
 | Specification | Status | Note |
 | --- | --- | --- |
 | [P2P Network](../../draft/p2p-network.md#transport-security) | Modified | 1.0.1 → 1.1.0; new Transport Security section, with `X25519MLKEM768` as the only key exchange group |
-| [Blend Protocol](../blend-protocol.md#connection-details) | Modified | 1.6.2 → 1.6.3; Connection Details points at Transport Security |
+| [Blend Protocol](../blend-protocol.md#connection-details) | Modified | 1.8.0 → 1.8.1; Connection Details points at Transport Security |
 
 [P2P Network]: ../../draft/p2p-network.md
 [Blend Protocol]: ../blend-protocol.md
