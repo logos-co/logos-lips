@@ -1,0 +1,73 @@
+# [RFC] Eras: Specify the form of an era migration
+
+**Motivation and proposal:** [PR #476](https://github.com/logos-co/logos-lips/pull/476)
+
+## Change log
+
+| **Revision** | **Description** | **Date** |
+| --- | --- | --- |
+| v1 | Initial RFC | 2026-10-06 |
+| v2 | The per-era migration is no longer called `migrate`, which Bedrock Eras now uses for the function that applies the migrations between two eras in order. The properties and the three parts are placed in the restructured §Era Migration. | 2026-10-09 |
+| v3 | A migration that changes a component also states a Lean certificate in logos-blockchain-formal, and its test vectors are those the certified function returns. The open question on certificates is answered, and the one on snapshots and the copies in `blend_target` is closed: identity by default keeps them unchanged unless an era's frame names them. | 2026-10-14 |
+| v4 | The uniqueness property covers `provider_id` and `zk_id` as well as `service_note_id`, since the SDP specification requires each to be unique within a service. | 2026-10-14 |
+| v5 | The service-note and uniqueness properties hold over `declarations` only: a snapshot keeps a withdrawn declaration for up to two epochs, during which its note can be spent and its `provider_id` or `zk_id` reused. The rationale no longer says step 5 of `SDP_DECLARE` enforces uniqueness, since as written it rejects nothing. | 2026-10-20 |
+
+## Reviewer Orientation
+
+Single-document change: read [Bedrock Eras](../bedrock-eras.md) §Era Migration, and focus on the four parts an era states and the five properties a migration preserves.
+
+# Discussion
+
+## The required parts
+
+The migration is stated in pseudocode, the form every other state transition in the specifications takes. The frame names the components an era redefines, so a reviewer checks only those against the identity rule that already governs the rest. Test vectors carry both the encoding and the digest of each state: the encoding lets an implementation run its own migration on the same input, and the digest lets it compare outputs without carrying the whole state. The certificate is a `Migration` value of logos-blockchain-formal: the migration as a Lean function, its frame, and proofs that every component outside the frame is unchanged and that the properties are preserved. Its theorem 12 composes certified migrations across eras, so a migration proven in isolation is proven along any sequence of boundaries. Producing the test vectors from the certified function ties them to what was proven. The identity migration is already certified there, so an era that changes only rules or parameters adds none of the four parts.
+
+## The preserved properties
+
+Three properties hold of every state the current rules can reach:
+
+- one note per leaf position, which the note tree requires;
+- a note behind every channel note and the service note of every entry of `declarations`: a channel note stays in the ledger until it is consumed, and a service note is locked while a declaration names it;
+- no `service_note_id`, `provider_id` or `zk_id` shared by two entries of `declarations` for one service: step 5 of `SDP_DECLARE` is meant to enforce the first, and the SDP's [Identifier Uniqueness](../bedrock-service-declaration-protocol.md#identifier-uniqueness) requires the other two.
+
+The snapshots are left out of both: a snapshot keeps a withdrawn declaration for up to two epochs, during which its note can be spent and its `provider_id` or `zk_id` reused.
+
+The other two relate the state before a migration to the state after it:
+
+- the token sum: block execution changes it through fees and rewards, but the migration itself must not. It is stated over the components that hold amounts, so it can be checked on the two states alone;
+- spent nullifiers: `voucher_nullifier_set` only grows, and `pow_nullifiers` loses entries only to the per-block pruning of [Proof of Work](../proof-of-work.md), which a migration does not perform.
+
+The three state properties can stand in for "every reachable state" in the **Total** requirement: a migration defined for every state with these properties is defined for every reachable one.
+
+One candidate was left out: the lineage of a channel's configuration has no property a migration can be checked against.
+
+## Open questions
+
+- If [Block Rewards](../block-rewards.md)' pending pool and reserve become components, the token property must include them.
+
+# Details
+
+[Bedrock Eras](../bedrock-eras.md) §Era Migration gains:
+
+- An era's specification states its migration in pseudocode, its frame (the components the era redefines), test vectors (states of the previous era and the states the migration returns for them, as encodings and state digests of [Bedrock Chain State](../bedrock-chain-state.md)), and its certificate: a certified `Migration` of [logos-blockchain-formal](https://github.com/logos-blockchain/logos-blockchain-formal) proving that the migration is total, changes only its frame and preserves the properties. The test vectors are those the certified function returns.
+- An era whose migration changes no component states none of the four.
+- A migration preserves, unless its era states a rule that breaks it:
+    - the sum of the note values, `leaders_rewards`, `pending_leaders_rewards`, `blend_income`, the income of `blend_target`, `pow_reward_pool` and `pow_pool_refill`;
+    - one note per leaf position;
+    - a note in `notes` behind every channel note and the service note of every entry of `declarations`;
+    - no two entries of `declarations` for one service sharing a `service_note_id`, a `provider_id` or a `zk_id`;
+    - every entry of `voucher_nullifier_set` and `pow_nullifiers`.
+
+# Implementation
+
+- [ ] For each era after the first that changes a component, write its certified `Migration` in logos-blockchain-formal and produce the era's test vectors from it
+- [ ] For each era after the first, implement its migration as specified and run it on the era's test vectors
+- [ ] Check the five properties on the input and output of every test vector
+- [ ] Add or extend tests that apply a migration at an era boundary, on the tip and on a block of the earlier era
+- [ ] Verify the implementation matches this specification
+
+# Affected Specifications
+
+| Specification | Status | Note |
+| --- | --- | --- |
+| [Bedrock Eras](../bedrock-eras.md) | Modified | required parts of a migration, preserved properties |
