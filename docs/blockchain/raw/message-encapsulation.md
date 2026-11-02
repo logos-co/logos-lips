@@ -214,7 +214,7 @@ class Message:
     ```python
     EncryptedPayload = bytes
 
-    PAYLOAD_BODY_SIZE = 18187  # Max_Body_Length, Payload Formatting
+    PAYLOAD_BODY_SIZE = Max_Body_Length  # of Payload Formatting: 18187 at MAX_UNCLES = 4
 
     class Payload:
         header: PayloadHeader
