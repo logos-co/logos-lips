@@ -266,7 +266,6 @@ Security Considerations:
 - Confidentiality is IND-CCA as long as either ML-KEM-768 or X25519 holds. The ciphertexts are anonymous: ML-KEM ciphertexts and X25519 ephemeral keys reveal nothing about the recipient key, so two outputs to the same recipient cannot be linked on chain.
 - The ledger cannot check a ciphertext against its commitment. A sender publishing a wrong ciphertext only prevents the recipient from learning a note the sender paid for; no other note and no other party is affected.
 - The decapsulation key reveals the contents of every note sent to its holder, past and future, and nothing else: it derives no nullifier and spends nothing. There is no forward secrecy by design, since the key is what lets a wallet recover its notes from its seed.
-- ML-KEM uses SHA3-256, SHA3-512, SHAKE128 and SHAKE256 internally, and X-Wing combines the secrets with SHA3-256; SHA-3 enters the components of the Logos Blockchain with this scheme.
 
 ## References
 
