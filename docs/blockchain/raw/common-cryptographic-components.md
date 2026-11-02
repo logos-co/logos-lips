@@ -27,7 +27,7 @@
 | 1.1.0 | [RFC] Replace the BLAKE2b-Based PRNG with ChaCha20 (ChaCha20Rng) | 2026-08-28 |
 | 1.2.0 | Strict EdDSA verification: reject small-order public keys and small-order `R` | 2026-09-22 |
 | 1.3.0 | Removed the ZkSignature scheme, no longer used by any Operation. The three-element nullifier uses the hash function mode | 2026-10-07 |
-| 1.4.0 | Added the Note Encryption scheme: a post-quantum/traditional hybrid KEM (X-Wing) with a BLAKE2b key derivation and ChaCha20-Poly1305, used to deliver the contents of a note to its recipient on chain | 2026-10-19 |
+| 1.4.0 | Added Public-Key Encryption: the X-Wing hybrid KEM and the Note Encryption construction over it, a BLAKE2b key derivation and ChaCha20-Poly1305, which delivers the contents of a note to its holder off chain | 2026-11-02 |
 
 # Introduction
 
@@ -219,64 +219,6 @@ Security Considerations:
 
 # 3. Proof Systems
 
-## Note Encryption
-
-Description:
-
-Note Encryption lets the sender of a [note](bedrock-v1.1-mantle-specification.md#notes) deliver its contents to the recipient on chain. The ledger holds only the commitment of a note; the recipient needs its `value` and `nonce` to recompute the commitment and to spend it. The scheme encrypts these two fields under the recipient's encryption public key, with a key encapsulation that stays secure against a quantum adversary, so that ciphertexts recorded today cannot be read once such an adversary exists.
-
-Technical Details:
-
-- Key encapsulation: X-Wing, the hybrid of ML-KEM-768 and X25519 specified in [draft-connolly-cfrg-xwing-kem](https://datatracker.ietf.org/doc/html/draft-connolly-cfrg-xwing-kem), used as specified: the two shared secrets are combined as $`\text{SHA3-256}(ss_M \| ss_X \| ct_X \| pk_X \| \text{label})`$. Encapsulation key 1216 bytes, decapsulation key a 32-byte seed, ciphertext 1120 bytes, shared secret 32 bytes. The same construction is registered for HPKE as `MLKEM768-X25519`.
-- Key derivation: domain-separated BLAKE2b-256, $`key = \text{BLAKE2b-256}(\texttt{LOGOS\_NOTE\_ENC\_V1} \| ss \| ct)`$, where $`ss`$ is the shared secret and $`ct`$ the 1120-byte KEM ciphertext.
-- Authenticated encryption: ChaCha20-Poly1305 ([RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439)) under $`key`$, with a zero nonce, since every key encrypts exactly once, and the note commitment `cm` as associated data.
-- Plaintext: `value` as 8 bytes little-endian followed by `nonce` as 32 bytes little-endian, 40 bytes. Ciphertext 56 bytes with the tag.
-- Note ciphertext: the KEM ciphertext followed by the authenticated ciphertext, `NOTE_CIPHERTEXT_SIZE = 1176` bytes.
-
-```python
-NOTE_CIPHERTEXT_SIZE = 1176
-
-def encrypt_note(pk_enc: XWingEncapsulationKey, cm: NoteCm, value: TokenValue, nonce: NoteNonce) -> bytes:
-    (ct, ss) = xwing_encapsulate(pk_enc)
-    key = blake2b_256(b"LOGOS_NOTE_ENC_V1" + ss + ct)
-    plaintext = value.to_bytes(8, "little") + nonce.to_bytes(32, "little")
-    return ct + chacha20poly1305_seal(key, nonce=bytes(12), aad=cm.to_bytes(32, "little"), plaintext=plaintext)
-
-def decrypt_note(sk_enc: XWingDecapsulationKey, cm: NoteCm, note_ct: bytes) -> (TokenValue, NoteNonce) | None:
-    ct, sealed = note_ct[:1120], note_ct[1120:]
-    ss = xwing_decapsulate(sk_enc, ct)
-    key = blake2b_256(b"LOGOS_NOTE_ENC_V1" + ss + ct)
-    plaintext = chacha20poly1305_open(key, nonce=bytes(12), aad=cm.to_bytes(32, "little"), ciphertext=sealed)
-    if plaintext is None:
-        return None
-    return (int.from_bytes(plaintext[:8], "little"), int.from_bytes(plaintext[8:], "little"))
-```
-
-Use in the Logos Blockchain:
-
-- The optional note ciphertext an Operation may attach to each note it creates, as specified in [Mantle - Note Delivery](bedrock-v1.1-mantle-specification.md#note-delivery). The recipient decrypts with the key it derives as the [Wallet Technical Standard](wallet-technical-standard.md#note-encryption-key-and-address) specifies, recomputes the commitment from the plaintext and its own public key, and keeps the note only if it matches.
-
-Rationale for Use:
-
-- A note ciphertext stays on chain for the life of the chain. Key encapsulation on an elliptic curve alone would let an adversary record the ciphertexts now and decrypt them once a quantum computer exists, exposing the amounts and, through the recomputed commitments, the recipients of every note. The hybrid keeps the classical security of X25519 if ML-KEM-768 is broken and the post-quantum security of ML-KEM-768 if X25519 is.
-- X-Wing is used exactly as specified, so its security proof, test vectors and implementations apply as they are. The key derivation and the authenticated encryption are the ones already used in the Logos Blockchain.
-- The encryption is outside every circuit: it costs no constraint and changes no proof.
-
-Security Considerations:
-
-- Confidentiality is IND-CCA as long as either ML-KEM-768 or X25519 holds. The ciphertexts are anonymous: ML-KEM ciphertexts and X25519 ephemeral keys reveal nothing about the recipient key, so two outputs to the same recipient cannot be linked on chain.
-- The ledger cannot check a ciphertext against its commitment. A sender publishing a wrong ciphertext only prevents the recipient from learning a note the sender paid for; no other note and no other party is affected.
-- The decapsulation key reveals the contents of every note sent to its holder, past and future, and nothing else: it derives no nullifier and spends nothing. There is no forward secrecy by design, since the key is what lets a wallet recover its notes from its seed.
-- ML-KEM uses SHA3-256, SHA3-512, SHAKE128 and SHAKE256 internally, and X-Wing combines the secrets with SHA3-256; SHA-3 enters the components of the Logos Blockchain with this scheme.
-
-## References
-
-- X-Wing: general-purpose hybrid post-quantum KEM. [https://datatracker.ietf.org/doc/html/draft-connolly-cfrg-xwing-kem](https://datatracker.ietf.org/doc/html/draft-connolly-cfrg-xwing-kem)
-- ML-KEM, FIPS 203. [https://csrc.nist.gov/pubs/fips/203/final](https://csrc.nist.gov/pubs/fips/203/final)
-- Post-quantum KEMs for HPKE. [https://datatracker.ietf.org/doc/html/draft-ietf-hpke-pq](https://datatracker.ietf.org/doc/html/draft-ietf-hpke-pq)
-- ChaCha20 and Poly1305 for IETF Protocols, RFC 8439. [https://datatracker.ietf.org/doc/html/rfc8439](https://datatracker.ietf.org/doc/html/rfc8439)
-- Maram, Xagawa. Post-Quantum Anonymity of Kyber. PKC 2023. [https://eprint.iacr.org/2022/1696](https://eprint.iacr.org/2022/1696)
-
 ## [Groth16 (zk-SNARK)](https://eprint.iacr.org/2016/260.pdf)
 
 Description: Groth16 is a succinct zero-knowledge proof system that allows proving arbitrary statements about computations with very short proofs and fast verification.
@@ -307,6 +249,95 @@ Security Considerations:
 
 - Groth16: [https://eprint.iacr.org/2016/260.pdf](https://eprint.iacr.org/2016/260.pdf)
 
+# 4. Public-Key Encryption
+
+The Logos Blockchain encrypts data to a public key for one purpose: to deliver the contents of a note to its holder. The ledger carries no ciphertext. The scheme is specified so that every wallet opens every ciphertext addressed to it, wherever the ciphertext is delivered.
+
+## [X-Wing](https://datatracker.ietf.org/doc/html/draft-connolly-cfrg-xwing-kem)
+
+Description:
+
+X-Wing is a key encapsulation mechanism (KEM) combining ML-KEM-768 and X25519 into one hybrid, post-quantum and traditional, KEM. It is specified in draft-connolly-cfrg-xwing-kem and registered for HPKE as `MLKEM768-X25519`.
+
+Technical Details:
+
+- Components: ML-KEM-768 ([FIPS 203](https://csrc.nist.gov/pubs/fips/203/final)) and X25519 ([RFC 7748](https://datatracker.ietf.org/doc/html/rfc7748)).
+- Shared secret: $`\text{SHA3-256}(ss_M \| ss_X \| ct_X \| pk_X \| \text{label})`$, 32 bytes, as the draft specifies. The combiner is part of the construction.
+- Sizes: encapsulation key 1216 bytes, decapsulation key a 32-byte seed, ciphertext 1120 bytes.
+- Security level: NIST level 3 from ML-KEM-768, about 128 bits from X25519.
+
+Use in the Logos Blockchain:
+
+- The key encapsulation of the [Note Encryption Construction](#note-encryption-construction).
+
+Rationale for Use:
+
+- A note ciphertext is kept by whoever serves it, for as long as its holder needs it. A key encapsulation on an elliptic curve alone would let an adversary record the ciphertexts now and decrypt them once a quantum computer exists, exposing the amounts and, through the recomputed commitments, the recipients of every note. The hybrid keeps the security of X25519 if ML-KEM-768 is broken and that of ML-KEM-768 if X25519 is.
+- X-Wing is used exactly as specified, so its security proof, its test vectors and its implementations apply as they are.
+
+Security Considerations:
+
+- IND-CCA secure as long as either ML-KEM-768 or X25519 holds.
+- Anonymous: a ciphertext reveals nothing about the encapsulation key it is encapsulated to, so two ciphertexts to the same recipient cannot be linked.
+
+### Note Encryption Construction
+
+Description:
+
+The ledger holds only the commitment of a [note](bedrock-v1.1-mantle-specification.md#notes); its holder needs the `value` and the `nonce` to recompute the commitment and to spend it. Note Encryption lets the sender of a note encrypt these two fields to the holder's encryption key, bound to the commitment, so that the ciphertext can be handed over through any channel and opened by the holder alone.
+
+Technical Details:
+
+- Key encapsulation: [X-Wing](#x-wing), $`(ct, ss) = \text{Encapsulate}(pk_{\text{enc}})`$.
+- Key derivation: $`key = \text{BLAKE2b-256}(\texttt{LOGOS\_NOTE\_ENC\_V1} \| ss \| ct)`$, where $`ss`$ is the shared secret and $`ct`$ the 1120-byte KEM ciphertext.
+- Authenticated encryption: ChaCha20-Poly1305 ([RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439)) under $`key`$, with a zero nonce, since every key encrypts exactly once, and the note commitment `cm` as associated data.
+- Plaintext: `value` as 8 bytes little-endian followed by `nonce` as 32 bytes little-endian, 40 bytes. Sealed, 56 bytes with the tag.
+- Note ciphertext: the KEM ciphertext followed by the sealed plaintext, `NOTE_CIPHERTEXT_SIZE = 1176` bytes.
+- Delivery message: the 32-byte little-endian commitment followed by the note ciphertext, 1208 bytes, so that the recipient has the associated data it opens the ciphertext with.
+
+```python
+NOTE_CIPHERTEXT_SIZE = 1176
+
+def encrypt_note(pk_enc: XWingEncapsulationKey, cm: NoteCm, value: TokenValue, nonce: NoteNonce) -> bytes:
+    (ct, ss) = xwing_encapsulate(pk_enc)
+    key = blake2b_256(b"LOGOS_NOTE_ENC_V1" + ss + ct)
+    plaintext = value.to_bytes(8, "little") + nonce.to_bytes(32, "little")
+    return ct + chacha20poly1305_seal(key, nonce=bytes(12), aad=cm.to_bytes(32, "little"), plaintext=plaintext)
+
+def decrypt_note(sk_enc: XWingDecapsulationKey, cm: NoteCm, ciphertext: bytes) -> (TokenValue, NoteNonce) | None:
+    ct, sealed = ciphertext[:1120], ciphertext[1120:]
+    ss = xwing_decapsulate(sk_enc, ct)
+    key = blake2b_256(b"LOGOS_NOTE_ENC_V1" + ss + ct)
+    plaintext = chacha20poly1305_open(key, nonce=bytes(12), aad=cm.to_bytes(32, "little"), ciphertext=sealed)
+    if plaintext is None:
+        return None
+    return (int.from_bytes(plaintext[:8], "little"), int.from_bytes(plaintext[8:], "little"))
+```
+
+Use in the Logos Blockchain:
+
+- The recommended delivery of the user notes an Operation creates for another holder, as [Mantle - Note Delivery](bedrock-v1.1-mantle-specification.md#note-delivery) specifies: the sender hands the delivery message over through a direct channel or publishes it on a data availability layer the recipient reads. The recipient decrypts with the key it derives as the [Wallet Technical Standard](wallet-technical-standard.md#note-encryption-key-and-address) specifies, recomputes the commitment from the plaintext and its own public key, and keeps the note only if it matches.
+
+Rationale for Use:
+
+- The key derivation is the domain-separated BLAKE2b of the components, and the cipher the ChaCha20 they already use, with the Poly1305 authenticator of RFC 8439.
+- The commitment as associated data binds a ciphertext to one note: a ciphertext opens for the commitment it was made for and no other, so it cannot be replayed for another output.
+
+Security Considerations:
+
+- Nothing checks a ciphertext against its commitment before the recipient opens it. A sender publishing a wrong ciphertext only prevents the recipient from learning a note the sender paid for; no other note and no other party is affected.
+- What the decapsulation key reveals, and what recovery from the seed covers, is stated in the [Wallet Technical Standard](wallet-technical-standard.md#note-encryption-key-and-address).
+- Test values are in the [Annex](#note-encryption-test-values).
+
+## References
+
+- X-Wing: general-purpose hybrid post-quantum KEM. [https://datatracker.ietf.org/doc/html/draft-connolly-cfrg-xwing-kem](https://datatracker.ietf.org/doc/html/draft-connolly-cfrg-xwing-kem)
+- ML-KEM, FIPS 203. [https://csrc.nist.gov/pubs/fips/203/final](https://csrc.nist.gov/pubs/fips/203/final)
+- Elliptic Curves for Security, RFC 7748. [https://datatracker.ietf.org/doc/html/rfc7748](https://datatracker.ietf.org/doc/html/rfc7748)
+- Post-quantum KEMs for HPKE. [https://datatracker.ietf.org/doc/html/draft-ietf-hpke-pq](https://datatracker.ietf.org/doc/html/draft-ietf-hpke-pq)
+- ChaCha20 and Poly1305 for IETF Protocols, RFC 8439. [https://datatracker.ietf.org/doc/html/rfc8439](https://datatracker.ietf.org/doc/html/rfc8439)
+- Maram, Xagawa. Post-Quantum Anonymity of Kyber. PKC 2023. [https://eprint.iacr.org/2022/1696](https://eprint.iacr.org/2022/1696)
+
 # Annex
 
 ## Poseidon2 Test Values
@@ -332,3 +363,78 @@ Security Considerations:
 | [1,0] | 0x63c4e8cac9a858304f0035b069255b069288c2af698ececf362cd8ec8c96665 |
 | [0,1] | 0x222816f2669279d4c256ed2f196e8b0d54df83d35d61811bac36ea4e858483fc |
 | [1,1] | 0x277530b5f2b87dfe4535f43bb1998eda77736b4b05d15d983503566743c88031 |
+
+## Note Encryption Test Values
+
+The values are generated with the `x-wing`, `chacha20poly1305` and `blake2` crates, after checking X-Wing against the vectors of draft-connolly-cfrg-xwing-kem-11, and verified independently from the draft's reference pseudocode. `cm` and `nonce` are chosen field elements, not Poseidon2 outputs; the commitment check of discovery is not covered.
+
+### Note Encryption Key
+
+`sk_enc = BLAKE2b-256(WALLET_ENC_SK_V1 || k_i)`, the X-Wing seed; `pk_enc` its encapsulation key ([Wallet Technical Standard](wallet-technical-standard.md#note-encryption-key-and-address)).
+
+Wallet A:
+
+| Field | Value |
+| - | - |
+| `k_i` | 0x000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f |
+| `sk_enc` | 0x60d398d2a31872058c83c5777043bfecd04ecd94e033cba5bf43e2e5eeaa2b45 |
+| `pk_enc` | 0x3f564c29c55841e5c1cc1bb72c913e1c629072433441136706c06431b5760d0074dc1c52d071718c2392896ba0b87979a8019b8ab81cde85710461013a424a9f19886465050ec6076206031da442efd74fed1a4166c27f683251ed462ba5a09ab6867c65e3394db60f0d7cc731aa82e05081b871a113c036e2809cdb95046331ca8c52afd9484ebdf91f87c374392accb6d99a51084eba5c4c9b704e95f6a54254435e84066fab63a0f98ea0393f69ec20618acaa00a44db4103f2e9c9bc2295ae720a5462299028c10ca3ab85b93fd018cb21f7b846b8773fd65fe4b6020c177bceb7687e58ac9c4bc306a35642f68462818828e49ac6a961daf2c33217cd3c014a9f19177fcb2a5788b163704ed58abccc989ed719c2a7e64662434465000a18f6a3b5454fc65617b7e1498127146b50047a20b44f5b2fdf368b40a3061850159da89e467984ef204fbc4a7f99604bd6bacf88bacab32ac238988474c5192a8088b850897c8531139a960226cc9c60b76e1b07cae19ff9445e677625bcac7ca5cb70b901970f5b92597b9e059474327752ef953930462de874425e34812ed0af5776cdc3f5bee2a3abad01c75ff91d3737a96ce4baeb8699929a426d10830796675c05c48b467f1a2c1ebae034599c5814612161b04c8ce76b19ebcd2e0117fe16b196d29866720f0a959759637a878327953acddf398841754797596eeeb07069c89b29150fe7ca1169346b2fa3452fc0baff6c6dad2a90e4750c609b93eeca3da617305e6ace9e684447e0950eb9277abab72c189820f55effaa57fe92b5475412d897cfb0e43b0c941033b74c48115343e6717c9b11ad4c3472b77de2632298ca6da9a4baaceb980f033c6a62027d7988bcb2aab521b7231151351b03138136d12b6b9e362dbd79becb591debb6cf16e5a66380217649b75cc136d7c569e792876803c4fd2a236e67a2fe34067bb7b83da55faa900edb696654c97853a0a684e709af3aa49f64b3b6023efcd75dec41be59e534d0e06778eb43e2b78ef24001b65ab867b92fa2662bb894069704ba5cbb9815ac9354fcb898923a8a6974253562dbb4659443b6b48949c99459bb0c5f1c18952f240a7e8c6c62c3372d4a82fefa7c67544bd85521d8c37b5b0872d63ba34876c2d4d974fddc1a7a09a063331537cb887dd24ecbd41930d9c6ea65096c891555ea6da04c43bf680aa4a9234cc366ad2aac40355a1942bbc8c457aac90e785220e6052f8a739490115023fcb916957f62c07ed43852da3c04ad3404c3c235832b80f1d7177e37471f621b21ac7d25b896af07c1c013009e819d1829305090a9fa002bdc91ccecca1d203ba27449529fa13b676440b596acc97c0d4e814fc094673b448751e89622e2c0d41c50640b758b3794f2a526c23c15830cb626a5630cd29cc985084b8c5b21cb6d3381073d572f2639abfb620e8da2c8f8ca5ef6167b44b6a535117d304447ca28a32b403eedd80e1a14b80367bffb1cb743439086b53b1282465b852f9b542a47ac1479d2aad338c005c59d9c118f8de24424900de4f72daeaacc69b65fa1fc7a65e2586daa5651d5a2d271a6c38281771086a4eb696a774925417edd283976c63315223994570efe8b5e769817bbec0cf5ae0dd87091be2f3c04814d257a99895fca62fa38340a113c0ecda95c3e41fe39d9ef09d09d03e59aedee79ecef0d9d3d |
+
+Wallet B:
+
+| Field | Value |
+| - | - |
+| `k_i` | 0x202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f |
+| `sk_enc` | 0xc855ee56f1ea0ceb1e847f94ec4c98ec5b00d08336089ea07198cb948bb22180 |
+| `pk_enc` | 0xaf038a12337daee50b7f538b00a3b6ff305d8b662f6e5c50d61c4e9dc58a3730254a7a0fd728ceaa96880b7533272b34aea1751c43127c9c68f2b572dea06313109f29c99c8c65c7fb20a071d35a52e590137936e5200a79ab83081a356fe3a84410b698604354ea4eb55c32582093cdab04a679798dd5870ec3c3d07b971b7b7dd3f4b02b190f5ce461861684b7b83dd55346eb3b7afb236007a673b5053c3b6763a34c127b2a75738946ac5862068bbe005018213101a2ea54ae15074872a2903b84000046b2922d66530a34411300b3cc5538335b57784e48c132e254bd50a6c2d1c271254720fb3823a70cc390c0ea066ee315952e6c769eb32a5c21b6dc25be5f1b8ae7a4a09c24cd5b9470a9e811266439cec06880d850302b1bca355023476f0c74386dc255bafb53886168ffb2bddc224d30b53eeaeb48fd286fef7ab005bc1df6aa079a58cb69a38609ba87420b019956c874facfb9c85d85541e7f35797599417491835ef29191c596a96a3d3ac1033e1baa52a468c068ad84227ba8d6caa477bc05c785e3d73c069a1c0a6144bb373b743455c93a689f4140d50913ece95570620b03ac57b7366db99b266bb9cd12ca161fac5f0a922a57ab46b2814481f4c10c6c75042c89dae9c5e3797d16d513e1ccb5579b52f6651cecc9a8fc96a27958bb0d56319f29255d23649c2c78c4735fe51b7b1544accb6383a913af422c8c70b95d33e171095954126262ec402dd26a6de5588e8554137482cd04a3393992248e7335eedcad2a03a6dca13d6d96bcb99ca112050b6e2cc506b70774e7c6795ca8d1ec525655555f4c15add51d552ab16fc24450bc2a09489608945c482cbf719b4ada7bb34a8a0ddcecccf73a843fb7a7323179b310806956b850966261bc5414532602d365d4c32ae18466e0f62b0ca81b80d71f93c0c40cdba93030135c585e3661b6c18a4c6c395372140109692bb7f37e11b701ae263072701cfb012976ab99fc3372d018b00c4c7accd42373172d99172747e24417c92ccdf63dbdb9a5638cc0b6b0983d873d97fa362850a05702d08ecaafe3a91158b13e126190f16113ca2ac1d14c3b58f2256e3cabaa4c0a97d1ca41fabd0d6b26d25923a274a18bdc9a8b649def6ba77e9278c1942af98523e46735e4700d25225969345ca7b51b6c98a578f87b1ac15d2f2292c987849e5b46ee590396284f25d584dae20d77ec413e44b8c9da96cc098594f55e2a3c48f3843fc0972af84531bfab757059acff4507de677982e692a40597f34a6d00b259f37c62cf869d1e591bc0e215ba27cfa294649a7b9e4b5c201bc5c156c28da3d19ea335ae153871ff6b376ad278a2e5640de82df5155c926a94e6b52abda717bdab54ec156065f799ff4b7f65242c96d55e2b4a2e9111066c9418c6582a17048fb6b47fedbc6327485a6f892df3d92828e221d508c26c338758fbcfff59c84dd61f66398cda644fe4c15db5691ac1478c2e10480e581e6e17b4557b3f714c5771666af98a9951722a9ebc7ce0eb2905d3cd35d74166737d0b39ac4e7429e5f157f5f5cdd989b536c2abba247716c99505fc4fe963af762ca44c13a7e152082e0c4b363b515e9b417ab303a96f0cff2ff6d16fef93668e1f1bacde5ed26a9fc9f1a5f40f831a97df1903908d2909822cd98929b181828972b13ecab082628f171e29b275bf37ba07af6f2a |
+
+### `encrypt_note`
+
+Every vector encrypts to wallet A. `eseed` is the 64-byte randomness of X-Wing's `EncapsulateDerand`: its first 32 bytes are the ML-KEM-768 message, the last 32 the X25519 ephemeral secret. `plaintext` is `value` (8 bytes, little-endian) followed by `nonce` (32 bytes, little-endian); `cm` is the associated data, 32 bytes little-endian; the AEAD nonce is 12 zero bytes.
+
+Vector 1:
+
+| Field | Value |
+| - | - |
+| `cm` | 0x1111111111111111111111111111111111111111111111111111111111111111 |
+| `value` | 1000000000 |
+| `nonce` | 0x2222222222222222222222222222222222222222222222222222222222222222 |
+| `plaintext` | 0x00ca9a3b000000002222222222222222222222222222222222222222222222222222222222222222 |
+| `eseed` | 0x404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f |
+| `ss` | 0x45e0e0fe0cd084f3746a1caa7bbc7e6109b3bad4cc122b1d3df28b64c5660258 |
+| `key` | 0xff6a87d3b3de806a4356a76716f12d133911ebf814016a62d8757dbd8f01d026 |
+| `kem_ct` | 0x100600c98d97a945a2e2574b40a7e2e8a96aa6fc3c132438fb0cab025f2bc445ac062ce2d8ebd3dc262e6439c9b4fe91977072697f0ace481f71552605ca70d9dffcebc9a04242647ffe33a3becb0000b9bc5937e101ad27b0f572a86b20da81ed7c82f1e6da1fbe93d96ede682ebabe4bf0910129ce462499310f2b2d5a04615b16784c64ad869f5117f5b471f9e13c99b3301619ad7b97c0041797cffd7886f0a4236626ea15037680db1671d18ed2a34525b4a23ff9cabc90f0a8bc33059d10a5a304af56211eea724ed9350438cadc6038baaf34b02bccdffe56b0608ab293149cbf31edbb7fa53ea43947e06889bf6a50281029f8103da6740c3b9cacb84abe24e232b115be8b38196d7dc33befa7ac2e033740dabc454aa4bbaa54af53fdb5287e0c6198f4d3a95392758e558f132857bb189644e16378e9b2da91ca7304e6b4abeb1e35457f8000d898577d83a7404968ecce6af0facf755dc0c9d13569c980fda6bf6ea52841315207fb6902b64981a37aba9a6bcec73b3799629d2286fa5e56f0353f54bc38bd40ca9f30e3e708027db2f0c5ce6a97709fd409f8bfb87b7de4c68bd9930b69790f42722c1fb21fdf3649efd950e3c50354ce30d5fc0e1672a4cb690834701c12d4c88f5c77352d5cf7cec386a74d160a4775a1adf6b5e9c35cf16a23f7feddaf6a269a810892886f6b7c3759f1c2c496c2022c3e43dd22df9e6fdbf1b86f1f98edf9321fabae321505f1831a2a9c26032837792387a32c64b8faf6000751196f744264d0301e95118da3d9bc087f00472b12c025b579a79618ece2caa3007528e4c027f7eef6732c96aa23edebdabc9e82cd80e925524110da4581b412f64a1f8b6f7645ef6fe7063dbf7398a9972f6f0c2ccd40f4ea5ea2b8442b557897c70471ceb477b48bf37b66358fe5a7c97bae778968307e4b2c9b49805c44fc4a1cc2efc94cbf5d3090456f576228e86dfb8de35bda91a19ff14c5ede08463cbbe3ecdba0175b1b8443435f54c07bc442256b67e9f5f5f563387bc09ac16b141ac8a062060ba16ac42282276bde2b972337fdadf7e2f611f37a27e3f899d3026297df261e5c67398f39edc225fd0a00bfb30b8bd5382af3dea7a26d2554f6ecabe275f37945a04b83d98d3634fdbbf4aa1c37c311549d8046e462b4a19db6eeab34ea3b6ca595a0bff079122f0f603d34121d9588c4a7b952428b87ccffa0ce1308d242b71f4313cc893838ca4964de4d43eacf71eb70a58bda5099fab5bb76713f3f5b091c5ebf40c8a8213264cd074847584b4cee5e2fd46195203081a9dc56f56d7668043362741f96575f55fded1c740f15c81f5d6961c05553b5212562ec0a17c5eb0fcbc297e5b6d15652debda6a466ef8f0c77a44523be6a85e4c6cc2475c1d79c705c5a31aed165d448ac3fb0bd742367255a8aeed4ef6402e64e111b1ffad8681c7f009f4943f2c6bd0285cd724a03588912738e3e8523d48c2f20f271352003e6af7b55dd42c9bf3ae0991e64cdcd34760107675dd574ed7789310b3d2e7681f3790b466c773b1521fecf36577958371ea52f |
+| `sealed` | 0x87044ae61a27c5e573a0b4d4506c6a6eb47e4806597c8fea17db29f5f41d882954a740534c90809abf01592d0776b6ecc910820a9229dc71 |
+| `ciphertext` | 0x100600c98d97a945a2e2574b40a7e2e8a96aa6fc3c132438fb0cab025f2bc445ac062ce2d8ebd3dc262e6439c9b4fe91977072697f0ace481f71552605ca70d9dffcebc9a04242647ffe33a3becb0000b9bc5937e101ad27b0f572a86b20da81ed7c82f1e6da1fbe93d96ede682ebabe4bf0910129ce462499310f2b2d5a04615b16784c64ad869f5117f5b471f9e13c99b3301619ad7b97c0041797cffd7886f0a4236626ea15037680db1671d18ed2a34525b4a23ff9cabc90f0a8bc33059d10a5a304af56211eea724ed9350438cadc6038baaf34b02bccdffe56b0608ab293149cbf31edbb7fa53ea43947e06889bf6a50281029f8103da6740c3b9cacb84abe24e232b115be8b38196d7dc33befa7ac2e033740dabc454aa4bbaa54af53fdb5287e0c6198f4d3a95392758e558f132857bb189644e16378e9b2da91ca7304e6b4abeb1e35457f8000d898577d83a7404968ecce6af0facf755dc0c9d13569c980fda6bf6ea52841315207fb6902b64981a37aba9a6bcec73b3799629d2286fa5e56f0353f54bc38bd40ca9f30e3e708027db2f0c5ce6a97709fd409f8bfb87b7de4c68bd9930b69790f42722c1fb21fdf3649efd950e3c50354ce30d5fc0e1672a4cb690834701c12d4c88f5c77352d5cf7cec386a74d160a4775a1adf6b5e9c35cf16a23f7feddaf6a269a810892886f6b7c3759f1c2c496c2022c3e43dd22df9e6fdbf1b86f1f98edf9321fabae321505f1831a2a9c26032837792387a32c64b8faf6000751196f744264d0301e95118da3d9bc087f00472b12c025b579a79618ece2caa3007528e4c027f7eef6732c96aa23edebdabc9e82cd80e925524110da4581b412f64a1f8b6f7645ef6fe7063dbf7398a9972f6f0c2ccd40f4ea5ea2b8442b557897c70471ceb477b48bf37b66358fe5a7c97bae778968307e4b2c9b49805c44fc4a1cc2efc94cbf5d3090456f576228e86dfb8de35bda91a19ff14c5ede08463cbbe3ecdba0175b1b8443435f54c07bc442256b67e9f5f5f563387bc09ac16b141ac8a062060ba16ac42282276bde2b972337fdadf7e2f611f37a27e3f899d3026297df261e5c67398f39edc225fd0a00bfb30b8bd5382af3dea7a26d2554f6ecabe275f37945a04b83d98d3634fdbbf4aa1c37c311549d8046e462b4a19db6eeab34ea3b6ca595a0bff079122f0f603d34121d9588c4a7b952428b87ccffa0ce1308d242b71f4313cc893838ca4964de4d43eacf71eb70a58bda5099fab5bb76713f3f5b091c5ebf40c8a8213264cd074847584b4cee5e2fd46195203081a9dc56f56d7668043362741f96575f55fded1c740f15c81f5d6961c05553b5212562ec0a17c5eb0fcbc297e5b6d15652debda6a466ef8f0c77a44523be6a85e4c6cc2475c1d79c705c5a31aed165d448ac3fb0bd742367255a8aeed4ef6402e64e111b1ffad8681c7f009f4943f2c6bd0285cd724a03588912738e3e8523d48c2f20f271352003e6af7b55dd42c9bf3ae0991e64cdcd34760107675dd574ed7789310b3d2e7681f3790b466c773b1521fecf36577958371ea52f87044ae61a27c5e573a0b4d4506c6a6eb47e4806597c8fea17db29f5f41d882954a740534c90809abf01592d0776b6ecc910820a9229dc71 |
+
+Vector 2:
+
+| Field | Value |
+| - | - |
+| `cm` | 0x030507090b0d0f21232527292b2d2f21232527292b2d2f01030507090b0d0f01 |
+| `value` | 0 |
+| `nonce` | 0x0000000000000000000000000000000000000000000000000000000000000000 |
+| `plaintext` | 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000 |
+| `eseed` | 0x808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf |
+| `ss` | 0xaf0e799a3c8a9a8127bd0fd7d76fb2ccb49c70d0571a3b42ddf47eac31379ff9 |
+| `key` | 0x7a54e2192105af4f3027272bc7195b1bc50e0cfb11d22edbad0dba54cd263ba5 |
+| `kem_ct` | 0x879f6939ba920b33569fce8ab10084402166c7632cd149f5855cd5969c6a03a2776b4d7ceff5617b974cabbbc131d732b85f14567ce4aca108d70ae753e36a325c55e7cfba6e13cf026fdc8f58171c2eff8aa04068f2b47822b8a32317029b6c33298add3df10652826ce8a2c51c6a00b90e9b576b6943bc9b2ab58da59efab1ff7f9d49501d68219553b46773f435f3e22e66d08298e501f42a980f6dbd22cf43da22064b21b4e36b524064a19dad45641ccdfccecce2be58434a08c6e2a7ae9e0800efcbd4ad923a6489f99a4a20e2847dd5b918605e4b732a164181595880ff8cfb6fb021f316aaa51f6e1c2a6dbb47a3102d826158b8bb378e8abc6d274d83acf3de220fee1df2b7ea9757f316c4140c33306ec499612f8131c7503a1025e8b499ae822152b3ca0ed0362ff3dd4a4be41c53962a2c0d7959c7e1cb8f10c50962da75ac4e146d608acfed919a812ebc4a75ecc1a800dcb12af8af69b6f6d9d6bd9e08f9c5c758494c36d97d4027ebadcc6ad666955c537ec1384c60095798f1d6b74fe7301f16264df42ab48164cd0ddb52ed0d36dd99c9e271d3ca0d491b9f0aa3d70c57673476f4f15a898792758401bb5c4169c61fb95e51692d5d11728a0a2a31f6e7ee3feaf076a02d87c8dbc08fee44b72726e37074a6705d5408aaa451e84768fb5c5c3b49cff826bcbdd0845ac9cd8b114802dd61416ddbbcf12824a9e267a065a69e60b160642543c1dbf74a55b775ea36a87de54a5ddf9a8e9884fe0fc9c66ea8c90aed508864edea66ac6198d030b481068e34cdc158ec61e63afef942388d35c5135a47bb34e628251f1468f2cbaf42753d4742c7f24d8007b5c6e48df86a2d948b4a7186e1a8f5dbc112ded8e8e9d6680eacd1a88ea0e813c0abc72423dd9fd3555a84f21ce44866d61011f2282e0221b26bcb433634d34ab0d1bc75ae7c5468bb9f442d06894fced8c10f43a7539798eba34e44be0066d5387ad475634de2579579dc79d332edec41260c4e4fef018a7321aa41f50688bd23dbd7e522841265898e4700ba8ea5083059bd34ef970e938989a5722779b88fca252f3b5fbd47c0a8dd2cd776ae9014d3438a8f789599dfd52b608e8ccccdfb4d8b4e7e3718c83e44fc50ac8821672005a5e770afe22b40a1378d839ca1752deaab8efa09c0989c1132e7228270de9f01e3095463acec0544aa31e5bb6cda8709af5e2a27bd65eb377b59a84fb951f52dc260a23bde5b85191a13abb95b01533a7c32ad01b447ff58bccded1c4e75eeba149a15ab501b34e51ecb727c8be55547422db1b2b1c8a7d8f456b7a32549ccb95ed1bcf2c334f12db15d2350ea6abf071e977856ed8576ca2749e618ad2a38365ab02f8c5dbf5e7aea407e7ba689bdc2175966d052e594cb2abbd637e072bbe10b47d37845bf304e8a914681b9a6a649e64fa1f88aab4cc598853f26af48180cba8c790a3017486a58170d19ac02af2cad2e491465f2fcb9be6a6e8ed2e37e0e06cae470dc059b54db6ddf38b6d5e3605a725d2a4adfeeb1a29e17edd621c1b7593ee8cdbc44ac6c4ab6e2f805d23c |
+| `sealed` | 0x9ed6f1066df3cf852c93101de292ab8ca91236a8cb3dab754724a0d981d940fdc30a26f51c7f720bb53df517dfe18148284e1520f633cb13 |
+| `ciphertext` | 0x879f6939ba920b33569fce8ab10084402166c7632cd149f5855cd5969c6a03a2776b4d7ceff5617b974cabbbc131d732b85f14567ce4aca108d70ae753e36a325c55e7cfba6e13cf026fdc8f58171c2eff8aa04068f2b47822b8a32317029b6c33298add3df10652826ce8a2c51c6a00b90e9b576b6943bc9b2ab58da59efab1ff7f9d49501d68219553b46773f435f3e22e66d08298e501f42a980f6dbd22cf43da22064b21b4e36b524064a19dad45641ccdfccecce2be58434a08c6e2a7ae9e0800efcbd4ad923a6489f99a4a20e2847dd5b918605e4b732a164181595880ff8cfb6fb021f316aaa51f6e1c2a6dbb47a3102d826158b8bb378e8abc6d274d83acf3de220fee1df2b7ea9757f316c4140c33306ec499612f8131c7503a1025e8b499ae822152b3ca0ed0362ff3dd4a4be41c53962a2c0d7959c7e1cb8f10c50962da75ac4e146d608acfed919a812ebc4a75ecc1a800dcb12af8af69b6f6d9d6bd9e08f9c5c758494c36d97d4027ebadcc6ad666955c537ec1384c60095798f1d6b74fe7301f16264df42ab48164cd0ddb52ed0d36dd99c9e271d3ca0d491b9f0aa3d70c57673476f4f15a898792758401bb5c4169c61fb95e51692d5d11728a0a2a31f6e7ee3feaf076a02d87c8dbc08fee44b72726e37074a6705d5408aaa451e84768fb5c5c3b49cff826bcbdd0845ac9cd8b114802dd61416ddbbcf12824a9e267a065a69e60b160642543c1dbf74a55b775ea36a87de54a5ddf9a8e9884fe0fc9c66ea8c90aed508864edea66ac6198d030b481068e34cdc158ec61e63afef942388d35c5135a47bb34e628251f1468f2cbaf42753d4742c7f24d8007b5c6e48df86a2d948b4a7186e1a8f5dbc112ded8e8e9d6680eacd1a88ea0e813c0abc72423dd9fd3555a84f21ce44866d61011f2282e0221b26bcb433634d34ab0d1bc75ae7c5468bb9f442d06894fced8c10f43a7539798eba34e44be0066d5387ad475634de2579579dc79d332edec41260c4e4fef018a7321aa41f50688bd23dbd7e522841265898e4700ba8ea5083059bd34ef970e938989a5722779b88fca252f3b5fbd47c0a8dd2cd776ae9014d3438a8f789599dfd52b608e8ccccdfb4d8b4e7e3718c83e44fc50ac8821672005a5e770afe22b40a1378d839ca1752deaab8efa09c0989c1132e7228270de9f01e3095463acec0544aa31e5bb6cda8709af5e2a27bd65eb377b59a84fb951f52dc260a23bde5b85191a13abb95b01533a7c32ad01b447ff58bccded1c4e75eeba149a15ab501b34e51ecb727c8be55547422db1b2b1c8a7d8f456b7a32549ccb95ed1bcf2c334f12db15d2350ea6abf071e977856ed8576ca2749e618ad2a38365ab02f8c5dbf5e7aea407e7ba689bdc2175966d052e594cb2abbd637e072bbe10b47d37845bf304e8a914681b9a6a649e64fa1f88aab4cc598853f26af48180cba8c790a3017486a58170d19ac02af2cad2e491465f2fcb9be6a6e8ed2e37e0e06cae470dc059b54db6ddf38b6d5e3605a725d2a4adfeeb1a29e17edd621c1b7593ee8cdbc44ac6c4ab6e2f805d23c9ed6f1066df3cf852c93101de292ab8ca91236a8cb3dab754724a0d981d940fdc30a26f51c7f720bb53df517dfe18148284e1520f633cb13 |
+
+### `decrypt_note`
+
+| Case | `sk_enc` | `cm` | `ciphertext` | Result |
+| - | - | - | - | - |
+| vector 1 | A | as given | as given | `(1000000000, 0x2222222222222222222222222222222222222222222222222222222222222222)` |
+| vector 1, other commitment | A | first byte flipped | as given | `None` |
+| vector 1, other wallet | B | as given | as given | `None` |
+| vector 1, KEM ciphertext altered | A | as given | first byte flipped | `None` |
+| vector 1, tag altered | A | as given | last byte flipped | `None` |
+| vector 1, truncated | A | as given | 1175 bytes | `None` |
+| vector 2 | A | as given | as given | `(0, 0x0000000000000000000000000000000000000000000000000000000000000000)` |
+| vector 2, other commitment | A | first byte flipped | as given | `None` |
+| vector 2, other wallet | B | as given | as given | `None` |
+| vector 2, KEM ciphertext altered | A | as given | first byte flipped | `None` |
+| vector 2, tag altered | A | as given | last byte flipped | `None` |
+| vector 2, truncated | A | as given | 1175 bytes | `None` |
