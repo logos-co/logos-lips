@@ -1,4 +1,4 @@
-# [RFC] Post-quantum note encryption for the delivery of notes off chain
+# [RFC] Post-quantum note encryption
 
 **Motivation and proposal:** [PR #486](https://github.com/logos-co/logos-lips/pull/486)
 
