@@ -34,8 +34,8 @@
 | 1.4.3 | Identifier uniqueness covers every stored declaration, not only activated ones, matching the implementation | 2026-09-01 |
 | 1.5.0 | Defined `active` as the epoch of the block that contained the latest accepted active message, initialised to `created + 2`, and `withdraw_at` as the epoch at which the node stops providing the service, matching the implementation. Added the participant-set exclusion rule and [Message Timing](#message-timing) | 2026-09-02 |
 | 1.6.0 | Declarations are removed at `withdraw_at + 1`, one epoch after the node stops, making the last served epoch rewardable | 2026-09-03 |
-| 1.7.0 | The minimum stake and the service parameters are those of the era of a block's slot, and carry no epoch ([Bedrock Eras](bedrock-eras.md)) | 2026-10-22 |
-| 1.8.0 | Keyed `declarations` by `declaration_id`, and ordered `DeclarationInfo` as the implementation does | 2026-10-22 |
+| 1.7.0 | The minimum stake and the service parameters are those of the era of a block's slot, and carry no epoch; service-type bytes run from 0 without gaps ([Bedrock Eras](bedrock-eras.md)) | 2026-11-02 |
+| 1.8.0 | Keyed `declarations` by `declaration_id`, and ordered `DeclarationInfo` as the implementation does | 2026-11-02 |
 
 # Introduction
 
@@ -91,7 +91,7 @@ class ServiceType(Enum):
 
 A declaration can be generated for any of the services above. Any declaration that is not one of the above must be rejected. The number of services might grow in the future.
 
-Each service type is assigned a one-byte discriminant, given by the enum value above. This byte is the canonical encoding of a `ServiceType` and is used wherever a `ServiceType` is serialized or hashed: the transaction wire form ([Mantle Transaction Encoding](mantle-transaction-encoding.md)), the `declaration_id` preimage ([Declaration Storage](#declaration-storage)), and the reward `op_id` preimage ([Service Reward Distribution](bedrock-service-reward-distribution.md)).
+Each service type is assigned a one-byte discriminant, given by the enum value above. With $`N`$ service types, the discriminants are 0 to $`N-1`$, each used once, so a new service type takes the next byte. Otherwise the service parameters of an era's parameter record, an array indexed by this byte ([Era Parameters](bedrock-eras.md#era-parameters)), have an entry with no service type. This byte is the canonical encoding of a `ServiceType` and is used wherever a `ServiceType` is serialized or hashed: the transaction wire form ([Mantle Transaction Encoding](mantle-transaction-encoding.md)), the `declaration_id` preimage ([Declaration Storage](#declaration-storage)), and the reward `op_id` preimage ([Service Reward Distribution](bedrock-service-reward-distribution.md)).
 
 ### Minimum Stake
 
