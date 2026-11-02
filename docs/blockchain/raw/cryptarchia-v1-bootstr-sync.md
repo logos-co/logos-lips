@@ -27,6 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.0.1 | Noted that a streamed `Block` carries the signed headers of the uncles it references, which is what lets a synchronizing node validate those blocks and reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) without ever seeing their proposals, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
 | 1.0.2 | Spread block download requests across connected and discovered peers instead of downloading only from the configured IBD peers, which now only provide the chain tips to catch up with. Added [Selecting Peers for Downloading](#selecting-peers-for-downloading) and the `GetTipRequest` message. | 2026-10-20 |
+| 1.1.0 | A peer that times out $`N_\text{timeout}`$ times in a row is chosen for downloads after every other peer, for $`T_\text{unresp}`$. | 2026-10-29 |
 
 # Introduction
 
@@ -111,6 +112,9 @@ The node can **propose blocks** after switching to the Online fork choice rule.
 | $`T_\text{round}`$ | IBD Round Delay | A delay between rounds of [Initial Block Download](#initial-block-download). Implementers can choose a different value. | 1 second (recommended) |
 | $`N_\text{conn}`$ | Connected Peers per Download | The maximum number of connected peers a download request is sent to, as defined in [Selecting Peers for Downloading](#selecting-peers-for-downloading). Implementers can choose a different value. | 16 (recommended) |
 | $`N_\text{disc}`$ | Discovered Peers per Download | The maximum number of discovered but not connected peers a download request is sent to, as defined in [Selecting Peers for Downloading](#selecting-peers-for-downloading). Implementers can choose a different value. | 16 (recommended) |
+| $`T_\text{resp}`$ | Response Timeout | The time a peer has to reject a request, begin its response, or send the next item of a response, as defined in [Downloading Blocks](#downloading-blocks). Implementers can choose a different value. | 5 seconds (recommended) |
+| $`N_\text{timeout}`$ | Timeout Limit | The number of consecutive timeouts after which a peer is unresponsive, as defined in [Selecting Peers for Downloading](#selecting-peers-for-downloading). Implementers can choose a different value. | 3 (recommended) |
+| $`T_\text{unresp}`$ | Unresponsive Period | How long a peer stays unresponsive after its last timeout, as defined in [Selecting Peers for Downloading](#selecting-peers-for-downloading). Implementers can choose a different value. | 5 minutes (recommended) |
 
 ## Setting the Fork Choice Rule
 
@@ -266,7 +270,7 @@ class GetTipResponse:
     height: int
 ```
 
-A peer that cannot serve these requests yet (e.g. a peer still performing its own [Initial Block Download](#initial-block-download)) may reject them. The requesting node treats the rejection as a failed request.
+A peer that cannot serve these requests yet (e.g. a peer still performing its own [Initial Block Download](#initial-block-download)) may reject them. The requesting node treats the rejection as a failed request. A peer **times out** on a request if it neither rejects the request nor begins its response within $`T_\text{resp}`$ of the node sending it. It also times out if the node is reading its `DownloadBlocksResponse` and the next item does not arrive within $`T_\text{resp}`$ of the previous one. It also times out if the node cannot connect to it to send the request. It does not time out if a different peer answers the connection, or if the node itself cancels or refuses the connection.
 
 Each streamed `Block` carries the signed headers of the uncles it references, in its `uncle_headers` field ([Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md#block)). This is what lets a synchronizing node apply the validity rules of [Uncle References](cryptarchia-v1-protocol.md#uncle-references) to every downloaded block, and then reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) of every past epoch from the uncles those blocks carry, even though it never receives the proposals the blocks were reconstructed from.
 
@@ -334,11 +338,15 @@ If the requesting node is downloading blocks up to the peer’s tip $`c_{loc}`$ 
 
 A node should spread its `DownloadBlocksRequest`s across the peers it knows, instead of sending them only to a fixed set of peers such as the IBD peers. This keeps any single peer, in particular the well-known IBD peers, from serving most of the download traffic of the network. It also lets a node download blocks even when some peers are slow, unreachable, or malicious.
 
+A peer that has timed out $`N_\text{timeout}`$ times without answering a request in between is **unresponsive** for $`T_\text{unresp}`$ after the last of those timeouts. An IBD peer is never unresponsive.
+
 For each `DownloadBlocksRequest`, including each repeated request of the same download, the node selects peers as follows:
 
 1. Consider only peers that support the sync protocol (i.e. that advertise the [Libp2p Protocol ID](#downloading-blocks) above).
 2. Randomly select up to $`N_\text{conn}`$ peers from the connected peers.
 3. Randomly select up to $`N_\text{disc}`$ peers from the peers that are discovered (e.g. via the peer discovery protocol) but not connected. The node connects to them to send the request.
+
+In steps 2 and 3, the node selects an unresponsive peer only when no other peer is left to select.
 
 The node sends the same request to all selected peers concurrently. It reads the first item of each response, and uses the response of the first peer whose first item is not an error. All other responses are dropped. If no peer returns a usable response, the request is considered failed.
 
@@ -351,8 +359,13 @@ def select_peers() -> List[Node]:
     eligible = sync_protocol_peers()
     connected = connected_peers() & eligible
     discovered = (discovered_peers() & eligible) - connected
-    return random.sample(connected, min(N_conn, len(connected))) \
-        + random.sample(discovered, min(N_disc, len(discovered)))
+    return select_up_to(connected, N_conn) + select_up_to(discovered, N_disc)
+
+def select_up_to(peers: Set[Node], n: int) -> List[Node]:
+    unresponsive = peers & unresponsive_peers()
+    others = list(peers - unresponsive)
+    chosen = random.sample(others, min(n, len(others)))
+    return chosen + random.sample(list(unresponsive), min(n - len(chosen), len(unresponsive)))
 
 def send_request_to_peers(peers: List[Node], req: DownloadBlocksRequest) -> Optional[DownloadBlocksResponse]:
     # Send the request to all peers concurrently.
