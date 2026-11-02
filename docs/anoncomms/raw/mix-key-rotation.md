@@ -96,7 +96,8 @@ The following additional terms are used throughout this specification:
 - **Grace Window**: The first `V` seconds of key period `p`, `[start(p), start(p) + V)`,
   during which a node still accepts the key for key period `p - 1`.
   `V > 2 · max_transit + 2 · max_clock_offset`,
-  so that a SURB built just before a change survives until the reply returns
+  so that a SURB built just before a change survives
+  the request's transit, the destination's response, and the reply's transit
   ([Section 8](#8-single-use-reply-blocks)).
   `Q + V < U`,
   so that the early and grace windows do not overlap.
@@ -359,6 +360,7 @@ In the worst case,
 a SURB built just before a key change has only `V` seconds,
 of which clock offset can take `2 · max_clock_offset`,
 and the forward message and the reply up to `max_transit` each.
+What remains is the time the destination has to respond.
 
 An exit MUST therefore drop held SURBs ([Mix Protocol Section 8.7.3](./mix.md#873-using-a-surb))
 no later than `V - 2 · max_transit - 2 · max_clock_offset` after receiving them.
@@ -366,7 +368,8 @@ Otherwise,
 a reply sent later could reach a node on the return path that no longer accepts the SURB's keys,
 and be lost.
 Since `V > 2 · max_transit + 2 · max_clock_offset` ([Section 2](#2-terminology)),
-this bound is always positive.
+the destination always has some time to respond.
+A deployment SHOULD choose `V` so that this time covers the response times of its applications.
 
 The creator discards the tuple it stores for reply recovery
 ([Mix Protocol Section 8.7.2](./mix.md#872-surb-creation) Step 4)
@@ -411,7 +414,7 @@ with the following recommended values:
 | Parameter | Recommended | Rationale |
 |---|---|---|
 | `U` | 3 hours | Key period. Balances exposure after a compromise and replay table size against time for discovery, as below. |
-| `V` | 15 minutes | Grace window. Exceeds `2 · max_transit + 2 · max_clock_offset`, so that a SURB built just before a change survives until its reply returns ([Section 8](#8-single-use-reply-blocks)). |
+| `V` | 15 minutes | Grace window. Exceeds `2 · max_transit + 2 · max_clock_offset`, so that a SURB built just before a change survives the request's transit, the destination's response, and the reply's transit ([Section 8](#8-single-use-reply-blocks)). |
 | `Q` | 1 minute | Early window. At least `2 · max_clock_offset`, the most by which the clocks of two nodes can differ ([Section 2](#2-terminology)). It needs no allowance for transit, which only delays a packet. |
 
 A shorter key period reduces the past traffic a compromise exposes, `Q + U + V` seconds,
@@ -435,7 +438,7 @@ For its own bounds,
 a deployment MUST choose `Q` and `V` that satisfy the constraints of the early and grace windows,
 and `U` greater than `Q + V` ([Section 2](#2-terminology)).
 The recommended values satisfy them for the bounds above,
-and cap the exit's SURB timeout ([Section 8](#8-single-use-reply-blocks)) at 12.5 minutes.
+and give the destination up to 12.5 minutes to respond to a request ([Section 8](#8-single-use-reply-blocks)).
 
 ## 11. Security and Privacy Considerations
 
