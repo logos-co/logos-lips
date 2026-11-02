@@ -20,6 +20,7 @@
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-04 |
+| 1.0.1 | The boundary walk no longer delays a generated Blend message by one round, following [Blend Protocol](blend-protocol.md#transition-period). | 2026-10-22 |
 
 # Introduction
 
@@ -312,7 +313,7 @@ sequenceDiagram
 5. A message that arrives on an identifier of era $`n-1`$ is still processed ([Era Transition Period](#era-transition-period)).
 6. A block whose slot lies in era $`n`$ arrives on the topic of era $`n`$. Once the node's clock has reached the block's slot, the node validates the block under era $`n`$, against its parent's state migrated to era $`n`$ ([Era of Chain Data](#era-of-chain-data), [Era Migration](#era-migration), [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation)).
 7. If the block extends a fork that left the local chain before the boundary, fork choice compares the two chains under the era of their common ancestor's slot, which precedes era $`n`$ ([Era of Chain Data](#era-of-chain-data)).
-8. The node sends the messages it generates under era $`n`$. It releases a Blend message it generates no earlier than one round after the era in force changes ([Transition Period](blend-protocol.md#transition-period)).
+8. The node sends the messages it generates under era $`n`$ ([Network Protocol Identity](#network-protocol-identity)).
 9. When the period ends, the node drops the identifiers of era $`n-1`$, with every synchronization request not yet served on them ([Era Transition Period](#era-transition-period)).
 
 ## Node State
