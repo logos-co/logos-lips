@@ -163,6 +163,10 @@ Each mix key is an X25519 key pair as defined in the [Mix Protocol](./mix.md#82-
 - **No replacement**: A node MUST NOT generate a key for a key period for which it has published a public key
   ([Section 5.1](#51-key-entries)),
   including after a restart ([Section 4.5](#45-start-and-restart)).
+  The one exception is a node whose clock ran ahead:
+  once its clock is corrected,
+  it MAY replace the keys it published for key periods later than its next,
+  since initiating nodes ignore entries for such periods ([Section 6.2](#62-entry-refresh-and-cache)).
 
 ### 4.3 Destruction
 
@@ -212,10 +216,6 @@ MUST assume it has published public keys for the current and next key periods,
 unless discovery shows otherwise,
 and so cannot process packets until the key period after next starts,
 up to `2 · U` seconds later.
-A node whose clock runs ahead by more than `max_clock_offset`
-destroys its keys early ([Section 4.3](#43-destruction)),
-and once its clock is corrected,
-cannot process packets until a key period whose key it has not published starts.
 
 A node MUST NOT publish key entries while it cannot process packets under its current or next key,
 since initiating nodes would send it packets it can only discard.
@@ -304,6 +304,7 @@ and the changes are assumed to reach all nodes within a further `U / 4` seconds 
 An initiating node SHOULD therefore refresh the entries of the nodes it has discovered after `start(p) + 3 · U / 4`,
 so that it holds their next entries when the key period changes.
 
+An initiating node MUST ignore entries for key periods other than its current and next on its local clock.
 When a refresh returns an entry for a key period the initiating node already holds,
 it MUST compare the two.
 If the public keys differ,
@@ -525,7 +526,6 @@ and hops after the first do not know which initiating node built a packet.
   the loss looks like the node dropping traffic.
   Persisting keys and their replay tables avoids this for a node that restarts ([Section 4.5](#45-start-and-restart)).
   For a node that loses its persistent storage,
-  or whose clock jumps ahead ([Section 4.5](#45-start-and-restart)),
   this specification provides no remedy,
   since initiating nodes keep the entries they have already obtained.
 
@@ -547,8 +547,10 @@ and hops after the first do not know which initiating node built a packet.
   and let long-held SURBs outlive one key period,
   at the cost of a packet format change.
 - **Equivocation as evidence**:
-  Conflicting entries are verifiable by any node,
+  Conflicting entries for a node's current or next key period are verifiable by any node,
   and could be treated as evidence under [Mix Local Reputation](https://github.com/logos-co/logos-lips/pull/463).
+  Entries for later key periods cannot,
+  since a node can replace them ([Section 4.2](#42-generation)).
 - **Targeted refresh**:
   A way for an initiating node to refresh the entries of specific nodes
   without revealing its interest in them.
