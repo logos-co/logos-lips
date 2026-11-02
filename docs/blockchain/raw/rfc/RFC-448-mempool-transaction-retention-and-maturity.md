@@ -20,6 +20,7 @@
 |  | Merged the mempool specification's reference code, which the Details diffs now quote. | 2026-10-20 |
 |  | A transaction that a fork switch re-admits is no longer broadcast. | 2026-10-23 |
 |  | Replaced `TRANSACTION_RETENTION` with the specification's `RETIREMENT_GRACE`, now counted from `TRANSACTION_TTL` rather than from retirement, and took the specification's one-hour `TRANSACTION_TTL`. | 2026-10-23 |
+|  | Dropped the constraint that `TRANSACTION_TTL` must not exceed the Prolonged Bootstrap Period, and the rule that a node subscribes to the mempool topic when it starts listening for new blocks. | 2026-11-02 |
 
 ## Reviewer Orientation
 
@@ -41,7 +42,7 @@ Depth `k` is the exact bound under the Online fork choice rule, which makes a bl
 
 Immutability itself would not bound `included` while a node bootstraps. Under the [Bootstrap Fork Choice Rule](../fork-choice.md#bootstrap-fork-choice-rule), the [Latest Immutable Block](../cryptarchia-v1-protocol.md#latest-immutable-block) does not advance through Initial Block Download and the 24-hour Prolonged Bootstrap Period. That rule applies to a node that starts from genesis or from a checkpoint, and to one that restarts after more than 20 minutes offline. Released at immutability, `included` would hold every block such a node downloads. [What retention costs](#what-retention-costs) gives the size.
 
-Releasing at depth `k` while bootstrapping costs only delay. Nothing reads what the node keeps from Initial Block Download until that download ends: downloaded blocks carry their own transactions, the node subscribes to the mempool topic only when it starts listening for new blocks, and it proposes only under the Online rule. After that, a proposal can reference a transaction from a block more than `k` deep only on a fork that leaves this node's chain more than `k` blocks back. That is an attacker's chain, or the honest chain when this node's own chain is the isolated one. A proposal that does not resolve records no verdict, and its block arrives in full when the node downloads the missing blocks of a later orphan.
+Releasing at depth `k` while bootstrapping costs only delay. During Initial Block Download the node neither resolves a proposal nor builds a block: it receives only downloaded blocks, which carry their own transactions, and it proposes only under the Online rule. After that, a proposal can reference a transaction from a block more than `k` deep only on a fork that leaves this node's chain more than `k` blocks back. That is an attacker's chain, or the honest chain when this node's own chain is the isolated one. A proposal that does not resolve records no verdict, and its block arrives in full when the node downloads the missing blocks of a later orphan.
 
 Under the Online rule the bound also covers the reorganisation. A fork switch displaces only blocks fewer than `k` deep, so every transaction it re-admits is still retained, and `admit` keeps its admission time. Under the Bootstrap rule a fork switch can displace deeper blocks, whose transactions were released together with their admission times. A transaction this node holds no admission time for, because it learned the transaction only from a block or has released it, is admitted at the current time.
 
@@ -88,6 +89,12 @@ A fork switch displaces the same blocks on every node that makes it, and each of
 A broadcast would not reach them either. A node remembers the identity of each message it receives or publishes on the mempool topic for `SEEN_TTL`, and a broadcast of a message it remembers sends nothing. A re-admitted transaction is at most `TRANSACTION_TTL` old, one hour, and `SEEN_TTL` is a day by default, so every node that received it by gossip still remembers its identity. A broadcast would go out only from a node that learned the transaction from a block, or that has restarted since. Most of its peers would drop it as a duplicate.
 
 `SEEN_TTL` is a node setting, so the cost of a broadcast would also rest on it. A node that sets it below `TRANSACTION_TTL` would broadcast every re-admitted transaction older than that, to peers that mostly hold it already.
+
+## What a node holds when it begins proposing
+
+A node holds the transactions gossiped since it subscribed to the mempool topic. The implementation subscribes when the node starts. A leader can select a transaction until the first block after its own copy reaches `TRANSACTION_TTL`. A node subscribed for less than that can therefore receive a proposal that selects a transaction it never received. That proposal does not resolve, the node records no verdict, and the block arrives in full through chain sync.
+
+No constraint ties `TRANSACTION_TTL` to the Prolonged Bootstrap Period. Bounding the time to live by that period, and subscribing only when the period begins, would make every compliant selection resolve at a node that has completed it. In the implementation, though, the period is a node setting, and it can be shorter than an hour, or zero. The bound would need a check that forbids short periods, and breaking it costs only the delay above.
 
 ## A restart must not undo a retirement
 
@@ -207,9 +214,8 @@ Notation gains the Blend value that maturity reads, the Cryptarchia value that r
 
 Maturity reads Blend's message traversal time $`T_M`$, 15 rounds of one second, instead of fixing a value of its own, so it follows the Blend parameters. 5 seconds is a gossip broadcast at one second a hop: with a peering degree of 8 it covers up to 32 768 nodes, and a larger network needs a larger `BROADCAST_DELAY`.
 
-This RFC adds four constraints after the Parameters block, each with what breaks when it is violated:
+This RFC adds three constraints after the Parameters block, each with what breaks when it is violated:
 
-- `TRANSACTION_TTL` must not exceed the Prolonged Bootstrap Period. A node that has just completed that period cannot resolve a reference to a transaction admitted before the period began. With a one-hour time to live and a 24-hour period, it holds with 23 hours to spare.
 - `BROADCAST_DELAY` must not be less than the time a block proposal takes to reach every node by gossip. Otherwise a mature transaction has had less time to spread than the proposal carrying it takes to arrive.
 - `TRANSACTION_MATURITY` must be less than `TRANSACTION_TTL`. Otherwise a transaction is retired before it is mature, and nothing is ever selected.
 - `TRANSACTION_MATURITY` must be shorter than `WINDOW` slots. Otherwise a claim never matures while a block may still include it, and no claim is ever selected.
@@ -352,16 +358,6 @@ A retained transaction that is admitted again keeps the time it was first admitt
 
 On the [Reorganisation](../mempool.md#reorganisation) path the same lines keep the time and position of a displaced transaction that is still retained. One this node holds no admission time for, because it learned the transaction only from a block or has released it, is admitted at the current time.
 
-## Subscription to the mempool topic
-
-A node subscribes when it starts [Listening for New Blocks](../cryptarchia-v1-bootstr-sync.md#listening-for-new-blocks), which is when the Prolonged Bootstrap Period begins. This is what the first constraint rests on: the transactions a node holds are the ones gossiped since it subscribed.
-
-```diff
- Transactions are gossiped on the mempool topic defined in [Gossiping](../draft/p2p-network.md#gossiping).
-+
-+A node subscribes to the topic when it starts [Listening for New Blocks](cryptarchia-v1-bootstr-sync.md#listening-for-new-blocks).
-```
-
 ## Persistence and status
 
 A restart must not release a transaction early. The other retained transactions and every admission time are persisted alongside the pending ones, and `included` is rebuilt from the chain:
@@ -434,7 +430,6 @@ The status endpoint reports a retained transaction as retained rather than unkno
 - [ ]  Do not broadcast a transaction that a fork switch re-admits
 - [ ]  Keep admission times in seconds since the Unix epoch, the clock of `genesis_time`
 - [ ]  Insert a re-admitted transaction at the position its admission time gives it, which the current `IndexMap` cannot express, and keep TTL eviction correct across that insertion
-- [ ]  Subscribe to the mempool topic when listening for new blocks starts
 - [ ]  Persist the pending and the other retained hashes, their bodies and every admission time, and rebuild `by_prefix` from every recovered hash
 - [ ]  On recovery, apply inclusion to each canonical block after the latest immutable block that is fewer than `k` blocks deep, taking the bodies from the stored blocks
 - [ ]  Report `retained` from the mempool status endpoint, and serve the body of any retained transaction from the transaction endpoint
