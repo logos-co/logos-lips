@@ -348,7 +348,7 @@ SCHEDULE: list[tuple[EpochNumber, EraParameters]] = [(0, P_0)]  # (E_n, P_n) of 
 
 ## Era Schedule
 
-The era schedule is embedded in each release and is not read from the chain. Each network has its own schedule. The schedule is a list of entries, each an epoch number and a [parameter record](#era-parameters). The epoch numbers strictly increase, and the first of them is 0.
+The era schedule is embedded in each release and is not read from the chain. Each network has its own schedule. The schedule is a list of entries, each an epoch number and a [parameter record](#era-parameters). The epoch numbers strictly increase, and the first of them is 0. Every era lasts longer than the [Era Transition Period](#era-transition-period) into it. Otherwise the next era begins before that period ends, and a node holds the identifiers of three eras.
 
 An era must not change the comparison of chains that diverge by at most $`k`$ blocks ([Online Fork Choice Rule](fork-choice.md#online-fork-choice-rule)), with $`k`$ the smaller of its own and the previous era's. Otherwise fork choice depends on the order in which forks were seen for the first $`k`$ blocks of the era.
 
@@ -381,6 +381,7 @@ A field holds the value of its source constant under the rules of the era. The E
 | `cryptarchia` | `slot_activation_coeff` | `ratio` | $`f`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
 | `cryptarchia` | `learning_rate` | `binary64` | `beta` of [Parameters and variables](cryptarchia-total-stake-inference.md#parameters-and-variables) |
 | `cryptarchia` | `uncle_reference_window_in_block` | `UINT32` | $`W`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
+| `cryptarchia` | `max_uncles` | `UINT8` | `MAX_UNCLES` of [Constants](cryptarchia-v1-protocol.md#constants) |
 | `cryptarchia` | `service_params` | `service_params` | [Service Parameters](bedrock-service-declaration-protocol.md#service-parameters) |
 | `cryptarchia` | `min_stake` | `min_stake` | [Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake) |
 | `cryptarchia` | `base_difficulty` | `UINT32` | $`j`$ in `BLEND_DIFFICULTY_BASE` $`= \lfloor p / 2^j \rfloor`$ of [Parameters](proof-of-work.md#parameters) |
@@ -415,17 +416,16 @@ def binary64(x: float) -> bytes:
 def phases(lengths: tuple[int, int, int]) -> bytes:
     return b"".join(uint(1)(x) for x in lengths)
 
-def service_params(entries: dict[int, ServiceParameters]) -> bytes:
-    # Version 1 fixes the service types, so the ascending order of their bytes
-    # places each entry, and every type must have one.
-    types = sorted(t.value for t in ServiceType)
-    assert sorted(entries) == types
-    return b"".join(uint(4)(entries[t].inactivity_period) for t in types)
+def service_params(entries: list[ServiceParameters]) -> bytes:
+    # Entry i belongs to the service type whose byte is i, so the array holds
+    # exactly one entry per service type.
+    assert len(entries) == len(ServiceType)
+    return b"".join(uint(4)(e.inactivity_period) for e in entries)
 
 def min_stake(m: MinStake) -> bytes:
     return uint(8)(m.stake_threshold)
 
-ENCODERS = {"UINT32": uint(4), "UINT64": uint(8), "UINT128": uint(16),
+ENCODERS = {"UINT8": uint(1), "UINT32": uint(4), "UINT64": uint(8), "UINT128": uint(16),
             "ratio": ratio, "binary64": binary64, "phases": phases,
             "service_params": service_params, "min_stake": min_stake}
 
@@ -440,9 +440,13 @@ def encode(p: EraParameters) -> bytes:
     return out
 ```
 
-`FIELDS` maps each section of the table above, in table order, to its rows, as pairs of a field and its encoding. A ratio's parts are `num` and `den`, encoded as the record gives them, without reduction. A `binary64` field is an IEEE 754 double-precision value. `service_params` has one entry for each [`ServiceType`](bedrock-service-declaration-protocol.md#service-types), keyed by its byte, with `inactivity_period`. `min_stake` has `stake_threshold`. A record that `encode` rejects is invalid.
+`FIELDS` maps each section of the table above, in table order, to its rows, as pairs of a field and its encoding. A ratio's parts are `num` and `den`, encoded as the record gives them, without reduction. A `binary64` field is an IEEE 754 double-precision value. `service_params` is an array with one entry per [`ServiceType`](bedrock-service-declaration-protocol.md#service-types): the entry at index `i` holds the `inactivity_period` of the service type whose byte is `i`. `min_stake` has `stake_threshold`. A record that `encode` rejects is invalid.
 
 In every record, the numerator of `slot_activation_coeff`, the epoch length $`L_n`$ and the slot length $`\Delta_n`$ are at least 1. Otherwise `epoch_length(n)`, $`\textbf{epoch}(sl)`$ or $`\textbf{slot}(t)`$ divides by zero.
+
+In every record, `slot_activation_coeff` is below 1. Otherwise the lottery constants $`t_0`$ and $`t_1`$ of [Proof of Leadership](cryptarchia-proof-of-leadership.md#circuit-public-inputs) take the logarithm of 0. It is also at least $`1/\text{PRECISION}`$, with `PRECISION` of [Total Stake Inference](cryptarchia-total-stake-inference.md#algorithm). Otherwise Total Stake Inference truncates $`f \cdot \text{PRECISION}`$ to 0.
+
+In every record, $`\lfloor k/(4f) \rfloor`$ is at least 1. Otherwise $`s_{gen}`$ of [Fork Choice](fork-choice.md#definitions) is 0, and the density check of the bootstrap rule compares empty windows.
 
 Every era after the first keeps its uncle reference window within the finalization window of the era before it: $`W_n \cdot f_n^{-1} \le s_{n-1}/5`$, with $`W_n`$, $`f_n`$ and $`s_{n-1}`$ the $`W`$, $`f`$ and $`s`$ of [Constants](cryptarchia-v1-protocol.md#constants) of the era indicated. This adds to the bound of [Uncle Selection](cryptarchia-v1-protocol.md#uncle-selection) within each era. Otherwise, while the latest immutable block still lies in era $`n-1`$, a block of era $`n`$ can reference an uncle whose parent lies below the latest immutable block.
 
@@ -532,7 +536,7 @@ def accepts_fork_digest(n: int, digest: hash) -> bool:
     return False
 ```
 
-`refuses_earlier_transactions(n)` holds when era `n` refuses the transactions of the eras before it. It does not hold for era 0.
+`refuses_earlier_transactions(n)` holds when era `n` refuses the transactions of the eras before it. The versions of eras `n - 1` and `n` decide it, so the fork digest commits to it. An era of version 1 that follows an era of version 1 does not refuse them. It does not hold for era 0.
 
 [Fork choice](fork-choice.md) compares two chains under the era of the slot of their $`\textbf{common\_ancestor}`$ ([Fork Pruning](cryptarchia-v1-protocol.md#fork-pruning)). The fork choice rule of an era reads only the block tree and the slot of each block. Otherwise it is undefined on the blocks of a later era that re-encodes a field it reads.
 
@@ -540,7 +544,7 @@ At startup and on checkpoint import ([Bootstrapping from Checkpoint](cryptarchia
 
 ## Era Migration
 
-Every era after the first defines a migration from the previous era, and states with it whether the era refuses the transactions of earlier eras ([Era of Chain Data](#era-of-chain-data)). A migration is a function of the recorded chain state alone. The recorded chain state is the state a Mantle Operation is validated against ([Validation](bedrock-v1.1-mantle-specification.md#validation), [Proof of Work Operations](bedrock-v1.1-mantle-specification.md#proof-of-work-operations)) and the [snapshots](bedrock-service-declaration-protocol.md#snapshots) of the current and later epochs.
+Every era after the first defines a migration from the previous era. A migration is a function of the recorded chain state alone. The recorded chain state is the state a Mantle Operation is validated against ([Validation](bedrock-v1.1-mantle-specification.md#validation), [Proof of Work Operations](bedrock-v1.1-mantle-specification.md#proof-of-work-operations)) and the [snapshots](bedrock-service-declaration-protocol.md#snapshots) of the current and later epochs.
 
 A migration must be:
 
