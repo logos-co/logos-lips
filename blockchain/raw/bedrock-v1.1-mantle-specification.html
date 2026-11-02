@@ -192,6 +192,7 @@
 </div><!-- timeline:start -->
 <h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
 <ul>
+<li><strong>2026-11-02</strong> — <a href="https://github.com/logos-co/logos-lips/blob/bd1ca2c881ae94606d4ab23af1255fd922e85dd6/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>bd1ca2c</code></a> — docs(blockchain): hold the SDP minimum stake as one MinStake, as the implementation does (#498)</li>
 <li><strong>2026-10-27</strong> — <a href="https://github.com/logos-co/logos-lips/blob/6b84187f0ae37a0e8c28c32d3bb1e6f619cec147/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>6b84187</code></a> — [RFC] SDP: Identify declarations by service and <code>zk_id</code> (#407)</li>
 <li><strong>2026-10-14</strong> — <a href="https://github.com/logos-co/logos-lips/blob/949faa9563027de366514247a2a62b0de2f8c45f/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>949faa9</code></a> — [RFC] Mantle: Bound operation data payloads (#467)</li>
 <li><strong>2026-10-04</strong> — <a href="https://github.com/logos-co/logos-lips/blob/47a73cdc412af55f1bebc5441c4783a9ac595240/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>47a73cd</code></a> — docs(blockchain): gas for strict EdDSA verification (#464)</li>
@@ -242,6 +243,7 @@
 <tr><td>1.16.0</td><td>Gas Determination table updated for strict Ed25519 verification: channel Operations 56 → 59 Execution Gas per signature, <code>EXECUTION_SDP_DECLARE_GAS</code> 646 → 649, from <a href="analysis-gas-cost-determination.html">Gas Cost Determination</a> 1.7.0</td><td>2026-09-24</td></tr>
 <tr><td>1.17.0</td><td>Bound channel inscription data and channel deposit metadata by <code>MAX_OPERATION_DATA_SIZE</code> as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding.</td><td>2026-10-06</td></tr>
 <tr><td>1.18.0</td><td>[RFC] The <code>declaration_id</code> is the hash of the service and the <code>zk_id</code>; a note backs one declaration per service, <code>SDP_WITHDRAW</code> no longer names the note, and a <code>nonce</code> carries the <code>created</code> epoch of its declaration</td><td>2026-10-27</td></tr>
+<tr><td>1.19.0</td><td><code>MinStake</code> holds <code>threshold</code> and the block number <code>timestamp</code>, following the Service Declaration Protocol</td><td>2026-10-27</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
@@ -1058,8 +1060,8 @@ class Locator(bytes):
         assert validate_multiaddr(self)
 
 class MinStake:
-    stake_threshold: int # stake value
-    epoch: EpochNumber # epoch number
+    threshold: TokenValue # stake value
+    timestamp: BlockNumber # see SDP: Minimum Stake
 
 class ServiceParameters:
     inactivity_period: NumberOfEpochs # number of epochs
@@ -1140,7 +1142,7 @@ assert len(declaration.locators) &lt;= 8
 <p>Ensure the service note exists and its value is sufficient for joining the service.</p>
 <pre><code class="language-python">assert ledger.is_unspent(declaration.service_note_id)
 note = ledger.get_note(declaration.service_note_id)
-assert note.value &gt;= min_stake.stake_threshold
+assert note.value &gt;= min_stake.threshold
 </code></pre>
 </li>
 </ol>

@@ -22566,6 +22566,7 @@ With <code>transactions</code> now available, the remaining rule of <a href="blo
 </div><!-- timeline:start -->
 <h2 id="timeline-86"><a class="header" href="#timeline-86">Timeline</a></h2>
 <ul>
+<li><strong>2026-11-02</strong> — <a href="https://github.com/logos-co/logos-lips/blob/bd1ca2c881ae94606d4ab23af1255fd922e85dd6/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>bd1ca2c</code></a> — docs(blockchain): hold the SDP minimum stake as one MinStake, as the implementation does (#498)</li>
 <li><strong>2026-10-27</strong> — <a href="https://github.com/logos-co/logos-lips/blob/6b84187f0ae37a0e8c28c32d3bb1e6f619cec147/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>6b84187</code></a> — [RFC] SDP: Identify declarations by service and <code>zk_id</code> (#407)</li>
 <li><strong>2026-10-14</strong> — <a href="https://github.com/logos-co/logos-lips/blob/949faa9563027de366514247a2a62b0de2f8c45f/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>949faa9</code></a> — [RFC] Mantle: Bound operation data payloads (#467)</li>
 <li><strong>2026-10-04</strong> — <a href="https://github.com/logos-co/logos-lips/blob/47a73cdc412af55f1bebc5441c4783a9ac595240/docs/blockchain/raw/bedrock-v1.1-mantle-specification.md"><code>47a73cd</code></a> — docs(blockchain): gas for strict EdDSA verification (#464)</li>
@@ -22616,6 +22617,7 @@ With <code>transactions</code> now available, the remaining rule of <a href="blo
 <tr><td>1.16.0</td><td>Gas Determination table updated for strict Ed25519 verification: channel Operations 56 → 59 Execution Gas per signature, <code>EXECUTION_SDP_DECLARE_GAS</code> 646 → 649, from <a href="blockchain/raw/analysis-gas-cost-determination.html">Gas Cost Determination</a> 1.7.0</td><td>2026-09-24</td></tr>
 <tr><td>1.17.0</td><td>Bound channel inscription data and channel deposit metadata by <code>MAX_OPERATION_DATA_SIZE</code> as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding.</td><td>2026-10-06</td></tr>
 <tr><td>1.18.0</td><td>[RFC] The <code>declaration_id</code> is the hash of the service and the <code>zk_id</code>; a note backs one declaration per service, <code>SDP_WITHDRAW</code> no longer names the note, and a <code>nonce</code> carries the <code>created</code> epoch of its declaration</td><td>2026-10-27</td></tr>
+<tr><td>1.19.0</td><td><code>MinStake</code> holds <code>threshold</code> and the block number <code>timestamp</code>, following the Service Declaration Protocol</td><td>2026-10-27</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction-23"><a class="header" href="#introduction-23">Introduction</a></h1>
@@ -23432,8 +23434,8 @@ class Locator(bytes):
         assert validate_multiaddr(self)
 
 class MinStake:
-    stake_threshold: int # stake value
-    epoch: EpochNumber # epoch number
+    threshold: TokenValue # stake value
+    timestamp: BlockNumber # see SDP: Minimum Stake
 
 class ServiceParameters:
     inactivity_period: NumberOfEpochs # number of epochs
@@ -23514,7 +23516,7 @@ assert len(declaration.locators) &lt;= 8
 <p>Ensure the service note exists and its value is sufficient for joining the service.</p>
 <pre><code class="language-python">assert ledger.is_unspent(declaration.service_note_id)
 note = ledger.get_note(declaration.service_note_id)
-assert note.value &gt;= min_stake.stake_threshold
+assert note.value &gt;= min_stake.threshold
 </code></pre>
 </li>
 </ol>
@@ -26119,6 +26121,7 @@ def integer_nth_root(x: int, n: int) -&gt; int:
 </div><!-- timeline:start -->
 <h2 id="timeline-89"><a class="header" href="#timeline-89">Timeline</a></h2>
 <ul>
+<li><strong>2026-11-02</strong> — <a href="https://github.com/logos-co/logos-lips/blob/bd1ca2c881ae94606d4ab23af1255fd922e85dd6/docs/blockchain/raw/bedrock-service-declaration-protocol.md"><code>bd1ca2c</code></a> — docs(blockchain): hold the SDP minimum stake as one MinStake, as the implementation does (#498)</li>
 <li><strong>2026-10-27</strong> — <a href="https://github.com/logos-co/logos-lips/blob/6b84187f0ae37a0e8c28c32d3bb1e6f619cec147/docs/blockchain/raw/bedrock-service-declaration-protocol.md"><code>6b84187</code></a> — [RFC] SDP: Identify declarations by service and <code>zk_id</code> (#407)</li>
 <li><strong>2026-09-11</strong> — <a href="https://github.com/logos-co/logos-lips/blob/7c2ec59fadcdc2ba0ae74ff7600a14b55d90efcd/docs/blockchain/raw/bedrock-service-declaration-protocol.md"><code>7c2ec59</code></a> — [RFC] The Last Served Epoch Is Rewardable (#435)</li>
 <li><strong>2026-09-03</strong> — <a href="https://github.com/logos-co/logos-lips/blob/e2e9e0fc0096e42153430689628c0d638d3c4cf4/docs/blockchain/raw/bedrock-service-declaration-protocol.md"><code>e2e9e0f</code></a> — [RFC] The Epochs <code>active</code> and <code>withdraw_at</code> Record (#422)</li>
@@ -26148,6 +26151,7 @@ def integer_nth_root(x: int, n: int) -&gt; int:
 <tr><td>1.5.0</td><td>Defined <code>active</code> as the epoch of the block that contained the latest accepted active message, initialised to <code>created + 2</code>, and <code>withdraw_at</code> as the epoch at which the node stops providing the service, matching the implementation. Added the participant-set exclusion rule and <a href="blockchain/raw/bedrock-service-declaration-protocol.html#message-timing">Message Timing</a></td><td>2026-09-02</td></tr>
 <tr><td>1.6.0</td><td>Declarations are removed at <code>withdraw_at + 1</code>, one epoch after the node stops, making the last served epoch rewardable</td><td>2026-09-03</td></tr>
 <tr><td>1.7.0</td><td>[RFC] The <code>declaration_id</code> is the hash of the service and the <code>zk_id</code>; a declaration covers one service, a note backs one declaration per service, and a <code>nonce</code> carries the <code>created</code> epoch of its declaration</td><td>2026-10-01</td></tr>
+<tr><td>1.8.0</td><td>The minimum stake is one <code>MinStake</code> of <code>threshold</code> and the block number <code>timestamp</code>, matching the implementation</td><td>2026-10-27</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction-26"><a class="header" href="#introduction-26">Introduction</a></h1>
@@ -26194,13 +26198,10 @@ def integer_nth_root(x: int, n: int) -&gt; int:
 <p>Each service type is assigned a one-byte discriminant, given by the enum value above. This byte is the canonical encoding of a <code>ServiceType</code> and is used wherever a <code>ServiceType</code> is serialized or hashed: the transaction wire form (<a href="blockchain/raw/mantle-transaction-encoding.html">Mantle Transaction Encoding</a>), the <code>declaration_id</code> preimage (<a href="blockchain/raw/bedrock-service-declaration-protocol.html#declaration-storage">Declaration Storage</a>), and the reward <code>op_id</code> preimage (<a href="blockchain/raw/bedrock-service-reward-distribution.html">Service Reward Distribution</a>).</p>
 <h3 id="minimum-stake"><a class="header" href="#minimum-stake">Minimum Stake</a></h3>
 <p>The minimum stake is a global value that defines the minimum stake a node must have to perform any service.</p>
-<p>The <code>MinStake</code> is a structure that holds the value of the stake <code>stake_threshold</code> and the <code>epoch</code>, which is an epoch number at which the threshold was set; it is an <a href="blockchain/raw/cryptarchia-v1-protocol.html#epoch"><code>EpochNumber</code></a>.</p>
+<p>The minimum stake is one <code>MinStake</code>, which holds the <code>threshold</code>, a <a href="blockchain/raw/bedrock-v1.1-mantle-specification.html#notes"><code>TokenValue</code></a>, and the <code>timestamp</code>, a <code>BlockNumber</code>. A <code>BlockNumber</code> is a 64-bit unsigned integer. The <code>timestamp</code> exists only to match the deployment configuration of the implementation. No rule reads it.</p>
 <pre><code class="language-python">class MinStake:
-    stake_threshold: StakeThreshold
-    epoch: EpochNumber
-</code></pre>
-<p>The <code>stake_thresholds</code> is a structure aggregating all defined <code>MinStake</code> values.</p>
-<pre><code class="language-python">stake_thresholds: list[MinStake]
+    threshold: TokenValue
+    timestamp: BlockNumber
 </code></pre>
 <p>For more information on how the minimum stake is calculated, please refer to the <a href="blockchain/raw/analysis-static-minimum-stake-estimation-for-service-declaration-protocol.html">[Analysis] Static Minimum Stake Estimation for Service Declaration Protocol</a>.</p>
 <h3 id="service-parameters"><a class="header" href="#service-parameters"><strong>Service Parameters</strong></a></h3>
