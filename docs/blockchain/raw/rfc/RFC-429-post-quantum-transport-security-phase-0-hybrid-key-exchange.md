@@ -9,17 +9,17 @@
 | v1 | Initial PR description | 2026-08-28 |
 | v2 | Split into the PR description and this RFC document per the template; rebased on master, Blend Protocol row 1.2.2 → 1.5.1; Affected Specifications reduced to the two changed documents, the Service Declaration Protocol, Service Reward Distribution and Cryptarchia rows removed (their rationale stays in Discussion) | 2026-09-14 |
 | v3 | Hybrid only: the classical `X25519` fallback is dropped after review, so `X25519MLKEM768` is the only key exchange group a node offers or accepts; rebased on master, Blend Protocol row 1.5.1 → 1.6.2; the dependency constraint updated for the libp2p 0.57 release | 2026-10-09 |
+| v4 | After review: the Transport Security section reduced to its rules, the motivation and the restatements of RFC 9001 and the libp2p TLS specification moved here; the Post-Quantum Scope subsection and the `provider_id` identity sentence removed; Blend's Connection Details reduced to a pointer; the dependency corrected to rust-libp2p#6435 or a patched libp2p-tls, since libp2p 0.57 cannot restrict the groups; the implementation list rewritten per implementation, with key logging, Nimbos and the rollout order; `declaration_id` updated to #407 | 2026-11-02 |
 
 ## Reviewer Orientation
 
-Read the PR's Motivation first: the PR does two things at once, and only one of them is about post-quantum cryptography. Assumed background: none. Apart from one sentence in the Blend Protocol, the transport handshake had not been specified before, so there is almost no prior text to reconcile against.
+Read the PR's Motivation first: the PR does two things at once, and only one of them is about post-quantum cryptography. Assumed background: none. Apart from one sentence in the Blend Protocol, the transport handshake had not been specified before, so there is almost no prior text to reconcile against. The specification text is short by design: it states the rules, and this document carries the reasoning.
 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
-| 1 | Critical | **Start here** — [P2P Network § Transport Security](#1-key-exchange-p2p-network--transport-security): Key Exchange | One group: `X25519MLKEM768` is offered, and nothing else is offered or accepted. Check that the requirement names no library, and that dropping the classical fallback is acceptable for every implementation on the network. |
-| 2 | Critical | [P2P Network § Transport Security](#2-post-quantum-scope-p2p-network--transport-security): Post-Quantum Scope | The claim that nothing SDP-visible moves. This is what confines the change to one phase; if it is wrong, the phasing is wrong. |
-| 3 | High | [P2P Network § Transport Security](#3-handshake-and-peer-authentication-p2p-network--transport-security): Handshake, Peer Authentication | First normative statement of TLS version, cipher suites and the authentication model. Confirm it describes what is deployed rather than what we would like. |
-| 4 | Medium | [Blend Protocol § Connection Details](#4-connection-details-blend-protocol) | The one place that already specified connection security. Confirm the update loses nothing normative and that the privacy motivation is stated correctly. |
+| 1 | Critical | **Start here** — [P2P Network § Transport Security](#1-key-exchange-p2p-network--transport-security): Key Exchange | One group: `X25519MLKEM768` is offered and accepted, and nothing else. Check that the requirement names no library, and that dropping the classical fallback is acceptable for every implementation on the network. |
+| 2 | High | [P2P Network § Transport Security](#2-handshake-and-peer-authentication-p2p-network--transport-security): Handshake, Peer Authentication | First normative statement of the cipher suites and the identity key type. Confirm it describes what is deployed: TLS 1.3, the three suites and the libp2p TLS authentication match libp2p-tls and nim-lsquic today. |
+| 3 | Medium | [Blend Protocol § Connection Details](#3-connection-details-blend-protocol) | The one place that already specified connection security. It now points at Transport Security and nothing else; confirm nothing normative is lost. |
 
 # Discussion
 
@@ -141,10 +141,17 @@ compatibility with older Logos implementations is not a requirement, and other
 implementations are expected to follow the transport specification rather than
 the specification to follow what they currently ship.
 
-The stacks already support it. rustls offers the group and libp2p 0.57 enables
-it; the Nimbos QUIC stack is backed by BoringSSL, whose default group list
-starts with `X25519_MLKEM768`, so conforming there is a matter of restricting
-the offered groups and testing interoperability.
+The stacks support the group, but neither restricts to it today. libp2p 0.57
+ships the aws-lc-rs provider, whose default group list is `X25519MLKEM768`,
+`X25519`, `secp256r1` and `secp384r1`, and libp2p-tls builds that default
+provider inside `make_client_config` and `make_server_config` while libp2p-quic
+keeps the TLS configuration private. Restricting the groups in the Rust node
+therefore needs either the injection seam of
+[rust-libp2p#6435](https://github.com/libp2p/rust-libp2p/pull/6435)
+(`Config::new_with_provider`) or a patched libp2p-tls. The Nimbos QUIC stack is
+backed by BoringSSL, whose defaults are the same four groups; nim-lsquic has to
+call `SSL_CTX_set1_group_ids` from an option of its `TLSConfig`, and nim-libp2p
+has to pass that option through `QuicTransport.makeConfig`. See Implementation.
 
 The cost is that a peer without the group cannot connect at all, rather than
 connecting with classical security. In a testnet whose implementations are all
@@ -155,16 +162,48 @@ expected to conform, that is the intended outcome.
 Worth setting out explicitly, because "post-quantum transition" invites the
 assumption that identities are in scope.
 
-`provider_id` is an Ed25519 **signature** key. It is the node identity, it is
-embedded in every `Locator`, it is hashed into
-`declaration_id = blake2b(service ‖ provider_id ‖ zk_id ‖ locators)`, and it
-signs SDP messages. This PR changes the **key exchange**, which in TLS 1.3 is
-ephemeral per handshake, is never persisted, and appears in no protocol message
-outside the handshake. Nothing SDP-visible moves: not `provider_id`, not
-`declaration_id`, not the locator format, not declaration sizes.
+`provider_id` is an Ed25519 **signature** key. For a declared provider, SDP
+already requires it as the node identity
+([SDP § Locators](../bedrock-service-declaration-protocol.md#locators)), it is
+embedded in every `Locator`, it signs SDP messages, and Blend's Neighbor
+Distinction Process relies on it. The transport section states only that the
+identity key is Ed25519: not every connection is a declared provider's. In the
+Rust node the main-network swarm uses its own `NETWORK_SWARM` key and only the
+Blend swarms use the declared key, and a node without a declaration has no
+`provider_id` at all. Since #407, `declaration_id = Hash(service || zk_id)` and
+does not involve the identity key.
+
+This PR changes the **key exchange**, which in TLS 1.3 is ephemeral per
+handshake and appears in no protocol message outside the handshake. Nothing
+SDP-visible moves:
+
+| | changed by this PR |
+| --- | --- |
+| node identity signature (Ed25519) | no |
+| certificate signature | no |
+| `declaration_id`, locators, declaration size | no |
+| Service Declaration Protocol messages | no |
+| service reward distribution | no |
+| record-layer AEAD | no |
 
 Service reward distribution is further removed still — rewards are paid to
 `zk_id`, which never enters the transport handshake at all.
+
+Authentication is deferred, not overlooked: a signature cannot be forged
+retroactively, so an adversary who breaks Ed25519 in the future cannot
+impersonate a peer in a handshake that has already completed.
+
+## What the specification does not say
+
+The section states the rules and nothing else. The motivation
+(harvest-now-decrypt-later, Blend), the description of the libp2p TLS
+certificate and its `libp2p-tls-handshake:` signature, the TLS 1.3 minimum (RFC
+9001 §4.2 and the libp2p TLS specification already require it), the codepoint
+and share sizes of the group (RFC 8446 and the draft), the anti-amplification
+analysis and the phasing all live in this document, so that the specification
+describes the current state and not a strategy. The certificate's own key
+algorithm is left to the libp2p TLS specification, which already says it should
+not be related to the host key.
 
 ## The next phase, named but not proposed here
 
@@ -182,88 +221,110 @@ justifies doing them in this order rather than together.
 
 ## 1. Key exchange (P2P Network § Transport Security)
 
-Nodes **MUST** offer `X25519MLKEM768` (IANA named group `0x11EC`), **MUST NOT**
-offer or accept any other key exchange group, and a handshake in which the peer
-offers no hybrid group **MUST** fail.
+Nodes must offer and accept only the key exchange group `X25519MLKEM768`
+(IANA named group `0x11EC`). A single group rather than a preference order is
+the whole change from the previous revision: with more than one group offered,
+a node obtains the property only when its peer also prefers the hybrid group;
+with one, there is nothing to negotiate down to, and when the peers share no
+group the handshake fails by RFC 8446 §4.1.1.
 
-A single group rather than a preference order is the whole change from the
-previous revision. With more than one group offered, a node obtains the property
-only when its peer also prefers the hybrid group; with one, there is nothing to
-negotiate down to, and the requirement cannot be weakened by configuration.
+A node must generate a new key share for every handshake, and must not write
+the private keys of the key exchange, or any secret derived from them, to
+storage. The derived secrets are named because libp2p-tls 0.7.0 sets
+`key_log = KeyLogFile::new()`, so a node started with `SSLKEYLOGFILE` set
+writes its traffic secrets to that file.
 
-Key exchange material is ephemeral per handshake and **MUST NOT** be persisted,
-reused across connections, or transmitted outside the handshake. No new wire
-structure is introduced; the section gives the group codepoints and share sizes.
+## 2. Handshake and peer authentication (P2P Network § Transport Security)
 
-## 2. Post-Quantum Scope (P2P Network § Transport Security)
+First normative statement of what is already deployed: the QUIC handshake is
+TLS 1.3 (RFC 9001), nodes support the three TLS 1.3 AEAD cipher suites, peers
+authenticate as the libp2p TLS specification describes, and the node identity
+key is Ed25519. The section opens with its objective in two sentences and
+applies to every libp2p connection a node establishes.
 
-States what the phase does not affect, as a table a reviewer can check rather
-than infer: the node identity signature, the certificate signature,
-`declaration_id`, locators, declaration size, SDP messages, service rewards,
-and the record-layer AEAD. Also states what is deliberately deferred
-(authentication, until the next phase), that no classical-only group is offered
-and therefore no downgrade exists, and why the larger handshake is not an
-amplification concern on QUIC.
+## 3. Connection Details (Blend Protocol)
 
-## 3. Handshake and peer authentication (P2P Network § Transport Security)
-
-First normative statement of what is already deployed: TLS 1.3 only, the three
-TLS 1.3 AEAD cipher suites, and the libp2p TLS authentication model — a
-self-signed certificate carrying the identity key in the libp2p Public Key
-Extension, with the identity key signing `libp2p-tls-handshake:` ‖
-`certificate_public_key`.
-
-The node identity key is Ed25519 and is the same key SDP declares as
-`provider_id`.
-
-The certificate's own key algorithm is **deliberately left unspecified**. It is
-unrelated to the identity key, carries no protocol meaning, and constraining it
-would create an interoperability requirement with no corresponding benefit.
-
-## 4. Connection Details (Blend Protocol)
-
-The Connection Details section currently reads *"TLS 1.3 … the cryptographic
-scheme is Ed25519 with ephemeral keys"*. That phrase packs a static identity
-key together with two different ephemeral objects, and was the likeliest source
-of the scoping question this PR had to answer. It is replaced by text that
-follows the Transport Security section, states the hybrid requirement, and
-names Blend's privacy as its sharpest motivation. Nothing normative is lost:
-TLS 1.3 remains stated, and the identity and ephemeral layers are now
-distinguished instead of conflated.
+The Connection Details section read *"TLS 1.3 … the cryptographic scheme is
+Ed25519 with ephemeral keys"*, which packs a static identity key together with
+two different ephemeral objects. It now points at Transport Security, and keeps
+the protocol-name sentence. Nothing normative is lost, and since the paragraph
+states no rule of its own, the change is the patch version 1.6.3.
 
 # Implementation
 
-- [ ]  Adopt a transport configuration that offers `X25519MLKEM768` and no
-       other group (logos-blockchain#3768 adopts the provider; its classical
-       fallback is to be removed).
-- [ ]  Assert the negotiated group in a test rather than relying on a library
-       default.
-- [ ]  Verify that a handshake with a peer offering only `X25519` fails.
+Checked against logos-blockchain master (`4a31f31f4`) and Nimbos `unstable`
+(`a7b3cfb`) on 2026-10-29. Already compliant in both: TLS 1.3 only, the three
+cipher suites, libp2p TLS authentication, Ed25519 identity. Nimbos sets no
+key-log callback.
+
+## Rust node (logos-blockchain)
+
+- [ ]  Upgrade to libp2p 0.57: rebase logos-blockchain#3768 onto master and fix
+       its Linux unit tests. The upgrade can land on its own first.
+- [ ]  Get a way to set the groups: either patch libp2p-tls with
+       `[patch.crates-io]`, setting
+       `provider.kx_groups = vec![aws_lc_rs::kx_group::X25519MLKEM768]` in
+       `make_client_config` and `make_server_config` (one patch covers the
+       three swarms, which all build QUIC through them), or revive
+       rust-libp2p#6435 and build QUIC with `Config::new_with_provider` in the
+       main-network, Blend core and Blend edge swarms.
+- [ ]  Offer and accept only `X25519MLKEM768`, on the dialing and the
+       accepting side.
+- [ ]  Turn off TLS key logging: drop `KeyLogFile::new()` in the same patch,
+       or clear `SSLKEYLOGFILE` before the swarms are built.
+- [ ]  Tests: turn `classical_only_peer_still_connects_over_x25519` into a
+       rejection test in both directions, and check the negotiated group over
+       the real QUIC transport with two nodes, not only the in-memory TLS
+       handshake.
+- [ ]  Build: aws-lc-sys needs a C toolchain; check the cross-compilation
+       targets, the container images and the Nix build. The binary grows by
+       about 3.3 MB.
+
+## Nimbos
+
+- [ ]  nim-lsquic: call `SSL_CTX_set1_group_ids(sslCtx,
+       [SSL_GROUP_X25519_MLKEM768], 1)` in `setupSSLContext`, as an option of
+       `TLSConfig` rather than a default, since other users may still need
+       classical peers.
+- [ ]  nim-libp2p: pass the groups through `QuicTransport.makeConfig`; Nimbos
+       sets them at `withQuicTransport()`.
+- [ ]  Bump `vendor/nim-lsquic` and `vendor/nim-libp2p` once both are merged.
+- [ ]  Tests: the negotiated group is `X25519MLKEM768`, and a classical-only
+       peer is rejected in both directions.
+
+## Both
+
+- [ ]  Rollout order: every Rust node offers only classical groups today, so
+       ship the 0.57 upgrade to all Rust nodes first (Nimbos already offers
+       the hybrid group), then turn on hybrid-only in each implementation, in
+       either order.
+- [ ]  Interop test: with hybrid-only on both sides, a Rust node and a Nimbos
+       node connect over `X25519MLKEM768`, and each rejects a classical-only
+       peer.
 - [x]  Measure the QUIC handshake, classical against hybrid: datagrams, first
        flight, flight structure
        ([`tools/benchmarks/pq-transport/quic-handshake`]).
-- [ ]  Record the build implications of the crypto provider change: a C
-       toolchain is required, so check cross-compilation and container images.
-- [ ]  Verify the implementation matches the specification: TLS 1.3 only, the
-       hybrid group the only one offered or accepted, no key exchange material
-       persisted.
+- [ ]  Merge logos-blockchain/research#11, which holds that tool.
+- [ ]  Verify both implementations against the final text once the review
+       settles.
 
 ## Dependency
 
-When this RFC was first written, no released rust-libp2p carried a TLS crypto
-provider with ML-KEM: upstream had merged the change
-([rust-libp2p#6568](https://github.com/libp2p/rust-libp2p/pull/6568)) but
-`libp2p` 0.56 still fixed the provider to `ring`. libp2p 0.57 has since been
-released with the aws-lc-rs provider, and the node adopts it in
-logos-blockchain#3768. The specification still mandates no stack; the
-provider is an engineering choice, and a C toolchain is now part of the build.
+libp2p 0.57 ships the aws-lc-rs provider with ML-KEM, which the node adopts in
+logos-blockchain#3768, but libp2p-tls 0.7.0 fixes the provider's default group
+list and libp2p-quic 0.14.0 keeps its TLS configuration private, so the
+release alone does not let the Rust node restrict the groups. The dependency
+is [rust-libp2p#6435](https://github.com/libp2p/rust-libp2p/pull/6435), open
+since May with merge conflicts, or a patched libp2p-tls. Nimbos depends on
+the nim-lsquic and nim-libp2p changes above. The specification mandates no
+stack.
 
 # Affected Specifications
 
 | Specification | Status | Note |
 | --- | --- | --- |
-| [P2P Network](../../draft/p2p-network.md#transport-security) | Modified | 1.0.1 → 1.1.0; new Transport Security section: the canonical TLS configuration of the stack, with `X25519MLKEM768` as the only key exchange group |
-| [Blend Protocol](../blend-protocol.md#connection-details) | Modified | 1.6.2 → 1.6.3; Connection Details follows the new section and states the hybrid requirement with its privacy motivation |
+| [P2P Network](../../draft/p2p-network.md#transport-security) | Modified | 1.0.1 → 1.1.0; new Transport Security section, with `X25519MLKEM768` as the only key exchange group |
+| [Blend Protocol](../blend-protocol.md#connection-details) | Modified | 1.6.2 → 1.6.3; Connection Details points at Transport Security |
 
 [P2P Network]: ../../draft/p2p-network.md
 [Blend Protocol]: ../blend-protocol.md
