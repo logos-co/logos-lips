@@ -93,6 +93,9 @@ The following additional terms are used throughout this specification:
   during which a node already accepts the key for key period `p`.
   `Q ≥ 2 · max_clock_offset`,
   since the clocks of two nodes can differ by at most twice the offset.
+  `U > 2 · Q`,
+  so that a node can change its published entries
+  within `[start(p) + Q, start(p) + U / 2)` ([Section 5.1](#51-key-entries)).
 - **Grace Window**: The first `V` seconds of key period `p`, `[start(p), start(p) + V)`,
   during which a node still accepts the key for key period `p - 1`.
   `V > 2 · max_transit + 2 · max_clock_offset`,
@@ -144,7 +147,7 @@ the key for key period `p` passes through the following states:
 
 | State | Interval | The node |
 |---|---|---|
-| Next | `[start(p - 1), start(p) - Q)` | publishes its public key ([Section 5.1](#51-key-entries)) but does not accept it. |
+| Next | `[start(p - 1), start(p) - Q)` | publishes its public key from its change time in `p - 1` ([Section 5.1](#51-key-entries)), but does not accept it. |
 | Next, early window | `[start(p) - Q, start(p))` | also accepts it, trying it after the key for `p - 1` ([Section 7](#7-node-processing)). |
 | Current | `[start(p), start(p + 1))` | accepts it. |
 | Previous | `[start(p + 1), start(p + 1) + V)` | still accepts it, trying it after the key for `p + 1` ([Section 7](#7-node-processing)). |
@@ -433,7 +436,7 @@ which are properties of a deployment rather than choices:
 
 For its own bounds,
 a deployment MUST choose `Q` and `V` that satisfy the constraints of the early and grace windows,
-and `U` greater than `Q + V` ([Section 2](#2-terminology)).
+and `U` greater than both `Q + V` and `2 · Q` ([Section 2](#2-terminology)).
 The recommended values satisfy them for the bounds above,
 and give the destination up to 12.5 minutes to respond to a request ([Section 8](#8-single-use-reply-blocks)).
 
