@@ -24,7 +24,7 @@
 
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
-| 1.0.0 | Initial revision. | 2026-10-23 |
+| 1.0.0 | Initial revision. | 2026-11-02 |
 
 # Introduction
 
@@ -120,7 +120,7 @@ A local submission is decoded and passes `preverify` before its size is checked.
 
 A transaction must reach every node, whichever node it was submitted to. Nodes pass transactions on by gossip.
 
-[Dissemination](#dissemination) specifies the topic, when a node subscribes to it, the message identity, and when a node relays and broadcasts.
+[Dissemination](#dissemination) specifies the topic, the message identity, and when a node relays and broadcasts.
 
 ## Block Building Input
 
@@ -267,8 +267,6 @@ The wait before retry `i`, counting from `0`, is `BROADCAST_BACKOFF ** i` second
 
 With `WINDOW` at 300 slots, `CLAIM_GRACE` is 600 slots. With $`T_M`$ at 15 rounds of one second and `BROADCAST_DELAY` at 5 seconds, `TRANSACTION_MATURITY` is 20 seconds.
 
-`TRANSACTION_TTL` must not exceed the [Prolonged Bootstrap Period](cryptarchia-v1-bootstr-sync.md#prolonged-bootstrap-period). Otherwise a leader can select a transaction gossiped before a node started [Listening for New Blocks](cryptarchia-v1-bootstr-sync.md#listening-for-new-blocks), and that node cannot resolve its reference.
-
 `RETIREMENT_GRACE` must exceed the time a transaction takes to reach every node by gossip, plus the time between two consecutive blocks, plus `TRANSACTION_MATURITY`. Otherwise a node can release an expired transaction before a proposal that selected it arrives.
 
 `BROADCAST_DELAY` must not be less than the time a block proposal takes to reach every node by gossip. Otherwise a mature transaction has had less time to spread than the proposal carrying it takes to arrive.
@@ -385,8 +383,6 @@ When `admit` returns `Duplicate`:
 ## Dissemination
 
 Transactions are gossiped on the mempool topic defined in [Gossiping](../draft/p2p-network.md#gossiping).
-
-A node subscribes to the topic when it starts [Listening for New Blocks](cryptarchia-v1-bootstr-sync.md#listening-for-new-blocks).
 
 A message's identity on that topic is the Blake2b-256 digest of its payload. A node remembers the identity of each message it receives or publishes on that topic for `SEEN_TTL`.
 
