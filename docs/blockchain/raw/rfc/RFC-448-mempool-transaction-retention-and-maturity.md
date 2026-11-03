@@ -23,6 +23,7 @@
 |  | Dropped the constraint that `TRANSACTION_TTL` must not exceed the Prolonged Bootstrap Period, and the rule that a node subscribes to the mempool topic when it starts listening for new blocks. | 2026-11-02 |
 |  | Recovery restores `included` from the saved state rather than rebuilding it from the stored blocks. | 2026-11-03 |
 |  | `included` keeps only the transactions the mempool holds, and releases them when their block becomes immutable rather than `k` blocks deep. | 2026-11-03 |
+|  | `release_due` runs after a retirement for inapplicability, expiry or an expired claim rather than before, so a claim retired at its deadline is released in the same step. | 2026-11-03 |
 
 ## Reviewer Orientation
 
@@ -159,10 +160,10 @@ Release, a new section after [Retirement](../mempool.md#retirement), discards a 
 ```
 
 ```diff
-+A node runs `release_block` on each block of its canonical chain once the block is at or before its [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block), after it has run `include` on that block. It runs `release_due` before it admits a transaction, retires one, or processes a block.
++A node runs `release_block` on each block of its canonical chain once the block is at or before its [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block), after it has run `include` on that block. It runs `release_due` before it admits a transaction, and after it retires transactions for [Inapplicability](#inapplicability), [Expiry](#expiry) or [Expired Claim](#expired-claim).
 ```
 
-Retirement and release both measure a transaction's age from its `admitted_at` entry. A transaction is therefore selectable until its age reaches `TRANSACTION_TTL`, and resolvable for `RETIREMENT_GRACE` more unless it is in `included`. An included transaction is released when its block becomes immutable, and a retained claim as soon as it expires. `release_due` runs when `prune` ran. `release_block` follows `include` on the same block because a fork switch can adopt a block that is immutable as soon as it enters the canonical chain, and releasing it first would leave its transactions in `included` for good.
+Retirement and release both measure a transaction's age from its `admitted_at` entry. A transaction is therefore selectable until its age reaches `TRANSACTION_TTL`, and resolvable for `RETIREMENT_GRACE` more unless it is in `included`. An included transaction is released when its block becomes immutable, and a retained claim as soon as it expires. `release_due` runs before an admission, as `prune` did, and after a retirement for inapplicability, expiry or an expired claim, so that a claim retired at its deadline is released in the same step. `release_block` follows `include` on the same block because a fork switch can adopt a block that is immutable as soon as it enters the canonical chain, and releasing it first would leave its transactions in `included` for good.
 
 The constraints on `CLAIM_GRACE` and `RETIREMENT_GRACE` now guard the release, and read the time a proposal takes to reach every node from `TRANSACTION_MATURITY`:
 
