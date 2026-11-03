@@ -33,6 +33,7 @@
 | 1.5.4 | Renamed the `stake_manipulation_threshold` of the channel gas derivations into `transfer_threshold` and the Channel Stake Assignation section into Channel Transfer, following Mantle | 2026-08-31 |
 | 1.6.0 | Add the Execution Gas derivation for the `CLAIM_POW_REWARD` Operation | 2026-09-04 |
 | 1.7.0 | Per-signature Ed25519 cost re-measured with strict verification ([Common Cryptographic Components](common-cryptographic-components.md) 1.2.0): 56 → 59 Execution Gas, `SDP_DECLARE_GAS` 646 → 649 | 2026-09-24 |
+| 1.7.1 | [RFC] The SDP costs price the per-service identifier checks and no lock-period check | 2026-10-05 |
 | 1.8.0 | Follow the private ledger of Mantle: the notes are proven with a ZkTransfer and spent by nullifier, channel inscriptions carry the ZkTransfer of their steps, channel withdrawals and SDP withdrawals carry a ZkTransfer, the proof of work claim carries no proof, and the `CHANNEL_TRANSFER` and `LEADER_CLAIM` Operations are removed. The ZkTransfer is priced from the measured batch verification of Groth16 proofs, a fixed part per block and 619 Execution Gas per proof | 2026-10-07 |
 | 1.9.0 | Add the Execution Gas of program steps and of the `PROGRAM_REGISTER` Operation, priced from the measured batch verification of the ZkProgramSpend, the verification of a program proof alone with the line coefficients of its key, and the subgroup checks and the pairing `e(α, β)` of a verification key | 2026-10-12 |
 | 2.0.0 | Execution Gas measured in core cycles on the node, end to end, over note sets of a million notes, every step of the validation and execution priced. The Execution Gas of a Mantle Transaction sums a term per byte of the signed transaction, a term per note set it changes, and the Execution Gas of its Operations, each built from per-component constants: proofs, root extensions, nullifiers, commitments, signatures, steps, payments, openings and program proofs. The fixed costs of a block are deducted from its Execution Gas limit | 2026-10-27 |
@@ -290,7 +291,7 @@ The release runs before the transactions of the block at the slot of the withdra
 | of which the signature | 149,291 |
 | decompression and batch verification of the ZkTransfer | 1,772,332 |
 
-The validation checks the format of the declaration, the length of its locators, the amount, and that its `provider_id` and `zk_id` are not declared in the service, through keys of the declarations of each service: 812,189 cycles among no declaration, 890,885 among 1,024. The execution inserts the nullifiers, creates the declaration and appends the service note to the SDP note set.
+The validation checks the format of the declaration, the length of its locators, the amount, and that its `declaration_id` and `provider_id` are not declared in the service, through keys of the declarations of each service: 812,189 cycles among no declaration, 890,885 among 1,024. The execution inserts the nullifiers, creates the declaration and appends the service note to the SDP note set.
 
 ## SDP Withdraw
 

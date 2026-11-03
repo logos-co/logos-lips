@@ -7,6 +7,7 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-10-27 |
+| v2 | Note ciphertexts are delivered off chain and pay no Execution Gas of their own. An `SDP_WITHDRAW` extends no root by the buffer. The batch verification draws its coefficients on 128 bits in Block Construction. Follows the SDP rules of master, the measures of the SDP Operations being listed as not taken on them | 2026-11-03 |
 
 ## Reviewer Orientation
 
@@ -52,6 +53,7 @@ A transaction costs 26.0 cycles per byte for its decoding, its hash and the iden
 ## Limits of the measures
 
 - SDP declarations are measured among up to 1,024 declarations of a service. Through the keys of the declarations of each service, their cost grows from 812,189 cycles among none to 890,885 among 1,024.
+- The measured commit predates the SDP rules of master on the node: `declaration_id = Hash(service || zk_id)`, `providers` per service and the nonce carrying the `created` epoch. They remove a lookup and add two integer checks, so the constants of the SDP Operations are not expected to move much, but they are not measured on these rules. The gas benchmark has to run again once [logos-blockchain#3921](https://github.com/logos-blockchain/logos-blockchain/pull/3921) and [logos-blockchain#3922](https://github.com/logos-blockchain/logos-blockchain/pull/3922) follow them.
 - `CLAIM_POW_REWARD` is measured on a state with an eased reward difficulty, the fixture difficulty requiring about 2^26 grinds to build a claim.
 - Creating a channel creates its note set, priced as a change of that set; the creation itself, an insertion in the eligible tree, was not measured alone.
 - The measured node does not yet keep `pow_rewards_pending`: one integer addition per block and one credit per epoch, not counted in the fixed costs of a block.
@@ -114,7 +116,7 @@ The constants assume six optimizations of the node, which change no validity rul
 - the nullifiers of a block are hashed into their tree once, at its end, each dirty node once;
 - a proof whose root no buffered commitment extends is verified against the referenced root itself;
 - the recent roots of a set expire in the order of their blocks rather than by a scan;
-- the `provider_id` and `zk_id` of a declaration are looked up in keys of each service rather than by a scan;
+- the `declaration_id` and the `provider_id` of a declaration are looked up in keys of each service rather than by a scan;
 - the commitment root of a changed set is computed once at the end of the block, for both its recent roots and its eligible leaf;
 - the batch verification of Groth16 proofs draws its random coefficients on 128 bits, which keeps the probability that an invalid proof passes at `2^-128`.
 
