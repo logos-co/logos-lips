@@ -24,7 +24,7 @@
 
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
-| 1.0.0 | Initial revision. | 2026-11-02 |
+| 1.0.0 | Initial revision. | 2026-11-03 |
 
 # Introduction
 
@@ -96,7 +96,7 @@ gantt
 
 Node B's block of slot 16 carries the claim, so node A stops offering it to block building once that block enters its chain. With a window of ten slots and a grace of twenty, node A drops the claim once it holds a block of slot 41 or later, whether or not a block carried it.
 
-A transaction that a fork switch puts back keeps the time it first arrived, and comes back only if it is younger than its time to live. A node keeps its mempool across a restart. After a restart it reads its stored blocks to learn which transactions they carry.
+A transaction that a fork switch puts back keeps the time it first arrived, and comes back only if it is younger than its time to live. A node keeps its mempool across a restart.
 
 # Protocol
 
@@ -543,25 +543,21 @@ A node runs `release_block` on each block of its canonical chain once the block 
 
 ## Persistence and Recovery
 
-A node persists the pending hashes, the retained hashes that are not in `included`, the bodies of those transactions, and every admission timestamp.
+A node persists `pending`, `included`, `bodies` and `admitted_at`.
 
-A node does not persist `included`, `by_prefix` or `highest_slot`. It rebuilds `included` and `by_prefix` on recovery, and `highest_slot` starts at `None`:
+A node does not persist `by_prefix` or `highest_slot`. It rebuilds `by_prefix` on recovery, and `highest_slot` starts at `None`:
 
 ```python
-def recover(saved, recent: list[Block]) -> Mempool:
-    mempool = Mempool(pending=TimeOrderedSet(), included=set(), bodies=dict(saved.bodies),
-                      admitted_at=dict(saved.admitted_at), by_prefix=defaultdict(set),
-                      highest_slot=None)
-    for key in saved.pending:
-        mempool.pending.insert_by(key, saved.admitted_at[key])
-    for key in mempool.bodies:
-        mempool.by_prefix[prefix(key, REFERENCE_PREFIX_LENGTH)].add(key)
-    for block in recent:
-        include(mempool, block)
-    return mempool
+def recover(saved) -> Mempool:
+    by_prefix = defaultdict(set)
+    for key in saved.bodies:
+        by_prefix[prefix(key, REFERENCE_PREFIX_LENGTH)].add(key)
+    return Mempool(pending=saved.pending, included=saved.included, bodies=saved.bodies,
+                   admitted_at=saved.admitted_at, by_prefix=by_prefix,
+                   highest_slot=None)
 ```
 
-`saved` holds what the node persisted. `recent` holds the blocks of its canonical chain after the [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block) and fewer than $`k`$ blocks deep, in chain order. `include` is defined in [Inclusion in a Canonical Block](#inclusion-in-a-canonical-block).
+`saved` holds what the node persisted.
 
 ## Node API
 
