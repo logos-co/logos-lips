@@ -210,10 +210,10 @@ packets processed before the restart could be replayed through the node.
 A node that holds no private key for the current or next key period
 MUST generate a mix key for it,
 unless it has published a public key for that period ([Section 4.2](#42-generation)).
-A node that has lost its persistent storage
+A node that has lost its persistent storage, and with it its private keys,
 MUST assume it has published public keys for the current and next key periods,
-unless discovery shows otherwise,
-and so cannot process packets until the key period after next starts,
+unless discovery shows otherwise.
+It therefore cannot process packets until the key period after next starts,
 up to `2 · U` seconds later.
 
 A node MUST NOT publish key entries while it cannot process packets under its current or next key,
