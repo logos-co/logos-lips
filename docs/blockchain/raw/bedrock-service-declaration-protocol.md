@@ -36,7 +36,7 @@
 | 1.6.0 | Declarations are removed at `withdraw_at + 1`, one epoch after the node stops, making the last served epoch rewardable | 2026-09-03 |
 | 1.7.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a declaration covers one service, a note backs one declaration per service, and a `nonce` carries the `created` epoch of its declaration | 2026-10-01 |
 | 1.8.0 | The minimum stake is one `MinStake` of `threshold` and the block number `timestamp`, matching the implementation | 2026-10-27 |
-| 1.9.0 | Support the private ledger of Mantle: a declaration consumes notes and creates its own service note under the `zk_id` in the SDP note set, the withdrawal consumes it with a ZkTransfer, and the active and withdraw messages are signed by the `provider_id` | 2026-11-03 |
+| 1.9.0 | Support the private ledger of Mantle: a declaration consumes notes and creates its own service note under the `zk_id` in the SDP note set, the withdrawal consumes it with a ZkTransfer, and the active and withdraw messages are signed by the `provider_id` | 2026-10-07 |
 
 # Introduction
 
@@ -173,7 +173,7 @@ At any epoch `n`, the most recent report a snapshot can contain was included in 
 We define the following set of identifiers which are used for service-specific cryptographic operations:
 
 - `provider_id`: used to sign the SDP messages and to establish secure links between validators; it is `Ed25519PublicKey`.
-- `zk_id`: the `ZkPublicKey` the service note and the rewards of the validator are created under; it is also the key the validator proves in the [Proof of Quota](proof-of-quota.md).
+- `zk_id`: the `ZkPublicKey` the service note and the rewards of the validator are created under; it is also the key the validator proves in the [Proof of Quota](proof-of-quota.md). It is a unique one-time random key, which the declaration does not prove.
 
 ### **Locators**
 

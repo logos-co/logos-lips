@@ -39,7 +39,7 @@
 | 1.6.2 | The node count and the neighbor distinction read the `provider_id`s of the Blend declarations, which the Service Declaration Protocol keeps unique | 2026-10-27 |
 | 1.7.0 | Derived the observation window $`W`$ from cover traffic in place of the maximal release delay. | 2026-10-29 |
 | 1.8.0 | Refused a neighbor closed as not live for $`W`$ rounds, restarting its liveness count, in place of shutting it out for the rest of the epoch. | 2026-10-30 |
-| 1.8.1 | Updated the encapsulation-overhead calculation to the `Max_Payload_Length` of 17715 bytes, following the removal of the leader key and of the signatures from block proposals. The leader reward is referenced in [Block Execution](bedrock-v1.1-block-construction.md#block-execution). The base reward is rounded down, and none is calculated without an activity proof | 2026-11-03 |
+| 1.8.1 | Updated the encapsulation-overhead calculation to the `Max_Payload_Length` of 17715 bytes, following the removal of the leader key and of the signatures from block proposals. The leader reward is referenced in [Block Execution](bedrock-v1.1-block-construction.md#block-execution). The base reward is rounded down, and none is calculated without an activity proof | 2026-10-14 |
 
 # Introduction
 
