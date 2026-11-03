@@ -2117,6 +2117,8 @@ class ZkTransferPublic:
 
 `ZkTransfer_verify(inputs, outputs, excess_value, tx_cm_root, msg, proof)` verifies the proof for these public values. The nullifiers of `inputs` fill the first inputs of the circuit and the commitments of `outputs` its first outputs. These are active, and every other input and output is inactive and holds `0`, so the verifier sets the flags from the lengths of the two lists. A ZkTransfer therefore spends at most 4 notes and creates at most 8: an Operation whose `inputs` or `outputs` list is longer is invalid. An Operation spending notes of a note set, other than `SDP_WITHDRAW`, verifies the proof through the [`verify_transfer`](#input-notes-spendability-validation) method of the set, which appends the commitments created earlier in the Mantle Transaction to the referenced root, all of them, or only the first `buffered` for a user step or a payment.
 
+The public signal vector of the proof is fixed by the circuit: the outputs `inputs`, `outputs` and `excess_value` first, then `inputs_active`, `outputs_active`, `tx_cm_root` and `msg`.
+
 The prover knows a witness:
 
 ```python
