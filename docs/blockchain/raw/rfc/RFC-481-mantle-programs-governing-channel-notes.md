@@ -76,7 +76,7 @@ Users stay hidden: payments consume notes by nullifier, and the notes a program 
 
 `CHANNEL_INSCRIBE` carries `steps: list[UserStep | ProgramStep]`.
 
-- A **user step** is a ZkTransfer of its holder bound to `step_msg`, with an `excess_value` of `0`.
+- A **user step** is a ZkTransfer of its holder bound to `step_msg`, which commits to its channel, with an `excess_value` of `0`.
 - A **program step** carries a `program_id`, its `payments`, and a program spend over the program notes.
 - Like a user step, a payment names with `buffered` how many commitments created earlier in the transaction its proof covers, and is verified against its referenced root extended with only those. A payment over notes of earlier blocks takes `buffered = 0` and holds at any position, so a sequencer can gather the payments of many users, all proven against the same recent root, into its program steps without the users proving one after another.
 
@@ -108,7 +108,7 @@ class ProgramStepProof:
 Validation of a program step, in order:
 
 1. The program is registered.
-2. Each payment is spendable, and its ZkTransfer verifies with `payment_msg(program_id, payment)` and an excess of `paid_value`. Its change goes to the buffer.
+2. Each payment is spendable, and its ZkTransfer verifies with `payment_msg(channel, program_id, payment)` and an excess of `paid_value`. Its change goes to the buffer.
 3. The program spend consumes unspent notes of the program, possibly none, at most 4 notes in and 8 out, and its `ZkProgramSpend` verifies with `paid_value` the sum of the payments, `program_outputs`, `spend_notes_hash`, and the `op_id` of the inscription.
 4. Each output flagged in `program_outputs` has an opening in `program_notes` whose commitment, with `program` set to `program_id`, is that output.
 5. The program proof verifies under the registered key on `(spend_notes_hash, payments_hash(step), op_id)`.

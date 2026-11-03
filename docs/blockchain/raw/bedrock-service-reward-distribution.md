@@ -78,7 +78,7 @@ $$
 Rewards^n := serviceReward(n,Rewards\_Epoch)
 $$
 
-Where $`Rewards\_Epoch`$ are the total rewards of epoch **N**. The $`Rewards\_Epoch`$ is determined by the linked reference, which calculates how much each service receives based on fees burnt during epoch N and the blockchain's state. $`Rewards^n`$ is stored as an array that maps each validator's `zk_id` to their allocated reward.
+Where $`Rewards\_Epoch`$ are the total rewards of epoch **N**. The $`Rewards\_Epoch`$ of the Blend service is `blend_rewards_closed` at the first block of epoch **N+2** ([Block Rewards](block-rewards.md#deterministic-implementation)). $`Rewards^n`$ is stored as an array that maps each validator's `zk_id` to their allocated reward.
 
 ## Service Reward Distribution
 
@@ -90,7 +90,7 @@ The reward must:
   - Be sent to the public key `zk_id` of the validator registered during [declaration of the service](bedrock-service-declaration-protocol.md).
   - Be distributed as exactly one note per rewarded `zk_id`. Rewards are never summed or merged into a shared note.
   - Be executed identically by every node processing the first block of epoch N+2. This happens by inserting notes in the ledger in ascending order of `zk_id`.
-  - Be paid, for the Blend service, from `blend_rewards_pending` ([Block Rewards](block-rewards.md#deterministic-implementation)): the total of the reward notes is debited from it, and the part of the Blend reward of epoch N that the notes do not use, when no reward is calculated or as the remainder of the division among the nodes, moves from it back to `rewards_pool`.
+  - Be paid, for the Blend service, from `blend_rewards_closed` ([Block Rewards](block-rewards.md#deterministic-implementation)): the total of the reward notes is debited from it, and the part of the Blend reward of epoch N that the notes do not use, when no reward is calculated or as the remainder of the division among the nodes, moves from it to `rewards_reserve`.
 
 Nodes indirectly verify the correct inclusion of rewards because all consensus-validating nodes must maintain the same ledger view to derive the commitment roots of recent blocks and the eligible roots, which serve as inputs for verifying the transactions and the [Proof of Leadership](cryptarchia-proof-of-leadership.md).
 

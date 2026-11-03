@@ -50,7 +50,7 @@ How the reward of a block is divided between the block leader and the Blend serv
 
 ## Key Principles
 
-- Fee pooling: The execution base fees and permanent storage fees of every block are collected into a rewards pool, less the share diverted to the proof of work reward pool. Each block pays out of the pool and the reserve a reward based on the average of the pooled fees over the look-back window $`T`$: 40% of it goes to the leader of the block, in the block itself, together with the tips of the block, and 60% to the Blend service, paid at the end of its epoch. The fees thus reach the leaders directly, smoothed over $`T`$ blocks.
+- Fee pooling: The execution base fees and permanent storage fees of every block are collected into a rewards pool, less the share diverted to the proof of work reward pool. Each block pays out of the pool and the reserve a reward based on the average of the pooled fees over the look-back window $`T`$: 40% of it goes to the leader of the block, in the block itself, together with the tips of the block, and 60% to the Blend service, paid at the first block of the epoch after next. The fees thus reach the leaders directly, smoothed over $`T`$ blocks.
 - Reserve release: The rewards are topped up by releasing tokens from a reserve pre-allocated from the fixed supply cap, not by minting.
 - KPI driven: The balance between the reserve release and the pooled fees is computed at each block from the inferred total stake and the moving average of the pooled fees over the look-back window $`T`$.
 - Global metrics over local signals: The reward follows network-wide KPIs and averages, rather than the fees of a single block, which its leader could steer.
@@ -189,7 +189,7 @@ $$
 
 A reserve release moves tokens from $`B_t`$ into circulation, routing a fee moves tokens from circulation into $`P_t`$, and the reward pays part of them back. Circulating supply $`S_t`$ rises as the reserve drains, and contracts whenever the fees of a block exceed its reward. This removes tokens from circulation, not from existence.
 
-The [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool) is a stock of the same kind, holding tokens allocated at genesis and topped up by the share of the fees diverted before they reach $`P_t`$, and paying them into circulation as claims are made. It joins the controlled total, which is $`S_t + P_t + B_t + W_t`$, writing $`W_t`$ for this pool together with the share of the fees waiting in `pow_rewards_pending` for the epoch boundary that credits it, and is constant for the same reason: every movement is between stocks. Net circulating growth over the reserve's life is bounded by $`B_0 + W_0`$, the two stocks that begin full and drain into circulation. The Blend share of a block reward waits in a stock of the same kind, `blend_rewards_pending`, written $`E_t`$, until the epoch it is paid in: at a block, circulation gains only the leader share of $`R_t`$ and $`E_t`$ the rest, and the Blend reward notes later move it into circulation, what they do not use returning to $`P_t`$. The controlled total is therefore $`S_t + P_t + B_t + W_t + E_t`$, constant since every movement is between stocks.
+The [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool) is a stock of the same kind, holding tokens allocated at genesis and topped up by the share of the fees diverted before they reach $`P_t`$, and paying them into circulation as claims are made. It joins the controlled total, which is $`S_t + P_t + B_t + W_t`$, writing $`W_t`$ for this pool together with the share of the fees waiting in `pow_rewards_pending` for the epoch boundary that credits it, and is constant for the same reason: every movement is between stocks. Net circulating growth over the reserve's life is bounded by $`B_0 + W_0`$, the two stocks that begin full and drain into circulation. The Blend share of a block reward waits in a stock of the same kind, `blend_rewards_pending` and then `blend_rewards_closed`, together written $`E_t`$, until the epoch it is paid in: at a block, circulation gains only the leader share of $`R_t`$ and $`E_t`$ the rest, and the Blend reward notes later move it into circulation, what they do not use returning to $`B_t`$. The controlled total is therefore $`S_t + P_t + B_t + W_t + E_t`$, constant since every movement is between stocks. $`S_t`$ counts the outputs of an `SDP_WITHDRAW` from the withdrawal on, although they reach the ledger note set when the declaration is removed.
 
 ## Key Performance Indicators
 
@@ -251,22 +251,24 @@ $$
 R_t = \iota_t + \pi_t.
 $$
 
-The reserve balance `rewards_reserve`, the pool balance `rewards_pool`, the Blend share waiting to be paid `blend_rewards_pending` and the proof of work share waiting for the next epoch boundary `pow_rewards_pending` are consensus state, set at Genesis to $`B_0 = 10^{18}`$, $`0`$, $`0`$ and $`0`$. The nodes also keep `pooled_fees_window`, the pooled fees of the last $`120`$ blocks, `0` for the blocks before the first one. When the leader reward of a block is computed ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), the pooled fees of the block enter the window, the reserve pays $`\iota_t`$, the pool receives the pooled fees of the block and pays $`\pi_t`$, the Blend share of the reward waits to be paid, and the proof of work share of the fees of the block waits to be credited to the [Proof of Work Reward Pool](proof-of-work.md#reward-pool):
+The reserve balance `rewards_reserve`, the pool balance `rewards_pool`, the Blend share of the last closed epoch `blend_rewards_closed`, the Blend share of the current epoch `blend_rewards_pending` and the proof of work share waiting for the next epoch boundary `pow_rewards_pending` are consensus state, set at Genesis to $`B_0 = 10^{18}`$, $`0`$, $`0`$, $`0`$ and $`0`$. The nodes also keep `pooled_fees_window`, the pooled fees of the last $`120`$ blocks, `0` for the blocks before the first one. When the leader reward of a block is computed ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), the pooled fees of the block enter the window, the reserve pays $`\iota_t`$, the pool receives the pooled fees of the block and pays $`\pi_t`$, the Blend share of the reward waits to be paid, and the proof of work share of the fees of the block waits to be credited to the [Proof of Work Reward Pool](proof-of-work.md#reward-pool):
 
 ```python
 # pooled_fees is D_1_t, the pooled fees of the block, and total_stake is D_0_t
+pow_share: int128 = get_collected_fees(block) * POW_SHARE // SHARE_DEN
+pooled_fees = get_collected_fees(block) - pow_share
 pooled_fees_window = pooled_fees_window[1:] + [pooled_fees]
 release, payout = block_reward(total_stake, pooled_fees_window, rewards_reserve)
 rewards_reserve -= release
 rewards_pool += pooled_fees
 rewards_pool -= payout
 blend_rewards_pending += release + payout - leader_share(block)
-pow_rewards_pending += get_collected_fees(block) * POW_SHARE // SHARE_DEN
+pow_rewards_pending += pow_share
 ```
 
 `leader_share`, `get_collected_fees`, `POW_SHARE` and `SHARE_DEN` are defined in [Blend Service and Consensus Leaders](overview-cryptoeconomics.md#blend-service-and-consensus-leaders) and [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool). At the first block of an epoch, `pow_rewards_pending` is credited to the proof of work reward pool and reset to `0` ([Proof of Work](proof-of-work.md#reward-pool)).
 
-The Blend reward of an epoch is paid from `blend_rewards_pending` ([Service Reward Distribution Protocol](bedrock-service-reward-distribution.md)), and what the epoch does not distribute, when no reward is calculated or as the remainder of the division among the nodes, returns to `rewards_pool`.
+At the first block of an epoch, the Blend reward of the epoch before the previous one is paid from `blend_rewards_closed` ([Service Reward Distribution Protocol](bedrock-service-reward-distribution.md)), and what it does not distribute, when no reward is calculated or as the remainder of the division among the nodes, returns to `rewards_reserve`: the pool pays only what the fee window sets, so a balance left in it would never circulate. `blend_rewards_pending` then moves into `blend_rewards_closed` and is reset to `0`.
 
 Every pooled fee is paid out at most once across the $`120`$ blocks of its window, so the pool never goes below zero. The reference implementation is:
 
