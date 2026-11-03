@@ -58,7 +58,7 @@ The Execution Gas is derived from measurements of the [Rust implementation of th
 - the insertion of nullifiers and the appending of commitments to the note sets, and the hashing of the trees of every changed note set at the end of the block;
 - the checks and the state updates of each Operation.
 
-The Execution Gas of a Mantle Transaction is a sum of per-component constants, each fitted on these measurements ([Gas determination from measures](#gas-determination-from-measures)). A full block of mixed transactions, measured whole, costs 9.2% less than the constants predict when the end of block work of each note set is counted once ([Fit and cross-check](#fit-and-cross-check)).
+The Execution Gas of a Mantle Transaction is a sum of per-component constants, each fitted on these measurements ([Gas determination from measures](#gas-determination-from-measures)). A full block of mixed transactions, measured whole, costs 9.1% less than the constants predict when the end of block work of each note set is counted once ([Fit and cross-check](#fit-and-cross-check)).
 
 Gas can also be adjusted to incentivize or disincentivize the usage of certain Operations compared to others.
 
@@ -85,49 +85,52 @@ def tx_execution_gas(tx_signed) -> int:
     # note_sets_changed_by(op): the channel and SDP note sets the Operation creates,
     # spends from or adds to, at its execution or at the release of its withdrawal
     tx_note_sets = set().union(*(note_sets_changed_by(op) for op in tx_signed.ops))
+    # roots_extended_by(op): the (note set, referenced root, buffered) of the proofs of
+    # the Operation whose root at least one buffered commitment extends
+    tx_extended_roots = set().union(*(roots_extended_by(op) for op in tx_signed.ops))
     return (len(encode(tx_signed)) * EXECUTION_KB_GAS // 1000
             + EXECUTION_NOTE_SET_GAS * len(tx_note_sets)
+            + sum(root_gas(buffered) for (_, _, buffered) in tx_extended_roots)
             + sum(execution_gas(op) for op in tx_signed.ops))
 
-# The extension of the root a proof is verified against by the commitments
-# buffered before it in the transaction: none for a proof over notes of earlier
-# blocks and for an SDP withdrawal, whose root holds only its service note,
-# `buffered` for a user step or a payment, the whole buffer of the set for the
-# other proofs.
+# The extension of a referenced root by the commitments buffered before a proof in
+# the transaction: `buffered` for a user step or a payment, the whole buffer of the
+# set for the other proofs. Proofs sharing their note set, referenced root and
+# `buffered` are verified against one extended root, computed and paid once.
 def root_gas(buffered: int) -> int:
-    return 0 if buffered == 0 else EXECUTION_ROOT_GAS + EXECUTION_BUFFERED_GAS * buffered
+    return EXECUTION_ROOT_GAS + EXECUTION_BUFFERED_GAS * buffered
 
 # A ZkTransfer or a ZkProgramSpend, with the notes it spends and creates.
-def spend_gas(inputs, outputs, buffered) -> int:
-    return (EXECUTION_PROOF_GAS + root_gas(buffered)
+def spend_gas(inputs, outputs) -> int:
+    return (EXECUTION_PROOF_GAS
             + EXECUTION_NULLIFIER_GAS * len(inputs)
             + EXECUTION_COMMITMENT_GAS * len(outputs))
 
 # A program step of a Channel Inscribe, with its proofs, its openings and its payments.
-def program_step_gas(step, step_proof, buffered) -> int:
+def program_step_gas(step, step_proof) -> int:
     return (EXECUTION_PROGRAM_STEP_GAS + EXECUTION_PROGRAM_PROOF_GAS
-            + spend_gas(step.inputs, step.outputs, buffered)
+            + spend_gas(step.inputs, step.outputs)
             + EXECUTION_OPENING_GAS * len(step_proof.program_notes)
-            + sum(EXECUTION_PAYMENT_GAS + spend_gas(p.inputs, p.outputs, p.buffered)
+            + sum(EXECUTION_PAYMENT_GAS + spend_gas(p.inputs, p.outputs)
                   for p in step.payments))
 ```
 
 and the Execution Gas of each Operation is:
 
 ```python
-TRANSFER          = EXECUTION_TRANSFER_GAS + spend_gas(inputs, outputs, buffered)
+TRANSFER          = EXECUTION_TRANSFER_GAS + spend_gas(inputs, outputs)
 CHANNEL_INSCRIBE  = EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_SIGNATURE_GAS
-                    + sum(EXECUTION_USER_STEP_GAS + spend_gas(step.inputs, step.outputs, step.buffered)
+                    + sum(EXECUTION_USER_STEP_GAS + spend_gas(step.inputs, step.outputs)
                           for step in user_steps)
-                    + sum(program_step_gas(step, step_proof, buffered)
+                    + sum(program_step_gas(step, step_proof)
                           for step, step_proof in program_steps)
 CHANNEL_CONFIG    = EXECUTION_CHANNEL_CONFIG_GAS + EXECUTION_SIGNATURE_GAS * configuration_threshold
-CHANNEL_DEPOSIT   = EXECUTION_CHANNEL_DEPOSIT_GAS + spend_gas(inputs, outputs, buffered)
-CHANNEL_WITHDRAW  = EXECUTION_CHANNEL_WITHDRAW_GAS + spend_gas(inputs, outputs, buffered)
+CHANNEL_DEPOSIT   = EXECUTION_CHANNEL_DEPOSIT_GAS + spend_gas(inputs, outputs)
+CHANNEL_WITHDRAW  = EXECUTION_CHANNEL_WITHDRAW_GAS + spend_gas(inputs, outputs)
 SDP_DECLARE       = EXECUTION_SDP_DECLARE_GAS + EXECUTION_SIGNATURE_GAS
-                    + spend_gas(inputs, [service_note], buffered)
+                    + spend_gas(inputs, [service_note])
 SDP_WITHDRAW      = EXECUTION_SDP_WITHDRAW_GAS + EXECUTION_SIGNATURE_GAS
-                    + spend_gas([service_note], outputs, 0)
+                    + spend_gas([service_note], outputs)
 SDP_ACTIVE        = EXECUTION_SDP_ACTIVE_GAS + EXECUTION_SIGNATURE_GAS
 CLAIM_POW_REWARD  = EXECUTION_CLAIM_POW_REWARD_GAS
 PROGRAM_REGISTER  = EXECUTION_PROGRAM_REGISTER_GAS
@@ -145,7 +148,7 @@ with the constants of the Operations:
 | `EXECUTION_SDP_DECLARE_GAS` | 622 | [SDP Declaration](#sdp-declaration) |
 | `EXECUTION_SDP_WITHDRAW_GAS` | 892 | [SDP Withdraw](#sdp-withdraw) |
 | `EXECUTION_SDP_ACTIVE_GAS` | 6927 | [SDP Activation](#sdp-activation) |
-| `EXECUTION_CLAIM_POW_REWARD_GAS` | 566 | [Claim PoW Reward](#claim-pow-reward) |
+| `EXECUTION_CLAIM_POW_REWARD_GAS` | 592 | [Claim PoW Reward](#claim-pow-reward) |
 | `EXECUTION_PROGRAM_REGISTER_GAS` | 6839 | [Program Register](#program-register) |
 
 and the constants of the components:
@@ -160,8 +163,8 @@ and the constants of the components:
 | `EXECUTION_NULLIFIER_GAS` | 725 | insertion of a nullifier and its share of the hashing of the nullifier tree, 724,523 cycles |
 | `EXECUTION_COMMITMENT_GAS` | 24 | append of a commitment, 23,069 cycles |
 | `EXECUTION_SIGNATURE_GAS` | 161 | Ed25519 signature, 160,462 cycles |
-| `EXECUTION_USER_STEP_GAS` | 161 | a user step beyond its spend, 160,469 cycles |
-| `EXECUTION_PAYMENT_GAS` | 233 | a payment beyond its spend and the append of its commitments to the root of its program spend, 232,740 cycles |
+| `EXECUTION_USER_STEP_GAS` | 178 | a user step beyond its spend, 177,359 cycles |
+| `EXECUTION_PAYMENT_GAS` | 250 | a payment beyond its spend and the append of its commitments to the root of its program spend, 249,814 cycles |
 | `EXECUTION_PROGRAM_STEP_GAS` | 54 | a program step beyond its spend, its proof, its payments and its openings, 53,182 cycles |
 | `EXECUTION_OPENING_GAS` | 151 | the commitment of an opened program note, 150,974 cycles |
 | `EXECUTION_PROGRAM_PROOF_GAS` | 6320 | verification of a program proof under its registered key, 6,319,522 cycles |
@@ -191,7 +194,7 @@ A program proof is verified alone under the key of its program, which no other p
 
 ## Roots
 
-A proof is verified against a root of a recent commitment MMR of its note set, extended by the commitments buffered before it in the transaction ([Validation](bedrock-v1.1-mantle-specification.md#validation)). Without any buffered commitment, the root is the referenced root itself, checked to be recent, 1,231 cycles. With `b` buffered commitments, the commitments are appended to a copy of the peaks of the referenced MMR and its root is computed, 878,394 cycles for the root and 22,623 per commitment.
+A proof is verified against a root of a recent commitment MMR of its note set, extended by the commitments buffered before it in the transaction ([Validation](bedrock-v1.1-mantle-specification.md#validation)). Without any buffered commitment, the root is the referenced root itself, checked to be recent, 1,231 cycles. With `b` buffered commitments, the commitments are appended to a copy of the peaks of the referenced MMR and its root is computed, 878,394 cycles for the root and 22,623 per commitment. The proofs of a transaction naming the same note set, referenced root and `b` share one extended root, computed once and paid once, so a step costs the same whatever its position in its mini-block, and a sequencer has no reason to ask a holder for the smallest `b` covering its inputs, which would point at the notes it consumes.
 
 ## Nullifiers
 
@@ -240,16 +243,16 @@ The validation verifies the Ed25519 signature of the sequencer, its accreditatio
 | --- | --- |
 | Inscription without steps | 180,978 |
 | of which the signature | 149,245 |
-| each user step of 1 input and 1 output, beyond its proof | 225,703 |
-| first payment of a program step, with the extension of the root of the program spend by its commitment | 1,212,530 |
-| each further payment of 1 input and 1 output, beyond its proof | 320,597 |
+| each user step of 1 input and 1 output, beyond its proof | 242,593 |
+| first payment of a program step, with the extension of the root of the program spend by its commitment | 1,229,604 |
+| each further payment of 1 input and 1 output, beyond its proof | 337,671 |
 | program step without input nor payment, 1 output | 257,229 |
 | each input of the program spend | 50,950 |
 | each output of the program spend | 25,054 |
 | each opening of a program note | 150,974 |
 | program proof | 6,319,522 |
 
-A user step derives its `step_msg` and checks its inputs and outputs, 160,469 cycles beyond its nullifier and its commitment. A payment derives its `payment_msg` and enters the hash of the payments of its step, 232,740 cycles beyond its nullifier, its commitment and the append of that commitment to the root of the program spend, whose extension the first payment of a step causes (`EXECUTION_ROOT_GAS`). A program step checks that its program is registered, checks the flags of its outputs and derives the public inputs of its proofs, 53,182 cycles beyond the inscription without steps and its commitment. An opening recomputes the commitment of the opened note and compares it to the output.
+A user step derives its `step_msg` and checks its inputs and outputs, 177,359 cycles beyond its nullifier and its commitment. A payment derives its `payment_msg` and enters the hash of the payments of its step, 249,814 cycles beyond its nullifier, its commitment and the append of that commitment to the root of the program spend, whose extension the first payment of a step causes (`EXECUTION_ROOT_GAS`). A program step checks that its program is registered, checks the flags of its outputs and derives the public inputs of its proofs, 53,182 cycles beyond the inscription without steps and its commitment. An opening recomputes the commitment of the opened note and compares it to the output.
 
 ## Channel Config
 
@@ -317,10 +320,10 @@ The validation checks that the declaration exists, the nonce, the signature of t
 
 | Step | Cycles |
 | --- | --- |
-| Claim | 565,280 |
-| of which the re-derivation of the puzzle ticket, one `zkhash` over four field elements | 111,986 |
+| Claim | 591,975 |
+| of which the re-derivation of the puzzle ticket, one `zkhash` over five field elements | 138,681 |
 
-The validation re-derives the ticket, compares it to the reward difficulty, checks that the referenced block is canonical and within the acceptance window, that the ticket is not in the nullifier set and that the pool covers a reward. The execution inserts the nullifier, derives the note and appends its commitment, and decrements the pool. A claim pays its fee out of the reward it creates, so the per-claim reward clears the Permanent Storage fee of the transaction, these 566 Execution Gas and the Execution Gas of its bytes, and the Execution Gas of the Transfer spending the reward note.
+The validation re-derives the ticket, compares it to the reward difficulty, checks that the referenced block is canonical and within the acceptance window, that the ticket is not in the nullifier set and that the pool covers a reward. The execution inserts the nullifier, derives the note and appends its commitment, and decrements the pool. A claim pays its fee out of the reward it creates, so the per-claim reward clears the Permanent Storage fee of the transaction, these 592 Execution Gas and the Execution Gas of its bytes, and the Execution Gas of the Transfer spending the reward note.
 
 ## Program Register
 
@@ -354,11 +357,11 @@ The releases of the withdrawals due at a block, paid in advance by their Operati
 
 ### Method
 
-- The measured code is the [gas benchmark of the node](https://github.com/logos-blockchain/logos-blockchain/tree/7042e8aff1ac61eb9ff2e30de6c0d10cceb5f5ca/ledger/benches/gas), which runs the functions of the ledger the node runs: decoding, preverification, `try_apply_transaction`, `try_apply_header`, `try_apply_block_contents`, the batch verifiers and the end of the block.
+- The measured code is the [gas benchmark of the node](https://github.com/logos-blockchain/logos-blockchain/tree/29183148777a57d414cf49154254a2e726fac289/ledger/benches/gas), which runs the functions of the ledger the node runs: decoding, preverification, `try_apply_transaction`, `try_apply_header`, `try_apply_block_contents`, the batch verifiers and the end of the block.
 - Cycles are core cycles counted by the hardware performance counters of the CPU (`perf_event`, user and kernel), for the measured function only, its inputs being prepared outside the count.
 - The node is built with its release profile (`lto = "fat"`, `codegen-units = 1`, `opt-level = 3`), single threaded, pinned to one performance core whose sibling thread stays idle.
 - The ledger note set and the note set of the channel of the measures each hold 1,000,000 nullifiers and 1,000,000 commitments. The nullifiers an Operation spends are drawn like the filled ones, so the low leaf of each is anywhere in the tree. One dimension of each Operation varies at a time.
-- Each value is the minimum over 5 runs of 15 rounds, each round visiting every case once in a new random order. A single run moves the small measures by up to about 10%.
+- Each value is the minimum over 5 runs of 15 rounds, each round visiting every case once in a new random order. A single run moves the small measures by up to about 10%. The field element a user step and a payment add to their message for their channel, and the tag a claim adds to its ticket, are the difference between the builds with and without them, each the minimum over 5 runs in one session: 16,890 cycles per user step, 17,074 per payment and 26,695 per claim.
 - The proofs of the Operations are made of valid curve points and decompress as real proofs do. A batch whose proofs do not verify costs what a verified one does: it decompresses every proof and runs every multi-scalar multiplication and the multi-pairing before it compares.
 
 The machine:
@@ -373,7 +376,7 @@ The machine:
 
 Each constant is the slope of the measures of the Operation along one dimension, or the measure of a component alone where the Operation cannot isolate it, rounded up to the next 1,000 cycles.
 
-A block of 64 transactions on one channel, measured whole (40 Transfers of 2 inputs and 2 outputs, 16 inscriptions of one user step, 7 inscriptions of one program step with one payment, one input, two outputs and one opening, and one deposit; 111 nullifiers, 118 commitments, 27,047 bytes), costs 275.2 million cycles with its header, its Proof of Leadership and the verification of its proofs. The constants, with the end of block work of the channel set counted once and the fixed costs of the block, come to 300.3 million cycles, 9.2% above. The 24 transactions changing the channel set each pay that work, as every transaction changing a set does, and the Execution Gas of the block comes to 379.9 million cycles, 38.1% above: the end of block work of a set is paid by each transaction changing it, so that the price of a transaction does not depend on the other transactions of its block.
+A block of 64 transactions on one channel, measured whole (40 Transfers of 2 inputs and 2 outputs, 16 inscriptions of one user step, 7 inscriptions of one program step with one payment, one input, two outputs and one opening, and one deposit; 111 nullifiers, 118 commitments, 27,047 bytes), costs 275.6 million cycles with its header, its Proof of Leadership and the verification of its proofs. The constants, with the end of block work of the channel set counted once and the fixed costs of the block, come to 300.7 million cycles, 9.1% above. The 24 transactions changing the channel set each pay that work, as every transaction changing a set does, and the Execution Gas of the block comes to 380.3 million cycles, 38.0% above: the end of block work of a set is paid by each transaction changing it, so that the price of a transaction does not depend on the other transactions of its block.
 
 ### Groth16 Proof Batch Verification
 
@@ -433,6 +436,7 @@ The ledger computes `e(α, β)`, the costliest part of the preparation, once at 
 | --- | --- |
 | Poseidon2 compression of two field elements | 23,197 |
 | `zkhash` of four field elements | 111,986 |
+| `zkhash` of five field elements | 138,681 |
 | Blake2b-256 of 0, 1,024 and 65,536 bytes | 1,713, 4,975, 231,814 |
 | Root of the commitment MMR of a filled set | 878,394 |
 | Append to the commitment MMR, per merged peak | 23,389 |

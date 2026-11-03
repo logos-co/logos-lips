@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-10-27 |
 | v2 | Note ciphertexts are delivered off chain and pay no Execution Gas of their own. An `SDP_WITHDRAW` extends no root by the buffer. The batch verification draws its coefficients on 128 bits in Block Construction. Every constant is measured again on the node following the SDP rules of master, as the minimum over 5 runs of the benchmark | 2026-11-03 |
+| v3 | A Mantle Transaction pays each root extension once for each distinct note set, referenced root and `buffered` of its proofs. `EXECUTION_USER_STEP_GAS` is 178, `EXECUTION_PAYMENT_GAS` 250 and `EXECUTION_CLAIM_POW_REWARD_GAS` 592, for the channel in the messages of steps and payments and the tag of the claim ticket | 2026-11-03 |
 
 ## Reviewer Orientation
 
@@ -54,7 +55,7 @@ A transaction costs 26.8 cycles per byte for its decoding, its hash and the iden
 
 - SDP declarations are measured among up to 1,024 declarations of a service. Through the keys of the declarations of each service, their cost grows from 796,866 cycles among none to 847,129 among 1,024.
 - A single run of the benchmark moves the small measures by up to about 10% (the base of a Transfer goes from 5 to 24 Execution Gas between runs), so the constants take the minimum over 5 runs. The constants of a few thousand cycles are therefore known only roughly.
-- The cost of a user step grows with their number in an inscription: about 198,000 cycles per step from 1 to 2 steps, 241,000 from 4 to 8. `EXECUTION_USER_STEP_GAS` prices the slope over the measured range, and the cause of the growth is not identified.
+- The cost of a user step grows with their number in an inscription: about 215,000 cycles per step from 1 to 2 steps, 258,000 from 4 to 8. `EXECUTION_USER_STEP_GAS` prices the slope over the measured range, and the cause of the growth is not identified.
 - `CLAIM_POW_REWARD` is measured on a state with an eased reward difficulty, the fixture difficulty requiring about 2^26 grinds to build a claim.
 - Creating a channel creates its note set, priced as a change of that set; the creation itself, an insertion in the eligible tree, was not measured alone.
 - The measured node does not yet keep `pow_rewards_pending`: one integer addition per block and one credit per epoch, not counted in the fixed costs of a block.
@@ -70,19 +71,25 @@ The Gas Cost Determination is rewritten around the measurements. It gives, for e
 ```python
 tx_execution_gas = (sum(execution_gas(op) for op in ops)
                     + len(encode(signed_tx)) * EXECUTION_KB_GAS // 1000
-                    + EXECUTION_NOTE_SET_GAS * len(tx_note_sets))  # channel and SDP sets created or changed
+                    + EXECUTION_NOTE_SET_GAS * len(tx_note_sets)  # channel and SDP sets created or changed
+                    # distinct (note set, referenced root, buffered) of the proofs extending a root
+                    + sum(root_gas(buffered) for (_, _, buffered) in tx_extended_roots))
 
-def spend_gas(inputs, outputs, buffered) -> int:
-    root_gas = 0 if buffered == 0 else EXECUTION_ROOT_GAS + EXECUTION_BUFFERED_GAS * buffered
-    return (EXECUTION_PROOF_GAS + root_gas
+def root_gas(buffered) -> int:
+    return EXECUTION_ROOT_GAS + EXECUTION_BUFFERED_GAS * buffered
+
+def spend_gas(inputs, outputs) -> int:
+    return (EXECUTION_PROOF_GAS
             + EXECUTION_NULLIFIER_GAS * len(inputs)
             + EXECUTION_COMMITMENT_GAS * len(outputs))
 ```
 
+Proofs sharing their note set, referenced root and `buffered` are verified against one extended root, computed and paid once. Charging each proof would price a step of `buffered = 800` at about eight times a step of `buffered = 0`, so a block would hold few mini-blocks, and a sequencer paying the fee would ask each holder for the smallest `buffered` covering its inputs, which points at the note it consumes.
+
 - Transfer, Channel Deposit and Channel Withdraw: their constant plus `spend_gas`. A withdrawal pays in advance its release at its slot.
 - Channel Inscribe: its constant and a signature, `EXECUTION_USER_STEP_GAS + spend_gas` per user step, and per program step `EXECUTION_PROGRAM_STEP_GAS + EXECUTION_PROGRAM_PROOF_GAS + spend_gas + EXECUTION_OPENING_GAS` per opening, plus `EXECUTION_PAYMENT_GAS + spend_gas` per payment.
 - Channel Config: its constant plus a signature per unit of `configuration_threshold`.
-- SDP Declare and SDP Withdraw: their constant, a signature and `spend_gas`. An SDP Withdraw passes `buffered = 0`: its root holds only its service note, and its constant covers that root. SDP Active: its constant, which includes the Proof of Quota, and a signature.
+- SDP Declare and SDP Withdraw: their constant, a signature and `spend_gas`. An SDP Withdraw extends no root: its root holds only its service note, and its constant covers that root. SDP Active: its constant, which includes the Proof of Quota, and a signature.
 
 | Constant | Value | | Constant | Value |
 | --- | --- | --- | --- | --- |
@@ -94,8 +101,8 @@ def spend_gas(inputs, outputs, buffered) -> int:
 | `EXECUTION_SDP_DECLARE_GAS` | 622 | | `EXECUTION_NULLIFIER_GAS` | 725 |
 | `EXECUTION_SDP_WITHDRAW_GAS` | 892 | | `EXECUTION_COMMITMENT_GAS` | 24 |
 | `EXECUTION_SDP_ACTIVE_GAS` | 6927 | | `EXECUTION_SIGNATURE_GAS` | 161 |
-| `EXECUTION_CLAIM_POW_REWARD_GAS` | 566 | | `EXECUTION_USER_STEP_GAS` | 161 |
-| `EXECUTION_PROGRAM_REGISTER_GAS` | 6839 | | `EXECUTION_PAYMENT_GAS` | 233 |
+| `EXECUTION_CLAIM_POW_REWARD_GAS` | 592 | | `EXECUTION_USER_STEP_GAS` | 178 |
+| `EXECUTION_PROGRAM_REGISTER_GAS` | 6839 | | `EXECUTION_PAYMENT_GAS` | 250 |
 | | | | `EXECUTION_PROGRAM_STEP_GAS` | 54 |
 | | | | `EXECUTION_OPENING_GAS` | 151 |
 | | | | `EXECUTION_PROGRAM_PROOF_GAS` | 6320 |

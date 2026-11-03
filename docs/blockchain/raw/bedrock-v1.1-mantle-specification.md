@@ -52,7 +52,7 @@
 | 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each proven against a recent root and the part of the transaction buffer it names, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and moved `CLAIM_POW_REWARD` to the opcode `0x30`. The commitment MMR and the nullifier IMT of a note set have depth 40 | 2026-10-07 |
 | 2.1.0 | Add programs: notes gain `program` and `data` fields, `PROGRAM_REGISTER` registers a Groth16 verification key, and channel inscriptions carry program steps made of user payments, a `ZkProgramSpend`, a program proof and the openings of the program notes they create. A payment, like a user step, names the buffered commitments its proof covers. Add the proving time benchmarks of the ZkTransfer and the ZkProgramSpend | 2026-10-12 |
 | 2.1.1 | Added Note Delivery: how the holder of a note learns its `value` and `nonce`, the user notes a sender creates being delivered off chain, by the Note Encryption of [Common Cryptographic Components](common-cryptographic-components.md#note-encryption-construction) | 2026-11-02 |
-| 2.2.0 | Execution Gas from [Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0: a Mantle Transaction pays its bytes and each channel or SDP note set it changes, and each Operation pays its proofs, root extensions, nullifiers, commitments, signatures, steps, payments, openings and program proofs, through `spend_gas` and the per-component constants of Gas Determination | 2026-10-27 |
+| 2.2.0 | Execution Gas from [Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0: a Mantle Transaction pays its bytes, each channel or SDP note set it changes and each root extension its proofs share, and each Operation pays its proofs, nullifiers, commitments, signatures, steps, payments, openings and program proofs, through `spend_gas` and the per-component constants of Gas Determination | 2026-10-27 |
 
 # Introduction
 
@@ -201,6 +201,7 @@ Mantle validators will ensure the following:
     tx_balance = 0
     tx_execution_gas = 0
     tx_note_sets = set()  # indexes of the channel and SDP note sets the Operations create or change
+    tx_extended_roots = set()  # (note set, referenced root, buffered) of the proofs extending a root
     for op, op_proof in zip(ops, op_proofs):
         assert op.opcode in MANTLE_OPCODES
         tx_execution_gas = checked_uint64(tx_execution_gas + execution_gas(op, ledger, channels))
@@ -212,9 +213,13 @@ Mantle validators will ensure the following:
         # the sets the Operation creates, spends from or adds to, at its execution
         # or at the release of its withdrawal, the ledger note set excluded
         tx_note_sets |= note_sets_changed_by(op)
+        # the proofs of the Operation whose root at least one buffered commitment extends,
+        # `buffered` being the number of commitments of the buffer each proof covers
+        tx_extended_roots |= roots_extended_by(op)
     tx_execution_gas = checked_uint64(tx_execution_gas
                                       + len(encode(signed_tx)) * EXECUTION_KB_GAS // 1000
-                                      + EXECUTION_NOTE_SET_GAS * len(tx_note_sets))
+                                      + EXECUTION_NOTE_SET_GAS * len(tx_note_sets)
+                                      + sum(root_gas(buffered) for (_, _, buffered) in tx_extended_roots))
     for note_set in note_sets_appended_to(tx):
         note_set.tx_cm_buffer = []  # the buffers start empty with every Mantle Transaction
 
@@ -555,7 +560,7 @@ The openings of the program notes a step creates serve only the availability of 
 
 #### Execution Gas
 
-  Channel Inscribe Operations have an Execution Gas cost of `EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_SIGNATURE_GAS`, plus `EXECUTION_USER_STEP_GAS + spend_gas(step.inputs, step.outputs, step.buffered)` for each user step, plus `EXECUTION_PROGRAM_STEP_GAS + EXECUTION_PROGRAM_PROOF_GAS + spend_gas(step.inputs, step.outputs, len(tx_cm_buffer)) + EXECUTION_OPENING_GAS * len(program_notes)` for each program step, `tx_cm_buffer` being the buffer of the channel note set its program spend is verified against, the changes of its payments included, plus `EXECUTION_PAYMENT_GAS + spend_gas(payment.inputs, payment.outputs, payment.buffered)` for each payment of a program step. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
+  Channel Inscribe Operations have an Execution Gas cost of `EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_SIGNATURE_GAS`, plus `EXECUTION_USER_STEP_GAS + spend_gas(step.inputs, step.outputs)` for each user step, plus `EXECUTION_PROGRAM_STEP_GAS + EXECUTION_PROGRAM_PROOF_GAS + spend_gas(step.inputs, step.outputs) + EXECUTION_OPENING_GAS * len(program_notes)` for each program step, plus `EXECUTION_PAYMENT_GAS + spend_gas(payment.inputs, payment.outputs)` for each payment of a program step. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
 
 #### Validation
 
@@ -904,7 +909,7 @@ ZkTransfer
 
 #### Execution Gas
 
-  Channel Deposit Operations have an Execution Gas cost of `EXECUTION_CHANNEL_DEPOSIT_GAS + spend_gas(inputs, outputs, len(tx_cm_buffer))`, `tx_cm_buffer` being the buffer of the ledger note set before the Operation is validated. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
+  Channel Deposit Operations have an Execution Gas cost of `EXECUTION_CHANNEL_DEPOSIT_GAS + spend_gas(inputs, outputs)`. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
 
 #### Validation
 
@@ -1006,7 +1011,7 @@ ZkTransfer
 
 #### Execution Gas
 
-  Channel Withdraw Operations have an Execution Gas cost of `EXECUTION_CHANNEL_WITHDRAW_GAS + spend_gas(inputs, outputs, len(tx_cm_buffer))`, `tx_cm_buffer` being the buffer of the channel note set before the Operation is validated. The Operation pays in advance the release of the withdrawal at its slot. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
+  Channel Withdraw Operations have an Execution Gas cost of `EXECUTION_CHANNEL_WITHDRAW_GAS + spend_gas(inputs, outputs)`. The Operation pays in advance the release of the withdrawal at its slot. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
 
 #### Validation
 
@@ -1177,7 +1182,7 @@ class DeclarationProof:
 
 #### Execution Gas
 
-  SDP Declare Operations have an Execution Gas cost of `EXECUTION_SDP_DECLARE_GAS + EXECUTION_SIGNATURE_GAS + spend_gas(inputs, [service_note], len(tx_cm_buffer))`, `tx_cm_buffer` being the buffer of the ledger note set before the Operation is validated. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
+  SDP Declare Operations have an Execution Gas cost of `EXECUTION_SDP_DECLARE_GAS + EXECUTION_SIGNATURE_GAS + spend_gas(inputs, [service_note])`. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
 
 #### Validation
 
@@ -1311,7 +1316,7 @@ class WithdrawProof:
 
 #### Execution Gas
 
-  SDP Withdraw Operations have an Execution Gas cost of `EXECUTION_SDP_WITHDRAW_GAS + EXECUTION_SIGNATURE_GAS + spend_gas([service_note], outputs, 0)`: no buffer extends the root of an MMR holding only the service note, and `EXECUTION_SDP_WITHDRAW_GAS` covers its computation. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
+  SDP Withdraw Operations have an Execution Gas cost of `EXECUTION_SDP_WITHDRAW_GAS + EXECUTION_SIGNATURE_GAS + spend_gas([service_note], outputs)`: no buffer extends the root of an MMR holding only the service note, and `EXECUTION_SDP_WITHDRAW_GAS` covers its computation. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
 
 #### Validation
 
@@ -1733,7 +1738,7 @@ ZkTransfer
 
 ### Execution Gas
 
-  Transfer have an Execution Gas cost of `EXECUTION_TRANSFER_GAS + spend_gas(inputs, outputs, len(tx_cm_buffer))`, `tx_cm_buffer` being the buffer of the ledger note set before the Operation is validated. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
+  Transfer have an Execution Gas cost of `EXECUTION_TRANSFER_GAS + spend_gas(inputs, outputs)`. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
 
 ### Validation
 
@@ -2035,7 +2040,7 @@ class NoteSet:
             assert note_nf not in self.nullifiers
 ```
 
-The proofs spending notes of a note set are verified against the root referenced by the Operation once the commitments of the `tx_cm_buffer` of the set are appended to it, all of them, or only the first `buffered` for a user step or a payment ([CHANNEL_INSCRIBE](#channel_inscribe)). The inputs can therefore be notes created by the previous Operations of the Mantle Transaction:
+The proofs spending notes of a note set are verified against the root referenced by the Operation once the commitments of the `tx_cm_buffer` of the set are appended to it, all of them, or only the first `buffered` for a user step or a payment ([CHANNEL_INSCRIBE](#channel_inscribe)). The inputs can therefore be notes created by the previous Operations of the Mantle Transaction. The proofs of a Mantle Transaction naming the same note set, referenced root and number of buffered commitments are verified against one extended root, computed once:
 
 ```python
 class NoteSet:
@@ -2104,7 +2109,7 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_SDP_DECLARE_GAS | 622 |
 | EXECUTION_SDP_WITHDRAW_GAS | 892 |
 | EXECUTION_SDP_ACTIVE_GAS | 6927 |
-| EXECUTION_CLAIM_POW_REWARD_GAS | 566 |
+| EXECUTION_CLAIM_POW_REWARD_GAS | 592 |
 | EXECUTION_PROGRAM_REGISTER_GAS | 6839 |
 | EXECUTION_KB_GAS | 27 |
 | EXECUTION_NOTE_SET_GAS | 3461 |
@@ -2114,8 +2119,8 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_NULLIFIER_GAS | 725 |
 | EXECUTION_COMMITMENT_GAS | 24 |
 | EXECUTION_SIGNATURE_GAS | 161 |
-| EXECUTION_USER_STEP_GAS | 161 |
-| EXECUTION_PAYMENT_GAS | 233 |
+| EXECUTION_USER_STEP_GAS | 178 |
+| EXECUTION_PAYMENT_GAS | 250 |
 | EXECUTION_PROGRAM_STEP_GAS | 54 |
 | EXECUTION_OPENING_GAS | 151 |
 | EXECUTION_PROGRAM_PROOF_GAS | 6320 |
@@ -2123,14 +2128,20 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 A ZkTransfer or a ZkProgramSpend costs, with the notes it consumes and creates:
 
 ```python
-def spend_gas(inputs: list[NoteNf], outputs: list[NoteCm], buffered: int) -> int:
-    # the root it is verified against is the referenced root itself when no
-    # buffered commitment extends it
-    root_gas = 0 if buffered == 0 else EXECUTION_ROOT_GAS + EXECUTION_BUFFERED_GAS * buffered
-    return (EXECUTION_PROOF_GAS + root_gas
+def spend_gas(inputs: list[NoteNf], outputs: list[NoteCm]) -> int:
+    return (EXECUTION_PROOF_GAS
             + EXECUTION_NULLIFIER_GAS * len(inputs)
             + EXECUTION_COMMITMENT_GAS * len(outputs))
 ```
+
+A Mantle Transaction pays the extension of a root by buffered commitments once for each distinct note set, referenced root and `buffered` of its proofs ([Validation](#validation)):
+
+```python
+def root_gas(buffered: int) -> int:
+    return EXECUTION_ROOT_GAS + EXECUTION_BUFFERED_GAS * buffered
+```
+
+The proofs of a mini-block therefore share one extension, so the price of a step does not grow with its position, and a sequencer has no reason to ask a holder for the smallest `buffered` covering its inputs, which would point at the notes it consumes.
 
 ## Zero Knowledge Transfer Proof (ZkTransfer)
 
