@@ -536,7 +536,7 @@ def release_due(mempool) -> None:
             release(mempool, key)
 ```
 
-A node runs `release_block` on each block of its canonical chain once the block is at or before its [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block), after it has run `include` on that block. It runs `release_due` before it admits a transaction, retires one, or processes a block.
+A node runs `release_block` on each block of its canonical chain once the block is at or before its [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block), after it has run `include` on that block. It runs `release_due` before it admits a transaction, and after it retires transactions for [Inapplicability](#inapplicability), [Expiry](#expiry) or [Expired Claim](#expired-claim).
 
 ## Persistence and Recovery
 
