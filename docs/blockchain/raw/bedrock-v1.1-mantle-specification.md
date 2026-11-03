@@ -47,8 +47,10 @@
 | 1.15.0 | Add the `CLAIM_POW_REWARD` Operation and the proof of work state it is validated against; the reward pool and the difficulty controllers are specified in [Proof of Work](proof-of-work.md) | 2026-09-08 |
 | 1.16.0 | Gas Determination table updated for strict Ed25519 verification: channel Operations 56 → 59 Execution Gas per signature, `EXECUTION_SDP_DECLARE_GAS` 646 → 649, from [Gas Cost Determination](analysis-gas-cost-determination.md) 1.7.0 | 2026-09-24 |
 | 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding. | 2026-10-06 |
-| 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each proven against a recent root and the part of the transaction buffer it names, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and moved `CLAIM_POW_REWARD` to the opcode `0x30`. A `TokenValue` counts units of $`10^{-9}`$ LGO. The commitment MMR and the nullifier IMT of a note set have depth 40 | 2026-10-07 |
-| 2.1.0 | Add programs: notes gain `program` and `data` fields, `PROGRAM_REGISTER` registers a Groth16 verification key, and channel inscriptions carry program steps made of user payments, a `ZkProgramSpend`, a program proof and the openings of the program notes they create. A payment, like a user step, names the buffered commitments its proof covers. Add the proving time benchmarks of the ZkTransfer and the ZkProgramSpend | 2026-10-12 |
+| 1.18.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a note backs one declaration per service, `SDP_WITHDRAW` no longer names the note, and a `nonce` carries the `created` epoch of its declaration | 2026-10-27 |
+| 1.19.0 | `MinStake` holds `threshold` and the block number `timestamp`, following the Service Declaration Protocol | 2026-10-27 |
+| 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each proven against a recent root and the part of the transaction buffer it names, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and moved `CLAIM_POW_REWARD` to the opcode `0x30`. A `TokenValue` counts units of $`10^{-9}`$ LGO. The commitment MMR and the nullifier IMT of a note set have depth 40 | 2026-11-03 |
+| 2.1.0 | Add programs: notes gain `program` and `data` fields, `PROGRAM_REGISTER` registers a Groth16 verification key, and channel inscriptions carry program steps made of user payments, a `ZkProgramSpend`, a program proof and the openings of the program notes they create. A payment, like a user step, names the buffered commitments its proof covers. Add the proving time benchmarks of the ZkTransfer and the ZkProgramSpend | 2026-11-03 |
 
 # Introduction
 
@@ -1075,7 +1077,21 @@ These Operations implement the [Service Declaration Protocol](bedrock-service-de
 Validators must keep the following state when implementing SDP Operations:
 
 ```python
-declarations: dict[DeclarationID, DeclarationInfo]
+providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
+```
+
+`declarations` holds one map per `ServiceType`, keyed by `declaration_id`.
+`providers` maps a provider identity to its declaration in each service.
+`find_declaration` returns the service and the entry of a `declaration_id`, or
+`None` when no service holds it:
+
+```python
+def find_declaration(declarations, declaration_id):
+    for service, entries in declarations.items():
+        if declaration_id in entries:
+            return service, entries[declaration_id]
+    return None
 ```
 
 ### Common SDP Structures
@@ -1092,8 +1108,8 @@ class Locator(bytes):
         assert validate_multiaddr(self)
 
 class MinStake:
-    stake_threshold: int # stake value
-    epoch: EpochNumber # epoch number
+    threshold: TokenValue # stake value
+    timestamp: BlockNumber # see SDP: Minimum Stake
 
 class ServiceParameters:
     inactivity_period: NumberOfEpochs # number of epochs
@@ -1101,15 +1117,15 @@ class ServiceParameters:
 
 class DeclarationInfo:
     service: ServiceType
-    locators: list[Locator]
     provider_id: Ed25519PublicKey
-    zk_id: ZkPublicKey
     service_note: NoteCm             # the note of the SDP note set staked by the declaration
     withdraw_outputs: list[NoteCm]   # the notes the withdrawal creates, released at removal
+    locators: list[Locator]
+    zk_id: ZkPublicKey
     created: EpochNumber
     active: EpochNumber
     withdraw_at: EpochNumber | None
-    # SDP ops updating a declaration must use monotonically increasing nonces
+    # lifecycle_epoch << 32 | sequence, see Declaration Storage in the SDP
     nonce: int
 ```
 
@@ -1157,16 +1173,21 @@ proof: DeclarationProof
 
 min_stake: MinStake      # the (global) minimum stake setting
 ledger: Ledger           # the note sets
-declarations: dict[DeclarationID, DeclarationInfo]
+providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
   *Validate*
 
   The declaration is verified according to [Declare](bedrock-service-declaration-protocol.md#declare).
 
-  1. Ensure declaration does not already exist.
+  1. Ensure no identifier is already taken
+     ([Identifier Uniqueness](bedrock-service-declaration-protocol.md#identifier-uniqueness)),
+     the `declaration_id` being derived as in [Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage).
       ```python
-      assert declaration_id(declaration) not in declarations
+      declare_id = declaration_id(declaration)
+      assert declare_id not in declarations[declaration.service_type]
+      assert declaration.provider_id not in providers[declaration.service_type]
       ```
 
   2. Ensure the locators list is non-empty and has no more than 8 entries.
@@ -1178,7 +1199,7 @@ declarations: dict[DeclarationID, DeclarationInfo]
   3. Ensure the inputs are spendable and the value is sufficient for joining the service.
       ```python
       ledger.sets[LEDGER_SET].assert_spendable(declaration.inputs, declaration.cm_merkle_root)
-      assert declaration.amount >= min_stake.stake_threshold
+      assert declaration.amount >= min_stake.threshold
       ```
 
   4. Ensure ownership over the inputs and `provider_id`.
@@ -1200,7 +1221,8 @@ declarations: dict[DeclarationID, DeclarationInfo]
 declaration: DeclarationMessage # the declaration we are executing
 current_epoch: EpochNumber
 ledger: Ledger
-declarations: dict[DeclarationID, DeclarationInfo]
+providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
   *Execute*
@@ -1221,20 +1243,25 @@ declarations: dict[DeclarationID, DeclarationInfo]
       ledger.sets[SDP_SET].execute_adding([derive_note_cm(service_note)])
       ```
 
-  3. Store the declaration as explained in [**Declaration Storage**](bedrock-service-declaration-protocol.md#declaration-storage).
+  3. Index the provider identity by this declaration.
       ```python
       declare_id = declaration_id(declaration)
-      declarations[declare_id] = DeclarationInfo(
-          service: declaration.service
-          locators: declaration.locators
-          provider_id: declaration.provider_id
-          zk_id: declaration.zk_id
-          service_note: derive_note_cm(service_note)
-          withdraw_outputs: []
+      providers[declaration.service_type][declaration.provider_id] = declare_id
+      ```
+
+  4. Store the declaration as explained in [**Declaration Storage**](bedrock-service-declaration-protocol.md#declaration-storage).
+      ```python
+      declarations[declaration.service_type][declare_id] = DeclarationInfo(
+          service=declaration.service_type,
+          provider_id=declaration.provider_id,
+          service_note=derive_note_cm(service_note),
+          withdraw_outputs=[],
+          locators=declaration.locators,
+          zk_id=declaration.zk_id,
           created=current_epoch,
           active=current_epoch + 2,
-          withdraw_at=None
-          nonce=0
+          withdraw_at=None,
+          nonce=current_epoch << 32,  # lifecycle_epoch = created, sequence = 0
       )
       ```
 
@@ -1246,7 +1273,7 @@ The service withdrawal follows the definition given in [Withdraw Message](bedroc
 
 ```python
 class WithdrawMessage:
-    declaration: DeclarationID
+    declaration: DeclarationId
     nonce: int
     service_note_nf: NoteNf     # nullifier of the service note of the declaration
     outputs: list[NoteCm]       # commitments of the notes created in the ledger note set
@@ -1279,7 +1306,7 @@ withdraw: WithdrawMessage
 proof: WithdrawProof
 
 ledger: Ledger
-declarations: dict[DeclarationID, DeclarationInfo]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
   *Validate*
@@ -1288,8 +1315,9 @@ declarations: dict[DeclarationID, DeclarationInfo]
 
   1. Ensure declaration exists.
       ```python
-      assert withdraw.declaration in declarations
-      declare_info = declarations[withdraw.declaration]
+      found = find_declaration(declarations, withdraw.declaration)
+      assert found is not None
+      _, declare_info = found
       ```
   2. Ensure the declaration is not already scheduled for withdrawal.
       ```python
@@ -1299,9 +1327,10 @@ declarations: dict[DeclarationID, DeclarationInfo]
       ```python
       assert Ed25519_verify(txhash, declare_info.provider_id, proof.provider_sig)
       ```
-  4. Ensure that the nonce is greater than the previous one.
+  4. Ensure that the nonce belongs to this declaration and that its sequence is greater than the previous one.
       ```python
-      assert withdraw.nonce > declare_info.nonce
+      assert withdraw.nonce >> 32 == declare_info.created
+      assert withdraw.nonce & 0xFFFFFFFF > declare_info.nonce & 0xFFFFFFFF
       ```
   5. Ensure the service note of the declaration is consumed by its holder and balances the outputs.
       ```python
@@ -1323,7 +1352,7 @@ withdraw: WithdrawMessage
 
 current_epoch: EpochNumber # current epoch
 ledger: Ledger
-declarations: dict[DeclarationID, DeclarationInfo]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
   *Execute*
@@ -1332,7 +1361,7 @@ declarations: dict[DeclarationID, DeclarationInfo]
 
   1. Update the declaration info with the nonce, the withdrawal epoch and the notes released at removal.
       ```python
-      declare_info = declarations[withdraw.declaration]
+      _, declare_info = find_declaration(declarations, withdraw.declaration)
       declare_info.nonce = withdraw.nonce
       declare_info.withdraw_at = current_epoch + 2
       declare_info.withdraw_outputs = withdraw.outputs
@@ -1360,23 +1389,25 @@ same step.
 ```python
 current_epoch: EpochNumber
 ledger: Ledger
-declarations: dict[DeclarationID, DeclarationInfo]
+providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
   *Execute*
 
-  For every `declare_id`, `declare_info` in `declarations` where
+  For every `service`, `declare_id`, `declare_info` in `declarations` where
   `declare_info.withdraw_at is not None and declare_info.withdraw_at + 1 <= current_epoch`,
-  in ascending lexicographic order of the 32 bytes of `declare_id`, so that every node appends the released notes in the same order:
+  in ascending order of `service` and then in ascending lexicographic order of the 32 bytes of `declare_id`, so that every node appends the released notes in the same order:
 
-  1. Release the notes created by the withdrawal in the ledger note set.
+  1. Release the notes created by the withdrawal in the ledger note set and the provider identity the declaration held.
       ```python
       ledger.sets[LEDGER_SET].execute_adding(declare_info.withdraw_outputs)
+      del providers[service][declare_info.provider_id]
       ```
 
   2. Remove the declaration.
       ```python
-      del declarations[declare_id]
+      del declarations[service][declare_id]
       ```
 
 ### SDP_ACTIVE
@@ -1387,7 +1418,7 @@ The service active action follows the definition given in [Active Message](bedro
 
 ```python
 class Active:
-    declaration: DeclarationID
+    declaration: DeclarationId
     nonce: int
     metadata: ActivityMetadata # tagged service-specific activity metadata
 ```
@@ -1413,7 +1444,7 @@ txhash: hash # Mantle transaction hash of the tx containing this operation
 active: Active
 signature: Ed25519Signature
 
-declarations: dict[DeclarationID, DeclarationInfo]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
   *Validate*
@@ -1421,10 +1452,12 @@ declarations: dict[DeclarationID, DeclarationInfo]
 `active.metadata` MUST satisfy the encoding and validation rules of its selected [activity-metadata variant](mantle-transaction-encoding.md#sdp-operations). The current Blend variant follows [Blend Protocol — Active Message](blend-protocol.md#active-message).
 
 ```python
-assert active.declaration in declarations
-declaration_info = declarations[active.declaration]
+found = find_declaration(declarations, active.declaration)
+assert found is not None
+_, declaration_info = found
 
-assert active.nonce > declaration_info.nonce
+assert active.nonce >> 32 == declaration_info.created
+assert active.nonce & 0xFFFFFFFF > declaration_info.nonce & 0xFFFFFFFF
 
 assert Ed25519_verify(txhash, declaration_info.provider_id, signature)
 ```
@@ -1437,7 +1470,7 @@ assert Ed25519_verify(txhash, declaration_info.provider_id, signature)
 active: Active
 
 current_epoch: EpochNumber # epoch of the block containing this operation
-declarations: dict[DeclarationID, DeclarationInfo]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
   *Execute*
@@ -1446,7 +1479,7 @@ declarations: dict[DeclarationID, DeclarationInfo]
 
   1. Update the declaration info with the nonce and the epoch.
       ```python
-      declaration_info = declarations[active.declaration]
+      _, declaration_info = find_declaration(declarations, active.declaration)
       declaration_info.nonce = active.nonce
       declaration_info.active = current_epoch
       ```
@@ -2322,13 +2355,11 @@ To see what the payloads represent, refer to [Mantle Transaction Encoding](mantl
 
 ### Declaration Id
 
-The `declaration_id` ([Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage)) is `Hash(service||provider_id||zk_id||locators)` (BLAKE2b, 256-bit output, no DST), where `service` is the one-byte `ServiceType` discriminant and `locators` is the `Locators` production ([Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations)): the element count followed by each `Locator`'s binary form prefixed with its 2-byte little-endian byte length. Note that the preimage field order differs from the `SDP_DECLARE` wire order and excludes the `inputs`, the `cm_merkle_root` and the `amount`. This vector reuses the fields of the `SDP_DECLARE` payload from [Operation Id](#operation-id).
+The `declaration_id` ([Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage)) is `Hash(service||zk_id)`. This vector reuses the fields of the `SDP_DECLARE` payload from [Operation Id](#operation-id).
 
 | Field | Value |
 | - | - |
 | `service` | 0x00 |
-| `provider_id` | 0x53470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f3 |
 | `zk_id` | 0x1900000000000000000000000000000000000000000000000000000000000000 |
-| `locators` | 0x010b00047f00000191020bb8cd03 |
-| Preimage | 0x0053470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f31900000000000000000000000000000000000000000000000000000000000000010b00047f00000191020bb8cd03 |
-| `declaration_id` | 0x7fb647c069bade94e06685b0825299d220e7cc14752cfc474773b6c4040e37b5 |
+| Preimage | 0x001900000000000000000000000000000000000000000000000000000000000000 |
+| `declaration_id` | 0x67fa7d1fe7f1391195fdd479bba30dd97c9e6d2e1525436ac2427f2bf8567a0d |
