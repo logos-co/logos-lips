@@ -136,7 +136,7 @@ The constants assume six optimizations of the node, which change no validity rul
 | --- | --- | --- |
 | [Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | 2.0.0 |
 | [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | 2.2.0 |
-| [Cryptoeconomics Overview](../overview-cryptoeconomics.md) | Modified | 1.4.2 |
+| [Cryptoeconomics Overview](../overview-cryptoeconomics.md) | Modified | 1.5.2 |
 | [Execution Market](../execution-market.md) | Modified | 1.3.2 |
 | [Proof of Leadership](../cryptarchia-proof-of-leadership.md) | Modified | 1.2.2, time to fill the eligible tree |
 | [Block Construction](../bedrock-v1.1-block-construction.md) | Modified | 1.4.2, 128-bit batch coefficients |

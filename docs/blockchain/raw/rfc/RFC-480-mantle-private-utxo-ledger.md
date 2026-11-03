@@ -16,7 +16,8 @@
 | v8 | A `TokenValue` counts units of $`10^{-9}`$ LGO, in which the integer block reward is expressed. The Execution Gas of each Operation is summed against the state it is validated against. Ed25519 signatures sign the `mantle_txhash` digest and the proofs take it reduced modulo $`p`$. A `FieldElement` not less than $`p`$ is rejected. A channel with an infinite posting timeframe keeps its sequencer. The commitment MMR and the nullifier IMT have depth 40, a note set then taking about 50 years of transfers at the Execution Gas target to fill instead of 72 days at depth 32, and of any two identical notes only one can be spent. The eligible tree has depth 40, since channel creations, which cost no Execution Gas, would fill a tree of depth 32 in about 79 days of full blocks. The Proof of Leadership error table is computed for $`f = 1/30`$ | 2026-10-19 |
 | v9 | No proof of the Genesis transaction is verified. The proof of work share of the fees waits in `pow_rewards_pending` until the epoch boundary. Mantle defines `path_root`, the root of a Merkle path, the ZkTransfer, PoL and PoQ check that every path selector is a bit, and the eligible root uses the commitment MMR functions. The nullifier IMT keeps its leaves, a full note set rejects new commitments and nullifiers, and the indexes of a multi-signature are bounded by the keys. The leader reward reads the release and payout of the block update. The limits of channel re-inclusion after a reorg, of the forced exit fee, of leader reward privacy and of wallet tracking are stated. Storage Markets and the initial base fee keep their master values. The Execution Market and overview figures are redrawn | 2026-10-30 |
 | v10 | The specifications no longer reference deprecated documents, and historical documents are left as they are | 2026-11-02 |
-| v11 | Follows the SDP rules of master: `declaration_id = Hash(service \|\| zk_id)`, one map of declarations and of providers per service, a `nonce` carrying the `created` epoch of its declaration, one `MinStake`. Each declaration keeps creating its own service note, so the `service_notes` map is not kept. Revisions renumbered past master's, and the limit of a declaration not proving the `zk_id` stated | 2026-11-03 |
+| v11 | Follows the SDP rules of master: `declaration_id = Hash(service \|\| zk_id)`, one map of declarations and of providers per service, a `nonce` carrying the `created` epoch of its declaration, one `MinStake`. Each declaration keeps creating its own service note, so the `service_notes` map is not kept. Revisions renumbered past master's | 2026-11-03 |
+| v12 | Builds on #503: every amount counts LEPTA, the token is LOGOS, the Block Rewards reference types its constants as 128-bit integers, and the revisions of Block Rewards, the Cryptoeconomics Overview and Total Stake Inference are renumbered past its own. The `zk_id` is a unique one-time random key, which the declaration does not prove | 2026-11-03 |
 
 ## Reviewer Orientation
 
@@ -60,6 +61,8 @@ A ZkTransfer proves its inputs against a commitment root of their set from one o
 
 The service note is created by the ledger in the SDP set, so it stakes like any note. Its withdrawal is proven against the root of an MMR holding only the declaration's service note, which ties the consumed nullifier to that note without exposing it in the circuit. The outputs reach the ledger set when the declaration is removed, as the stake is released today.
 
+The `zk_id` is a unique one-time random key, so `SDP_DECLARE` does not prove it: its proofs cover the inputs and the `provider_id`. A declaration naming a `zk_id` it does not hold locks its stake for good, since consuming the service note takes both the `zk_id` secret and the `provider_id` signature, and cannot serve, since the Proof of Quota takes the secret.
+
 ## Leader reward in the block
 
 The reward note of a block carries the block's own value and still does not link the leader to its spending: the spend reveals a nullifier and no commitment. The voucher set, the pooled leader reward and `LEADER_CLAIM` are retired. The block reward keeps averaging the pooled fees over the last 120 blocks, so a leader can barely steer its own reward with the fees it pays in its block. The reward note has nonce `0`, so two rewards of the same value under one `reward_key` are identical notes and, as for any two identical notes, only one can be spent: a leader should use a fresh key per block.
@@ -68,7 +71,6 @@ The reward note of a block carries the block's own value and still does not link
 
 - How a wallet learns the value and nonce of a note it receives through a Transfer or a step is out of scope. Only commitments are on chain. This will be addressed by Mehmet in a different and stacked PR for viewing keys.
 - The 10-year supply projection in Block Rewards follows the behavioral assumptions of the earlier baseline simulation, which were not published as code. Its fee and stake model should be checked against that reference.
-- `SDP_DECLARE` proves the inputs and the `provider_id`, not knowledge of the `zk_id` secret. Since `declaration_id = Hash(service || zk_id)`, a declaration under someone else's `zk_id` takes that `zk_id` in the service. Its stake is locked for good: consuming the service note takes both the `zk_id` secret and the `provider_id` signature, and an inactive declaration is never removed. It cannot serve either, as the Proof of Quota takes the `zk_id` secret. The owner has to declare under a new `zk_id`. Should the declaration prove the `zk_id`, at the cost of a second proof?
 
 # Details
 
@@ -167,7 +169,7 @@ Block Execution runs the service rewards and releases the stake of the withdrawn
 
 ## 6. Block reward state and supply projection
 
-The block reward stays `R_t = A_t * I_max * S_cap * Delta_t + (1 - A_t) * R_bar_t`, where `R_bar_t` is the average of the pooled fees over the last 120 blocks. The integer reference now follows that equation, with `FEE_AVG_NUMERATOR = 10_512` over the sum of the window and 128-bit intermediates, and caps the release at the reserve balance. It counts tokens in the units of `TokenValue`, $`10^{-9}`$ LGO, so `STAKE_TARGET = 3 * 10**18`, `A_SCALE = 12 * 10**16` and `RELEASE_NUMERATOR = 62_500 * 10**9`. The reserve `rewards_reserve`, the pool `rewards_pool`, the pending Blend share `blend_rewards_pending`, the pending proof of work share `pow_rewards_pending` and the fee window are integer consensus state, set at Genesis: the block reward is the floored reserve release plus the floored pool payout, the Blend share waits in `blend_rewards_pending` until its epoch pays it, what is not distributed returning to the pool, and the proof of work share of the fees of each block waits in `pow_rewards_pending` until the next epoch boundary credits it to the proof of work reward pool. The leader receives 40% of `R_t`, rounded down, plus the Execution market tips of the block, in one note, the remainder going to the Blend reward ([Cryptoeconomics overview](../overview-cryptoeconomics.md#blend-service-and-consensus-leaders)).
+The block reward stays `R_t = A_t * I_max * S_cap * Delta_t + (1 - A_t) * R_bar_t`, where `R_bar_t` is the average of the pooled fees over the last 120 blocks. The integer reference now follows that equation, with `FEE_AVG_NUMERATOR = 10_512` over the sum of the window and 128-bit intermediates, and caps the release at the reserve balance. It counts LEPTA, as `TokenValue` does, so `STAKE_TARGET = 3 * 10**18`, `A_SCALE = 12 * 10**16` and `RELEASE_NUMERATOR = 62_500 * 10**9`. The reserve `rewards_reserve`, the pool `rewards_pool`, the pending Blend share `blend_rewards_pending`, the pending proof of work share `pow_rewards_pending` and the fee window are integer consensus state, set at Genesis: the block reward is the floored reserve release plus the floored pool payout, the Blend share waits in `blend_rewards_pending` until its epoch pays it, what is not distributed returning to the pool, and the proof of work share of the fees of each block waits in `pow_rewards_pending` until the next epoch boundary credits it to the proof of work reward pool. The leader receives 40% of `R_t`, rounded down, plus the Execution market tips of the block, in one note, the remainder going to the Blend reward ([Cryptoeconomics overview](../overview-cryptoeconomics.md#blend-service-and-consensus-leaders)).
 
 The system design figure is redrawn around the reserve, the pool and the per-block reward, and a new annex projects the supply with a per-block simulation over 10 years: the stake and a pooling rate of 0.5% per year settle within 2 years, the inferred stake carries a noise of 0.1 per epoch, and the fees of each block follow a Poisson number of transactions. The net circulating growth is about 3% of the maximum supply after 10 years, 2.8% to 3.2% over 20 runs. The moving average smooths how the fees vary from block to block; the noise of the inferred stake dominates `A_t`, the growth being 3.25% without it and 2.94% with twice as much.
 
@@ -237,8 +239,8 @@ The wallet keeps, for each note, its set, the commitment path inside its MMR pea
 | [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | Revision 2.0.0 |
 | [Proof of Leadership](../cryptarchia-proof-of-leadership.md) | Modified | Revision 1.2.0 |
 | [Block Construction](../bedrock-v1.1-block-construction.md) | Modified | Revision 1.4.0 |
-| [Block Rewards](../block-rewards.md) | Modified | Revision 1.3.0 |
-| [Cryptoeconomics Overview](../overview-cryptoeconomics.md) | Modified | Revision 1.4.0 |
+| [Block Rewards](../block-rewards.md) | Modified | Revision 1.4.0 |
+| [Cryptoeconomics Overview](../overview-cryptoeconomics.md) | Modified | Revision 1.5.0 |
 | [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | Revision 2.0.0 |
 | [Cryptarchia Protocol](../cryptarchia-v1-protocol.md) | Modified | Revision 1.3.0 |
 | [Proof of Quota](../proof-of-quota.md) | Modified | Revision 1.3.0 |
@@ -258,6 +260,6 @@ The wallet keeps, for each note, its set, the commitment path inside its MMR pea
 | [Payload Formatting](../payload-formatting.md) | Modified | Revision 1.2.1 |
 | [Message Formatting](../message-formatting.md) | Modified | Revision 1.0.3 |
 | [Bootstrapping and Synchronization](../cryptarchia-v1-bootstr-sync.md) | Modified | Revision 1.0.3 |
-| [Total Stake Inference](../cryptarchia-total-stake-inference.md) | Modified | Revision 1.1.1 |
+| [Total Stake Inference](../cryptarchia-total-stake-inference.md) | Modified | Revision 1.1.2 |
 | [Cross-Channel Messaging Template](../../deprecated/template-cross-channel-messaging.md) | Deprecated | moved to `deprecated/` |
 | [Anonymous Leaders Reward](../../deprecated/bedrock-anonymous-leaders-reward.md) | Deprecated | moved to `deprecated/` |
