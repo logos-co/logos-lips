@@ -17,10 +17,10 @@ Read [RFC-480](RFC-480-mantle-private-utxo-ledger.md) first: this RFC builds on 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here**: [Mantle](#affected-specifications), [program notes](#1-program-notes) | the `program` and `data` fields of the note; the ZkTransfer and the Proof of Leadership fixing both to `0` |
-| 2 | Critical | **Start here**: [Mantle](#affected-specifications), [program steps](#2-program-steps) | payments, the `ZkProgramSpend` and its `outputs_of_program` flags, the program proof and its three public inputs, the openings of the program notes; nothing creates value, and no program note is created without its opening |
+| 2 | Critical | **Start here**: [Mantle](#affected-specifications), [program steps](#2-program-steps) | payments, the `ZkProgramSpend` with its `outputs_of_program` flags, its derivation of the output nonces and the flags in `spend_notes_hash`, the program proof and its three public inputs, the openings of the program notes; nothing creates value, and no program note is created without its opening |
 | 3 | High | [Mantle](#affected-specifications), [what enforces what](#3-what-enforces-what) | the split between what the ledger enforces and what the users of the zone check |
 | 4 | High | [Mantle](#affected-specifications), [registration](#4-program-registration) | `PROGRAM_REGISTER`, the program identifier, the key checks |
-| 5 | High | [Encoding](#affected-specifications), [encoding](#5-encoding) | step kinds, payments, `ProgramOutputs`, program step proofs with their `ProgramNoteOpening`s, the verification key |
+| 5 | High | [Encoding](#affected-specifications), [encoding](#5-encoding) | step kinds, payments, `ProgramOutputs`, program step proofs with their `ProgramNoteOpening`s, the verification key, the format of compressed points |
 | 6 | Medium | [Proof of Leadership](#affected-specifications), [gas](#6-gas) | the commitment with `0` fields; the measured gas constants and block limit |
 | 7 | Medium | [Block Construction](#affected-specifications) | terminal rename, ZkProgramSpend batch, copies lacking or altering openings |
 
@@ -33,14 +33,15 @@ The ledger guarantees that no LOGOS is created, that a user note moves only with
 The ledger does not guarantee the liveness of a program:
 
 - The sequencers of a channel can freeze every program note of the channel for good, since program notes are never withdrawn and only the sequencers publish program steps. They cannot take the value of the notes, but they can hold it.
-- A sequencer can hold a signed payment until its root leaves the window, about 8.5 hours, and fill it at the worst price its intent accepts.
-- Past the immutable block, the sequencers of a channel should keep the openings of its unspent notes. The next sequencer can take over a program only if its state is in opened fields and its notes have the key of the secret key `0` as holder.
+- A sequencer can hold a signed payment until 1024 blocks, about 8.5 hours, after its root stopped being the current root of the note set, a root that stays current staying valid, and fill it at the worst price its intent accepts.
+- Past the immutable block, the sequencers of a channel should keep the openings of its unspent notes. The next sequencer can take over a program from the openings alone as long as its state is in opened fields and its notes have the key of the secret key `0` as holder.
+- The circuit fixes the total a step pays, not the value of each payout, so a program should fix that value from public data for its payee to recompute the note.
 
 The users of a program trust its circuit and the setup that produced its key: whoever kept the trapdoor of that setup can prove any statement under the key.
 
 ## Privacy
 
-Users stay hidden: payments consume notes by nullifier, and the notes a program pays are commitments. The amounts are public: every payment carries its `paid_value`, and every program note is opened in the step that creates it, so the state of a program is public, and so is the total a program step pays to users. Interactions with a program are therefore subject to timing attacks. Hiding the amounts needs value commitments in place of public values, which changes the ZkTransfer and the fee payment across Mantle and is left to a later RFC.
+Users stay hidden: payments consume notes by nullifier, and the notes a program pays are commitments, as long as each payee uses a one-time public key, since the nonce of such a note is a public function of its value and public key. The amounts are public: every payment carries its `paid_value`, and every program note is opened in the step that creates it, so the state of a program is public, and so is the total a program step pays to users. Interactions with a program are therefore subject to timing attacks. Hiding the amounts needs value commitments in place of public values, which changes the ZkTransfer and the fee payment across Mantle and is left to a later RFC.
 
 ## Alternatives considered
 
@@ -132,7 +133,7 @@ The openings serve only the availability of the state of the program. They sit i
 
 The `ZkProgramSpend` is the ZkTransfer with program checks: its inputs are notes of `program_id`, its outputs are notes of `program_id` or user notes, `spend_notes_hash` commits to the active flag and the note of every input and output, nonce included, the fields of an inactive one reading as `0`, and `sum(inputs_value) + paid_value == sum(outputs_value)`. Its used inputs and outputs are marked by the public flags `inputs_active` and `outputs_active`, set from the published lists as in the ZkTransfer, and its outputs of the program by the public flags `outputs_of_program`, set from `program_outputs`. It is proven by the sequencer. The circuit (`program_spend` in [logos-blockchain-circuits](https://github.com/logos-blockchain/logos-blockchain-circuits)) has 86,813 constraints and proves in about 2.6 s on one thread and 0.6 s on 32 threads (see the Mantle benchmark).
 
-When a step consumes a note of the program, the circuit derives the nonce of each active output `k` as `zkhash(NOTE_NONCE_V1, inputs[0], k, value, public_key)`, from the nullifier of the first input: the `op_id` cannot serve, since it covers the output commitments and thus their nonces. Every output of such a step is a new commitment, so a sequencer can neither burn a note by re-creating it nor withhold a payout, whose holder recomputes the nonce from the inscription. A step consuming no note of the program picks its nonces, and a program admitting such a step constrains them through `spend_notes_hash`. A derived nonce is a public function of the value and the public key of the note, so a payee should use a one-time public key.
+When a step consumes a note of the program, the circuit derives the nonce of each active output `k` as `zkhash(NOTE_NONCE_V1, inputs[0], k, value, public_key)`, from the nullifier of the first input: the `op_id` cannot serve, since it covers the output commitments and thus their nonces. Such a step re-creates neither a note it consumes nor the output of another such step, so a sequencer cannot burn a note by re-creating it, and cannot withhold a payout from a holder who knows its value, since the holder recomputes the nonce from the inscription. A commitment created ahead of time with a chosen nonce costs its creator the value. A step consuming no note of the program picks its nonces, and a program admitting such a step should constrain them through `spend_notes_hash`. A derived nonce is a public function of the value and the public key of the note, so a payee should use a one-time public key.
 
 ## 3. What enforces what
 
