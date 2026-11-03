@@ -32,6 +32,7 @@
 | 1.1.4 | Stated which validations apply when the Genesis Mantle Transaction is processed: the ordinary Mantle rules apply to every Operation, minus a closed list of exemptions that the absence of any state before Genesis makes impossible to satisfy. | 2026-08-25 |
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
 | 1.2.0 | Seed the pow reward pool at genesis from the initial token distribution | 2026-09-08 |
+| 1.2.1 | Align the initial service declarations with the Service Declaration Protocol: the `BN` service type, the full `DeclarationMessage` shape, and multiaddr locators | 2026-10-01 |
 | 1.3.0 | Support the private ledger of Mantle: the initial distribution is made of note commitments whose preimages are published in an inscription to the null channel, and the declarations consume the distributed notes. Genesis initializes the block reward stocks and records the commitment roots of the note sets | 2026-10-07 |
 
 # Introduction
@@ -119,15 +120,15 @@ Blend enforces a minimal network size for the service to be active. Thus, in ord
 
 ```python
 BLEND_DECLARATIONS = [
-    DeclarationMessage(
-        service_type=ServiceType.BLEND,
-        locators=["ip://1.1.1.1:3000"],
+    Op(opcode=SDP_DECLARE, payload=encode(DeclarationMessage(
+        service_type=ServiceType.BN,
+        locators=["/ip4/1.1.1.1/tcp/3000"],
         provider_id=PROVIDER_ID_0,
         zk_id=ZK_ID_0,
         inputs=[STAKE_HOLDER_0_NF],  # nullifier of the output 0 of STAKE_DISTRIBUTION
         cm_merkle_root=EMPTY_MMR_ROOT,
         amount=1000,
-    ),
+    ))),
     # ... 32 total declarations
 ]
 
@@ -296,15 +297,15 @@ DISTRIBUTION_INSCRIPTION = Inscribe(
 
 # service declarations
 BLEND_DECLARATIONS = [
-    DeclarationMessage(
-        service_type=ServiceType.BLEND,
-        locators=["ip://1.1.1.1:3000"],
+    Op(opcode=SDP_DECLARE, payload=encode(DeclarationMessage(
+        service_type=ServiceType.BN,
+        locators=["/ip4/1.1.1.1/tcp/3000"],
         provider_id=PROVIDER_ID_0,
         zk_id=ZK_ID_0,
         inputs=[STAKE_HOLDER_0_NF],  # nullifier of the output 0 of STAKE_DISTRIBUTION
         cm_merkle_root=EMPTY_MMR_ROOT,
         amount=1000,
-    ),
+    ))),
     # ... more declarations
 ]
 SERVICE_DECLARATIONS = BLEND_DECLARATIONS
