@@ -126,7 +126,7 @@ Output gas accounts for the computational resources required for the inclusion o
 
 Execution: negligible.
 
-- Appending of the commitment to the commitment MMR: negligible.
+- Appending of the commitment to the commitment [Merkle Mountain Range](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range) (MMR): negligible.
 
 ## Channel Inscription
 
