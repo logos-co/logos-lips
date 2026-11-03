@@ -16,6 +16,7 @@
 | v8 | A `TokenValue` counts units of $`10^{-9}`$ LGO, in which the integer block reward is expressed. The Execution Gas of each Operation is summed against the state it is validated against. Ed25519 signatures sign the `mantle_txhash` digest and the proofs take it reduced modulo $`p`$. A `FieldElement` not less than $`p`$ is rejected. A channel with an infinite posting timeframe keeps its sequencer. The commitment MMR and the nullifier IMT have depth 40, a note set then taking about 50 years of transfers at the Execution Gas target to fill instead of 72 days at depth 32, and of any two identical notes only one can be spent. The eligible tree has depth 40, since channel creations, which cost no Execution Gas, would fill a tree of depth 32 in about 79 days of full blocks. The Proof of Leadership error table is computed for $`f = 1/30`$ | 2026-10-19 |
 | v9 | No proof of the Genesis transaction is verified. The proof of work share of the fees waits in `pow_rewards_pending` until the epoch boundary. Mantle defines `path_root`, the root of a Merkle path, the ZkTransfer, PoL and PoQ check that every path selector is a bit, and the eligible root uses the commitment MMR functions. The nullifier IMT keeps its leaves, a full note set rejects new commitments and nullifiers, and the indexes of a multi-signature are bounded by the keys. The leader reward reads the release and payout of the block update. The limits of channel re-inclusion after a reorg, of the forced exit fee, of leader reward privacy and of wallet tracking are stated. Storage Markets and the initial base fee keep their master values. The Execution Market and overview figures are redrawn | 2026-10-30 |
 | v10 | The specifications no longer reference deprecated documents, and historical documents are left as they are | 2026-11-02 |
+| v11 | Follows the SDP rules of master: `declaration_id = Hash(service \|\| zk_id)`, one map of declarations and of providers per service, a `nonce` carrying the `created` epoch of its declaration, one `MinStake`. Each declaration keeps creating its own service note, so the `service_notes` map is not kept. Revisions renumbered past master's, and the limit of a declaration not proving the `zk_id` stated | 2026-11-03 |
 
 ## Reviewer Orientation
 
@@ -67,7 +68,7 @@ The reward note of a block carries the block's own value and still does not link
 
 - How a wallet learns the value and nonce of a note it receives through a Transfer or a step is out of scope. Only commitments are on chain. This will be addressed by Mehmet in a different and stacked PR for viewing keys.
 - The 10-year supply projection in Block Rewards follows the behavioral assumptions of the earlier baseline simulation, which were not published as code. Its fee and stake model should be checked against that reference.
-- PR #407 (SDP declaration identifiers) touches the same SDP sections. Its `service_notes` map and per-service note uniqueness do not apply once each declaration creates its own note.
+- `SDP_DECLARE` proves the inputs and the `provider_id`, not knowledge of the `zk_id` secret. Since `declaration_id = Hash(service || zk_id)`, a declaration under someone else's `zk_id` takes that `zk_id` in the service. Its stake is locked for good: consuming the service note takes both the `zk_id` secret and the `provider_id` signature, and an inactive declaration is never removed. It cannot serve either, as the Proof of Quota takes the `zk_id` secret. The owner has to declare under a new `zk_id`. Should the declaration prove the `zk_id`, at the cost of a second proof?
 
 # Details
 
@@ -148,6 +149,7 @@ class ProofOfLeadershipPublic:
 - `SDP_DECLARE` consumes ledger notes with a ZkTransfer and appends the service note `Note(amount, derive_note_nonce(op_id, 0, amount, zk_id), zk_id)` to the SDP set. `DeclarationInfo` holds `service_note` and `withdraw_outputs`.
 - `SDP_WITHDRAW` carries `service_note_nf`, `outputs` and `excess_value`, with a ZkTransfer proven against `mmr_root([(declare_info.service_note, 0)])` and the `provider_id`'s Ed25519 signature. Its outputs reach the ledger set at removal.
 - `SDP_ACTIVE` is signed by the `provider_id`.
+- The identifiers and nonces of the Service Declaration Protocol apply as they are, with `declaration_id = Hash(service || zk_id)`, `declarations` and `providers` per service, and a `nonce` carrying the `created` epoch of its declaration. Each declaration creates its own service note, so no `service_notes` map is needed.
 - `CLAIM_POW_REWARD` moves to opcode `0x30`, freed by `LEADER_CLAIM`, gains a `nonce`, its ticket is `zkhash(public_key, nonce, block_hash, epoch_nonce)`, its proof is empty, and its reward note goes to the ledger set.
 - Execution Gas: `EXECUTION_SDP_WITHDRAW_GAS = 678`, `EXECUTION_SDP_ACTIVE_GAS = 59`, `EXECUTION_CLAIM_POW_REWARD_GAS = 0`.
 
@@ -242,7 +244,7 @@ The wallet keeps, for each note, its set, the commitment path inside its MMR pea
 | [Proof of Quota](../proof-of-quota.md) | Modified | Revision 1.3.0 |
 | [Message Encapsulation](../message-encapsulation.md) | Modified | Revision 1.2.1 |
 | [Genesis Block](../bedrock-genesis-block.md) | Modified | Revision 1.3.0 |
-| [Service Declaration Protocol](../bedrock-service-declaration-protocol.md) | Modified | Revision 1.7.0 |
+| [Service Declaration Protocol](../bedrock-service-declaration-protocol.md) | Modified | Revision 1.9.0 |
 | [Service Reward Distribution](../bedrock-service-reward-distribution.md) | Modified | Revision 1.4.0 |
 | [Proof of Work](../proof-of-work.md) | Modified | Revision 1.2.0 |
 | [Wallet Technical Standard](../wallet-technical-standard.md) | Modified | Revision 1.2.0 |
@@ -252,10 +254,10 @@ The wallet keeps, for each note, its set, the commitment path inside its MMR pea
 | [Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | Revision 1.8.0 |
 | [Analysis: Execution Market](../analysis-execution-market.md) | Modified | reference to the deprecated leader reward removed |
 | [Architecture Overview](../bedrock-architecture-overview.md) | Modified | Revision 1.2.0 |
-| [Blend Protocol](../blend-protocol.md) | Modified | leader reward reference, encapsulation overhead and rounding of the base reward, Revision 1.6.2 |
+| [Blend Protocol](../blend-protocol.md) | Modified | leader reward reference, encapsulation overhead and rounding of the base reward, Revision 1.8.1 |
 | [Payload Formatting](../payload-formatting.md) | Modified | Revision 1.2.1 |
 | [Message Formatting](../message-formatting.md) | Modified | Revision 1.0.3 |
-| [Bootstrapping and Synchronization](../cryptarchia-v1-bootstr-sync.md) | Modified | Revision 1.0.2 |
+| [Bootstrapping and Synchronization](../cryptarchia-v1-bootstr-sync.md) | Modified | Revision 1.0.3 |
 | [Total Stake Inference](../cryptarchia-total-stake-inference.md) | Modified | Revision 1.1.1 |
 | [Cross-Channel Messaging Template](../../deprecated/template-cross-channel-messaging.md) | Deprecated | moved to `deprecated/` |
 | [Anonymous Leaders Reward](../../deprecated/bedrock-anonymous-leaders-reward.md) | Deprecated | moved to `deprecated/` |

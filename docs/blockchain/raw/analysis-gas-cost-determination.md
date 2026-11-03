@@ -33,6 +33,7 @@
 | 1.5.4 | Renamed the `stake_manipulation_threshold` of the channel gas derivations into `transfer_threshold` and the Channel Stake Assignation section into Channel Transfer, following Mantle | 2026-08-31 |
 | 1.6.0 | Add the Execution Gas derivation for the `CLAIM_POW_REWARD` Operation | 2026-09-04 |
 | 1.7.0 | Per-signature Ed25519 cost re-measured with strict verification ([Common Cryptographic Components](common-cryptographic-components.md) 1.2.0): 56 → 59 Execution Gas, `SDP_DECLARE_GAS` 646 → 649 | 2026-09-24 |
+| 1.7.1 | [RFC] The SDP costs price the per-service identifier checks and no lock-period check | 2026-10-05 |
 | 1.8.0 | Follow the private ledger of Mantle: the notes are proven with a ZkTransfer and spent by nullifier, channel inscriptions carry the ZkTransfer of their steps, channel withdrawals and SDP withdrawals carry a ZkTransfer, the proof of work claim carries no proof, and the `CHANNEL_TRANSFER` and `LEADER_CLAIM` Operations are removed. The ZkTransfer is priced from the measured batch verification of Groth16 proofs, a fixed part per block and 619 Execution Gas per proof | 2026-10-07 |
 
 # Introduction
@@ -170,15 +171,16 @@ Execution: ~ 678k CPU cycles.
 - Verification of the Ed25519 signature: 59,200 cycles.
 - Verification of the ZkTransfer in the batch of the block: 618,797 cycles.
 - Verification that the declaration doesn’t already exist: negligible.
+- Verification that the `provider_id` is not already bound in the service: negligible.
 - Verification of locator length: negligible.
 - Verification that the nullifiers are not in the set: negligible.
 - Verification of the amount: negligible.
 - Insertion of the nullifiers in the nullifier set: negligible.
-- Derivation of the service note commitment: negligible.
+- Derivation of the service note commitment and index of the provider identity: negligible.
 
 ## SDP Withdraw
 
-This gas covers a verification process that includes: confirming ownership of the provider_id through an Eddsa25519 signature, confirming the consumption of the service note through a ZkTransfer verification, and confirming that the declaration exists and has not been previously withdrawn. The validation process also ensures that the withdrawal message's nonce is greater than any previous nonce, preventing replay attacks. During execution, the system updates the declaration's status to withdrawn and consumes the service note.
+This gas covers a verification process that includes: confirming ownership of the provider_id through an Eddsa25519 signature, confirming the consumption of the service note through a ZkTransfer verification, and confirming that the declaration exists and has not been previously withdrawn. The validation process also ensures that the withdrawal message's nonce is greater than any previous nonce, preventing replay attacks. During execution, the system records the withdrawal epoch and the outputs on the declaration and consumes the service note; the declaration is removed and its outputs released by the epoch finalization at `withdraw_at + 1`.
 
 Execution: ~ 678k CPU cycles.
 
@@ -189,6 +191,7 @@ Execution: ~ 678k CPU cycles.
 - Verification that the declaration wasn’t already withdrawn: negligible.
 - Verification of nonce incrementation: negligible.
 - Update declaration and insertion of the nullifier in the SDP note set: negligible.
+- Remove the declaration and release its outputs: negligible.
 
 ## SDP Activation
 
