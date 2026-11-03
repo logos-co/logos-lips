@@ -40,6 +40,7 @@
 |  | A block's size is the total length of its transactions' canonical encodings, as implemented, and every statement of when a proposal is reconstructed now includes the size check. | 2026-10-21 |
 |  | Local submission also covers the transactions the node's own services create, such as its SDP activity, as implemented. The Overview no longer says admission checks only well-formedness. | 2026-10-21 |
 |  | A `CLAIM_POW_REWARD` has an empty proof, and admission and block building check no signature for it, as implemented. The departure that required the signature moved to a submission of its own, so none is left, and its consequence is Open Issue 19. | 2026-10-21 |
+|  | Block building verifies a transaction's batched ZK proofs before its Execution Gas counts against `G_max`, as [logos-blockchain#3978](https://github.com/logos-blockchain/logos-blockchain/pull/3978) implements, which closes Open Issue 18. The claim-signature issue becomes 18. | 2026-11-03 |
 
 ## Reviewer Orientation
 
@@ -90,7 +91,7 @@ The specification states rules only. The reasoning behind them is recorded here.
 
 ## Agreement with the implementation
 
-This document describes what runs, and departs from it nowhere. It was checked against `logos-blockchain` at `60744b8e7`: `services/tx-service`, with the block-building and block-applied halves in `services/chain/chain-leader` and `services/chain/chain-network`. What differs from an ideal mempool stays an [open issue](#open-issues), so the specification and the code can be compared line by line.
+This document describes what runs, with one exception: block building verifies a transaction's batched ZK proofs before its Execution Gas counts against `G_max`, which [logos-blockchain#3978](https://github.com/logos-blockchain/logos-blockchain/pull/3978) implements. It was checked against `logos-blockchain` at `60744b8e7`: `services/tx-service`, with the block-building and block-applied halves in `services/chain/chain-leader` and `services/chain/chain-network`. What differs from an ideal mempool stays an [open issue](#open-issues), so the specification and the code can be compared line by line.
 
 ## Open issues
 
@@ -113,8 +114,7 @@ Recorded here rather than in the specification.
 15. **Reconstruction precedes the parent and leadership checks.** Before reconstruction a node checks only the latest immutable block, the genesis slot, the block tree and the signature. A proposal whose parent is missing and whose references do not resolve is therefore dropped before the missing parent is noticed, and it never reaches the orphan path. A proposal with an invalid proof of leadership also costs a mempool scan.
 16. **A node can disable expiry.** `TRANSACTION_TTL` is a node setting, 1 hour by default, and `None` turns expiry off. Such a node retires a transaction only when a block carries it, when its own block building fails to apply it, or when it carries an expired claim.
 17. **A restart suspends the claim rule.** `highest_slot` is unset until the node adds a block after it starts, so until then admission refuses no expired claim. A claim that has been pending since the node recovered it never expires as a claim, and only `TRANSACTION_TTL` or inapplicability retires it.
-18. **The gas limit is checked before the batched ZK proofs.** Block building counts a transaction's Execution Gas before it verifies the transaction's batched ZK proofs. A transaction whose only fault is a ZK proof can therefore end the determination at `G_max`, and it is then not retired. It cuts short each block whose applied gas leaves no room for it, until `TRANSACTION_TTL` retires it. Its task is under [Implementation](#implementation).
-19. **A reward claim carries no signature.** [CLAIM_POW_REWARD](../bedrock-v1.1-mantle-specification.md#claim_pow_reward) requires a `ZkSignature` by the key the reward is paid to, and [Mantle Transaction Encoding](../mantle-transaction-encoding.md) gives it 128 bytes. The implementation's claim has an empty proof, and neither admission nor the ledger checks a signature. A claim encoded as Mantle specifies therefore fails to decode here, and the reverse holds too. A solver can also search public keys without knowing their secret keys, which makes draining the pool and raising `difficulty_reward` cheaper, though no one can redirect a reward.
+18. **A reward claim carries no signature.** [CLAIM_POW_REWARD](../bedrock-v1.1-mantle-specification.md#claim_pow_reward) requires a `ZkSignature` by the key the reward is paid to, and [Mantle Transaction Encoding](../mantle-transaction-encoding.md) gives it 128 bytes. The implementation's claim has an empty proof, and neither admission nor the ledger checks a signature. A claim encoded as Mantle specifies therefore fails to decode here, and the reverse holds too. A solver can also search public keys without knowing their secret keys, which makes draining the pool and raising `difficulty_reward` cheaper, though no one can redirect a reward.
 
 # Details
 
@@ -191,7 +191,7 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 
 # Implementation
 
-- [ ]  Verify a transaction's batched ZK proofs before its Execution Gas counts against `G_max` in block building, so that a transaction whose proof fails cannot end the determination (Open Issue 18)
+- [ ]  Verify a transaction's batched ZK proofs before its Execution Gas counts against `G_max` in block building, so that a transaction whose proof fails cannot end the determination ([logos-blockchain#3978](https://github.com/logos-blockchain/logos-blockchain/pull/3978))
 - [x]  Move the mempool size check ahead of decoding
 - [x]  Retire the transactions of every block that enters the canonical chain, not only those of the new tip ([logos-blockchain#3734](https://github.com/logos-blockchain/logos-blockchain/pull/3734))
 - [x]  Exclude the transactions the adopted branch carries when a fork switch re-admits displaced ones ([logos-blockchain#3746](https://github.com/logos-blockchain/logos-blockchain/pull/3746))
