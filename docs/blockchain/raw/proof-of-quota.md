@@ -28,7 +28,7 @@
 | 1.0.1 | Remove the protection against adaptive adversary from PoL. It impacts the PoL section of PoQ. Update the performance according to the new circuit. Remove old project name from DSTs | 2026-04-09 |
 | 1.1.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.2.0 | Add the proof of work branch: third selector value, `pow_quota` and `pow_blend_difficulty` public inputs, a private `pow_nonce` witness, and Lagrange branch selection; benchmark the three branch circuit | 2026-09-08 |
-| 1.3.0 | Follow the Proof of Leadership of the private ledger: the leader branch proves the note commitment in its note set under the eligible root of the time the stake distribution was frozen. Paths and selectors follow the Merkle path convention of Mantle, from the leaf level up, the commitment path and the path in the eligible tree having depth 40 | 2026-10-07 |
+| 1.3.0 | Follow the Proof of Leadership of the private ledger: the leader branch proves the note commitment in its note set under the eligible root of the time the stake distribution was frozen, and its nullifier absent from the nullifier IMT of that set at that time. Paths and selectors follow the Merkle path convention of Mantle, from the leaf level up, the commitment path and the path in the eligible tree having depth 40 | 2026-10-07 |
 | 1.3.1 | Proving time benchmark measured on the current circuit | 2026-10-14 |
 
 
@@ -45,7 +45,7 @@ The PoQ ensures that there is a limited number of message encapsulations that a 
 The Proof of Quota (PoQ) verifies that a node's public key is within a limit for a core node, a leader node, or a proof of work solution. It consists of three parts:
 
 1. Proof of Core Quota (`PoQ_C`): Ensures that the core node is declared and hasn’t already produced more keys than the core quota `Q_C`.
-2. Proof of Leadership Quota (`PoQ_L`): Ensures that the leader node would win the proof of stake for **current Cryptarchia epoch** and hasn’t already produced more keys than the leadership quota `Q_L`. That doesn’t guarantee that the node is indeed winning because the PoQ doesn’t check if the note is unspent enabling generation of the proof ahead of time preventing extreme delays.
+2. Proof of Leadership Quota (`PoQ_L`): Ensures that the leader node would win the proof of stake for **current Cryptarchia epoch** and hasn’t already produced more keys than the leadership quota `Q_L`. That doesn’t guarantee that the node is indeed winning because the PoQ checks that the note was unspent when the stake distribution was frozen, not that it is still unspent, enabling generation of the proof ahead of time preventing extreme delays.
 3. Proof of Work Quota (`PoQ_W`): Ensures that the prover holds a puzzle solution below the Blend threshold `pow_blend_difficulty` and hasn’t already produced more keys than the proof of work quota `Q_W` for that solution. Unlike the other two, this branch requires no stake and no declaration, so it admits provers that hold neither.
 
 The final proof `PoQ` is valid if any of `PoQ_C`, `PoQ_L` or `PoQ_W` holds. Which of them held is not revealed: the selector is a private witness.
@@ -95,9 +95,13 @@ class ProofOfQuotaWitness:
     pol_secret_key: int                   # PoL note secret key
     pol_note_value: int                   # PoL note value
     pol_note_nonce: zkhash                # PoL note nonce
-    pol_cm_aged_path: list[zkhash]        # PoL Merkle path proving the note commitment membership in the commitment MMR of its note set (len = 40)
+    pol_cm_aged_path: list[zkhash]        # PoL Merkle path proving the note commitment membership in the commitment Merkle Mountain Range (MMR) of its note set (len = 40)
     pol_cm_aged_selectors: list[bool]     # Indicates how to read the pol_cm_aged_path (if Merkle nodes are left or right in the path)
-    pol_nf_root_aged: zkhash              # PoL nullifier IMT root of the note set when the stake distribution was frozen
+    pol_low_leaf_nf: zkhash               # PoL nullifier of the leaf of the IMT of the note set, when the stake distribution was frozen, holding the greatest nullifier lower than the nullifier of the note
+    pol_low_leaf_next_nf: zkhash          # PoL next nullifier of that leaf
+    pol_low_leaf_next_index: int          # PoL next index of that leaf
+    pol_low_leaf_path: list[zkhash]       # PoL Merkle path of that leaf to the nullifier IMT root of the note set when the stake distribution was frozen (len = 40)
+    pol_low_leaf_selectors: list[bool]    # Indicates how to read the pol_low_leaf_path (if Merkle nodes are left or right in the path)
     pol_set_aged_path: list[zkhash]       # PoL Merkle path of the leaf of the note set to pol_eligible_aged (len = 40)
     pol_set_selectors: list[bool]         # Position of the note set in the eligible tree
     # This part is filled randomly by core nodes and by potential leaders
@@ -119,7 +123,7 @@ Such that the following constraints hold:
 
 **Step 3:** If the prover indicated that the node is a potential leader node for the proof, the proof checks that:
 
-  1. The leader node possesses a note that would win a slot in the consensus lottery. Unlike leadership conditions, the proof of quota doesn't verify that the note is unspent. This enables potential provers to generate the PoQ well in advance. All other lottery constraints, including the membership of the note commitment in its note set under the eligible root of the time the stake distribution was frozen, are the same as in [Zero-knowledge Proof Statement](cryptarchia-proof-of-leadership.md#zero-knowledge-proof-statement).
+  1. The leader node possesses a note that would win a slot in the consensus lottery. Unlike leadership conditions, the proof of quota doesn't verify that the note is still unspent; it verifies that the note was unspent when the stake distribution was frozen: the nullifier of the note is not in the [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of its note set at that time. This enables potential provers to generate the PoQ well in advance, and since commitments are never removed from a note set, it keeps a holder from multiplying its leader quota by re-creating its note before the freeze. All other lottery constraints, including the membership of the note commitment in its note set under the eligible root of the time the stake distribution was frozen, are the same as in [Zero-knowledge Proof Statement](cryptarchia-proof-of-leadership.md#zero-knowledge-proof-statement).
   2. The index is valid: `index < leader_quota`.
 
 **Step 4:** If the prover indicated that the proof is backed by proof of work, the proof checks that:
@@ -183,7 +187,11 @@ is_leader = would_win_leadership(pol_epoch_nonce,
         pol_note_nonce,
         pol_cm_aged_path,
         pol_cm_aged_selectors,
-        pol_nf_root_aged,
+        pol_low_leaf_nf,
+        pol_low_leaf_next_nf,
+        pol_low_leaf_next_index,
+        pol_low_leaf_path,
+        pol_low_leaf_selectors,
         pol_set_aged_path,
         pol_set_selectors)
 

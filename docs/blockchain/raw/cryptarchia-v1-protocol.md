@@ -221,6 +221,8 @@ $`\text{define } \textbf{compute\_epoch\_state}(ep, tip \in T)\to(\mathbb{C}_\te
 
 &nbsp;&nbsp;&nbsp;&nbsp;$`\mathbb{C}_\text{LEAD}^{ep} \coloneqq \textbf{eligible\_root\_at\_slot}(sl_{ep-1}, tip)`$
 
+> $`\textbf{eligible\_root\_at\_slot}(sl, tip)`$ is the eligible root after the last block of the chain of $`tip`$ with a slot below $`sl`$, and the eligible root of the Genesis state for $`sl = 0`$.
+
 > The epoch nonce for epoch $`ep`$ is the value of $`\eta`$ at the beginning of the lottery constants finalization phase in the epoch schedule
 
 &nbsp;&nbsp;&nbsp;&nbsp;$`\eta^{ep} \coloneqq \textbf{epoch\_nonce\_at\_slot}(sl_{ep-1} + \lfloor6\frac{k}{f}\rfloor, tip)`$
@@ -452,6 +454,8 @@ We say $`\textbf{valid\_header}(B)`$ returns True if all of the following constr
   The list bound `len(uncle_headers) <= MAX_UNCLES` is a constraint of the serialization schema, rejected at decode time (a block that does not parse is no block), and so is not restated here. Duplicate entries are permitted: each is validated independently and a repeat passes exactly as the first occurrence does.
 
   Every input to these checks comes from the chain of $`B`$ or from the carried entry itself, both of which any node validating $`B`$ necessarily has — the entries travel inside $`B`$ and are committed by its $`body\_root`$. Validity is therefore a function of the block and the chain it extends alone, so all nodes agree on it and an adversary influencing what nodes know of forks cannot influence block inclusion.
+
+The block ID commits neither to the proof of leadership of a block nor to its Operation proofs, and a copy of a block can differ in them or in its body. A block failing rule 4, rule 9 or an Operation proof is therefore a bad copy on every path, synchronization included: the node discards it without recording a verdict against its block ID.
 
 ### Chain Maintenance
 

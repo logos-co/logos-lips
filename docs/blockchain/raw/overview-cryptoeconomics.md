@@ -121,7 +121,7 @@ All fee markets aim to ensure fair compensation, sustainability, proper incentiv
 
 Execution fees cover the validation and execution of Mantle Transactions. The protocol does not directly cap the number of CPU cycles per block, but fees must enforce an Execution Gas limit to ensure compliance with the minimum hardware requirements of a node. The execution limit ( $`\text{limit}_{\text{Ex}}`$ ) represents the maximum acceptable number of Execution Gas per block that a node with the minimum-specification CPU can process to validate and execute the block in a reasonable time.
 
-We define "reasonable" as limiting the Execution Gas such that a potential leader can verify and execute it in 1 second using 80% (arbitrary) of its CPU (based on the minimum CPU specifications of a basic Bedrock validator node). This corresponds to a maximum of 3,200,000,000 core cycles for a leader, which converts to 3,200,000 Execution Gas. We require this 1-second verification for leaders to ensure they can quickly identify the correct chain and extend it with their own produced block in time when they are close to proposing a new block.
+We define "reasonable" as limiting the Execution Gas such that a potential leader can verify and execute it in 1 second using 80% (arbitrary) of a CPU of 2 cores at 2 GHz, the minimum of a basic Bedrock validator node. This corresponds to a maximum of $`0.8 \times 2 \times 2 \cdot 10^9 =`$ 3,200,000,000 core cycles for a leader, which converts to 3,200,000 Execution Gas. We require this 1-second verification for leaders to ensure they can quickly identify the correct chain and extend it with their own produced block in time when they are close to proposing a new block.
 
 Consensus nodes must validate and execute a block using a small percentage of their CPU but during a longer period than the 1 second period for leaders, as they don't have the strict timing constraints that affect consensus and would increase forking. Using only 20% of their CPU, consensus nodes can validate and execute such blocks in approximately 4 seconds.
 
@@ -160,7 +160,7 @@ The following sections explain how these principles apply to different roles in 
 The Blend service and the leaders proposing the blocks share a same block reward that is calculated for each block based on a KPI function. This KPI function takes as input the inferred total stake and the amount of Execution and Permanent Storage fees of the block. How the KPI function calculates each block reward is explained in [Block Rewards](block-rewards.md).
 
 - Blend rewards are distributed among all active Blend Nodes. Blend rewards are composed of a fraction of the block rewards. These rewards of epoch $`e`$ are defined when a new Blend epoch $`e+1`$ starts (a defined number of blocks) and are allocated to nodes based on their reported Active Messages and the [Reward Distribution Protocols](#reward-distribution-protocols) during epoch $`e+2`$ . The [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md) manages the direct payment to nodes.
-- Leaders receive, for each block they propose, a single note whose value is a fraction of the block reward plus the Execution fees distributed back according to the [Execution Market](execution-market.md) for that block. The note is created during the execution of the block under a one-time public key of the leader ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)).
+- Leaders receive, for each block they propose, a single note whose value is a fraction of the block reward plus the [Execution Market](execution-market.md) tips of that block. The note is created during the execution of the block under a one-time public key of the leader ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)).
 
 Each block reward of each block is split as follows between the Blend service and the leader:
 
@@ -174,7 +174,7 @@ The reasons for this split ratio are:
 - Leaders who can afford the minimum stake are incentivized to lock it and run a Blend node to earn more rewards.
 - Leaders who cannot afford the minimum stake can still earn enough to eventually reach it.
 
-At the start of each Blend epoch, a Blend reward variable is computed. Its amount equals 60% of the total block rewards of the previous epoch, held in `blend_rewards_pending` until it is paid ([Block Rewards](block-rewards.md#deterministic-implementation)):
+At the start of each Blend epoch, a Blend reward variable is computed. Its amount equals 60% of the total block rewards of the previous epoch, held in `blend_rewards_pending` until that epoch closes and then in `blend_rewards_closed` until it is paid ([Block Rewards](block-rewards.md#deterministic-implementation)):
 
 ```python
 def get_blend_reward(e: epoch): # rewards for the epoch e

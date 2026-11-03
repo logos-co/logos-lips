@@ -204,7 +204,7 @@ A nullifier is inserted in the nullifier IMT of its set (depth 40) in two parts:
 
 ## Commitments
 
-Appending a commitment to the commitment MMR of its set merges one peak per trailing one bit of the length of the MMR, 23,389 cycles per merge, and costs 23,069 cycles on average over the outputs of an Operation. `EXECUTION_COMMITMENT_GAS = 24`.
+Appending a commitment to the commitment [Merkle Mountain Range](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range) (MMR) of its set merges one peak per trailing one bit of the length of the MMR, 23,389 cycles per merge, and costs 23,069 cycles on average over the outputs of an Operation. `EXECUTION_COMMITMENT_GAS = 24`.
 
 ## Note sets
 
