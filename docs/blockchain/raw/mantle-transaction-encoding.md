@@ -37,7 +37,7 @@
 | 1.10.0 | Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata, retaining their `UINT32` length prefixes; corrected SDP activity metadata to use its tagged variant encoding without a generic length prefix | 2026-10-06 |
 | 1.11.0 | [RFC] `SDPWithdraw` drops the redundant `ServiceNoteId` | 2026-10-27 |
 | 2.0.0 | Follow the private note ledger of Mantle 2.0.0: nullifier inputs and commitment outputs with their `CmMerkleRoot` and `Value`, channel steps in `ChannelInscribe` with the `Buffered` count of their proof, holder withdrawals, the SDP payloads over notes, `PowNonce` in `ClaimPowReward`, the `ZkTransfer` proof variants, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim`. A `FieldElement` not less than $`p`$ is rejected | 2026-10-06 |
-| 2.1.0 | Follow the programs of Mantle 2.1.0: the `ProgramRegister` Operation with its `Groth16VerificationKey`, user and program steps in `ChannelInscribe` with their proofs and the openings of the program notes, the payments with the `Buffered` count of their proof, and the `Groth16` terminal renamed `Groth16Proof` | 2026-10-12 |
+| 2.1.0 | Follow the programs of Mantle 2.1.0: the `ProgramRegister` Operation with its `Groth16VerificationKey`, user and program steps in `ChannelInscribe` with their proofs and the openings of the program notes, the payments with the `Buffered` count of their proof, the `Groth16` terminal renamed `Groth16Proof`, and the format of compressed points | 2026-10-12 |
 
 # Introduction
 
@@ -124,7 +124,7 @@ Signer            = Ed25519PublicKey
 
 `MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. The payloads of `ChannelInscribe.Inscription` and `ChannelDeposit.Metadata` MUST each be at most `MAX_OPERATION_DATA_SIZE` bytes, excluding the outer `UINT32` length prefix. A decoder MUST reject either field when its declared or decoded payload length exceeds the limit.
 
-In a `ProgramStep`, a decoder MUST reject an `OutputCount` above 8, the outputs of a program spend, and a `ProgramOutputs` with a bit set at or above the `OutputCount` of the step, so that a step has a single encoding.
+A decoder MUST reject a `ProgramStep` whose `OutputCount` exceeds 8, or whose `ProgramOutputs` has a bit set at or above its `OutputCount`, so that a step has a single encoding.
 
 ### SDP Operations
 
@@ -237,7 +237,7 @@ ZkTransfer     = Groth16Proof
 ZkProgramSpend = Groth16Proof
 
 ; Cryptographic primitives
-Groth16Proof     = 128BYTE      ; pi_a (32) + pi_b (64) + pi_c (32)
+Groth16Proof     = 128BYTE      ; pi_a (G1Point) + pi_b (G2Point) + pi_c (G1Point)
 G1Point          = 32BYTE       ; compressed BN254 G1 point
 G2Point          = 64BYTE       ; compressed BN254 G2 point
 ZkPublicKey      = FieldElement
@@ -252,3 +252,10 @@ UINT32 = 4BYTE ; 32-bit unsigned integer, little-endian
 UINT16 = 2BYTE ; 16-bit unsigned integer, little-endian
 Byte   = OCTET
 ```
+
+A `G1Point` holds the coordinate `x` of the point as 32 little-endian bytes. A `G2Point` holds `x = c0 + c1 * u` as `c0` then `c1`, each as 32 little-endian bytes. The two top bits of the last byte are flags, not part of the coordinate:
+
+- Bit 7 is set when `y` is the larger of `y` and `-y`. Elements of the base field compare as integers, and elements of its quadratic extension by `c1`, then by `c0`.
+- Bit 6 flags the point at infinity, which has no encoding: a decoder MUST reject a point with bit 6 set.
+
+A decoder MUST also reject a coordinate not less than the modulus $`q`$ of the base field of BN254, so that a point has a single encoding.

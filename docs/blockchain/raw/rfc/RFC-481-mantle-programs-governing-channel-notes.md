@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-10-12 |
 | v2 | The users of a zone alone check how a program step serves the intents over its assets. Payments follow the mini-blocks of user steps through their `buffered`, and the Execution Gas of an inscription sums the cost of each of its program steps | 2026-10-16 |
+| v3 | The ZkProgramSpend derives the output nonces of a step consuming a note of the program, and `spend_notes_hash` reads inactive fields as `0`. Every node holds an opening until its block is immutable, the sequencers of a channel after that. The freeze by sequencers, the holding of a payment, unauthenticated intents and the trust in the setup of a key are stated. The format of compressed points is defined, the point at infinity having no encoding. A step opens the program notes it creates, and program steps and `PROGRAM_REGISTER` are priced from measurements | 2026-11-03 |
 
 ## Reviewer Orientation
 
@@ -27,7 +28,15 @@ Read [RFC-480](RFC-480-mantle-private-utxo-ledger.md) first: this RFC builds on 
 
 ## What the ledger guarantees
 
-The ledger guarantees that no LOGOS is created, that a user note moves only with the key of its holder, and that a program note moves only with the proof of its program. It also checks the opening of every program note a step creates, so that the state of the program stays available to the next sequencer. It does not check the assets of a zone. For a swap of LOGOS against a zone token, the users of the zone verify the inscription against the intents. Mantle states this split in its [What enforces what](../bedrock-v1.1-mantle-specification.md#programs) table.
+The ledger guarantees that no LOGOS is created, that a user note moves only with the key of its holder, and that a program note moves only with the proof of its program. It also checks the opening of every program note a step creates, so that every node holds it until the block creating the note is immutable. It does not check the assets of a zone. For a swap of LOGOS against a zone token, the users of the zone can detect a step that does not serve an intent, but the LOGOS it moved stays moved, so a payer relies on the sequencer for the zone side. Mantle states this split in its [What enforces what](../bedrock-v1.1-mantle-specification.md#programs) table.
+
+The ledger does not guarantee the liveness of a program:
+
+- The sequencers of a channel can freeze every program note of the channel for good, since program notes are never withdrawn and only the sequencers publish program steps. They cannot take the value of the notes, but they can hold it.
+- A sequencer can hold a signed payment until its root leaves the window, about 8.5 hours, and fill it at the worst price its intent accepts.
+- Past the immutable block, the sequencers of a channel should keep the openings of its unspent notes. The next sequencer can take over a program only if its state is in opened fields and its notes have the key of the secret key `0` as holder.
+
+The users of a program trust its circuit and the setup that produced its key: whoever kept the trapdoor of that setup can prove any statement under the key.
 
 ## Privacy
 
@@ -39,12 +48,18 @@ Users stay hidden: payments consume notes by nullifier, and the notes a program 
 - **Order notes created by the users.** A user would create a program note holding the payment and its intent, and the sequencer would consume it later. Rejected: creating a program note needs the program proof, which is bound to an inscription the user does not know when signing. Unfilled orders would also need a refund rule.
 - **Payment notes under the key of secret key `0`.** A user would pay the program with a plain note anyone can spend, consumed by the program step of the same inscription. Rejected: if the sequencer published the payment without the program step, anyone could take the note. A payment that lives inside its program step cannot be stranded.
 - **Routing the excess of user steps to a program, with a per-program sum.** Rejected: the payment moves into the program step, so the ledger needs no routing field, and user steps keep an `excess_value` of `0`, which saves space in every inscription.
-- **A custom inscription hash, or a per-step flag choosing whether a proof is bound to the inscription.** Rejected: the `op_id` of the Inscribe Operation already covers the inscription and the public data of every step without any proof, and every program proof is bound to it. No circuit has to open the inscription: LGO-only programs read `payments_hash` and `spend_notes_hash`, and the users of the zone check the rest.
+- **A custom inscription hash, or a per-step flag choosing whether a proof is bound to the inscription.** Rejected: the `op_id` of the Inscribe Operation already covers the inscription and the public data of every step without any proof, and every program proof is bound to it. No circuit has to open the inscription: LOGOS-only programs read `payments_hash` and `spend_notes_hash`, and the users of the zone check the rest.
 - **One zkVM verifier for every program.** Rejected for now: a Groth16 key per program reuses the stack of the ZkTransfer, on BN254 with `zkhash`, and a zone can still wrap a zkVM proof in a Groth16 circuit.
 - **Folding `program` and `data` into `public_key`.** Rejected: separate fields keep the commitment of a user note readable as such, and let the ZkTransfer and the Proof of Leadership fix them to `0` without a branch.
 - **Openings of program notes left to the sequencer, in the inscription or off-chain.** Rejected: the ledger cannot see whether they were published, and a sequencer withholding the opening of a program note freezes it, since program notes are never withdrawn and no sequencer can prove a program spend over a note it cannot open. The safety of a program would hold, but not its liveness.
 - **The state of a program stored on chain next to its key, as a public balance and state.** Rejected: program notes stay in the note set of their channel, in the same model as user notes, a program can hold many records as many notes, and the ledger needs no storage for program state nor a price for it.
 - **A registry per channel.** Rejected: a program only governs its own notes, so a global, permissionless registry is safe, and the sequencer, who often controls the channel configuration, gains no gatekeeping power.
+- **A program step anyone can post after a delay, as an exit from a freeze.** Left to a later RFC: it needs a new Operation and pending state, and a live sequencer cancels it by moving the note it consumes, so it only covers sequencers that stop altogether, not sequencers that censor.
+- **Nonces left to the sequencer, with a recommended derivation or a rule for programs.** Rejected: a sequencer could burn a note by re-creating it, or withhold a payout, from any program that does not constrain them, and the program proof cannot see the channel or the parent. The nullifier of the first input takes the role the `op_id` has for the notes the ledger creates, without a new public input, so the batch verification of the ZkProgramSpend keeps its price.
+- **Binding the proofs of a step to its channel, parent and position instead of the `op_id`.** Rejected: a dropped step would no longer force the earlier program steps of its inscription to be proven again, but the later ones still cover the buffer, and the `parent` of every chained inscription still changes.
+- **An expiry on payments.** Left out: it adds a field to every payment, and a holder bounds its risk with the worst price its intent accepts.
+- **A public payer key on payments.** Rejected: it would link all the payments of a user to a program. A program authorizes its users inside its circuit.
+- **Rejecting a key with `γ = ±δ` at registration.** Rejected: a key with `δ = s·γ` and a known `s` is as forgeable and cannot be detected, so users have to verify the setup of a key whatever the ledger checks.
 
 # Details
 
@@ -113,11 +128,11 @@ Validation of a program step, in order:
 4. Each output flagged in `program_outputs` has an opening in `program_notes` whose commitment, with `program` set to `program_id`, is that output.
 5. The program proof verifies under the registered key on `(spend_notes_hash, payments_hash(step), op_id)`.
 
-The openings serve only the availability of the state of the program. They sit in the proof of the step, outside the `op_id` and the transaction hash, and the ledger keeps nothing from them. A block is valid only with all its openings, so stripping them cannot skip the check. A node may prune the openings of the blocks behind its latest immutable block, which it never validates again; a node syncing these blocks needs a peer that kept them, or bootstraps from a checkpoint after them.
+The openings serve only the availability of the state of the program. They sit in the proof of the step, outside the `op_id` and the transaction hash, and the ledger keeps nothing from them. A block is valid only with all its openings, so stripping them cannot skip the check. A node may prune the openings of the blocks behind its latest immutable block, which it never validates again; a node syncing these blocks needs a peer that kept them, or bootstraps from a checkpoint after them. Past that point the sequencers of a channel should keep the openings of its unspent notes.
 
-The `ZkProgramSpend` is the ZkTransfer with program checks: its inputs are notes of `program_id`, its outputs are notes of `program_id` or user notes, `spend_notes_hash` commits to the active flag and the note of every input and output, nonce included, so that a program can constrain the nonces its sequencer picks, and `sum(inputs_value) + paid_value == sum(outputs_value)`. Its used inputs and outputs are marked by the public flags `inputs_active` and `outputs_active`, set from the published lists as in the ZkTransfer, and its outputs of the program by the public flags `outputs_of_program`, set from `program_outputs`. It is proven by the sequencer. The circuit (`program_spend` in [logos-blockchain-circuits](https://github.com/logos-blockchain/logos-blockchain-circuits)) has 77,153 constraints and proves in about 2.3 s on one thread and 0.3 s on 32 threads (see the Mantle benchmark).
+The `ZkProgramSpend` is the ZkTransfer with program checks: its inputs are notes of `program_id`, its outputs are notes of `program_id` or user notes, `spend_notes_hash` commits to the active flag and the note of every input and output, nonce included, the fields of an inactive one reading as `0`, and `sum(inputs_value) + paid_value == sum(outputs_value)`. Its used inputs and outputs are marked by the public flags `inputs_active` and `outputs_active`, set from the published lists as in the ZkTransfer, and its outputs of the program by the public flags `outputs_of_program`, set from `program_outputs`. It is proven by the sequencer. The circuit (`program_spend` in [logos-blockchain-circuits](https://github.com/logos-blockchain/logos-blockchain-circuits)) has 86,813 constraints and proves in about 2.6 s on one thread and 0.6 s on 32 threads (see the Mantle benchmark).
 
-The recommended nonce of the output `k` of the program spend of the step `i` is `derive_note_nonce(hash(channel + parent), 8 * i + k, value, public_key)`, where `parent` is the hash of the previous inscription of the channel: the `op_id` cannot serve, since it covers the output commitments and thus their nonces. The channel keeps the nonce unique across the first inscriptions of channels, whose `parent` is `ZERO`. The holder recomputes the nonce from the inscription. The program proof sees neither `parent` nor `i`, so a program cannot enforce it on its own.
+When a step consumes a note of the program, the circuit derives the nonce of each active output `k` as `zkhash(NOTE_NONCE_V1, inputs[0], k, value, public_key)`, from the nullifier of the first input: the `op_id` cannot serve, since it covers the output commitments and thus their nonces. Every output of such a step is a new commitment, so a sequencer can neither burn a note by re-creating it nor withhold a payout, whose holder recomputes the nonce from the inscription. A step consuming no note of the program picks its nonces, and a program admitting such a step constrains them through `spend_notes_hash`. A derived nonce is a public function of the value and the public key of the note, so a payee should use a one-time public key.
 
 ## 3. What enforces what
 
@@ -160,6 +175,8 @@ def derive_program_id(key: Groth16VerificationKey) -> ProgramId:
 +ProgramNoteOpening     = Value NoteNonce ZkPublicKey ProgramNoteData   ; 104 bytes
 ```
 
+The encoding also defines the compressed points `G1Point` and `G2Point`: little-endian coordinates, `c0` then `c1` for `G2Point`, bit 7 of the last byte set when `y` is the larger root, bit 6 the point at infinity, which is rejected, and coordinates below the base field modulus, so that a point, and thus a key and its program identifier, has a single encoding. What makes a proof valid beyond its encoding is defined by Groth16, as for Ed25519 signatures. Mantle checks the points of a key because the key is registered as ledger state.
+
 ## 6. Gas
 
 A program step costs `EXECUTION_TRANSFER_GAS` per payment, plus `EXECUTION_PROGRAM_SPEND_GAS` and `EXECUTION_PROGRAM_PROOF_GAS`. `PROGRAM_REGISTER` costs `EXECUTION_PROGRAM_REGISTER_GAS`. The values come from measurements of the node's Groth16 verifiers, 1 Execution Gas per 1,000 CPU cycles:
@@ -176,8 +193,9 @@ A program step costs `EXECUTION_TRANSFER_GAS` per payment, plus `EXECUTION_PROGR
 # Implementation
 
 - [ ] Add the `program` and `data` fields to notes and to their commitment, with `0` for user notes.
-- [ ] Fix `program` and `data` to `0` in the ZkTransfer and the Proof of Leadership circuits.
-- [ ] Implement the `ZkProgramSpend` circuit, its setup and its verifier.
+- [ ] Fix `program` and `data` to `0` in the ZkTransfer, the Proof of Leadership and the leader branch of the Proof of Quota circuits, which shares the lottery constraints of the Proof of Leadership. The verification keys of the three change, and every node verifying them needs the new ones.
+- [ ] Implement the `ZkProgramSpend` circuit, its own circuit-specific setup and its verifier.
+- [ ] Reject the point at infinity when decoding the points of a proof.
 - [ ] Implement `PROGRAM_REGISTER`: the key encoding, the curve and subgroup checks, the program identifier and the `programs` map.
 - [ ] Implement user and program steps in `CHANNEL_INSCRIBE`: payments, the program spend, the program proof under its registered key, the openings of the program notes, and their encoding.
 - [x] Measure the Execution Gas of `PROGRAM_REGISTER`, the `ZkProgramSpend` and the program proof.
@@ -190,8 +208,9 @@ A program step costs `EXECUTION_TRANSFER_GAS` per payment, plus `EXECUTION_PROGR
 | --- | --- | --- |
 | [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | 2.1.0 |
 | [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | 2.1.0 |
+| [Genesis Block](../bedrock-genesis-block.md) | Modified | 1.3.1, no registered program |
 | [Proof of Leadership](../cryptarchia-proof-of-leadership.md) | Modified | 1.2.1 |
-| [Proof of Quota](../proof-of-quota.md) | Modified | 1.3.1, benchmark |
+| [Proof of Quota](../proof-of-quota.md) | Modified | 1.3.1, verification key, benchmark |
 | [Block Construction](../bedrock-v1.1-block-construction.md) | Modified | 1.4.1, terminal rename, ZkProgramSpend batch, copies lacking or altering openings |
 | [Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | 1.9.0 |
 | [Cryptoeconomics Overview](../overview-cryptoeconomics.md) | Modified | 1.5.1, Execution Gas limit |

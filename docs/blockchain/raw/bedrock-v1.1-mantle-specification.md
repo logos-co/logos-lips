@@ -50,7 +50,7 @@
 | 1.18.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a note backs one declaration per service, `SDP_WITHDRAW` no longer names the note, and a `nonce` carries the `created` epoch of its declaration | 2026-10-27 |
 | 1.19.0 | `MinStake` holds `threshold` and the block number `timestamp`, following the Service Declaration Protocol | 2026-10-27 |
 | 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each proven against a recent root and the part of the transaction buffer it names, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and moved `CLAIM_POW_REWARD` to the opcode `0x30`. The commitment MMR and the nullifier IMT of a note set have depth 40 | 2026-10-07 |
-| 2.1.0 | Add programs: notes gain `program` and `data` fields, `PROGRAM_REGISTER` registers a Groth16 verification key, and channel inscriptions carry program steps made of user payments, a `ZkProgramSpend`, a program proof and the openings of the program notes they create. A payment, like a user step, names the buffered commitments its proof covers. Add the proving time benchmarks of the ZkTransfer and the ZkProgramSpend | 2026-10-12 |
+| 2.1.0 | Add programs: notes gain `program` and `data` fields, `PROGRAM_REGISTER` registers a Groth16 verification key, and channel inscriptions carry program steps made of user payments, a `ZkProgramSpend`, a program proof and the openings of the program notes they create. A payment, like a user step, names the buffered commitments its proof covers. The ZkProgramSpend derives the nonces of the outputs of a step consuming a note of the program. Add the proving time benchmarks of the ZkTransfer and the ZkProgramSpend | 2026-10-12 |
 | 2.1.1 | Added Note Delivery: how the holder of a note learns its `value` and `nonce`, the user notes a sender creates being delivered off chain, by the Note Encryption of [Common Cryptographic Components](common-cryptographic-components.md#note-encryption-construction) | 2026-11-02 |
 
 # Introduction
@@ -273,7 +273,7 @@ Channels allow Zones to post their updates on chain. Channels form virtual chain
 
 ### Message Ordering
 
-Channels form virtual chains by having each message reference its parent message. The order of messages in these channels is enforced by the sequencer by building a hash chain of messages, i.e. new messages reference the previous messages through a parent hash. Given that Cryptarchia has long finality times, these message parent references allow Zone sequencers to continue to post new updates to channels without having to wait for finality. No matter how Cryptarchia forks and reorgs, the channel messages from honest sequencers will eventually be re-included in a way that satisfies the virtual chain order, with one limit: a step is valid only against a commitment root recorded in the last 1024 blocks of the fork it lands on. A reorg that moves the deposits or the steps a step builds on into other blocks can leave its root absent from the winning fork, which invalidates the inscription carrying the step and the inscriptions chained after it, and the sequencer, who cannot prove the step again for its holder, re-publishes the chain without it.
+Channels form virtual chains by having each message reference its parent message. The order of messages in these channels is enforced by the sequencer by building a hash chain of messages, i.e. new messages reference the previous messages through a parent hash. Given that Cryptarchia has long finality times, these message parent references allow Zone sequencers to continue to post new updates to channels without having to wait for finality. No matter how Cryptarchia forks and reorgs, the channel messages from honest sequencers will eventually be re-included in a way that satisfies the virtual chain order, with one limit: a step is valid only against a commitment root recorded in the last 1024 blocks of the fork it lands on. A reorg that moves the deposits or the steps a step builds on into other blocks can leave its root absent from the winning fork, which invalidates the inscription carrying the step and the inscriptions chained after it, and the sequencer, who cannot prove the step again for its holder, re-publishes the chain without it, proving again the program steps of these inscriptions, whose proofs are bound to the `op_id` of their inscription.
 
 Configurations form a second hash chain within the channel: each configuration names the configuration it supersedes, so a pending reconfiguration stays valid while the sequencer keeps posting inscriptions.
 
@@ -381,7 +381,7 @@ Channels let their bridged notes keep participating in Proof of Stake. When a us
 **Holders keep their notes.** A user note of a channel is owned by the holder of its `ZkPublicKey`. Only that holder can spend it, in one of two ways:
 
 - *Inside the channel*, the holder signs off-chain a user step, a ZkTransfer that consumes its user notes and creates user notes of the same total value, or a payment to a [program](#programs). The sequencers of the channel collect the steps and payments of their users and publish them in a [`CHANNEL_INSCRIBE`](#channel_inscribe), in the order they choose, since a step or payment proven over notes of earlier blocks holds at any position. The ledger verifies every step, so a sequencer orders the moves of the user notes of a channel but never makes one.
-- *Out of the channel*, the holder posts a [`CHANNEL_WITHDRAW`](#channel_withdraw) alone, its fee paid by a ledger note in the same Mantle Transaction. It takes effect `WITHDRAW_DELAY` slots later, unless an inscription of the channel consumes its notes with a valid step in the meantime. The withdrawal is the forced exit of a holder whose steps the sequencers do not publish. It also settles a holder who signs both a step and a withdrawal of the same notes optimistically: the step wins if an inscription publishes it before the withdrawal is due, and the holder has then paid the fees of the withdrawal for nothing.
+- *Out of the channel*, the holder posts a [`CHANNEL_WITHDRAW`](#channel_withdraw) alone, its fee paid by a ledger note in the same Mantle Transaction. It takes effect `WITHDRAW_DELAY` slots later, unless an inscription of the channel consumes its notes with a valid step or payment in the meantime. The withdrawal is the forced exit of a holder whose steps the sequencers do not publish. It also settles a holder who signs both a step and a withdrawal of the same notes optimistically: the step wins if an inscription publishes it before the withdrawal is due, and the holder has then paid the fees of the withdrawal for nothing.
 
 **Ageing.** Because a deposit and a step consume notes and create new ones, a user note of a channel restarts the ageing process and must age again before it can create a PoL. Bridged funds still count toward Proof of Stake, so the goals above hold, but the participation is not continuous across these moves.
 
@@ -390,7 +390,7 @@ Channels let their bridged notes keep participating in Proof of Stake. When a us
 | Party | Can | Cannot |
 |---|---|---|
 | Holder of a user note's `ZkPublicKey` | Create a PoL with the note and earn its rewards. Sign a user step moving the note inside the channel, or a payment to a program. Withdraw the note alone, paying the fee with a ledger note | Spend the note in any other Operation |
-| Channel sequencers | Collect the steps and payments of their users and publish them in the inscriptions of the channel, in the order they choose, a step or payment consuming a note of the same Mantle Transaction coming after it. Prove the program steps | Move a user note without its holder's step or payment. Move a program note without the proof of its program |
+| Channel sequencers | Collect the steps and payments of their users and publish them in the inscriptions of the channel, in the order they choose, a step or payment consuming a note of the same Mantle Transaction coming after it. Prove the program steps. Freeze the program notes of the channel, by publishing no program step. Hold a signed payment until its root leaves the window | Move a user note without its holder's step or payment. Move a program note without the proof of its program |
 | Program | Authorize, by its proof, the program steps consuming and creating its notes and paying users | Consume a user note. Create value |
 
 ### Programs
@@ -405,6 +405,8 @@ A program governs notes of a channel that no single user holds, such as the rese
 
 **Holder.** A program note has a holder like any note, whose secret key derives its nullifiers and is known to whoever proves the program spend. The program chooses it. For a note open to everyone, such as the reserves of a pool, the convention is the public key of the secret key `0`: anyone can derive its nullifiers, and only the program proof authorizes its moves.
 
+The ledger fixes neither the holder of the notes a program creates nor the note an intent targets, so the program fixes both. Otherwise a sequencer can give a new note of the program its own key, and no other sequencer can then spend it. The program proof sees neither the channel nor the signer, so a creation step its rule admits runs in any channel, by any sequencer, and two pools of one program in one channel can serve each other's intents unless each intent names its pool.
+
 **What enforces what.**
 
 | Property | Enforced by |
@@ -414,10 +416,12 @@ A program governs notes of a channel that no single user holds, such as the rese
 | A payment only pays the program it names, in a step carrying the intent its holder signed | The message of the payment, which commits to the program and the intent |
 | A program note is created and consumed only with the proof of its program | The ZkTransfer, which only derives commitments with `program` and `data` set to `0`; the ZkProgramSpend, whose inputs are notes of the program and whose outputs are notes of the program or user notes; the program proof, required by every program step |
 | A program step serves the intents over LOGOS as the rule of the program states | The program proof, which reads the payments and the notes of the program spend |
-| The opening of every note of a program is available to the next sequencer | The ledger, which checks the opening of every note of the program a step creates |
-| A program step serves the intents over the assets of the zone | The users of the zone, who verify the intents against the inscription and the zone state |
+| The opening of every note of a program is published in the block creating it, and every node holds it until that block is immutable | The ledger, which checks the opening of every note of the program a step creates |
+| A program step serves the intents over the assets of the zone | Not enforced by the ledger: the users of the zone can detect a step that does not serve an intent over the assets of the zone |
 
-A program using LOGOS only, such as lending, is thus enforced by the ledger, and its users trust only the circuit of the program they pay. A program exchanging LOGOS with assets of the zone, such as a swap, is enforced by the ledger for its LOGOS only. Depending on the program, publishing the preimage of each intent in the inscription is recommended, so that the users of the zone can verify how the program step served it.
+A program using LOGOS only, such as lending, is thus enforced by the ledger, and its users trust the circuit of the program they pay and the setup that produced its key: whoever kept the trapdoor of that setup can prove any statement under the key and move every note of the program, and nothing on chain shows how a key was produced. A public phase-2 ceremony over shared powers of tau is recommended for the key of a program ([Trusted Setup Ceremony](trusted-setup-ceremony.md)). A program exchanging LOGOS with assets of the zone, such as a swap, is enforced by the ledger for its LOGOS only. Depending on the program, publishing the preimage of each intent in the inscription is recommended, so that the users of the zone can verify how the program step served it.
+
+**What the ledger does not guarantee.** A program note moves only in a program step of an inscription, and only the current sequencer of a channel posts inscriptions. The sequencers of a channel can therefore freeze every program note of the channel for good by publishing no program step, with all the value users paid into it: they cannot take that value, but they can hold it. A signed payment has no expiry either. A sequencer can hold it until its root leaves the window of 1024 blocks, about 8.5 hours, and fill it at the worst price its intent accepts, since the program proof sees no time. Its holder can cancel it only with a `CHANNEL_WITHDRAW`, which takes `WITHDRAW_DELAY` slots, and a step published before the withdrawal is due wins.
 
 **Design choices.**
 
@@ -427,7 +431,7 @@ A program using LOGOS only, such as lending, is thus enforced by the ledger, and
 - Program notes take no part in Proof of Stake, since the Proof of Leadership derives the commitment of its note with `program` and `data` set to `0`. They are never withdrawn either, since a withdrawal consumes notes with a ZkTransfer.
 - The opening of every note of the program a step creates is published with the step, and checked by the ledger. A sequencer withholding the opening of a note of the program would otherwise freeze it: program notes are never withdrawn, and no sequencer can prove a program spend consuming a note it cannot open. The openings serve this data availability only: the ledger keeps nothing from them, and they are prunable from the blocks behind the latest immutable block of the node.
 
-**Privacy.** The paid values are public, and so are the notes of the program, opened in the steps that create them. The amount of each interaction with a program is therefore visible, and so is the total value a program step pays to users: with a single payee, what that payee receives. Its interactions are subject to timing attacks. The users stay hidden: payments consume notes by nullifier, and the notes the program pays are commitments.
+**Privacy.** The paid values are public, and so are the notes of the program, opened in the steps that create them. The amount of each interaction with a program is therefore visible, and so is the total value a program step pays to users: with a single payee, what that payee receives. Its interactions are subject to timing attacks. The users stay hidden: payments consume notes by nullifier, and the notes the program pays are commitments, as long as each payee uses a one-time public key, since the [nonce of such a note](#zero-knowledge-program-spend-proof-zkprogramspend) is a public function of its value and public key.
 
 ### CHANNEL_INSCRIBE
 
@@ -520,6 +524,8 @@ def payments_hash(step: ProgramStep) -> zkhash:
         *paid)
 ```
 
+An intent is not authenticated. `payments_hash` gives the program only `(paid_value, intent)` pairs and nothing about the payer: anyone with a note in the channel can pay 0 with any intent, and a secret inside an intent does not help, since the sequencer learns the preimage to prove the step and can reuse it. A program authorizes a user inside its circuit, for example with a signature over the action by a key the position of the user records.
+
 A program step consuming no note applies only with its inscription, to whose `op_id` its proofs are bound, and an inscription extends its channel only once.
 
 #### Proof
@@ -543,7 +549,7 @@ class ChannelInscribeOpProof:
     step_proofs: list[ZkTransfer | ProgramStepProof]  # one per step, in the order of the steps
 ```
 
-The openings of the program notes a step creates serve only the availability of the state of the program: the next sequencer needs them to consume these notes, and the users of the program may need this state to learn the notes it pays them. The ledger checks each opening against its output and keeps nothing from it. The openings are part of the proof of the step, outside the `op_id` and the Mantle transaction hash, so pruning them changes no hash. A block is valid only with all its openings, so no one can skip the check by stripping them. Since the `block_id` does not cover the openings, a copy of a block lacking some of them, or carrying altered ones, fails as a copy, whether received as a proposal, as in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation), or in full through synchronisation: it is discarded without recording a verdict against its `block_id`. A node may prune the openings of the blocks behind its [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block), which it never validates again. A node syncing these blocks needs a peer that kept their openings, or [bootstraps from a checkpoint](cryptarchia-v1-bootstr-sync.md#bootstrapping-from-checkpoint) after them.
+The openings of the program notes a step creates serve only the availability of the state of the program: the next sequencer needs them to consume these notes, and the users of the program may need this state to learn the notes it pays them. The ledger checks each opening against its output and keeps nothing from it. The openings are part of the proof of the step, outside the `op_id` and the Mantle transaction hash, so pruning them changes no hash. A block is valid only with all its openings, so no one can skip the check by stripping them. Since the `block_id` does not cover the openings, a copy of a block lacking some of them, or carrying altered ones, fails as a copy, whether received as a proposal, as in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation), or in full through synchronisation: it is discarded without recording a verdict against its `block_id`. A node may prune the openings of the blocks behind its [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block), which it never validates again. A node syncing these blocks needs a peer that kept their openings, or [bootstraps from a checkpoint](cryptarchia-v1-bootstr-sync.md#bootstrapping-from-checkpoint) after them. Every node thus holds an opening until the block carrying it is immutable. Past that point the sequencers of a channel should keep the openings of its unspent program notes, and a sequencer joining the channel gets them from the others. An opening covers only the fields of its note: the next sequencer can take over a program only if its notes hold its state in their opened fields, rather than a hash of it in `data`, and have the key of the secret key `0` as holder.
 
 #### Execution Gas
 
@@ -968,7 +974,7 @@ ledger.sets[channels[deposit.channel].note_set].execute_adding(deposit.outputs)
 
 ### CHANNEL_WITHDRAW
 
-Withdraw notes from a channel. The holder of the notes posts the withdrawal alone, and it takes effect `WITHDRAW_DELAY` slots later: its inputs are then consumed in the channel note set and its outputs created in the ledger note set, if none of its inputs was consumed in the meantime. Until then, an inscription of the channel can consume these notes with a valid step, which cancels the withdrawal. A holder therefore cannot invalidate an inscription carrying one of its steps by withdrawing the same note, as long as the inscription lands before the withdrawal is due. A due withdrawal is executed at the start of its block, before the transactions ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), and a later step consuming its notes is invalid, and so is the transaction carrying it. The nullifiers and due slots of pending withdrawals are public in the ledger state: a sequencer should not accept a step whose inputs a pending withdrawal may release before its inscription lands, nor a step whose inputs another accredited key of the channel may consume first, since removing the step afterwards also invalidates the later steps whose proofs cover its outputs. The sequencers of a channel should share the nullifiers of the steps they hold before a later mini-block covers them.
+Withdraw notes from a channel. The holder of the notes posts the withdrawal alone, and it takes effect `WITHDRAW_DELAY` slots later: its inputs are then consumed in the channel note set and its outputs created in the ledger note set, if none of its inputs was consumed in the meantime. Until then, an inscription of the channel can consume these notes with a valid step or payment, which cancels the withdrawal. A holder therefore cannot invalidate an inscription carrying one of its steps by withdrawing the same note, as long as the inscription lands before the withdrawal is due. A due withdrawal is executed at the start of its block, before the transactions ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), and a later step consuming its notes is invalid, and so is the transaction carrying it. The nullifiers and due slots of pending withdrawals are public in the ledger state: a sequencer should not accept a step whose inputs a pending withdrawal may release before its inscription lands, nor a step whose inputs another accredited key of the channel may consume first, since removing the step afterwards also invalidates the later steps whose proofs cover its outputs, and changes the `op_id` the proofs of every program step of the inscription are bound to. The sequencers of a channel should share the nullifiers of the steps they hold before a later mini-block covers them.
 
 ```python
 WITHDRAW_DELAY: Slot = 86_400  # 1 day
@@ -1849,7 +1855,7 @@ These note commitments and nullifiers uniquely define notes in the system. Nodes
 
 The ledger holds the commitment of a note and nothing of its contents. The holder of a note learns its `value` and `nonce` in one of two ways:
 
-- Notes the ledger creates, such as rewards and service notes, carry their nonce in the Operation that creates them ([Note Commitment and Nullifier](#note-commitment-and-nullifier)), and the user notes a program pays follow the nonce derivation [programs](#programs) recommend. Their value is public or implied by the intent, so their holder recomputes the commitment alone.
+- Notes the ledger creates, such as rewards and service notes, carry their nonce in the Operation that creates them ([Note Commitment and Nullifier](#note-commitment-and-nullifier)), and the user notes a program pays in a step consuming a note of the program carry the nonce the [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) derives. Their value is public or implied by the intent, so their holder recomputes the commitment alone.
 - A user note created by a Transfer, a channel deposit, a channel withdrawal, a user step or a payment is delivered off chain: the ledger carries nothing of it but the commitment. The RECOMMENDED delivery is the note ciphertext of [Note Encryption](common-cryptographic-components.md#note-encryption-construction), the encryption of `value` and `nonce` under the encryption key of the recipient with the commitment as associated data, handed over through a direct channel or published on a data availability layer the recipient reads. The recipient decrypts it and owns the note if the commitment it recomputes is the one in the ledger ([Wallet Technical Standard](wallet-technical-standard.md#note-discovery-and-recovery)).
 
 ### Service notes
@@ -2119,6 +2125,8 @@ class ZkTransferPublic:
 
 `ZkTransfer_verify(inputs, outputs, excess_value, tx_cm_root, msg, proof)` verifies the proof for these public values. The nullifiers of `inputs` fill the first inputs of the circuit and the commitments of `outputs` its first outputs. These are active, and every other input and output is inactive and holds `0`, so the verifier sets the flags from the lengths of the two lists. A ZkTransfer therefore spends at most 4 notes and creates at most 8: an Operation whose `inputs` or `outputs` list is longer is invalid. An Operation spending notes of a note set, other than `SDP_WITHDRAW`, verifies the proof through the [`verify_transfer`](#input-notes-spendability-validation) method of the set, which appends the commitments created earlier in the Mantle Transaction to the referenced root, all of them, or only the first `buffered` for a user step or a payment.
 
+The public signal vector of the proof is fixed by the circuit: the outputs `inputs`, `outputs` and `excess_value` first, then `inputs_active`, `outputs_active`, `tx_cm_root` and `msg`.
+
 The prover knows a witness:
 
 ```python
@@ -2233,6 +2241,8 @@ class ZkProgramSpendPublic:
 
 `ZkProgramSpend_verify(inputs, outputs, program_outputs, tx_cm_root, program_id, paid_value, spend_notes_hash, msg, proof)` verifies the proof for these public values, through the [`verify_program_spend`](#input-notes-spendability-validation) method of the note set. The flags `inputs_active` and `outputs_active` are set from `inputs` and `outputs` as in the ZkTransfer, and `outputs_of_program` is `program_outputs` padded with `False`. A program spend therefore consumes at most 4 notes and creates at most 8: a program step whose `inputs` or `outputs` list is longer is invalid.
 
+The public signal vector of the proof is fixed by the circuit: the outputs `inputs`, `outputs` and `spend_notes_hash` first, then `inputs_active`, `outputs_active`, `outputs_of_program`, `tx_cm_root`, `program_id`, `paid_value` and `msg`.
+
 The prover knows a witness:
 
 ```python
@@ -2280,19 +2290,25 @@ Such that the following constraints hold:
   ```
   The flags `outputs_of_program` tell the ledger which outputs are notes of the program, whose openings the step must publish.
 
-- `spend_notes_hash` commits to the flag and the note of every input and output, nonce included, which the program proof opens to check its rule. Their fields are hashed one after the other, input by input, then output by output. The fields of an inactive input or output other than its value are left to the prover, so they mean something to a program only when the flag of the input or output is set.
+- If the step consumes a note of the program, the nonce of each active output is derived from the nullifier of the first input and the index of the output, as the nonce of a note the ledger creates is derived from its `op_id` and its output number. The flags set the inputs of a step first, so `inputs_active[0]` holds exactly when the step consumes a note.
+  ```python
+  assert not inputs_active[0] or all(
+      outputs_nonce[k] == zkhash(FiniteField(b"NOTE_NONCE_V1", byte_order="little", modulus= p), inputs[0], FiniteField(k, byte_order="little", modulus= p), outputs_value[k], outputs_pk[k])
+      for k in range(len(outputs_pk)) if outputs_active[k]
+  )
+  ```
+  A nullifier is consumed once in its note set, so every output of such a step is a new commitment: a sequencer can neither burn a note by re-creating it, nor withhold a payout, whose holder recomputes the nonce from the inscription, the value and the public key of the note. The `op_id` cannot serve here, since it covers the output commitments and thus their nonces. A step consuming no note of the program picks the nonces of its outputs, and a program whose rule admits such a step constrains them through `spend_notes_hash`. A derived nonce is a public function of the value and the public key of the note, so anyone can test a known public key against the commitment of a payout, and a payee should use a one-time public key.
+
+- `spend_notes_hash` commits to the flag and the note of every input and output, nonce included, which the program proof opens to check its rule. Their fields are hashed one after the other, input by input, then output by output, each multiplied by the flag of its input or output. The fields of an inactive input or output therefore read as `0`, so a spend has a single `spend_notes_hash`, and a program that does not check a flag cannot be fed a note through an inactive input or output.
   ```python
   assert spend_notes_hash == zkhash(
       FiniteField(b"PROGRAM_SPEND_NOTES_V1", byte_order="little", modulus= p),
       *[field for i in range(len(inputs_sk))
-            for field in (inputs_active[i], inputs_value[i], inputs_nonce[i], inputs_pk[i], inputs_data[i])],
+            for field in (inputs_active[i], inputs_value[i], inputs_active[i] * inputs_nonce[i], inputs_active[i] * inputs_pk[i], inputs_active[i] * inputs_data[i])],
       *[field for i in range(len(outputs_pk))
-            for field in (outputs_active[i], outputs_value[i], outputs_nonce[i], outputs_pk[i], outputs_program[i], outputs_data[i])]
+            for field in (outputs_active[i], outputs_value[i], outputs_active[i] * outputs_nonce[i], outputs_active[i] * outputs_pk[i], outputs_active[i] * outputs_program[i], outputs_active[i] * outputs_data[i])]
   )
   ```
-  The nonces let the program proof constrain them. The sequencer picks the nonce of every note the step creates, and the holder of a note needs its nonce to spend it: a program can require the nonce and the value of each output to be derived from data its users know, so that a note it pays cannot be withheld from its holder, and no two outputs share a commitment. A derivation the program enforces can only use data its proof sees, such as the intents of the payments or the notes of the program spend.
-
-  The recommended nonce of the output at index `k` of the program spend of the step at index `i` of the inscription is `derive_note_nonce(hash(channel + parent), 8 * i + k, value, public_key)`, with the `channel` and the `parent` of the inscription. The `parent` is the hash of the previous inscription of the channel, known before the inscription is built, whereas the `op_id` of the inscription covers the output commitments and thus their nonces. With the channel, the nonce differs for every output of every inscription, the first inscriptions of channels included, whose `parent` is `ZERO`. The holder of a note recomputes it from the inscription, the value and the public key of the note. The program proof sees neither the `parent` nor the index of its step, so a program cannot enforce this derivation on its own.
 
 - The outputs are well-formed, and the inputs and the paid value balance the outputs exactly.
   ```python
@@ -2305,7 +2321,7 @@ Such that the following constraints hold:
 
 - The proof is bound to `msg`, the `op_id` of the Channel Inscribe Operation reduced modulo $`p`$.
 
-The circuit takes at most 4 inputs and 8 outputs, the unused ones being inactive as in the ZkTransfer. It is the ZkTransfer circuit with the program checks, the flags of the outputs of the program, the hash of the notes and `paid_value` added.
+The circuit takes at most 4 inputs and 8 outputs, the unused ones being inactive as in the ZkTransfer. It is the ZkTransfer circuit with the program checks, the flags of the outputs of the program, the derivation of the nonces, the hash of the notes and `paid_value` added.
 
 ### Benchmark
 
@@ -2390,4 +2406,15 @@ The `declaration_id` ([Declaration Storage](bedrock-service-declaration-protocol
 | `service` | 0x00 |
 | `zk_id` | 0x1900000000000000000000000000000000000000000000000000000000000000 |
 | Preimage | 0x001900000000000000000000000000000000000000000000000000000000000000 |
+
+### Program Id
+
+`derive_program_id` over a key of real points, encoded as in [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures), each point a multiple of the generator of its group.
+
+| Field | Value |
+| - | - |
+| `alpha` | $`[1]G_1`$ |
+| `beta`, `gamma`, `delta` | $`[2]G_2`$, $`[3]G_2`$, $`[4]G_2`$ |
+| `ic` | $`[5]G_1`$, $`[6]G_1`$, $`[7]G_1`$, $`[8]G_1`$ |
+| `ProgramId` | 0x33b431d9ebbada5bb9243a0b78fec6cd54034e0bf0bc8e9db776775c2b658705 |
 | `declaration_id` | 0x67fa7d1fe7f1391195fdd479bba30dd97c9e6d2e1525436ac2427f2bf8567a0d |
