@@ -109,7 +109,7 @@ A transaction arrives by local submission, from a client, the node itself or the
 - its encoding is no larger than `MAX_BLOCK_SIZE`;
 - it decodes, and decoding consumes the whole payload;
 - it passes `preverify`, a set of rules of Mantle's [Validation](bedrock-v1.1-mantle-specification.md#validation) that read no ledger state;
-- it is not already pending, and no canonical block after the [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block) and fewer than $`k`$ blocks deep carries it;
+- it is not already pending, and the node does not hold it for a block of its canonical chain after the [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block);
 - it carries no [Proof of Work](proof-of-work.md) reward **claim** whose **deadline** has passed.
 
 A local submission is decoded and passes `preverify` before its size is checked.
@@ -149,10 +149,10 @@ The pending set must hold only transactions that block building may still select
 
 A competing chain may carry a transaction that this node's chain already includes, and a late proposal may select one that this node has retired. The node keeps a retired transaction until no fork that the [Online Fork Choice Rule](fork-choice.md#online-fork-choice-rule) accepts can reference it.
 
-A transaction that the node holds but that is not pending is **retained** until the node **releases** it. A retained transaction still resolves references, and keeps its admission time if it is admitted again. The node keeps in `included` the retained transactions that a block of its canonical chain carries, including ones it learned only from that block. It releases a retained transaction:
+A transaction that the node holds but that is not pending is **retained** until the node **releases** it. A retained transaction still resolves references, and keeps its admission time if it is admitted again. When a block enters its canonical chain, the node keeps in `included` each transaction of that block that it holds. It releases a retained transaction:
 
-- when the block that carries it is $`k`$ blocks deep in the canonical chain;
-- when its age reaches `TRANSACTION_TTL` plus `RETIREMENT_GRACE`, if no canonical block carries it;
+- when the block that carries it becomes immutable, if it is in `included`;
+- when its age reaches `TRANSACTION_TTL` plus `RETIREMENT_GRACE`, if it is not in `included`;
 - when it carries a claim whose deadline has passed.
 
 When a fork switch displaces blocks from the canonical chain, their transactions that the new canonical chain does not carry leave `included`. The node re-admits each, except one whose age exceeds `TRANSACTION_TTL`. If it holds no admission time for a transaction, it measures the age from the start of the displaced block's slot. [Release](#release) and [Reorganisation](#reorganisation) specify the rules.
@@ -170,7 +170,6 @@ stateDiagram-v2
         state "not in included" as ni
     }
     [*] --> im: admitted
-    [*] --> inc: a canonical block carries<br/>a transaction never held
     p --> inc: a canonical block<br/>carries it
     ni --> inc: a canonical block<br/>carries it
     ma --> ni: inapplicable
@@ -206,7 +205,7 @@ sequenceDiagram
     B->>A: block proposal referencing<br/>the transaction
     A->>A: resolve the reference<br/>from its mempool
     A->>A: the block enters the canonical<br/>chain: retire it into included
-    A->>A: the block is k blocks deep:<br/>release the transaction
+    A->>A: the block becomes immutable:<br/>release the transaction
 ```
 
 1. A client submits the transaction to node A through the [Node API](#node-api).
@@ -217,17 +216,17 @@ sequenceDiagram
 6. Node B's proposal references the transaction by a prefix of its hash ([References](bedrock-v1.1-block-construction.md#references)).
 7. Node A resolves the reference from its mempool ([Reference Resolution](#reference-resolution)).
 8. The block enters node A's canonical chain, and node A retires the transaction into `included` ([Inclusion in a Canonical Block](#inclusion-in-a-canonical-block)). Node B does the same.
-9. The block is $`k`$ blocks deep in node A's canonical chain, and node A applies [Release](#release) to the transaction. Node B does the same.
+9. The block becomes immutable in node A's canonical chain, and node A applies [Release](#release) to the transaction. Node B does the same.
 
 ## Node State
 
 A node keeps these values for its mempool, defined in [Mempool State](#mempool-state):
 
 - `pending`, the pending hashes in admission order, which changes on [Transaction Admission](#transaction-admission) and on [Retirement](#retirement);
-- `included`, the retained hashes that a canonical block carries, which changes on [Inclusion in a Canonical Block](#inclusion-in-a-canonical-block), on [Reorganisation](#reorganisation) and on [Release](#release);
-- `bodies`, the body of each pending or retained transaction, which changes on [Transaction Admission](#transaction-admission), on [Inclusion in a Canonical Block](#inclusion-in-a-canonical-block) and on [Release](#release);
-- `admitted_at`, the time from which each transaction's age is measured, which changes on [Transaction Admission](#transaction-admission), on [Reorganisation](#reorganisation) and on [Release](#release);
-- `by_prefix`, the pending and retained hashes keyed by their reference prefix, which changes on [Transaction Admission](#transaction-admission), on [Inclusion in a Canonical Block](#inclusion-in-a-canonical-block) and on [Release](#release);
+- `included`, the retained hashes held for a canonical block, which changes on [Inclusion in a Canonical Block](#inclusion-in-a-canonical-block), on [Reorganisation](#reorganisation) and on [Release](#release);
+- `bodies`, the body of each pending or retained transaction, which changes on [Transaction Admission](#transaction-admission) and on [Release](#release);
+- `admitted_at`, the time from which each transaction's age is measured, which changes on [Transaction Admission](#transaction-admission) and on [Release](#release);
+- `by_prefix`, the pending and retained hashes keyed by their reference prefix, which changes on [Transaction Admission](#transaction-admission) and on [Release](#release);
 - `highest_slot`, the highest slot of a block added since the node started, which rises when Chain Maintenance adds a block of a higher slot.
 
 [Persistence and Recovery](#persistence-and-recovery) specifies what the node persists and rebuilds. Local clients read the pending set through the [Node API](#node-api).
@@ -283,7 +282,7 @@ With `WINDOW` at 300 slots, `CLAIM_GRACE` is 600 slots. With $`T_M`$ at 15 round
 @dataclass
 class Mempool:
     pending: TimeOrderedSet[TxHash]     # admitted, not yet retired, in admission order
-    included: Set[TxHash]               # retained, carried by a canonical block after the latest immutable block and fewer than k blocks deep
+    included: Set[TxHash]               # retained, carried by a canonical block after the latest immutable block
     bodies: Map[TxHash, SignedMantleTx] # transaction bodies
     admitted_at: Map[TxHash, Timestamp] # admission time
     by_prefix: Map[bytes, Set[TxHash]]  # pending and retained hashes, keyed by reference prefix
@@ -302,7 +301,7 @@ A `TimeOrderedSet` iterates in admission order, by ascending `admitted_at`, and 
 
 ## Transaction Admission
 
-A transaction is admitted by local submission, by gossip on the mempool topic, or by re-insertion after a [Reorganisation](#reorganisation). A local submission is a transaction submitted through the [Node API](#node-api), one that the node's own services create, such as the SDP activity it posts, or one extracted from a data message as [Message Lifecycle](blend-protocol.md#message-lifecycle) in Blend Protocol specifies. All three follow this procedure.
+A transaction reaches the mempool by local submission, by gossip on the mempool topic, or by re-insertion after a [Reorganisation](#reorganisation). A local submission is a transaction submitted through the [Node API](#node-api), one that the node's own services create, such as the SDP activity it posts, or one extracted from a data message as [Message Lifecycle](blend-protocol.md#message-lifecycle) in Blend Protocol specifies. All three follow this procedure.
 
 ```python
 def admit(mempool, encoded: bytes) -> Result:
@@ -364,9 +363,6 @@ def reorganise(mempool, displaced: list[Block], adopted: list[Block]) -> None:
             # A transaction is at least as old as the start of the slot of a block that carries it.
             admitted = mempool.admitted_at.get(key, genesis_time + block.header.slot * SLOT_LENGTH)
             if now() - admitted > TRANSACTION_TTL:
-                if key in mempool.bodies:
-                    # A retained copy keeps the time its release is measured from.
-                    mempool.admitted_at[key] = admitted
                 continue
             admit(mempool, encode_signed_mantle_tx(tx))
 ```
@@ -476,8 +472,7 @@ def include(mempool, block: Block) -> None:
         if key in mempool.pending:
             mempool.pending.remove(key)
         elif key not in mempool.bodies:
-            mempool.bodies[key] = tx
-            mempool.by_prefix[prefix(key, REFERENCE_PREFIX_LENGTH)].add(key)
+            continue
         mempool.included.add(key)
 ```
 
@@ -539,7 +534,7 @@ def release_due(mempool) -> None:
             release(mempool, key)
 ```
 
-A node runs `release_block` on each block of its canonical chain once the block is $`k`$ blocks deep, after it has run `include` on that block. It runs `release_due` before it admits a transaction, retires one, or processes a block.
+A node runs `release_block` on each block of its canonical chain once the block is at or before its [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block), after it has run `include` on that block. It runs `release_due` before it admits a transaction, retires one, or processes a block.
 
 ## Persistence and Recovery
 
