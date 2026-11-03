@@ -27,7 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.0.1 | Noted that a streamed `Block` carries the signed headers of the uncles it references, which is what lets a synchronizing node validate those blocks and reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) without ever seeing their proposals, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
 | 1.0.2 | Spread block download requests across connected and discovered peers instead of downloading only from the configured IBD peers, which now only provide the chain tips to catch up with. Added [Selecting Peers for Downloading](#selecting-peers-for-downloading) and the `GetTipRequest` message. | 2026-10-20 |
-| 1.0.3 | A carried uncle header has no signature: its Proof of Leadership is bound to it | 2026-11-03 |
+| 1.0.3 | A carried uncle header has no signature: its Proof of Leadership is bound to it | 2026-10-14 |
 
 # Introduction
 

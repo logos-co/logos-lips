@@ -27,7 +27,7 @@ Read [RFC-480](RFC-480-mantle-private-utxo-ledger.md) first: this RFC builds on 
 
 ## What the ledger guarantees
 
-The ledger guarantees that no LGO is created, that a user note moves only with the key of its holder, and that a program note moves only with the proof of its program. It also checks the opening of every program note a step creates, so that the state of the program stays available to the next sequencer. It does not check the assets of a zone. For a swap of LGO against a zone token, the users of the zone verify the inscription against the intents. Mantle states this split in its [What enforces what](../bedrock-v1.1-mantle-specification.md#programs) table.
+The ledger guarantees that no LOGOS is created, that a user note moves only with the key of its holder, and that a program note moves only with the proof of its program. It also checks the opening of every program note a step creates, so that the state of the program stays available to the next sequencer. It does not check the assets of a zone. For a swap of LOGOS against a zone token, the users of the zone verify the inscription against the intents. Mantle states this split in its [What enforces what](../bedrock-v1.1-mantle-specification.md#programs) table.
 
 ## Privacy
 
@@ -194,6 +194,6 @@ A program step costs `EXECUTION_TRANSFER_GAS` per payment, plus `EXECUTION_PROGR
 | [Proof of Quota](../proof-of-quota.md) | Modified | 1.3.1, benchmark |
 | [Block Construction](../bedrock-v1.1-block-construction.md) | Modified | 1.4.1, terminal rename, ZkProgramSpend batch, copies lacking or altering openings |
 | [Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | 1.9.0 |
-| [Cryptoeconomics Overview](../overview-cryptoeconomics.md) | Modified | 1.4.1, Execution Gas limit |
+| [Cryptoeconomics Overview](../overview-cryptoeconomics.md) | Modified | 1.5.1, Execution Gas limit |
 | [Execution Market](../execution-market.md) | Modified | 1.3.1, `G_max` and `G_target` |
 | [Cryptarchia Protocol](../cryptarchia-v1-protocol.md) | Modified | 1.3.1, test vectors with `PROGRAM_REGISTER` and program steps |

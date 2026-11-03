@@ -24,7 +24,8 @@
 | 1.0.0 | Initial revision. | 2026-04-24 |
 | 1.1.0 | Changing from burning/minting to pooling/distributing/releasing, removing $`S_{tge}`$ | 2026-08-25 |
 | 1.2.0 | Count the proof of work reward pool as a fourth controlled stock, bound net circulating growth by the two stocks that drain, and state that the pooled fee is net of the share diverted to that pool | 2026-08-31 |
-| 1.3.0 | Keep the reserve, the pool, the pending Blend share and the window of pooled fees as integer consensus state in units of $`10^{-9}`$ LGO, the Blend rewards an epoch does not distribute returning to the pool, the release capped at the reserve balance, with the integer reference averaging the pooled fees over the 120-block window as the reward equation does. Redraw the system design and project the circulating supply over 10 years with a per-block simulation | 2026-10-07 |
+| 1.3.0 | Count every amount in LEPTA, which scales three constants of the integer rule by $`10^{9}`$ and widens its intermediates to 128 bits | 2026-10-29 |
+| 1.4.0 | Keep the reserve, the pool, the pending Blend share and the window of pooled fees as integer consensus state in LEPTA, the Blend rewards an epoch does not distribute returning to the pool, the release capped at the reserve balance, with the integer reference averaging the pooled fees over the 120-block window as the reward equation does. Redraw the system design and project the circulating supply over 10 years with a per-block simulation | 2026-10-07 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -35,7 +36,7 @@
 
 # Introduction
 
-This document specifies how many tokens each block of the Logos Blockchain distributes as rewards. The reward of a block combines two sources: a release from the LGO rewards reserve allocated at genesis, and the average of the transaction fees pooled over the last blocks, paid back out. An emission rate factor, driven by network Key Performance Indicators (KPIs), sets the balance between the two. The leader of a block receives its share of the reward, with the tips of the block, in the block itself; the Blend service is paid its share of the rewards of an epoch at the first block of the epoch after next.
+This document specifies how many tokens each block of the Logos Blockchain distributes as rewards. The reward of a block combines two sources: a release from the LOGOS rewards reserve allocated at genesis, and the average of the transaction fees pooled over the last blocks, paid back out. An emission rate factor, driven by network Key Performance Indicators (KPIs), sets the balance between the two. The leader of a block receives its share of the reward, with the tips of the block, in the block itself; the Blend service is paid its share of the rewards of an epoch at the first block of the epoch after next.
 
 The two KPIs are the inferred total stake, as a security indicator, and the average fee pooling rate, to keep the supply in equilibrium. The resulting model has the following properties:
 
@@ -101,14 +102,14 @@ This KPI-based approach delivers several advantages:
 
 | Symbol | Definition | Value | Explanation |
 | --- | --- | --- | --- |
-| $`S_{cap}`$ | Maximum token supply (hard cap) | 10 billion LGO | N.A. |
+| $`S_{cap}`$ | Maximum token supply (hard cap) | 10 billion LOGOS | Bounded above by [Token Units and Precision](overview-cryptoeconomics.md#token-units-and-precision). |
 | $`\Delta_t`$ | Fraction of a year in one block | $`1/(365 \times 2880)`$ | One block every $`30`$ seconds; there are 2880 blocks of 30 seconds in a day. |
 | $`T`$ | The number of blocks in the look-back window for the moving average | $`120`$ | As the system is expected to produce 1 block every 30 seconds, this look-back window defines that the reward averages the fees pooled in the last hour. |
 | $`I_{max}`$ | The maximum emission rate per year | $`1\%`$ | This value guarantees that, when the total inferred stake reaches $`D_{0,target}`$, then the APY for validation is ~3.33%. |
 | $`I_{min}`$ | The minimum emission rate per year | $`0\%`$ | This avoids inflationary token emissions. |
-| $`Y`$ | Lifetime of the rewards reserve at the maximum release rate ($`I_{max}`$ of $`S_{cap}`$ per year) | $`10`$ years | Sets the reserve size $`B_0 = I_{max} \cdot S_{cap} \cdot Y = 10^9`$ LGO ($10\%$ of $`S_{cap}`$). |
-| $`D_{0,target}`$ | Target value of the inferred total stake | 3 billion LGO | $`30\%`$ of the maximum supply. |
-| $`D_{1,target}`$ | Normalizer of the pooling rate | 10 billion LGO | The maximum supply. |
+| $`Y`$ | Lifetime of the rewards reserve at the maximum release rate ($`I_{max}`$ of $`S_{cap}`$ per year) | $`10`$ years | Sets the reserve size $`B_0 = I_{max} \cdot S_{cap} \cdot Y = 10^9`$ LOGOS ($10\%$ of $`S_{cap}`$). |
+| $`D_{0,target}`$ | Target value of the inferred total stake | 3 billion LOGOS | $`30\%`$ of the maximum supply. |
+| $`D_{1,target}`$ | Normalizer of the pooling rate | 10 billion LOGOS | The maximum supply. |
 | $`\alpha_d`$ | Control responsiveness to the stake deviation | $`1/4`$ | See [\[Analysis\] Block Reward Parameter Calibration](analysis-block-reward-parameter-calibration.md), for details. |
 | $`\alpha_a`$ | Control responsiveness to the pooling rate | $`1`$ | This parameter scales the reserve-release response to the pooling rate. It must be one-to-one. |
 
@@ -218,7 +219,7 @@ $`D_{1,target} = S_{cap}`$ is a normalizer: $`\gamma_t`$ is the average pooling 
 
 # Deterministic Implementation
 
-Block rewards affect consensus state, so their computation must be deterministic across all nodes. It must not rely on floating-point arithmetic, and is defined below with integers only, counting tokens in units of $`10^{-9}`$ LGO as [Mantle](bedrock-v1.1-mantle-specification.md#arithmetic) does.
+Block rewards affect consensus state, so their computation must be deterministic across all nodes. It must not rely on floating-point arithmetic, and is defined below with integers only. Every amount in this section is a count of LEPTA, as defined in [Token Units and Precision](overview-cryptoeconomics.md#token-units-and-precision).
 
 With the parameters above, the two terms of the emission rate factor are:
 
@@ -270,16 +271,18 @@ The Blend reward of an epoch is paid from `blend_rewards_pending` ([Service Rewa
 Every pooled fee is paid out at most once across the $`120`$ blocks of its window, so the pool never goes below zero. The reference implementation is:
 
 ```python
-A_SCALE: int64 = 120_000_000_000_000_000        # denominator of A_t
-STAKE_TARGET: int64 = 3_000_000_000_000_000_000  # D_0_target
-FEE_AVG_NUMERATOR: int64 = 10_512       # alpha_a / (I_max * D_1_target * Delta_t * T), over A_SCALE
-FEE_WINDOW: int64 = 120                 # T, the blocks of the moving average
-RELEASE_NUMERATOR: int64 = 62_500_000_000_000  # numerator of I_max * S_cap * Delta_t
-RELEASE_DENOMINATOR: int64 = 657        # denominator of I_max * S_cap * Delta_t
+LEPTA_PER_LOGOS: int128 = 10**9
+
+A_SCALE: int128 = 120_000_000 * LEPTA_PER_LOGOS      # denominator of A_t
+STAKE_TARGET: int128 = 3_000_000_000 * LEPTA_PER_LOGOS  # D_0_target
+FEE_AVG_NUMERATOR: int128 = 10_512       # alpha_a / (I_max * D_1_target * Delta_t * T), over A_SCALE
+FEE_WINDOW: int128 = 120                 # T, the blocks of the moving average
+RELEASE_NUMERATOR: int128 = 62_500 * LEPTA_PER_LOGOS  # numerator of I_max * S_cap * Delta_t
+RELEASE_DENOMINATOR: int128 = 657        # denominator of I_max * S_cap * Delta_t
 
 
-def block_reward(total_stake: uint64, pooled_fees_window: list[uint64],
-                 reserve: uint64) -> tuple[uint64, uint64]:
+def block_reward(total_stake: TokenValue, pooled_fees_window: list[TokenValue],
+                 reserve: TokenValue) -> tuple[TokenValue, TokenValue]:
     # pooled_fees_window holds the pooled fees of the last 120 blocks, this block last,
     # 0 for the blocks before the first one. Returns the reserve release and the pool
     # payout of the block, whose sum is the block reward. Intermediates are int128:
@@ -294,7 +297,7 @@ def block_reward(total_stake: uint64, pooled_fees_window: list[uint64],
     release: int128 = min(RELEASE_NUMERATOR * a_numerator // (RELEASE_DENOMINATOR * A_SCALE),
                           reserve)
     payout: int128 = (A_SCALE - a_numerator) * sum_fees // (FEE_WINDOW * A_SCALE)
-    return uint64(release), uint64(payout)
+    return TokenValue(release), TokenValue(payout)
 ```
 
 `get_block_rewards(b)` is `release + payout`, the sum of the two values `block_reward` returns in the update of the block `b` above, once the pooled fees of `b` have entered the window.
