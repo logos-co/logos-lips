@@ -7,7 +7,7 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-10-27 |
-| v2 | Note ciphertexts are delivered off chain and pay no Execution Gas of their own. An `SDP_WITHDRAW` extends no root by the buffer. The batch verification draws its coefficients on 128 bits in Block Construction. Follows the SDP rules of master, the measures of the SDP Operations being listed as not taken on them | 2026-11-03 |
+| v2 | Note ciphertexts are delivered off chain and pay no Execution Gas of their own. An `SDP_WITHDRAW` extends no root by the buffer. The batch verification draws its coefficients on 128 bits in Block Construction. Every constant is measured again on the node following the SDP rules of master, as the minimum over 5 runs of the benchmark | 2026-11-03 |
 
 ## Reviewer Orientation
 
@@ -28,22 +28,22 @@ One Execution Gas is 1,000 core cycles, counted by the hardware performance coun
 
 ## Measured end to end, explained by components
 
-Each constant is fitted on the node's own functions, run on a whole Mantle Transaction from its encoded bytes to the updated state, varying one dimension of its shape at a time. Micro-benchmarks of the trees, hashes and verifiers explain each constant. Summing micro-benchmarks alone would have priced at zero everything not benchmarked, which is how the earlier constants missed the trees. A block of 64 mixed transactions measured whole costs 15.2% less than the constants predict with the end of block work of its one channel set counted once. Its 24 transactions changing that set each pay the work, so its Execution Gas is 44.6% above its cost; [Nullifiers and note sets](#nullifiers-and-note-sets) explains why.
+Each constant is fitted on the node's own functions, run on a whole Mantle Transaction from its encoded bytes to the updated state, varying one dimension of its shape at a time. Micro-benchmarks of the trees, hashes and verifiers explain each constant. Summing micro-benchmarks alone would have priced at zero everything not benchmarked, which is how the earlier constants missed the trees. A block of 64 mixed transactions measured whole costs 9.2% less than the constants predict with the end of block work of its one channel set counted once. Its 24 transactions changing that set each pay the work, so its Execution Gas is 38.1% above its cost; [Nullifiers and note sets](#nullifiers-and-note-sets) explains why.
 
 ## Nullifiers and note sets
 
-The nullifiers of a block are hashed into their tree once, at the end of the block. The first nullifier of a set costs two paths of the tree, 1,573,013 cycles. Every further one costs at most 773,145: its leaf lands next to the leaves appended before it, but its low leaf is anywhere in the tree, and the path of the low leaf shares only its upper levels with the other paths of the block. The measures draw the spent nullifiers like the nullifiers of real notes for that reason. `EXECUTION_NULLIFIER_GAS` prices the largest cost of a further nullifier, so the price of an Operation never depends on the other transactions of its block. The first nullifier of a set is paid with the end of block work of that set.
+The nullifiers of a block are hashed into their tree once, at the end of the block. The first nullifier of a set costs two paths of the tree, 1,560,551 cycles. Every further one costs at most 673,573: its leaf lands next to the leaves appended before it, but its low leaf is anywhere in the tree, and the path of the low leaf shares only its upper levels with the other paths of the block. The measures draw the spent nullifiers like the nullifiers of real notes for that reason. `EXECUTION_NULLIFIER_GAS` prices the largest cost of a further nullifier, so the price of an Operation never depends on the other transactions of its block. The first nullifier of a set is paid with the end of block work of that set.
 
 `EXECUTION_NOTE_SET_GAS` is paid once per transaction for each channel or SDP note set it changes. Alternatives:
 
 - **Once per Operation.** Rejected: the Operations of one transaction changing the same set share one end of block work, and a transaction of several deposits or inscriptions to one channel would pay it several times.
 - **Once per block, by the first transaction changing the set.** Rejected: the price of a transaction would depend on its position in the block and on the other transactions, which a block builder controls, and a user could not predict it.
 
-A transaction changing a set pays its full end of block work, the largest measure of what a block spends on that set. The cost of this predictability falls on blocks where many transactions change one set: on the measured block, whose 24 inscriptions and deposit change one channel set, the Execution Gas is 44.6% above the work.
+A transaction changing a set pays its full end of block work, the largest measure of what a block spends on that set. The cost of this predictability falls on blocks where many transactions change one set: on the measured block, whose 24 inscriptions and deposit change one channel set, the Execution Gas is 38.1% above the work.
 
 ## Bytes
 
-A transaction costs 26.0 cycles per byte for its decoding, its hash and the identifiers of its Operations. The term is integer: `len * 26 // 1000`.
+A transaction costs 26.8 cycles per byte for its decoding, its hash and the identifiers of its Operations. The term is integer: `len * 27 // 1000`.
 
 ## Rejected alternatives
 
@@ -52,8 +52,9 @@ A transaction costs 26.0 cycles per byte for its decoding, its hash and the iden
 
 ## Limits of the measures
 
-- SDP declarations are measured among up to 1,024 declarations of a service. Through the keys of the declarations of each service, their cost grows from 812,189 cycles among none to 890,885 among 1,024.
-- The measured commit predates the SDP rules of master on the node: `declaration_id = Hash(service || zk_id)`, `providers` per service and the nonce carrying the `created` epoch. They remove a lookup and add two integer checks, so the constants of the SDP Operations are not expected to move much, but they are not measured on these rules. The gas benchmark has to run again once [logos-blockchain#3921](https://github.com/logos-blockchain/logos-blockchain/pull/3921) and [logos-blockchain#3922](https://github.com/logos-blockchain/logos-blockchain/pull/3922) follow them.
+- SDP declarations are measured among up to 1,024 declarations of a service. Through the keys of the declarations of each service, their cost grows from 796,866 cycles among none to 847,129 among 1,024.
+- A single run of the benchmark moves the small measures by up to about 10% (the base of a Transfer goes from 5 to 24 Execution Gas between runs), so the constants take the minimum over 5 runs. The constants of a few thousand cycles are therefore known only roughly.
+- The cost of a user step grows with their number in an inscription: about 198,000 cycles per step from 1 to 2 steps, 241,000 from 4 to 8. `EXECUTION_USER_STEP_GAS` prices the slope over the measured range, and the cause of the growth is not identified.
 - `CLAIM_POW_REWARD` is measured on a state with an eased reward difficulty, the fixture difficulty requiring about 2^26 grinds to build a claim.
 - Creating a channel creates its note set, priced as a change of that set; the creation itself, an insertion in the eligible tree, was not measured alone.
 - The measured node does not yet keep `pow_rewards_pending`: one integer addition per block and one credit per epoch, not counted in the fixed costs of a block.
@@ -85,29 +86,29 @@ def spend_gas(inputs, outputs, buffered) -> int:
 
 | Constant | Value | | Constant | Value |
 | --- | --- | --- | --- | --- |
-| `EXECUTION_TRANSFER_GAS` | 30 | | `EXECUTION_KB_GAS` | 26 |
-| `EXECUTION_CHANNEL_INSCRIBE_GAS` | 13 | | `EXECUTION_NOTE_SET_GAS` | 3485 |
-| `EXECUTION_CHANNEL_CONFIG_GAS` | 18 | | `EXECUTION_PROOF_GAS` | 1773 |
-| `EXECUTION_CHANNEL_DEPOSIT_GAS` | 16 | | `EXECUTION_ROOT_GAS` | 887 |
-| `EXECUTION_CHANNEL_WITHDRAW_GAS` | 13 | | `EXECUTION_BUFFERED_GAS` | 23 |
-| `EXECUTION_SDP_DECLARE_GAS` | 669 | | `EXECUTION_NULLIFIER_GAS` | 838 |
-| `EXECUTION_SDP_WITHDRAW_GAS` | 889 | | `EXECUTION_COMMITMENT_GAS` | 25 |
-| `EXECUTION_SDP_ACTIVE_GAS` | 6975 | | `EXECUTION_SIGNATURE_GAS` | 167 |
-| `EXECUTION_CLAIM_POW_REWARD_GAS` | 569 | | `EXECUTION_USER_STEP_GAS` | 137 |
-| `EXECUTION_PROGRAM_REGISTER_GAS` | 6843 | | `EXECUTION_PAYMENT_GAS` | 211 |
-| | | | `EXECUTION_PROGRAM_STEP_GAS` | 60 |
-| | | | `EXECUTION_OPENING_GAS` | 157 |
-| | | | `EXECUTION_PROGRAM_PROOF_GAS` | 6305 |
+| `EXECUTION_TRANSFER_GAS` | 12 | | `EXECUTION_KB_GAS` | 27 |
+| `EXECUTION_CHANNEL_INSCRIBE_GAS` | 21 | | `EXECUTION_NOTE_SET_GAS` | 3461 |
+| `EXECUTION_CHANNEL_CONFIG_GAS` | 20 | | `EXECUTION_PROOF_GAS` | 1770 |
+| `EXECUTION_CHANNEL_DEPOSIT_GAS` | 6 | | `EXECUTION_ROOT_GAS` | 879 |
+| `EXECUTION_CHANNEL_WITHDRAW_GAS` | 31 | | `EXECUTION_BUFFERED_GAS` | 23 |
+| `EXECUTION_SDP_DECLARE_GAS` | 622 | | `EXECUTION_NULLIFIER_GAS` | 725 |
+| `EXECUTION_SDP_WITHDRAW_GAS` | 892 | | `EXECUTION_COMMITMENT_GAS` | 24 |
+| `EXECUTION_SDP_ACTIVE_GAS` | 6927 | | `EXECUTION_SIGNATURE_GAS` | 161 |
+| `EXECUTION_CLAIM_POW_REWARD_GAS` | 566 | | `EXECUTION_USER_STEP_GAS` | 161 |
+| `EXECUTION_PROGRAM_REGISTER_GAS` | 6839 | | `EXECUTION_PAYMENT_GAS` | 233 |
+| | | | `EXECUTION_PROGRAM_STEP_GAS` | 54 |
+| | | | `EXECUTION_OPENING_GAS` | 151 |
+| | | | `EXECUTION_PROGRAM_PROOF_GAS` | 6320 |
 
 `EXECUTION_PROGRAM_SPEND_GAS` is replaced by `EXECUTION_PROOF_GAS`, which prices both ZkTransfer and ZkProgramSpend proofs.
 
 ## 3. Execution Gas limit
 
-The fixed costs of a block are deducted from the 3,200,000 Execution Gas of a block: the header (105,594 cycles), its Proof of Leadership (7,123,958), the leader note and the end of block of the ledger set (2,080,504), its first nullifier (1,573,013), and the fixed parts of the ZkTransfer and ZkProgramSpend batches (7,287,831 and 8,280,395). Total 26,451,295 cycles, so `limit_Ex = G_max = 3,173,548`, `G_target = 1,586,774`, `BASE_FEE_NUMERATOR = 11_107_418` and `BASE_FEE_DENOMINATOR = 12_694_192`.
+The fixed costs of a block are deducted from the 3,200,000 Execution Gas of a block: the header (103,945 cycles), its Proof of Leadership (7,101,514), the leader note and the end of block of the ledger set (2,040,800), its first nullifier (1,560,551), and the fixed parts of the ZkTransfer and ZkProgramSpend batches (7,260,262 and 8,241,358). Total 26,308,430 cycles, so `limit_Ex = G_max = 3,173,691`, `G_target = 1,586,845`, `BASE_FEE_NUMERATOR = 11_107_915` and `BASE_FEE_DENOMINATOR = 12_694_760`.
 
-A note set takes about 230 years to fill with transfers of 8 outputs at the Execution Gas target (Mantle), and the eligible tree about 1,150 years with blocks full of channel creations, each paying `EXECUTION_NOTE_SET_GAS` (Proof of Leadership).
+A note set takes about 220 years to fill with transfers of 8 outputs at the Execution Gas target (Mantle), and the eligible tree about 1,140 years with blocks full of channel creations, each paying `EXECUTION_NOTE_SET_GAS` (Proof of Leadership).
 
-The Cryptoeconomics Overview states that every Mantle Transaction consumes Execution Gas for its bytes, and that a full 2 MiB block of large inscriptions costs 54,525 Execution Gas for its bytes, so the maximum block size bounds such blocks.
+The Cryptoeconomics Overview states that every Mantle Transaction consumes Execution Gas for its bytes, and that a full 2 MiB block of large inscriptions costs 56,623 Execution Gas for its bytes, so the maximum block size bounds such blocks.
 
 ## 4. Node optimizations
 
@@ -125,7 +126,7 @@ The constants assume six optimizations of the node, which change no validity rul
 - [ ] Merge the ledger optimizations of [Details 4](#4-node-optimizations) ([logos-blockchain#3921](https://github.com/logos-blockchain/logos-blockchain/pull/3921))
 - [ ] Merge the gas benchmark of the node ([logos-blockchain#3922](https://github.com/logos-blockchain/logos-blockchain/pull/3922))
 - [ ] Implement the Execution Gas of each Operation from the per-component constants and `spend_gas`, and the bytes and note set terms of the transaction
-- [ ] Set the Execution Gas limit to 3,173,548 and the base fee constants of the Execution Market
+- [ ] Set the Execution Gas limit to 3,173,691 and the base fee constants of the Execution Market
 - [ ] Update the tests and test vectors whose fees or gas depend on these constants
 - [ ] Re-run the gas benchmark and check every constant against the Gas Cost Determination
 - [ ] Verify the implementation matches this specification

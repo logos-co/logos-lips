@@ -1912,7 +1912,7 @@ The note sets are what the [Proof of Leadership](cryptarchia-proof-of-leadership
 
 ### Commitment Merkle Mountain Range
 
-The commitments of each note set are appended, in insertion order, to the leaves of a Merkle tree of depth $`40`$ whose every leaf past the last appended one holds $`0`$. The root of that tree is the commitment MMR root of the set, and a commitment is proven in it by a Merkle path of length $`40`$. A note set therefore holds at most $`2^{40}`$ commitments and, its [IMT](#nullifier-indexed-merkle-tree) giving a leaf to the sentinel, $`2^{40} - 1`$ nullifiers, a capacity that transfers of 8 outputs at the Execution Gas target take about 230 years to fill. An Operation adding a commitment or a nullifier to a full set is invalid.
+The commitments of each note set are appended, in insertion order, to the leaves of a Merkle tree of depth $`40`$ whose every leaf past the last appended one holds $`0`$. The root of that tree is the commitment MMR root of the set, and a commitment is proven in it by a Merkle path of length $`40`$. A note set therefore holds at most $`2^{40}`$ commitments and, its [IMT](#nullifier-indexed-merkle-tree) giving a leaf to the sentinel, $`2^{40} - 1`$ nullifiers, a capacity that transfers of 8 outputs at the Execution Gas target take about 220 years to fill. An Operation adding a commitment or a nullifier to a full set is invalid.
 
 A Merkle path, in this tree and in every Merkle tree the circuits prove membership in, lists its nodes from the leaf level up to the root, and its selectors in the same order: the selector of a level is the bit of the leaf index at that level, starting from the least significant, `1` when the node computed at that level from the leaf is the right child, so that the path node is on the left. The root of a path is computed as follows:
 
@@ -2076,29 +2076,29 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 
 | Constants | Value |
 | --- | --- |
-| EXECUTION_TRANSFER_GAS | 30 |
-| EXECUTION_CHANNEL_INSCRIBE_GAS | 13 |
-| EXECUTION_CHANNEL_CONFIG_GAS | 18 |
-| EXECUTION_CHANNEL_DEPOSIT_GAS | 16 |
-| EXECUTION_CHANNEL_WITHDRAW_GAS | 13 |
-| EXECUTION_SDP_DECLARE_GAS | 669 |
-| EXECUTION_SDP_WITHDRAW_GAS | 889 |
-| EXECUTION_SDP_ACTIVE_GAS | 6975 |
-| EXECUTION_CLAIM_POW_REWARD_GAS | 569 |
-| EXECUTION_PROGRAM_REGISTER_GAS | 6843 |
-| EXECUTION_KB_GAS | 26 |
-| EXECUTION_NOTE_SET_GAS | 3485 |
-| EXECUTION_PROOF_GAS | 1773 |
-| EXECUTION_ROOT_GAS | 887 |
+| EXECUTION_TRANSFER_GAS | 12 |
+| EXECUTION_CHANNEL_INSCRIBE_GAS | 21 |
+| EXECUTION_CHANNEL_CONFIG_GAS | 20 |
+| EXECUTION_CHANNEL_DEPOSIT_GAS | 6 |
+| EXECUTION_CHANNEL_WITHDRAW_GAS | 31 |
+| EXECUTION_SDP_DECLARE_GAS | 622 |
+| EXECUTION_SDP_WITHDRAW_GAS | 892 |
+| EXECUTION_SDP_ACTIVE_GAS | 6927 |
+| EXECUTION_CLAIM_POW_REWARD_GAS | 566 |
+| EXECUTION_PROGRAM_REGISTER_GAS | 6839 |
+| EXECUTION_KB_GAS | 27 |
+| EXECUTION_NOTE_SET_GAS | 3461 |
+| EXECUTION_PROOF_GAS | 1770 |
+| EXECUTION_ROOT_GAS | 879 |
 | EXECUTION_BUFFERED_GAS | 23 |
-| EXECUTION_NULLIFIER_GAS | 838 |
-| EXECUTION_COMMITMENT_GAS | 25 |
-| EXECUTION_SIGNATURE_GAS | 167 |
-| EXECUTION_USER_STEP_GAS | 137 |
-| EXECUTION_PAYMENT_GAS | 211 |
-| EXECUTION_PROGRAM_STEP_GAS | 60 |
-| EXECUTION_OPENING_GAS | 157 |
-| EXECUTION_PROGRAM_PROOF_GAS | 6305 |
+| EXECUTION_NULLIFIER_GAS | 725 |
+| EXECUTION_COMMITMENT_GAS | 24 |
+| EXECUTION_SIGNATURE_GAS | 161 |
+| EXECUTION_USER_STEP_GAS | 161 |
+| EXECUTION_PAYMENT_GAS | 233 |
+| EXECUTION_PROGRAM_STEP_GAS | 54 |
+| EXECUTION_OPENING_GAS | 151 |
+| EXECUTION_PROGRAM_PROOF_GAS | 6320 |
 
 A ZkTransfer or a ZkProgramSpend costs, with the notes it consumes and creates:
 
