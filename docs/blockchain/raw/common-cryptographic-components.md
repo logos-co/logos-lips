@@ -157,7 +157,7 @@ Throughout the Logos Blockchain specifications, Poseidon2 is referred to as zkha
 
 In the Logos Blockchain, bytes and $`\mathbb{F}_p`$ elements are frequently converted between formats (such as when interpreting DST byte strings as Poseidon2 inputs). To convert from an $`\mathbb{F}_p`$ element to bytes, we interpret the little-endian unsigned representation of the $`\mathbb{F}_p`$ number as 32 bytes. Conversely, we can interpret 32 bytes as an $`\mathbb{F}_p`$ element provided the resulting number is smaller than $p$.
 
-> We use Poseidon2 in hash function mode everywhere except in Merkle proofs and public key derivation, where we use the modified compression mode. The nullifier `zkhash(NOTE_NF_V1, cm, sk)` hashes three elements and uses the hash function mode.
+> We use Poseidon2 in hash function mode everywhere except in Merkle proofs, public key derivation and the Proof of Quota key nullifier `zkhash(KEY_NULLIFIER_V1, selection_randomness)`, where we use the modified compression mode. The note nullifier `zkhash(NOTE_NF_V1, cm, sk)` hashes three elements and uses the hash function mode.
 
 Rationale for Use:
 

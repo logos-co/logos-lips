@@ -1113,7 +1113,7 @@ The node rewards for epoch $`s`$ are calculated according to the following schem
 
 4. Calculate the base reward:
     $$R = \left\lfloor {I \over B + P} \right\rfloor$$
-    where $`I`$ is the value of income for the Blend Network service for the epoch $`s`$. No reward is calculated when $`B + P = 0`$.  For more details about the income calculation, refer to linked reference.
+    where $`I`$ is the value of income for the Blend Network service for the epoch $`s`$, which is `blend_rewards_closed` at the first block of the epoch after next ([Block Rewards](block-rewards.md#deterministic-implementation)). No reward is calculated when $`B + P = 0`$.
 
 5. Calculate the reward of the node $`n`$:
     $$R(n) = R \cdot [\mathrm{true}(\pi_{A}^{i,t,e}) + \min_{\Delta_{\mathcal H}}(\mathrm{true}(\pi_{A}^{i,t,e}))]$$

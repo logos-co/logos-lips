@@ -79,7 +79,7 @@ Our description differs from the original paper proposition, proving that a note
 
 In order to prove that the winning note exists and existed at the start of the previous epoch, and that it is unspent, every node must compute the eligible root.
 
-Every [note set](bedrock-v1.1-mantle-specification.md#ledger) of the Mantle Ledger is eligible: the ledger note set, the SDP note set and the note set of every channel. The eligible root commits to all of them. It is the root of a Merkle tree of depth $`40`$ whose leaf at position $`i`$ hashes the root of the commitment MMR and the root of the [nullifier IMT](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of the note set of index $`i`$, every position past the last note set holding the value $`0`$, a capacity that blocks full of channel creations take about 55 years to fill:
+Every [note set](bedrock-v1.1-mantle-specification.md#ledger) of the Mantle Ledger is eligible: the ledger note set, the SDP note set and the note set of every channel. The eligible root commits to all of them. It is the root of a Merkle tree of depth $`40`$ whose leaf at position $`i`$ hashes the root of the commitment [Merkle Mountain Range](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range) (MMR) and the root of the [nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) (IMT) of the note set of index $`i`$, every position past the last note set holding the value $`0`$, a capacity that blocks full of channel creations take about 55 years to fill:
 
 ```python
 def eligible_leaf(cm_root: MerkleRoot, nf_root: MerkleRoot) -> zkhash:
@@ -112,8 +112,8 @@ A proof attesting that for the following public values:
 class ProofOfLeadershipPublic:
     slot: int                       # sl
     epoch_nonce: zkhash             # eta
-    t0: FrElement                   # lottery constants
-    t1: FrElement
+    t0: zkhash                      # lottery constants
+    t1: zkhash
     eligible_aged: MerkleRoot       # eligible root when the stake distribution was frozen
     eligible_latest: MerkleRoot     # latest eligible root
     msg: zkhash                     # hash of the header of the proposed block
@@ -130,20 +130,22 @@ class ProofOfLeadershipWitness:
     value: TokenValue
     nonce: NoteNonce
     set_selectors: list[boolean]      # position of the note set in the eligible tree (len = 40)
-    cm_aged_path: list[FrElement]     # path of the note commitment in the commitment MMR of its set (len = 40)
+    cm_aged_path: list[zkhash]        # path of the note commitment in the commitment MMR of its set (len = 40)
     cm_aged_selectors: list[boolean]
     nf_root_aged: MerkleRoot          # nullifier IMT root of the set when the stake distribution was frozen
-    set_aged_path: list[FrElement]    # path of the leaf of the set to eligible_aged (len = 40)
+    set_aged_path: list[zkhash]       # path of the leaf of the set to eligible_aged (len = 40)
     low_leaf_nf: NoteNf               # greatest nullifier of the set lower than the note nullifier
     low_leaf_next_nf: NoteNf          # next greater nullifier of the set, 0 if none
     low_leaf_next_index: int          # index of the IMT leaf holding low_leaf_next_nf, 0 if none
-    low_leaf_path: list[FrElement]    # path of the IMT leaf of low_leaf_nf (len = 40)
+    low_leaf_path: list[zkhash]       # path of the IMT leaf of low_leaf_nf (len = 40)
     low_leaf_selectors: list[boolean]
     cm_root_latest: MerkleRoot        # latest commitment MMR root of the set
-    set_latest_path: list[FrElement]  # path of the leaf of the set to eligible_latest (len = 40)
+    set_latest_path: list[zkhash]     # path of the leaf of the set to eligible_latest (len = 40)
 ```
 
 Every path and its selectors follow the Merkle path convention of [Mantle](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range): from the leaf level up, a selector being the bit of the leaf index at its level. `path_root`, defined there, computes the root of a path, and the proof checks that every selector is a bit, `s * (1 - s) == 0`.
+
+Every `<` between field elements compares their canonical integer representatives in $`[0, p)`$: the circuit decomposes each operand into 254 bits and checks that the decomposition is below $`p`$.
 
 Such that the following constraints hold:
 
