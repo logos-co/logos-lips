@@ -68,13 +68,13 @@ Common Cryptographic Components is revision 1.4.0.
 
 - `sk_enc = BLAKE2b-256(WALLET_ENC_SK_V1 || k_i)` is the X-Wing decapsulation key of the leaf that holds `k_logos`; `pk_enc` is its encapsulation key.
 - The address is `(public_key, pk_enc)`. A wallet may hand out `public_key` alone, in which case the sender gives it the value and the nonce by other means. A sender holding `pk_enc` uses it and nothing else.
-- Discovery: trial decryption of the ciphertexts the wallet receives over a direct channel or reads from a data availability layer, with the commitment check against the note sets it may receive notes in; derivation for ledger-created and program-paid notes; records for notes received in the clear.
-- Recovery from the seed replays the derivation over the chain and the trial decryption over the ciphertexts still available; a wallet keeps a backup of its records or reads its notes from a layer it can read again from the seed alone.
+- Discovery: trial decryption of the ciphertexts the wallet receives over a direct channel or reads from a data availability layer, with the commitment check against the note sets it may receive notes in; derivation for ledger-created notes and the notes a program pays in a step consuming a note of the program; records for notes received in the clear.
+- Recovery from the seed replays the derivation over the chain, for the public keys and values it can re-derive, and the trial decryption over the ciphertexts still available; the one-time public key and the value of a program payout belong to the records of the wallet when the seed does not give them; a wallet keeps a backup of its records or reads its notes from a layer it can read again from the seed alone.
 - Wallet Technical Standard is revision 1.3.0.
 
 ## 3. Note Delivery
 
-Mantle gains a Note Delivery subsection under Notes stating that the ledger holds nothing of a note but its commitment, that the notes the ledger creates and the program-paid notes derive their nonce from the Operation or the inscription, and that the user notes a sender creates are delivered off chain, the recommended delivery being the Note Encryption construction through a direct channel or a data availability layer. No Operation, validation rule or encoding changes. Mantle is revision 2.1.1.
+Mantle gains a Note Delivery subsection under Notes stating that the ledger holds nothing of a note but its commitment, that the notes the ledger creates and the notes a program pays in a step consuming a note of the program derive their nonce from the Operation or the inscription, and that the other user notes are delivered off chain, the recommended delivery being the Note Encryption construction through a direct channel or a data availability layer. No Operation, validation rule or encoding changes. Mantle is revision 2.1.1.
 
 # Implementation
 
