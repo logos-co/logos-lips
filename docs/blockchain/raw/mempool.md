@@ -409,7 +409,9 @@ def applicability(mempool, parent_state, header) -> tuple[list[SignedMantleTx], 
         for key in list(remaining):
             tx = mempool.bodies[key]
             after = apply_transaction(state, tx)
-            if after is None:
+            # The proofs are checked before the gas, so that a transaction
+            # whose proof fails cannot end the determination at G_max.
+            if after is None or not batched_proofs_verify(state, tx):
                 continue
             tx_gas = execution_gas(state, tx)
             if tx_gas > G_max:
@@ -419,7 +421,7 @@ def applicability(mempool, parent_state, header) -> tuple[list[SignedMantleTx], 
                 # The transactions not yet applied may fit another block,
                 # so none of them is inapplicable.
                 return applied, over_limit
-            elif batched_proofs_verify(state, tx):
+            else:
                 state, gas = after, gas + tx_gas
                 applied.append(tx)
                 remaining.remove(key)
