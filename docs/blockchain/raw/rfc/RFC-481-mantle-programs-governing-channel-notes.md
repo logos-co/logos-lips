@@ -10,6 +10,7 @@
 | v2 | The users of a zone alone check how a program step serves the intents over its assets. Payments follow the mini-blocks of user steps through their `buffered`, and the Execution Gas of an inscription sums the cost of each of its program steps | 2026-10-16 |
 | v3 | The ZkProgramSpend derives the output nonces of a step consuming a note of the program, and `spend_notes_hash` reads inactive fields as `0`. Every node holds an opening until its block is immutable, the sequencers of a channel after that. The freeze by sequencers, the holding of a payment, unauthenticated intents and the trust in the setup of a key are stated. The format of compressed points is defined, the point at infinity having no encoding. A step opens the program notes it creates, and program steps and `PROGRAM_REGISTER` are priced from measurements | 2026-11-03 |
 | v4 | User steps and payments are grouped in the mini-blocks of an inscription, each proven against the buffer before its mini-block, and a program spend covers the whole buffer at its position. The test vectors follow the node, the `CHANNEL_CONFIG` vector taking a threshold its two keys can reach | 2026-11-04 |
+| v5 | The message of a payment holds the channel ID as two elements, its low and high 16 bytes, so that no two channels share a message. The root a step or a payment references is named `commitment_root` | 2026-11-04 |
 
 ## Reviewer Orientation
 
@@ -102,7 +103,7 @@ Users stay hidden: payments consume notes by nullifier, and the notes a program 
 class Payment:
     inputs: list[NoteNf]
     outputs: list[NoteCm]       # change
-    cm_merkle_root: MerkleRoot
+    commitment_root: MerkleRoot
     paid_value: TokenValue      # the excess of the ZkTransfer, paid to the program
     intent: zkhash
 
@@ -112,7 +113,7 @@ class ProgramStep:
     inputs: list[NoteNf]        # notes of the program, possibly none
     outputs: list[NoteCm]       # notes of the program, and user notes it pays
     program_outputs: list[bool] # whether each output is a note of the program
-    cm_merkle_root: MerkleRoot
+    commitment_root: MerkleRoot
     spend_notes_hash: zkhash
 
 class ProgramStepProof:
@@ -125,7 +126,7 @@ class ProgramStepProof:
 Validation of a program step, in order:
 
 1. The program is registered.
-2. Each payment is spendable, and its ZkTransfer verifies with `payment_msg(channel, program_id, payment)` and an excess of `paid_value`. Its change goes to the buffer.
+2. Each payment is spendable, and its ZkTransfer verifies with an excess of `paid_value` and `payment_msg(channel, program_id, payment)`, a hash under the DST `PROGRAM_PAYMENT_V1` of the channel ID, as two elements holding its low and high 16 bytes, of the program, of the intent, and of the nullifiers and commitments of the payment. Its change goes to the buffer.
 3. The program spend consumes unspent notes of the program, possibly none, at most 4 notes in and 8 out, and its `ZkProgramSpend` verifies with `paid_value` the sum of the payments, `program_outputs`, `spend_notes_hash`, and the `op_id` of the inscription.
 4. Each output flagged in `program_outputs` has an opening in `program_notes` whose commitment, with `program` set to `program_id`, is that output.
 5. The program proof verifies under the registered key on `(spend_notes_hash, payments_hash(step), op_id)`.
@@ -159,16 +160,16 @@ def derive_program_id(key: Groth16VerificationKey) -> ProgramId:
 
 ```diff
 -MiniBlock       = StepCount *ChannelStep
--ChannelStep     = Inputs Outputs CmMerkleRoot
+-ChannelStep     = Inputs Outputs CommitmentRoot
 +MiniBlock       = StepCount *Step
 +Step            = (UserStepKind UserStep) / (ProgramStepKind ProgramStep)
 +UserStepKind    = %x00
 +ProgramStepKind = %x01
-+UserStep        = Inputs Outputs CmMerkleRoot
-+ProgramStep     = ProgramId Payments Inputs Outputs ProgramOutputs CmMerkleRoot SpendNotesHash
++UserStep        = Inputs Outputs CommitmentRoot
++ProgramStep     = ProgramId Payments Inputs Outputs ProgramOutputs CommitmentRoot SpendNotesHash
 +ProgramOutputs  = Byte                     ; bit i set when output i is a note of the program, the bits
 +                                           ; from OutputCount up being 0, rejected by the decoder otherwise
-+Payment         = Inputs Outputs CmMerkleRoot Value Intent
++Payment         = Inputs Outputs CommitmentRoot Value Intent
 +ProgramRegister = Groth16VerificationKey   ; Alpha G1, Beta Gamma Delta G2, 4 IC G1: 352 bytes
 -ChannelInscribeOpProof = Ed25519Signature *ZkTransfer
 +ChannelInscribeOpProof = Ed25519Signature *StepProof

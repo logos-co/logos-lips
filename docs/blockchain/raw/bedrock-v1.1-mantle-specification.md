@@ -502,7 +502,8 @@ def step_msg(channel: ChannelId, step: UserStep) -> zkhash:
 def payment_msg(channel: ChannelId, program_id: ProgramId, payment: Payment) -> zkhash:
     return zkhash(
         FiniteField(b"PROGRAM_PAYMENT_V1", byte_order="little", modulus=p),
-        FiniteField(channel, byte_order="little", modulus=p),
+        FiniteField(channel_lo, byte_order="little", modulus=p),
+        FiniteField(channel_hi, byte_order="little", modulus=p),
         program_id,
         payment.intent,
         FiniteField(len(payment.inputs), byte_order="little", modulus=p),
