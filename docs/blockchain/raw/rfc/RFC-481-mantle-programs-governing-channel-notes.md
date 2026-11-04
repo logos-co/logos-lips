@@ -10,7 +10,7 @@
 | v2 | The users of a zone alone check how a program step serves the intents over its assets. Payments follow the mini-blocks of user steps through their `buffered`, and the Execution Gas of an inscription sums the cost of each of its program steps | 2026-10-16 |
 | v3 | The ZkProgramSpend derives the output nonces of a step consuming a note of the program, and `spend_notes_hash` reads inactive fields as `0`. Every node holds an opening until its block is immutable, the sequencers of a channel after that. The freeze by sequencers, the holding of a payment, unauthenticated intents and the trust in the setup of a key are stated. The format of compressed points is defined, the point at infinity having no encoding. A step opens the program notes it creates, and program steps and `PROGRAM_REGISTER` are priced from measurements | 2026-11-03 |
 | v4 | User steps and payments are grouped in the mini-blocks of an inscription, each proven against the buffer before its mini-block, and a program spend covers the whole buffer at its position. The test vectors follow the node, the `CHANNEL_CONFIG` vector taking a threshold its two keys can reach | 2026-11-04 |
-| v5 | The message of a payment holds the channel ID as two elements, its low and high 16 bytes, so that no two channels share a message. The root a step or a payment references is named `commitment_root`, the commitment and nullifier names are written in full, and each notation is explained where it first appears | 2026-11-04 |
+| v5 | The message of a payment holds the channel ID as two elements, its low and high 16 bytes, so that no two channels share a message. The root a step or a payment references is named `commitment_root`, the commitment and nullifier names are written in full, and each notation is explained where it first appears. The commitment of the leader reward note is derived with `program` and `data` set to `0`, so a reward is a user note | 2026-11-04 |
 
 ## Reviewer Orientation
 
@@ -87,7 +87,7 @@ Users stay hidden: payments consume notes by nullifier, and the notes a program 
 ```
 
 - The ZkTransfer derives the commitments of its inputs and outputs with `program` and `data` set to `0`, so it moves user notes only.
-- The Proof of Leadership derives the commitment of its note the same way, so program notes do not lead.
+- The Proof of Leadership derives the commitment of its note the same way, so program notes do not lead, and the commitment of the leader reward note too, so a reward is a user note.
 - The nullifier is `zkhash(NOTE_NF_V1, commitment, sk)` for every note, `sk` being the secret key of its holder. A program note has a holder chosen by its program. The key of secret key `0` is the convention for a note open to everyone, such as the reserves of a pool.
 
 ## 2. Program steps

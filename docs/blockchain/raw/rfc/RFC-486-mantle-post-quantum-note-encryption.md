@@ -7,7 +7,7 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC: an optional note ciphertext per output of the Operations creating user notes | 2026-10-19 |
-| v2 | The ciphertext leaves the chain: no change to the Operations or their encoding, the scheme is a recommendation for delivery through a direct channel or a data availability layer; X-Wing becomes its own entry of Common Cryptographic Components with the Note Encryption construction under it; test values added; Mantle gets a Note Delivery note only | 2026-11-02 |
+| v2 | The ciphertext leaves the chain: no change to the Operations or their encoding, the scheme is a recommendation for delivery through a direct channel or a data availability layer; X-Wing becomes its own entry of Common Cryptographic Components with the Note Encryption construction under it; test values added; Mantle gets a Note Delivery note only. The leader reward note, whose nonce its leader chooses, is found from the header of its block | 2026-11-02 |
 
 ## Reviewer Orientation
 
@@ -74,7 +74,7 @@ Common Cryptographic Components is revision 1.4.0.
 
 ## 3. Note Delivery
 
-Mantle gains a Note Delivery subsection under Notes stating that the ledger holds nothing of a note but its commitment, that the notes the ledger creates and the notes a program pays in a step consuming a note of the program derive their nonce from the Operation or the inscription, and that the other user notes are delivered off chain, the recommended delivery being the Note Encryption construction through a direct channel or a data availability layer. No Operation, validation rule or encoding changes. Mantle is revision 2.1.1.
+Mantle gains a Note Delivery subsection under Notes stating that the ledger holds nothing of a note but its commitment, that the notes the ledger creates and the notes a program pays in a step consuming a note of the program derive their nonce from the Operation or the inscription, that the leader of a block chooses the nonce of its reward note, and that the other user notes are delivered off chain, the recommended delivery being the Note Encryption construction through a direct channel or a data availability layer. No Operation, validation rule or encoding changes. Mantle is revision 2.1.1.
 
 # Implementation
 
