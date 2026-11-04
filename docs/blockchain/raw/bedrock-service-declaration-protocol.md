@@ -198,7 +198,7 @@ class DeclarationMessage:
     provider_id: Ed25519PublicKey
     zk_id: ZkPublicKey
     inputs: list[NoteNf]
-    cm_merkle_root: MerkleRoot
+    commitment_root: MerkleRoot
     amount: TokenValue
 ```
 
@@ -206,7 +206,11 @@ The `locators` list must be non-empty and its length must be limited to reduce t
 
 The message must be signed by the `provider_id` key to prove ownership of the key that is used for network-level authentication of the validator.
 
-The `inputs` are the nullifiers of the notes the declaration consumes, whose ownership is proven by a [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) against `cm_merkle_root`. The declaration creates one service note of value `amount` under the `zk_id`, used for minimum stake threshold verification purposes.
+Where:
+
+- `inputs` are the nullifiers of the notes the declaration consumes, whose ownership is proven by a [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) against `commitment_root`. A [`NoteNf`](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) is the nullifier of a note, a hash of its commitment and of the secret key of its holder, published when the note is spent;
+- `commitment_root` is the root of the commitment MMR of the ledger note set at the end of one of the last 1024 blocks. A [`NoteCm`](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) is the commitment of a note, a hash of its value, its nonce and its public key, which identifies the note without revealing them;
+- `amount` is the value of the one service note the declaration creates under the `zk_id`, used for minimum stake threshold verification purposes.
 
 ### **Declaration Storage**
 

@@ -20,6 +20,7 @@
 | v12 | Builds on #503: every amount counts LEPTA, the token is LOGOS, the Block Rewards reference types its constants as 128-bit integers, and the revisions of Block Rewards, the Cryptoeconomics Overview and Total Stake Inference are renumbered past its own. The `zk_id` is a unique one-time random key, which the declaration does not prove | 2026-11-03 |
 | v13 | The Proof of Quota leader branch proves the note unspent at the freeze of the stake distribution. Genesis declarations consume no note, and Genesis checks the supply. A block above $`G_\text{max}`$ is invalid, and a proposal confirms its body root before verifying its uncles. A note set records its root only when a block appends to it, and every block records the eligible root. The Blend shares of the closed and of the current epoch are kept apart, what an epoch does not distribute returning to the reserve. `step_msg` hashes the channel, and the claim ticket has a DST | 2026-11-03 |
 | v14 | An inscription is a list of mini-blocks of steps, each step proven against its recent root and the buffer before its mini-block, in place of a `buffered` count on each step | 2026-11-04 |
+| v15 | The root an Operation references is named `commitment_root`. The message of a step holds the channel ID as two elements, its low and high 16 bytes, so that no two channels share a message. The overview figure shows the sequencer and the proof of work reward pool allocated at genesis | 2026-11-04 |
 
 ## Reviewer Orientation
 
@@ -117,8 +118,8 @@ class Ledger:
 - A channel gets the next note set when it is created, stored as `ChannelState.note_set`. The null channel, which only receives the Genesis inscriptions, gets none, and no deposit, withdrawal or step can target it.
 - The commitment MMR root is the root of the depth-40 Merkle tree whose leaves are the commitments in insertion order, empty leaves holding `0`. The ledger keeps its peaks: `mmr_append` adds a commitment, and `mmr_root` computes the root from the peaks.
 - The nullifier IMT has depth 40 and appends leaves in insertion order. At depth 32 a set would fill in about 72 days of transfers of 8 outputs at the Execution Gas target, and in about 50 years at depth 40, for 243 constraints per extra level and no change to the verification gas. A leaf is `NullifierLeaf(nf, next_nf, next_index)`, hashed with the DST `NULLIFIER_IMT_LEAF_V1`. The first leaf is the sentinel `(0, 0, 0)`, and positions past the last leaf hold `0`.
-- `assert_spendable(inputs, cm_merkle_root)`, `verify_transfer(...)`, `execute_spending(inputs)` and `execute_adding(outputs)` are methods of `NoteSet`, called as `ledger.sets[LEDGER_SET].execute_adding(...)`.
-- An Operation references a recent `cm_merkle_root`, and its ZkTransfer is proven against `tx_cm_root`, that root with the set's buffer appended, or only the commitments before its mini-block for a channel step (§2). `verify_transfer` computes `tx_cm_root` and calls `ZkTransfer_verify(...)`. `SDP_WITHDRAW` references no root and calls `ZkTransfer_verify(...)` directly (§4).
+- `assert_spendable(inputs, commitment_root)`, `verify_transfer(...)`, `execute_spending(inputs)` and `execute_adding(outputs)` are methods of `NoteSet`, called as `ledger.sets[LEDGER_SET].execute_adding(...)`.
+- An Operation references a recent `commitment_root`, and its ZkTransfer is proven against `tx_cm_root`, that root with the set's buffer appended, or only the commitments before its mini-block for a channel step (§2). `verify_transfer` computes `tx_cm_root` and calls `ZkTransfer_verify(...)`. `SDP_WITHDRAW` references no root and calls `ZkTransfer_verify(...)` directly (§4).
 - The ZkTransfer has 4 inputs and 8 outputs, marked used by the public flags `inputs_active` and `outputs_active`. The verifier sets the flags from the lengths of `inputs` and `outputs`, and an Operation with more than 4 inputs or 8 outputs is invalid. The circuit checks each flag is boolean, and an inactive input or output holds value `0`.
 - The `excess_value` of `TRANSFER`, `CHANNEL_DEPOSIT` and `SDP_WITHDRAW` adds to the transaction balance. Steps and withdrawals carry none, and the excess of `SDP_DECLARE` is its stake.
 - `derive_note_nonce(op_id, output_number, value, public_key)` uses the DST `NOTE_NONCE_V1`.
@@ -131,14 +132,14 @@ class Ledger:
 class ChannelStep:
     inputs: list[NoteNf]
     outputs: list[NoteCm]
-    cm_merkle_root: MerkleRoot  # a recent root of the channel note set
+    commitment_root: MerkleRoot  # a recent root of the channel note set
 
 class Inscribe:
     # ... channel, inscription, parent, signer unchanged
     mini_blocks: list[list[ChannelStep]]  # new
 ```
 
-- Each step carries a ZkTransfer with `msg = step_msg(channel, step)`, a hash of its channel, nullifiers and commitments under the DST `CHANNEL_STEP_V1`, and `excess_value = 0`. Its public root is `cm_merkle_root` extended with the buffer of the channel set as it stands when the mini-block of the step starts. The `ChannelInscribeOpProof` holds the signer's Ed25519 signature and one ZkTransfer per step.
+- Each step carries a ZkTransfer with `msg = step_msg(channel, step)` and `excess_value = 0`. The message is a hash under the DST `CHANNEL_STEP_V1` of the channel ID, as two elements holding its low and high 16 bytes, since a single reduced element would give channels `x` and `x + p` the same message, and of the nullifiers and commitments of the step. Its public root is `commitment_root` extended with the buffer of the channel set as it stands when the mini-block of the step starts. The `ChannelInscribeOpProof` holds the signer's Ed25519 signature and one ZkTransfer per step.
 - The steps are validated against the state the inscription is validated against, then applied in order to the channel note set. A channel being created carries no step.
 - `CHANNEL_DEPOSIT` consumes ledger notes and creates channel notes, `outputs` being commitments. Its `excess_value` pays fees.
 - `CHANNEL_WITHDRAW` is posted by the holder with a ZkTransfer of `excess_value = 0`: another Operation of the Mantle Transaction pays its fees, since an excess paid at posting would stay paid if the withdrawal is dropped. At the first block whose slot reaches `WITHDRAW_DELAY = 86,400` slots after it, its inputs are consumed and its `outputs` created in the ledger set if the inputs are still unspent; otherwise it is dropped.
@@ -193,9 +194,9 @@ The system design figure is redrawn around the reserve, the pool and the per-blo
 
 ## 7. Encoding
 
-- `ChannelInscribe = ChannelId Inscription Parent Signer MiniBlocks`, with `MiniBlocks = MiniBlockCount *MiniBlock`, `MiniBlock = StepCount *ChannelStep`, a decoder rejecting an empty mini-block, and `ChannelStep = Inputs Outputs CmMerkleRoot`. `ChannelInscribeOpProof = Ed25519Signature *ZkTransfer`.
-- `ChannelDeposit = ChannelId Inputs CmMerkleRoot Outputs Value DepositMetadata`, `ChannelWithdraw = ChannelId Inputs CmMerkleRoot Outputs`, `SDPDeclare = ServiceType Locators ProviderId ZkId Inputs CmMerkleRoot Value`, `SDPWithdraw = DeclarationId Nonce NoteNf Outputs Value`. `ChannelConfig` loses `TransferThreshold`.
-- `Transfer = Inputs Outputs CmMerkleRoot Value`, with `Inputs` of `NoteNf` and `Outputs` of `NoteCm`. `ClaimPowReward` gains `PowNonce`.
+- `ChannelInscribe = ChannelId Inscription Parent Signer MiniBlocks`, with `MiniBlocks = MiniBlockCount *MiniBlock`, `MiniBlock = StepCount *ChannelStep`, a decoder rejecting an empty mini-block, and `ChannelStep = Inputs Outputs CommitmentRoot`. `ChannelInscribeOpProof = Ed25519Signature *ZkTransfer`.
+- `ChannelDeposit = ChannelId Inputs CommitmentRoot Outputs Value DepositMetadata`, `ChannelWithdraw = ChannelId Inputs CommitmentRoot Outputs`, `SDPDeclare = ServiceType Locators ProviderId ZkId Inputs CommitmentRoot Value`, `SDPWithdraw = DeclarationId Nonce NoteNf Outputs Value`. `ChannelConfig` loses `TransferThreshold`.
+- `Transfer = Inputs Outputs CommitmentRoot Value`, with `Inputs` of `NoteNf` and `Outputs` of `NoteCm`. `ClaimPowReward` gains `PowNonce`.
 - `ChannelTransfer`, `LeaderClaim` and their proofs are removed, and so is `ChannelWithdrawOpProof`: a channel withdrawal carries a `ZkTransferProof`. `ZkTransferProof` and `ZkTransferAndEd25519SigProof` replace `ZkSigProof` and `ZkAndEd25519SigsProof`, and `ZkTransfer = Groth16` replaces `ZkSignature = Groth16`. `ChannelInscribeOpProof` is added for inscriptions and their steps, and `EmptyProof` for `ClaimPowReward`.
 - Mantle Transaction Encoding is revision 2.0.0.
 

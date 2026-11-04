@@ -137,7 +137,7 @@ CLAIM_POW_REWARD  = EXECUTION_CLAIM_POW_REWARD_GAS
 PROGRAM_REGISTER  = EXECUTION_PROGRAM_REGISTER_GAS
 ```
 
-with the constants of the Operations:
+where `user_steps` and `program_steps` are the [user steps](bedrock-v1.1-mantle-specification.md#channel_inscribe) and the program steps of the inscription, a user step being a local transaction of the channel: a ZkTransfer moving channel notes, signed by their holder and published by a sequencer, and with the constants of the Operations:
 
 | Constant | Execution Gas | Measure |
 | --- | --- | --- |
