@@ -55,6 +55,7 @@
 | 2.2.0 | Execution Gas from [Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0: a Mantle Transaction pays its bytes, each channel or SDP note set it changes and each root extension its proofs share, and each Operation pays its proofs, nullifiers, commitments, signatures, steps, payments, openings and program proofs, through `spend_gas` and the per-component constants of Gas Determination | 2026-10-27 |
 | 2.3.0 | [RFC] `SDP_ACTIVE` and `SDP_WITHDRAW` advance the `sequence` of the declaration's `nonce` by exactly one | 2026-11-04 |
 | 2.4.0 | [RFC] A claim pays a share of its reward as a vested note, whose `data` is the slot its vesting ends, and `SDP_DECLARE` stakes notes, vested ones included, through ZkStake proofs of up to 16 notes, its stake locked until its `locked_until` epoch | 2026-11-04 |
+| 2.5.0 | [RFC] The ZkStake proves that the `zk_id` of a declaration and the keys of the vested notes it stakes derive from one stake secret | 2026-11-04 |
 
 # Introduction
 
@@ -1249,7 +1250,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       assert declaration.amount >= min_stake.threshold
       ```
 
-  4. Ensure ownership over the inputs, the end of their vesting by the first slot of epoch `locked_until`, and `provider_id`.
+  4. Ensure ownership over the inputs, the end of their vesting by the first slot of epoch `locked_until`, the `zk_id` derived from the stake secret of the vested inputs, and `provider_id`.
       ```python
       assert len(proof.zk_proofs) == len(declaration.spends)
       for spend, zk_proof in zip(declaration.spends, proof.zk_proofs):
@@ -1257,6 +1258,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
                                                       spend.value,
                                                       declaration.cm_merkle_root,
                                                       declaration.locked_until * EPOCH_LENGTH,
+                                                      declaration.zk_id,
                                                       FiniteField(txhash, byte_order="little", modulus = p),
                                                       zk_proof)
       assert Ed25519_verify(txhash, declaration.provider_id, proof.provider_sig)
@@ -1923,6 +1925,20 @@ Service notes are special notes in Mantle that serve as collateral for Service D
 
 A vested note is a user note of the ledger note set whose `data` is the slot at which its vesting ends, created by [CLAIM_POW_REWARD](#claim_pow_reward). A [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) or a [ZkStake](#zero-knowledge-stake-proof-zkstake) consumes a note only if the note's `data` is at most the proof's `vested_by`, which the Operation sets ([Input Notes Spendability Validation](#input-notes-spendability-validation), [SDP_DECLARE](#sdp_declare)).
 
+A declaration stakes a vested note only if the secret key of the note and the secret key of the declaration's `zk_id` derive from one **stake secret**, which the ZkStake proves. Both derivations use Poseidon2 in compression mode:
+
+```python
+def claim_secret_key(stake_secret: ZkSecretKey, index: int) -> ZkSecretKey:
+    return zkhash(zkhash(FiniteField(b"CLAIM_SECRET_KEY_V1", byte_order="little", modulus= p), stake_secret),
+                  FiniteField(index, byte_order="little", modulus= p))
+
+def zk_id_secret_key(stake_secret: ZkSecretKey, index: int) -> ZkSecretKey:
+    return zkhash(zkhash(FiniteField(b"ZK_ID_SECRET_KEY_V1", byte_order="little", modulus= p), stake_secret),
+                  FiniteField(index, byte_order="little", modulus= p))
+```
+
+A miner pays each claim to the public key of `claim_secret_key(stake_secret, i)`, with a fresh `i` per claim, and declares with the public key of `zk_id_secret_key(stake_secret, j)` as its `zk_id`. A vested note under any other key cannot be staked.
+
 ## Ledger
 
 The notes live in note sets, each with its own commitment MMR and nullifier IMT. A note belongs to one set from its creation until it is consumed, and is spent only by the Operations of that set:
@@ -2118,8 +2134,9 @@ class NoteSet:
                                  self.tx_cm_root(cm_merkle_root, covered), vested_by, msg, proof)
 
     def verify_stake(self, inputs: list[NoteNf], value: TokenValue, cm_merkle_root: MerkleRoot,
-                     vested_by: Slot, msg: zkhash, proof: ZkStake) -> bool:
-        return ZkStake_verify(inputs, value, self.tx_cm_root(cm_merkle_root), vested_by, msg, proof)
+                     vested_by: Slot, zk_id: ZkPublicKey, msg: zkhash, proof: ZkStake) -> bool:
+        return ZkStake_verify(inputs, value, self.tx_cm_root(cm_merkle_root), vested_by, zk_id,
+                              msg, proof)
 
     def verify_program_spend(self, inputs: list[NoteNf], outputs: list[NoteCm],
                              program_outputs: list[bool], cm_merkle_root: MerkleRoot,
@@ -2342,12 +2359,13 @@ class ZkStakePublic:
     excess_value: TokenValue       # the sum of the values of the inputs
     tx_cm_root: MerkleRoot         # the referenced cm_merkle_root extended with the tx_cm_buffer of the set
     vested_by: Slot                # the slot by which the vesting of every input has ended
+    zk_id: ZkPublicKey             # the zk_id of the declaration
     msg: zkhash
 ```
 
-`ZkStake_verify(inputs, excess_value, tx_cm_root, vested_by, msg, proof)` verifies the proof for these public values, through the [`verify_stake`](#input-notes-spendability-validation) method of the note set. The flags `inputs_active` are set from `inputs` as in the ZkTransfer, so a ZkStake spends at most 16 notes.
+`ZkStake_verify(inputs, excess_value, tx_cm_root, vested_by, zk_id, msg, proof)` verifies the proof for these public values, through the [`verify_stake`](#input-notes-spendability-validation) method of the note set. The flags `inputs_active` are set from `inputs` as in the ZkTransfer, so a ZkStake spends at most 16 notes.
 
-The public signal vector of the proof is fixed by the circuit: the outputs `inputs` and `excess_value` first, then `inputs_active`, `tx_cm_root`, `vested_by` and `msg`.
+The public signal vector of the proof is fixed by the circuit: the outputs `inputs` and `excess_value` first, then `inputs_active`, `tx_cm_root`, `vested_by`, `zk_id` and `msg`.
 
 The prover knows a witness:
 
@@ -2359,12 +2377,28 @@ class ZkStakeWitness:
     inputs_data: list[zkhash]      # the slot the vesting of each input ends, 0 if it does not vest
     inputs_selectors: list[list[boolean]]  # (len = 16 x 40) the Merkle path direction of each input
     inputs_path: list[list[zkhash]]        # (len = 16 x 40) the Merkle path of each input
+    stake_secret: ZkSecretKey      # the stake secret of the declarer
+    zk_id_index: int               # the index the secret key of zk_id is derived with
+    inputs_index: list[int]        # (len = 16) the index the secret key of each vested input is derived with
 ```
 
 Such that the constraints of the [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) on its inputs hold for the 16 inputs, and the excess value is the sum of their values:
 
 ```python
 assert excess_value == sum(inputs_value)
+```
+
+The `zk_id` and the secret key of every active input with a non-zero `data` derive from the stake secret, with the functions of [Vested Notes](#vested-notes):
+
+```python
+assert zk_id == zkhash(FiniteField(b"KDF", byte_order="little", modulus= p),
+                       zk_id_secret_key(stake_secret, zk_id_index))
+assert all(
+    inputs_sk[i] == claim_secret_key(stake_secret, inputs_index[i])
+    or not inputs_active[i]
+    or inputs_data[i] == 0
+    for i in range(len(inputs_sk))
+)
 ```
 
 The proof is bound to `msg`, the `mantle_txhash` reduced modulo $`p`$. The unused inputs are inactive, as in the ZkTransfer.

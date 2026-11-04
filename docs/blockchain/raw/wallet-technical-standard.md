@@ -30,6 +30,7 @@
 | 1.2.0 | Added the note tracking a wallet keeps to spend its notes and to participate in the leadership lottery, over the note sets of depth 40 | 2026-10-07 |
 | 1.3.0 | Added the note encryption key derived next to the ZK key, the address a sender needs, and the discovery of notes by trial decryption of the note ciphertexts delivered off chain, with what the recovery from the seed covers | 2026-11-02 |
 | 1.4.0 | [RFC] A wallet keeps the `data` of its vested notes, spends a vested note a random number of blocks after its vesting ends, and submits the claims of a service provider through other peers | 2026-11-04 |
+| 1.5.0 | [RFC] A wallet that mines derives the keys of its claims and the `zk_id` of its declarations from a stake secret | 2026-11-04 |
 
 # Introduction
 
@@ -253,6 +254,8 @@ def on_nullifier_inserted(tracked: TrackedLowLeaf, inserted_nf: NoteNf,
 ### Vested Notes
 
 A wallet keeps the `data` of each [vested note](bedrock-v1.1-mantle-specification.md#vested-notes) it holds, which its commitment and its proofs take. The end of a vesting is public, so a spend right after it points at the claims of the block it was counted from: a wallet should spend a vested note a random number of blocks after its vesting ends. A wallet should also submit the proof of work claims of a service provider through peers other than the node named in the provider's locators, since the peer that first relays a transaction can link it to the node that sent it.
+
+A wallet that mines keeps a stake secret, the $`k_{\text{logos}}`$ of a hardened child key it reserves for staking ([ZK-Compatible Secret Key Derivation](#zk-compatible-secret-key-derivation-in-the-logos-blockchain)). It derives the key of each claim and the `zk_id` of each declaration from it, with the functions of [Mantle - Vested Notes](bedrock-v1.1-mantle-specification.md#vested-notes) and a fresh index each time, so that it can stake its vested notes. Recovering from the seed, it re-derives the stake secret and finds its claims by the public keys of `claim_secret_key(stake_secret, i)` for increasing `i`.
 
 # References
 

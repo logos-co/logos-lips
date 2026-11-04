@@ -39,6 +39,7 @@
 | 1.9.0 | Support the private ledger of Mantle: a declaration consumes notes and creates its own service note under the `zk_id` in the SDP note set, the withdrawal consumes it with a ZkTransfer, and the active and withdraw messages are signed by the `provider_id` | 2026-10-07 |
 | 1.10.0 | [RFC] An active or withdraw message advances the `sequence` of its declaration's `nonce` by exactly one | 2026-11-04 |
 | 1.11.0 | [RFC] A declaration consumes its notes, vested ones included, in spends of up to 16 notes, and cannot be withdrawn before its `locked_until` epoch | 2026-11-04 |
+| 1.12.0 | [RFC] The `zk_id` derives from the stake secret of the declarer, which every spend of the declaration proves | 2026-11-04 |
 
 # Introduction
 
@@ -175,7 +176,7 @@ At any epoch `n`, the most recent report a snapshot can contain was included in 
 We define the following set of identifiers which are used for service-specific cryptographic operations:
 
 - `provider_id`: used to sign the SDP messages and to establish secure links between validators; it is `Ed25519PublicKey`.
-- `zk_id`: the `ZkPublicKey` the service note and the rewards of the validator are created under; it is also the key the validator proves in the [Proof of Quota](proof-of-quota.md). It is a unique one-time random key, which the declaration does not prove.
+- `zk_id`: the `ZkPublicKey` the service note and the rewards of the validator are created under; it is also the key the validator proves in the [Proof of Quota](proof-of-quota.md). It derives from the stake secret of the declarer, the secret the keys of the vested notes the declaration stakes derive from, and every spend of the declaration proves it ([Mantle - Vested Notes](bedrock-v1.1-mantle-specification.md#vested-notes)).
 
 ### **Locators**
 

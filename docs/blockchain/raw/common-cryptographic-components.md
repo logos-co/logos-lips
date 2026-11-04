@@ -28,6 +28,7 @@
 | 1.2.0 | Strict EdDSA verification: reject small-order public keys and small-order `R` | 2026-09-22 |
 | 1.3.0 | Removed the ZkSignature scheme, no longer used by any Operation. The three-element nullifier uses the hash function mode | 2026-10-07 |
 | 1.4.0 | Added Public-Key Encryption: the X-Wing hybrid KEM and the Note Encryption construction over it, a BLAKE2b key derivation and ChaCha20-Poly1305, which delivers the contents of a note to its holder off chain | 2026-11-02 |
+| 1.4.1 | [RFC] The keys derived from a stake secret use the compression mode | 2026-11-04 |
 
 # Introduction
 
@@ -158,7 +159,7 @@ Throughout the Logos Blockchain specifications, Poseidon2 is referred to as zkha
 
 In the Logos Blockchain, bytes and $`\mathbb{F}_p`$ elements are frequently converted between formats (such as when interpreting DST byte strings as Poseidon2 inputs). To convert from an $`\mathbb{F}_p`$ element to bytes, we interpret the little-endian unsigned representation of the $`\mathbb{F}_p`$ number as 32 bytes. Conversely, we can interpret 32 bytes as an $`\mathbb{F}_p`$ element provided the resulting number is smaller than $p$.
 
-> We use Poseidon2 in hash function mode everywhere except in Merkle proofs, public key derivation and the Proof of Quota key nullifier `zkhash(KEY_NULLIFIER_V1, selection_randomness)`, where we use the modified compression mode. The note nullifier `zkhash(NOTE_NF_V1, cm, sk)` hashes three elements and uses the hash function mode.
+> We use Poseidon2 in hash function mode everywhere except in Merkle proofs, public key derivation, the derivation of keys from a stake secret ([Mantle - Vested Notes](bedrock-v1.1-mantle-specification.md#vested-notes)) and the Proof of Quota key nullifier `zkhash(KEY_NULLIFIER_V1, selection_randomness)`, where we use the modified compression mode. The note nullifier `zkhash(NOTE_NF_V1, cm, sk)` hashes three elements and uses the hash function mode.
 
 Rationale for Use:
 
@@ -194,7 +195,7 @@ Technical Details:
 - Public Key Size: 32 bytes.
 - Security Level: Approximately 128 bits.
 - Operations: Efficient scalar multiplications with Montgomery ladder for constant-time execution.
-- Verification: a signature $`(R, S)`$ on a message $`M`$ under the public key $`A`$ is valid only if $`S < \ell`$, neither $`A`$ nor $`R`$ is a point of small order (order 1, 2, 4 or 8), and $`[S]B = R + [k]A`$ with $`k = \text{SHA-512}(R \| A \| M)`$. This is the cofactorless equation of [RFC 8032 §5.1.7](https://datatracker.ietf.org/doc/html/rfc8032#section-5.1.7) with the small-order checks added (`verify_strict` in `ed25519-dalek`).
+- Verification: a signature $`(R, S)`$ on a message $`M`$ under the public key $`A`$ is valid only if $`S \lt \ell`$, neither $`A`$ nor $`R`$ is a point of small order (order 1, 2, 4 or 8), and $`[S]B = R + [k]A`$ with $`k = \text{SHA-512}(R \| A \| M)`$. This is the cofactorless equation of [RFC 8032 §5.1.7](https://datatracker.ietf.org/doc/html/rfc8032#section-5.1.7) with the small-order checks added (`verify_strict` in `ed25519-dalek`).
 
 Use in the Logos Blockchain:
 
