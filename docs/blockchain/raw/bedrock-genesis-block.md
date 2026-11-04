@@ -229,7 +229,7 @@ The Genesis Block header fields are set to the following values:
 - `slot`: 0 (the Genesis slot).
 - `body_root`: the body commitment over an empty `uncle_headers` list (as the Genesis Block references no uncle, it encodes as a zero element count) and the Merkle root over the (single) initial transaction.
 - `proof_of_leadership`: Stubbed leadership proof.
-  - `reward_key`: 0 (as there is no leader block reward for the initial block).
+  - `reward_commitment` and `reward_value`: 0 (as there is no leader block reward for the initial block).
   - `entropy_contribution`: 0 (no entropy is provided through the initial PoL).
   - `proof`: Null Groth16Proof, all values are set to zero.
 
@@ -242,7 +242,8 @@ GENESIS_HEADER = Header(
     slot=0,
     body_root=body_root([], [GENESIS_MANTLE_TX]),
     proof_of_leadership=ProofOfLeadership(
-        reward_key=bytes(32),
+        reward_commitment=bytes(32),
+        reward_value=0,
         entropy_contribution=bytes(32),
         proof=Groth16Proof(G1_ZERO, G2_ZERO, G1_ZERO),
     )
@@ -326,7 +327,8 @@ GENESIS_HEADER = Header(
     slot=0,
     body_root=body_root([], [GENESIS_MANTLE_TX]),
     proof_of_leadership=ProofOfLeadership(
-        reward_key=bytes(32),
+        reward_commitment=bytes(32),
+        reward_value=0,
         entropy_contribution=bytes(32),
         proof=Groth16Proof(G1.ZERO, G2.ZERO, G1.ZERO),
     )

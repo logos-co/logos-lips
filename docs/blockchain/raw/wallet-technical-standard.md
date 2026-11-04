@@ -27,7 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-02-05 |
 | 1.0.1 | Updated project references to Logos Blockchain | 2026-04-17 |
 | 1.1.0 | Fixed the master key generation personalization string to a valid 16-byte value; aligned the public key derivation with the [Mantle specification](bedrock-v1.1-mantle-specification.md#zero-knowledge-signature-scheme-zksignature) (`KDF` DST, compression mode, applied to the Logos key); specified the final Poseidon2 step as hash mode with the `WALLET_ZK_SK_V1` DST; clarified that extended public keys derive no children | 2026-09-03 |
-| 1.2.0 | Added the note tracking a wallet keeps to spend its notes and to participate in the leadership lottery, over the note sets of depth 40 | 2026-10-07 |
+| 1.2.0 | Added the note tracking a wallet keeps to spend its notes and to participate in the leadership lottery, over the note sets of depth 40, and the nonce of the leader reward notes, from which a wallet finds them when recovering from its seed | 2026-10-07 |
 
 # Introduction
 
@@ -222,6 +222,30 @@ def on_nullifier_inserted(tracked: TrackedLowLeaf, inserted_nullifier: NoteNulli
         update_path(tracked, low_index, low_leaf, low_path)
         update_path(tracked, new_index, new_leaf, new_path)
 ```
+
+### Leader Reward Notes
+
+The leader of a block chooses the public key and the nonce of its reward note ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)). A wallet can receive all its rewards under one public key: the commitment hides the key, so reusing it does not link the blocks. Two rewards of the same value under the same key and nonce are identical notes, of which only one can be spent. A wallet should therefore derive the nonce from the secret key `sk` of that public key and the slot of the block, a slot holding at most one block of a chain:
+
+```python
+def derive_reward_nonce(sk: ZkSecretKey, slot: int) -> NoteNonce:
+    return zkhash(
+        FiniteField(b"LEADER_REWARD_NONCE_V1", byte_order="little", modulus= p),
+        sk,
+        FiniteField(slot, byte_order="little", modulus= p)
+    )
+```
+
+Only the holder of `sk` can compute this nonce, so the commitment still hides the key. A wallet recovering from its seed finds its reward notes without any stored record, by recomputing the commitment of each block for each of its reward keys, at two hashes per block and key, from what the header makes public:
+
+```python
+def is_own_reward(header: Header, sk: ZkSecretKey, public_key: ZkPublicKey) -> bool:
+    nonce = derive_reward_nonce(sk, header.slot)
+    note = Note(header.proof_of_leadership.reward_value, nonce, public_key)
+    return derive_note_commitment(note) == header.proof_of_leadership.reward_commitment
+```
+
+The secret only has to come from the seed, so a wallet keeping the secret of its reward key offline can derive the nonce from the secret key of the note it leads with, and tries that pair of keys instead. A reward note found this way is tracked in the ledger note set as any other note.
 
 # References
 

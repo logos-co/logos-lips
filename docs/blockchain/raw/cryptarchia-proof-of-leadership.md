@@ -27,7 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-12-09 |
 | 1.1.0 | Remove the protection against adaptive adversary from PoL removing a non-enforced feature, simplifying work for engineers, improving UX and performances of PoL and PoQ. Update the performance according to the new circuit. Remove the notion of NOMOS in DSTs | 2026-01-29 |
 | 1.1.1 | Introduced a discussion for when the value of a participating note is way higher than the total estimated stake | 2026-06-24 |
-| 1.2.0 | Support the private ledger of Mantle: a note is eligible from any note set of the ledger, committed together in the eligible root, and proven unspent by the non-membership of its nullifier. The proof is bound to its block by `msg`, a hash of the block header, replacing the leader key. The commitment, nullifier and eligible tree paths have depth 40 | 2026-10-06 |
+| 1.2.0 | Support the private ledger of Mantle: a note is eligible from any note set of the ledger, committed together in the eligible root, and proven unspent by the non-membership of its nullifier. The proof is bound to its block by `msg`, a hash of the block header, replacing the leader key, and derives the commitment of the leader reward note from the public reward value and a private key and nonce. The commitment, nullifier and eligible tree paths have depth 40 | 2026-10-06 |
 
 # Introduction
 
@@ -55,6 +55,7 @@ The PoL mechanism ensures that a note has legitimately won the leadership electi
   3. Prove the non-membership of its nullifier in the most recent nullifier set of the same note set, proving it's unspent.
   4. Prove that the note won the PoS lottery.
   5. The proof is bound to the header of the proposed block through `msg`.
+  6. Derive the commitment of the leader reward note of the block from its public value and from a public key and a nonce that stay private.
 
 ## Comparison with Original Crypsinous PoL
 
@@ -117,10 +118,14 @@ class ProofOfLeadershipPublic:
     eligible_aged: MerkleRoot       # eligible root when the stake distribution was frozen
     eligible_latest: MerkleRoot     # latest eligible root
     msg: zkhash                     # hash of the header of the proposed block
+    reward_value: TokenValue        # value of the leader reward note of the proposed block
     entropy_contribution: zkhash    # rho_LEAD
+    reward_commitment: NoteCommitment  # commitment of the leader reward note
 ```
 
-The epoch nonce is defined in [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce) and the aged root in [Epoch State Pseudocode](cryptarchia-v1-protocol.md#epoch-state-pseudocode). The lottery constants are computed with high precision outside the proof (see [Lottery Approximation](#lottery-approximation)), and `msg` binds the proof to the proposed block (see [Linking the Proof of Leadership to a Block](#linking-the-proof-of-leadership-to-a-block)).
+The epoch nonce is defined in [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce) and the aged root in [Epoch State Pseudocode](cryptarchia-v1-protocol.md#epoch-state-pseudocode). The lottery constants are computed with high precision outside the proof (see [Lottery Approximation](#lottery-approximation)), `msg` binds the proof to the proposed block (see [Linking the Proof of Leadership to a Block](#linking-the-proof-of-leadership-to-a-block)), and `reward_value` and `reward_commitment` name the note paying the leader (see [Leader Reward Note](#leader-reward-note)).
+
+The circuit fixes the order of the public signals of the proof: the outputs `entropy_contribution` and `reward_commitment` first, then `slot`, `epoch_nonce`, `t0`, `t1`, `eligible_aged`, `eligible_latest`, `msg` and `reward_value`.
 
 The prover knows a witness:
 
@@ -141,9 +146,11 @@ class ProofOfLeadershipWitness:
     low_leaf_selectors: list[boolean]         # selectors of low_leaf_path
     commitment_root_latest: MerkleRoot        # latest commitment MMR root of the set
     set_latest_path: list[zkhash]             # path of the leaf of the set to eligible_latest (len = 40)
+    reward_public_key: ZkPublicKey            # public key of the leader reward note
+    reward_nonce: NoteNonce                   # nonce of the leader reward note
 ```
 
-`ZkSecretKey`, `TokenValue`, `NoteNonce` and `NoteNullifier` are the types of [Notes](bedrock-v1.1-mantle-specification.md#notes) in Mantle.
+`ZkSecretKey`, `ZkPublicKey`, `TokenValue`, `NoteNonce`, `NoteCommitment` and `NoteNullifier` are the types of [Notes](bedrock-v1.1-mantle-specification.md#notes) in Mantle.
 
 Every path and its selectors follow the Merkle path convention of [Mantle](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range): from the leaf level up, a selector being the bit of the leaf index at its level. `path_root`, defined there, computes the root of a path, and the proof checks that every selector is a bit, `s * (1 - s) == 0`.
 
@@ -200,6 +207,11 @@ Such that the following constraints hold:
   assert entropy_contribution == zkhash(FiniteField(b"NONCE_CONTRIB_V1", byte_order="little", modulus= p), slot, commitment, sk)
   ```
 
+- The commitment of the leader reward note is derived from the reward value, the reward nonce and the reward public key.
+  ```python
+  assert reward_commitment == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), reward_value, reward_nonce, reward_public_key)
+  ```
+
 - The proof is bound to `msg`.
 
 # Linking the Proof of Leadership to a Block
@@ -214,14 +226,25 @@ def pol_msg(header: Header) -> zkhash:
         header.parent_block,
         header.slot.to_bytes(8, byteorder='little'),
         header.body_root,
-        header.proof_of_leadership.reward_key,
+        header.proof_of_leadership.reward_commitment,
+        header.proof_of_leadership.reward_value.to_bytes(8, byteorder='little'),
     )
     return FiniteField(digest, byte_order="little", modulus= p)
 ```
 
-- `msg` covers every field of the header except the proof and the entropy contribution, which the proof itself produces. Through `body_root`, it covers the transactions and the uncle headers of the block.
-- A PoL is therefore valid for a single block: it cannot be attached to other content, and the leader reward cannot be redirected to another `reward_key`.
-- The leader proves the PoL once the content of its block is fixed.
+- `msg` covers every field of the header except the proof and the entropy contribution, which the proof itself produces. `reward_commitment` is an output of the proof as well, but the leader computes it from values it holds before proving. Through `body_root`, `msg` covers the transactions and the uncle headers of the block.
+- A PoL is therefore valid for a single block: it cannot be attached to other content, and the leader reward cannot be redirected to another `reward_commitment`.
+- The leader proves the PoL once the content of its block is fixed, which also fixes the reward value.
+
+# Leader Reward Note
+
+The leader reward of a block is paid as a note the proof derives the commitment of ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), so that the block names the note without revealing who holds it.
+
+- `reward_value` and `reward_commitment` are public, in the header. The value says nothing of the leader, since every node computes the reward of a block.
+- `reward_public_key` and `reward_nonce` stay private. The commitment hides them, so the chain shows neither the key a reward is paid to nor whether two blocks pay the same key. The nonce has to stay private for this to hold: given the public value and a public nonce, anyone could test a known public key against the commitment.
+- `reward_value` is in the header so that the proof verifies from the header alone, before the block is reconstructed and in a batch with other proofs of leadership. It is compared with the computed reward once the transactions have run ([Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation)), and a block whose value differs from its reward is invalid whatever its proof says.
+- `reward_value` needs no range check in the circuit. It is read from 8 bytes of the header, so it is below $`2^{64}`$, and a note enters the ledger only with the value of the computed reward.
+- The circuit does not constrain `reward_public_key` and `reward_nonce`, which the leader chooses freely. A key can be reused for any number of blocks. Two rewards of the same value under the same key and nonce are identical notes, of which only one can be spent, which is the risk of the leader alone. The [Wallet Technical Standard](wallet-technical-standard.md#leader-reward-notes) recommends a nonce that avoids it.
 
 # Appendix
 
