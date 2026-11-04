@@ -9,6 +9,7 @@
 | v1 | Initial RFC | 2026-10-12 |
 | v2 | The users of a zone alone check how a program step serves the intents over its assets. Payments follow the mini-blocks of user steps through their `buffered`, and the Execution Gas of an inscription sums the cost of each of its program steps | 2026-10-16 |
 | v3 | The ZkProgramSpend derives the output nonces of a step consuming a note of the program, and `spend_notes_hash` reads inactive fields as `0`. Every node holds an opening until its block is immutable, the sequencers of a channel after that. The freeze by sequencers, the holding of a payment, unauthenticated intents and the trust in the setup of a key are stated. The format of compressed points is defined, the point at infinity having no encoding. A step opens the program notes it creates, and program steps and `PROGRAM_REGISTER` are priced from measurements | 2026-11-03 |
+| v4 | User steps and payments are grouped in the mini-blocks of an inscription, each proven against the buffer before its mini-block, and a program spend covers the whole buffer at its position. The test vectors follow the node, the `CHANNEL_CONFIG` vector taking a threshold its two keys can reach | 2026-11-04 |
 
 ## Reviewer Orientation
 
@@ -90,18 +91,18 @@ Users stay hidden: payments consume notes by nullifier, and the notes a program 
 
 ## 2. Program steps
 
-`CHANNEL_INSCRIBE` carries `steps: list[UserStep | ProgramStep]`.
+`CHANNEL_INSCRIBE` carries `mini_blocks: list[list[UserStep | ProgramStep]]`.
 
 - A **user step** is a ZkTransfer of its holder bound to `step_msg`, which commits to its channel, with an `excess_value` of `0`.
 - A **program step** carries a `program_id`, its `payments`, and a program spend over the program notes.
-- Like a user step, a payment names with `buffered` how many commitments created earlier in the transaction its proof covers, and is verified against its referenced root extended with only those. A payment over notes of earlier blocks takes `buffered = 0` and holds at any position, so a sequencer can gather the payments of many users, all proven against the same recent root, into its program steps without the users proving one after another.
+- Like a user step, a payment is verified against its referenced root extended with the buffer as it stands when its mini-block starts. It holds at any position in its mini-block, so a sequencer can gather the payments of many users into its program steps without the users proving one after another.
+- The program spend is proven by the sequencer once the inscription is fixed, and covers the whole buffer at its position. Program steps moving one pool can therefore follow each other in a single mini-block, each consuming the note the previous one created.
 
 ```python
 class Payment:
     inputs: list[NoteNf]
     outputs: list[NoteCm]       # change
     cm_merkle_root: MerkleRoot
-    buffered: int               # the number of commitments of the transaction buffer the proof covers
     paid_value: TokenValue      # the excess of the ZkTransfer, paid to the program
     intent: zkhash
 
@@ -157,17 +158,17 @@ def derive_program_id(key: Groth16VerificationKey) -> ProgramId:
 ## 5. Encoding
 
 ```diff
--Steps           = StepCount *ChannelStep
--ChannelStep     = Inputs Outputs CmMerkleRoot Buffered
-+Steps           = StepCount *Step
+-MiniBlock       = StepCount *ChannelStep
+-ChannelStep     = Inputs Outputs CmMerkleRoot
++MiniBlock       = StepCount *Step
 +Step            = (UserStepKind UserStep) / (ProgramStepKind ProgramStep)
 +UserStepKind    = %x00
 +ProgramStepKind = %x01
-+UserStep        = Inputs Outputs CmMerkleRoot Buffered
++UserStep        = Inputs Outputs CmMerkleRoot
 +ProgramStep     = ProgramId Payments Inputs Outputs ProgramOutputs CmMerkleRoot SpendNotesHash
 +ProgramOutputs  = Byte                     ; bit i set when output i is a note of the program, the bits
 +                                           ; from OutputCount up being 0, rejected by the decoder otherwise
-+Payment         = Inputs Outputs CmMerkleRoot Buffered Value Intent
++Payment         = Inputs Outputs CmMerkleRoot Value Intent
 +ProgramRegister = Groth16VerificationKey   ; Alpha G1, Beta Gamma Delta G2, 4 IC G1: 352 bytes
 -ChannelInscribeOpProof = Ed25519Signature *ZkTransfer
 +ChannelInscribeOpProof = Ed25519Signature *StepProof
