@@ -88,7 +88,9 @@ SDP_ACTIVE_GAS                = 59
 CLAIM_POW_REWARD_GAS          = 0
 ```
 
-where `user_steps` is the number of user steps of the inscription and `program_steps` the list of its program steps, each program step costing `PROGRAM_STEP_GAS` for its own number of payments, and come from our implementation observations as described in [Gas determination from measures](#gas-determination-from-measures).  To get these numbers, we based our calculations on the following measures:
+where `user_steps` is the number of [user steps](bedrock-v1.1-mantle-specification.md#channel_inscribe) of the inscription and `program_steps` the list of its program steps, each program step costing `PROGRAM_STEP_GAS` for its own number of payments. A user step is a local transaction of the channel: a ZkTransfer moving channel notes, signed by their holder and published by a sequencer.
+
+These values come from our implementation observations as described in [Gas determination from measures](#gas-determination-from-measures).  To get these numbers, we based our calculations on the following measures:
 
 | Operation | Number of CPU cycles |
 | --- | --- |
