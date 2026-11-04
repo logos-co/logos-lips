@@ -91,7 +91,7 @@ DISTRIBUTION_INSCRIPTION = Inscribe(
     inscription=distribution,
     parent=hash(encode(CRYPTARCHIA_INSCRIPTION)),
     signer=Ed25519PublicKey_ZERO,
-    steps=[],
+    mini_blocks=[],
 )
 ```
 
@@ -175,7 +175,7 @@ CRYPTARCHIA_INSCRIPTION = Inscribe(
     inscription=inscription,
     parent=bytes(32),
     signer=Ed25519PublicKey_ZERO,
-    steps=[],
+    mini_blocks=[],
 )
 ```
 
@@ -281,7 +281,7 @@ CRYPTARCHIA_INSCRIPTION = Inscribe(
     inscription=inscription,
     parent=bytes(32),
     signer=Ed25519PublicKey_ZERO,
-    steps=[],
+    mini_blocks=[],
 )
 
 # publish the initial distribution
@@ -294,7 +294,7 @@ DISTRIBUTION_INSCRIPTION = Inscribe(
     inscription=distribution,
     parent=hash(encode(CRYPTARCHIA_INSCRIPTION)),
     signer=Ed25519PublicKey_ZERO,
-    steps=[],
+    mini_blocks=[],
 )
 
 # service declarations
