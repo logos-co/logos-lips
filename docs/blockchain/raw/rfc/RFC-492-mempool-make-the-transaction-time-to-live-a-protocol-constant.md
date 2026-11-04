@@ -7,6 +7,7 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-10-21 |
+| v2 | Restated the difference a fork switch leaves by whether a node holds the displaced transaction's admission time, and dropped its broadcast. | 2026-11-04 |
 
 ## Reviewer Orientation
 
@@ -25,7 +26,7 @@ A node retires a pending transaction once its age reaches `TRANSACTION_TTL`, the
 
 With one value, two nodes' copies of a transaction expire at times that differ only by when each node admitted it. For a transaction that both nodes received by gossip, that difference is the time gossip took between them. With a value per node, the difference also includes the difference between the two values, which can be of any length, while `RETIREMENT_GRACE` keeps a retired copy resolvable for only ten minutes.
 
-One value does not remove every difference. After a fork switch, a node re-admits a displaced transaction at the current time and broadcasts it. A node that never retired the transaction drops that copy as a duplicate, and keeps its earlier admission time.
+One value does not remove every difference. After a fork switch, a node that holds no admission time for a displaced transaction re-admits it at the current time. A node that still holds the transaction's admission time keeps that time.
 
 A constant also leaves no node without expiry. Every node retires a transaction that no block includes once its age reaches `TRANSACTION_TTL`, and discards it `RETIREMENT_GRACE` later.
 
