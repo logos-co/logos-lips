@@ -49,7 +49,7 @@
 | 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding. | 2026-10-06 |
 | 1.18.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a note backs one declaration per service, `SDP_WITHDRAW` no longer names the note, and a `nonce` carries the `created` epoch of its declaration | 2026-10-27 |
 | 1.19.0 | `MinStake` holds `threshold` and the block number `timestamp`, following the Service Declaration Protocol | 2026-10-27 |
-| 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each proven against a recent root and the part of the transaction buffer it names, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and moved `CLAIM_POW_REWARD` to the opcode `0x30`. The commitment MMR and the nullifier IMT of a note set have depth 40 | 2026-10-07 |
+| 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, grouped in the mini-blocks of an inscription, each proven against a recent root and the transaction buffer before its mini-block, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and moved `CLAIM_POW_REWARD` to the opcode `0x30`. The commitment MMR and the nullifier IMT of a note set have depth 40 | 2026-10-07 |
 
 # Introduction
 
@@ -373,7 +373,7 @@ Channels let their bridged notes keep participating in Proof of Stake. When a us
 
 **Holders keep their notes.** A channel note is a note of the channel's note set, owned by the holder of its `ZkPublicKey`. Only that holder can spend it, in one of two ways:
 
-- *Inside the channel*, the holder signs a step off-chain: a ZkTransfer that consumes its channel notes and creates channel notes of the same total value. The sequencers of the channel collect the steps of their users and publish them in a [`CHANNEL_INSCRIBE`](#channel_inscribe), in the order they choose, since a step proven over notes of earlier blocks holds at any position. The ledger verifies every step, so a sequencer orders the moves of a channel but never makes one.
+- *Inside the channel*, the holder signs a step off-chain: a ZkTransfer that consumes its channel notes and creates channel notes of the same total value. The sequencers of the channel collect the steps of their users and publish them in a [`CHANNEL_INSCRIBE`](#channel_inscribe), grouping them in mini-blocks and ordering each mini-block as they choose, since a step holds at any position in its mini-block. The ledger verifies every step, so a sequencer orders the moves of a channel but never makes one.
 - *Out of the channel*, the holder posts a [`CHANNEL_WITHDRAW`](#channel_withdraw) alone, its fee paid by a ledger note in the same Mantle Transaction. It takes effect `WITHDRAW_DELAY` slots later, unless an inscription of the channel consumes its notes with a valid step in the meantime. The withdrawal is the forced exit of a holder whose steps the sequencers do not publish. It also settles a holder who signs both a step and a withdrawal of the same notes optimistically: the step wins if an inscription publishes it before the withdrawal is due, and the holder has then paid the fees of the withdrawal for nothing.
 
 **Ageing.** Because a deposit and a step consume notes and create new ones, a channel note restarts the ageing process and must age again before it can create a PoL. Bridged funds still count toward Proof of Stake, so the goals above hold, but the participation is not continuous across these moves.
@@ -383,7 +383,7 @@ Channels let their bridged notes keep participating in Proof of Stake. When a us
 | Party | Can | Cannot |
 |---|---|---|
 | Holder of the note's `ZkPublicKey` | Create a PoL with the note and earn its rewards. Sign a step moving the note inside the channel. Withdraw the note alone, paying the fee with a ledger note | Spend the note in any other Operation |
-| Channel sequencers | Collect the steps of their users and publish them in the inscriptions of the channel, in the order they choose, a step consuming a note of the same Mantle Transaction coming after it | Move a note without its holder's step |
+| Channel sequencers | Collect the steps of their users and publish them in the inscriptions of the channel, grouped in mini-blocks in the order they choose, a step consuming a note of the same Mantle Transaction coming in a later mini-block | Move a note without its holder's step |
 
 ### CHANNEL_INSCRIBE
 
@@ -396,27 +396,26 @@ class ChannelStep:
     inputs: list[NoteNf]        # nullifiers of the consumed channel notes
     outputs: list[NoteCm]       # commitments of the created channel notes
     cm_merkle_root: MerkleRoot  # the MMR root of the channel note set at the end of one of the last 1024 blocks
-    buffered: int               # UINT16, the number of commitments of the tx_cm_buffer of the set
-                                # the proof covers, 0 for a step over cm_merkle_root
 
 class Inscribe:
     channel: ChannelId       # 32 bytes Channel being written to
     inscription : bytes      # Message to be written on the blockchain
     parent: hash             # Previous message in the channel
     signer: Ed25519PublicKey # Identity of message sender
-    steps: list[ChannelStep] # Moves of channel notes, in the order they apply, possibly empty
+    mini_blocks: list[list[ChannelStep]]  # Moves of channel notes, in the order they apply, possibly
+                                          # empty. A mini-block holds at least one step
 ```
 
 A step is signed by the holder of the notes it consumes, off-chain and before the Mantle Transaction carrying it exists. Its ZkTransfer is therefore bound to the step itself rather than to the `mantle_txhash`, and it balances exactly, with an `excess_value` of `0`.
 
-Its proof is verified against the referenced root extended with the first `buffered` commitments of the buffer of the channel note set, those the Operations and steps before it in the Mantle Transaction add first. The proof therefore depends on the commitments it covers and not on the position of the step, and the holders prove their steps independently of one another:
+The steps of an inscription are grouped in mini-blocks. The proof of a step is verified against its referenced root extended with the buffer of the channel note set as it stands when the mini-block of the step starts: the commitments the earlier Operations of the Mantle Transaction and the earlier mini-blocks of the inscription added. A step can therefore consume the notes of earlier blocks and the outputs of the earlier mini-blocks, but not the outputs of its own mini-block. Its proof depends on what precedes its mini-block and not on its position inside it, and the holders prove their steps independently of one another:
 
-- A step over notes created in earlier blocks can take `buffered = 0`. Its proof holds at any position in any transaction, so a sequencer collects the steps of many users, all proven against the same recent root, and publishes them in the order it chooses.
-- A step consuming a note created earlier in the same Mantle Transaction covers the buffer at least up to that note, and is placed after the commitments it covers.
+- The steps of the first mini-block, when no earlier Operation of the Mantle Transaction added to the channel note set, are proven against their recent root alone, so a sequencer collects the steps of many users and publishes them in the order it chooses. An Operation adding to that note set goes after the inscription, unless a step consumes what it adds.
+- If the first mini-block adds 400 commitments to the buffer, every step of the second mini-block covers these 400: it can consume the outputs of the first mini-block, and the steps of the second mini-block are again ordered freely among themselves. The same holds for the next mini-blocks.
 
-A sequencer can thus build an inscription from several mini-blocks, groups of steps sharing one `buffered`, and publish them together. The steps of the first mini-block take `buffered = 0`. If the Operations and the steps before the second mini-block add 400 commitments to the buffer, every step of the second mini-block takes `buffered = 400`: it can consume the outputs of the first mini-block, and the steps of the second mini-block are again ordered freely among themselves. The same holds for the next mini-blocks. Extending every proof with the whole buffer would instead tie each proof to its position: each holder would have to wait for the sequencer to fix every step before its own, and the steps would be proven one after another.
+Extending every proof with the whole buffer would instead tie each proof to its position: each holder would have to wait for the sequencer to fix every step before its own, and the steps would be proven one after another.
 
-`buffered` is public, so a step whose `buffered` is not `0` reveals that its inputs are among the notes under its root and the first `buffered` commitments of the buffer. Covering the whole of the previous mini-blocks, rather than the buffer up to its own inputs, keeps a step from pointing at the notes it consumes. The message a step is bound to is:
+The mini-block of a step is public, so a step of a later mini-block reveals that its inputs are among the notes under its root and the commitments it covers. Covering the whole of the previous mini-blocks keeps a step from pointing at the notes it consumes. The message a step is bound to is:
 
 ```python
 def step_msg(channel: ChannelId, step: ChannelStep) -> zkhash:
@@ -483,27 +482,31 @@ assert Ed25519_verify(txhash, msg.signer, proof.signature)
 
 # Ensure a channel being created, which holds no note, and the null channel, which has no
 # note set, receive no step
-assert note_set is not None or len(msg.steps) == 0
+assert note_set is not None or len(msg.mini_blocks) == 0
 
 # Ensure every step is spendable in the channel note set and signed by its holder.
-# A step can consume a note created by an earlier step, never one consumed by an earlier step.
-assert len(proof.step_proofs) == len(msg.steps)
+# A step can consume a note created by an earlier mini-block, never one consumed by an earlier step.
+assert all(len(mini_block) > 0 for mini_block in msg.mini_blocks)
+assert len(proof.step_proofs) == sum(len(mini_block) for mini_block in msg.mini_blocks)
+step_proofs = iter(proof.step_proofs)
 step_nfs = set()    # the nullifiers of the previous steps
-for step, step_proof in zip(msg.steps, proof.step_proofs):
-    note_set.assert_spendable(step.inputs, step.cm_merkle_root)
-    for note_nf in step.inputs:
-        assert note_nf not in step_nfs
-        step_nfs.add(note_nf)
-    assert step.buffered <= len(note_set.tx_cm_buffer)
-    assert note_set.verify_transfer(step.inputs,
-                                    step.outputs,
-                                    0,  # a step balances exactly
-                                    step.cm_merkle_root,
-                                    step_msg(msg.channel, step),
-                                    step_proof,
-                                    step.buffered)
-    # the next steps can cover the outputs of this one with their buffered
-    note_set.tx_cm_buffer.extend(step.outputs)
+for mini_block in msg.mini_blocks:
+    # the steps of the mini-block cover the buffer as it stands now
+    covered = len(note_set.tx_cm_buffer)
+    for step in mini_block:
+        note_set.assert_spendable(step.inputs, step.cm_merkle_root)
+        for note_nf in step.inputs:
+            assert note_nf not in step_nfs
+            step_nfs.add(note_nf)
+        assert note_set.verify_transfer(step.inputs,
+                                        step.outputs,
+                                        0,  # a step balances exactly
+                                        step.cm_merkle_root,
+                                        step_msg(msg.channel, step),
+                                        next(step_proofs),
+                                        covered)
+        # the next mini-blocks cover the outputs of this step
+        note_set.tx_cm_buffer.extend(step.outputs)
 ```
 
 #### Execution
@@ -528,7 +531,7 @@ block_slot: Slot
 
   2. Apply the steps, in their order.
       ```python
-      for step in msg.steps:
+      for step in [step for mini_block in msg.mini_blocks for step in mini_block]:
           note_set = ledger.sets[channels[msg.channel].note_set]
           note_set.execute_spending(step.inputs)
           note_set.execute_adding(step.outputs)
@@ -780,7 +783,7 @@ ledger.sets[channels[deposit.channel].note_set].execute_adding(deposit.outputs)
 
 ### CHANNEL_WITHDRAW
 
-Withdraw notes from a channel. The holder of the notes posts the withdrawal alone, and it takes effect `WITHDRAW_DELAY` slots later: its inputs are then consumed in the channel note set and its outputs created in the ledger note set, if none of its inputs was consumed in the meantime. Until then, an inscription of the channel can consume these notes with a valid step, which cancels the withdrawal. A holder therefore cannot invalidate an inscription carrying one of its steps by withdrawing the same note, as long as the inscription lands before the withdrawal is due. A due withdrawal is executed at the start of its block, before the transactions ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), and a later step consuming its notes is invalid, and so is the transaction carrying it. The nullifiers and due slots of pending withdrawals are public in the ledger state: a sequencer should not accept a step whose inputs a pending withdrawal may release before its inscription lands, nor a step whose inputs another accredited key of the channel may consume first, since removing the step afterwards also invalidates the later steps whose proofs cover its outputs. The sequencers of a channel should share the nullifiers of the steps they hold before a later mini-block covers them.
+Withdraw notes from a channel. The holder of the notes posts the withdrawal alone, and it takes effect `WITHDRAW_DELAY` slots later: its inputs are then consumed in the channel note set and its outputs created in the ledger note set, if none of its inputs was consumed in the meantime. Until then, an inscription of the channel can consume these notes with a valid step, which cancels the withdrawal. A holder therefore cannot invalidate an inscription carrying one of its steps by withdrawing the same note, as long as the inscription lands before the withdrawal is due. A due withdrawal is executed at the start of its block, before the transactions ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), and a later step consuming its notes is invalid, and so is the transaction carrying it. The nullifiers and due slots of pending withdrawals are public in the ledger state: a sequencer should not accept a step whose inputs a pending withdrawal may release before its inscription lands, nor a step whose inputs another accredited key of the channel may consume first, since removing the step afterwards also invalidates the steps of the later mini-blocks, whose proofs cover its outputs. The sequencers of a channel should share the nullifiers of the steps they hold before a later mini-block covers them.
 
 ```python
 WITHDRAW_DELAY: Slot = 86_400  # 1 day
@@ -1737,17 +1740,17 @@ class NoteSet:
             assert note_nf not in self.nullifiers
 ```
 
-The following method verifies the [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) of notes of a note set, against the root referenced by the Operation once the commitments of the `tx_cm_buffer` of the set are appended to it, all of them, or only the first `buffered` for a [channel step](#channel_inscribe). The inputs can therefore be notes created by the previous Operations of the Mantle Transaction:
+The following method verifies the [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) of notes of a note set, against the root referenced by the Operation once the commitments of the `tx_cm_buffer` of the set are appended to it, all of them, or only those before its mini-block for a [channel step](#channel_inscribe). The inputs can therefore be notes created by the previous Operations of the Mantle Transaction:
 
 ```python
 class NoteSet:
     def verify_transfer(self, inputs: list[NoteNf], outputs: list[NoteCm], excess_value: TokenValue,
                         cm_merkle_root: MerkleRoot, msg: zkhash, proof: ZkTransfer,
-                        buffered: int | None = None) -> bool:
-        # append the first buffered commitments of tx_cm_buffer, all of them by default,
+                        covered: int | None = None) -> bool:
+        # append the first covered commitments of tx_cm_buffer, all of them by default,
         # to a copy of the peaks of the MMR of root cm_merkle_root
         peaks = list(self.recent_cm_roots[cm_merkle_root].peaks)
-        for note_cm in self.tx_cm_buffer[:buffered]:
+        for note_cm in self.tx_cm_buffer[:covered]:
             mmr_append(peaks, note_cm)
         return ZkTransfer_verify(inputs, outputs, excess_value, mmr_root(peaks), msg, proof)
 ```
@@ -1805,11 +1808,11 @@ class ZkTransferPublic:
     outputs_active: list[boolean]  # (len = 8) whether each output creates a note
     excess_value: TokenValue
     tx_cm_root: MerkleRoot         # the referenced cm_merkle_root extended with the tx_cm_buffer of the set,
-                                   # or its first `buffered` commitments for a channel step
+                                   # or the commitments before its mini-block for a channel step
     msg: zkhash
 ```
 
-`ZkTransfer_verify(inputs, outputs, excess_value, tx_cm_root, msg, proof)` verifies the proof for these public values. The nullifiers of `inputs` fill the first inputs of the circuit and the commitments of `outputs` its first outputs. These are active, and every other input and output is inactive and holds `0`, so the verifier sets the flags from the lengths of the two lists. A ZkTransfer therefore spends at most 4 notes and creates at most 8: an Operation whose `inputs` or `outputs` list is longer is invalid. An Operation spending notes of a note set, other than `SDP_WITHDRAW`, verifies the proof through the [`verify_transfer`](#input-notes-spendability-validation) method of the set, which appends the commitments created earlier in the Mantle Transaction to the referenced root, all of them, or only the first `buffered` for a channel step.
+`ZkTransfer_verify(inputs, outputs, excess_value, tx_cm_root, msg, proof)` verifies the proof for these public values. The nullifiers of `inputs` fill the first inputs of the circuit and the commitments of `outputs` its first outputs. These are active, and every other input and output is inactive and holds `0`, so the verifier sets the flags from the lengths of the two lists. A ZkTransfer therefore spends at most 4 notes and creates at most 8: an Operation whose `inputs` or `outputs` list is longer is invalid. An Operation spending notes of a note set, other than `SDP_WITHDRAW`, verifies the proof through the [`verify_transfer`](#input-notes-spendability-validation) method of the set, which appends the commitments created earlier in the Mantle Transaction to the referenced root, all of them, or only those before its mini-block for a channel step.
 
 The public signal vector of the proof is fixed by the circuit: the outputs `inputs`, `outputs` and `excess_value` first, then `inputs_active`, `outputs_active`, `tx_cm_root` and `msg`.
 
