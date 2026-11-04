@@ -36,7 +36,7 @@
 | 1.6.0 | Declarations are removed at `withdraw_at + 1`, one epoch after the node stops, making the last served epoch rewardable | 2026-09-03 |
 | 1.7.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a declaration covers one service, a note backs one declaration per service, and a `nonce` carries the `created` epoch of its declaration | 2026-10-01 |
 | 1.8.0 | The minimum stake is one `MinStake` of `threshold` and the block number `timestamp`, matching the implementation | 2026-10-27 |
-| 1.9.0 | Support the private ledger of Mantle: a declaration consumes notes and creates its own service note under the `zk_id` in the SDP note set, the withdrawal consumes it with a ZkTransfer, and the active and withdraw messages are signed by the `provider_id` | 2026-10-07 |
+| 1.9.0 | Support the private ledger of Mantle: a declaration consumes notes and creates its own service note under the `note_pk` it names in the SDP note set, the withdrawal consumes it with a ZkTransfer, and the active and withdraw messages are signed by the `provider_id` | 2026-10-07 |
 
 # Introduction
 
@@ -173,7 +173,7 @@ At any epoch `n`, the most recent report a snapshot can contain was included in 
 We define the following set of identifiers which are used for service-specific cryptographic operations:
 
 - `provider_id`: used to sign the SDP messages and to establish secure links between validators; it is `Ed25519PublicKey`.
-- `zk_id`: the `ZkPublicKey` the service note and the rewards of the validator are created under; it is also the key the validator proves in the [Proof of Quota](proof-of-quota.md). It is a unique one-time random key, which the declaration does not prove.
+- `zk_id`: the `ZkPublicKey` the rewards of the validator are created under; it is also the key the validator proves in the [Proof of Quota](proof-of-quota.md). It is a unique one-time random key, which the declaration does not prove.
 
 ### **Locators**
 
@@ -197,6 +197,7 @@ class DeclarationMessage:
     locators: list[Locator]
     provider_id: Ed25519PublicKey
     zk_id: ZkPublicKey
+    note_pk: ZkPublicKey
     inputs: list[NoteNullifier]
     commitment_root: MerkleRoot
     amount: TokenValue
@@ -208,9 +209,10 @@ The message must be signed by the `provider_id` key to prove ownership of the ke
 
 Where:
 
+- `note_pk` is the `ZkPublicKey` the service note is created under. No check reads it and no proof covers its secret: a `note_pk` whose secret nobody holds locks the stake for good, and a declarer who keeps the secret offline can keep the stake under a cold key;
 - `inputs` are the nullifiers of the notes the declaration consumes, whose ownership is proven by a [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) against `commitment_root`. A [`NoteNullifier`](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) is the nullifier of a note, a hash of its commitment and of the secret key of its holder, published when the note is spent;
 - `commitment_root` is the root of the commitment MMR of the ledger note set at the end of one of the last 1024 blocks. A [`NoteCommitment`](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) is the commitment of a note, a hash of its value, its nonce and its public key, which identifies the note without revealing them;
-- `amount` is the value of the one service note the declaration creates under the `zk_id`, used for minimum stake threshold verification purposes.
+- `amount` is the value of the one service note the declaration creates under the `note_pk`, used for minimum stake threshold verification purposes.
 
 ### **Declaration Storage**
 
@@ -237,7 +239,7 @@ Where:
 - `service_note` is the `NoteCommitment` of the service note created by the declaration in the SDP note set, whose value meets the minimum stake threshold;
 - `withdraw_outputs` are the `NoteCommitment` of the notes the withdrawal creates, released to the ledger when the declaration is removed; it is empty by default;
 - `locators` is a copy of the `locators` from the `DeclarationMessage`;
-- `zk_id` is the `ZkPublicKey` the service note and the rewards of the validator are created under;
+- `zk_id` is the `ZkPublicKey` the rewards of the validator are created under;
 - `created` is the epoch of the block that contained the declaration;
 - `active` is the epoch of the block that contained the latest accepted active message, initialised to `created + 2` ([Message Timing](#message-timing));
 - `withdraw_at` is the epoch at which the node stops providing the service ([**Withdraw**](#withdraw)), and is `None` until the declaration is withdrawn;
@@ -328,7 +330,7 @@ class WithdrawMessage:
 
 The message must be signed by the `provider_id` key of the declaration.
 
-The message consumes the service note of the declaration, by its nullifier `service_note_nullifier`, and creates the `outputs` that return its value, `excess_value` paying the fees. A [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) by the holder of the `zk_id` proves it, against the service note of the declaration only. The `outputs` are released to the ledger when the declaration is removed.
+The message consumes the service note of the declaration, by its nullifier `service_note_nullifier`, and creates the `outputs` that return its value, `excess_value` paying the fees. A [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) by the holder of the service note, who has the secret of the `note_pk`, proves it, against the service note of the declaration only. The `outputs` are released to the ledger when the declaration is removed.
 
 The `nonce` follows [Declaration Storage](#declaration-storage).
 
