@@ -10,6 +10,7 @@
 | v2 | Note ciphertexts are delivered off chain and pay no Execution Gas of their own. An `SDP_WITHDRAW` extends no root by the buffer. The batch verification draws its coefficients on 128 bits in Block Construction. Every constant is measured again on the node following the SDP rules of master, as the minimum over 5 runs of the benchmark | 2026-11-03 |
 | v3 | A Mantle Transaction pays each root extension once for each distinct note set, referenced root and `buffered` of its proofs. `EXECUTION_USER_STEP_GAS` is 178, `EXECUTION_PAYMENT_GAS` 250 and `EXECUTION_CLAIM_POW_REWARD_GAS` 592, for the channel in the messages of steps and payments and the tag of the claim ticket | 2026-11-03 |
 | v4 | User steps and payments cover the buffer before their mini-block, so the number of commitments an extension covers follows from the mini-block | 2026-11-04 |
+| v5 | `EXECUTION_USER_STEP_GAS` is 195 and `EXECUTION_PAYMENT_GAS` 267, for the two elements of the channel ID in the messages of steps and payments | 2026-11-04 |
 
 ## Reviewer Orientation
 
@@ -30,7 +31,7 @@ One Execution Gas is 1,000 core cycles, counted by the hardware performance coun
 
 ## Measured end to end, explained by components
 
-Each constant is fitted on the node's own functions, run on a whole Mantle Transaction from its encoded bytes to the updated state, varying one dimension of its shape at a time. Micro-benchmarks of the trees, hashes and verifiers explain each constant. Summing micro-benchmarks alone would have priced at zero everything not benchmarked, which is how the earlier constants missed the trees. A block of 64 mixed transactions measured whole costs 9.1% less than the constants predict with the end of block work of its one channel set counted once. Its 24 transactions changing that set each pay the work, so its Execution Gas is 38.0% above its cost; [Nullifiers and note sets](#nullifiers-and-note-sets) explains why.
+Each constant is fitted on the node's own functions, run on a whole Mantle Transaction from its encoded bytes to the updated state, varying one dimension of its shape at a time. Micro-benchmarks of the trees, hashes and verifiers explain each constant. Summing micro-benchmarks alone would have priced at zero everything not benchmarked, which is how the earlier constants missed the trees. A block of 64 mixed transactions measured whole costs 9.1% less than the constants predict with the end of block work of its one channel set counted once. Its 24 transactions changing that set each pay the work, so its Execution Gas is 37.9% above its cost; [Nullifiers and note sets](#nullifiers-and-note-sets) explains why.
 
 ## Nullifiers and note sets
 
@@ -41,7 +42,7 @@ The nullifiers of a block are hashed into their tree once, at the end of the blo
 - **Once per Operation.** Rejected: the Operations of one transaction changing the same set share one end of block work, and a transaction of several deposits or inscriptions to one channel would pay it several times.
 - **Once per block, by the first transaction changing the set.** Rejected: the price of a transaction would depend on its position in the block and on the other transactions, which a block builder controls, and a user could not predict it.
 
-A transaction changing a set pays its full end of block work, the largest measure of what a block spends on that set. The cost of this predictability falls on blocks where many transactions change one set: on the measured block, whose 24 inscriptions and deposit change one channel set, the Execution Gas is 38.0% above the work.
+A transaction changing a set pays its full end of block work, the largest measure of what a block spends on that set. The cost of this predictability falls on blocks where many transactions change one set: on the measured block, whose 24 inscriptions and deposit change one channel set, the Execution Gas is 37.9% above the work.
 
 ## Bytes
 
@@ -56,7 +57,7 @@ A transaction costs 26.8 cycles per byte for its decoding, its hash and the iden
 
 - SDP declarations are measured among up to 1,024 declarations of a service. Through the keys of the declarations of each service, their cost grows from 796,866 cycles among none to 847,129 among 1,024.
 - A single run of the benchmark moves the small measures by up to about 10% (the base of a Transfer goes from 5 to 24 Execution Gas between runs), so the constants take the minimum over 5 runs. The constants of a few thousand cycles are therefore known only roughly.
-- The cost of a user step grows with their number in an inscription: about 215,000 cycles per step from 1 to 2 steps, 258,000 from 4 to 8. `EXECUTION_USER_STEP_GAS` prices the slope over the measured range, and the cause of the growth is not identified.
+- The cost of a user step grows with their number in an inscription: about 232,000 cycles per step from 1 to 2 steps, 275,000 from 4 to 8. `EXECUTION_USER_STEP_GAS` prices the slope over the measured range, and the cause of the growth is not identified.
 - `CLAIM_POW_REWARD` is measured on a state with an eased reward difficulty, the fixture difficulty requiring about 2^26 grinds to build a claim.
 - Creating a channel creates its note set, priced as a change of that set; the creation itself, an insertion in the eligible tree, was not measured alone.
 - The measured node does not yet keep `pow_rewards_pending`: one integer addition per block and one credit per epoch, not counted in the fixed costs of a block.
@@ -102,8 +103,8 @@ Proofs sharing their note set, referenced root and number of commitments covered
 | `EXECUTION_SDP_DECLARE_GAS` | 622 | | `EXECUTION_NULLIFIER_GAS` | 725 |
 | `EXECUTION_SDP_WITHDRAW_GAS` | 892 | | `EXECUTION_COMMITMENT_GAS` | 24 |
 | `EXECUTION_SDP_ACTIVE_GAS` | 6927 | | `EXECUTION_SIGNATURE_GAS` | 161 |
-| `EXECUTION_CLAIM_POW_REWARD_GAS` | 592 | | `EXECUTION_USER_STEP_GAS` | 178 |
-| `EXECUTION_PROGRAM_REGISTER_GAS` | 6839 | | `EXECUTION_PAYMENT_GAS` | 250 |
+| `EXECUTION_CLAIM_POW_REWARD_GAS` | 592 | | `EXECUTION_USER_STEP_GAS` | 195 |
+| `EXECUTION_PROGRAM_REGISTER_GAS` | 6839 | | `EXECUTION_PAYMENT_GAS` | 267 |
 | | | | `EXECUTION_PROGRAM_STEP_GAS` | 54 |
 | | | | `EXECUTION_OPENING_GAS` | 151 |
 | | | | `EXECUTION_PROGRAM_PROOF_GAS` | 6320 |
