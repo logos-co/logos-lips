@@ -62,7 +62,7 @@ The distribution inscription is the number of outputs as one byte, followed by t
 
 In order to participate in the Cryptarchia lottery, stakeholders must generate their note keys in accordance with the Proof of Leadership protocol specified at [Protocol](cryptarchia-proof-of-leadership.md#protocol).
 
-The initial state of the Ledger will be derived through normal execution of this Transfer Operation, that is, each output commitment will be appended to the commitment MMR of the ledger note set. `EMPTY_MMR_ROOT` is `mmr_root([])`, the root of the empty [commitment MMR](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range).
+The initial state of the Ledger will be derived through normal execution of this Transfer Operation, that is, each output commitment will be appended to the commitment MMR of the ledger note set. `EMPTY_MMR_ROOT` is `mmr_root([])`, the root of the empty [commitment MMR](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range), and `derive_note_commitment` gives the commitment of a note ([Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier)).
 
 **Example**
 
@@ -76,7 +76,7 @@ STAKE_DISTRIBUTION_NOTES = [
 
 STAKE_DISTRIBUTION = Transfer(
     inputs=[],
-    outputs=[derive_note_cm(note) for note in STAKE_DISTRIBUTION_NOTES],
+    outputs=[derive_note_commitment(note) for note in STAKE_DISTRIBUTION_NOTES],
     commitment_root=EMPTY_MMR_ROOT,
     excess_value=0,
 )
@@ -257,7 +257,7 @@ STAKE_DISTRIBUTION_NOTES = [
 
 STAKE_DISTRIBUTION = Transfer(
     inputs=[],
-    outputs=[derive_note_cm(note) for note in STAKE_DISTRIBUTION_NOTES],
+    outputs=[derive_note_commitment(note) for note in STAKE_DISTRIBUTION_NOTES],
     commitment_root=EMPTY_MMR_ROOT,
     excess_value=0,
 )
@@ -380,7 +380,7 @@ The Mantle Transaction contains an inscription sent to the null channel containi
 
 Two conditions are specific to Genesis. The inscription must be addressed to the null channel and signed by the null key, an inscription anywhere else not being a set of Cryptarchia parameters. It must also decode to exactly the three parameters, encoded as [Cryptarchia Parameters](#cryptarchia-parameters) specifies and with no trailing bytes. A node that cannot decode them has no clock, no chain identifier and no lottery randomness, and must reject the Genesis block.
 
-The distribution inscription that follows is validated as an ordinary `CHANNEL_INSCRIBE` Operation minus its signature, its `parent` being the Cryptarchia inscription. It must decode, as [Initial Token Distribution](#initial-token-distribution) specifies and with no trailing bytes, to one value and public key per output of the Transfer Operation, and the output at index `i` must be `derive_note_cm(Note(value, i, public_key))` for the value and public key published at index `i`. A node for which the published distribution does not match the outputs must reject the Genesis block.
+The distribution inscription that follows is validated as an ordinary `CHANNEL_INSCRIBE` Operation minus its signature, its `parent` being the Cryptarchia inscription. It must decode, as [Initial Token Distribution](#initial-token-distribution) specifies and with no trailing bytes, to one value and public key per output of the Transfer Operation, and the output at index `i` must be `derive_note_commitment(Note(value, i, public_key))` for the value and public key published at index `i`. A node for which the published distribution does not match the outputs must reject the Genesis block.
 
 The Cryptarchia slot clock is initialized to `genesis_time`, `LIB` is set to the Genesis block and the epoch state is then initialized:
 
