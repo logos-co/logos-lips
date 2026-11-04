@@ -35,7 +35,7 @@
 | 1.2.3 | Update the test vectors to reflect the parent added in the `CHANNEL_CONFIG` payload | 2026-08-27 |
 | 1.2.4 | Reordered the `ProofOfLeadership` fields to the wire order defined by the [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding), and noted that the [Block ID](#block-id) preimage absorbs the same fields in a different order by design. The `Header` layout and the `block_id` preimage are otherwise unchanged. | 2026-08-28 |
 | 1.2.5 | Required the slot of a referenced [uncle](#uncle-references) to exceed the slot of its parent. | 2026-10-06 |
-| 1.3.0 | Follow the private ledger of Mantle: the eligible leader notes commitment is the eligible root over the note sets of the ledger, and a Proof of Leadership verifies against the latest eligible root. The `leader_voucher` header field is replaced with the `reward_key` the leader reward is paid to. The Proof of Leadership is bound to the block by a hash of its header: the `leader_key` header field and the block signatures are removed, and an uncle entry is a header. The block ID leaves out the proof of leadership, which is not unique | 2026-10-06 |
+| 1.3.0 | Follow the private ledger of Mantle: the eligible leader notes commitment is the eligible root over the note sets of the ledger, and a Proof of Leadership verifies against the latest eligible root. The `leader_voucher` header field is replaced with the `reward_commitment` and the `reward_value` of the note paying the leader reward. The Proof of Leadership is bound to the block by a hash of its header: the `leader_key` header field and the block signatures are removed, and an uncle entry is a header. The block ID leaves out the proof of leadership, which is not unique | 2026-10-06 |
 | 1.3.1 | Test vectors with `PROGRAM_REGISTER` and program steps in mini-blocks, following Mantle 2.1.0 | 2026-10-14 |
 
 # Introduction
@@ -286,27 +286,29 @@ def block_id(header: Header) -> hash
         header.slot.to_bytes(8, byteorder='little'),
         header.body_root,
         # PoL fields
-        header.proof_of_leadership.reward_key,
+        header.proof_of_leadership.reward_commitment,
+        header.proof_of_leadership.reward_value.to_bytes(8, byteorder='little'),
         header.proof_of_leadership.entropy_contribution,
     )
 ```
 
-The proof of leadership is not part of the block ID. A Groth16 proof is not unique: anyone can re-randomize a valid proof into another valid proof of the same statement. Including it would give the same block as many IDs as there are proofs of it. Without it, two blocks with the same ID have the same content and the same entropy contribution, and differ at most in their proofs: the proof of leadership, which is valid for both since it is bound to that content ([Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)), and the Operation proofs of their transactions, which the transaction hashes do not cover and which can be re-randomized as well.
+The proof of leadership is not part of the block ID. A Groth16 proof is not unique: anyone can re-randomize a valid proof into another valid proof of the same statement. Including it would give the same block as many IDs as there are proofs of it. Without it, two blocks with the same ID have the same content, the same reward commitment and value and the same entropy contribution, and differ at most in their proofs: the proof of leadership, which is valid for both since it is bound to that content ([Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)), and the Operation proofs of their transactions, which the transaction hashes do not cover and which can be re-randomized as well.
 
 ### Block Header
 
 ```python
-class Header:                                # 265 bytes
+class Header:                                # 273 bytes
     bedrock_version: byte                    # 1 bytes
     parent_block: hash                       # 32 bytes
     slot: int                                # 8 bytes
     body_root: hash                          # 32 bytes
-    proof_of_leadership: ProofOfLeadership   # 192 bytes
+    proof_of_leadership: ProofOfLeadership   # 200 bytes
 
-class ProofOfLeadership:                     # 192 bytes
+class ProofOfLeadership:                     # 200 bytes
     proof: Groth16Proof                      # 128 bytes
     entropy_contribution: zkhash             # 32 bytes
-    reward_key: ZkPublicKey                  # 32 bytes
+    reward_commitment: NoteCommitment        # 32 bytes
+    reward_value: TokenValue                 # 8 bytes
 ```
 
 The proof is bound to the header by its public input `msg`, a hash of the header without its proof and its entropy contribution (see [Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)).
@@ -332,7 +334,7 @@ An entry $`U`$ of the `uncle_headers` list of a block $`A`$ is **valid** — we 
 - The parent of the uncle is part of the chain of the referencing block: $`U.\text{parent\_block} \in \textbf{ancestors}(A)`$. Hence the uncle is the **first block of its fork**, and its chain is a prefix of the chain of $`A`$. Blocks deeper in a fork branch cannot be referenced: verifying their Proof of Leadership requires the ledger state of the fork branch, which cannot be reconstructed from the chain of $`A`$ (see the verification rule below).
 - The uncle itself is not part of the chain of the referencing block: $`\lnot\,\textbf{is\_ancestor}(U, A)`$ — equivalently, $`U`$ is not the block of the chain of $`A`$ at slot $`sl_U`$.
 - The uncle follows its parent and precedes the referencing block, and the **parent** of the uncle lies within the uncle reference window (see [Constants](#constants)): $`sl_{\textbf{parent}(U)} \lt sl_U \lt sl_A`$ and $`sl_A - sl_{\textbf{parent}(U)} \le W\cdot f^{-1}`$. The window is anchored to the parent rather than to the uncle itself because the parent is the block whose historical state the remaining checks need: $`eligible_\text{LATEST}`$ as of $`U.\text{parent\_block}`$ is required to verify the Proof of Leadership below, and anchoring here bounds how far back the chain of $`A`$ must be retained to supply it. Anchoring to $`sl_U`$ would not bound it: a leader may build on a stale tip, so $`sl_U - sl_{\textbf{parent}(U)}`$ is unbounded and a block could demand roots arbitrarily deep in the chain. The anchor also matches [Fork Pruning](#fork-pruning), which prunes by divergence depth — and the parent of a first-fork block is exactly that divergence point. Since $`sl_U \gt sl_{\textbf{parent}(U)}`$ by step 5 of [Block Header Validation](#block-header-validation), this rule implies $`0 \lt sl_A - sl_U \lt W\cdot f^{-1}`$: the uncle's own slot falls inside the window as a consequence, not as a separate condition.
-- The [Proof of Leadership](cryptarchia-proof-of-leadership.md) of $`U`$ verifies against public inputs derived from the chain of $`A`$: the slot, $`\rho_\text{LEAD}`$ and the hash `pol_msg(U)` of the header taken from $`U`$; the epoch state $`(\mathbb{C}_\text{LEAD}, \eta, D)`$ of the epoch of $`sl_U`$ as derived on the chain of $`A`$; and $`eligible_\text{LATEST}`$ as of $`U.\text{parent\_block}`$, which is a historical root of the chain of $`A`$ because the parent lies on that chain. Since the chain of the uncle is a prefix of the chain of $`A`$, a genuine fork win was proven against exactly these values and verifies; a fabricated header does not. These are the same inputs a node derives to validate the Proofs of Leadership of the canonical blocks themselves; in particular $`eligible_\text{LATEST}`$ is a function of the **executed** chain, so this check requires a full node's possession of the chain — headers alone do not suffice, exactly as they do not suffice to validate canonical blocks. Because the proof is bound to `pol_msg(U)`, the uncle is the header proven by the leader who won the lottery, not a fabricated header wrapped around a replayed proof.
+- The [Proof of Leadership](cryptarchia-proof-of-leadership.md) of $`U`$ verifies against public inputs derived from the chain of $`A`$: the slot, $`\rho_\text{LEAD}`$, `reward_commitment`, `reward_value` and the hash `pol_msg(U)` of the header taken from $`U`$; the epoch state $`(\mathbb{C}_\text{LEAD}, \eta, D)`$ of the epoch of $`sl_U`$ as derived on the chain of $`A`$; and $`eligible_\text{LATEST}`$ as of $`U.\text{parent\_block}`$, which is a historical root of the chain of $`A`$ because the parent lies on that chain. Since the chain of the uncle is a prefix of the chain of $`A`$, a genuine fork win was proven against exactly these values and verifies; a fabricated header does not. These are the same inputs a node derives to validate the Proofs of Leadership of the canonical blocks themselves; in particular $`eligible_\text{LATEST}`$ is a function of the **executed** chain, so this check requires a full node's possession of the chain — headers alone do not suffice, exactly as they do not suffice to validate canonical blocks. Because the proof is bound to `pol_msg(U)`, the uncle is the header proven by the leader who won the lottery, not a fabricated header wrapped around a replayed proof. The `reward_value` of $`U`$ is compared with no computed reward: an uncle is not executed, so its reward note never enters the ledger.
 
 A proposer can always determine in advance whether an entry will be accepted: the chain of $`A`$ is fixed the moment it selects the parent of $`A`$, and every rule reads only that chain and the entry itself, so proposer and validators evaluate identically and a well-implemented proposer never builds a block that others reject. For the same reason all nodes — including a node bootstrapping from genesis — accept exactly the same blocks and, having accepted them, count exactly the same uncles and derive exactly the same estimate. A carried uncle is checked exactly as a received proposal is — the Proof of Leadership bound to its header — minus the chain-context steps that do not apply to a fork block. One caveat is recorded for honesty: the Proof of Leadership proves that the winning leader produced this header, not that the block was published in its slot — the owner of a winning note can produce and prove such a header later. This is benign: the Proof of Leadership still attests a genuine lottery win at that slot, which is precisely the signal the [Total Stake Inference](#total-stake-inference) measures, and the count is taken per distinct slot, so neither replay nor self-wrapping can add occupied slots beyond genuine wins.
 
@@ -423,12 +425,12 @@ We say $`\textbf{valid\_header}(B)`$ returns True if all of the following constr
   def body_root(uncle_headers: list[Header], transactions: list[SignedMantleTx]) -> hash:
       return hash(
           b"BODY_ROOT_V1",
-          serialize(uncle_headers),  # 1-byte count, then the fixed 265-byte entries
+          serialize(uncle_headers),  # 1-byte count, then the fixed 273-byte entries
           merkle_root(transactions),
       )
   ```
 
-  where $`\textbf{merkle\_root}`$ is the root of the Merkle tree built from transaction hashes (see Mantle - Mantle Transaction Hash) as leaves, using `0` to represent the hash of an empty transaction and padding the leaves to the closest power of two, and $`\textbf{serialize}`$ is the list encoding of [Block Proposal](bedrock-v1.1-block-construction.md#block-proposal) — a 1-byte little-endian element count followed by that many entries, so an empty list encodes as a single zero byte. The serialized list is committed directly, with no inner hash: the element count and the fixed 265-byte entries keep the flat preimage unambiguous, and the single `BODY_ROOT_V1` tag versions the whole construction. The carried uncle headers are committed here and hence in the [Block ID](#block-id); a copy of a block that differs in any of those bytes has a different ID and is a different block.
+  where $`\textbf{merkle\_root}`$ is the root of the Merkle tree built from transaction hashes (see Mantle - Mantle Transaction Hash) as leaves, using `0` to represent the hash of an empty transaction and padding the leaves to the closest power of two, and $`\textbf{serialize}`$ is the list encoding of [Block Proposal](bedrock-v1.1-block-construction.md#block-proposal) — a 1-byte little-endian element count followed by that many entries, so an empty list encodes as a single zero byte. The serialized list is committed directly, with no inner hash: the element count and the fixed 273-byte entries keep the flat preimage unambiguous, and the single `BODY_ROOT_V1` tag versions the whole construction. The carried uncle headers are committed here and hence in the [Block ID](#block-id); a copy of a block that differs in any of those bytes has a different ID and is a different block.
 
 5. $`header.\text{slot} \gt \textbf{fetch\_header}(header.\text{parent\_block}).\text{slot}`$
   Ensure the block’s slot comes after the parent block’s slot.
@@ -446,7 +448,7 @@ We say $`\textbf{valid\_header}(B)`$ returns True if all of the following constr
   Given the slot lottery win proof $`\pi_\text{PoL}`$ of the header $`H`$, as defined in [Proof of Leadership](cryptarchia-proof-of-leadership.md), the proposal is valid if
 
   - $`\textbf{verify\_PoL}(T, parent, sl, \textbf{pol\_msg}(H), \pi_\text{PoL})=True`$
-    The proof is bound to $`\textbf{pol\_msg}(H)`$, a hash of the header (see [Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)), so the leader who won the lottery is the one proposing this block.
+    The proof is bound to $`\textbf{pol\_msg}(H)`$, a hash of the header (see [Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)), so the leader who won the lottery is the one proposing this block. Its public signals `reward_commitment` and `reward_value` are those of $`H`$, so it verifies from the header alone.
 
 10. $`\forall\,U \in uncle\_headers:\ \textbf{valid\_uncle}(U, B) = True`$
   Ensure every carried uncle is valid, as defined by the rules of [Uncle References](#uncle-references): the parent of $`U`$ lies on the chain of $`B`$, $`U`$ itself does not, $`U`$ follows its parent and precedes $`B`$, the slot of its parent precedes $`sl_B`$ by at most $`W\cdot f^{-1}`$, and its Proof of Leadership verifies against inputs derived from the chain of $`B`$ and its header. A block carrying an entry that fails any of these is rejected.
@@ -455,7 +457,7 @@ We say $`\textbf{valid\_header}(B)`$ returns True if all of the following constr
 
   Every input to these checks comes from the chain of $`B`$ or from the carried entry itself, both of which any node validating $`B`$ necessarily has — the entries travel inside $`B`$ and are committed by its $`body\_root`$. Validity is therefore a function of the block and the chain it extends alone, so all nodes agree on it and an adversary influencing what nodes know of forks cannot influence block inclusion.
 
-The block ID commits neither to the proof of leadership of a block nor to its Operation proofs, and a copy of a block can differ in them or in its body. A block failing rule 4, rule 9 or an Operation proof is therefore a bad copy on every path, synchronization included: the node discards it without recording a verdict against its block ID.
+The block ID commits neither to the proof of leadership of a block nor to its Operation proofs, and a copy of a block can differ in them or in its body. A block failing rule 4, rule 9 or an Operation proof is therefore a bad copy on every path, synchronization included: the node discards it without recording a verdict against its block ID. The block ID does commit to `reward_value` and, through $`body\_root`$, to the transactions, so a block whose `reward_value` differs from its computed leader reward is condemned ([Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation)).
 
 ### Chain Maintenance
 

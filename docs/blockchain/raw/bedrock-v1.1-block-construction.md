@@ -33,12 +33,12 @@
 | 1.2.0 | Added the `uncle_headers` field — the signed headers of the referenced uncles — to the [Proposal](#block-proposal) and to the newly defined [Block](#block), and replaced `block_root` with `body_root` in the [Header](#header), which commits to them, signatures included, as well as to the transactions. Due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
 | 1.2.1 | Precise the state each transaction of a block is validated against: the transactions are validated and executed one after the other in the order they appear, each against the state the preceding ones left, which makes block validity order-dependent. Precise that a block whose validation fails at any point is not executed at all. | 2026-08-24 |
 | 1.3.0 | Compressed Block Proposal: 16-byte transaction reference prefixes and a variable-length `references` list, reducing the proposal from 34,574 bytes to at most 18,192. Added the [Canonical Encoding](#canonical-encoding) section. | 2026-08-18 |
-| 1.4.0 | The `leader_voucher` is replaced with a one-time `reward_key`, and the leader reward is inserted in the ledger at the end of the block execution. Channel withdrawals whose due slot is reached are released before the transactions. The PoL is bound to the header by a hash of it and proven once the body is fixed: `leader_key`, the proposal and block signatures and the signatures of the uncle headers are removed, reducing the proposal to at most 17,712 bytes. An invalid proof of leadership condemns only the received copy, since the block ID does not cover the proof | 2026-10-07 |
+| 1.4.0 | The `leader_voucher` is replaced with `reward_commitment` and `reward_value`: the PoL derives the commitment of the leader reward note and reveals only its value, a value differing from the computed reward condemns the block, and the commitment is inserted in the ledger at the end of the block execution. Channel withdrawals whose due slot is reached are released before the transactions. The PoL is bound to the header by a hash of it and proven once the body is fixed: `leader_key`, the proposal and block signatures and the signatures of the uncle headers are removed, reducing the proposal to at most 17,752 bytes. An invalid proof of leadership condemns only the received copy, since the block ID does not cover the proof | 2026-10-07 |
 | 1.4.1 | The proof of the header uses the `Groth16Proof` terminal of the transaction encoding. The ZkProgramSpend proofs of a block are verified in their own batch, and a program proof alone. A transaction resolved without the openings of its program notes, or with altered ones, fails the copy, not the block | 2026-10-12 |
 
 # Introduction
 
-In this document, we present the specification defining the construction of the block proposal, its validation, and execution. We define the block proposal construction that contains references to transactions (from the mempool) instead of a complete transaction to limit its length. The raw block body increases with the size of transactions it contains up to `MAX_BLOCK_SIZE`, which is 2 MiB and covers the transactions only, and the proposal compresses its size down to at most ≈17.7 kB (17,712 bytes), which saves the bandwidth necessary to broadcast new blocks.
+In this document, we present the specification defining the construction of the block proposal, its validation, and execution. We define the block proposal construction that contains references to transactions (from the mempool) instead of a complete transaction to limit its length. The raw block body increases with the size of transactions it contains up to `MAX_BLOCK_SIZE`, which is 2 MiB and covers the transactions only, and the proposal compresses its size down to at most ≈17.8 kB (17,752 bytes), which saves the bandwidth necessary to broadcast new blocks.
 
 # Overview
 
@@ -60,12 +60,13 @@ Below, we present a high-level description of the block lifecycle. The main focu
    1. They validate the block header.
    2. They retrieve complete transactions from their mempool that are referred in the block.
    3. They validate each transaction included in the block, in the order the transactions appear, each against the state the preceding ones left.
+   4. They check that the reward value of the header is the leader reward of the block.
 
 6. The validators **execute** the block proposal.
    1. They execute the [**Service Reward Distribution Protocol**](bedrock-service-reward-distribution.md) to generate reward notes locally and include them in the ledger.
    2. They apply the channel withdrawals whose due slot is reached.
    3. They derive the new blockchain state from the previous one by executing transactions as defined in [Mantle](bedrock-v1.1-mantle-specification.md), in that same pass, adopting the result only once the whole block has validated.
-   4. They insert the leader reward of the block in the ledger, as a note under the `reward_key` of the block.
+   4. They insert the leader reward of the block in the ledger, as the note whose commitment is the `reward_commitment` of the block.
    5. They record the root of the commitment [Merkle Mountain Range](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range) (MMR) of every note set the block changed, and the eligible root.
 
 # Constructions
@@ -76,21 +77,21 @@ We are using two hashing algorithms that have the same output length of 256 bits
 
 ## Block Proposal
 
-A block proposal, instead of containing complete Mantle Transactions of an unlimited size, contains short fixed-size references to the transactions. It also carries the full headers of the uncles it references, so that every node holding the block holds those headers as well. Its size therefore varies with both the number of referenced transactions and the number of referenced uncles: from 268 bytes, up to the maximum of 17,712 bytes at `MAX_BLOCK_TXS` references and `MAX_UNCLES` uncles. The indistinguishability of proposals required by the [Blend Protocol](blend-protocol.md) is provided at the message layer: every dispersed proposal is padded up to the maximum payload size `Max_Body_Length = 17712` bytes — set from the maximum proposal size — by [Payload Formatting](payload-formatting.md).
+A block proposal, instead of containing complete Mantle Transactions of an unlimited size, contains short fixed-size references to the transactions. It also carries the full headers of the uncles it references, so that every node holding the block holds those headers as well. Its size therefore varies with both the number of referenced transactions and the number of referenced uncles: from 276 bytes, up to the maximum of 17,752 bytes at `MAX_BLOCK_TXS` references and `MAX_UNCLES` uncles. The indistinguishability of proposals required by the [Blend Protocol](blend-protocol.md) is provided at the message layer: every dispersed proposal is padded up to the maximum payload size `Max_Body_Length = 17752` bytes — set from the maximum proposal size — by [Payload Formatting](payload-formatting.md).
 
 We define the following message structure:
 
 ```python
-class Proposal:                              # 268..17712 bytes
-    header: Header                           # 265 bytes
-    uncle_headers: list[Header]              # 1 + u * 265 bytes, u <= MAX_UNCLES
+class Proposal:                              # 276..17752 bytes
+    header: Header                           # 273 bytes
+    uncle_headers: list[Header]              # 1 + u * 273 bytes, u <= MAX_UNCLES
     references: References                   # 2..16386 bytes (2-byte count + entries)
 ```
 
 Where:
 
 - `header` is the header of the proposal; defined below: [Header](#header).
-- `uncle_headers` is a variable-size list carrying the full headers of the referenced uncles, with at most `MAX_UNCLES` entries. Each entry is an uncle block header as originally received with the uncle's own proposal, its Proof of Leadership bound to it. This list *is* the reference: the block ID ([Cryptarchia Protocol](cryptarchia-v1-protocol.md#block-id)) of an uncle is derived from its carried header and is not recorded separately. It is serialized as a 1-byte little-endian element count followed by that many entries, and a decoder must reject a count exceeding `MAX_UNCLES`. Each entry is a fixed 265-byte header, so the list of carried headers parses unambiguously from its element count alone. The whole list is committed by `header.body_root` and therefore by the block ID, so no two blocks sharing an ID can differ in a carried header. The proposal length reveals how many uncles are referenced — proposal indistinguishability is provided by the message-layer padding of [Payload Formatting](payload-formatting.md), not by the encoding. The proposer chooses which uncles to reference according to [Uncle Selection](cryptarchia-v1-protocol.md#uncle-selection), and every entry must satisfy the validity rules of [Uncle References](cryptarchia-v1-protocol.md#uncle-references) or the block is rejected. The same list is carried over into the reconstructed [Block](#block), which is what makes every referenced uncle structurally available: those rules can be evaluated by any node holding the chain, including nodes bootstrapping from genesis that never receive the proposal.
+- `uncle_headers` is a variable-size list carrying the full headers of the referenced uncles, with at most `MAX_UNCLES` entries. Each entry is an uncle block header as originally received with the uncle's own proposal, its Proof of Leadership bound to it. This list *is* the reference: the block ID ([Cryptarchia Protocol](cryptarchia-v1-protocol.md#block-id)) of an uncle is derived from its carried header and is not recorded separately. It is serialized as a 1-byte little-endian element count followed by that many entries, and a decoder must reject a count exceeding `MAX_UNCLES`. Each entry is a fixed 273-byte header, so the list of carried headers parses unambiguously from its element count alone. The whole list is committed by `header.body_root` and therefore by the block ID, so no two blocks sharing an ID can differ in a carried header. The proposal length reveals how many uncles are referenced — proposal indistinguishability is provided by the message-layer padding of [Payload Formatting](payload-formatting.md), not by the encoding. The proposer chooses which uncles to reference according to [Uncle Selection](cryptarchia-v1-protocol.md#uncle-selection), and every entry must satisfy the validity rules of [Uncle References](cryptarchia-v1-protocol.md#uncle-references) or the block is rejected. The same list is carried over into the reconstructed [Block](#block), which is what makes every referenced uncle structurally available: those rules can be evaluated by any node holding the chain, including nodes bootstrapping from genesis that never receive the proposal.
 - `references` is a variable-length list of up to `MAX_BLOCK_TXS` [references](#references) to transactions, each being a 16-byte (`REFERENCE_PREFIX_LENGTH`) prefix of the transaction hash defined in [Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction).
 
 The proposal carries no padding of its own. Proposal indistinguishability is provided at the message layer: [Payload Formatting](payload-formatting.md#body) already mandates a fixed body length (`Max_Body_Length`) for every dispersed payload, with shorter messages padded with **random** data and the true length carried in `body_length`. An in-proposal zero-padded layout would duplicate that guarantee while charging every proposal the full `MAX_BLOCK_TXS` cost even when it references few transactions. The padding lies outside the proposal and is discarded via `body_length` on decapsulation, so no consensus meaning ever attaches to it.
@@ -100,12 +101,12 @@ Note that this makes the random-padding requirement of [Payload Formatting](payl
 ### Header
 
 ```python
-class Header:                                # 265 bytes
+class Header:                                # 273 bytes
     bedrock_version: byte                    # 1 byte
     parent_block: hash                       # 32 bytes
     slot: SlotNumber                         # 8 bytes
     body_root: hash                          # 32 bytes
-    proof_of_leadership: ProofOfLeadership   # 192 bytes
+    proof_of_leadership: ProofOfLeadership   # 200 bytes
 ```
 
 Where:
@@ -141,19 +142,21 @@ A decoder must reject a count greater than `MAX_BLOCK_TXS` **before** allocating
 ### Proof of Leadership
 
 ```python
-class ProofOfLeadership:                     # 192 bytes
+class ProofOfLeadership:                     # 200 bytes
     proof: Groth16Proof                      # 128 bytes
     entropy_contribution: zkhash             # 32 bytes
-    reward_key: ZkPublicKey                  # 32 bytes
+    reward_commitment: NoteCommitment        # 32 bytes
+    reward_value: TokenValue                 # 8 bytes
 ```
 
 Where:
 
 - `proof` is the proof confirming that the proposal is constructed by the leader. It is bound to the header by its public input `msg`, a hash of every field of the header except the proof and the entropy contribution, `body_root` included ([Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)); the size of the `Groth16Proof` type is 128 bytes (2 compressed $`\mathbb{G}_1`$and 1 compressed $`\mathbb{G}_2`$ BN256 elements).
 - `entropy_contribution` is the output of the PoL contribution for Cryptarchia entropy; the size of the `zkhash` type is 32 bytes.
-- `reward_key` is the one-time `ZkPublicKey` the leader reward of the block is paid to ([Block Execution](#block-execution)); the size of the `ZkPublicKey` type is 32 bytes.
+- `reward_commitment` is the commitment of the note paying the leader reward of the block ([Block Execution](#block-execution)), an output of the proof ([Leader Reward Note](cryptarchia-proof-of-leadership.md#leader-reward-note)); the size of the `NoteCommitment` type is 32 bytes.
+- `reward_value` is the value of that note, a public input of the proof, which must be the leader reward of the block ([Block Proposal Validation](#block-proposal-validation)); the size of the `TokenValue` type is 8 bytes.
 
-> **Field order.** The order above is the **wire** order, i.e. the order in which these fields are concatenated by [Canonical Encoding](#canonical-encoding). The `block_id` preimage in [Cryptarchia Protocol](cryptarchia-v1-protocol.md#block-id) absorbs `reward_key` and `entropy_contribution` in a *different* order, and leaves out `proof`, which is not unique. This is deliberate, not an inconsistency: `block_id` is a domain-separated enumeration of header fields rather than a re-serialization of the header, so the two orders are independent and both are normative. Changing either one changes a different thing — the wire format in the first case, block identity in the second.
+> **Field order.** The order above is the **wire** order, i.e. the order in which these fields are concatenated by [Canonical Encoding](#canonical-encoding). The `block_id` preimage in [Cryptarchia Protocol](cryptarchia-v1-protocol.md#block-id) absorbs `reward_commitment` and `reward_value` before `entropy_contribution`, a *different* order, and leaves out `proof`, which is not unique. This is deliberate, not an inconsistency: `block_id` is a domain-separated enumeration of header fields rather than a re-serialization of the header, so the two orders are independent and both are normative. Changing either one changes a different thing — the wire format in the first case, block identity in the second.
 
 ## Canonical Encoding
 
@@ -178,28 +181,29 @@ BodyRoot          = Hash32
 UncleHeaders      = UncleCount *Header
 UncleCount        = Byte            ; MUST NOT exceed MAX_UNCLES
 
-ProofOfLeadership = Groth16Proof EntropyContribution RewardKey
+ProofOfLeadership = Groth16Proof EntropyContribution RewardCommitment RewardValue
 EntropyContribution = FieldElement
-RewardKey         = FieldElement
+RewardCommitment  = FieldElement
+RewardValue       = UINT64
 
 References        = ReferenceCount *Reference
 ReferenceCount    = UINT16          ; MUST NOT exceed MAX_BLOCK_TXS
 Reference         = 16BYTE          ; REFERENCE_PREFIX_LENGTH bytes
 ```
 
-The terminals `Byte`, `UINT16`, `UINT64`, `Hash32`, `FieldElement` and `Groth16Proof` are those defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures). Note in particular that `FieldElement` is a little-endian BN254 field element, which fixes the byte order of `entropy_contribution` and `reward_key`.
+The terminals `Byte`, `UINT16`, `UINT64`, `Hash32`, `FieldElement` and `Groth16Proof` are those defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures). Note in particular that `FieldElement` is a little-endian BN254 field element, which fixes the byte order of `entropy_contribution` and `reward_commitment`.
 
 This yields the following sizes, where `n` is the number of references:
 
 | Structure | Encoded size | Minimum | Maximum |
 | --- | --- | --- | --- |
-| `Header` | `1 + 32 + 8 + 32 + 192` | 265 | 265 |
-| `ProofOfLeadership` | `128 + 32 + 32` | 192 | 192 |
-| `UncleHeaders` | `1 + 265u` | 1 | 1,061 |
+| `Header` | `1 + 32 + 8 + 32 + 200` | 273 | 273 |
+| `ProofOfLeadership` | `128 + 32 + 32 + 8` | 200 | 200 |
+| `UncleHeaders` | `1 + 273u` | 1 | 1,093 |
 | `References` | `2 + 16n` | 2 | 16,386 |
-| `Proposal` | `265 + (1 + 265u) + (2 + 16n)` | 268 | 17,712 |
+| `Proposal` | `273 + (1 + 273u) + (2 + 16n)` | 276 | 17,752 |
 
-The maximum of 17,712 bytes, at `n = MAX_BLOCK_TXS` references and `u = MAX_UNCLES` uncles, is what [Payload Formatting](payload-formatting.md#body) uses as `Max_Body_Length`.
+The maximum of 17,752 bytes, at `n = MAX_BLOCK_TXS` references and `u = MAX_UNCLES` uncles, is what [Payload Formatting](payload-formatting.md#body) uses as `Max_Body_Length`.
 
 ## Block
 
@@ -207,8 +211,8 @@ A **block** is what a proposal becomes once its references have been resolved ag
 
 ```python
 class Block:
-    header: Header                           # 265 bytes
-    uncle_headers: list[Header]              # 1 + n × 265 bytes, n <= MAX_UNCLES
+    header: Header                           # 273 bytes
+    uncle_headers: list[Header]              # 1 + n × 273 bytes, n <= MAX_UNCLES
     transactions: list[SignedMantleTx]       # up to MAX_BLOCK_SIZE
 ```
 
@@ -236,7 +240,7 @@ Before constructing the proposal, the block builder must:
 2. Derive the eligible roots required by the PoL ([Eligible Sets](cryptarchia-proof-of-leadership.md#eligible-sets)) from the state of the chain including the last block.
 3. Select a valid unspent note winning the PoL.
 
-The PoL is bound to the header of the proposal, so it is generated in step 5 of the construction procedure, once the content of the block is fixed (see [Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)).
+The PoL is bound to the header of the proposal, so it is generated in step 6 of the construction procedure, once the content of the block is fixed (see [Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)).
 
 ### Construction Procedure
 
@@ -247,8 +251,8 @@ The PoL is bound to the header of the proposal, so it is generated in step 5 of 
     - `slot`
     - `body_root` — left unset here; it is computed in step 4, once both parts of the body are known
     - `proof_of_leadership`:
-      - `reward_key`, a fresh `ZkPublicKey` of the leader
-      - `entropy_contribution` and `proof`, left unset here: they are computed in step 5, once the rest of the header is known
+      - `reward_commitment` and `reward_value`, left unset here: they are computed in step 5, once the transactions are selected
+      - `entropy_contribution` and `proof`, left unset here: they are computed in step 6, once the rest of the header is known
   - `uncle_headers`: the full headers, as received with the uncle's own proposal, of the uncles chosen by [Uncle Selection](cryptarchia-v1-protocol.md#uncle-selection), in selection order. Every entry must satisfy the validity rules of [Uncle References](cryptarchia-v1-protocol.md#uncle-references) against the chain the proposal extends, or the resulting block will be rejected; because those rules read only that chain and the entry itself, the proposer can verify this before publishing.
 
 2. Construct the `mempool_transactions` object:
@@ -265,9 +269,10 @@ references: list[bytes] = [prefix(mantle_txhash(tx), REFERENCE_PREFIX_LENGTH)
 ```
 
 4. Compute the `header.body_root` over both parts of the body, as defined in step 4 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation): the serialized `uncle_headers` list from step 1, combined with the root of the Merkle tree constructed over the full transaction hashes of the selected transactions used to build `references`. The `references` list is left exactly as long as the selection; it is not padded. This step therefore comes after both uncle selection and transaction selection.
-5. Generate a valid PoL proving leadership eligibility for `(Epoch, Slot)` based on the selected note, with the public input `msg = pol_msg(header)` ([Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)), and set `header.proof_of_leadership.proof` and `header.proof_of_leadership.entropy_contribution` from it.
+5. Compute the leader reward of the block as [Block Execution](#block-execution) does, by executing the selected transactions, and set `header.proof_of_leadership.reward_value` to it. Choose a public key `reward_public_key` and a nonce `reward_nonce` for the note, and set `header.proof_of_leadership.reward_commitment` to `derive_note_commitment(Note(reward_value, reward_nonce, reward_public_key))` ([Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier)).
+6. Generate a valid PoL proving leadership eligibility for `(Epoch, Slot)` based on the selected note, with the public inputs `msg = pol_msg(header)` ([Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)) and `reward_value`, and the private witnesses `reward_public_key` and `reward_nonce`, and set `header.proof_of_leadership.proof` and `header.proof_of_leadership.entropy_contribution` from it.
 
-6. Assemble the block proposal.
+7. Assemble the block proposal.
 ```python
 proposal = Proposal(
     header,
@@ -325,7 +330,7 @@ Neither the reference entries nor their count are covered by the proof of leader
 
 Two operational consequences follow:
 
-- Tampered copies of a genuine proposal are cheap to produce, since `references` is unauthenticated. `block_id` is computable from the 265-byte header alone and is shared by every variant of one proposal, which cuts both ways: once a copy has been **accepted**, every later copy carrying that `block_id` can be dropped at a glance, collapsing all tampered variants into a single unit of reconstruction work — but a *rejected* copy must not suppress later ones, or the first tampered variant to arrive would censor the genuine proposal behind it. Duplicate suppression on `block_id` is therefore keyed on acceptance, never on receipt.
+- Tampered copies of a genuine proposal are cheap to produce, since `references` is unauthenticated. `block_id` is computable from the 273-byte header alone and is shared by every variant of one proposal, which cuts both ways: once a copy has been **accepted**, every later copy carrying that `block_id` can be dropped at a glance, collapsing all tampered variants into a single unit of reconstruction work — but a *rejected* copy must not suppress later ones, or the first tampered variant to arrive would censor the genuine proposal behind it. Duplicate suppression on `block_id` is therefore keyed on acceptance, never on receipt.
 - Reconstruction must not be the first expensive step. It is a mempool scan, so it should follow PoL verification, and an unauthenticated proposal must be discarded before any mempool scanning takes place.
 
 Reconstruction assembles the [Block](#block) from the proposal's `header`, its `uncle_headers` copied over verbatim, and the transactions resolved from `references` in the order the references appear. The `uncle_headers` list is retained rather than discarded: it is not recoverable from the mempool, it is committed by `header.body_root` and so cannot be dropped without invalidating the block, and once the proposal has been consumed the block is the only carrier of the uncle headers that [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) and the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) need.
@@ -342,7 +347,7 @@ The order is constrained as well as economical. [Block Header Validation](crypta
   The received bytes must decode to a `proposal` under [Canonical Encoding](#canonical-encoding): the frame must be consumed exactly, with no trailing bytes, the `references` element count must not exceed `MAX_BLOCK_TXS`, and the `uncle_headers` element count must not exceed `MAX_UNCLES`. These checks precede any allocation proportional to a count and any mempool lookup. Because reconstruction produces exactly one transaction per reference, the first of them also discharges rule 3 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation), `length(transactions) <= MAX_BLOCK_TXS`.
 
 2. **Header Validation**
-  The `header` must satisfy the rules of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) that range over the header and the block tree alone: the bedrock version, the slot ordering against the parent, the wallclock check, the presence of the parent in the block tree, the height against the latest immutable block, and the leader's right to propose — that is, rules 1 and 5 through 9. These need no mempool access, and rule 9 verifies the proof of leadership, which is bound to the whole header, so an unauthenticated proposal is discarded here, before any mempool scanning.
+  The `header` must satisfy the rules of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) that range over the header and the block tree alone: the bedrock version, the slot ordering against the parent, the wallclock check, the presence of the parent in the block tree, the height against the latest immutable block, and the leader's right to propose — that is, rules 1 and 5 through 9. These need no mempool access, and rule 9 verifies the proof of leadership, which is bound to the whole header, so an unauthenticated proposal is discarded here, before any mempool scanning. The proof takes `reward_value` and `reward_commitment` from the header, which is what lets it verify before the reward is computed; step 7 compares the value with the reward.
 
 3. **Block Proposal Reconstruction**
   Every `references` prefix must resolve to a local mempool transaction, as defined in [Reference Resolution](#reference-resolution), and the body root computed over the carried `uncle_headers` and the resolved transactions must equal `header.body_root`. This step produces `transactions` and discharges rule 4 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation). It precedes the verification of the proofs of leadership of the carried uncles, so that a copy with substituted uncle entries costs one Groth16 verification, the one of step 2. A mismatch here means the message was corrupted in transit or malformed by its proposer, not that the block it names is invalid. Corruption of the header itself cannot reach this step — it would have failed the proof of leadership check in step 2 — so a mismatching copy has a genuine header over a tampered or damaged body, and carries the **same** `block_id` as the block it names. When that block is genuine, its well-formed bytes are held by the proposer and by every node that accepted it, and the proposal may be re-requested from any of them. That shared identity is exactly why no verdict about the block may be recorded from the mismatch: condemning the `block_id` of a corrupted copy would condemn the genuine block with it.
@@ -364,9 +369,12 @@ The order is constrained as well as economical. [Block Header Validation](crypta
 
   In order to verify ZK proofs, they are batched for verification as explained in [Batch verification of ZK proofs](#batch-verification-of-zk-proofs) to get better performance. Batching covers the proof checks alone and does not change the state a transaction is validated in: the public inputs of every proof are taken from the state its transaction is reached in, and the state-dependent assertions still run in sequence.
 
-If any of the above checks fail, the block proposal must be rejected. What the rejection establishes depends on which bytes the failed check read. `block_id` is computed from the 265-byte header without its proof of leadership, so the proof and every byte outside the header — `uncle_headers`, `references`, trailing bytes — can be altered in a copy without changing the `block_id` it names, and none of the bytes outside the header are authenticated until `header.body_root` is confirmed in step 3. A failure detected in them is a property of the received copy, not of the block: a frame that does not decode (step 1), an invalid proof of leadership (step 2), a failure to reconstruct (step 3), and a transaction resolved without the openings of the program notes its steps create, or with altered ones, which neither its hash nor `block_id` covers, each discard the copy **without** recording a verdict against `block_id`, on this path as on [every other](cryptarchia-v1-protocol.md#block-header-validation). Only a failure implied by the bytes that `block_id` covers, directly or through `header.body_root` (a wrong version, a slot that does not follow the parent, an invalid uncle entry), condemns the block the header names, identically at every node. Treating any of the former as final would let an attacker censor a genuine block by circulating tampered copies of it: one altered proof, one substituted uncle entry, or one altered reference, leaves `block_id` unchanged. The mempool-dependence of step 3 adds one further distinction — a reference that fails to resolve locally may resolve at another node — described in [Reference Resolution](#reference-resolution). Independently of what a rejection establishes about the block, **nothing of the proposal is executed**. The state progression the pass builds is a working one, adopted as the new chain state only once the last transaction of the block has validated: a single failed check anywhere in the block, in any transaction, in any Operation of any transaction, invalidates the whole block, so a node rejecting it holds exactly the state it held before it started processing it.
+7. **Leader Reward Validation**
+  `header.proof_of_leadership.reward_value` must equal `get_leader_reward(block)`, the leader reward step 4 of [Block Execution](#block-execution) computes once the transactions have run. `block_id` covers the value and, through `header.body_root`, the transactions, so a difference condemns the block.
 
-This ordering is specific to the proposal path. A block received in full through chain synchronisation carries its transactions from the start, so [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) applies to it as written, with no ordering constraint, and step 6 to its transactions.
+If any of the above checks fail, the block proposal must be rejected. What the rejection establishes depends on which bytes the failed check read. `block_id` is computed from the 273-byte header without its proof of leadership, so the proof and every byte outside the header — `uncle_headers`, `references`, trailing bytes — can be altered in a copy without changing the `block_id` it names, and none of the bytes outside the header are authenticated until `header.body_root` is confirmed in step 3. A failure detected in them is a property of the received copy, not of the block: a frame that does not decode (step 1), an invalid proof of leadership (step 2), a failure to reconstruct (step 3), and a transaction resolved without the openings of the program notes its steps create, or with altered ones, which neither its hash nor `block_id` covers, each discard the copy **without** recording a verdict against `block_id`, on this path as on [every other](cryptarchia-v1-protocol.md#block-header-validation). Only a failure implied by the bytes that `block_id` covers, directly or through `header.body_root` (a wrong version, a slot that does not follow the parent, an invalid uncle entry, a `reward_value` differing from the computed reward), condemns the block the header names, identically at every node. Treating any of the former as final would let an attacker censor a genuine block by circulating tampered copies of it: one altered proof, one substituted uncle entry, or one altered reference, leaves `block_id` unchanged. The mempool-dependence of step 3 adds one further distinction — a reference that fails to resolve locally may resolve at another node — described in [Reference Resolution](#reference-resolution). Independently of what a rejection establishes about the block, **nothing of the proposal is executed**. The state progression the pass builds is a working one, adopted as the new chain state only once the last transaction of the block has validated and the leader reward has been found equal to `reward_value`: a single failed check anywhere in the block, in any transaction, in any Operation of any transaction, invalidates the whole block, so a node rejecting it holds exactly the state it held before it started processing it.
+
+This ordering is specific to the proposal path. A block received in full through chain synchronisation carries its transactions from the start, so [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) applies to it as written, with no ordering constraint, step 6 to its transactions and step 7 to its leader reward.
 
 ## Block Execution
 
@@ -377,7 +385,7 @@ Given a `ValidBlock` that has successfully passed proposal validation, the node 
 1. Execute the reward distribution protocol defined in [**Service Reward Distribution Protocol**](bedrock-service-reward-distribution.md) to generate reward notes locally and include them in the ledger, debiting the Blend reward notes from `blend_rewards_closed`, returning what they do not use to `rewards_reserve` and moving `blend_rewards_pending` into `blend_rewards_closed`, then remove the withdrawn declarations and release their notes, as defined in [SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization). At the first block of an epoch, also credit the pow reward pool with `pow_rewards_pending`, reset it to `0` and set the epoch PoW reward, as defined in [Reward Pool](proof-of-work.md#reward-pool).
 2. Apply the channel withdrawals whose due slot is reached and whose inputs are still unspent, as defined in [CHANNEL_WITHDRAW](bedrock-v1.1-mantle-specification.md#channel_withdraw).
 3. Execute the Mantle Transactions included in the block in the order they appear, using the execution rules defined in the [Mantle](bedrock-v1.1-mantle-specification.md).
-4. Update `pooled_fees_window`, `rewards_reserve`, `rewards_pool`, `blend_rewards_pending` and `pow_rewards_pending` with the pooled fees, the release, the payout, the Blend share and the proof of work share of the block, as defined in [Block Rewards](block-rewards.md#deterministic-implementation), and insert the leader reward of the block in the ledger, its value computed from the release and the payout of that update.
+4. Update `pooled_fees_window`, `rewards_reserve`, `rewards_pool`, `blend_rewards_pending` and `pow_rewards_pending` with the pooled fees, the release, the payout, the Blend share and the proof of work share of the block, as defined in [Block Rewards](block-rewards.md#deterministic-implementation), and insert the leader reward of the block in the ledger, its value computed from the release and the payout of that update and compared with `reward_value` by [Block Proposal Validation](#block-proposal-validation).
 5. Record the commitment MMR root of every note set a commitment was appended to in the block, as defined in [Ledger](bedrock-v1.1-mantle-specification.md#ledger), so that the transactions of the next 1024 blocks can reference it, and record the [eligible root](cryptarchia-proof-of-leadership.md#eligible-sets) after the block, which validating an uncle or a fork block reads:
     ```python
     for note_set in note_sets_appended_to(block):
@@ -386,18 +394,16 @@ Given a `ValidBlock` that has successfully passed proposal validation, the node 
 
 Steps 1 and 2 read the epoch, the slot and the state of the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) and of the pending withdrawals, never the transactions of the block, which is what lets them run before those transactions are validated.
 
-The leader reward of step 4 is the one defined in [Blend Service and Consensus Leaders](overview-cryptoeconomics.md#blend-service-and-consensus-leaders), computed from the [Block Rewards](block-rewards.md) of the block and the Execution market tips of its transactions, which is why it comes after them. It is paid as a single note with a nonce of `0` under the `reward_key` of the block, and its commitment, given by `derive_note_commitment` ([Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier)), is appended to the ledger note set, `LEDGER_SET`, of the [Mantle Ledger](bedrock-v1.1-mantle-specification.md#ledger):
+The leader reward of step 4 is the one defined in [Blend Service and Consensus Leaders](overview-cryptoeconomics.md#blend-service-and-consensus-leaders), computed from the [Block Rewards](block-rewards.md) of the block and the Execution market tips of its transactions, which is why it comes after them. It is paid as a single note, `Note(reward_value, reward_nonce, reward_public_key)`, whose commitment is the `reward_commitment` of the block: the [Proof of Leadership](cryptarchia-proof-of-leadership.md#leader-reward-note) proves that the commitment opens to `reward_value` and to a key and a nonce only the leader knows. The commitment is appended to the ledger note set, `LEDGER_SET`, of the [Mantle Ledger](bedrock-v1.1-mantle-specification.md#ledger):
 
 ```python
-leader_note = Note(
-    value=get_leader_reward(block),
-    nonce=0,
-    public_key=block.header.proof_of_leadership.reward_key
-)
-ledger.sets[LEDGER_SET].execute_adding([derive_note_commitment(leader_note)])
+assert block.header.proof_of_leadership.reward_value == get_leader_reward(block)
+ledger.sets[LEDGER_SET].execute_adding([block.header.proof_of_leadership.reward_commitment])
 ```
 
-Spending the note reveals neither its commitment nor its value, so the leader cannot be linked to the block through its reward, as long as the leader does not publish its value. An `SDP_DECLARE` publishes the amount it stakes, the sum of the notes it consumes, and every reward value is public: staking reward notes, alone or with notes of known value, can link the blocks they were won in to the declaration. A leader should use a fresh `reward_key` for every block. Reusing it links the blocks that carry it to the same leader, and two rewards of the same value under the same key are identical notes, of which only one can be spent ([Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier)).
+The block reveals the value of the reward and its commitment, and neither its public key nor its nonce. Spending the note reveals neither its commitment nor its value, so the leader cannot be linked to the block through its reward, as long as the leader does not publish its value. An `SDP_DECLARE` publishes the amount it stakes, the sum of the notes it consumes, and every reward value is public: staking reward notes, alone or with notes of known value, can link the blocks they were won in to the declaration.
+
+The leader chooses `reward_public_key` and `reward_nonce` freely, and can reuse a key for any number of blocks without linking them, since the commitment hides it. Two rewards of the same value under the same key and nonce are identical notes, of which only one can be spent ([Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier)), and they show as a repeated commitment. Avoiding this is up to the leader, and the [Wallet Technical Standard](wallet-technical-standard.md#leader-reward-notes) recommends a nonce that does.
 
 The five steps stand or fall together, on a block that has validated in full: a block that fails validation at any point is not executed at all.
 
@@ -417,7 +423,7 @@ Write $`b = 8 \cdot`$ `REFERENCE_PREFIX_LENGTH` for the prefix length in bits, s
 
 The self-collision cost is the one that governs the parameter, because it is the cheaper of the two and it is what an attacker needs to force reconstruction failures. At the 8-byte prefix of an earlier revision ($`b = 64`$) it was only ≈ $`2^{32}`$ — under a second of GPU hashing — which is why that revision needed a construction-side ambiguity bound and a validator-side reconstruction cap to survive grindable collisions. At 16 bytes the birthday cost is ≈ $`2^{64}`$: about 58 years on one GPU at $`10^{10}`$ hashes per second, and still ~214 days against a 100× adversary. Manufacturing even a single ambiguous pair is therefore infeasible, and the whole class of grinding attacks disappears along with the machinery that managed it. Every reference resolves to exactly one transaction, reconstruction is a deterministic lookup, and `header.body_root` remains the backstop for the residual, cryptographically-negligible random collision.
 
-The cost is that references are twice as long as at 8 bytes, so the maximum proposal grows by 8,192 bytes. That still leaves it at 17,712 bytes against the 34,096 of a full-hash layout carrying the same uncles — a ≈1.9× reduction — and it buys reconstruction that no adversary can perturb — for a consensus structure, the stronger property is worth the bytes.
+The cost is that references are twice as long as at 8 bytes, so the maximum proposal grows by 8,192 bytes. That still leaves it at 17,752 bytes against the 34,136 of a full-hash layout carrying the same uncles — a ≈1.9× reduction — and it buys reconstruction that no adversary can perturb — for a consensus structure, the stronger property is worth the bytes.
 
 ## Why `body_root` alone binds the reference list
 

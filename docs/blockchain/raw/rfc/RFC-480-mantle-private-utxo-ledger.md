@@ -20,7 +20,7 @@
 | v12 | Builds on #503: every amount counts LEPTA, the token is LOGOS, the Block Rewards reference types its constants as 128-bit integers, and the revisions of Block Rewards, the Cryptoeconomics Overview and Total Stake Inference are renumbered past its own. The `zk_id` is a unique one-time random key, which the declaration does not prove | 2026-11-03 |
 | v13 | The Proof of Quota leader branch proves the note unspent at the freeze of the stake distribution. Genesis declarations consume no note, and Genesis checks the supply. A block above $`G_\text{max}`$ is invalid, and a proposal confirms its body root before verifying its uncles. A note set records its root only when a block appends to it, and every block records the eligible root. The Blend shares of the closed and of the current epoch are kept apart, what an epoch does not distribute returning to the reserve. `step_msg` hashes the channel, and the claim ticket has a DST | 2026-11-03 |
 | v14 | An inscription is a list of mini-blocks of steps, each step proven against its recent root and the buffer before its mini-block, in place of a `buffered` count on each step | 2026-11-04 |
-| v15 | The commitment and nullifier names are written in full, so that the root an Operation references is `commitment_root`, a note has a `NoteCommitment` and a `NoteNullifier`, and each notation is explained where it first appears. The message of a step holds the channel ID as two elements, its low and high 16 bytes, so that no two channels share a message. The overview figure shows the sequencer and the proof of work reward pool allocated at genesis. A declaration names in `note_pk` the key of its service note, which only builds the commitment, so that the stake can sit under a key the staker keeps offline | 2026-11-04 |
+| v15 | The commitment and nullifier names are written in full, so that the root an Operation references is `commitment_root`, a note has a `NoteCommitment` and a `NoteNullifier`, and each notation is explained where it first appears. The message of a step holds the channel ID as two elements, its low and high 16 bytes, so that no two channels share a message. The overview figure shows the sequencer and the proof of work reward pool allocated at genesis. A declaration names in `note_pk` the key of its service note, which only builds the commitment, so that the stake can sit under a key the staker keeps offline. The Proof of Leadership derives the commitment of the leader reward note from the public `reward_value` and a private key and nonce the leader chooses freely, so that keys can be reused without losing funds or linking blocks: the header holds `reward_commitment` and `reward_value` and is 273 bytes, the proof verifies from the header alone, a value differing from the computed reward condemns the block, and a nonce derived from the secret key and the slot lets a wallet find its reward notes from its seed. A nonce that is public was rejected, since it would let anyone test a known key against the commitment | 2026-11-04 |
 
 ## Reviewer Orientation
 
@@ -32,7 +32,7 @@ Read the PR's Motivation first. The note sets in Mantle are the base every other
 | 2 | Critical | [Mantle](#affected-specifications), [channel Operations](#2-channel-notes-moved-by-their-holders) | steps bound to `step_msg` and verified on chain; holder withdrawals with `WITHDRAW_DELAY` |
 | 3 | Critical | **Start here**: [Proof of Leadership](#affected-specifications), [eligible root](#3-proof-of-leadership-over-the-eligible-root) | the eligible tree over the sets; the same set position for the aged and latest checks |
 | 4 | High | [Mantle](#affected-specifications), [SDP and proof of work](#4-sdp-stake-and-the-proof-of-work-claim) | the SDP note set; the `note_pk` of the service note; the single-note MMR root binding the withdrawal to its service note; the unsigned PoW claim |
-| 5 | High | [Block Construction](#affected-specifications), [leader reward and block execution](#5-leader-reward-paid-in-the-block) | `reward_key`, the reward note, the release of due withdrawals |
+| 5 | High | [Block Construction](#affected-specifications), [leader reward and block execution](#5-leader-reward-paid-in-the-block) | `reward_commitment` and `reward_value`, the comparison with the computed reward, the release of due withdrawals |
 | 6 | High | [Block Rewards](#affected-specifications), [Cryptoeconomics overview](#affected-specifications), [block reward state](#6-block-reward-state-and-supply-projection) | the integer reference over the 120-block window, the reserve, the pool, the closed and pending Blend shares and the pending proof of work share, the 40% leader share plus tips |
 | 7 | High | [Mantle Transaction Encoding](#affected-specifications), [encoding](#7-encoding) | steps in `ChannelInscribe`, new payloads and proof variants |
 | 8 | High | [Cryptarchia](#affected-specifications), [Proof of Quota](#affected-specifications), [Message Encapsulation](#affected-specifications), [consensus inputs](#8-cryptarchia-and-proof-of-quota-inputs) | epoch state and uncle inputs, PoQ leader branch |
@@ -72,7 +72,15 @@ The `note_pk` only builds the commitment of the service note: no check reads it 
 
 ## Leader reward in the block
 
-The reward note of a block carries the block's own value and still does not link the leader to its spending: the spend reveals a nullifier and no commitment. The voucher set, the pooled leader reward and `LEADER_CLAIM` are retired. The block reward keeps averaging the pooled fees over the last 120 blocks, so a leader can barely steer its own reward with the fees it pays in its block. The reward note has nonce `0`, so two rewards of the same value under one `reward_key` are identical notes and, as for any two identical notes, only one can be spent: a leader should use a fresh key per block. Every reward value is public and an `SDP_DECLARE` publishes the amount it stakes, so staking reward notes can link the blocks they were won in to the declaration.
+The reward note of a block carries the block's own value and still does not link the leader to its spending: the spend reveals a nullifier and no commitment. The voucher set, the pooled leader reward and `LEADER_CLAIM` are retired. The block reward keeps averaging the pooled fees over the last 120 blocks, so a leader can barely steer its own reward with the fees it pays in its block. Every reward value is public and an `SDP_DECLARE` publishes the amount it stakes, so staking reward notes can link the blocks they were won in to the declaration.
+
+The Proof of Leadership derives the commitment of the reward note, and the header reveals only its value. A key and a nonce in the clear would force a wallet to manage a new key for every block: with a fixed nonce, reusing a key gives two rewards of the same value the same commitment, of which only one can be spent, and funds are lost. With the key and the nonce private, a leader can keep one key for all its rewards, which makes the wallet much simpler, and the chain does not show it. The value says nothing of the leader, since every node computes the reward.
+
+The value sits in the header so that the proof verifies from the header alone, before the block is reconstructed and in a batch. It is still compared with the computed reward once the transactions have run, and a difference condemns the block, since `block_id` covers both the value and the transactions. The leader has to know the reward before proving, which is acceptable because it already proves once the body is fixed.
+
+The leader selects the nonce completely freely, and a repeated commitment is its own risk. The Wallet Technical Standard recommends deriving the nonce from the secret key and the slot, which gives each reward its own nonce and lets a wallet recovering from its seed recompute its commitments from the public values. Two public nonces were rejected: the slot, and a nonce from the entropy contribution revealed in the header. Either gives every note a distinct commitment, but with a public value and a public nonce anyone can test a known public key against a commitment, so a reused key would link its blocks. Binding the key to the note that won the lottery was not needed either: the circuit leaves the reward key unconstrained, so a leader can be paid under a key whose secret stays offline.
+
+The proof of work claim stays as it is: it has no proof that could hide a key, so the miner throws away the mined key and transfers at once to a key it knows.
 
 ## Proof of Leadership on the proposal path
 
@@ -162,14 +170,19 @@ class ProofOfLeadershipPublic:
     eligible_aged: MerkleRoot       # new, the eligible root when the stake distribution was frozen
     eligible_latest: MerkleRoot     # new, the latest eligible root
     msg: zkhash                     # new, replaces leader_pk
+    reward_value: TokenValue        # new, the value of the leader reward note
     entropy_contribution: zkhash
+    reward_commitment: NoteCommitment  # new, the commitment of the leader reward note
 ```
+
+The circuit fixes the order of the public signals: `entropy_contribution`, `reward_commitment`, `slot`, `epoch_nonce`, `t0`, `t1`, `eligible_aged`, `eligible_latest`, `msg`, `reward_value`.
 
 - The aged check proves the `commitment` of the note in the commitment MMR of its set, and the leaf of that set, with the set's aged nullifier root, under `eligible_aged`.
 - The latest check proves its `nullifier` absent from the IMT of the same set: a leaf `low` with `low.nullifier < nullifier` and `nullifier < low.next_nullifier` or `low.next_nullifier == 0`, and the leaf of the set, with its latest commitment root, under `eligible_latest`.
 - Both leaf paths use the same `set_selectors`, the position of the set in the eligible tree, so both checks name the same set.
 - The lottery ticket and the entropy contribution use the `commitment`. The PoL is revision 1.2.0.
-- The PoL is bound to its block by `msg = pol_msg(header)`, a Blake2b hash under the DST `POL_MSG_V1` of every header field except the proof and the entropy contribution, reduced modulo `p`. The leader proves it once `body_root` is fixed. The `leader_key` header field, the proposal and block signatures and the signatures of the uncle headers are removed: an uncle entry is a 265-byte header, and the proposal is at most 17,712 bytes, which `Max_Body_Length` follows. The block ID hashes the header without its proof: a Groth16 proof can be re-randomized, so including it would give one block several IDs. An invalid proof of leadership therefore condemns only the received copy, not the block ID.
+- The private witnesses `reward_public_key` and `reward_nonce` give `reward_commitment = zkhash(NOTE_CM_V1, reward_value, reward_nonce, reward_public_key)`. The circuit constrains neither, and `reward_value` needs no range check there: it is read from 8 bytes of the header, and a note enters the ledger only with the value of the computed reward.
+- The PoL is bound to its block by `msg = pol_msg(header)`, a Blake2b hash under the DST `POL_MSG_V1` of every header field except the proof and the entropy contribution, reduced modulo `p`. The leader proves it once `body_root` is fixed. The `leader_key` header field, the proposal and block signatures and the signatures of the uncle headers are removed: an uncle entry is a 273-byte header, and the proposal is at most 17,752 bytes, which `Max_Body_Length` follows. The block ID hashes the header without its proof: a Groth16 proof can be re-randomized, so including it would give one block several IDs. An invalid proof of leadership therefore condemns only the received copy, not the block ID.
 
 ## 4. SDP stake and the proof of work claim
 
@@ -187,10 +200,13 @@ class ProofOfLeadershipPublic:
      # ... proof, entropy_contribution unchanged
 -    leader_key: Ed25519PublicKey
 -    leader_voucher: RewardVoucher
-+    reward_key: ZkPublicKey
++    reward_commitment: NoteCommitment
++    reward_value: TokenValue
 ```
 
-Block Execution runs the service rewards and releases the stake of the withdrawn declarations, releases the due channel withdrawals, runs the transactions, then updates the fee window, the reserve, the pool and the pending Blend and proof of work shares and appends the leader reward note `Note(get_leader_reward(block), 0, reward_key)` to the ledger set, and finally records the commitment MMR root of every note set the block appended to, forgetting the roots that have left the 1024-block window, and the eligible root, which validating an uncle or a fork block reads. A leader should use a fresh `reward_key` for every block. Block Proposal Validation confirms the body root before verifying the uncles, a copy with substituted uncle entries then costing one Groth16 verification, so an invalid uncle entry condemns the block. It also rejects a block whose transactions sum to more than $`G_\text{max}`$ Execution Gas. Block Construction is revision 1.4.0. The [Anonymous Leaders Reward](../../deprecated/bedrock-anonymous-leaders-reward.md) specification is deprecated.
+The `ProofOfLeadership` is 200 bytes on the wire, `proof`, `entropy_contribution`, `reward_commitment`, then `reward_value` as a little-endian `UINT64`, and the header 273 bytes. `pol_msg` and `block_id` cover both new fields, uncle headers carry them, and the `reward_value` of an uncle is compared with nothing since an uncle is not executed. Genesis holds `0` in both.
+
+Block Execution runs the service rewards and releases the stake of the withdrawn declarations, releases the due channel withdrawals, runs the transactions, then updates the fee window, the reserve, the pool and the pending Blend and proof of work shares and appends `reward_commitment` to the ledger set, and finally records the commitment MMR root of every note set the block appended to, forgetting the roots that have left the 1024-block window, and the eligible root, which validating an uncle or a fork block reads. Block Proposal Validation verifies the proof at step 2, before the mempool scan, with the `reward_value` and `reward_commitment` of the header, and compares `reward_value` with `get_leader_reward(block)` at a new step 7, after the transactions have run. A difference condemns the block. The leader chooses `reward_public_key` and `reward_nonce` freely. Block Proposal Validation confirms the body root before verifying the uncles, a copy with substituted uncle entries then costing one Groth16 verification, so an invalid uncle entry condemns the block. It also rejects a block whose transactions sum to more than $`G_\text{max}`$ Execution Gas. Block Construction is revision 1.4.0. The [Anonymous Leaders Reward](../../deprecated/bedrock-anonymous-leaders-reward.md) specification is deprecated.
 
 ## 6. Block reward state and supply projection
 
@@ -210,7 +226,7 @@ The system design figure is redrawn around the reserve, the pool and the per-blo
 
 - The epoch state `C_LEAD` is `eligible_root_at_slot` at the start of the previous epoch.
 - An uncle's Proof of Leadership is verified against `eligible_LATEST` as of its parent block.
-- The `block_id` preimage and the header absorb `reward_key` in place of `leader_voucher`.
+- The `block_id` preimage and the header absorb `reward_commitment` and `reward_value` in place of `leader_voucher`.
 - The PoQ leader branch takes `pol_eligible_aged`, and its witness takes `pol_note_nonce`, the aged commitment path, the low leaf of the set's aged nullifier IMT with its path, and the set path. It proves the nullifier of the note absent from that IMT. Message Encapsulation retrieves `pol_eligible_aged`.
 
 ## 9. Genesis
@@ -225,6 +241,8 @@ The system design figure is redrawn around the reserve, the pool and the per-blo
 
 The wallet keeps, for each note, its set, the commitment path inside its MMR peak and its nullifier, and for the lottery the aged path with the set's leaf path and the IMT low leaf of the same set, at the latest root and, for the Proof of Quota, at the freeze. A peak path grows only when its peak merges, at most 40 times. Each nullifier insertion changes two public leaves, from which the wallet updates its low leaf path with at most 40 hashes per changed leaf. A proof following other Operations of its transaction that add to the same set is against the root extended with the commitment buffer.
 
+A wallet should derive the nonce of its reward notes as `derive_reward_nonce(sk, slot)`, a hash under the DST `LEADER_REWARD_NONCE_V1`, so that recovering from the seed takes two hashes per block and reward key, against the public `reward_value`, `slot` and `reward_commitment` of the header.
+
 ## Chores
 
 - Common Cryptographic Components removes the ZkSignature scheme and the voucher mention.
@@ -232,7 +250,7 @@ The wallet keeps, for each note, its set, the commitment path inside its MMR pea
 - Block Construction: the batch verification annex covers ZkTransfer and pairs each `pi_A` with its own `pi_B`, and a note cannot be spent by a later transaction of the block that creates it.
 - The cross-channel messaging template is deprecated and moved to `deprecated/`.
 - The Execution Market and Blend follow the in-block leader reward, and the Execution Market and Cryptoeconomics overview figures are redrawn from Graphviz sources. The Architecture Overview has Transfer Operations over private notes pay the fees and every channel hold a note set.
-- Payload Formatting and Message Formatting follow the smaller block proposal: `Max_Body_Length` is 17,712 bytes and `Max_Payload_Length` 17,715 bytes, and the Blend message 18,838 bytes. Bootstrapping and Total Stake Inference carry the uncle headers without signatures.
+- Payload Formatting and Message Formatting follow the smaller block proposal: `Max_Body_Length` is 17,752 bytes and `Max_Payload_Length` 17,755 bytes, and the Blend message 18,878 bytes. Bootstrapping and Total Stake Inference carry the uncle headers without signatures.
 - Common Cryptographic Components states the hash mode of the three-element nullifier and the compression mode of the Proof of Quota key nullifier, and the Service Declaration Protocol types the stake threshold as a `TokenValue`.
 - The Gas Cost Determination analysis follows the new Operations and drops the Proof of Claim measures and images. The ZkTransfer (27 public inputs) is priced from the measured batch verification of Groth16 proofs, `cycles(n, N) = A(N) + n * P`: each proof costs `P = 618,797` cycles, so `EXECUTION_TRANSFER_GAS`, `EXECUTION_CHANNEL_DEPOSIT_GAS` and `EXECUTION_CHANNEL_WITHDRAW_GAS` are 619 and the SDP declaration and withdrawal 678. The fixed part `A(27) = 3,540,612` cycles is deducted from the block limit: `limit_Ex = G_max = 3,196,459` and `G_target = 1,598,229`.
 - The PoL circuit diagram and the Example sections of the Mantle Operations are removed. The Mantle and Cryptarchia test vectors are derived from the specification, for the implementation to reproduce.
@@ -247,10 +265,10 @@ The wallet keeps, for each note, its set, the commitment path inside its MMR pea
 - [ ] Remove `CHANNEL_TRANSFER`, the channel `transfer_threshold`, the transparent channel and service notes, `LEADER_CLAIM`, the voucher set and the Proof of Claim verifier.
 - [ ] Create service notes in the SDP set under the `note_pk` of the declaration, and consume them in `SDP_WITHDRAW` with a ZkTransfer.
 - [ ] Sign `SDP_WITHDRAW` and `SDP_ACTIVE` with Ed25519, and drop the proof of `CLAIM_POW_REWARD`.
-- [ ] Add `reward_key` to the header and insert the leader reward note during block execution.
+- [ ] Add `reward_commitment` and `reward_value` to the header, compare the value with the computed reward, and append the commitment during block execution.
 - [ ] Keep the pooled fees of the last 120 blocks, the reserve, the pool, the closed and pending Blend shares and the pending proof of work share, and compute the block reward in integers.
 - [ ] Pay the Blend rewards from the closed Blend share, returning what they do not use to the reserve.
-- [ ] Update the PoL circuit (`mantle/pol_lib.circom` in `logos-blockchain-circuits`) and the PoQ circuit (`blend/poq.circom`) to the eligible root, the PoQ leader branch proving the non-membership of the note nullifier in the aged IMT.
+- [ ] Update the PoL circuit (`mantle/pol_lib.circom` in `logos-blockchain-circuits`) and the PoQ circuit (`blend/poq.circom`) to the eligible root and the derivation of the reward commitment, the PoQ leader branch proving the non-membership of the note nullifier in the aged IMT.
 - [ ] Record the commitment root of the note sets a block appends to, and the eligible root of every block.
 - [ ] Reject a block whose transactions sum to more than $`G_\text{max}`$ Execution Gas, and confirm the body root of a proposal before verifying its uncles.
 - [ ] Update the encoding of payloads and proofs.
