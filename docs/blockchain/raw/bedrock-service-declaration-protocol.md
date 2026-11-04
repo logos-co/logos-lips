@@ -197,7 +197,7 @@ class DeclarationMessage:
     locators: list[Locator]
     provider_id: Ed25519PublicKey
     zk_id: ZkPublicKey
-    inputs: list[NoteNf]
+    inputs: list[NoteNullifier]
     commitment_root: MerkleRoot
     amount: TokenValue
 ```
@@ -208,8 +208,8 @@ The message must be signed by the `provider_id` key to prove ownership of the ke
 
 Where:
 
-- `inputs` are the nullifiers of the notes the declaration consumes, whose ownership is proven by a [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) against `commitment_root`. A [`NoteNf`](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) is the nullifier of a note, a hash of its commitment and of the secret key of its holder, published when the note is spent;
-- `commitment_root` is the root of the commitment MMR of the ledger note set at the end of one of the last 1024 blocks. A [`NoteCm`](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) is the commitment of a note, a hash of its value, its nonce and its public key, which identifies the note without revealing them;
+- `inputs` are the nullifiers of the notes the declaration consumes, whose ownership is proven by a [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) against `commitment_root`. A [`NoteNullifier`](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) is the nullifier of a note, a hash of its commitment and of the secret key of its holder, published when the note is spent;
+- `commitment_root` is the root of the commitment MMR of the ledger note set at the end of one of the last 1024 blocks. A [`NoteCommitment`](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) is the commitment of a note, a hash of its value, its nonce and its public key, which identifies the note without revealing them;
 - `amount` is the value of the one service note the declaration creates under the `zk_id`, used for minimum stake threshold verification purposes.
 
 ### **Declaration Storage**
@@ -220,8 +220,8 @@ Only valid declaration messages can be stored on the ledger. A declaration cover
 class DeclarationInfo:
     service: ServiceType
     provider_id: Ed25519PublicKey
-    service_note: NoteCm
-    withdraw_outputs: list[NoteCm]
+    service_note: NoteCommitment
+    withdraw_outputs: list[NoteCommitment]
     locators: list[Locator]
     zk_id: ZkPublicKey
     created: EpochNumber
@@ -234,8 +234,8 @@ Where:
 
 - `service` is the service the declaration covers;
 - `provider_id` is the `Ed25519PublicKey` the validator signs its messages with;
-- `service_note` is the `NoteCm` of the service note created by the declaration in the SDP note set, whose value meets the minimum stake threshold;
-- `withdraw_outputs` are the `NoteCm` of the notes the withdrawal creates, released to the ledger when the declaration is removed; it is empty by default;
+- `service_note` is the `NoteCommitment` of the service note created by the declaration in the SDP note set, whose value meets the minimum stake threshold;
+- `withdraw_outputs` are the `NoteCommitment` of the notes the withdrawal creates, released to the ledger when the declaration is removed; it is empty by default;
 - `locators` is a copy of the `locators` from the `DeclarationMessage`;
 - `zk_id` is the `ZkPublicKey` the service note and the rewards of the validator are created under;
 - `created` is the epoch of the block that contained the declaration;
@@ -321,14 +321,14 @@ The construction of the withdraw message is as follows:
 class WithdrawMessage:
     declaration_id: DeclarationId
     nonce: Nonce
-    service_note_nf: NoteNf
-    outputs: list[NoteCm]
+    service_note_nullifier: NoteNullifier
+    outputs: list[NoteCommitment]
     excess_value: TokenValue
 ```
 
 The message must be signed by the `provider_id` key of the declaration.
 
-The message consumes the service note of the declaration, by its nullifier `service_note_nf`, and creates the `outputs` that return its value, `excess_value` paying the fees. A [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) by the holder of the `zk_id` proves it, against the service note of the declaration only. The `outputs` are released to the ledger when the declaration is removed.
+The message consumes the service note of the declaration, by its nullifier `service_note_nullifier`, and creates the `outputs` that return its value, `excess_value` paying the fees. A [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) by the holder of the `zk_id` proves it, against the service note of the declaration only. The `outputs` are released to the ledger when the declaration is removed.
 
 The `nonce` follows [Declaration Storage](#declaration-storage).
 

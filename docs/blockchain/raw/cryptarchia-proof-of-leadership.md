@@ -84,23 +84,23 @@ In order to prove that the winning note exists and existed at the start of the p
 Every [note set](bedrock-v1.1-mantle-specification.md#ledger) of the Mantle Ledger is eligible: the ledger note set, the SDP note set and the note set of every channel. The eligible root commits to all of them. It is the root of a Merkle tree of depth $`40`$ whose leaf at position $`i`$ hashes the root of the commitment [Merkle Mountain Range](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range) (MMR) and the root of the [nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) (IMT) of the note set of index $`i`$, every position past the last note set holding the value $`0`$, a capacity that blocks full of channel creations take about 1,140 years to fill:
 
 ```python
-def eligible_leaf(cm_root: MerkleRoot, nf_root: MerkleRoot) -> zkhash:
+def eligible_leaf(commitment_root: MerkleRoot, nullifier_root: MerkleRoot) -> zkhash:
     return zkhash(
         FiniteField(b"ELIGIBLE_SET_LEAF_V1", byte_order="little", modulus= p),
-        cm_root,
-        nf_root
+        commitment_root,
+        nullifier_root
     )
 
 def eligible_root(sets: list[NoteSet]) -> MerkleRoot:
     peaks = []
     for note_set in sets:
         # the root of the commitment MMR and the root of the nullifier IMT of the set
-        mmr_append(peaks, eligible_leaf(note_set.cm_root(), note_set.nf_root()))
+        mmr_append(peaks, eligible_leaf(note_set.commitment_root(), note_set.nullifier_root()))
     # Merkle root of depth 40 over the leaves, every position past the last note set holding 0
     return mmr_root(peaks)
 ```
 
-`mmr_append` and `mmr_root` are those of the [commitment MMR](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range), which compute the same tree.
+`mmr_append` and `mmr_root` are those of the [commitment MMR](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range), which compute the same tree, and `commitment_root()` and `nullifier_root()` are the [methods of a note set](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) giving these two roots. `zkhash` is the [Poseidon2 hash](common-cryptographic-components.md), and a `MerkleRoot` is the root of a Merkle tree.
 
 The first leaf is the ledger note set, the second the SDP note set, and the next ones the channels in the order they were created. Its root when the stake distribution was frozen is $`eligible_{AGED}`$, and its latest root is $`eligible_{LATEST}`$.
 
@@ -128,22 +128,24 @@ The prover knows a witness:
 
 ```python
 class ProofOfLeadershipWitness:
-    sk: ZkSecretKey
-    value: TokenValue
-    nonce: NoteNonce
-    set_selectors: list[boolean]      # position of the note set in the eligible tree (len = 40)
-    cm_aged_path: list[zkhash]        # path of the note commitment in the commitment MMR of its set (len = 40)
-    cm_aged_selectors: list[boolean]
-    nf_root_aged: MerkleRoot          # nullifier IMT root of the set when the stake distribution was frozen
-    set_aged_path: list[zkhash]       # path of the leaf of the set to eligible_aged (len = 40)
-    low_leaf_nf: NoteNf               # greatest nullifier of the set lower than the note nullifier
-    low_leaf_next_nf: NoteNf          # next greater nullifier of the set, 0 if none
-    low_leaf_next_index: int          # index of the IMT leaf holding low_leaf_next_nf, 0 if none
-    low_leaf_path: list[zkhash]       # path of the IMT leaf of low_leaf_nf (len = 40)
-    low_leaf_selectors: list[boolean]
-    cm_root_latest: MerkleRoot        # latest commitment MMR root of the set
-    set_latest_path: list[zkhash]     # path of the leaf of the set to eligible_latest (len = 40)
+    sk: ZkSecretKey                           # secret key of the note
+    value: TokenValue                         # value of the note
+    nonce: NoteNonce                          # nonce of the note
+    set_selectors: list[boolean]              # position of the note set in the eligible tree (len = 40)
+    commitment_aged_path: list[zkhash]        # path of the note commitment in the commitment MMR of its set (len = 40)
+    commitment_aged_selectors: list[boolean]  # selectors of commitment_aged_path
+    nullifier_root_aged: MerkleRoot           # nullifier IMT root of the set when the stake distribution was frozen
+    set_aged_path: list[zkhash]               # path of the leaf of the set to eligible_aged (len = 40)
+    low_leaf_nullifier: NoteNullifier         # greatest nullifier of the set lower than the note nullifier
+    low_leaf_next_nullifier: NoteNullifier    # next greater nullifier of the set, 0 if none
+    low_leaf_next_index: int                  # index of the IMT leaf holding low_leaf_next_nullifier, 0 if none
+    low_leaf_path: list[zkhash]               # path of the IMT leaf of low_leaf_nullifier (len = 40)
+    low_leaf_selectors: list[boolean]         # selectors of low_leaf_path
+    commitment_root_latest: MerkleRoot        # latest commitment MMR root of the set
+    set_latest_path: list[zkhash]             # path of the leaf of the set to eligible_latest (len = 40)
 ```
+
+`ZkSecretKey`, `TokenValue`, `NoteNonce` and `NoteNullifier` are the types of [Notes](bedrock-v1.1-mantle-specification.md#notes) in Mantle.
 
 Every path and its selectors follow the Merkle path convention of [Mantle](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range): from the leaf level up, a selector being the bit of the leaf index at its level. `path_root`, defined there, computes the root of a path, and the proof checks that every selector is a bit, `s * (1 - s) == 0`.
 
@@ -158,46 +160,46 @@ Such that the following constraints hold:
 
 - The note commitment is derived from the value, the nonce and the public key, with `program` and `data` set to `0`, so only user notes lead.
   ```python
-  cm = zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), value, nonce, pk, 0, 0)
+  commitment = zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), value, nonce, pk, 0, 0)
   ```
 
 - The note commitment was in the commitment MMR of its note set when the stake distribution was frozen.
   ```python
-  cm_root_aged = path_root(leaf=cm,
-      path=cm_aged_path,
-      selectors=cm_aged_selectors)
-  assert eligible_aged == path_root(leaf=eligible_leaf(cm_root_aged, nf_root_aged),
+  commitment_root_aged = path_root(leaf=commitment,
+      path=commitment_aged_path,
+      selectors=commitment_aged_selectors)
+  assert eligible_aged == path_root(leaf=eligible_leaf(commitment_root_aged, nullifier_root_aged),
       path=set_aged_path,
       selectors=set_selectors)
   ```
 
 - The note is unspent: its nullifier is not in the latest [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of the same note set, the same `set_selectors` placing both leaves at the position of that set.
   ```python
-  nf = zkhash(FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p), cm, sk)
+  nullifier = zkhash(FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p), commitment, sk)
   low_leaf = zkhash(FiniteField(b"NULLIFIER_IMT_LEAF_V1", byte_order="little", modulus= p),
-      low_leaf_nf,
-      low_leaf_next_nf,
+      low_leaf_nullifier,
+      low_leaf_next_nullifier,
       FiniteField(low_leaf_next_index, byte_order="little", modulus= p))
-  nf_root_latest = path_root(leaf=low_leaf,
+  nullifier_root_latest = path_root(leaf=low_leaf,
       path=low_leaf_path,
       selectors=low_leaf_selectors)
-  assert eligible_latest == path_root(leaf=eligible_leaf(cm_root_latest, nf_root_latest),
+  assert eligible_latest == path_root(leaf=eligible_leaf(commitment_root_latest, nullifier_root_latest),
       path=set_latest_path,
       selectors=set_selectors)
-  assert low_leaf_nf < nf
-  assert nf < low_leaf_next_nf or low_leaf_next_nf == 0
+  assert low_leaf_nullifier < nullifier
+  assert nullifier < low_leaf_next_nullifier or low_leaf_next_nullifier == 0
   ```
 
 - The note wins the lottery.
   ```python
-  ticket = zkhash(FiniteField(b"LEAD_V1", byte_order="little", modulus= p), epoch_nonce, slot, cm, sk)
+  ticket = zkhash(FiniteField(b"LEAD_V1", byte_order="little", modulus= p), epoch_nonce, slot, commitment, sk)
   threshold = value * (t0 + t1 * value)
   assert ticket < threshold
   ```
 
 - The entropy contribution is derived from the slot and the note.
   ```python
-  assert entropy_contribution == zkhash(FiniteField(b"NONCE_CONTRIB_V1", byte_order="little", modulus= p), slot, cm, sk)
+  assert entropy_contribution == zkhash(FiniteField(b"NONCE_CONTRIB_V1", byte_order="little", modulus= p), slot, commitment, sk)
   ```
 
 - The proof is bound to `msg`.

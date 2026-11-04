@@ -123,6 +123,8 @@ Parent            = Hash32
 Signer            = Ed25519PublicKey
 ```
 
+A `UserStep` moves the user notes of its holder, a `ProgramStep` executes a program, paid by its `Payment`s with their `Intent`, the hash of what each user expects, and `SpendNotesHash` is the hash of the notes of its program spend. A `MiniBlock` groups the steps whose user steps and payments cover the same transaction buffer. [CHANNEL_INSCRIBE](bedrock-v1.1-mantle-specification.md#channel_inscribe) defines them.
+
 `MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. The payloads of `ChannelInscribe.Inscription` and `ChannelDeposit.Metadata` MUST each be at most `MAX_OPERATION_DATA_SIZE` bytes, excluding the outer `UINT32` length prefix. A decoder MUST reject either field when its declared or decoded payload length exceeds the limit.
 
 A decoder MUST reject a `ProgramStep` whose `OutputCount` exceeds 8, or whose `ProgramOutputs` has a bit set at or above its `OutputCount`, so that a step has a single encoding.
@@ -138,7 +140,7 @@ Locator       = 2Byte *BYTE   ; Max 329 bytes, multiaddr binary form
 ProviderId    = Ed25519PublicKey
 ZkId          = ZkPublicKey
 
-SDPWithdraw   = DeclarationId Nonce NoteNf Outputs Value
+SDPWithdraw   = DeclarationId Nonce NoteNullifier Outputs Value
 DeclarationId = Hash32
 Nonce         = UINT64
 
@@ -178,9 +180,9 @@ ProgramId             = FieldElement
 
 ```schema
 Transfer    = Inputs Outputs CommitmentRoot Value
-Inputs      = InputCount *NoteNf
+Inputs      = InputCount *NoteNullifier
 InputCount  = Byte
-Outputs     = OutputCount *NoteCm
+Outputs     = OutputCount *NoteCommitment
 OutputCount = Byte
 ```
 
@@ -188,10 +190,12 @@ OutputCount = Byte
 
 ```schema
 Value          = UINT64
-NoteCm         = FieldElement
-NoteNf         = FieldElement
+NoteCommitment = FieldElement ; commitment of a note
+NoteNullifier  = FieldElement ; nullifier of a note
 CommitmentRoot = FieldElement ; MMR root of note commitments
 ```
+
+Commitments and nullifiers are defined in [Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) of Mantle.
 
 ## Op Proofs
 

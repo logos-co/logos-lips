@@ -84,28 +84,28 @@ The prover knows a witness:
 
 ```python
 class ProofOfQuotaWitness:
-    index: int                            # This is the index of the generated key. Limiting this index limits the maximum number of key generated. (20 bits)
-    selector: int                         # Indicates a core node (=0), a leader (=1) or a proof of work solution (=2)
+    index: int                                 # This is the index of the generated key. Limiting this index limits the maximum number of key generated. (20 bits)
+    selector: int                              # Indicates a core node (=0), a leader (=1) or a proof of work solution (=2)
     # This part is filled randomly by potential leaders and by proof of work provers
-    core_sk: zkhash                       # sk corresponding to the zk_id of the core node
-    core_path: list[zkhash]               # Merkle path proving zk_id membership (len = 20)
-    core_path_selectors: list[bool]       # Indicates how to read the core_path (if Merkle nodes are left or right in the path)
+    core_sk: zkhash                            # sk corresponding to the zk_id of the core node
+    core_path: list[zkhash]                    # Merkle path proving zk_id membership (len = 20)
+    core_path_selectors: list[bool]            # Indicates how to read the core_path (if Merkle nodes are left or right in the path)
     # This part is filled randomly by core nodes and by proof of work provers
-    pol_sl: int                           # PoL slot
-    pol_secret_key: int                   # PoL note secret key
-    pol_note_value: int                   # PoL note value
-    pol_note_nonce: zkhash                # PoL note nonce
-    pol_cm_aged_path: list[zkhash]        # PoL Merkle path proving the note commitment membership in the commitment Merkle Mountain Range (MMR) of its note set (len = 40)
-    pol_cm_aged_selectors: list[bool]     # Indicates how to read the pol_cm_aged_path (if Merkle nodes are left or right in the path)
-    pol_low_leaf_nf: zkhash               # PoL nullifier of the leaf of the IMT of the note set, when the stake distribution was frozen, holding the greatest nullifier lower than the nullifier of the note
-    pol_low_leaf_next_nf: zkhash          # PoL next nullifier of that leaf
-    pol_low_leaf_next_index: int          # PoL next index of that leaf
-    pol_low_leaf_path: list[zkhash]       # PoL Merkle path of that leaf to the nullifier IMT root of the note set when the stake distribution was frozen (len = 40)
-    pol_low_leaf_selectors: list[bool]    # Indicates how to read the pol_low_leaf_path (if Merkle nodes are left or right in the path)
-    pol_set_aged_path: list[zkhash]       # PoL Merkle path of the leaf of the note set to pol_eligible_aged (len = 40)
-    pol_set_selectors: list[bool]         # Position of the note set in the eligible tree
+    pol_sl: int                                # PoL slot
+    pol_secret_key: int                        # PoL note secret key
+    pol_note_value: int                        # PoL note value
+    pol_note_nonce: zkhash                     # PoL note nonce
+    pol_commitment_aged_path: list[zkhash]     # PoL Merkle path proving the note commitment membership in the commitment Merkle Mountain Range (MMR) of its note set (len = 40)
+    pol_commitment_aged_selectors: list[bool]  # Indicates how to read the pol_commitment_aged_path (if Merkle nodes are left or right in the path)
+    pol_low_leaf_nullifier: zkhash             # PoL nullifier of the leaf of the IMT of the note set, when the stake distribution was frozen, holding the greatest nullifier lower than the nullifier of the note
+    pol_low_leaf_next_nullifier: zkhash        # PoL next nullifier of that leaf
+    pol_low_leaf_next_index: int               # PoL next index of that leaf
+    pol_low_leaf_path: list[zkhash]            # PoL Merkle path of that leaf to the nullifier IMT root of the note set when the stake distribution was frozen (len = 40)
+    pol_low_leaf_selectors: list[bool]         # Indicates how to read the pol_low_leaf_path (if Merkle nodes are left or right in the path)
+    pol_set_aged_path: list[zkhash]            # PoL Merkle path of the leaf of the note set to pol_eligible_aged (len = 40)
+    pol_set_selectors: list[bool]              # Position of the note set in the eligible tree
     # This part is filled randomly by core nodes and by potential leaders
-    pow_nonce: zkhash                     # Private nonce the prover ground to solve the puzzle
+    pow_nonce: zkhash                          # Private nonce the prover ground to solve the puzzle
 ```
 
 Note that every inputs and outputs of zero-knowledge proofs are all scalar field elements. Every path and its selectors follow the Merkle path convention of [Mantle](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range): from the leaf level up, a selector being the bit of the leaf index at its level. `path_root`, defined there, computes the root of a path, and `merkle_verify(root, path, selectors, leaf)` is `path_root(leaf, path, selectors) == root`. The proof checks that every selector is a bit, `s * (1 - s) == 0`.
@@ -185,10 +185,10 @@ is_leader = would_win_leadership(pol_epoch_nonce,
         pol_secret_key,
         pol_note_value,
         pol_note_nonce,
-        pol_cm_aged_path,
-        pol_cm_aged_selectors,
-        pol_low_leaf_nf,
-        pol_low_leaf_next_nf,
+        pol_commitment_aged_path,
+        pol_commitment_aged_selectors,
+        pol_low_leaf_nullifier,
+        pol_low_leaf_next_nullifier,
         pol_low_leaf_next_index,
         pol_low_leaf_path,
         pol_low_leaf_selectors,

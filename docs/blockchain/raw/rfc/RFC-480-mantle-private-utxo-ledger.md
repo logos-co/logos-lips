@@ -20,7 +20,7 @@
 | v12 | Builds on #503: every amount counts LEPTA, the token is LOGOS, the Block Rewards reference types its constants as 128-bit integers, and the revisions of Block Rewards, the Cryptoeconomics Overview and Total Stake Inference are renumbered past its own. The `zk_id` is a unique one-time random key, which the declaration does not prove | 2026-11-03 |
 | v13 | The Proof of Quota leader branch proves the note unspent at the freeze of the stake distribution. Genesis declarations consume no note, and Genesis checks the supply. A block above $`G_\text{max}`$ is invalid, and a proposal confirms its body root before verifying its uncles. A note set records its root only when a block appends to it, and every block records the eligible root. The Blend shares of the closed and of the current epoch are kept apart, what an epoch does not distribute returning to the reserve. `step_msg` hashes the channel, and the claim ticket has a DST | 2026-11-03 |
 | v14 | An inscription is a list of mini-blocks of steps, each step proven against its recent root and the buffer before its mini-block, in place of a `buffered` count on each step | 2026-11-04 |
-| v15 | The root an Operation references is named `commitment_root`. The message of a step holds the channel ID as two elements, its low and high 16 bytes, so that no two channels share a message. The overview figure shows the sequencer and the proof of work reward pool allocated at genesis | 2026-11-04 |
+| v15 | The commitment and nullifier names are written in full, so that the root an Operation references is `commitment_root`, a note has a `NoteCommitment` and a `NoteNullifier`, and each notation is explained where it first appears. The message of a step holds the channel ID as two elements, its low and high 16 bytes, so that no two channels share a message. The overview figure shows the sequencer and the proof of work reward pool allocated at genesis | 2026-11-04 |
 
 ## Reviewer Orientation
 
@@ -28,7 +28,7 @@ Read the PR's Motivation first. The note sets in Mantle are the base every other
 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
-| 1 | Critical | **Start here**: [Mantle](#affected-specifications), [note sets](#1-note-sets) | one commitment MMR and nullifier IMT per set; the 1024-block root window and the commitment buffer per set |
+| 1 | Critical | **Start here**: [Mantle](#affected-specifications), [note sets](#1-note-sets) | one commitment Merkle Mountain Range (MMR) and nullifier Indexed Merkle Tree (IMT) per set; the 1024-block root window and the commitment buffer per set |
 | 2 | Critical | [Mantle](#affected-specifications), [channel Operations](#2-channel-notes-moved-by-their-holders) | steps bound to `step_msg` and verified on chain; holder withdrawals with `WITHDRAW_DELAY` |
 | 3 | Critical | **Start here**: [Proof of Leadership](#affected-specifications), [eligible root](#3-proof-of-leadership-over-the-eligible-root) | the eligible tree over the sets; the same set position for the aged and latest checks |
 | 4 | High | [Mantle](#affected-specifications), [SDP and proof of work](#4-sdp-stake-and-the-proof-of-work-claim) | the SDP note set; the single-note MMR root binding the withdrawal to its service note; the unsigned PoW claim |
@@ -91,19 +91,19 @@ The sum of the Execution Gas of the transactions of a block is a validity rule. 
 
 ## 1. Note sets
 
-A note is `(value, nonce, public_key)`, stored as its commitment `derive_note_cm(note)`. Each note set keeps the commitments of its notes in an MMR and the nullifiers `derive_note_nf(cm, sk)` of its spent notes in an IMT.
+A note is `(value, nonce, public_key)`, stored as its commitment `derive_note_commitment(note)`. Each note set keeps the commitments of its notes in an MMR and the nullifiers `derive_note_nullifier(commitment, sk)` of its spent notes in an IMT, `sk` being the secret key of the holder ([Note Commitment and Nullifier](../bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier)).
 
 ```python
 LEDGER_SET = 0
 SDP_SET = 1
 
 class NoteSet:
-    commitments: list[(MerkleRoot, int)]  # the peaks of the commitment MMR, with their heights
-    nullifiers: set[NoteNf]               # the set of nullifiers, holding the 0 of the sentinel leaf
-    nullifier_leaves: list[NullifierLeaf] # the leaves of the nullifier IMT, in insertion order
-    current_cm_root: MerkleRoot           # the commitment MMR root at the end of the previous block
-    recent_cm_roots: dict[MerkleRoot, RecentRoot]  # the current root and the roots of the last 1024 blocks
-    tx_cm_buffer: list[NoteCm]          # commitments added earlier in the Mantle Transaction
+    commitments: list[(MerkleRoot, int)]        # the peaks of the commitment MMR, with their heights
+    nullifiers: set[NoteNullifier]              # the set of nullifiers, holding the 0 of the sentinel leaf
+    nullifier_leaves: list[NullifierLeaf]       # the leaves of the nullifier IMT, in insertion order
+    current_commitment_root: MerkleRoot         # the commitment MMR root at the end of the previous block
+    recent_commitment_roots: dict[MerkleRoot, RecentRoot]  # the current root and the roots of the last 1024 blocks
+    tx_commitment_buffer: list[NoteCommitment]  # commitments added earlier in the Mantle Transaction
 
 class RecentRoot:
     peaks: list[(MerkleRoot, int)]  # the peaks of the commitment MMR at this root
@@ -112,17 +112,19 @@ class RecentRoot:
 class Ledger:
     sets: list[NoteSet]                              # ledger, SDP, then one per channel by creation,
                                                      # none for the null channel
-    pending_withdrawals: list[(Slot, int, list[NoteNf], list[NoteCm])]
+    # the channel withdrawals waiting for their due slot: (due slot, note set, inputs, outputs)
+    pending_withdrawals: list[(Slot, int, list[NoteNullifier], list[NoteCommitment])]
 ```
 
+- A `NoteNullifier` is the nullifier of a note, a `NoteCommitment` its commitment and a `MerkleRoot` the root of a Merkle tree, each an element of the field ([Notes](../bedrock-v1.1-mantle-specification.md#notes)).
 - A channel gets the next note set when it is created, stored as `ChannelState.note_set`. The null channel, which only receives the Genesis inscriptions, gets none, and no deposit, withdrawal or step can target it.
 - The commitment MMR root is the root of the depth-40 Merkle tree whose leaves are the commitments in insertion order, empty leaves holding `0`. The ledger keeps its peaks: `mmr_append` adds a commitment, and `mmr_root` computes the root from the peaks.
-- The nullifier IMT has depth 40 and appends leaves in insertion order. At depth 32 a set would fill in about 72 days of transfers of 8 outputs at the Execution Gas target, and in about 50 years at depth 40, for 243 constraints per extra level and no change to the verification gas. A leaf is `NullifierLeaf(nf, next_nf, next_index)`, hashed with the DST `NULLIFIER_IMT_LEAF_V1`. The first leaf is the sentinel `(0, 0, 0)`, and positions past the last leaf hold `0`.
-- `assert_spendable(inputs, commitment_root)`, `verify_transfer(...)`, `execute_spending(inputs)` and `execute_adding(outputs)` are methods of `NoteSet`, called as `ledger.sets[LEDGER_SET].execute_adding(...)`.
-- An Operation references a recent `commitment_root`, and its ZkTransfer is proven against `tx_cm_root`, that root with the set's buffer appended, or only the commitments before its mini-block for a channel step (§2). `verify_transfer` computes `tx_cm_root` and calls `ZkTransfer_verify(...)`. `SDP_WITHDRAW` references no root and calls `ZkTransfer_verify(...)` directly (§4).
+- The nullifier IMT has depth 40 and appends leaves in insertion order. At depth 32 a set would fill in about 72 days of transfers of 8 outputs at the Execution Gas target, and in about 50 years at depth 40, for 243 constraints per extra level and no change to the verification gas. A leaf is `NullifierLeaf(nullifier, next_nullifier, next_index)`, a nullifier, the next greater nullifier of the set and the index of the leaf holding it, hashed with the domain separation tag (DST) `NULLIFIER_IMT_LEAF_V1`. The first leaf is the sentinel `(0, 0, 0)`, and positions past the last leaf hold `0`.
+- `assert_spendable(inputs, commitment_root)`, `verify_transfer(...)`, `execute_spending(inputs)` and `execute_adding(outputs)` are [methods of `NoteSet`](../bedrock-v1.1-mantle-specification.md#input-notes-spendability-validation), called as `ledger.sets[LEDGER_SET].execute_adding(...)`.
+- An Operation references a recent `commitment_root`, and its [ZkTransfer](../bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) is proven against `tx_commitment_root`, that root with the set's buffer appended, or only the commitments before its mini-block for a channel step (§2). `verify_transfer` computes `tx_commitment_root` and calls `ZkTransfer_verify(...)`, the verifier of the proof. `SDP_WITHDRAW` references no root and calls `ZkTransfer_verify(...)` directly (§4).
 - The ZkTransfer has 4 inputs and 8 outputs, marked used by the public flags `inputs_active` and `outputs_active`. The verifier sets the flags from the lengths of `inputs` and `outputs`, and an Operation with more than 4 inputs or 8 outputs is invalid. The circuit checks each flag is boolean, and an inactive input or output holds value `0`.
 - The `excess_value` of `TRANSFER`, `CHANNEL_DEPOSIT` and `SDP_WITHDRAW` adds to the transaction balance. Steps and withdrawals carry none, and the excess of `SDP_DECLARE` is its stake.
-- `derive_note_nonce(op_id, output_number, value, public_key)` uses the DST `NOTE_NONCE_V1`.
+- `derive_note_nonce(op_id, output_number, value, public_key)`, the nonce of a note the ledger creates, uses the DST `NOTE_NONCE_V1`.
 - A Merkle path lists its nodes and its selectors from the leaf level up, a selector being the bit of the leaf index at its level, `1` when the path node is on the left. The circuits follow this convention, the core branch of the Proof of Quota included.
 - Mantle is revision 2.0.0.
 
@@ -130,9 +132,9 @@ class Ledger:
 
 ```python
 class ChannelStep:
-    inputs: list[NoteNf]
-    outputs: list[NoteCm]
-    commitment_root: MerkleRoot  # a recent root of the channel note set
+    inputs: list[NoteNullifier]    # nullifiers of the consumed channel notes
+    outputs: list[NoteCommitment]  # commitments of the created channel notes
+    commitment_root: MerkleRoot    # a recent root of the channel note set
 
 class Inscribe:
     # ... channel, inscription, parent, signer unchanged
@@ -148,27 +150,27 @@ class Inscribe:
 
 ## 3. Proof of Leadership over the eligible root
 
-The eligible root is a Merkle tree of depth 40 whose leaf `i` is `zkhash(ELIGIBLE_SET_LEAF_V1, cm_root_i, nf_root_i)` for note set `i`, positions past the last set holding `0`. Every channel adds a note set, and a `CHANNEL_CONFIG` creating a channel costs no Execution Gas, only its 111 bytes of storage: a 2 MiB block holds about 18,900 of them, so blocks full of channel creations would fill a tree of depth 32 in about 79 days, and one of depth 40 in about 55 years.
+The eligible root is a Merkle tree of depth 40 whose leaf `i` is `zkhash(ELIGIBLE_SET_LEAF_V1, commitment_root_i, nullifier_root_i)` over the commitment MMR root and the nullifier IMT root of note set `i`, positions past the last set holding `0`. Every channel adds a note set, and a `CHANNEL_CONFIG` creating a channel costs no Execution Gas, only its 111 bytes of storage: a 2 MiB block holds about 18,900 of them, so blocks full of channel creations would fill a tree of depth 32 in about 79 days, and one of depth 40 in about 55 years.
 
 ```python
 class ProofOfLeadershipPublic:
     # ... slot, epoch_nonce, t0, t1 unchanged
-    eligible_aged: MerkleRoot       # new
-    eligible_latest: MerkleRoot     # new
+    eligible_aged: MerkleRoot       # new, the eligible root when the stake distribution was frozen
+    eligible_latest: MerkleRoot     # new, the latest eligible root
     msg: zkhash                     # new, replaces leader_pk
     entropy_contribution: zkhash
 ```
 
-- The aged check proves `cm` in the commitment MMR of its set, and the leaf of that set, with the set's aged nullifier root, under `eligible_aged`.
-- The latest check proves `nf` absent from the IMT of the same set: a leaf `low` with `low.nf < nf` and `nf < low.next_nf` or `low.next_nf == 0`, and the leaf of the set, with its latest commitment root, under `eligible_latest`.
-- Both leaf paths use the same `set_selectors`, so both checks name the same set.
-- The lottery ticket and the entropy contribution use the commitment `cm`. The PoL is revision 1.2.0.
+- The aged check proves the `commitment` of the note in the commitment MMR of its set, and the leaf of that set, with the set's aged nullifier root, under `eligible_aged`.
+- The latest check proves its `nullifier` absent from the IMT of the same set: a leaf `low` with `low.nullifier < nullifier` and `nullifier < low.next_nullifier` or `low.next_nullifier == 0`, and the leaf of the set, with its latest commitment root, under `eligible_latest`.
+- Both leaf paths use the same `set_selectors`, the position of the set in the eligible tree, so both checks name the same set.
+- The lottery ticket and the entropy contribution use the `commitment`. The PoL is revision 1.2.0.
 - The PoL is bound to its block by `msg = pol_msg(header)`, a Blake2b hash under the DST `POL_MSG_V1` of every header field except the proof and the entropy contribution, reduced modulo `p`. The leader proves it once `body_root` is fixed. The `leader_key` header field, the proposal and block signatures and the signatures of the uncle headers are removed: an uncle entry is a 265-byte header, and the proposal is at most 17,712 bytes, which `Max_Body_Length` follows. The block ID hashes the header without its proof: a Groth16 proof can be re-randomized, so including it would give one block several IDs. An invalid proof of leadership therefore condemns only the received copy, not the block ID.
 
 ## 4. SDP stake and the proof of work claim
 
-- `SDP_DECLARE` consumes ledger notes with a ZkTransfer and appends the service note `Note(amount, derive_note_nonce(op_id, 0, amount, zk_id), zk_id)` to the SDP set. `DeclarationInfo` holds `service_note` and `withdraw_outputs`.
-- `SDP_WITHDRAW` carries `service_note_nf`, `outputs` and `excess_value`, with a ZkTransfer proven against `mmr_root([(declare_info.service_note, 0)])` and the `provider_id`'s Ed25519 signature. Its outputs reach the ledger set at removal.
+- `SDP_DECLARE` consumes ledger notes with a ZkTransfer and appends the service note `Note(amount, derive_note_nonce(op_id, 0, amount, zk_id), zk_id)` to the SDP set. `DeclarationInfo` holds `service_note`, the commitment of that note, and `withdraw_outputs`, the commitments released at removal.
+- `SDP_WITHDRAW` carries `service_note_nullifier`, the nullifier of that note, `outputs` and `excess_value`, with a ZkTransfer proven against `mmr_root([(declare_info.service_note, 0)])`, `declare_info` being the stored declaration, and the `provider_id`'s Ed25519 signature. Its outputs reach the ledger set at removal.
 - `SDP_ACTIVE` is signed by the `provider_id`.
 - The identifiers and nonces of the Service Declaration Protocol apply as they are, with `declaration_id = Hash(service || zk_id)`, `declarations` and `providers` per service, and a `nonce` carrying the `created` epoch of its declaration. Each declaration creates its own service note, so no `service_notes` map is needed.
 - `CLAIM_POW_REWARD` moves to opcode `0x30`, freed by `LEADER_CLAIM`, gains a `nonce`, its ticket is `zkhash(POW_CLAIM_V1, public_key, nonce, block_hash, epoch_nonce)`, its proof is empty, and its reward note goes to the ledger set.
@@ -195,8 +197,8 @@ The system design figure is redrawn around the reserve, the pool and the per-blo
 ## 7. Encoding
 
 - `ChannelInscribe = ChannelId Inscription Parent Signer MiniBlocks`, with `MiniBlocks = MiniBlockCount *MiniBlock`, `MiniBlock = StepCount *ChannelStep`, a decoder rejecting an empty mini-block, and `ChannelStep = Inputs Outputs CommitmentRoot`. `ChannelInscribeOpProof = Ed25519Signature *ZkTransfer`.
-- `ChannelDeposit = ChannelId Inputs CommitmentRoot Outputs Value DepositMetadata`, `ChannelWithdraw = ChannelId Inputs CommitmentRoot Outputs`, `SDPDeclare = ServiceType Locators ProviderId ZkId Inputs CommitmentRoot Value`, `SDPWithdraw = DeclarationId Nonce NoteNf Outputs Value`. `ChannelConfig` loses `TransferThreshold`.
-- `Transfer = Inputs Outputs CommitmentRoot Value`, with `Inputs` of `NoteNf` and `Outputs` of `NoteCm`. `ClaimPowReward` gains `PowNonce`.
+- `ChannelDeposit = ChannelId Inputs CommitmentRoot Outputs Value DepositMetadata`, `ChannelWithdraw = ChannelId Inputs CommitmentRoot Outputs`, `SDPDeclare = ServiceType Locators ProviderId ZkId Inputs CommitmentRoot Value`, `SDPWithdraw = DeclarationId Nonce NoteNullifier Outputs Value`. `ChannelConfig` loses `TransferThreshold`.
+- `Transfer = Inputs Outputs CommitmentRoot Value`, with `Inputs` of `NoteNullifier` and `Outputs` of `NoteCommitment`. `ClaimPowReward` gains `PowNonce`.
 - `ChannelTransfer`, `LeaderClaim` and their proofs are removed, and so is `ChannelWithdrawOpProof`: a channel withdrawal carries a `ZkTransferProof`. `ZkTransferProof` and `ZkTransferAndEd25519SigProof` replace `ZkSigProof` and `ZkAndEd25519SigsProof`, and `ZkTransfer = Groth16` replaces `ZkSignature = Groth16`. `ChannelInscribeOpProof` is added for inscriptions and their steps, and `EmptyProof` for `ClaimPowReward`.
 - Mantle Transaction Encoding is revision 2.0.0.
 
