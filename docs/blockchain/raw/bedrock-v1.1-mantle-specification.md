@@ -178,7 +178,7 @@ channels: dict[ChannelId, ChannelState]
 
 The state validation reads is not a fixed snapshot: it advances as the block is processed. A Mantle Transaction is validated against the state left by the Mantle Transactions preceding it in the block, as defined in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation), and validation and execution then follow one another Operation by Operation, in the order the Operations appear: the Operation at index `i` is validated against the state the Operations at indices `0` to `i-1` left, then executed to produce the state the Operation at index `i+1` is validated against. This is what the `ledger`, `channels` and `declarations` given to each Operation below denote.
 
-The commitment MMRs of the [note sets](#ledger) that some Operations are proven against follow the same Operation by Operation progression, but locally to the Mantle Transaction. Every Operation adding notes to the ledger note set or to a channel note set appends their commitments to the buffer of that set for the Mantle Transaction when validated, and every Operation referencing a commitment MMR root of a set references the root of that set at one of the last 1024 blocks, against which it is verified once the buffer of the set is appended to it. A channel step, proven before the Mantle Transaction exists, is verified against its root extended with only the part of the buffer it names, so that its proof depends on that part and not on its position ([CHANNEL_INSCRIBE](#channel_inscribe)). `SDP_WITHDRAW` references no root: its proof is verified against the root of an MMR holding only the service note of its declaration ([SDP_WITHDRAW](#sdp_withdraw)). An Operation can therefore consume the outputs of a previous Operation of the same Mantle Transaction without waiting for a block to include them.
+The commitment MMRs of the [note sets](#ledger) that some Operations are proven against follow the same Operation by Operation progression, but locally to the Mantle Transaction. Every Operation adding notes to the ledger note set or to a channel note set appends their commitments to the buffer of that set for the Mantle Transaction when validated, and every Operation referencing a commitment MMR root of a set references the root of that set at one of the last 1024 blocks, against which it is verified once the buffer of the set is appended to it. A channel step, proven before the Mantle Transaction exists, is verified against its root extended with the buffer as it stands when its mini-block starts, so that its proof depends on what precedes its mini-block and not on its position inside it ([CHANNEL_INSCRIBE](#channel_inscribe)). `SDP_WITHDRAW` references no root: its proof is verified against the root of an MMR holding only the service note of its declaration ([SDP_WITHDRAW](#sdp_withdraw)). An Operation can therefore consume the outputs of a previous Operation of the same Mantle Transaction without waiting for a block to include them.
 
 Atomicity is what a failed check means, not simultaneity. If any of the checks below fails, the whole Mantle Transaction is invalid: none of its Operations takes effect, whether or not it was reached. An invalid Mantle Transaction is never skipped over either, the block including it being invalid and nothing of that block being executed.
 
@@ -383,11 +383,11 @@ Channels let their bridged notes keep participating in Proof of Stake. When a us
 | Party | Can | Cannot |
 |---|---|---|
 | Holder of the note's `ZkPublicKey` | Create a PoL with the note and earn its rewards. Sign a step moving the note inside the channel. Withdraw the note alone, paying the fee with a ledger note | Spend the note in any other Operation |
-| Channel sequencers | Collect the steps of their users and publish them in the inscriptions of the channel, grouped in mini-blocks in the order they choose, a step consuming a note of the same Mantle Transaction coming in a later mini-block | Move a note without its holder's step |
+| Channel sequencers | Collect the steps of their users and publish them in the inscriptions of the channel, grouped in mini-blocks in the order they choose, a step consuming an output of the inscription coming in a later mini-block | Move a note without its holder's step |
 
 ### CHANNEL_INSCRIBE
 
-Write a message to a channel with the message data being permanently stored on the Logos Blockchain, and apply the steps the sequencer collected from the users of the channel. The list of steps can be empty, in which case the inscription only writes its message.
+Write a message to a channel with the message data being permanently stored on the Logos Blockchain, and apply the steps the sequencer collected from the users of the channel. The list of mini-blocks can be empty, in which case the inscription only writes its message.
 
 #### Payload
 
@@ -410,7 +410,7 @@ A step is signed by the holder of the notes it consumes, off-chain and before th
 
 The steps of an inscription are grouped in mini-blocks. The proof of a step is verified against its referenced root extended with the buffer of the channel note set as it stands when the mini-block of the step starts: the commitments the earlier Operations of the Mantle Transaction and the earlier mini-blocks of the inscription added. A step can therefore consume the notes of earlier blocks and the outputs of the earlier mini-blocks, but not the outputs of its own mini-block. Its proof depends on what precedes its mini-block and not on its position inside it, and the holders prove their steps independently of one another:
 
-- The steps of the first mini-block, when no earlier Operation of the Mantle Transaction added to the channel note set, are proven against their recent root alone, so a sequencer collects the steps of many users and publishes them in the order it chooses. An Operation adding to that note set goes after the inscription, unless a step consumes what it adds.
+- The steps of the first mini-block, when no earlier Operation of the Mantle Transaction added to the channel note set, are proven against their recent root alone, so a sequencer collects the steps of many users and publishes them in the order it chooses. A sequencer should place an Operation adding to that note set after the inscription: if it comes first, every step of the first mini-block covers what it adds.
 - If the first mini-block adds 400 commitments to the buffer, every step of the second mini-block covers these 400: it can consume the outputs of the first mini-block, and the steps of the second mini-block are again ordered freely among themselves. The same holds for the next mini-blocks.
 
 Extending every proof with the whole buffer would instead tie each proof to its position: each holder would have to wait for the sequencer to fix every step before its own, and the steps would be proven one after another.
@@ -485,7 +485,8 @@ assert Ed25519_verify(txhash, msg.signer, proof.signature)
 assert note_set is not None or len(msg.mini_blocks) == 0
 
 # Ensure every step is spendable in the channel note set and signed by its holder.
-# A step can consume a note created by an earlier mini-block, never one consumed by an earlier step.
+# A step can consume a note created by an earlier Operation or mini-block, never one consumed by
+# an earlier step.
 assert all(len(mini_block) > 0 for mini_block in msg.mini_blocks)
 assert len(proof.step_proofs) == sum(len(mini_block) for mini_block in msg.mini_blocks)
 step_proofs = iter(proof.step_proofs)
