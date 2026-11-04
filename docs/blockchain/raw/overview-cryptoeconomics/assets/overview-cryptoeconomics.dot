@@ -58,7 +58,7 @@ digraph overview_cryptoeconomics {
 
   subgraph cluster_consensus {
     label = "Consensus";
-    leader_note [label = "Leader Reward Note\n(in the block, one-time key)"];
+    leader_note [label = "Leader Reward Note\n(in the block, hidden key)"];
   }
 
   subgraph cluster_blend {
