@@ -118,6 +118,8 @@ Blend Network MUST initialize its set of providers. This is done through a set o
 
 Blend enforces a minimal network size for the service to be active. Thus, in order to have an active Blend service at Genesis, we MUST have at least as many declarations in the Genesis block to meet Blend service’s minimal network size [Minimal Network Size](blend-protocol.md#minimal-network-size).
 
+Each declaration names in `note_pk` the key its service note is created under, as any [`SDP_DECLARE`](bedrock-v1.1-mantle-specification.md#sdp_declare) does.
+
 **Example**
 
 ```python
@@ -127,6 +129,7 @@ BLEND_DECLARATIONS = [
         locators=["/ip4/1.1.1.1/tcp/3000"],
         provider_id=PROVIDER_ID_0,
         zk_id=ZK_ID_0,
+        note_pk=NOTE_PK_0,
         inputs=[],
         commitment_root=EMPTY_MMR_ROOT,
         amount=1000,
@@ -304,6 +307,7 @@ BLEND_DECLARATIONS = [
         locators=["/ip4/1.1.1.1/tcp/3000"],
         provider_id=PROVIDER_ID_0,
         zk_id=ZK_ID_0,
+        note_pk=NOTE_PK_0,
         inputs=[],
         commitment_root=EMPTY_MMR_ROOT,
         amount=1000,
