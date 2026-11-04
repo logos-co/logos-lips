@@ -92,7 +92,7 @@ MiniBlocks      = MiniBlockCount *MiniBlock
 MiniBlockCount  = UINT16
 MiniBlock       = StepCount *ChannelStep ; StepCount at least 1, a decoder MUST reject 0
 StepCount       = UINT16
-ChannelStep     = Inputs Outputs CmMerkleRoot
+ChannelStep     = Inputs Outputs CommitmentRoot
 
 ChannelConfig     = ChannelId Parent KeyCount *Signer PostingTimeframe PostingTimeout ConfigThreshold
 KeyCount                   = UINT16
@@ -100,10 +100,10 @@ PostingTimeframe           = UINT32
 PostingTimeout             = UINT32
 ConfigThreshold            = UINT16
 
-ChannelDeposit    = ChannelId Inputs CmMerkleRoot Outputs Value DepositMetadata
+ChannelDeposit    = ChannelId Inputs CommitmentRoot Outputs Value DepositMetadata
 DepositMetadata   = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes
 
-ChannelWithdraw   = ChannelId Inputs CmMerkleRoot Outputs
+ChannelWithdraw   = ChannelId Inputs CommitmentRoot Outputs
 
 ChannelId         = Hash32
 Parent            = Hash32
@@ -115,7 +115,7 @@ Signer            = Ed25519PublicKey
 ### SDP Operations
 
 ```schema
-SDPDeclare    = ServiceType Locators ProviderId ZkId Inputs CmMerkleRoot Value
+SDPDeclare    = ServiceType Locators ProviderId ZkId Inputs CommitmentRoot Value
 ServiceType   = Byte          ; 0 = BN
 Locators      = LocatorCount *Locator
 LocatorCount  = Byte          ; Max 8
@@ -149,7 +149,7 @@ PowNonce       = FieldElement ; value searched for a ticket satisfying the rewar
 ### Transfer Operations
 
 ```schema
-Transfer    = Inputs Outputs CmMerkleRoot Value
+Transfer    = Inputs Outputs CommitmentRoot Value
 Inputs      = InputCount *NoteNf
 InputCount  = Byte
 Outputs     = OutputCount *NoteCm
@@ -159,10 +159,10 @@ OutputCount = Byte
 ## Ledger
 
 ```schema
-Value        = UINT64
-NoteCm       = FieldElement
-NoteNf       = FieldElement
-CmMerkleRoot = FieldElement ; MMR root of note commitments
+Value          = UINT64
+NoteCm         = FieldElement
+NoteNf         = FieldElement
+CommitmentRoot = FieldElement ; MMR root of note commitments
 ```
 
 ## Op Proofs
