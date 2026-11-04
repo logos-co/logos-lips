@@ -225,7 +225,7 @@ def on_nullifier_inserted(tracked: TrackedLowLeaf, inserted_nullifier: NoteNulli
 
 ### Leader Reward Notes
 
-The leader of a block chooses the public key and the nonce of its reward note ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)). A wallet can receive all its rewards under one public key: the commitment hides the key, so reusing it does not link the blocks. Two rewards of the same value under the same key and nonce are identical notes, of which only one can be spent. A wallet should therefore derive the nonce from the secret key `sk` of that public key and the slot of the block, a slot holding at most one block of a chain:
+The leader of a block chooses the public key and the nonce of its reward note ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)). As long as the nonce is private and unpredictable, the commitment hides the key, so a wallet can receive all its rewards under one public key without linking the blocks. Two rewards of the same value under the same key and nonce are identical notes, of which only one can be spent. A wallet should therefore derive the nonce from the secret key `sk` of that public key and the slot of the block, a slot holding at most one block of a chain:
 
 ```python
 def derive_reward_nonce(sk: ZkSecretKey, slot: int) -> NoteNonce:

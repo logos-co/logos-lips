@@ -27,7 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-04-09 |
 | 1.0.1 | Corrected `Max_Payload_Length` to 34577 bytes, so that it again matches the `Max_Body_Length` of [Payload Formatting](payload-formatting.md) plus the 3-byte payload header. | 2026-08-06 |
 | 1.0.2 | Expressed `Max_Payload_Length` as `Max_Body_Length + 3` rather than a literal, so that it tracks the payload body size automatically; it is 18195 bytes at the `Max_Body_Length` that follows from the compressed transaction references of [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md). | 2026-08-18 |
-| 1.0.3 | Updated the derived `Max_Payload_Length` to 17755 bytes, following the removal of the leader key and of the signatures from block proposals and the reward value of their headers | 2026-10-14 |
+| 1.0.3 | Updated the derived `Max_Payload_Length` to 17755 bytes, following the removal of the leader key and of the signatures from block proposals, and the addition of the reward value to their headers | 2026-10-14 |
 
 # Introduction
 
