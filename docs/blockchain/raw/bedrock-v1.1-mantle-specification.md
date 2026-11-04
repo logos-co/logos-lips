@@ -214,7 +214,8 @@ Mantle validators will ensure the following:
         # or at the release of its withdrawal, the ledger note set excluded
         tx_note_sets |= note_sets_changed_by(op)
         # the proofs of the Operation whose root at least one buffered commitment extends,
-        # `covered` being the number of commitments of the buffer each proof covers
+        # `covered` being the number of commitments of the buffer each proof covers,
+        # each extension priced by root_gas of Gas Determination
         tx_extended_roots |= roots_extended_by(op)
     tx_execution_gas = checked_uint64(tx_execution_gas
                                       + len(encode(signed_tx)) * EXECUTION_KB_GAS // 1000
@@ -2145,6 +2146,8 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_PROGRAM_STEP_GAS | 54 |
 | EXECUTION_OPENING_GAS | 151 |
 | EXECUTION_PROGRAM_PROOF_GAS | 6320 |
+
+The first ten constants price what each Operation does beyond the components, and the others its components: `EXECUTION_KB_GAS` the bytes of a Mantle Transaction, `EXECUTION_NOTE_SET_GAS` the end of block work of a note set it changes, `EXECUTION_PROOF_GAS` a proof, `EXECUTION_ROOT_GAS` the extension of a root and `EXECUTION_BUFFERED_GAS` each commitment it covers, `EXECUTION_NULLIFIER_GAS` a nullifier, `EXECUTION_COMMITMENT_GAS` a commitment, `EXECUTION_SIGNATURE_GAS` an Ed25519 signature, `EXECUTION_USER_STEP_GAS`, `EXECUTION_PAYMENT_GAS` and `EXECUTION_PROGRAM_STEP_GAS` a user step, a payment and a program step beyond their spends, `EXECUTION_OPENING_GAS` the opening of a program note and `EXECUTION_PROGRAM_PROOF_GAS` a program proof.
 
 A ZkTransfer or a ZkProgramSpend costs, with the notes it consumes and creates:
 

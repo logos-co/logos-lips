@@ -137,7 +137,7 @@ CLAIM_POW_REWARD  = EXECUTION_CLAIM_POW_REWARD_GAS
 PROGRAM_REGISTER  = EXECUTION_PROGRAM_REGISTER_GAS
 ```
 
-where `user_steps` and `program_steps` are the [user steps](bedrock-v1.1-mantle-specification.md#channel_inscribe) and the program steps of the inscription, a user step being a local transaction of the channel: a ZkTransfer moving channel notes, signed by their holder and published by a sequencer, and with the constants of the Operations:
+where `user_steps` and `program_steps` are the [user steps](bedrock-v1.1-mantle-specification.md#channel_inscribe) and the program steps of the inscription, the latter with their proofs, a user step being a local transaction of the channel: a ZkTransfer moving channel notes, signed by their holder and published by a sequencer, and with the constants of the Operations:
 
 | Constant | Execution Gas | Measure |
 | --- | --- | --- |
@@ -253,7 +253,7 @@ The validation verifies the Ed25519 signature of the sequencer, its accreditatio
 | each opening of a program note | 150,974 |
 | program proof | 6,319,522 |
 
-A user step derives its `step_msg` and checks its inputs and outputs, 194,249 cycles beyond its nullifier and its commitment. A payment derives its `payment_msg` and enters the hash of the payments of its step, 266,888 cycles beyond its nullifier, its commitment and the append of that commitment to the root of the program spend, whose extension the first payment of a step causes (`EXECUTION_ROOT_GAS`). A program step checks that its program is registered, checks the flags of its outputs and derives the public inputs of its proofs, 53,182 cycles beyond the inscription without steps and its commitment. An opening recomputes the commitment of the opened note and compares it to the output.
+A user step derives its [`step_msg`](bedrock-v1.1-mantle-specification.md#channel_inscribe) and checks its inputs and outputs, 194,249 cycles beyond its nullifier and its commitment. A payment derives its [`payment_msg`](bedrock-v1.1-mantle-specification.md#channel_inscribe) and enters the hash of the payments of its step, 266,888 cycles beyond its nullifier, its commitment and the append of that commitment to the root of the program spend, whose extension the first payment of a step causes (`EXECUTION_ROOT_GAS`). A program step checks that its program is registered, checks the flags of its outputs and derives the public inputs of its proofs, 53,182 cycles beyond the inscription without steps and its commitment. An opening recomputes the commitment of the opened note and compares it to the output.
 
 ## Channel Config
 
