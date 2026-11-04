@@ -36,8 +36,8 @@
 | 1.9.0 | Swap Ed25519Signature and SignerIndex order in IndexedSignature | 2026-10-01 |
 | 1.10.0 | Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata, retaining their `UINT32` length prefixes; corrected SDP activity metadata to use its tagged variant encoding without a generic length prefix | 2026-10-06 |
 | 1.11.0 | [RFC] `SDPWithdraw` drops the redundant `ServiceNoteId` | 2026-10-27 |
-| 2.0.0 | Follow the private note ledger of Mantle 2.0.0: nullifier inputs and commitment outputs with their `CmMerkleRoot` and `Value`, channel steps in `ChannelInscribe` with the `Buffered` count of their proof, holder withdrawals, the SDP payloads over notes, `PowNonce` in `ClaimPowReward`, the `ZkTransfer` proof variants, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim`. A `FieldElement` not less than $`p`$ is rejected | 2026-10-06 |
-| 2.1.0 | Follow the programs of Mantle 2.1.0: the `ProgramRegister` Operation with its `Groth16VerificationKey`, user and program steps in `ChannelInscribe` with their proofs and the openings of the program notes, the payments with the `Buffered` count of their proof, the `Groth16` terminal renamed `Groth16Proof`, and the format of compressed points | 2026-10-12 |
+| 2.0.0 | Follow the private note ledger of Mantle 2.0.0: nullifier inputs and commitment outputs with their `CmMerkleRoot` and `Value`, channel steps in the `MiniBlocks` of `ChannelInscribe`, holder withdrawals, the SDP payloads over notes, `PowNonce` in `ClaimPowReward`, the `ZkTransfer` proof variants, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim`. A `FieldElement` not less than $`p`$ is rejected | 2026-10-06 |
+| 2.1.0 | Follow the programs of Mantle 2.1.0: the `ProgramRegister` Operation with its `Groth16VerificationKey`, user and program steps in the `MiniBlocks` of `ChannelInscribe` with their proofs and the openings of the program notes, the payments of program steps, the `Groth16` terminal renamed `Groth16Proof`, and the format of compressed points | 2026-10-12 |
 
 # Introduction
 
@@ -90,17 +90,18 @@ OpPayload = Transfer /
 ```schema
 ChannelInscribe = ChannelId Inscription Parent Signer MiniBlocks
 Inscription     = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes
-Steps           = StepCount *Step
+MiniBlocks      = MiniBlockCount *MiniBlock
+MiniBlockCount  = UINT16
+MiniBlock       = StepCount *Step ; StepCount at least 1, a decoder MUST reject 0
 StepCount       = UINT16
 Step            = (UserStepKind UserStep) / (ProgramStepKind ProgramStep)
 UserStepKind    = %x00
 ProgramStepKind = %x01
-UserStep        = Inputs Outputs CmMerkleRoot Buffered
-Buffered        = UINT16 ; commitments of the transaction buffer the proof covers
+UserStep        = Inputs Outputs CmMerkleRoot
 ProgramStep     = ProgramId Payments Inputs Outputs ProgramOutputs CmMerkleRoot SpendNotesHash
 Payments        = PaymentCount *Payment
 PaymentCount    = Byte
-Payment         = Inputs Outputs CmMerkleRoot Buffered Value Intent
+Payment         = Inputs Outputs CmMerkleRoot Value Intent
 Intent          = FieldElement
 ProgramOutputs  = Byte ; bit i (least significant first) set when output i is a note of the program,
                        ; the bits from OutputCount up being 0
