@@ -29,6 +29,7 @@
 | 1.1.0 | Fixed the master key generation personalization string to a valid 16-byte value; aligned the public key derivation with the [Mantle specification](bedrock-v1.1-mantle-specification.md#zero-knowledge-signature-scheme-zksignature) (`KDF` DST, compression mode, applied to the Logos key); specified the final Poseidon2 step as hash mode with the `WALLET_ZK_SK_V1` DST; clarified that extended public keys derive no children | 2026-09-03 |
 | 1.2.0 | Added the note tracking a wallet keeps to spend its notes and to participate in the leadership lottery, over the note sets of depth 40 | 2026-10-07 |
 | 1.3.0 | Added the note encryption key derived next to the ZK key, the address a sender needs, and the discovery of notes by trial decryption of the note ciphertexts delivered off chain, with what the recovery from the seed covers | 2026-11-02 |
+| 1.4.0 | [RFC] A wallet keeps the `data` of its vested notes, spends a vested note a random number of blocks after its vesting ends, and submits the claims of a service provider through other peers | 2026-11-04 |
 
 # Introduction
 
@@ -147,7 +148,7 @@ $`sk_{\text{enc}}`$ is a viewing key: it opens every note ciphertext addressed t
 The ledger holds the commitment of a note and nothing of its contents ([Mantle - Note Delivery](bedrock-v1.1-mantle-specification.md#note-delivery)). A wallet learns the user notes it receives in one of three ways, and keeps every note it learns, with its set, as [Note Tracking](#note-tracking) describes:
 
 1. From a note ciphertext, received over a direct channel from the sender or read from a data availability layer the wallet follows. The delivery message carries the commitment and the ciphertext ([Note Encryption](common-cryptographic-components.md#note-encryption-construction)); the wallet decapsulates with $`sk_{\text{enc}}`$ and opens the sealed part with the commitment as associated data. If it opens, the wallet recomputes `derive_note_cm(Note(value, nonce, public_key))` with the decrypted `value` and `nonce` and its own `public_key`; the note is its own only if the result is the commitment and the commitment is in a note set the wallet may receive notes in. A ciphertext that fails to open, or opens to another commitment, is not the wallet's and is discarded.
-2. From the Operation alone, for the notes the ledger creates and the user notes a program pays in a step consuming a note of the program, whose nonce the wallet derives from the Operation or the inscription and whose value it knows.
+2. From the Operation alone, for the notes the ledger creates and the user notes a program pays in a step consuming a note of the program, whose nonce the wallet derives from the Operation or the inscription and whose value it knows, as it knows the `data` [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) gives a vested note.
 3. In the clear, when the sender gives the recipient `value` and `nonce` by other means; the wallet records the note when it receives them.
 
 Recovery from the seed re-derives $`k_{\text{logos}}`$ and $`sk_{\text{enc}}`$ and replays 2 over the chain, for the public keys and values it can re-derive. A program payout should go to a one-time public key ([Mantle - ZkProgramSpend](bedrock-v1.1-mantle-specification.md#zero-knowledge-program-spend-proof-zkprogramspend)), and the key and value of such a note belong to the wallet's records when the seed does not give them. It recovers the notes of 1 only from the ciphertexts still available to it: a wallet that reads its ciphertexts from a data availability layer reads that layer again, a wallet that received them over a direct channel has nothing to read again. The notes of 3 exist nowhere but in the wallet's own records. A wallet MUST therefore keep a backup of its records that survives the loss of the device, or receive its notes through a layer it can read again from the seed alone. Publishing an encryption of those records under a key derived from the seed, as an inscription on a channel the wallet controls, is one way to tie that backup to the chain, and is not specified here.
@@ -248,6 +249,10 @@ def on_nullifier_inserted(tracked: TrackedLowLeaf, inserted_nf: NoteNf,
         update_path(tracked, low_index, low_leaf, low_path)
         update_path(tracked, new_index, new_leaf, new_path)
 ```
+
+### Vested Notes
+
+A wallet keeps the `data` of each [vested note](bedrock-v1.1-mantle-specification.md#vested-notes) it holds, which its commitment and its proofs take. The end of a vesting is public, so a spend right after it points at the claims of the block it was counted from: a wallet should spend a vested note a random number of blocks after its vesting ends. A wallet should also submit the proof of work claims of a service provider through peers other than the node named in the provider's locators, since the peer that first relays a transaction can link it to the node that sent it.
 
 # References
 

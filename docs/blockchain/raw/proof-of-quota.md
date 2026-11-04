@@ -30,6 +30,7 @@
 | 1.2.0 | Add the proof of work branch: third selector value, `pow_quota` and `pow_blend_difficulty` public inputs, a private `pow_nonce` witness, and Lagrange branch selection; benchmark the three branch circuit | 2026-09-08 |
 | 1.3.0 | Follow the Proof of Leadership of the private ledger: the leader branch proves the note commitment in its note set under the eligible root of the time the stake distribution was frozen, and its nullifier absent from the nullifier IMT of that set at that time. Paths and selectors follow the Merkle path convention of Mantle, from the leaf level up, the commitment path and the path in the eligible tree having depth 40 | 2026-10-07 |
 | 1.3.1 | The note commitment of the leader branch gains the `program` and `data` fields, set to `0`, which changes the verification key. Proving time benchmark measured on the current circuit | 2026-10-14 |
+| 1.3.2 | [RFC] The note commitment of the leader branch takes the `data` of the note as a witness, as the Proof of Leadership does, which changes the verification key | 2026-11-04 |
 
 
 # Introduction
@@ -95,6 +96,7 @@ class ProofOfQuotaWitness:
     pol_secret_key: int                   # PoL note secret key
     pol_note_value: int                   # PoL note value
     pol_note_nonce: zkhash                # PoL note nonce
+    pol_note_data: zkhash                 # PoL note data, the slot its vesting ends, 0 if it does not vest
     pol_cm_aged_path: list[zkhash]        # PoL Merkle path proving the note commitment membership in the commitment Merkle Mountain Range (MMR) of its note set (len = 40)
     pol_cm_aged_selectors: list[bool]     # Indicates how to read the pol_cm_aged_path (if Merkle nodes are left or right in the path)
     pol_low_leaf_nf: zkhash               # PoL nullifier of the leaf of the IMT of the note set, when the stake distribution was frozen, holding the greatest nullifier lower than the nullifier of the note
@@ -185,6 +187,7 @@ is_leader = would_win_leadership(pol_epoch_nonce,
         pol_secret_key,
         pol_note_value,
         pol_note_nonce,
+        pol_note_data,
         pol_cm_aged_path,
         pol_cm_aged_selectors,
         pol_low_leaf_nf,

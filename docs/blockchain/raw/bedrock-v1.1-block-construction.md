@@ -36,6 +36,7 @@
 | 1.4.0 | The `leader_voucher` is replaced with a one-time `reward_key`, and the leader reward is inserted in the ledger at the end of the block execution. Channel withdrawals whose due slot is reached are released before the transactions. The PoL is bound to the header by a hash of it and proven once the body is fixed: `leader_key`, the proposal and block signatures and the signatures of the uncle headers are removed, reducing the proposal to at most 17,712 bytes. An invalid proof of leadership condemns only the received copy, since the block ID does not cover the proof | 2026-10-07 |
 | 1.4.1 | The proof of the header uses the `Groth16Proof` terminal of the transaction encoding. The ZkProgramSpend proofs of a block are verified in their own batch, and a program proof alone. A transaction resolved without the openings of its program notes, or with altered ones, fails the copy, not the block | 2026-10-12 |
 | 1.4.2 | The batch verification of Groth16 proofs draws its random coefficients on 128 bits | 2026-11-02 |
+| 1.4.3 | [RFC] A recorded commitment root keeps the slot of its block, and the ZkStake proofs of a block are verified in their own batch | 2026-11-04 |
 
 # Introduction
 
@@ -382,7 +383,7 @@ Given a `ValidBlock` that has successfully passed proposal validation, the node 
 5. Record the commitment MMR root of every note set a commitment was appended to in the block, as defined in [Ledger](bedrock-v1.1-mantle-specification.md#ledger), so that the transactions of the next 1024 blocks can reference it, and record the [eligible root](cryptarchia-proof-of-leadership.md#eligible-sets) after the block, which validating an uncle or a fork block reads:
     ```python
     for note_set in note_sets_appended_to(block):
-        note_set.record_cm_root(block_height)
+        note_set.record_cm_root(block_height, block.header.slot)
     ```
 
 Steps 1 and 2 read the epoch, the slot and the state of the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) and of the pending withdrawals, never the transactions of the block, which is what lets them run before those transactions are validated.
@@ -450,6 +451,10 @@ Relative to a design that carries the count in the header, this removes one of t
 
 All the ZkTransfer proofs of a block are verified in one batch. The multi-scalar multiplication of step 3.3, the three pairings of the right-hand side and the final exponentiation are computed once per batch, while each proof adds two scalar multiplications, $`r_i \cdot \pi_A^{(i)}`$ and $`r_i \cdot \pi_C^{(i)}`$, and one pairing on the left-hand side. The cost of the batch is therefore a fixed part plus a part per proof, measured in [Gas Cost Determination](analysis-gas-cost-determination.md#groth16-proof-batch-verification): the fixed part is deducted from the Execution Gas limit of the block, and each Operation pays for its proofs.
 
+### ZkStake
+
+The ZkStake proofs of a block are verified the same way, in a batch of their own under the key of the ZkStake.
+
 ### ZkProgramSpend
 
-The ZkProgramSpend proofs of a block are verified the same way, in a second batch under the key of the ZkProgramSpend, shared by every program. Each program proof is verified alone under the key of its program.
+The ZkProgramSpend proofs of a block are verified the same way, in a batch of their own under the key of the ZkProgramSpend, shared by every program. Each program proof is verified alone under the key of its program.

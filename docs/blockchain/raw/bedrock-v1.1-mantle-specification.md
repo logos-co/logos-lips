@@ -54,6 +54,7 @@
 | 2.1.1 | Added Note Delivery: how the holder of a note learns its `value` and `nonce`, the user notes a sender creates being delivered off chain, by the Note Encryption of [Common Cryptographic Components](common-cryptographic-components.md#note-encryption-construction) | 2026-11-02 |
 | 2.2.0 | Execution Gas from [Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0: a Mantle Transaction pays its bytes, each channel or SDP note set it changes and each root extension its proofs share, and each Operation pays its proofs, nullifiers, commitments, signatures, steps, payments, openings and program proofs, through `spend_gas` and the per-component constants of Gas Determination | 2026-10-27 |
 | 2.3.0 | [RFC] `SDP_ACTIVE` and `SDP_WITHDRAW` advance the `sequence` of the declaration's `nonce` by exactly one | 2026-11-04 |
+| 2.4.0 | [RFC] A claim pays a share of its reward as a vested note, whose `data` is the slot its vesting ends, and `SDP_DECLARE` stakes notes, vested ones included, through ZkStake proofs of up to 16 notes, its stake locked until its `locked_until` epoch | 2026-11-04 |
 
 # Introduction
 
@@ -75,7 +76,7 @@ Logos Blockchain features are exposed through Mantle Operations, which can be co
 
 ## Mantle Ledger
 
-The Mantle Ledger enables asset transfers using a private note-based ledger. The ledger tracks three kinds of notes, each in note sets of its own: regular notes, service notes (collateral for service declarations) and channel notes (channel bridge funds). The notes a user holds participate in Proof of Stake, while the notes governed by a [program](#programs) inside a channel do not. Each note set has a commitment Merkle Mountain Range (MMR) and a nullifier Indexed Merkle Tree (IMT).
+The Mantle Ledger enables asset transfers using a private note-based ledger. The ledger tracks three kinds of notes, each in note sets of its own: regular notes, service notes (collateral for service declarations) and channel notes (channel bridge funds). The notes a user holds participate in Proof of Stake, while the notes governed by a [program](#programs) inside a channel do not. A regular note can be vested: until its vesting ends, it can only be staked in a service declaration. Each note set has a commitment Merkle Mountain Range (MMR) and a nullifier Indexed Merkle Tree (IMT).
 
 ## Transaction Fees
 
@@ -428,7 +429,7 @@ The ledger fixes neither the holder of the notes a program creates, nor the valu
 | No value is created | The ZkTransfers and the ZkProgramSpend balance exactly, and the ledger sums the paid values into the program spend |
 | A user note moves only with the key of its holder | The ZkTransfer |
 | A payment only pays the program it names, in a step carrying the intent its holder signed | The message of the payment, which commits to the program and the intent |
-| A program note is created and consumed only with the proof of its program | The ZkTransfer, which only derives commitments with `program` and `data` set to `0`; the ZkProgramSpend, whose inputs are notes of the program and whose outputs are notes of the program or user notes; the program proof, required by every program step |
+| A program note is created and consumed only with the proof of its program | The ZkTransfer, which only derives commitments with `program` set to `0`; the ZkProgramSpend, whose inputs are notes of the program and whose outputs are notes of the program or user notes; the program proof, required by every program step |
 | A program step serves the intents over LOGOS as the rule of the program states | The program proof, which reads the payments and the notes of the program spend |
 | The opening of every note of a program is published in the block creating it, and every node holds it until that block is immutable | The ledger, which checks the opening of every note of the program a step creates |
 | A program step serves the intents over the assets of the zone | Not enforced by the ledger: the users of the zone can detect a step that does not serve an intent over the assets of the zone |
@@ -442,7 +443,7 @@ A program using LOGOS only, such as lending, is thus enforced by the ledger, and
 - Creating a program note requires the proof of its program. Otherwise anyone could create a note of the program with any `data`, such as a fake pool state, and the program could not tell it from its own.
 - A payment exists only inside its program step. A payment left unconsumed cannot happen: if the sequencer does not publish the program step, the notes of the user are not consumed.
 - The program spend and the program proof are bound to the `op_id` of the inscription, which covers the inscription and the public data of every step but no proof. A program step is thus attributable to its inscription and valid in no other.
-- Program notes take no part in Proof of Stake, since the Proof of Leadership derives the commitment of its note with `program` and `data` set to `0`. They are never withdrawn either, since a withdrawal consumes notes with a ZkTransfer.
+- Program notes take no part in Proof of Stake, since the Proof of Leadership derives the commitment of its note with `program` set to `0`. They are never withdrawn either, since a withdrawal consumes notes with a ZkTransfer.
 - The opening of every note of the program a step creates is published with the step, and checked by the ledger. A sequencer withholding the opening of a note of the program would otherwise freeze it: program notes are never withdrawn, and no sequencer can prove a program spend consuming a note it cannot open. The openings serve this data availability only: the ledger keeps nothing from them, and they are prunable from the blocks behind the latest immutable block of the node.
 
 **Privacy.** The paid values are public, and so are the notes of the program, opened in the steps that create them. The amount of each interaction with a program is therefore visible, and so is the total value a program step pays to users: with a single payee, what that payee receives. Its interactions are subject to timing attacks. The users stay hidden: payments consume notes by nullifier, and the notes the program pays are commitments, as long as each payee uses a one-time public key, since the [nonce of such a note](#zero-knowledge-program-spend-proof-zkprogramspend) is a public function of its value and public key.
@@ -964,7 +965,8 @@ ledger: Ledger
                                                      deposit.excess_value,
                                                      deposit.cm_merkle_root,
                                                      mantle_txhash_fr,
-                                                     deposit_proof)
+                                                     deposit_proof,
+                                                     vested_by=ledger.sets[LEDGER_SET].recent_cm_roots[deposit.cm_merkle_root].slot)
       ```
 
   5. Add the outputs to the buffer of the channel note set.
@@ -1163,6 +1165,7 @@ class DeclarationInfo:
     withdraw_at: EpochNumber | None
     # lifecycle_epoch << 32 | sequence, see Declaration Storage in the SDP
     nonce: int
+    locked_until: EpochNumber        # the first epoch at which the declaration can be withdrawn
 ```
 
 ### SDP_DECLARE
@@ -1177,9 +1180,14 @@ class DeclarationMessage:
     locators: list[Locator]
     provider_id: Ed25519PublicKey
     zk_id: ZkPublicKey
-    inputs: list[NoteNf]
-    cm_merkle_root: MerkleRoot
-    amount: TokenValue
+    cm_merkle_root: MerkleRoot   # a recent root of the ledger note set
+    amount: TokenValue           # the stake, the sum of the values of the spends
+    locked_until: EpochNumber    # the first epoch at which the declaration can be withdrawn
+    spends: list[StakeSpend]
+
+class StakeSpend:
+    inputs: list[NoteNf]         # the nullifiers of at most 16 notes of the ledger note set
+    value: TokenValue            # the sum of the values of these notes
 ```
 
 Service notes are introduced in [Service notes](#service-notes) and serve as Service collaterals. They cannot be spent before the owner withdraws its participation from the declared service.
@@ -1188,15 +1196,15 @@ Service notes are introduced in [Service notes](#service-notes) and serve as Ser
 
 ```python
 class DeclarationProof:
-    zk_proof: ZkTransfer             # proving spendability over inputs
-    provider_sig: Ed25519Signature  # signature proving ownership of provider key
+    zk_proofs: list[ZkStake]         # one per spend, proving spendability over its inputs
+    provider_sig: Ed25519Signature   # signature proving ownership of provider key
 ```
 
-  see: [Zero Knowledge Transfer Proof (ZkTransfer)](#zero-knowledge-transfer-proof-zktransfer).
+  see: [Zero Knowledge Stake Proof (ZkStake)](#zero-knowledge-stake-proof-zkstake).
 
 #### Execution Gas
 
-  SDP Declare Operations have an Execution Gas cost of `EXECUTION_SDP_DECLARE_GAS + EXECUTION_SIGNATURE_GAS + spend_gas(inputs, [service_note])`. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
+  SDP Declare Operations have an Execution Gas cost of `EXECUTION_SDP_DECLARE_GAS + EXECUTION_SIGNATURE_GAS + EXECUTION_COMMITMENT_GAS + sum(spend_gas(spend.inputs, []) for spend in spends)`, the commitment being that of the service note. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
 
 #### Validation
 
@@ -1232,22 +1240,29 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       assert len(declaration.locators) <= 8
       ```
 
-  3. Ensure the inputs are spendable and the value is sufficient for joining the service.
+  3. Ensure the inputs are spendable, 1 to 16 per spend, and the value is sufficient for joining the service.
       ```python
-      ledger.sets[LEDGER_SET].assert_spendable(declaration.inputs, declaration.cm_merkle_root)
+      inputs = [note_nf for spend in declaration.spends for note_nf in spend.inputs]
+      ledger.sets[LEDGER_SET].assert_spendable(inputs, declaration.cm_merkle_root)
+      assert all(1 <= len(spend.inputs) <= 16 for spend in declaration.spends)
+      assert checked_uint64(sum(spend.value for spend in declaration.spends)) == declaration.amount
       assert declaration.amount >= min_stake.threshold
       ```
 
-  4. Ensure ownership over the inputs and `provider_id`.
+  4. Ensure ownership over the inputs, the end of their vesting by the first slot of epoch `locked_until`, and `provider_id`.
       ```python
-      assert ledger.sets[LEDGER_SET].verify_transfer(declaration.inputs,
-                                                     [], # no outputs
-                                                     declaration.amount,
-                                                     declaration.cm_merkle_root,
-                                                     FiniteField(txhash, byte_order="little", modulus = p),
-                                                     proof.zk_proof)
+      assert len(proof.zk_proofs) == len(declaration.spends)
+      for spend, zk_proof in zip(declaration.spends, proof.zk_proofs):
+          assert ledger.sets[LEDGER_SET].verify_stake(spend.inputs,
+                                                      spend.value,
+                                                      declaration.cm_merkle_root,
+                                                      declaration.locked_until * EPOCH_LENGTH,
+                                                      FiniteField(txhash, byte_order="little", modulus = p),
+                                                      zk_proof)
       assert Ed25519_verify(txhash, declaration.provider_id, proof.provider_sig)
       ```
+
+     `EPOCH_LENGTH` is the length of an epoch in slots ([Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule)), so `declaration.locked_until * EPOCH_LENGTH` is the first slot of epoch `locked_until`.
 
 #### Execution
 
@@ -1263,9 +1278,10 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 
   *Execute*
 
-  1. Consume the inputs in the ledger note set.
+  1. Consume the inputs of the spends in the ledger note set.
       ```python
-      ledger.sets[LEDGER_SET].execute_spending(declaration.inputs)
+      ledger.sets[LEDGER_SET].execute_spending([note_nf for spend in declaration.spends
+                                                for note_nf in spend.inputs])
       ```
 
   2. Create the service note under the `zk_id` in the SDP note set.
@@ -1298,6 +1314,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
           active=current_epoch + 2,
           withdraw_at=None,
           nonce=current_epoch << 32,  # lifecycle_epoch = created, sequence = 0
+          locked_until=declaration.locked_until,
       )
       ```
 
@@ -1341,6 +1358,7 @@ txhash: hash # Mantle transaction hash of the tx containing this operation
 withdraw: WithdrawMessage
 proof: WithdrawProof
 
+current_epoch: EpochNumber # epoch of the block containing this operation
 ledger: Ledger
 declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
@@ -1355,9 +1373,10 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       assert found is not None
       _, declare_info = found
       ```
-  2. Ensure the declaration is not already scheduled for withdrawal.
+  2. Ensure the declaration is not already scheduled for withdrawal, and its stake is no longer locked.
       ```python
       assert declare_info.withdraw_at is None
+      assert current_epoch >= declare_info.locked_until
       ```
   3. Ensure the `provider_id` attached to this declaration authorized this Operation.
       ```python
@@ -1375,6 +1394,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
                                withdraw.outputs,
                                withdraw.excess_value,
                                mmr_root([(declare_info.service_note, 0)]),  # one peak, the service note
+                               0,  # vested_by: a service note does not vest
                                FiniteField(txhash, byte_order="little", modulus = p),
                                proof.zk_proof)
       ```
@@ -1572,9 +1592,12 @@ difficulty_reward: PowTarget       # retargeted every block
 pow_nullifiers: set[zkhash]        # spent solutions, retained for WINDOW
 pow_reward_pool: TokenValue
 epoch_pow_reward: TokenValue
+POW_VESTED_SHARE: uint64           # the share of a reward that vests, out of SHARE_DEN
+SHARE_DEN: uint64
+VESTING_SLOTS: uint64              # the length of the vesting, in slots
 ```
 
-  The epoch nonces are the Cryptarchia epoch nonce $`\eta`$ of [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce), and `WINDOW` is derived in [Acceptance Window](proof-of-work.md#acceptance-window).
+  The epoch nonces are the Cryptarchia epoch nonce $`\eta`$ of [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce), `WINDOW` is derived in [Acceptance Window](proof-of-work.md#acceptance-window), and `POW_VESTED_SHARE`, `SHARE_DEN` and `VESTING_SLOTS` are [Parameters](proof-of-work.md#parameters) of Proof of Work.
 
   *Validate*
 
@@ -1602,15 +1625,26 @@ assert puzzle_ticket < difficulty_reward
 # 5. The solution must not have been claimed before. The nullifier is the ticket.
 assert puzzle_ticket not in pow_nullifiers
 
-# 6. Construct a single output note of value epoch_pow_reward under the public key
-#    given in the payload, and add it to the buffer of the ledger note set.
+# 6. Construct the liquid and the vested output notes under the public key given in the
+#    payload, and add them to the buffer of the ledger note set. The vesting ends from the
+#    slot of the referenced block, which the claimant knows when it proves the Transfer
+#    spending the liquid note against the root extended with this buffer.
 claim_id = derive_op_id(claim)
-output_note = Note(
-    value = epoch_pow_reward,
-    nonce = derive_note_nonce(claim_id, 0, epoch_pow_reward, claim.public_key),
+vested_value = checked_uint64(epoch_pow_reward * POW_VESTED_SHARE) // SHARE_DEN
+liquid_value = checked_uint64(epoch_pow_reward - vested_value)
+liquid_note = Note(
+    value = liquid_value,
+    nonce = derive_note_nonce(claim_id, 0, liquid_value, claim.public_key),
     public_key = claim.public_key,
 )
-ledger.sets[LEDGER_SET].tx_cm_buffer.append(derive_note_cm(output_note))
+vested_note = Note(
+    value = vested_value,
+    nonce = derive_note_nonce(claim_id, 1, vested_value, claim.public_key),
+    public_key = claim.public_key,
+    data = checked_uint64(block.slot + VESTING_SLOTS),
+)
+output_notes = [note for note in (liquid_note, vested_note) if note.value > 0]
+ledger.sets[LEDGER_SET].tx_cm_buffer.extend([derive_note_cm(note) for note in output_notes])
 ```
 
 #### Execution
@@ -1620,7 +1654,7 @@ ledger.sets[LEDGER_SET].tx_cm_buffer.append(derive_note_cm(output_note))
 ```python
 claim: ClaimPowRewardOp
 puzzle_ticket: zkhash              # computed in validation step 4
-output_note: Note                  # constructed in validation step 6
+output_notes: list[Note]           # constructed in validation step 6
 
 ledger: Ledger
 pow_reward_pool: TokenValue
@@ -1631,9 +1665,9 @@ pow_nullifiers: set[zkhash]
   *Execution*
 
   1. Add `puzzle_ticket` to the `pow_nullifiers` set. The entry is retained until the claim's referenced block leaves the [acceptance window](proof-of-work.md#acceptance-window).
-  2. Insert the output note into the ledger note set:
+  2. Insert the output notes into the ledger note set:
       ```python
-      ledger.sets[LEDGER_SET].execute_adding([derive_note_cm(output_note)])
+      ledger.sets[LEDGER_SET].execute_adding([derive_note_cm(note) for note in output_notes])
       ```
 
   3. Reduce the `pow_reward_pool` by the same amount:
@@ -1780,7 +1814,8 @@ ledger: Ledger
                                                      transfer.excess_value,
                                                      transfer.cm_merkle_root,
                                                      mantle_txhash_fr,
-                                                     transfer_proof)
+                                                     transfer_proof,
+                                                     vested_by=ledger.sets[LEDGER_SET].recent_cm_roots[transfer.cm_merkle_root].slot)
       ```
 
   3. Add the outputs to the buffer of the ledger note set.
@@ -1822,10 +1857,11 @@ class Note:
     nonce: NoteNonce	# to avoid two notes having the same commitment
     public_key: ZkPublicKey # 32 bytes, the holder, who derives the nullifier
     program: ProgramId = 0  # the program governing the note, 0 for a user note
-    data: zkhash = 0        # the state the program commits in the note, 0 for a user note
+    data: zkhash = 0        # the state the program commits in a program note,
+                            # the slot its vesting ends in a vested note, 0 otherwise
 ```
 
-A note whose `program` is `0` is a user note, moved by its holder alone. A note whose `program` is the identifier of a [program](#programs) is a program note: it is created and consumed only with a proof of that program, and its `data` is set by that program.
+A note whose `program` is `0` is a user note, moved by its holder alone. A user note whose `data` is not `0` is a [vested note](#vested-notes). A note whose `program` is the identifier of a [program](#programs) is a program note: it is created and consumed only with a proof of that program, and its `data` is set by that program.
 
 `MerkleRoot`, `NoteCm`, `NoteNf` and `NoteNonce` are `zkhash` values, elements of $`\mathbb{F}_p`$.
 
@@ -1876,12 +1912,16 @@ These note commitments and nullifiers uniquely define notes in the system. Nodes
 
 The ledger holds the commitment of a note and nothing of its contents. The holder of a note learns its `value` and `nonce` in one of two ways:
 
-- Notes the ledger creates, such as rewards and service notes, carry their nonce in the Operation that creates them ([Note Commitment and Nullifier](#note-commitment-and-nullifier)), and the user notes a program pays in a step consuming a note of the program carry the nonce the [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) derives. Their value is public, or fixed by the rule of the program from public data, so their holder recomputes the commitment alone.
+- Notes the ledger creates, such as rewards and service notes, carry their nonce in the Operation that creates them ([Note Commitment and Nullifier](#note-commitment-and-nullifier)), and the user notes a program pays in a step consuming a note of the program carry the nonce the [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) derives. Their value, and the `data` of a vested note, are public, or fixed by the rule of the program from public data, so their holder recomputes the commitment alone.
 - A user note created by a Transfer, a channel deposit, a channel withdrawal, a user step, a payment or a program step consuming no note of the program, or paid in an amount its holder cannot recompute, is delivered off chain: the ledger carries nothing of it but the commitment. The RECOMMENDED delivery is the note ciphertext of [Note Encryption](common-cryptographic-components.md#note-encryption-construction), the encryption of `value` and `nonce` under the encryption key of the recipient with the commitment as associated data, handed over through a direct channel or published on a data availability layer the recipient reads. The recipient decrypts it and owns the note if the commitment it recomputes is the one in the ledger ([Wallet Technical Standard](wallet-technical-standard.md#note-discovery-and-recovery)).
 
 ### Service notes
 
 Service notes are special notes in Mantle that serve as collateral for Service Declarations. Executing a Declare Operation consumes notes of the ledger note set and creates one service note under the declaration's `zk_id` in the SDP note set, its commitment kept with the declaration. A note of the SDP note set is spent only by the Withdraw Operation of its declaration, and the notes that withdrawal creates enter the ledger note set when the declaration is removed. Service notes participate in Proof of Stake.
+
+### Vested Notes
+
+A vested note is a user note of the ledger note set whose `data` is the slot at which its vesting ends, created by [CLAIM_POW_REWARD](#claim_pow_reward). A [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) or a [ZkStake](#zero-knowledge-stake-proof-zkstake) consumes a note only if the note's `data` is at most the proof's `vested_by`, which the Operation sets ([Input Notes Spendability Validation](#input-notes-spendability-validation), [SDP_DECLARE](#sdp_declare)).
 
 ## Ledger
 
@@ -1907,6 +1947,8 @@ class RecentRoot:
     peaks: list[(MerkleRoot, int)]  # the peaks of the commitment MMR at this root
     last_block: int | None          # the height of the last block at whose end this was the root
                                     # of the set, None for the current root
+    slot: Slot                      # the slot of the block that recorded this root,
+                                    # 0 for the root of an empty set
 
 class Groth16StoredKey:
     key: Groth16VerificationKey
@@ -1924,7 +1966,7 @@ def empty_note_set() -> NoteSet:
         nullifiers={0},                       # the nullifier of the sentinel leaf
         nullifier_leaves=[NullifierLeaf(0, 0, 0)],  # an IMT holding only its sentinel leaf
         current_cm_root=mmr_root([]),         # the root of the empty MMR
-        recent_cm_roots={mmr_root([]): RecentRoot([], None)},
+        recent_cm_roots={mmr_root([]): RecentRoot([], None, 0)},
         tx_cm_buffer=[]
     )
 ```
@@ -1933,10 +1975,10 @@ At the end of a block at height `block_height`, after its transactions and its l
 
 ```python
 class NoteSet:
-    def record_cm_root(self, block_height: int):
+    def record_cm_root(self, block_height: int, slot: Slot):
         self.recent_cm_roots[self.current_cm_root].last_block = block_height - 1
         self.current_cm_root = mmr_root(self.commitments)
-        self.recent_cm_roots[self.current_cm_root] = RecentRoot(list(self.commitments), None)
+        self.recent_cm_roots[self.current_cm_root] = RecentRoot(list(self.commitments), None, slot)
         for root, recent in list(self.recent_cm_roots.items()):
             if recent.last_block is not None and recent.last_block < block_height - 1023:
                 del self.recent_cm_roots[root]
@@ -2068,9 +2110,16 @@ class NoteSet:
 
     def verify_transfer(self, inputs: list[NoteNf], outputs: list[NoteCm], excess_value: TokenValue,
                         cm_merkle_root: MerkleRoot, msg: zkhash, proof: ZkTransfer,
-                        covered: int | None = None) -> bool:
+                        covered: int | None = None,
+                        # 0 for the notes of a channel, which never vest: a channel root can be
+                        # recorded again at another slot after a reorganization
+                        vested_by: Slot = 0) -> bool:
         return ZkTransfer_verify(inputs, outputs, excess_value,
-                                 self.tx_cm_root(cm_merkle_root, covered), msg, proof)
+                                 self.tx_cm_root(cm_merkle_root, covered), vested_by, msg, proof)
+
+    def verify_stake(self, inputs: list[NoteNf], value: TokenValue, cm_merkle_root: MerkleRoot,
+                     vested_by: Slot, msg: zkhash, proof: ZkStake) -> bool:
+        return ZkStake_verify(inputs, value, self.tx_cm_root(cm_merkle_root), vested_by, msg, proof)
 
     def verify_program_spend(self, inputs: list[NoteNf], outputs: list[NoteCm],
                              program_outputs: list[bool], cm_merkle_root: MerkleRoot,
@@ -2082,7 +2131,7 @@ class NoteSet:
                                      spend_notes_hash, msg, proof)
 ```
 
-See [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) and [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) for the proofs.
+See [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer), [ZkStake](#zero-knowledge-stake-proof-zkstake) and [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) for the proofs.
 
 ### Consuming Input Notes Execution
 
@@ -2139,7 +2188,7 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_OPENING_GAS | 151 |
 | EXECUTION_PROGRAM_PROOF_GAS | 6320 |
 
-A ZkTransfer or a ZkProgramSpend costs, with the notes it consumes and creates:
+A ZkTransfer, a ZkStake or a ZkProgramSpend costs, with the notes it consumes and creates:
 
 ```python
 def spend_gas(inputs: list[NoteNf], outputs: list[NoteCm]) -> int:
@@ -2170,12 +2219,13 @@ class ZkTransferPublic:
     excess_value: TokenValue
     tx_cm_root: MerkleRoot         # the referenced cm_merkle_root extended with the tx_cm_buffer of the set,
                                    # or the commitments before its mini-block for a user step or a payment
+    vested_by: Slot                # the slot by which the vesting of every input has ended
     msg: zkhash
 ```
 
-`ZkTransfer_verify(inputs, outputs, excess_value, tx_cm_root, msg, proof)` verifies the proof for these public values. The nullifiers of `inputs` fill the first inputs of the circuit and the commitments of `outputs` its first outputs. These are active, and every other input and output is inactive and holds `0`, so the verifier sets the flags from the lengths of the two lists. A ZkTransfer therefore spends at most 4 notes and creates at most 8: an Operation whose `inputs` or `outputs` list is longer is invalid. An Operation spending notes of a note set, other than `SDP_WITHDRAW`, verifies the proof through the [`verify_transfer`](#input-notes-spendability-validation) method of the set, which appends the commitments created earlier in the Mantle Transaction to the referenced root, all of them, or only those before its mini-block for a user step or a payment.
+`ZkTransfer_verify(inputs, outputs, excess_value, tx_cm_root, vested_by, msg, proof)` verifies the proof for these public values. The nullifiers of `inputs` fill the first inputs of the circuit and the commitments of `outputs` its first outputs. These are active, and every other input and output is inactive and holds `0`, so the verifier sets the flags from the lengths of the two lists. A ZkTransfer therefore spends at most 4 notes and creates at most 8: an Operation whose `inputs` or `outputs` list is longer is invalid. An Operation spending notes of a note set, other than `SDP_WITHDRAW`, verifies the proof through the [`verify_transfer`](#input-notes-spendability-validation) method of the set, which appends the commitments created earlier in the Mantle Transaction to the referenced root, all of them, or only those before its mini-block for a user step or a payment.
 
-The public signal vector of the proof is fixed by the circuit: the outputs `inputs`, `outputs` and `excess_value` first, then `inputs_active`, `outputs_active`, `tx_cm_root` and `msg`.
+The public signal vector of the proof is fixed by the circuit: the outputs `inputs`, `outputs` and `excess_value` first, then `inputs_active`, `outputs_active`, `tx_cm_root`, `vested_by` and `msg`.
 
 The prover knows a witness:
 
@@ -2184,6 +2234,7 @@ class ZkTransferWitness:
     inputs_sk: list[ZkSecretKey]   # (len = 4)
     inputs_nonce: list[zkhash]
     inputs_value: list[TokenValue]
+    inputs_data: list[zkhash]      # the slot the vesting of each input ends, 0 if it does not vest
     inputs_selectors: list[list[boolean]]  # (len = 4 x 40) the Merkle path direction of each input
     inputs_path: list[list[zkhash]]        # (len = 4 x 40) the Merkle path of each input
     outputs_pk: list[ZkPublicKey]  # (len = 8)
@@ -2201,11 +2252,20 @@ Such that the following constraints hold, where `inputs_pk` and `inputs_cm` are 
   )
   ```
   
-- Each input flag is boolean, and each input commitment is derived from the public key, the nonce and the value, with `program` and `data` set to `0`, so a ZkTransfer only consumes user notes.
+- Each input flag is boolean, and each input commitment is derived from the public key, the nonce, the value and the data, with `program` set to `0`, so a ZkTransfer only consumes user notes.
   ```python
   assert all(
       inputs_active[i] * (1 - inputs_active[i]) == 0
-      and inputs_cm[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i], 0, 0)
+      and inputs_cm[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i], 0, inputs_data[i])
+      for i in range(len(inputs_sk))
+  )
+  ```
+
+- The vesting of each active input has ended by `vested_by`: `vested_by - inputs_data[i]` decomposes into 64 bits. The data of an input needs no range check: every user note opens to a `data` below $`2^{64}`$, since ZkTransfer outputs and the user notes a ZkProgramSpend creates have `data` `0`, and [CLAIM_POW_REWARD](#claim_pow_reward), the only Operation creating a user note with another `data`, sets it to a slot.
+  ```python
+  assert all(
+      0 <= vested_by - inputs_data[i] < 2**64
+      or not inputs_active[i]
       for i in range(len(inputs_sk))
   )
   ```
@@ -2233,7 +2293,7 @@ Such that the following constraints hold, where `inputs_pk` and `inputs_cm` are 
   )
   ```
 
-- Each output flag is boolean, each active output commitment is derived from the public key, the nonce and the value, with `program` and `data` set to `0`, so a ZkTransfer only creates user notes, and each inactive output has value 0.
+- Each output flag is boolean, each active output commitment is derived from the public key, the nonce and the value, with `program` and `data` set to `0`, so a ZkTransfer only creates user notes that do not vest, and each inactive output has value 0.
   ```python
   assert all(
       outputs_active[i] * (1 - outputs_active[i]) == 0
@@ -2270,6 +2330,44 @@ The material used for the benchmarks is the following:
 - Kernel    : 6.8.0-138-generic
 
 ![Diagram](bedrock-v1.1-mantle-specification/assets/zktransfer_proving_time_vs_threads.png)
+
+## Zero Knowledge Stake Proof (ZkStake)
+
+The ZkTransfer adapted to the stake of a declaration: it consumes up to 16 notes and creates none. A proof attesting that for the following public values:
+
+```python
+class ZkStakePublic:
+    inputs: list[NoteNf]           # (len = 16)
+    inputs_active: list[boolean]   # (len = 16) whether each input consumes a note
+    excess_value: TokenValue       # the sum of the values of the inputs
+    tx_cm_root: MerkleRoot         # the referenced cm_merkle_root extended with the tx_cm_buffer of the set
+    vested_by: Slot                # the slot by which the vesting of every input has ended
+    msg: zkhash
+```
+
+`ZkStake_verify(inputs, excess_value, tx_cm_root, vested_by, msg, proof)` verifies the proof for these public values, through the [`verify_stake`](#input-notes-spendability-validation) method of the note set. The flags `inputs_active` are set from `inputs` as in the ZkTransfer, so a ZkStake spends at most 16 notes.
+
+The public signal vector of the proof is fixed by the circuit: the outputs `inputs` and `excess_value` first, then `inputs_active`, `tx_cm_root`, `vested_by` and `msg`.
+
+The prover knows a witness:
+
+```python
+class ZkStakeWitness:
+    inputs_sk: list[ZkSecretKey]   # (len = 16)
+    inputs_nonce: list[zkhash]
+    inputs_value: list[TokenValue]
+    inputs_data: list[zkhash]      # the slot the vesting of each input ends, 0 if it does not vest
+    inputs_selectors: list[list[boolean]]  # (len = 16 x 40) the Merkle path direction of each input
+    inputs_path: list[list[zkhash]]        # (len = 16 x 40) the Merkle path of each input
+```
+
+Such that the constraints of the [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) on its inputs hold for the 16 inputs, and the excess value is the sum of their values:
+
+```python
+assert excess_value == sum(inputs_value)
+```
+
+The proof is bound to `msg`, the `mantle_txhash` reduced modulo $`p`$. The unused inputs are inactive, as in the ZkTransfer.
 
 ## Zero Knowledge Program Spend Proof (ZkProgramSpend)
 

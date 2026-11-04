@@ -38,6 +38,7 @@
 | 1.11.0 | [RFC] `SDPWithdraw` drops the redundant `ServiceNoteId` | 2026-10-27 |
 | 2.0.0 | Follow the private note ledger of Mantle 2.0.0: nullifier inputs and commitment outputs with their `CmMerkleRoot` and `Value`, channel steps in the `MiniBlocks` of `ChannelInscribe`, holder withdrawals, the SDP payloads over notes, `PowNonce` in `ClaimPowReward`, the `ZkTransfer` proof variants, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim`. A `FieldElement` not less than $`p`$ is rejected | 2026-10-06 |
 | 2.1.0 | Follow the programs of Mantle 2.1.0: the `ProgramRegister` Operation with its `Groth16VerificationKey`, user and program steps in the `MiniBlocks` of `ChannelInscribe` with their proofs and the openings of the program notes, the payments of program steps, the `Groth16` terminal renamed `Groth16Proof`, and the format of compressed points | 2026-10-12 |
+| 2.2.0 | [RFC] `SDPDeclare` carries `LockedUntil` and `StakeSpends` of 1 to 16 nullifiers with their value, proven by an `SDPDeclareProof` holding one `ZkStake` per spend | 2026-11-04 |
 
 # Introduction
 
@@ -130,13 +131,17 @@ A decoder MUST reject a `ProgramStep` whose `OutputCount` exceeds 8, or whose `P
 ### SDP Operations
 
 ```schema
-SDPDeclare    = ServiceType Locators ProviderId ZkId Inputs CmMerkleRoot Value
+SDPDeclare    = ServiceType Locators ProviderId ZkId CmMerkleRoot Value LockedUntil StakeSpends
 ServiceType   = Byte          ; 0 = BN
 Locators      = LocatorCount *Locator
 LocatorCount  = Byte          ; Max 8
 Locator       = 2Byte *BYTE   ; Max 329 bytes, multiaddr binary form
 ProviderId    = Ed25519PublicKey
 ZkId          = ZkPublicKey
+LockedUntil   = UINT32        ; EpochNumber
+StakeSpends   = StakeSpendCount *StakeSpend
+StakeSpendCount = Byte
+StakeSpend    = Inputs Value  ; InputCount from 1 to 16
 
 SDPWithdraw   = DeclarationId Nonce NoteNf Outputs Value
 DeclarationId = Hash32
@@ -147,6 +152,8 @@ ActivityMetadata        = ActivityMetadataType ActivityMetadataPayload
 ActivityMetadataType    = Byte ; 0x01 = Blend
 ActivityMetadataPayload = BlendActivityProof ; Selected by ActivityMetadataType
 ```
+
+A decoder MUST reject a `StakeSpend` whose `InputCount` is 0 or exceeds 16.
 
 `ActivityMetadataType` is a one-byte discriminant. The only currently valid value is `0x01`, which selects `BlendActivityProof`; a decoder MUST reject any other value. `BlendActivityProof` is the 228-byte concatenation of `epoch_number`, `signing_key`, `proof_of_quota`, and `proof_of_selection` defined in [Blend Protocol — Active Message](blend-protocol.md#active-message), excluding that section's `metadata_type` byte, which is encoded here as `ActivityMetadataType`.
 
@@ -203,6 +210,7 @@ OpsProofs = *OpProof ; 1. Lenth must equal OpCount
 OpProof   = Ed25519SigProof /
             ZkTransferProof /
             ZkTransferAndEd25519SigProof /
+            SDPDeclareProof /
             ChannelInscribeOpProof /
             ChannelConfigOpProof /
             EmptyProof
@@ -210,6 +218,7 @@ OpProof   = Ed25519SigProof /
 Ed25519SigProof              = Ed25519Signature
 ZkTransferProof              = ZkTransfer
 ZkTransferAndEd25519SigProof = ZkTransfer Ed25519Signature
+SDPDeclareProof              = *ZkStake Ed25519Signature ; one ZkStake per StakeSpend of the declaration
 ChannelInscribeOpProof       = Ed25519Signature *StepProof ; one StepProof per step of the inscription
 StepProof                    = ZkTransfer / ProgramStepProof ; ZkTransfer for a user step,
                                                              ; ProgramStepProof for a program step
@@ -235,6 +244,7 @@ SignerIndex    = UINT16
 ```schema
 ; Zero-knowledge transfer proofs
 ZkTransfer     = Groth16Proof
+ZkStake        = Groth16Proof
 ZkProgramSpend = Groth16Proof
 
 ; Cryptographic primitives

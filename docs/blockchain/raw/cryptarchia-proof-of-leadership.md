@@ -30,6 +30,7 @@
 | 1.2.0 | Support the private ledger of Mantle: a note is eligible from any note set of the ledger, committed together in the eligible root, and proven unspent by the non-membership of its nullifier. The proof is bound to its block by `msg`, a hash of the block header, replacing the leader key. The commitment, nullifier and eligible tree paths have depth 40 | 2026-10-06 |
 | 1.2.1 | The note commitment is derived with `0` as the `program` and `data` fields of the note, so only user notes lead. The proving time benchmark is measured on the current circuit | 2026-10-12 |
 | 1.2.2 | A channel creation pays the Execution Gas of a changed note set ([Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0), so blocks full of channel creations take about 1,140 years to fill the eligible tree | 2026-10-27 |
+| 1.2.3 | [RFC] The note commitment takes the `data` of the note as a witness, so vested notes lead | 2026-11-04 |
 
 # Introduction
 
@@ -131,6 +132,7 @@ class ProofOfLeadershipWitness:
     sk: ZkSecretKey
     value: TokenValue
     nonce: NoteNonce
+    data: zkhash                      # the slot the vesting of the note ends, 0 if it does not vest
     set_selectors: list[boolean]      # position of the note set in the eligible tree (len = 40)
     cm_aged_path: list[zkhash]        # path of the note commitment in the commitment MMR of its set (len = 40)
     cm_aged_selectors: list[boolean]
@@ -156,9 +158,9 @@ Such that the following constraints hold:
   pk = zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), sk)
   ```
 
-- The note commitment is derived from the value, the nonce and the public key, with `program` and `data` set to `0`, so only user notes lead.
+- The note commitment is derived from the value, the nonce, the public key and the data, with `program` set to `0`, so only user notes lead, [vested notes](bedrock-v1.1-mantle-specification.md#vested-notes) included.
   ```python
-  cm = zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), value, nonce, pk, 0, 0)
+  cm = zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), value, nonce, pk, 0, data)
   ```
 
 - The note commitment was in the commitment MMR of its note set when the stake distribution was frozen.
