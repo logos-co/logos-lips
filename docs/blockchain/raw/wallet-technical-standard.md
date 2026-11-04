@@ -132,35 +132,35 @@ The [Mantle Ledger](bedrock-v1.1-mantle-specification.md#ledger) only holds note
 
 To spend a note with a [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer), the wallet keeps:
 
-- The note `(value, nonce, public_key)`, its note set, and its commitment `cm = derive_note_cm(note)`.
-- The Merkle path of `cm` to the root of the MMR peak holding it. With the other peaks of the MMR, which are public and served by any node, this path proves `cm` in the MMR root. A ZkTransfer is proven against the commitment root of the note set at one of the last 1024 blocks, so the wallet keeps the path up to date with the commitments appended to the MMR of the set. The root a proof names is public: a wallet should prove against the root a fixed number of blocks below its tip, the same number for every wallet, for example 3, whatever blocks its notes were created in, so that the root points at none of its notes and the proof survives a short fork. When an earlier Operation of the same Mantle Transaction adds commitments to the set, such as a proof of work claim followed by the Transfer spending its note, the proof is against that root extended with the commitment buffer of the set ([Validation](bedrock-v1.1-mantle-specification.md#validation)), and the wallet appends the buffered commitments with `append_commitment` to copies of its peaks and of the paths of its notes in that set before proving, and keeps its own peaks and paths unchanged. A proof in a mini-block of an inscription is against that root extended with the buffer before the mini-block, whose commitments the sequencer provides.
-- The nullifier `nf = derive_note_nf(cm, sk)`. The note is spent once `nf` is in the nullifier set of its note set, whichever wallet instance spent it. Two identical notes share their nullifier and only one of them can be spent, so a wallet should count a received note only at the first occurrence of its commitment in its note set.
+- The note `(value, nonce, public_key)`, its note set, and its `commitment = derive_note_commitment(note)`, derived as in [Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier).
+- The Merkle path of `commitment` to the root of the MMR peak holding it. With the other peaks of the MMR, which are public and served by any node, this path proves `commitment` in the MMR root. A ZkTransfer is proven against the commitment root of the note set at one of the last 1024 blocks, so the wallet keeps the path up to date with the commitments appended to the MMR of the set. The root a proof names is public: a wallet should prove against the root a fixed number of blocks below its tip, the same number for every wallet, for example 3, whatever blocks its notes were created in, so that the root points at none of its notes and the proof survives a short fork. When an earlier Operation of the same Mantle Transaction adds commitments to the set, such as a proof of work claim followed by the Transfer spending its note, the proof is against that root extended with the commitment buffer of the set ([Validation](bedrock-v1.1-mantle-specification.md#validation)), and the wallet appends the buffered commitments with `append_commitment`, defined below, to copies of its peaks and of the paths of its notes in that set before proving, and keeps its own peaks and paths unchanged. A proof in a mini-block of an inscription is against that root extended with the buffer before the mini-block, whose commitments the sequencer provides.
+- The `nullifier = derive_note_nullifier(commitment, sk)`, where `sk` is the `ZkSecretKey` of the note. The note is spent once `nullifier` is in the nullifier set of its note set, whichever wallet instance spent it. Two identical notes share their nullifier and only one of them can be spent, so a wallet should count a received note only at the first occurrence of its commitment in its note set.
 
 To prove its leadership with a note ([Proof of Leadership](cryptarchia-proof-of-leadership.md#eligible-sets)), the wallet also keeps:
 
-- The Merkle path of `cm` to the commitment root of its note set at the epoch snapshot, fixed for the epoch, and the path of the leaf of the set in the eligible tree of the snapshot. For the [Proof of Quota](proof-of-quota.md), it also keeps the leaf of the nullifier IMT of its note set at the snapshot holding the greatest nullifier lower than `nf`, and its Merkle path, fixed for the epoch.
-- The leaf of the [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of its note set holding the greatest nullifier lower than `nf`, and its Merkle path to the latest root of that IMT, with the path of the leaf of the set in the latest eligible tree. This leaf and its path change whenever a nullifier is inserted in the set. A wallet should update them at every block, whether or not one of its notes wins: the data must be fresh at the winning slot, so requests made only when a note wins tell the serving node when the wallet wins.
+- The Merkle path of `commitment` to the commitment root of its note set at the epoch snapshot, fixed for the epoch, and the path of the leaf of the set in the eligible tree of the snapshot. For the [Proof of Quota](proof-of-quota.md), it also keeps the leaf of the nullifier IMT of its note set at the snapshot holding the greatest nullifier lower than `nullifier`, and its Merkle path, fixed for the epoch.
+- The leaf of the [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of its note set holding the greatest nullifier lower than `nullifier`, and its Merkle path to the latest root of that IMT, with the path of the leaf of the set in the latest eligible tree. This leaf and its path change whenever a nullifier is inserted in the set. A wallet should update them at every block, whether or not one of its notes wins: the data must be fresh at the winning slot, so requests made only when a note wins tell the serving node when the wallet wins.
 
-Requesting these paths from a third party reveals which commitments and nullifiers the wallet owns. A wallet that follows every commitment appended to the MMR and every nullifier inserted in the IMT of the note sets it holds notes in computes its paths locally. Following only some note sets still reveals, to the node serving them, which sets the wallet holds notes in and since when; a wallet that follows every set reveals nothing. The roots of the other note sets, which the paths in the eligible tree need, are public. A service provider could also serve the paths through private information retrieval, without learning which ones the wallet requests, once the wallet knows the index to request. The first low leaf of a note is the predecessor of `nf` among all the nullifiers of its set, and its index depends on `nf`, so a wallet finds it locally only if it holds all the nullifiers of the set.
+Requesting these paths from a third party reveals which commitments and nullifiers the wallet owns. A wallet that follows every commitment appended to the MMR and every nullifier inserted in the IMT of the note sets it holds notes in computes its paths locally. Following only some note sets still reveals, to the node serving them, which sets the wallet holds notes in and since when; a wallet that follows every set reveals nothing. The roots of the other note sets, which the paths in the eligible tree need, are public. A service provider could also serve the paths through private information retrieval, without learning which ones the wallet requests, once the wallet knows the index to request. The first low leaf of a note is the predecessor of `nullifier` among all the nullifiers of its set, and its index depends on `nullifier`, so a wallet finds it locally only if it holds all the nullifiers of the set.
 
 The wallet should keep its peaks, the paths of its notes and their low leaves as of every block that is not yet immutable. On a reorganization, it restores those of the fork block, then applies the new branch.
 
-A peak of the MMR is a perfect Merkle tree, which never changes once built: appending a commitment only adds a peak of height 0, and merges the last two peaks while they have the same height. The path of `cm` inside its peak therefore only grows, by one node each time its peak is merged, which happens at most 40 times. The wallet keeps a copy of the peaks, with their heights given by the binary decomposition of the number of commitments, and updates the paths of its notes while appending the commitments of each block:
+A peak of the MMR is a perfect Merkle tree, which never changes once built: appending a commitment only adds a peak of height 0, and merges the last two peaks while they have the same height. The path of `commitment` inside its peak therefore only grows, by one node each time its peak is merged, which happens at most 40 times. The wallet keeps a copy of the peaks, with their heights given by the binary decomposition of the number of commitments, and updates the paths of its notes while appending the commitments of each block:
 
 ```python
 class OwnedNote:
     note: Note
-    cm: NoteCm
-    nf: NoteNf
-    peak: int                   # index of the peak holding cm
-    path: list[zkhash]          # Merkle path of cm to the root of its peak, from the leaf up
+    commitment: NoteCommitment
+    nullifier: NoteNullifier
+    peak: int                   # index of the peak holding commitment
+    path: list[zkhash]          # Merkle path of commitment to the root of its peak, from the leaf up
     selectors: list[bool]       # at each level, 1 when the path node is on the left, as in Mantle
 
-def append_commitment(peaks: list[(zkhash, int)], notes: list[OwnedNote], cm: NoteCm,
+def append_commitment(peaks: list[(zkhash, int)], notes: list[OwnedNote], commitment: NoteCommitment,
                       owned: OwnedNote | None = None):
     # peaks holds the (root, height) of every peak, from left to right
-    # owned is the note of cm, with an empty path, when the wallet owns it
-    peaks.append((cm, 0))
+    # owned is the note of commitment, with an empty path, when the wallet owns it
+    peaks.append((commitment, 0))
     if owned is not None:
         owned.peak = len(peaks) - 1
         notes.append(owned)
@@ -168,26 +168,26 @@ def append_commitment(peaks: list[(zkhash, int)], notes: list[OwnedNote], cm: No
         (left, height), (right, _) = peaks[-2], peaks[-1]
         for note in notes:
             if note.peak == len(peaks) - 2:
-                # cm is in the left peak, its new complementary node is the right peak
+                # commitment is in the left peak, its new complementary node is the right peak
                 note.path.append(right)
                 note.selectors.append(0)
             elif note.peak == len(peaks) - 1:
-                # cm is in the right peak, its new complementary node is the left peak
+                # commitment is in the right peak, its new complementary node is the left peak
                 note.path.append(left)
                 note.selectors.append(1)
                 note.peak -= 1
         peaks[-2:] = [(zkhash(left, right), height + 1)]
 ```
 
-A note the wallet owns is passed as `owned` with an empty path, and joins `notes` right after `peaks.append((cm, 0))`, before the merges of its own append. Only the notes whose peak is merged are updated, so following a block costs one hash per merge. The path of a note to the commitment root of its note set at the epoch snapshot is the path it holds at the snapshot, completed with the peaks of the snapshot.
+A note the wallet owns is passed as `owned` with an empty path, and joins `notes` right after `peaks.append((commitment, 0))`, before the merges of its own append. Only the notes whose peak is merged are updated, so following a block costs one hash per merge. The path of a note to the commitment root of its note set at the epoch snapshot is the path it holds at the snapshot, completed with the peaks of the snapshot.
 
 Inserting a nullifier changes exactly two leaves of the [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree): the appended leaf and the leaf of the greatest nullifier lower than the inserted one. Every insertion is public, so a wallet fetching the leaves and Merkle paths of these two positions, as they stand after each insertion, reveals nothing about the notes it owns when it fetches them at every block. From them, it updates the low leaf of each of its notes in that set and its path with at most 40 hashes per changed leaf:
 
 ```python
 class TrackedLowLeaf:
-    nf: NoteNf                  # nullifier of the owned note
-    index: int                  # index of the IMT leaf holding the greatest nullifier lower than nf
-    leaf: NullifierLeaf
+    nullifier: NoteNullifier    # nullifier of the owned note
+    index: int                  # index of the IMT leaf holding the greatest nullifier lower than nullifier
+    leaf: NullifierLeaf         # that leaf, as Mantle defines it
     path: list[zkhash]          # Merkle path of the leaf to the IMT root (len = 40)
 
 def branch_nodes(leaf_hash: zkhash, index: int, path: list[zkhash]) -> list[zkhash]:
@@ -207,11 +207,13 @@ def update_path(tracked: TrackedLowLeaf, index: int, leaf: NullifierLeaf, path: 
         if (index >> height) == ((tracked.index >> height) ^ 1):
             tracked.path[height] = nodes[height]
 
-def on_nullifier_inserted(tracked: TrackedLowLeaf, inserted_nf: NoteNf,
+def on_nullifier_inserted(tracked: TrackedLowLeaf, inserted_nullifier: NoteNullifier,
                           low_index: int, low_leaf: NullifierLeaf, low_path: list[zkhash],
                           new_index: int, new_leaf: NullifierLeaf, new_path: list[zkhash]):
-    if low_index == tracked.index and inserted_nf < tracked.nf:
-        # the inserted nullifier is now the greatest one lower than tracked.nf
+    # low_ is the leaf of the greatest nullifier lower than the inserted one and new_ the appended
+    # leaf, each with its index and its path after the insertion
+    if low_index == tracked.index and inserted_nullifier < tracked.nullifier:
+        # the inserted nullifier is now the greatest one lower than tracked.nullifier
         tracked.index, tracked.leaf, tracked.path = new_index, new_leaf, new_path
     elif low_index == tracked.index:
         # only the pointer of the tracked leaf moved to the inserted nullifier
