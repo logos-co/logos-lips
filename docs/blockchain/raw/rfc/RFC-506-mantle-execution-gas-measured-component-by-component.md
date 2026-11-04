@@ -9,6 +9,7 @@
 | v1 | Initial RFC | 2026-10-27 |
 | v2 | Note ciphertexts are delivered off chain and pay no Execution Gas of their own. An `SDP_WITHDRAW` extends no root by the buffer. The batch verification draws its coefficients on 128 bits in Block Construction. Every constant is measured again on the node following the SDP rules of master, as the minimum over 5 runs of the benchmark | 2026-11-03 |
 | v3 | A Mantle Transaction pays each root extension once for each distinct note set, referenced root and `buffered` of its proofs. `EXECUTION_USER_STEP_GAS` is 178, `EXECUTION_PAYMENT_GAS` 250 and `EXECUTION_CLAIM_POW_REWARD_GAS` 592, for the channel in the messages of steps and payments and the tag of the claim ticket | 2026-11-03 |
+| v4 | User steps and payments cover the buffer before their mini-block, so the number of commitments an extension covers follows from the mini-block | 2026-11-04 |
 
 ## Reviewer Orientation
 
@@ -72,11 +73,11 @@ The Gas Cost Determination is rewritten around the measurements. It gives, for e
 tx_execution_gas = (sum(execution_gas(op) for op in ops)
                     + len(encode(signed_tx)) * EXECUTION_KB_GAS // 1000
                     + EXECUTION_NOTE_SET_GAS * len(tx_note_sets)  # channel and SDP sets created or changed
-                    # distinct (note set, referenced root, buffered) of the proofs extending a root
-                    + sum(root_gas(buffered) for (_, _, buffered) in tx_extended_roots))
+                    # distinct (note set, referenced root, covered) of the proofs extending a root
+                    + sum(root_gas(covered) for (_, _, covered) in tx_extended_roots))
 
-def root_gas(buffered) -> int:
-    return EXECUTION_ROOT_GAS + EXECUTION_BUFFERED_GAS * buffered
+def root_gas(covered) -> int:
+    return EXECUTION_ROOT_GAS + EXECUTION_BUFFERED_GAS * covered
 
 def spend_gas(inputs, outputs) -> int:
     return (EXECUTION_PROOF_GAS
@@ -84,7 +85,7 @@ def spend_gas(inputs, outputs) -> int:
             + EXECUTION_COMMITMENT_GAS * len(outputs))
 ```
 
-Proofs sharing their note set, referenced root and `buffered` are verified against one extended root, computed and paid once. Charging each proof would price a step of `buffered = 800` at about eight times a step of `buffered = 0`, so a block would hold few mini-blocks, and a sequencer paying the fee would ask each holder for the smallest `buffered` covering its inputs, which points at the note it consumes.
+Proofs sharing their note set, referenced root and number of commitments covered, such as the user steps and payments of a mini-block naming one root, are verified against one extended root, computed and paid once. Charging each proof would price a step covering 800 commitments at about eight times a step of the first mini-block, so a block would hold few mini-blocks.
 
 - Transfer, Channel Deposit and Channel Withdraw: their constant plus `spend_gas`. A withdrawal pays in advance its release at its slot.
 - Channel Inscribe: its constant and a signature, `EXECUTION_USER_STEP_GAS + spend_gas` per user step, and per program step `EXECUTION_PROGRAM_STEP_GAS + EXECUTION_PROGRAM_PROOF_GAS + spend_gas + EXECUTION_OPENING_GAS` per opening, plus `EXECUTION_PAYMENT_GAS + spend_gas` per payment.

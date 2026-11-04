@@ -201,7 +201,7 @@ Mantle validators will ensure the following:
     tx_balance = 0
     tx_execution_gas = 0
     tx_note_sets = set()  # indexes of the channel and SDP note sets the Operations create or change
-    tx_extended_roots = set()  # (note set, referenced root, buffered) of the proofs extending a root
+    tx_extended_roots = set()  # (note set, referenced root, covered) of the proofs extending a root
     for op, op_proof in zip(ops, op_proofs):
         assert op.opcode in MANTLE_OPCODES
         tx_execution_gas = checked_uint64(tx_execution_gas + execution_gas(op, ledger, channels))
@@ -214,12 +214,12 @@ Mantle validators will ensure the following:
         # or at the release of its withdrawal, the ledger note set excluded
         tx_note_sets |= note_sets_changed_by(op)
         # the proofs of the Operation whose root at least one buffered commitment extends,
-        # `buffered` being the number of commitments of the buffer each proof covers
+        # `covered` being the number of commitments of the buffer each proof covers
         tx_extended_roots |= roots_extended_by(op)
     tx_execution_gas = checked_uint64(tx_execution_gas
                                       + len(encode(signed_tx)) * EXECUTION_KB_GAS // 1000
                                       + EXECUTION_NOTE_SET_GAS * len(tx_note_sets)
-                                      + sum(root_gas(buffered) for (_, _, buffered) in tx_extended_roots))
+                                      + sum(root_gas(covered) for (_, _, covered) in tx_extended_roots))
     for note_set in note_sets_appended_to(tx):
         note_set.tx_cm_buffer = []  # the buffers start empty with every Mantle Transaction
 
@@ -2049,7 +2049,7 @@ class NoteSet:
             assert note_nf not in self.nullifiers
 ```
 
-The proofs spending notes of a note set are verified against the root referenced by the Operation once the commitments of the `tx_cm_buffer` of the set are appended to it, all of them, or only the first `buffered` for a user step or a payment ([CHANNEL_INSCRIBE](#channel_inscribe)). The inputs can therefore be notes created by the previous Operations of the Mantle Transaction. The proofs of a Mantle Transaction naming the same note set, referenced root and number of buffered commitments are verified against one extended root, computed once:
+The proofs spending notes of a note set are verified against the root referenced by the Operation once the commitments of the `tx_cm_buffer` of the set are appended to it, all of them, or only those before its mini-block for a user step or a payment ([CHANNEL_INSCRIBE](#channel_inscribe)). The inputs can therefore be notes created by the previous Operations of the Mantle Transaction. The proofs of a Mantle Transaction naming the same note set, referenced root and number of buffered commitments are verified against one extended root, computed once:
 
 ```python
 class NoteSet:
@@ -2143,14 +2143,14 @@ def spend_gas(inputs: list[NoteNf], outputs: list[NoteCm]) -> int:
             + EXECUTION_COMMITMENT_GAS * len(outputs))
 ```
 
-A Mantle Transaction pays the extension of a root by buffered commitments once for each distinct note set, referenced root and `buffered` of its proofs ([Validation](#validation)):
+A Mantle Transaction pays the extension of a root by buffered commitments once for each distinct note set, referenced root and number of commitments covered by its proofs ([Validation](#validation)):
 
 ```python
-def root_gas(buffered: int) -> int:
-    return EXECUTION_ROOT_GAS + EXECUTION_BUFFERED_GAS * buffered
+def root_gas(covered: int) -> int:
+    return EXECUTION_ROOT_GAS + EXECUTION_BUFFERED_GAS * covered
 ```
 
-The proofs of a mini-block therefore share one extension, so the price of a step does not grow with its position, and a sequencer has no reason to ask a holder for the smallest `buffered` covering its inputs, which would point at the notes it consumes.
+The user steps and payments of a mini-block naming one root therefore share one extension, so the price of a step does not grow with its position.
 
 ## Zero Knowledge Transfer Proof (ZkTransfer)
 

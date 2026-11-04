@@ -85,20 +85,21 @@ def tx_execution_gas(tx_signed) -> int:
     # note_sets_changed_by(op): the channel and SDP note sets the Operation creates,
     # spends from or adds to, at its execution or at the release of its withdrawal
     tx_note_sets = set().union(*(note_sets_changed_by(op) for op in tx_signed.ops))
-    # roots_extended_by(op): the (note set, referenced root, buffered) of the proofs of
+    # roots_extended_by(op): the (note set, referenced root, covered) of the proofs of
     # the Operation whose root at least one buffered commitment extends
     tx_extended_roots = set().union(*(roots_extended_by(op) for op in tx_signed.ops))
     return (len(encode(tx_signed)) * EXECUTION_KB_GAS // 1000
             + EXECUTION_NOTE_SET_GAS * len(tx_note_sets)
-            + sum(root_gas(buffered) for (_, _, buffered) in tx_extended_roots)
+            + sum(root_gas(covered) for (_, _, covered) in tx_extended_roots)
             + sum(execution_gas(op) for op in tx_signed.ops))
 
 # The extension of a referenced root by the commitments buffered before a proof in
-# the transaction: `buffered` for a user step or a payment, the whole buffer of the
-# set for the other proofs. Proofs sharing their note set, referenced root and
-# `buffered` are verified against one extended root, computed and paid once.
-def root_gas(buffered: int) -> int:
-    return EXECUTION_ROOT_GAS + EXECUTION_BUFFERED_GAS * buffered
+# the transaction: the buffer before its mini-block for a user step or a payment, the
+# whole buffer of the set for the other proofs. Proofs sharing their note set, referenced
+# root and number of commitments covered are verified against one extended root,
+# computed and paid once.
+def root_gas(covered: int) -> int:
+    return EXECUTION_ROOT_GAS + EXECUTION_BUFFERED_GAS * covered
 
 # A ZkTransfer or a ZkProgramSpend, with the notes it spends and creates.
 def spend_gas(inputs, outputs) -> int:
@@ -194,7 +195,7 @@ A program proof is verified alone under the key of its program, which no other p
 
 ## Roots
 
-A proof is verified against a root of a recent commitment MMR of its note set, extended by the commitments buffered before it in the transaction ([Validation](bedrock-v1.1-mantle-specification.md#validation)). Without any buffered commitment, the root is the referenced root itself, checked to be recent, 1,231 cycles. With `b` buffered commitments, the commitments are appended to a copy of the peaks of the referenced MMR and its root is computed, 878,394 cycles for the root and 22,623 per commitment. The proofs of a transaction naming the same note set, referenced root and `b` share one extended root, computed once and paid once, so a step costs the same whatever its position in its mini-block, and a sequencer has no reason to ask a holder for the smallest `b` covering its inputs, which would point at the notes it consumes.
+A proof is verified against a root of a recent commitment MMR of its note set, extended by the commitments buffered before it in the transaction ([Validation](bedrock-v1.1-mantle-specification.md#validation)). Without any buffered commitment, the root is the referenced root itself, checked to be recent, 1,231 cycles. With `b` buffered commitments, the commitments are appended to a copy of the peaks of the referenced MMR and its root is computed, 878,394 cycles for the root and 22,623 per commitment. The proofs of a transaction naming the same note set, referenced root and `b` share one extended root, computed once and paid once, so a step costs the same whatever its position in its mini-block.
 
 ## Nullifiers
 
