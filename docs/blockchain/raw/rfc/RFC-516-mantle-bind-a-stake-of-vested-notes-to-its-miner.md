@@ -24,7 +24,7 @@ Read the PR's Motivation first.
 
 ## What the binding prevents
 
-Without it, `SDP_DECLARE` creates the service note under any `zk_id` it names. A seller can stake its vested notes under a buyer's `zk_id` and `provider_id`, in one transaction with a Transfer paying the seller, and the buyer then holds the locked stake. With the binding, the `zk_id` derives from the stake secret of the vested notes, so only the miner can hold its secret key. In the same swap, the seller keeps the `zk_id` secret, and with it the service rewards and the Proof of Quota of the declaration, while the buyer holds the `provider_id`. Withdrawing takes both keys, so neither can withdraw alone. A sale then needs the seller to hand over a secret off chain, which needs trust, and no protocol can prevent it.
+Without it, `SDP_DECLARE` creates the service note under any `zk_id` it names. A seller can stake its vested notes under a buyer's `zk_id` and `provider_id`, in one transaction with a Transfer paying the seller, and the buyer then holds the locked stake. With the binding, the `zk_id` derives from the stake secret of the vested notes, so its secret key comes from the miner. In the same swap, the seller keeps the `zk_id` secret, and with it the service rewards and the Proof of Quota of the declaration, while the buyer holds the `provider_id`. Withdrawing takes both keys, so neither can withdraw alone. A sale then needs the seller to hand over a secret off chain, which needs trust, and no protocol can prevent it.
 
 ## Why one stake secret
 
@@ -32,14 +32,14 @@ Requiring the key of every vested input to equal the `zk_id` would make each cla
 
 ## Cost
 
-Measured by compiling the check with the compression of the circuits repository (branch `tl/private_utxo`): 4,864 constraints for 16 inputs, 243 per vested input plus 972 once for the `zk_id`. That is 2.4% of the 202,928 constraints of the ZkStake. The hash mode of Poseidon2 would cost about 963 constraints per input instead of 243. The compression mode already derives every public key from its secret key.
+Measured by compiling the check with the compression of the circuits repository (branch `tl/private_utxo`): 4,864 constraints for 16 inputs, 243 per vested input plus 972 once for the `zk_id`. That is 2.4% of the about 203,000 constraints of the ZkStake. The hash mode of Poseidon2 would cost about 963 constraints per input instead of 243. The compression mode already derives every public key from its secret key.
 
 The ZkStake gains one public input, which adds a term to the fixed part of its batch and leaves the cost per proof unchanged.
 
 ## What it costs the miner
 
 - A miner derives the key of every claim it may stake from its stake secret, before it mines. A vested note claimed under another key can still lead and be spent once vested, but no declaration can stake it.
-- Every declaration's `zk_id` derives from a stake secret, also one that stakes no vested note, since every ZkStake checks it. Any wallet can derive one.
+- The `zk_id` of every declaration with a spend derives from a stake secret, even when it stakes no vested note, since every ZkStake checks it. Any wallet can derive one.
 - A wallet recovering from its seed finds its claims by deriving their public keys for increasing indices.
 
 Notes whose `data` is `0` stay free of the check, since liquid tokens move anyway.
