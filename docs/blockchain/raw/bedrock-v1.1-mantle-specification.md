@@ -1628,7 +1628,7 @@ assert puzzle_ticket < difficulty_reward
 assert puzzle_ticket not in pow_nullifiers
 
 # 6. Construct the liquid and the vested output notes under the public key given in the
-#    payload, and add them to the buffer of the ledger note set. The vesting ends from the
+#    payload, and add them to the buffer of the ledger note set. The vesting counts from the
 #    slot of the referenced block, which the claimant knows when it proves the Transfer
 #    spending the liquid note against the root extended with this buffer.
 claim_id = derive_op_id(claim)

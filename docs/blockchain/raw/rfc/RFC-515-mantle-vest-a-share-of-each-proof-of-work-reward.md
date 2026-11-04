@@ -28,11 +28,11 @@ Read the PR's Motivation first.
 
 ## Where the vesting end lives
 
-A vested note keeps its vesting end in `data`, a field every user note had at `0`. The ledger creates the note in the claim, so the end is public from the start, like the value and the key of every claim note. The ZkTransfer bounds the `data` of its inputs with one 64-bit comparison per input, and the Proof of Leadership and the Proof of Quota read `data` as a witness. The note sets, the Operations and the state of the ledger stay as they are.
+A vested note keeps its vesting end in `data`, a field every user note had at `0`. The ledger creates the note in the claim, so the end is public from the start, like the value and the key of every claim note. The ZkTransfer bounds the `data` of its inputs with one 64-bit comparison per input, and the Proof of Leadership and the Proof of Quota read `data` as a witness. No note set, Operation or root history is added: each recent root only keeps the slot that recorded it.
 
 The alternatives keep the circuits unchanged and pay elsewhere:
 
-- **A note set of vested notes, with its commitment root recorded at the end of every epoch.** A proof against the root of epoch `e` shows that its notes were created by `e`. Vesting rounds to epochs of 7.5 days, the ledger keeps a root history, a release Operation spends the notes after vesting, and wallets keep paths at old roots. Vesting exact to the slot this way needs a root per block: about 1.06 million roots per vesting period, 42 MB on every node.
+- **A note set of vested notes, with its commitment root recorded at the end of every epoch.** A proof against the root of epoch `e` shows that its notes were created by `e`. Vesting rounds to epochs of 7.5 days, the ledger keeps a root history, a release Operation spends the notes after vesting, and wallets keep paths at old roots. Vesting exact to the slot this way needs a root per block: about 1.05 million roots over the 365 days of a vesting, 42 MB on every node.
 - **One note set per epoch.** A proof spends notes of one epoch only, and each set a transaction touches pays the 3,461 Execution Gas of a changed note set.
 - **A public record of each vested note's end, the spend naming the note.** Exact to the slot, but every spend links to its claim, and the records take about 420 MB a year at the target claim rate.
 
@@ -46,15 +46,15 @@ Every ZkTransfer output has `data = 0`, so no Operation passes a vesting end on 
 - counts for the leader branch of the Proof of Quota;
 - can be staked by `SDP_DECLARE`.
 
-It cannot pay a fee, move to another key or enter a channel. A Transfer and a channel deposit take `vested_by` from the slot that recorded their referenced root. Ledger roots differ between forks, since each block appends its own leader note. Proofs over channel notes use `vested_by = 0`: a channel root can be recorded again at another slot after a reorganization, and steps signed against it would fail.
+It cannot pay a fee, move to another key outside a declaration, or enter a channel. A Transfer and a channel deposit take `vested_by` from the slot that recorded their referenced root. Ledger roots differ between forks, since each block appends its own leader note. Proofs over channel notes use `vested_by = 0`: a channel root can be recorded again at another slot after a reorganization, and steps signed against it would fail.
 
-The declarer names `locked_until`, and every note it stakes must have vested by the first slot of that epoch. The earliest valid epoch is therefore the latest vesting end rounded up to an epoch start. Rounding down would be unsafe: `SDP_WITHDRAW` pays its fee from the stake when it is posted, so up to 7.5 days of unvested value could pay that fee. The stake returns 3 epochs after the withdrawal.
+The declarer names `locked_until`, and every note it stakes must have vested by the first slot of that epoch. The earliest valid epoch is therefore the latest vesting end rounded up to an epoch start. Rounding down would be unsafe: `SDP_WITHDRAW` pays its fee from the stake when it is posted, so the stake could pay that fee up to 7.5 days before its vesting ends. The stake returns 3 epochs after the withdrawal.
 
 ## Staking many notes
 
 A miner holds one vested note per claim, and vested notes cannot be merged, so a declaration consumes them all at once. `SDP_DECLARE` uses a ZkStake circuit with 16 inputs and no output. Transfers keep the 4-input ZkTransfer: a Groth16 circuit costs its full size whatever inputs stay unused, so a 16-input ZkTransfer would make every transfer about 3× slower to prove.
 
-Constraints were measured by compiling the transfer circuit of the circuits repository (branch `tl/private_utxo`) as `zkTransfer(k, 1, 40)`: 12,604 per input, plus about 65 for the vesting check. Proving times are scaled from the ZkProgramSpend, 86,813 constraints in 2.6 s on one thread of the Mantle benchmark machine. Bytes and Execution Gas cover the spends of a declaration, at `EXECUTION_PROOF_GAS` per proof, and fees the starting storage price of 8·10⁵ LEPTA per byte.
+Constraints were measured by compiling the transfer circuit of the circuits repository (branch `tl/private_utxo`) as `zkTransfer(k, 1, 40)`: 12,604 per input and 1,747 per output. The table drops the output, which a ZkStake does not have, and adds an estimated 65 per input for the vesting check. Proving times scale linearly from the ZkProgramSpend, 86,813 constraints in 2.6 s on one thread of the Mantle benchmark machine. Bytes and Execution Gas cover the spends of a declaration, at `EXECUTION_PROOF_GAS` per proof, and the fees use the starting storage price of 8·10⁵ LEPTA per byte.
 
 | Inputs per proof | Constraints | One proof, 1 thread | Bytes per note | Gas per note | 150 notes: proofs, size, fee | Max notes per declaration |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -64,11 +64,11 @@ Constraints were measured by compiling the transfer circuit of the circuits repo
 | 32 | 405,632 | 12.1 s | 36 | 781 | 5, 5.5 KB, 4.4 LOGOS | 4,044 |
 | 64 | 811,040 | 24.3 s | 34 | 754 | 3, 5.2 KB, 4.2 LOGOS | 4,193 |
 
-The nullifier sets a floor of 32 bytes and 725 Execution Gas per note, so a block holds at most 4,377 staked notes. 16 inputs reach most of the saving. The proving work per note does not depend on the circuit size.
+The nullifier sets a floor of 32 bytes and 725 Execution Gas per note, so a block holds at most 4,377 staked notes. 16 inputs reach most of the saving. The proving work per note is about the same at every size.
 
 Three other ways to stake many notes were dropped:
 
-- **A proto-service note** accumulating vested notes before the declaration. The ledger can enforce a lock only on a note it names publicly, as `SDP_WITHDRAW` names its service note, so this needs a public record and Operations of its own. Each top-up also re-creates the note, which then never ages into the lottery while it fills.
+- **A proto-service note** accumulating vested notes before the declaration. With the vesting end in the note, it would be the output of a lock-preserving merge, below. Each top-up would also re-create the note, which then never ages into the lottery while it fills.
 - **Lock-preserving merges**, whose outputs keep the vesting end of their inputs. They let locked tokens change hands. Restricting them to one key would force a miner to reuse its claim key, which links all its claims.
 - **A top-up of an existing declaration.** Service rewards do not grow with stake above the minimum, and vested notes lead on their own.
 
@@ -77,7 +77,7 @@ Three other ways to stake many notes were dropped:
 Claims stay public. The ledger creates both notes, and their value, key, vesting end and commitment are known to everyone. A spend reveals nullifiers, never commitments, so it does not show which note it consumes.
 
 - **A spend after vesting** adds nothing, since `vested_by` is the slot of a public root. Its timing can point at the claims whose vesting just ended, so wallets wait a random number of blocks ([Wallet Technical Standard](../wallet-technical-standard.md#vested-notes)).
-- **A declaration** reveals its number of notes, the value of each spend and its lock epoch. With equal claim rewards, the values only repeat the counts. If the declarer picks the earliest valid lock epoch, that epoch gives away the epoch of its latest claim. Each staked note hides among all vested notes claimed by then and not yet spent: 216,000 per epoch at the target of 10 claims per block. A lock exact to the slot would have named the block of the latest claim, about 10 claims at the target and often a single claim below it.
+- **A declaration** reveals its number of notes, the value of each spend and its lock epoch. With equal claim rewards, the value of a spend of vested notes only repeats their count. If the declarer picks the earliest valid lock epoch, that epoch gives away the 7.5-day window its latest claim falls in, which holds 216,000 claims at the target of 10 claims per block. Each other staked note hides among all vested notes claimed by then and not yet spent. A lock exact to the slot would have named the block of the latest claim, about 10 claims at the target and often a single claim below it.
 - **The Proof of Leadership and the Proof of Quota** reveal nothing new.
 - **The strongest link is off chain:** a provider sending its claims from the node named in its locators. Wallets send them through other peers.
 
@@ -87,7 +87,7 @@ A commitment supplied by the miner, instead of one the ledger creates, would hid
 
 `SDP_DECLARE` creates the service note under the `zk_id` it names, and does not prove it. A seller can therefore stake its vested notes under a buyer's `zk_id` and `provider_id`, in one transaction with a Transfer paying the seller. The buyer then holds the stake: it earns the lottery and service rewards, and withdraws the stake once the lock ends. This is accepted: the stake stays locked, serves only service provision and the lottery, and its value cannot move before its vesting ends.
 
-Binding the stake to its staker is a separate draft stacked on this one. Miners derive their claim keys and the `zk_id` from one master secret, and the ZkStake proves that every vested input and the `zk_id` come from it. Measured with the two-to-one compression of the circuits, it costs about 243 constraints per input, about 4,600 for 16 inputs. Handing a secret over off chain stays possible, and no protocol can prevent it.
+Binding the stake to its staker is a separate draft stacked on this one. Miners derive their claim keys and the `zk_id` from one stake secret, and the ZkStake proves that every vested input and the `zk_id` come from it. Measured with the two-to-one compression of the circuits, it costs 4,864 constraints at 16 inputs, 2.4% of the ZkStake. Handing a secret over off chain stays possible, and no protocol can prevent it.
 
 ## Era parameters
 
@@ -101,7 +101,7 @@ Binding the stake to its staker is a separate draft stacked on this one. Miners 
 
 ## Compatibility
 
-The chain has not launched, so no migration is needed. The ZkTransfer, the Proof of Leadership and the Proof of Quota get new verification keys, and `SDPDeclare` and its proof get a new encoding.
+The chain has not launched, so no migration is needed. The ZkTransfer, the Proof of Leadership and the Proof of Quota get new verification keys, the ZkStake needs a setup of its own, and `SDPDeclare` and its proof get a new encoding.
 
 ## Open questions
 
@@ -113,7 +113,7 @@ The chain has not launched, so no migration is needed. The ZkTransfer, the Proof
 ## 1. Vested notes and the vesting bound of a ZkTransfer
 
 - The `data` of a user note is the slot its vesting ends, `0` if it does not vest. A user note with another `data` is a vested note, created only by `CLAIM_POW_REWARD`.
-- The ZkTransfer takes each input's `data` as a witness and a new public input `vested_by`. Every active input satisfies `vested_by - inputs_data[i] < 2**64`. Outputs keep `data = 0`. The public signals are 28, `vested_by` coming after `tx_cm_root`.
+- The ZkTransfer takes each input's `data` as a witness and a new public input `vested_by`. Every active input satisfies `0 <= vested_by - inputs_data[i] < 2**64`. Outputs keep `data = 0`. The public signals are 28, `vested_by` coming after `tx_cm_root`.
 
 ```diff
  class ZkTransferPublic:
