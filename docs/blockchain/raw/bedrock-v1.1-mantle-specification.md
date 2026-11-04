@@ -444,8 +444,6 @@ class UserStep:
     inputs: list[NoteNf]        # nullifiers of the consumed user notes of the channel
     outputs: list[NoteCm]       # commitments of the created user notes of the channel
     cm_merkle_root: MerkleRoot  # the MMR root of the channel note set at the end of one of the last 1024 blocks
-    buffered: int               # UINT16, the number of commitments of the tx_cm_buffer of the set
-                                # the proof covers, 0 for a step over cm_merkle_root
 
 class Payment:
     inputs: list[NoteNf]        # nullifiers of the consumed user notes of the channel
@@ -717,7 +715,7 @@ block_slot: Slot
 
   2. Apply the steps, in their order: the payments of a program step, then its program spend.
       ```python
-      for step in msg.steps:
+      for step in [step for mini_block in msg.mini_blocks for step in mini_block]:
           note_set = ledger.sets[channels[msg.channel].note_set]
           if step.is_program:
               for payment in step.payments:
@@ -2033,7 +2031,7 @@ class NoteSet:
         # append the first buffered commitments of tx_cm_buffer, all of them by default,
         # to a copy of the peaks of the MMR of root cm_merkle_root
         peaks = list(self.recent_cm_roots[cm_merkle_root].peaks)
-        for note_cm in self.tx_cm_buffer[:buffered]:
+        for note_cm in self.tx_cm_buffer[:covered]:
             mmr_append(peaks, note_cm)
         return mmr_root(peaks)
 

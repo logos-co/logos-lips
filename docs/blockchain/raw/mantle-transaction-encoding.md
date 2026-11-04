@@ -88,7 +88,7 @@ OpPayload = Transfer /
 ### Channel Operations
 
 ```schema
-ChannelInscribe = ChannelId Inscription Parent Signer Steps
+ChannelInscribe = ChannelId Inscription Parent Signer MiniBlocks
 Inscription     = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes
 Steps           = StepCount *Step
 StepCount       = UINT16
