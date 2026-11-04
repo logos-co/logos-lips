@@ -97,11 +97,11 @@ StepCount       = UINT16
 Step            = (UserStepKind UserStep) / (ProgramStepKind ProgramStep)
 UserStepKind    = %x00
 ProgramStepKind = %x01
-UserStep        = Inputs Outputs CmMerkleRoot
-ProgramStep     = ProgramId Payments Inputs Outputs ProgramOutputs CmMerkleRoot SpendNotesHash
+UserStep        = Inputs Outputs CommitmentRoot
+ProgramStep     = ProgramId Payments Inputs Outputs ProgramOutputs CommitmentRoot SpendNotesHash
 Payments        = PaymentCount *Payment
 PaymentCount    = Byte
-Payment         = Inputs Outputs CmMerkleRoot Value Intent
+Payment         = Inputs Outputs CommitmentRoot Value Intent
 Intent          = FieldElement
 ProgramOutputs  = Byte ; bit i (least significant first) set when output i is a note of the program,
                        ; the bits from OutputCount up being 0
@@ -113,10 +113,10 @@ PostingTimeframe           = UINT32
 PostingTimeout             = UINT32
 ConfigThreshold            = UINT16
 
-ChannelDeposit    = ChannelId Inputs CmMerkleRoot Outputs Value DepositMetadata
+ChannelDeposit    = ChannelId Inputs CommitmentRoot Outputs Value DepositMetadata
 DepositMetadata   = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes
 
-ChannelWithdraw   = ChannelId Inputs CmMerkleRoot Outputs
+ChannelWithdraw   = ChannelId Inputs CommitmentRoot Outputs
 
 ChannelId         = Hash32
 Parent            = Hash32
@@ -130,7 +130,7 @@ A decoder MUST reject a `ProgramStep` whose `OutputCount` exceeds 8, or whose `P
 ### SDP Operations
 
 ```schema
-SDPDeclare    = ServiceType Locators ProviderId ZkId Inputs CmMerkleRoot Value
+SDPDeclare    = ServiceType Locators ProviderId ZkId Inputs CommitmentRoot Value
 ServiceType   = Byte          ; 0 = BN
 Locators      = LocatorCount *Locator
 LocatorCount  = Byte          ; Max 8
@@ -177,7 +177,7 @@ ProgramId             = FieldElement
 ### Transfer Operations
 
 ```schema
-Transfer    = Inputs Outputs CmMerkleRoot Value
+Transfer    = Inputs Outputs CommitmentRoot Value
 Inputs      = InputCount *NoteNf
 InputCount  = Byte
 Outputs     = OutputCount *NoteCm
@@ -187,10 +187,10 @@ OutputCount = Byte
 ## Ledger
 
 ```schema
-Value        = UINT64
-NoteCm       = FieldElement
-NoteNf       = FieldElement
-CmMerkleRoot = FieldElement ; MMR root of note commitments
+Value          = UINT64
+NoteCm         = FieldElement
+NoteNf         = FieldElement
+CommitmentRoot = FieldElement ; MMR root of note commitments
 ```
 
 ## Op Proofs

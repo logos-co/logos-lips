@@ -443,12 +443,12 @@ class UserStep:
     is_program: bool = False
     inputs: list[NoteNf]        # nullifiers of the consumed user notes of the channel
     outputs: list[NoteCm]       # commitments of the created user notes of the channel
-    cm_merkle_root: MerkleRoot  # the MMR root of the channel note set at the end of one of the last 1024 blocks
+    commitment_root: MerkleRoot # the MMR root of the channel note set at the end of one of the last 1024 blocks
 
 class Payment:
     inputs: list[NoteNf]        # nullifiers of the consumed user notes of the channel
     outputs: list[NoteCm]       # commitments of the change, user notes of the channel
-    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set
+    commitment_root: MerkleRoot # a recent (less than 1024 blocks) MMR root of the channel note set
     paid_value: TokenValue      # the value paid to the program
     intent: zkhash              # the hash of what the user expects from the program
 
@@ -459,7 +459,7 @@ class ProgramStep:
     inputs: list[NoteNf]        # nullifiers of the consumed notes of the program, possibly empty
     outputs: list[NoteCm]       # commitments of the created notes of the program and of the user notes it pays
     program_outputs: list[bool] # (len = len(outputs)) whether each output is a note of the program
-    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set
+    commitment_root: MerkleRoot # a recent (less than 1024 blocks) MMR root of the channel note set
     spend_notes_hash: zkhash    # the hash of the input and output notes of the program spend
 
 class Inscribe:
@@ -484,13 +484,16 @@ The program spend of a program step is proven by the sequencer once the inscript
 
 The mini-block of a step or payment is public, so one of a later mini-block reveals that its inputs are among the notes under its root and the commitments it covers. Covering the whole of the previous mini-blocks keeps it from pointing at the notes it consumes.
 
-Since they are signed before the Mantle Transaction exists, their ZkTransfer is bound to their own content rather than to the `mantle_txhash`. A user step balances exactly, with an `excess_value` of `0`. The `excess_value` of the ZkTransfer of a payment is its `paid_value`, and the message of a payment also commits to the program it pays and to its intent, so its ZkTransfer only verifies in a step of that program, for that intent. Both messages commit to the channel:
+Since they are signed before the Mantle Transaction exists, their ZkTransfer is bound to their own content rather than to the `mantle_txhash`. A user step balances exactly, with an `excess_value` of `0`. The `excess_value` of the ZkTransfer of a payment is its `paid_value`, and the message of a payment also commits to the program it pays and to its intent, so its ZkTransfer only verifies in a step of that program, for that intent.
+
+Both messages commit to the channel. A channel ID is 32 free bytes, larger than the field, so a single reduced element would give channels `x` and `x + p` the same message. Each message therefore holds the channel ID as two elements, low first: `channel_lo`, its low 16 bytes `channel[:16]`, and `channel_hi`, its high 16 bytes `channel[16:]`.
 
 ```python
 def step_msg(channel: ChannelId, step: UserStep) -> zkhash:
     return zkhash(
         FiniteField(b"CHANNEL_STEP_V1", byte_order="little", modulus=p),
-        FiniteField(channel, byte_order="little", modulus=p),
+        FiniteField(channel_lo, byte_order="little", modulus=p),
+        FiniteField(channel_hi, byte_order="little", modulus=p),
         FiniteField(len(step.inputs), byte_order="little", modulus=p),
         *step.inputs,
         FiniteField(len(step.outputs), byte_order="little", modulus=p),
@@ -628,14 +631,14 @@ block_slot: Slot
               assert len(step_proof.payment_proofs) == len(step.payments)
               paid_value = 0
               for payment, payment_proof in zip(step.payments, step_proof.payment_proofs):
-                  note_set.assert_spendable(payment.inputs, payment.cm_merkle_root)
+                  note_set.assert_spendable(payment.inputs, payment.commitment_root)
                   for note_nf in payment.inputs:
                       assert note_nf not in step_nfs
                       step_nfs.add(note_nf)
                   assert note_set.verify_transfer(payment.inputs,
                                                   payment.outputs,
                                                   payment.paid_value,
-                                                  payment.cm_merkle_root,
+                                                  payment.commitment_root,
                                                   payment_msg(msg.channel, step.program_id, payment),
                                                   payment_proof,
                                                   covered)
@@ -646,10 +649,10 @@ block_slot: Slot
               # Ensure the program spend consumes unspent notes of the program, possibly none,
               # and balances exactly with the value paid.
               if len(step.inputs) > 0:
-                  note_set.assert_spendable(step.inputs, step.cm_merkle_root)
+                  note_set.assert_spendable(step.inputs, step.commitment_root)
               else:
-                  assert step.cm_merkle_root in note_set.recent_cm_roots
-                  last_block = note_set.recent_cm_roots[step.cm_merkle_root].last_block
+                  assert step.commitment_root in note_set.recent_cm_roots
+                  last_block = note_set.recent_cm_roots[step.commitment_root].last_block
                   assert last_block is None or last_block >= block_height - 1024
               for note_nf in step.inputs:
                   assert note_nf not in step_nfs
@@ -658,7 +661,7 @@ block_slot: Slot
               assert note_set.verify_program_spend(step.inputs,
                                                    step.outputs,
                                                    step.program_outputs,
-                                                   step.cm_merkle_root,
+                                                   step.commitment_root,
                                                    step.program_id,
                                                    paid_value,
                                                    step.spend_notes_hash,
@@ -682,14 +685,14 @@ block_slot: Slot
                                     step_proof.program_proof)
           else:
               # Ensure the user step is spendable and signed by its holder.
-              note_set.assert_spendable(step.inputs, step.cm_merkle_root)
+              note_set.assert_spendable(step.inputs, step.commitment_root)
               for note_nf in step.inputs:
                   assert note_nf not in step_nfs
                   step_nfs.add(note_nf)
               assert note_set.verify_transfer(step.inputs,
                                               step.outputs,
                                               0,  # a user step balances exactly
-                                              step.cm_merkle_root,
+                                              step.commitment_root,
                                               step_msg(msg.channel, step),
                                               step_proof,
                                               covered)
@@ -892,7 +895,7 @@ A Zone that credits a deposit in its own state must be sure the deposit really l
 class ChannelDeposit:
     channel: ChannelId
     inputs: list[NoteNf]        # nullifiers of the consumed notes of the ledger note set
-    cm_merkle_root: MerkleRoot  # the MMR root of the ledger note set at the end of one of the last 1024 blocks
+    commitment_root: MerkleRoot # the MMR root of the ledger note set at the end of one of the last 1024 blocks
     outputs: list[NoteCm]       # commitments of the created notes of the channel note set
     excess_value: TokenValue    # the excess to pay the fees
     metadata: bytes
@@ -939,7 +942,7 @@ ledger: Ledger
 
   3. Ensure all inputs are spendable in the ledger note set.
       ```python
-      ledger.sets[LEDGER_SET].assert_spendable(deposit.inputs, deposit.cm_merkle_root)
+      ledger.sets[LEDGER_SET].assert_spendable(deposit.inputs, deposit.commitment_root)
       ```
 
   4. Validate ownership over deposited notes and balance.
@@ -947,7 +950,7 @@ ledger: Ledger
       assert ledger.sets[LEDGER_SET].verify_transfer(deposit.inputs,
                                                      deposit.outputs,
                                                      deposit.excess_value,
-                                                     deposit.cm_merkle_root,
+                                                     deposit.commitment_root,
                                                      mantle_txhash_fr,
                                                      deposit_proof)
       ```
@@ -994,7 +997,7 @@ WITHDRAW_DELAY: Slot = 86_400  # 1 day
 class ChannelWithdraw:
     channel: ChannelId
     inputs: list[NoteNf]        # nullifiers of the consumed notes of the channel note set
-    cm_merkle_root: MerkleRoot  # the MMR root of the channel note set at the end of one of the last 1024 blocks
+    commitment_root: MerkleRoot # the MMR root of the channel note set at the end of one of the last 1024 blocks
     outputs: list[NoteCm]       # commitments of the notes created in the ledger note set
 ```
 
@@ -1036,7 +1039,7 @@ ledger: Ledger
 
   2. Ensure all inputs are spendable in the channel note set.
       ```python
-      ledger.sets[chan.note_set].assert_spendable(withdrawal.inputs, withdrawal.cm_merkle_root)
+      ledger.sets[chan.note_set].assert_spendable(withdrawal.inputs, withdrawal.commitment_root)
       ```
 
   3. Validate ownership over the withdrawn notes and balance.
@@ -1044,7 +1047,7 @@ ledger: Ledger
       assert ledger.sets[chan.note_set].verify_transfer(withdrawal.inputs,
                                                         withdrawal.outputs,
                                                         0,  # a withdrawal balances exactly
-                                                        withdrawal.cm_merkle_root,
+                                                        withdrawal.commitment_root,
                                                         mantle_txhash_fr,
                                                         proof)
       ```
@@ -1163,7 +1166,7 @@ class DeclarationMessage:
     provider_id: Ed25519PublicKey
     zk_id: ZkPublicKey
     inputs: list[NoteNf]
-    cm_merkle_root: MerkleRoot
+    commitment_root: MerkleRoot
     amount: TokenValue
 ```
 
@@ -1219,7 +1222,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 
   3. Ensure the inputs are spendable and the value is sufficient for joining the service.
       ```python
-      ledger.sets[LEDGER_SET].assert_spendable(declaration.inputs, declaration.cm_merkle_root)
+      ledger.sets[LEDGER_SET].assert_spendable(declaration.inputs, declaration.commitment_root)
       assert declaration.amount >= min_stake.threshold
       ```
 
@@ -1228,7 +1231,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       assert ledger.sets[LEDGER_SET].verify_transfer(declaration.inputs,
                                                      [], # no outputs
                                                      declaration.amount,
-                                                     declaration.cm_merkle_root,
+                                                     declaration.commitment_root,
                                                      FiniteField(txhash, byte_order="little", modulus = p),
                                                      proof.zk_proof)
       assert Ed25519_verify(txhash, declaration.provider_id, proof.provider_sig)
@@ -1723,7 +1726,7 @@ class Transfer:
     inputs: list[NoteNf]  		# the list of consumed note nullifiers
                           		# must be non-empty
     outputs: list[NoteCm]       # the list of created note commitments
-    cm_merkle_root: MerkleRoot  # the MMR root of the ledger note set at the end of one of the last 1024 blocks
+    commitment_root: MerkleRoot # the MMR root of the ledger note set at the end of one of the last 1024 blocks
     excess_value: TokenValue	# the excess to pay the fees
 ```
 
@@ -1755,7 +1758,7 @@ ledger: Ledger
 
   1. Ensure all inputs are spendable.
       ```python
-      ledger.sets[LEDGER_SET].assert_spendable(transfer.inputs, transfer.cm_merkle_root)
+      ledger.sets[LEDGER_SET].assert_spendable(transfer.inputs, transfer.commitment_root)
       ```
 
   2. Validate transfer proof.
@@ -1763,7 +1766,7 @@ ledger: Ledger
       assert ledger.sets[LEDGER_SET].verify_transfer(transfer.inputs,
                                                      transfer.outputs,
                                                      transfer.excess_value,
-                                                     transfer.cm_merkle_root,
+                                                     transfer.commitment_root,
                                                      mantle_txhash_fr,
                                                      transfer_proof)
       ```
@@ -2014,7 +2017,7 @@ The following method validates that an input of notes of a note set can be consu
 
 ```python
 class NoteSet:
-    def assert_spendable(self, inputs: list[NoteNf], cm_merkle_root: MerkleRoot):
+    def assert_spendable(self, inputs: list[NoteNf], commitment_root: MerkleRoot):
         # Assert inputs are not empty
         assert len(inputs) > 0
 
@@ -2023,8 +2026,8 @@ class NoteSet:
 
         # Check the root is the commitment MMR root of the set at the end of one of the last
         # 1024 blocks, block_height being the height of the block validated
-        assert cm_merkle_root in self.recent_cm_roots
-        last_block = self.recent_cm_roots[cm_merkle_root].last_block
+        assert commitment_root in self.recent_cm_roots
+        last_block = self.recent_cm_roots[commitment_root].last_block
         assert last_block is None or last_block >= block_height - 1024
 
         # Check that each note is unspent
@@ -2036,27 +2039,27 @@ The proofs spending notes of a note set are verified against the root referenced
 
 ```python
 class NoteSet:
-    def tx_cm_root(self, cm_merkle_root: MerkleRoot, covered: int | None = None) -> MerkleRoot:
+    def tx_cm_root(self, commitment_root: MerkleRoot, covered: int | None = None) -> MerkleRoot:
         # append the first covered commitments of tx_cm_buffer, all of them by default,
-        # to a copy of the peaks of the MMR of root cm_merkle_root
-        peaks = list(self.recent_cm_roots[cm_merkle_root].peaks)
+        # to a copy of the peaks of the MMR of root commitment_root
+        peaks = list(self.recent_cm_roots[commitment_root].peaks)
         for note_cm in self.tx_cm_buffer[:covered]:
             mmr_append(peaks, note_cm)
         return mmr_root(peaks)
 
     def verify_transfer(self, inputs: list[NoteNf], outputs: list[NoteCm], excess_value: TokenValue,
-                        cm_merkle_root: MerkleRoot, msg: zkhash, proof: ZkTransfer,
+                        commitment_root: MerkleRoot, msg: zkhash, proof: ZkTransfer,
                         covered: int | None = None) -> bool:
         return ZkTransfer_verify(inputs, outputs, excess_value,
-                                 self.tx_cm_root(cm_merkle_root, covered), msg, proof)
+                                 self.tx_cm_root(commitment_root, covered), msg, proof)
 
     def verify_program_spend(self, inputs: list[NoteNf], outputs: list[NoteCm],
-                             program_outputs: list[bool], cm_merkle_root: MerkleRoot,
+                             program_outputs: list[bool], commitment_root: MerkleRoot,
                              program_id: ProgramId, paid_value: TokenValue,
                              spend_notes_hash: zkhash, msg: zkhash,
                              proof: ZkProgramSpend) -> bool:
         return ZkProgramSpend_verify(inputs, outputs, program_outputs,
-                                     self.tx_cm_root(cm_merkle_root), program_id, paid_value,
+                                     self.tx_cm_root(commitment_root), program_id, paid_value,
                                      spend_notes_hash, msg, proof)
 ```
 
@@ -2117,7 +2120,7 @@ class ZkTransferPublic:
     outputs: list[NoteCm]          # (len = 8)
     outputs_active: list[boolean]  # (len = 8) whether each output creates a note
     excess_value: TokenValue
-    tx_cm_root: MerkleRoot         # the referenced cm_merkle_root extended with the tx_cm_buffer of the set,
+    tx_cm_root: MerkleRoot         # the referenced commitment_root extended with the tx_cm_buffer of the set,
                                    # or the commitments before its mini-block for a user step or a payment
     msg: zkhash
 ```
@@ -2231,7 +2234,7 @@ class ZkProgramSpendPublic:
     outputs: list[NoteCm]          # (len = 8) notes of the program, or user notes it pays
     outputs_active: list[boolean]  # (len = 8) whether each output creates a note
     outputs_of_program: list[boolean]  # (len = 8) whether each output is a note of the program
-    tx_cm_root: MerkleRoot         # the referenced cm_merkle_root extended with the tx_cm_buffer of the set
+    tx_cm_root: MerkleRoot         # the referenced commitment_root extended with the tx_cm_buffer of the set
     program_id: ProgramId
     paid_value: TokenValue         # the total value the payments of the step pay to the program
     spend_notes_hash: zkhash       # the hash of the input and output notes, read by the program proof

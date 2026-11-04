@@ -78,7 +78,7 @@ STAKE_DISTRIBUTION_NOTES = [
 STAKE_DISTRIBUTION = Transfer(
     inputs=[],
     outputs=[derive_note_cm(note) for note in STAKE_DISTRIBUTION_NOTES],
-    cm_merkle_root=EMPTY_MMR_ROOT,
+    commitment_root=EMPTY_MMR_ROOT,
     excess_value=0,
 )
 
@@ -128,7 +128,7 @@ BLEND_DECLARATIONS = [
         provider_id=PROVIDER_ID_0,
         zk_id=ZK_ID_0,
         inputs=[],
-        cm_merkle_root=EMPTY_MMR_ROOT,
+        commitment_root=EMPTY_MMR_ROOT,
         amount=1000,
     ))),
     # ... 32 total declarations
@@ -259,7 +259,7 @@ STAKE_DISTRIBUTION_NOTES = [
 STAKE_DISTRIBUTION = Transfer(
     inputs=[],
     outputs=[derive_note_cm(note) for note in STAKE_DISTRIBUTION_NOTES],
-    cm_merkle_root=EMPTY_MMR_ROOT,
+    commitment_root=EMPTY_MMR_ROOT,
     excess_value=0,
 )
 
@@ -305,7 +305,7 @@ BLEND_DECLARATIONS = [
         provider_id=PROVIDER_ID_0,
         zk_id=ZK_ID_0,
         inputs=[],
-        cm_merkle_root=EMPTY_MMR_ROOT,
+        commitment_root=EMPTY_MMR_ROOT,
         amount=1000,
     ))),
     # ... more declarations
