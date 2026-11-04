@@ -381,12 +381,12 @@ Given a `ValidBlock` that has successfully passed proposal validation, the node 
 5. Record the commitment MMR root of every note set a commitment was appended to in the block, as defined in [Ledger](bedrock-v1.1-mantle-specification.md#ledger), so that the transactions of the next 1024 blocks can reference it, and record the [eligible root](cryptarchia-proof-of-leadership.md#eligible-sets) after the block, which validating an uncle or a fork block reads:
     ```python
     for note_set in note_sets_appended_to(block):
-        note_set.record_cm_root(block_height)
+        note_set.record_commitment_root(block_height)
     ```
 
 Steps 1 and 2 read the epoch, the slot and the state of the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) and of the pending withdrawals, never the transactions of the block, which is what lets them run before those transactions are validated.
 
-The leader reward of step 4 is the one defined in [Blend Service and Consensus Leaders](overview-cryptoeconomics.md#blend-service-and-consensus-leaders), computed from the [Block Rewards](block-rewards.md) of the block and the Execution market tips of its transactions, which is why it comes after them. It is paid as a single note with a nonce of `0` under the `reward_key` of the block, and its commitment is appended to the ledger note set of the [Mantle Ledger](bedrock-v1.1-mantle-specification.md#ledger):
+The leader reward of step 4 is the one defined in [Blend Service and Consensus Leaders](overview-cryptoeconomics.md#blend-service-and-consensus-leaders), computed from the [Block Rewards](block-rewards.md) of the block and the Execution market tips of its transactions, which is why it comes after them. It is paid as a single note with a nonce of `0` under the `reward_key` of the block, and its commitment, given by `derive_note_commitment` ([Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier)), is appended to the ledger note set, `LEDGER_SET`, of the [Mantle Ledger](bedrock-v1.1-mantle-specification.md#ledger):
 
 ```python
 leader_note = Note(
@@ -394,7 +394,7 @@ leader_note = Note(
     nonce=0,
     public_key=block.header.proof_of_leadership.reward_key
 )
-ledger.sets[LEDGER_SET].execute_adding([derive_note_cm(leader_note)])
+ledger.sets[LEDGER_SET].execute_adding([derive_note_commitment(leader_note)])
 ```
 
 Spending the note reveals neither its commitment nor its value, so the leader cannot be linked to the block through its reward, as long as the leader does not publish its value. An `SDP_DECLARE` publishes the amount it stakes, the sum of the notes it consumes, and every reward value is public: staking reward notes, alone or with notes of known value, can link the blocks they were won in to the declaration. A leader should use a fresh `reward_key` for every block. Reusing it links the blocks that carry it to the same leader, and two rewards of the same value under the same key are identical notes, of which only one can be spent ([Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier)).
