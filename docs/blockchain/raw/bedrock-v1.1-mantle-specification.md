@@ -403,7 +403,7 @@ Channels let their bridged notes keep participating in Proof of Stake. When a us
 | Party | Can | Cannot |
 |---|---|---|
 | Holder of a user note's `ZkPublicKey` | Create a PoL with the note and earn its rewards. Sign a user step moving the note inside the channel, or a payment to a program. Withdraw the note alone, paying the fee with a ledger note | Spend the note in any other Operation |
-| Channel sequencers | Collect the steps and payments of their users and publish them in the inscriptions of the channel, grouped in mini-blocks in the order they choose, a step or payment consuming a note of the same Mantle Transaction coming in a later mini-block. Prove the program steps. Freeze the program notes of the channel, by publishing no program step. Hold a signed payment until its root leaves the window | Move a user note without its holder's step or payment. Move a program note without the proof of its program |
+| Channel sequencers | Collect the steps and payments of their users and publish them in the inscriptions of the channel, grouped in mini-blocks in the order they choose, a step or payment consuming an output of the inscription coming in a later mini-block. Prove the program steps. Freeze the program notes of the channel, by publishing no program step. Hold a signed payment until its root leaves the window | Move a user note without its holder's step or payment. Move a program note without the proof of its program |
 | Program | Authorize, by its proof, the program steps consuming and creating its notes and paying users | Consume a user note. Create value |
 
 ### Programs
@@ -448,7 +448,7 @@ A program using LOGOS only, such as lending, is thus enforced by the ledger, and
 
 ### CHANNEL_INSCRIBE
 
-Write a message to a channel with the message data being permanently stored on the Logos Blockchain, and apply the steps the sequencer collected from the users of the channel. The list of steps can be empty, in which case the inscription only writes its message.
+Write a message to a channel with the message data being permanently stored on the Logos Blockchain, and apply the steps the sequencer collected from the users of the channel. The list of mini-blocks can be empty, in which case the inscription only writes its message.
 
 #### Payload
 
@@ -489,12 +489,12 @@ A user step moves the user notes of its holder. A program step executes a [progr
 
 The steps of an inscription are grouped in mini-blocks. A user step and a payment are signed and proven by the holder of the notes they consume, off-chain and before the Mantle Transaction carrying them exists. The ZkTransfer of each is verified against its referenced root extended with the buffer of the channel note set as it stands when its mini-block starts: the commitments the earlier Operations of the Mantle Transaction and the earlier mini-blocks of the inscription added. It can therefore consume the notes of earlier blocks and the outputs of the earlier mini-blocks, but not the outputs of its own mini-block. Its proof depends on what precedes its mini-block and not on its position inside it, and the holders prove theirs independently of one another:
 
-- The steps and payments of the first mini-block, when no earlier Operation of the Mantle Transaction added to the channel note set, are proven against their recent root alone, so a sequencer collects those of many users and publishes them in the order it chooses. An Operation adding to that note set goes after the inscription, unless a step or payment consumes what it adds.
+- The steps and payments of the first mini-block, when no earlier Operation of the Mantle Transaction added to the channel note set, are proven against their recent root alone, so a sequencer collects those of many users and publishes them in the order it chooses. A sequencer should place an Operation adding to that note set after the inscription: if it comes first, every step and payment of the first mini-block covers what it adds.
 - If the first mini-block adds 400 commitments to the buffer, every user step and payment of the second mini-block covers these 400: it can consume the outputs of the first mini-block, and those of the second mini-block are again ordered freely among themselves. The same holds for the next mini-blocks.
 
 Extending every proof of a holder with the whole buffer would instead tie each proof to its position: each holder would have to wait for the sequencer to fix everything before its own step or payment, and they would be proven one after another.
 
-The program spend of a program step is proven by the sequencer once the inscription is fixed, so it covers the whole buffer at its position, whatever its mini-block. It can consume a note of the program created by an earlier program step of the same mini-block, so the program steps moving one pool follow each other in a single mini-block.
+The program spend of a program step is proven by the sequencer once the inscription is fixed, so it covers the whole buffer at its position, whatever its mini-block. It can consume a note of the program created by an earlier program step of the same mini-block, so the program steps moving one pool can follow each other in a single mini-block.
 
 The mini-block of a step or payment is public, so one of a later mini-block reveals that its inputs are among the notes under its root and the commitments it covers. Covering the whole of the previous mini-blocks keeps it from pointing at the notes it consumes.
 
@@ -605,7 +605,8 @@ block_slot: Slot
           assert msg.parent == ZERO
 
           # the note set the channel gets at its creation, none for the null channel: the notes
-          # its steps create are consumed by the next steps of the inscription, or from the next
+          # its steps create are consumed by the next program spends and the next mini-blocks of
+          # the inscription, by the next Operations of the Mantle Transaction, or from the next
           # block on
           note_set = empty_note_set() if msg.channel != ZERO else None
       ```
@@ -615,7 +616,7 @@ block_slot: Slot
       assert Ed25519_verify(txhash, msg.signer, proof.signature)
       ```
 
-  3. Ensure the null channel, which has no note set, receives no step, and that there is one proof per step.
+  3. Ensure the null channel, which has no note set, receives no step, that a mini-block holds at least one step, and that there is one proof per step.
       ```python
       assert note_set is not None or len(msg.mini_blocks) == 0
       assert all(len(mini_block) > 0 for mini_block in msg.mini_blocks)
@@ -726,10 +727,12 @@ block_slot: Slot
 
   *Execute*
 
-  1. If the channel does not exist, create it just-in-time.
+  1. If the channel does not exist, create it just-in-time. Its note set keeps the buffer the validation of the steps filled, which the next Operations of the Mantle Transaction cover.
       ```python
       if msg.channel not in channels:
           create_channel(msg.channel, block_slot, [msg.signer])
+          if note_set is not None:
+              ledger.sets[channels[msg.channel].note_set].tx_cm_buffer = note_set.tx_cm_buffer
       ```
 
   2. Apply the steps, in their order: the payments of a program step, then its program spend.
