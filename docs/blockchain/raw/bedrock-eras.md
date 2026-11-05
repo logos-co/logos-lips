@@ -490,7 +490,7 @@ In every record, `expected_deliveries_per_observation_window` is at least 1. Oth
 
 In every record, `max_gas_per_block` is at least 2. Otherwise $`G_{\mathrm{target}}`$ of [Notation](execution-market.md#notation) is 0, and the base fee update divides by zero.
 
-In every record, `transfer` plus each other field of `gas_profile` is at most `max_gas_per_block`, with `channel_config`, `channel_withdraw` and `channel_transfer` first multiplied by $`\lfloor \text{MAX\_BLOCK\_SIZE} / 64 \rfloor`$, the most signatures a block body can hold, with `MAX_BLOCK_SIZE` of [Constants](cryptarchia-v1-protocol.md#constants). Otherwise an Operation that fits a block by size cannot be included with the `TRANSFER` that pays its fee, and a channel's funds can be stranded.
+In every record, `transfer` plus each other field of `gas_profile` is at most `max_gas_per_block`, with `channel_config`, `channel_withdraw` and `channel_transfer` first multiplied by $`\lfloor \text{max\_transactions\_size} / 64 \rfloor`$, the most signatures a block body can hold. Otherwise an Operation that fits a block by size cannot be included with the `TRANSFER` that pays its fee, and a channel's funds can be stranded.
 
 In every record, the ratios of `execution_market` and `storage_market` and `blend_share` lie strictly between 0 and 1. Otherwise a price can fall to 0 or stop following usage, an average can stop smoothing usage, or the Blend nodes or the leaders receive no share of the block reward.
 
