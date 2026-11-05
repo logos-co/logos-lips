@@ -1,8 +1,8 @@
-# Mix Key Rotation
+# Scheduled Mix Key Rotation
 
 | Field | Value |
 | --- | --- |
-| Name | Mix Key Rotation |
+| Name | Scheduled Mix Key Rotation |
 | Status | raw |
 | Category | Standards Track |
 | Editor | Akshaya Mani <akshaya@status.im> |
