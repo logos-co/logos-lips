@@ -24,6 +24,7 @@
 | 1.0.0 | Initial revision. | 2026-04-24 |
 | 1.1.0 | Changing from burning/minting to pooling/distributing/releasing, removing $`S_{tge}`$ | 2026-08-25 |
 | 1.2.0 | Count the proof of work reward pool as a fourth controlled stock, bound net circulating growth by the two stocks that drain, and state that the pooled fee is net of the share diverted to that pool | 2026-08-31 |
+| 1.3.0 | Count every amount in LEPTA, which scales three constants of the integer rule by $`10^{9}`$ and widens its intermediates to 128 bits | 2026-10-29 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -38,7 +39,7 @@ This document outlines the specifications for Logos Blockchain's block rewards m
 
 The objective is to develop a block rewards system that addresses key challenges specific to Logos Blockchain's architecture, including the unlinkability between block proposal and reward collection, and the inability to directly allocate transaction fees to specific block proposers. These constraints necessitate a carefully designed economic incentive structure.
 
-Building on previous work in blockchain economics, this specification proposes a dynamic token emission system that calibrates the release of the LGO genesis minted reserve according to network Key Performance Indicators (KPIs). The system uses two primary metrics: inferred total stake (as a security indicator) and average pooling rate (to maintain supply equilibrium).
+Building on previous work in blockchain economics, this specification proposes a dynamic token emission system that calibrates the release of the LOGOS genesis minted reserve according to network Key Performance Indicators (KPIs). The system uses two primary metrics: inferred total stake (as a security indicator) and average pooling rate (to maintain supply equilibrium).
 
 The document references internal mathematical models and simulations that demonstrate how the proposed mechanism would behave under various conditions. Key parameters include maximum annual emission rate ($1\%$), control responsiveness factors, and target metrics for network security.
 
@@ -125,7 +126,7 @@ The overall design creates a robust economic foundation for the Logos Blockchain
 
 # Construction
 
-The proposed mechanism implements a dynamic token emission system that precisely calibrates the LGO reserve release according to network performance metrics (KPIs). This adaptive model adjusts release rates based on how KPIs perform relative to their predetermined targets, while maintaining strict adherence to supply parameters and economic boundaries.
+The proposed mechanism implements a dynamic token emission system that precisely calibrates the LOGOS reserve release according to network performance metrics (KPIs). This adaptive model adjusts release rates based on how KPIs perform relative to their predetermined targets, while maintaining strict adherence to supply parameters and economic boundaries.
 
 ## Core Variables
 
@@ -163,7 +164,7 @@ Let us define the following variables:
 
 | Symbol | Definition | Default Value | Explanation |
 | --- | --- | --- | --- |
-| $`S_{cap}`$​ | Maximum token supply (hard cap) | 10 billion LGO | N.A. |
+| $`S_{cap}`$​ | Maximum token supply (hard cap) | 10 billion LOGOS | Bounded above by [Token Units and Precision](overview-cryptoeconomics.md#token-units-and-precision). |
 | $T$​ | The number of periods in the look-back window for the moving average. | $`120`$​ | As the system is expected to produce 1 block every 30 seconds, this look-back window defines that the reward averages the fees pooled in the last hour. |
 | $`\alpha_a`$​ | Denotes the control responsiveness to KPI average metrics. | $`1`$​ | This parameter scales the reserve-release response to the pooling rate. It must be one-to-one. |
 | $`\alpha_d`$​ | Denotes the control responsiveness to KPI deviation metrics. | $`1/4`$​ | See [\[Analysis\] Block Reward Parameter Calibration](analysis-block-reward-parameter-calibration.md), for details. |
@@ -171,7 +172,7 @@ Let us define the following variables:
 | $`D_{0,target}`$​ | Denotes the target value for the first KPI based on stake. | 3 billion LOGOS | $`30\%`$ of the maximum supply. |
 | $`D_{1,target}`$​ | Denotes the target value for the second KPI based on fees. | $10$ billon LOGOS | In the context of this KPI, this value behaves as a normalizer |
 | $`I_{max}`$​ | The maximum emission rate per year | $1\%$​ | This value guarantees that, when the total inferred stake reaches $`D_{0,target}`$, then the APY for validation is ~3.33%. |
-| $`Y`$ | Lifetime of the rewards reserve at the maximum release rate ($`I_{max}`$ of $`S_{cap}`$ per year) | $`10`$ years | Sets the reserve size $`B_0 = I_{max} \cdot S_{cap} \cdot Y = 10^9`$ LGO ($10\%$ of $`S_{cap}`$). |
+| $`Y`$ | Lifetime of the rewards reserve at the maximum release rate ($`I_{max}`$ of $`S_{cap}`$ per year) | $`10`$ years | Sets the reserve size $`B_0 = I_{max} \cdot S_{cap} \cdot Y = 10^9`$ LOGOS ($10\%$ of $`S_{cap}`$). |
 | $`I_{min}`$​ | The minimum emission rate per year | $`0\%`$​ | This avoids inflationary token emissions. |
 | $f$​ | The average number of block proposal within $`\Delta_{t}`$ units | $1$​ | The time step $`\Delta_t`$ was chosen so that $`f`$ equals to $`1`$. |
 | $`\Delta_t`$​ | Time step, the fraction of year in one time step (per e.g., epoch, block, or day) | $`1/(365 \times 2880)`$​ | The time step is 1 block every $`30`$ seconds; there are 2880 blocks of 30 seconds in a day. |
@@ -440,6 +441,8 @@ $$
 A_t = \min \lbrace 1, \max \lbrace 0, \dfrac{ \alpha_d \cdot \delta_t + \alpha_a \cdot \gamma_t + I_{min}}{I_{max}} \rbrace \rbrace.
 $$
 
+Every amount in this section is a count of LEPTA, as defined in [Token Units and Precision](overview-cryptoeconomics.md#token-units-and-precision).
+
 Because we have
 
 $$
@@ -448,8 +451,8 @@ $$
 I_{\max}=10^{-2},\qquad
 T=120,\quad
 f=1,\quad R_\text{block} = D_{1,t}\\
-D_{0,\mathrm{target}}=3\cdot 10^9,\qquad
-D_{1,\mathrm{target}}=S_{\mathrm{cap}}=10^{10},\qquad
+D_{0,\mathrm{target}}=3\cdot 10^{18},\qquad
+D_{1,\mathrm{target}}=S_{\mathrm{cap}}=10^{19},\qquad
 \Delta_t=\frac{1}{365\cdot 2880},
 $$
 
@@ -473,10 +476,10 @@ $$
 \frac{1/4}{10^{-2}}\cdot \frac{D_{0,\mathrm{target}}-D_{0,t}}{D_{0,\mathrm{target}}}
 \\
 &=
-25\cdot \frac{3\cdot 10^9-D_{0,t}}{3\cdot 10^9}
+25\cdot \frac{3\cdot 10^{18}-D_{0,t}}{3\cdot 10^{18}}
 \\
 &=
-\frac{3\cdot 10^9-D_{0,t}}{12\cdot 10^7}.
+\frac{3\cdot 10^{18}-D_{0,t}}{12\cdot 10^{16}}.
 \end{aligned}
 $$
 
@@ -484,15 +487,15 @@ and
 
 $$
 \frac{\alpha_a}{I_{\max}}\gamma_t=\frac{1}{10^{-2}}\cdot \frac{1}{\Delta_t}\cdot \frac{1}{T}\sum_{\tau=t-T+1}^{t}\frac{D_{1,\tau}}{D_{1,\mathrm{target}}}=\\\frac{1}{10^{-2}}\cdot \frac{1}{\Delta_t}\cdot \frac{1}{T}\cdot\frac{1}{{D_{1,\mathrm{target}}}}\sum_{\tau=t-T+1}^{t}{D_{1,\tau}}=\\
-\\100\cdot \frac{1}{\frac{1}{365\cdot 2880}}\cdot \frac{1}{120}\cdot\frac{1}{10^{10}}\sum_{\tau=t-120+1}^{t}{D_{1,\tau}}=\\
-100\cdot \frac{365\cdot 2880}{120\cdot 10^{10}}\sum_{\tau=t-120+1}^{t} D_{1,\tau}=\\
-\frac{10512}{12\cdot 10^7}\sum_{\tau=t-120+1}^{t} D_{1,\tau}.
+\\100\cdot \frac{1}{\frac{1}{365\cdot 2880}}\cdot \frac{1}{120}\cdot\frac{1}{10^{19}}\sum_{\tau=t-120+1}^{t}{D_{1,\tau}}=\\
+100\cdot \frac{365\cdot 2880}{120\cdot 10^{19}}\sum_{\tau=t-120+1}^{t} D_{1,\tau}=\\
+\frac{10512}{12\cdot 10^{16}}\sum_{\tau=t-120+1}^{t} D_{1,\tau}.
 $$
 
 So we rewrite $`A_t`$ by
 
 $$
-A_t=\min\!\lbrace1,\max\!\lbrace0,\quad \frac{3\cdot 10^9-D_{0,t}+10512\sum_{\tau=t-120+1}^{t}D_{1,\tau}}{12\cdot 10^7}\rbrace\rbrace.
+A_t=\min\!\lbrace1,\max\!\lbrace0,\quad \frac{3\cdot 10^{18}-D_{0,t}+10512\sum_{\tau=t-120+1}^{t}D_{1,\tau}}{12\cdot 10^{16}}\rbrace\rbrace.
 $$
 
 And by denoting
@@ -501,9 +504,9 @@ $$
 \begin{aligned}
 A_t'
 &=
-\min\!\lbrace12\cdot 10^7,\max\!\lbrace0,\quad3\cdot 10^9-D_{0,t}+10512\sum_{\tau=t-120+1}^{t}D_{1,\tau}\rbrace\rbrace,
+\min\!\lbrace12\cdot 10^{16},\max\!\lbrace0,\quad3\cdot 10^{18}-D_{0,t}+10512\sum_{\tau=t-120+1}^{t}D_{1,\tau}\rbrace\rbrace,
 \\
-A_t&=\frac{A_t'}{12\cdot 10^7}.
+A_t&=\frac{A_t'}{12\cdot 10^{16}}.
 \end{aligned}
 $$
 
@@ -511,54 +514,55 @@ We can compute the block reward using only integers:
 
 $$
 \text{Rewards}_t= A_t \cdot \dfrac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f} + (1-A_t) \cdot R_\text{block} =\\
-\frac{A_t'}{12\cdot 10^7} \cdot \dfrac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f} + (1-\frac{A_t'}{12\cdot 10^7}) \cdot D_{1,t}
+\frac{A_t'}{12\cdot 10^{16}} \cdot \dfrac{I_{max} \cdot S_{cap} \cdot \Delta_t}{f} + (1-\frac{A_t'}{12\cdot 10^{16}}) \cdot D_{1,t}
 $$
 
 and
 
 $$
-\frac{I_{\max} \cdot S_{\mathrm{cap}}\cdot \Delta_t}{f}=\frac{10^{-2}\cdot 10^{10}}{365\cdot 2880}=\frac{10^8}{1051200}=\frac{62500}{657}.
+\frac{I_{\max} \cdot S_{\mathrm{cap}}\cdot \Delta_t}{f}=\frac{10^{-2}\cdot 10^{19}}{365\cdot 2880}=\frac{10^{17}}{1051200}=\frac{62500\cdot 10^{9}}{657}.
 $$
 
 So:
 
 $$
 \text{Rewards}_t=
-\frac{A_t'}{12\cdot 10^7} \cdot \frac{62500}{657} + (1-\frac{A_t'}{12\cdot 10^7})\cdot D_{1,t} =\\
-\frac{62500\cdot A_t' + 657\cdot(12\cdot 10^7-A_t')\cdot D_{1,t}}{657\cdot 12\cdot 10^7}
+\frac{A_t'}{12\cdot 10^{16}} \cdot \frac{62500\cdot 10^{9}}{657} + (1-\frac{A_t'}{12\cdot 10^{16}})\cdot D_{1,t} =\\
+\frac{62500\cdot 10^{9}\cdot A_t' + 657\cdot(12\cdot 10^{16}-A_t')\cdot D_{1,t}}{657\cdot 12\cdot 10^{16}}
 .
 $$
 
 So we propose a reference implementation that uses integers:
 
 ```python
-import numpy as np
-from numpy import int64
+LEPTA_PER_LOGOS: int128 = 10**9
 
-A_SCALE = int64(120_000_000)            # denominator of 1/(I_max * D1_target * Delta_t * T)
-INFLATION_NUMERATOR = int64(62_500)     # numerator of I_max * S_CAP * DELTA_t / f
-INFLATION_DENOMINATOR = int64(657)      # denominator of I_max * S_CAP * DELTA_t / f
-FEE_AVG_NUMERATOR = int64(10_512)       # numerator of 1/(I_max * D1_target * Delta_t * T)
-STAKE_TARGET = int64(3_000_000_000)
+A_SCALE: int128 = 120_000_000 * LEPTA_PER_LOGOS          # denominator of 1/(I_max * D1_target * Delta_t * T)
+INFLATION_NUMERATOR: int128 = 62_500 * LEPTA_PER_LOGOS   # numerator of I_max * S_CAP * DELTA_t / f
+INFLATION_DENOMINATOR: int128 = 657                      # denominator of I_max * S_CAP * DELTA_t / f
+FEE_AVG_NUMERATOR: int128 = 10_512                       # numerator of 1/(I_max * D1_target * Delta_t * T)
+STAKE_TARGET: int128 = 3_000_000_000 * LEPTA_PER_LOGOS
 
 
-def block_reward(total_stake: int64, pooled_fees_window: list[int64]) -> tuple[int64, int64]:
-    sum_fees = np.sum(pooled_fees_window, dtype=int64)
-    last_pooled_fee = pooled_fees_window[-1]
+def block_reward(total_stake: TokenValue, pooled_fees_window: list[TokenValue]) -> tuple[TokenValue, TokenValue]:
+    sum_fees: int128 = sum(pooled_fees_window)
+    last_pooled_fee: int128 = pooled_fees_window[-1]
 
-    a_numerator = np.minimum(
-        np.maximum(STAKE_TARGET + FEE_AVG_NUMERATOR * sum_fees - total_stake, int64(0)),
+    a_numerator: int128 = min(
+        max(STAKE_TARGET + FEE_AVG_NUMERATOR * sum_fees - total_stake, 0),
         A_SCALE,
     )
 
-    reward_numerator = (
+    reward_numerator: int128 = (
         INFLATION_NUMERATOR * a_numerator
         + INFLATION_DENOMINATOR * (A_SCALE - a_numerator) * last_pooled_fee
     )
-    reward_denominator = INFLATION_DENOMINATOR * A_SCALE
+    reward_denominator: int128 = INFLATION_DENOMINATOR * A_SCALE
 
-    blend_reward = reward_numerator * int64(6) // (reward_denominator * int64(10))
-    leader_reward = reward_numerator * int64(4) // (reward_denominator * int64(10))
+    blend_reward: TokenValue = reward_numerator * 6 // (reward_denominator * 10)
+    leader_reward: TokenValue = reward_numerator * 4 // (reward_denominator * 10)
 
     return blend_reward, leader_reward
 ```
+
+The product `(A_SCALE - a_numerator) * last_pooled_fee` is non-zero only while `FEE_AVG_NUMERATOR * sum_fees < A_SCALE - STAKE_TARGET + total_stake`. With the inferred total stake and every pooled fee below $`2^{64}`$, it is therefore non-zero only while `sum_fees` is below $`1.49 \cdot 10^{15}`$. Every intermediate value lies strictly between $`-2^{64}`$ and $`2^{120}`$, so `int128`, a signed 128-bit integer, holds each one exactly. The two rewards sum to at most the larger of `INFLATION_NUMERATOR / INFLATION_DENOMINATOR` and `last_pooled_fee`, so each fits a `TokenValue`.
