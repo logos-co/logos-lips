@@ -60,7 +60,7 @@ A transaction costs 26.8 cycles per byte for its decoding, its hash and the iden
 - The cost of a user step grows with their number in an inscription: about 232,000 cycles per step from 1 to 2 steps, 275,000 from 4 to 8. `EXECUTION_USER_STEP_GAS` prices the slope over the measured range, and the cause of the growth is not identified.
 - `CLAIM_POW_REWARD` is measured on a state with an eased reward difficulty, the fixture difficulty requiring about 2^26 grinds to build a claim.
 - Creating a channel creates its note set, priced as a change of that set; the creation itself, an insertion in the eligible tree, was not measured alone.
-- The measured node does not yet keep `pow_rewards_pending`, the proof of work share of the fees waiting for the epoch boundary: one integer addition per block and one credit per epoch, not counted in the fixed costs of a block.
+- The credit of the proof of work share of the fees to its pool, one integer addition per block, is not counted in the fixed costs of a block.
 
 # Details
 
