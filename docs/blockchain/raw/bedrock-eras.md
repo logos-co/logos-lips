@@ -386,6 +386,8 @@ A field holds the value of its source constant under the rules of the era. The E
 | `cryptarchia` | `learning_rate` | `binary64` | `beta` of [Parameters and variables](cryptarchia-total-stake-inference.md#parameters-and-variables) |
 | `cryptarchia` | `uncle_reference_window_in_block` | `UINT32` | $`W`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
 | `cryptarchia` | `max_uncles` | `UINT8` | `MAX_UNCLES` of [Constants](cryptarchia-v1-protocol.md#constants) |
+| `cryptarchia` | `max_transactions` | `UINT16` | `MAX_BLOCK_TXS` of [Constants](cryptarchia-v1-protocol.md#constants) |
+| `cryptarchia` | `max_transactions_size` | `UINT32` | `MAX_BLOCK_SIZE` of [Constants](cryptarchia-v1-protocol.md#constants) |
 | `cryptarchia` | `service_params` | `service_params` | [Service Parameters](bedrock-service-declaration-protocol.md#service-parameters) |
 | `cryptarchia` | `min_stake` | `min_stake` | [Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake) |
 | `cryptarchia` | `base_difficulty` | `UINT32` | $`j`$ in `BLEND_DIFFICULTY_BASE` $`= \lfloor p / 2^j \rfloor`$ of [Parameters](proof-of-work.md#parameters) |
@@ -475,6 +477,12 @@ In every record, each entry of `epoch_config` is at least 1. Otherwise `PERIOD` 
 In every record, `slot_activation_coeff` is below 1. Otherwise the lottery constants $`t_0`$ and $`t_1`$ of [Proof of Leadership](cryptarchia-proof-of-leadership.md#circuit-public-inputs) take the logarithm of 0. It is also at least $`1/\text{PRECISION}`$, with `PRECISION` of [Total Stake Inference](cryptarchia-total-stake-inference.md#algorithm). Otherwise Total Stake Inference truncates $`f \cdot \text{PRECISION}`$ to 0.
 
 In every record, $`\lfloor k/(4f) \rfloor`$ is at least 1. Otherwise $`s_{gen}`$ of [Fork Choice](fork-choice.md#definitions) is 0, and the density check of the bootstrap rule compares empty windows.
+
+In every record, `max_transactions` is at least 1. Otherwise no block can carry a transaction.
+
+In every record, the largest [Block Proposal](bedrock-v1.1-block-construction.md#block-proposal) is at most 65,535 bytes. Otherwise it does not fit the `body_length` of [Length](payload-formatting.md#length), and Blend cannot carry it. A transaction holding one `CLAIM_POW_REWARD` and the `TRANSFER` that spends its note fits both that size and `max_transactions_size`. Otherwise a reward claim can reach no block.
+
+In every record, the largest block, with `max_uncles` uncle headers and `max_transactions_size` bytes of transactions, fits a synchronization message of at most 16 MiB. Otherwise a node cannot [download](cryptarchia-v1-bootstr-sync.md#downloading-blocks) it.
 
 In every record, `replication_factor` is 0. Otherwise a core node's quota grows while no cover message is replicated.
 
