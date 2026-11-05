@@ -24,7 +24,7 @@
 | 1.0.0 | Initial revision. | 2026-04-24 |
 | 1.1.0 | Changing from burning/minting to pooling/distributing/releasing, removing $`S_{tge}`$ | 2026-08-25 |
 | 1.2.0 | Count the proof of work reward pool as a fourth controlled stock, bound net circulating growth by the two stocks that drain, and state that the pooled fee is net of the share diverted to that pool | 2026-08-31 |
-| 1.3.0 | Defined `pooled_fees_window` and its update when an era changes $`T`$, derived `FEE_AVG_NUMERATOR` from the other constants, and named the Blend share ([Bedrock Eras](bedrock-eras.md)) | 2026-11-05 |
+| 1.3.0 | Defined `pooled_fees_window` and its update when an era changes $`T`$, and derived `FEE_AVG_NUMERATOR` from the other constants ([Bedrock Eras](bedrock-eras.md)) | 2026-11-05 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -435,7 +435,7 @@ This choice of "target" implies that $`\gamma_t`$ evaluates the annualized avera
 
 Because block rewards affect consensus state, the implementation must be fully deterministic across all nodes. For that reason, the normative implementation of the reward function should not rely on floating-point arithmetic, machine-dependent rounding behavior, or comparisons against machine epsilon. Earlier sections use real-valued formulas to explain the mechanism and its economic meaning, but the consensus rule itself should be defined only in terms of integer arithmetic. This is especially important because the current document already notes floating-point concerns in the KPI helper functions and then introduces a final integer rewrite for the reward computation. The issue is therefore not whether integers should be used, but how to present that integer formulation in a way that remains auditable and clearly derived from the protocol parameters.
 
-The goal of this section is not to change the reward mechanism. It is only to restate the already-specified mechanism in a canonical deterministic form with explicit named constants. In particular, the reward logic remains driven by the same two KPI components described previously: the inferred total stake relative to its target, and the moving average of pooled fees over the look-back window. Likewise, the reward still interpolates between the reserve release and distribution from the pooled fees through the emission factor $`A_t`$.
+The goal of this section is not to change the reward mechanism. It restates the already-specified mechanism in a canonical deterministic form with explicit named constants, and defines the window of pooled fees that mechanism reads. In particular, the reward logic remains driven by the same two KPI components described previously: the inferred total stake relative to its target, and the moving average of pooled fees over the look-back window. Likewise, the reward still interpolates between the reserve release and distribution from the pooled fees through the emission factor $`A_t`$.
 
 $$
 A_t = \min \lbrace 1, \max \lbrace 0, \dfrac{ \alpha_d \cdot \delta_t + \alpha_a \cdot \gamma_t + I_{min}}{I_{max}} \rbrace \rbrace.
@@ -533,35 +533,29 @@ $$
 So we propose a reference implementation that uses integers:
 
 ```python
-import numpy as np
-from numpy import int64
-
-A_SCALE = int64(120_000_000)            # I_max * D0_target / alpha_d, the denominator of A_t
-INFLATION_NUMERATOR = int64(62_500)     # numerator of I_max * S_CAP * DELTA_t / f
-INFLATION_DENOMINATOR = int64(657)      # denominator of I_max * S_CAP * DELTA_t / f
-T = 120                                 # the blocks of the look-back window
+A_SCALE = 120_000_000            # I_max * D0_target / alpha_d, the denominator of A_t
+INFLATION_NUMERATOR = 62_500     # numerator of I_max * S_CAP * DELTA_t / f
+INFLATION_DENOMINATOR = 657      # denominator of I_max * S_CAP * DELTA_t / f
+T = 120                          # the blocks of the look-back window
 # A_SCALE * alpha_a / (I_max * D1_target * Delta_t * T), which is 10_512, with
 # alpha_a = 1, D1_target = S_CAP and f = 1.
 FEE_AVG_NUMERATOR = A_SCALE * INFLATION_DENOMINATOR // (INFLATION_NUMERATOR * T)
-STAKE_TARGET = int64(3_000_000_000)
-BLEND_SHARE_NUMERATOR = int64(6)        # numerator of the Blend nodes' share of a reward
-BLEND_SHARE_DENOMINATOR = int64(10)     # denominator of the Blend nodes' share of a reward
+STAKE_TARGET = 3_000_000_000
+BLEND_SHARE_NUMERATOR = 6        # numerator of the Blend nodes' share of a reward
+BLEND_SHARE_DENOMINATOR = 10     # denominator of the Blend nodes' share of a reward
 
 
-def update_pooled_fees_window(pooled_fees_window: list[int64], pooled_fees: int64) -> list[int64]:
-    # The window holds another number of fees than T after an era that changes T.
+def update_pooled_fees_window(pooled_fees_window: list[int], pooled_fees: int) -> list[int]:
+    # After an era that changes T, the window holds a different number of fees.
     # A shorter T drops the oldest, and a longer T starts the entries it adds at 0.
-    return ([int64(0)] * T + pooled_fees_window + [pooled_fees])[-T:]
+    return ([0] * T + pooled_fees_window + [pooled_fees])[-T:]
 
 
-def block_reward(total_stake: int64, pooled_fees_window: list[int64]) -> tuple[int64, int64]:
-    sum_fees = np.sum(pooled_fees_window, dtype=int64)
+def block_reward(total_stake: int, pooled_fees_window: list[int]) -> tuple[int, int]:
+    sum_fees = sum(pooled_fees_window)
     last_pooled_fee = pooled_fees_window[-1]
 
-    a_numerator = np.minimum(
-        np.maximum(STAKE_TARGET + FEE_AVG_NUMERATOR * sum_fees - total_stake, int64(0)),
-        A_SCALE,
-    )
+    a_numerator = min(max(STAKE_TARGET + FEE_AVG_NUMERATOR * sum_fees - total_stake, 0), A_SCALE)
 
     reward_numerator = (
         INFLATION_NUMERATOR * a_numerator
@@ -576,6 +570,8 @@ def block_reward(total_stake: int64, pooled_fees_window: list[int64]) -> tuple[i
     return blend_reward, leader_reward
 ```
 
+The integers are exact. At these constants, with each fee below $`2^{64}`$, a signed 128-bit integer holds every intermediate value.
+
 `pooled_fees_window` holds $`D_{1,\tau}`$ of the latest blocks, oldest first and ending with the current block. It holds $`T`$ zeros at genesis. A block updates it with its own $`D_{1,t}`$ before it computes its reward.
 
-An era that changes the expected time between blocks ([Constants](cryptarchia-v1-protocol.md#constants)) changes $`\Delta_t`$, so it sets `INFLATION_NUMERATOR` and `INFLATION_DENOMINATOR` to match. Otherwise the reserve releases more or less than $`I_{max}`$ of $`S_{cap}`$ per year.
+An era that changes the slot activation coefficient or the slot length of [Constants](cryptarchia-v1-protocol.md#constants) changes $`\Delta_t`$, so it must set `INFLATION_NUMERATOR` and `INFLATION_DENOMINATOR` to match. Otherwise the reserve releases more or less than $`I_{max}`$ of $`S_{cap}`$ per year.
