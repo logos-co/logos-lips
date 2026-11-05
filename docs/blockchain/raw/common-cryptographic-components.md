@@ -159,7 +159,7 @@ Throughout the Logos Blockchain specifications, Poseidon2 is referred to as zkha
 
 In the Logos Blockchain, bytes and $`\mathbb{F}_p`$ elements are frequently converted between formats (such as when interpreting DST byte strings as Poseidon2 inputs). To convert from an $`\mathbb{F}_p`$ element to bytes, we interpret the little-endian unsigned representation of the $`\mathbb{F}_p`$ number as 32 bytes. Conversely, we can interpret 32 bytes as an $`\mathbb{F}_p`$ element provided the resulting number is smaller than $p$.
 
-> We use Poseidon2 in hash function mode everywhere except in Merkle proofs, public key derivation, the derivation of keys from a stake secret ([Mantle - Vested Notes](bedrock-v1.1-mantle-specification.md#vested-notes)) and the Proof of Quota key nullifier `zkhash(KEY_NULLIFIER_V1, selection_randomness)`, where we use the modified compression mode. The note nullifier `zkhash(NOTE_NF_V1, cm, sk)` hashes three elements and uses the hash function mode.
+> We use Poseidon2 in hash function mode everywhere except in Merkle proofs, public key derivation, the derivation of keys from a stake secret ([Mantle - Vested Notes](bedrock-v1.1-mantle-specification.md#vested-notes)) and the Proof of Quota key nullifier `zkhash(KEY_NULLIFIER_V1, selection_randomness)`, where we use the modified compression mode. The [note nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) `zkhash(NOTE_NF_V1, commitment, sk)` hashes three elements and uses the hash function mode.
 
 Rationale for Use:
 
@@ -291,7 +291,7 @@ Technical Details:
 
 - Key encapsulation: [X-Wing](#x-wing), $`(ct, ss) = \text{Encapsulate}(pk_{\text{enc}})`$.
 - Key derivation: $`key = \text{BLAKE2b-256}(\texttt{LOGOS\_NOTE\_ENC\_V1} \| ss \| ct)`$, where $`ss`$ is the shared secret and $`ct`$ the 1120-byte KEM ciphertext.
-- Authenticated encryption: ChaCha20-Poly1305 ([RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439)) under $`key`$, with a zero nonce, since every key encrypts exactly once, and the note commitment `cm` as associated data.
+- Authenticated encryption: ChaCha20-Poly1305 ([RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439)) under $`key`$, with a zero nonce, since every key encrypts exactly once, and the note commitment `commitment` as associated data.
 - Plaintext: `value` as 8 bytes little-endian followed by `nonce` as 32 bytes little-endian, 40 bytes. Sealed, 56 bytes with the tag.
 - Note ciphertext: the KEM ciphertext followed by the sealed plaintext, `NOTE_CIPHERTEXT_SIZE = 1176` bytes.
 - Delivery message: the 32-byte little-endian commitment followed by the note ciphertext, 1208 bytes, so that the recipient has the associated data it opens the ciphertext with.
@@ -299,17 +299,17 @@ Technical Details:
 ```python
 NOTE_CIPHERTEXT_SIZE = 1176
 
-def encrypt_note(pk_enc: XWingEncapsulationKey, cm: NoteCm, value: TokenValue, nonce: NoteNonce) -> bytes:
+def encrypt_note(pk_enc: XWingEncapsulationKey, commitment: NoteCommitment, value: TokenValue, nonce: NoteNonce) -> bytes:
     (ct, ss) = xwing_encapsulate(pk_enc)
     key = blake2b_256(b"LOGOS_NOTE_ENC_V1" + ss + ct)
     plaintext = value.to_bytes(8, "little") + nonce.to_bytes(32, "little")
-    return ct + chacha20poly1305_seal(key, nonce=bytes(12), aad=cm.to_bytes(32, "little"), plaintext=plaintext)
+    return ct + chacha20poly1305_seal(key, nonce=bytes(12), aad=commitment.to_bytes(32, "little"), plaintext=plaintext)
 
-def decrypt_note(sk_enc: XWingDecapsulationKey, cm: NoteCm, ciphertext: bytes) -> (TokenValue, NoteNonce) | None:
+def decrypt_note(sk_enc: XWingDecapsulationKey, commitment: NoteCommitment, ciphertext: bytes) -> (TokenValue, NoteNonce) | None:
     ct, sealed = ciphertext[:1120], ciphertext[1120:]
     ss = xwing_decapsulate(sk_enc, ct)
     key = blake2b_256(b"LOGOS_NOTE_ENC_V1" + ss + ct)
-    plaintext = chacha20poly1305_open(key, nonce=bytes(12), aad=cm.to_bytes(32, "little"), ciphertext=sealed)
+    plaintext = chacha20poly1305_open(key, nonce=bytes(12), aad=commitment.to_bytes(32, "little"), ciphertext=sealed)
     if plaintext is None:
         return None
     return (int.from_bytes(plaintext[:8], "little"), int.from_bytes(plaintext[8:], "little"))
@@ -367,7 +367,7 @@ Security Considerations:
 
 ## Note Encryption Test Values
 
-The values are generated with the `x-wing`, `chacha20poly1305` and `blake2` crates, after checking X-Wing against the vectors of draft-connolly-cfrg-xwing-kem-11, and verified independently from the draft's reference pseudocode. `cm` and `nonce` are chosen field elements, not Poseidon2 outputs; the commitment check of discovery is not covered.
+The values are generated with the `x-wing`, `chacha20poly1305` and `blake2` crates, after checking X-Wing against the vectors of draft-connolly-cfrg-xwing-kem-11, and verified independently from the draft's reference pseudocode. `commitment` and `nonce` are chosen field elements, not Poseidon2 outputs; the commitment check of discovery is not covered.
 
 ### Note Encryption Key
 
@@ -391,13 +391,13 @@ Wallet B:
 
 ### `encrypt_note`
 
-Every vector encrypts to wallet A. `eseed` is the 64-byte randomness of X-Wing's `EncapsulateDerand`: its first 32 bytes are the ML-KEM-768 message, the last 32 the X25519 ephemeral secret. `plaintext` is `value` (8 bytes, little-endian) followed by `nonce` (32 bytes, little-endian); `cm` is the associated data, 32 bytes little-endian; the AEAD nonce is 12 zero bytes.
+Every vector encrypts to wallet A. `eseed` is the 64-byte randomness of X-Wing's `EncapsulateDerand`: its first 32 bytes are the ML-KEM-768 message, the last 32 the X25519 ephemeral secret. `plaintext` is `value` (8 bytes, little-endian) followed by `nonce` (32 bytes, little-endian); `commitment` is the associated data, 32 bytes little-endian; the AEAD nonce is 12 zero bytes.
 
 Vector 1:
 
 | Field | Value |
 | - | - |
-| `cm` | 0x1111111111111111111111111111111111111111111111111111111111111111 |
+| `commitment` | 0x1111111111111111111111111111111111111111111111111111111111111111 |
 | `value` | 1000000000 |
 | `nonce` | 0x2222222222222222222222222222222222222222222222222222222222222222 |
 | `plaintext` | 0x00ca9a3b000000002222222222222222222222222222222222222222222222222222222222222222 |
@@ -412,7 +412,7 @@ Vector 2:
 
 | Field | Value |
 | - | - |
-| `cm` | 0x030507090b0d0f21232527292b2d2f21232527292b2d2f01030507090b0d0f01 |
+| `commitment` | 0x030507090b0d0f21232527292b2d2f21232527292b2d2f01030507090b0d0f01 |
 | `value` | 0 |
 | `nonce` | 0x0000000000000000000000000000000000000000000000000000000000000000 |
 | `plaintext` | 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000 |
@@ -425,7 +425,7 @@ Vector 2:
 
 ### `decrypt_note`
 
-| Case | `sk_enc` | `cm` | `ciphertext` | Result |
+| Case | `sk_enc` | `commitment` | `ciphertext` | Result |
 | - | - | - | - | - |
 | vector 1 | A | as given | as given | `(1000000000, 0x2222222222222222222222222222222222222222222222222222222222222222)` |
 | vector 1, other commitment | A | first byte flipped | as given | `None` |

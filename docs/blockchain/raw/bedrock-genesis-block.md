@@ -64,7 +64,7 @@ The distribution inscription is the number of outputs as one byte, followed by t
 
 In order to participate in the Cryptarchia lottery, stakeholders must generate their note keys in accordance with the Proof of Leadership protocol specified at [Protocol](cryptarchia-proof-of-leadership.md#protocol).
 
-The initial state of the Ledger will be derived through normal execution of this Transfer Operation, that is, each output commitment will be appended to the commitment MMR of the ledger note set. `EMPTY_MMR_ROOT` is `mmr_root([])`, the root of the empty [commitment MMR](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range).
+The initial state of the Ledger will be derived through normal execution of this Transfer Operation, that is, each output commitment will be appended to the commitment MMR of the ledger note set. `EMPTY_MMR_ROOT` is `mmr_root([])`, the root of the empty [commitment MMR](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range), and `derive_note_commitment` gives the commitment of a note ([Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier)).
 
 **Example**
 
@@ -78,8 +78,8 @@ STAKE_DISTRIBUTION_NOTES = [
 
 STAKE_DISTRIBUTION = Transfer(
     inputs=[],
-    outputs=[derive_note_cm(note) for note in STAKE_DISTRIBUTION_NOTES],
-    cm_merkle_root=EMPTY_MMR_ROOT,
+    outputs=[derive_note_commitment(note) for note in STAKE_DISTRIBUTION_NOTES],
+    commitment_root=EMPTY_MMR_ROOT,
     excess_value=0,
 )
 
@@ -119,6 +119,8 @@ Blend Network MUST initialize its set of providers. This is done through a set o
 
 Blend enforces a minimal network size for the service to be active. Thus, in order to have an active Blend service at Genesis, we MUST have at least as many declarations in the Genesis block to meet Blend service’s minimal network size [Minimal Network Size](blend-protocol.md#minimal-network-size).
 
+Each declaration names in `note_pk` the key its service note is created under, as any [`SDP_DECLARE`](bedrock-v1.1-mantle-specification.md#sdp_declare) does.
+
 **Example**
 
 ```python
@@ -128,7 +130,8 @@ BLEND_DECLARATIONS = [
         locators=["/ip4/1.1.1.1/tcp/3000"],
         provider_id=PROVIDER_ID_0,
         zk_id=ZK_ID_0,
-        cm_merkle_root=EMPTY_MMR_ROOT,
+        note_pk=NOTE_PK_0,
+        commitment_root=EMPTY_MMR_ROOT,
         amount=1000,
         locked_until=0,
         spends=[],
@@ -229,7 +232,7 @@ The Genesis Block header fields are set to the following values:
 - `slot`: 0 (the Genesis slot).
 - `body_root`: the body commitment over an empty `uncle_headers` list (as the Genesis Block references no uncle, it encodes as a zero element count) and the Merkle root over the (single) initial transaction.
 - `proof_of_leadership`: Stubbed leadership proof.
-  - `reward_key`: 0 (as there is no leader block reward for the initial block).
+  - `reward_commitment` and `reward_value`: 0 (as there is no leader block reward for the initial block).
   - `entropy_contribution`: 0 (no entropy is provided through the initial PoL).
   - `proof`: Null Groth16Proof, all values are set to zero.
 
@@ -242,7 +245,8 @@ GENESIS_HEADER = Header(
     slot=0,
     body_root=body_root([], [GENESIS_MANTLE_TX]),
     proof_of_leadership=ProofOfLeadership(
-        reward_key=bytes(32),
+        reward_commitment=bytes(32),
+        reward_value=0,
         entropy_contribution=bytes(32),
         proof=Groth16Proof(G1_ZERO, G2_ZERO, G1_ZERO),
     )
@@ -260,8 +264,8 @@ STAKE_DISTRIBUTION_NOTES = [
 
 STAKE_DISTRIBUTION = Transfer(
     inputs=[],
-    outputs=[derive_note_cm(note) for note in STAKE_DISTRIBUTION_NOTES],
-    cm_merkle_root=EMPTY_MMR_ROOT,
+    outputs=[derive_note_commitment(note) for note in STAKE_DISTRIBUTION_NOTES],
+    commitment_root=EMPTY_MMR_ROOT,
     excess_value=0,
 )
 
@@ -306,7 +310,8 @@ BLEND_DECLARATIONS = [
         locators=["/ip4/1.1.1.1/tcp/3000"],
         provider_id=PROVIDER_ID_0,
         zk_id=ZK_ID_0,
-        cm_merkle_root=EMPTY_MMR_ROOT,
+        note_pk=NOTE_PK_0,
+        commitment_root=EMPTY_MMR_ROOT,
         amount=1000,
         locked_until=0,
         spends=[],
@@ -326,7 +331,8 @@ GENESIS_HEADER = Header(
     slot=0,
     body_root=body_root([], [GENESIS_MANTLE_TX]),
     proof_of_leadership=ProofOfLeadership(
-        reward_key=bytes(32),
+        reward_commitment=bytes(32),
+        reward_value=0,
         entropy_contribution=bytes(32),
         proof=Groth16Proof(G1.ZERO, G2.ZERO, G1.ZERO),
     )
@@ -384,7 +390,7 @@ The Mantle Transaction contains an inscription sent to the null channel containi
 
 Two conditions are specific to Genesis. The inscription must be addressed to the null channel and signed by the null key, an inscription anywhere else not being a set of Cryptarchia parameters. It must also decode to exactly the three parameters, encoded as [Cryptarchia Parameters](#cryptarchia-parameters) specifies and with no trailing bytes. A node that cannot decode them has no clock, no chain identifier and no lottery randomness, and must reject the Genesis block.
 
-The distribution inscription that follows is validated as an ordinary `CHANNEL_INSCRIBE` Operation minus its signature, its `parent` being the Cryptarchia inscription. It must decode, as [Initial Token Distribution](#initial-token-distribution) specifies and with no trailing bytes, to one value and public key per output of the Transfer Operation, and the output at index `i` must be `derive_note_cm(Note(value, i, public_key))` for the value and public key published at index `i`. A node for which the published distribution does not match the outputs must reject the Genesis block.
+The distribution inscription that follows is validated as an ordinary `CHANNEL_INSCRIBE` Operation minus its signature, its `parent` being the Cryptarchia inscription. It must decode, as [Initial Token Distribution](#initial-token-distribution) specifies and with no trailing bytes, to one value and public key per output of the Transfer Operation, and the output at index `i` must be `derive_note_commitment(Note(value, i, public_key))` for the value and public key published at index `i`. A node for which the published distribution does not match the outputs must reject the Genesis block.
 
 The Cryptarchia slot clock is initialized to `genesis_time`, `LIB` is set to the Genesis block and the epoch state is then initialized:
 

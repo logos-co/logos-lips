@@ -27,8 +27,8 @@
 | 1.0.0 | Initial revision. | 2026-12-09 |
 | 1.1.0 | Remove the protection against adaptive adversary from PoL removing a non-enforced feature, simplifying work for engineers, improving UX and performances of PoL and PoQ. Update the performance according to the new circuit. Remove the notion of NOMOS in DSTs | 2026-01-29 |
 | 1.1.1 | Introduced a discussion for when the value of a participating note is way higher than the total estimated stake | 2026-06-24 |
-| 1.2.0 | Support the private ledger of Mantle: a note is eligible from any note set of the ledger, committed together in the eligible root, and proven unspent by the non-membership of its nullifier. The proof is bound to its block by `msg`, a hash of the block header, replacing the leader key. The commitment, nullifier and eligible tree paths have depth 40 | 2026-10-06 |
-| 1.2.1 | The note commitment is derived with `0` as the `program` and `data` fields of the note, so only user notes lead. The proving time benchmark is measured on the current circuit | 2026-10-12 |
+| 1.2.0 | Support the private ledger of Mantle: a note is eligible from any note set of the ledger, committed together in the eligible root, and proven unspent by the non-membership of its nullifier. The proof is bound to its block by `msg`, a hash of the block header, replacing the leader key, and derives the commitment of the leader reward note from the public reward value and a private key and nonce. The commitment, nullifier and eligible tree paths have depth 40 | 2026-10-06 |
+| 1.2.1 | The note commitment and the commitment of the leader reward note are derived with `0` as the `program` and `data` fields of the note, so only user notes lead and a reward is a user note. The proving time benchmark is measured on the current circuit | 2026-10-12 |
 | 1.2.2 | A channel creation pays the Execution Gas of a changed note set ([Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0), so blocks full of channel creations take about 1,140 years to fill the eligible tree | 2026-10-27 |
 | 1.2.3 | [RFC] The note commitment takes the `data` of the note as a witness, so vested notes lead | 2026-11-04 |
 
@@ -58,6 +58,7 @@ The PoL mechanism ensures that a note has legitimately won the leadership electi
   3. Prove the non-membership of its nullifier in the most recent nullifier set of the same note set, proving it's unspent.
   4. Prove that the note won the PoS lottery.
   5. The proof is bound to the header of the proposed block through `msg`.
+  6. Derive the commitment of the leader reward note of the block from its public value and from a public key and a nonce that stay private.
 
 ## Comparison with Original Crypsinous PoL
 
@@ -85,23 +86,23 @@ In order to prove that the winning note exists and existed at the start of the p
 Every [note set](bedrock-v1.1-mantle-specification.md#ledger) of the Mantle Ledger is eligible: the ledger note set, the SDP note set and the note set of every channel. The eligible root commits to all of them. It is the root of a Merkle tree of depth $`40`$ whose leaf at position $`i`$ hashes the root of the commitment [Merkle Mountain Range](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range) (MMR) and the root of the [nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) (IMT) of the note set of index $`i`$, every position past the last note set holding the value $`0`$, a capacity that blocks full of channel creations take about 1,140 years to fill:
 
 ```python
-def eligible_leaf(cm_root: MerkleRoot, nf_root: MerkleRoot) -> zkhash:
+def eligible_leaf(commitment_root: MerkleRoot, nullifier_root: MerkleRoot) -> zkhash:
     return zkhash(
         FiniteField(b"ELIGIBLE_SET_LEAF_V1", byte_order="little", modulus= p),
-        cm_root,
-        nf_root
+        commitment_root,
+        nullifier_root
     )
 
 def eligible_root(sets: list[NoteSet]) -> MerkleRoot:
     peaks = []
     for note_set in sets:
         # the root of the commitment MMR and the root of the nullifier IMT of the set
-        mmr_append(peaks, eligible_leaf(note_set.cm_root(), note_set.nf_root()))
+        mmr_append(peaks, eligible_leaf(note_set.commitment_root(), note_set.nullifier_root()))
     # Merkle root of depth 40 over the leaves, every position past the last note set holding 0
     return mmr_root(peaks)
 ```
 
-`mmr_append` and `mmr_root` are those of the [commitment MMR](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range), which compute the same tree.
+`mmr_append` and `mmr_root` are those of the [commitment MMR](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range), which compute the same tree, and `commitment_root()` and `nullifier_root()` are the [methods of a note set](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) giving these two roots. `zkhash` is the [Poseidon2 hash](common-cryptographic-components.md), and a `MerkleRoot` is the root of a Merkle tree.
 
 The first leaf is the ledger note set, the second the SDP note set, and the next ones the channels in the order they were created. Its root when the stake distribution was frozen is $`eligible_{AGED}`$, and its latest root is $`eligible_{LATEST}`$.
 
@@ -120,32 +121,40 @@ class ProofOfLeadershipPublic:
     eligible_aged: MerkleRoot       # eligible root when the stake distribution was frozen
     eligible_latest: MerkleRoot     # latest eligible root
     msg: zkhash                     # hash of the header of the proposed block
+    reward_value: TokenValue        # value of the leader reward note of the proposed block
     entropy_contribution: zkhash    # rho_LEAD
+    reward_commitment: NoteCommitment  # commitment of the leader reward note
 ```
 
-The epoch nonce is defined in [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce) and the aged root in [Epoch State Pseudocode](cryptarchia-v1-protocol.md#epoch-state-pseudocode). The lottery constants are computed with high precision outside the proof (see [Lottery Approximation](#lottery-approximation)), and `msg` binds the proof to the proposed block (see [Linking the Proof of Leadership to a Block](#linking-the-proof-of-leadership-to-a-block)).
+The epoch nonce is defined in [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce) and the aged root in [Epoch State Pseudocode](cryptarchia-v1-protocol.md#epoch-state-pseudocode). The lottery constants are computed with high precision outside the proof (see [Lottery Approximation](#lottery-approximation)), `msg` binds the proof to the proposed block (see [Linking the Proof of Leadership to a Block](#linking-the-proof-of-leadership-to-a-block)), and `reward_value` and `reward_commitment` name the note paying the leader (see [Leader Reward Note](#leader-reward-note)).
+
+The circuit fixes the order of the public signals of the proof: the outputs `entropy_contribution` and `reward_commitment` first, then `slot`, `epoch_nonce`, `t0`, `t1`, `eligible_aged`, `eligible_latest`, `msg` and `reward_value`.
 
 The prover knows a witness:
 
 ```python
 class ProofOfLeadershipWitness:
-    sk: ZkSecretKey
-    value: TokenValue
-    nonce: NoteNonce
-    data: zkhash                      # the slot the vesting of the note ends, 0 if it does not vest
-    set_selectors: list[boolean]      # position of the note set in the eligible tree (len = 40)
-    cm_aged_path: list[zkhash]        # path of the note commitment in the commitment MMR of its set (len = 40)
-    cm_aged_selectors: list[boolean]
-    nf_root_aged: MerkleRoot          # nullifier IMT root of the set when the stake distribution was frozen
-    set_aged_path: list[zkhash]       # path of the leaf of the set to eligible_aged (len = 40)
-    low_leaf_nf: NoteNf               # greatest nullifier of the set lower than the note nullifier
-    low_leaf_next_nf: NoteNf          # next greater nullifier of the set, 0 if none
-    low_leaf_next_index: int          # index of the IMT leaf holding low_leaf_next_nf, 0 if none
-    low_leaf_path: list[zkhash]       # path of the IMT leaf of low_leaf_nf (len = 40)
-    low_leaf_selectors: list[boolean]
-    cm_root_latest: MerkleRoot        # latest commitment MMR root of the set
-    set_latest_path: list[zkhash]     # path of the leaf of the set to eligible_latest (len = 40)
+    sk: ZkSecretKey                           # secret key of the note
+    value: TokenValue                         # value of the note
+    nonce: NoteNonce                          # nonce of the note
+    data: zkhash                              # the slot the vesting of the note ends, 0 if it does not vest
+    set_selectors: list[boolean]              # position of the note set in the eligible tree (len = 40)
+    commitment_aged_path: list[zkhash]        # path of the note commitment in the commitment MMR of its set (len = 40)
+    commitment_aged_selectors: list[boolean]  # selectors of commitment_aged_path
+    nullifier_root_aged: MerkleRoot           # nullifier IMT root of the set when the stake distribution was frozen
+    set_aged_path: list[zkhash]               # path of the leaf of the set to eligible_aged (len = 40)
+    low_leaf_nullifier: NoteNullifier         # greatest nullifier of the set lower than the note nullifier
+    low_leaf_next_nullifier: NoteNullifier    # next greater nullifier of the set, 0 if none
+    low_leaf_next_index: int                  # index of the IMT leaf holding low_leaf_next_nullifier, 0 if none
+    low_leaf_path: list[zkhash]               # path of the IMT leaf of low_leaf_nullifier (len = 40)
+    low_leaf_selectors: list[boolean]         # selectors of low_leaf_path
+    commitment_root_latest: MerkleRoot        # latest commitment MMR root of the set
+    set_latest_path: list[zkhash]             # path of the leaf of the set to eligible_latest (len = 40)
+    reward_public_key: ZkPublicKey            # public key of the leader reward note
+    reward_nonce: NoteNonce                   # nonce of the leader reward note
 ```
+
+`ZkSecretKey`, `ZkPublicKey`, `TokenValue`, `NoteNonce`, `NoteCommitment` and `NoteNullifier` are the types of [Notes](bedrock-v1.1-mantle-specification.md#notes) in Mantle.
 
 Every path and its selectors follow the Merkle path convention of [Mantle](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range): from the leaf level up, a selector being the bit of the leaf index at its level. `path_root`, defined there, computes the root of a path, and the proof checks that every selector is a bit, `s * (1 - s) == 0`.
 
@@ -160,46 +169,51 @@ Such that the following constraints hold:
 
 - The note commitment is derived from the value, the nonce, the public key and the data, with `program` set to `0`, so only user notes lead, [vested notes](bedrock-v1.1-mantle-specification.md#vested-notes) included.
   ```python
-  cm = zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), value, nonce, pk, 0, data)
+  commitment = zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), value, nonce, pk, 0, data)
   ```
 
 - The note commitment was in the commitment MMR of its note set when the stake distribution was frozen.
   ```python
-  cm_root_aged = path_root(leaf=cm,
-      path=cm_aged_path,
-      selectors=cm_aged_selectors)
-  assert eligible_aged == path_root(leaf=eligible_leaf(cm_root_aged, nf_root_aged),
+  commitment_root_aged = path_root(leaf=commitment,
+      path=commitment_aged_path,
+      selectors=commitment_aged_selectors)
+  assert eligible_aged == path_root(leaf=eligible_leaf(commitment_root_aged, nullifier_root_aged),
       path=set_aged_path,
       selectors=set_selectors)
   ```
 
 - The note is unspent: its nullifier is not in the latest [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of the same note set, the same `set_selectors` placing both leaves at the position of that set.
   ```python
-  nf = zkhash(FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p), cm, sk)
+  nullifier = zkhash(FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p), commitment, sk)
   low_leaf = zkhash(FiniteField(b"NULLIFIER_IMT_LEAF_V1", byte_order="little", modulus= p),
-      low_leaf_nf,
-      low_leaf_next_nf,
+      low_leaf_nullifier,
+      low_leaf_next_nullifier,
       FiniteField(low_leaf_next_index, byte_order="little", modulus= p))
-  nf_root_latest = path_root(leaf=low_leaf,
+  nullifier_root_latest = path_root(leaf=low_leaf,
       path=low_leaf_path,
       selectors=low_leaf_selectors)
-  assert eligible_latest == path_root(leaf=eligible_leaf(cm_root_latest, nf_root_latest),
+  assert eligible_latest == path_root(leaf=eligible_leaf(commitment_root_latest, nullifier_root_latest),
       path=set_latest_path,
       selectors=set_selectors)
-  assert low_leaf_nf < nf
-  assert nf < low_leaf_next_nf or low_leaf_next_nf == 0
+  assert low_leaf_nullifier < nullifier
+  assert nullifier < low_leaf_next_nullifier or low_leaf_next_nullifier == 0
   ```
 
 - The note wins the lottery.
   ```python
-  ticket = zkhash(FiniteField(b"LEAD_V1", byte_order="little", modulus= p), epoch_nonce, slot, cm, sk)
+  ticket = zkhash(FiniteField(b"LEAD_V1", byte_order="little", modulus= p), epoch_nonce, slot, commitment, sk)
   threshold = value * (t0 + t1 * value)
   assert ticket < threshold
   ```
 
 - The entropy contribution is derived from the slot and the note.
   ```python
-  assert entropy_contribution == zkhash(FiniteField(b"NONCE_CONTRIB_V1", byte_order="little", modulus= p), slot, cm, sk)
+  assert entropy_contribution == zkhash(FiniteField(b"NONCE_CONTRIB_V1", byte_order="little", modulus= p), slot, commitment, sk)
+  ```
+
+- The commitment of the leader reward note is derived from the reward value, the reward nonce and the reward public key, with `program` and `data` set to `0`, so a reward is a user note.
+  ```python
+  assert reward_commitment == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), reward_value, reward_nonce, reward_public_key, 0, 0)
   ```
 
 - The proof is bound to `msg`.
@@ -216,14 +230,25 @@ def pol_msg(header: Header) -> zkhash:
         header.parent_block,
         header.slot.to_bytes(8, byteorder='little'),
         header.body_root,
-        header.proof_of_leadership.reward_key,
+        header.proof_of_leadership.reward_commitment,
+        header.proof_of_leadership.reward_value.to_bytes(8, byteorder='little'),
     )
     return FiniteField(digest, byte_order="little", modulus= p)
 ```
 
-- `msg` covers every field of the header except the proof and the entropy contribution, which the proof itself produces. Through `body_root`, it covers the transactions and the uncle headers of the block.
-- A PoL is therefore valid for a single block: it cannot be attached to other content, and the leader reward cannot be redirected to another `reward_key`.
-- The leader proves the PoL once the content of its block is fixed.
+- `msg` covers every field of the header except the proof and the entropy contribution, which the proof itself produces. `reward_commitment` is an output of the proof as well, but the leader computes it from values it holds before proving. Through `body_root`, `msg` covers the transactions and the uncle headers of the block.
+- A PoL is therefore valid for a single block: it cannot be attached to other content, and the leader reward cannot be redirected to another `reward_commitment`.
+- The leader proves the PoL once the content of its block is fixed, which also fixes the reward value.
+
+# Leader Reward Note
+
+The leader reward of a block is paid as a note the proof derives the commitment of ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), so that the block names the note without revealing who holds it.
+
+- `reward_value` and `reward_commitment` are public, in the header. The value says nothing of the leader, since every node computes the reward of a block.
+- `reward_public_key` and `reward_nonce` are not revealed. As long as the nonce is private and unpredictable, the commitment hides the key, so the chain shows neither the key a reward is paid to nor whether two blocks pay the same key. Given the public value and a nonce they can guess, anyone holding a public key can test it against the commitment.
+- `reward_value` is in the header so that the proof verifies from the header alone, before the block is reconstructed and in a batch with other proofs of leadership. It is compared with the computed reward once the transactions have run ([Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation)), and a block whose value differs from its reward is invalid whatever its proof says.
+- `reward_value` needs no range check in the circuit. It is read from 8 bytes of the header, so it is below $`2^{64}`$, and a note enters the ledger only with the value of the computed reward.
+- The circuit does not constrain `reward_public_key` and `reward_nonce`, which the leader chooses freely. A key can be reused for any number of blocks. Two rewards of the same value under the same key and nonce are identical notes, of which only one can be spent, which is the risk of the leader alone. The [Wallet Technical Standard](wallet-technical-standard.md#leader-reward-notes) recommends a nonce that avoids it.
 
 # Appendix
 
