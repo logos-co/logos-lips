@@ -447,7 +447,7 @@ def service_params(entries: list[ServiceParameters]) -> bytes:
     return b"".join(uint(4)(e.inactivity_period) for e in entries)
 
 def min_stake(m: MinStake) -> bytes:
-    return uint(8)(m.stake_threshold)
+    return uint(8)(m.threshold)
 
 ENCODERS = {"UINT8": uint(1), "UINT16": uint(2), "UINT32": uint(4), "UINT64": uint(8), "UINT128": uint(16),
             "ratio": ratio, "binary64": binary64, "phases": phases,
@@ -464,7 +464,7 @@ def encode(p: EraParameters) -> bytes:
     return out
 ```
 
-`FIELDS` maps each section of the table above, in table order, to its rows, as pairs of a field and its encoding. A ratio's parts are `num` and `den`, encoded as the record gives them, without reduction. A `binary64` field is an IEEE 754 double-precision value. `service_params` is an array with one entry per [`ServiceType`](bedrock-service-declaration-protocol.md#service-types): the entry at index `i` holds the `inactivity_period` of the service type whose byte is `i`. `min_stake` has `stake_threshold`. A record that `encode` rejects is invalid.
+`FIELDS` maps each section of the table above, in table order, to its rows, as pairs of a field and its encoding. A ratio's parts are `num` and `den`, encoded as the record gives them, without reduction. A `binary64` field is an IEEE 754 double-precision value. `service_params` is an array with one entry per [`ServiceType`](bedrock-service-declaration-protocol.md#service-types): the entry at index `i` holds the `inactivity_period` of the service type whose byte is `i`. `min_stake` has `threshold`. A record that `encode` rejects is invalid.
 
 In every record, the numerator of `slot_activation_coeff`, the epoch length $`L_n`$ and the slot length $`\Delta_n`$ are at least 1. Otherwise `epoch_length(n)`, $`\textbf{epoch}(sl)`$ or $`\textbf{slot}(t)`$ divides by zero.
 

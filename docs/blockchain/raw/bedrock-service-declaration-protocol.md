@@ -35,7 +35,8 @@
 | 1.5.0 | Defined `active` as the epoch of the block that contained the latest accepted active message, initialised to `created + 2`, and `withdraw_at` as the epoch at which the node stops providing the service, matching the implementation. Added the participant-set exclusion rule and [Message Timing](#message-timing) | 2026-09-02 |
 | 1.6.0 | Declarations are removed at `withdraw_at + 1`, one epoch after the node stops, making the last served epoch rewardable | 2026-09-03 |
 | 1.7.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a declaration covers one service, a note backs one declaration per service, and a `nonce` carries the `created` epoch of its declaration | 2026-10-01 |
-| 1.8.0 | The minimum stake and the service parameters are those of the era of a block's slot, and carry no epoch; service-type bytes run from 0 without gaps ([Bedrock Eras](bedrock-eras.md)) | 2026-11-02 |
+| 1.8.0 | The minimum stake is one `MinStake` of `threshold` and the block number `timestamp`, matching the implementation | 2026-10-27 |
+| 1.9.0 | The minimum stake and the service parameters are those of the era of a block's slot, and carry neither a `timestamp` nor an epoch; service-type bytes run from 0 without gaps ([Bedrock Eras](bedrock-eras.md)) | 2026-11-05 |
 
 # Introduction
 
@@ -97,11 +98,11 @@ Each service type is assigned a one-byte discriminant, given by the enum value a
 
 The minimum stake defines the minimum stake a node must have to perform any service. It is an era parameter, the `min_stake` of the era's parameter record ([Era Parameters](bedrock-eras.md#era-parameters)). The minimum stake in force for a block is that of the era of the block's slot ([Era of Chain Data](bedrock-eras.md#era-of-chain-data)).
 
-The `MinStake` is a structure that holds the value of the stake `stake_threshold`.
+The minimum stake is one `MinStake`, which holds the `threshold`, a [`TokenValue`](bedrock-v1.1-mantle-specification.md#notes).
 
 ```python
 class MinStake:
-    stake_threshold: StakeThreshold
+    threshold: TokenValue
 ```
 
 For more information on how the minimum stake is calculated, please refer to the [\[Analysis\] Static Minimum Stake Estimation for Service Declaration Protocol](analysis-static-minimum-stake-estimation-for-service-declaration-protocol.md).
