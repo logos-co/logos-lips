@@ -33,7 +33,7 @@
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
 | 1.2.0 | Seed the pow reward pool at genesis from the initial token distribution | 2026-09-08 |
 | 1.2.1 | Align the initial service declarations with the Service Declaration Protocol: the `BN` service type, the full `DeclarationMessage` shape, and multiaddr locators | 2026-10-01 |
-| 1.3.0 | Removed the `bedrock_version` header field and moved `slot` first, and set the `fork_digest` of the Genesis Mantle Transaction to zero, parsing it under era 0 ([Bedrock Eras](bedrock-eras.md)); the inscription, renamed Genesis Parameters with field names that drop the genesis prefix, also carries the pow reward pool seed and the consensus-excluded keys. | 2026-10-21 |
+| 1.3.0 | Removed the `bedrock_version` header field and moved `slot` first, and set the `fork_digest` of the Genesis Mantle Transaction to zero, parsing it under era 0 ([Bedrock Eras](bedrock-eras.md)); the inscription, renamed Genesis Parameters with field names that drop the genesis prefix, also carries the pow reward pool seed and the consensus-excluded keys; the Genesis block is counted neither as an occupied slot nor as a block of epoch 0. | 2026-11-05 |
 
 # Introduction
 
@@ -325,6 +325,8 @@ The checks below, and only these, are skipped when the Genesis Mantle Transactio
 4. **The fork digest.** Every fork digest hashes the Genesis block ([Fork Digest](bedrock-eras.md#fork-digest)), so the Genesis Mantle Transaction cannot carry one. Its `fork_digest` is 32 zero bytes. It is parsed under era 0, and step 4 of [Validation](bedrock-v1.1-mantle-specification.md#validation) is skipped.
 
 Everything else is validated as it would be in any other block, against the state the Operations preceding it left, the transaction level check that there is one `op_proofs` entry per Operation included.
+
+The Genesis block is not an occupied slot in [Total Stake Inference](cryptarchia-total-stake-inference.md), and not one of the blocks of epoch 0 in [Blend Difficulty](proof-of-work.md#blend-difficulty). No leader won a lottery for it.
 
 ## Mantle Ledger Initialization
 
