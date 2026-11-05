@@ -234,7 +234,7 @@ A node migrates state recorded in an earlier era before it uses it:
 - it derives a value for an epoch from the chain state as of a slot, migrated to the epoch's era;
 - it builds a block from its mempool against its parent's state, migrated to the block's era ([Block Building View](mempool.md#block-building-view)).
 
-The values derived for an epoch, such as its epoch state, its Blend difficulty and its proof-of-work reward, follow the rules of the epoch's own era ([Era Migration](#era-migration)).
+The epoch state, the Blend difficulty and the proof-of-work reward derived for an epoch follow the rules of the epoch's own era ([Era Migration](#era-migration)).
 
 ## Network Layer
 
@@ -472,11 +472,11 @@ In every record, `slot_activation_coeff` is below 1. Otherwise the lottery const
 
 In every record, $`\lfloor k/(4f) \rfloor`$ is at least 1. Otherwise $`s_{gen}`$ of [Fork Choice](fork-choice.md#definitions) is 0, and the density check of the bootstrap rule compares empty windows.
 
-In every record, $`\lfloor (2V/3) / (\Phi_{CC} + 1) \rfloor`$ is at least 1, with $`V`$ and $`\Phi_{CC}`$ of [Global Parameters](blend-protocol.md#global-parameters). Otherwise a node reads no message from a core connection.
+In every record, `replication_factor` is 0. Otherwise a core node's quota grows while no cover message is replicated.
 
-In every record, `max_gas_per_block` is at least 2. Otherwise $`G_{\mathrm{target}}`$ of [Notation](execution-market.md#notation) is 0, and the base fee update divides by zero. Each field of `gas_profile` is at most `max_gas_per_block`. Otherwise no block can include that Operation.
+In every record, `max_gas_per_block` is at least 2. Otherwise $`G_{\mathrm{target}}`$ of [Notation](execution-market.md#notation) is 0, and the base fee update divides by zero. Each field of `gas_profile` is at most `max_gas_per_block`. Otherwise no block can include an Operation that costs that field or more.
 
-In every record, the ratios of `execution_market` and `storage_market` and `blend_share` lie strictly between 0 and 1. Otherwise a price can fall to 0 or stop following usage, an average can stop smoothing it, or the Blend nodes or the leaders receive no reward.
+In every record, the ratios of `execution_market` and `storage_market` and `blend_share` lie strictly between 0 and 1. Otherwise a price can fall to 0 or stop following usage, an average can stop smoothing usage, or the Blend nodes or the leaders receive no reward.
 
 In every record, `fee_window_size`, `emission_factor_scale` and the numerator of `max_emission_per_block` are at least 1. Otherwise [Float Precision for Implementation](block-rewards.md#float-precision-for-implementation) divides by zero. `fee_average_numerator` is the `FEE_AVG_NUMERATOR` that section derives from these fields. Otherwise the emission rate factor weighs the pooled fees by more or less than their annualized rate.
 
@@ -606,7 +606,7 @@ A node derives some values once per epoch: the [Epoch State](cryptarchia-v1-prot
 
 For example, the Epoch State of epoch $`E_n`$ uses the learning rate of era $`n`$. Its observation window is the first `PERIOD` slots of epoch $`E_n - 1`$ ([Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule)), with the parameters of era $`n-1`$. Its eligible notes come from the state as of the first slot of epoch $`E_n - 1`$, migrated to era $`n`$. Its stake inference starts from the $`D`$ that era $`n-1`$ derived for epoch $`E_n - 1`$.
 
-A node verifies an active message ([Active Message](blend-protocol.md#active-message)) or a [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) under the rules of the era of the epoch it is for, whatever the era of the block that carries it, except for the [acceptance window](proof-of-work.md#acceptance-window) of the claim. Otherwise the rewards of the last epoch of an era, which are claimed in the next era, are lost. An active message is for the epoch in its `epoch_number`. A claim is for the epoch whose nonce it carries.
+A node verifies an active message ([Active Message](blend-protocol.md#active-message)) or a [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) under the rules of the era of the epoch it is for, whatever the era of the block that carries it, except for the [acceptance window](proof-of-work.md#acceptance-window) of the claim and the Execution Gas of the Operation that carries either, which is that of the era of the block's slot. Otherwise the rewards of the last epoch of an era, which are claimed in the next era, are lost. An active message is for the epoch in its `epoch_number`. A claim is for the epoch whose nonce it carries.
 
 ## Era Change
 
