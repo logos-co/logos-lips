@@ -35,7 +35,7 @@
 | 1.2.3 | Update the test vectors to reflect the parent added in the `CHANNEL_CONFIG` payload | 2026-08-27 |
 | 1.2.4 | Reordered the `ProofOfLeadership` fields to the wire order defined by the [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding), and noted that the [Block ID](#block-id) preimage absorbs the same fields in a different order by design. The `Header` layout and the `block_id` preimage are otherwise unchanged. | 2026-08-28 |
 | 1.2.5 | Required the slot of a referenced [uncle](#uncle-references) to exceed the slot of its parent. | 2026-10-06 |
-| 1.3.0 | Versioning and upgrade activation moved to eras, uncles restricted to the era of the referencing block, the first slot of an epoch taken from the era schedule, and fork choice and the latest immutable block using the $`k`$ of the era that governs them ([Bedrock Eras](bedrock-eras.md)). | 2026-10-20 |
+| 1.3.0 | Versioning and upgrade activation moved to eras, uncles restricted to the era of the referencing block, the first slot of an epoch taken from the era schedule, the observation period the sum of the first two epoch phases, and fork choice and the latest immutable block using the $`k`$ of the era that governs them ([Bedrock Eras](bedrock-eras.md)). | 2026-11-05 |
 | 1.4.0 | Removed the `bedrock_version` header field and moved `slot` to the first header field ([Bedrock Eras](bedrock-eras.md)): the header is 296 bytes and a signed header 360. | 2026-10-20 |
 
 # Introduction
@@ -155,6 +155,8 @@ An epoch is divided into 3 phases, as outlined below.
 
 The **epoch length** is the sum of the individual phases: $`3\lfloor \frac{k}{f} \rfloor + 3\lfloor \frac{k}{f} \rfloor + 4\lfloor \frac{k}{f} \rfloor =10 \lfloor \frac{k}{f} \rfloor`$ slots.
 
+The **observation period** `PERIOD` is the sum of the first two phases: $`3\lfloor \frac{k}{f} \rfloor + 3\lfloor \frac{k}{f} \rfloor = 6\lfloor \frac{k}{f} \rfloor`$ slots.
+
 ### Epoch State
 
 The epoch state holds the variables derived over the course of the epoch schedule. It is the 3-tuple $`(\mathbb{C}_\text{LEAD}, \eta, D)`$ described below.
@@ -223,15 +225,15 @@ $`\text{define } \textbf{compute\_epoch\_state}(ep, tip \in T)\to(\mathbb{C}_\te
 
 > The epoch nonce for epoch $`ep`$ is the value of $`\eta`$ at the beginning of the lottery constants finalization phase in the epoch schedule
 
-&nbsp;&nbsp;&nbsp;&nbsp;$`\eta^{ep} \coloneqq \textbf{epoch\_nonce\_at\_slot}(sl_{ep-1} + \lfloor6\frac{k}{f}\rfloor, tip)`$
+&nbsp;&nbsp;&nbsp;&nbsp;$`\eta^{ep} \coloneqq \textbf{epoch\_nonce\_at\_slot}(sl_{ep-1} + \text{PERIOD}, tip)`$
 
 > Total active stake is inferred from the number of blocks produced in the previous epoch during the stake freezing phase. It is also derived from the previous estimate of total stake, thus we recurse here to retrieve the previous epochs estimate $`D^{ep-1}`$
 
 &nbsp;&nbsp;&nbsp;&nbsp;$`(\_,\_,D^{ep-1}) \coloneqq \textbf{compute\_epoch\_state}(ep-1,tip)`$
 
-> The number of distinct occupied slots during the first $`6\frac{k}{f}`$ slots of the previous epoch: a slot counts if it holds a block of the chain of $`tip`$ and/or one or more [uncles](#uncle-references) referenced by the blocks of that chain **that themselves lie in the window**, and each slot is counted at most once. Referenced uncles are genuine lottery wins that were lost to forks; counting them gives a more accurate estimate of consensus participation. No filtering is needed here: an uncle carried by a block of the chain was validated as a condition of that block's acceptance (see [Uncle References](#uncle-references)), so every node holding the chain counts exactly the same uncles.
+> The number of distinct occupied slots during the first `PERIOD` slots of the previous epoch: a slot counts if it holds a block of the chain of $`tip`$ and/or one or more [uncles](#uncle-references) referenced by the blocks of that chain **that themselves lie in the window**, and each slot is counted at most once. Referenced uncles are genuine lottery wins that were lost to forks; counting them gives a more accurate estimate of consensus participation. No filtering is needed here: an uncle carried by a block of the chain was validated as a condition of that block's acceptance (see [Uncle References](#uncle-references)), so every node holding the chain counts exactly the same uncles.
 
-&nbsp;&nbsp;&nbsp;&nbsp;$`\textbf{in\_window}(sl) \coloneqq sl_{ep - 1} \le sl \lt sl_{ep-1}+\lfloor 6\frac{k}{f} \rfloor`$
+&nbsp;&nbsp;&nbsp;&nbsp;$`\textbf{in\_window}(sl) \coloneqq sl_{ep - 1} \le sl \lt sl_{ep-1}+\text{PERIOD}`$
 
 &nbsp;&nbsp;&nbsp;&nbsp;$`\textbf{chain} \coloneqq \textbf{ancestors}(tip)`$
 

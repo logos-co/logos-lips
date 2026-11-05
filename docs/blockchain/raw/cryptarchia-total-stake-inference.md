@@ -26,7 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-01-20 |
 | 1.1.0 | Changed `density_over_slots` to count **distinct occupied slots** instead of blocks, including the slots of the [uncles](cryptarchia-v1-protocol.md#uncle-references) referenced by the honest chain's in-period blocks, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md). | 2026-08-06 |
-| 1.2.0 | `beta` and `f` are double-precision values, and their products with `PRECISION` are double-precision products ([Bedrock Eras](bedrock-eras.md)). | 2026-10-15 |
+| 1.2.0 | `beta` and `f` are double-precision values, their products with `PRECISION` are double-precision products, and `PERIOD` is that of the epoch schedule ([Bedrock Eras](bedrock-eras.md)). | 2026-11-05 |
 
 # Introduction
 
@@ -51,7 +51,7 @@ This algorithm has been analyzed and shown to have good accuracy, precision and 
 | Symbol | Value | Name | Description |
 | --- | --- | --- | --- |
 | `beta` | 1.0 | learning rate | Controls how quickly we adjust to new participation levels.  Lower values for `beta` give a more stable / gradual adjustment, while higher values give faster convergence but at the cost of less stability. |
-| `PERIOD` | $`6\lfloor \frac{k}{f} \rfloor`$ | observation period | The length of the observation period in slots. |
+| `PERIOD` | *inherited from* [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) | observation period | The length of the observation period in slots. |
 | `f` | *inherited from* [Constants](cryptarchia-v1-protocol.md#constants) | slot activation coefficient | The target rate of occupied slots. Not all slots contain blocks, many are empty. |
 | `k` | *inherited from* [Constants](cryptarchia-v1-protocol.md#constants) | security parameter | Block depth finality. Blocks deeper than `k` on any given chain are considered immutable. |
 
