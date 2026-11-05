@@ -7,6 +7,7 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-11-04 |
+| v2 | Follows the stack below: `commitment_root` and the full names of commitments and nullifiers, and the `note_pk` of a declaration, under which a handed-over stake now sits. The `SDP_DECLARE` and whole-transaction test vectors of Mantle hold the new encoding of a declaration | 2026-11-05 |
 
 ## Reviewer Orientation
 
@@ -85,9 +86,9 @@ A commitment supplied by the miner, instead of one the ledger creates, would hid
 
 ## A locked stake can change hands
 
-`SDP_DECLARE` creates the service note under the `zk_id` it names, and does not prove it. A seller can therefore stake its vested notes under a buyer's `zk_id` and `provider_id`, in one transaction with a Transfer paying the seller. The buyer then holds the stake: it earns the lottery and service rewards, and withdraws the stake once the lock ends. This is accepted: the stake stays locked, serves only service provision and the lottery, and its value cannot move before its vesting ends.
+`SDP_DECLARE` creates the service note under the `note_pk` it names, which no proof covers. A seller can therefore stake its vested notes under a buyer's `note_pk`, `zk_id` and `provider_id`, in one transaction with a Transfer paying the seller. The buyer then holds the stake: it earns the lottery and service rewards, and withdraws the stake once the lock ends. This is accepted: the stake stays locked, serves only service provision and the lottery, and its value cannot move before its vesting ends.
 
-Binding the stake to its staker is a separate draft stacked on this one. Miners derive their claim keys and the `zk_id` from one stake secret, and the ZkStake proves that every vested input and the `zk_id` come from it. Measured with the two-to-one compression of the circuits, it costs 4,864 constraints at 16 inputs, 2.4% of the ZkStake. Handing a secret over off chain stays possible, and no protocol can prevent it.
+Binding the stake to its staker is a separate draft stacked on this one. Miners derive their claim keys and the `note_pk` from one stake secret, and the ZkStake proves that every vested input and the `note_pk` come from it. Measured with the two-to-one compression of the circuits, it costs 4,864 constraints at 16 inputs, 2.4% of the ZkStake. Handing a secret over off chain stays possible, and no protocol can prevent it.
 
 ## Era parameters
 
@@ -113,18 +114,18 @@ The chain has not launched, so no migration is needed. The ZkTransfer, the Proof
 ## 1. Vested notes and the vesting bound of a ZkTransfer
 
 - The `data` of a user note is the slot its vesting ends, `0` if it does not vest. A user note with another `data` is a vested note, created only by `CLAIM_POW_REWARD`.
-- The ZkTransfer takes each input's `data` as a witness and a new public input `vested_by`. Every active input satisfies `0 <= vested_by - inputs_data[i] < 2**64`. Outputs keep `data = 0`. The public signals are 28, `vested_by` coming after `tx_cm_root`.
+- The ZkTransfer takes each input's `data` as a witness and a new public input `vested_by`. Every active input satisfies `0 <= vested_by - inputs_data[i] < 2**64`. Outputs keep `data = 0`. The public signals are 28, `vested_by` coming after `tx_commitment_root`.
 
 ```diff
  class ZkTransferPublic:
      # ... inputs, outputs, their flags and excess_value unchanged
-     tx_cm_root: MerkleRoot
-+    vested_by: Slot                # the slot by which the vesting of every input has ended
+     tx_commitment_root: MerkleRoot
++    vested_by: Slot                 # the slot by which the vesting of every input has ended
      msg: zkhash
 ```
 
-- `verify_transfer` takes `vested_by`, `0` by default. A Transfer and a channel deposit pass the slot that recorded their referenced root, `recent_cm_roots[cm_merkle_root].slot`. `SDP_WITHDRAW` passes `0`.
-- `RecentRoot` gains `slot`, the slot of the block that recorded the root, `0` for the root of an empty set. `record_cm_root` takes the slot, and Block Execution passes `block.header.slot`.
+- `verify_transfer` takes `vested_by`, `0` by default. A Transfer and a channel deposit pass the slot that recorded their referenced root, `recent_commitment_roots[commitment_root].slot`. `SDP_WITHDRAW` passes `0`.
+- `RecentRoot` gains `slot`, the slot of the block that recorded the root, `0` for the root of an empty set. `record_commitment_root` takes the slot, and Block Execution passes `block.header.slot`.
 
 ## 2. A claim pays a liquid and a vested note
 
@@ -143,22 +144,22 @@ Proof of Work adds `POW_VESTED_SHARE = 50`, over the existing `SHARE_DEN = 100`,
 
 ```diff
  class DeclarationMessage:
-     # ... service_type, locators, provider_id, zk_id unchanged
--    inputs: list[NoteNf]
-     cm_merkle_root: MerkleRoot
+     # ... service_type, locators, provider_id, zk_id, note_pk unchanged
+-    inputs: list[NoteNullifier]
+     commitment_root: MerkleRoot
      amount: TokenValue
 +    locked_until: EpochNumber    # the first epoch at which the declaration can be withdrawn
 +    spends: list[StakeSpend]     # 1 to 16 nullifiers each, with their total value
 ```
 
-- Validation: the inputs of all spends are distinct and spendable against `cm_merkle_root`, 1 to 16 per spend. The spend values sum to `amount`, which meets the minimum stake. Each spend carries one ZkStake, verified with `vested_by = locked_until * EPOCH_LENGTH`, the first slot of epoch `locked_until`.
+- Validation: the inputs of all spends are distinct and spendable against `commitment_root`, 1 to 16 per spend. The spend values sum to `amount`, which meets the minimum stake. Each spend carries one ZkStake, verified with `vested_by = locked_until * EPOCH_LENGTH`, the first slot of epoch `locked_until`.
 - Execution consumes the inputs, creates the service note as before, and stores `locked_until` in `DeclarationInfo`.
 - `SDP_WITHDRAW` is invalid before epoch `locked_until`.
 - Execution Gas: `EXECUTION_SDP_DECLARE_GAS + EXECUTION_SIGNATURE_GAS + EXECUTION_COMMITMENT_GAS + sum(spend_gas(spend.inputs, []) for spend in spends)`.
 
 ## 4. The ZkStake circuit
 
-The ZkStake takes 16 inputs and no output. Its public values are the nullifiers and their flags, `excess_value`, the sum of the input values, `tx_cm_root`, `vested_by` and `msg`. Its inputs satisfy the input constraints of the ZkTransfer. `verify_stake` verifies it against the referenced root extended with the buffer, and the ZkStake proofs of a block are batch-verified in a batch of their own.
+The ZkStake takes 16 inputs and no output. Its public values are the nullifiers and their flags, `excess_value`, the sum of the input values, `tx_commitment_root`, `vested_by` and `msg`. Its inputs satisfy the input constraints of the ZkTransfer. `verify_stake` verifies it against the referenced root extended with the buffer, and the ZkStake proofs of a block are batch-verified in a batch of their own.
 
 ## 5. Vested notes lead
 

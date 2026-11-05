@@ -34,9 +34,9 @@ digraph overview_cryptoeconomics {
 
   subgraph cluster_users {
     label = "Users";
-    rollup   [label = "Rollup Operator"];
-    operator [label = "Node Operator"];
-    staker   [label = "Leader"];
+    wallet    [label = "L1 Wallet"];
+    operator  [label = "Node Operator"];
+    staker    [label = "Leader"];
   }
 
   sdp      [label = "Service Declaration Protocol\n(Blend)", shape = cylinder];
@@ -50,7 +50,7 @@ digraph overview_cryptoeconomics {
     storage_fees [label = "Storage Fees"];
   }
 
-  pow_pool [label = "Proof of Work\nReward Pool"];
+  pow_pool [label = "Proof of Work\nReward Pool\n(allocated at genesis)"];
   miners   [label = "Proof of Work Claims"];
   pool     [label = "Rewards Pool"];
   reserve  [label = "Rewards Reserve\n(allocated at genesis)"];
@@ -58,7 +58,7 @@ digraph overview_cryptoeconomics {
 
   subgraph cluster_consensus {
     label = "Consensus";
-    leader_note [label = "Leader Reward Note\n(in the block, one-time key)"];
+    leader_note [label = "Leader Reward Note\n(in the block, hidden key)"];
   }
 
   subgraph cluster_blend {
@@ -70,12 +70,12 @@ digraph overview_cryptoeconomics {
     srdp -> blend;
   }
 
-  tokens   -> rollup   [label = "  buys, earns  "];
-  operator -> sdp      [label = "  locks  ", style = dashed];
-  staker   -> lottery  [label = "  stakes  ", style = dashed];
-  rollup   -> mempool  [label = "  transactions  "];
-  lottery  -> leader;
-  mempool  -> leader   [style = dashed];
+  tokens    -> wallet    [label = "  buys, earns  "];
+  operator  -> sdp       [label = "  locks  ", style = dashed];
+  staker    -> lottery   [label = "  stakes  ", style = dashed];
+  wallet    -> mempool   [label = "  transactions  "];
+  lottery   -> leader;
+  mempool   -> leader    [style = dashed];
   leader   -> exec_fees;
   leader   -> storage_fees;
 

@@ -36,7 +36,7 @@
 | 1.9.0 | Swap Ed25519Signature and SignerIndex order in IndexedSignature | 2026-10-01 |
 | 1.10.0 | Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata, retaining their `UINT32` length prefixes; corrected SDP activity metadata to use its tagged variant encoding without a generic length prefix | 2026-10-06 |
 | 1.11.0 | [RFC] `SDPWithdraw` drops the redundant `ServiceNoteId` | 2026-10-27 |
-| 2.0.0 | Follow the private note ledger of Mantle 2.0.0: nullifier inputs and commitment outputs with their `CmMerkleRoot` and `Value`, channel steps in the `MiniBlocks` of `ChannelInscribe`, holder withdrawals, the SDP payloads over notes, `PowNonce` in `ClaimPowReward`, the `ZkTransfer` proof variants, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim`. A `FieldElement` not less than $`p`$ is rejected | 2026-10-06 |
+| 2.0.0 | Follow the private note ledger of Mantle 2.0.0: nullifier inputs and commitment outputs with their `CommitmentRoot` and `Value`, channel steps in the `MiniBlocks` of `ChannelInscribe`, holder withdrawals, the SDP payloads over notes with `NotePk` in `SDPDeclare`, `PowNonce` in `ClaimPowReward`, the `ZkTransfer` proof variants, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim`. A `FieldElement` not less than $`p`$ is rejected | 2026-10-06 |
 | 2.1.0 | Follow the programs of Mantle 2.1.0: the `ProgramRegister` Operation with its `Groth16VerificationKey`, user and program steps in the `MiniBlocks` of `ChannelInscribe` with their proofs and the openings of the program notes, the payments of program steps, the `Groth16` terminal renamed `Groth16Proof`, and the format of compressed points | 2026-10-12 |
 | 2.2.0 | [RFC] `SDPDeclare` carries `LockedUntil` and `StakeSpends` of 1 to 16 nullifiers with their value, proven by an `SDPDeclareProof` holding one `ZkStake` per spend | 2026-11-04 |
 
@@ -98,11 +98,11 @@ StepCount       = UINT16
 Step            = (UserStepKind UserStep) / (ProgramStepKind ProgramStep)
 UserStepKind    = %x00
 ProgramStepKind = %x01
-UserStep        = Inputs Outputs CmMerkleRoot
-ProgramStep     = ProgramId Payments Inputs Outputs ProgramOutputs CmMerkleRoot SpendNotesHash
+UserStep        = Inputs Outputs CommitmentRoot
+ProgramStep     = ProgramId Payments Inputs Outputs ProgramOutputs CommitmentRoot SpendNotesHash
 Payments        = PaymentCount *Payment
 PaymentCount    = Byte
-Payment         = Inputs Outputs CmMerkleRoot Value Intent
+Payment         = Inputs Outputs CommitmentRoot Value Intent
 Intent          = FieldElement
 ProgramOutputs  = Byte ; bit i (least significant first) set when output i is a note of the program,
                        ; the bits from OutputCount up being 0
@@ -114,15 +114,17 @@ PostingTimeframe           = UINT32
 PostingTimeout             = UINT32
 ConfigThreshold            = UINT16
 
-ChannelDeposit    = ChannelId Inputs CmMerkleRoot Outputs Value DepositMetadata
+ChannelDeposit    = ChannelId Inputs CommitmentRoot Outputs Value DepositMetadata
 DepositMetadata   = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes
 
-ChannelWithdraw   = ChannelId Inputs CmMerkleRoot Outputs
+ChannelWithdraw   = ChannelId Inputs CommitmentRoot Outputs
 
 ChannelId         = Hash32
 Parent            = Hash32
 Signer            = Ed25519PublicKey
 ```
+
+A `UserStep` moves the user notes of its holder, a `ProgramStep` executes a program, paid by its `Payment`s with their `Intent`, the hash of what each user expects, and `SpendNotesHash` is the hash of the notes of its program spend. A `MiniBlock` groups the steps whose user steps and payments cover the same transaction buffer. [CHANNEL_INSCRIBE](bedrock-v1.1-mantle-specification.md#channel_inscribe) defines them.
 
 `MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. The payloads of `ChannelInscribe.Inscription` and `ChannelDeposit.Metadata` MUST each be at most `MAX_OPERATION_DATA_SIZE` bytes, excluding the outer `UINT32` length prefix. A decoder MUST reject either field when its declared or decoded payload length exceeds the limit.
 
@@ -131,19 +133,20 @@ A decoder MUST reject a `ProgramStep` whose `OutputCount` exceeds 8, or whose `P
 ### SDP Operations
 
 ```schema
-SDPDeclare    = ServiceType Locators ProviderId ZkId CmMerkleRoot Value LockedUntil StakeSpends
+SDPDeclare    = ServiceType Locators ProviderId ZkId NotePk CommitmentRoot Value LockedUntil StakeSpends
 ServiceType   = Byte          ; 0 = BN
 Locators      = LocatorCount *Locator
 LocatorCount  = Byte          ; Max 8
 Locator       = 2Byte *BYTE   ; Max 329 bytes, multiaddr binary form
 ProviderId    = Ed25519PublicKey
 ZkId          = ZkPublicKey
+NotePk        = ZkPublicKey
 LockedUntil   = UINT32        ; EpochNumber
 StakeSpends   = StakeSpendCount *StakeSpend
 StakeSpendCount = Byte
 StakeSpend    = Inputs Value  ; InputCount from 1 to 16
 
-SDPWithdraw   = DeclarationId Nonce NoteNf Outputs Value
+SDPWithdraw   = DeclarationId Nonce NoteNullifier Outputs Value
 DeclarationId = Hash32
 Nonce         = UINT64
 
@@ -184,21 +187,23 @@ ProgramId             = FieldElement
 ### Transfer Operations
 
 ```schema
-Transfer    = Inputs Outputs CmMerkleRoot Value
-Inputs      = InputCount *NoteNf
+Transfer    = Inputs Outputs CommitmentRoot Value
+Inputs      = InputCount *NoteNullifier
 InputCount  = Byte
-Outputs     = OutputCount *NoteCm
+Outputs     = OutputCount *NoteCommitment
 OutputCount = Byte
 ```
 
 ## Ledger
 
 ```schema
-Value        = UINT64
-NoteCm       = FieldElement
-NoteNf       = FieldElement
-CmMerkleRoot = FieldElement ; MMR root of note commitments
+Value          = UINT64
+NoteCommitment = FieldElement ; commitment of a note
+NoteNullifier  = FieldElement ; nullifier of a note
+CommitmentRoot = FieldElement ; MMR root of note commitments
 ```
+
+Commitments and nullifiers are defined in [Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) of Mantle.
 
 ## Op Proofs
 
