@@ -166,7 +166,7 @@ A node whose release lacks the rules of an era it must apply halts when it start
 
 Every node must know, for any slot or epoch, which era's rules apply.
 
-A release carries one **era schedule** per network. Each entry gives the first epoch number of an era and its **parameter record**. The record holds the values the era gives to the constants that may change between eras, from [Blend Protocol](blend-protocol.md), [Cryptarchia Protocol](cryptarchia-v1-protocol.md), the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) (SDP) and [Proof of Work](proof-of-work.md). Its encoding starts with a version, which names the era's rules, the layout of its blocks and the fields of the record, followed by its Blend, Cryptarchia and Time fields ([Era Parameters](#era-parameters)).
+A release carries one **era schedule** per network. Each entry gives the first epoch number of an era and its **parameter record**. The record holds the values the era gives to the constants that may change between eras, from [Blend Protocol](blend-protocol.md), [Cryptarchia Protocol](cryptarchia-v1-protocol.md), the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) (SDP), [Proof of Work](proof-of-work.md), [Execution Market](execution-market.md), [Storage Markets](storage-markets.md), [Block Rewards](block-rewards.md) and [Mantle](bedrock-v1.1-mantle-specification.md). Its encoding starts with a version, which names the era's rules, the layout of its blocks and the fields of the record, followed by its fields, section by section ([Era Parameters](#era-parameters)).
 
 Every slot and every epoch belongs to the last era that begins at or before it. An era may change the epoch length and the slot length, so a node computes the start of each era from the era before it ([Era Boundaries](#era-boundaries)):
 
@@ -371,7 +371,9 @@ A field holds the value of its source constant under the rules of the era. The E
 | `blend` | `network_absorption_in_rounds` | `UINT64` | $`\eta`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `blend` | `data_replication_factor` | `UINT64` | $`R_D`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `blend` | `message_frequency_per_round` | `ratio` | $`F_C`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `blend` | `replication_factor` | `UINT64` | $`R_C`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `blend` | `maximum_release_delay_in_rounds` | `UINT64` | $`\Delta_{max}`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `blend` | `target_peering_degree` | `UINT32` | $`\Phi_{CC}`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `blend` | `verification_rate_per_second` | `UINT32` | $`V`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `blend` | `edge_node_send_deadline_in_rounds` | `UINT64` | $`T_E`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `blend` | `core_handshake_deadline_in_rounds` | `UINT128` | $`T_H`$ of [Global Parameters](blend-protocol.md#global-parameters) |
@@ -398,6 +400,28 @@ A field holds the value of its source constant under the rules of the era. The E
 | `cryptarchia` | `pow_share` | `UINT64` | `POW_SHARE` of [Parameters](proof-of-work.md#parameters) |
 | `cryptarchia` | `share_den` | `UINT64` | `SHARE_DEN` of [Parameters](proof-of-work.md#parameters) |
 | `cryptarchia` | `slot_window` | `UINT64` | `WINDOW` of [Parameters](proof-of-work.md#parameters) |
+| `execution_market` | `max_gas_per_block` | `UINT64` | $`G_{\max}`$ of [Notation](execution-market.md#notation) |
+| `execution_market` | `fee_adjustment_rate` | `ratio` | $`\phi`$ of [Notation](execution-market.md#notation) |
+| `execution_market` | `ema_smoothing_factor` | `ratio` | $`q`$ of [Notation](execution-market.md#notation) |
+| `storage_market` | `max_adjustment_factor` | `ratio` | $`\alpha`$ of [Protocol Constants](storage-markets.md#protocol-constants) |
+| `storage_market` | `ema_smoothing_factor` | `ratio` | $`\beta`$ of [Protocol Constants](storage-markets.md#protocol-constants) |
+| `block_rewards` | `stake_target` | `UINT64` | `STAKE_TARGET` of [Float Precision for Implementation](block-rewards.md#float-precision-for-implementation) |
+| `block_rewards` | `emission_factor_scale` | `UINT64` | `A_SCALE` of [Float Precision for Implementation](block-rewards.md#float-precision-for-implementation) |
+| `block_rewards` | `fee_window_size` | `UINT16` | $`T`$ of [Parametrization](block-rewards.md#parametrization) |
+| `block_rewards` | `fee_average_numerator` | `UINT64` | `FEE_AVG_NUMERATOR` of [Float Precision for Implementation](block-rewards.md#float-precision-for-implementation) |
+| `block_rewards` | `max_emission_per_block` | `ratio` | `INFLATION_NUMERATOR` over `INFLATION_DENOMINATOR` of [Float Precision for Implementation](block-rewards.md#float-precision-for-implementation) |
+| `block_rewards` | `blend_share` | `ratio` | `BLEND_SHARE_NUMERATOR` over `BLEND_SHARE_DENOMINATOR` of [Float Precision for Implementation](block-rewards.md#float-precision-for-implementation) |
+| `gas_profile` | `transfer` | `UINT64` | `EXECUTION_TRANSFER_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
+| `gas_profile` | `channel_config` | `UINT64` | `EXECUTION_CHANNEL_CONFIG_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
+| `gas_profile` | `channel_inscribe` | `UINT64` | `EXECUTION_CHANNEL_INSCRIBE_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
+| `gas_profile` | `channel_deposit` | `UINT64` | `EXECUTION_CHANNEL_DEPOSIT_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
+| `gas_profile` | `channel_withdraw` | `UINT64` | `EXECUTION_CHANNEL_WITHDRAW_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
+| `gas_profile` | `channel_transfer` | `UINT64` | `EXECUTION_CHANNEL_TRANSFER_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
+| `gas_profile` | `sdp_declare` | `UINT64` | `EXECUTION_SDP_DECLARE_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
+| `gas_profile` | `sdp_withdraw` | `UINT64` | `EXECUTION_SDP_WITHDRAW_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
+| `gas_profile` | `sdp_active` | `UINT64` | `EXECUTION_SDP_ACTIVE_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
+| `gas_profile` | `leader_claim` | `UINT64` | `EXECUTION_LEADER_CLAIM_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
+| `gas_profile` | `claim_pow_reward` | `UINT64` | `EXECUTION_CLAIM_POW_REWARD_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
 | `time` | `slot_duration_in_seconds` | `UINT64` | The slot length of [Constants](cryptarchia-v1-protocol.md#constants), in seconds |
 
 ```python
@@ -425,7 +449,7 @@ def service_params(entries: list[ServiceParameters]) -> bytes:
 def min_stake(m: MinStake) -> bytes:
     return uint(8)(m.stake_threshold)
 
-ENCODERS = {"UINT8": uint(1), "UINT32": uint(4), "UINT64": uint(8), "UINT128": uint(16),
+ENCODERS = {"UINT8": uint(1), "UINT16": uint(2), "UINT32": uint(4), "UINT64": uint(8), "UINT128": uint(16),
             "ratio": ratio, "binary64": binary64, "phases": phases,
             "service_params": service_params, "min_stake": min_stake}
 
@@ -447,6 +471,14 @@ In every record, the numerator of `slot_activation_coeff`, the epoch length $`L_
 In every record, `slot_activation_coeff` is below 1. Otherwise the lottery constants $`t_0`$ and $`t_1`$ of [Proof of Leadership](cryptarchia-proof-of-leadership.md#circuit-public-inputs) take the logarithm of 0. It is also at least $`1/\text{PRECISION}`$, with `PRECISION` of [Total Stake Inference](cryptarchia-total-stake-inference.md#algorithm). Otherwise Total Stake Inference truncates $`f \cdot \text{PRECISION}`$ to 0.
 
 In every record, $`\lfloor k/(4f) \rfloor`$ is at least 1. Otherwise $`s_{gen}`$ of [Fork Choice](fork-choice.md#definitions) is 0, and the density check of the bootstrap rule compares empty windows.
+
+In every record, $`\lfloor (2V/3) / (\Phi_{CC} + 1) \rfloor`$ is at least 1, with $`V`$ and $`\Phi_{CC}`$ of [Global Parameters](blend-protocol.md#global-parameters). Otherwise a node reads no message from a core connection.
+
+In every record, `max_gas_per_block` is at least 2. Otherwise $`G_{\mathrm{target}}`$ of [Notation](execution-market.md#notation) is 0, and the base fee update divides by zero. Each field of `gas_profile` is at most `max_gas_per_block`. Otherwise no block can include that Operation.
+
+In every record, the ratios of `execution_market` and `storage_market` and `blend_share` lie strictly between 0 and 1. Otherwise a price can fall to 0 or stop following usage, an average can stop smoothing it, or the Blend nodes or the leaders receive no reward.
+
+In every record, `fee_window_size`, `emission_factor_scale` and the numerator of `max_emission_per_block` are at least 1. Otherwise [Float Precision for Implementation](block-rewards.md#float-precision-for-implementation) divides by zero. `fee_average_numerator` is the `FEE_AVG_NUMERATOR` that section derives from these fields. Otherwise the emission rate factor weighs the pooled fees by more or less than their annualized rate.
 
 Every era after the first keeps its uncle reference window within the finalization window of the era before it: $`W_n \cdot f_n^{-1} \le s_{n-1}/5`$, with $`W_n`$, $`f_n`$ and $`s_{n-1}`$ the $`W`$, $`f`$ and $`s`$ of [Constants](cryptarchia-v1-protocol.md#constants) of the era indicated. This adds to the bound of [Uncle Selection](cryptarchia-v1-protocol.md#uncle-selection) within each era. Otherwise, while the latest immutable block still lies in era $`n-1`$, a block of era $`n`$ can reference an uncle whose parent lies below the latest immutable block.
 
