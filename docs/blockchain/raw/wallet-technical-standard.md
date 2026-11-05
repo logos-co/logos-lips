@@ -227,7 +227,7 @@ def on_nullifier_inserted(tracked: TrackedLowLeaf, inserted_nullifier: NoteNulli
 
 The leader of a block chooses the public key and the nonce of its reward note ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)). The key can be any key of the wallet and can be reused for any number of blocks. The nonce has to be private and unpredictable, since a guessable nonce with a known key links its blocks: given the public value of a reward, anyone holding the key can test the nonce against the commitment. Two rewards of the same value under the same key and nonce are identical notes, of which only one can be spent. A wallet should therefore draw the nonce of each reward at random.
 
-The wallet keeps the note it created, with its nonce, and tracks it in the ledger note set, as it keeps any note. The header holds only the value and the commitment of the note, so recovery from the seed alone does not find a reward note: it depends on the wallet's backup of its notes.
+The wallet keeps the note it created, with its nonce, and tracks it in the ledger note set, as it keeps any note. The header holds only the value and the commitment of the note, so recovery from the seed alone does not find a reward note: it depends on the wallet's backup of its notes. A reward note of value `0` can pay nothing, so a wallet has no need to keep it.
 
 # References
 
