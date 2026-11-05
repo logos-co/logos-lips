@@ -192,6 +192,7 @@
 </div><!-- timeline:start -->
 <h2 id="timeline"><a class="header" href="#timeline">Timeline</a></h2>
 <ul>
+<li><strong>2026-11-05</strong> — <a href="https://github.com/logos-co/logos-lips/blob/f28cf3e5215db78e41249f32e3f5cde5cc1e8193/docs/blockchain/raw/blend-protocol.md"><code>f28cf3e</code></a> — [RFC] Blend: Derive M_W from expected deliveries (#510)</li>
 <li><strong>2026-10-30</strong> — <a href="https://github.com/logos-co/logos-lips/blob/0cde98ec9d910e8e2554b9dd395e654ea2d471a9/docs/blockchain/raw/blend-protocol.md"><code>0cde98e</code></a> — [RFC] Blend: Readmit a not-live neighbor after W rounds (#500)</li>
 <li><strong>2026-10-30</strong> — <a href="https://github.com/logos-co/logos-lips/blob/386b39f949621010aa88bedf74a789b1615ef235/docs/blockchain/raw/blend-protocol.md"><code>386b39f</code></a> — [RFC] Blend: Size the observation window by cover traffic (#499)</li>
 <li><strong>2026-10-27</strong> — <a href="https://github.com/logos-co/logos-lips/blob/6b84187f0ae37a0e8c28c32d3bb1e6f619cec147/docs/blockchain/raw/blend-protocol.md"><code>6b84187</code></a> — [RFC] SDP: Identify declarations by service and <code>zk_id</code> (#407)</li>
@@ -229,6 +230,7 @@
 <tr><td>1.6.2</td><td>The node count and the neighbor distinction read the <code>provider_id</code>s of the Blend declarations, which the Service Declaration Protocol keeps unique</td><td>2026-10-27</td></tr>
 <tr><td>1.7.0</td><td>Derived the observation window <span class="math-inline" data-tex="W"></span> from cover traffic in place of the maximal release delay.</td><td>2026-10-29</td></tr>
 <tr><td>1.8.0</td><td>Refused a neighbor closed as not live for <span class="math-inline" data-tex="W"></span> rounds, restarting its liveness count, in place of shutting it out for the rest of the epoch.</td><td>2026-10-30</td></tr>
+<tr><td>1.8.1</td><td>Derived <span class="math-inline" data-tex="M_W"></span> from the messages a neighbor is expected to deliver in an observation window and from the peering degree, in place of a fixed value.</td><td>2026-10-30</td></tr>
 </tbody></table>
 </div>
 <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
@@ -680,6 +682,7 @@
 <li><span class="math-inline" data-tex="E"></span> denotes a number of rounds in an epoch;</li>
 <li><span class="math-inline" data-tex="W"></span> denote the observation window expressed in the number of rounds;</li>
 <li><span class="math-inline" data-tex="M_W"></span> denote the number of messages a core connection carries from cover traffic alone in an observation window;</li>
+<li><span class="math-inline" data-tex="\lambda"></span> denote the number of messages a neighbor is expected to deliver to a node in an observation window;</li>
 <li><span class="math-inline" data-tex="F_1"></span> denote the number of messages a core connection carries per round;</li>
 <li><span class="math-inline" data-tex="V"></span> denote the number of messages per second the slowest node the protocol targets processes;</li>
 <li><span class="math-inline" data-tex="r_1"></span> denote the number of messages a node reads from a core connection in a round;</li>
@@ -706,7 +709,8 @@
 <li><span class="math-inline" data-tex="\eta=2"></span> rounds, the network absorption of one hop.</li>
 <li><span class="math-inline" data-tex="T_M = 15"></span> rounds, the message traversal time, as derived in the <a href="#transition-period">Transition Period</a> section.</li>
 <li><span class="math-inline" data-tex="W = \lceil M_W / (F_C \cdot (1 + R_C) \cdot \beta_C) \rceil = 30"></span> rounds, the observation window: the rounds in which a core connection carries <span class="math-inline" data-tex="M_W"></span> messages from cover traffic alone (<a href="#expected-traffic">Expected Traffic</a>).</li>
-<li><span class="math-inline" data-tex="M_W = 90"></span> messages. With a smaller <span class="math-inline" data-tex="M_W"></span>, a node more often reads an honest neighbor as not live and closes its connection (<a href="#connectivity-maintenance">Connectivity Maintenance</a>). With a larger one, a neighbor that delivers nothing holds a connection slot for longer, a neighbor closed as not live is refused for longer, and a blacklist entry lasts longer.</li>
+<li><span class="math-inline" data-tex="M_W = \lambda \cdot (\Phi_{CC} - 1) / (\Phi_{CC} - 2) = 90"></span> messages. A neighbor sends a node every message except the ones it first received from that node (<a href="#releasing">Releasing</a>). A neighbor holds at least <span class="math-inline" data-tex="\Phi_{CC} - 1"></span> connections, so on average at most one message in <span class="math-inline" data-tex="\Phi_{CC} - 1"></span> reaches it first from that node (<a href="#connectivity-maintenance">Connectivity Maintenance</a>).</li>
+<li><span class="math-inline" data-tex="\lambda = 60"></span> messages. For deliveries arriving at random, an honest neighbor delivers nothing within <span class="math-inline" data-tex="W"></span> rounds with probability at most <span class="math-inline" data-tex="e^{-\lambda}"></span>, and is closed as not live (<a href="#connectivity-maintenance">Connectivity Maintenance</a>). A larger <span class="math-inline" data-tex="\lambda"></span> lengthens <span class="math-inline" data-tex="W"></span>: a neighbor that delivers nothing holds a connection slot for longer, a neighbor closed as not live is refused for longer, and a blacklist entry lasts longer.</li>
 <li><span class="math-inline" data-tex="F_C=1"></span>, the network generates one cover message per round on average.</li>
 <li><span class="math-inline" data-tex="F_D=1/30"></span>, the network generates one block proposal every <span class="math-inline" data-tex="30"></span> rounds on average (<a href="cryptarchia-v1-protocol.html">Cryptarchia Protocol</a>).</li>
 <li><span class="math-inline" data-tex="F_T = 130/30"></span>, the network carries <span class="math-inline" data-tex="130"></span> messages per slot of <span class="math-inline" data-tex="30"></span> rounds, each carrying one transaction (<a href="payload-formatting.html">Payload Formatting</a>), whatever quota backs them: <span class="math-inline" data-tex="\left(F_1 / \beta_{max} - \max(F_C \cdot (1 + R_C), F_D \cdot (1 + R_D))\right) \cdot 30 = 130"></span> at <span class="math-inline" data-tex="F_1 = 16"></span> (<a href="#expected-traffic">Expected Traffic</a>).</li>
