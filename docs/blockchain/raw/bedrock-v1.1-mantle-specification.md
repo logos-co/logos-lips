@@ -49,7 +49,7 @@
 | 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding. | 2026-10-06 |
 | 1.18.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a note backs one declaration per service, `SDP_WITHDRAW` no longer names the note, and a `nonce` carries the `created` epoch of its declaration | 2026-10-27 |
 | 1.19.0 | `MinStake` holds `threshold` and the block number `timestamp`, following the Service Declaration Protocol | 2026-10-27 |
-| 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, grouped in the mini-blocks of an inscription, each proven against a recent root and the transaction buffer before its mini-block, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and moved `CLAIM_POW_REWARD` to the opcode `0x30`. The commitment MMR and the nullifier IMT of a note set have depth 40 | 2026-10-07 |
+| 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, grouped in the mini-blocks of an inscription, each proven against a recent root and the transaction buffer before its mini-block, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and moved `CLAIM_POW_REWARD` to the opcode `0x30`. A declaration names in `note_pk` the key of its service note. The commitment MMR and the nullifier IMT of a note set have depth 40 | 2026-10-07 |
 | 2.1.0 | Add programs: notes gain `program` and `data` fields, `PROGRAM_REGISTER` registers a Groth16 verification key, and channel inscriptions carry program steps made of user payments, a `ZkProgramSpend`, a program proof and the openings of the program notes they create. A payment, like a user step, is proven against the buffer before its mini-block, and a program spend against the whole buffer at its position. The ZkProgramSpend derives the nonces of the outputs of a step consuming a note of the program. Add the proving time benchmarks of the ZkTransfer and the ZkProgramSpend | 2026-10-12 |
 | 2.1.1 | Added Note Delivery: how the holder of a note learns its `value` and `nonce`, the user notes a sender creates being delivered off chain, by the Note Encryption of [Common Cryptographic Components](common-cryptographic-components.md#note-encryption-construction) | 2026-11-02 |
 | 2.2.0 | Execution Gas from [Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0: a Mantle Transaction pays its bytes, each channel or SDP note set it changes and each root extension its proofs share, and each Operation pays its proofs, nullifiers, commitments, signatures, steps, payments, openings and program proofs, through `spend_gas` and the per-component constants of Gas Determination | 2026-10-27 |
@@ -122,8 +122,8 @@ class SignedMantleTx:
 
 Every Operation proof (zk proofs or signatures) must be cryptographically bound to the `MantleTx` through the `mantle_txhash` to prevent replay attacks. This binding is achieved by signing the 32-byte `mantle_txhash` digest with every Ed25519 signature, and by including it reduced modulo $`p`$ as a public input in every ZK proof. The proofs of the steps of an inscription ([CHANNEL_INSCRIBE](#channel_inscribe)) and the proof of a proof of work claim are the exceptions:
 
-- The ZkTransfer of a user step and of a payment is signed by its holder before the Mantle Transaction exists, so it is bound to its own content, through `step_msg` or `payment_msg`.
-- The ZkProgramSpend and the program proof of a program step are produced by the sequencer, and bound to the `op_id` of the inscription, which covers the public data of every step without any proof.
+- The [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) of a user step and of a payment is signed by its holder before the Mantle Transaction exists, so it is bound to its own content, through `step_msg` or `payment_msg`.
+- The [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) and the program proof of a [program step](#programs) are produced by the sequencer, and bound to the `op_id` of the inscription, which covers the public data of every step without any proof.
 - The proof of [CLAIM_POW_REWARD](#claim_pow_reward) is empty, its ticket being bound to the public key it pays: a claim copied into another Mantle Transaction pays the same key, but invalidates the transaction it was copied from.
 
 ```python
@@ -186,7 +186,7 @@ channels: dict[ChannelId, ChannelState]
 
 The state validation reads is not a fixed snapshot: it advances as the block is processed. A Mantle Transaction is validated against the state left by the Mantle Transactions preceding it in the block, as defined in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation), and validation and execution then follow one another Operation by Operation, in the order the Operations appear: the Operation at index `i` is validated against the state the Operations at indices `0` to `i-1` left, then executed to produce the state the Operation at index `i+1` is validated against. This is what the `ledger`, `channels` and `declarations` given to each Operation below denote.
 
-The commitment MMRs of the [note sets](#ledger) that some Operations are proven against follow the same Operation by Operation progression, but locally to the Mantle Transaction. Every Operation adding notes to the ledger note set or to a channel note set appends their commitments to the buffer of that set for the Mantle Transaction when validated, and every Operation referencing a commitment MMR root of a set references the root of that set at one of the last 1024 blocks, against which it is verified once the buffer of the set is appended to it. A user step or a payment, proven before the Mantle Transaction exists, is verified against its root extended with the buffer as it stands when its mini-block starts, so that its proof depends on what precedes its mini-block and not on its position inside it ([CHANNEL_INSCRIBE](#channel_inscribe)). `SDP_WITHDRAW` references no root: its proof is verified against the root of an MMR holding only the service note of its declaration ([SDP_WITHDRAW](#sdp_withdraw)). An Operation can therefore consume the outputs of a previous Operation of the same Mantle Transaction without waiting for a block to include them.
+The commitment MMRs of the [note sets](#ledger) that some Operations are proven against follow the same Operation by Operation progression, but locally to the Mantle Transaction. Every Operation adding notes to the ledger note set or to a channel note set appends their commitments to the buffer of that set for the Mantle Transaction, its `tx_commitment_buffer`, when validated, and every Operation referencing a commitment MMR root of a set references the root of that set at one of the last 1024 blocks, against which it is verified once the buffer of the set is appended to it. A user step or a payment, proven before the Mantle Transaction exists, is verified against its root extended with the buffer as it stands when its mini-block starts, so that its proof depends on what precedes its mini-block and not on its position inside it ([CHANNEL_INSCRIBE](#channel_inscribe)). `SDP_WITHDRAW` references no root: its proof is verified against the root of an MMR holding only the service note of its declaration ([SDP_WITHDRAW](#sdp_withdraw)). An Operation can therefore consume the outputs of a previous Operation of the same Mantle Transaction without waiting for a block to include them.
 
 Atomicity is what a failed check means, not simultaneity. If any of the checks below fails, the whole Mantle Transaction is invalid: none of its Operations takes effect, whether or not it was reached. An invalid Mantle Transaction is never skipped over either, the block including it being invalid and nothing of that block being executed.
 
@@ -215,14 +215,15 @@ Mantle validators will ensure the following:
         # or at the release of its withdrawal, the ledger note set excluded
         tx_note_sets |= note_sets_changed_by(op)
         # the proofs of the Operation whose root at least one buffered commitment extends,
-        # `covered` being the number of commitments of the buffer each proof covers
+        # `covered` being the number of commitments of the buffer each proof covers,
+        # each extension priced by root_gas of Gas Determination
         tx_extended_roots |= roots_extended_by(op)
     tx_execution_gas = checked_uint64(tx_execution_gas
                                       + len(encode(signed_tx)) * EXECUTION_KB_GAS // 1000
                                       + EXECUTION_NOTE_SET_GAS * len(tx_note_sets)
                                       + sum(root_gas(covered) for (_, _, covered) in tx_extended_roots))
-    for note_set in note_sets_appended_to(tx):
-        note_set.tx_cm_buffer = []  # the buffers start empty with every Mantle Transaction
+    for note_set in note_sets_appended_to(tx):  # the note sets the transaction appended a commitment to
+        note_set.tx_commitment_buffer = []  # the buffers start empty with every Mantle Transaction
 
     def validate_mantle_op(txhash, opcode, payload, op_proof):
         if opcode == CHANNEL_INSCRIBE:
@@ -455,27 +456,27 @@ Write a message to a channel with the message data being permanently stored on t
 
 ```python
 class UserStep:
-    is_program: bool = False
-    inputs: list[NoteNf]        # nullifiers of the consumed user notes of the channel
-    outputs: list[NoteCm]       # commitments of the created user notes of the channel
-    cm_merkle_root: MerkleRoot  # the MMR root of the channel note set at the end of one of the last 1024 blocks
+    is_program: bool = False       # whether the step is a program step
+    inputs: list[NoteNullifier]    # nullifiers of the consumed user notes of the channel
+    outputs: list[NoteCommitment]  # commitments of the created user notes of the channel
+    commitment_root: MerkleRoot    # the MMR root of the channel note set at the end of one of the last 1024 blocks
 
 class Payment:
-    inputs: list[NoteNf]        # nullifiers of the consumed user notes of the channel
-    outputs: list[NoteCm]       # commitments of the change, user notes of the channel
-    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set
-    paid_value: TokenValue      # the value paid to the program
-    intent: zkhash              # the hash of what the user expects from the program
+    inputs: list[NoteNullifier]    # nullifiers of the consumed user notes of the channel
+    outputs: list[NoteCommitment]  # commitments of the change, user notes of the channel
+    commitment_root: MerkleRoot    # a recent (less than 1024 blocks) MMR root of the channel note set
+    paid_value: TokenValue         # the value paid to the program
+    intent: zkhash                 # the hash of what the user expects from the program
 
 class ProgramStep:
-    is_program: bool = True
-    program_id: ProgramId       # the program the step executes
-    payments: list[Payment]     # the payments of the users to the program, possibly empty
-    inputs: list[NoteNf]        # nullifiers of the consumed notes of the program, possibly empty
-    outputs: list[NoteCm]       # commitments of the created notes of the program and of the user notes it pays
-    program_outputs: list[bool] # (len = len(outputs)) whether each output is a note of the program
-    cm_merkle_root: MerkleRoot  # a recent (less than 1024 blocks) MMR root of the channel note set
-    spend_notes_hash: zkhash    # the hash of the input and output notes of the program spend
+    is_program: bool = True        # whether the step is a program step
+    program_id: ProgramId          # the program the step executes
+    payments: list[Payment]        # the payments of the users to the program, possibly empty
+    inputs: list[NoteNullifier]    # nullifiers of the consumed notes of the program, possibly empty
+    outputs: list[NoteCommitment]  # commitments of the created notes of the program and of the user notes it pays
+    program_outputs: list[bool]    # (len = len(outputs)) whether each output is a note of the program
+    commitment_root: MerkleRoot    # a recent (less than 1024 blocks) MMR root of the channel note set
+    spend_notes_hash: zkhash       # the hash of the input and output notes of the program spend
 
 class Inscribe:
     channel: ChannelId       # 32 bytes Channel being written to
@@ -486,9 +487,11 @@ class Inscribe:
                                                      # empty. A mini-block holds at least one step
 ```
 
+A `NoteNullifier` is the nullifier of a note and a `NoteCommitment` its commitment, as [Note Commitment and Nullifier](#note-commitment-and-nullifier) defines them, a `MerkleRoot` the root of a Merkle tree, and a `ProgramId` the identifier of a program, derived in [PROGRAM_REGISTER](#program_register).
+
 A user step moves the user notes of its holder. A program step executes a [program](#programs): users pay it with their payments, and the program spend consumes and creates the notes of the program and pays users.
 
-The steps of an inscription are grouped in mini-blocks. A user step and a payment are signed and proven by the holder of the notes they consume, off-chain and before the Mantle Transaction carrying them exists. The ZkTransfer of each is verified against its referenced root extended with the buffer of the channel note set as it stands when its mini-block starts: the commitments the earlier Operations of the Mantle Transaction and the earlier mini-blocks of the inscription added. It can therefore consume the notes of earlier blocks and the outputs of the earlier mini-blocks, but not the outputs of its own mini-block. Its proof depends on what precedes its mini-block and not on its position inside it, and the holders prove theirs independently of one another:
+The steps of an inscription are grouped in mini-blocks. A user step and a payment are signed and proven by the holder of the notes they consume, off-chain and before the Mantle Transaction carrying them exists. The ZkTransfer of each is verified, by the [`verify_transfer`](#input-notes-spendability-validation) method of the note set, against its referenced root extended with the buffer of the channel note set as it stands when its mini-block starts: the commitments the earlier Operations of the Mantle Transaction and the earlier mini-blocks of the inscription added. It can therefore consume the notes of earlier blocks and the outputs of the earlier mini-blocks, but not the outputs of its own mini-block. Its proof depends on what precedes its mini-block and not on its position inside it, and the holders prove theirs independently of one another:
 
 - The steps and payments of the first mini-block, when no earlier Operation of the Mantle Transaction added to the channel note set, are proven against their recent root alone, so a sequencer collects those of many users and publishes them in the order it chooses. A sequencer should place an Operation adding to that note set after the inscription: if it comes first, every step and payment of the first mini-block covers what it adds.
 - If the first mini-block adds 400 commitments to the buffer, every user step and payment of the second mini-block covers these 400: it can consume the outputs of the first mini-block, and those of the second mini-block are again ordered freely among themselves. The same holds for the next mini-blocks.
@@ -499,13 +502,16 @@ The program spend of a program step is proven by the sequencer once the inscript
 
 The mini-block of a step or payment is public, so one of a later mini-block reveals that its inputs are among the notes under its root and the commitments it covers. Covering the whole of the previous mini-blocks keeps it from pointing at the notes it consumes.
 
-Since they are signed before the Mantle Transaction exists, their ZkTransfer is bound to their own content rather than to the `mantle_txhash`. A user step balances exactly, with an `excess_value` of `0`. The `excess_value` of the ZkTransfer of a payment is its `paid_value`, and the message of a payment also commits to the program it pays and to its intent, so its ZkTransfer only verifies in a step of that program, for that intent. Both messages commit to the channel:
+Since they are signed before the Mantle Transaction exists, their ZkTransfer is bound to their own content rather than to the `mantle_txhash`. A user step balances exactly, with an `excess_value` of `0`. The `excess_value` of the ZkTransfer of a payment is its `paid_value`, and the message of a payment also commits to the program it pays and to its intent, so its ZkTransfer only verifies in a step of that program, for that intent.
+
+Both messages commit to the channel. A channel ID is 32 free bytes, larger than the field, so a single reduced element would give channels `x` and `x + p` the same message. Each message therefore holds the channel ID as two elements, low first: `channel_lo`, its low 16 bytes `channel[:16]`, and `channel_hi`, its high 16 bytes `channel[16:]`.
 
 ```python
 def step_msg(channel: ChannelId, step: UserStep) -> zkhash:
     return zkhash(
         FiniteField(b"CHANNEL_STEP_V1", byte_order="little", modulus=p),
-        FiniteField(channel, byte_order="little", modulus=p),
+        FiniteField(channel_lo, byte_order="little", modulus=p),
+        FiniteField(channel_hi, byte_order="little", modulus=p),
         FiniteField(len(step.inputs), byte_order="little", modulus=p),
         *step.inputs,
         FiniteField(len(step.outputs), byte_order="little", modulus=p),
@@ -514,7 +520,8 @@ def step_msg(channel: ChannelId, step: UserStep) -> zkhash:
 def payment_msg(channel: ChannelId, program_id: ProgramId, payment: Payment) -> zkhash:
     return zkhash(
         FiniteField(b"PROGRAM_PAYMENT_V1", byte_order="little", modulus=p),
-        FiniteField(channel, byte_order="little", modulus=p),
+        FiniteField(channel_lo, byte_order="little", modulus=p),
+        FiniteField(channel_hi, byte_order="little", modulus=p),
         program_id,
         payment.intent,
         FiniteField(len(payment.inputs), byte_order="little", modulus=p),
@@ -545,14 +552,14 @@ A program step consuming no note applies only with its inscription, to whose `op
 
 ```python
 class ProgramNoteOpening:
-    value: TokenValue
-    nonce: NoteNonce
-    public_key: ZkPublicKey
-    data: zkhash
+    value: TokenValue        # the value of the note
+    nonce: NoteNonce         # the nonce of the note
+    public_key: ZkPublicKey  # the public key of the note
+    data: zkhash             # the data of the note
 
 class ProgramStepProof:
     payment_proofs: list[ZkTransfer]  # one per payment, in the order of the payments
-    spend_proof: ZkProgramSpend
+    spend_proof: ZkProgramSpend       # the proof of the program spend
     program_proof: Groth16Proof       # under the verification key of the program
     program_notes: list[ProgramNoteOpening]  # the opening of each output of the program,
                                              # in the order of the outputs
@@ -626,14 +633,14 @@ block_slot: Slot
                                      for position, step in enumerate(mini_block)]
       assert len(proof.step_proofs) == len(steps)
       op_id_fr = FiniteField(op_id, byte_order="little", modulus=p)
-      step_nfs = set()  # the nullifiers of the steps already validated
+      step_nullifiers = set()  # the nullifiers of the steps already validated
       ```
 
-  4. Validate the steps in their order, each with its proof in `step_proofs`, a ZkTransfer for a user step and a `ProgramStepProof` for a program step. A user step or a payment is validated against the commitments the earlier Operations and mini-blocks of the Mantle Transaction appended to the buffer of the channel note set, and a program spend against the whole buffer at its position. Each is validated against `step_nfs`, so no two steps or payments consume the same note.
+  4. Validate the steps in their order, each with its proof in `step_proofs`, a ZkTransfer for a user step and a `ProgramStepProof` for a program step. A user step or a payment is validated against the commitments the earlier Operations and mini-blocks of the Mantle Transaction appended to the buffer of the channel note set, and a program spend against the whole buffer at its position. Each is validated against `step_nullifiers`, so no two steps or payments consume the same note.
       ```python
       for (starts_mini_block, step), step_proof in zip(steps, proof.step_proofs):
           if starts_mini_block:
-              covered = len(note_set.tx_cm_buffer)
+              covered = len(note_set.tx_commitment_buffer)
           if step.is_program:
               # Ensure the program is registered.
               assert step.program_id in ledger.programs
@@ -643,37 +650,37 @@ block_slot: Slot
               assert len(step_proof.payment_proofs) == len(step.payments)
               paid_value = 0
               for payment, payment_proof in zip(step.payments, step_proof.payment_proofs):
-                  note_set.assert_spendable(payment.inputs, payment.cm_merkle_root)
-                  for note_nf in payment.inputs:
-                      assert note_nf not in step_nfs
-                      step_nfs.add(note_nf)
+                  note_set.assert_spendable(payment.inputs, payment.commitment_root)
+                  for note_nullifier in payment.inputs:
+                      assert note_nullifier not in step_nullifiers
+                      step_nullifiers.add(note_nullifier)
                   assert note_set.verify_transfer(payment.inputs,
                                                   payment.outputs,
                                                   payment.paid_value,
-                                                  payment.cm_merkle_root,
+                                                  payment.commitment_root,
                                                   payment_msg(msg.channel, step.program_id, payment),
                                                   payment_proof,
                                                   covered)
                   # the program spend is verified with the change of the payments
-                  note_set.tx_cm_buffer.extend(payment.outputs)
+                  note_set.tx_commitment_buffer.extend(payment.outputs)
                   paid_value = checked_uint64(paid_value + payment.paid_value)
 
               # Ensure the program spend consumes unspent notes of the program, possibly none,
               # and balances exactly with the value paid.
               if len(step.inputs) > 0:
-                  note_set.assert_spendable(step.inputs, step.cm_merkle_root)
+                  note_set.assert_spendable(step.inputs, step.commitment_root)
               else:
-                  assert step.cm_merkle_root in note_set.recent_cm_roots
-                  last_block = note_set.recent_cm_roots[step.cm_merkle_root].last_block
+                  assert step.commitment_root in note_set.recent_commitment_roots
+                  last_block = note_set.recent_commitment_roots[step.commitment_root].last_block
                   assert last_block is None or last_block >= block_height - 1024
-              for note_nf in step.inputs:
-                  assert note_nf not in step_nfs
-                  step_nfs.add(note_nf)
+              for note_nullifier in step.inputs:
+                  assert note_nullifier not in step_nullifiers
+                  step_nullifiers.add(note_nullifier)
               assert len(step.program_outputs) == len(step.outputs)
               assert note_set.verify_program_spend(step.inputs,
                                                    step.outputs,
                                                    step.program_outputs,
-                                                   step.cm_merkle_root,
+                                                   step.commitment_root,
                                                    step.program_id,
                                                    paid_value,
                                                    step.spend_notes_hash,
@@ -681,15 +688,15 @@ block_slot: Slot
                                                    step_proof.spend_proof)
 
               # Ensure every output of the program is opened, for the availability of its state.
-              program_cms = [cm for cm, of_program in zip(step.outputs, step.program_outputs)
-                             if of_program]
-              assert len(step_proof.program_notes) == len(program_cms)
-              for cm, opening in zip(program_cms, step_proof.program_notes):
-                  assert cm == derive_note_cm(Note(value=opening.value,
-                                                   nonce=opening.nonce,
-                                                   public_key=opening.public_key,
-                                                   program=step.program_id,
-                                                   data=opening.data))
+              program_commitments = [commitment for commitment, of_program
+                                     in zip(step.outputs, step.program_outputs) if of_program]
+              assert len(step_proof.program_notes) == len(program_commitments)
+              for commitment, opening in zip(program_commitments, step_proof.program_notes):
+                  assert commitment == derive_note_commitment(Note(value=opening.value,
+                                                                   nonce=opening.nonce,
+                                                                   public_key=opening.public_key,
+                                                                   program=step.program_id,
+                                                                   data=opening.data))
 
               # Ensure the program accepts the step.
               assert Groth16_verify(ledger.programs[step.program_id],
@@ -697,21 +704,21 @@ block_slot: Slot
                                     step_proof.program_proof)
           else:
               # Ensure the user step is spendable and signed by its holder.
-              note_set.assert_spendable(step.inputs, step.cm_merkle_root)
-              for note_nf in step.inputs:
-                  assert note_nf not in step_nfs
-                  step_nfs.add(note_nf)
+              note_set.assert_spendable(step.inputs, step.commitment_root)
+              for note_nullifier in step.inputs:
+                  assert note_nullifier not in step_nullifiers
+                  step_nullifiers.add(note_nullifier)
               assert note_set.verify_transfer(step.inputs,
                                               step.outputs,
                                               0,  # a user step balances exactly
-                                              step.cm_merkle_root,
+                                              step.commitment_root,
                                               step_msg(msg.channel, step),
                                               step_proof,
                                               covered)
 
           # Append the outputs of the step to the buffer: the next program spends cover them,
           # and so do the user steps and payments of the next mini-blocks.
-          note_set.tx_cm_buffer.extend(step.outputs)
+          note_set.tx_commitment_buffer.extend(step.outputs)
       ```
 
 #### Execution
@@ -734,7 +741,7 @@ block_slot: Slot
       if msg.channel not in channels:
           create_channel(msg.channel, block_slot, [msg.signer])
           if note_set is not None:
-              ledger.sets[channels[msg.channel].note_set].tx_cm_buffer = note_set.tx_cm_buffer
+              ledger.sets[channels[msg.channel].note_set].tx_commitment_buffer = note_set.tx_commitment_buffer
       ```
 
   2. Apply the steps, in their order: the payments of a program step, then its program spend.
@@ -906,10 +913,10 @@ A Zone that credits a deposit in its own state must be sure the deposit really l
 ```python
 class ChannelDeposit:
     channel: ChannelId
-    inputs: list[NoteNf]        # nullifiers of the consumed notes of the ledger note set
-    cm_merkle_root: MerkleRoot  # the MMR root of the ledger note set at the end of one of the last 1024 blocks
-    outputs: list[NoteCm]       # commitments of the created notes of the channel note set
-    excess_value: TokenValue    # the excess to pay the fees
+    inputs: list[NoteNullifier]    # nullifiers of the consumed notes of the ledger note set
+    commitment_root: MerkleRoot    # the MMR root of the ledger note set at the end of one of the last 1024 blocks
+    outputs: list[NoteCommitment]  # commitments of the created notes of the channel note set
+    excess_value: TokenValue       # the excess to pay the fees
     metadata: bytes
 ```
 
@@ -952,9 +959,9 @@ ledger: Ledger
       assert channels[deposit.channel].note_set is not None
       ```
 
-  3. Ensure all inputs are spendable in the ledger note set.
+  3. Ensure all inputs are spendable in the [ledger note set](#ledger), `LEDGER_SET`.
       ```python
-      ledger.sets[LEDGER_SET].assert_spendable(deposit.inputs, deposit.cm_merkle_root)
+      ledger.sets[LEDGER_SET].assert_spendable(deposit.inputs, deposit.commitment_root)
       ```
 
   4. Validate ownership over deposited notes and balance.
@@ -962,14 +969,14 @@ ledger: Ledger
       assert ledger.sets[LEDGER_SET].verify_transfer(deposit.inputs,
                                                      deposit.outputs,
                                                      deposit.excess_value,
-                                                     deposit.cm_merkle_root,
+                                                     deposit.commitment_root,
                                                      mantle_txhash_fr,
                                                      deposit_proof)
       ```
 
   5. Add the outputs to the buffer of the channel note set.
       ```python
-      ledger.sets[channels[deposit.channel].note_set].tx_cm_buffer.extend(deposit.outputs)
+      ledger.sets[channels[deposit.channel].note_set].tx_commitment_buffer.extend(deposit.outputs)
       ```
 
 #### Execution
@@ -1008,9 +1015,9 @@ WITHDRAW_DELAY: Slot = 86_400  # 1 day
 ```python
 class ChannelWithdraw:
     channel: ChannelId
-    inputs: list[NoteNf]        # nullifiers of the consumed notes of the channel note set
-    cm_merkle_root: MerkleRoot  # the MMR root of the channel note set at the end of one of the last 1024 blocks
-    outputs: list[NoteCm]       # commitments of the notes created in the ledger note set
+    inputs: list[NoteNullifier]    # nullifiers of the consumed notes of the channel note set
+    commitment_root: MerkleRoot    # the MMR root of the channel note set at the end of one of the last 1024 blocks
+    outputs: list[NoteCommitment]  # commitments of the notes created in the ledger note set
 ```
 
 A withdrawal balances exactly and carries no fee: another Operation of its Mantle Transaction, such as a Transfer, pays the fees. A holder whose funds are all in channels therefore needs a ledger note, of its own or added by a third party, to post its withdrawal. An excess paid when the withdrawal is posted would stay paid even if the withdrawal is dropped later, which would create tokens.
@@ -1051,7 +1058,7 @@ ledger: Ledger
 
   2. Ensure all inputs are spendable in the channel note set.
       ```python
-      ledger.sets[chan.note_set].assert_spendable(withdrawal.inputs, withdrawal.cm_merkle_root)
+      ledger.sets[chan.note_set].assert_spendable(withdrawal.inputs, withdrawal.commitment_root)
       ```
 
   3. Validate ownership over the withdrawn notes and balance.
@@ -1059,7 +1066,7 @@ ledger: Ledger
       assert ledger.sets[chan.note_set].verify_transfer(withdrawal.inputs,
                                                         withdrawal.outputs,
                                                         0,  # a withdrawal balances exactly
-                                                        withdrawal.cm_merkle_root,
+                                                        withdrawal.commitment_root,
                                                         mantle_txhash_fr,
                                                         proof)
       ```
@@ -1078,7 +1085,7 @@ block_slot: Slot
 
   *Execute*
 
-Keep the withdrawal until its due slot.
+Keep the withdrawal in the [`pending_withdrawals`](#ledger) of the ledger until its due slot.
 
 ```python
 ledger.pending_withdrawals.append((block_slot + WITHDRAW_DELAY,
@@ -1097,8 +1104,8 @@ def release_withdrawals(block_slot: Slot):
             pending.append((due, note_set, inputs, outputs))
             continue
         unspent = True
-        for note_nf in inputs:
-            if note_nf in ledger.sets[note_set].nullifiers:
+        for note_nullifier in inputs:
+            if note_nullifier in ledger.sets[note_set].nullifiers:
                 unspent = False
         if unspent:
             ledger.sets[note_set].execute_spending(inputs)
@@ -1154,8 +1161,8 @@ class ServiceParameters:
 class DeclarationInfo:
     service: ServiceType
     provider_id: Ed25519PublicKey
-    service_note: NoteCm             # the note of the SDP note set staked by the declaration
-    withdraw_outputs: list[NoteCm]   # the notes the withdrawal creates, released at removal
+    service_note: NoteCommitment            # the note of the SDP note set staked by the declaration
+    withdraw_outputs: list[NoteCommitment]  # the notes the withdrawal creates, released at removal
     locators: list[Locator]
     zk_id: ZkPublicKey
     created: EpochNumber
@@ -1177,10 +1184,13 @@ class DeclarationMessage:
     locators: list[Locator]
     provider_id: Ed25519PublicKey
     zk_id: ZkPublicKey
-    inputs: list[NoteNf]
-    cm_merkle_root: MerkleRoot
+    note_pk: ZkPublicKey
+    inputs: list[NoteNullifier]
+    commitment_root: MerkleRoot
     amount: TokenValue
 ```
+
+`note_pk` is the key the service note is created under. No check reads it and no proof covers its secret, so getting it right is the wallet's responsibility, as for the outputs of a Transfer: a `note_pk` whose secret nobody holds locks the stake for good, and a declarer who keeps the secret offline can keep the stake under a cold key.
 
 Service notes are introduced in [Service notes](#service-notes) and serve as Service collaterals. They cannot be spent before the owner withdraws its participation from the declared service.
 
@@ -1234,7 +1244,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 
   3. Ensure the inputs are spendable and the value is sufficient for joining the service.
       ```python
-      ledger.sets[LEDGER_SET].assert_spendable(declaration.inputs, declaration.cm_merkle_root)
+      ledger.sets[LEDGER_SET].assert_spendable(declaration.inputs, declaration.commitment_root)
       assert declaration.amount >= min_stake.threshold
       ```
 
@@ -1243,7 +1253,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       assert ledger.sets[LEDGER_SET].verify_transfer(declaration.inputs,
                                                      [], # no outputs
                                                      declaration.amount,
-                                                     declaration.cm_merkle_root,
+                                                     declaration.commitment_root,
                                                      FiniteField(txhash, byte_order="little", modulus = p),
                                                      proof.zk_proof)
       assert Ed25519_verify(txhash, declaration.provider_id, proof.provider_sig)
@@ -1268,15 +1278,15 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       ledger.sets[LEDGER_SET].execute_spending(declaration.inputs)
       ```
 
-  2. Create the service note under the `zk_id` in the SDP note set.
+  2. Create the service note under the `note_pk` in the [SDP note set](#ledger), `SDP_SET`, its nonce and commitment derived as in [Note Commitment and Nullifier](#note-commitment-and-nullifier).
       ```python
       declaration_op_id = derive_op_id(declaration)
       service_note = Note(
           value=declaration.amount,
-          nonce=derive_note_nonce(declaration_op_id, 0, declaration.amount, declaration.zk_id),
-          public_key=declaration.zk_id
+          nonce=derive_note_nonce(declaration_op_id, 0, declaration.amount, declaration.note_pk),
+          public_key=declaration.note_pk
       )
-      ledger.sets[SDP_SET].execute_adding([derive_note_cm(service_note)])
+      ledger.sets[SDP_SET].execute_adding([derive_note_commitment(service_note)])
       ```
 
   3. Index the provider identity by this declaration.
@@ -1290,7 +1300,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       declarations[declaration.service_type][declare_id] = DeclarationInfo(
           service=declaration.service_type,
           provider_id=declaration.provider_id,
-          service_note=derive_note_cm(service_note),
+          service_note=derive_note_commitment(service_note),
           withdraw_outputs=[],
           locators=declaration.locators,
           zk_id=declaration.zk_id,
@@ -1311,16 +1321,16 @@ The service withdrawal follows the definition given in [Withdraw Message](bedroc
 class WithdrawMessage:
     declaration: DeclarationId
     nonce: int
-    service_note_nf: NoteNf     # nullifier of the service note of the declaration
-    outputs: list[NoteCm]       # commitments of the notes created in the ledger note set
-    excess_value: TokenValue    # the excess to pay the fees
+    service_note_nullifier: NoteNullifier  # nullifier of the service note of the declaration
+    outputs: list[NoteCommitment]          # commitments of the notes created in the ledger note set
+    excess_value: TokenValue               # the excess to pay the fees
 ```
 
 The withdrawal consumes the service note of the declaration and creates the notes that return its value. Its ZkTransfer is proven against the root of an empty MMR to which only the service note is appended. That root is computed from the commitment held in the declaration, so the nullifier is the one of this service note and of no other note.
 
 #### Proof
 
-  A signature from the `provider_id` attached to the declaration and a [Zero Knowledge Transfer Proof (ZkTransfer)](#zero-knowledge-transfer-proof-zktransfer) by the holder of the service note are required for withdrawing from a service.
+  A signature from the `provider_id` attached to the declaration and a [Zero Knowledge Transfer Proof (ZkTransfer)](#zero-knowledge-transfer-proof-zktransfer) by the holder of the service note, who has the secret of the `note_pk`, are required for withdrawing from a service.
 
 ```python
 class WithdrawProof:
@@ -1368,10 +1378,10 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       assert withdraw.nonce >> 32 == declare_info.created
       assert withdraw.nonce & 0xFFFFFFFF == (declare_info.nonce & 0xFFFFFFFF) + 1
       ```
-  5. Ensure the service note of the declaration is consumed by its holder and balances the outputs.
+  5. Ensure the service note of the declaration is consumed by its holder and balances the outputs, with [`ZkTransfer_verify`](#zero-knowledge-transfer-proof-zktransfer) against the [`mmr_root`](#commitment-merkle-mountain-range) of the single peak holding the service note.
       ```python
-      assert withdraw.service_note_nf not in ledger.sets[SDP_SET].nullifiers
-      assert ZkTransfer_verify([withdraw.service_note_nf],
+      assert withdraw.service_note_nullifier not in ledger.sets[SDP_SET].nullifiers
+      assert ZkTransfer_verify([withdraw.service_note_nullifier],
                                withdraw.outputs,
                                withdraw.excess_value,
                                mmr_root([(declare_info.service_note, 0)]),  # one peak, the service note
@@ -1405,7 +1415,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 
   2. Consume the service note in the SDP note set.
       ```python
-      ledger.sets[SDP_SET].execute_spending([withdraw.service_note_nf])
+      ledger.sets[SDP_SET].execute_spending([withdraw.service_note_nullifier])
       ```
 
 ### SDP Epoch Finalization
@@ -1610,7 +1620,7 @@ output_note = Note(
     nonce = derive_note_nonce(claim_id, 0, epoch_pow_reward, claim.public_key),
     public_key = claim.public_key,
 )
-ledger.sets[LEDGER_SET].tx_cm_buffer.append(derive_note_cm(output_note))
+ledger.sets[LEDGER_SET].tx_commitment_buffer.append(derive_note_commitment(output_note))
 ```
 
 #### Execution
@@ -1633,7 +1643,7 @@ pow_nullifiers: set[zkhash]
   1. Add `puzzle_ticket` to the `pow_nullifiers` set. The entry is retained until the claim's referenced block leaves the [acceptance window](proof-of-work.md#acceptance-window).
   2. Insert the output note into the ledger note set:
       ```python
-      ledger.sets[LEDGER_SET].execute_adding([derive_note_cm(output_note)])
+      ledger.sets[LEDGER_SET].execute_adding([derive_note_commitment(output_note)])
       ```
 
   3. Reduce the `pow_reward_pool` by the same amount:
@@ -1660,6 +1670,8 @@ class Groth16VerificationKey:
 class ProgramRegister:
     verification_key: Groth16VerificationKey
 ```
+
+`G1` and `G2` are points of the groups of BN254 of these names, and `alpha`, `beta`, `gamma`, `delta` and `ic` are the points of a [Groth16](common-cryptographic-components.md#groth16-zk-snark) verification key.
 
 A program proof always has the three public inputs `spend_notes_hash`, `payments_hash` and the `op_id` of its inscription. Since the size of a Groth16 verification key depends only on its number of public inputs, every program key has the same size, and the ledger stores and verifies every program the same way.
 
@@ -1735,11 +1747,11 @@ A Transfer hides which commitments its nullifiers spend, and the values and publ
 
 ```python
 class Transfer:
-    inputs: list[NoteNf]  		# the list of consumed note nullifiers
-                          		# must be non-empty
-    outputs: list[NoteCm]       # the list of created note commitments
-    cm_merkle_root: MerkleRoot  # the MMR root of the ledger note set at the end of one of the last 1024 blocks
-    excess_value: TokenValue	# the excess to pay the fees
+    inputs: list[NoteNullifier]    # the list of consumed note nullifiers
+                                   # must be non-empty
+    outputs: list[NoteCommitment]  # the list of created note commitments
+    commitment_root: MerkleRoot    # the MMR root of the ledger note set at the end of one of the last 1024 blocks
+    excess_value: TokenValue       # the excess to pay the fees
 ```
 
 ### Proof
@@ -1770,7 +1782,7 @@ ledger: Ledger
 
   1. Ensure all inputs are spendable.
       ```python
-      ledger.sets[LEDGER_SET].assert_spendable(transfer.inputs, transfer.cm_merkle_root)
+      ledger.sets[LEDGER_SET].assert_spendable(transfer.inputs, transfer.commitment_root)
       ```
 
   2. Validate transfer proof.
@@ -1778,14 +1790,14 @@ ledger: Ledger
       assert ledger.sets[LEDGER_SET].verify_transfer(transfer.inputs,
                                                      transfer.outputs,
                                                      transfer.excess_value,
-                                                     transfer.cm_merkle_root,
+                                                     transfer.commitment_root,
                                                      mantle_txhash_fr,
                                                      transfer_proof)
       ```
 
   3. Add the outputs to the buffer of the ledger note set.
       ```python
-      ledger.sets[LEDGER_SET].tx_cm_buffer.extend(transfer.outputs)
+      ledger.sets[LEDGER_SET].tx_commitment_buffer.extend(transfer.outputs)
       ```
 
 ### Execution
@@ -1827,7 +1839,7 @@ class Note:
 
 A note whose `program` is `0` is a user note, moved by its holder alone. A note whose `program` is the identifier of a [program](#programs) is a program note: it is created and consumed only with a proof of that program, and its `data` is set by that program.
 
-`MerkleRoot`, `NoteCm`, `NoteNf` and `NoteNonce` are `zkhash` values, elements of $`\mathbb{F}_p`$.
+`MerkleRoot`, `NoteCommitment`, `NoteNullifier` and `NoteNonce` are `zkhash` values, elements of $`\mathbb{F}_p`$. A `NoteCommitment` hashes the fields of a note and identifies it without revealing them, and a `NoteNullifier` hashes the commitment and the secret key of the holder and is published when the note is spent.
 
 ### Note Commitment and Nullifier
 
@@ -1850,7 +1862,7 @@ def derive_note_nonce(op_id: Hash, output_number: int, value: TokenValue, public
         public_key
     )
     
-def derive_note_cm(note: Note) -> NoteCm:
+def derive_note_commitment(note: Note) -> NoteCommitment:
     return zkhash(
         FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p),
         FiniteField(note.value, byte_order="little", modulus= p),
@@ -1860,10 +1872,10 @@ def derive_note_cm(note: Note) -> NoteCm:
         note.data
     )
 	
-def derive_note_nf(note_cm: NoteCm, secret_key: ZkSecretKey) -> NoteNf:
+def derive_note_nullifier(note_commitment: NoteCommitment, secret_key: ZkSecretKey) -> NoteNullifier:
     return zkhash(
         FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p),
-        note_cm,
+        note_commitment,
         secret_key
     )
 ```
@@ -1876,12 +1888,12 @@ These note commitments and nullifiers uniquely define notes in the system. Nodes
 
 The ledger holds the commitment of a note and nothing of its contents. The holder of a note learns its `value` and `nonce` in one of two ways:
 
-- Notes the ledger creates, such as rewards and service notes, carry their nonce in the Operation that creates them ([Note Commitment and Nullifier](#note-commitment-and-nullifier)), and the user notes a program pays in a step consuming a note of the program carry the nonce the [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) derives. Their value is public, or fixed by the rule of the program from public data, so their holder recomputes the commitment alone.
+- Notes the ledger creates, such as rewards and service notes, carry their nonce in the Operation that creates them ([Note Commitment and Nullifier](#note-commitment-and-nullifier)), and the user notes a program pays in a step consuming a note of the program carry the nonce the [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) derives. Their value is public, or fixed by the rule of the program from public data, so their holder recomputes the commitment alone. The leader reward note comes from no Operation: its value is in the header of its block, and its leader chose its nonce ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)).
 - A user note created by a Transfer, a channel deposit, a channel withdrawal, a user step, a payment or a program step consuming no note of the program, or paid in an amount its holder cannot recompute, is delivered off chain: the ledger carries nothing of it but the commitment. The RECOMMENDED delivery is the note ciphertext of [Note Encryption](common-cryptographic-components.md#note-encryption-construction), the encryption of `value` and `nonce` under the encryption key of the recipient with the commitment as associated data, handed over through a direct channel or published on a data availability layer the recipient reads. The recipient decrypts it and owns the note if the commitment it recomputes is the one in the ledger ([Wallet Technical Standard](wallet-technical-standard.md#note-discovery-and-recovery)).
 
 ### Service notes
 
-Service notes are special notes in Mantle that serve as collateral for Service Declarations. Executing a Declare Operation consumes notes of the ledger note set and creates one service note under the declaration's `zk_id` in the SDP note set, its commitment kept with the declaration. A note of the SDP note set is spent only by the Withdraw Operation of its declaration, and the notes that withdrawal creates enter the ledger note set when the declaration is removed. Service notes participate in Proof of Stake.
+Service notes are special notes in Mantle that serve as collateral for Service Declarations. Executing a Declare Operation consumes notes of the ledger note set and creates one service note under the declaration's `note_pk` in the SDP note set, its commitment kept with the declaration. A note of the SDP note set is spent only by the Withdraw Operation of its declaration, and the notes that withdrawal creates enter the ledger note set when the declaration is removed. Service notes participate in Proof of Stake.
 
 ## Ledger
 
@@ -1895,13 +1907,13 @@ The notes live in note sets, each with its own commitment MMR and nullifier IMT.
 
 ```python
 class NoteSet:
-    commitments: list[(MerkleRoot, int)]  # the peaks of the commitment MMR
-    nullifiers: set[NoteNf]               # the set of nullifiers
-    nullifier_leaves: list[NullifierLeaf] # the leaves of the nullifier IMT, in insertion order
-    current_cm_root: MerkleRoot           # the commitment MMR root at the end of the previous block
-    recent_cm_roots: dict[MerkleRoot, RecentRoot]  # the current root and the roots of the last 1024 blocks
-    tx_cm_buffer: list[NoteCm]          # the commitments added by the previous Operations
-                                        # of the Mantle Transaction, empty at its start
+    commitments: list[(MerkleRoot, int)]        # the peaks of the commitment MMR
+    nullifiers: set[NoteNullifier]              # the set of nullifiers
+    nullifier_leaves: list[NullifierLeaf]       # the leaves of the nullifier IMT, in insertion order
+    current_commitment_root: MerkleRoot         # the commitment MMR root at the end of the previous block
+    recent_commitment_roots: dict[MerkleRoot, RecentRoot]  # the current root and the roots of the last 1024 blocks
+    tx_commitment_buffer: list[NoteCommitment]  # the commitments added by the previous Operations
+                                                # of the Mantle Transaction, empty at its start
 
 class RecentRoot:
     peaks: list[(MerkleRoot, int)]  # the peaks of the commitment MMR at this root
@@ -1915,7 +1927,7 @@ class Groth16StoredKey:
 class Ledger:
     sets: list[NoteSet]  # indexed as in the table above
     # the channel withdrawals waiting for their due slot: (due slot, note set, inputs, outputs)
-    pending_withdrawals: list[(Slot, int, list[NoteNf], list[NoteCm])]
+    pending_withdrawals: list[(Slot, int, list[NoteNullifier], list[NoteCommitment])]
     programs: dict[ProgramId, Groth16StoredKey]  # the registered programs: their key and e(alpha, beta)
 
 def empty_note_set() -> NoteSet:
@@ -1923,9 +1935,9 @@ def empty_note_set() -> NoteSet:
         commitments=[],                       # an empty MMR has no peak
         nullifiers={0},                       # the nullifier of the sentinel leaf
         nullifier_leaves=[NullifierLeaf(0, 0, 0)],  # an IMT holding only its sentinel leaf
-        current_cm_root=mmr_root([]),         # the root of the empty MMR
-        recent_cm_roots={mmr_root([]): RecentRoot([], None)},
-        tx_cm_buffer=[]
+        current_commitment_root=mmr_root([]),  # the root of the empty MMR
+        recent_commitment_roots={mmr_root([]): RecentRoot([], None)},
+        tx_commitment_buffer=[]
     )
 ```
 
@@ -1933,13 +1945,13 @@ At the end of a block at height `block_height`, after its transactions and its l
 
 ```python
 class NoteSet:
-    def record_cm_root(self, block_height: int):
-        self.recent_cm_roots[self.current_cm_root].last_block = block_height - 1
-        self.current_cm_root = mmr_root(self.commitments)
-        self.recent_cm_roots[self.current_cm_root] = RecentRoot(list(self.commitments), None)
-        for root, recent in list(self.recent_cm_roots.items()):
+    def record_commitment_root(self, block_height: int):
+        self.recent_commitment_roots[self.current_commitment_root].last_block = block_height - 1
+        self.current_commitment_root = mmr_root(self.commitments)
+        self.recent_commitment_roots[self.current_commitment_root] = RecentRoot(list(self.commitments), None)
+        for root, recent in list(self.recent_commitment_roots.items()):
             if recent.last_block is not None and recent.last_block < block_height - 1023:
-                del self.recent_cm_roots[root]
+                del self.recent_commitment_roots[root]
 ```
 
 A root is recent for a block at height `h` if it is the current root of the set, or if its `last_block` is at least `h - 1024`: a root is the root of the set at the end of each block from the one that recorded it until the block before the one that replaces it.
@@ -1963,9 +1975,9 @@ def path_root(leaf: zkhash, path: list[zkhash], selectors: list[boolean]) -> Mer
 The ledger keeps only the peaks of the tree: the roots of its largest perfect subtrees holding appended commitments, with their heights, from left to right. Appending a commitment adds a peak of height $`0`$ and merges the last two peaks while they have the same height, and the root is computed from the peaks and the roots of the empty subtrees:
 
 ```python
-def mmr_append(peaks: list[(MerkleRoot, int)], note_cm: NoteCm):
+def mmr_append(peaks: list[(MerkleRoot, int)], note_commitment: NoteCommitment):
     assert sum(2**height for (_, height) in peaks) < 2**40  # the tree has 2**40 leaves
-    peaks.append((note_cm, 0))
+    peaks.append((note_commitment, 0))
     while len(peaks) > 1 and peaks[-1][1] == peaks[-2][1]:
         (left, height), (right, _) = peaks[-2], peaks[-1]
         peaks[-2:] = [(zkhash(left, right), height + 1)]
@@ -1997,38 +2009,38 @@ def mmr_root(peaks: list[(MerkleRoot, int)]) -> MerkleRoot:
 
 ### Nullifier Indexed Merkle Tree
 
-The nullifiers of each note set are maintained in an indexed Merkle tree (IMT) of depth $`40`$, whose leaves are appended in insertion order. Each leaf points to the leaf holding the next greater nullifier, so the leaves form a sorted linked list. The first leaf is the sentinel `(0, 0, 0)`, and a `next_nf` of `0` means there is no greater nullifier.
+The nullifiers of each note set are maintained in an indexed Merkle tree (IMT) of depth $`40`$, whose leaves are appended in insertion order. Each leaf points to the leaf holding the next greater nullifier, so the leaves form a sorted linked list. The first leaf is the sentinel `(0, 0, 0)`, and a `next_nullifier` of `0` means there is no greater nullifier.
 
 ```python
 class NullifierLeaf:
-    nf: NoteNf
-    next_nf: NoteNf  # the next greater nullifier of the set, 0 if none
-    next_index: int  # the index of the leaf holding next_nf, 0 if none
+    nullifier: NoteNullifier       # the nullifier this leaf holds
+    next_nullifier: NoteNullifier  # the next greater nullifier of the set, 0 if none
+    next_index: int                # the index of the leaf holding next_nullifier, 0 if none
 
 def nullifier_leaf_hash(leaf: NullifierLeaf) -> zkhash:
     return zkhash(
         FiniteField(b"NULLIFIER_IMT_LEAF_V1", byte_order="little", modulus= p),
-        leaf.nf,
-        leaf.next_nf,
+        leaf.nullifier,
+        leaf.next_nullifier,
         FiniteField(leaf.next_index, byte_order="little", modulus= p)
     )
 
-def insert_nullifier(leaves: list[NullifierLeaf], nf: NoteNf):
+def insert_nullifier(leaves: list[NullifierLeaf], nullifier: NoteNullifier):
     assert len(leaves) < 2**40  # the IMT has 2**40 leaves, the sentinel included
-    # walk the sorted list to the leaf of the greatest nullifier lower than nf
+    # walk the sorted list to the leaf of the greatest nullifier lower than nullifier
     low_index = 0
-    while leaves[low_index].next_nf != 0 and leaves[low_index].next_nf < nf:
+    while leaves[low_index].next_nullifier != 0 and leaves[low_index].next_nullifier < nullifier:
         low_index = leaves[low_index].next_index
     low = leaves[low_index]
 
-    leaves.append(NullifierLeaf(nf=nf, next_nf=low.next_nf, next_index=low.next_index))
-    low.next_nf = nf
+    leaves.append(NullifierLeaf(nullifier=nullifier, next_nullifier=low.next_nullifier, next_index=low.next_index))
+    low.next_nullifier = nullifier
     low.next_index = len(leaves) - 1
 ```
 
-A nullifier `nf` is not in the set if and only if there is a leaf `low` with `low.nf < nf` and either `nf < low.next_nf` or `low.next_nf == 0`. The root of the IMT is the Merkle root of depth $`40`$ over the hashes of its leaves, where every position past the last appended leaf holds the value $`0`$. An empty position is therefore distinct from the sentinel, whose position holds `nullifier_leaf_hash(NullifierLeaf(0, 0, 0))`.
+A `nullifier` is not in the set if and only if there is a leaf `low` with `low.nullifier < nullifier` and either `nullifier < low.next_nullifier` or `low.next_nullifier == 0`. The root of the IMT is the Merkle root of depth $`40`$ over the hashes of its leaves, where every position past the last appended leaf holds the value $`0`$. An empty position is therefore distinct from the sentinel, whose position holds `nullifier_leaf_hash(NullifierLeaf(0, 0, 0))`.
 
-For a note set, `cm_root()` is `mmr_root(self.commitments)`, the root of its commitment MMR, and `nf_root()` is the root of its nullifier IMT, over the hashes of `self.nullifier_leaves`.
+For a note set, the method `commitment_root()` is `mmr_root(self.commitments)`, the root of its commitment MMR as it stands, and `nullifier_root()` is the root of its nullifier IMT, over the hashes of `self.nullifier_leaves`. The `commitment_root` field of an Operation is one of the roots the set recorded.
 
 ### Input Notes Spendability Validation
 
@@ -2036,7 +2048,7 @@ The following method validates that an input of notes of a note set can be consu
 
 ```python
 class NoteSet:
-    def assert_spendable(self, inputs: list[NoteNf], cm_merkle_root: MerkleRoot):
+    def assert_spendable(self, inputs: list[NoteNullifier], commitment_root: MerkleRoot):
         # Assert inputs are not empty
         assert len(inputs) > 0
 
@@ -2045,40 +2057,40 @@ class NoteSet:
 
         # Check the root is the commitment MMR root of the set at the end of one of the last
         # 1024 blocks, block_height being the height of the block validated
-        assert cm_merkle_root in self.recent_cm_roots
-        last_block = self.recent_cm_roots[cm_merkle_root].last_block
+        assert commitment_root in self.recent_commitment_roots
+        last_block = self.recent_commitment_roots[commitment_root].last_block
         assert last_block is None or last_block >= block_height - 1024
 
         # Check that each note is unspent
-        for note_nf in inputs:
-            assert note_nf not in self.nullifiers
+        for note_nullifier in inputs:
+            assert note_nullifier not in self.nullifiers
 ```
 
-The proofs spending notes of a note set are verified against the root referenced by the Operation once the commitments of the `tx_cm_buffer` of the set are appended to it, all of them, or only those before its mini-block for a user step or a payment ([CHANNEL_INSCRIBE](#channel_inscribe)). The inputs can therefore be notes created by the previous Operations of the Mantle Transaction. The proofs of a Mantle Transaction naming the same note set, referenced root and number of buffered commitments are verified against one extended root, computed once:
+The proofs spending notes of a note set are verified against the root referenced by the Operation once the commitments of the `tx_commitment_buffer` of the set are appended to it, all of them, or only those before its mini-block for a user step or a payment ([CHANNEL_INSCRIBE](#channel_inscribe)). The inputs can therefore be notes created by the previous Operations of the Mantle Transaction. The proofs of a Mantle Transaction naming the same note set, referenced root and number of buffered commitments are verified against one extended root, computed once:
 
 ```python
 class NoteSet:
-    def tx_cm_root(self, cm_merkle_root: MerkleRoot, covered: int | None = None) -> MerkleRoot:
-        # append the first covered commitments of tx_cm_buffer, all of them by default,
-        # to a copy of the peaks of the MMR of root cm_merkle_root
-        peaks = list(self.recent_cm_roots[cm_merkle_root].peaks)
-        for note_cm in self.tx_cm_buffer[:covered]:
-            mmr_append(peaks, note_cm)
+    def tx_commitment_root(self, commitment_root: MerkleRoot, covered: int | None = None) -> MerkleRoot:
+        # append the first covered commitments of tx_commitment_buffer, all of them by default,
+        # to a copy of the peaks of the MMR of root commitment_root
+        peaks = list(self.recent_commitment_roots[commitment_root].peaks)
+        for note_commitment in self.tx_commitment_buffer[:covered]:
+            mmr_append(peaks, note_commitment)
         return mmr_root(peaks)
 
-    def verify_transfer(self, inputs: list[NoteNf], outputs: list[NoteCm], excess_value: TokenValue,
-                        cm_merkle_root: MerkleRoot, msg: zkhash, proof: ZkTransfer,
+    def verify_transfer(self, inputs: list[NoteNullifier], outputs: list[NoteCommitment], excess_value: TokenValue,
+                        commitment_root: MerkleRoot, msg: zkhash, proof: ZkTransfer,
                         covered: int | None = None) -> bool:
         return ZkTransfer_verify(inputs, outputs, excess_value,
-                                 self.tx_cm_root(cm_merkle_root, covered), msg, proof)
+                                 self.tx_commitment_root(commitment_root, covered), msg, proof)
 
-    def verify_program_spend(self, inputs: list[NoteNf], outputs: list[NoteCm],
-                             program_outputs: list[bool], cm_merkle_root: MerkleRoot,
+    def verify_program_spend(self, inputs: list[NoteNullifier], outputs: list[NoteCommitment],
+                             program_outputs: list[bool], commitment_root: MerkleRoot,
                              program_id: ProgramId, paid_value: TokenValue,
                              spend_notes_hash: zkhash, msg: zkhash,
                              proof: ZkProgramSpend) -> bool:
         return ZkProgramSpend_verify(inputs, outputs, program_outputs,
-                                     self.tx_cm_root(cm_merkle_root), program_id, paid_value,
+                                     self.tx_commitment_root(commitment_root), program_id, paid_value,
                                      spend_notes_hash, msg, proof)
 ```
 
@@ -2090,10 +2102,10 @@ Consuming notes of a note set inserts their nullifiers in the nullifier IMT of t
 
 ```python
 class NoteSet:
-    def execute_spending(self, inputs: list[NoteNf]):
-        for note_nf in inputs:
-            self.nullifiers.add(note_nf)
-            insert_nullifier(self.nullifier_leaves, note_nf)
+    def execute_spending(self, inputs: list[NoteNullifier]):
+        for note_nullifier in inputs:
+            self.nullifiers.add(note_nullifier)
+            insert_nullifier(self.nullifier_leaves, note_nullifier)
 ```
 
 ### Creating Output Notes Execution
@@ -2102,9 +2114,9 @@ Creating notes of a note set appends their commitments to the commitment MMR of 
 
 ```python
 class NoteSet:
-    def execute_adding(self, outputs: list[NoteCm]):
-        for note_cm in outputs:
-            mmr_append(self.commitments, note_cm)
+    def execute_adding(self, outputs: list[NoteCommitment]):
+        for note_commitment in outputs:
+            mmr_append(self.commitments, note_commitment)
 ```
 
 # Appendix
@@ -2133,16 +2145,18 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_NULLIFIER_GAS | 725 |
 | EXECUTION_COMMITMENT_GAS | 24 |
 | EXECUTION_SIGNATURE_GAS | 161 |
-| EXECUTION_USER_STEP_GAS | 178 |
-| EXECUTION_PAYMENT_GAS | 250 |
+| EXECUTION_USER_STEP_GAS | 195 |
+| EXECUTION_PAYMENT_GAS | 267 |
 | EXECUTION_PROGRAM_STEP_GAS | 54 |
 | EXECUTION_OPENING_GAS | 151 |
 | EXECUTION_PROGRAM_PROOF_GAS | 6320 |
 
+The first ten constants price what each Operation does beyond the components, and the others its components: `EXECUTION_KB_GAS` the bytes of a Mantle Transaction, `EXECUTION_NOTE_SET_GAS` the end of block work of a note set it changes, `EXECUTION_PROOF_GAS` a proof, `EXECUTION_ROOT_GAS` the extension of a root and `EXECUTION_BUFFERED_GAS` each commitment it covers, `EXECUTION_NULLIFIER_GAS` a nullifier, `EXECUTION_COMMITMENT_GAS` a commitment, `EXECUTION_SIGNATURE_GAS` an Ed25519 signature, `EXECUTION_USER_STEP_GAS`, `EXECUTION_PAYMENT_GAS` and `EXECUTION_PROGRAM_STEP_GAS` a user step, a payment and a program step beyond their spends, `EXECUTION_OPENING_GAS` the opening of a program note and `EXECUTION_PROGRAM_PROOF_GAS` a program proof.
+
 A ZkTransfer or a ZkProgramSpend costs, with the notes it consumes and creates:
 
 ```python
-def spend_gas(inputs: list[NoteNf], outputs: list[NoteCm]) -> int:
+def spend_gas(inputs: list[NoteNullifier], outputs: list[NoteCommitment]) -> int:
     return (EXECUTION_PROOF_GAS
             + EXECUTION_NULLIFIER_GAS * len(inputs)
             + EXECUTION_COMMITMENT_GAS * len(outputs))
@@ -2163,35 +2177,35 @@ A proof attesting that for the following public values:
 
 ```python
 class ZkTransferPublic:
-    inputs: list[NoteNf]           # (len = 4)
-    inputs_active: list[boolean]   # (len = 4) whether each input consumes a note
-    outputs: list[NoteCm]          # (len = 8)
-    outputs_active: list[boolean]  # (len = 8) whether each output creates a note
-    excess_value: TokenValue
-    tx_cm_root: MerkleRoot         # the referenced cm_merkle_root extended with the tx_cm_buffer of the set,
-                                   # or the commitments before its mini-block for a user step or a payment
-    msg: zkhash
+    inputs: list[NoteNullifier]     # (len = 4) the nullifiers of the consumed notes
+    inputs_active: list[boolean]    # (len = 4) whether each input consumes a note
+    outputs: list[NoteCommitment]   # (len = 8) the commitments of the created notes
+    outputs_active: list[boolean]   # (len = 8) whether each output creates a note
+    excess_value: TokenValue        # the value of the inputs left over by the outputs
+    tx_commitment_root: MerkleRoot  # the referenced commitment_root extended with the tx_commitment_buffer of the set,
+                                    # or the commitments before its mini-block for a user step or a payment
+    msg: zkhash                     # the message the proof is bound to
 ```
 
-`ZkTransfer_verify(inputs, outputs, excess_value, tx_cm_root, msg, proof)` verifies the proof for these public values. The nullifiers of `inputs` fill the first inputs of the circuit and the commitments of `outputs` its first outputs. These are active, and every other input and output is inactive and holds `0`, so the verifier sets the flags from the lengths of the two lists. A ZkTransfer therefore spends at most 4 notes and creates at most 8: an Operation whose `inputs` or `outputs` list is longer is invalid. An Operation spending notes of a note set, other than `SDP_WITHDRAW`, verifies the proof through the [`verify_transfer`](#input-notes-spendability-validation) method of the set, which appends the commitments created earlier in the Mantle Transaction to the referenced root, all of them, or only those before its mini-block for a user step or a payment.
+`ZkTransfer_verify(inputs, outputs, excess_value, tx_commitment_root, msg, proof)` verifies the proof for these public values. The nullifiers of `inputs` fill the first inputs of the circuit and the commitments of `outputs` its first outputs. These are active, and every other input and output is inactive and holds `0`, so the verifier sets the flags from the lengths of the two lists. A ZkTransfer therefore spends at most 4 notes and creates at most 8: an Operation whose `inputs` or `outputs` list is longer is invalid. An Operation spending notes of a note set, other than `SDP_WITHDRAW`, verifies the proof through the [`verify_transfer`](#input-notes-spendability-validation) method of the set, which appends the commitments created earlier in the Mantle Transaction to the referenced root, all of them, or only those before its mini-block for a user step or a payment.
 
-The public signal vector of the proof is fixed by the circuit: the outputs `inputs`, `outputs` and `excess_value` first, then `inputs_active`, `outputs_active`, `tx_cm_root` and `msg`.
+The circuit fixes the order of the public signals of the proof: the outputs `inputs`, `outputs` and `excess_value` first, then `inputs_active`, `outputs_active`, `tx_commitment_root` and `msg`.
 
 The prover knows a witness:
 
 ```python
 class ZkTransferWitness:
-    inputs_sk: list[ZkSecretKey]   # (len = 4)
-    inputs_nonce: list[zkhash]
-    inputs_value: list[TokenValue]
+    inputs_sk: list[ZkSecretKey]           # (len = 4) the secret key of each input
+    inputs_nonce: list[zkhash]             # the nonce of each input note
+    inputs_value: list[TokenValue]         # the value of each input note
     inputs_selectors: list[list[boolean]]  # (len = 4 x 40) the Merkle path direction of each input
     inputs_path: list[list[zkhash]]        # (len = 4 x 40) the Merkle path of each input
-    outputs_pk: list[ZkPublicKey]  # (len = 8)
-    outputs_nonce: list[zkhash]
-    outputs_value: list[TokenValue]
+    outputs_pk: list[ZkPublicKey]          # (len = 8) the public key of each output note
+    outputs_nonce: list[zkhash]            # the nonce of each output note
+    outputs_value: list[TokenValue]        # the value of each output note
 ```
 
-Such that the following constraints hold, where `inputs_pk` and `inputs_cm` are the public keys and commitments the circuit derives for the inputs:
+Such that the following constraints hold, where `inputs_pk` and `inputs_commitment` are the public keys and commitments the circuit derives for the inputs:
 
 - Each public key is derived from the corresponding secret key.
   ```python
@@ -2205,7 +2219,7 @@ Such that the following constraints hold, where `inputs_pk` and `inputs_cm` are 
   ```python
   assert all(
       inputs_active[i] * (1 - inputs_active[i]) == 0
-      and inputs_cm[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i], 0, 0)
+      and inputs_commitment[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i], 0, 0)
       for i in range(len(inputs_sk))
   )
   ```
@@ -2213,13 +2227,13 @@ Such that the following constraints hold, where `inputs_pk` and `inputs_cm` are 
 - Each active input nullifier is derived from the secret key and the input commitment, and each inactive input has value 0.
   ```python
   assert all(
-      inputs[i] == zkhash(FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p), inputs_cm[i], inputs_sk[i])
+      inputs[i] == zkhash(FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p), inputs_commitment[i], inputs_sk[i])
       if inputs_active[i] else inputs_value[i] == 0
       for i in range(len(inputs_sk))
   )
   ```
   
-- Each selector is a bit, and each active input commitment is in `tx_cm_root`, its path computed by [`path_root`](#commitment-merkle-mountain-range).
+- Each selector is a bit, and each active input commitment is in `tx_commitment_root`, its path computed by [`path_root`](#commitment-merkle-mountain-range).
   ```python
   assert all(
       inputs_selectors[i][j] * (1 - inputs_selectors[i][j]) == 0
@@ -2227,7 +2241,7 @@ Such that the following constraints hold, where `inputs_pk` and `inputs_cm` are 
       for j in range(len(inputs_selectors[i]))
   )
   assert all(
-      path_root(inputs_cm[i], inputs_path[i], inputs_selectors[i]) == tx_cm_root
+      path_root(inputs_commitment[i], inputs_path[i], inputs_selectors[i]) == tx_commitment_root
       or not inputs_active[i]
       for i in range(len(inputs_sk))
   )
@@ -2277,37 +2291,37 @@ The ZkTransfer adapted to the notes of one program. It is proven by the sequence
 
 ```python
 class ZkProgramSpendPublic:
-    inputs: list[NoteNf]           # (len = 4) nullifiers of notes of the program
-    inputs_active: list[boolean]   # (len = 4) whether each input consumes a note
-    outputs: list[NoteCm]          # (len = 8) notes of the program, or user notes it pays
-    outputs_active: list[boolean]  # (len = 8) whether each output creates a note
+    inputs: list[NoteNullifier]        # (len = 4) nullifiers of notes of the program
+    inputs_active: list[boolean]       # (len = 4) whether each input consumes a note
+    outputs: list[NoteCommitment]      # (len = 8) notes of the program, or user notes it pays
+    outputs_active: list[boolean]      # (len = 8) whether each output creates a note
     outputs_of_program: list[boolean]  # (len = 8) whether each output is a note of the program
-    tx_cm_root: MerkleRoot         # the referenced cm_merkle_root extended with the tx_cm_buffer of the set
-    program_id: ProgramId
-    paid_value: TokenValue         # the total value the payments of the step pay to the program
-    spend_notes_hash: zkhash       # the hash of the input and output notes, read by the program proof
-    msg: zkhash
+    tx_commitment_root: MerkleRoot     # the referenced commitment_root extended with the tx_commitment_buffer of the set
+    program_id: ProgramId              # the program whose notes the step spends
+    paid_value: TokenValue             # the total value the payments of the step pay to the program
+    spend_notes_hash: zkhash           # the hash of the input and output notes, read by the program proof
+    msg: zkhash                        # the message the proof is bound to
 ```
 
-`ZkProgramSpend_verify(inputs, outputs, program_outputs, tx_cm_root, program_id, paid_value, spend_notes_hash, msg, proof)` verifies the proof for these public values, through the [`verify_program_spend`](#input-notes-spendability-validation) method of the note set. The flags `inputs_active` and `outputs_active` are set from `inputs` and `outputs` as in the ZkTransfer, and `outputs_of_program` is `program_outputs` padded with `False`. A program spend therefore consumes at most 4 notes and creates at most 8: a program step whose `inputs` or `outputs` list is longer is invalid.
+`ZkProgramSpend_verify(inputs, outputs, program_outputs, tx_commitment_root, program_id, paid_value, spend_notes_hash, msg, proof)` verifies the proof for these public values, through the [`verify_program_spend`](#input-notes-spendability-validation) method of the note set. The flags `inputs_active` and `outputs_active` are set from `inputs` and `outputs` as in the ZkTransfer, and `outputs_of_program` is `program_outputs` padded with `False`. A program spend therefore consumes at most 4 notes and creates at most 8: a program step whose `inputs` or `outputs` list is longer is invalid.
 
-The public signal vector of the proof is fixed by the circuit: the outputs `inputs`, `outputs` and `spend_notes_hash` first, then `inputs_active`, `outputs_active`, `outputs_of_program`, `tx_cm_root`, `program_id`, `paid_value` and `msg`.
+The circuit fixes the order of the public signals of the proof: the outputs `inputs`, `outputs` and `spend_notes_hash` first, then `inputs_active`, `outputs_active`, `outputs_of_program`, `tx_commitment_root`, `program_id`, `paid_value` and `msg`.
 
 The prover knows a witness:
 
 ```python
 class ZkProgramSpendWitness:
-    inputs_sk: list[ZkSecretKey]   # (len = 4)
-    inputs_nonce: list[zkhash]
-    inputs_value: list[TokenValue]
-    inputs_data: list[zkhash]
+    inputs_sk: list[ZkSecretKey]           # (len = 4) the secret key of each input
+    inputs_nonce: list[zkhash]             # the nonce of each input note
+    inputs_value: list[TokenValue]         # the value of each input note
+    inputs_data: list[zkhash]              # the data of each input note
     inputs_selectors: list[list[boolean]]  # (len = 4 x 40) the Merkle path direction of each input
     inputs_path: list[list[zkhash]]        # (len = 4 x 40) the Merkle path of each input
-    outputs_pk: list[ZkPublicKey]  # (len = 8)
-    outputs_nonce: list[zkhash]
-    outputs_value: list[TokenValue]
-    outputs_program: list[ProgramId]
-    outputs_data: list[zkhash]
+    outputs_pk: list[ZkPublicKey]          # (len = 8) the public key of each output note
+    outputs_nonce: list[zkhash]            # the nonce of each output note
+    outputs_value: list[TokenValue]        # the value of each output note
+    outputs_program: list[ProgramId]       # the program field of each output note
+    outputs_data: list[zkhash]             # the data of each output note
 ```
 
 Such that the following constraints hold:
@@ -2318,12 +2332,12 @@ Such that the following constraints hold:
   ```python
   assert all(
       inputs_active[i] * (1 - inputs_active[i]) == 0
-      and inputs_cm[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i], program_id, inputs_data[i])
+      and inputs_commitment[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i], program_id, inputs_data[i])
       for i in range(len(inputs_sk))
   )
   ```
 
-- Each active input nullifier is derived from the secret key and the input commitment, each selector is a bit, each active input commitment is in `tx_cm_root`, its path computed by [`path_root`](#commitment-merkle-mountain-range), and each inactive input has value 0, as in the ZkTransfer.
+- Each active input nullifier is derived from the secret key and the input commitment, each selector is a bit, each active input commitment is in `tx_commitment_root`, its path computed by [`path_root`](#commitment-merkle-mountain-range), and each inactive input has value 0, as in the ZkTransfer.
 
 - Each output flag is boolean, each active output is a note of the program if `outputs_of_program` says so and a user note otherwise, whose commitment is derived from its fields, and each inactive output has value 0 and is not a note of the program.
   ```python
@@ -2423,19 +2437,19 @@ def MultiEd25519_verify(msg, signatures, indexes, keys, threshold):
 
 ## Test Vectors
 
-To see what the payloads represent, refer to [Mantle Transaction Encoding](mantle-transaction-encoding.md). The vectors are derived from this specification: `op_id` is the BLAKE2b-256 hash of `OPERATION_ID_V1` and the payload, without its opcode, and the transaction hash the BLAKE2b-256 hash of `MANTLE_TXHASH_V1` and the encoded `MantleTx`. Each field holds a small distinct value, so that every field can be told apart in the payload. The verification key of the `PROGRAM_REGISTER` payload holds placeholder bytes rather than curve points: the vector covers its encoding and its `op_id`, not its validation.
+To see what the payloads represent, refer to [Mantle Transaction Encoding](mantle-transaction-encoding.md). The vectors are derived from this specification: `op_id` is the BLAKE2b-256 hash of `OPERATION_ID_V1` and the payload, without its opcode, and the transaction hash the BLAKE2b-256 hash of `MANTLE_TXHASH_V1` and the encoded `MantleTx`. Each field holds a small distinct value, so that every field can be told apart in the payload. The verification key of the `PROGRAM_REGISTER` payload is the key of the [Program Id](#program-id) vector.
 
 ### Operation Id
 
 | Operation | Payload | `op_id` |
 | ------------------------- | - | - |
 | `TRANSFER`                | 0x0201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000600000000000000 | 0xb39493d223a2fefae67c6aac3c8f9338e3272137d4ae4ce714607bcbc9d011a4 |
-| `PROGRAM_REGISTER`        | 0x3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f40404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414242424242424242424242424242424242424242424242424242424242424242434343434343434343434343434343434343434343434343434343434343434344444444444444444444444444444444444444444444444444444444444444444545454545454545454545454545454545454545454545454545454545454545 | 0xc7cc0a188f1d9aeb1dd35b8e951bafa34aebcf51bbcd2181173bf118931351d0 |
+| `PROGRAM_REGISTER`        | 0x0100000000000000000000000000000000000000000000000000000000000000b9b3b4620913f849ee2aa6a9cfd35c9d146f3e7c27596cc3e8d311fd3472dc2779ad28398ced57998435d8c63164b86d7033733ab82101b6379bf1b45d203ea0f5c7fb9406fade12005e9ab08c477e8d5e7192e12628e551900eb14d784e0606856eb6ff324f82c9a7a078686b1504bcebe4cf5dcd9151734297bb572f7714102ce236b4ddb40977fd454c08e570151342c4cc50a86380c3472f6a6ff8dbdd296f237195c2856d5a3f8ca190f6666f2084d776f9935a48a2d57a569e476806a9a93f16faa7a849e89ca35389d8dee46243772b760402bc66f7e0fe0edf39c117f94a688c5b3dfe2a762ab3d315927156987792e7d92f79e0f4523f1a41caf40978e0ffab866b3a9876bd01b8ecc66fcb86936277f425539a758dbbd32e2b0717636a302c88373904f75a15fe21c13882a8fe9c3be9f572f4100c48231dd5b188 | 0x87e8c6cec157aab8a5f80f9058851063f8f4586992bcb54a256769694cbb0dd1 |
 | `CHANNEL_CONFIG`          | 0x0707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000200 | 0xc9f038b929299dd9ef28856916375021b04ce20e284bbfdc4355edab718846c2 |
 | `CHANNEL_INSCRIBE`        | 0x0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c0100020000012300000000000000000000000000000000000000000000000000000000000000012400000000000000000000000000000000000000000000000000000000000000250000000000000000000000000000000000000000000000000000000000000001340000000000000000000000000000000000000000000000000000000000000001013500000000000000000000000000000000000000000000000000000000000000013600000000000000000000000000000000000000000000000000000000000000370000000000000000000000000000000000000000000000000000000000000038000000000000003900000000000000000000000000000000000000000000000000000000000000013a00000000000000000000000000000000000000000000000000000000000000013b00000000000000000000000000000000000000000000000000000000000000013c000000000000000000000000000000000000000000000000000000000000003d00000000000000000000000000000000000000000000000000000000000000 | 0xfdfbb4605d69780fc83a4e42431a7bd9df6f320314d17958ebb93c3941237ac3 |
 | `CHANNEL_DEPOSIT`         | 0x101010101010101010101010101010101010101010101010101010101010101001110000000000000000000000000000000000000000000000000000000000000026000000000000000000000000000000000000000000000000000000000000000127000000000000000000000000000000000000000000000000000000000000002800000000000000100000006465706f7369742d6d65746164617461 | 0x83eeb0ac0b7e03bb6c93c0c7596512413707b9536b2b3d56a86656f8f527d6f6 |
 | `CHANNEL_WITHDRAW`        | 0x12121212121212121212121212121212121212121212121212121212121212120113000000000000000000000000000000000000000000000000000000000000002900000000000000000000000000000000000000000000000000000000000000012a00000000000000000000000000000000000000000000000000000000000000 | 0x8d6ae69200aab259bca71e5829d43f0a289ba612383d29ddcd7d217f1ede0996 |
-| `SDP_DECLARE`             | 0x00010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f31900000000000000000000000000000000000000000000000000000000000000011a000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000002d00000000000000 | 0xeee94894496fe11261d5f649f414c586c852436ba4c6c3fdb60294894a3dc19c |
+| `SDP_DECLARE`             | 0x00010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f319000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000011a000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000002d00000000000000 | 0x07cad981e914c28fb8d090e67627b05347314ad27090a7212cd3437ba66db105 |
 | `SDP_WITHDRAW`            | 0x1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000012e000000000000000000000000000000000000000000000000000000000000002f00000000000000 | 0xf385d531e2efc2cfca261d1b12643937a3ba2d19a6f7be9b617d59e2d3264f8a |
 | `SDP_ACTIVE`              | 0x1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020303030303030303030303030303030303030303030303030303030303030303 | 0xc4a2a639034016f52728f34041cf95fc2c7adb8f54cf94b4361b2d0cb72ebb70 |
 | `CLAIM_POW_REWARD`        | 0x3000000000000000000000000000000000000000000000000000000000000000313131313131313131313131313131313131313131313131313131313131313132000000000000000000000000000000000000000000000000000000000000003300000000000000000000000000000000000000000000000000000000000000 | 0xbc5ccb3bf2ceae92f0479fb84cd1e8049d4e7cb33cc72d16a3d5e30780a34c2b |
@@ -2445,7 +2459,7 @@ To see what the payloads represent, refer to [Mantle Transaction Encoding](mantl
 | Transaction | Payload | Transaction Hash                                                   |
 | - | - | - |
 | Empty transaction | 0x00 | 0x2eba3f667b80a508f3d44d149a1c27a90ea365a51e4fc8209289088142b364e5 |
-| Transaction with one of each operation | 0x0a000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000600000000000000013e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f40404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040404040414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414242424242424242424242424242424242424242424242424242424242424242434343434343434343434343434343434343434343434343434343434343434344444444444444444444444444444444444444444444444444444444444444444545454545454545454545454545454545454545454545454545454545454545100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000200110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c0100020000012300000000000000000000000000000000000000000000000000000000000000012400000000000000000000000000000000000000000000000000000000000000250000000000000000000000000000000000000000000000000000000000000001340000000000000000000000000000000000000000000000000000000000000001013500000000000000000000000000000000000000000000000000000000000000013600000000000000000000000000000000000000000000000000000000000000370000000000000000000000000000000000000000000000000000000000000038000000000000003900000000000000000000000000000000000000000000000000000000000000013a00000000000000000000000000000000000000000000000000000000000000013b00000000000000000000000000000000000000000000000000000000000000013c000000000000000000000000000000000000000000000000000000000000003d0000000000000000000000000000000000000000000000000000000000000012101010101010101010101010101010101010101010101010101010101010101001110000000000000000000000000000000000000000000000000000000000000026000000000000000000000000000000000000000000000000000000000000000127000000000000000000000000000000000000000000000000000000000000002800000000000000100000006465706f7369742d6d657461646174611312121212121212121212121212121212121212121212121212121212121212120113000000000000000000000000000000000000000000000000000000000000002900000000000000000000000000000000000000000000000000000000000000012a000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f31900000000000000000000000000000000000000000000000000000000000000011a000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000002d00000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000012e000000000000000000000000000000000000000000000000000000000000002f00000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020303030303030303030303030303030303030303030303030303030303030303303000000000000000000000000000000000000000000000000000000000000000313131313131313131313131313131313131313131313131313131313131313132000000000000000000000000000000000000000000000000000000000000003300000000000000000000000000000000000000000000000000000000000000 | 0xb307d8790d7bdaaef17ad36c6af46772171467eb75f3d7b031f44c88003f3d96 |
+| Transaction with one of each operation | 0x0a000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000600000000000000010100000000000000000000000000000000000000000000000000000000000000b9b3b4620913f849ee2aa6a9cfd35c9d146f3e7c27596cc3e8d311fd3472dc2779ad28398ced57998435d8c63164b86d7033733ab82101b6379bf1b45d203ea0f5c7fb9406fade12005e9ab08c477e8d5e7192e12628e551900eb14d784e0606856eb6ff324f82c9a7a078686b1504bcebe4cf5dcd9151734297bb572f7714102ce236b4ddb40977fd454c08e570151342c4cc50a86380c3472f6a6ff8dbdd296f237195c2856d5a3f8ca190f6666f2084d776f9935a48a2d57a569e476806a9a93f16faa7a849e89ca35389d8dee46243772b760402bc66f7e0fe0edf39c117f94a688c5b3dfe2a762ab3d315927156987792e7d92f79e0f4523f1a41caf40978e0ffab866b3a9876bd01b8ecc66fcb86936277f425539a758dbbd32e2b0717636a302c88373904f75a15fe21c13882a8fe9c3be9f572f4100c48231dd5b188100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000200110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c0100020000012300000000000000000000000000000000000000000000000000000000000000012400000000000000000000000000000000000000000000000000000000000000250000000000000000000000000000000000000000000000000000000000000001340000000000000000000000000000000000000000000000000000000000000001013500000000000000000000000000000000000000000000000000000000000000013600000000000000000000000000000000000000000000000000000000000000370000000000000000000000000000000000000000000000000000000000000038000000000000003900000000000000000000000000000000000000000000000000000000000000013a00000000000000000000000000000000000000000000000000000000000000013b00000000000000000000000000000000000000000000000000000000000000013c000000000000000000000000000000000000000000000000000000000000003d0000000000000000000000000000000000000000000000000000000000000012101010101010101010101010101010101010101010101010101010101010101001110000000000000000000000000000000000000000000000000000000000000026000000000000000000000000000000000000000000000000000000000000000127000000000000000000000000000000000000000000000000000000000000002800000000000000100000006465706f7369742d6d657461646174611312121212121212121212121212121212121212121212121212121212121212120113000000000000000000000000000000000000000000000000000000000000002900000000000000000000000000000000000000000000000000000000000000012a000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f319000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000011a000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000002d00000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000012e000000000000000000000000000000000000000000000000000000000000002f00000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020303030303030303030303030303030303030303030303030303030303030303303000000000000000000000000000000000000000000000000000000000000000313131313131313131313131313131313131313131313131313131313131313132000000000000000000000000000000000000000000000000000000000000003300000000000000000000000000000000000000000000000000000000000000 | 0x2e94e4d7aac431f06b8e338dfaf7c3e00672cdbac82f8c3a7f30b8e0b12d4aec |
 
 ### Declaration Id
 

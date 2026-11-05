@@ -29,7 +29,7 @@
 | 1.2.2 | Stated that the minimum stake of a service is locked in a service note | 2026-08-27 |
 | 1.3.0 | Add the proof of work reward pool, funded by diverting a share of the collected fees before they reach the rewards pool | 2026-08-31 |
 | 1.4.0 | Define the LEPTON as the indivisible token unit, with one LOGOS equal to $`10^{9}`$ LEPTA | 2026-10-26 |
-| 1.5.0 | Pay the leader reward of a block in the block itself, as a note under a one-time public key of the leader. Aligned the maximum block size with the 2 MiB of [Cryptarchia](cryptarchia-v1-protocol.md#constants). The Execution Gas limit deducts the measured fixed part of the ZkTransfer batch verification. The leader share is 40% of the block reward rounded down, the remainder going to the Blend reward, held in `blend_rewards_pending` until it is paid. The overview figure follows. Removed the reference to the hardware requirements | 2026-10-07 |
+| 1.5.0 | Pay the leader reward of a block in the block itself, as a note under a public key the leader keeps private. Aligned the maximum block size with the 2 MiB of [Cryptarchia](cryptarchia-v1-protocol.md#constants). The Execution Gas limit deducts the measured fixed part of the ZkTransfer batch verification. The leader share is 40% of the block reward rounded down, the remainder going to the Blend reward, held in `blend_rewards_pending` until it is paid. The overview figure follows. Removed the reference to the hardware requirements | 2026-10-07 |
 | 1.5.1 | The Execution Gas limit also deducts the fixed part of the ZkProgramSpend batch verification | 2026-10-14 |
 | 1.5.2 | The Execution Gas limit deducts every fixed cost of a block measured in [Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0, $`\text{limit}_{\text{Ex}} = 3,173,691`$. Every Mantle Transaction consumes Execution Gas for its bytes | 2026-10-27 |
 
@@ -56,7 +56,7 @@ In this section we present an overview of the cryptoeconomical aspects of the Lo
 
 ![Diagram](overview-cryptoeconomics/assets/bbe261aa-09df-827f-a6a9-8115aeb10f94.png)
 
-- Users (rollup sequencers, node operators, or leaders) acquire tokens through purchase or by earning them as rewards.
+- Users (L1 wallets, node operators, or leaders) acquire tokens through purchase or by earning them as rewards.
 - Tokens serve three main purposes:
     - Paying for transaction processing resources used: [Fee Markets](#fee-markets).
     - Declaring service participation: node operators lock a [Minimum Stake](#minimum-stake) through the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) to become Blend Service providers.
@@ -66,7 +66,7 @@ In this section we present an overview of the cryptoeconomical aspects of the Lo
     - Permanent Storage fee: covers the permanent Ledger storage resources consumed by the transaction.
 - Execution base fees and storage fees are routed into the rewards pool for each block, removing them from circulation, except for the share diverted to the [Proof of Work Reward Pool](#proof-of-work-reward-pool).
 - Rewards are distributed per block for leaders and on an epoch basis for Blend nodes:
-    - Leaders (block proposers) include Mantle Transactions in every block. Each transaction pays Permanent Storage and Execution fees: the storage fees and the Execution base fees are routed into the rewards pool, and the Execution tips go to the leader of the block according to the [Execution Market](execution-market.md). For each block, a reward is calculated following the [Block Rewards](block-rewards.md). These two sources determine the total rewards allocated to leaders, as explained in [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders), which correspond to tips from the Execution market and 40% of block rewards. The leader receives them in the block itself, as a note under a one-time public key (see [Block Execution](bedrock-v1.1-block-construction.md#block-execution)).
+    - Leaders (block proposers) include Mantle Transactions in every block. Each transaction pays Permanent Storage and Execution fees: the storage fees and the Execution base fees are routed into the rewards pool, and the Execution tips go to the leader of the block according to the [Execution Market](execution-market.md). For each block, a reward is calculated following the [Block Rewards](block-rewards.md). These two sources determine the total rewards allocated to leaders, as explained in [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders), which correspond to tips from the Execution market and 40% of block rewards. The leader receives them in the block itself, as a note under a public key it keeps private (see [Block Execution](bedrock-v1.1-block-construction.md#block-execution)).
     - Blend nodes provide Blend service to the network for at least one epoch. Using the same [Block Rewards](block-rewards.md), the protocol determines the total rewards allocated to the Blend network, as explained in [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders) which correspond to 60% of the block rewards. 
     When an epoch $`e`$  ends, Blend validators have one additional epoch $`e+1`$  to send an active message used by the [Reward Distribution Protocols](#reward-distribution-protocols) to determine reward distribution among validators. During the first block of epoch $`e+2$, Blend validators from epoch $`e`$ receive their portion of [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders) rewards, with proportions determined by the [Reward Distribution Protocols](#reward-distribution-protocols). These rewards are distributed at the start of the next epoch.
 - The [Service Rewards Distribution Protocol](#service-rewards-distribution-protocol) handles payments of rewards for Blend Services to individual nodes.
@@ -108,7 +108,7 @@ In Logos Blockchain, Permanent Storage Gas is determined for an entire encoded M
 
 ## Fee Markets
 
-Users (rollup sequencers, node operators, or leaders) pay [fees in Logos Blockchain for their Mantle Transactions](bedrock-v1.1-mantle-specification.md) to compensate for service usage. Logos Blockchain operates with two distinct fee markets. The goal of each market is to ensure fair compensation, sustainability, and proper incentives. However each market has its own unique characteristics:
+Users (L1 wallets, node operators, or leaders) pay [fees in Logos Blockchain for their Mantle Transactions](bedrock-v1.1-mantle-specification.md) to compensate for service usage. Logos Blockchain operates with two distinct fee markets. The goal of each market is to ensure fair compensation, sustainability, and proper incentives. However each market has its own unique characteristics:
 
 - The Execution fee market covers the validation and execution of Mantle Transactions. The consensus does not directly limit the number of CPU cycles or Execution Gas per block but a fee regulating mechanism is necessary to be compliant with minimum hardware requirements of a node. The fees must regulate the use of CPU cycles for validation and execution of the blockchain.
 - The Permanent Storage fee market covers the permanent storage of encoded Mantle Transactions. Blocks are limited to 2MiB with a maximum of 1024 Mantle Transactions per block. However, the fees must reduce the maximum amount of Storage to meet the minimum hardware requirements.
@@ -160,7 +160,7 @@ The following sections explain how these principles apply to different roles in 
 The Blend service and the leaders proposing the blocks share a same block reward that is calculated for each block based on a KPI function. This KPI function takes as input the inferred total stake and the amount of Execution and Permanent Storage fees of the block. How the KPI function calculates each block reward is explained in [Block Rewards](block-rewards.md).
 
 - Blend rewards are distributed among all active Blend Nodes. Blend rewards are composed of a fraction of the block rewards. These rewards of epoch $`e`$ are defined when a new Blend epoch $`e+1`$ starts (a defined number of blocks) and are allocated to nodes based on their reported Active Messages and the [Reward Distribution Protocols](#reward-distribution-protocols) during epoch $`e+2`$ . The [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md) manages the direct payment to nodes.
-- Leaders receive, for each block they propose, a single note whose value is a fraction of the block reward plus the [Execution Market](execution-market.md) tips of that block. The note is created during the execution of the block under a one-time public key of the leader ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)).
+- Leaders receive, for each block they propose, a single note whose value is a fraction of the block reward plus the [Execution Market](execution-market.md) tips of that block. The note is created during the execution of the block under a public key the leader keeps private ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)).
 
 Each block reward of each block is split as follows between the Blend service and the leader:
 
@@ -227,7 +227,7 @@ The emission rate factor is computed in part from the pooling rate, so the relea
 
 ### Leaders
 
-To protect leaders' privacy, a leader must not be linked to the spending of its rewards. The leader reward of a block is created in the block as a note under a one-time public key the leader puts in the block header ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)). The note commitment is linked to the block, but spending the note reveals neither its commitment nor its value ([Mantle Ledger](bedrock-v1.1-mantle-specification.md#mantle-ledger)), so the reward cannot be followed once spent, as long as the leader does not publish its value, for instance by staking reward notes in an SDP declaration, whose amount is public.
+To protect leaders' privacy, a leader must not be linked to the spending of its rewards. The leader reward of a block is created in the block as a note under a public key and a nonce the leader keeps private: the block header holds only the value and the commitment of the note, which the Proof of Leadership derives ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)). The note commitment is linked to the block, but spending the note reveals neither its commitment nor its value ([Mantle Ledger](bedrock-v1.1-mantle-specification.md#mantle-ledger)), so the reward cannot be followed once spent, as long as the leader does not publish its value, for instance by staking reward notes in an SDP declaration, whose amount is public.
 
 ### Blend Service
 

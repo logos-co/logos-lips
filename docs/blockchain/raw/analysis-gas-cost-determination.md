@@ -137,7 +137,7 @@ CLAIM_POW_REWARD  = EXECUTION_CLAIM_POW_REWARD_GAS
 PROGRAM_REGISTER  = EXECUTION_PROGRAM_REGISTER_GAS
 ```
 
-with the constants of the Operations:
+where `user_steps` and `program_steps` are the [user steps](bedrock-v1.1-mantle-specification.md#channel_inscribe) and the program steps of the inscription, the latter with their proofs, a user step being a local transaction of the channel: a ZkTransfer moving channel notes, signed by their holder and published by a sequencer, and with the constants of the Operations:
 
 | Constant | Execution Gas | Measure |
 | --- | --- | --- |
@@ -164,8 +164,8 @@ and the constants of the components:
 | `EXECUTION_NULLIFIER_GAS` | 725 | insertion of a nullifier and its share of the hashing of the nullifier tree, 724,523 cycles |
 | `EXECUTION_COMMITMENT_GAS` | 24 | append of a commitment, 23,069 cycles |
 | `EXECUTION_SIGNATURE_GAS` | 161 | Ed25519 signature, 160,462 cycles |
-| `EXECUTION_USER_STEP_GAS` | 178 | a user step beyond its spend, 177,359 cycles |
-| `EXECUTION_PAYMENT_GAS` | 250 | a payment beyond its spend and the append of its commitments to the root of its program spend, 249,814 cycles |
+| `EXECUTION_USER_STEP_GAS` | 195 | a user step beyond its spend, 194,249 cycles |
+| `EXECUTION_PAYMENT_GAS` | 267 | a payment beyond its spend and the append of its commitments to the root of its program spend, 266,888 cycles |
 | `EXECUTION_PROGRAM_STEP_GAS` | 54 | a program step beyond its spend, its proof, its payments and its openings, 53,182 cycles |
 | `EXECUTION_OPENING_GAS` | 151 | the commitment of an opened program note, 150,974 cycles |
 | `EXECUTION_PROGRAM_PROOF_GAS` | 6320 | verification of a program proof under its registered key, 6,319,522 cycles |
@@ -244,16 +244,16 @@ The validation verifies the Ed25519 signature of the sequencer, its accreditatio
 | --- | --- |
 | Inscription without steps | 180,978 |
 | of which the signature | 149,245 |
-| each user step of 1 input and 1 output, beyond its proof | 242,593 |
-| first payment of a program step, with the extension of the root of the program spend by its commitment | 1,229,604 |
-| each further payment of 1 input and 1 output, beyond its proof | 337,671 |
+| each user step of 1 input and 1 output, beyond its proof | 259,483 |
+| first payment of a program step, with the extension of the root of the program spend by its commitment | 1,246,678 |
+| each further payment of 1 input and 1 output, beyond its proof | 354,745 |
 | program step without input nor payment, 1 output | 257,229 |
 | each input of the program spend | 50,950 |
 | each output of the program spend | 25,054 |
 | each opening of a program note | 150,974 |
 | program proof | 6,319,522 |
 
-A user step derives its `step_msg` and checks its inputs and outputs, 177,359 cycles beyond its nullifier and its commitment. A payment derives its `payment_msg` and enters the hash of the payments of its step, 249,814 cycles beyond its nullifier, its commitment and the append of that commitment to the root of the program spend, whose extension the first payment of a step causes (`EXECUTION_ROOT_GAS`). A program step checks that its program is registered, checks the flags of its outputs and derives the public inputs of its proofs, 53,182 cycles beyond the inscription without steps and its commitment. An opening recomputes the commitment of the opened note and compares it to the output.
+A user step derives its [`step_msg`](bedrock-v1.1-mantle-specification.md#channel_inscribe) and checks its inputs and outputs, 194,249 cycles beyond its nullifier and its commitment. A payment derives its [`payment_msg`](bedrock-v1.1-mantle-specification.md#channel_inscribe) and enters the hash of the payments of its step, 266,888 cycles beyond its nullifier, its commitment and the append of that commitment to the root of the program spend, whose extension the first payment of a step causes (`EXECUTION_ROOT_GAS`). A program step checks that its program is registered, checks the flags of its outputs and derives the public inputs of its proofs, 53,182 cycles beyond the inscription without steps and its commitment. An opening recomputes the commitment of the opened note and compares it to the output.
 
 ## Channel Config
 
@@ -362,7 +362,7 @@ The releases of the withdrawals due at a block, paid in advance by their Operati
 - Cycles are core cycles counted by the hardware performance counters of the CPU (`perf_event`, user and kernel), for the measured function only, its inputs being prepared outside the count.
 - The node is built with its release profile (`lto = "fat"`, `codegen-units = 1`, `opt-level = 3`), single threaded, pinned to one performance core whose sibling thread stays idle.
 - The ledger note set and the note set of the channel of the measures each hold 1,000,000 nullifiers and 1,000,000 commitments. The nullifiers an Operation spends are drawn like the filled ones, so the low leaf of each is anywhere in the tree. One dimension of each Operation varies at a time.
-- Each value is the minimum over 5 runs of 15 rounds, each round visiting every case once in a new random order. A single run moves the small measures by up to about 10%. The field element a user step and a payment add to their message for their channel, and the tag a claim adds to its ticket, are the difference between the builds with and without them, each the minimum over 5 runs in one session: 16,890 cycles per user step, 17,074 per payment and 26,695 per claim.
+- Each value is the minimum over 5 runs of 15 rounds, each round visiting every case once in a new random order. A single run moves the small measures by up to about 10%. The two field elements a user step and a payment add to their message for their channel ID, and the tag a claim adds to its ticket, are counted from the difference between the builds with and without one such element or the tag, each the minimum over 5 runs in one session: 16,890 cycles per element of a user step, 17,074 per element of a payment and 26,695 per claim.
 - The proofs of the Operations are made of valid curve points and decompress as real proofs do. A batch whose proofs do not verify costs what a verified one does: it decompresses every proof and runs every multi-scalar multiplication and the multi-pairing before it compares.
 
 The machine:
@@ -377,7 +377,7 @@ The machine:
 
 Each constant is the slope of the measures of the Operation along one dimension, or the measure of a component alone where the Operation cannot isolate it, rounded up to the next 1,000 cycles.
 
-A block of 64 transactions on one channel, measured whole (40 Transfers of 2 inputs and 2 outputs, 16 inscriptions of one user step, 7 inscriptions of one program step with one payment, one input, two outputs and one opening, and one deposit; 111 nullifiers, 118 commitments, 27,047 bytes), costs 275.6 million cycles with its header, its Proof of Leadership and the verification of its proofs. The constants, with the end of block work of the channel set counted once and the fixed costs of the block, come to 300.7 million cycles, 9.1% above. The 24 transactions changing the channel set each pay that work, as every transaction changing a set does, and the Execution Gas of the block comes to 380.3 million cycles, 38.0% above: the end of block work of a set is paid by each transaction changing it, so that the price of a transaction does not depend on the other transactions of its block.
+A block of 64 transactions on one channel, measured whole (40 Transfers of 2 inputs and 2 outputs, 16 inscriptions of one user step, 7 inscriptions of one program step with one payment, one input, two outputs and one opening, and one deposit; 111 nullifiers, 118 commitments, 27,047 bytes), costs 276.0 million cycles with its header, its Proof of Leadership and the verification of its proofs. The constants, with the end of block work of the channel set counted once and the fixed costs of the block, come to 301.1 million cycles, 9.1% above. The 24 transactions changing the channel set each pay that work, as every transaction changing a set does, and the Execution Gas of the block comes to 380.7 million cycles, 37.9% above: the end of block work of a set is paid by each transaction changing it, so that the price of a transaction does not depend on the other transactions of its block.
 
 ### Groth16 Proof Batch Verification
 
