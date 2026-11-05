@@ -107,7 +107,7 @@ The seed is five thousandths of the maximum supply $`S_{cap}`$, as specified in 
 
 This allocation is drawn from the initial token distribution, not created in addition to it: the tokens exist from genesis, and the seed determines how many of them are held in the pool rather than distributed to stakeholders directly.
 
-The pool holds a balance rather than notes, so unlike the stakeholder allocations above it does not appear as an output of the initial Transfer Operation. It is consensus state maintained as specified in [Reward Pool](proof-of-work.md#reward-pool), and after genesis it changes through the epoch-boundary refill and through claims.
+The pool holds a balance rather than notes, so unlike the stakeholder allocations above it does not appear as an output of the initial Transfer Operation. It is consensus state maintained as specified in [Reward Pool](proof-of-work.md#reward-pool), and after genesis it changes through the fee share each block credits and through claims.
 
 The seed is not part of the Cryptarchia parameter inscription, because it is not a Cryptarchia parameter. It is established during [Mantle Ledger Initialization](#mantle-ledger-initialization).
 
@@ -372,11 +372,11 @@ The Transfer Operation distributing the initial tokens is validated and executed
 The pow reward pool is initialized at the same time:
 
 1. `pow_reward_pool` is set to `POW_REWARD_POOL_GENESIS`, as described in [Initial Proof of Work Reward Pool](#initial-proof-of-work-reward-pool).
-2. `epoch_pow_reward` is derived from it by the computation given in [Reward Pool](proof-of-work.md#reward-pool), so that claiming is productive from the first epoch rather than waiting for the first refill.
+2. `epoch_pow_reward` is derived from it by the computation given in [Reward Pool](proof-of-work.md#reward-pool), so that claiming is productive from the first epoch.
 3. `difficulty_blend` is set to `BLEND_DIFFICULTY_BASE` for **epochs 0 and 1**, as given in [Blend Difficulty](proof-of-work.md#blend-difficulty): the value for an epoch is fixed at the preceding epoch's nonce snapshot from the load of the epoch before that, and no complete input epoch exists before epoch 2. The schedule begins with epoch 2's value, computed during epoch 1 from epoch 0's load.
 4. `difficulty_reward` is set to the genesis value given in [Reward Difficulty](proof-of-work.md#reward-difficulty), and `pow_nullifiers` is empty.
 
-The block reward stocks are initialized with them: `rewards_reserve` is set to its initial balance $`B_0`$, `rewards_pool`, `blend_rewards_closed`, `blend_rewards_pending` and `pow_rewards_pending` to `0`, and `pooled_fees_window` to $`120`$ zeros, as defined in [Block Rewards](block-rewards.md#deterministic-implementation). The values of the published distribution, the amounts of the `SDP_DECLARE` Operations, the pow reward pool and the rewards reserve must sum to the maximum supply $`S_{cap}`$, and a node for which they do not must reject the Genesis block.
+The block reward stocks are initialized with them: `rewards_reserve` is set to its initial balance $`B_0`$, `rewards_pool`, `blend_rewards_closed` and `blend_rewards_pending` to `0`, and `pooled_fees_window` to $`120`$ zeros, as defined in [Block Rewards](block-rewards.md#deterministic-implementation). The values of the published distribution, the amounts of the `SDP_DECLARE` Operations, the pow reward pool and the rewards reserve must sum to the maximum supply $`S_{cap}`$, and a node for which they do not must reject the Genesis block.
 
 Once the Genesis Mantle Transaction is executed, every note set whose commitment MMR it changed records its commitment MMR root, as at the end of any block ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), so that the transactions of the next blocks can spend the notes created at Genesis.
 

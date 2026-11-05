@@ -199,14 +199,11 @@ def get_leader_reward(b: block) -> TokenValue: # reward of the leader of the blo
 Proof of work claims are paid from a further pool. It is funded from the fees rather than from the block reward: each block credits a fixed share of the fees it collects to this pool, and the rest is pooled as before.
 
 ```python
-def get_pow_pool_refill(e: epoch): # refill for the epoch e
-    refill = 0
-    for b in e.blocks: # for each block of the previous epoch
-        refill += get_collected_fees(b) * POW_SHARE // SHARE_DEN
-    return refill
+def get_pow_pool_refill(b: block): # refill by the block b
+    return get_collected_fees(b) * POW_SHARE // SHARE_DEN
 ```
 
-`get_collected_fees(b)` is the sum of the Execution base fees and the Permanent Storage fees paid in block `b`, and `POW_SHARE / SHARE_DEN` is the share diverted. The division rounds down, so the pool never takes more than that share; what the rounding leaves stays with the remainder. Each block adds its share to `pow_rewards_pending`, which the first block of the next epoch credits to the pool ([Block Rewards](block-rewards.md#deterministic-implementation)).
+`get_collected_fees(b)` is the sum of the Execution base fees and the Permanent Storage fees paid in block `b`, and `POW_SHARE / SHARE_DEN` is the share diverted. The division rounds down, so the pool never takes more than that share; what the rounding leaves stays with the remainder. The block credits its share to the pool when it executes ([Block Rewards](block-rewards.md#deterministic-implementation)).
 
 ### Who pays for the diversion
 
