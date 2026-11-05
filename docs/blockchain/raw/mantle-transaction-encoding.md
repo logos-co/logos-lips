@@ -36,6 +36,7 @@
 | 1.9.0 | Swap Ed25519Signature and SignerIndex order in IndexedSignature | 2026-10-01 |
 | 1.10.0 | Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata, retaining their `UINT32` length prefixes; corrected SDP activity metadata to use its tagged variant encoding without a generic length prefix | 2026-10-06 |
 | 1.11.0 | [RFC] `SDPWithdraw` drops the redundant `ServiceNoteId` | 2026-10-27 |
+| 1.12.0 | Added the `ForkDigest` as the first field of `MantleTx`, and derived `MAX_OPERATION_DATA_SIZE` from the `MAX_BLOCK_SIZE` of the era ([Bedrock Eras](bedrock-eras.md)). | 2026-11-05 |
 
 # Introduction
 
@@ -60,8 +61,9 @@ SignedMantleTx = MantleTx OpsProofs
 ## Mantle Tx
 
 ```schema
-MantleTx = OpCount *Op
-OpCount  = Byte
+MantleTx   = ForkDigest OpCount *Op
+ForkDigest = Hash32
+OpCount    = Byte
 ```
 
 ## Operations
@@ -113,7 +115,7 @@ OutputCount       = Byte
 Inputs            = InputCount *NoteId
 ```
 
-`MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. The payloads of `ChannelInscribe.Inscription` and `ChannelDeposit.Metadata` MUST each be at most `MAX_OPERATION_DATA_SIZE` bytes, excluding the outer `UINT32` length prefix. A decoder MUST reject either field when its declared or decoded payload length exceeds the limit.
+`MAX_OPERATION_DATA_SIZE` is $`\lfloor 7 \cdot \text{MAX\_BLOCK\_SIZE} / 8 \rfloor`$ bytes, with `MAX_BLOCK_SIZE` of [Constants](cryptarchia-v1-protocol.md#constants): **1,835,008 bytes** at its reference value. The payloads of `ChannelInscribe.Inscription` and `ChannelDeposit.Metadata` MUST each be at most `MAX_OPERATION_DATA_SIZE` bytes, excluding the outer `UINT32` length prefix. A decoder MUST reject either field when its declared or decoded payload length exceeds the limit.
 
 ### SDP Operations
 
