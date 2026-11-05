@@ -236,7 +236,7 @@ The system design figure is redrawn around the reserve, the pool and the per-blo
 
 - The ledger and SDP sets start empty.
 - The Transfer outputs are commitments in the ledger set, the nonce of each note being its output index. The Genesis Transfer, having no proof, is exempt from the 8-output limit of a ZkTransfer.
-- No proof of the Genesis transaction is verified. After the Genesis transaction, every note set it appended to records its commitment root, and the block reward reserve, pool, Blend and proof of work shares and fee window are initialized.
+- No proof of the Genesis transaction is verified. After the Genesis transaction, every note set it appended to records its commitment root, and the block reward reserve, pool, Blend shares and fee window are initialized.
 - A second inscription to the null channel publishes `value` and `public_key` for each output, and validation checks every output against it.
 - The declarations consume no note. Only the holder of a note can compute its nullifier, so without a proof a nullifier given at Genesis could not be tied to a note, and a declaration naming an arbitrary one would stake value on top of a note that stays spendable. Their amounts count in the supply: validation checks that the published values, the amounts of the declarations, the proof of work reward pool and the reserve sum to `S_cap`.
 
