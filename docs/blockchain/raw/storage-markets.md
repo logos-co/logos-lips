@@ -110,14 +110,14 @@ where $`\mathcal{B}`$ is the set of transactions in the block, $`S_{\text{gas}}(
 
 ### Protocol Constants
 
-To ensure on-chain efficiency, the protocol shall use an Exponential Moving Average (EMA) for its adaptive target calculation. The behavior of the TFM is governed by the following on-chain constants. An era sets $`\alpha`$ and $`\beta`$ ([Era Parameters](bedrock-eras.md#era-parameters)), and the others are set at genesis.
+To ensure on-chain efficiency, the protocol shall use an Exponential Moving Average (EMA) for its adaptive target calculation. The behavior of the TFM is governed by the following constants. An era sets $`\alpha`$ and $`\beta`$ ([Era Parameters](bedrock-eras.md#era-parameters)), and the others are set at genesis.
 
 | Symbol | Name | Description | Initial Value | Justification |
 | --- | --- | --- | --- | --- |
 | $`T_{\text{base}}`$ | Baseline Target | A static, policy-driven usage target in Logos Blockchain Storage Gas per timeframe. Acts as a long-term gravitational anchor for the dynamic target. | 0 Permanent Storage Gas per block. | It should represent a conservative initial timeframe capacity. providing a healthy buffer and a clear policy goal. |
 | $w$ | Anchor Weight | A coefficient in $[0, 1]$ determining the influence of $`T_{\text{base}}`$. It's the "gravity knob" for the system. | for Permanent Storage: 0 | Allows the target to be primarily driven by recent demand, ensuring adaptability, while the $w$% pull from $`T_{\text{base}}`$ prevents long-term drift. |
 | $\alpha$ | Max Adjustment Factor | The maximum fractional amount the price can change per timeframe. Acts as "safety brakes" to bound price volatility. | 0.125 for Permanent Storage | A $100\alpha$% cap provides strong predictability for users planning across timeframes while allowing the price to respond effectively to sustained demand changes. |
-| $\beta$ | EMA Smoothing Factor | A coefficient in $[0, 1]$ controlling the responsiveness of the usage EMA. It governs the speed of adaptation. | 0.5 for Permanent Storage | A value of $\beta$ gives significant weight to the most recent timeframe's usage while incorporating the "memory" of the system with a half-life of 1 timeframe, balancing responsiveness and stability. |
+| $\beta$ | EMA Smoothing Factor | A coefficient in $(0, 1)$ controlling the responsiveness of the usage EMA. It governs the speed of adaptation. | 0.5 for Permanent Storage | A value of $\beta$ gives significant weight to the most recent timeframe's usage while incorporating the "memory" of the system with a half-life of 1 timeframe, balancing responsiveness and stability. |
 | $`T_{\text{RA}}(-1)`$ | Initial Usage EMA | First value for EMA | 0 (=$`T_{\text{base}}`$) | Given $`T_{\text{base}} = 0`$, this is the least opinionated choice: with no prior usage data at genesis, a neutral prior of zero makes no assumption about initial market activity and anchors the EMA to the long-term policy goal from the outset. |
 | $`P_{\text{storage}}(0)`$ | Initial Price | The price on the first epoch | 1 LGO/gas | The initial price is set conservatively low at the beginning and let to discover the true market price |
 | $s$ | timeframe | How often things adjust | 1 epoch | Primary users of the Storage market plan operational costs over days or weeks, not block-by-block. |

@@ -40,7 +40,7 @@
 | 1.7.0 | Derived the observation window $`W`$ from cover traffic in place of the maximal release delay. | 2026-10-29 |
 | 1.8.0 | Refused a neighbor closed as not live for $`W`$ rounds, restarting its liveness count, in place of shutting it out for the rest of the epoch. | 2026-10-30 |
 | 1.8.1 | Derived $`M_W`$ from the messages a neighbor is expected to deliver in an observation window and from the peering degree, in place of a fixed value. | 2026-10-30 |
-| 1.9.0 | Removed the message `version` byte, put the fork digest in the libp2p protocol name, linked the era rules for the transition period, for releasing and for broadcasting, bounded the transition period and the clock difference between honest nodes, and stopped blacklisting for a next-epoch proof in an epoch's last round ([Bedrock Eras](bedrock-eras.md)). | 2026-11-02 |
+| 1.9.0 | Removed the message `version` byte, put the fork digest in the libp2p protocol name, linked the era rules for the transition period, for releasing and for broadcasting, bounded the transition period and the clock difference between honest nodes, and stopped blacklisting for a next-epoch proof in an epoch's last round ([Bedrock Eras](bedrock-eras.md)). A round lasts one slot, and an era that changes the values behind $`F_T`$ resets `target_transactions_per_block`. | 2026-11-05 |
 | 1.9.1 | Updated `Max_Payload_Length` to 18190 bytes in the overhead calculation, and an encapsulated message to 19313 bytes, following the removal of the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)). | 2026-11-02 |
 
 # Introduction
@@ -114,7 +114,7 @@ To have a **truly privacy-preserving system, we need to apply both techniques si
 ## Time
 
 - *Epoch* is a period that is defined by the consensus. It lasts for $`648,000`$ slots, each slot lasting 1 second. A new block is proposed for each slot with a probability of $`1/30`$, which translates to $`21,600`$ blocks, as on average, every $`30`$ slots a single block is proposed.
-- *Round* is the primitive measure of time in the protocol. It defines a period during which a node can emit a new message. The definition of a round is also important for defining the message releasing logic, which handles the randomized emission delay for processed messages. In this version of the protocol, the length of the round is 1 second (an equivalent of a single slot).
+- *Round* is the primitive measure of time in the protocol. It defines a period during which a node can emit a new message. The definition of a round is also important for defining the message releasing logic, which handles the randomized emission delay for processed messages. A round lasts one slot, 1 second at the reference slot length.
 
 # Overview
 
@@ -489,7 +489,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`R_C=0`$ and $`R_D=1`$: a cover message is not replicated, and a block proposal is replicated once. A transaction is not replicated.
 - $`\Phi_{CC}=4`$, the peering degree ([Connectivity Maintenance](#connectivity-maintenance)). $`3 \le \Phi_{CC} \le 5`$. Below $`3`$ a node opens no connection of its own; above $`5`$ nodes must open more connections than nodes can accept, and dials are refused.
 - $`V = 156`$ messages per second the slowest node the protocol targets processes, one below the $`157`$ measured on one core of a Raspberry Pi 5 ([benchmark](https://github.com/logos-blockchain/research/tree/blend-header-verification-benchmark/tools/benchmarks/blend-header-verification)).
-- $`r_1 = 20`$ messages a node reads from a core connection per round, and $`r_E = 24`$ connections with edge nodes it accepts per round: $`r_1 = \lfloor (2V/3) / (\Phi_{CC} + 1) \rfloor`$ and $`r_E = 2V/3 - \Phi_{CC} \cdot r_1`$, so a node at its peering degree reads two thirds of $`V`$, and at one above it $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124 \le V`$ ([Expected Traffic](#expected-traffic)).
+- $`r_1 = 20`$ messages a node reads from a core connection per round, and $`r_E = 24`$ connections with edge nodes it accepts per round: $`r_1 = \lfloor (2V/3) / (\Phi_{CC} + 1) \rfloor`$ and $`r_E = \lfloor 2V/3 \rfloor - \Phi_{CC} \cdot r_1`$, so a node at its peering degree reads two thirds of $`V`$, and at one above it $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124 \le V`$ ([Expected Traffic](#expected-traffic)).
 - $`T_E=1`$ round, the time an edge node is given to send its message, as derived in [Connectivity Maintenance](#connectivity-maintenance).
 - $`T_H=2`$ rounds, the time a core node handshake is given to complete, which covers the round trips of the transport handshake and of the [Neighbor Distinction Process](#neighbor-distinction-process).
 
@@ -534,7 +534,7 @@ $$
 F_1 = \left( \max\left(F_C \cdot (1 + R_C),\ F_D \cdot (1 + R_D)\right) + F_T \right) \cdot \beta_{max} = 16.0
 $$
 
-Flooding delivers each message once per neighbor, so $`F_1`$ must be below $`r_1`$; at $`r_1`$ a backlog on a connection never drains. $`F_T`$ is sized so that a backlog of one round's share drains, at $`r_1 - F_1`$ per round, within the time a message may spend at one hop, $`\Delta_{max} + \eta`$ ([Transition Period](#transition-period)): $`F_1 = r_1 \cdot (1 - 1 / (\Delta_{max} + \eta)) = 16`$. Messages backed by a proof of work count within $`F_T`$, which is the reference load of [Blend Difficulty](proof-of-work.md#blend-difficulty).
+Flooding delivers each message once per neighbor, so $`F_1`$ must be below $`r_1`$; at $`r_1`$ a backlog on a connection never drains. $`F_T`$ is sized so that a backlog of one round's share drains, at $`r_1 - F_1`$ per round, within the time a message may spend at one hop, $`\Delta_{max} + \eta`$ ([Transition Period](#transition-period)): $`F_1 = r_1 \cdot (1 - 1 / (\Delta_{max} + \eta)) = 16`$. An era that changes a value this sizing reads must set `target_transactions_per_block` ([Era Parameters](bedrock-eras.md#era-parameters)) to the resulting $`F_T / F_D`$. Otherwise a backlog outlasts the time a message may spend at one hop. Messages backed by a proof of work count within $`F_T`$, which is the reference load of [Blend Difficulty](proof-of-work.md#blend-difficulty).
 
 A node reads at most $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124`$ messages in a round, which must not exceed $`V`$, and verifies the public header of novel messages only ([Relaying](#relaying)). At $`19313`$ bytes per message ([Message Formatting](message-formatting.md)) that is $`2.4`$ MB/s.
 
