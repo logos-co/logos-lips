@@ -570,8 +570,8 @@ def block_reward(total_stake: int, pooled_fees_window: list[int]) -> tuple[int, 
     return blend_reward, leader_reward
 ```
 
-The integers are exact. At these constants, with each fee below $`2^{64}`$, a signed 128-bit integer holds every intermediate value.
+The code uses unbounded integers. At these constants, with each fee below $`2^{64}`$, a signed 128-bit integer holds every intermediate value.
 
-`pooled_fees_window` holds $`D_{1,\tau}`$ of the latest blocks, oldest first and ending with the current block. It holds $`T`$ zeros at genesis. A block updates it with its own $`D_{1,t}`$ before it computes its reward.
+`pooled_fees_window` holds $`D_{1,\tau}`$ of the latest blocks, oldest first and ending with the current block. It holds $`T`$ zeros at genesis. A block updates it with its own $`D_{1,t}`$ before it computes its reward. `update_pooled_fees_window` and `block_reward` use the constants of the era of the block's slot. `total_stake` is the inferred total stake $`D`$ of the epoch of the block's slot ([Epoch State](cryptarchia-v1-protocol.md#epoch-state)).
 
-An era that changes the slot activation coefficient or the slot length of [Constants](cryptarchia-v1-protocol.md#constants) changes $`\Delta_t`$, so it must set `INFLATION_NUMERATOR` and `INFLATION_DENOMINATOR` to match. Otherwise the reserve releases more or less than $`I_{max}`$ of $`S_{cap}`$ per year.
+`INFLATION_NUMERATOR / INFLATION_DENOMINATOR` is $`I_{max} \cdot S_{cap} \cdot d / (f_s \cdot 365 \cdot 86400)`$, with $`d`$ the slot length in seconds and $`f_s`$ the slot activation coefficient of [Constants](cryptarchia-v1-protocol.md#constants), which gives $`62500/657`$ at their reference values. With another value, the reserve releases more or less than $`I_{max}`$ of $`S_{cap}`$ per year.
