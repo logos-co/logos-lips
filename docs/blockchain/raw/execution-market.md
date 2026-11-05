@@ -28,6 +28,7 @@
 | 1.1.2 | Changing from burning/minting to pooling/distributing | 2026-08-26 |
 | 1.2.0 | The base fee is routed to the rewards pool less the share diverted to the proof of work reward pool | 2026-08-31 |
 | 1.3.0 | The base fee update uses the $`q`$, $`\phi`$ and $`G_{\max}`$ of the era of the block ([Bedrock Eras](bedrock-eras.md)) | 2026-11-05 |
+| 1.4.0 | The base fee update caps the previous average at $`G_{\max}`$ ([Bedrock Eras](bedrock-eras.md)) | 2026-11-05 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -160,7 +161,7 @@ After a block $s$ is executed and its total Execution Gas usage $G[s]$ is known,
 The base fee for the next block, $s+1$, is calculated based on the state of block $s$, with the $`q`$, $`\phi`$ and $`G_{\max}`$ of the era of the slot of block $s$ ([Era Parameters](bedrock-eras.md#era-parameters)).
 
 1. Total Execution Gas Used: First, sum the actual Execution Gas consumed, $`g_t`$, for all transactions $t$ in the block $`\mathcal{B}_s`$: $`G[s] = \sum_{t \in \mathcal{B}_s} g_t`$.
-2. Smoothed Average Update: Update the EMA of Execution Gas usage: $`G_{\mathrm{avg}}[s] = (1 - q) \cdot G[s] + q \cdot G_{\mathrm{avg}}[s-1]`$.
+2. Smoothed Average Update: Update the EMA of Execution Gas usage: $`G_{\mathrm{avg}}[s] = (1 - q) \cdot G[s] + q \cdot \min(G_{\mathrm{avg}}[s-1], G_{\max})`$.
 3. Next Base Fee Calculation: Update the base fee for block $s+1$: $`b_{\mathrm{exec}}[s+1] = b_{\mathrm{exec}}[s] \cdot \left(1 + \phi \cdot \frac{G_{\mathrm{avg}}[s] - G_{\mathrm{target}}}{G_{\mathrm{target}}}\right)`$.
 
 Pseudocode for Base Fee Update:
@@ -173,7 +174,7 @@ First we rewrite, with $`q = q_n / q_d`$ and $`\phi = \phi_n / \phi_d`$ in whole
 
 $$
 \begin{align*}
-G_{\mathrm{avg}}[s] &= (1 - q) \cdot G[s] + q \cdot G_{\mathrm{avg}}[s-1]= \frac{(q_d - q_n) \cdot G[s] + q_n \cdot G_\text{avg}[s-1]}{q_d}
+G_{\mathrm{avg}}[s] &= (1 - q) \cdot G[s] + q \cdot \min(G_{\mathrm{avg}}[s-1], G_{\max})= \frac{(q_d - q_n) \cdot G[s] + q_n \cdot \min(G_\text{avg}[s-1], G_{\max})}{q_d}
 \end{align*}
 $$
 
@@ -186,7 +187,7 @@ $$
 The integer base fee is obtained by rounding this quantity upwards, while the smoothed average $`G_\text{avg}[s]`$ is rounded downwards:
 
 $$
-b_\text{exec}[s+1] = \left\lceil b_\text{exec}[s] \cdot \frac{(\phi_d - \phi_n) \cdot G_\text{target} + \phi_n \cdot G_\text{avg}[s]}{\phi_d \cdot G_\text{target}} \right\rceil,\qquad G_\text{avg}[s] = \left\lfloor \frac{(q_d - q_n) \cdot G[s] + q_n \cdot G_\text{avg}[s-1]}{q_d} \right\rfloor
+b_\text{exec}[s+1] = \left\lceil b_\text{exec}[s] \cdot \frac{(\phi_d - \phi_n) \cdot G_\text{target} + \phi_n \cdot G_\text{avg}[s]}{\phi_d \cdot G_\text{target}} \right\rceil,\qquad G_\text{avg}[s] = \left\lfloor \frac{(q_d - q_n) \cdot G[s] + q_n \cdot \min(G_\text{avg}[s-1], G_{\max})}{q_d} \right\rfloor
 $$
 
 And so we propose the following code reference:
@@ -203,7 +204,9 @@ def ceil_div(numerator: int, denominator: int) -> int:
     return (numerator + denominator - 1) // denominator
 
 def update_g_avg(prev_g_avg: int, block_gas_used: int) -> int:
-    numerator = (EMA_DENOMINATOR - EMA_PREV_WEIGHT) * block_gas_used + EMA_PREV_WEIGHT * prev_g_avg
+    # An era may set a G_max below the previous average. Without the cap, the base
+    # fee could then rise by more than phi in a block.
+    numerator = (EMA_DENOMINATOR - EMA_PREV_WEIGHT) * block_gas_used + EMA_PREV_WEIGHT * min(prev_g_avg, G_MAX)
     return numerator // EMA_DENOMINATOR
 
 def update_base_fee(base_fee: int, g_avg: int) -> int:
