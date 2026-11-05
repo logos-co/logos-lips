@@ -39,7 +39,7 @@
 | 1.9.0 | Support the private ledger of Mantle: a declaration consumes notes and creates its own service note under the `note_pk` it names in the SDP note set, the withdrawal consumes it with a ZkTransfer, and the active and withdraw messages are signed by the `provider_id` | 2026-10-07 |
 | 1.10.0 | [RFC] An active or withdraw message advances the `sequence` of its declaration's `nonce` by exactly one | 2026-11-04 |
 | 1.11.0 | [RFC] A declaration consumes its notes, vested ones included, in spends of up to 16 notes, and cannot be withdrawn before its `locked_until` epoch | 2026-11-04 |
-| 1.12.0 | [RFC] The `note_pk` derives from the stake secret of the declarer, which every spend of the declaration proves | 2026-11-05 |
+| 1.12.0 | [RFC] The `note_pk` derives from the stake secret of the declarer, and its secret alone withdraws the declaration | 2026-11-05 |
 
 # Introduction
 
@@ -335,8 +335,6 @@ class WithdrawMessage:
     excess_value: TokenValue
 ```
 
-The message must be signed by the `provider_id` key of the declaration.
-
 The message consumes the service note of the declaration, by its nullifier `service_note_nullifier`, and creates the `outputs` that return its value, `excess_value` paying the fees. A [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) by the holder of the service note, who has the secret of the `note_pk`, proves it, against the service note of the declaration only. The `outputs` are released to the ledger when the declaration is removed.
 
 The `nonce` follows [Declaration Storage](#declaration-storage).
@@ -420,10 +418,9 @@ The logic of the withdraw action is:
 1. A node sends a `WithdrawMessage` transaction.
 2. The `WithdrawMessage` is verified by the SDP logic.
     1. The `declaration_id` returns an existing `DeclarationInfo`.
-    2. The transaction containing `WithdrawMessage` is signed by the `provider_id`.
-    3. The `withdraw_at` of the `DeclarationInfo` is `None`, and the current epoch is at least its `locked_until`.
-    4. The `nonce` is valid for the `DeclarationInfo` ([Declaration Storage](#declaration-storage)).
-    5. The ZkTransfer consumes the service note of the declaration and balances the `outputs`.
+    2. The `withdraw_at` of the `DeclarationInfo` is `None`, and the current epoch is at least its `locked_until`.
+    3. The `nonce` is valid for the `DeclarationInfo` ([Declaration Storage](#declaration-storage)).
+    4. The ZkTransfer consumes the service note of the declaration and balances the `outputs`.
 3. If any of the above is not correct, then discard the message and stop.
 4. Set the `withdraw_at` of the `DeclarationInfo` to the current epoch number plus two, record the `outputs` in its `withdraw_outputs`, and consume the service note.
 5. At epoch `withdraw_at + 1`, right after the final reward is paid out, the Mantle epoch finalization step removes the `DeclarationInfo` and releases its `withdraw_outputs` to the ledger ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).

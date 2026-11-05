@@ -39,6 +39,7 @@
 | 2.0.0 | Follow the private note ledger of Mantle 2.0.0: nullifier inputs and commitment outputs with their `CommitmentRoot` and `Value`, channel steps in the `MiniBlocks` of `ChannelInscribe`, holder withdrawals, the SDP payloads over notes with `NotePk` in `SDPDeclare`, `PowNonce` in `ClaimPowReward`, the `ZkTransfer` proof variants, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim`. A `FieldElement` not less than $`p`$ is rejected | 2026-10-06 |
 | 2.1.0 | Follow the programs of Mantle 2.1.0: the `ProgramRegister` Operation with its `Groth16VerificationKey`, user and program steps in the `MiniBlocks` of `ChannelInscribe` with their proofs and the openings of the program notes, the payments of program steps, the `Groth16` terminal renamed `Groth16Proof`, and the format of compressed points | 2026-10-12 |
 | 2.2.0 | [RFC] `SDPDeclare` carries `LockedUntil` and `StakeSpends` of 1 to 16 nullifiers with their value, proven by an `SDPDeclareProof` holding one `ZkStake` per spend | 2026-11-04 |
+| 2.3.0 | [RFC] An `SDPWithdraw` is proven by its ZkTransfer alone | 2026-11-05 |
 
 # Introduction
 
@@ -214,7 +215,6 @@ OpsProofs = *OpProof ; 1. Lenth must equal OpCount
 
 OpProof   = Ed25519SigProof /
             ZkTransferProof /
-            ZkTransferAndEd25519SigProof /
             SDPDeclareProof /
             ChannelInscribeOpProof /
             ChannelConfigOpProof /
@@ -222,7 +222,6 @@ OpProof   = Ed25519SigProof /
 
 Ed25519SigProof              = Ed25519Signature
 ZkTransferProof              = ZkTransfer
-ZkTransferAndEd25519SigProof = ZkTransfer Ed25519Signature
 SDPDeclareProof              = *ZkStake Ed25519Signature ; one ZkStake per StakeSpend of the declaration
 ChannelInscribeOpProof       = Ed25519Signature *StepProof ; one StepProof per step of the inscription
 StepProof                    = ZkTransfer / ProgramStepProof ; ZkTransfer for a user step,

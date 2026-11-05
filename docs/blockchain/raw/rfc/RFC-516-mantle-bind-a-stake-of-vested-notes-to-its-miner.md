@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-11-04 |
 | v2 | Binds the `note_pk`, which now holds the stake, in place of the `zk_id`; corrects the cost per input | 2026-11-05 |
-| v3 | States that a sale of the stake off chain needs no trust while withdrawing takes the `provider_id`; every declaration with a spend is bound; wallets recover their declarations | 2026-11-05 |
+| v3 | The `note_pk` secret alone withdraws, so a sale of the stake needs trust; every declaration with a spend is bound; wallets recover their declarations | 2026-11-05 |
 
 ## Reviewer Orientation
 
@@ -17,18 +17,22 @@ Read the PR's Motivation first.
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here** — [Mantle](#affected-specifications), [the binding constraint of the ZkStake](#2-the-zkstake-proves-the-binding) | the `note_pk` and every input with a non-zero `data` derive from one stake secret; inputs with `data` `0` stay free |
-| 2 | High | [Mantle](#affected-specifications), [the derivation functions](#1-keys-derived-from-a-stake-secret) | domain separation between claim keys and service note keys; compression mode |
-| 3 | High | [Service Declaration Protocol](#affected-specifications), [the `note_pk`](#3-the-note_pk-of-a-declaration) | the `note_pk` is now proven by every spend |
-| 4 | Medium | [Wallet Technical Standard](#affected-specifications), [wallets that mine or declare](#4-wallets-that-mine-or-declare) | the stake secret; recovery of claims |
-| 5 | Low | [Common Cryptographic Components](#affected-specifications) | skim — one more use of the compression mode |
+| 2 | Critical | **Start here** — [Mantle](#affected-specifications), [Service Declaration Protocol](#affected-specifications), [withdrawal by the `note_pk` secret](#5-withdrawal-by-the-note_pk-secret-alone) | `SDP_WITHDRAW` no longer takes the `provider_id` signature |
+| 3 | High | [Mantle](#affected-specifications), [the derivation functions](#1-keys-derived-from-a-stake-secret) | domain separation between claim keys and service note keys; compression mode |
+| 4 | High | [Service Declaration Protocol](#affected-specifications), [the `note_pk`](#3-the-note_pk-of-a-declaration) | the `note_pk` is now proven by every spend |
+| 5 | Medium | [Wallet Technical Standard](#affected-specifications), [wallets that mine or declare](#4-wallets-that-mine-or-declare) | the stake secret; recovery of claims and declarations |
+| 6 | Low | [Mantle Transaction Encoding](#affected-specifications), [Gas Cost Determination](#affected-specifications) | the withdrawal proof and its Execution Gas lose the signature |
+| 7 | Low | [Common Cryptographic Components](#affected-specifications) | skim — one more use of the compression mode |
 
 # Discussion
 
 ## What the binding prevents
 
-Without it, `SDP_DECLARE` creates the service note under any `note_pk` it names. The holder of the secret of the `note_pk` leads with the service note and withdraws it once the lock ends. A seller can stake its vested notes under a buyer's `note_pk` and `provider_id`, in one transaction with a Transfer paying the seller, and the buyer then holds the locked stake.
+Without it, `SDP_DECLARE` creates the service note under any `note_pk` it names. The holder of the secret of the `note_pk` leads with the service note and withdraws it once the lock ends. A seller can stake its vested notes under a buyer's `note_pk`, in one transaction with a Transfer paying the seller, and the buyer then holds the locked stake.
 
-With the binding, the `note_pk` derives from the stake secret of the vested notes, so only the miner can declare them. The sale moves off chain but needs no trust. The seller hands the buyer the secret key of the `note_pk`, which reveals neither the stake secret nor any other key, and the buyer checks it against the `note_pk` before paying. The declaration names the buyer's `provider_id`. Withdrawing takes the `note_pk` secret and the `provider_id` signature, so the buyer withdraws the stake once it unlocks and the seller cannot. The seller keeps only the lottery: both parties can lead with the service note.
+With the binding, the `note_pk` derives from the stake secret of the vested notes, so only the miner can declare them, and the miner can always derive the secret key of the `note_pk` again. That key alone withdraws the declaration. A seller can still hand it to a buyer off chain, but it can also withdraw the stake itself once it unlocks, so the buyer has to trust the seller. No protocol can prevent such a sale.
+
+Withdrawing used to take a `provider_id` signature as well. A seller could then name the buyer's `provider_id`, hand over the key, and be shut out of the withdrawal, so the sale needed no trust. Without the signature, a leaked `note_pk` secret is enough to withdraw. The host of a node, which holds the `provider_id` and the `zk_id`, still cannot.
 
 The binding covers notes already claimed. A buyer can still hand a miner public keys derived from its own stake secret. The puzzle binds the key of a claim, so the miner's claims then vest under the buyer's keys, and no rule tells this apart from the buyer mining.
 
@@ -55,13 +59,9 @@ The ZkStake gains one public input, which adds a term to the fixed part of its b
 
 Notes that never vest, whose `data` is `0`, stay free of the check, since they move anyway. A vested note stays bound after its vesting ends, until a Transfer turns it into a note with `data` `0`.
 
-## Open questions
-
-- Withdrawal by the `note_pk` secret alone. Without the `provider_id` signature, the seller could always withdraw a sold stake once it unlocks, since it can derive the key again, so a sale would need trust. A leaked `note_pk` secret would then be enough to withdraw.
-
 ## Compatibility
 
-The chain has not launched, so no migration is needed. The ZkStake gets a new public input and verification key, and the encoding does not change: the `note_pk` is already in the declaration.
+The chain has not launched, so no migration is needed. The ZkStake gets a new public input and verification key. The encoding of a declaration does not change, since the `note_pk` is already in it, and the proof of an `SDPWithdraw` loses its signature.
 
 # Details
 
@@ -118,6 +118,21 @@ A valid declaration has a `note_pk` derived from a stake secret of the sender, f
 
 A wallet that mines or declares keeps a stake secret, the `k_logos` of a hardened child key it reserves for staking. It derives its claim keys and the `note_pk` of its declarations from it, taking the indices of each function in order. It recovers its claims and its declarations from the seed by their derived public keys, until 1,000 consecutive indices of a function match nothing.
 
+## 5. Withdrawal by the `note_pk` secret alone
+
+`SDP_WITHDRAW` drops the `provider_id` signature. The ZkTransfer consuming the service note, by the holder of the `note_pk` secret, authorizes the withdrawal.
+
+```diff
+ class WithdrawProof:
+     zk_proof: ZkTransfer             # consuming the service note
+-    provider_sig: Ed25519Signature   # signature proving ownership of provider key
+```
+
+- Validation drops its signature step, and the nonce and ZkTransfer checks become steps 3 and 4.
+- Execution Gas: `EXECUTION_SDP_WITHDRAW_GAS + spend_gas([service_note], outputs)`, without `EXECUTION_SIGNATURE_GAS`.
+- Encoding: an `SDPWithdraw` is proven by a `ZkTransferProof`. `ZkTransferAndEd25519SigProof`, which no Operation uses any more, is removed.
+- The Service Declaration Protocol no longer requires the withdraw message to be signed by the `provider_id`.
+
 ## Chores
 
 - Common Cryptographic Components lists the keys derived from a stake secret among the uses of the compression mode.
@@ -127,9 +142,10 @@ A wallet that mines or declares keeps a stake secret, the `k_logos` of a hardene
 
 - [ ] Add the `note_pk` public input, the stake secret, the indices and the derivation checks to the ZkStake circuit, and generate its key.
 - [ ] Pass the `note_pk` of the declaration to the ZkStake verification of `SDP_DECLARE`.
+- [ ] Drop the `provider_id` signature from `SDP_WITHDRAW`, from the encoding of its proof and from its Execution Gas.
 - [ ] Derive claim keys and the `note_pk` of declarations from a stake secret in wallets that mine or declare, and recover claims and declarations by their derived public keys.
 - [ ] Measure the fixed part of the ZkStake batch with its new public input.
-- [ ] Add tests: a declaration staking vested notes under a `note_pk` of their stake secret is accepted; one under another `note_pk`, or with a vested input under an underived key, is rejected; a liquid input under any key is accepted.
+- [ ] Add tests: a declaration staking vested notes under a `note_pk` of their stake secret is accepted; one under another `note_pk`, or with a vested input under an underived key, is rejected; a liquid input under any key is accepted; a withdrawal proven by the `note_pk` secret alone is accepted.
 - [ ] Verify the implementation matches this specification.
 
 # Affected Specifications
@@ -139,4 +155,6 @@ A wallet that mines or declares keeps a stake secret, the `k_logos` of a hardene
 | [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | Revision 2.5.0 |
 | [Service Declaration Protocol](../bedrock-service-declaration-protocol.md) | Modified | Revision 1.12.0 |
 | [Wallet Technical Standard](../wallet-technical-standard.md) | Modified | Revision 1.5.0 |
+| [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | Revision 2.3.0 |
+| [Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | Revision 2.2.0 |
 | [Common Cryptographic Components](../common-cryptographic-components.md) | Modified | Revision 1.4.1 |

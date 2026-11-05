@@ -55,7 +55,7 @@
 | 2.2.0 | Execution Gas from [Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0: a Mantle Transaction pays its bytes, each channel or SDP note set it changes and each root extension its proofs share, and each Operation pays its proofs, nullifiers, commitments, signatures, steps, payments, openings and program proofs, through `spend_gas` and the per-component constants of Gas Determination | 2026-10-27 |
 | 2.3.0 | [RFC] `SDP_ACTIVE` and `SDP_WITHDRAW` advance the `sequence` of the declaration's `nonce` by exactly one | 2026-11-04 |
 | 2.4.0 | [RFC] A claim pays a share of its reward as a vested note, which a proof consumes only once its vesting has ended, and `SDP_DECLARE` stakes notes through ZkStake proofs until its `locked_until` epoch | 2026-11-05 |
-| 2.5.0 | [RFC] The ZkStake proves that the `note_pk` of a declaration and the keys of the vested notes it stakes derive from one stake secret | 2026-11-05 |
+| 2.5.0 | [RFC] The ZkStake proves that the `note_pk` of a declaration and the keys of the vested notes it stakes derive from one stake secret, and the `note_pk` secret alone withdraws the declaration | 2026-11-05 |
 
 # Introduction
 
@@ -1350,17 +1350,16 @@ The withdrawal consumes the service note of the declaration and creates the note
 
 #### Proof
 
-  A signature from the `provider_id` attached to the declaration and a [Zero Knowledge Transfer Proof (ZkTransfer)](#zero-knowledge-transfer-proof-zktransfer) by the holder of the service note, who has the secret of the `note_pk`, are required for withdrawing from a service.
+  A [Zero Knowledge Transfer Proof (ZkTransfer)](#zero-knowledge-transfer-proof-zktransfer) by the holder of the service note, who has the secret of the `note_pk`, is required for withdrawing from a service.
 
 ```python
 class WithdrawProof:
     zk_proof: ZkTransfer             # consuming the service note
-    provider_sig: Ed25519Signature   # signature proving ownership of provider key
 ```
 
 #### Execution Gas
 
-  SDP Withdraw Operations have an Execution Gas cost of `EXECUTION_SDP_WITHDRAW_GAS + EXECUTION_SIGNATURE_GAS + spend_gas([service_note], outputs)`: no buffer extends the root of an MMR holding only the service note, and `EXECUTION_SDP_WITHDRAW_GAS` covers its computation. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
+  SDP Withdraw Operations have an Execution Gas cost of `EXECUTION_SDP_WITHDRAW_GAS + spend_gas([service_note], outputs)`: no buffer extends the root of an MMR holding only the service note, and `EXECUTION_SDP_WITHDRAW_GAS` covers its computation. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
 
 #### Validation
 
@@ -1391,16 +1390,12 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       assert declare_info.withdraw_at is None
       assert current_epoch >= declare_info.locked_until
       ```
-  3. Ensure the `provider_id` attached to this declaration authorized this Operation.
-      ```python
-      assert Ed25519_verify(txhash, declare_info.provider_id, proof.provider_sig)
-      ```
-  4. Ensure that the nonce belongs to this declaration and that its sequence is the previous one plus one.
+  3. Ensure that the nonce belongs to this declaration and that its sequence is the previous one plus one.
       ```python
       assert withdraw.nonce >> 32 == declare_info.created
       assert withdraw.nonce & 0xFFFFFFFF == (declare_info.nonce & 0xFFFFFFFF) + 1
       ```
-  5. Ensure the service note of the declaration is consumed by its holder and balances the outputs, with [`ZkTransfer_verify`](#zero-knowledge-transfer-proof-zktransfer) against the [`mmr_root`](#commitment-merkle-mountain-range) of the single peak holding the service note.
+  4. Ensure the service note of the declaration is consumed by its holder and balances the outputs, with [`ZkTransfer_verify`](#zero-knowledge-transfer-proof-zktransfer) against the [`mmr_root`](#commitment-merkle-mountain-range) of the single peak holding the service note.
       ```python
       assert withdraw.service_note_nullifier not in ledger.sets[SDP_SET].nullifiers
       assert ZkTransfer_verify([withdraw.service_note_nullifier],
