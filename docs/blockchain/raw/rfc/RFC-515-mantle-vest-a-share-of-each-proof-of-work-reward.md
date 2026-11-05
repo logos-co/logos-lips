@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-11-04 |
 | v2 | Follows the stack below: `commitment_root` and the full names of commitments and nullifiers, and the `note_pk` of a declaration, under which a handed-over stake now sits. The `SDP_DECLARE` and whole-transaction test vectors of Mantle hold the new encoding of a declaration | 2026-11-05 |
-| v3 | A two-spend declaration test vector and the Cryptarchia test vectors it changes; spend values reveal the epochs of their claims; recomputed declaration limits | 2026-11-05 |
+| v3 | Cryptarchia test vectors and a two-spend declaration vector; the unmeasured gas and the Execution Gas limit are TBD; recomputed declaration limits | 2026-11-05 |
 
 ## Reviewer Orientation
 
@@ -22,7 +22,7 @@ Read the PR's Motivation first.
 | 4 | High | [Mantle](#affected-specifications), [Proof of Work](#affected-specifications), [the claim split](#2-a-claim-pays-a-liquid-and-a-vested-note) | the vesting end counted from the referenced block; the fee rule on the liquid part |
 | 5 | High | [Proof of Leadership](#affected-specifications), [Proof of Quota](#affected-specifications), [vested notes lead](#5-vested-notes-lead) | `data` becomes a witness of the note commitment |
 | 6 | High | [Mantle Transaction Encoding](#affected-specifications), [encoding](#6-encoding) | `SDPDeclare`, `StakeSpend`, `SDPDeclareProof` |
-| 7 | Medium | [Block Construction](#affected-specifications), [Gas Cost Determination](#affected-specifications) | the slot of a recorded root; the ZkStake batch; the `SDP_DECLARE` gas |
+| 7 | Medium | [Block Construction](#affected-specifications), [Gas Cost Determination](#affected-specifications), [Execution Market](#affected-specifications), [Cryptoeconomics](#affected-specifications) | the slot of a recorded root; the ZkStake batch; the `SDP_DECLARE` gas; the TBD gas values and limit |
 | 8 | Medium | [Genesis Block](#affected-specifications), [Genesis declarations](#7-genesis-declarations) | declarations without spends |
 | 9 | Medium | [Wallet Technical Standard](#affected-specifications), [wallets](#8-wallets) | the `data` of vested notes; the two privacy recommendations |
 | 10 | Low | [Cryptarchia](#affected-specifications) | test vectors only |
@@ -80,7 +80,7 @@ Three other ways to stake many notes were dropped:
 Claims stay public. The ledger creates both notes, and their value, key, vesting end and commitment are known to everyone. A spend reveals nullifiers, never commitments, so it does not show which note it consumes.
 
 - **A spend after vesting** adds nothing, since `vested_by` is the slot of a public root. Its timing can point at the claims whose vesting just ended, so wallets wait a random number of blocks ([Wallet Technical Standard](../wallet-technical-standard.md#vested-notes)).
-- **A declaration** reveals its number of notes, the value of each spend and its lock epoch. Claim rewards are equal only within an epoch, since each epoch pays a fraction of what the pool holds. The value of a spend of vested notes therefore reveals how many of its notes were claimed in each epoch, wherever that sum has one decomposition into the public claim values. If the declarer picks the earliest valid lock epoch, that epoch gives away the 7.5-day window its latest claim falls in, which holds 216,000 claims at the target of 10 claims per block. Each other staked note hides among all vested notes claimed by then and not yet spent. A lock exact to the slot would have named the block of the latest claim, about 10 claims at the target and often a single claim below it.
+- **A declaration** reveals its number of notes, the value of each spend and its lock epoch. The claim reward is fixed, so the value of a spend of vested notes only repeats their count. [Reward Pool](../proof-of-work.md#reward-pool) still recomputes the reward at every epoch boundary. While it does, the value reveals how many of the notes were claimed in each epoch, wherever that sum has one decomposition into the public claim values. If the declarer picks the earliest valid lock epoch, that epoch gives away the 7.5-day window its latest claim falls in, which holds 216,000 claims at the target of 10 claims per block. Each other staked note hides among all vested notes claimed by then and not yet spent. A lock exact to the slot would have named the block of the latest claim, about 10 claims at the target and often a single claim below it.
 - **The Proof of Leadership and the Proof of Quota** reveal nothing new.
 - **The strongest link is off chain:** a provider sending its claims from the node named in its locators. Wallets send them through other peers.
 
@@ -100,10 +100,10 @@ An era can also change the length of an epoch. The first slot of epoch `locked_u
 
 ## Gas still to measure
 
-- The ZkStake proofs of a block form a batch of their own, whose fixed part is not yet measured. The fixed part of each batch is deducted from the Execution Gas limit of a block, so `G_max`, `G_target` and the base fee constants follow once it is.
+- The ZkStake proofs of a block form a batch of their own, whose fixed part is not yet measured. The fixed part of each batch is deducted from the Execution Gas limit of a block, so until it is measured the fixed costs of a block, the Execution Gas limit, `G_max` and `G_target` are TBD.
 - The 28th public input of the ZkTransfer adds a term to the fixed part of its batch.
 - A ZkStake proof is priced at `EXECUTION_PROOF_GAS`, since each proof of a batch adds two scalar multiplications and one pairing whatever its public inputs. A measurement should confirm it.
-- `EXECUTION_CLAIM_POW_REWARD_GAS = 592` was measured on a claim creating one note. The second note adds a nonce, a commitment and an append to the ledger note set.
+- `EXECUTION_CLAIM_POW_REWARD_GAS` is TBD. Its former 592 was measured on a claim creating one note, and the second note adds a nonce, a commitment and an append to the ledger note set.
 
 ## Compatibility
 
@@ -112,8 +112,7 @@ The chain has not launched, so no migration is needed. The ZkTransfer, the Proof
 ## Open questions
 
 - A provider whose stake is locked cannot change its locators: the Service Declaration Protocol has no update, and declaring again takes other notes and identifiers.
-- Hiding the epochs that spend values reveal. A claim reward constant within an era would make a spend's value reveal only its count. So would ZkStakes that chain a hidden running sum and publish only `amount`.
-- The liquid part of a claim covers its fee about twice at genesis, at the starting storage price, against about four times for a whole reward. Without refills of the pool, it falls below the fee after about 137 epochs, against 275.
+- The liquid part of a claim covers its fee about twice at genesis, at the starting storage price, against about four times for a whole reward.
 - Every vested note leads on its own, so a miner evaluates one lottery ticket per note and slot. A miner with 1% of the target claim rate holds about 105,000 vested notes after a year. Before their vesting ends, only a declaration merges them.
 
 # Details
@@ -218,7 +217,7 @@ A wallet keeps the `data` of each note it tracks. It should spend a vested note 
 - [ ] Update the encoding of `SDPDeclare` and its proof.
 - [ ] Build the Genesis declarations without spends.
 - [ ] Keep the `data` of vested notes in the wallet, and spend them a random number of blocks after their end.
-- [ ] Measure the ZkStake batch, the ZkTransfer batch with 28 public inputs and a claim creating two notes, and update `G_max`, `G_target`, the base fee constants and `EXECUTION_CLAIM_POW_REWARD_GAS`.
+- [ ] Measure the ZkStake batch, the ZkTransfer batch with 28 public inputs and a claim creating two notes, and fill in the TBD values: the fixed costs of a block, the Execution Gas limit, `G_max`, `G_target` and `EXECUTION_CLAIM_POW_REWARD_GAS`.
 - [ ] Add `POW_VESTED_SHARE` and `VESTING_SLOTS` to the era parameter record once Eras and this change are on one branch.
 - [ ] Add tests and test vectors: the two claim notes, `vested_by` at, before and after a vesting end, a ZkStake of 1 and 16 inputs, a withdrawal before and at `locked_until`, the new encoding.
 - [ ] Verify the implementation matches this specification.
@@ -238,3 +237,5 @@ A wallet keeps the `data` of each note it tracks. It should spend a vested note 
 | [Genesis Block](../bedrock-genesis-block.md) | Modified | Revision 1.3.2 |
 | [Wallet Technical Standard](../wallet-technical-standard.md) | Modified | Revision 1.4.0 |
 | [Cryptarchia](../cryptarchia-v1-protocol.md) | Modified | Revision 1.3.2 |
+| [Execution Market](../execution-market.md) | Modified | Revision 1.3.3 |
+| [Cryptoeconomics](../overview-cryptoeconomics.md) | Modified | Revision 1.5.3 |
