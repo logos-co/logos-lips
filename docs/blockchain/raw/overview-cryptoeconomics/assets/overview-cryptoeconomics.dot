@@ -34,7 +34,7 @@ digraph overview_cryptoeconomics {
 
   subgraph cluster_users {
     label = "Users";
-    sequencer [label = "Sequencer"];
+    wallet    [label = "L1 Wallet"];
     operator  [label = "Node Operator"];
     staker    [label = "Leader"];
   }
@@ -70,10 +70,10 @@ digraph overview_cryptoeconomics {
     srdp -> blend;
   }
 
-  tokens    -> sequencer [label = "  buys, earns  "];
+  tokens    -> wallet    [label = "  buys, earns  "];
   operator  -> sdp       [label = "  locks  ", style = dashed];
   staker    -> lottery   [label = "  stakes  ", style = dashed];
-  sequencer -> mempool   [label = "  transactions  "];
+  wallet    -> mempool   [label = "  transactions  "];
   lottery   -> leader;
   mempool   -> leader    [style = dashed];
   leader   -> exec_fees;

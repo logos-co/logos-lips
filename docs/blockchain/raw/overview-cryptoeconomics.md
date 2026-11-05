@@ -54,7 +54,7 @@ In this section we present an overview of the cryptoeconomical aspects of the Lo
 
 ![Diagram](overview-cryptoeconomics/assets/bbe261aa-09df-827f-a6a9-8115aeb10f94.png)
 
-- Users (rollup sequencers, node operators, or leaders) acquire tokens through purchase or by earning them as rewards.
+- Users (L1 wallets, node operators, or leaders) acquire tokens through purchase or by earning them as rewards.
 - Tokens serve three main purposes:
     - Paying for transaction processing resources used: [Fee Markets](#fee-markets).
     - Declaring service participation: node operators lock a [Minimum Stake](#minimum-stake) through the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) to become Blend Service providers.
@@ -106,7 +106,7 @@ In Logos Blockchain, Permanent Storage Gas is determined for an entire encoded M
 
 ## Fee Markets
 
-Users (rollup sequencers, node operators, or leaders) pay [fees in Logos Blockchain for their Mantle Transactions](bedrock-v1.1-mantle-specification.md) to compensate for service usage. Logos Blockchain operates with two distinct fee markets. The goal of each market is to ensure fair compensation, sustainability, and proper incentives. However each market has its own unique characteristics:
+Users (L1 wallets, node operators, or leaders) pay [fees in Logos Blockchain for their Mantle Transactions](bedrock-v1.1-mantle-specification.md) to compensate for service usage. Logos Blockchain operates with two distinct fee markets. The goal of each market is to ensure fair compensation, sustainability, and proper incentives. However each market has its own unique characteristics:
 
 - The Execution fee market covers the validation and execution of Mantle Transactions. The consensus does not directly limit the number of CPU cycles or Execution Gas per block but a fee regulating mechanism is necessary to be compliant with minimum hardware requirements of a node. The fees must regulate the use of CPU cycles for validation and execution of the blockchain.
 - The Permanent Storage fee market covers the permanent storage of encoded Mantle Transactions. Blocks are limited to 2MiB with a maximum of 1024 Mantle Transactions per block. However, the fees must reduce the maximum amount of Storage to meet the minimum hardware requirements.
