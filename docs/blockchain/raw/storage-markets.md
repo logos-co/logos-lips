@@ -27,6 +27,7 @@
 | 1.1.0 | Round the price update upwards and align the reference code with the zero target guard | 2026-07-28 |
 | 1.1.1 | Changing from burning/minting to pooling/distributing/releasing | 2026-08-25 |
 | 1.2.0 | The storage fee is routed to the rewards pool less the share diverted to the proof of work reward pool | 2026-08-31 |
+| 1.3.0 | The integer price update follows any $`\alpha`$ and $`\beta`$ an era sets, those of the era of the timeframe ([Bedrock Eras](bedrock-eras.md)) | 2026-11-05 |
 
 > **Disclaimer:**
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -109,7 +110,7 @@ where $`\mathcal{B}`$ is the set of transactions in the block, $`S_{\text{gas}}(
 
 ### Protocol Constants
 
-To ensure on-chain efficiency, the protocol shall use an Exponential Moving Average (EMA) for its adaptive target calculation. The behavior of the TFM is governed by the following on-chain constants, which are set at genesis.
+To ensure on-chain efficiency, the protocol shall use an Exponential Moving Average (EMA) for its adaptive target calculation. The behavior of the TFM is governed by the following on-chain constants. An era sets $`\alpha`$ and $`\beta`$ ([Era Parameters](bedrock-eras.md#era-parameters)), and the others are set at genesis.
 
 | Symbol | Name | Description | Initial Value | Justification |
 | --- | --- | --- | --- | --- |
@@ -152,7 +153,7 @@ The protocol must maintain the following state variables, updated at the end of 
 
 ### Price Update Algorithm
 
-At the conclusion of each timeframe $s$, the protocol shall execute the following algorithm to determine the price for the next timeframe, $`P_{\text{storage}}(s+1)`$. This is done as follows.
+At the conclusion of each timeframe $s$, the protocol shall execute the following algorithm, with the $`\alpha`$ and $`\beta`$ of the era of timeframe $s$, to determine the price for the next timeframe, $`P_{\text{storage}}(s+1)`$. This is done as follows.
 
  1. Tally Usage: Aggregate the total Logos Blockchain Storage Gas consumed during timeframe $s$ into a final value, $`C_{\text{usage}}(s)=\sum_{t\in\mathcal{B}_s}\mathsf{StorageGasUsed}[t]`$, where $`\mathcal{B}_s`$ corresponds to one block in timeframe $s$ and $`\mathsf{StorageGasUsed}[t]`$ corresponds to the Logos Blockchain Storage Gas used by transaction $t$.
 
@@ -173,13 +174,13 @@ Because computation affect consensus state, the implementation must be fully det
 
 The goal of this section is not to change the execution mechanism. It is only to restate the already-specified mechanism in a canonical deterministic form with explicit named constants. To we provide here a reference implementation that uses unsigned integers to have a common reference.
 
-First because we have $w = 0$, $`T_\text{RA}(s) = T_\text{effective}(s)`$. Then because $\beta=0.5$
+First because we have $w = 0$, $`T_\text{RA}(s) = T_\text{effective}(s)`$. Then with $`\beta = \beta_n / \beta_d`$ in whole numbers
 
 $$
-T_{\mathrm{RA}}(s)=\frac{C_{\mathrm{usage}}(s)+T_{\mathrm{RA}}(s-1)}{2}
+T_{\mathrm{RA}}(s)=\frac{\beta_n \cdot C_{\mathrm{usage}}(s)+(\beta_d - \beta_n) \cdot T_{\mathrm{RA}}(s-1)}{\beta_d}
 $$
 
-Secondly, we can rewrite $`P_\text{storage}`$ equation:
+Secondly, with $`\alpha = \alpha_n / \alpha_d`$ in whole numbers, we can rewrite $`P_\text{storage}`$ equation:
 
 $$
 \begin{align*}
@@ -193,8 +194,8 @@ P_{\mathrm{storage}}(s+1)
 \min\bigl(1+\alpha,\, 1+\mathrm{adjustment}(s)\bigr)
 \bigr)\\
 &= P_{\mathrm{storage}}(s)\cdot
-\max\biggl(\frac78,\,
-\min\biggl(\frac98,\,
+\max\biggl(\frac{\alpha_d-\alpha_n}{\alpha_d},\,
+\min\biggl(\frac{\alpha_d+\alpha_n}{\alpha_d},\,
 \frac{C_{\mathrm{usage}}(s)}{T_{\mathrm{RA}}(s)}
 \biggr)
 \biggr)
@@ -203,21 +204,24 @@ $$
 
 and so:
 
-$`P_{\mathrm{storage}}(s+1)=\begin{cases}P_{\mathrm{storage}}(s),& \text{if } T_{\mathrm{RA}}(s)=0,\\[6pt]\left\lceil P_{\mathrm{storage}}(s)\cdot \frac78 \right\rceil,& \text{if } 8\,C_{\mathrm{usage}}(s)\le 7\,T_{\mathrm{RA}}(s),\\[6pt]\left\lceil P_{\mathrm{storage}}(s)\cdot \frac98 \right\rceil,& \text{if } 8\,C_{\mathrm{usage}}(s)\ge 9\,T_{\mathrm{RA}}(s),\\[6pt]\left\lceil P_{\mathrm{storage}}(s)\cdot\frac{C_{\mathrm{usage}}(s)}{T_{\mathrm{RA}}(s)} \right\rceil,& \text{otherwise.}\end{cases}`$
+$`P_{\mathrm{storage}}(s+1)=\begin{cases}P_{\mathrm{storage}}(s),& \text{if } T_{\mathrm{RA}}(s)=0,\\[6pt]\left\lceil P_{\mathrm{storage}}(s)\cdot \frac{\alpha_d-\alpha_n}{\alpha_d} \right\rceil,& \text{if } \alpha_d\,C_{\mathrm{usage}}(s)\le (\alpha_d-\alpha_n)\,T_{\mathrm{RA}}(s),\\[6pt]\left\lceil P_{\mathrm{storage}}(s)\cdot \frac{\alpha_d+\alpha_n}{\alpha_d} \right\rceil,& \text{if } \alpha_d\,C_{\mathrm{usage}}(s)\ge (\alpha_d+\alpha_n)\,T_{\mathrm{RA}}(s),\\[6pt]\left\lceil P_{\mathrm{storage}}(s)\cdot\frac{C_{\mathrm{usage}}(s)}{T_{\mathrm{RA}}(s)} \right\rceil,& \text{otherwise.}\end{cases}`$
 
 The first case is the genesis guard discussed in the parameter justification: an effective target of zero carries no demand signal, so the price is held until the first epoch with a non-zero usage EMA. In the three adjustment cases the price is rounded upwards, while the usage EMA $`T_{\mathrm{RA}}(s)`$ is rounded downwards, and so we can derive the following reference code:
 
 ```python
-EMA_DENOMINATOR = 2         # 1/beta
-CLAMP_DENOMINATOR = 8       # denominator of 1+ alpha and 1-alpha
-CLAMP_DOWN_NUMERATOR = 7    # numerator of 1-alpha
-CLAMP_UP_NUMERATOR = 9      # numerator of 1+alpha
+EMA_NUMERATOR = 1           # numerator of beta = 1/2
+EMA_DENOMINATOR = 2         # denominator of beta = 1/2
+CLAMP_NUMERATOR = 1         # numerator of alpha = 1/8
+CLAMP_DENOMINATOR = 8       # denominator of alpha, 1+alpha and 1-alpha
+CLAMP_DOWN_NUMERATOR = CLAMP_DENOMINATOR - CLAMP_NUMERATOR  # numerator of 1-alpha
+CLAMP_UP_NUMERATOR = CLAMP_DENOMINATOR + CLAMP_NUMERATOR    # numerator of 1+alpha
 
 def ceil_div(numerator: int, denominator: int) -> int:
     return (numerator + denominator - 1) // denominator
 
 def update_usage(total_gas_consumed: int, previous_usage: int) -> int:
-    return (total_gas_consumed + previous_usage) // EMA_DENOMINATOR
+    numerator = EMA_NUMERATOR * total_gas_consumed + (EMA_DENOMINATOR - EMA_NUMERATOR) * previous_usage
+    return numerator // EMA_DENOMINATOR
 
 def update_storage_price(prev_price: int, total_gas_consumed: int, usage: int) -> int:
     if usage == 0:

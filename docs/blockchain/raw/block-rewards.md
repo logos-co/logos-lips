@@ -24,6 +24,7 @@
 | 1.0.0 | Initial revision. | 2026-04-24 |
 | 1.1.0 | Changing from burning/minting to pooling/distributing/releasing, removing $`S_{tge}`$ | 2026-08-25 |
 | 1.2.0 | Count the proof of work reward pool as a fourth controlled stock, bound net circulating growth by the two stocks that drain, and state that the pooled fee is net of the share diverted to that pool | 2026-08-31 |
+| 1.3.0 | Defined `pooled_fees_window` and its update when an era changes $`T`$, derived `FEE_AVG_NUMERATOR` from the other constants, and named the Blend share ([Bedrock Eras](bedrock-eras.md)) | 2026-11-05 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -535,11 +536,22 @@ So we propose a reference implementation that uses integers:
 import numpy as np
 from numpy import int64
 
-A_SCALE = int64(120_000_000)            # denominator of 1/(I_max * D1_target * Delta_t * T)
+A_SCALE = int64(120_000_000)            # I_max * D0_target / alpha_d, the denominator of A_t
 INFLATION_NUMERATOR = int64(62_500)     # numerator of I_max * S_CAP * DELTA_t / f
 INFLATION_DENOMINATOR = int64(657)      # denominator of I_max * S_CAP * DELTA_t / f
-FEE_AVG_NUMERATOR = int64(10_512)       # numerator of 1/(I_max * D1_target * Delta_t * T)
+T = 120                                 # the blocks of the look-back window
+# A_SCALE * alpha_a / (I_max * D1_target * Delta_t * T), which is 10_512, with
+# alpha_a = 1, D1_target = S_CAP and f = 1.
+FEE_AVG_NUMERATOR = A_SCALE * INFLATION_DENOMINATOR // (INFLATION_NUMERATOR * T)
 STAKE_TARGET = int64(3_000_000_000)
+BLEND_SHARE_NUMERATOR = int64(6)        # numerator of the Blend nodes' share of a reward
+BLEND_SHARE_DENOMINATOR = int64(10)     # denominator of the Blend nodes' share of a reward
+
+
+def update_pooled_fees_window(pooled_fees_window: list[int64], pooled_fees: int64) -> list[int64]:
+    # The window holds another number of fees than T after an era that changes T.
+    # A shorter T drops the oldest, and a longer T starts the entries it adds at 0.
+    return ([int64(0)] * T + pooled_fees_window + [pooled_fees])[-T:]
 
 
 def block_reward(total_stake: int64, pooled_fees_window: list[int64]) -> tuple[int64, int64]:
@@ -557,8 +569,13 @@ def block_reward(total_stake: int64, pooled_fees_window: list[int64]) -> tuple[i
     )
     reward_denominator = INFLATION_DENOMINATOR * A_SCALE
 
-    blend_reward = reward_numerator * int64(6) // (reward_denominator * int64(10))
-    leader_reward = reward_numerator * int64(4) // (reward_denominator * int64(10))
+    denominator = reward_denominator * BLEND_SHARE_DENOMINATOR
+    blend_reward = reward_numerator * BLEND_SHARE_NUMERATOR // denominator
+    leader_reward = reward_numerator * (BLEND_SHARE_DENOMINATOR - BLEND_SHARE_NUMERATOR) // denominator
 
     return blend_reward, leader_reward
 ```
+
+`pooled_fees_window` holds $`D_{1,\tau}`$ of the latest blocks, oldest first and ending with the current block. It holds $`T`$ zeros at genesis. A block updates it with its own $`D_{1,t}`$ before it computes its reward.
+
+An era that changes the expected time between blocks ([Constants](cryptarchia-v1-protocol.md#constants)) changes $`\Delta_t`$, so it sets `INFLATION_NUMERATOR` and `INFLATION_DENOMINATOR` to match. Otherwise the reserve releases more or less than $`I_{max}`$ of $`S_{cap}`$ per year.
