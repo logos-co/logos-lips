@@ -7,7 +7,7 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC: an optional note ciphertext per output of the Operations creating user notes | 2026-10-19 |
-| v2 | The ciphertext leaves the chain: no change to the Operations or their encoding, the scheme is a recommendation for delivery through a direct channel or a data availability layer; X-Wing becomes its own entry of Common Cryptographic Components with the Note Encryption construction under it; test values added; Mantle gets a Note Delivery note only. The leader reward note, whose nonce its leader chooses, is found from the header of its block | 2026-11-02 |
+| v2 | The ciphertext leaves the chain: no change to the Operations or their encoding, the scheme is a recommendation for delivery through a direct channel or a data availability layer; X-Wing becomes its own entry of Common Cryptographic Components with the Note Encryption construction under it; test values added; Mantle gets a Note Delivery note only. The leader reward note, whose nonce its leader chooses privately, is kept by the wallet that created it | 2026-11-02 |
 
 ## Reviewer Orientation
 
@@ -27,7 +27,7 @@ The private ledger holds commitments only. A recipient has to learn the value an
 
 The first revision of this proposal attached an optional ciphertext to each output of the Operations creating user notes, so that the chain would carry the data a wallet needs to recover from its seed. That puts 1176 permanent bytes per output on every node, priced as permanent storage, for data that one peer serving the recipient makes available just as well. Decentralised availability guarantees distribution; the recipient does not need distribution once it holds the note, it needs the ciphertext to be somewhere it can read. The ciphertext is therefore delivered off chain: through a direct channel between the sender and the recipient, or published on a data availability layer, such as Logos storage, that the recipient reads.
 
-What the specification fixes is the one format a ciphertext has, so that every wallet opens every ciphertext addressed to it wherever it comes from, and the key a wallet derives for it. What it does not fix is the channel. The consequence for recovery is stated in the wallet standard: a wallet restoring from its seed finds the notes the ledger creates from the chain, and the notes it was paid from whoever still serves their ciphertexts, so it keeps a backup of its records or reads its notes from a layer it can read again from the seed alone.
+What the specification fixes is the one format a ciphertext has, so that every wallet opens every ciphertext addressed to it wherever it comes from, and the key a wallet derives for it. What it does not fix is the channel. The consequence for recovery is stated in the wallet standard: a wallet restoring from its seed finds the notes the ledger creates from the chain, and the notes it was paid from whoever still serves their ciphertexts, so it keeps a backup of its records or reads its notes from a layer it can read again from the seed alone. A leader reward note, whose nonce is private, depends on the backup of the notes of the wallet.
 
 ## Why a post-quantum hybrid
 
@@ -69,7 +69,7 @@ Common Cryptographic Components is revision 1.4.0.
 - `sk_enc = BLAKE2b-256(WALLET_ENC_SK_V1 || k_i)` is the X-Wing decapsulation key of the leaf that holds `k_logos`; `pk_enc` is its encapsulation key.
 - The address is `(public_key, pk_enc)`. A wallet may hand out `public_key` alone, in which case the sender gives it the value and the nonce by other means. A sender holding `pk_enc` uses it and nothing else.
 - Discovery: trial decryption of the ciphertexts the wallet receives over a direct channel or reads from a data availability layer, with the commitment check against the note sets it may receive notes in; derivation for ledger-created notes and the notes a program pays in a step consuming a note of the program; records for notes received in the clear.
-- Recovery from the seed replays the derivation over the chain, for the public keys and values it can re-derive, and the trial decryption over the ciphertexts still available; the one-time public key and the value of a program payout belong to the records of the wallet when the seed does not give them; a wallet keeps a backup of its records or reads its notes from a layer it can read again from the seed alone.
+- Recovery from the seed replays the derivation over the chain, for the public keys and values it can re-derive, and the trial decryption over the ciphertexts still available; the one-time public key and the value of a program payout belong to the records of the wallet when the seed does not give them, and so does a leader reward note, whose nonce is private; a wallet keeps a backup of its records or reads its notes from a layer it can read again from the seed alone.
 - Wallet Technical Standard is revision 1.3.0.
 
 ## 3. Note Delivery
