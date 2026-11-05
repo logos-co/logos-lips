@@ -1605,10 +1605,11 @@ pow_reward_pool: TokenValue
 epoch_pow_reward: TokenValue
 POW_VESTED_SHARE: uint64           # the share of a reward that vests, out of SHARE_DEN
 SHARE_DEN: uint64
-VESTING_SLOTS: uint64              # the length of the vesting, in slots
+VESTING_EPOCHS: uint64             # the length of the vesting, in epochs
+EPOCH_LENGTH: uint64               # the length of an epoch, in slots
 ```
 
-  The epoch nonces are the Cryptarchia epoch nonce $`\eta`$ of [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce), `WINDOW` is derived in [Acceptance Window](proof-of-work.md#acceptance-window), and `POW_VESTED_SHARE`, `SHARE_DEN` and `VESTING_SLOTS` are [Parameters](proof-of-work.md#parameters) of Proof of Work.
+  The epoch nonces are the Cryptarchia epoch nonce $`\eta`$ of [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce), `WINDOW` is derived in [Acceptance Window](proof-of-work.md#acceptance-window), `POW_VESTED_SHARE`, `SHARE_DEN` and `VESTING_EPOCHS` are [Parameters](proof-of-work.md#parameters) of Proof of Work, and `EPOCH_LENGTH` is as in [SDP_DECLARE](#sdp_declare).
 
   *Validate*
 
@@ -1650,7 +1651,7 @@ vested_note = Note(
     value = vested_value,
     nonce = derive_note_nonce(claim_id, 1, vested_value, claim.public_key),
     public_key = claim.public_key,
-    data = checked_uint64(block.slot + VESTING_SLOTS),
+    data = checked_uint64((block.slot // EPOCH_LENGTH + VESTING_EPOCHS) * EPOCH_LENGTH),
 )
 output_notes = [note for note in (liquid_note, vested_note) if note.value > 0]
 ledger.sets[LEDGER_SET].tx_commitment_buffer.extend([derive_note_commitment(note) for note in output_notes])

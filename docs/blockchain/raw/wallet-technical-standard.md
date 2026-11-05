@@ -29,7 +29,7 @@
 | 1.1.0 | Fixed the master key generation personalization string to a valid 16-byte value; aligned the public key derivation with the [Mantle specification](bedrock-v1.1-mantle-specification.md#zero-knowledge-signature-scheme-zksignature) (`KDF` DST, compression mode, applied to the Logos key); specified the final Poseidon2 step as hash mode with the `WALLET_ZK_SK_V1` DST; clarified that extended public keys derive no children | 2026-09-03 |
 | 1.2.0 | Added the note tracking a wallet keeps to spend its notes and to participate in the leadership lottery, over the note sets of depth 40, the root a wallet proves against, a fixed number of blocks below its tip, and the leader reward notes, which it keeps with their private nonce, recovery from the seed alone not finding them | 2026-10-07 |
 | 1.3.0 | Added the note encryption key derived next to the ZK key, the address a sender needs, and the discovery of notes by trial decryption of the note ciphertexts delivered off chain, with what the recovery from the seed covers | 2026-11-02 |
-| 1.4.0 | [RFC] A wallet keeps the `data` of its notes, delays spending its vested notes and sends its claims through other peers | 2026-11-05 |
+| 1.4.0 | [RFC] A wallet keeps the `data` of its notes and sends its claims through other peers | 2026-11-05 |
 
 # Introduction
 
@@ -260,7 +260,7 @@ The wallet keeps the note it created, with its nonce, and tracks it in the ledge
 
 ### Vested Notes
 
-A wallet should spend a [vested note](bedrock-v1.1-mantle-specification.md#vested-notes) a random number of blocks after its vesting ends. A wallet should submit the proof of work claims of a service provider through peers other than the node named in the provider's locators.
+A wallet should submit the proof of work claims of a service provider through peers other than the node named in the provider's locators.
 
 # References
 

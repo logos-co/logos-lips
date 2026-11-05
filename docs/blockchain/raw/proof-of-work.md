@@ -22,7 +22,7 @@
 | 1.0.0 | Initial revision. | 2026-09-09 |
 | 1.1.0 | Set the reference load of the Blend difficulty to the transaction rate the Blend network carries, `F_T / F_D = 130` transactions per block | 2026-09-11 |
 | 1.2.0 | A reward claim searches a nonce for the public key to be paid and carries no signature. The fee share of each block waits in `pow_rewards_pending` until the epoch boundary credits it to the pool | 2026-10-06 |
-| 1.3.0 | [RFC] A claim pays `POW_VESTED_SHARE / SHARE_DEN` of its reward as a note vesting for `VESTING_SLOTS` slots, and the rest as a liquid note | 2026-11-05 |
+| 1.3.0 | [RFC] A claim pays `POW_VESTED_SHARE / SHARE_DEN` of its reward as a note vesting for `VESTING_EPOCHS` epochs, and the rest as a liquid note | 2026-11-05 |
 
 # Introduction
 
@@ -111,7 +111,7 @@ A validator checks a claim against the `difficulty_reward` the previous block pr
 - the epoch nonce is the current one or the one before it,
 - `epoch_pow_reward` is positive and `pow_reward_pool` still holds it.
 
-[Mantle](bedrock-v1.1-mantle-specification.md#claim_pow_reward) specifies these checks and the order they run in. A claim that fails any of them makes its transaction invalid. On acceptance the node pays `epoch_pow_reward` to the key, marks the ticket spent, and subtracts the same amount from `pow_reward_pool`. It pays `POW_VESTED_SHARE / SHARE_DEN` of the reward as a [vested note](bedrock-v1.1-mantle-specification.md#vested-notes), whose vesting ends `VESTING_SLOTS` slots after the slot of the referenced block, and the rest as a liquid note.
+[Mantle](bedrock-v1.1-mantle-specification.md#claim_pow_reward) specifies these checks and the order they run in. A claim that fails any of them makes its transaction invalid. On acceptance the node pays `epoch_pow_reward` to the key, marks the ticket spent, and subtracts the same amount from `pow_reward_pool`. It pays `POW_VESTED_SHARE / SHARE_DEN` of the reward as a [vested note](bedrock-v1.1-mantle-specification.md#vested-notes), whose vesting ends at the first slot of the epoch `VESTING_EPOCHS` epochs after the epoch of the referenced block, and the rest as a liquid note.
 
 A node computes five values from the chain. `pow_reward_pool` and the set of spent tickets change when a claim is accepted. `difficulty_reward` is recomputed after every block, from the number of claims in that block. `pow_reward_pool` is credited at each epoch boundary with a share of the fees of the epoch that ended, and `epoch_pow_reward` is then recomputed from it. `difficulty_blend` is recomputed once per epoch, from the transactions of the epoch before last, at the snapshot that fixes the epoch nonce. [Reward Difficulty](#reward-difficulty), [Reward Pool](#reward-pool) and [Blend Difficulty](#blend-difficulty) specify the three computations.
 
@@ -146,7 +146,7 @@ EXPECTED_BLOCKS_PER_WINDOW: uint64 = 10         # W_b
 POW_SHARE: uint64 = 10                          # beta, as the fraction POW_SHARE / SHARE_DEN
 SHARE_DEN: uint64 = 100
 POW_VESTED_SHARE: uint64 = 50                   # the share of a reward paid as a vested note, out of SHARE_DEN
-VESTING_SLOTS: uint64 = 31_536_000              # the length of the vesting, 365 days of one-second slots
+VESTING_EPOCHS: uint64 = 49                     # the length of the vesting, in epochs
 EMA_SMOOTHING_FACTOR: uint64 = 9                # F, the weight given to the previous estimate
 EMA_SMOOTHING_PRECISION: uint64 = 10            # P, the scale F is expressed against; F < P
 REWARD_TARGET_FLOOR: uint64 = 9                 # smallest target the retarget returns; see Reward Difficulty
@@ -161,6 +161,8 @@ BLEND_MAX_STEP: uint64 = 2                      # Max factor difficulty_blend ma
 The parameters must give an `epoch_pow_reward` whose liquid part, the reward minus its vested share, is above the fee of a claim transaction, which pays for the claim and the `TRANSFER` that spends its liquid note, or a claim cannot pay its own fee.
 
 `POW_VESTED_SHARE` must be at most `SHARE_DEN`, or the liquid part is negative and no claim is valid.
+
+An epoch of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) is $`10\lfloor k/f \rfloor`$ = 648,000 slots, 7.5 days of one-second slots. `VESTING_EPOCHS` is the number of such epochs that first reaches a year, $`\lceil 365 / 7.5 \rceil = 49`$, so a vested note vests 360 to 367.5 days after the block its claim references.
 
 `REWARD_TARGET_CAP` must be above `REWARD_TARGET_FLOOR` and at most $`p - 1`$, as [Puzzle Target](#puzzle-target) requires. At or below the floor, every retarget would return `REWARD_TARGET_CAP`, so the target could not move.
 
