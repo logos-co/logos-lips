@@ -102,7 +102,7 @@ def tx_execution_gas(tx_signed) -> int:
 def root_gas(covered: int) -> int:
     return EXECUTION_ROOT_GAS + EXECUTION_BUFFERED_GAS * covered
 
-# A ZkTransfer or a ZkProgramSpend, with the notes it spends and creates.
+# A ZkTransfer, a ZkStake or a ZkProgramSpend, with the notes it spends and creates.
 def spend_gas(inputs, outputs) -> int:
     return (EXECUTION_PROOF_GAS
             + EXECUTION_NULLIFIER_GAS * len(inputs)
@@ -159,7 +159,7 @@ and the constants of the components:
 | --- | --- | --- |
 | `EXECUTION_KB_GAS` | 27 per 1,000 bytes | 26.8 cycles per byte of the signed transaction |
 | `EXECUTION_NOTE_SET_GAS` | 3461 | end of block of a changed note set, with its first nullifier, at most 3,460,479 cycles |
-| `EXECUTION_PROOF_GAS` | 1770 | decompression and batch verification of a ZkTransfer or a ZkProgramSpend, at most 1,769,145 cycles |
+| `EXECUTION_PROOF_GAS` | 1770 | decompression and batch verification of a ZkTransfer, a ZkStake or a ZkProgramSpend, at most 1,769,145 cycles |
 | `EXECUTION_ROOT_GAS` | 879 | root of a recent commitment MMR extended by buffered commitments, 878,394 cycles |
 | `EXECUTION_BUFFERED_GAS` | 23 | append of a buffered commitment to that MMR, 22,623 cycles |
 | `EXECUTION_NULLIFIER_GAS` | 725 | insertion of a nullifier and its share of the hashing of the nullifier tree, 724,523 cycles |
@@ -294,7 +294,7 @@ The release runs before the transactions of the block at the slot of the withdra
 | --- | --- |
 | Declaration with 1 input, among 1,024 declarations of the service | 847,129 |
 | of which the signature | 149,245 |
-| decompression and batch verification of the ZkTransfer | 1,768,883 |
+| decompression and batch verification of each ZkStake, the `P` of [Proofs](#proofs) | 1,768,883 |
 
 The validation checks the format of the declaration, the length of its locators, the amount, and that its `declaration_id` and `provider_id` are not declared in the service, through keys of the declarations of each service: 796,866 cycles among no declaration, 847,129 among 1,024. The execution inserts the nullifiers, creates the declaration and appends the service note to the SDP note set.
 
@@ -325,7 +325,7 @@ The validation checks that the declaration exists, the nonce, the signature of t
 | Claim | 591,975 |
 | of which the re-derivation of the puzzle ticket, one `zkhash` over five field elements | 138,681 |
 
-The validation re-derives the ticket, compares it to the reward difficulty, checks that the referenced block is canonical and within the acceptance window, that the ticket is not in the nullifier set and that the pool covers a reward. The execution inserts the nullifier, derives the note and appends its commitment, and decrements the pool. A claim pays its fee out of the reward it creates, so the per-claim reward clears the Permanent Storage fee of the transaction, these 592 Execution Gas and the Execution Gas of its bytes, and the Execution Gas of the Transfer spending the reward note.
+The validation re-derives the ticket, compares it to the reward difficulty, checks that the referenced block is canonical and within the acceptance window, that the ticket is not in the nullifier set and that the pool covers a reward. The execution inserts the nullifier, derives the note and appends its commitment, and decrements the pool. A claim pays its fee out of the liquid note it creates, so the liquid part of the reward clears the Permanent Storage fee of the transaction, these 592 Execution Gas and the Execution Gas of its bytes, and the Execution Gas of the Transfer spending the liquid note.
 
 ## Program Register
 

@@ -22,7 +22,7 @@
 | 1.0.0 | Initial revision. | 2026-09-09 |
 | 1.1.0 | Set the reference load of the Blend difficulty to the transaction rate the Blend network carries, `F_T / F_D = 130` transactions per block | 2026-09-11 |
 | 1.2.0 | A reward claim searches a nonce for the public key to be paid and carries no signature. The fee share of each block waits in `pow_rewards_pending` until the epoch boundary credits it to the pool | 2026-10-06 |
-| 1.3.0 | [RFC] A claim pays `POW_VESTED_SHARE / SHARE_DEN` of its reward as a vested note, whose vesting ends `VESTING_SLOTS` slots after the referenced block, and the rest as a liquid note | 2026-11-04 |
+| 1.3.0 | [RFC] A claim pays `POW_VESTED_SHARE / SHARE_DEN` of its reward as a note vesting for `VESTING_SLOTS` slots, and the rest as a liquid note | 2026-11-05 |
 
 # Introduction
 
@@ -53,7 +53,7 @@ graph LR
 
 The tokens come from the pow reward pool, set aside at genesis and refilled each epoch from a share of the transaction fees. Nothing is minted for it, so mining does not inflate the supply. Each epoch pays out a fraction of what the pool still holds, so the reward is the same for every claim of that epoch, for as long as the pool can pay it.
 
-Half of each reward vests for a year. Until then it cannot be spent, but it takes part in the leadership lottery and can be staked to declare a service.
+A share of each reward vests for a fixed period. Until then it cannot be transferred, but it takes part in the leadership lottery and can be staked to declare a service.
 
 Each use has its own threshold, and a threshold sets how much work a solution costs. Every node computes both from what blocks carry, so no node trusts another for them.
 
@@ -159,6 +159,8 @@ BLEND_MAX_STEP: uint64 = 2                      # Max factor difficulty_blend ma
 ```
 
 The parameters must give an `epoch_pow_reward` whose liquid part, the reward minus its vested share, is above the fee of a claim transaction, which pays for the claim and the `TRANSFER` that spends its liquid note, or a claim cannot pay its own fee.
+
+`POW_VESTED_SHARE` must be at most `SHARE_DEN`, or the liquid part is negative and no claim is valid.
 
 `REWARD_TARGET_CAP` must be above `REWARD_TARGET_FLOOR` and at most $`p - 1`$, as [Puzzle Target](#puzzle-target) requires. At or below the floor, every retarget would return `REWARD_TARGET_CAP`, so the target could not move.
 

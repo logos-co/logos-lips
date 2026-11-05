@@ -213,11 +213,11 @@ The message must be signed by the `provider_id` key to prove ownership of the ke
 
 Where:
 
-- `note_pk` is the `ZkPublicKey` the service note is created under. It derives from the stake secret of the declarer, as do the keys of the vested notes the declaration stakes. Every spend of the declaration proves it ([Mantle - Vested Notes](bedrock-v1.1-mantle-specification.md#vested-notes));
-- `commitment_root` is the root of the commitment MMR of the ledger note set at the end of one of the last 1024 blocks. A [`NoteCommitment`](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) is the commitment of a note, a hash of its value, its nonce and its public key, which identifies the note without revealing them;
+- `note_pk` is the `ZkPublicKey` the service note is created under;
+- `commitment_root` is the root of the commitment MMR of the ledger note set at the end of one of the last 1024 blocks. A [`NoteCommitment`](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) is the commitment of a note, a hash of its fields, which identifies the note without revealing them;
 - `amount` is the value of the one service note the declaration creates under the `note_pk`, the sum of the values of the spends, used for minimum stake threshold verification purposes;
 - `locked_until` is the first epoch at which the declaration can be withdrawn;
-- each of the `spends` lists the nullifiers of at most 16 notes the declaration consumes, whose ownership is proven by a [ZkStake](bedrock-v1.1-mantle-specification.md#zero-knowledge-stake-proof-zkstake) against `commitment_root`, and their total value ([SDP_DECLARE](bedrock-v1.1-mantle-specification.md#sdp_declare)). The notes can be [vested notes](bedrock-v1.1-mantle-specification.md#vested-notes) whose vesting ends by the first slot of epoch `locked_until`. A [`NoteNullifier`](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) is the nullifier of a note, a hash of its commitment and of the secret key of its holder, published when the note is spent.
+- each of the `spends` lists the nullifiers of 1 to 16 notes the declaration consumes, and their total value. A [ZkStake](bedrock-v1.1-mantle-specification.md#zero-knowledge-stake-proof-zkstake) proves their ownership against `commitment_root` ([SDP_DECLARE](bedrock-v1.1-mantle-specification.md#sdp_declare)). A [`NoteNullifier`](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) is the nullifier of a note, a hash of its commitment and of the secret key of its holder, published when the note is spent.
 
 ### **Declaration Storage**
 
@@ -380,6 +380,7 @@ The Declare action associates a validator with a service it wants to provide. It
 The declaration message is considered valid when all of the following are met:
 
 - The notes of the `spends` are spendable and owned by the sender, their vesting ends by the first slot of epoch `locked_until`, and their values sum to the `amount`, which meets the minimum stake threshold.
+- The `note_pk` derives from a stake secret of the sender, from which the keys of the vested notes of the `spends` also derive ([Mantle - Vested Notes](bedrock-v1.1-mantle-specification.md#vested-notes)).
 - The `zk_id` and the `provider_id` are each unbound in the `service_type` of the message ([Identifier Uniqueness](#identifier-uniqueness)).
 - The sender holds the private key corresponding to the `provider_id`.
 - The `locators` list is non-empty and not longer than 8 entries.

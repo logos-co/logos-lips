@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-11-04 |
 | v2 | Binds the `note_pk`, which now holds the stake, in place of the `zk_id`; corrects the cost per input | 2026-11-05 |
+| v3 | States that a sale of the stake off chain needs no trust while withdrawing takes the `provider_id`; every declaration with a spend is bound; wallets recover their declarations | 2026-11-05 |
 
 ## Reviewer Orientation
 
@@ -27,7 +28,9 @@ Read the PR's Motivation first.
 
 Without it, `SDP_DECLARE` creates the service note under any `note_pk` it names. The holder of the secret of the `note_pk` leads with the service note and withdraws it once the lock ends. A seller can stake its vested notes under a buyer's `note_pk` and `provider_id`, in one transaction with a Transfer paying the seller, and the buyer then holds the locked stake.
 
-With the binding, the `note_pk` derives from the stake secret of the vested notes, so its secret key comes from the miner. In the same swap, the seller keeps the secret of the `note_pk` while the buyer holds the `provider_id`. Withdrawing takes both keys, so neither can withdraw alone. A sale of the stake then needs the seller to hand over the secret key of the `note_pk` off chain. The seller can still derive that key, so the buyer has to trust the seller. No protocol can prevent such a handover.
+With the binding, the `note_pk` derives from the stake secret of the vested notes, so only the miner can declare them. The sale moves off chain but needs no trust. The seller hands the buyer the secret key of the `note_pk`, which reveals neither the stake secret nor any other key, and the buyer checks it against the `note_pk` before paying. The declaration names the buyer's `provider_id`. Withdrawing takes the `note_pk` secret and the `provider_id` signature, so the buyer withdraws the stake once it unlocks and the seller cannot. The seller keeps only the lottery: both parties can lead with the service note.
+
+The binding covers notes already claimed. A buyer can still hand a miner public keys derived from its own stake secret. The puzzle binds the key of a claim, so the miner's claims then vest under the buyer's keys, and no rule tells this apart from the buyer mining.
 
 ## The `zk_id` stays free
 
@@ -39,7 +42,7 @@ Requiring the key of every vested input to equal the `note_pk` would make each c
 
 ## Cost
 
-Measured by compiling the check with the Poseidon2 of the circuits repository (branch `tl/private_utxo`): 4,864 non-linear constraints for 16 inputs. Each input costs 244: one compression of 240 and 4 for the selection. Four compressions, 960 constraints, are paid once: three derive the `note_pk`, and one is the first step of every claim key. That is 2.4% of the about 203,000 non-linear constraints of the ZkStake. A derivation in the hash mode of Poseidon2 would cost 960 constraints instead of 240. The compression mode already derives every public key from its secret key.
+Measured by compiling the check with the Poseidon2 of the circuits repository (branch `tl/private_utxo`): 4,864 non-linear constraints for 16 inputs. Each input costs 244: one compression of 240 and 4 for the selection. Four compressions, 960 constraints, are paid once: three derive the `note_pk`, and one is the first step of every claim key. That is 2.4% of the about 203,000 non-linear constraints of the ZkStake. A derivation step in the hash mode of Poseidon2, a hash of two elements, would cost 720 constraints instead of 240. The compression mode already derives every public key from its secret key.
 
 The ZkStake gains one public input, which adds a term to the fixed part of its batch and leaves the cost per proof unchanged.
 
@@ -47,9 +50,14 @@ The ZkStake gains one public input, which adds a term to the fixed part of its b
 
 - A miner derives the key of every claim it may stake from its stake secret, before it mines. A vested note claimed under another key can still lead and be spent once vested, but no declaration can stake it.
 - The `note_pk` of every declaration with a spend derives from a stake secret, even when it stakes no vested note, since every ZkStake checks it. Any wallet can derive one.
-- A wallet recovering from its seed finds its claims by deriving their public keys for increasing indices.
+- A wallet recovering from its seed finds its claims and its declarations by deriving their public keys for increasing indices.
+- A ZkStake takes the stake secret as a witness, so a declarer who delegates its proving reveals every claim key derived from it, and with them the link between its claims.
 
-Notes whose `data` is `0` stay free of the check, since liquid tokens move anyway.
+Notes that never vest, whose `data` is `0`, stay free of the check, since they move anyway. A vested note stays bound after its vesting ends, until a Transfer turns it into a note with `data` `0`.
+
+## Open questions
+
+- Withdrawal by the `note_pk` secret alone. Without the `provider_id` signature, the seller could always withdraw a sold stake once it unlocks, since it can derive the key again, so a sale would need trust. A leaked `note_pk` secret would then be enough to withdraw.
 
 ## Compatibility
 
@@ -104,11 +112,11 @@ assert all(
 
 ## 3. The `note_pk` of a declaration
 
-The Service Declaration Protocol no longer says that no proof covers the `note_pk`: it derives from the stake secret of the declarer, and every spend of the declaration proves it.
+A valid declaration has a `note_pk` derived from a stake secret of the sender, from which the keys of the vested notes of its spends also derive. The Service Declaration Protocol lists this among the conditions of a valid declaration, and neither specification says any longer that no check reads the `note_pk`.
 
 ## 4. Wallets that mine or declare
 
-A wallet that mines or declares keeps a stake secret, the `k_logos` of a hardened child key it reserves for staking. It derives its claim keys and the `note_pk` of its declarations from it with fresh indices, and recovers its claims from the seed by their derived public keys.
+A wallet that mines or declares keeps a stake secret, the `k_logos` of a hardened child key it reserves for staking. It derives its claim keys and the `note_pk` of its declarations from it, taking the indices of each function in order. It recovers its claims and its declarations from the seed by their derived public keys, until 1,000 consecutive indices of a function match nothing.
 
 ## Chores
 
@@ -119,7 +127,7 @@ A wallet that mines or declares keeps a stake secret, the `k_logos` of a hardene
 
 - [ ] Add the `note_pk` public input, the stake secret, the indices and the derivation checks to the ZkStake circuit, and generate its key.
 - [ ] Pass the `note_pk` of the declaration to the ZkStake verification of `SDP_DECLARE`.
-- [ ] Derive claim keys and the `note_pk` of declarations from a stake secret in wallets that mine or declare, and recover claims by their derived public keys.
+- [ ] Derive claim keys and the `note_pk` of declarations from a stake secret in wallets that mine or declare, and recover claims and declarations by their derived public keys.
 - [ ] Measure the fixed part of the ZkStake batch with its new public input.
 - [ ] Add tests: a declaration staking vested notes under a `note_pk` of their stake secret is accepted; one under another `note_pk`, or with a vested input under an underived key, is rejected; a liquid input under any key is accepted.
 - [ ] Verify the implementation matches this specification.
