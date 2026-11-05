@@ -37,7 +37,7 @@
 | 1.8.0 | Follow the private ledger of Mantle: the notes are proven with a ZkTransfer and spent by nullifier, channel inscriptions carry the ZkTransfer of their steps, channel withdrawals and SDP withdrawals carry a ZkTransfer, the proof of work claim carries no proof, and the `CHANNEL_TRANSFER` and `LEADER_CLAIM` Operations are removed. The ZkTransfer is priced from the measured batch verification of Groth16 proofs, a fixed part per block and 619 Execution Gas per proof | 2026-10-07 |
 | 1.9.0 | Add the Execution Gas of program steps and of the `PROGRAM_REGISTER` Operation, priced from the measured batch verification of the ZkProgramSpend, the verification of a program proof alone with the line coefficients of its key, and the subgroup checks and the pairing `e(α, β)` of a verification key | 2026-10-12 |
 | 2.0.0 | Execution Gas measured in core cycles on the node, end to end, over note sets of a million notes, every step of the validation and execution priced. The Execution Gas of a Mantle Transaction sums a term per byte of the signed transaction, a term per note set it changes, and the Execution Gas of its Operations, each built from per-component constants: proofs, root extensions, nullifiers, commitments, signatures, steps, payments, openings and program proofs. The fixed costs of a block are deducted from its Execution Gas limit | 2026-10-27 |
-| 2.1.0 | [RFC] `SDP_DECLARE` pays one ZkStake proof and its nullifiers per spend, and the commitment of its service note | 2026-11-04 |
+| 2.1.0 | [RFC] `SDP_DECLARE` pays one ZkStake proof and its nullifiers per spend, and the commitment of its service note; the ZkStake batch, the 28th ZkTransfer input and a two-note claim are to be measured | 2026-11-05 |
 
 # Introduction
 
@@ -150,7 +150,7 @@ where `user_steps` and `program_steps` are the [user steps](bedrock-v1.1-mantle-
 | `EXECUTION_SDP_DECLARE_GAS` | 622 | [SDP Declaration](#sdp-declaration) |
 | `EXECUTION_SDP_WITHDRAW_GAS` | 892 | [SDP Withdraw](#sdp-withdraw) |
 | `EXECUTION_SDP_ACTIVE_GAS` | 6927 | [SDP Activation](#sdp-activation) |
-| `EXECUTION_CLAIM_POW_REWARD_GAS` | 592 | [Claim PoW Reward](#claim-pow-reward) |
+| `EXECUTION_CLAIM_POW_REWARD_GAS` | TBD | [Claim PoW Reward](#claim-pow-reward) |
 | `EXECUTION_PROGRAM_REGISTER_GAS` | 6839 | [Program Register](#program-register) |
 
 and the constants of the components:
@@ -159,7 +159,7 @@ and the constants of the components:
 | --- | --- | --- |
 | `EXECUTION_KB_GAS` | 27 per 1,000 bytes | 26.8 cycles per byte of the signed transaction |
 | `EXECUTION_NOTE_SET_GAS` | 3461 | end of block of a changed note set, with its first nullifier, at most 3,460,479 cycles |
-| `EXECUTION_PROOF_GAS` | 1770 | decompression and batch verification of a ZkTransfer, a ZkStake or a ZkProgramSpend, at most 1,769,145 cycles |
+| `EXECUTION_PROOF_GAS` | 1770 | decompression and batch verification of a ZkTransfer or a ZkProgramSpend, at most 1,769,145 cycles |
 | `EXECUTION_ROOT_GAS` | 879 | root of a recent commitment MMR extended by buffered commitments, 878,394 cycles |
 | `EXECUTION_BUFFERED_GAS` | 23 | append of a buffered commitment to that MMR, 22,623 cycles |
 | `EXECUTION_NULLIFIER_GAS` | 725 | insertion of a nullifier and its share of the hashing of the nullifier tree, 724,523 cycles |
@@ -173,7 +173,7 @@ and the constants of the components:
 
 The constants of each Operation are what remains of its measure once its components are counted: the decoding and the checks of its fields, and the updates of the ledger state proper to the Operation. Each section below lists the steps behind them.
 
-The fixed costs of a block, paid once whatever its transactions, are deducted from the Execution Gas limit of the block ([Execution Fee Market](overview-cryptoeconomics.md#execution-fee-market)): 26,308,430 cycles, or 26,309 Execution Gas ([Fixed costs of a block](#fixed-costs-of-a-block)).
+The fixed costs of a block, paid once whatever its transactions, are deducted from the Execution Gas limit of the block ([Execution Fee Market](overview-cryptoeconomics.md#execution-fee-market)), as [Fixed costs of a block](#fixed-costs-of-a-block) sums them.
 
 # Components
 
@@ -183,11 +183,12 @@ Decoding a transaction, hashing it into its `mantle_txhash` and deriving the ide
 
 ## Proofs
 
-The ZkTransfer proofs of a block are verified in one batch, and so are its ZkProgramSpend proofs ([Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#batch-verification-of-zk-proofs)). A batch of `n` proofs costs a fixed part `A(N)`, which grows with the number `N` of public inputs of the key, and a part `P` per proof:
+The ZkTransfer proofs of a block are verified in one batch, and so are its ZkStake proofs and its ZkProgramSpend proofs ([Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#batch-verification-of-zk-proofs)). A batch of `n` proofs costs a fixed part `A(N)`, which grows with the number `N` of public inputs of the key, and a part `P` per proof:
 
 | Proof | Public inputs | `A(N)` | `P` |
 | --- | --- | --- | --- |
-| ZkTransfer | 27 | 7,260,262 | 1,768,883 |
+| ZkTransfer | 28 | TBD | 1,768,883 |
+| ZkStake | 36 | TBD | TBD |
 | ZkProgramSpend | 37 | 8,241,358 | 1,769,145 |
 
 `P` includes the decompression and the validation of the points of the proof, 521,026 cycles of it: 22,360 for each G1 point and 476,306 for the G2 point, whose subgroup check takes 494,775. The batch draws its random coefficients `r_i` on 128 bits, which bound the probability that an invalid proof passes to `2^-128` and halve the multiplication of `π_A` by `r_i` against coefficients of the full field. The fixed parts are deducted from the limit of the block, and each proof pays `EXECUTION_PROOF_GAS = 1770`.
@@ -322,10 +323,10 @@ The validation checks that the declaration exists, the nonce, the signature of t
 
 | Step | Cycles |
 | --- | --- |
-| Claim | 591,975 |
+| Claim, with its two notes | TBD |
 | of which the re-derivation of the puzzle ticket, one `zkhash` over five field elements | 138,681 |
 
-The validation re-derives the ticket, compares it to the reward difficulty, checks that the referenced block is canonical and within the acceptance window, that the ticket is not in the nullifier set and that the pool covers a reward. The execution inserts the nullifier, derives the note and appends its commitment, and decrements the pool. A claim pays its fee out of the liquid note it creates, so the liquid part of the reward clears the Permanent Storage fee of the transaction, these 592 Execution Gas and the Execution Gas of its bytes, and the Execution Gas of the Transfer spending the liquid note.
+The validation re-derives the ticket, compares it to the reward difficulty, checks that the referenced block is canonical and within the acceptance window, that the ticket is not in the nullifier set and that the pool covers a reward. The execution inserts the nullifier, derives the two notes and appends their commitments, and decrements the pool. A claim pays its fee out of the liquid note it creates, so the liquid part of the reward clears the Permanent Storage fee of the transaction, its Execution Gas and the Execution Gas of its bytes, and the Execution Gas of the Transfer spending the liquid note.
 
 ## Program Register
 
@@ -345,11 +346,12 @@ The execution derives the program identifier and stores the key with `e(α, β)`
 | Proof of Leadership | 7,101,514 |
 | Leader note and end of block of the ledger set | 2,040,800 |
 | First nullifier of the ledger set | 1,560,551 |
-| Fixed part of the ZkTransfer batch, `A(27)` | 7,260,262 |
+| Fixed part of the ZkTransfer batch, `A(28)` | TBD |
+| Fixed part of the ZkStake batch, `A(36)` | TBD |
 | Fixed part of the ZkProgramSpend batch, `A(37)` | 8,241,358 |
-| Total | 26,308,430 |
+| Total | TBD |
 
-The total, 26,309 Execution Gas, is deducted from the Execution Gas limit of the block.
+The total, rounded up to whole Execution Gas, is deducted from the Execution Gas limit of the block.
 
 The releases of the withdrawals due at a block, paid in advance by their Operations, are not deducted: they run in the headroom between the Execution Gas target and the limit, the target being half the limit. The SDP withdrawals of an epoch are all released at its end, 19,335 cycles each, so 10,000 of them take 6.1% of the limit.
 
