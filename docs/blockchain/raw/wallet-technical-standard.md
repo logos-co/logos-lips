@@ -117,14 +117,14 @@ k_logos = zkhash(
 )  # Poseidon2 hash mode, a single field element
 ```
 
-$`k_{\text{logos}}`$ is the `ZkSecretKey` used on the network, the spending secret key `spending_sk` of the notes under its public key. The nullifier key and the public key are derived exactly as the [Mantle specification](bedrock-v1.1-mantle-specification.md#keys) prescribes, with Poseidon2 in compression mode and the `NF_KDF` and `KDF` DSTs:
+$`k_{\text{logos}}`$ is the `ZkSecretKey` used on the network, the spending secret key `spending_sk` of the notes under its public key. The nullifier key and the public key are derived exactly as the [Mantle specification](bedrock-v1.1-mantle-specification.md#keys) prescribes, with Poseidon2 in compression mode and the `NF_KDF_V1` and `KDF` DSTs:
 
 ```python
-nf_sk = zkhash(FiniteField(b"NF_KDF", byte_order="little", modulus=p), k_logos)  # compression mode
+nf_sk = zkhash(FiniteField(b"NF_KDF_V1", byte_order="little", modulus=p), k_logos)  # compression mode
 public_key = zkhash(FiniteField(b"KDF", byte_order="little", modulus=p), nf_sk)   # compression mode
 ```
 
-This wallet-side step is not part of any circuit, so the DST costs nothing in proving time while preventing $`k_{\text{logos}}`$ from colliding with any other Poseidon2 output computed over the same field elements. Only the `NF_KDF` and `KDF` derivations are evaluated inside proofs, each hashing a single field element thanks to this compression.
+This wallet-side step is not part of any circuit, so the DST costs nothing in proving time while preventing $`k_{\text{logos}}`$ from colliding with any other Poseidon2 output computed over the same field elements. Only the `NF_KDF_V1` and `KDF` derivations are evaluated inside proofs, each hashing a single field element thanks to this compression.
 
   **Why not use Poseidon2 for the full derivation?** While Poseidon2 is optimized for ZK circuits, its long-term stability and parameterization are still evolving. General-purpose hash functions like Blake2b offer a more stable and audited base layer. By introducing Poseidon2 only at the last compression step we isolate ZK-dependencies from the rest of the key derivation path. This ensures the wallet hierarchy remains valid even if Poseidon2 parameters are updated.
 
@@ -227,7 +227,7 @@ def on_nullifier_inserted(tracked: TrackedLowLeaf, inserted_nullifier: NoteNulli
 
 ### Staking Keys
 
-Every [note](bedrock-v1.1-mantle-specification.md#keys) has a public key `pk` and a staking key `stake_pk`. The ZkTransfer enforces `nf_sk = zkhash(NF_KDF, spending_sk)` and `pk = zkhash(KDF, nf_sk)`, and leading with the note takes `nf_sk` and the staking secret key `staking_sk`. The recommended default, which the ledger does not enforce, is that a wallet uses `staking_sk = nf_sk`, so that `stake_pk = pk` and its notes keep one key, and creates transfer outputs with the `pk` of the recipient as staking key unless the recipient asks for another. With this default, giving a node `nf_sk` lets it lead with the notes of the wallet without being able to spend them, the spending secret key staying offline, and the node learns when they are spent: this is cold staking.
+Every [note](bedrock-v1.1-mantle-specification.md#keys) has a public key `pk` and a staking key `stake_pk`. The ZkTransfer enforces `nf_sk = zkhash(NF_KDF_V1, spending_sk)` and `pk = zkhash(KDF, nf_sk)`, and leading with the note takes `nf_sk` and the staking secret key `staking_sk`. The recommended default, which the ledger does not enforce, is that a wallet uses `staking_sk = nf_sk`, so that `stake_pk = pk` and its notes keep one key, and creates transfer outputs with the `pk` of the recipient as staking key unless the recipient asks for another. With this default, giving a node `nf_sk` lets it lead with the notes of the wallet without being able to spend them, the spending secret key staying offline, and the node learns when they are spent: this is cold staking.
 
 A service declaration is made cold the same way. Its `note_pk` and `note_stake_pk` ([Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage)) should be keys of a cold wallet, which alone spends the service note at withdrawal and the service rewards, paid to the same two keys. The node keeps online only what it needs: the secret key of its `zk_id` for the Proof of Quota, its `provider_id` key, and, to lead with the service note and its rewards, the `nf_sk` of `note_pk` and the `staking_sk` of `note_stake_pk`, none of which spends them.
 

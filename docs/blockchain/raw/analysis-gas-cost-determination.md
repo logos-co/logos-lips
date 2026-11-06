@@ -150,7 +150,7 @@ A program step costs:
 
 - Verification of the ZkProgramSpend, a circuit shared by every program, in the batch of the block: 618,796 cycles.
 - Verification of the program proof: a single Groth16 verification under the key of its program, which cannot share the batch of another program, with the line coefficients of `-γ` and `-δ` computed from the stored key: 2,221,544 + 228,669 = 2,450,213 cycles.
-- Verification that the program is registered, computation of the hash of the deposits, and recomputation of the commitment of each opened note of the program: negligible.
+- Verification that the program is registered, computation of the hash of the program deposits, and recomputation of the commitment of each opened note of the program: negligible.
 
 ## Program Register
 
