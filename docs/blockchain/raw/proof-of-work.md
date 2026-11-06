@@ -142,7 +142,7 @@ POW_REWARD_POOL_GENESIS: TokenValue             # 2/100 of S_cap, set in the Gen
 POW_BOOTSTRAP_EPOCHS: uint64 = 98               # the length of the bootstrapping period, in epochs
 POW_BOOTSTRAP_REWARD: TokenValue = 334 * 10**9  # the reward per claim during it, 334 LOGOS, in LEPTA
 POW_BOOTSTRAP_VESTED_SHARE: uint64 = 90         # the share of that reward paid as a vested note, out of SHARE_DEN
-POW_BOOTSTRAP_TARGET_CAP: PowTarget = p // 14_300_000_000   # largest target the retarget returns during it, and its genesis value
+POW_BOOTSTRAP_TARGET_CAP: PowTarget = p // 10_725_000_000   # largest target the retarget returns during it, and its genesis value
 POW_REFERENCE_TX_SIZE: uint64 = 632             # the bytes whose storage fee the liquid part of a reward pays after it
 POW_VESTED_SHARE: uint64 = 30                   # the share of a reward paid as a vested note after it, out of SHARE_DEN
 EXPECTED_BLOCKS_PER_EPOCH: uint64 = 21_600      # N_b = 10 k
@@ -153,7 +153,7 @@ VESTING_EPOCHS: uint64 = 49                     # the length of the vesting, in 
 EMA_SMOOTHING_FACTOR: uint64 = 999              # F, the weight given to the previous estimate
 EMA_SMOOTHING_PRECISION: uint64 = 1000          # P, the scale F is expressed against; F < P
 REWARD_TARGET_FLOOR: uint64 = 999               # smallest target the retarget returns; see Reward Difficulty
-REWARD_TARGET_CAP: PowTarget = p // 2**29       # largest target the retarget returns after the bootstrapping period
+REWARD_TARGET_CAP: PowTarget = p // (3 * 2**27) # largest target the retarget returns after the bootstrapping period
 BLEND_DIFFICULTY_BASE: PowTarget = p // 2**19   # difficulty_blend at the reference load
 TARGET_TXS_PER_BLOCK: uint64 = 130              # Reference transactions per block, F_T / F_D
 BLEND_DAMPING_NUM: uint64 = 1                   # a, where the exponent is alpha = a / b
@@ -169,7 +169,7 @@ During the bootstrapping period a miner needs `ceil(threshold / POW_BOOTSTRAP_RE
 
 An epoch of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) is $`10\lfloor k/f \rfloor`$ = 648,000 slots, 7.5 days of one-second slots. `VESTING_EPOCHS` is the number of such epochs that first reaches a year, $`\lceil 365 / 7.5 \rceil = 49`$, so a vested note vests 360 to 367.5 days after the block its claim references. `POW_BOOTSTRAP_EPOCHS` is the number of such epochs that first reaches two years, $`\lceil 730 / 7.5 \rceil = 98`$.
 
-`POW_BOOTSTRAP_TARGET_CAP` is calibrated against the measurement of `BLEND_DIFFICULTY_BASE`, $`2^{19}`$ hashes in about 38 seconds on one core of the target machine. All four cores of that machine find a claim about every 3 days at this target, 2.5 claims per epoch, which earn about 835 LOGOS per epoch at `POW_BOOTSTRAP_REWARD`. At `REWARD_TARGET_CAP` they find a claim about every 2.7 hours.
+`POW_BOOTSTRAP_TARGET_CAP` and `REWARD_TARGET_CAP` are calibrated against the measurement of `BLEND_DIFFICULTY_BASE`, $`2^{19}`$ hashes in about 38 seconds on one core of the target machine. Each of those hashes is a Blend ticket of 3 permutations, so all four cores run about 165,565 permutations per second. A claim ticket costs 4 permutations once a miner reuses the hash of the tag and the public key, so those cores try about 41,391 claim tickets per second. They find a claim about every 3 days at `POW_BOOTSTRAP_TARGET_CAP`, 2.5 claims per epoch, which earn about 835 LOGOS per epoch at `POW_BOOTSTRAP_REWARD`. At `REWARD_TARGET_CAP` they find a claim about every 2.7 hours.
 
 `REWARD_TARGET_CAP` and `POW_BOOTSTRAP_TARGET_CAP` must each be above `REWARD_TARGET_FLOOR` and at most $`p - 1`$, as [Puzzle Target](#puzzle-target) requires. At or below the floor, every retarget would return the cap, so the target could not move.
 

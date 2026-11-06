@@ -10,6 +10,7 @@
 | v2 | Outside mining takes a patience of 1 as its base case, so the rent check counts a board's whole income | 2026-11-06 |
 | v3 | Owned hash rate is the lower bound on the cost of a board, and the reward of 334 LOGOS depends on replacing the reward puzzle | 2026-11-06 |
 | v4 | After the period the reward is derived from the storage price, and the target pays out a ninety-eighth of the pool per epoch | 2026-11-06 |
+| v5 | The caps are calibrated on a claim ticket of 4 permutations, so a board does find a claim about every 3 days | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -33,7 +34,7 @@ A **board** is one Raspberry Pi 5 with four cores, the target machine of [Proof 
 | Reward per claim | 334 LOGOS | enough for its liquid part to pay for a 632-byte transaction at the storage price of the epoch, 0.72 LOGOS at the starting price |
 | Vested-liquid split | 90-10 | 30-70 |
 | A claim on a board, at the minimum work | about every 3 days | about every 2.7 hours |
-| Income per board per month, at most | about 3,340 LOGOS, 334 of it liquid | about 270 rewards, 70% of each liquid |
+| Income per board per month, at the minimum work | about 3,340 LOGOS, 334 of it liquid | about 270 rewards, 70% of each liquid |
 | Target | 0.283 claims per block, which pays out 200M LOGOS over the period | the rate that pays out a ninety-eighth of the pool per epoch |
 | Payout per month at the target | about 8.2M LOGOS | about 4% of the pool |
 
@@ -177,6 +178,19 @@ Owned hash rate at about $1 a board therefore stays the lower bound after the re
 
 The two caps and the retarget are stated in terms of `zkhash`. A new puzzle needs them restated, with the caps taken from measurements on a board. The size and fee of a claim may change too. The income and node figures of this RFC are per board, so they carry over once the caps are restated.
 
+## The cost of a claim ticket
+
+The caps assume a claim ticket of 4 permutations, since a board's rate comes from a Blend ticket of 3. A claim ticket hashes 5 inputs, which costs 6 permutations. A miner reuses the hash of the tag and the public key, so each nonce costs 4. It can go lower by sharing more of the hash, trying both epoch nonces a claim may name and the 10 recent blocks it may name:
+
+| Ticket | Permutations | Days per claim on a board | Income per board per month, LOGOS | Months to 20,000 / 10,000 on one board | Nodes with no outsiders, 20,000 / 10,000 | Nodes at $0.01 and $4.08, 20,000 / 10,000 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Plain | 6 | 4.5 | 2,227 | 9 / 4.5 | 1,530 / 1,990 | 19 / 410 |
+| Reusing the hash of the tag and key, which the caps assume | 4 | 3 | 3,340 | 6 / 3 | 1,850 / 2,150 | 85 / 410 |
+| Trying both epoch nonces as well | 3 | 2.25 | 4,453 | 4.5 / 2.2 | 1,920 / 2,170 | 150 / 410 |
+| A tree over 10 recent blocks as well | 2.55 | 1.91 | 5,239 | 3.8 / 1.9 | 1,910 / 2,170 | 170 / 420 |
+
+All the other figures of this RFC take 4 permutations. At 2.55 the liquid part at the minimum work is $5.24 at $0.01, above the rent of $4.08, so the check on liquid income holds only at 4 permutations or more.
+
 ## The difficulty controller
 
 The review of the retarget found three problems, all of which grow as the claim rate falls.
@@ -211,7 +225,7 @@ The revision has four parts:
 - During the period, the target is the rate that pays out `POW_REWARD_POOL_GENESIS` over `POW_BOOTSTRAP_EPOCHS` at `POW_BOOTSTRAP_REWARD`. It is derived from those three values and needs no new constant. The retarget works with it as a fraction, so the floor of `demand` no longer binds.
 - After the period, the same rule reads what the pool holds in place of its seed, and the reward of the epoch, as [After epoch 98](#after-epoch-98) explains.
 - `EMA_SMOOTHING_FACTOR / EMA_SMOOTHING_PRECISION` becomes 999/1000, and `REWARD_TARGET_FLOOR` follows at 999.
-- Each period has its own cap. After the period the cap is `p // 2**29` instead of `p // 2**26`, so a board finds a claim about every 2.7 hours, about 270 rewards a month. Above 2.1 times the starting storage price that is above the rent of $4.08 at $0.01, and the target then holds outsiders, as during the period.
+- Each period has its own cap. After the period the cap is `p // (3 * 2**27)` instead of `p // 2**26`, so a board finds a claim about every 2.7 hours, about 270 rewards a month. Above 2.1 times the starting storage price that is above the rent of $4.08 at $0.01, and the target then holds outsiders, as during the period.
 
 The paced target has a cost when many real newcomers arrive at once, because it shares the payout among them. Nodes by epoch 98 with no outsiders, as stop / keep mining:
 
@@ -237,7 +251,7 @@ This RFC uses a pace of 1. It is the one case where the pool lasts the period, w
 
 ## Stakes, onboarding times and nodes
 
-These tables compare other minimum works, for the record, and have no outsiders. Each cell of the first gives the income per board per month that a stake and onboarding time need, and the days per claim at 334 LOGOS. The minimum work scales with the days per claim. A stake of 50,000 in 1 month needs about $`2^{29.8}`$ hashes per claim, and a stake of 10,000 in 6 months about $`2^{34.7}`$.
+These tables compare other minimum works, for the record, and have no outsiders. Each cell of the first gives the income per board per month that a stake and onboarding time need, and the days per claim at 334 LOGOS. The minimum work scales with the days per claim. A stake of 50,000 in 1 month needs about $`2^{29.4}`$ claim tickets per claim, and a stake of 10,000 in 6 months about $`2^{34.3}`$.
 
 | Months of mining | Stake 50,000 | Stake 30,000 | Stake 20,000 | Stake 10,000 |
 | --- | --- | --- | --- | --- |
@@ -500,7 +514,7 @@ At each epoch boundary, once the storage price of the new epoch is set, `epoch_p
 ## 2. The difficulty controller
 
 ```diff
-+POW_BOOTSTRAP_TARGET_CAP: PowTarget = p // 14_300_000_000
++POW_BOOTSTRAP_TARGET_CAP: PowTarget = p // 10_725_000_000
 -EMA_SMOOTHING_FACTOR: uint64 = 9
 -EMA_SMOOTHING_PRECISION: uint64 = 10
 -REWARD_TARGET_FLOOR: uint64 = 9
@@ -508,7 +522,7 @@ At each epoch boundary, once the storage price of the new epoch is set, `epoch_p
 +EMA_SMOOTHING_FACTOR: uint64 = 999
 +EMA_SMOOTHING_PRECISION: uint64 = 1000
 +REWARD_TARGET_FLOOR: uint64 = 999
-+REWARD_TARGET_CAP: PowTarget = p // 2**29
++REWARD_TARGET_CAP: PowTarget = p // (3 * 2**27)
 
 +def target_claims_per_block(epoch: EpochNumber,
 +                            epoch_pow_reward: TokenValue,
@@ -534,7 +548,7 @@ At each epoch boundary, once the storage price of the new epoch is set, `epoch_p
 
 `epoch` is the epoch of the processed block, and `pow_reward_pool` is the pool once that block's claims and fee share are applied. At genesis `difficulty_reward` is `POW_BOOTSTRAP_TARGET_CAP`. `P` and `F` stand for the two smoothing constants. The product of the retarget stays below $`2^{328}`$, inside the 512 bits [Puzzle Target](../proof-of-work.md#puzzle-target) allows.
 
-Both caps are calibrated against the measurement of `BLEND_DIFFICULTY_BASE`, $`2^{19}`$ hashes in about 38 seconds on one core. The four cores of the target machine find a claim about every 3 days at `POW_BOOTSTRAP_TARGET_CAP` and about every 2.7 hours at `REWARD_TARGET_CAP`.
+Both caps are calibrated against the measurement of `BLEND_DIFFICULTY_BASE`, $`2^{19}`$ hashes in about 38 seconds on one core, each a Blend ticket of 3 permutations, for a claim ticket of 4 permutations. The four cores of the target machine find a claim about every 3 days at `POW_BOOTSTRAP_TARGET_CAP` and about every 2.7 hours at `REWARD_TARGET_CAP`.
 
 ## 3. The vested share in Mantle
 
@@ -564,7 +578,7 @@ The check `assert epoch_pow_reward > 0` goes, since `POW_BOOTSTRAP_REWARD` is a 
 - [ ] Apply the target and the cap by the epoch of the processed block, reading the reward of the epoch and the pool after that block, and start `difficulty_reward` at `POW_BOOTSTRAP_TARGET_CAP`.
 - [ ] Read `epoch_pow_vested_share` in `CLAIM_POW_REWARD`.
 - [ ] Seed the pow reward pool with two hundredths of the supply cap.
-- [ ] Measure the claims per epoch of a Raspberry Pi 5 at both caps, the hash rate of a rented vCPU and of a GPU, and the power of an owned desktop.
+- [ ] Measure the claims per epoch of a Raspberry Pi 5 at both caps with real claim tickets, the hash rate of a rented vCPU and of a GPU, and the power of an owned desktop.
 - [ ] Add the seven constants to the era parameter record once Eras and this change are on one branch.
 - [ ] Revise `POW_REFERENCE_TX_SIZE` once real transaction sizes are known.
 - [ ] Add tests: the reward and share at epochs 97 and 98, the reward at the lowest and at a high storage price with its liquid part covering `POW_REFERENCE_TX_SIZE` bytes, a claim against a pool below the reward, the retarget at the cap in both periods, a block with claims at the fractional target, the target at a small pool, the genesis values.
