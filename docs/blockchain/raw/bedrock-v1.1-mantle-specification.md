@@ -52,7 +52,7 @@
 | 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each with its own inscription, grouped in the mini-blocks of an inscription, each proven against a recent root and the transaction buffer before its mini-block, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and moved `CLAIM_POW_REWARD` to the opcode `0x30`. A declaration names in `note_pk` the key of its service note. The commitment MMR and the nullifier IMT of a note set have depth 40 | 2026-11-06 |
 | 2.1.0 | Add programs: notes gain `stake_public_key`, `program` and `data` fields, a nullifier key sitting between the spending secret key and the public key, program notes leading in Proof of Stake unless their staking key is `0`, a declaration naming in `note_stake_pk` the staking key of its service note and rewards, `PROGRAM_REGISTER` registers a Groth16 verification key, and the mini-blocks of channel inscriptions carry, next to user steps, program deposits and program steps made of a `ZkProgramSpend`, a program proof and the openings of the program notes they create, each step with its own inscription and its kind carried only by its encoding. A program deposit, like a user step, is proven against the buffer before its mini-block, and a program spend against the whole buffer at its position. The ZkProgramSpend derives the nonces of the outputs of a step consuming a note of the program. Add the proving time benchmarks of the ZkTransfer and the ZkProgramSpend | 2026-11-06 |
 | 2.1.1 | Added Note Delivery: how the holder of a note learns its `value` and `nonce`, the user notes a sender creates being delivered off chain, by the Note Encryption of [Common Cryptographic Components](common-cryptographic-components.md#note-encryption-construction), a delivered note taking the public key of its recipient as staking key unless the recipient asked for another | 2026-11-02 |
-| 2.2.0 | Execution Gas from [Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0: a Mantle Transaction pays its bytes, each channel or SDP note set it changes and each root extension its proofs share, and each Operation pays its proofs, nullifiers, commitments, signatures, steps, payments, openings and program proofs, through `spend_gas` and the per-component constants of Gas Determination | 2026-10-27 |
+| 2.2.0 | Execution Gas from [Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0: a Mantle Transaction pays its bytes, each channel or SDP note set it changes and each root extension its proofs share, and each Operation pays its proofs, nullifiers, commitments, signatures, steps, program deposits, openings and program proofs, through `spend_gas` and the per-component constants of Gas Determination | 2026-11-06 |
 
 # Introduction
 
@@ -598,7 +598,7 @@ The openings of the program notes a step creates serve only the availability of 
 
 #### Execution Gas
 
-  Channel Inscribe Operations have an Execution Gas cost of `EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_SIGNATURE_GAS`, plus `EXECUTION_USER_STEP_GAS + spend_gas(step.inputs, step.outputs)` for each user step, plus `EXECUTION_PROGRAM_STEP_GAS + EXECUTION_PROGRAM_PROOF_GAS + spend_gas(step.inputs, step.outputs) + EXECUTION_OPENING_GAS * len(program_notes)` for each program step, plus `EXECUTION_PAYMENT_GAS + spend_gas(payment.inputs, payment.outputs)` for each payment of a program step. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values. The inscriptions of the inscribe, of its steps and of their payments pay as bytes of the Mantle Transaction, through `EXECUTION_KB_GAS` and the Permanent Storage Gas ([Mantle Transaction Fee](#mantle-transaction-fee)).
+  Channel Inscribe Operations have an Execution Gas cost of `EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_SIGNATURE_GAS`, plus `EXECUTION_USER_STEP_GAS + spend_gas(step.inputs, step.outputs)` for each user step, plus `EXECUTION_PROGRAM_DEPOSIT_GAS + spend_gas(step.inputs, step.outputs)` for each program deposit, plus `EXECUTION_PROGRAM_STEP_GAS + EXECUTION_PROGRAM_PROOF_GAS + spend_gas(step.inputs, step.outputs) + EXECUTION_OPENING_GAS * len(program_notes)` for each program step. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values. The inscriptions of the inscribe and of its steps pay as bytes of the Mantle Transaction, through `EXECUTION_KB_GAS` and the Permanent Storage Gas ([Mantle Transaction Fee](#mantle-transaction-fee)).
 
 #### Validation
 
@@ -2200,12 +2200,12 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_COMMITMENT_GAS | 24 |
 | EXECUTION_SIGNATURE_GAS | 161 |
 | EXECUTION_USER_STEP_GAS | 195 |
-| EXECUTION_PAYMENT_GAS | 267 |
+| EXECUTION_PROGRAM_DEPOSIT_GAS | 267 |
 | EXECUTION_PROGRAM_STEP_GAS | 54 |
 | EXECUTION_OPENING_GAS | 151 |
 | EXECUTION_PROGRAM_PROOF_GAS | 6320 |
 
-The first ten constants price what each Operation does beyond the components, and the others its components: `EXECUTION_KB_GAS` the bytes of a Mantle Transaction, `EXECUTION_NOTE_SET_GAS` the end of block work of a note set it changes, `EXECUTION_PROOF_GAS` a proof, `EXECUTION_ROOT_GAS` the extension of a root and `EXECUTION_BUFFERED_GAS` each commitment it covers, `EXECUTION_NULLIFIER_GAS` a nullifier, `EXECUTION_COMMITMENT_GAS` a commitment, `EXECUTION_SIGNATURE_GAS` an Ed25519 signature, `EXECUTION_USER_STEP_GAS`, `EXECUTION_PAYMENT_GAS` and `EXECUTION_PROGRAM_STEP_GAS` a user step, a payment and a program step beyond their spends, `EXECUTION_OPENING_GAS` the opening of a program note and `EXECUTION_PROGRAM_PROOF_GAS` a program proof.
+The first ten constants price what each Operation does beyond the components, and the others its components: `EXECUTION_KB_GAS` the bytes of a Mantle Transaction, `EXECUTION_NOTE_SET_GAS` the end of block work of a note set it changes, `EXECUTION_PROOF_GAS` a proof, `EXECUTION_ROOT_GAS` the extension of a root and `EXECUTION_BUFFERED_GAS` each commitment it covers, `EXECUTION_NULLIFIER_GAS` a nullifier, `EXECUTION_COMMITMENT_GAS` a commitment, `EXECUTION_SIGNATURE_GAS` an Ed25519 signature, `EXECUTION_USER_STEP_GAS`, `EXECUTION_PROGRAM_DEPOSIT_GAS` and `EXECUTION_PROGRAM_STEP_GAS` a user step, a program deposit and a program step beyond their spends, `EXECUTION_OPENING_GAS` the opening of a program note and `EXECUTION_PROGRAM_PROOF_GAS` a program proof.
 
 A ZkTransfer or a ZkProgramSpend costs, with the notes it consumes and creates:
 
@@ -2223,7 +2223,7 @@ def root_gas(covered: int) -> int:
     return EXECUTION_ROOT_GAS + EXECUTION_BUFFERED_GAS * covered
 ```
 
-The user steps and payments of a mini-block naming one root therefore share one extension, so the price of a step does not grow with its position.
+The user steps and deposits of a mini-block naming one root therefore share one extension, so the price of a step does not grow with its position.
 
 ## Zero Knowledge Transfer Proof (ZkTransfer)
 

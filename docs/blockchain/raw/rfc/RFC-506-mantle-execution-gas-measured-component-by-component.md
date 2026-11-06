@@ -12,6 +12,7 @@
 | v4 | User steps and payments cover the buffer before their mini-block, so the number of commitments an extension covers follows from the mini-block | 2026-11-04 |
 | v5 | `EXECUTION_USER_STEP_GAS` is 195 and `EXECUTION_PAYMENT_GAS` 267, for the two elements of the channel ID in the messages of steps and payments. Each notation is explained where it first appears | 2026-11-04 |
 | v6 | The inscriptions of user steps and payments pay as transaction bytes | 2026-11-06 |
+| v7 | A program deposit is a step of its own, priced by `EXECUTION_PROGRAM_DEPOSIT_GAS`, and the identifiers of user steps and deposits are `user_step_id` and `program_deposit_id` | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -47,7 +48,7 @@ A transaction changing a set pays its full end of block work, the largest measur
 
 ## Bytes
 
-A transaction costs 26.8 cycles per byte for its decoding, its hash and the identifiers of its Operations. The term is integer: `len * 27 // 1000`. The inscriptions of user steps and payments pay through this term and the Permanent Storage Gas like any other byte, and are read by one more Blake2b pass, into the message of their step or payment. That pass is not priced yet: the measure on inscriptions without steps does not include it, and its per-byte cost joins the byte term at the next measurement.
+A transaction costs 26.8 cycles per byte for its decoding, its hash and the identifiers of its Operations. The term is integer: `len * 27 // 1000`. The inscriptions of user steps and deposits pay through this term and the Permanent Storage Gas like any other byte, and are read by one more Blake2b pass, into their `user_step_id` or `program_deposit_id`. That pass is not priced yet: the measure on inscriptions without steps does not include it, and its per-byte cost joins the byte term at the next measurement.
 
 ## Rejected alternatives
 
@@ -90,10 +91,10 @@ def spend_gas(inputs, outputs) -> int:
             + EXECUTION_COMMITMENT_GAS * len(outputs))
 ```
 
-Proofs sharing their note set, referenced root and number of commitments covered, such as the user steps and payments of a mini-block naming one root, are verified against one extended root, computed and paid once. Charging each proof would price a step covering 800 commitments at about eight times a step of the first mini-block, so a block would hold few mini-blocks.
+Proofs sharing their note set, referenced root and number of commitments covered, such as the user steps and deposits of a mini-block naming one root, are verified against one extended root, computed and paid once. Charging each proof would price a step covering 800 commitments at about eight times a step of the first mini-block, so a block would hold few mini-blocks.
 
 - Transfer, Channel Deposit and Channel Withdraw: their constant plus `spend_gas`. A withdrawal pays in advance its release at its slot.
-- Channel Inscribe: its constant and a signature, `EXECUTION_USER_STEP_GAS + spend_gas` per user step, and per program step `EXECUTION_PROGRAM_STEP_GAS + EXECUTION_PROGRAM_PROOF_GAS + spend_gas + EXECUTION_OPENING_GAS` per opening, plus `EXECUTION_PAYMENT_GAS + spend_gas` per payment.
+- Channel Inscribe: its constant and a signature, `EXECUTION_USER_STEP_GAS + spend_gas` per user step, `EXECUTION_PROGRAM_DEPOSIT_GAS + spend_gas` per program deposit, and per program step `EXECUTION_PROGRAM_STEP_GAS + EXECUTION_PROGRAM_PROOF_GAS + spend_gas + EXECUTION_OPENING_GAS` per opening.
 - Channel Config: its constant plus a signature per unit of `configuration_threshold`.
 - SDP Declare and SDP Withdraw: their constant, a signature and `spend_gas`. An SDP Withdraw extends no root: its root holds only its service note, and its constant covers that root. SDP Active: its constant, which includes the Proof of Quota, and a signature.
 
@@ -108,7 +109,7 @@ Proofs sharing their note set, referenced root and number of commitments covered
 | `EXECUTION_SDP_WITHDRAW_GAS` | 892 | | `EXECUTION_COMMITMENT_GAS` | 24 |
 | `EXECUTION_SDP_ACTIVE_GAS` | 6927 | | `EXECUTION_SIGNATURE_GAS` | 161 |
 | `EXECUTION_CLAIM_POW_REWARD_GAS` | 592 | | `EXECUTION_USER_STEP_GAS` | 195 |
-| `EXECUTION_PROGRAM_REGISTER_GAS` | 6839 | | `EXECUTION_PAYMENT_GAS` | 267 |
+| `EXECUTION_PROGRAM_REGISTER_GAS` | 6839 | | `EXECUTION_PROGRAM_DEPOSIT_GAS` | 267 |
 | | | | `EXECUTION_PROGRAM_STEP_GAS` | 54 |
 | | | | `EXECUTION_OPENING_GAS` | 151 |
 | | | | `EXECUTION_PROGRAM_PROOF_GAS` | 6320 |
