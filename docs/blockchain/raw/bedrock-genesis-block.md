@@ -35,6 +35,7 @@
 | 1.2.1 | Align the initial service declarations with the Service Declaration Protocol: the `BN` service type, the full `DeclarationMessage` shape, and multiaddr locators | 2026-10-01 |
 | 1.2.2 | Renamed the token LGO to LOGOS | 2026-10-29 |
 | 1.3.0 | Support the private ledger of Mantle: the initial distribution is made of note commitments whose preimages are published in an inscription to the null channel, and the declarations consume no note, their amounts counting in the maximum supply. Genesis initializes the block reward stocks and records the commitment roots of the note sets | 2026-10-07 |
+| 1.3.1 | Genesis registers no program, each initial note takes its public key as its staking key, and each declaration names the `note_stake_pk` of its service note | 2026-11-06 |
 
 # Introduction
 
@@ -54,7 +55,7 @@ The Genesis Block is composed of the Genesis Block Header and the Genesis Mantle
 
 ## Initial Token Distribution
 
-Initial tokens will be distributed through a Transfer Operation containing zero inputs and one output note commitment for each initial stakeholder. The nonce of each note is its output index.
+Initial tokens will be distributed through a Transfer Operation containing zero inputs and one output note commitment for each initial stakeholder. The nonce of each note is its output index, and its public key is also its staking key.
 
 The initial stake allocation is public: the value and public key of every output are published in an inscription sent to the null channel right after the [Cryptarchia Parameters](#cryptarchia-parameters) inscription, so everyone can recompute the output commitments and audit the initial supply. Those wishing to hide their initial stake may opt to subdivide their note into a few different notes of equal value.
 
@@ -68,9 +69,9 @@ The initial state of the Ledger will be derived through normal execution of this
 
 ```python
 STAKE_DISTRIBUTION_NOTES = [
-    Note(value=1000, nonce=0, public_key=STAKE_HOLDER_0_PK),
-    Note(value=2000, nonce=1, public_key=STAKE_HOLDER_1_PK),
-    Note(value=1500, nonce=2, public_key=STAKE_HOLDER_2_PK),
+    Note(value=1000, nonce=0, public_key=STAKE_HOLDER_0_PK, stake_public_key=STAKE_HOLDER_0_PK),
+    Note(value=2000, nonce=1, public_key=STAKE_HOLDER_1_PK, stake_public_key=STAKE_HOLDER_1_PK),
+    Note(value=1500, nonce=2, public_key=STAKE_HOLDER_2_PK, stake_public_key=STAKE_HOLDER_2_PK),
     # ...
 ]
 
@@ -117,7 +118,7 @@ Blend Network MUST initialize its set of providers. This is done through a set o
 
 Blend enforces a minimal network size for the service to be active. Thus, in order to have an active Blend service at Genesis, we MUST have at least as many declarations in the Genesis block to meet Blend service’s minimal network size [Minimal Network Size](blend-protocol.md#minimal-network-size).
 
-Each declaration names in `note_pk` the key its service note is created under, as any [`SDP_DECLARE`](bedrock-v1.1-mantle-specification.md#sdp_declare) does.
+Each declaration names in `note_pk` and `note_stake_pk` the keys its service note is created under, as any [`SDP_DECLARE`](bedrock-v1.1-mantle-specification.md#sdp_declare) does.
 
 **Example**
 
@@ -129,6 +130,7 @@ BLEND_DECLARATIONS = [
         provider_id=PROVIDER_ID_0,
         zk_id=ZK_ID_0,
         note_pk=NOTE_PK_0,
+        note_stake_pk=NOTE_STAKE_PK_0,
         inputs=[],
         commitment_root=EMPTY_MMR_ROOT,
         amount=1000,
@@ -253,9 +255,9 @@ GENESIS_HEADER = Header(
 ```python
 # distribute NMO to all stakeholders
 STAKE_DISTRIBUTION_NOTES = [
-    Note(value=1000, nonce=0, public_key=STAKE_HOLDER_0_PK),
-    Note(value=2000, nonce=1, public_key=STAKE_HOLDER_1_PK),
-    Note(value=1500, nonce=2, public_key=STAKE_HOLDER_2_PK),
+    Note(value=1000, nonce=0, public_key=STAKE_HOLDER_0_PK, stake_public_key=STAKE_HOLDER_0_PK),
+    Note(value=2000, nonce=1, public_key=STAKE_HOLDER_1_PK, stake_public_key=STAKE_HOLDER_1_PK),
+    Note(value=1500, nonce=2, public_key=STAKE_HOLDER_2_PK, stake_public_key=STAKE_HOLDER_2_PK),
     # ...
 ]
 
@@ -308,6 +310,7 @@ BLEND_DECLARATIONS = [
         provider_id=PROVIDER_ID_0,
         zk_id=ZK_ID_0,
         note_pk=NOTE_PK_0,
+        note_stake_pk=NOTE_STAKE_PK_0,
         inputs=[],
         commitment_root=EMPTY_MMR_ROOT,
         amount=1000,
@@ -365,7 +368,7 @@ Everything else is validated as it would be in any other block, against the stat
 
 ## Mantle Ledger Initialization
 
-Before Genesis, the Ledger holds two [note sets](bedrock-v1.1-mantle-specification.md#ledger), the ledger note set and the SDP note set. Each is empty: its commitment MMR is empty and its root is the only commitment root of a recent block, and its [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) has a single leaf, the sentinel `NullifierLeaf(0, 0, 0)`. The list of pending withdrawals is empty.
+Before Genesis, the Ledger holds two [note sets](bedrock-v1.1-mantle-specification.md#ledger), the ledger note set and the SDP note set. Each is empty: its commitment MMR is empty and its root is the only commitment root of a recent block, and its [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) has a single leaf, the sentinel `NullifierLeaf(0, 0, 0)`. The list of pending withdrawals is empty, and no program is registered.
 
 The Transfer Operation distributing the initial tokens is validated and executed as any other Transfer Operation, minus the exemptions covering its proof, its inputs, its number of outputs and the transaction balance. The result of normal transfer execution appends all output commitments to the commitment MMR of the ledger note set.
 
@@ -386,7 +389,7 @@ The Mantle Transaction contains an inscription sent to the null channel containi
 
 Two conditions are specific to Genesis. The inscription must be addressed to the null channel and signed by the null key, an inscription anywhere else not being a set of Cryptarchia parameters. It must also decode to exactly the three parameters, encoded as [Cryptarchia Parameters](#cryptarchia-parameters) specifies and with no trailing bytes. A node that cannot decode them has no clock, no chain identifier and no lottery randomness, and must reject the Genesis block.
 
-The distribution inscription that follows is validated as an ordinary `CHANNEL_INSCRIBE` Operation minus its signature, its `parent` being the Cryptarchia inscription. It must decode, as [Initial Token Distribution](#initial-token-distribution) specifies and with no trailing bytes, to one value and public key per output of the Transfer Operation, and the output at index `i` must be `derive_note_commitment(Note(value, i, public_key))` for the value and public key published at index `i`. A node for which the published distribution does not match the outputs must reject the Genesis block.
+The distribution inscription that follows is validated as an ordinary `CHANNEL_INSCRIBE` Operation minus its signature, its `parent` being the Cryptarchia inscription. It must decode, as [Initial Token Distribution](#initial-token-distribution) specifies and with no trailing bytes, to one value and public key per output of the Transfer Operation, and the output at index `i` must be `derive_note_commitment(Note(value, i, public_key, public_key))` for the value and public key published at index `i`, as both the public key and the staking key of the note. A node for which the published distribution does not match the outputs must reject the Genesis block.
 
 The Cryptarchia slot clock is initialized to `genesis_time`, `LIB` is set to the Genesis block and the epoch state is then initialized:
 
