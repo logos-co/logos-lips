@@ -36,8 +36,8 @@
 | 1.9.0 | Swap Ed25519Signature and SignerIndex order in IndexedSignature | 2026-10-01 |
 | 1.10.0 | Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata, retaining their `UINT32` length prefixes; corrected SDP activity metadata to use its tagged variant encoding without a generic length prefix | 2026-10-06 |
 | 1.11.0 | [RFC] `SDPWithdraw` drops the redundant `ServiceNoteId` | 2026-10-27 |
-| 2.0.0 | Follow the private note ledger of Mantle 2.0.0: nullifier inputs and commitment outputs with their `CommitmentRoot` and `Value`, channel steps with their own `Inscription` in the `MiniBlocks` of `ChannelInscribe`, holder withdrawals, the SDP payloads over notes with `NotePk` in `SDPDeclare`, `PowNonce` in `ClaimPowReward`, the `ZkTransfer` proof variants, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim`. A `FieldElement` not less than $`p`$ is rejected | 2026-11-06 |
-| 2.1.0 | Follow the programs of Mantle 2.1.0: the `ProgramRegister` Operation with its `Groth16VerificationKey`, user and program steps in the `MiniBlocks` of `ChannelInscribe` with their proofs and the openings of the program notes with their `StakePublicKey`, the payments of program steps, each step and payment with its own `Inscription`, `NoteStakePk` in `SDPDeclare`, the `Groth16` terminal renamed `Groth16Proof`, and the format of compressed points | 2026-11-06 |
+| 2.0.0 | Follow the private note ledger of Mantle 2.0.0: nullifier inputs and commitment outputs with their `CommitmentRoot` and `Value`, user steps, tagged by their kind and with their own `Inscription`, in the `MiniBlocks` of `ChannelInscribe`, holder withdrawals, the SDP payloads over notes with `NotePk` in `SDPDeclare`, `PowNonce` in `ClaimPowReward`, the `ZkTransfer` proof variants, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim`. A `FieldElement` not less than $`p`$ is rejected | 2026-11-06 |
+| 2.1.0 | Follow the programs of Mantle 2.1.0: the `ProgramRegister` Operation with its `Groth16VerificationKey`, user steps, program deposits and program steps in the `MiniBlocks` of `ChannelInscribe`, tagged by their kind, with their proofs and the openings of the program notes with their `StakePublicKey`, each step with its own `Inscription`, `NoteStakePk` in `SDPDeclare`, the `Groth16` terminal renamed `Groth16Proof`, and the format of compressed points | 2026-11-06 |
 
 # Introduction
 
@@ -95,18 +95,18 @@ MiniBlocks      = MiniBlockCount *MiniBlock
 MiniBlockCount  = UINT16
 MiniBlock       = StepCount *Step ; StepCount at least 1, a decoder MUST reject 0
 StepCount       = UINT16
-Step            = (UserStepKind UserStep) / (ProgramStepKind ProgramStep)
-UserStepKind    = %x00
-ProgramStepKind = %x01
-UserStep        = Inputs Outputs CommitmentRoot Inscription
-ProgramStep     = ProgramId Payments Inputs Outputs ProgramOutputs CommitmentRoot SpendNotesHash Inscription
-Payments        = PaymentCount *Payment
-PaymentCount    = Byte
-Payment         = Inputs Outputs CommitmentRoot Value Intent Inscription
-Intent          = FieldElement
-ProgramOutputs  = Byte ; bit i (least significant first) set when output i is a note of the program,
-                       ; the bits from OutputCount up being 0
-SpendNotesHash  = FieldElement
+Step               = (UserStepKind UserStep) / (ProgramDepositKind ProgramDeposit)
+                     / (ProgramStepKind ProgramStep)
+UserStepKind       = %x00
+ProgramDepositKind = %x01
+ProgramStepKind    = %x02
+UserStep           = Inputs Outputs CommitmentRoot Inscription
+ProgramDeposit     = ProgramId Inputs Outputs CommitmentRoot Value Intent Inscription
+ProgramStep        = ProgramId Inputs Outputs ProgramOutputs CommitmentRoot ProgramStepId Inscription
+Intent             = FieldElement
+ProgramOutputs     = Byte ; bit i (least significant first) set when output i is a note of the program,
+                          ; the bits from OutputCount up being 0
+ProgramStepId      = FieldElement
 
 ChannelConfig     = ChannelId Parent KeyCount *Signer PostingTimeframe PostingTimeout ConfigThreshold
 KeyCount                   = UINT16
@@ -124,9 +124,9 @@ Parent            = Hash32
 Signer            = Ed25519PublicKey
 ```
 
-A `UserStep` moves the user notes of its holder, with the inscription its holder signs, a `ProgramStep` executes a program, paid by its `Payment`s with their `Intent`, the hash of what each user expects, and their inscriptions, and `SpendNotesHash` is the hash of the notes of its program spend. A `MiniBlock` groups the steps whose user steps and payments cover the same transaction buffer. [CHANNEL_INSCRIBE](bedrock-v1.1-mantle-specification.md#channel_inscribe) defines them.
+A `UserStep` moves the user notes of its holder, with the inscription its holder signs, a `ProgramDeposit` pays a program with its `Intent`, the hash of what its user expects, and a `ProgramStep` executes a program, consuming the deposits of its program before it in its mini-block, `ProgramStepId` being the hash of the notes of its program spend. A `MiniBlock` groups the steps whose user steps and deposits cover the same transaction buffer. [CHANNEL_INSCRIBE](bedrock-v1.1-mantle-specification.md#channel_inscribe) defines them. A `Step` starts with the byte of its kind, which the step itself does not carry as a field; a decoder MUST reject an unknown kind.
 
-`MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. The payloads of the `Inscription` of a `ChannelInscribe` and of the `Inscription` of each of its steps and payments MUST together be at most `MAX_OPERATION_DATA_SIZE` bytes, and the payload of `ChannelDeposit.Metadata` MUST be at most `MAX_OPERATION_DATA_SIZE` bytes, each excluding its `UINT32` length prefix. A decoder MUST reject a `ChannelInscribe` when the declared or decoded payload lengths of its inscriptions sum to more than the limit, and a `ChannelDeposit` when the declared or decoded payload length of its metadata exceeds it.
+`MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. The payloads of the `Inscription` of a `ChannelInscribe` and of the `Inscription` of each of its steps MUST together be at most `MAX_OPERATION_DATA_SIZE` bytes, and the payload of `ChannelDeposit.Metadata` MUST be at most `MAX_OPERATION_DATA_SIZE` bytes, each excluding its `UINT32` length prefix. A decoder MUST reject a `ChannelInscribe` when the declared or decoded payload lengths of its inscriptions sum to more than the limit, and a `ChannelDeposit` when the declared or decoded payload length of its metadata exceeds it.
 
 A decoder MUST reject a `ProgramStep` whose `OutputCount` exceeds 8, or whose `ProgramOutputs` has a bit set at or above its `OutputCount`, so that a step has a single encoding.
 
@@ -218,12 +218,12 @@ Ed25519SigProof              = Ed25519Signature
 ZkTransferProof              = ZkTransfer
 ZkTransferAndEd25519SigProof = ZkTransfer Ed25519Signature
 ChannelInscribeOpProof       = Ed25519Signature *StepProof ; one StepProof per step of the inscription
-StepProof                    = ZkTransfer / ProgramStepProof ; ZkTransfer for a user step,
+StepProof                    = ZkTransfer / ProgramStepProof ; ZkTransfer for a user step or a deposit,
                                                              ; ProgramStepProof for a program step
-ProgramStepProof             = *ZkTransfer ZkProgramSpend Groth16Proof *ProgramNoteOpening
-                                                       ; one ZkTransfer per payment, the program spend,
-                                                       ; the program proof, then one opening per bit set
-                                                       ; in the ProgramOutputs of the step
+ProgramStepProof             = ZkProgramSpend Groth16Proof *ProgramNoteOpening
+                                                       ; the program spend, the program proof, then
+                                                       ; one opening per bit set in the ProgramOutputs
+                                                       ; of the step
 ProgramNoteOpening           = Value NoteNonce ZkPublicKey StakePublicKey ProgramNoteData
 NoteNonce                    = FieldElement
 StakePublicKey               = ZkPublicKey ; the staking key of the note
