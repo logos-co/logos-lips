@@ -12,6 +12,7 @@
 | v4 | Vesting ends at an epoch start, `VESTING_EPOCHS = 49` epochs after the epoch of the referenced block; wallets no longer delay their spends | 2026-11-05 |
 | v5 | Follows the nullifier and staking keys of the stack. `amount` goes, the stake being the sum of the spends; `vested_by` becomes `spending_slot`; the vesting check drops the active flag; a declaration that lapses waits for its lock | 2026-11-06 |
 | v6 | Follows the stack below: a declaration also names `note_stake_pk`, and the service rewards go to the two keys of its service note. The declaration test vectors of Mantle and Cryptarchia hold the new field | 2026-11-06 |
+| v7 | Every figure assumes a fixed claim reward of 334 LOGOS. Proof of Work requires the vested notes of a minimum stake to fit one declaration | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -40,7 +41,7 @@ The alternatives keep the circuits unchanged and pay elsewhere:
 
 - **A note set of vested notes, with its commitment root recorded at the end of every epoch.** A proof against the root of epoch `e` shows that its notes were created by `e`. The ledger keeps a root history, a release Operation spends the notes after vesting, and wallets keep paths at old roots.
 - **One note set per epoch.** A proof spends notes of one epoch only, and each set a transaction touches pays the 3,461 Execution Gas of a changed note set.
-- **A public record of each vested note's end, the spend naming the note.** Every spend links to its claim, and the records take about 420 MB a year at the target claim rate.
+- **A public record of each vested note's end, the spend naming the note.** Every spend links to its claim, and the records take about 24 MB for the 600,000 claims the pool pays.
 
 The vesting ends at the first slot of the epoch `VESTING_EPOCHS` = 49 epochs after the epoch of the block the claim references, so a note vests 360 to 367.5 days after that block. Every claim of an epoch then vests at the same slot. A spend right after it hides among the claims of a whole epoch, and a declaration can lock its stake until exactly the end of its latest note. All the vested notes of an epoch become spendable at once, so transfer demand can peak at the start of that epoch.
 
@@ -60,7 +61,7 @@ The declarer names `locked_until`, and every note it stakes must have vested by 
 
 ## Staking many notes
 
-A miner holds one vested note per claim, and vested notes cannot be merged, so a declaration consumes them all at once. `SDP_DECLARE` uses a ZkStake circuit with 16 inputs and no output. Transfers keep the 4-input ZkTransfer: a Groth16 circuit costs its full size whatever inputs stay unused, so a 16-input ZkTransfer would make every transfer about 3× slower to prove.
+A miner holds one vested note per claim, and vested notes cannot be merged, so a declaration consumes them all at once. The reward therefore decides whether mining can fund a stake before its notes vest. This RFC assumes a fixed reward of 334 LOGOS per claim, paid from a pool of 200M LOGOS over two years, and a stake of up to 50,000 LOGOS. 150 claims then earn that stake, half of it on 150 vested notes, and a stake of vested notes alone takes 300. A separate draft stacked on this one sets that reward. At the reward [Reward Pool](../proof-of-work.md#reward-pool) computes on this branch, about 1.157 LOGOS, one declaration holds at most 2,189 LOGOS of vested notes. `SDP_DECLARE` uses a ZkStake circuit with 16 inputs and no output. Transfers keep the 4-input ZkTransfer: a Groth16 circuit costs its full size whatever inputs stay unused, so a 16-input ZkTransfer would make every transfer about 3× slower to prove.
 
 Constraints were measured by compiling the transfer circuit of the circuits repository (branch `tl/private_utxo`) as `zkTransfer(k, 1, 40)`: 12,604 per input and 1,747 per output. That circuit predates the nullifier and staking keys, which add 480 per input: a compression of 240 for the nullifier key and 240 for one more element in the note commitment hash, both measured. The table drops the output, which a ZkStake does not have, and adds 64 per input for the vesting check, also measured. Proving times scale linearly from the ZkProgramSpend, 86,813 constraints in 2.6 s on one thread of the Mantle benchmark machine. Bytes and Execution Gas cover the spends of a declaration, at `EXECUTION_PROOF_GAS` per proof, and the fees use the starting storage price of 8·10⁵ LEPTA per byte. The last column fills `G_max`, at its last value of 3,173,691, with one declaration, its fee Transfer of one input and one output and the SDP note set it changes, 6,811 Execution Gas outside the spends. The one-byte spend count caps a declaration at 255 spends, which binds the 4- and 8-input rows.
 
@@ -84,8 +85,8 @@ Three other ways to stake many notes were dropped:
 
 Claims stay public. The ledger creates both notes, and their value, key, vesting end and commitment are known to everyone. A spend reveals nullifiers, never commitments, so it does not show which note it consumes.
 
-- **A spend after vesting** adds nothing, since `spending_slot` is the slot of a public root. Its timing points at most at the epoch whose claims just vested, 216,000 claims at the target of 10 claims per block.
-- **A declaration** reveals its number of notes, the value of each spend and its lock epoch. The claim reward is fixed, so the value of a spend of vested notes only repeats their count. [Reward Pool](../proof-of-work.md#reward-pool) still recomputes the reward at every epoch boundary. While it does, the value reveals how many of the notes were claimed in each epoch, wherever that sum has one decomposition into the public claim values. If the declarer picks the earliest valid lock epoch, that epoch gives away the epoch its latest claim referenced, which holds 216,000 claims. Each other staked note hides among all vested notes claimed by then and not yet spent.
+- **A spend after vesting** adds nothing, since `spending_slot` is the slot of a public root. Its timing points at most at the epoch whose claims just vested, about 6,100 claims if the pool pays out evenly over its two years, and fewer in the first epochs.
+- **A declaration** reveals its number of notes, the value of each spend and its lock epoch. The claim reward is fixed, so the value of a spend of vested notes only repeats their count. [Reward Pool](../proof-of-work.md#reward-pool) still recomputes the reward at every epoch boundary. While it does, the value reveals how many of the notes were claimed in each epoch, wherever that sum has one decomposition into the public claim values. If the declarer picks the earliest valid lock epoch, that epoch gives away the epoch its latest claim referenced, which holds about 6,100 such claims. Each other staked note hides among all vested notes claimed by then and not yet spent.
 - **The Proof of Leadership and the Proof of Quota** reveal nothing new.
 - **The strongest link is off chain:** a provider sending its claims from the node named in its locators. Wallets send them through other peers.
 
@@ -123,8 +124,8 @@ The chain has not launched, so no migration is needed. The ZkTransfer gets a new
 ## Open questions
 
 - A provider whose stake is locked cannot change its locators: the Service Declaration Protocol has no update, and declaring again takes other notes and identifiers.
-- The liquid part of a claim covers its fee about twice at genesis, at the starting storage price, against about four times for a whole reward.
-- Every vested note leads on its own, so a miner evaluates one lottery ticket per note and slot. A miner with 1% of the target claim rate holds about 105,000 vested notes after a year. Before their vesting ends, only a declaration merges them.
+- The liquid part of a claim covers its fee 572 times at the starting storage price at the assumed reward, and only twice at 1.157 LOGOS.
+- Every vested note leads on its own, so a miner evaluates one lottery ticket per note and slot. A miner with 1% of the claims holds about 3,000 vested notes after a year. Before their vesting ends, only a declaration merges them.
 
 # Details
 
