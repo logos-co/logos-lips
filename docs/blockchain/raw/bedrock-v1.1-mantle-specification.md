@@ -413,7 +413,7 @@ The ledger fixes neither the holder of the notes a program creates, nor the valu
 
 | Property | Enforced by |
 | --- | --- |
-| No value is created | The ZkTransfers and the ZkProgramSpend balance exactly, and the ledger sums the paid values of the deposits into the program spend that consumes them |
+| No value is created | The ZkTransfers and the ZkProgramSpend balance exactly, and the ledger sums the values of the deposits into the `paid_value` of the program spend that consumes them |
 | A user note moves only with the key of its holder | The ZkTransfer |
 | A deposit only pays the program it names, a registered one, with the intent its holder signed | `program_deposit_id`, which commits to the program and the intent; the ledger, which checks that the program is registered |
 | A deposit is consumed by a program step of its program in its mini-block | The ledger, which rejects an inscription leaving a deposit unconsumed at the end of a mini-block |
@@ -437,7 +437,7 @@ A program using LOGOS only, such as lending, is thus enforced by the ledger, and
 - Program notes are never withdrawn, since a withdrawal consumes notes with a ZkTransfer.
 - The opening of every note of the program a step creates is published with the step, and checked by the ledger. A sequencer withholding the opening of a note of the program would otherwise freeze it: program notes are never withdrawn, and no sequencer can prove a program spend consuming a note it cannot open. The openings serve this data availability only: the ledger keeps nothing from them, and they are prunable from the blocks behind the latest immutable block of the node.
 
-**Privacy.** The paid values are public, and so are the notes of the program, opened in the steps that create them. The amount of each interaction with a program is therefore visible, and so is the total value a program step pays to users: with a single payee, what that payee receives. Its interactions are subject to timing attacks. The users stay hidden: deposits consume notes by nullifier, and the notes the program pays are commitments, as long as each payee uses a one-time public key, since the [nonce of such a note](#zero-knowledge-program-spend-proof-zkprogramspend) is a public function of its value and public key.
+**Privacy.** The values of the deposits are public, and so are the notes of the program, opened in the steps that create them. The amount of each interaction with a program is therefore visible, and so is the total value a program step pays to users: with a single payee, what that payee receives. Its interactions are subject to timing attacks. The users stay hidden: deposits consume notes by nullifier, and the notes the program pays are commitments, as long as each payee uses a one-time public key, since the [nonce of such a note](#zero-knowledge-program-spend-proof-zkprogramspend) is a public function of its value and public key.
 
 ### CHANNEL_INSCRIBE
 
@@ -457,7 +457,7 @@ class ProgramDeposit:
     inputs: list[NoteNullifier]    # nullifiers of the consumed user notes of the channel
     outputs: list[NoteCommitment]  # commitments of the change, user notes of the channel
     commitment_root: MerkleRoot    # a recent (less than 1024 blocks) MMR root of the channel note set
-    paid_value: TokenValue         # the value paid to the program
+    value: TokenValue              # the value the deposit pays to the program
     intent: zkhash                 # the hash of what the user expects from the program
     inscription: bytes             # the zone message of this deposit, signed by its holder
 
@@ -498,7 +498,7 @@ The program spend of a program step is proven by the sequencer once the inscript
 
 The mini-block of a user step or deposit is public, so one of a later mini-block reveals that its inputs are among the notes under its root and the commitments it covers. Covering the whole of the previous mini-blocks keeps it from pointing at the notes it consumes.
 
-Since they are signed before the Mantle Transaction exists, their ZkTransfer is bound to their own content rather than to the `mantle_txhash`: `user_step_id` for a user step and `program_deposit_id` for a deposit. A user step balances exactly, with an `excess_value` of `0`. The `excess_value` of the ZkTransfer of a deposit is its `paid_value`, and `program_deposit_id` also commits to the program it pays and to its intent, so its ZkTransfer only verifies for that program and that intent.
+Since they are signed before the Mantle Transaction exists, their ZkTransfer is bound to their own content rather than to the `mantle_txhash`: `user_step_id` for a user step and `program_deposit_id` for a deposit. A user step balances exactly, with an `excess_value` of `0`. The `excess_value` of the ZkTransfer of a deposit is its `value`, and `program_deposit_id` also commits to the program it pays and to its intent, so its ZkTransfer only verifies for that program and that intent.
 
 Both identifiers commit to the channel. A channel ID is 32 free bytes, larger than the field, so a single reduced element would give channels `x` and `x + p` the same identifier: it enters as two elements, its low and high 16 bytes. The inscription of the step, of any length, enters through its 32-byte BLAKE2b-256 hash, split the same way.
 
@@ -546,7 +546,7 @@ The program spend and the program proof of a program step are produced by the se
 def program_deposits_hash(deposits: list[ProgramDeposit]) -> zkhash:
     paid = []
     for deposit in deposits:
-        paid.append(FiniteField(deposit.paid_value, byte_order="little", modulus=p))
+        paid.append(FiniteField(deposit.value, byte_order="little", modulus=p))
         paid.append(deposit.intent)
     return zkhash(
         FiniteField(b"PROGRAM_DEPOSITS_V1", byte_order="little", modulus=p),
@@ -554,7 +554,7 @@ def program_deposits_hash(deposits: list[ProgramDeposit]) -> zkhash:
         *paid)
 ```
 
-An intent is not authenticated. `program_deposits_hash` gives the program only `(paid_value, intent)` pairs and nothing about the payer: anyone with a note in the channel can pay 0 with any intent, and a secret inside an intent does not help, since the sequencer learns the preimage to prove the step and can reuse it. A program should authorize a user inside its circuit, for example with a signature over the action by a key the position of the user records.
+An intent is not authenticated. `program_deposits_hash` gives the program only `(value, intent)` pairs and nothing about the payer: anyone with a note in the channel can pay 0 with any intent, and a secret inside an intent does not help, since the sequencer learns the preimage to prove the step and can reuse it. A program should authorize a user inside its circuit, for example with a signature over the action by a key the position of the user records.
 
 A program step consuming no note applies only with its inscription, to whose `op_id` its proofs are bound, and an inscription extends its channel only once.
 
@@ -681,7 +681,7 @@ block_slot: Slot
                   step_nullifiers.add(note_nullifier)
               assert note_set.verify_transfer(step.inputs,
                                               step.outputs,
-                                              step.paid_value,
+                                              step.value,
                                               step.commitment_root,
                                               program_deposit_id(msg.channel, step),
                                               step_proof,
@@ -691,9 +691,9 @@ block_slot: Slot
               # Ensure the program is registered, and consume the deposits waiting for it.
               assert step.program_id in ledger.programs
               step_deposits = deposits.pop(step.program_id, [])
-              paid_value = 0
+              paid_value = 0  # the value the deposits of the step pay into the program
               for deposit in step_deposits:
-                  paid_value = checked_uint64(paid_value + deposit.paid_value)
+                  paid_value = checked_uint64(paid_value + deposit.value)
 
               # Ensure the program spend consumes unspent notes of the program, possibly none,
               # and balances exactly with the value deposited.
