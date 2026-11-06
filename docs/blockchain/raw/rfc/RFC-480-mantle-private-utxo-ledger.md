@@ -24,6 +24,7 @@
 | v16 | Each block credits its proof of work share of the fees to the pow reward pool, so that $`W_t`$ is the pool alone. `epoch_pow_reward` stays fixed for the epoch, and an exhausted pool can resume paying within the epoch | 2026-11-05 |
 | v17 | Each step carries its own inscription, the zone message its holder signs through `step_msg`, the inscriptions of an inscribe counting together against `MAX_OPERATION_DATA_SIZE` | 2026-11-06 |
 | v18 | A channel step is a `UserStep`, its kind carried only by a tag of its encoding, and its ZkTransfer is bound to `user_step_id` | 2026-11-06 |
+| v19 | `user_step_id` hashes under the DST `USER_STEP_V1` | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -161,8 +162,8 @@ class Inscribe:
     mini_blocks: list[list[UserStep]]  # new
 ```
 
-- The kind of a step is not a field: the encoding tags each step with it, `%x00` for a user step.
-- Each step carries a ZkTransfer with `msg = user_step_id(channel, step)` and `excess_value = 0`. The message is a hash under the DST `CHANNEL_STEP_V1` of the channel ID, as two elements holding its low and high 16 bytes, since a single reduced element would give channels `x` and `x + p` the same message, of the BLAKE2b-256 hash of the inscription of the step, as two elements `inscription_lo` and `inscription_hi` holding its low and high 16 bytes, and of the nullifiers and commitments of the step. Its public root is `commitment_root` extended with the buffer of the channel set as it stands when the mini-block of the step starts. The `ChannelInscribeOpProof` holds the signer's Ed25519 signature and one ZkTransfer per step.
+- The encoding tags each step with its kind, `%x00` for a user step, so that other kinds of steps can follow.
+- Each step carries a ZkTransfer with `msg = user_step_id(channel, step)` and `excess_value = 0`. The identifier is a hash under the DST `USER_STEP_V1` of the channel ID, as two elements holding its low and high 16 bytes, since a single reduced element would give channels `x` and `x + p` the same identifier, of the BLAKE2b-256 hash of the inscription of the step, as two elements `inscription_lo` and `inscription_hi` holding its low and high 16 bytes, and of the nullifiers and commitments of the step. Its public root is `commitment_root` extended with the buffer of the channel set as it stands when the mini-block of the step starts. The `ChannelInscribeOpProof` holds the signer's Ed25519 signature and one ZkTransfer per step.
 - The inscription of the `Inscribe` is the message of its sequencer, and the inscription of a step the zone message of its holder, which the holder signs with the move. The inscription of the `Inscribe` and those of its steps count together against `MAX_OPERATION_DATA_SIZE`.
 - The steps are validated against the state the inscription is validated against, then applied in order to the channel note set. A channel being created carries no step.
 - `CHANNEL_DEPOSIT` consumes ledger notes and creates channel notes, `outputs` being commitments. Its `excess_value` pays fees.

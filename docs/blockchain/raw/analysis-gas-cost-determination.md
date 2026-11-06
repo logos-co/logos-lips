@@ -134,7 +134,7 @@ Execution: negligible.
 
 The validation process includes verifying an Eddsa25519 signature, confirming that the signer is authorized for the specified channel, checking the chaining sequence of the channel, verifying the ZkTransfer of each user step, and verifying each program step. The execution encompasses creating channel records (if not previously used), applying the steps to the channel note set and updating the tip of the channel.
 
-Execution: ~59k CPU cycles + ~619k CPU cycles * user steps + the cost of each program step.
+Execution: ~59k CPU cycles + ~619k CPU cycles * (user steps and program deposits) + the cost of each program step.
 
 - Verification of the Ed25519 signature: 59,200 cycles.
 - Verification of the signer authorization: negligible.
