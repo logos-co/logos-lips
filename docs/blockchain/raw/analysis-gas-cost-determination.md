@@ -198,7 +198,7 @@ A proof is verified against a root of a recent commitment MMR of its note set, e
 
 ## Nullifiers
 
-A nullifier is inserted in the nullifier IMT of its set (depth 40) in two parts:
+A nullifier is inserted in the nullifier IMT of its set (depth [`NOTE_SET_DEPTH`](bedrock-v1.1-mantle-specification.md#ledger)) in two parts:
 
 - In the Operation: the check that it is absent (3,271 cycles), the update of the low leaf and of the sorted index, and the append of its leaf, 37,772 cycles alone and at most 50,950 for each further input of an Operation.
 - At the end of the block: the hashing of the leaves the block wrote and of every node above them, each node once. The first nullifier of a set in a block costs 1,560,551 cycles, the hashing of two paths of the tree. Every further one costs at most 673,573 cycles: its leaf lands next to the leaves appended before it, but its low leaf is anywhere in the tree, and the path of the low leaf shares only its upper levels with the other paths of the block. From 64 to 256 nullifiers of a set, each further one costs 502,355 cycles.
@@ -211,9 +211,9 @@ Appending a commitment to the commitment [Merkle Mountain Range](bedrock-v1.1-ma
 
 ## Note sets
 
-At the end of a block, each note set the block changed records its commitment root among its recent roots, expires the roots older than 1024 blocks, and updates its leaf in the eligible tree (depth 40). For a set holding a full window of recent roots, this costs 1,863,907 cycles, among which the commitment root (878,394), computed once and recorded for both the recent roots and the eligible leaf, the eligible leaf (88,460) and the path of the eligible tree, and 3,404,644 to 3,460,479 cycles with the first nullifier and a commitment the block added to the set, among 1 to 1,024 recent roots.
+At the end of a block, each note set the block changed records its commitment root among its recent roots, expires the roots older than [`ROOT_WINDOW`](bedrock-v1.1-mantle-specification.md#ledger) blocks, and updates its leaf in the eligible tree (depth [`ELIGIBLE_DEPTH`](cryptarchia-proof-of-leadership.md#eligible-sets)). For a set holding a full window of recent roots, this costs 1,863,907 cycles, among which the commitment root (878,394), computed once and recorded for both the recent roots and the eligible leaf, the eligible leaf (88,460) and the path of the eligible tree, and 3,404,644 to 3,460,479 cycles with the first nullifier and a commitment the block added to the set, among 1 to `ROOT_WINDOW` recent roots.
 
-A Mantle Transaction pays `EXECUTION_NOTE_SET_GAS = 3461`, the largest of these measures, once for each channel or SDP note set it changes, whatever the number of its Operations changing that set. A set created by the transaction counts as changed: its creation inserts its leaf in the eligible tree, a path of 40 compressions of 23,197 cycles, below the cost of a changed set. The ledger set changes in every block with the leader note, and its cost is part of the fixed costs of the block.
+A Mantle Transaction pays `EXECUTION_NOTE_SET_GAS = 3461`, the largest of these measures, once for each channel or SDP note set it changes, whatever the number of its Operations changing that set. A set created by the transaction counts as changed: its creation inserts its leaf in the eligible tree, a path of `ELIGIBLE_DEPTH` compressions of 23,197 cycles, below the cost of a changed set. The ledger set changes in every block with the leader note, and its cost is part of the fixed costs of the block.
 
 ## Signatures
 
