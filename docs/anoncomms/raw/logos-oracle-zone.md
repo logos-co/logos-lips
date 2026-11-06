@@ -451,8 +451,8 @@ This keeps the heavy per-signature cost off LEZ.
 Every honest indexer runs these steps over the same finalized inscriptions and,
 because the input is immutable and the code is deterministic, derives the same `attested price`.
 
-The proposer submits the attested price as an `AttestationSubmission`,
-and the LEZ contract stores it as an `AttestedPrice`.
+The proposer submits the attested price to the LEZ contract as an `AttestationSubmission`,
+and the contract stores it as an `AttestedPrice`.
 Fields that only the contract can know, the status, the proposer and the block that included the write,
 are set by the contract and never by the proposer.
 
