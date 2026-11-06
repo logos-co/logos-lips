@@ -29,7 +29,7 @@
 | 1.1.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.2.0 | Add the proof of work branch: third selector value, `pow_quota` and `pow_blend_difficulty` public inputs, a private `pow_nonce` witness, and Lagrange branch selection; benchmark the three branch circuit | 2026-09-08 |
 | 1.3.0 | Follow the Proof of Leadership of the private ledger: the leader branch proves the note commitment in its note set under the eligible root of the time the stake distribution was frozen, and its nullifier absent from the nullifier IMT of that set at that time. Paths and selectors follow the Merkle path convention of Mantle, from the leaf level up, the commitment path and the path in the eligible tree having depth 40 | 2026-10-07 |
-| 1.3.1 | The note commitment of the leader branch takes the staking key, the `program` and the `data` of the note, the branch proving the public key from the nullifier key and the staking key from the staking secret key, from which it derives the key nullifier, which changes the verification key. Proving time benchmark measured on the current circuit | 2026-11-06 |
+| 1.3.1 | The note commitment of the leader branch takes the staking key, the `program` and the `data` of the note, the branch proving the public key from the nullifier key and the staking key from the staking secret key, from which it derives the key nullifier, which changes the verification key | 2026-11-06 |
 
 
 # Introduction
@@ -87,7 +87,7 @@ class ProofOfQuotaWitness:
     index: int                                 # This is the index of the generated key. Limiting this index limits the maximum number of key generated. (20 bits)
     selector: int                              # Indicates a core node (=0), a leader (=1) or a proof of work solution (=2)
     # This part is filled randomly by potential leaders and by proof of work provers
-    core_sk: zkhash                            # sk corresponding to the zk_id of the core node
+    core_sk: zkhash                            # nullifier key of the NQK, from which the zk_id of the core node derives
     core_path: list[zkhash]                    # Merkle path proving zk_id membership (len = 20)
     core_path_selectors: list[bool]            # Indicates how to read the core_path (if Merkle nodes are left or right in the path)
     # This part is filled randomly by core nodes and by proof of work provers
@@ -143,7 +143,7 @@ key_nullifier = zkhash(b"KEY_NULLIFIER_V1", selection_randomness)
 
   Where `sk` is:
 
-  - The `core_sk` as defined in the [Mantle specification](bedrock-v1.1-mantle-specification.md) if the node is a core node.
+  - The `core_sk` as defined in [Key Types and Generation](key-types-and-generation.md#non-ephemeral-quota-key) if the node is a core node.
   - The staking secret key of the PoL note if it’s a leader node, which stays private even when the nullifier key of the note is public, as for a program note open to everyone.
   - The `pow_nonce` if the proof is backed by proof of work.
 
