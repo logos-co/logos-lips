@@ -38,6 +38,7 @@
 | 1.8.0 | The minimum stake is one `MinStake` of `threshold` and the block number `timestamp`, matching the implementation | 2026-10-27 |
 | 1.9.0 | Support the private ledger of Mantle: a declaration consumes notes and creates its own service note under the `note_pk` it names in the SDP note set, the withdrawal consumes it with a ZkTransfer, and the active and withdraw messages are signed by the `provider_id` | 2026-10-07 |
 | 1.9.1 | A declaration names `note_stake_pk`, the staking key of its service note, and the rewards of the validator are paid to `note_pk` and `note_stake_pk`, `zk_id` being only its Proof of Quota identity | 2026-11-06 |
+| 1.10.0 | [RFC] An active or withdraw message advances the `sequence` of its declaration's `nonce` by exactly one | 2026-11-04 |
 
 # Introduction
 
@@ -262,7 +263,7 @@ A `Nonce` is a 64-bit unsigned integer, `lifecycle_epoch · 2^32 + sequence`:
 An active or withdraw message is valid only if its `nonce`:
 
 - has the `created` of the `DeclarationInfo` as its `lifecycle_epoch`;
-- has a `sequence` greater than the `sequence` of the `nonce` of the `DeclarationInfo`.
+- has a `sequence` equal to the `sequence` of the `nonce` of the `DeclarationInfo` plus one.
 
 Two declarations with the same `declaration_id` never share a `created` epoch, because a declaration is removed no earlier than epoch `created + 3` ([**Withdraw**](#withdraw)). If they could, a message signed for the earlier declaration would be valid for the later one.
 

@@ -53,6 +53,7 @@
 | 2.1.0 | Add programs: notes gain `stake_public_key`, `program` and `data` fields, a nullifier key sitting between the spending secret key and the public key, program notes leading in Proof of Stake unless their staking key is `0`, a declaration naming in `note_stake_pk` the staking key of its service note and rewards, `PROGRAM_REGISTER` registers a Groth16 verification key, and channel inscriptions carry program steps made of user payments, each step and payment with its own inscription, a `ZkProgramSpend`, a program proof and the openings of the program notes they create. A payment, like a user step, is proven against the buffer before its mini-block, and a program spend against the whole buffer at its position. The ZkProgramSpend derives the nonces of the outputs of a step consuming a note of the program. Add the proving time benchmarks of the ZkTransfer and the ZkProgramSpend | 2026-11-06 |
 | 2.1.1 | Added Note Delivery: how the holder of a note learns its `value` and `nonce`, the user notes a sender creates being delivered off chain, by the Note Encryption of [Common Cryptographic Components](common-cryptographic-components.md#note-encryption-construction), a delivered note taking the public key of its recipient as staking key unless the recipient asked for another | 2026-11-02 |
 | 2.2.0 | Execution Gas from [Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0: a Mantle Transaction pays its bytes, each channel or SDP note set it changes and each root extension its proofs share, and each Operation pays its proofs, nullifiers, commitments, signatures, steps, payments, openings and program proofs, through `spend_gas` and the per-component constants of Gas Determination | 2026-10-27 |
+| 2.3.0 | [RFC] `SDP_ACTIVE` and `SDP_WITHDRAW` advance the `sequence` of the declaration's `nonce` by exactly one | 2026-11-04 |
 
 # Introduction
 
@@ -1400,10 +1401,10 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       ```python
       assert Ed25519_verify(txhash, declare_info.provider_id, proof.provider_sig)
       ```
-  4. Ensure that the nonce belongs to this declaration and that its sequence is greater than the previous one.
+  4. Ensure that the nonce belongs to this declaration and that its sequence is the previous one plus one.
       ```python
       assert withdraw.nonce >> 32 == declare_info.created
-      assert withdraw.nonce & 0xFFFFFFFF > declare_info.nonce & 0xFFFFFFFF
+      assert withdraw.nonce & 0xFFFFFFFF == (declare_info.nonce & 0xFFFFFFFF) + 1
       ```
   5. Ensure the service note of the declaration is consumed by its holder and balances the outputs, with [`ZkTransfer_verify`](#zero-knowledge-transfer-proof-zktransfer) against the [`mmr_root`](#commitment-merkle-mountain-range) of the single peak holding the service note.
       ```python
@@ -1530,7 +1531,7 @@ assert found is not None
 _, declaration_info = found
 
 assert active.nonce >> 32 == declaration_info.created
-assert active.nonce & 0xFFFFFFFF > declaration_info.nonce & 0xFFFFFFFF
+assert active.nonce & 0xFFFFFFFF == (declaration_info.nonce & 0xFFFFFFFF) + 1
 
 assert Ed25519_verify(txhash, declaration_info.provider_id, signature)
 ```
