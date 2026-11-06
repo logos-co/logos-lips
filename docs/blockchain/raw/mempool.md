@@ -25,6 +25,7 @@
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-11-03 |
+| 1.1.0 | When a block enters the canonical chain, its copy of a transaction replaces the node's. | 2026-11-06 |
 
 # Introduction
 
@@ -129,7 +130,7 @@ The leader passes over the pending transactions in admission order and applies e
 
 A block proposal carries a short reference to each of its transactions instead of the transaction itself. Every validator rebuilds the proposal from its own mempool.
 
-A **reference** is a prefix of the transaction's hash. It resolves only when exactly one transaction the mempool holds carries that prefix. [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md) specifies what an unresolved reference means for the proposal, and [Reference Resolution](#reference-resolution) specifies the procedure.
+A **reference** is a prefix of the transaction's hash. It resolves only when exactly one transaction the mempool holds carries that prefix. The hash covers no proofs, so a reference resolves to the node's own copy, which can differ from the proposer's. [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md) specifies what an unresolved reference or a failed copy means for the proposal, and [Reference Resolution](#reference-resolution) specifies the procedure.
 
 ## Retirement Reasons
 
@@ -184,7 +185,7 @@ A node keeps these values for its mempool, defined in [Mempool State](#mempool-s
 
 - `pending`, the pending hashes in admission order, which changes on [Transaction Admission](#transaction-admission) and on [Retirement](#retirement);
 - `retired`, the retirement time of each retired transaction the node still holds, which changes on [Retirement](#retirement), on [Transaction Admission](#transaction-admission) and as [Effects of Retirement](#effects-of-retirement) specifies;
-- `bodies`, the body of each pending or retired transaction, which changes on [Transaction Admission](#transaction-admission) and as [Effects of Retirement](#effects-of-retirement) specifies;
+- `bodies`, the body of each pending or retired transaction, which changes on [Transaction Admission](#transaction-admission), on [Inclusion in a Canonical Block](#inclusion-in-a-canonical-block) and as [Effects of Retirement](#effects-of-retirement) specifies;
 - `admitted_at`, the admission time of each pending transaction, which changes with `pending`;
 - `by_prefix`, the pending and retired hashes keyed by their reference prefix, which changes with `bodies`;
 - `highest_slot`, the highest slot of a block added since the node started, which rises when Chain Maintenance adds a block of a higher slot.
@@ -404,7 +405,7 @@ A transaction leaves `pending` for one of four reasons.
 
 ### Inclusion in a Canonical Block
 
-When a block enters the node's canonical chain, each pending transaction it carries is retired.
+When a block enters the node's canonical chain, each pending transaction it carries is retired. The block's copy of each transaction it carries replaces the copy in `bodies`, if the mempool holds one.
 
 ### Inapplicability
 
