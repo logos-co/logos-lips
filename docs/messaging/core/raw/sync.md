@@ -230,7 +230,11 @@ Each syncing peer performs the following in response to a `RangesData` payload:
 The responder:
 1. Receives and decodes the payload
 2. If shards and cluster match, processes each range:
-   - If the received range is of type `Skip`, ignores it.
+   - If the received range is of type `Skip`, requires no further processing.
+      - If the received `Skip` range is the trailing range, it MAY be omitted from the response.
+      Otherwise, the responder MUST include it in the response as type `Skip` so that range bounds remain contiguous.
+      Adjacent `Skip` ranges MAY be merged in the response.
+      A response consisting of only `Skip` ranges MUST be sent as an empty payload, which ends the session.
    - If the received range is of type `Fingerprint`, computes the fingerprint over the local matching range
       - If the local fingerprint matches the received fingerprint, includes this range in the response as type `Skip`
       - If the local fingerprint does _not_ match the received fingerprint:
