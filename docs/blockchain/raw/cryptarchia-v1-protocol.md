@@ -35,6 +35,7 @@
 | 1.2.3 | Update the test vectors to reflect the parent added in the `CHANNEL_CONFIG` payload | 2026-08-27 |
 | 1.2.4 | Reordered the `ProofOfLeadership` fields to the wire order defined by the [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding), and noted that the [Block ID](#block-id) preimage absorbs the same fields in a different order by design. The `Header` layout and the `block_id` preimage are otherwise unchanged. | 2026-08-28 |
 | 1.2.5 | Required the slot of a referenced [uncle](#uncle-references) to exceed the slot of its parent. | 2026-10-06 |
+| 1.3.0 | Counted finality in slots: [`B_imm`](#latest-immutable-block) passes a block once it lies the finality window `K` behind the tip of the local chain and the finality floor `φ` of occupied slots follows it. `K` replaces `s` and `⌊k/f⌋`. | 2026-11-06 |
 
 # Introduction
 
@@ -98,18 +99,19 @@ Our design starts from the solid foundation provided by Ouroboros Crypsinous: Pr
 | Symbol | Name | Description | Value |
 | --- | --- | --- | --- |
 | $`f`$ | slot activation coefficient | The target rate of occupied slots. Not all slots contain blocks, many are empty.   (see [ANALYSIS-BLOCK-TIMES-BLEND-NETWORK](analysis-block-times-blend-network.md) for analysis leading to the choice of value) | 1/30 |
-| $`k`$ | security parameter | Block depth finality. Blocks deeper than $`k`$ on any given chain are considered immutable. | 2160 blocks |
+| $`k`$ | security parameter | The number of blocks expected in $`K`$ slots at the rate $`f`$. | 2160 blocks |
+| $`K`$ | finality window | The number of slots a block must lie behind the tip of the local chain before [Commit](#commit) can make it immutable. It also sets the [Epoch Schedule](#epoch-schedule). $`K`$ shrinks as $`f`$ rises, while a faster block rate needs a longer wait. A change of $`k`$, $`f`$ or the message traversal time $`T_M`$ of the [Blend Protocol](blend-protocol.md) therefore requires $`K`$ and $`\phi`$ to be checked again: if $`K`$ is too short, a block made immutable can be displaced. (see [\[RFC\] Cryptarchia: Count finality in slots](https://github.com/logos-co/logos-lips/blob/master/docs/blockchain/raw/rfc/RFC-TBD-cryptarchia-count-finality-in-slots.md#what-the-finality-window-holds) for the analysis behind the value) | $`\lfloor \frac{k}{f}\rfloor`$ = 64,800 slots (18 hours) |
+| $`\phi`$ | finality floor | The number of occupied slots that must follow a block before [Commit](#commit) can make it immutable, derived in [Finality Floor](#finality-floor). A change of $`K`$, $`f`$ or a target of that derivation changes $`\phi`$. | 1,019 occupied slots |
 | *none* | slot length | The duration of a single slot. | 1 second |
 | MAX_BLOCK_SIZE | max block size | The maximum size of the block body (not including the header) | 2 MiB (2,097,152 bytes) |
 | MAX_BLOCK_TXS | max block transactions | The maximum number of transactions in a block | 1024 |
-| $`W`$ | uncle reference window | The window width in expected block-intervals (each of $`f^{-1}`$ slots): the slot of the **parent** of a referenced [uncle](#uncle-references) must precede the slot of the referencing block by at most $`W\cdot f^{-1}`$ slots (360 at $`W=12`$). Anchoring the window to the parent bounds how far back the referencing chain must be retained to verify the uncle; a virtual upper bound on $`W`$ applies (see the note in [Uncle Selection](#uncle-selection)). | 12 |
+| $`W`$ | uncle reference window | The window width in expected block-intervals (each of $`f^{-1}`$ slots): the slot of the **parent** of a referenced [uncle](#uncle-references) must precede the slot of the referencing block by at most $`W\cdot f^{-1}`$ slots (360 at $`W=12`$). Anchoring the window to the parent bounds how far back the referencing chain must be retained to verify the uncle. $`W\cdot f^{-1} \lt K`$ must hold (see the note in [Uncle Selection](#uncle-selection)). | 12 |
 | MAX_UNCLES | max uncle references | The maximum number of [uncles](#uncle-references) a block may reference. | 4 |
 
 ## Notation
 
 | Symbol | Name | Description | Value |
 | --- | --- | --- | --- |
-| $`s`$ | slot security parameter | Sufficient slots such that $`k`$ blocks have been produced with high probability. | $`3\lfloor \frac{k}{f}\rfloor`$ |
 | $`T`$ | the block tree | This is the block tree observed by a node. |  |
 | $`F_T`$ | tips of block tree $`T`$ | The set of concurrent forks of some block tree $`T`$. | $`F_T=\{b\in T:\forall c \in T\space \textbf{parent}(c) \neq b \}`$ |
 | $`c_{loc}`$ | tip of local chain | The chain that a node considers to be the honest chain. | $`c_{loc} \in F_{T}`$ |
@@ -121,7 +123,7 @@ Our design starts from the solid foundation provided by Ouroboros Crypsinous: Pr
 
 The latest immutable block $`B_\text{imm}`$ is the most recent block considered permanently finalized. The blocks deeper than $`B_\text{imm}`$ in the local chain $`c_{loc}`$ are never to be reorganized.
 
-This is maintained locally by the [Chain Maintenance](#chain-maintenance) procedure. When the [Online fork choice rule](fork-choice.md) is in use, $`B_\text{imm}`$ corresponds to the $`k`$-deep block. However, it may be deeper than the $`k`$-deep block if the fork choice rule has been switched from Online to [Bootstrap](fork-choice.md). Unlike the $`k`$-deep block, $`B_\text{imm}`$ does not advance as new blocks are added unless the Online fork choice rule is used.
+This is maintained locally by the [Chain Maintenance](#chain-maintenance) procedure. When the [Online fork choice rule](fork-choice.md) is in use, [Commit](#commit) moves $`B_\text{imm}`$ along $`c_{loc}`$ to the latest block that lies at least the finality window $`K`$ behind $`c_{loc}`$ and that $`\phi`$ occupied slots follow. $`B_\text{imm}`$ never moves back. It does not move while the [Bootstrap](fork-choice.md) rule is in use, so it may lie further behind if the fork choice rule has been switched from Online to Bootstrap.
 
 The details of fork choice rule transitions are defined in the bootstrap spec: [Cryptarchia Bootstrapping & Synchronization](cryptarchia-v1-bootstr-sync.md)
 
@@ -147,11 +149,13 @@ An epoch is divided into 3 phases, as outlined below.
 
 | Epoch Phase | Phase Length | Description |
 | --- | --- | --- |
-| Stake Distribution Snapshot | $`s`$ slots | A snapshot of note commitments are taken at the beginning of the epoch. We wait for this value to finalize before entering the next phase. |
-| Buffer phase | $`s`$ slots | After the stake distribution is finalized, we wait another slot finality period before entering the next phase. This is to further ensure that there is at least one honest leader contributing to the epoch nonce randomness. If an adversary can predict the nonce, they can grind their coin secret keys to gain an advantage. |
-| Lottery Constants Finalization | $`s+\lfloor\frac{k}{f}\rfloor=4\lfloor\frac{k}{f}\rfloor`$ slots | On the $`2s^{th}`$ slot into the epoch, the epoch nonce $`\eta`$ and the inferred total stake $`D`$ can be computed. We wait another $`4\frac{k}{f}`$ slots for these values to finalize. |
+| Stake Distribution Snapshot | $`3K`$ slots | A snapshot of note commitments are taken at the beginning of the epoch. We wait for this value to finalize before entering the next phase. |
+| Buffer phase | $`3K`$ slots | After the stake distribution is finalized, we wait another $`3K`$ slots before entering the next phase. This is to further ensure that there is at least one honest leader contributing to the epoch nonce randomness. If an adversary can predict the nonce, they can grind their coin secret keys to gain an advantage. |
+| Lottery Constants Finalization | $`4K`$ slots | On the $`6K^{th}`$ slot into the epoch, the epoch nonce $`\eta`$ and the inferred total stake $`D`$ can be computed. We wait another $`4K`$ slots for these values to finalize. |
 
-The **epoch length** is the sum of the individual phases: $`3\lfloor \frac{k}{f} \rfloor + 3\lfloor \frac{k}{f} \rfloor + 4\lfloor \frac{k}{f} \rfloor =10 \lfloor \frac{k}{f} \rfloor`$ slots.
+The phases are measured in the [finality window](#constants) $`K`$. Each phase must last at least $`K`$ slots, or the value it waits for is not final when the phase ends.
+
+The **epoch length** is the sum of the individual phases: $`3K + 3K + 4K = 10K`$ slots.
 
 ### Epoch State
 
@@ -221,15 +225,15 @@ $`\text{define } \textbf{compute\_epoch\_state}(ep, tip \in T)\to(\mathbb{C}_\te
 
 > The epoch nonce for epoch $`ep`$ is the value of $`\eta`$ at the beginning of the lottery constants finalization phase in the epoch schedule
 
-&nbsp;&nbsp;&nbsp;&nbsp;$`\eta^{ep} \coloneqq \textbf{epoch\_nonce\_at\_slot}(sl_{ep-1} + \lfloor6\frac{k}{f}\rfloor, tip)`$
+&nbsp;&nbsp;&nbsp;&nbsp;$`\eta^{ep} \coloneqq \textbf{epoch\_nonce\_at\_slot}(sl_{ep-1} + 6K, tip)`$
 
 > Total active stake is inferred from the number of blocks produced in the previous epoch during the stake freezing phase. It is also derived from the previous estimate of total stake, thus we recurse here to retrieve the previous epochs estimate $`D^{ep-1}`$
 
 &nbsp;&nbsp;&nbsp;&nbsp;$`(\_,\_,D^{ep-1}) \coloneqq \textbf{compute\_epoch\_state}(ep-1,tip)`$
 
-> The number of distinct occupied slots during the first $`6\frac{k}{f}`$ slots of the previous epoch: a slot counts if it holds a block of the chain of $`tip`$ and/or one or more [uncles](#uncle-references) referenced by the blocks of that chain **that themselves lie in the window**, and each slot is counted at most once. Referenced uncles are genuine lottery wins that were lost to forks; counting them gives a more accurate estimate of consensus participation. No filtering is needed here: an uncle carried by a block of the chain was validated as a condition of that block's acceptance (see [Uncle References](#uncle-references)), so every node holding the chain counts exactly the same uncles.
+> The number of distinct occupied slots during the first $`6K`$ slots of the previous epoch: a slot counts if it holds a block of the chain of $`tip`$ and/or one or more [uncles](#uncle-references) referenced by the blocks of that chain **that themselves lie in the window**, and each slot is counted at most once. Referenced uncles are genuine lottery wins that were lost to forks; counting them gives a more accurate estimate of consensus participation. No filtering is needed here: an uncle carried by a block of the chain was validated as a condition of that block's acceptance (see [Uncle References](#uncle-references)), so every node holding the chain counts exactly the same uncles.
 
-&nbsp;&nbsp;&nbsp;&nbsp;$`\textbf{in\_window}(sl) \coloneqq sl_{ep - 1} \le sl \lt sl_{ep-1}+\lfloor 6\frac{k}{f} \rfloor`$
+&nbsp;&nbsp;&nbsp;&nbsp;$`\textbf{in\_window}(sl) \coloneqq sl_{ep - 1} \le sl \lt sl_{ep-1}+6K`$
 
 &nbsp;&nbsp;&nbsp;&nbsp;$`\textbf{chain} \coloneqq \textbf{ancestors}(tip)`$
 
@@ -263,7 +267,7 @@ We use two fork choice rules, one during bootstrapping and a second once a node 
 
 During bootstrapping, we must be resilient to malicious peers feeding us false chains, this calls for a more expensive fork choice rule that can differentiate between malicious long-range attacks and honest chains.
 
-After bootstrapping we commit to the most honest looking chain we found and switch to a fork choice rule that rejects chains that diverge by more than $`k`$ blocks
+After bootstrapping we commit to the most honest looking chain we found and switch to a fork choice rule that rejects chains that diverge before $`B_\text{imm}`$
 
 [Cryptarchia Fork Choice Rule](fork-choice.md)
 
@@ -314,7 +318,7 @@ The field order above is the wire order defined in [Canonical Encoding](bedrock-
 
 A block may reference up to `MAX_UNCLES` **uncles** (see [Constants](#constants)). An uncle is a valid fork block that is not part of the chain of the referencing block but shares a common ancestor with it. A block references an uncle by carrying its full signed header in the `uncle_headers` field of both the block proposal and the reconstructed block ([Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md#block)); the block ID of an uncle is derived from the carried header as $`\textbf{block\_id}(U)`$ and is not recorded separately. Following the list convention of the [Mantle Transaction Encoding](mantle-transaction-encoding.md) — *"Any lists are length-prefixed with fixed width uints"* — the list is serialized as a 1-byte little-endian element count followed by that many fixed-size entries (one byte suffices for the `MAX_UNCLES` bound), so it carries its own length. The header holds no uncle data of its own and is fixed-size; it commits to the carried entries — signatures included — through $`body\_root`$, and hence so does the [Block ID](#block-id). Any node holding a block therefore also holds the signed headers of the uncles it references, however it obtained that block, and cannot hold a variant of them. The size of a proposal varies with the number of referenced uncles; the indistinguishability of proposals required by the [Blend Protocol](blend-protocol.md) is preserved at the message layer instead: [Payload Formatting](payload-formatting.md) fixes every dispersed payload body to the maximum payload size `Max_Body_Length` — set from the maximum proposal size — padding shorter proposals with random data.
 
-The only purpose of an uncle reference is to feed the [Total Stake Inference](#total-stake-inference), which infers the total active stake from the number of **occupied slots** — the slots in which at least one leader won the lottery. A referenced uncle is a genuine lottery win, backed by a valid Proof of Leadership, that was lost to a fork (predominantly caused by network delays); its slot was occupied, but without the reference the canonical chain would not observe it. Counting the slots of the referenced uncles alongside those of the canonical blocks recovers those occupied slots and gives a more accurate estimate of the total active stake.
+An uncle reference feeds the [Total Stake Inference](#total-stake-inference), which infers the total active stake from the number of **occupied slots** — the slots in which at least one leader won the lottery. [Commit](#commit) reads the same count for the finality floor $`\phi`$. A referenced uncle is a genuine lottery win, backed by a valid Proof of Leadership, that was lost to a fork (predominantly caused by network delays); its slot was occupied, but without the reference the canonical chain would not observe it. Counting the slots of the referenced uncles alongside those of the canonical blocks recovers those occupied slots and gives a more accurate estimate of the total active stake.
 
 At the moment a block is produced it is not yet known which branch of a fork will become canonical: some nodes build on one branch and some on the other. By referencing the blocks of the competing branches as uncles, whichever branch ultimately becomes canonical still counts the lottery wins of the branches that lost. This is the intent of uncle references — to let each branch count its counterpart branches — and it is what improves the total stake estimate.
 
@@ -377,7 +381,7 @@ def select_uncles_oldest(B) -> array[SignedHeader]:   # at most MAX_UNCLES entri
 
 This deterministic rule is simple and, without communication between proposers, robust. Two non-communicating proposers with the same candidate set produce the same selection, but they also tend to produce **competing blocks** that extend the same tip, of which only one becomes part of the canonical chain — the [Fork Choice Rule](fork-choice.md) discards the rest. The identical uncle references on the discarded competitors therefore cost nothing, and along a single canonical chain, excluding the slots already occupied on a block's own chain keeps successive blocks from re-counting a slot.
 
-*Which* candidates a proposer selects is proposer-local: it may reference fewer uncles than it could, or pass over a candidate for another, and its block remains valid. *What* it may reference is not — every carried entry must satisfy the validity rules above, and a block carrying one that does not is rejected (see [Block Header Validation](#block-header-validation)). The procedure given here is therefore a recommendation for filling the entries well, not a consensus rule. Because uncle references carry no fork-choice weight and grant no reward, a proposer has no incentive to deviate from it, and deviating within the rules only affects the accuracy of the [Total Stake Inference](#total-stake-inference).
+*Which* candidates a proposer selects is proposer-local: it may reference fewer uncles than it could, or pass over a candidate for another, and its block remains valid. *What* it may reference is not — every carried entry must satisfy the validity rules above, and a block carrying one that does not is rejected (see [Block Header Validation](#block-header-validation)). The procedure given here is therefore a recommendation for filling the entries well, not a consensus rule. Because uncle references carry no fork-choice weight and grant no reward, a proposer has no incentive to deviate from it, and deviating within the rules only affects the count of occupied slots that the [Total Stake Inference](#total-stake-inference) and [Commit](#commit) read.
 
 A referenced uncle never becomes part of the chain:
 
@@ -385,9 +389,9 @@ A referenced uncle never becomes part of the chain:
 - The uncle carries no weight in the [Fork Choice Rule](fork-choice.md).
 - The uncle grants no block reward.
 
-The only effect of a referenced uncle is its contribution to the [Total Stake Inference](#total-stake-inference). Nothing further gates it: an uncle carried by a block of the chain has already been verified as a condition of that block's validity, so the inference counts its slot — whenever that slot and its referencing block both fall in the observation window — without re-examining the entry.
+The only effect of a referenced uncle is that its slot counts as occupied in the [Total Stake Inference](#total-stake-inference) and in the finality floor of [Commit](#commit). Nothing further gates it: an uncle carried by a block of the chain has already been verified as a condition of that block's validity, so each count includes its slot — whenever that slot and its referencing block both fall in the range counted — without re-examining the entry.
 
-> **Note:** The uncle reference window spans $`W`$ expected block-intervals — $`W\cdot f^{-1}`$ slots, 360 at the default $`W=12`$ and $`f=1/30`$ — and `MAX_UNCLES` is 4. Forks are predominantly caused by network delays and resolve within a few slots, so this window comfortably captures the forks worth referencing. $`W`$ carries a **virtual upper bound** of $`\lfloor 0.6\,k \rfloor`$ — equivalently $`W\cdot f^{-1} \le 0.6\frac{k}{f} = \frac{s}{5}`$ — virtual in that no validation rule evaluates it: it constrains the choice of the constant itself, limiting the expense of lineage checking — how far back the chain of a referencing block must be reachable to verify an uncle — and any retuning of $`W`$ must stay within it. The bound keeps the window strictly inside the finalization window, which is what the proposer needs: a candidate whose parent is within the window is still present in its block tree, since only forks that diverged deeper than the latest immutable block — at most $`s`$ slots back — are pruned (see [Fork Pruning](#fork-pruning)); because the window is anchored to the parent, which is the divergence point, the two conditions are stated over the same quantity. The [Total Stake Inference](#total-stake-inference) needs no such bound: it counts only the blocks of its observation window and the uncles those blocks carry, so the count of a past window is closed once the window ends whatever the value of $`W`$, and recomputing $`N_\text{BLOCKS}`$ for a past epoch always yields the same value.
+> **Note:** The uncle reference window spans $`W`$ expected block-intervals — $`W\cdot f^{-1}`$ slots, 360 at the default $`W=12`$ and $`f=1/30`$ — and `MAX_UNCLES` is 4. Forks are predominantly caused by network delays and resolve within a few slots, so this window comfortably captures the forks worth referencing. $`W`$ carries a **virtual upper bound**, $`W\cdot f^{-1} \lt K`$, virtual in that no validation rule evaluates it: it constrains the choice of the constant itself, limiting the expense of lineage checking — how far back the chain of a referencing block must be reachable to verify an uncle — and any retuning of $`W`$ must stay within it. The bound keeps the window strictly inside the finality window $`K`$, which is what the proposer needs: a candidate whose parent is within the window is still present in its block tree, since only forks that diverged deeper than the latest immutable block are pruned (see [Fork Pruning](#fork-pruning)), and that block lies at least $`K`$ slots behind the slot of the block being constructed; because the window is anchored to the parent, which is the divergence point, the two conditions are stated over the same quantity. The [Total Stake Inference](#total-stake-inference) needs no such bound: it counts only the blocks of its observation window and the uncles those blocks carry, so the count of a past window is closed once the window ends whatever the value of $`W`$, and recomputing $`N_\text{BLOCKS}`$ for a past epoch always yields the same value.
 >
 > **Note:** The validity rules are functions only of the referencing chain and the carried entry, and the signed headers are carried inside the blocks themselves (the `uncle_headers` field of [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md#block)) — availability is structural, and referencing an uncle is inseparable from publishing its signed header. Every node therefore accepts exactly the same blocks and, from them, computes the same $`N_\text{BLOCKS}`$ and the same $`D`$, at any time; a bootstrapping node reproduces the estimate of every past epoch from the chain data alone. An adversary manipulating the visibility of fork blocks can thus affect neither block inclusion nor the agreement of the estimate — only whether its own lottery wins are referenced at all. Because a block carrying an unverifiable entry is rejected outright, no such entry ever becomes chain data, and the cost of checking one is paid once by the receiving node rather than by every node that later synchronizes. The carried signed headers are retained as part of the chain data, bounded by `MAX_UNCLES` entries per block.
 
@@ -474,33 +478,79 @@ $`\text{define } \textbf{on\_block}(state, B)\to state'`$:
 
   $`T' \coloneqq T \cup \{B\}`$
 
-  $`c_{loc}' \coloneqq \begin{cases} B &\text{if } \textbf{parent}(B) = c_{loc}\\ \textbf{fork\_choice}(c_{loc}, F_{T'}, k, s) &\text{if } \textbf{parent}(B) \neq c_{loc} \end{cases}`$
+> The two fork choice rules and $`s_{gen}`$ are defined in [Cryptarchia Fork Choice Rule](fork-choice.md).
+
+  $`c_{loc}' \coloneqq \begin{cases} B &\text{if } \textbf{parent}(B) = c_{loc}\\ \textbf{bootstrap\_fork\_choice}(c_{loc}, F_{T'}, K, s_{gen}) &\text{if } \textbf{parent}(B) \neq c_{loc} \land \text{fork\_choice\_rule} = \text{BOOTSTRAP}\\ \textbf{online\_fork\_choice}(c_{loc}, F_{T'}, B_\text{imm}) &\text{if } \textbf{parent}(B) \neq c_{loc} \land \text{fork\_choice\_rule} = \text{ONLINE} \end{cases}`$
 
   $`\text{if } \text{fork\_choice\_rule} = \text{ONLINE}:`$
 
-> Explicitly commit to the $`k`$-deep block if the [Online Fork Choice Rule](fork-choice.md) is being used.
+> Explicitly move $`B_\text{imm}`$ if the [Online Fork Choice Rule](fork-choice.md) is being used.
 
-&nbsp;&nbsp;&nbsp;&nbsp;$`(T', B_\text{imm}) \coloneqq \textbf{commit}(T', c_{loc}', k)`$
+&nbsp;&nbsp;&nbsp;&nbsp;$`(T', B_\text{imm}) \coloneqq \textbf{commit}(T', c_{loc}', B_\text{imm})`$
 
   $`\textbf{return} \space (c_{loc}', B_\text{imm}, T')`$
 
 ### Commit
 
-We define the procedure that commits to the block, which is $`depth`$ deep from $`c_{loc}`$. This procedure computes the new latest immutable block $`B_\text{imm}`$.
+We define the procedure that moves the latest immutable block $`B_\text{imm}`$ along $`c_{loc}`$. $`B_\text{imm}`$ moves only through this procedure, which runs in [Chain Maintenance](#chain-maintenance) and at the [switch to the Online rule](cryptarchia-v1-bootstr-sync.md#prolonged-bootstrap-period). The count of occupied slots is $`\textbf{density\_over\_slots}`$, defined in [Total Stake Inference](cryptarchia-total-stake-inference.md#functions).
 
-$`\text{define } \textbf{commit}(T,c_{loc},depth)\to (T', B_\text{imm}):`$
+$`\text{define } \textbf{commit}(T,c_{loc},B_\text{imm})\to (T', B_\text{imm}'):`$
 
   $`\textbf{assert } \text{fork\_choice\_rule} = \text{ONLINE}`$
 
-> Compute the latest immutable block, which is $`depth`$ deep from $`c_{loc}`$.
+  $`B \coloneqq B_\text{imm}`$
 
-  $`B_\text{imm} \coloneqq \textbf{block\_at\_depth}(c_{loc}, depth)`$
+  $`\text{while } B \ne c_{loc}:`$
 
-> Prune all forks diverged deeper than $`B_\text{imm}`$, so that future blocks on those forks can be rejected by [Block Header Validation](#block-header-validation).
+> $`C`$ is the child of $`B`$ on the chain of $`c_{loc}`$. It must lie at least the finality window $`K`$ behind $`c_{loc}`$, and the slots after it, up to and including the slot of $`c_{loc}`$, must hold at least $`\phi`$ occupied slots.
 
-  $`T' \coloneqq \textbf{prune\_forks}(T, B_\text{imm}, c_{loc})`$
+&nbsp;&nbsp;&nbsp;&nbsp;$`C \coloneqq \textbf{child\_on\_chain}(B, c_{loc})`$
 
-  $`\textbf{return} \space (T', B_\text{imm})`$
+&nbsp;&nbsp;&nbsp;&nbsp;$`\text{if } sl_C \gt sl_{c_{loc}} - K \lor \textbf{density\_over\_slots}(c_{loc}, sl_C + 1, sl_{c_{loc}} - sl_C) \lt \phi:`$
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$`\textbf{break}`$
+
+&nbsp;&nbsp;&nbsp;&nbsp;$`B \coloneqq C`$
+
+> Prune all forks diverged deeper than $`B`$, so that future blocks on those forks can be rejected by [Block Header Validation](#block-header-validation).
+
+  $`T' \coloneqq \textbf{prune\_forks}(T, B)`$
+
+  $`\textbf{return} \space (T', B)`$
+
+#### Finality Floor
+
+$`\phi`$ is the largest $`n`$ such that the chance of the honest chain holding fewer than $`n`$ blocks in $`K`$ slots is at most $`\varepsilon`$. The chance is taken while a share $`\alpha_\text{max}`$ of the stake withholds its blocks and every honest block is delivered $`\Delta`$ slots late. A block of the chain occupies its own slot, so the chain holds at least as many occupied slots as blocks.
+
+```python
+from math import exp, lgamma, log
+
+ALPHA_MAX = 1 / 3   # α_max, the share of the stake the floor is sized against
+DELTA = 10          # Δ, the delivery delay the floor is sized against, in slots
+EPSILON = 1e-9      # ε, the chance allowed that the honest chain misses the floor
+
+def blocks_short(n: int) -> float:
+    # The chance that fewer than n blocks fit in K slots. A gap between blocks is DELTA
+    # slots plus the wait for the next win of the honest stake, whose chance per slot is
+    # p_h. So n blocks fit only if the slots left after n delays hold at least n wins.
+    p_h = 1 - (1 - f) ** (1 - ALPHA_MAX)
+    slots = K - n * DELTA
+    if slots < n:
+        return 1.0
+    return sum(
+        exp(lgamma(slots + 1) - lgamma(i + 1) - lgamma(slots - i + 1)
+            + i * log(p_h) + (slots - i) * log(1 - p_h))
+        for i in range(n)
+    )
+
+def finality_floor() -> int:
+    n = 0
+    while blocks_short(n + 1) <= EPSILON:
+        n += 1
+    return n
+```
+
+With $`K = 64800`$ and $`f = 1/30`$, `finality_floor()` returns $`1019`$.
 
 ### Fork Pruning
 
@@ -518,7 +568,7 @@ $`\text{define } \textbf{prune\_forks}(T, B)\to T':`$
 
 &nbsp;&nbsp;&nbsp;&nbsp;$`\text{if } B_\text{div} \neq B:`$
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$`T' \coloneqq \textbf{prune\_blocks}(B_\text{tip}, B_\text{div}, T)`$
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;$`T' \coloneqq \textbf{prune\_blocks}(B_\text{tip}, B_\text{div}, T')`$
 
   $`\textbf{return } T'`$
 
