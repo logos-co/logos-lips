@@ -304,7 +304,7 @@ The validation checks the format of the declaration, the length of its locators,
 | release at the end of the epoch | 19,335 |
 | decompression and batch verification of the ZkTransfer | 1,768,883 |
 
-The validation checks that the declaration exists and is not withdrawn, and the ZkTransfer consuming the service note, whose root is computed from that note alone. That root is the root of the empty MMR extended by one commitment, priced by `root_gas(1) = 902`, and the rest of the 892 Execution Gas measured beyond the components leaves `EXECUTION_SDP_WITHDRAW_GAS = 0`. The execution records the withdrawal epoch and keeps the withdrawal pending, and its release at the end of the epoch inserts the nullifier of the service note in the SDP note set and appends the output to the ledger note set.
+The validation checks that the declaration exists and is not withdrawn, and the ZkTransfer consuming the service note, whose root is computed from that note alone. That root is the root of the empty MMR extended by one commitment, priced by `root_gas(1) = 902`, and the rest of the 892 Execution Gas measured beyond the components leaves `EXECUTION_SDP_WITHDRAW_GAS = 0`. The execution records the withdrawal epoch, inserts the nullifier of the service note in the SDP note set and keeps the output pending, and its release at the end of the epoch appends the output to the ledger note set.
 
 ## SDP Activation
 
