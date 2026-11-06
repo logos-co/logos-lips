@@ -253,7 +253,7 @@ A program step costs `EXECUTION_TRANSFER_GAS` per payment, plus `EXECUTION_PROGR
 | --- | --- | --- |
 | [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | 2.1.0 |
 | [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | 2.1.0 |
-| [Genesis Block](../bedrock-genesis-block.md) | Modified | 1.3.1, no registered program, staking keys of the initial notes |
+| [Genesis Block](../bedrock-genesis-block.md) | Modified | 1.3.1, no registered program, staking keys of the initial notes, the `note_stake_pk` of the declarations |
 | [Proof of Leadership](../cryptarchia-proof-of-leadership.md) | Modified | 1.2.1 |
 | [Proof of Quota](../proof-of-quota.md) | Modified | 1.3.1, staking secret of the leader branch, verification key |
 | [Service Reward Distribution](../bedrock-service-reward-distribution.md) | Modified | 1.4.1, reward notes under `note_pk` and `note_stake_pk` |
