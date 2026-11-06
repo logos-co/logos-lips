@@ -9,6 +9,7 @@
 | v1 | Initial RFC | 2026-11-06 |
 | v2 | Outside mining takes a patience of 1 as its base case, so the rent check counts a board's whole income | 2026-11-06 |
 | v3 | Owned hash rate is the lower bound on the cost of a board, and the reward of 334 LOGOS depends on replacing the reward puzzle | 2026-11-06 |
+| v4 | After the period the reward is derived from the storage price, and the target pays out a ninety-eighth of the pool per epoch | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -16,8 +17,8 @@ Read the PR's Motivation first.
 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
-| 1 | Critical | **Start here** — [Proof of Work](#affected-specifications), [the rewards](#1-fixed-rewards-and-vested-shares) | every node switches the reward and the share at the same epoch; the rule that computed the reward from the pool is gone |
-| 2 | Critical | **Start here** — [Proof of Work](#affected-specifications), [the difficulty controller](#2-the-difficulty-controller) | the fractional target of the period, the caps by epoch, the new smoothing and floor, against [The difficulty controller](#the-difficulty-controller) |
+| 1 | Critical | **Start here** — [Proof of Work](#affected-specifications), [the rewards](#1-fixed-rewards-and-vested-shares) | every node switches the reward and the share at the same epoch; after it the reward follows the storage price; the rule that computed the reward from the pool is gone |
+| 2 | Critical | **Start here** — [Proof of Work](#affected-specifications), [the difficulty controller](#2-the-difficulty-controller) | the target as a fraction of the pool, the caps by epoch, the new smoothing and floor, against [The difficulty controller](#the-difficulty-controller) |
 | 3 | High | [Mantle](#affected-specifications), [the vested share](#3-the-vested-share-in-mantle) | a claim reads `epoch_pow_vested_share`; the positive reward check goes |
 | 4 | Medium | [Genesis Block](#affected-specifications), [the pool seed](#4-the-pool-seed) | 200M LOGOS drawn from the initial distribution |
 
@@ -29,12 +30,12 @@ A **board** is one Raspberry Pi 5 with four cores, the target machine of [Proof 
 
 |  | First 98 epochs (two years) | After epoch 98 |
 | --- | --- | --- |
-| Reward per claim | 334 LOGOS | 1.2 LOGOS |
+| Reward per claim | 334 LOGOS | enough for its liquid part to pay for a 632-byte transaction at the storage price of the epoch, 0.72 LOGOS at the starting price |
 | Vested-liquid split | 90-10 | 30-70 |
 | A claim on a board, at the minimum work | about every 3 days | about every 2.7 hours |
-| Income per board per month, at most | about 3,340 LOGOS, 334 of it liquid | about 320 LOGOS, 224 of it liquid |
-| Target | 0.283 claims per block, which pays out 200M LOGOS over the period | 10 claims per block |
-| Payout per month at the target | about 8.2M LOGOS | about 1.04M LOGOS |
+| Income per board per month, at most | about 3,340 LOGOS, 334 of it liquid | about 270 rewards, 70% of each liquid |
+| Target | 0.283 claims per block, which pays out 200M LOGOS over the period | the rate that pays out a ninety-eighth of the pool per epoch |
+| Payout per month at the target | about 8.2M LOGOS | about 4% of the pool |
 
 No rule limits the claims of an epoch. Only the difficulty controls them, through the minimum work and the retarget. A month here is 4 epochs, 30 days, and the period is 24.5 months.
 
@@ -199,17 +200,18 @@ The paced target's gain here is the pool, not the node count. A target of 10 onb
 | 99/100 | +2.2% | 15% | 4.8% | +4.2% | 1.11 times | 1.04 times the target | 110 minutes | 128 minutes |
 | 999/1000 | +0.2% | 4.6% | 0.5% | +0.4% | 1.01 times | 1.01 times the target | 16 hours | 18.5 hours |
 
-A claim travels through Blend, so a miner holds a ticket found against one target and it is checked against a later one. A hopper mines only while the target is easy, so a faster controller pays it more. The same smoothing also helps after the period, at 10 claims per block, where 9/10 swings the target by 23% and rejects about 12% of claims after that delay, and 999/1000 swings it by 2.4% and rejects 0.2%.
+A claim travels through Blend, so a miner holds a ticket found against one target and it is checked against a later one. A hopper mines only while the target is easy, so a faster controller pays it more. The same smoothing also helps after the period. At 1.93 claims per block, 9/10 swings the target by 27% and rejects about 12% of claims after that delay, and 999/1000 swings it by 2.9% and rejects 0.15%.
 
 The cost of 999/1000 is its slow response, and it is small. Before the target catches up with a sudden flood of 50 times, the flood takes about 1,200 extra claims, about 400k LOGOS, 0.2% of the pool.
 
 **The rule cannot express a target below 1.** `TARGET_CLAIMS_PER_BLOCK` is an integer. A fraction put straight into the rule would also hit the floor of `demand` below about 0.1 claims per block, and tighten the target on every block, even an empty one.
 
-The revision has three parts:
+The revision has four parts:
 
 - During the period, the target is the rate that pays out `POW_REWARD_POOL_GENESIS` over `POW_BOOTSTRAP_EPOCHS` at `POW_BOOTSTRAP_REWARD`. It is derived from those three values and needs no new constant. The retarget works with it as a fraction, so the floor of `demand` no longer binds.
+- After the period, the same rule reads what the pool holds in place of its seed, and the reward of the epoch, as [After epoch 98](#after-epoch-98) explains.
 - `EMA_SMOOTHING_FACTOR / EMA_SMOOTHING_PRECISION` becomes 999/1000, and `REWARD_TARGET_FLOOR` follows at 999.
-- Each period has its own cap. After the period the cap is `p // 2**29` instead of `p // 2**26`, so a board earns about 320 LOGOS a month, $3.20 at $0.01, below the rent of $4.08. The liquid part is 224 LOGOS.
+- Each period has its own cap. After the period the cap is `p // 2**29` instead of `p // 2**26`, so a board finds a claim about every 2.7 hours, about 270 rewards a month. Above 2.1 times the starting storage price that is above the rent of $4.08 at $0.01, and the target then holds outsiders, as during the period.
 
 The paced target has a cost when many real newcomers arrive at once, because it shares the payout among them. Nodes by epoch 98 with no outsiders, as stop / keep mining:
 
@@ -385,19 +387,65 @@ After the period the reward only has to pay for a transaction, and every reward 
 | Inscription of 100 bytes, with its signature | 267 |
 | Total | 632 |
 
-Its fee is 0.51 LOGOS at the starting storage price, or 0.82 LOGOS at 1.62 times that price, the rise a steady load causes. Execution gas adds under 0.001 LOGOS at the starting base fee. Dividing by the liquid share of 70% gives 1.17 LOGOS, and the reward rounds up to 1.2 LOGOS. Its liquid part of 0.84 LOGOS pays for this transaction up to 1.66 times the starting price. This value is a placeholder to revise once real fees are known.
+A fixed reward cannot keep paying for it. [Storage Markets](../storage-markets.md) moves the storage price with growth in usage and not with its level, so the price at epoch 98 depends on how traffic got there. A fixed 1.2 LOGOS would have a liquid part of 0.84 LOGOS, which covers a claim's fee up to 2.88 times the starting price. On the claims of the base case, with other traffic of 300-byte transactions:
 
-At `REWARD_TARGET_CAP` a board finds a claim about every 2.7 hours, and a participant with nothing can pay for its first transaction after that. At the target the payout is 259,200 LOGOS an epoch. So 99M LOGOS left at epoch 98 lasts about 380 epochs, and 19M lasts about 73. After that, only the fee share of each block pays claims.
+| Other traffic | Storage price at epoch 98 | Fee of a claim, LOGOS | A fixed 1.2 LOGOS |
+| --- | --- | --- | --- |
+| None | 6.59 times | 1.92 | Claims stop for 7 epochs, then flow in about half of all epochs |
+| Starts at epoch 98, 1 per 10 blocks | 6.59 times | 1.92 | The price sticks at 3.33 times, and the liquid part never covers the fee |
+| Steady from genesis, 1 per 10 blocks | 4.98 times | 1.46 | The fee is above the whole reward |
+| Steady from genesis, 1 per block or more | 2.10 times or less | 0.61 or less | Works |
+| Grows from 1 to 13 per block | 18.3 times | 5.36 | The fee is above the whole reward |
+| Grows from 1 to 130 per block | 144 times | 42 | The fee is above the whole reward |
+| Grows from 1 per hour to 130 per block | 1,338 times | 391 | The fee is above the whole reward |
+
+So the reward is set at each epoch boundary, so that its liquid part pays the storage fee of the 632-byte transaction at the price of that epoch:
+
+```python
+reward = ceil(632 * permanent_storage_gas_price / 0.7)
+```
+
+That is 0.72 LOGOS at the starting price, 4.76 at 6.59 times and 104 at 144 times. A claim transaction alone is 365 bytes, so it always pays its own fee. The Execution Gas of the 632-byte transaction is not counted. It adds under 0.001 LOGOS at the starting base fee, the cost of 2 bytes of the inscription.
+
+A target of 10 claims per block would then drain the pool, at 22.5M LOGOS an epoch at 144 times. The target is therefore derived too. It is the rule of the period, with what the pool holds in place of its seed, and it needs no new constant:
+
+```python
+target = pool / (reward * 98 * 21_600)    # claims per block
+```
+
+This pays out a ninety-eighth of the pool per epoch, about 4% a month, at any storage price:
+
+- A higher price means a higher reward and fewer claims, so pushing the price up does not draw the pool faster.
+- A smaller pool pays out less, so the pool does not run out.
+- Fee shares refill the pool, so in the long run the payout equals the fee share. That is one claim for about every 29 transactions of 300 bytes, at any storage price.
+
+A fixed 10 claims per block empties the pool by epoch 112 with no other traffic, and a fixed payout of 259,200 LOGOS an epoch empties it by epoch 177. With traffic growing from 1 to 130 per block, that fixed payout stays at 0.11 claims per block while the pool grows past 4B LOGOS.
+
+The table gives the reward in LOGOS, the claims per block and the pool, on the claims of the base case. The 2,450 boards of the newcomers keep mining, and renters at $0.01 and $4.08 join when it pays.
+
+| Other traffic | At epoch 98 | At epoch 250, about 3 years later | At epoch 497, about 8 years later |
+| --- | --- | --- | --- |
+| None | 4.76, 1.93, 19.5M | 2.98, 0.69, 4.4M | 0.88, 0.21, 0.4M |
+| Steady, 1 per block | 1.52, 6.08, 19.5M | 1.06, 1.98, 4.4M | 0.47, 0.43, 0.4M |
+| Steady, 13 per block | 1.20, 7.66, 20.5M | 1.18, 2.23, 5.5M | 1.03, 0.64, 1.4M |
+| Steady, 130 per block | 1.17, 7.66, 30.0M | 1.24, 6.82, 17.9M | 1.22, 4.73, 12.2M |
+| Grows from 1 to 13 per block | 13.25, 0.78, 21.9M | 13.86, 0.52, 15.2M | 13.78, 0.46, 13.3M |
+| Grows from 1 to 130 per block | 104.00, 0.54, 119M | 112.32, 3.58, 851M | 113.19, 4.41, 1,057M |
+| Steady, 13 per block, stops at epoch 98 | 1.20, 7.66, 20.5M | 0.51, 4.59, 5.0M | 0.15, 1.37, 0.4M |
+
+Across these runs and the ones with no outsiders, the target stays between 0.2 and 30 claims per block. At 0.2 the smoothing of 999/1000 overshoots it by under 0.3%, and at 0.01 it would overshoot by 5%.
+
+At `REWARD_TARGET_CAP` a board finds a claim about every 2.7 hours, and a participant with nothing can pay for its first transaction after its first claim. At the target it waits longer: about 10.6 hours among 2,450 boards at 1.93 claims per block.
 
 The change at epoch 98 is abrupt:
 
-- A newcomer short of its stake at epoch 98 then earns at most about 320 LOGOS a month, so it finishes by other means or not at all. At a stake of 20,000, that is any newcomer arriving in the last 6 months of the period.
-- If claims had been the only storage use, the storage price would stand at about 6.6 times its start at $0.01 and $4.08, a fee of about 1.9 LOGOS, above the reward. With no outsiders it would stand at about 31 times, a fee of about 9 LOGOS. Claims would stop for about 7 and 18 epochs while the price falls.
+- A newcomer short of its stake at epoch 98 then shares about 4% of the pool a month instead of 8.18M LOGOS, about 800k LOGOS at 19.5M. So it finishes by other means or not at all. At a stake of 20,000, that is any newcomer arriving in the last 6 months of the period, and in the base case nearly every newcomer.
+- Claims do not stop. At 6.59 times the liquid part of 3.33 LOGOS pays the fee of 1.92 LOGOS. Claims rise from 0.28 to about 1.4 per block, which takes the price to about 9 times within 3 epochs, and the reward with it.
 - The cap takes about 27 hours to reach its new value.
 
 ## Era parameters
 
-`POW_BOOTSTRAP_EPOCHS`, `POW_BOOTSTRAP_REWARD`, `POW_BOOTSTRAP_VESTED_SHARE`, `POW_BOOTSTRAP_TARGET_CAP`, `POW_REWARD`, `REWARD_TARGET_CAP` and `POW_VESTED_SHARE` are era parameters. Eras specifies the era parameter record, and this branch does not have it, so their fields go into whichever of the two specifications lands second.
+`POW_BOOTSTRAP_EPOCHS`, `POW_BOOTSTRAP_REWARD`, `POW_BOOTSTRAP_VESTED_SHARE`, `POW_BOOTSTRAP_TARGET_CAP`, `POW_REFERENCE_TX_SIZE`, `REWARD_TARGET_CAP` and `POW_VESTED_SHARE` are era parameters. Eras specifies the era parameter record, and this branch does not have it, so their fields go into whichever of the two specifications lands second.
 
 ## Compatibility
 
@@ -410,34 +458,42 @@ The chain has not launched, so no migration is needed. Claims, their encoding an
 - **Hash rates and power still to measure.** The rents in this RFC count 1.5 Raspberry Pi 5 cores per vCPU, within a range of 1 to 2, and no rented machine has been measured. The owned machine's power is assumed. No GPU has been measured on any puzzle.
 - **The end of the period.** A softer change at epoch 98 could help newcomers partway to a stake. It would add a rule.
 - **The pool.** 200M LOGOS is 2% of the supply cap, four times the current seed, and it comes out of the initial distribution.
-- **Privacy.** With 334 LOGOS per claim a spend hides among far fewer claims. At 100 newcomers a month, an epoch holds about 60 claims at launch and about 6,000 at the end if nobody stops. If everybody stops at a stake of 20,000, it holds about 1,500 from month 6 on.
-- **Storage price.** The price model counts claims as the only storage use. Other traffic changes its path, and the size of the fall in fees at epoch 98.
+- **Privacy.** With 334 LOGOS per claim a spend hides among far fewer claims. At 100 newcomers a month, an epoch holds about 60 claims at launch and about 6,000 at the end if nobody stops. If everybody stops at a stake of 20,000, it holds about 1,500 from month 6 on. After the period the reward differs by epoch, so the value of a spend of vested notes can reveal how many were claimed in each epoch.
+- **Storage price.** The price still follows growth in usage and not its level. The derived reward copes with that, and the price itself would need an anchor in its own RFC. During the period the model counts claims as the only storage use, and other traffic changes its path.
+- **Fees during the period.** The reward stays fixed during the period, so the liquid part of 33.4 LOGOS falls short above about 114 times the starting price. With traffic growing from 1 to 130 per block that is from epoch 94, and from 1 per hour to 130 per block it is from epoch 71. A miner then pays the fee from other funds.
+- **The reference transaction.** 632 bytes is this RFC's choice of an average transaction, to revise once real sizes are known.
 - **The puzzle.** Which puzzle replaces `zkhash` for rewards is not settled. Equi-X has a benchmark, and its author has since deprecated it in favour of HashWX, which has none here.
 
 # Details
 
 ## 1. Fixed rewards and vested shares
 
-A claim pays one fixed reward and vested share during the first `POW_BOOTSTRAP_EPOCHS` epochs, the bootstrapping period, and another after it. The rule that computed the reward from the pool goes, with `EPOCH_POW_DISTRIBUTION_RATE_NUM` and `EPOCH_POW_DISTRIBUTION_RATE_DEN`.
+A claim pays one fixed reward and vested share during the first `POW_BOOTSTRAP_EPOCHS` epochs, the bootstrapping period. After it the liquid part of the reward pays the storage fee of `POW_REFERENCE_TX_SIZE` bytes at the storage price of the epoch. The rule that computed the reward from the pool goes, with `EPOCH_POW_DISTRIBUTION_RATE_NUM` and `EPOCH_POW_DISTRIBUTION_RATE_DEN`.
 
 ```diff
 +POW_BOOTSTRAP_EPOCHS: uint64 = 98               # the length of the bootstrapping period, in epochs
 +POW_BOOTSTRAP_REWARD: TokenValue = 334 * 10**9  # the reward per claim during it, 334 LOGOS, in LEPTA
 +POW_BOOTSTRAP_VESTED_SHARE: uint64 = 90         # the share of that reward paid as a vested note
-+POW_REWARD: TokenValue = 12 * 10**8             # the reward per claim after it, 1.2 LOGOS, in LEPTA
++POW_REFERENCE_TX_SIZE: uint64 = 632             # the bytes whose storage fee the liquid part of a reward pays after it
 -POW_VESTED_SHARE: uint64 = 50
-+POW_VESTED_SHARE: uint64 = 30                   # the share of that reward paid as a vested note
++POW_VESTED_SHARE: uint64 = 30                   # the share of a reward paid as a vested note after it
+-TARGET_CLAIMS_PER_BLOCK: uint64 = 10
 
 -def compute_epoch_pow_reward(pow_reward_pool: TokenValue) -> TokenValue:
 -    # ... a share of the pool, over the target claims of an epoch
-+def compute_epoch_pow_reward(epoch: EpochNumber) -> tuple[TokenValue, uint64]:
++def compute_epoch_pow_reward(epoch: EpochNumber,
++                             permanent_storage_gas_price: TokenValue) -> tuple[TokenValue, uint64]:
 +    # The reward per claim, and the share of it paid as a vested note.
 +    if epoch < POW_BOOTSTRAP_EPOCHS:
 +        return POW_BOOTSTRAP_REWARD, POW_BOOTSTRAP_VESTED_SHARE
-+    return POW_REWARD, POW_VESTED_SHARE
++    # Rounded up, so that the liquid part covers the storage fee of POW_REFERENCE_TX_SIZE bytes.
++    fee = POW_REFERENCE_TX_SIZE * permanent_storage_gas_price
++    liquid_share = SHARE_DEN - POW_VESTED_SHARE
++    reward = (fee * SHARE_DEN + liquid_share - 1) // liquid_share
++    return checked_uint64(reward), POW_VESTED_SHARE
 ```
 
-At each epoch boundary `epoch_pow_reward` and `epoch_pow_vested_share` are set for the new epoch and held for it. A claim still needs the pool to cover the reward, as [CLAIM_POW_REWARD](../bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation requires. Claiming resumes when the fee shares of the blocks bring the pool back to the reward, or at the end of the period if the pool covers `POW_REWARD`.
+At each epoch boundary, once the storage price of the new epoch is set, `epoch_pow_reward` and `epoch_pow_vested_share` are set for the new epoch and held for it. A claim still needs the pool to cover the reward, as [CLAIM_POW_REWARD](../bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation requires. Claiming resumes when the fee shares of the blocks bring the pool back to the reward, or at the first epoch boundary that sets a reward the pool covers.
 
 `POW_BOOTSTRAP_EPOCHS` is the number of epochs that first reaches two years, $`\lceil 730 / 7.5 \rceil = 98`$. The constraint that the vested notes of a minimum stake fit one declaration now reads `POW_BOOTSTRAP_REWARD`.
 
@@ -454,27 +510,29 @@ At each epoch boundary `epoch_pow_reward` and `epoch_pow_vested_share` are set f
 +REWARD_TARGET_FLOOR: uint64 = 999
 +REWARD_TARGET_CAP: PowTarget = p // 2**29
 
-+def target_claims_per_block(epoch: EpochNumber) -> tuple[uint64, uint64]:
-+    if epoch < POW_BOOTSTRAP_EPOCHS:
-+        return (POW_REWARD_POOL_GENESIS,
-+                POW_BOOTSTRAP_REWARD * POW_BOOTSTRAP_EPOCHS * EXPECTED_BLOCKS_PER_EPOCH)
-+    return TARGET_CLAIMS_PER_BLOCK, 1
++def target_claims_per_block(epoch: EpochNumber,
++                            epoch_pow_reward: TokenValue,
++                            pow_reward_pool: TokenValue) -> tuple[int, int]:
++    pool = POW_REWARD_POOL_GENESIS if epoch < POW_BOOTSTRAP_EPOCHS else pow_reward_pool
++    return pool, epoch_pow_reward * POW_BOOTSTRAP_EPOCHS * EXPECTED_BLOCKS_PER_EPOCH
 +
  def compute_new_reward_difficulty(claims_in_block: uint64,
 -                                  current_target: PowTarget) -> PowTarget:
 +                                  current_target: PowTarget,
-+                                  epoch: EpochNumber) -> PowTarget:
++                                  epoch: EpochNumber,
++                                  epoch_pow_reward: TokenValue,
++                                  pow_reward_pool: TokenValue) -> PowTarget:
 -    demand = max(1, (P - F) * claims_in_block + F * TARGET_CLAIMS_PER_BLOCK)
 -    new_target = (TARGET_CLAIMS_PER_BLOCK * current_target * P) // demand
 -    return min(max(new_target, REWARD_TARGET_FLOOR), REWARD_TARGET_CAP)
-+    num, den = target_claims_per_block(epoch)
++    num, den = target_claims_per_block(epoch, epoch_pow_reward, pow_reward_pool)
 +    demand = max(1, (P - F) * claims_in_block * den + F * num)
 +    new_target = (num * current_target * P) // demand
 +    cap = POW_BOOTSTRAP_TARGET_CAP if epoch < POW_BOOTSTRAP_EPOCHS else REWARD_TARGET_CAP
 +    return min(max(new_target, REWARD_TARGET_FLOOR), cap)
 ```
 
-`epoch` is the epoch of the processed block. At genesis `difficulty_reward` is `POW_BOOTSTRAP_TARGET_CAP`. `P` and `F` stand for the two smoothing constants. The product of the retarget stays below $`2^{322}`$, inside the 512 bits [Puzzle Target](../proof-of-work.md#puzzle-target) allows.
+`epoch` is the epoch of the processed block, and `pow_reward_pool` is the pool once that block's claims and fee share are applied. At genesis `difficulty_reward` is `POW_BOOTSTRAP_TARGET_CAP`. `P` and `F` stand for the two smoothing constants. The product of the retarget stays below $`2^{328}`$, inside the 512 bits [Puzzle Target](../proof-of-work.md#puzzle-target) allows.
 
 Both caps are calibrated against the measurement of `BLEND_DIFFICULTY_BASE`, $`2^{19}`$ hashes in about 38 seconds on one core. The four cores of the target machine find a claim about every 3 days at `POW_BOOTSTRAP_TARGET_CAP` and about every 2.7 hours at `REWARD_TARGET_CAP`.
 
@@ -487,7 +545,7 @@ Validators keep `epoch_pow_vested_share` beside `epoch_pow_reward`, and a claim 
 +vested_value = checked_uint64(epoch_pow_reward * epoch_pow_vested_share) // SHARE_DEN
 ```
 
-The check `assert epoch_pow_reward > 0` goes, since both rewards are positive constants.
+The check `assert epoch_pow_reward > 0` goes, since `POW_BOOTSTRAP_REWARD` is a positive constant and the storage price never reaches 0.
 
 ## 4. The pool seed
 
@@ -495,21 +553,21 @@ The check `assert epoch_pow_reward > 0` goes, since both rewards are positive co
 
 ## Chores
 
-- The Overview of Proof of Work says what a claim pays in each period, and the target rate of the first.
-- The Notation of Proof of Work drops the distribution rate.
+- The Overview of Proof of Work says what a claim pays in each period, and the target rate of each.
+- The Notation of Proof of Work drops the distribution rate and `T`.
 
 # Implementation
 
 - [ ] Land this after the reward puzzle is replaced, and restate the two caps and the retarget for the new puzzle, as [Dependence on the puzzle](#dependence-on-the-puzzle) says.
 - [ ] Add the constants of the period and change the shares, the smoothing, the floor and the cap, with the values chosen from [Ranges that work](#ranges-that-work).
-- [ ] Set `epoch_pow_reward` and `epoch_pow_vested_share` by epoch at each epoch boundary and at genesis, and remove the reward computed from the pool.
-- [ ] Apply the target and the cap by the epoch of the processed block, and start `difficulty_reward` at `POW_BOOTSTRAP_TARGET_CAP`.
+- [ ] Set `epoch_pow_reward` and `epoch_pow_vested_share` by epoch at each epoch boundary and at genesis, after the storage price of the new epoch, and remove the reward computed from the pool.
+- [ ] Apply the target and the cap by the epoch of the processed block, reading the reward of the epoch and the pool after that block, and start `difficulty_reward` at `POW_BOOTSTRAP_TARGET_CAP`.
 - [ ] Read `epoch_pow_vested_share` in `CLAIM_POW_REWARD`.
 - [ ] Seed the pow reward pool with two hundredths of the supply cap.
 - [ ] Measure the claims per epoch of a Raspberry Pi 5 at both caps, the hash rate of a rented vCPU and of a GPU, and the power of an owned desktop.
 - [ ] Add the seven constants to the era parameter record once Eras and this change are on one branch.
-- [ ] Revise `POW_REWARD` once real fees are known.
-- [ ] Add tests: the reward and share at epochs 97 and 98, a claim against a pool below the reward, the retarget at the cap in both periods, a block with claims at the fractional target, the genesis values.
+- [ ] Revise `POW_REFERENCE_TX_SIZE` once real transaction sizes are known.
+- [ ] Add tests: the reward and share at epochs 97 and 98, the reward at the lowest and at a high storage price with its liquid part covering `POW_REFERENCE_TX_SIZE` bytes, a claim against a pool below the reward, the retarget at the cap in both periods, a block with claims at the fractional target, the target at a small pool, the genesis values.
 - [ ] Verify the implementation matches this specification.
 
 # Affected Specifications
