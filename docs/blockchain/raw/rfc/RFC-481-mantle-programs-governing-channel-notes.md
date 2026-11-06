@@ -41,7 +41,7 @@ The ledger guarantees that no LOGOS is created, that a user note moves only with
 The ledger does not guarantee the liveness of a program:
 
 - The sequencers of a channel can freeze every program note of the channel for good, since program notes are never withdrawn and only the sequencers publish program steps. They cannot take the value of the notes, but they can hold it.
-- A sequencer can hold a signed program deposit until 1024 blocks, about 8.5 hours, after its root stopped being the current root of the note set, a root that stays current staying valid, and fill it at the worst price its intent accepts.
+- A sequencer can hold a signed program deposit until `ROOT_WINDOW` blocks, about 8.5 hours, after its root stopped being the current root of the note set, a root that stays current staying valid, and fill it at the worst price its intent accepts.
 - Past the immutable block, the sequencers of a channel should keep the openings of its unspent notes. The next sequencer can take over a program from the openings alone as long as its state is in opened fields.
 - The circuit fixes the total a step pays, not the value of each payout, so a program should fix that value from public data for its payee to recompute the note.
 

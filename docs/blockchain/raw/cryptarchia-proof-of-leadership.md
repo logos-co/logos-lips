@@ -81,9 +81,11 @@ Our description differs from the original paper proposition, proving that a note
 
 In order to prove that the winning note exists and existed at the start of the previous epoch, and that it is unspent, every node must compute the eligible root.
 
-Every [note set](bedrock-v1.1-mantle-specification.md#ledger) of the Mantle Ledger is eligible: the ledger note set, the SDP note set and the note set of every channel. The eligible root commits to all of them. It is the root of a Merkle tree of depth $`40`$ whose leaf at position $`i`$ hashes the root of the commitment [Merkle Mountain Range](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range) (MMR) and the root of the [nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) (IMT) of the note set of index $`i`$, every position past the last note set holding the value $`0`$, a capacity that blocks full of channel creations take about 55 years to fill:
+Every [note set](bedrock-v1.1-mantle-specification.md#ledger) of the Mantle Ledger is eligible: the ledger note set, the SDP note set and the note set of every channel. The eligible root commits to all of them. It is the root of a Merkle tree of depth `ELIGIBLE_DEPTH` whose leaf at position $`i`$ hashes the root of the commitment [Merkle Mountain Range](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range) (MMR) and the root of the [nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) (IMT) of the note set of index $`i`$, every position past the last note set holding the value $`0`$, a capacity that blocks full of channel creations take about 55 years to fill:
 
 ```python
+ELIGIBLE_DEPTH = 40  # depth of the eligible tree, which holds one leaf per note set
+
 def eligible_leaf(commitment_root: MerkleRoot, nullifier_root: MerkleRoot) -> zkhash:
     return zkhash(
         FiniteField(b"ELIGIBLE_SET_LEAF_V1", byte_order="little", modulus= p),
@@ -96,11 +98,11 @@ def eligible_root(sets: list[NoteSet]) -> MerkleRoot:
     for note_set in sets:
         # the root of the commitment MMR and the root of the nullifier IMT of the set
         mmr_append(peaks, eligible_leaf(note_set.commitment_root(), note_set.nullifier_root()))
-    # Merkle root of depth 40 over the leaves, every position past the last note set holding 0
+    # Merkle root of depth ELIGIBLE_DEPTH over the leaves, every position past the last note set holding 0
     return mmr_root(peaks)
 ```
 
-`mmr_append` and `mmr_root` are those of the [commitment MMR](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range), which compute the same tree, and `commitment_root()` and `nullifier_root()` are the [methods of a note set](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) giving these two roots. `zkhash` is the [Poseidon2 hash](common-cryptographic-components.md), and a `MerkleRoot` is the root of a Merkle tree.
+`mmr_append` and `mmr_root` are those of the [commitment MMR](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range), which compute the same tree, with `ELIGIBLE_DEPTH` in place of [`NOTE_SET_DEPTH`](bedrock-v1.1-mantle-specification.md#ledger), and `commitment_root()` and `nullifier_root()` are the [methods of a note set](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) giving these two roots. `zkhash` is the [Poseidon2 hash](common-cryptographic-components.md), and a `MerkleRoot` is the root of a Merkle tree.
 
 The first leaf is the ledger note set, the second the SDP note set, and the next ones the channels in the order they were created. Its root when the stake distribution was frozen is `eligible_aged`, and its latest root is `eligible_latest`.
 
@@ -138,18 +140,18 @@ class ProofOfLeadershipWitness:
     nonce: NoteNonce                          # nonce of the note
     program: ProgramId                        # program of the note, 0 for a user note
     data: zkhash                              # data of the note, 0 for a user note
-    set_selectors: list[boolean]              # position of the note set in the eligible tree (len = 40)
-    commitment_aged_path: list[zkhash]        # path of the note commitment in the commitment MMR of its set (len = 40)
+    set_selectors: list[boolean]              # position of the note set in the eligible tree (len = ELIGIBLE_DEPTH)
+    commitment_aged_path: list[zkhash]        # path of the note commitment in the commitment MMR of its set (len = NOTE_SET_DEPTH)
     commitment_aged_selectors: list[boolean]  # selectors of commitment_aged_path
     nullifier_root_aged: MerkleRoot           # nullifier IMT root of the set when the stake distribution was frozen
-    set_aged_path: list[zkhash]               # path of the leaf of the set to eligible_aged (len = 40)
+    set_aged_path: list[zkhash]               # path of the leaf of the set to eligible_aged (len = ELIGIBLE_DEPTH)
     low_leaf_nullifier: NoteNullifier         # greatest nullifier of the set lower than the note nullifier
     low_leaf_next_nullifier: NoteNullifier    # next greater nullifier of the set, 0 if none
     low_leaf_next_index: int                  # index of the IMT leaf holding low_leaf_next_nullifier, 0 if none
-    low_leaf_path: list[zkhash]               # path of the IMT leaf of low_leaf_nullifier (len = 40)
+    low_leaf_path: list[zkhash]               # path of the IMT leaf of low_leaf_nullifier (len = NOTE_SET_DEPTH)
     low_leaf_selectors: list[boolean]         # selectors of low_leaf_path
     commitment_root_latest: MerkleRoot        # latest commitment MMR root of the set
-    set_latest_path: list[zkhash]             # path of the leaf of the set to eligible_latest (len = 40)
+    set_latest_path: list[zkhash]             # path of the leaf of the set to eligible_latest (len = ELIGIBLE_DEPTH)
     reward_public_key: ZkPublicKey            # public key of the leader reward note
     reward_nonce: NoteNonce                   # nonce of the leader reward note
 ```
