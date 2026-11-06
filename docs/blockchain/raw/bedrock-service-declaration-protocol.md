@@ -404,7 +404,7 @@ If all of the above conditions are fulfilled, then the declaration is stored on 
 
 The Active action marks a provider as actively providing its service. It requires sending a valid `ActiveMessage` (as defined in [Active Message](#active-message)), which is relayed to the service-specific node activity logic (as indicated by the service type in [Common SDP Structures](bedrock-v1.1-mantle-specification.md#common-sdp-structures)).
 
-The Active action updates the `active` value of the `DeclarationInfo`. A declaration considered inactive is not removed from the registry, and an accepted active message makes it active again. A declaration is removed only by withdrawal ([**Withdraw**](#withdraw)); a removed declaration cannot become active again.
+The Active action updates the `active` value of the `DeclarationInfo`. A declaration considered inactive is not removed from the registry. An accepted active message makes it active again, but the Blend Network accepts a message only from a member of the core list of the epoch it attests ([Active Message](blend-protocol.md#active-message)), so a declaration that has left every core list cannot return. A declaration is removed only by withdrawal ([**Withdraw**](#withdraw)); a removed declaration cannot become active again.
 
 The SDP active action logic is:
 
