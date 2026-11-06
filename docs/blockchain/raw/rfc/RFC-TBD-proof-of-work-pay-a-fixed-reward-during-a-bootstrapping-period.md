@@ -279,6 +279,7 @@ These checks decide whether a combination works. The limits of ±20% and 5% are 
 | A claim pays its fee | the liquid part exceeds the fee at the highest storage price | every split, see [The vested-liquid split](#the-vested-liquid-split) |
 | Fees stay small | the fee is at most 5% of the reward | every run: the price peaks at 32 times its start, a fee of 9.4 LOGOS, 2.8% of the reward |
 | Onboarding is predictable | a spread of at most ±20%, so at least 25 claims per stake | every stake: at most ±18.3% |
+| The activity proof holds | at most 8,191 providers | miners that keep mining stay below it in every run without outsiders; miners that stop pass it at stakes of 20,000 and 10,000 at high arrival rates |
 | The onboarding time holds | it holds for every newcomer until epoch 98, with nobody stopping | depends on the income per board, below |
 | Liquid income does not pay rent | the liquid part stays below the rent at $0.01 | depends on the income per board and the split |
 
@@ -332,7 +333,7 @@ At 90-10 a stake forms from vested notes alone in about the same time, and the n
 
 No rule can make a node stop, because every claim pays a fresh key. Service rewards of 5.0M / `N` LOGOS a month exceed a board's 3,340 LOGOS below 1,500 providers. But Blend uses at most one of a board's four cores, so a provider can also keep mining on the others. Stop is therefore an upper bound on the count, and keep mining the expected case.
 
-More providers are not always better. An earlier estimate puts the limit at about 8,000 providers, where service rewards still cover a $6.12 machine at $0.01. At 10,000 providers, an honest provider misses the base reward in 11% of epochs on cover traffic alone. At a stake of 10,000 the pool can pay for 20,000 providers, more than either.
+More providers are not always better. An earlier estimate puts one limit at about 8,000 providers, where service rewards still cover a $6.12 machine at $0.01. The activity proof sets another. On cover traffic alone it fails by chance under 0.05% of the time up to 8,191 providers, 6.6% at 8,192 and 11% at 10,000, and data traffic lowers these. With `inactivity_period` at 2, a failed proof costs a locked provider epochs until its lock ends. At 6.6% about 27% of locked providers are out for good within a year, and at 11% about 57%. At a stake of 10,000 the pool can pay for 20,000 providers, more than either limit.
 
 ## After epoch 98
 
