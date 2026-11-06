@@ -1658,9 +1658,8 @@ challenge = Hash(b"POW_CLAIM_V1" + encode(claim.public_key) + claim.block_hash
 puzzle_ticket = hashwx_ticket(challenge, claim.nonce)
 assert puzzle_ticket < difficulty_reward
 
-# 5. The solution must not have been claimed before. A ticket must not be an identifier,
-#    so the nullifier hashes the challenge and the nonce.
-pow_nullifier = Hash(challenge + encode(claim.nonce))
+# 5. The solution must not have been claimed before.
+pow_nullifier = Hash(b"POW_NULLIFIER_V1" + challenge + encode(claim.nonce))
 assert pow_nullifier not in pow_nullifiers
 
 # 6. Construct the liquid and the vested output notes under the public key given in the
@@ -2620,7 +2619,7 @@ This vector reuses the fields of the `CLAIM_POW_REWARD` payload from [Operation 
 | - | - |
 | `challenge` | 0xc6c32e96599f32bf1e55e7559924c14dacef0176e476b1c7cd3562db4593b489 |
 | `puzzle_ticket` | 0xc137d9776a19a11f |
-| `pow_nullifier` | 0x172f77b368cfd283b92a2ed830dcfdf8d7827586d37efd3e0b0d380dba5ae59a |
+| `pow_nullifier` | 0x92650833cf8d85862906f2ecf4c51165b7832f0ca44679af9a21ec0f802fe1cc |
 
 ### Declaration Id
 
