@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-11-06 |
 | v2 | Outside mining takes a patience of 1 as its base case, so the rent check counts a board's whole income | 2026-11-06 |
+| v3 | Owned hash rate is the lower bound on the cost of a board, and the reward of 334 LOGOS depends on replacing the reward puzzle | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -41,6 +42,8 @@ At this income a stake of 20,000 LOGOS takes 60 claims, 6 months of mining. A st
 
 These times hold while no outsiders mine. At a token price of $0.01 and a rent of $4.08 a month, outsiders bring a board's income down to 408 LOGOS a month, and the times become 49 and 24.5 months. [Outside mining](#outside-mining) gives this base case.
 
+These values assume the reward puzzle is replaced first, as [Dependence on the puzzle](#dependence-on-the-puzzle) says.
+
 ## The model
 
 The figures come from a simulation of the 98 epochs:
@@ -64,10 +67,11 @@ A board's income per month should stay below what a VPS costs, so that mining do
 - A miner picks the key a claim pays, so it can mine to a buyer's key. The note then belongs to the buyer from the start.
 - A seller can stake its vested notes under a buyer's keys, in one transaction with a Transfer paying the seller. Binding a stake to its miner would close this route and leave the other two.
 
-These costs come from an October 2026 survey of plans. No server hash rate has been measured, and a vCPU is counted as 1.5 Raspberry Pi 5 cores.
+The rented costs come from an October 2026 survey of plans. No server hash rate has been measured, and a vCPU is counted as 1.5 Raspberry Pi 5 cores. The owned machine's boards are measured and its power is assumed. A plain C Poseidon2 permutation, with the round counts of [Common Cryptographic Components](../common-cryptographic-components.md), ran 2.38M times a second on its 14 threads over 59 seconds. A board is the 165,565 a second that `BLEND_DIFFICULTY_BASE` implies at 3 permutations per ticket.
 
 | Machine | Price per month | Boards it mines | Cost per board per month | Mining in its terms |
 | --- | --- | --- | --- | --- |
+| Apple M4 Pro someone already owns | about $14 of electricity, at an assumed 65 W | 14.4 | about $1 | not applicable |
 | Raspberry Pi 5 at home | about $2.15 of electricity | 1 | $2.15 | not applicable |
 | Contabo Cloud VPS 4, 4 shared vCPUs | $6.12 | 1.5 | $4.08 | prohibited |
 | Contabo Cloud VDS S, 6 dedicated threads | $48 on a 24-month term | 2.25 | $21.30 | allowed |
@@ -86,6 +90,7 @@ $0.01 is the price the minimum stake analysis's $100M gives over the supply cap.
 
 | Cost per board per month | Token price, whole income | Token price, liquid part at 90-10 |
 | --- | --- | --- |
+| $1 | $0.0003 | $0.003 |
 | $2.15 | $0.00064 | $0.0064 |
 | $4.08 | $0.0012 | $0.012 |
 | $6.12 | $0.0018 | $0.018 |
@@ -114,7 +119,7 @@ boards = R * p * (1 - v + v * d) / c
 income = c / (p * (1 - v + v * d))    # at most 3,340 LOGOS a month
 ```
 
-The base case is a patience of 1, for the reasons in [Income per node against a VPS](#income-per-node-against-a-vps). It is also the upper bound, since a liquid LOGOS can do all that a vested one can. The split then drops out: `boards = R * p / c` and `income = c / p`.
+The base case is a patience of 1, for the reasons in [Income per node against a VPS](#income-per-node-against-a-vps). It is also the upper bound, since a liquid LOGOS can do all that a vested one can. The split then drops out: `boards = R * p / c` and `income = c / p`. The base cost is the cheapest rent, $4.08. Hash rate someone already owns, at about $1 a board, is the lower bound.
 
 The target therefore holds a board's income at the cost of the cheapest hash rate, at any token price, without knowing the price. A rise in price brings more boards and lowers the income in LOGOS. A LOGOS then costs a miner what it costs to buy: at $0.01 a stake of 20,000 takes $200 of rent, on one board or on many.
 
@@ -133,6 +138,9 @@ The table simulates outside boards that start at 100 and grow by 25% an epoch wh
 | $0.001 | $2.15 | 3,804 | 2,150 | 9.3 / 4.7 | 1,510 / 1,980 | 64% |
 | $0.002 | $2.15 | 7,609 | 1,075 | 18.6 / 9.3 | 600 / 1,500 | 81% |
 | $0.01 | $2.15 | 38,045 | 215 | 93 / 46.5 | 21 / 280 | 95% |
+| $0.001 | $1 | 8,180 | 1,000 | 20 / 10 | 500 / 1,440 | 82% |
+| $0.002 | $1 | 16,359 | 500 | 40 / 20 | 130 / 560 | 90% |
+| $0.01 | $1 | 81,796 | 100 | 200 / 100 | 5 / 220 | 96% |
 
 What this shows:
 
@@ -140,7 +148,7 @@ What this shows:
 - Where a board would need longer than the period, the nodes counted are early arrivals, which mine at the minimum work before outsiders come. The counts therefore depend on when outsiders arrive. At $0.01 and $4.08 they are 320 / 610 from 10 starting boards, 1 / 240 from 1,000, and 0 / 170 with outsiders there at launch.
 - Outsiders do not get a free pool, since they pay for each LOGOS in rent. They hold what they mine, 90% of it locked for a year, and could stake it. At $0.01 they mine enough for about 8,300 stakes of 20,000, so stakes still form, for whoever mines most.
 - Rented plans that may mine cost $21.30 a board. At that cost outsiders join at $0.01 only if a vested LOGOS is worth at least 60% of a liquid one.
-- Hash rate someone already owns costs only electricity, so it joins at lower prices than any rented plan.
+- Hash rate someone already owns costs only electricity, so it joins at lower prices than any rented plan. At $0.01 and $1 a board it leaves 100 LOGOS a month, so a board needs 100 months to reach 10,000. About 5,700 machines like the M4 Pro reach that income. Nodes fall to 5 / 220, and to none if 20,000 of those boards are there at launch.
 
 The split matters only against miners that value a vested LOGOS below a liquid one. At $0.01 and $4.08, as boards at the end and nodes at stake 20,000 / 10,000:
 
@@ -152,6 +160,21 @@ The split matters only against miners that value a vested LOGOS below a liquid o
 | 90-10 | 20,048: 85 / 410 | 11,026: 270 / 1,060 | no outsiders: 1,850 / 2,150 |
 
 So 90-10 does not keep a patient miner out. The period uses it for what it still does. It is the only split that keeps out, at $0.01, a miner that counts only its liquid income. It puts the least on the market, 20M LOGOS of the 200M. A stake also forms from vested notes alone in about the same time, as [The vested-liquid split](#the-vested-liquid-split) shows.
+
+## Dependence on the puzzle
+
+The reward of 334 LOGOS depends on replacing the reward puzzle first. `zkhash` is a small arithmetic kernel over one field, which dedicated hardware accelerates well, and no GPU has been measured on it. At this reward a board earns up to $33.40 a month at $0.01, so acceleration would pay. `POW_BOOTSTRAP_REWARD` should therefore not take this value while claims use `zkhash`. Blend admission keeps `zkhash`, since its solution is proven in a circuit.
+
+A replacement addresses GPUs and dedicated hardware. It does not address desktops, which stay ahead of a board on both puzzles. In boards, where a board is 165,565 permutations a second on `zkhash` and 187 solves a second on [Equi-X](https://github.com/logos-blockchain/research/blob/blend-header-verification-benchmark/reports/EmPoWering/Equi-X/benchmark-findings/findings.md):
+
+| Machine | `zkhash` | Equi-X |
+| --- | --- | --- |
+| Apple M4 Pro, 14 threads | 14.4 | 15.3 |
+| Intel Core Ultra 9 285HX, 24 cores | not measured | 23.8 |
+
+Owned hash rate at about $1 a board therefore stays the lower bound after the replacement.
+
+The two caps and the retarget are stated in terms of `zkhash`. A new puzzle needs them restated, with the caps taken from measurements on a board. The size and fee of a claim may change too. The income and node figures of this RFC are per board, so they carry over once the caps are restated.
 
 ## The difficulty controller
 
@@ -384,12 +407,12 @@ The chain has not launched, so no migration is needed. Claims, their encoding an
 
 - **The token price.** All the rent checks depend on it, and it is not known. Above $0.0012 a board's income at the minimum work exceeds the cheapest rent, and the target then does the work. Above $0.012 its liquid part does too.
 - **The minimum stake.** No specification sets it. The analysis of the minimum stake gives 0.001% of the supply at launch, which is 100,000 LOGOS if that supply is the cap. Stakes of 20,000 and 10,000 are 0.0002% and 0.0001% of the cap. That analysis should change with any value chosen here, and this branch does not change it. A lower stake lets the same pool fund more provider identities, but it also holds up better against outside mining.
-- **The hash rate of a rented board.** It is not measured. The rents in this RFC count 1.5 Raspberry Pi 5 cores per vCPU, within a range of 1 to 2.
+- **Hash rates and power still to measure.** The rents in this RFC count 1.5 Raspberry Pi 5 cores per vCPU, within a range of 1 to 2, and no rented machine has been measured. The owned machine's power is assumed. No GPU has been measured on any puzzle.
 - **The end of the period.** A softer change at epoch 98 could help newcomers partway to a stake. It would add a rule.
 - **The pool.** 200M LOGOS is 2% of the supply cap, four times the current seed, and it comes out of the initial distribution.
 - **Privacy.** With 334 LOGOS per claim a spend hides among far fewer claims. At 100 newcomers a month, an epoch holds about 60 claims at launch and about 6,000 at the end if nobody stops. If everybody stops at a stake of 20,000, it holds about 1,500 from month 6 on.
 - **Storage price.** The price model counts claims as the only storage use. Other traffic changes its path, and the size of the fall in fees at epoch 98.
-- **The puzzle.** The minimum work assumes the `zkhash` puzzle of this branch. A change of puzzle changes the value of the two caps, and not the income of a board.
+- **The puzzle.** Which puzzle replaces `zkhash` for rewards is not settled. Equi-X has a benchmark, and its author has since deprecated it in favour of HashWX, which has none here.
 
 # Details
 
@@ -477,12 +500,13 @@ The check `assert epoch_pow_reward > 0` goes, since both rewards are positive co
 
 # Implementation
 
+- [ ] Land this after the reward puzzle is replaced, and restate the two caps and the retarget for the new puzzle, as [Dependence on the puzzle](#dependence-on-the-puzzle) says.
 - [ ] Add the constants of the period and change the shares, the smoothing, the floor and the cap, with the values chosen from [Ranges that work](#ranges-that-work).
 - [ ] Set `epoch_pow_reward` and `epoch_pow_vested_share` by epoch at each epoch boundary and at genesis, and remove the reward computed from the pool.
 - [ ] Apply the target and the cap by the epoch of the processed block, and start `difficulty_reward` at `POW_BOOTSTRAP_TARGET_CAP`.
 - [ ] Read `epoch_pow_vested_share` in `CLAIM_POW_REWARD`.
 - [ ] Seed the pow reward pool with two hundredths of the supply cap.
-- [ ] Measure the claims per epoch of a Raspberry Pi 5 at both caps, and the hash rate of a rented vCPU.
+- [ ] Measure the claims per epoch of a Raspberry Pi 5 at both caps, the hash rate of a rented vCPU and of a GPU, and the power of an owned desktop.
 - [ ] Add the seven constants to the era parameter record once Eras and this change are on one branch.
 - [ ] Revise `POW_REWARD` once real fees are known.
 - [ ] Add tests: the reward and share at epochs 97 and 98, a claim against a pool below the reward, the retarget at the cap in both periods, a block with claims at the fractional target, the genesis values.
