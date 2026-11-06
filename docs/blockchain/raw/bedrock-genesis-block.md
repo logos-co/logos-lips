@@ -377,7 +377,7 @@ The Transfer Operation distributing the initial tokens is validated and executed
 The pow reward pool is initialized at the same time:
 
 1. `pow_reward_pool` is set to `POW_REWARD_POOL_GENESIS`, as described in [Initial Proof of Work Reward Pool](#initial-proof-of-work-reward-pool).
-2. `epoch_pow_reward` is set by the computation given in [Reward Pool](proof-of-work.md#reward-pool), so that claiming is productive from the first epoch.
+2. `epoch_pow_reward` and `epoch_pow_vested_share` are set by the computation given in [Reward Pool](proof-of-work.md#reward-pool), so that claiming is productive from the first epoch.
 3. `difficulty_blend` is set to `BLEND_DIFFICULTY_BASE` for **epochs 0 and 1**, as given in [Blend Difficulty](proof-of-work.md#blend-difficulty): the value for an epoch is fixed at the preceding epoch's nonce snapshot from the load of the epoch before that, and no complete input epoch exists before epoch 2. The schedule begins with epoch 2's value, computed during epoch 1 from epoch 0's load.
 4. `difficulty_reward` is set to the genesis value given in [Reward Difficulty](proof-of-work.md#reward-difficulty), and `pow_nullifiers` is empty.
 
