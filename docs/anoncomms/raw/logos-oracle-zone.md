@@ -139,7 +139,7 @@ and the node signs its observations with this key.
 No third key is needed.
 - `indexer`: An `oracle node` in its second role.
 It reads the finalized inscription stream from LBC and computes the attested price
-as the median of the first `N` valid observations.
+as the median of the first `N` valid observations, each from a different oracle node.
 Because the input is immutable and the aggregation code is fixed and deterministic,
 every honest indexer MUST derive the same value.
 - `proposer`: The one indexer that, in a given round,
@@ -431,7 +431,7 @@ Observations are deduplicated by (`feed_id`, `oracle_id`, `round`), keeping the 
 Two observations under the same key whose `canon` bytes differ are an equivocation fault (see [Slashing](#slashing)).
 Re-signing identical `canon` bytes produces a different signature but is not a fault, and only the first copy counts.
 5. **Cut at `N`.** Take the first `N` valid observations of the round in LBC order and ignore the rest.
-Because LBC gives every indexer the same order, every indexer cuts at the same observation.
+Because of the deduplication in step 4, these `N` observations come from `N` different oracle nodes.
 6. **Compute median.** Sort the `N` prices in ascending order.
 The `attested price` is `sorted[(N - 1) / 2]` with 0-based indexing and integer division,
 which is the lower middle value when `N` is even, for example index 24 for `N = 50`.
