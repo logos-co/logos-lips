@@ -12,6 +12,7 @@
 | v4 | User steps and payments are grouped in the mini-blocks of an inscription, each proven against the buffer before its mini-block, and a program spend covers the whole buffer at its position. The test vectors follow the node, the `CHANNEL_CONFIG` vector taking a threshold its two keys can reach | 2026-11-04 |
 | v5 | The message of a payment holds the channel ID as two elements, its low and high 16 bytes, so that no two channels share a message. The root a step or a payment references is named `commitment_root`, the commitment and nullifier names are written in full, and each notation is explained where it first appears. The commitment of the leader reward note is derived with `program` and `data` set to `0`, so a reward is a user note | 2026-11-04 |
 | v6 | A nullifier key sits between the spending secret key and the public key, and derives the nullifier. A note has a staking key, `stake_public_key`, the public key by default, and program notes lead in Proof of Stake unless their program fixes their staking key to `0`. Payments and program steps carry their own inscription | 2026-11-06 |
+| v7 | A declaration names `note_stake_pk`, the staking key of its service note, and the service rewards go to `note_pk` and `note_stake_pk`, `zk_id` being only the Proof of Quota identity | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -44,7 +45,7 @@ The users of a program trust its circuit and the setup that produced its key: wh
 
 ## Program notes in Proof of Stake
 
-The keys of a note form two chains. The spending secret key derives the nullifier key `nf_sk = zkhash(NF_KDF, spending_sk)`, which derives the public key `pk = zkhash(KDF, nf_sk)` and the nullifier `zkhash(NOTE_NF_V1, commitment, nf_sk)`. The staking secret key derives the staking key `stake_pk = zkhash(KDF, staking_sk)`, a field of the note. A wallet uses `nf_sk` as `staking_sk` by default, so `stake_pk = pk`, and a transfer output takes the public key of its recipient as staking key unless the recipient asks for another. The service note of a declaration, a Genesis note, the note of a proof of work claim, the leader reward note and a service reward note take their one public key as both. The Non-ephemeral Quota Key is the spending secret key of `zk_id`, and the Proof of Quota proves its nullifier key `core_sk`, so a node keeps only `core_sk` online and spends its service rewards with the Non-ephemeral Quota Key.
+The keys of a note form two chains. The spending secret key derives the nullifier key `nf_sk = zkhash(NF_KDF, spending_sk)`, which derives the public key `pk = zkhash(KDF, nf_sk)` and the nullifier `zkhash(NOTE_NF_V1, commitment, nf_sk)`. The staking secret key derives the staking key `stake_pk = zkhash(KDF, staking_sk)`, a field of the note. A wallet uses `nf_sk` as `staking_sk` by default, so `stake_pk = pk`, and a transfer output takes the public key of its recipient as staking key unless the recipient asks for another. A Genesis note, the note of a proof of work claim and the leader reward note take their one public key as both. A declaration names two keys for its service note, `note_pk` and `note_stake_pk`, and the service rewards of the validator go to the same two keys, so both can stay in a cold wallet: the node keeps online only the secret of its `zk_id`, its Proof of Quota identity which holds no funds, its `provider_id` key and, to lead, the `nf_sk` and `staking_sk` of the service note.
 
 The Proof of Leadership proves `pk` from `nf_sk`, which ties the nullifier it shows unspent to the note: with any other nullifier, the non-membership check would pass for a spent note. It never takes `spending_sk`, which is why the nullifier key sits between the spending secret key and the public key: a node handed `nf_sk` alone leads with the note but cannot spend it, cold staking, and sees when the note is spent. The ZkTransfer pays one more hash per input for it. The staking secret key derives the lottery ticket, the entropy contribution and the key nullifier of the Proof of Quota, so the lottery of a note stays private when its `nf_sk` is public.
 
@@ -113,7 +114,7 @@ nullifier = zkhash(FiniteField(b"NOTE_NF_V1", ...), commitment, nf_sk)
 
 - The ZkTransfer and the ZkProgramSpend prove `spending_sk`, derive `nf_sk`, then the public key and the nullifier of each input, and derive the commitments of their inputs and outputs with their staking keys as private witnesses, the ZkTransfer with `program` and `data` set to `0`, so it moves user notes only. They do not prove the staking key: spending takes the spending secret key alone.
 - The Proof of Leadership takes `nf_sk`, `staking_sk`, the `program` and the `data` of its note as private witnesses, derives the public key and the nullifier from `nf_sk` and the staking key from `staking_sk`, and derives the lottery ticket and the entropy contribution from `staking_sk`, so program notes lead. It never takes `spending_sk`. A note whose staking key is `0` never leads. The leader reward note is `(reward_value, reward_nonce, reward_public_key, reward_public_key, 0, 0)`, so a reward is a user note under one key. The leader branch of the Proof of Quota does the same, and derives its key nullifier from `staking_sk`.
-- The service note of an `SDP_DECLARE` takes `note_pk` as both keys, a Genesis note its public key, the note of a `CLAIM_POW_REWARD` the public key of the claim, and a service reward note its `zk_id`. Key Types makes the Non-ephemeral Quota Key the spending secret key of `zk_id`, whose nullifier key `core_sk` the Proof of Quota proves. A program should fix the staking key of the notes it pays, which their payee needs to spend them. A wallet should use `nf_sk` as the staking secret key of its notes, and give a transfer output the public key of its recipient as staking key unless the recipient asks for another.
+- `DeclarationMessage` and `DeclarationInfo` gain `note_stake_pk`, `DeclarationInfo` keeps `note_pk` too, and the service note and the service reward notes are created under `note_pk` and `note_stake_pk`; `zk_id` is only the Proof of Quota identity. A Genesis note takes its public key as both keys, and the note of a `CLAIM_POW_REWARD` the public key of the claim. A program should fix the staking key of the notes it pays, which their payee needs to spend them. A wallet should use `nf_sk` as the staking secret key of its notes, and give a transfer output the public key of its recipient as staking key unless the recipient asks for another.
 - The nullifier is `zkhash(NOTE_NF_V1, commitment, nf_sk)` for every note. A program note has a holder and a staker chosen by its program, or by the sequencer proving the step where the program leaves them free. The key of spending secret key `0` is the convention for a note open to everyone, such as the reserves of a pool.
 - Common Cryptographic Components lists the `NF_KDF` derivation among the uses of the compression mode, and the Wallet Technical Standard derives the nullifier key and the public key from the wallet's `ZkSecretKey`.
 
@@ -206,6 +207,8 @@ def derive_program_id(key: Groth16VerificationKey) -> ProgramId:
 +StepProof              = ZkTransfer / ProgramStepProof   ; ZkTransfer for a user step
 +ProgramStepProof       = *ZkTransfer ZkProgramSpend Groth16Proof *ProgramNoteOpening
 +ProgramNoteOpening     = Value NoteNonce ZkPublicKey StakePublicKey ProgramNoteData   ; 136 bytes
+-SDPDeclare             = ServiceType Locators ProviderId ZkId NotePk Inputs CommitmentRoot Value
++SDPDeclare             = ServiceType Locators ProviderId ZkId NotePk NoteStakePk Inputs CommitmentRoot Value
 ```
 
 The inscriptions of a `ChannelInscribe`, of its steps and of their payments total at most `MAX_OPERATION_DATA_SIZE` bytes, a decoder rejecting more.
@@ -227,7 +230,8 @@ A program step costs `EXECUTION_TRANSFER_GAS` per payment, plus `EXECUTION_PROGR
 
 # Implementation
 
-- [ ] Add the `stake_public_key`, `program` and `data` fields to notes and to their commitment, with `0` as `program` and `data` for user notes, and `stake_public_key` set to the public key for the service notes, the Genesis notes, the proof of work claim notes and the leader reward notes.
+- [ ] Add the `stake_public_key`, `program` and `data` fields to notes and to their commitment, with `0` as `program` and `data` for user notes, and `stake_public_key` set to the public key for the Genesis notes, the proof of work claim notes and the leader reward notes.
+- [ ] Add `note_stake_pk` to `SDP_DECLARE`, its encoding and `DeclarationInfo`, keep `note_pk` in `DeclarationInfo`, and create the service note and the service reward notes under `note_pk` and `note_stake_pk`.
 - [ ] Derive the nullifier key `nf_sk` from the spending secret key with `NF_KDF`, the public key from `nf_sk`, and the nullifier from `nf_sk`, in the wallet, the ZkTransfer and the ZkProgramSpend.
 - [ ] Take the staking key as a private witness of the ZkTransfer and the ZkProgramSpend, with `program` and `data` fixed to `0` in the ZkTransfer, and add the staking keys to `spend_notes_hash`.
 - [ ] In the Proof of Leadership and the leader branch of the Proof of Quota, which shares its lottery constraints, take `nf_sk`, `staking_sk` and the `program` and `data` of the note as private witnesses, derive the public key and the nullifier from `nf_sk` and the staking key from `staking_sk`, derive the ticket, the entropy contribution and the key nullifier from `staking_sk`, and derive the leader reward note with `reward_public_key` as both keys.
@@ -251,11 +255,10 @@ A program step costs `EXECUTION_TRANSFER_GAS` per payment, plus `EXECUTION_PROGR
 | [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | 2.1.0 |
 | [Genesis Block](../bedrock-genesis-block.md) | Modified | 1.3.1, no registered program, staking keys of the initial notes |
 | [Proof of Leadership](../cryptarchia-proof-of-leadership.md) | Modified | 1.2.1 |
-| [Proof of Quota](../proof-of-quota.md) | Modified | 1.3.1, staking secret of the leader branch, `core_sk` as the nullifier key of the Non-ephemeral Quota Key, verification key |
-| [Key Types and Generation](../key-types-and-generation.md) | Modified | 1.1.2, the Non-ephemeral Quota Key as the spending secret key of `zk_id` |
-| [Service Reward Distribution](../bedrock-service-reward-distribution.md) | Modified | 1.4.1, `zk_id` as public key and staking key of a reward note |
+| [Proof of Quota](../proof-of-quota.md) | Modified | 1.3.1, staking secret of the leader branch, verification key |
+| [Service Reward Distribution](../bedrock-service-reward-distribution.md) | Modified | 1.4.1, reward notes under `note_pk` and `note_stake_pk` |
 | [Block Construction](../bedrock-v1.1-block-construction.md) | Modified | 1.4.1, terminal rename, ZkProgramSpend batch, copies lacking or altering openings, staking key of the leader reward note |
-| [Service Declaration Protocol](../bedrock-service-declaration-protocol.md) | Modified | 1.9.1, staking key of the service note |
+| [Service Declaration Protocol](../bedrock-service-declaration-protocol.md) | Modified | 1.9.1, `note_stake_pk`, rewards under the keys of the service note |
 | [Wallet Technical Standard](../wallet-technical-standard.md) | Modified | 1.2.1, nullifier key and staking keys |
 | [Common Cryptographic Components](../common-cryptographic-components.md) | Modified | 1.3.1, compression mode of the nullifier key derivation |
 | [Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | 1.9.0 |
