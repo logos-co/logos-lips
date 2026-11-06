@@ -39,6 +39,7 @@
 | 1.9.0 | Support the private ledger of Mantle: a declaration consumes notes and creates its own service note under the `note_pk` it names in the SDP note set, the withdrawal consumes it with a ZkTransfer, and the active and withdraw messages are signed by the `provider_id` | 2026-10-07 |
 | 1.9.1 | A declaration names `note_stake_pk`, the staking key of its service note, and the rewards of the validator are paid to `note_pk` and `note_stake_pk`, `zk_id` being only its Proof of Quota identity | 2026-11-06 |
 | 1.10.0 | [RFC] An active or withdraw message advances the `sequence` of its declaration's `nonce` by exactly one | 2026-11-04 |
+| 1.11.0 | [RFC] A declaration consumes its notes, vested ones included, in spends of up to 16 notes whose values sum to its stake, and cannot be withdrawn before its `locked_until` epoch | 2026-11-06 |
 
 # Introduction
 
@@ -201,9 +202,9 @@ class DeclarationMessage:
     zk_id: ZkPublicKey
     note_pk: ZkPublicKey
     note_stake_pk: ZkPublicKey
-    inputs: list[NoteNullifier]
     commitment_root: MerkleRoot
-    amount: TokenValue
+    locked_until: EpochNumber
+    spends: list[StakeSpend]
 ```
 
 The `locators` list must be non-empty and its length must be limited to reduce the potential for abuse. Therefore, the length of the list cannot be longer than 8.
@@ -217,9 +218,9 @@ Where:
 - `provider_id` and `zk_id` are the identifiers of the validator ([Identifiers](#identifiers));
 - `note_pk` is the public key the service note and the rewards of the validator are created under. No check reads it and no proof covers its secret, so, as for the outputs of a Transfer, the wallet is responsible for it: a `note_pk` whose secret nobody holds locks the stake and the rewards for good;
 - `note_stake_pk` is the [staking key](bedrock-v1.1-mantle-specification.md#keys) of the service note and of the rewards. Both keys can belong to a cold wallet, so the node keeps online only what serving and leading need ([Wallet Technical Standard](wallet-technical-standard.md#staking-keys));
-- `inputs` are the [`NoteNullifier`](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) of the notes the declaration consumes, proven by a [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) against `commitment_root`;
 - `commitment_root` is the root of the commitment MMR of the ledger note set at the end of one of the last 1024 blocks;
-- `amount` is the value of the one service note the declaration creates under the `note_pk` and the `note_stake_pk`, used for minimum stake threshold verification purposes.
+- `locked_until` is the first epoch at which the declaration can be withdrawn;
+- each of the `spends` lists the [`NoteNullifier`](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) of 1 to 16 notes the declaration consumes, and their total value. A [ZkStake](bedrock-v1.1-mantle-specification.md#zero-knowledge-stake-proof-zkstake) proves their ownership against `commitment_root` ([SDP_DECLARE](bedrock-v1.1-mantle-specification.md#sdp_declare)). The sum of the values of the spends is the stake: the value of the one service note the declaration creates under the `note_pk` and the `note_stake_pk`, measured against the minimum stake threshold.
 
 ### **Declaration Storage**
 
@@ -239,6 +240,7 @@ class DeclarationInfo:
     active: EpochNumber
     withdraw_at: EpochNumber | None
     nonce: Nonce
+    locked_until: EpochNumber
 ```
 
 Where:
@@ -253,7 +255,8 @@ Where:
 - `created` is the epoch of the block that contained the declaration;
 - `active` is the epoch of the block that contained the latest accepted active message, initialised to `created + 2` ([Message Timing](#message-timing));
 - `withdraw_at` is the epoch at which the node stops providing the service ([**Withdraw**](#withdraw)), and is `None` until the declaration is withdrawn;
-- `nonce` is the `nonce` of the latest accepted active or withdraw message, initialised with `created` as its `lifecycle_epoch` and a `sequence` of 0.
+- `nonce` is the `nonce` of the latest accepted active or withdraw message, initialised with `created` as its `lifecycle_epoch` and a `sequence` of 0;
+- `locked_until` is a copy of the `locked_until` from the `DeclarationMessage`.
 
 A `Nonce` is a 64-bit unsigned integer, `lifecycle_epoch · 2^32 + sequence`:
 
@@ -390,7 +393,7 @@ The Declare action associates a validator with a service it wants to provide. It
 
 The declaration message is considered valid when all of the following are met:
 
-- The `inputs` are spendable and owned by the sender, and the `amount` meets the minimum stake threshold.
+- The notes of the `spends` are spendable and owned by the sender, their vesting ends by the first slot of epoch `locked_until`, and the sum of their values meets the minimum stake threshold.
 - The `zk_id` and the `provider_id` are each unbound in the `service_type` of the message ([Identifier Uniqueness](#identifier-uniqueness)).
 - The sender holds the private key corresponding to the `provider_id`.
 - The `locators` list is non-empty and not longer than 8 entries.
@@ -431,7 +434,7 @@ The logic of the withdraw action is:
 2. The `WithdrawMessage` is verified by the SDP logic.
     1. The `declaration_id` returns an existing `DeclarationInfo`.
     2. The transaction containing `WithdrawMessage` is signed by the `provider_id`.
-    3. The `withdraw_at` of the `DeclarationInfo` is `None`.
+    3. The `withdraw_at` of the `DeclarationInfo` is `None`, and the current epoch is at least its `locked_until`.
     4. The `nonce` is valid for the `DeclarationInfo` ([Declaration Storage](#declaration-storage)).
     5. The ZkTransfer consumes the service note of the declaration and balances the `outputs`.
 3. If any of the above is not correct, then discard the message and stop.

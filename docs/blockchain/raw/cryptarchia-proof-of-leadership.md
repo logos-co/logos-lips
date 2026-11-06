@@ -30,6 +30,7 @@
 | 1.2.0 | Support the private ledger of Mantle: a note is eligible from any note set of the ledger, committed together in the eligible root, and proven unspent by the non-membership of its nullifier. The proof is bound to its block by `msg`, a hash of the block header, replacing the leader key, and derives the commitment of the leader reward note from the public reward value and a private key and nonce. The commitment, nullifier and eligible tree paths have depth 40 | 2026-10-06 |
 | 1.2.1 | The note commitment takes the staking key, the `program` and the `data` of the note, and the proof derives the public key from the nullifier key and the staking key from the staking secret key, never taking the spending secret key, so program notes lead unless their staking key is `0`, and the leader reward note is a user note with `reward_public_key` as both keys | 2026-11-06 |
 | 1.2.2 | A channel creation pays the Execution Gas of a changed note set ([Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0), so blocks full of channel creations take about 1,140 years to fill the eligible tree | 2026-10-27 |
+| 1.2.3 | [RFC] The `data` of a user note can hold the slot its vesting ends, so vested notes lead | 2026-11-06 |
 
 # Introduction
 
@@ -138,7 +139,7 @@ class ProofOfLeadershipWitness:
     value: TokenValue                         # value of the note
     nonce: NoteNonce                          # nonce of the note
     program: ProgramId                        # program of the note, 0 for a user note
-    data: zkhash                              # data of the note, 0 for a user note
+    data: zkhash                              # data of the note, for a user note the slot its vesting ends or 0
     set_selectors: list[boolean]              # position of the note set in the eligible tree (len = 40)
     commitment_aged_path: list[zkhash]        # path of the note commitment in the commitment MMR of its set (len = 40)
     commitment_aged_selectors: list[boolean]  # selectors of commitment_aged_path
@@ -169,7 +170,7 @@ Such that the following constraints hold:
   stake_pk = zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), staking_sk)
   ```
 
-- The note commitment is derived from the value, the nonce, the public key, the staking key, the program and the data of the note, so a program note leads like a user note.
+- The note commitment is derived from the value, the nonce, the public key, the staking key, the program and the data of the note, so a program note and a [vested note](bedrock-v1.1-mantle-specification.md#vested-notes) lead like a user note.
   ```python
   commitment = zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), value, nonce, pk, stake_pk, program, data)
   ```

@@ -54,6 +54,7 @@
 | 2.1.1 | Added Note Delivery: how the holder of a note learns its `value` and `nonce`, the user notes a sender creates being delivered off chain, by the Note Encryption of [Common Cryptographic Components](common-cryptographic-components.md#note-encryption-construction), a delivered note taking the public key of its recipient as staking key unless the recipient asked for another | 2026-11-02 |
 | 2.2.0 | Execution Gas from [Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0: a Mantle Transaction pays its bytes, each channel or SDP note set it changes and each root extension its proofs share, and each Operation pays its proofs, nullifiers, commitments, signatures, steps, payments, openings and program proofs, through `spend_gas` and the per-component constants of Gas Determination | 2026-10-27 |
 | 2.3.0 | [RFC] `SDP_ACTIVE` and `SDP_WITHDRAW` advance the `sequence` of the declaration's `nonce` by exactly one | 2026-11-04 |
+| 2.4.0 | [RFC] A claim pays a share of its reward as a vested note, which a proof consumes only once its vesting has ended, and `SDP_DECLARE` stakes notes through ZkStake proofs until its `locked_until` epoch | 2026-11-06 |
 
 # Introduction
 
@@ -75,7 +76,7 @@ Logos Blockchain features are exposed through Mantle Operations, which can be co
 
 ## Mantle Ledger
 
-The Mantle Ledger enables asset transfers using a private note-based ledger. The ledger tracks three kinds of notes, each in note sets of its own: regular notes, service notes (collateral for service declarations) and channel notes (channel bridge funds). Every note participates in Proof of Stake through its staking key, the notes governed by a [program](#programs) inside a channel included, unless the program fixes their staking key to `0`. Each note set has a commitment Merkle Mountain Range (MMR) and a nullifier Indexed Merkle Tree (IMT).
+The Mantle Ledger enables asset transfers using a private note-based ledger. The ledger tracks three kinds of notes, each in note sets of its own: regular notes, service notes (collateral for service declarations) and channel notes (channel bridge funds). Every note participates in Proof of Stake through its staking key, the notes governed by a [program](#programs) inside a channel included, unless the program fixes their staking key to `0`. A regular note can be vested: until its vesting ends, it can only be staked in a service declaration. Each note set has a commitment Merkle Mountain Range (MMR) and a nullifier Indexed Merkle Tree (IMT).
 
 ## Transaction Fees
 
@@ -432,7 +433,7 @@ The ledger fixes neither the holder of the notes a program creates, nor the valu
 | No value is created | The ZkTransfers and the ZkProgramSpend balance exactly, and the ledger sums the paid values into the program spend |
 | A user note moves only with the key of its holder | The ZkTransfer |
 | A payment only pays the program it names, in a step carrying the intent its holder signed | The message of the payment, which commits to the program and the intent |
-| A program note is created and consumed only with the proof of its program | The ZkTransfer, which only derives commitments with `program` and `data` set to `0`; the ZkProgramSpend, whose inputs are notes of the program and whose outputs are notes of the program or user notes; the program proof, required by every program step |
+| A program note is created and consumed only with the proof of its program | The ZkTransfer, which only derives commitments with `program` set to `0`; the ZkProgramSpend, whose inputs are notes of the program and whose outputs are notes of the program or user notes; the program proof, required by every program step |
 | A note leads only with its nullifier key and its staking secret key | The Proof of Leadership |
 | A program step serves the intents over LOGOS as the rule of the program states | The program proof, which reads the payments and the notes of the program spend |
 | The opening of every note of a program is published in the block creating it, and every node holds it until that block is immutable | The ledger, which checks the opening of every note of the program a step creates |
@@ -993,7 +994,8 @@ ledger: Ledger
                                                      deposit.excess_value,
                                                      deposit.commitment_root,
                                                      mantle_txhash_fr,
-                                                     deposit_proof)
+                                                     deposit_proof,
+                                                     spending_slot=ledger.sets[LEDGER_SET].recent_commitment_roots[deposit.commitment_root].slot)
       ```
 
   5. Add the outputs to the buffer of the channel note set.
@@ -1194,6 +1196,7 @@ class DeclarationInfo:
     withdraw_at: EpochNumber | None
     # lifecycle_epoch << 32 | sequence, see Declaration Storage in the SDP
     nonce: int
+    locked_until: EpochNumber        # the first epoch at which the declaration can be withdrawn
 ```
 
 ### SDP_DECLARE
@@ -1210,9 +1213,13 @@ class DeclarationMessage:
     zk_id: ZkPublicKey
     note_pk: ZkPublicKey
     note_stake_pk: ZkPublicKey
-    inputs: list[NoteNullifier]
-    commitment_root: MerkleRoot
-    amount: TokenValue
+    commitment_root: MerkleRoot  # a recent root of the ledger note set
+    locked_until: EpochNumber    # the first epoch at which the declaration can be withdrawn
+    spends: list[StakeSpend]
+
+class StakeSpend:
+    inputs: list[NoteNullifier]  # the nullifiers of at most 16 notes of the ledger note set
+    value: TokenValue            # the sum of the values of these notes
 ```
 
 `note_pk` is the public key and `note_stake_pk` the [staking key](#keys) the service note and the rewards of the validator are created under. No check reads them and no proof covers their secrets, so getting them right is the wallet's responsibility, as for the outputs of a Transfer: a `note_pk` whose secret nobody holds locks the stake for good, and a declarer can keep both keys in a cold wallet.
@@ -1223,15 +1230,15 @@ Service notes are introduced in [Service notes](#service-notes) and serve as Ser
 
 ```python
 class DeclarationProof:
-    zk_proof: ZkTransfer             # proving spendability over inputs
-    provider_sig: Ed25519Signature  # signature proving ownership of provider key
+    zk_proofs: list[ZkStake]         # one per spend, proving spendability over its inputs
+    provider_sig: Ed25519Signature   # signature proving ownership of provider key
 ```
 
-  see: [Zero Knowledge Transfer Proof (ZkTransfer)](#zero-knowledge-transfer-proof-zktransfer).
+  see: [Zero Knowledge Stake Proof (ZkStake)](#zero-knowledge-stake-proof-zkstake).
 
 #### Execution Gas
 
-  SDP Declare Operations have an Execution Gas cost of `EXECUTION_SDP_DECLARE_GAS + EXECUTION_SIGNATURE_GAS + spend_gas(inputs, [service_note])`. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
+  SDP Declare Operations have an Execution Gas cost of `EXECUTION_SDP_DECLARE_GAS + EXECUTION_SIGNATURE_GAS + EXECUTION_COMMITMENT_GAS + sum(spend_gas(spend.inputs, []) for spend in spends)`, the commitment being that of the service note. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
 
 #### Validation
 
@@ -1246,7 +1253,10 @@ min_stake: MinStake      # the (global) minimum stake setting
 ledger: Ledger           # the note sets
 providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
 declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
+EPOCH_LENGTH: uint64     # the length of an epoch, in slots
 ```
+
+  `EPOCH_LENGTH` is the epoch length of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule), $`10\lfloor k/f \rfloor`$ slots.
 
   *Validate*
 
@@ -1267,20 +1277,24 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       assert len(declaration.locators) <= 8
       ```
 
-  3. Ensure the inputs are spendable and the value is sufficient for joining the service.
+  3. Ensure the inputs are spendable, 1 to 16 per spend, and the value is sufficient for joining the service.
       ```python
-      ledger.sets[LEDGER_SET].assert_spendable(declaration.inputs, declaration.commitment_root)
-      assert declaration.amount >= min_stake.threshold
+      inputs = [nullifier for spend in declaration.spends for nullifier in spend.inputs]
+      ledger.sets[LEDGER_SET].assert_spendable(inputs, declaration.commitment_root)
+      assert all(1 <= len(spend.inputs) <= 16 for spend in declaration.spends)
+      assert checked_uint64(sum(spend.value for spend in declaration.spends)) >= min_stake.threshold
       ```
 
-  4. Ensure ownership over the inputs and `provider_id`.
+  4. Ensure ownership over the inputs, the end of their vesting by the first slot of epoch `locked_until`, and `provider_id`.
       ```python
-      assert ledger.sets[LEDGER_SET].verify_transfer(declaration.inputs,
-                                                     [], # no outputs
-                                                     declaration.amount,
-                                                     declaration.commitment_root,
-                                                     FiniteField(txhash, byte_order="little", modulus = p),
-                                                     proof.zk_proof)
+      assert len(proof.zk_proofs) == len(declaration.spends)
+      for spend, zk_proof in zip(declaration.spends, proof.zk_proofs):
+          assert ledger.sets[LEDGER_SET].verify_stake(spend.inputs,
+                                                      spend.value,
+                                                      declaration.commitment_root,
+                                                      declaration.locked_until * EPOCH_LENGTH,
+                                                      FiniteField(txhash, byte_order="little", modulus = p),
+                                                      zk_proof)
       assert Ed25519_verify(txhash, declaration.provider_id, proof.provider_sig)
       ```
 
@@ -1298,17 +1312,19 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 
   *Execute*
 
-  1. Consume the inputs in the ledger note set.
+  1. Consume the inputs of the spends in the ledger note set.
       ```python
-      ledger.sets[LEDGER_SET].execute_spending(declaration.inputs)
+      ledger.sets[LEDGER_SET].execute_spending([nullifier for spend in declaration.spends
+                                                for nullifier in spend.inputs])
       ```
 
   2. Create the service note under the `note_pk` and the `note_stake_pk` in the [SDP note set](#ledger), `SDP_SET`, its nonce and commitment derived as in [Note Commitment and Nullifier](#note-commitment-and-nullifier).
       ```python
       declaration_op_id = derive_op_id(declaration)
+      stake = sum(spend.value for spend in declaration.spends)
       service_note = Note(
-          value=declaration.amount,
-          nonce=derive_note_nonce(declaration_op_id, 0, declaration.amount, declaration.note_pk),
+          value=stake,
+          nonce=derive_note_nonce(declaration_op_id, 0, stake, declaration.note_pk),
           public_key=declaration.note_pk,
           stake_public_key=declaration.note_stake_pk
       )
@@ -1336,6 +1352,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
           active=current_epoch + 2,
           withdraw_at=None,
           nonce=current_epoch << 32,  # lifecycle_epoch = created, sequence = 0
+          locked_until=declaration.locked_until,
       )
       ```
 
@@ -1379,6 +1396,7 @@ txhash: hash # Mantle transaction hash of the tx containing this operation
 withdraw: WithdrawMessage
 proof: WithdrawProof
 
+current_epoch: EpochNumber # epoch of the block containing this operation
 ledger: Ledger
 declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
@@ -1393,9 +1411,10 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       assert found is not None
       _, declare_info = found
       ```
-  2. Ensure the declaration is not already scheduled for withdrawal.
+  2. Ensure the declaration is not already scheduled for withdrawal, and its stake is no longer locked.
       ```python
       assert declare_info.withdraw_at is None
+      assert current_epoch >= declare_info.locked_until
       ```
   3. Ensure the `provider_id` attached to this declaration authorized this Operation.
       ```python
@@ -1413,6 +1432,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
                                withdraw.outputs,
                                withdraw.excess_value,
                                mmr_root([(declare_info.service_note, 0)]),  # one peak, the service note
+                               0,  # spending_slot: a service note does not vest
                                FiniteField(txhash, byte_order="little", modulus = p),
                                proof.zk_proof)
       ```
@@ -1582,7 +1602,7 @@ This Operation claims a reward from the proof of work [reward pool](proof-of-wor
 class ClaimPowRewardOp:
     epoch_nonce: zkhash        # Epoch nonce the solution was found against
     block_hash: hash           # Block ID, as defined in Cryptarchia, of a recent canonical block the solution is anchored to
-    public_key: ZkPublicKey    # Key the reward note is paid to
+    public_key: ZkPublicKey    # Key the reward notes are paid to
     nonce: zkhash              # Value searched for a ticket satisfying the reward threshold
 ```
 
@@ -1610,9 +1630,13 @@ difficulty_reward: PowTarget       # retargeted every block
 pow_nullifiers: set[zkhash]        # spent solutions, retained for WINDOW
 pow_reward_pool: TokenValue
 epoch_pow_reward: TokenValue
+POW_VESTED_SHARE: uint64           # the share of a reward that vests, out of SHARE_DEN
+SHARE_DEN: uint64                  # the denominator of POW_SHARE and POW_VESTED_SHARE
+VESTING_EPOCHS: uint64             # the length of the vesting, in epochs
+EPOCH_LENGTH: uint64               # the length of an epoch, in slots
 ```
 
-  The epoch nonces are the Cryptarchia epoch nonce $`\eta`$ of [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce), and `WINDOW` is derived in [Acceptance Window](proof-of-work.md#acceptance-window).
+  The epoch nonces are the Cryptarchia epoch nonce $`\eta`$ of [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce), `WINDOW` is derived in [Acceptance Window](proof-of-work.md#acceptance-window), `POW_VESTED_SHARE`, `SHARE_DEN` and `VESTING_EPOCHS` are [Parameters](proof-of-work.md#parameters) of Proof of Work, and `EPOCH_LENGTH` is as in [SDP_DECLARE](#sdp_declare).
 
   *Validate*
 
@@ -1640,17 +1664,26 @@ assert puzzle_ticket < difficulty_reward
 # 5. The solution must not have been claimed before. The nullifier is the ticket.
 assert puzzle_ticket not in pow_nullifiers
 
-# 6. Construct a single output note of value epoch_pow_reward under the public key
-#    given in the payload, which is also its staking key, and add it to the buffer
-#    of the ledger note set.
+# 6. Construct the liquid and the vested output notes under the public key given in the
+#    payload, which is also their staking key, and add them to the buffer of the ledger note set.
 claim_id = derive_op_id(claim)
-output_note = Note(
-    value = epoch_pow_reward,
-    nonce = derive_note_nonce(claim_id, 0, epoch_pow_reward, claim.public_key),
+vested_value = checked_uint64(epoch_pow_reward * POW_VESTED_SHARE) // SHARE_DEN
+liquid_value = checked_uint64(epoch_pow_reward - vested_value)
+liquid_note = Note(
+    value = liquid_value,
+    nonce = derive_note_nonce(claim_id, 0, liquid_value, claim.public_key),
     public_key = claim.public_key,
     stake_public_key = claim.public_key,
 )
-ledger.sets[LEDGER_SET].tx_commitment_buffer.append(derive_note_commitment(output_note))
+vested_note = Note(
+    value = vested_value,
+    nonce = derive_note_nonce(claim_id, 1, vested_value, claim.public_key),
+    public_key = claim.public_key,
+    stake_public_key = claim.public_key,
+    data = checked_uint64((block.slot // EPOCH_LENGTH + VESTING_EPOCHS) * EPOCH_LENGTH),
+)
+output_notes = [note for note in (liquid_note, vested_note) if note.value > 0]
+ledger.sets[LEDGER_SET].tx_commitment_buffer.extend([derive_note_commitment(note) for note in output_notes])
 ```
 
 #### Execution
@@ -1660,7 +1693,7 @@ ledger.sets[LEDGER_SET].tx_commitment_buffer.append(derive_note_commitment(outpu
 ```python
 claim: ClaimPowRewardOp
 puzzle_ticket: zkhash              # computed in validation step 4
-output_note: Note                  # constructed in validation step 6
+output_notes: list[Note]           # constructed in validation step 6
 
 ledger: Ledger
 pow_reward_pool: TokenValue
@@ -1671,9 +1704,9 @@ pow_nullifiers: set[zkhash]
   *Execution*
 
   1. Add `puzzle_ticket` to the `pow_nullifiers` set. The entry is retained until the claim's referenced block leaves the [acceptance window](proof-of-work.md#acceptance-window).
-  2. Insert the output note into the ledger note set:
+  2. Insert the output notes into the ledger note set:
       ```python
-      ledger.sets[LEDGER_SET].execute_adding([derive_note_commitment(output_note)])
+      ledger.sets[LEDGER_SET].execute_adding([derive_note_commitment(note) for note in output_notes])
       ```
 
   3. Reduce the `pow_reward_pool` by the same amount:
@@ -1822,7 +1855,8 @@ ledger: Ledger
                                                      transfer.excess_value,
                                                      transfer.commitment_root,
                                                      mantle_txhash_fr,
-                                                     transfer_proof)
+                                                     transfer_proof,
+                                                     spending_slot=ledger.sets[LEDGER_SET].recent_commitment_roots[transfer.commitment_root].slot)
       ```
 
   3. Add the outputs to the buffer of the ledger note set.
@@ -1865,10 +1899,11 @@ class Note:
     public_key: ZkPublicKey # 32 bytes, the holder, whose nullifier key derives the nullifier
     stake_public_key: ZkPublicKey  # 32 bytes, the staking key, whose secret the Proof of Leadership takes
     program: ProgramId = 0  # the program governing the note, 0 for a user note
-    data: zkhash = 0        # the state the program commits in the note, 0 for a user note
+    data: zkhash = 0        # the state the program commits in a program note,
+                            # the slot its vesting ends in a vested note, 0 otherwise
 ```
 
-A note whose `program` is `0` is a user note, moved by its holder alone. A note whose `program` is the identifier of a [program](#programs) is a program note: it is created and consumed only with a proof of that program, and its `data` is set by that program.
+A note whose `program` is `0` is a user note, moved by its holder alone. A user note whose `data` is not `0` is a [vested note](#vested-notes). A note whose `program` is the identifier of a [program](#programs) is a program note: it is created and consumed only with a proof of that program, and its `data` is set by that program.
 
 `MerkleRoot`, `NoteCommitment`, `NoteNullifier` and `NoteNonce` are `zkhash` values, elements of $`\mathbb{F}_p`$. A `NoteCommitment` hashes the fields of a note and identifies it without revealing them, and a `NoteNullifier` hashes the commitment and the nullifier key of the holder and is published when the note is spent.
 
@@ -1937,12 +1972,16 @@ These note commitments and nullifiers uniquely define notes in the system. Nodes
 
 The ledger holds the commitment of a note and nothing of its contents. The holder of a note learns its `value` and `nonce` in one of two ways:
 
-- Notes the ledger creates, such as rewards and service notes, carry their nonce in the Operation that creates them ([Note Commitment and Nullifier](#note-commitment-and-nullifier)), and the user notes a program pays in a step consuming a note of the program carry the nonce the [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) derives. Their value is public, or fixed by the rule of the program from public data, and their staking key is their public key, or the key the rule of the program fixes for a payout ([Keys](#keys)), so their holder recomputes the commitment alone. The leader reward note comes from no Operation: its value is in the header of its block, and its leader chose its nonce ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)).
+- Notes the ledger creates, such as rewards and service notes, carry their nonce in the Operation that creates them ([Note Commitment and Nullifier](#note-commitment-and-nullifier)), and the user notes a program pays in a step consuming a note of the program carry the nonce the [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) derives. Their value, and the `data` of a vested note, are public, or fixed by the rule of the program from public data, and their staking key is their public key, or the key the rule of the program fixes for a payout ([Keys](#keys)), so their holder recomputes the commitment alone. The leader reward note comes from no Operation: its value is in the header of its block, and its leader chose its nonce ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)).
 - A user note created by a Transfer, a channel deposit, a channel withdrawal, a user step, a payment or a program step consuming no note of the program, or paid in an amount its holder cannot recompute, is delivered off chain: the ledger carries nothing of it but the commitment. The RECOMMENDED delivery is the note ciphertext of [Note Encryption](common-cryptographic-components.md#note-encryption-construction), the encryption of `value` and `nonce` under the encryption key of the recipient with the commitment as associated data, handed over through a direct channel or published on a data availability layer the recipient reads. The staking key of a note delivered this way is the public key of its recipient, unless the recipient asked the sender for another ([Keys](#keys)). The recipient decrypts it and owns the note if the commitment it recomputes, from the plaintext and its keys, is the one in the ledger ([Wallet Technical Standard](wallet-technical-standard.md#note-discovery-and-recovery)).
 
 ### Service notes
 
 Service notes are special notes in Mantle that serve as collateral for Service Declarations. Executing a Declare Operation consumes notes of the ledger note set and creates one service note under the declaration's `note_pk` and `note_stake_pk` in the SDP note set, its commitment kept with the declaration. A note of the SDP note set is spent only by the Withdraw Operation of its declaration, and the notes that withdrawal creates enter the ledger note set when the declaration is removed. Service notes participate in Proof of Stake.
+
+### Vested Notes
+
+The `data` of a vested note is the slot at which its vesting ends. [CLAIM_POW_REWARD](#claim_pow_reward) creates vested notes in the ledger note set. A [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) or a [ZkStake](#zero-knowledge-stake-proof-zkstake) consumes a note only if its `data` is at most the proof's `spending_slot`: the slot that recorded the referenced root for a Transfer or a channel deposit, the first slot of `locked_until` for a declaration, and `0` for the notes of the channel and SDP note sets.
 
 ## Ledger
 
@@ -1968,6 +2007,8 @@ class RecentRoot:
     peaks: list[(MerkleRoot, int)]  # the peaks of the commitment MMR at this root
     last_block: int | None          # the height of the last block at whose end this was the root
                                     # of the set, None for the current root
+    slot: Slot                      # the slot of the block that recorded this root,
+                                    # 0 for the root of an empty set
 
 class Groth16StoredKey:
     key: Groth16VerificationKey
@@ -1985,7 +2026,7 @@ def empty_note_set() -> NoteSet:
         nullifiers={0},                       # the nullifier of the sentinel leaf
         nullifier_leaves=[NullifierLeaf(0, 0, 0)],  # an IMT holding only its sentinel leaf
         current_commitment_root=mmr_root([]),  # the root of the empty MMR
-        recent_commitment_roots={mmr_root([]): RecentRoot([], None)},
+        recent_commitment_roots={mmr_root([]): RecentRoot([], None, 0)},
         tx_commitment_buffer=[]
     )
 ```
@@ -1994,10 +2035,10 @@ At the end of a block at height `block_height`, after its transactions and its l
 
 ```python
 class NoteSet:
-    def record_commitment_root(self, block_height: int):
+    def record_commitment_root(self, block_height: int, slot: Slot):
         self.recent_commitment_roots[self.current_commitment_root].last_block = block_height - 1
         self.current_commitment_root = mmr_root(self.commitments)
-        self.recent_commitment_roots[self.current_commitment_root] = RecentRoot(list(self.commitments), None)
+        self.recent_commitment_roots[self.current_commitment_root] = RecentRoot(list(self.commitments), None, slot)
         for root, recent in list(self.recent_commitment_roots.items()):
             if recent.last_block is not None and recent.last_block < block_height - 1023:
                 del self.recent_commitment_roots[root]
@@ -2129,9 +2170,16 @@ class NoteSet:
 
     def verify_transfer(self, inputs: list[NoteNullifier], outputs: list[NoteCommitment], excess_value: TokenValue,
                         commitment_root: MerkleRoot, msg: zkhash, proof: ZkTransfer,
-                        covered: int | None = None) -> bool:
+                        covered: int | None = None,
+                        # 0 for the notes of the channel and SDP note sets, which never vest
+                        spending_slot: Slot = 0) -> bool:
         return ZkTransfer_verify(inputs, outputs, excess_value,
-                                 self.tx_commitment_root(commitment_root, covered), msg, proof)
+                                 self.tx_commitment_root(commitment_root, covered), spending_slot, msg, proof)
+
+    def verify_stake(self, inputs: list[NoteNullifier], value: TokenValue, commitment_root: MerkleRoot,
+                     spending_slot: Slot, msg: zkhash, proof: ZkStake) -> bool:
+        return ZkStake_verify(inputs, value, self.tx_commitment_root(commitment_root), spending_slot,
+                              msg, proof)
 
     def verify_program_spend(self, inputs: list[NoteNullifier], outputs: list[NoteCommitment],
                              program_outputs: list[bool], commitment_root: MerkleRoot,
@@ -2143,7 +2191,7 @@ class NoteSet:
                                      spend_notes_hash, msg, proof)
 ```
 
-See [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) and [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) for the proofs.
+See [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer), [ZkStake](#zero-knowledge-stake-proof-zkstake) and [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) for the proofs.
 
 ### Consuming Input Notes Execution
 
@@ -2184,7 +2232,7 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_SDP_DECLARE_GAS | 622 |
 | EXECUTION_SDP_WITHDRAW_GAS | 892 |
 | EXECUTION_SDP_ACTIVE_GAS | 6927 |
-| EXECUTION_CLAIM_POW_REWARD_GAS | 592 |
+| EXECUTION_CLAIM_POW_REWARD_GAS | TBD |
 | EXECUTION_PROGRAM_REGISTER_GAS | 6839 |
 | EXECUTION_KB_GAS | 27 |
 | EXECUTION_NOTE_SET_GAS | 3461 |
@@ -2202,7 +2250,7 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 
 The first ten constants price what each Operation does beyond the components, and the others its components: `EXECUTION_KB_GAS` the bytes of a Mantle Transaction, `EXECUTION_NOTE_SET_GAS` the end of block work of a note set it changes, `EXECUTION_PROOF_GAS` a proof, `EXECUTION_ROOT_GAS` the extension of a root and `EXECUTION_BUFFERED_GAS` each commitment it covers, `EXECUTION_NULLIFIER_GAS` a nullifier, `EXECUTION_COMMITMENT_GAS` a commitment, `EXECUTION_SIGNATURE_GAS` an Ed25519 signature, `EXECUTION_USER_STEP_GAS`, `EXECUTION_PAYMENT_GAS` and `EXECUTION_PROGRAM_STEP_GAS` a user step, a payment and a program step beyond their spends, `EXECUTION_OPENING_GAS` the opening of a program note and `EXECUTION_PROGRAM_PROOF_GAS` a program proof.
 
-A ZkTransfer or a ZkProgramSpend costs, with the notes it consumes and creates:
+A ZkTransfer, a ZkStake or a ZkProgramSpend costs, with the notes it consumes and creates:
 
 ```python
 def spend_gas(inputs: list[NoteNullifier], outputs: list[NoteCommitment]) -> int:
@@ -2233,12 +2281,13 @@ class ZkTransferPublic:
     excess_value: TokenValue        # the value of the inputs left over by the outputs
     tx_commitment_root: MerkleRoot  # the referenced commitment_root extended with the tx_commitment_buffer of the set,
                                     # or the commitments before its mini-block for a user step or a payment
+    spending_slot: Slot             # every input has finished vesting by this slot
     msg: zkhash                     # the message the proof is bound to
 ```
 
-`ZkTransfer_verify(inputs, outputs, excess_value, tx_commitment_root, msg, proof)` verifies the proof for these public values. The nullifiers of `inputs` fill the first inputs of the circuit and the commitments of `outputs` its first outputs. These are active, and every other input and output is inactive and holds `0`, so the verifier sets the flags from the lengths of the two lists. A ZkTransfer therefore spends at most 4 notes and creates at most 8: an Operation whose `inputs` or `outputs` list is longer is invalid. An Operation spending notes of a note set, other than `SDP_WITHDRAW`, verifies the proof through the [`verify_transfer`](#input-notes-spendability-validation) method of the set, which appends the commitments created earlier in the Mantle Transaction to the referenced root, all of them, or only those before its mini-block for a user step or a payment.
+`ZkTransfer_verify(inputs, outputs, excess_value, tx_commitment_root, spending_slot, msg, proof)` verifies the proof for these public values. The nullifiers of `inputs` fill the first inputs of the circuit and the commitments of `outputs` its first outputs. These are active, and every other input and output is inactive and holds `0`, so the verifier sets the flags from the lengths of the two lists. A ZkTransfer therefore spends at most 4 notes and creates at most 8: an Operation whose `inputs` or `outputs` list is longer is invalid. An Operation spending notes of a note set, other than `SDP_WITHDRAW`, verifies the proof through the [`verify_transfer`](#input-notes-spendability-validation) method of the set, which appends the commitments created earlier in the Mantle Transaction to the referenced root, all of them, or only those before its mini-block for a user step or a payment.
 
-The circuit fixes the order of the public signals of the proof: the outputs `inputs`, `outputs` and `excess_value` first, then `inputs_active`, `outputs_active`, `tx_commitment_root` and `msg`.
+The circuit fixes the order of the public signals of the proof: the outputs `inputs`, `outputs` and `excess_value` first, then `inputs_active`, `outputs_active`, `tx_commitment_root`, `spending_slot` and `msg`.
 
 The prover knows a witness:
 
@@ -2248,6 +2297,7 @@ class ZkTransferWitness:
     inputs_stake_pk: list[ZkPublicKey]     # the staking key of each input note
     inputs_nonce: list[zkhash]             # the nonce of each input note
     inputs_value: list[TokenValue]         # the value of each input note
+    inputs_data: list[zkhash]              # the slot the vesting of each input ends, 0 if it does not vest
     inputs_selectors: list[list[boolean]]  # (len = 4 x 40) the Merkle path direction of each input
     inputs_path: list[list[zkhash]]        # (len = 4 x 40) the Merkle path of each input
     outputs_pk: list[ZkPublicKey]          # (len = 8) the public key of each output note
@@ -2267,11 +2317,19 @@ Such that the following constraints hold, where `inputs_nf_sk`, `inputs_pk` and 
   )
   ```
   
-- Each input flag is boolean, and each input commitment is derived from the value, the nonce, the public key and the staking key, with `program` and `data` set to `0`, so a ZkTransfer only consumes user notes. The staking key is not proven: spending a note takes its spending secret key alone.
+- Each input flag is boolean, and each input commitment is derived from the value, the nonce, the public key, the staking key and the data, with `program` set to `0`, so a ZkTransfer only consumes user notes. The staking key is not proven: spending a note takes its spending secret key alone.
   ```python
   assert all(
       inputs_active[i] * (1 - inputs_active[i]) == 0
-      and inputs_commitment[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i], inputs_stake_pk[i], 0, 0)
+      and inputs_commitment[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i], inputs_stake_pk[i], 0, inputs_data[i])
+      for i in range(len(inputs_spending_sk))
+  )
+  ```
+
+- The vesting of each input has ended by `spending_slot`: `spending_slot - inputs_data[i]` decomposes into 64 bits. The prover sets the `data` of an inactive input to `0`. The `data` of an input needs no range check, since only [CLAIM_POW_REWARD](#claim_pow_reward) gives a user note a `data` other than `0`, a slot below $`2^{64}`$. Every Operation that creates a user note must keep its `data` below $`2^{64}`$: a `data` close to $`p`$ would pass this check for any `spending_slot`.
+  ```python
+  assert all(
+      0 <= spending_slot - inputs_data[i] < 2**64
       for i in range(len(inputs_spending_sk))
   )
   ```
@@ -2299,7 +2357,7 @@ Such that the following constraints hold, where `inputs_nf_sk`, `inputs_pk` and 
   )
   ```
 
-- Each output flag is boolean, each active output commitment is derived from the value, the nonce, the public key and the staking key, with `program` and `data` set to `0`, so a ZkTransfer only creates user notes, and each inactive output has value 0.
+- Each output flag is boolean, each active output commitment is derived from the value, the nonce, the public key and the staking key, with `program` and `data` set to `0`, so a ZkTransfer only creates user notes that do not vest, and each inactive output has value 0.
   ```python
   assert all(
       outputs_active[i] * (1 - outputs_active[i]) == 0
@@ -2336,6 +2394,45 @@ The material used for the benchmarks is the following:
 - Kernel    : 6.8.0-138-generic
 
 ![Diagram](bedrock-v1.1-mantle-specification/assets/zktransfer_proving_time_vs_threads.png)
+
+## Zero Knowledge Stake Proof (ZkStake)
+
+The ZkTransfer adapted to the stake of a declaration: it consumes up to 16 notes and creates none. A proof attesting that for the following public values:
+
+```python
+class ZkStakePublic:
+    inputs: list[NoteNullifier]     # (len = 16) the nullifiers of the consumed notes
+    inputs_active: list[boolean]    # (len = 16) whether each input consumes a note
+    excess_value: TokenValue        # the sum of the values of the inputs
+    tx_commitment_root: MerkleRoot  # the referenced commitment_root extended with the tx_commitment_buffer of the set
+    spending_slot: Slot             # every input has finished vesting by this slot
+    msg: zkhash                     # the message the proof is bound to
+```
+
+`ZkStake_verify(inputs, excess_value, tx_commitment_root, spending_slot, msg, proof)` verifies the proof for these public values, through the [`verify_stake`](#input-notes-spendability-validation) method of the note set. The flags `inputs_active` are set from `inputs` as in the ZkTransfer.
+
+The circuit fixes the order of the public signals of the proof: the outputs `inputs` and `excess_value` first, then `inputs_active`, `tx_commitment_root`, `spending_slot` and `msg`.
+
+The prover knows a witness:
+
+```python
+class ZkStakeWitness:
+    inputs_spending_sk: list[ZkSecretKey]  # (len = 16) the spending secret key of each input
+    inputs_stake_pk: list[ZkPublicKey]     # the staking key of each input note
+    inputs_nonce: list[zkhash]             # the nonce of each input note
+    inputs_value: list[TokenValue]         # the value of each input note
+    inputs_data: list[zkhash]              # the slot the vesting of each input ends, 0 if it does not vest
+    inputs_selectors: list[list[boolean]]  # (len = 16 x 40) the Merkle path direction of each input
+    inputs_path: list[list[zkhash]]        # (len = 16 x 40) the Merkle path of each input
+```
+
+Such that the constraints of the [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) on its inputs hold for the 16 inputs, and the excess value is the sum of their values:
+
+```python
+assert excess_value == sum(inputs_value)
+```
+
+The proof is bound to `msg`, the `mantle_txhash` reduced modulo $`p`$.
 
 ## Zero Knowledge Program Spend Proof (ZkProgramSpend)
 
@@ -2503,7 +2600,7 @@ To see what the payloads represent, refer to [Mantle Transaction Encoding](mantl
 | `CHANNEL_INSCRIBE`        | 0x0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c0100020000012300000000000000000000000000000000000000000000000000000000000000012400000000000000000000000000000000000000000000000000000000000000250000000000000000000000000000000000000000000000000000000000000010000000737465702d696e736372697074696f6e01340000000000000000000000000000000000000000000000000000000000000001013500000000000000000000000000000000000000000000000000000000000000013600000000000000000000000000000000000000000000000000000000000000370000000000000000000000000000000000000000000000000000000000000038000000000000003900000000000000000000000000000000000000000000000000000000000000130000007061796d656e742d696e736372697074696f6e013a00000000000000000000000000000000000000000000000000000000000000013b00000000000000000000000000000000000000000000000000000000000000013c000000000000000000000000000000000000000000000000000000000000003d000000000000000000000000000000000000000000000000000000000000001800000070726f6772616d2d737465702d696e736372697074696f6e | 0xb8f9719ad3893f7909960208f665a76b29424de7180bdf524741367b2c56bc47 |
 | `CHANNEL_DEPOSIT`         | 0x101010101010101010101010101010101010101010101010101010101010101001110000000000000000000000000000000000000000000000000000000000000026000000000000000000000000000000000000000000000000000000000000000127000000000000000000000000000000000000000000000000000000000000002800000000000000100000006465706f7369742d6d65746164617461 | 0x83eeb0ac0b7e03bb6c93c0c7596512413707b9536b2b3d56a86656f8f527d6f6 |
 | `CHANNEL_WITHDRAW`        | 0x12121212121212121212121212121212121212121212121212121212121212120113000000000000000000000000000000000000000000000000000000000000002900000000000000000000000000000000000000000000000000000000000000012a00000000000000000000000000000000000000000000000000000000000000 | 0x8d6ae69200aab259bca71e5829d43f0a289ba612383d29ddcd7d217f1ede0996 |
-| `SDP_DECLARE`             | 0x00010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f3190000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000003e00000000000000000000000000000000000000000000000000000000000000011a000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000002d00000000000000 | 0x3bde3b9b04ed242ca887f6f8139e317acf9fe0d8a6237f92e048bc0447bc9b64 |
+| `SDP_DECLARE`             | 0x00010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f3190000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000003e000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000003400000002011a0000000000000000000000000000000000000000000000000000000000000016000000000000000135000000000000000000000000000000000000000000000000000000000000001700000000000000 | 0x72497561867dced210a62cffd196ec037a33a7c3559ab9bf460b9d6601826654 |
 | `SDP_WITHDRAW`            | 0x1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000012e000000000000000000000000000000000000000000000000000000000000002f00000000000000 | 0xf385d531e2efc2cfca261d1b12643937a3ba2d19a6f7be9b617d59e2d3264f8a |
 | `SDP_ACTIVE`              | 0x1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020303030303030303030303030303030303030303030303030303030303030303 | 0xc4a2a639034016f52728f34041cf95fc2c7adb8f54cf94b4361b2d0cb72ebb70 |
 | `CLAIM_POW_REWARD`        | 0x3000000000000000000000000000000000000000000000000000000000000000313131313131313131313131313131313131313131313131313131313131313132000000000000000000000000000000000000000000000000000000000000003300000000000000000000000000000000000000000000000000000000000000 | 0xbc5ccb3bf2ceae92f0479fb84cd1e8049d4e7cb33cc72d16a3d5e30780a34c2b |
@@ -2513,7 +2610,7 @@ To see what the payloads represent, refer to [Mantle Transaction Encoding](mantl
 | Transaction | Payload | Transaction Hash                                                   |
 | - | - | - |
 | Empty transaction | 0x00 | 0x2eba3f667b80a508f3d44d149a1c27a90ea365a51e4fc8209289088142b364e5 |
-| Transaction with one of each operation | 0x0a000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000600000000000000010100000000000000000000000000000000000000000000000000000000000000b9b3b4620913f849ee2aa6a9cfd35c9d146f3e7c27596cc3e8d311fd3472dc2779ad28398ced57998435d8c63164b86d7033733ab82101b6379bf1b45d203ea0f5c7fb9406fade12005e9ab08c477e8d5e7192e12628e551900eb14d784e0606856eb6ff324f82c9a7a078686b1504bcebe4cf5dcd9151734297bb572f7714102ce236b4ddb40977fd454c08e570151342c4cc50a86380c3472f6a6ff8dbdd296f237195c2856d5a3f8ca190f6666f2084d776f9935a48a2d57a569e476806a9a93f16faa7a849e89ca35389d8dee46243772b760402bc66f7e0fe0edf39c117f94a688c5b3dfe2a762ab3d315927156987792e7d92f79e0f4523f1a41caf40978e0ffab866b3a9876bd01b8ecc66fcb86936277f425539a758dbbd32e2b0717636a302c88373904f75a15fe21c13882a8fe9c3be9f572f4100c48231dd5b188100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000200110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c0100020000012300000000000000000000000000000000000000000000000000000000000000012400000000000000000000000000000000000000000000000000000000000000250000000000000000000000000000000000000000000000000000000000000010000000737465702d696e736372697074696f6e01340000000000000000000000000000000000000000000000000000000000000001013500000000000000000000000000000000000000000000000000000000000000013600000000000000000000000000000000000000000000000000000000000000370000000000000000000000000000000000000000000000000000000000000038000000000000003900000000000000000000000000000000000000000000000000000000000000130000007061796d656e742d696e736372697074696f6e013a00000000000000000000000000000000000000000000000000000000000000013b00000000000000000000000000000000000000000000000000000000000000013c000000000000000000000000000000000000000000000000000000000000003d000000000000000000000000000000000000000000000000000000000000001800000070726f6772616d2d737465702d696e736372697074696f6e12101010101010101010101010101010101010101010101010101010101010101001110000000000000000000000000000000000000000000000000000000000000026000000000000000000000000000000000000000000000000000000000000000127000000000000000000000000000000000000000000000000000000000000002800000000000000100000006465706f7369742d6d657461646174611312121212121212121212121212121212121212121212121212121212121212120113000000000000000000000000000000000000000000000000000000000000002900000000000000000000000000000000000000000000000000000000000000012a000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f3190000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000003e00000000000000000000000000000000000000000000000000000000000000011a000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000002d00000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000012e000000000000000000000000000000000000000000000000000000000000002f00000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020303030303030303030303030303030303030303030303030303030303030303303000000000000000000000000000000000000000000000000000000000000000313131313131313131313131313131313131313131313131313131313131313132000000000000000000000000000000000000000000000000000000000000003300000000000000000000000000000000000000000000000000000000000000 | 0x08f2d0e9a31c9f214d4038c909aa7ea896852b7c337e446f1fd811f5df147103 |
+| Transaction with one of each operation | 0x0a000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000600000000000000010100000000000000000000000000000000000000000000000000000000000000b9b3b4620913f849ee2aa6a9cfd35c9d146f3e7c27596cc3e8d311fd3472dc2779ad28398ced57998435d8c63164b86d7033733ab82101b6379bf1b45d203ea0f5c7fb9406fade12005e9ab08c477e8d5e7192e12628e551900eb14d784e0606856eb6ff324f82c9a7a078686b1504bcebe4cf5dcd9151734297bb572f7714102ce236b4ddb40977fd454c08e570151342c4cc50a86380c3472f6a6ff8dbdd296f237195c2856d5a3f8ca190f6666f2084d776f9935a48a2d57a569e476806a9a93f16faa7a849e89ca35389d8dee46243772b760402bc66f7e0fe0edf39c117f94a688c5b3dfe2a762ab3d315927156987792e7d92f79e0f4523f1a41caf40978e0ffab866b3a9876bd01b8ecc66fcb86936277f425539a758dbbd32e2b0717636a302c88373904f75a15fe21c13882a8fe9c3be9f572f4100c48231dd5b188100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000200110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c0100020000012300000000000000000000000000000000000000000000000000000000000000012400000000000000000000000000000000000000000000000000000000000000250000000000000000000000000000000000000000000000000000000000000010000000737465702d696e736372697074696f6e01340000000000000000000000000000000000000000000000000000000000000001013500000000000000000000000000000000000000000000000000000000000000013600000000000000000000000000000000000000000000000000000000000000370000000000000000000000000000000000000000000000000000000000000038000000000000003900000000000000000000000000000000000000000000000000000000000000130000007061796d656e742d696e736372697074696f6e013a00000000000000000000000000000000000000000000000000000000000000013b00000000000000000000000000000000000000000000000000000000000000013c000000000000000000000000000000000000000000000000000000000000003d000000000000000000000000000000000000000000000000000000000000001800000070726f6772616d2d737465702d696e736372697074696f6e12101010101010101010101010101010101010101010101010101010101010101001110000000000000000000000000000000000000000000000000000000000000026000000000000000000000000000000000000000000000000000000000000000127000000000000000000000000000000000000000000000000000000000000002800000000000000100000006465706f7369742d6d657461646174611312121212121212121212121212121212121212121212121212121212121212120113000000000000000000000000000000000000000000000000000000000000002900000000000000000000000000000000000000000000000000000000000000012a000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f3190000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000003e000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000003400000002011a0000000000000000000000000000000000000000000000000000000000000016000000000000000135000000000000000000000000000000000000000000000000000000000000001700000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000012e000000000000000000000000000000000000000000000000000000000000002f00000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020303030303030303030303030303030303030303030303030303030303030303303000000000000000000000000000000000000000000000000000000000000000313131313131313131313131313131313131313131313131313131313131313132000000000000000000000000000000000000000000000000000000000000003300000000000000000000000000000000000000000000000000000000000000 | 0x81e751f6dc2b2918e29ec103c92e4c1147b6445f570e5df5aba3c5bbccdbbb58 |
 
 ### Declaration Id
 

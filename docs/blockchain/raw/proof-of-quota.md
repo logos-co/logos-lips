@@ -30,6 +30,7 @@
 | 1.2.0 | Add the proof of work branch: third selector value, `pow_quota` and `pow_blend_difficulty` public inputs, a private `pow_nonce` witness, and Lagrange branch selection; benchmark the three branch circuit | 2026-09-08 |
 | 1.3.0 | Follow the Proof of Leadership of the private ledger: the leader branch proves the note commitment in its note set under the eligible root of the time the stake distribution was frozen, and its nullifier absent from the nullifier IMT of that set at that time. Paths and selectors follow the Merkle path convention of Mantle, from the leaf level up, the commitment path and the path in the eligible tree having depth 40 | 2026-10-07 |
 | 1.3.1 | The note commitment of the leader branch takes the staking key, the `program` and the `data` of the note, the branch proving the public key from the nullifier key and the staking key from the staking secret key, from which it derives the key nullifier, which changes the verification key | 2026-11-06 |
+| 1.3.2 | [RFC] The `data` of a user note can hold the slot its vesting ends | 2026-11-06 |
 
 
 # Introduction
@@ -97,7 +98,7 @@ class ProofOfQuotaWitness:
     pol_note_value: int                        # PoL note value
     pol_note_nonce: zkhash                     # PoL note nonce
     pol_note_program: zkhash                   # PoL note program, 0 for a user note
-    pol_note_data: zkhash                      # PoL note data, 0 for a user note
+    pol_note_data: zkhash                      # PoL note data, for a user note the slot its vesting ends or 0
     pol_commitment_aged_path: list[zkhash]     # PoL Merkle path proving the note commitment membership in the commitment Merkle Mountain Range (MMR) of its note set (len = 40)
     pol_commitment_aged_selectors: list[bool]  # Indicates how to read the pol_commitment_aged_path (if Merkle nodes are left or right in the path)
     pol_low_leaf_nullifier: zkhash             # PoL nullifier of the leaf of the IMT of the note set, when the stake distribution was frozen, holding the greatest nullifier lower than the nullifier of the note
