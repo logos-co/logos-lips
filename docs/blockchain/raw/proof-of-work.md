@@ -21,8 +21,8 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-09 |
 | 1.1.0 | Set the reference load of the Blend difficulty to the transaction rate the Blend network carries, `F_T / F_D = 130` transactions per block | 2026-09-11 |
-| 1.2.0 | A reward claim searches a nonce for the public key to be paid and carries no signature. The fee share of each block waits in `pow_rewards_pending` until the epoch boundary credits it to the pool | 2026-10-06 |
-| 1.3.0 | [RFC] A claim pays `POW_VESTED_SHARE / SHARE_DEN` of its reward as a note vesting for `VESTING_EPOCHS` epochs, and the rest as a liquid note | 2026-11-05 |
+| 1.2.0 | A reward claim searches a nonce for the public key to be paid and carries no signature. Each block credits its fee share to the pool, and the reward per claim stays fixed for the epoch | 2026-10-06 |
+| 1.3.0 | [RFC] A claim pays `POW_VESTED_SHARE / SHARE_DEN` of its reward as a note vesting for `VESTING_EPOCHS` epochs, and the rest as a liquid note | 2026-11-06 |
 
 # Introduction
 
@@ -51,7 +51,7 @@ graph LR
     c --> t["pays for transactions"]
 ```
 
-The tokens come from the pow reward pool, set aside at genesis and refilled each epoch from a share of the transaction fees. Nothing is minted for it, so mining does not inflate the supply. Each epoch pays out a fraction of what the pool still holds, so the reward is the same for every claim of that epoch, for as long as the pool can pay it.
+The tokens come from the pow reward pool, set aside at genesis and refilled by every block from a share of the transaction fees. Nothing is minted for it, so mining does not inflate the supply. Each epoch pays out a fraction of what the pool still holds, so the reward is the same for every claim of that epoch, for as long as the pool can pay it.
 
 A share of each reward vests for a fixed period. Until then it cannot be transferred, but it takes part in the leadership lottery and can be staked to declare a service.
 
@@ -113,7 +113,7 @@ A validator checks a claim against the `difficulty_reward` the previous block pr
 
 [Mantle](bedrock-v1.1-mantle-specification.md#claim_pow_reward) specifies these checks and the order they run in. A claim that fails any of them makes its transaction invalid. On acceptance the node pays `epoch_pow_reward` to the key, marks the ticket spent, and subtracts the same amount from `pow_reward_pool`. It pays `POW_VESTED_SHARE / SHARE_DEN` of the reward as a [vested note](bedrock-v1.1-mantle-specification.md#vested-notes), whose vesting ends at the first slot of the epoch `VESTING_EPOCHS` epochs after the epoch of the referenced block, and the rest as a liquid note.
 
-A node computes five values from the chain. `pow_reward_pool` and the set of spent tickets change when a claim is accepted. `difficulty_reward` is recomputed after every block, from the number of claims in that block. `pow_reward_pool` is credited at each epoch boundary with a share of the fees of the epoch that ended, and `epoch_pow_reward` is then recomputed from it. `difficulty_blend` is recomputed once per epoch, from the transactions of the epoch before last, at the snapshot that fixes the epoch nonce. [Reward Difficulty](#reward-difficulty), [Reward Pool](#reward-pool) and [Blend Difficulty](#blend-difficulty) specify the three computations.
+A node computes five values from the chain. `pow_reward_pool` and the set of spent tickets change when a claim is accepted. `difficulty_reward` is recomputed after every block, from the number of claims in that block. Each block credits `pow_reward_pool` with a share of its fees, and `epoch_pow_reward` is recomputed from the pool at each epoch boundary. `difficulty_blend` is recomputed once per epoch, from the transactions of the epoch before last, at the snapshot that fixes the epoch nonce. [Reward Difficulty](#reward-difficulty), [Reward Pool](#reward-pool) and [Blend Difficulty](#blend-difficulty) specify the three computations.
 
 A node keeps a spent ticket only while its referenced block is inside the window, so the set stays small. [Acceptance Window](#acceptance-window) gives the window in slots.
 
@@ -144,7 +144,7 @@ TARGET_CLAIMS_PER_BLOCK: uint64 = 10            # T
 EXPECTED_BLOCKS_PER_EPOCH: uint64 = 21_600      # N_b = 10 k
 EXPECTED_BLOCKS_PER_WINDOW: uint64 = 10         # W_b
 POW_SHARE: uint64 = 10                          # beta, as the fraction POW_SHARE / SHARE_DEN
-SHARE_DEN: uint64 = 100
+SHARE_DEN: uint64 = 100                         # the denominator of POW_SHARE and POW_VESTED_SHARE
 POW_VESTED_SHARE: uint64 = 50                   # the share of a reward paid as a vested note, out of SHARE_DEN
 VESTING_EPOCHS: uint64 = 49                     # the length of the vesting, in epochs
 EMA_SMOOTHING_FACTOR: uint64 = 9                # F, the weight given to the previous estimate
@@ -176,7 +176,7 @@ The two updates below multiply and divide targets as integers rather than in the
 
 ## Reward Pool
 
-The pool is seeded once, at genesis, with `POW_REWARD_POOL_GENESIS`, five thousandths of $`S_{cap}`$, as specified in [Bedrock Genesis Block](bedrock-genesis-block.md). After that it changes through the epoch-boundary refill and through claims.
+The pool is seeded once, at genesis, with `POW_REWARD_POOL_GENESIS`, five thousandths of $`S_{cap}`$, as specified in [Bedrock Genesis Block](bedrock-genesis-block.md). After that it changes through the fee share each block credits and through claims.
 
 ```python
 def compute_epoch_pow_reward(pow_reward_pool: TokenValue) -> TokenValue:
@@ -186,11 +186,11 @@ def compute_epoch_pow_reward(pow_reward_pool: TokenValue) -> TokenValue:
     return (pow_reward_pool * EPOCH_POW_DISTRIBUTION_RATE_NUM) // denominator
 ```
 
-At each epoch boundary, before any block of the new epoch is processed, the pool is credited with `pow_rewards_pending`, which the blocks of the epoch that ended have accumulated, each adding its share `POW_SHARE / SHARE_DEN` of the fees it collected ([Block Rewards](block-rewards.md#deterministic-implementation)), and `pow_rewards_pending` is reset to `0`; `epoch_pow_reward` is then set to `compute_epoch_pow_reward(pow_reward_pool)` and held for the epoch. The division rounds down, and the remainder stays in the pow reward pool. All arithmetic here is checked, in accordance with [Arithmetic](bedrock-v1.1-mantle-specification.md#arithmetic).
+Each block, once its transactions have run, credits the pool with its share `POW_SHARE / SHARE_DEN` of the fees it collected ([Block Rewards](block-rewards.md#deterministic-implementation)), so the claims of a block draw on what the blocks before it paid. At each epoch boundary, before any block of the new epoch is processed, `epoch_pow_reward` is set to `compute_epoch_pow_reward(pow_reward_pool)` and held for the epoch, so every claim of an epoch pays the same whatever the fees of its blocks. The division rounds down, and the remainder stays in the pow reward pool. All arithmetic here is checked, in accordance with [Arithmetic](bedrock-v1.1-mantle-specification.md#arithmetic).
 
 ### Exhaustion within an epoch
 
-The reward is fixed for the epoch while the pool shrinks with every claim. The first condition of [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation, that the reward is positive and the pool covers it, is evaluated for every claim against the pool as it stands at that point in the block, and a claim it rejects invalidates its transaction. Claiming resumes at the next epoch boundary at which the recomputed reward is positive and the pow reward pool covers it.
+The reward is fixed for the epoch while every claim draws on the pool and every block credits it. The first condition of [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation, that the reward is positive and the pool covers it, is evaluated for every claim against the pool as it stands at that point in the block, and a claim it rejects invalidates its transaction. When the reward is positive, claiming resumes in the block after the fee shares of the blocks bring the pool back to the reward, or at the next epoch boundary at which the recomputed reward is positive and the pow reward pool covers it, whichever comes first. A reward of `0` holds for its epoch whatever the fees. Since the pool receives only the share `POW_SHARE / SHARE_DEN` of a fee, paying fees to resume claiming costs `SHARE_DEN / POW_SHARE` times what the pool lacks: a pool just short of the reward can make one claim cheap, and each further reward costs `SHARE_DEN / POW_SHARE` times its value in fees, less what the payer earns back through block rewards.
 
 ## Acceptance Window
 

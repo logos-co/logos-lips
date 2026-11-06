@@ -9,6 +9,7 @@
 | v1 | Initial RFC | 2026-11-04 |
 | v2 | Binds the `note_pk`, which now holds the stake, in place of the `zk_id`; corrects the cost per input | 2026-11-05 |
 | v3 | The `note_pk` secret alone withdraws, so a sale of the stake needs trust; every declaration with a spend is bound; wallets recover their declarations | 2026-11-05 |
+| v4 | Follows the nullifier and staking keys of the stack; one derivation function for the keys of claims and of the `note_pk`; the binding drops the active flag | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -18,7 +19,7 @@ Read the PR's Motivation first.
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here** — [Mantle](#affected-specifications), [the binding constraint of the ZkStake](#2-the-zkstake-proves-the-binding) | the `note_pk` and every input with a non-zero `data` derive from one stake secret; inputs with `data` `0` stay free |
 | 2 | Critical | **Start here** — [Mantle](#affected-specifications), [Service Declaration Protocol](#affected-specifications), [withdrawal by the `note_pk` secret](#5-withdrawal-by-the-note_pk-secret-alone) | `SDP_WITHDRAW` no longer takes the `provider_id` signature |
-| 3 | High | [Mantle](#affected-specifications), [the derivation functions](#1-keys-derived-from-a-stake-secret) | domain separation between claim keys and service note keys; compression mode |
+| 3 | High | [Mantle](#affected-specifications), [the derivation function](#1-keys-derived-from-a-stake-secret) | one function for the keys of claims and of the `note_pk`; compression mode |
 | 4 | High | [Service Declaration Protocol](#affected-specifications), [the `note_pk`](#3-the-note_pk-of-a-declaration) | the `note_pk` is now proven by every spend |
 | 5 | Medium | [Wallet Technical Standard](#affected-specifications), [wallets that mine or declare](#4-wallets-that-mine-or-declare) | the stake secret; recovery of claims and declarations |
 | 6 | Low | [Mantle Transaction Encoding](#affected-specifications), [Gas Cost Determination](#affected-specifications) | the withdrawal proof and its Execution Gas lose the signature |
@@ -28,11 +29,11 @@ Read the PR's Motivation first.
 
 ## What the binding prevents
 
-Without it, `SDP_DECLARE` creates the service note under any `note_pk` it names. The holder of the secret of the `note_pk` leads with the service note and withdraws it once the lock ends. A seller can stake its vested notes under a buyer's `note_pk`, in one transaction with a Transfer paying the seller, and the buyer then holds the locked stake.
+Without it, `SDP_DECLARE` creates the service note under any `note_pk` it names. The holder of the spending secret key of the `note_pk` can lead with the service note and withdraws it once the lock ends. A seller can stake its vested notes under a buyer's `note_pk`, in one transaction with a Transfer paying the seller, and the buyer then holds the locked stake.
 
-With the binding, the `note_pk` derives from the stake secret of the vested notes, so only the miner can declare them, and the miner can always derive the secret key of the `note_pk` again. That key alone withdraws the declaration. A seller can still hand it to a buyer off chain, but it can also withdraw the stake itself once it unlocks, so the buyer has to trust the seller. No protocol can prevent such a sale.
+With the binding, the `note_pk` derives from the stake secret of the vested notes, so only the miner can declare them, and the miner can always derive the spending secret key of the `note_pk` again. That key alone withdraws the declaration. A seller can still hand it to a buyer off chain, but it can also withdraw the stake itself once it unlocks, so the buyer has to trust the seller. No protocol can prevent such a sale.
 
-Withdrawing used to take a `provider_id` signature as well. A seller could then name the buyer's `provider_id`, hand over the key, and be shut out of the withdrawal, so the sale needed no trust. Without the signature, a leaked `note_pk` secret is enough to withdraw. The host of a node, which holds the `provider_id` and the `zk_id`, still cannot.
+Withdrawing used to take a `provider_id` signature as well. A seller could then name the buyer's `provider_id`, hand over the key, and be shut out of the withdrawal, so the sale needed no trust. Without the signature, a leaked spending secret key of the `note_pk` is enough to withdraw. The host of a node, which holds the `provider_id`, the key of the `zk_id` and at most the nullifier key of the service note, still cannot.
 
 The binding covers notes already claimed. A buyer can still hand a miner public keys derived from its own stake secret. The puzzle binds the key of a claim, so the miner's claims then vest under the buyer's keys, and no rule tells this apart from the buyer mining.
 
@@ -42,11 +43,11 @@ The `zk_id` receives the service rewards of the declaration and is the key of it
 
 ## Why one stake secret
 
-Requiring the key of every vested input to equal the `note_pk` would make each claim name the public key of the service note. That links every claim of a provider to the others and to its declaration in public. A key derived from the stake secret reveals nothing about the secret or about the other keys, so claims stay unlinkable and nothing new becomes public.
+Requiring the key of every vested input to equal the `note_pk` would make each claim name the public key of the service note. That links every claim of a provider to the others and to its declaration in public. One secret key for all of them, with a second public key derivation for the declaration, is not available: the ZkTransfer that withdraws the service note derives its public key like that of any note. A key derived from the stake secret reveals nothing about the secret or about the other keys, so claims stay unlinkable and nothing new becomes public.
 
 ## Cost
 
-Measured by compiling the check with the Poseidon2 of the circuits repository (branch `tl/private_utxo`): 4,864 non-linear constraints for 16 inputs. Each input costs 244: one compression of 240 and 4 for the selection. Four compressions, 960 constraints, are paid once: three derive the `note_pk`, and one is the first step of every claim key. That is 2.4% of the about 203,000 non-linear constraints of the ZkStake. A derivation step in the hash mode of Poseidon2, a hash of two elements, would cost 720 constraints instead of 240. The compression mode already derives every public key from its secret key.
+Measured by compiling the check with the Poseidon2 of the circuits repository (branch `tl/private_utxo`): 4,848 non-linear constraints for 16 inputs. Each input costs 243: one compression of 240 and 3 for the selection. Four compressions, 960 constraints, are paid once: the first step of every key, the step of the index of the `note_pk`, and its nullifier key and public key. That is 2.3% of the about 211,000 non-linear constraints of the ZkStake. A derivation step in the hash mode of Poseidon2, a hash of two elements, would cost 720 constraints instead of 240. The compression mode already derives every public key from its secret key.
 
 The ZkStake gains one public input, which adds a term to the fixed part of its batch and leaves the cost per proof unchanged.
 
@@ -67,48 +68,46 @@ The chain has not launched, so no migration is needed. The ZkStake gets a new pu
 
 ## 1. Keys derived from a stake secret
 
-Mantle's Vested Notes section defines the two derivations, in Poseidon2 compression mode:
+Mantle's Vested Notes section defines the derivation, in Poseidon2 compression mode:
 
 ```python
-def claim_secret_key(stake_secret: ZkSecretKey, index: int) -> ZkSecretKey:
-    return zkhash(zkhash(FiniteField(b"CLAIM_SECRET_KEY_V1", byte_order="little", modulus= p), stake_secret),
-                  FiniteField(index, byte_order="little", modulus= p))
-
-def service_note_secret_key(stake_secret: ZkSecretKey, index: int) -> ZkSecretKey:
-    return zkhash(zkhash(FiniteField(b"SERVICE_NOTE_SECRET_KEY_V1", byte_order="little", modulus= p), stake_secret),
+def derive_spending_sk(stake_secret: ZkSecretKey, index: int) -> ZkSecretKey:
+    return zkhash(zkhash(FiniteField(b"STAKE_SPENDING_SK_V1", byte_order="little", modulus= p), stake_secret),
                   FiniteField(index, byte_order="little", modulus= p))
 ```
 
-A miner pays each claim to the public key of `claim_secret_key(stake_secret, i)`, with a fresh `i` per claim, and declares with the public key of `service_note_secret_key(stake_secret, j)` as its `note_pk`.
+A miner pays each claim to the public key of `derive_spending_sk(stake_secret, i)`, with a fresh `i` per claim, and declares with the public key of `derive_spending_sk(stake_secret, j)`, with another fresh index, as its `note_pk`.
 
 ## 2. The ZkStake proves the binding
 
 ```diff
  class ZkStakePublic:
      # ... inputs, flags, excess_value, tx_commitment_root unchanged
-     vested_by: Slot
+     spending_slot: Slot
 +    note_pk: ZkPublicKey            # the key of the service note of the declaration
      msg: zkhash
 
  class ZkStakeWitness:
-     # ... inputs_sk, inputs_nonce, inputs_value, inputs_data and the paths unchanged
+     # ... inputs_spending_sk, inputs_stake_pk, inputs_nonce, inputs_value, inputs_data and the paths unchanged
 +    stake_secret: ZkSecretKey
 +    note_index: int
 +    inputs_index: list[int]         # (len = 16)
 ```
 
 ```python
-assert note_pk == zkhash(FiniteField(b"KDF", byte_order="little", modulus= p),
-                         service_note_secret_key(stake_secret, note_index))
+note_nf_sk = zkhash(FiniteField(b"NF_KDF", byte_order="little", modulus= p),
+                    derive_spending_sk(stake_secret, note_index))
+assert note_pk == zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), note_nf_sk)
 assert all(
-    inputs_sk[i] == claim_secret_key(stake_secret, inputs_index[i])
-    or not inputs_active[i]
+    inputs_spending_sk[i] == derive_spending_sk(stake_secret, inputs_index[i])
     or inputs_data[i] == 0
-    for i in range(len(inputs_sk))
+    for i in range(len(inputs_spending_sk))
 )
 ```
 
-`SDP_DECLARE` passes `declaration.note_pk` to `verify_stake`, and `note_pk` follows `vested_by` in the public signal vector.
+`SDP_DECLARE` passes `declaration.note_pk` to `verify_stake`, and `note_pk` follows `spending_slot` in the public signal vector.
+
+The binding reads no input flag: the prover sets the `data` of an inactive input to `0`, which exempts it.
 
 ## 3. The `note_pk` of a declaration
 
@@ -116,11 +115,11 @@ A valid declaration has a `note_pk` derived from a stake secret of the sender, f
 
 ## 4. Wallets that mine or declare
 
-A wallet that mines or declares keeps a stake secret, the `k_logos` of a hardened child key it reserves for staking. It derives its claim keys and the `note_pk` of its declarations from it, taking the indices of each function in order. It recovers its claims and its declarations from the seed by their derived public keys, until 1,000 consecutive indices of a function match nothing.
+A wallet that mines or declares keeps a stake secret, the `k_logos` of a hardened child key it reserves for staking. It derives the keys of its claims and of the `note_pk` of its declarations from it, taking the indices in order. It recovers its claims and its declarations from the seed by their derived public keys, until 1,000 consecutive indices match nothing.
 
 ## 5. Withdrawal by the `note_pk` secret alone
 
-`SDP_WITHDRAW` drops the `provider_id` signature. The ZkTransfer consuming the service note, by the holder of the `note_pk` secret, authorizes the withdrawal.
+`SDP_WITHDRAW` drops the `provider_id` signature. The ZkTransfer consuming the service note, by the holder of the spending secret key of the `note_pk`, authorizes the withdrawal.
 
 ```diff
  class WithdrawProof:
@@ -145,7 +144,7 @@ A wallet that mines or declares keeps a stake secret, the `k_logos` of a hardene
 - [ ] Drop the `provider_id` signature from `SDP_WITHDRAW`, from the encoding of its proof and from its Execution Gas.
 - [ ] Derive claim keys and the `note_pk` of declarations from a stake secret in wallets that mine or declare, and recover claims and declarations by their derived public keys.
 - [ ] Measure the fixed part of the ZkStake batch with its new public input.
-- [ ] Add tests: a declaration staking vested notes under a `note_pk` of their stake secret is accepted; one under another `note_pk`, or with a vested input under an underived key, is rejected; a liquid input under any key is accepted; a withdrawal proven by the `note_pk` secret alone is accepted.
+- [ ] Add tests: a declaration staking vested notes under a `note_pk` of their stake secret is accepted; one under another `note_pk`, or with a vested input under an underived key, is rejected; a liquid input under any key is accepted; a withdrawal proven by the spending secret key of the `note_pk` alone is accepted.
 - [ ] Verify the implementation matches this specification.
 
 # Affected Specifications

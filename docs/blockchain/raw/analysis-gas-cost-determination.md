@@ -36,9 +36,9 @@
 | 1.7.1 | [RFC] The SDP costs price the per-service identifier checks and no lock-period check | 2026-10-05 |
 | 1.8.0 | Follow the private ledger of Mantle: the notes are proven with a ZkTransfer and spent by nullifier, channel inscriptions carry the ZkTransfer of their steps, channel withdrawals and SDP withdrawals carry a ZkTransfer, the proof of work claim carries no proof, and the `CHANNEL_TRANSFER` and `LEADER_CLAIM` Operations are removed. The ZkTransfer is priced from the measured batch verification of Groth16 proofs, a fixed part per block and 619 Execution Gas per proof | 2026-10-07 |
 | 1.9.0 | Add the Execution Gas of program steps and of the `PROGRAM_REGISTER` Operation, priced from the measured batch verification of the ZkProgramSpend, the verification of a program proof alone with the line coefficients of its key, and the subgroup checks and the pairing `e(α, β)` of a verification key | 2026-10-12 |
-| 2.0.0 | Execution Gas measured in core cycles on the node, end to end, over note sets of a million notes, every step of the validation and execution priced. The Execution Gas of a Mantle Transaction sums a term per byte of the signed transaction, a term per note set it changes, and the Execution Gas of its Operations, each built from per-component constants: proofs, root extensions, nullifiers, commitments, signatures, steps, payments, openings and program proofs. The fixed costs of a block are deducted from its Execution Gas limit | 2026-10-27 |
-| 2.1.0 | [RFC] `SDP_DECLARE` pays one ZkStake proof and its nullifiers per spend, and the commitment of its service note; the ZkStake batch, the 28th ZkTransfer input and a two-note claim are to be measured | 2026-11-05 |
-| 2.2.0 | [RFC] `SDP_WITHDRAW` pays no signature, and the ZkStake has 37 public inputs | 2026-11-05 |
+| 2.0.0 | Execution Gas measured in core cycles on the node, end to end, over note sets of a million notes, every step of the validation and execution priced. The Execution Gas of a Mantle Transaction sums a term per byte of the signed transaction, a term per note set it changes, and the Execution Gas of its Operations, each built from per-component constants: proofs, root extensions, nullifiers, commitments, signatures, steps, payments, openings and program proofs. The fixed costs of a block are deducted from its Execution Gas limit. The inscriptions of steps and payments pay as transaction bytes | 2026-11-06 |
+| 2.1.0 | [RFC] `SDP_DECLARE` pays one ZkStake proof and its nullifiers per spend, and the commitment of its service note; the ZkStake batch, the 28th ZkTransfer input and a two-note claim are to be measured | 2026-11-06 |
+| 2.2.0 | [RFC] `SDP_WITHDRAW` pays no signature, and the ZkStake has 37 public inputs | 2026-11-06 |
 
 # Introduction
 
@@ -179,7 +179,7 @@ The fixed costs of a block, paid once whatever its transactions, are deducted fr
 
 ## Transaction bytes
 
-Decoding a transaction, hashing it into its `mantle_txhash` and deriving the identifier of each of its Operations each read every byte of it. Measured on inscriptions whose payload goes from 0 to 16,384 bytes, a transaction costs 26.8 cycles per byte beyond its fixed parts. Alone, decoding costs 2.4 cycles per byte and each Blake2b pass 3.5.
+Decoding a transaction, hashing it into its `mantle_txhash` and deriving the identifier of each of its Operations each read every byte of it. Measured on inscriptions whose payload goes from 0 to 16,384 bytes, a transaction costs 26.8 cycles per byte beyond its fixed parts. Alone, decoding costs 2.4 cycles per byte and each Blake2b pass 3.5. The inscription of a user step or of a payment pays like any other byte of the transaction, and is read by one more Blake2b pass, into the message of its step or payment. That pass is not priced yet: the measure on inscriptions without steps does not include it, and its per-byte cost joins the byte term when the transaction bytes are measured again.
 
 ## Proofs
 
@@ -295,9 +295,9 @@ The release runs before the transactions of the block at the slot of the withdra
 | --- | --- |
 | Declaration with 1 input, among 1,024 declarations of the service | 847,129 |
 | of which the signature | 149,245 |
-| decompression and batch verification of each ZkStake, the `P` of [Proofs](#proofs) | 1,768,883 |
+| decompression and batch verification of each ZkStake, the `P` of [Proofs](#proofs) | TBD |
 
-The validation checks the format of the declaration, the length of its locators, the amount, and that its `declaration_id` and `provider_id` are not declared in the service, through keys of the declarations of each service: 796,866 cycles among no declaration, 847,129 among 1,024. The execution inserts the nullifiers, creates the declaration and appends the service note to the SDP note set.
+The validation checks the format of the declaration, the length of its locators, the stake, and that its `declaration_id` and `provider_id` are not declared in the service, through keys of the declarations of each service: 796,866 cycles among no declaration, 847,129 among 1,024. The execution inserts the nullifiers, creates the declaration and appends the service note to the SDP note set.
 
 ## SDP Withdraw
 
