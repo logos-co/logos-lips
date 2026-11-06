@@ -47,7 +47,7 @@ A transaction changing a set pays its full end of block work, the largest measur
 
 ## Bytes
 
-A transaction costs 26.8 cycles per byte for its decoding, its hash and the identifiers of its Operations. The term is integer: `len * 27 // 1000`. The inscriptions of user steps and payments pay through this term and the Permanent Storage Gas like any other byte, and are read by one more Blake2b pass, into the message of their step or payment, which the measure on inscriptions without steps does not include.
+A transaction costs 26.8 cycles per byte for its decoding, its hash and the identifiers of its Operations. The term is integer: `len * 27 // 1000`. The inscriptions of user steps and payments pay through this term and the Permanent Storage Gas like any other byte, and are read by one more Blake2b pass, into the message of their step or payment. That pass is not priced yet: the measure on inscriptions without steps does not include it, and its per-byte cost joins the byte term at the next measurement.
 
 ## Rejected alternatives
 

@@ -178,7 +178,7 @@ The fixed costs of a block, paid once whatever its transactions, are deducted fr
 
 ## Transaction bytes
 
-Decoding a transaction, hashing it into its `mantle_txhash` and deriving the identifier of each of its Operations each read every byte of it. Measured on inscriptions whose payload goes from 0 to 16,384 bytes, a transaction costs 26.8 cycles per byte beyond its fixed parts. Alone, decoding costs 2.4 cycles per byte and each Blake2b pass 3.5. The inscription of a user step or of a payment pays like any other byte of the transaction, and is read by one more Blake2b pass, into the message of its step or payment, which the measure on inscriptions without steps does not include.
+Decoding a transaction, hashing it into its `mantle_txhash` and deriving the identifier of each of its Operations each read every byte of it. Measured on inscriptions whose payload goes from 0 to 16,384 bytes, a transaction costs 26.8 cycles per byte beyond its fixed parts. Alone, decoding costs 2.4 cycles per byte and each Blake2b pass 3.5. The inscription of a user step or of a payment pays like any other byte of the transaction, and is read by one more Blake2b pass, into the message of its step or payment. That pass is not priced yet: the measure on inscriptions without steps does not include it, and its per-byte cost joins the byte term when the transaction bytes are measured again.
 
 ## Proofs
 
