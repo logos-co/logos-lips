@@ -30,7 +30,7 @@
 | 1.2.0 | Added the note tracking a wallet keeps to spend its notes and to participate in the leadership lottery, over the note sets of depth 40, the root a wallet proves against, a fixed number of blocks below its tip, and the leader reward notes, which it keeps with their private nonce, recovery from the seed alone not finding them | 2026-10-07 |
 | 1.2.1 | The public key derives from a nullifier key derived from the spending secret key, and a note has a staking key, the wallet using the nullifier key as staking secret key and the public key of the recipient of a payment by default, and keeping the keys of a service declaration cold | 2026-11-06 |
 | 1.3.0 | Added the note encryption key derived next to the ZK key, the address a sender needs, and the discovery of notes by trial decryption of the note ciphertexts delivered off chain, with what the recovery from the seed covers. A delivered note has the public key of its recipient as staking key unless the recipient asked for another, and a sender keeps the notes it creates | 2026-11-02 |
-| 1.4.0 | [RFC] A wallet keeps the `data` of its notes and sends its claims through other peers | 2026-11-05 |
+| 1.4.0 | [RFC] A wallet keeps the `data` of its notes, sends its claims through other peers, and has rules for the balance, the root and the lock of a vested note | 2026-11-06 |
 
 # Introduction
 
@@ -269,6 +269,8 @@ The leader of a block chooses the public key and the nonce of its reward note ([
 The wallet keeps the note it created, with its nonce, and tracks it in the ledger note set, as it keeps any note. The header holds only the value and the commitment of the note, so recovery from the seed alone does not find a reward note: it depends on the wallet's backup of its notes. A reward note of value `0` can pay nothing, so a wallet has no need to keep it.
 
 ### Vested Notes
+
+A wallet shows the value of a [vested note](bedrock-v1.1-mantle-specification.md#vested-notes) apart from its spendable balance until the slot in the note's `data`. It spends the note in a Transfer only against a root recorded at or after that slot. For a declaration it should set `locked_until` to the largest `data` among the notes it stakes, the earliest value a ZkStake accepts.
 
 A wallet should submit the proof of work claims of a service provider through peers other than the node named in the provider's locators.
 

@@ -31,7 +31,7 @@
 | 1.3.0 | The priority fees of a block are paid to its builder in the block, within its leader reward. $`G_\text{max}`$ and $`G_\text{target}`$ follow the Execution Gas limit derived from the measured batch verification of the ZkTransfer. The lifecycle figure follows | 2026-10-07 |
 | 1.3.1 | $`G_\text{max}`$ and $`G_\text{target}`$ follow the Execution Gas limit, which also deducts the fixed part of the ZkProgramSpend batch verification | 2026-10-14 |
 | 1.3.2 | $`G_\text{max}`$, $`G_\text{target}`$ and the base fee constants follow the Execution Gas limit, which deducts every fixed cost of a block | 2026-10-27 |
-| 1.3.3 | [RFC] $`G_\text{max}`$ and $`G_\text{target}`$ follow the Execution Gas limit, which also deducts the fixed part of the ZkStake batch verification | 2026-11-05 |
+| 1.3.3 | [RFC] $`G_\text{max}`$, $`G_\text{target}`$ and the base fee constants follow the Execution Gas limit, which also deducts the fixed part of the ZkStake batch verification | 2026-11-06 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -198,8 +198,8 @@ And so we propose the following code reference:
 ```python
 EMA_DENOMINATOR = 10  # from q = 9/10
 EMA_PREV_WEIGHT = 9  # from q = 9/10
-BASE_FEE_NUMERATOR = 11_107_915  # = 7 * G_target
-BASE_FEE_DENOMINATOR = 12_694_760  # = 8 * G_target
+BASE_FEE_NUMERATOR = 7 * G_target
+BASE_FEE_DENOMINATOR = 8 * G_target
 
 def ceil_div(numerator: int, denominator: int) -> int:
     return (numerator + denominator - 1) // denominator

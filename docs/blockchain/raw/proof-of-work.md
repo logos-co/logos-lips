@@ -54,7 +54,7 @@ graph LR
 
 The tokens come from the pow reward pool, set aside at genesis and refilled by every block from a share of the transaction fees. Nothing is minted for it, so mining does not inflate the supply. For the first two years every claim pays one fixed reward, large enough to build a stake. After that every claim pays a smaller fixed reward, enough to pay for a transaction. Claims are paid for as long as the pool can pay them.
 
-A share of each reward vests for a fixed period, and that share is larger in the first two years. Until then it cannot be transferred, but it takes part in the leadership lottery and can be staked to declare a service.
+A share of each reward vests for a fixed period, and that share is larger in the first two years. Until then it cannot be spent in a Transfer, but it takes part in the leadership lottery and can be staked to declare a service.
 
 Each use has its own threshold, and a threshold sets how much work a solution costs. Every node computes both from what blocks carry, so no node trusts another for them.
 
@@ -168,8 +168,6 @@ The parameters must give an `epoch_pow_reward` whose liquid part, the reward min
 `POW_REWARD` is sized so that its liquid part pays for one transaction holding a claim, that `TRANSFER` and an inscription of 100 bytes. That transaction is 632 bytes. At 1.62 times the starting storage price, the rise a steady load causes, its fee is about 0.82 LOGOS, and $`0.82 / 0.7`$ rounds up to 1.2 LOGOS.
 
 During the bootstrapping period a miner needs `ceil(threshold / POW_BOOTSTRAP_REWARD)` claims to earn the [minimum stake](bedrock-service-declaration-protocol.md#minimum-stake), and holds one vested note per claim. The parameters must let one [SDP_DECLARE](bedrock-v1.1-mantle-specification.md#sdp_declare) stake that many notes within the Execution Gas limit of a block, or a miner cannot stake before its notes vest.
-
-`POW_BOOTSTRAP_VESTED_SHARE` and `POW_VESTED_SHARE` must each be at most `SHARE_DEN`, or the liquid part is negative and no claim is valid.
 
 An epoch of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) is $`10\lfloor k/f \rfloor`$ = 648,000 slots, 7.5 days of one-second slots. `VESTING_EPOCHS` is the number of such epochs that first reaches a year, $`\lceil 365 / 7.5 \rceil = 49`$, so a vested note vests 360 to 367.5 days after the block its claim references. `POW_BOOTSTRAP_EPOCHS` is the number of such epochs that first reaches two years, $`\lceil 730 / 7.5 \rceil = 98`$.
 

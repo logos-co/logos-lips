@@ -15,6 +15,7 @@
 | v7 | Every figure assumes a fixed claim reward of 334 LOGOS. Proof of Work requires the vested notes of a minimum stake to fit one declaration | 2026-11-06 |
 | v8 | `locked_until` is a slot, used directly as `spending_slot` and compared with the slot of a withdrawal, so an era changing the epoch length moves no lock. The declaration test vectors of Mantle and Cryptarchia hold the new encoding | 2026-11-06 |
 | v9 | States what a missed report costs under the lock, with `inactivity_period` staying 2 | 2026-11-06 |
+| v10 | Wallet rules for the balance, the root and the lock of a vested note, and the corrections listed in Chores | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -88,7 +89,7 @@ Three other ways to stake many notes were dropped:
 Claims stay public. The ledger creates both notes, and their value, key, vesting end and commitment are known to everyone. A spend reveals nullifiers, never commitments, so it does not show which note it consumes.
 
 - **A spend after vesting** adds nothing, since `spending_slot` is the slot of a public root. Its timing points at most at the epoch whose claims just vested, about 6,100 claims if the pool pays out evenly over its two years, and fewer in the first epochs.
-- **A declaration** reveals its number of notes, the value of each spend and its lock slot. The claim reward is fixed, so the value of a spend of vested notes only repeats their count. [Reward Pool](../proof-of-work.md#reward-pool) still recomputes the reward at every epoch boundary. While it does, the value reveals how many of the notes were claimed in each epoch, wherever that sum has one decomposition into the public claim values. If the declarer picks the earliest valid lock slot, that slot gives away the epoch its latest claim referenced, which holds about 6,100 such claims. Each other staked note hides among all vested notes claimed by then and not yet spent.
+- **A declaration** reveals its number of notes, the value of each spend and its lock slot. At a fixed claim reward, the value of a spend of vested notes only repeats their count. While [Reward Pool](../proof-of-work.md#reward-pool) recomputes the reward at every epoch boundary, as it does on this branch, the value also reveals how many of the notes were claimed in each epoch, wherever that sum has one decomposition into the public claim values. If the declarer picks the earliest valid lock slot, that slot gives away the epoch its latest claim referenced, which holds about 6,100 such claims. Each other staked note hides among all vested notes claimed by then and not yet spent.
 - **The Proof of Leadership and the Proof of Quota** reveal nothing new.
 - **The strongest link is off chain:** a provider sending its claims from the node named in its locators. Wallets send them through other peers.
 
@@ -173,7 +174,7 @@ liquid_value = checked_uint64(epoch_pow_reward - vested_value)
 #   the first slot of the epoch VESTING_EPOCHS after that of the referenced block
 ```
 
-Proof of Work adds `POW_VESTED_SHARE = 50`, over the existing `SHARE_DEN = 100`, and `VESTING_EPOCHS = 49`. The liquid part, not the whole reward, must exceed the fee of a claim transaction, and `POW_VESTED_SHARE` must be at most `SHARE_DEN`.
+Proof of Work adds `POW_VESTED_SHARE = 50`, over the existing `SHARE_DEN = 100`, and `VESTING_EPOCHS = 49`. The liquid part, not the whole reward, must exceed the fee of a claim transaction.
 
 ## 3. Declarations stake through ZkStake, locked until a slot
 
@@ -194,7 +195,7 @@ Proof of Work adds `POW_VESTED_SHARE = 50`, over the existing `SHARE_DEN = 100`,
 
 ## 4. The ZkStake circuit
 
-The ZkStake takes 16 inputs and no output. Its public values are the nullifiers and their flags, `excess_value`, the sum of the input values, `tx_commitment_root`, `spending_slot` and `msg`. Its inputs satisfy the input constraints of the ZkTransfer. `verify_stake` verifies it against the referenced root extended with the buffer, and the ZkStake proofs of a block are batch-verified in a batch of their own.
+The ZkStake takes 16 inputs and no output. Its public values are the nullifiers and their flags, `value`, the sum of the input values, `tx_commitment_root`, `spending_slot` and `msg`. Its inputs satisfy the input constraints of the ZkTransfer. `verify_stake` verifies it against the referenced root extended with the buffer, and the ZkStake proofs of a block are batch-verified in a batch of their own.
 
 ## 5. Vested notes lead
 
@@ -220,7 +221,7 @@ A Genesis declaration carries one spend with no inputs, whose value is its stake
 
 ## 8. Wallets
 
-A wallet keeps the `data` of each note it tracks. It should submit the claims of a service provider through peers other than the node named in the provider's locators.
+A wallet keeps the `data` of each note it tracks. It shows a vested note apart from its spendable balance until that slot, and spends it in a Transfer only against a root recorded at or after it. For a declaration it should set `locked_until` to the largest `data` among the notes it stakes. It should submit the claims of a service provider through peers other than the node named in the provider's locators.
 
 ## Chores
 
@@ -228,6 +229,12 @@ A wallet keeps the `data` of each note it tracks. It should submit the claims of
 - Mantle's Note Delivery notes that the `data` of a vested note is public.
 - Block Construction verifies the ZkProgramSpend proofs in a batch of their own, no longer a "second" batch.
 - The `SDP_DECLARE` test vector of Mantle carries two spends, and the test vectors of Cryptarchia, which hash the Mantle test transactions, follow it.
+- Mantle says the `inputs_data` of an inactive input is not arbitrary, that a ZkProgramSpend has no vesting check, and that only the ledger note set reads `RecentRoot.slot`.
+- The Service Declaration Protocol says a declaration that has left every core list cannot return.
+- The Overview of Proof of Work says a vested note cannot be spent in a Transfer, and the constraint on `POW_VESTED_SHARE` goes, since the constraint on the liquid part implies it.
+- Gas Cost Determination names the ZkStake in the row of `EXECUTION_PROOF_GAS`.
+- Execution Market states the base fee constants from `G_target`, which is TBD, instead of as numbers.
+- The sentence of the Genesis Block on its declarations is split.
 
 # Implementation
 
