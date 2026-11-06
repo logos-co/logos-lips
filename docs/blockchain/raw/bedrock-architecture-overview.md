@@ -89,7 +89,7 @@ sequenceDiagram
     SZ-->>SZ: Order, Execute and Bundle Tx's into an Inscription
     SZ ->> Mempool: Inscription Mantle Transaction
     Mempool ->> Cryptarchia: Leader includes transaction in next block
-    Cryptarchia -->> Cryptarchia: Block finalizes once it lies 64800 slots behind the tip
+    Cryptarchia -->> Cryptarchia: Block finalizes once 64800 slots and 1019 occupied slots follow it
     Cryptarchia ->> C: Client observes the SR Inscription finalized (finality)
 ```
 
