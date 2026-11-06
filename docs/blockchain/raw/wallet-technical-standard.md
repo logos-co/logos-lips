@@ -31,6 +31,7 @@
 | 1.2.1 | The public key derives from a nullifier key derived from the spending secret key, and a note has a staking key, the wallet using the nullifier key as staking secret key and the public key of the recipient of a payment by default, and keeping the keys of a service declaration cold | 2026-11-06 |
 | 1.3.0 | Added the note encryption key derived next to the ZK key, the address a sender needs, and the discovery of notes by trial decryption of the note ciphertexts delivered off chain, with what the recovery from the seed covers. A delivered note has the public key of its recipient as staking key unless the recipient asked for another, and a sender keeps the notes it creates | 2026-11-02 |
 | 1.4.0 | [RFC] A wallet keeps the `data` of its notes and sends its claims through other peers | 2026-11-05 |
+| 1.5.0 | [RFC] A wallet that mines or declares derives the keys of its claims and the `note_pk` of its declarations from a stake secret | 2026-11-06 |
 
 # Introduction
 
@@ -271,6 +272,8 @@ The wallet keeps the note it created, with its nonce, and tracks it in the ledge
 ### Vested Notes
 
 A wallet should submit the proof of work claims of a service provider through peers other than the node named in the provider's locators.
+
+A wallet that mines or declares keeps a stake secret, the $`k_{\text{logos}}`$ of a hardened child key it reserves for staking ([ZK-Compatible Secret Key Derivation](#zk-compatible-secret-key-derivation-in-the-logos-blockchain)). It derives the spending secret key of each claim and of the `note_pk` of each declaration from it, with the function of [Mantle - Vested Notes](bedrock-v1.1-mantle-specification.md#vested-notes), taking its indices in order from 0. Recovering from the seed, it re-derives the stake secret and finds its claims and its declarations by the public key of `derive_spending_sk(stake_secret, i)`, for increasing `i`, until 1,000 consecutive indices match nothing.
 
 # References
 

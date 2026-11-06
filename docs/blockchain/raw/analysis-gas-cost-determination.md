@@ -38,6 +38,7 @@
 | 1.9.0 | Add the Execution Gas of program steps and of the `PROGRAM_REGISTER` Operation, priced from the measured batch verification of the ZkProgramSpend, the verification of a program proof alone with the line coefficients of its key, and the subgroup checks and the pairing `e(α, β)` of a verification key | 2026-10-12 |
 | 2.0.0 | Execution Gas measured in core cycles on the node, end to end, over note sets of a million notes, every step of the validation and execution priced. The Execution Gas of a Mantle Transaction sums a term per byte of the signed transaction, a term per note set it changes, and the Execution Gas of its Operations, each built from per-component constants: proofs, root extensions, nullifiers, commitments, signatures, steps, payments, openings and program proofs. The fixed costs of a block are deducted from its Execution Gas limit. The inscriptions of steps and payments pay as transaction bytes | 2026-11-06 |
 | 2.1.0 | [RFC] `SDP_DECLARE` pays one ZkStake proof and its nullifiers per spend, and the commitment of its service note; the ZkStake batch, the 28th ZkTransfer input and a two-note claim are to be measured | 2026-11-06 |
+| 2.2.0 | [RFC] `SDP_WITHDRAW` pays no signature, and the ZkStake has 37 public inputs | 2026-11-06 |
 
 # Introduction
 
@@ -131,8 +132,7 @@ CHANNEL_DEPOSIT   = EXECUTION_CHANNEL_DEPOSIT_GAS + spend_gas(inputs, outputs)
 CHANNEL_WITHDRAW  = EXECUTION_CHANNEL_WITHDRAW_GAS + spend_gas(inputs, outputs)
 SDP_DECLARE       = EXECUTION_SDP_DECLARE_GAS + EXECUTION_SIGNATURE_GAS + EXECUTION_COMMITMENT_GAS
                     + sum(spend_gas(spend.inputs, []) for spend in spends)
-SDP_WITHDRAW      = EXECUTION_SDP_WITHDRAW_GAS + EXECUTION_SIGNATURE_GAS
-                    + spend_gas([service_note], outputs)
+SDP_WITHDRAW      = EXECUTION_SDP_WITHDRAW_GAS + spend_gas([service_note], outputs)
 SDP_ACTIVE        = EXECUTION_SDP_ACTIVE_GAS + EXECUTION_SIGNATURE_GAS
 CLAIM_POW_REWARD  = EXECUTION_CLAIM_POW_REWARD_GAS
 PROGRAM_REGISTER  = EXECUTION_PROGRAM_REGISTER_GAS
@@ -188,7 +188,7 @@ The ZkTransfer proofs of a block are verified in one batch, and so are its ZkSta
 | Proof | Public inputs | `A(N)` | `P` |
 | --- | --- | --- | --- |
 | ZkTransfer | 28 | TBD | 1,768,883 |
-| ZkStake | 36 | TBD | TBD |
+| ZkStake | 37 | TBD | TBD |
 | ZkProgramSpend | 37 | 8,241,358 | 1,769,145 |
 
 `P` includes the decompression and the validation of the points of the proof, 521,026 cycles of it: 22,360 for each G1 point and 476,306 for the G2 point, whose subgroup check takes 494,775. The batch draws its random coefficients `r_i` on 128 bits, which bound the probability that an invalid proof passes to `2^-128` and halve the multiplication of `π_A` by `r_i` against coefficients of the full field. The fixed parts are deducted from the limit of the block, and each proof pays `EXECUTION_PROOF_GAS = 1770`.
@@ -347,7 +347,7 @@ The execution derives the program identifier and stores the key with `e(α, β)`
 | Leader note and end of block of the ledger set | 2,040,800 |
 | First nullifier of the ledger set | 1,560,551 |
 | Fixed part of the ZkTransfer batch, `A(28)` | TBD |
-| Fixed part of the ZkStake batch, `A(36)` | TBD |
+| Fixed part of the ZkStake batch, `A(37)` | TBD |
 | Fixed part of the ZkProgramSpend batch, `A(37)` | 8,241,358 |
 | Total | TBD |
 
