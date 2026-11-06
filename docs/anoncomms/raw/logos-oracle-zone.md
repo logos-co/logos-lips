@@ -383,6 +383,8 @@ tagged_hash(tag, x) = SHA-256(SHA-256(tag) || SHA-256(tag) || x)
 ```
 
 The tagged hash is the construction defined in BIP-340.
+The tag hash appears twice on purpose, as in BIP-340: the 64-byte prefix fills one SHA-256 block,
+so its state can be precomputed per tag.
 It separates observation signatures from any other message the same LEZ-Private key signs,
 such as LEZ TXs, so a signature from one context can never be valid in another.
 The observation identifier used in [Raising a dispute](#raising-a-dispute) is
