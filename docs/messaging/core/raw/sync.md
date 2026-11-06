@@ -63,6 +63,7 @@ The `RangesData` structure represents a complete `reconciliation` payload:
 The `cluster` and `shards` fields
 represent the sharding elements as defined in [RELAY-SHARDING](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/core/raw/relay-sharding.md#static-sharding).
 The `ranges` field contain a sequence of ranges for reconciliation.
+A `RangesData` whose `ranges` field is empty is an *empty payload*.
 
 We identify the following subtypes:
 
@@ -138,6 +139,9 @@ Concatenate each of the following, in order:
 3. For each shard, encode the shard as a varint and concatenate it to the previous
 4. Encode the `ranges`, according to ["Delta encoding for Ranges"](#delta-encoding-for-ranges).
 
+For an empty payload, step 4 encodes nothing.
+A payload MUST always carry the header; a zero-length message is malformed.
+
 ##### Varint encoding
 
 All variable integers (varints) MUST be encoded as little-endian base 128 variable-length integers (LEB128) and MUST be minimally encoded.
@@ -145,6 +149,7 @@ All variable integers (varints) MUST be encoded as little-endian base 128 variab
 ##### Delta encoding for Ranges
 
 The `ranges` field contain a sequence of `Ranges`.
+The ranges of a payload MUST be contiguous: each range's lower bound is the previous range's upper bound, and the first range's lower bound is SyncID `0`.
 
 It can be delta encoded as follows:
 
@@ -230,11 +235,9 @@ Each syncing peer performs the following in response to a `RangesData` payload:
 The responder:
 1. Receives and decodes the payload
 2. If shards and cluster match, processes each range:
-   - If the received range is of type `Skip`, requires no further processing.
+   - If the received range is of type `Skip`, processes it no further.
       - If the received `Skip` range is the trailing range, it MAY be omitted from the response.
       Otherwise, the responder MUST include it in the response as type `Skip` so that range bounds remain contiguous.
-      Adjacent `Skip` ranges MAY be merged in the response.
-      A response consisting of only `Skip` ranges MUST be sent as an empty payload, which ends the session.
    - If the received range is of type `Fingerprint`, computes the fingerprint over the local matching range
       - If the local fingerprint matches the received fingerprint, includes this range in the response as type `Skip`
       - If the local fingerprint does _not_ match the received fingerprint:
@@ -248,12 +251,15 @@ The responder:
       - If the received `ItemSet` is _not_ marked as `reconciled` by the remote peer, includes the corresponding local range in the response as type `ItemSet`.
       - If the received `ItemSet` is marked as `reconciled` by the remote peer, includes the corresponding local range in the response as type `Skip`.
 3. If shards or cluster don't match:
-   - Responds with an empty payload
+   - Responds with an empty payload carrying its own cluster ID and supported shards.
 4. Delta encodes the response
 5. Sends the response using libp2p length-prefixed encoding
 
-This process continues until the syncing peer crafts an empty response,
-i.e., when all ranges have been processed and reconciled by both syncing peers and there are no differences left.
+A response consisting only of `Skip` ranges MUST be sent as an empty payload.
+Adjacent `Skip` ranges MAY be merged in a response.
+A peer that receives an empty payload compares the payload's `cluster` and `shards` with its own, as in step 2:
+if they match, the session has finished; otherwise the remote peer aborted it.
+In both cases the receiver closes the stream without replying.
 
 ## Transfer Protocol
 
