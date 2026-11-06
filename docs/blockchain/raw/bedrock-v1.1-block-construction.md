@@ -150,7 +150,7 @@ class ProofOfLeadership:                     # 200 bytes
 
 Where:
 
-- `proof` is the proof confirming that the proposal is constructed by the leader. It is bound to the header by its public input `msg`, a hash of every field of the header except the proof and the entropy contribution, `body_root` included ([Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)); the size of the `Groth16Proof` type is 128 bytes (2 compressed $`\mathbb{G}_1`$and 1 compressed $`\mathbb{G}_2`$ BN256 elements).
+- `proof` is the proof confirming that the proposal is constructed by the leader. It is bound to the header by its public input `msg`, the block ID of the header reduced modulo $`p`$, which covers every field of the header but the proof, `body_root` included ([Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)); the size of the `Groth16Proof` type is 128 bytes (2 compressed $`\mathbb{G}_1`$and 1 compressed $`\mathbb{G}_2`$ BN256 elements).
 - `entropy_contribution` is the output of the PoL contribution for Cryptarchia entropy; the size of the `zkhash` type is 32 bytes.
 - `reward_commitment` is the commitment of the note paying the leader reward of the block ([Block Execution](#block-execution)), an output of the proof ([Leader Reward Note](cryptarchia-proof-of-leadership.md#leader-reward-note)); the size of the `NoteCommitment` type is 32 bytes.
 - `reward_value` is the value of that note, a public input of the proof, which must be the leader reward of the block ([Block Proposal Validation](#block-proposal-validation)); the size of the `TokenValue` type is 8 bytes.

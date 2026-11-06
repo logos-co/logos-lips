@@ -182,7 +182,7 @@ Execution: ~ 678k CPU cycles.
 
 ## SDP Withdraw
 
-This gas covers a verification process that includes: confirming ownership of the provider_id through an Eddsa25519 signature, confirming the consumption of the service note through a ZkTransfer verification, and confirming that the declaration exists and has not been previously withdrawn, which with the consumed nullifier prevents replay attacks. During execution, the system records the withdrawal epoch on the declaration and keeps the withdrawal pending; the declaration is removed by the epoch finalization at `withdraw_at + 1`, and the pending withdrawal then consumes the service note and releases its outputs.
+This gas covers a verification process that includes: confirming ownership of the provider_id through an Eddsa25519 signature, confirming the consumption of the service note through a ZkTransfer verification, and confirming that the declaration exists and has not been previously withdrawn, which with the consumed nullifier prevents replay attacks. During execution, the system records the withdrawal epoch on the declaration, consumes the service note and keeps the outputs pending; the declaration is removed by the epoch finalization at `withdraw_at + 1`, and the pending outputs are then released.
 
 Execution: ~ 678k CPU cycles.
 
@@ -191,8 +191,8 @@ Execution: ~ 678k CPU cycles.
 - Verification of the ZkTransfer in the batch of the block: 618,797 cycles.
 - Derivation of the MMR root of the service note: zkhashes, negligible.
 - Verification that the declaration wasn’t already withdrawn: negligible.
-- Update declaration and keeping of the pending withdrawal: negligible.
-- Remove the declaration, insert the nullifier in the SDP note set and release the outputs: negligible.
+- Update declaration, insertion of the nullifier in the SDP note set and keeping of the pending outputs: negligible.
+- Remove the declaration and release the outputs: negligible.
 
 ## SDP Activation
 

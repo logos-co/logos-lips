@@ -49,7 +49,7 @@
 | 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding. | 2026-10-06 |
 | 1.18.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a note backs one declaration per service, `SDP_WITHDRAW` no longer names the note, and a `nonce` carries the `created` epoch of its declaration | 2026-10-27 |
 | 1.19.0 | `MinStake` holds `threshold` and the block number `timestamp`, following the Service Declaration Protocol | 2026-10-27 |
-| 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each with its own inscription, grouped in the mini-blocks of an inscription, each proven against a recent root and the transaction buffer before its mini-block, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable over no epoch nonce and moved `CLAIM_POW_REWARD` to the opcode `0x30`. A declaration names in `note_pk` the key of its service note, and `SDP_WITHDRAW` carries no nonce and waits with the channel withdrawals until its declaration is removed. A channel deposit carries an `inscription`. The commitment MMR and the nullifier IMT of a note set have depth 40 | 2026-11-06 |
+| 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each with its own inscription, grouped in the mini-blocks of an inscription, each proven against a recent root and the transaction buffer before its mini-block, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and independent of the epoch nonce, and moved `CLAIM_POW_REWARD` to the opcode `0x30`. A declaration names in `note_pk` the key of its service note, and `SDP_WITHDRAW` carries no nonce, consumes the service note, and releases its outputs with the channel withdrawals when its declaration is removed. A channel deposit carries an `inscription`. The commitment MMR and the nullifier IMT of a note set have depth 40 | 2026-11-06 |
 
 # Introduction
 
@@ -1119,7 +1119,7 @@ class WithdrawMessage:
 
 The withdrawal consumes the service note of the declaration and creates the notes that return its value. Its ZkTransfer is proven against the root of an empty MMR to which only the service note is appended. That root is computed from the commitment held in the declaration, so the nullifier is the one of this service note and of no other note. A withdrawal carries no nonce: it is valid only while the declaration has no withdrawal scheduled, and that single nullifier is consumed once, so it cannot be replayed.
 
-Like a channel withdrawal, it waits in the [`pending_withdrawals`](#ledger) of the ledger, until the declaration is removed at the first slot of epoch `withdraw_at + 1`, where [`release_withdrawals`](#channel_withdraw) consumes the service note and creates the outputs in the ledger note set. The service note therefore keeps leading in Proof of Stake until then, and its value is counted once, in the service note or in the outputs. Only its own withdrawal consumes a service note, so a pending one is always released, and its excess can pay the fees when it is posted.
+The service note is consumed when the withdrawal is posted, so the stake leaves Proof of Stake at once and its excess pays the fees. The outputs wait in the [`pending_withdrawals`](#ledger) of the ledger, as an entry with no input, until the declaration is removed at the first slot of epoch `withdraw_at + 1`, where [`release_withdrawals`](#channel_withdraw) creates them in the ledger note set. Having no input to check, the entry is always released, so the value of the service note is counted once.
 
 #### Proof
 
@@ -1199,11 +1199,16 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       declare_info.withdraw_at = current_epoch + 2
       ```
 
-  2. Keep the withdrawal in the [`pending_withdrawals`](#ledger) of the ledger until the first slot of epoch `withdraw_at + 1`, `EPOCH_LENGTH` being the number of slots of an epoch ([Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule)).
+  2. Consume the service note in the SDP note set.
+      ```python
+      ledger.sets[SDP_SET].execute_spending([withdraw.service_note_nullifier])
+      ```
+
+  3. Keep the outputs in the [`pending_withdrawals`](#ledger) of the ledger, with no input, until the first slot of epoch `withdraw_at + 1`, `EPOCH_LENGTH` being the number of slots of an epoch ([Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule)).
       ```python
       ledger.pending_withdrawals.append(((declare_info.withdraw_at + 1) * EPOCH_LENGTH,
                                          SDP_SET,
-                                         [withdraw.service_note_nullifier],
+                                         [],
                                          withdraw.outputs))
       ```
 
@@ -1215,8 +1220,8 @@ not when the `WithdrawMessage` is processed. The rewards of epoch
 are distributed in the first block of epoch `withdraw_at + 1` (see
 [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md)).
 In that same block, after the rewards have been distributed, every declaration
-with `withdraw_at + 1 <= current_epoch` is removed and its service note released,
-through its [pending withdrawal](#sdp_withdraw).
+with `withdraw_at + 1 <= current_epoch` is removed and the outputs of its withdrawal
+released, through its [pending withdrawal](#sdp_withdraw).
 Declarations that withdrew without earning a final reward are removed by the
 same step.
 
@@ -1574,7 +1579,7 @@ These note commitments and nullifiers uniquely define notes in the system. Nodes
 
 ### Service notes
 
-Service notes are special notes in Mantle that serve as collateral for Service Declarations. Executing a Declare Operation consumes notes of the ledger note set and creates one service note under the declaration's `note_pk` in the SDP note set, its commitment kept with the declaration. A note of the SDP note set is spent only by the Withdraw Operation of its declaration, when the declaration is removed, and the notes that withdrawal creates then enter the ledger note set. Service notes participate in Proof of Stake.
+Service notes are special notes in Mantle that serve as collateral for Service Declarations. Executing a Declare Operation consumes notes of the ledger note set and creates one service note under the declaration's `note_pk` in the SDP note set, its commitment kept with the declaration. A note of the SDP note set is spent only by the Withdraw Operation of its declaration, and the notes that withdrawal creates enter the ledger note set when the declaration is removed. Service notes participate in Proof of Stake.
 
 ## Ledger
 
