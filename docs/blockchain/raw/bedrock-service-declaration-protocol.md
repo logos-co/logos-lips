@@ -40,7 +40,7 @@
 | 1.9.1 | A declaration names `note_stake_pk`, the staking key of its service note, and the rewards of the validator are paid to `note_pk` and `note_stake_pk`, `zk_id` being only its Proof of Quota identity | 2026-11-06 |
 | 1.10.0 | [RFC] An active or withdraw message advances the `sequence` of its declaration's `nonce` by exactly one | 2026-11-04 |
 | 1.11.0 | [RFC] A declaration consumes its notes, vested ones included, in spends of up to 16 notes whose values sum to its stake, and cannot be withdrawn before its `locked_until` epoch | 2026-11-06 |
-| 1.12.0 | [RFC] The `note_pk` derives from the stake secret of the declarer, and its spending secret key alone withdraws the declaration | 2026-11-06 |
+| 1.12.0 | [RFC] The `note_pk` derives from the stake secret of the declarer, its spending secret key alone withdraws the declaration, and the `note_stake_pk` equals it | 2026-11-06 |
 
 # Introduction
 
@@ -218,7 +218,7 @@ Where:
 - `locators` are the addresses of the validator ([Locators](#locators));
 - `provider_id` and `zk_id` are the identifiers of the validator ([Identifiers](#identifiers));
 - `note_pk` is the public key the service note and the rewards of the validator are created under;
-- `note_stake_pk` is the [staking key](bedrock-v1.1-mantle-specification.md#keys) of the service note and of the rewards. Both keys can belong to a cold wallet, so the node keeps online only what serving and leading need ([Wallet Technical Standard](wallet-technical-standard.md#staking-keys));
+- `note_stake_pk` is the [staking key](bedrock-v1.1-mantle-specification.md#keys) of the service note and of the rewards. The `note_pk` can belong to a cold wallet, so the node keeps online only what serving and leading need ([Wallet Technical Standard](wallet-technical-standard.md#staking-keys));
 - `commitment_root` is the root of the commitment MMR of the ledger note set at the end of one of the last 1024 blocks;
 - `locked_until` is the first epoch at which the declaration can be withdrawn;
 - each of the `spends` lists the [`NoteNullifier`](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) of 1 to 16 notes the declaration consumes, and their total value. A [ZkStake](bedrock-v1.1-mantle-specification.md#zero-knowledge-stake-proof-zkstake) proves their ownership against `commitment_root` ([SDP_DECLARE](bedrock-v1.1-mantle-specification.md#sdp_declare)). The sum of the values of the spends is the stake: the value of the one service note the declaration creates under the `note_pk` and the `note_stake_pk`, measured against the minimum stake threshold.
@@ -394,6 +394,7 @@ The declaration message is considered valid when all of the following are met:
 
 - The notes of the `spends` are spendable and owned by the sender, their vesting ends by the first slot of epoch `locked_until`, and the sum of their values meets the minimum stake threshold.
 - The `note_pk` derives from a stake secret of the sender, from which the keys of the vested notes of the `spends` also derive ([Mantle - Vested Notes](bedrock-v1.1-mantle-specification.md#vested-notes)).
+- The `note_stake_pk` equals the `note_pk`.
 - The `zk_id` and the `provider_id` are each unbound in the `service_type` of the message ([Identifier Uniqueness](#identifier-uniqueness)).
 - The sender holds the private key corresponding to the `provider_id`.
 - The `locators` list is non-empty and not longer than 8 entries.

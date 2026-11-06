@@ -37,6 +37,7 @@
 | 1.3.0 | Support the private ledger of Mantle: the initial distribution is made of note commitments whose preimages are published in an inscription to the null channel, and the declarations consume no note, their amounts counting in the maximum supply. Genesis initializes the block reward stocks and records the commitment roots of the note sets | 2026-10-07 |
 | 1.3.1 | Genesis registers no program, each initial note takes its public key as its staking key, and each declaration names the `note_stake_pk` of its service note | 2026-11-06 |
 | 1.3.2 | [RFC] A Genesis declaration carries one spend with no inputs, whose value is its stake | 2026-11-06 |
+| 1.3.3 | [RFC] The `note_stake_pk` of a Genesis declaration equals its `note_pk` | 2026-11-06 |
 
 # Introduction
 
@@ -131,7 +132,7 @@ BLEND_DECLARATIONS = [
         provider_id=PROVIDER_ID_0,
         zk_id=ZK_ID_0,
         note_pk=NOTE_PK_0,
-        note_stake_pk=NOTE_STAKE_PK_0,
+        note_stake_pk=NOTE_PK_0,
         commitment_root=EMPTY_MMR_ROOT,
         locked_until=0,
         spends=[StakeSpend(inputs=[], value=1000)],
@@ -311,7 +312,7 @@ BLEND_DECLARATIONS = [
         provider_id=PROVIDER_ID_0,
         zk_id=ZK_ID_0,
         note_pk=NOTE_PK_0,
-        note_stake_pk=NOTE_STAKE_PK_0,
+        note_stake_pk=NOTE_PK_0,
         commitment_root=EMPTY_MMR_ROOT,
         locked_until=0,
         spends=[StakeSpend(inputs=[], value=1000)],

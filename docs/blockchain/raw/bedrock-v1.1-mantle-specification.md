@@ -55,7 +55,7 @@
 | 2.2.0 | Execution Gas from [Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0: a Mantle Transaction pays its bytes, each channel or SDP note set it changes and each root extension its proofs share, and each Operation pays its proofs, nullifiers, commitments, signatures, steps, payments, openings and program proofs, through `spend_gas` and the per-component constants of Gas Determination | 2026-10-27 |
 | 2.3.0 | [RFC] `SDP_ACTIVE` and `SDP_WITHDRAW` advance the `sequence` of the declaration's `nonce` by exactly one | 2026-11-04 |
 | 2.4.0 | [RFC] A claim pays a share of its reward as a vested note, which a proof consumes only once its vesting has ended, and `SDP_DECLARE` stakes notes through ZkStake proofs until its `locked_until` epoch | 2026-11-06 |
-| 2.5.0 | [RFC] The ZkStake proves that the `note_pk` of a declaration and the keys of the vested notes it stakes derive from one stake secret, and the `note_pk` secret alone withdraws the declaration | 2026-11-06 |
+| 2.5.0 | [RFC] The ZkStake proves that the `note_pk` of a declaration and the keys of the vested notes it stakes derive from one stake secret, the `note_pk` secret alone withdraws the declaration, and the `note_stake_pk` of a declaration equals its `note_pk` | 2026-11-06 |
 
 # Introduction
 
@@ -1223,7 +1223,7 @@ class StakeSpend:
     value: TokenValue            # the sum of the values of these notes
 ```
 
-`note_pk` is the public key and `note_stake_pk` the [staking key](#keys) the service note and the rewards of the validator are created under. The `note_pk` is bound as in [Vested Notes](#vested-notes). No check reads the `note_stake_pk` and no proof covers its secret, so getting it right is the wallet's responsibility, as for the outputs of a Transfer. A declarer can keep both keys in a cold wallet.
+`note_pk` is the public key and `note_stake_pk` the [staking key](#keys) the service note and the rewards of the validator are created under. The `note_pk` is bound as in [Vested Notes](#vested-notes).
 
 Service notes are introduced in [Service notes](#service-notes) and serve as Service collaterals. They cannot be spent before the owner withdraws its participation from the declared service.
 
@@ -1298,6 +1298,11 @@ EPOCH_LENGTH: uint64     # the length of an epoch, in slots
                                                       FiniteField(txhash, byte_order="little", modulus = p),
                                                       zk_proof)
       assert Ed25519_verify(txhash, declaration.provider_id, proof.provider_sig)
+      ```
+
+  5. Ensure the `note_stake_pk` equals the `note_pk`.
+      ```python
+      assert declaration.note_stake_pk == declaration.note_pk
       ```
 
 #### Execution

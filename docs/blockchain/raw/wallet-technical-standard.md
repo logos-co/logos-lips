@@ -31,7 +31,7 @@
 | 1.2.1 | The public key derives from a nullifier key derived from the spending secret key, and a note has a staking key, the wallet using the nullifier key as staking secret key and the public key of the recipient of a payment by default, and keeping the keys of a service declaration cold | 2026-11-06 |
 | 1.3.0 | Added the note encryption key derived next to the ZK key, the address a sender needs, and the discovery of notes by trial decryption of the note ciphertexts delivered off chain, with what the recovery from the seed covers. A delivered note has the public key of its recipient as staking key unless the recipient asked for another, and a sender keeps the notes it creates | 2026-11-02 |
 | 1.4.0 | [RFC] A wallet keeps the `data` of its notes and sends its claims through other peers | 2026-11-05 |
-| 1.5.0 | [RFC] A wallet that mines or declares derives the keys of its claims and the `note_pk` of its declarations from a stake secret | 2026-11-06 |
+| 1.5.0 | [RFC] A wallet that mines or declares derives the keys of its claims and the `note_pk` of its declarations from a stake secret, and a cold declaration keeps one key | 2026-11-06 |
 
 # Introduction
 
@@ -261,7 +261,7 @@ def on_nullifier_inserted(tracked: TrackedLowLeaf, inserted_nullifier: NoteNulli
 
 Every [note](bedrock-v1.1-mantle-specification.md#keys) has a public key `pk` and a staking key `stake_pk`. The ZkTransfer enforces `nf_sk = zkhash(NF_KDF, spending_sk)` and `pk = zkhash(KDF, nf_sk)`, and leading with the note takes `nf_sk` and the staking secret key `staking_sk`. The recommended default, which the ledger does not enforce, is that a wallet uses `staking_sk = nf_sk`, so that `stake_pk = pk` and its notes keep one key, and creates transfer outputs with the `pk` of the recipient as staking key unless the recipient asks for another. With this default, giving a node `nf_sk` lets it lead with the notes of the wallet without being able to spend them, the spending secret key staying offline, and the node learns when they are spent: this is cold staking.
 
-A service declaration is made cold the same way. Its `note_pk` and `note_stake_pk` ([Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage)) should be keys of a cold wallet, which alone spends the service note at withdrawal and the service rewards, paid to the same two keys. The node keeps online only what it needs: the secret key of its `zk_id` for the Proof of Quota, its `provider_id` key, and, to lead with the service note and its rewards, the `nf_sk` of `note_pk` and the `staking_sk` of `note_stake_pk`, none of which spends them.
+A service declaration is made cold the same way. Its `note_pk` ([Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage)) should be a key of a cold wallet, which alone spends the service note at withdrawal and the service rewards, paid to the same key. The node keeps online only what it needs: the secret key of its `zk_id` for the Proof of Quota, its `provider_id` key, and, to lead with the service note and its rewards, the `nf_sk` of `note_pk`, which is also their `staking_sk`. None of these spends them.
 
 ### Leader Reward Notes
 
