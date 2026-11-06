@@ -1550,10 +1550,12 @@ This Operation claims a reward from the proof of work [reward pool](proof-of-wor
 
 ```python
 class ClaimPowRewardOp:
-    block_hash: hash           # Block ID, as defined in Cryptarchia, of a recent canonical block the solution is anchored to
+    block_hash: hash           # Block ID of a recent canonical block the solution is anchored to
     public_key: ZkPublicKey    # Key the reward note is paid to
     nonce: zkhash              # Value searched for a ticket satisfying the reward threshold
 ```
+
+`block_hash` is the [Block ID](cryptarchia-v1-protocol.md#block-id) of that block.
 
 #### Proof
 
@@ -1866,8 +1868,8 @@ No secret key is known whose public key is `0`, so a note whose staking key is `
 A note can be uniquely identified by its fields. Any two notes with the same fields share a commitment and a nullifier, so only one of them can be spent: value can be lost this way, never created. For notes the ledger creates itself, such as rewards and service notes, the nonce can be derived from the Operation that created it and its output number: `(op_id, output_number)` if each Operation are uniquely identifiable. For this reason, every Operation that output notes have a unique payload that is used to derive the Operation identifier.
 
 ```python
-def derive_op_id(operation: Op) -> Hash:
-    op_bytes = encode(operation.payload)
+def derive_op_id(payload) -> Hash:
+    op_bytes = encode(payload)
     h = Hasher() # /!\ This is a classic hash not a zkhash /!\
     h.update(b"OPERATION_ID_V1")
     h.update(op_bytes)
