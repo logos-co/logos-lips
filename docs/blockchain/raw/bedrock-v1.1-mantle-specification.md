@@ -49,7 +49,7 @@
 | 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding. | 2026-10-06 |
 | 1.18.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a note backs one declaration per service, `SDP_WITHDRAW` no longer names the note, and a `nonce` carries the `created` epoch of its declaration | 2026-10-27 |
 | 1.19.0 | `MinStake` holds `threshold` and the block number `timestamp`, following the Service Declaration Protocol | 2026-10-27 |
-| 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each with its own inscription, grouped in the mini-blocks of an inscription, each proven against a recent root and the transaction buffer before its mini-block, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and independent of the epoch nonce, and moved `CLAIM_POW_REWARD` to the opcode `0x30`. A declaration names in `note_pk` the key of its service note, and `SDP_WITHDRAW` carries no nonce, consumes the service note, and releases its outputs with the channel withdrawals when its declaration is removed. A channel deposit carries an `inscription`. The commitment MMR and the nullifier IMT of a note set have depth 40 | 2026-11-06 |
+| 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each with its own inscription, grouped in the mini-blocks of an inscription, each proven against a recent root and the transaction buffer before its mini-block, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and independent of the epoch nonce, and moved `CLAIM_POW_REWARD` to the opcode `0x30`. A declaration names in `note_pk` the key of its service note, and `SDP_WITHDRAW` carries no nonce, consumes the service note, and releases its outputs with the channel withdrawals when its declaration is removed. A channel deposit carries an `inscription`. The commitment MMR and the nullifier IMT of a note set have depth `NOTE_SET_DEPTH` = 40, and a commitment root stays recent for `ROOT_WINDOW` = 1024 blocks | 2026-11-06 |
 | 2.1.0 | Add programs: notes gain `stake_public_key`, `program` and `data` fields, a nullifier key sitting between the spending secret key and the public key, program notes leading in Proof of Stake unless their staking key is `0`, a declaration naming in `note_stake_pk` the staking key of its service note and rewards, `PROGRAM_REGISTER` registers a Groth16 verification key, and the mini-blocks of channel inscriptions carry, next to user steps, program deposits and program steps made of a `ZkProgramSpend`, a program proof and the openings of the program notes they create, each step with its own inscription and its kind carried only by its encoding. A program deposit, like a user step, is proven against the buffer before its mini-block, and a program spend against the whole buffer at its position. A program step consumes the program deposits after the previous program step of its mini-block, which all pay its program, and lists the notes of the program it creates apart from the user notes it pays. Every program note is held by the key of the spending secret key `0`. The ZkProgramSpend derives the nonces of the outputs of a step consuming a note of the program. Add the proving time benchmarks of the ZkTransfer and the ZkProgramSpend | 2026-11-06 |
 | 2.1.1 | Added Note Delivery: how the holder of a note learns its `value` and `nonce`, the user notes a sender creates being delivered off chain, by the Note Encryption of [Common Cryptographic Components](common-cryptographic-components.md#note-encryption-construction), a delivered note taking the public key of its recipient as staking key unless the recipient asked for another | 2026-11-02 |
 | 2.2.0 | Execution Gas from [Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0: a Mantle Transaction pays its bytes, each channel or SDP note set it changes and each root extension its proofs share, as the note sets record them, and each Operation pays, from itself and its proof alone, its proofs, nullifiers, commitments, signatures, steps, program deposits and openings, through `spend_gas` and the per-component constants of Gas Determination | 2026-11-06 |
@@ -185,7 +185,7 @@ channels: dict[ChannelId, ChannelState]
 
 The state validation reads is not a fixed snapshot: it advances as the block is processed. A Mantle Transaction is validated against the state left by the Mantle Transactions preceding it in the block, as defined in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation), and validation and execution then follow one another Operation by Operation, in the order the Operations appear: the Operation at index `i` is validated against the state the Operations at indices `0` to `i-1` left, then executed to produce the state the Operation at index `i+1` is validated against. This is what the `ledger`, `channels` and `declarations` given to each Operation below denote.
 
-The commitment MMRs of the [note sets](#ledger) that some Operations are proven against follow the same Operation by Operation progression, but locally to the Mantle Transaction. Every Operation adding notes to the ledger note set or to a channel note set appends their commitments to the buffer of that set for the Mantle Transaction, its `tx_commitment_buffer`, when validated, and every Operation referencing a commitment MMR root of a set references the root of that set at one of the last 1024 blocks, against which it is verified once the buffer of the set is appended to it. A user step or a program deposit, proven before the Mantle Transaction exists, is verified against its root extended with the buffer as it stands when its mini-block starts, so that its proof depends on what precedes its mini-block and not on its position inside it ([CHANNEL_INSCRIBE](#channel_inscribe)). `SDP_WITHDRAW` references no root: its proof is verified against the root of an MMR holding only the service note of its declaration ([SDP_WITHDRAW](#sdp_withdraw)). An Operation can therefore consume the outputs of a previous Operation of the same Mantle Transaction without waiting for a block to include them.
+The commitment MMRs of the [note sets](#ledger) that some Operations are proven against follow the same Operation by Operation progression, but locally to the Mantle Transaction. Every Operation adding notes to the ledger note set or to a channel note set appends their commitments to the buffer of that set for the Mantle Transaction, its `tx_commitment_buffer`, when validated, and every Operation referencing a commitment MMR root of a set references the root of that set at one of the last [`ROOT_WINDOW`](#ledger) blocks, against which it is verified once the buffer of the set is appended to it. A user step or a program deposit, proven before the Mantle Transaction exists, is verified against its root extended with the buffer as it stands when its mini-block starts, so that its proof depends on what precedes its mini-block and not on its position inside it ([CHANNEL_INSCRIBE](#channel_inscribe)). `SDP_WITHDRAW` references no root: its proof is verified against the root of an MMR holding only the service note of its declaration ([SDP_WITHDRAW](#sdp_withdraw)). An Operation can therefore consume the outputs of a previous Operation of the same Mantle Transaction without waiting for a block to include them.
 
 Atomicity is what a failed check means, not simultaneity. If any of the checks below fails, the whole Mantle Transaction is invalid: none of its Operations takes effect, whether or not it was reached. An invalid Mantle Transaction is never skipped over either, the block including it being invalid and nothing of that block being executed.
 
@@ -285,7 +285,7 @@ Channels allow Zones to post their updates on chain. Channels form virtual chain
 
 ### Message Ordering
 
-Channels form virtual chains by having each message reference its parent message. The order of messages in these channels is enforced by the sequencer by building a hash chain of messages, i.e. new messages reference the previous messages through a parent hash. Given that Cryptarchia has long finality times, these message parent references allow Zone sequencers to continue to post new updates to channels without having to wait for finality. No matter how Cryptarchia forks and reorgs, the channel messages from honest sequencers will eventually be re-included in a way that satisfies the virtual chain order, with one limit: a step is valid only against a commitment root recorded in the last 1024 blocks of the fork it lands on. A reorg that moves the channel deposits or the steps a step builds on into other blocks can leave its root absent from the winning fork, which invalidates the inscription carrying the step and the inscriptions chained after it, and the sequencer, who cannot prove the step again for its holder, re-publishes the chain without it, proving again the program steps of these inscriptions, whose proofs are bound to the `op_id` of their inscription.
+Channels form virtual chains by having each message reference its parent message. The order of messages in these channels is enforced by the sequencer by building a hash chain of messages, i.e. new messages reference the previous messages through a parent hash. Given that Cryptarchia has long finality times, these message parent references allow Zone sequencers to continue to post new updates to channels without having to wait for finality. No matter how Cryptarchia forks and reorgs, the channel messages from honest sequencers will eventually be re-included in a way that satisfies the virtual chain order, with one limit: a step is valid only against a commitment root recorded in the last [`ROOT_WINDOW`](#ledger) blocks of the fork it lands on. A reorg that moves the channel deposits or the steps a step builds on into other blocks can leave its root absent from the winning fork, which invalidates the inscription carrying the step and the inscriptions chained after it, and the sequencer, who cannot prove the step again for its holder, re-publishes the chain without it, proving again the program steps of these inscriptions, whose proofs are bound to the `op_id` of their inscription.
 
 Configurations form a second hash chain within the channel: each configuration names the configuration it supersedes, so a pending reconfiguration stays valid while the sequencer keeps posting inscriptions.
 
@@ -438,7 +438,7 @@ The ledger fixes neither the value of each note a program pays, nor the staking 
 
 A program using LOGOS only, such as lending, is thus enforced by the ledger, and its users trust the circuit of the program they pay and the setup that produced its key: whoever kept the trapdoor of that setup can prove any statement under the key and move every note of the program, and nothing on chain shows how a key was produced. A public phase-2 ceremony over shared powers of tau is recommended for the key of a program ([Trusted Setup Ceremony](trusted-setup-ceremony.md)). A program exchanging LOGOS with assets of the zone, such as a swap, is enforced by the ledger for its LOGOS only. Depending on the program, publishing the preimage of each intent in the inscription is recommended, so that the users of the zone can verify how the program step served it.
 
-**What the ledger does not guarantee.** A program note moves only in a program step of an inscription, and only the current sequencer of a channel posts inscriptions. The sequencers of a channel can therefore freeze every program note of the channel for good by publishing no program step, with all the value users paid into it: they cannot take that value, but they can hold it. A signed program deposit has no expiry either. A sequencer can hold it until 1024 blocks, about 8.5 hours, after its root stopped being the current root of the note set, a root that stays current staying valid, and fill it at the worst price its intent accepts, since the program proof sees no time. Its holder can cancel it only with a `CHANNEL_WITHDRAW`, which takes `WITHDRAW_DELAY` slots, and a step published before the withdrawal is due wins.
+**What the ledger does not guarantee.** A program note moves only in a program step of an inscription, and only the current sequencer of a channel posts inscriptions. The sequencers of a channel can therefore freeze every program note of the channel for good by publishing no program step, with all the value users paid into it: they cannot take that value, but they can hold it. A signed program deposit has no expiry either. A sequencer can hold it until [`ROOT_WINDOW`](#ledger) blocks, about 8.5 hours, after its root stopped being the current root of the note set, a root that stays current staying valid, and fill it at the worst price its intent accepts, since the program proof sees no time. Its holder can cancel it only with a `CHANNEL_WITHDRAW`, which takes `WITHDRAW_DELAY` slots, and a step published before the withdrawal is due wins.
 
 **Design choices.**
 
@@ -462,14 +462,14 @@ Write a message to a channel with the message data being permanently stored on t
 class UserStep:
     inputs: list[NoteNullifier]    # nullifiers of the consumed user notes of the channel
     outputs: list[NoteCommitment]  # commitments of the created user notes of the channel
-    commitment_root: MerkleRoot    # the MMR root of the channel note set at the end of one of the last 1024 blocks
+    commitment_root: MerkleRoot    # the MMR root of the channel note set at the end of one of the last ROOT_WINDOW blocks
     inscription: bytes             # the zone message of this step, signed by its holder
 
 class ProgramDeposit:
     program_id: ProgramId          # the program the program deposit pays
     inputs: list[NoteNullifier]    # nullifiers of the consumed user notes of the channel
     outputs: list[NoteCommitment]  # commitments of the change, user notes of the channel
-    commitment_root: MerkleRoot    # a recent (less than 1024 blocks) MMR root of the channel note set
+    commitment_root: MerkleRoot    # a recent (less than ROOT_WINDOW blocks) MMR root of the channel note set
     value: TokenValue              # the value the program deposit pays to the program
     intent: zkhash                 # the hash of what the user expects from the program
     inscription: bytes             # the zone message of this program deposit, signed by its holder
@@ -479,7 +479,7 @@ class ProgramStep:
     inputs: list[NoteNullifier]            # nullifiers of the consumed notes of the program, possibly empty
     program_outputs: list[NoteCommitment]  # commitments of the created notes of the program
     outputs: list[NoteCommitment]          # commitments of the user notes the step pays
-    commitment_root: MerkleRoot            # a recent (less than 1024 blocks) MMR root of the channel note set
+    commitment_root: MerkleRoot            # a recent (less than ROOT_WINDOW blocks) MMR root of the channel note set
     program_step_id: zkhash                # the hash of the input and output notes of the program spend
     inscription: bytes                     # the zone message of this step, bound by the op_id
 
@@ -908,7 +908,7 @@ class ChannelDeposit:
     channel: ChannelId
     inputs: list[NoteNullifier]    # nullifiers of the consumed notes of the ledger note set
     outputs: list[NoteCommitment]  # commitments of the created notes of the channel note set
-    commitment_root: MerkleRoot    # the MMR root of the ledger note set at the end of one of the last 1024 blocks
+    commitment_root: MerkleRoot    # the MMR root of the ledger note set at the end of one of the last ROOT_WINDOW blocks
     excess_value: TokenValue       # the excess to pay the fees
     inscription: bytes             # the zone message of the channel deposit
 ```
@@ -1001,7 +1001,7 @@ Withdraw notes from a channel. The holder of the notes posts the withdrawal alon
 WITHDRAW_DELAY: Slot = 86_400  # 1 day
 ```
 
-`WITHDRAW_DELAY` exceeds the slots the 1024 blocks of the root window span, about 30,720 on average, so that a step a sequencer accepted lands or expires before a withdrawal posted after it is due.
+`WITHDRAW_DELAY` exceeds the slots the [`ROOT_WINDOW`](#ledger) blocks of the root window span, about 30,720 on average, so that a step a sequencer accepted lands or expires before a withdrawal posted after it is due.
 
 #### Payload
 
@@ -1010,7 +1010,7 @@ class ChannelWithdraw:
     channel: ChannelId
     inputs: list[NoteNullifier]    # nullifiers of the consumed notes of the channel note set
     outputs: list[NoteCommitment]  # commitments of the notes created in the ledger note set
-    commitment_root: MerkleRoot    # the MMR root of the channel note set at the end of one of the last 1024 blocks
+    commitment_root: MerkleRoot    # the MMR root of the channel note set at the end of one of the last ROOT_WINDOW blocks
 ```
 
 A withdrawal balances exactly and carries no fee: another Operation of its Mantle Transaction, such as a Transfer, pays the fees. A holder whose funds are all in channels therefore needs a ledger note, of its own or added by a third party, to post its withdrawal. An excess paid when the withdrawal is posted would stay paid even if the withdrawal is dropped later, which would create tokens.
@@ -1745,7 +1745,7 @@ class Transfer:
     inputs: list[NoteNullifier]    # the list of consumed note nullifiers
                                    # must be non-empty
     outputs: list[NoteCommitment]  # the list of created note commitments
-    commitment_root: MerkleRoot    # the MMR root of the ledger note set at the end of one of the last 1024 blocks
+    commitment_root: MerkleRoot    # the MMR root of the ledger note set at the end of one of the last ROOT_WINDOW blocks
     excess_value: TokenValue       # the excess to pay the fees
 ```
 
@@ -1928,13 +1928,20 @@ The notes live in note sets, each with its own commitment MMR and nullifier IMT.
 | SDP | `SDP_SET = 1` | service notes | the Withdraw Operation of their declaration |
 | Channel | `2` onward, in the order the channels were created, the null channel having none | channel notes, user and program notes | the steps of the channel's inscriptions, and the withdrawals of user notes |
 
+Two parameters fix the trees of a note set and how long their roots can be proven against:
+
+```python
+NOTE_SET_DEPTH = 40  # depth of the commitment MMR and of the nullifier IMT of every note set
+ROOT_WINDOW = 1024   # number of blocks a commitment MMR root stays recent for the Operations
+```
+
 ```python
 class NoteSet:
     commitments: list[(MerkleRoot, int)]        # the peaks of the commitment MMR
     nullifiers: set[NoteNullifier]              # the set of nullifiers
     nullifier_leaves: list[NullifierLeaf]       # the leaves of the nullifier IMT, in insertion order
     current_commitment_root: MerkleRoot         # the commitment MMR root at the end of the previous block
-    recent_commitment_roots: dict[MerkleRoot, RecentRoot]  # the current root and the roots of the last 1024 blocks
+    recent_commitment_roots: dict[MerkleRoot, RecentRoot]  # the current root and the roots of the last ROOT_WINDOW blocks
     tx_commitment_buffer: list[NoteCommitment]  # the commitments added by the previous Operations
                                                 # of the Mantle Transaction, empty at its start
     tx_extended_roots: dict[(MerkleRoot, int), MerkleRoot]  # the roots the proofs of the Mantle
@@ -1971,7 +1978,7 @@ def empty_note_set() -> NoteSet:
     )
 ```
 
-At the end of a block at height `block_height`, after its transactions and its leader reward, every note set a commitment was appended to in the block records its commitment MMR root and forgets the roots that have left the window of the last 1024 blocks ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), `note_sets_appended_to` giving the note sets a block or a Mantle Transaction appended a commitment to. The work of a block thus follows the note sets it changes, and a note set no block changes costs the later blocks nothing:
+At the end of a block at height `block_height`, after its transactions and its leader reward, every note set a commitment was appended to in the block records its commitment MMR root and forgets the roots that have left the window of the last `ROOT_WINDOW` blocks ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), `note_sets_appended_to` giving the note sets a block or a Mantle Transaction appended a commitment to. The work of a block thus follows the note sets it changes, and a note set no block changes costs the later blocks nothing:
 
 ```python
 class NoteSet:
@@ -1980,17 +1987,17 @@ class NoteSet:
         self.current_commitment_root = mmr_root(self.commitments)
         self.recent_commitment_roots[self.current_commitment_root] = RecentRoot(list(self.commitments), None)
         for root, recent in list(self.recent_commitment_roots.items()):
-            if recent.last_block is not None and recent.last_block < block_height - 1023:
+            if recent.last_block is not None and recent.last_block < block_height - ROOT_WINDOW + 1:
                 del self.recent_commitment_roots[root]
 ```
 
-A root is recent for a block at height `h` if it is the current root of the set, or if its `last_block` is at least `h - 1024`: a root is the root of the set at the end of each block from the one that recorded it until the block before the one that replaces it.
+A root is recent for a block at height `h` if it is the current root of the set, or if its `last_block` is at least `h - ROOT_WINDOW`: a root is the root of the set at the end of each block from the one that recorded it until the block before the one that replaces it.
 
 The note sets are what the [Proof of Leadership](cryptarchia-proof-of-leadership.md#eligible-sets) proves a note against.
 
 ### Commitment Merkle Mountain Range
 
-The commitments of each note set are appended, in insertion order, to the leaves of a Merkle tree of depth $`40`$ whose every leaf past the last appended one holds $`0`$. The root of that tree is the commitment MMR root of the set, and a commitment is proven in it by a Merkle path of length $`40`$. A note set therefore holds at most $`2^{40}`$ commitments and, its [IMT](#nullifier-indexed-merkle-tree) giving a leaf to the sentinel, $`2^{40} - 1`$ nullifiers, a capacity that transfers of 8 outputs at the Execution Gas target take about 220 years to fill. An Operation adding a commitment or a nullifier to a full set is invalid.
+The commitments of each note set are appended, in insertion order, to the leaves of a Merkle tree of depth `NOTE_SET_DEPTH` whose every leaf past the last appended one holds $`0`$. The root of that tree is the commitment MMR root of the set, and a commitment is proven in it by a Merkle path of length `NOTE_SET_DEPTH`. A note set therefore holds at most `2**NOTE_SET_DEPTH` commitments and, its [IMT](#nullifier-indexed-merkle-tree) giving a leaf to the sentinel, `2**NOTE_SET_DEPTH - 1` nullifiers, a capacity that transfers of 8 outputs at the Execution Gas target take about 220 years to fill. An Operation adding a commitment or a nullifier to a full set is invalid.
 
 A Merkle path, in this tree and in every Merkle tree the circuits prove membership in, lists its nodes from the leaf level up to the root, and its selectors in the same order: the selector of a level is the bit of the leaf index at that level, starting from the least significant, `1` when the node computed at that level from the leaf is the right child, so that the path node is on the left. The root of a path is computed as follows:
 
@@ -2006,7 +2013,7 @@ The ledger keeps only the peaks of the tree: the roots of its largest perfect su
 
 ```python
 def mmr_append(peaks: list[(MerkleRoot, int)], note_commitment: NoteCommitment):
-    assert sum(2**height for (_, height) in peaks) < 2**40  # the tree has 2**40 leaves
+    assert sum(2**height for (_, height) in peaks) < 2**NOTE_SET_DEPTH  # the number of leaves of the tree
     peaks.append((note_commitment, 0))
     while len(peaks) > 1 and peaks[-1][1] == peaks[-2][1]:
         (left, height), (right, _) = peaks[-2], peaks[-1]
@@ -2020,7 +2027,7 @@ def empty_root(height: int) -> MerkleRoot:
     return root
 
 def mmr_root(peaks: list[(MerkleRoot, int)]) -> MerkleRoot:
-    if len(peaks) == 1 and peaks[0][1] == 40:
+    if len(peaks) == 1 and peaks[0][1] == NOTE_SET_DEPTH:
         return peaks[0][0]  # a full tree is its single peak
     # fold the peaks from the right, each peak being the left sibling of what lies after it
     root = 0
@@ -2031,7 +2038,7 @@ def mmr_root(peaks: list[(MerkleRoot, int)]) -> MerkleRoot:
             height += 1
         root = zkhash(peak, root)
         height += 1
-    while height < 40:
+    while height < NOTE_SET_DEPTH:
         root = zkhash(root, empty_root(height))
         height += 1
     return root
@@ -2039,7 +2046,7 @@ def mmr_root(peaks: list[(MerkleRoot, int)]) -> MerkleRoot:
 
 ### Nullifier Indexed Merkle Tree
 
-The nullifiers of each note set are maintained in an indexed Merkle tree (IMT) of depth $`40`$, whose leaves are appended in insertion order. Each leaf points to the leaf holding the next greater nullifier, so the leaves form a sorted linked list. The first leaf is the sentinel `(0, 0, 0)`, and a `next_nullifier` of `0` means there is no greater nullifier.
+The nullifiers of each note set are maintained in an indexed Merkle tree (IMT) of depth `NOTE_SET_DEPTH`, whose leaves are appended in insertion order. Each leaf points to the leaf holding the next greater nullifier, so the leaves form a sorted linked list. The first leaf is the sentinel `(0, 0, 0)`, and a `next_nullifier` of `0` means there is no greater nullifier.
 
 ```python
 class NullifierLeaf:
@@ -2056,7 +2063,7 @@ def nullifier_leaf_hash(leaf: NullifierLeaf) -> zkhash:
     )
 
 def insert_nullifier(leaves: list[NullifierLeaf], nullifier: NoteNullifier):
-    assert len(leaves) < 2**40  # the IMT has 2**40 leaves, the sentinel included
+    assert len(leaves) < 2**NOTE_SET_DEPTH  # the number of leaves of the IMT, the sentinel included
     # walk the sorted list to the leaf of the greatest nullifier lower than nullifier
     low_index = 0
     while leaves[low_index].next_nullifier != 0 and leaves[low_index].next_nullifier < nullifier:
@@ -2068,7 +2075,7 @@ def insert_nullifier(leaves: list[NullifierLeaf], nullifier: NoteNullifier):
     low.next_index = len(leaves) - 1
 ```
 
-A `nullifier` is not in the set if and only if there is a leaf `low` with `low.nullifier < nullifier` and either `nullifier < low.next_nullifier` or `low.next_nullifier == 0`. The root of the IMT is the Merkle root of depth $`40`$ over the hashes of its leaves, where every position past the last appended leaf holds the value $`0`$. An empty position is therefore distinct from the sentinel, whose position holds `nullifier_leaf_hash(NullifierLeaf(0, 0, 0))`.
+A `nullifier` is not in the set if and only if there is a leaf `low` with `low.nullifier < nullifier` and either `nullifier < low.next_nullifier` or `low.next_nullifier == 0`. The root of the IMT is the Merkle root of depth `NOTE_SET_DEPTH` over the hashes of its leaves, where every position past the last appended leaf holds the value $`0`$. An empty position is therefore distinct from the sentinel, whose position holds `nullifier_leaf_hash(NullifierLeaf(0, 0, 0))`.
 
 For a note set, the method `commitment_root()` is `mmr_root(self.commitments)`, the root of its commitment MMR as it stands, and `nullifier_root()` is the root of its nullifier IMT, over the hashes of `self.nullifier_leaves`. The `commitment_root` field of an Operation is one of the roots the set recorded.
 
@@ -2096,10 +2103,10 @@ The proofs spending notes of a note set are verified against the root referenced
 class NoteSet:
     def tx_commitment_root(self, commitment_root: MerkleRoot, covered: int | None = None) -> MerkleRoot:
         # Check the root is the commitment MMR root of the set at the end of one of the last
-        # 1024 blocks, block_height being the height of the block validated
+        # ROOT_WINDOW blocks, block_height being the height of the block validated
         assert commitment_root in self.recent_commitment_roots
         last_block = self.recent_commitment_roots[commitment_root].last_block
-        assert last_block is None or last_block >= block_height - 1024
+        assert last_block is None or last_block >= block_height - ROOT_WINDOW
         # the first covered commitments of tx_commitment_buffer, all of them by default
         buffered = self.tx_commitment_buffer[:covered]
         if len(buffered) == 0:
@@ -2234,8 +2241,8 @@ class ZkTransferWitness:
     inputs_stake_pk: list[ZkPublicKey]     # the staking key of each input note
     inputs_nonce: list[zkhash]             # the nonce of each input note
     inputs_value: list[TokenValue]         # the value of each input note
-    inputs_selectors: list[list[boolean]]  # (len = 4 x 40) the Merkle path direction of each input
-    inputs_path: list[list[zkhash]]        # (len = 4 x 40) the Merkle path of each input
+    inputs_selectors: list[list[boolean]]  # (len = 4 x NOTE_SET_DEPTH) the Merkle path direction of each input
+    inputs_path: list[list[zkhash]]        # (len = 4 x NOTE_SET_DEPTH) the Merkle path of each input
     outputs_pk: list[ZkPublicKey]          # (len = 8) the public key of each output note
     outputs_stake_pk: list[ZkPublicKey]    # the staking key of each output note
     outputs_nonce: list[zkhash]            # the nonce of each output note
@@ -2353,8 +2360,8 @@ class ZkProgramSpendWitness:
     inputs_nonce: list[zkhash]             # the nonce of each input note
     inputs_value: list[TokenValue]         # the value of each input note
     inputs_data: list[zkhash]              # the data of each input note
-    inputs_selectors: list[list[boolean]]  # (len = 4 x 40) the Merkle path direction of each input
-    inputs_path: list[list[zkhash]]        # (len = 4 x 40) the Merkle path of each input
+    inputs_selectors: list[list[boolean]]  # (len = 4 x NOTE_SET_DEPTH) the Merkle path direction of each input
+    inputs_path: list[list[zkhash]]        # (len = 4 x NOTE_SET_DEPTH) the Merkle path of each input
     outputs_pk: list[ZkPublicKey]          # (len = 8) the public key of each output note
     outputs_stake_pk: list[ZkPublicKey]    # the staking key of each output note
     outputs_nonce: list[zkhash]            # the nonce of each output note
