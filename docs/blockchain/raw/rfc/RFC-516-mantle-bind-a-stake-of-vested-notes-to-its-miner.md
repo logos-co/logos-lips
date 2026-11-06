@@ -11,7 +11,7 @@
 | v3 | The `note_pk` secret alone withdraws, so a sale of the stake needs trust; every declaration with a spend is bound; wallets recover their declarations | 2026-11-05 |
 | v4 | Follows the nullifier and staking keys of the stack; one derivation function for the keys of claims and of the `note_pk`; the binding drops the active flag | 2026-11-06 |
 | v5 | Follows the staking key of a declaration and the service rewards going to its two keys: binding the `note_pk` now covers the rewards, the `zk_id` holds no funds, and the `note_stake_pk` stays free | 2026-11-06 |
-| v6 | The `note_stake_pk` of a declaration must equal its `note_pk`, so a sale of the lottery of a locked stake needs trust too; the index of the `note_pk` is bounded, so a sale always needs trust | 2026-11-06 |
+| v6 | A declaration names only its `note_pk`, as public key and staking key, so a sale of the lottery of a locked stake needs trust too; the index of the `note_pk` is bounded, so a sale of claimed notes always needs trust | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -21,12 +21,12 @@ Read the PR's Motivation first.
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here** — [Mantle](#affected-specifications), [the binding constraint of the ZkStake](#2-the-zkstake-proves-the-binding) | the `note_pk` and every input with a non-zero `data` derive from one stake secret; inputs with `data` `0` stay free; the index of the `note_pk` is below `2^32` |
 | 2 | Critical | **Start here** — [Mantle](#affected-specifications), [Service Declaration Protocol](#affected-specifications), [withdrawal by the `note_pk` secret](#5-withdrawal-by-the-note_pk-secret-alone) | `SDP_WITHDRAW` no longer takes the `provider_id` signature |
-| 3 | High | [Mantle](#affected-specifications), [Service Declaration Protocol](#affected-specifications), [the `note_stake_pk`](#6-the-note_stake_pk-of-a-declaration) | `SDP_DECLARE` requires it to equal the `note_pk`, so a declaration has no separate staking key |
+| 3 | High | [Mantle](#affected-specifications), [Service Declaration Protocol](#affected-specifications), [the staking key of a declaration](#6-the-staking-key-of-a-declaration) | a declaration names only the `note_pk`, and its service note and rewards take it as their staking key too |
 | 4 | High | [Mantle](#affected-specifications), [the derivation function](#1-keys-derived-from-a-stake-secret) | one function for the keys of claims and of the `note_pk`; compression mode |
 | 5 | High | [Service Declaration Protocol](#affected-specifications), [the `note_pk`](#3-the-note_pk-of-a-declaration) | the `note_pk` is now proven by every spend |
 | 6 | Medium | [Wallet Technical Standard](#affected-specifications), [wallets that mine or declare](#4-wallets-that-mine-or-declare) | the stake secret; recovery of claims and declarations; a cold declaration keeps one key |
-| 7 | Low | [Mantle Transaction Encoding](#affected-specifications), [Gas Cost Determination](#affected-specifications) | the withdrawal proof and its Execution Gas lose the signature |
-| 8 | Low | [Genesis Block](#affected-specifications) | skim — the declarations of its examples name one key |
+| 7 | Low | [Mantle Transaction Encoding](#affected-specifications), [Gas Cost Determination](#affected-specifications) | the withdrawal proof and its Execution Gas lose the signature; an `SDPDeclare` loses its `NoteStakePk` |
+| 8 | Low | [Genesis Block](#affected-specifications), [Service Reward Distribution](#affected-specifications), [Cryptarchia](#affected-specifications) | skim — one key for a declaration and its rewards; regenerated test vectors |
 | 9 | Low | [Common Cryptographic Components](#affected-specifications) | skim — one more use of the compression mode |
 
 # Discussion
@@ -43,13 +43,13 @@ The binding covers notes already claimed. A buyer can still hand a miner public 
 
 The index of the `note_pk` is below `2^32`. With an unbounded index, a buyer could choose a random index, keep it secret and prove the ZkStake jointly with the miner, neither revealing its secret. The miner could then not derive the keys of the `note_pk`, so it could neither withdraw the stake nor lead with it, and the sale would need no trust. With the bound, the miner finds the index from the stake secret and the `note_pk` in at most `3 * 2^32` Poseidon2 compressions, about a day of one core at the 23,197 cycles of Gas Cost Determination.
 
-## The `note_stake_pk` equals the `note_pk`
+## A declaration names one key
 
-The service rewards of a declaration go to its `note_pk` and `note_stake_pk`, so binding the `note_pk` covers them too: the miner can derive the key that spends them. The `zk_id` holds no funds and needs no binding.
+The service rewards of a declaration go to its `note_pk`, so binding the `note_pk` covers them too: the miner can derive the key that spends them. The `zk_id` holds no funds and needs no binding.
 
-A free `note_stake_pk` would leave the lottery open to sale. A miner could name a buyer's `note_stake_pk` and hand over the nullifier key of the `note_pk`. Only the buyer could then lead with the service note and the service rewards, and the leader rewards go to any key it chooses. That is a sale without trust, until the lock ends.
+A separate staking key would leave the lottery open to sale. A miner could name a buyer's staking key and hand over the nullifier key of the `note_pk`. Only the buyer could then lead with the service note and the service rewards, and the leader rewards go to any key it chooses. That is a sale without trust, until the lock ends.
 
-`SDP_DECLARE` therefore requires the `note_stake_pk` to equal the `note_pk`. The staking secret key of the service note is then its nullifier key, which the miner can derive. A miner can still hand that key to a buyer off chain, but it can also lead with the note itself, so the buyer has to trust the seller.
+A declaration therefore names no `note_stake_pk`: the service note and the rewards take the `note_pk` as their staking key too. Their staking secret key is then their nullifier key, which the miner can derive. A miner can still hand that key to a buyer off chain, but it can also lead with the notes itself, so the buyer has to trust the seller.
 
 ## Why one stake secret
 
@@ -73,7 +73,7 @@ Notes that never vest, whose `data` is `0`, stay free of the check, since they m
 
 ## Compatibility
 
-The chain has not launched, so no migration is needed. The ZkStake gets a new public input and verification key. The encoding of a declaration does not change, since the `note_pk` is already in it, and the proof of an `SDPWithdraw` loses its signature.
+The chain has not launched, so no migration is needed. The ZkStake gets a new public input and verification key. An `SDPDeclare` loses its `NoteStakePk`, 32 bytes, and the proof of an `SDPWithdraw` loses its signature. Notes keep their staking key, so the Proof of Leadership and the ZkTransfer do not change.
 
 # Details
 
@@ -144,15 +144,21 @@ A wallet that mines or declares keeps a stake secret, the `k_logos` of a hardene
 - Encoding: an `SDPWithdraw` is proven by a `ZkTransferProof`. `ZkTransferAndEd25519SigProof`, which no Operation uses any more, is removed.
 - The Service Declaration Protocol no longer requires the withdraw message to be signed by the `provider_id`.
 
-## 6. The `note_stake_pk` of a declaration
+## 6. The staking key of a declaration
 
-`SDP_DECLARE` gains a validation step, and the Service Declaration Protocol lists it among the conditions of a valid declaration:
+`DeclarationMessage`, `DeclarationInfo` and the encoding of an `SDPDeclare` lose the `note_stake_pk`. The service note and the service reward notes take the `note_pk` as their staking key:
 
-```python
-assert declaration.note_stake_pk == declaration.note_pk
+```diff
+ service_note = Note(
+     value=stake,
+     nonce=derive_note_nonce(declaration_op_id, 0, stake, declaration.note_pk),
+     public_key=declaration.note_pk,
+-    stake_public_key=declaration.note_stake_pk
++    stake_public_key=declaration.note_pk
+ )
 ```
 
-Genesis declarations are validated the same way, so the examples of the Genesis Block name one key. In the Wallet Technical Standard, a cold declaration keeps one key, and its node leads with the nullifier key of the `note_pk`.
+The declarations of the Genesis Block name one key in the same way. In the Wallet Technical Standard, a cold declaration keeps one key, and its node leads with the nullifier key of the `note_pk`. The `SDP_DECLARE` test vectors of Mantle, and the vectors of Cryptarchia that depend on them, are regenerated.
 
 ## Chores
 
@@ -164,11 +170,11 @@ Genesis declarations are validated the same way, so the examples of the Genesis 
 
 - [ ] Add the `note_pk` public input, the stake secret, the indices, the bound on the `note_index` and the derivation checks to the ZkStake circuit, and generate its key.
 - [ ] Pass the `note_pk` of the declaration to the ZkStake verification of `SDP_DECLARE`.
-- [ ] Reject an `SDP_DECLARE` whose `note_stake_pk` differs from its `note_pk`, in Genesis too, and make wallets name one key.
+- [ ] Drop the `note_stake_pk` from `SDP_DECLARE`, its encoding and `DeclarationInfo`, and create the service note and the service reward notes with the `note_pk` as their staking key.
 - [ ] Drop the `provider_id` signature from `SDP_WITHDRAW`, from the encoding of its proof and from its Execution Gas.
 - [ ] Derive claim keys and the `note_pk` of declarations from a stake secret in wallets that mine or declare, and recover claims and declarations by their derived public keys.
 - [ ] Measure the fixed part of the ZkStake batch with its new public input.
-- [ ] Add tests: a declaration staking vested notes under a `note_pk` of their stake secret is accepted; one under another `note_pk`, with a vested input under an underived key, with a `note_index` of `2^32` or more, or with a `note_stake_pk` other than its `note_pk`, is rejected; a liquid input under any key is accepted; a withdrawal proven by the spending secret key of the `note_pk` alone is accepted.
+- [ ] Add tests: a declaration staking vested notes under a `note_pk` of their stake secret is accepted; one under another `note_pk`, with a vested input under an underived key, or with a `note_index` of `2^32` or more, is rejected; a liquid input under any key is accepted; a withdrawal proven by the spending secret key of the `note_pk` alone is accepted.
 - [ ] Verify the implementation matches this specification.
 
 # Affected Specifications
@@ -182,3 +188,5 @@ Genesis declarations are validated the same way, so the examples of the Genesis 
 | [Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | Revision 2.2.0 |
 | [Common Cryptographic Components](../common-cryptographic-components.md) | Modified | Revision 1.4.1 |
 | [Genesis Block](../bedrock-genesis-block.md) | Modified | Revision 1.3.3 |
+| [Service Reward Distribution](../bedrock-service-reward-distribution.md) | Modified | Revision 1.4.2 |
+| [Cryptarchia](../cryptarchia-v1-protocol.md) | Modified | Revision 1.3.3 |
