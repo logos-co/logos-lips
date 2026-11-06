@@ -126,7 +126,13 @@ and a reconciliation status:
 | Field      | Type       | Description                          |
 |------------|------------|--------------------------------------|
 | elements   | seq[`SyncID`] | Sequence of `SyncID`s in the `Range` |
-| reconciled | bool       | Whether the `Range` has been reconciled  |
+| reconciled | bool       | Whether the sender still needs the remote peer's items for the `Range` |
+
+The `reconciled` flag tells the remote peer whether the sender still needs its items for this range.
+A peer sending an `ItemSet` in response to a `Fingerprint` range (including subranges produced by splitting) MUST set `reconciled` to `false`.
+A peer sending an `ItemSet` in response to an `ItemSet` with `reconciled` set to `false` MUST set `reconciled` to `true` and
+MUST use the same range bounds.
+A peer holding no `SyncID`s in the range MAY instead answer a `Fingerprint` range with an empty `ItemSet` and `reconciled` set to `true`.
 
 #### Payload encoding
 
@@ -248,8 +254,8 @@ The responder:
    - If the received range is of type `ItemSet`, compares it to the local items in the corresponding range
       - If there are any differences between the local and remote items, adds these as part of the output of the `reconciliation` procedure.
       At this point, the syncing peers MAY start to exchange the full messages corresponding to differences using the `transfer` protocol.
-      - If the received `ItemSet` is _not_ marked as `reconciled` by the remote peer, includes the corresponding local range in the response as type `ItemSet`.
-      - If the received `ItemSet` is marked as `reconciled` by the remote peer, includes the corresponding local range in the response as type `Skip`.
+      - If the received `ItemSet` has `reconciled` set to `false`, includes the corresponding local range in the response as type `ItemSet`.
+      - If the received `ItemSet` has `reconciled` set to `true`, includes the corresponding local range in the response as type `Skip`.
 3. If shards or cluster don't match:
    - Responds with an empty payload carrying its own cluster ID and supported shards.
 4. Delta encodes the response
