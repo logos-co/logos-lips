@@ -266,7 +266,7 @@ Channels allow Zones to post their updates on chain. Channels form virtual chain
 
 ### Message Ordering
 
-Channels form virtual chains by having each message reference its parent message. The order of messages in these channels is enforced by the sequencer by building a hash chain of messages, i.e. new messages reference the previous messages through a parent hash. Given that Cryptarchia has long finality times, these message parent references allow Zone sequencers to continue to post new updates to channels without having to wait for finality. No matter how Cryptarchia forks and reorgs, the channel messages from honest sequencers will eventually be re-included in a way that satisfies the virtual chain order, with one limit: a step is valid only against a commitment root recorded in the last 1024 blocks of the fork it lands on. A reorg that moves the deposits or the steps a step builds on into other blocks can leave its root absent from the winning fork, which invalidates the inscription carrying the step and the inscriptions chained after it, and the sequencer, who cannot prove the step again for its holder, re-publishes the chain without it.
+Channels form virtual chains by having each message reference its parent message. The order of messages in these channels is enforced by the sequencer by building a hash chain of messages, i.e. new messages reference the previous messages through a parent hash. Given that Cryptarchia has long finality times, these message parent references allow Zone sequencers to continue to post new updates to channels without having to wait for finality. No matter how Cryptarchia forks and reorgs, the channel messages from honest sequencers will eventually be re-included in a way that satisfies the virtual chain order, with one limit: a step is valid only against a commitment root recorded in the last 1024 blocks of the fork it lands on. A reorg that moves the channel deposits or the steps a step builds on into other blocks can leave its root absent from the winning fork, which invalidates the inscription carrying the step and the inscriptions chained after it, and the sequencer, who cannot prove the step again for its holder, re-publishes the chain without it.
 
 Configurations form a second hash chain within the channel: each configuration names the configuration it supersedes, so a pending reconfiguration stays valid while the sequencer keeps posting inscriptions.
 
@@ -376,7 +376,7 @@ Channels let their bridged notes keep participating in Proof of Stake. When a us
 - *Inside the channel*, the holder signs a step off-chain: a ZkTransfer that consumes its channel notes and creates channel notes of the same total value, together with the inscription of the step, its zone message. The sequencers of the channel collect the steps of their users and publish them in a [`CHANNEL_INSCRIBE`](#channel_inscribe), grouping them in mini-blocks and ordering each mini-block as they choose, since a step holds at any position in its mini-block. The ledger verifies every step, so a sequencer orders the moves of a channel but never makes one.
 - *Out of the channel*, the holder posts a [`CHANNEL_WITHDRAW`](#channel_withdraw) alone, its fee paid by a ledger note in the same Mantle Transaction. It takes effect `WITHDRAW_DELAY` slots later, unless an inscription of the channel consumes its notes with a valid step in the meantime. The withdrawal is the forced exit of a holder whose steps the sequencers do not publish. It also settles a holder who signs both a step and a withdrawal of the same notes optimistically: the step wins if an inscription publishes it before the withdrawal is due, and the holder has then paid the fees of the withdrawal for nothing.
 
-**Ageing.** Because a deposit and a step consume notes and create new ones, a channel note restarts the ageing process and must age again before it can create a PoL. Bridged funds still count toward Proof of Stake, so the goals above hold, but the participation is not continuous across these moves.
+**Ageing.** Because a channel deposit and a step consume notes and create new ones, a channel note restarts the ageing process and must age again before it can create a PoL. Bridged funds still count toward Proof of Stake, so the goals above hold, but the participation is not continuous across these moves.
 
 **What each party can do.**
 
@@ -407,7 +407,7 @@ class Inscribe:
                                        # empty. A mini-block holds at least one step
 ```
 
-The steps of an inscription are user steps. Their kind is not a field of the step: the [encoding](mantle-transaction-encoding.md#channel-operations) tags each step with it.
+The steps of an inscription are user steps, and the [encoding](mantle-transaction-encoding.md#channel-operations) tags each step with its kind.
 
 A `NoteNullifier` is the nullifier of a note and a `NoteCommitment` its commitment, as [Note Commitment and Nullifier](#note-commitment-and-nullifier) defines them, and a `MerkleRoot` the root of a Merkle tree.
 
@@ -434,7 +434,7 @@ def user_step_id(channel: ChannelId, step: UserStep) -> zkhash:
     inscription_lo = FiniteField(inscription_hash[:16], byte_order="little", modulus=p)
     inscription_hi = FiniteField(inscription_hash[16:], byte_order="little", modulus=p)
     return zkhash(
-        FiniteField(b"CHANNEL_STEP_V1", byte_order="little", modulus=p),
+        FiniteField(b"USER_STEP_V1", byte_order="little", modulus=p),
         channel_lo,
         channel_hi,
         inscription_lo,

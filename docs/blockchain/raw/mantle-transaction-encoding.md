@@ -113,7 +113,7 @@ Parent            = Hash32
 Signer            = Ed25519PublicKey
 ```
 
-A `UserStep` moves channel notes with the inscription of its holder, and a `MiniBlock` groups the steps proven against the same state of the transaction buffer, as [CHANNEL_INSCRIBE](bedrock-v1.1-mantle-specification.md#channel_inscribe) defines them. A `Step` starts with the byte of its kind, which the step itself does not carry as a field; a decoder MUST reject an unknown kind.
+A `UserStep` moves channel notes with the inscription of its holder, and a `MiniBlock` groups the steps proven against the same state of the transaction buffer, as [CHANNEL_INSCRIBE](bedrock-v1.1-mantle-specification.md#channel_inscribe) defines them. A `Step` starts with the byte of its kind; a decoder MUST reject an unknown kind.
 
 `MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. The payloads of the `Inscription` of a `ChannelInscribe` and of the `Inscription` of each of its steps MUST together be at most `MAX_OPERATION_DATA_SIZE` bytes, and the payload of `ChannelDeposit.Metadata` MUST be at most `MAX_OPERATION_DATA_SIZE` bytes, each excluding its `UINT32` length prefix. A decoder MUST reject a `ChannelInscribe` when the declared or decoded payload lengths of its inscriptions sum to more than the limit, and a `ChannelDeposit` when the declared or decoded payload length of its metadata exceeds it.
 
