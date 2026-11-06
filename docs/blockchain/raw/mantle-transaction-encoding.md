@@ -169,7 +169,7 @@ NoteNullifier  = FieldElement ; nullifier of a note
 CommitmentRoot = FieldElement ; MMR root of note commitments
 ```
 
-Commitments and nullifiers are defined in [Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) of Mantle.
+Commitments and nullifiers are defined in [Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) of Mantle, and the root of the commitments of a note set in its [Commitment Merkle Mountain Range](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range) (MMR).
 
 ## Op Proofs
 

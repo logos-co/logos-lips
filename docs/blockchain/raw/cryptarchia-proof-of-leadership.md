@@ -216,7 +216,7 @@ Such that the following constraints hold:
 
 # Linking the Proof of Leadership to a Block
 
-The PoL is bound to the block it proposes through its public input `msg`, the [block ID](cryptarchia-v1-protocol.md#block-id) of that block reduced modulo $`p`$:
+The PoL is bound to the block it proposes through its public input `msg`, the 32-byte [block ID](cryptarchia-v1-protocol.md#block-id) of that block reduced modulo $`p`$:
 
 ```python
 msg = FiniteField(block_id(header), byte_order="little", modulus= p)

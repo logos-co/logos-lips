@@ -255,7 +255,7 @@ The reserve balance `rewards_reserve`, the pool balance `rewards_pool`, the Blen
 
 ```python
 # pooled_fees is D_1_t, the pooled fees of the block, and total_stake is D_0_t
-pow_share: int128 = get_collected_fees(block) * POW_SHARE // SHARE_DEN
+pow_share: int128 = get_pow_pool_refill(block)
 pooled_fees = get_collected_fees(block) - pow_share
 pooled_fees_window = pooled_fees_window[1:] + [pooled_fees]
 release, payout = block_reward(total_stake, pooled_fees_window, rewards_reserve)
@@ -266,7 +266,7 @@ blend_rewards_pending += release + payout - leader_share(block)
 pow_reward_pool += pow_share
 ```
 
-`leader_share`, `get_collected_fees`, `POW_SHARE` and `SHARE_DEN` are defined in [Blend Service and Consensus Leaders](overview-cryptoeconomics.md#blend-service-and-consensus-leaders) and [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool).
+`leader_share`, `get_collected_fees` and `get_pow_pool_refill` are defined in [Blend Service and Consensus Leaders](overview-cryptoeconomics.md#blend-service-and-consensus-leaders) and [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool).
 
 At the first block of an epoch, the Blend reward of the epoch before the previous one is paid from `blend_rewards_closed` ([Service Reward Distribution Protocol](bedrock-service-reward-distribution.md)), and what it does not distribute, when no reward is calculated or as the remainder of the division among the nodes, returns to `rewards_reserve`: the pool pays only what the fee window sets, so a balance left in it would never circulate. `blend_rewards_pending` then moves into `blend_rewards_closed` and is reset to `0`.
 
