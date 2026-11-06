@@ -36,7 +36,7 @@
 | 1.7.1 | [RFC] The SDP costs price the per-service identifier checks and no lock-period check | 2026-10-05 |
 | 1.8.0 | Follow the private ledger of Mantle: the notes are proven with a ZkTransfer and spent by nullifier, channel inscriptions carry the ZkTransfer of their steps, channel withdrawals and SDP withdrawals carry a ZkTransfer, the proof of work claim carries no proof, and the `CHANNEL_TRANSFER` and `LEADER_CLAIM` Operations are removed. The ZkTransfer is priced from the measured batch verification of Groth16 proofs, a fixed part per block and 619 Execution Gas per proof | 2026-10-07 |
 | 1.9.0 | Add the Execution Gas of program steps and of the `PROGRAM_REGISTER` Operation, priced from the measured batch verification of the ZkProgramSpend, the verification of a program proof alone with the line coefficients of its key, and the subgroup checks and the pairing `e(α, β)` of a verification key | 2026-10-12 |
-| 2.0.0 | Execution Gas measured in core cycles on the node, end to end, over note sets of a million notes, every step of the validation and execution priced. The Execution Gas of a Mantle Transaction sums a term per byte of the signed transaction, a term per note set it changes, and the Execution Gas of its Operations, each built from per-component constants: proofs, root extensions, nullifiers, commitments, signatures, steps, program deposits, openings and program proofs. The fixed costs of a block are deducted from its Execution Gas limit. The inscriptions of steps pay as transaction bytes | 2026-11-06 |
+| 2.0.0 | Execution Gas measured in core cycles on the node, end to end, over note sets of a million notes, every step of the validation and execution priced. The Execution Gas of a Mantle Transaction sums a term per byte of the signed transaction, a term per note set it changes, and the Execution Gas of its Operations, each built from per-component constants: proofs, root extensions, nullifiers, commitments, the signatures its proof carries, steps, program deposits and openings, a program step including its program proof. The fixed costs of a block are deducted from its Execution Gas limit. The inscriptions of steps pay as transaction bytes | 2026-11-06 |
 
 # Introduction
 
@@ -81,23 +81,23 @@ execution_base_fee = tx_execution_gas(tx_signed) * execution_gas_base_price
 The Execution Gas of a Mantle Transaction is:
 
 ```python
-def tx_execution_gas(tx_signed) -> int:
-    # note_sets_changed_by(op): the channel and SDP note sets the Operation creates,
-    # spends from or adds to, at its execution or at the release of its withdrawal
-    tx_note_sets = set().union(*(note_sets_changed_by(op) for op in tx_signed.ops))
-    # roots_extended_by(op): the (note set, referenced root, covered) of the proofs of
-    # the Operation whose root at least one buffered commitment extends
-    tx_extended_roots = set().union(*(roots_extended_by(op) for op in tx_signed.ops))
+def tx_execution_gas(tx_signed, note_sets) -> int:
+    # note_sets: the note sets once the Operations of the transaction have run, each
+    # recording whether an Operation created or changed it, at its execution or at the
+    # release of its withdrawal (tx_changed), and the (referenced root, covered) of each
+    # root its proofs extended by buffered commitments (tx_extended_roots)
     return (len(encode(tx_signed)) * EXECUTION_KB_GAS // 1000
-            + EXECUTION_NOTE_SET_GAS * len(tx_note_sets)
-            + sum(root_gas(covered) for (_, _, covered) in tx_extended_roots)
-            + sum(execution_gas(op) for op in tx_signed.ops))
+            + EXECUTION_NOTE_SET_GAS * sum(note_set.tx_changed for note_set in note_sets[SDP_SET:])
+            + sum(root_gas(covered) for note_set in note_sets
+                  for (_, covered) in note_set.tx_extended_roots)
+            + sum(execution_gas(op, op_proof)
+                  for op, op_proof in zip(tx_signed.tx.ops, tx_signed.op_proofs)))
 
 # The extension of a referenced root by the commitments buffered before a proof in
-# the transaction: the buffer before its mini-block for a user step or a deposit, the
-# whole buffer of the set for the other proofs. Proofs sharing their note set, referenced
-# root and number of commitments covered are verified against one extended root,
-# computed and paid once.
+# the transaction: the buffer before its mini-block for a user step or a program deposit,
+# the whole buffer of the set for the other proofs. Proofs sharing their note set,
+# referenced root and number of commitments covered are verified against one extended
+# root, computed and paid once.
 def root_gas(covered: int) -> int:
     return EXECUTION_ROOT_GAS + EXECUTION_BUFFERED_GAS * covered
 
@@ -108,13 +108,13 @@ def spend_gas(inputs, outputs) -> int:
             + EXECUTION_COMMITMENT_GAS * len(outputs))
 
 # A program step of a Channel Inscribe, with its proofs and its openings.
-def program_step_gas(step, step_proof) -> int:
-    return (EXECUTION_PROGRAM_STEP_GAS + EXECUTION_PROGRAM_PROOF_GAS
-            + spend_gas(step.inputs, step.outputs)
-            + EXECUTION_OPENING_GAS * len(step_proof.program_notes))
+def program_step_gas(step) -> int:
+    return (EXECUTION_PROGRAM_STEP_GAS
+            + spend_gas(step.inputs, step.program_outputs + step.outputs)
+            + EXECUTION_OPENING_GAS * len(step.program_outputs))
 ```
 
-and the Execution Gas of each Operation is:
+and the Execution Gas of each Operation, from the Operation and its proof alone, is:
 
 ```python
 TRANSFER          = EXECUTION_TRANSFER_GAS + spend_gas(inputs, outputs)
@@ -123,21 +123,20 @@ CHANNEL_INSCRIBE  = EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_SIGNATURE_GAS
                           for step in user_steps)
                     + sum(EXECUTION_PROGRAM_DEPOSIT_GAS + spend_gas(step.inputs, step.outputs)
                           for step in program_deposits)
-                    + sum(program_step_gas(step, step_proof)
-                          for step, step_proof in program_steps)
-CHANNEL_CONFIG    = EXECUTION_CHANNEL_CONFIG_GAS + EXECUTION_SIGNATURE_GAS * configuration_threshold
+                    + sum(program_step_gas(step) for step in program_steps)
+CHANNEL_CONFIG    = EXECUTION_CHANNEL_CONFIG_GAS + EXECUTION_SIGNATURE_GAS * len(proof.signatures)
 CHANNEL_DEPOSIT   = EXECUTION_CHANNEL_DEPOSIT_GAS + spend_gas(inputs, outputs)
 CHANNEL_WITHDRAW  = EXECUTION_CHANNEL_WITHDRAW_GAS + spend_gas(inputs, outputs)
 SDP_DECLARE       = EXECUTION_SDP_DECLARE_GAS + EXECUTION_SIGNATURE_GAS
                     + spend_gas(inputs, [service_note])
 SDP_WITHDRAW      = EXECUTION_SDP_WITHDRAW_GAS + EXECUTION_SIGNATURE_GAS
-                    + spend_gas([service_note], outputs)
+                    + spend_gas([service_note], outputs) + root_gas(1)
 SDP_ACTIVE        = EXECUTION_SDP_ACTIVE_GAS + EXECUTION_SIGNATURE_GAS
 CLAIM_POW_REWARD  = EXECUTION_CLAIM_POW_REWARD_GAS
 PROGRAM_REGISTER  = EXECUTION_PROGRAM_REGISTER_GAS
 ```
 
-where `user_steps`, `program_deposits` and `program_steps` are the [user steps](bedrock-v1.1-mantle-specification.md#channel_inscribe), the program deposits and the program steps of the inscription, the latter with their proofs, a user step being a local transaction of the channel: a ZkTransfer moving channel notes, signed by their holder and published by a sequencer, and with the constants of the Operations:
+each `EXECUTION_SIGNATURE_GAS` paying an Ed25519 signature the proof of the Operation carries, where `user_steps`, `program_deposits` and `program_steps` are the [user steps](bedrock-v1.1-mantle-specification.md#channel_inscribe), the program deposits and the program steps of the inscription, a user step being a local transaction of the channel: a ZkTransfer moving channel notes, signed by their holder and published by a sequencer, and with the constants of the Operations:
 
 | Constant | Execution Gas | Measure |
 | --- | --- | --- |
@@ -147,7 +146,7 @@ where `user_steps`, `program_deposits` and `program_steps` are the [user steps](
 | `EXECUTION_CHANNEL_DEPOSIT_GAS` | 6 | [Channel Deposit](#channel-deposit) |
 | `EXECUTION_CHANNEL_WITHDRAW_GAS` | 31 | [Channel Withdraw](#channel-withdraw) |
 | `EXECUTION_SDP_DECLARE_GAS` | 622 | [SDP Declaration](#sdp-declaration) |
-| `EXECUTION_SDP_WITHDRAW_GAS` | 892 | [SDP Withdraw](#sdp-withdraw) |
+| `EXECUTION_SDP_WITHDRAW_GAS` | 0 | [SDP Withdraw](#sdp-withdraw) |
 | `EXECUTION_SDP_ACTIVE_GAS` | 6927 | [SDP Activation](#sdp-activation) |
 | `EXECUTION_CLAIM_POW_REWARD_GAS` | 592 | [Claim PoW Reward](#claim-pow-reward) |
 | `EXECUTION_PROGRAM_REGISTER_GAS` | 6839 | [Program Register](#program-register) |
@@ -164,11 +163,10 @@ and the constants of the components:
 | `EXECUTION_NULLIFIER_GAS` | 725 | insertion of a nullifier and its share of the hashing of the nullifier tree, 724,523 cycles |
 | `EXECUTION_COMMITMENT_GAS` | 24 | append of a commitment, 23,069 cycles |
 | `EXECUTION_SIGNATURE_GAS` | 161 | Ed25519 signature, 160,462 cycles |
-| `EXECUTION_USER_STEP_GAS` | 195 | a user step beyond its spend, 194,249 cycles |
-| `EXECUTION_PROGRAM_DEPOSIT_GAS` | 267 | a program deposit beyond its spend and the append of its commitments to the root of the program spend consuming it, 266,888 cycles |
-| `EXECUTION_PROGRAM_STEP_GAS` | 54 | a program step beyond its spend, its proof, the deposits it consumes and its openings, 53,182 cycles |
+| `EXECUTION_USER_STEP_GAS` | 195 | a user step beyond its spend, the BLAKE2b pass of its `user_step_id` over its bytes included, 194,249 cycles |
+| `EXECUTION_PROGRAM_DEPOSIT_GAS` | 267 | a program deposit beyond its spend and the append of its commitments to the root of the program spend consuming it, the BLAKE2b pass of its `program_deposit_id` over its bytes included, 266,888 cycles |
+| `EXECUTION_PROGRAM_STEP_GAS` | 6374 | a program step beyond its spend, the program deposits it consumes and its openings, with the verification of its program proof under its registered key, 53,182 + 6,319,522 cycles |
 | `EXECUTION_OPENING_GAS` | 151 | the commitment of an opened program note, 150,974 cycles |
-| `EXECUTION_PROGRAM_PROOF_GAS` | 6320 | verification of a program proof under its registered key, 6,319,522 cycles |
 
 The constants of each Operation are what remains of its measure once its components are counted: the decoding and the checks of its fields, and the updates of the ledger state proper to the Operation. Each section below lists the steps behind them.
 
@@ -178,7 +176,7 @@ The fixed costs of a block, paid once whatever its transactions, are deducted fr
 
 ## Transaction bytes
 
-Decoding a transaction, hashing it into its `mantle_txhash` and deriving the identifier of each of its Operations each read every byte of it. Measured on inscriptions whose payload goes from 0 to 16,384 bytes, a transaction costs 26.8 cycles per byte beyond its fixed parts. Alone, decoding costs 2.4 cycles per byte and each Blake2b pass 3.5. The inscription of a user step or of a deposit pays like any other byte of the transaction, and is read by one more Blake2b pass, into its `user_step_id` or `program_deposit_id`. That pass is not priced yet: the measure on inscriptions without steps does not include it, and its per-byte cost joins the byte term when the transaction bytes are measured again.
+Decoding a transaction, hashing it into its `mantle_txhash` and deriving the identifier of each of its Operations each read every byte of it. Measured on inscriptions whose payload goes from 0 to 16,384 bytes, a transaction costs 26.8 cycles per byte beyond its fixed parts. Alone, decoding costs 2.4 cycles per byte and each Blake2b pass 3.5. The inscription of a user step or of a program deposit pays like any other byte of the transaction. The whole encoded step, its inscription included, is read by one more Blake2b pass, into its `user_step_id` or `program_deposit_id`, which `EXECUTION_USER_STEP_GAS` and `EXECUTION_PROGRAM_DEPOSIT_GAS` price for a step of 1 input and 1 output; the per-byte cost of that pass over a longer step joins the byte term when the transaction bytes are measured again with steps.
 
 ## Proofs
 
@@ -218,7 +216,7 @@ A Mantle Transaction pays `EXECUTION_NOTE_SET_GAS = 3461`, the largest of these 
 
 ## Signatures
 
-An Ed25519 signature is verified with strict verification (small-order checks on the public key and on `R`, see [Common Cryptographic Components](common-cryptographic-components.md#eddsa)) over the 32-byte `mantle_txhash`, 149,245 cycles. In a Channel Config, each further signature costs 160,462 cycles with the lookup of its key, the value of `EXECUTION_SIGNATURE_GAS = 161`.
+An Ed25519 signature is verified with strict verification (small-order checks on the public key and on `R`, see [Common Cryptographic Components](common-cryptographic-components.md#eddsa)) over the 32-byte `mantle_txhash`, 149,245 cycles. In a Channel Config, each further signature costs 160,462 cycles with the lookup of its key, the value of `EXECUTION_SIGNATURE_GAS = 161`. An Operation pays it for each Ed25519 signature its proof carries, so its Execution Gas depends on the Operation and its proof alone: a Channel Config pays the signatures it carries, which validation holds to the threshold of the channel, none for a channel it creates.
 
 # Operations
 
@@ -253,7 +251,7 @@ The validation verifies the Ed25519 signature of the sequencer, its accreditatio
 | each opening of a program note | 150,974 |
 | program proof | 6,319,522 |
 
-A user step derives its [`user_step_id`](bedrock-v1.1-mantle-specification.md#channel_inscribe) and checks its inputs and outputs, 194,249 cycles beyond its nullifier and its commitment. A program deposit derives its [`program_deposit_id`](bedrock-v1.1-mantle-specification.md#channel_inscribe) and enters the hash of the deposits of the program step consuming it, 266,888 cycles beyond its nullifier, its commitment and the append of that commitment to the root of the program spend, whose extension the first deposit of a step causes (`EXECUTION_ROOT_GAS`). A program step checks that its program is registered, checks the flags of its outputs and derives the public inputs of its proofs, 53,182 cycles beyond the inscription without steps and its commitment. An opening recomputes the commitment of the opened note and compares it to the output.
+A user step derives its [`user_step_id`](bedrock-v1.1-mantle-specification.md#channel_inscribe), a BLAKE2b hash of its encoding, and checks its inputs and outputs, 194,249 cycles beyond its nullifier and its commitment. A program deposit derives its [`program_deposit_id`](bedrock-v1.1-mantle-specification.md#channel_inscribe) the same way and enters the hash of the program deposits of the program step consuming it, 266,888 cycles beyond its nullifier, its commitment and the append of that commitment to the root of the program spend, whose extension the first program deposit of a step causes (`EXECUTION_ROOT_GAS`). A program step checks that its program is registered and derives the public inputs of its proofs, 53,182 cycles beyond the inscription without steps and its commitment, and verifies its program proof, 6,319,522 cycles: `EXECUTION_PROGRAM_STEP_GAS` prices both. An opening recomputes the commitment of the opened note and compares it to the output.
 
 ## Channel Config
 
@@ -306,7 +304,7 @@ The validation checks the format of the declaration, the length of its locators,
 | release at the end of the epoch | 19,335 |
 | decompression and batch verification of the ZkTransfer | 1,768,883 |
 
-The validation checks that the declaration exists and is not withdrawn, and the ZkTransfer consuming the service note, whose root is computed from that note alone, which takes most of the 892 Execution Gas of the Operation. The execution records the withdrawal epoch and keeps the withdrawal pending, and its release at the end of the epoch inserts the nullifier of the service note in the SDP note set and appends the output to the ledger note set.
+The validation checks that the declaration exists and is not withdrawn, and the ZkTransfer consuming the service note, whose root is computed from that note alone. That root is the root of the empty MMR extended by one commitment, priced by `root_gas(1) = 902`, and the rest of the 892 Execution Gas measured beyond the components leaves `EXECUTION_SDP_WITHDRAW_GAS = 0`. The execution records the withdrawal epoch and keeps the withdrawal pending, and its release at the end of the epoch inserts the nullifier of the service note in the SDP note set and appends the output to the ledger note set.
 
 ## SDP Activation
 

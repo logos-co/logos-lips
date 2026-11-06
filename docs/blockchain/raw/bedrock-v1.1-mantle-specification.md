@@ -52,7 +52,7 @@
 | 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each with its own inscription, grouped in the mini-blocks of an inscription, each proven against a recent root and the transaction buffer before its mini-block, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable over no epoch nonce and moved `CLAIM_POW_REWARD` to the opcode `0x30`. A declaration names in `note_pk` the key of its service note, and `SDP_WITHDRAW` carries no nonce and waits with the channel withdrawals until its declaration is removed. A channel deposit carries an `inscription`. The commitment MMR and the nullifier IMT of a note set have depth 40 | 2026-11-06 |
 | 2.1.0 | Add programs: notes gain `stake_public_key`, `program` and `data` fields, a nullifier key sitting between the spending secret key and the public key, program notes leading in Proof of Stake unless their staking key is `0`, a declaration naming in `note_stake_pk` the staking key of its service note and rewards, `PROGRAM_REGISTER` registers a Groth16 verification key, and the mini-blocks of channel inscriptions carry, next to user steps, program deposits and program steps made of a `ZkProgramSpend`, a program proof and the openings of the program notes they create, each step with its own inscription and its kind carried only by its encoding. A program deposit, like a user step, is proven against the buffer before its mini-block, and a program spend against the whole buffer at its position. A program step consumes the program deposits before it, which all pay its program, and lists the notes of the program it creates apart from the user notes it pays. Every program note is held by the key of the spending secret key `0`. The ZkProgramSpend derives the nonces of the outputs of a step consuming a note of the program. Add the proving time benchmarks of the ZkTransfer and the ZkProgramSpend | 2026-11-06 |
 | 2.1.1 | Added Note Delivery: how the holder of a note learns its `value` and `nonce`, the user notes a sender creates being delivered off chain, by the Note Encryption of [Common Cryptographic Components](common-cryptographic-components.md#note-encryption-construction), a delivered note taking the public key of its recipient as staking key unless the recipient asked for another | 2026-11-02 |
-| 2.2.0 | Execution Gas from [Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0: a Mantle Transaction pays its bytes, each channel or SDP note set it changes and each root extension its proofs share, and each Operation pays its proofs, nullifiers, commitments, signatures, steps, program deposits, openings and program proofs, through `spend_gas` and the per-component constants of Gas Determination | 2026-11-06 |
+| 2.2.0 | Execution Gas from [Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0: a Mantle Transaction pays its bytes, each channel or SDP note set it changes and each root extension its proofs share, as the note sets record them, and each Operation pays, from itself and its proof alone, its proofs, nullifiers, commitments, signatures, steps, program deposits and openings, through `spend_gas` and the per-component constants of Gas Determination | 2026-11-06 |
 
 # Introduction
 
@@ -162,7 +162,7 @@ def mandatory_fees(signed_tx: SignedMantleTx,
     return checked_uint64(execution_base_fees + permanent_storage_fees)
 ```
 
-The Execution Gas of a Mantle Transaction is the sum of the Execution Gas of its Operations, of `EXECUTION_KB_GAS` per 1,000 bytes of the encoded signed Mantle Transaction, rounded down, for its decoding and hashing, and of `EXECUTION_NOTE_SET_GAS` for each channel or SDP note set its Operations create or change, for the end of block work of that set. The Execution Gas of an Operation is deterministically derived from that Operation and the state it is validated against. See [Gas Determination](#gas-determination) for the Execution Gas values.
+The Execution Gas of a Mantle Transaction is the sum of the Execution Gas of its Operations, of `EXECUTION_KB_GAS` per 1,000 bytes of the encoded signed Mantle Transaction, rounded down, for its decoding and hashing, of `EXECUTION_NOTE_SET_GAS` for each channel or SDP note set its Operations create or change, for the end of block work of that set, and of `root_gas` for each root its proofs extend by buffered commitments, computed once ([Input Notes Spendability Validation](#input-notes-spendability-validation)). The Execution Gas of an Operation is deterministically derived from that Operation and its proof. See [Gas Determination](#gas-determination) for the Execution Gas values.
 
 If the Mantle Transaction is unbalanced (meaning that the Transaction consume more value than it creates) and that the leftover balance cover more than the mandatory fees, the remaining is treated as execution tip fees.
 
@@ -200,29 +200,27 @@ Mantle validators will ensure the following:
     ```python
     tx_balance = 0
     tx_execution_gas = 0
-    tx_note_sets = set()  # indexes of the channel and SDP note sets the Operations create or change
-    tx_extended_roots = set()  # (note set, referenced root, covered) of the proofs extending a root
+    for note_set in ledger.sets:  # the transaction state of every note set starts empty
+        note_set.tx_commitment_buffer = []
+        note_set.tx_extended_roots = {}
+        note_set.tx_changed = False
     for op, op_proof in zip(ops, op_proofs):
         assert op.opcode in MANTLE_OPCODES
-        tx_execution_gas = checked_uint64(tx_execution_gas + execution_gas(op, ledger, channels))
+        tx_execution_gas = checked_uint64(tx_execution_gas + execution_gas(op, op_proof))
         validate_mantle_op(mantle_txhash(tx), op.opcode, op.payload, op_proof)
         # the excess of the ZkTransfer of these Operations pays the fees
         if op.opcode in (TRANSFER, CHANNEL_DEPOSIT, SDP_WITHDRAW):
             tx_balance = checked_uint64(tx_balance + op.payload.excess_value)
         execute_mantle_op(op.opcode, op.payload)
-        # the sets the Operation creates, spends from or adds to, at its execution
-        # or at the release of its withdrawal, the ledger note set excluded
-        tx_note_sets |= note_sets_changed_by(op)
-        # the proofs of the Operation whose root at least one buffered commitment extends,
-        # `covered` being the number of commitments of the buffer each proof covers,
-        # each extension priced by root_gas of Gas Determination
-        tx_extended_roots |= roots_extended_by(op)
+    # the bytes of the transaction, then the channel and SDP note sets the Operations created or
+    # changed and the root extensions their proofs computed, as the note sets recorded them; a node
+    # keeps the note sets the transaction touches rather than scanning every set
     tx_execution_gas = checked_uint64(tx_execution_gas
                                       + len(encode(signed_tx)) * EXECUTION_KB_GAS // 1000
-                                      + EXECUTION_NOTE_SET_GAS * len(tx_note_sets)
-                                      + sum(root_gas(covered) for (_, _, covered) in tx_extended_roots))
-    for note_set in note_sets_appended_to(tx):  # the note sets the transaction appended a commitment to
-        note_set.tx_commitment_buffer = []  # the buffers start empty with every Mantle Transaction
+                                      + EXECUTION_NOTE_SET_GAS * sum(note_set.tx_changed
+                                                                     for note_set in ledger.sets[SDP_SET:])
+                                      + sum(root_gas(covered) for note_set in ledger.sets
+                                            for (_, covered) in note_set.tx_extended_roots))
 
     def validate_mantle_op(txhash, opcode, payload, op_proof):
         if opcode == CHANNEL_INSCRIBE:
@@ -340,6 +338,7 @@ def create_channel(channel_id: ChannelId, block_slot: Slot, keys: list[Ed25519Pu
     else:
         # a new channel appends a new note set, so note sets of channels are ordered by creation
         ledger.sets.append(empty_note_set())
+        ledger.sets[-1].tx_changed = True  # created by the Mantle Transaction, which pays it
         channels[channel_id] = default_channel(block_slot, keys, len(ledger.sets) - 1)
 ```
 
@@ -576,7 +575,7 @@ The openings of the program notes a step creates serve only the availability of 
 
 #### Execution Gas
 
-  Channel Inscribe Operations have an Execution Gas cost of `EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_SIGNATURE_GAS`, plus `EXECUTION_USER_STEP_GAS + spend_gas(step.inputs, step.outputs)` for each user step, plus `EXECUTION_PROGRAM_DEPOSIT_GAS + spend_gas(step.inputs, step.outputs)` for each program deposit, plus `EXECUTION_PROGRAM_STEP_GAS + EXECUTION_PROGRAM_PROOF_GAS + spend_gas(step.inputs, step.program_outputs + step.outputs) + EXECUTION_OPENING_GAS * len(step.program_outputs)` for each program step. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values. The inscriptions of the inscribe and of its steps pay as bytes of the Mantle Transaction, through `EXECUTION_KB_GAS` and the Permanent Storage Gas ([Mantle Transaction Fee](#mantle-transaction-fee)).
+  Channel Inscribe Operations have an Execution Gas cost of `EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_SIGNATURE_GAS`, the signature of its proof, plus `EXECUTION_USER_STEP_GAS + spend_gas(step.inputs, step.outputs)` for each user step, plus `EXECUTION_PROGRAM_DEPOSIT_GAS + spend_gas(step.inputs, step.outputs)` for each program deposit, plus `EXECUTION_PROGRAM_STEP_GAS + spend_gas(step.inputs, step.program_outputs + step.outputs) + EXECUTION_OPENING_GAS * len(step.program_outputs)` for each program step, its program proof included. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values. The inscriptions of the inscribe and of its steps pay as bytes of the Mantle Transaction, through `EXECUTION_KB_GAS` and the Permanent Storage Gas ([Mantle Transaction Fee](#mantle-transaction-fee)).
 
 #### Validation
 
@@ -796,7 +795,7 @@ class ChannelConfigOpProof:
 
 #### Execution Gas
 
-  Channel Config Operations have an Execution Gas cost of `EXECUTION_CHANNEL_CONFIG_GAS + EXECUTION_SIGNATURE_GAS * configuration_threshold`, where `configuration_threshold` is the one held in the channel state, and `0` for a channel that does not exist yet. See [Gas Determination](#gas-determination) for the Execution Gas values.
+  Channel Config Operations have an Execution Gas cost of `EXECUTION_CHANNEL_CONFIG_GAS + EXECUTION_SIGNATURE_GAS * len(proof.signatures)`, one `EXECUTION_SIGNATURE_GAS` for each signature its proof carries, which validation holds to the `configuration_threshold` of the channel state. See [Gas Determination](#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -1079,13 +1078,14 @@ block_slot: Slot
 
   *Execute*
 
-Keep the withdrawal in the [`pending_withdrawals`](#ledger) of the ledger until its due slot.
+Keep the withdrawal in the [`pending_withdrawals`](#ledger) of the ledger until its due slot. The Mantle Transaction pays in advance the change its release makes to the channel note set.
 
 ```python
 ledger.pending_withdrawals.append((block_slot + WITHDRAW_DELAY,
                                    channels[withdrawal.channel].note_set,
                                    withdrawal.inputs,
                                    withdrawal.outputs))
+ledger.sets[channels[withdrawal.channel].note_set].tx_changed = True
 ```
 
 At the start of every block, before its transactions, every pending withdrawal whose due slot is reached is applied if its inputs are still unspent, and dropped otherwise (see [Block Execution](bedrock-v1.1-block-construction.md#block-execution)):
@@ -1339,7 +1339,7 @@ class WithdrawProof:
 
 #### Execution Gas
 
-  SDP Withdraw Operations have an Execution Gas cost of `EXECUTION_SDP_WITHDRAW_GAS + EXECUTION_SIGNATURE_GAS + spend_gas([service_note], outputs)`: no buffer extends the root of an MMR holding only the service note, and `EXECUTION_SDP_WITHDRAW_GAS` covers its computation. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
+  SDP Withdraw Operations have an Execution Gas cost of `EXECUTION_SDP_WITHDRAW_GAS + EXECUTION_SIGNATURE_GAS + spend_gas([service_note], outputs) + root_gas(1)`: the root of an MMR holding only the service note is the root of the empty MMR extended by that one commitment, priced as any root extension. See [Gas Determination](#gas-determination) for `spend_gas`, `root_gas` and the Execution Gas values.
 
 #### Validation
 
@@ -1405,12 +1405,13 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       declare_info.withdraw_at = current_epoch + 2
       ```
 
-  2. Keep the withdrawal in the [`pending_withdrawals`](#ledger) of the ledger until the first slot of epoch `withdraw_at + 1`, `EPOCH_LENGTH` being the number of slots of an epoch ([Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule)).
+  2. Keep the withdrawal in the [`pending_withdrawals`](#ledger) of the ledger until the first slot of epoch `withdraw_at + 1`, `EPOCH_LENGTH` being the number of slots of an epoch ([Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule)). The Mantle Transaction pays in advance the change its release makes to the SDP note set.
       ```python
       ledger.pending_withdrawals.append(((declare_info.withdraw_at + 1) * EPOCH_LENGTH,
                                          SDP_SET,
                                          [withdraw.service_note_nullifier],
                                          withdraw.outputs))
+      ledger.sets[SDP_SET].tx_changed = True
       ```
 
 ### SDP Epoch Finalization
@@ -1928,6 +1929,11 @@ class NoteSet:
     recent_commitment_roots: dict[MerkleRoot, RecentRoot]  # the current root and the roots of the last 1024 blocks
     tx_commitment_buffer: list[NoteCommitment]  # the commitments added by the previous Operations
                                                 # of the Mantle Transaction, empty at its start
+    tx_extended_roots: dict[(MerkleRoot, int), MerkleRoot]  # the roots the proofs of the Mantle
+                                                # Transaction extended, by referenced root and number
+                                                # of buffered commitments covered, empty at its start
+    tx_changed: bool                            # whether the Mantle Transaction created or changed
+                                                # the set, False at its start
 
 class RecentRoot:
     peaks: list[(MerkleRoot, int)]  # the peaks of the commitment MMR at this root
@@ -1951,7 +1957,9 @@ def empty_note_set() -> NoteSet:
         nullifier_leaves=[NullifierLeaf(0, 0, 0)],  # an IMT holding only its sentinel leaf
         current_commitment_root=mmr_root([]),  # the root of the empty MMR
         recent_commitment_roots={mmr_root([]): RecentRoot([], None)},
-        tx_commitment_buffer=[]
+        tx_commitment_buffer=[],
+        tx_extended_roots={},
+        tx_changed=False
     )
 ```
 
@@ -2074,7 +2082,7 @@ class NoteSet:
             assert note_nullifier not in self.nullifiers
 ```
 
-The proofs spending notes of a note set are verified against the root referenced by the Operation, which must be recent, once the commitments of the `tx_commitment_buffer` of the set are appended to it, all of them, or only those before its mini-block for a user step or a program deposit ([CHANNEL_INSCRIBE](#channel_inscribe)). The inputs can therefore be notes created by the previous Operations of the Mantle Transaction. The proofs of a Mantle Transaction naming the same note set, referenced root and number of buffered commitments are verified against one extended root, computed once:
+The proofs spending notes of a note set are verified against the root referenced by the Operation, which must be recent, once the commitments of the `tx_commitment_buffer` of the set are appended to it, all of them, or only those before its mini-block for a user step or a program deposit ([CHANNEL_INSCRIBE](#channel_inscribe)). The inputs can therefore be notes created by the previous Operations of the Mantle Transaction. The proofs of a Mantle Transaction naming the same note set, referenced root and number of buffered commitments are verified against one extended root, computed once and recorded in `tx_extended_roots`, where the Mantle Transaction pays it ([Validation](#validation)). A proof covering no buffered commitment is verified against the referenced root itself:
 
 ```python
 class NoteSet:
@@ -2084,12 +2092,17 @@ class NoteSet:
         assert commitment_root in self.recent_commitment_roots
         last_block = self.recent_commitment_roots[commitment_root].last_block
         assert last_block is None or last_block >= block_height - 1024
-        # append the first covered commitments of tx_commitment_buffer, all of them by default,
-        # to a copy of the peaks of the MMR of root commitment_root
-        peaks = list(self.recent_commitment_roots[commitment_root].peaks)
-        for note_commitment in self.tx_commitment_buffer[:covered]:
-            mmr_append(peaks, note_commitment)
-        return mmr_root(peaks)
+        # the first covered commitments of tx_commitment_buffer, all of them by default
+        buffered = self.tx_commitment_buffer[:covered]
+        if len(buffered) == 0:
+            return commitment_root
+        if (commitment_root, len(buffered)) not in self.tx_extended_roots:
+            # append them to a copy of the peaks of the MMR of root commitment_root
+            peaks = list(self.recent_commitment_roots[commitment_root].peaks)
+            for note_commitment in buffered:
+                mmr_append(peaks, note_commitment)
+            self.tx_extended_roots[(commitment_root, len(buffered))] = mmr_root(peaks)
+        return self.tx_extended_roots[(commitment_root, len(buffered))]
 
     def verify_transfer(self, inputs: list[NoteNullifier], outputs: list[NoteCommitment], excess_value: TokenValue,
                         commitment_root: MerkleRoot, msg: zkhash, proof: ZkTransfer,
@@ -2119,6 +2132,7 @@ class NoteSet:
         for note_nullifier in inputs:
             self.nullifiers.add(note_nullifier)
             insert_nullifier(self.nullifier_leaves, note_nullifier)
+        self.tx_changed = True
 ```
 
 ### Creating Output Notes Execution
@@ -2130,6 +2144,7 @@ class NoteSet:
     def execute_adding(self, outputs: list[NoteCommitment]):
         for note_commitment in outputs:
             mmr_append(self.commitments, note_commitment)
+        self.tx_changed = True
 ```
 
 # Appendix
@@ -2146,7 +2161,7 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_CHANNEL_DEPOSIT_GAS | 6 |
 | EXECUTION_CHANNEL_WITHDRAW_GAS | 31 |
 | EXECUTION_SDP_DECLARE_GAS | 622 |
-| EXECUTION_SDP_WITHDRAW_GAS | 892 |
+| EXECUTION_SDP_WITHDRAW_GAS | 0 |
 | EXECUTION_SDP_ACTIVE_GAS | 6927 |
 | EXECUTION_CLAIM_POW_REWARD_GAS | 592 |
 | EXECUTION_PROGRAM_REGISTER_GAS | 6839 |
@@ -2160,11 +2175,10 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_SIGNATURE_GAS | 161 |
 | EXECUTION_USER_STEP_GAS | 195 |
 | EXECUTION_PROGRAM_DEPOSIT_GAS | 267 |
-| EXECUTION_PROGRAM_STEP_GAS | 54 |
+| EXECUTION_PROGRAM_STEP_GAS | 6374 |
 | EXECUTION_OPENING_GAS | 151 |
-| EXECUTION_PROGRAM_PROOF_GAS | 6320 |
 
-The first ten constants price what each Operation does beyond the components, and the others its components: `EXECUTION_KB_GAS` the bytes of a Mantle Transaction, `EXECUTION_NOTE_SET_GAS` the end of block work of a note set it changes, `EXECUTION_PROOF_GAS` a proof, `EXECUTION_ROOT_GAS` the extension of a root and `EXECUTION_BUFFERED_GAS` each commitment it covers, `EXECUTION_NULLIFIER_GAS` a nullifier, `EXECUTION_COMMITMENT_GAS` a commitment, `EXECUTION_SIGNATURE_GAS` an Ed25519 signature, `EXECUTION_USER_STEP_GAS`, `EXECUTION_PROGRAM_DEPOSIT_GAS` and `EXECUTION_PROGRAM_STEP_GAS` a user step, a program deposit and a program step beyond their spends, `EXECUTION_OPENING_GAS` the opening of a program note and `EXECUTION_PROGRAM_PROOF_GAS` a program proof.
+The first ten constants price what each Operation does beyond the components, and the others its components: `EXECUTION_KB_GAS` the bytes of a Mantle Transaction, `EXECUTION_NOTE_SET_GAS` the end of block work of a note set it changes, `EXECUTION_PROOF_GAS` a proof, `EXECUTION_ROOT_GAS` the extension of a root and `EXECUTION_BUFFERED_GAS` each commitment it covers, `EXECUTION_NULLIFIER_GAS` a nullifier, `EXECUTION_COMMITMENT_GAS` a commitment, `EXECUTION_SIGNATURE_GAS` an Ed25519 signature carried by the proof of an Operation, `EXECUTION_USER_STEP_GAS`, `EXECUTION_PROGRAM_DEPOSIT_GAS` and `EXECUTION_PROGRAM_STEP_GAS` a user step, a program deposit and a program step beyond their spends, the program proof of a program step included, and `EXECUTION_OPENING_GAS` the opening of a program note.
 
 A ZkTransfer or a ZkProgramSpend costs, with the notes it consumes and creates:
 
@@ -2175,14 +2189,14 @@ def spend_gas(inputs: list[NoteNullifier], outputs: list[NoteCommitment]) -> int
             + EXECUTION_COMMITMENT_GAS * len(outputs))
 ```
 
-A Mantle Transaction pays the extension of a root by buffered commitments once for each distinct note set, referenced root and number of commitments covered by its proofs ([Validation](#validation)):
+A Mantle Transaction pays the extension of a root by buffered commitments once for each distinct note set, referenced root and number of commitments covered by its proofs, as the `tx_extended_roots` of the note sets record them ([Validation](#validation)):
 
 ```python
 def root_gas(covered: int) -> int:
     return EXECUTION_ROOT_GAS + EXECUTION_BUFFERED_GAS * covered
 ```
 
-The user steps and deposits of a mini-block naming one root therefore share one extension, so the price of a step does not grow with its position.
+The user steps and program deposits of a mini-block naming one root therefore share one extension, so the price of a step does not grow with its position.
 
 ## Zero Knowledge Transfer Proof (ZkTransfer)
 
