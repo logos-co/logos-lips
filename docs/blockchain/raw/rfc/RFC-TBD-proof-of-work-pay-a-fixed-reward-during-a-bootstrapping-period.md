@@ -54,7 +54,7 @@ Each figure is the mean of three to five runs, rounded to 10. Sweeps for the bes
 
 ## Income per node against a VPS
 
-A board's monthly income should stay below what a VPS costs, so that nobody rents a machine only to mine. These costs come from an October 2026 survey of plans. No server hash rate has been measured, and a vCPU is counted as 1.5 Raspberry Pi 5 cores.
+A board's liquid income per month should stay below what a VPS costs, so that what a miner can sell does not pay for a machine rented only to mine. The vested part does not count, since it cannot be sold for a year after it is mined. These costs come from an October 2026 survey of plans. No server hash rate has been measured, and a vCPU is counted as 1.5 Raspberry Pi 5 cores.
 
 | Machine | Price per month | Boards it mines | Cost per board per month | Mining in its terms |
 | --- | --- | --- | --- | --- |
@@ -72,29 +72,29 @@ A board's income depends on how many boards mine. Up to 2,449 boards each earns 
 | 20,000 | 409 | 41 | $4.09 | $0.41 |
 | 50,000 | 164 | 16 | $1.64 | $0.16 |
 
-$0.01 is the price the minimum stake analysis's $100M gives over the supply cap. The token prices up to which the income at the minimum work stays below each cost:
+$0.01 is the price the minimum stake analysis's $100M gives over the supply cap. The token prices up to which the liquid part at the minimum work stays below each cost, at 90-10:
 
-| Cost per board per month | Total income | Liquid part at 90-10 |
-| --- | --- | --- |
-| $2.15 | $0.00064 | $0.0064 |
-| $4.08 | $0.0012 | $0.012 |
-| $6.12 | $0.0018 | $0.018 |
-| $21.30 | $0.0064 | $0.064 |
+| Cost per board per month | Token price |
+| --- | --- |
+| $2.15 | $0.0064 |
+| $4.08 | $0.012 |
+| $6.12 | $0.018 |
+| $21.30 | $0.064 |
 
-So at $0.01 the liquid part, $3.34, stays below the rent of $4.08, while the total, $33.40, is 8 times that rent. The vested part cannot be sold for a year, but a patient miner still counts it. Keeping the total below 90% of $4.08 at $0.01 would need a claim every 27 days on a board. A stake of 20,000 would then take 54 months and a stake of 10,000 would take 27, both longer than the period. This RFC does not do that. It relies on the 90-10 split for what a miner can sell at once, and on the target for the rest, as [Outside mining](#outside-mining) shows.
+So at $0.01 the liquid part, $3.34, stays below the rent of $4.08. Above $0.012 more boards join and the target brings it back to the rent. The total is $33.40 at $0.01, 8 times the rent, so a patient miner can still profit once its tokens vest, as [Outside mining](#outside-mining) shows. Holding the total below the rent would need a claim every 27 days, which puts a stake of 20,000 at 54 months and a stake of 10,000 at 27, both longer than the period.
 
 Average income over the period, per board mining, with miners that keep mining:
 
-| Case | Average, LOGOS per month | At epoch 98, LOGOS per month | Average at $0.01 |
+| Case | Average, LOGOS per month | At epoch 98, LOGOS per month | Liquid part of the average at $0.01 |
 | --- | --- | --- | --- |
-| 100 newcomers a month | 3,340 | 3,340 | $33.40 |
-| 200 newcomers a month | 2,500 | 1,670 | $25.00 |
-| 500 newcomers a month | 1,200 | 670 | $12.00 |
-| 1,000 newcomers a month | 630 | 330 | $6.30 |
-| 100 a month, outsiders renting at $4.08, patience 0.5 | 820 | 740 | $8.20 |
-| 100 a month, outsiders renting at $4.08, patience 1 | 510 | 410 | $5.10 |
+| 100 newcomers a month | 3,340 | 3,340 | $3.34 |
+| 200 newcomers a month | 2,500 | 1,670 | $2.50 |
+| 500 newcomers a month | 1,200 | 670 | $1.20 |
+| 1,000 newcomers a month | 630 | 330 | $0.63 |
+| 100 a month, outsiders renting at $4.08, patience 0.5 | 820 | 740 | $0.82 |
+| 100 a month, outsiders renting at $4.08, patience 1 | 510 | 410 | $0.51 |
 
-Claim fees take 0.3% to 1.8% of this. A node that has declared also earns service rewards, about 5.0M / `N` LOGOS a month among `N` providers while total stake is below 28.8% of the cap. That covers a $6.12 machine at $0.01 up to about 8,000 providers. Providing a service therefore pays for the machine, and mining alone does not.
+Claim fees take 0.3% to 1.8% of this. A node that has declared also earns service rewards, about 5.0M / `N` LOGOS a month among `N` providers while total stake is below 28.8% of the cap. That covers a $6.12 machine at $0.01 up to about 8,000 providers. Providing a service therefore pays for the machine, and the liquid part of mining alone does not.
 
 ## Outside mining
 
@@ -174,7 +174,7 @@ The revision has three parts:
 
 - During the period, the target is the rate that pays out `POW_REWARD_POOL_GENESIS` over `POW_BOOTSTRAP_EPOCHS` at `POW_BOOTSTRAP_REWARD`. It is derived from those three values and needs no new constant. The retarget works with it as a fraction, so the floor of `demand` no longer binds.
 - `EMA_SMOOTHING_FACTOR / EMA_SMOOTHING_PRECISION` becomes 999/1000, and `REWARD_TARGET_FLOOR` follows at 999.
-- Each period has its own cap. After the period the cap is `p // 2**29` instead of `p // 2**26`, so a board earns about 320 LOGOS a month, $3.20 at $0.01, below the rent of $4.08.
+- Each period has its own cap. After the period the cap is `p // 2**29` instead of `p // 2**26`, so a board earns about 320 LOGOS a month, of which the liquid part is 224, $2.24 at $0.01, below the rent of $4.08.
 
 The paced target has a cost when many real newcomers arrive at once, because it shares the payout among them. Nodes by epoch 98, as stop / keep mining:
 
@@ -280,7 +280,7 @@ These checks decide whether a combination works. The limits of ±20% and 5% are 
 | Fees stay small | the fee is at most 5% of the reward | every run: the price peaks at 32 times its start, a fee of 9.4 LOGOS, 2.8% of the reward |
 | Onboarding is predictable | a spread of at most ±20%, so at least 25 claims per stake | every stake: at most ±18.3% |
 | The onboarding time holds | it holds for every newcomer until epoch 98, with nobody stopping | depends on the income per board, below |
-| Mining alone does not pay rent | the liquid part stays below the rent at $0.01 | depends on the income per board and the split |
+| Liquid income does not pay rent | the liquid part stays below the rent at $0.01 | depends on the income per board and the split |
 
 The onboarding time holds while a board's income per month is at most `R / (a * B)`: 6,678 LOGOS at 50 newcomers a month, 3,339 at 100 and 1,670 at 200. Each cell gives the most newcomers a month for which it holds. If miners stop, it holds up to `R / S`: 164, 273, 409 and 818 a month at the four stakes.
 
@@ -366,7 +366,6 @@ The chain has not launched, so no migration is needed. Claims, their encoding an
 
 ## Open questions
 
-- **What income must stay below a VPS.** This RFC holds the liquid part below the rent at $0.01, and relies on the target for the total. Holding the total below the rent needs a claim every 27 days at $0.01, or a token price at most $0.0012.
 - **The token price.** All the rent checks depend on it, and it is not known. Above $0.012 the liquid part at the minimum work exceeds the cheapest rent, and the target then does the work.
 - **The minimum stake.** No specification sets it. The analysis of the minimum stake gives 0.001% of the supply at launch, which is 100,000 LOGOS if that supply is the cap. Stakes of 20,000 and 10,000 are 0.0002% and 0.0001% of the cap. That analysis should change with any value chosen here, and this branch does not change it. A lower stake lets the same pool fund more provider identities, but it also holds up better against outside mining.
 - **The hash rate of a rented board.** It is not measured. The rents in this RFC count 1.5 Raspberry Pi 5 cores per vCPU, within a range of 1 to 2.
