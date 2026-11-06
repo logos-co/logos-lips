@@ -15,7 +15,7 @@
 | v7 | Every figure assumes a fixed claim reward of 334 LOGOS. Proof of Work requires the vested notes of a minimum stake to fit one declaration | 2026-11-06 |
 | v8 | `locked_until` is a slot, used directly as `spending_slot` and compared with the slot of a withdrawal, so an era changing the epoch length moves no lock. The declaration test vectors of Mantle and Cryptarchia hold the new encoding | 2026-11-06 |
 | v9 | States what a missed report costs under the lock, with `inactivity_period` staying 2 | 2026-11-06 |
-| v10 | Wallet rules for the balance, the root and the lock of a vested note, and the corrections listed in Chores | 2026-11-06 |
+| v10 | Wallet rules for the balance, the root and the lock of a vested note, and the corrections listed in Chores. States that `locked_until` has no upper bound | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -60,7 +60,7 @@ Every ZkTransfer output has `data = 0`, so no Operation passes a vesting end on 
 
 It cannot pay a fee, move to another key outside a declaration, or enter a channel. A Transfer and a channel deposit take `spending_slot` from the slot that recorded their referenced root. Each block appends its own leader note, so two forks share a ledger root only if one leader builds two blocks of the same content on one parent, and a proof against that root then holds on one fork only. Proofs over channel notes use `spending_slot = 0`: a channel root can be recorded again at another slot after a reorganization, and steps signed against it would fail.
 
-The declarer names `locked_until`, a slot, and every note it stakes must have vested by it. The earliest valid value is the slot at which the latest staked note vests. The stake returns 3 epochs after the withdrawal.
+The declarer names `locked_until`, a slot, and every note it stakes must have vested by it. The earliest valid value is the slot at which the latest staked note vests. Nothing bounds it from above, so a wallet that names a far-future slot locks the stake for good, as one that names a `note_pk` nobody holds does. A cap would bring `EPOCH_LENGTH` back into `SDP_DECLARE`, and an era shortening the epoch could then reject notes claimed before it. The stake returns 3 epochs after the withdrawal.
 
 ## Staking many notes
 
