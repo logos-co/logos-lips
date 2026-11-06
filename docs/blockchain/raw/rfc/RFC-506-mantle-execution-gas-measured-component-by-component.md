@@ -11,6 +11,7 @@
 | v3 | A Mantle Transaction pays each root extension once for each distinct note set, referenced root and `buffered` of its proofs. `EXECUTION_USER_STEP_GAS` is 178, `EXECUTION_PAYMENT_GAS` 250 and `EXECUTION_CLAIM_POW_REWARD_GAS` 592, for the channel in the messages of steps and payments and the tag of the claim ticket | 2026-11-03 |
 | v4 | User steps and payments cover the buffer before their mini-block, so the number of commitments an extension covers follows from the mini-block | 2026-11-04 |
 | v5 | `EXECUTION_USER_STEP_GAS` is 195 and `EXECUTION_PAYMENT_GAS` 267, for the two elements of the channel ID in the messages of steps and payments. Each notation is explained where it first appears | 2026-11-04 |
+| v6 | The inscriptions of user steps and payments pay as transaction bytes | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -46,7 +47,7 @@ A transaction changing a set pays its full end of block work, the largest measur
 
 ## Bytes
 
-A transaction costs 26.8 cycles per byte for its decoding, its hash and the identifiers of its Operations. The term is integer: `len * 27 // 1000`.
+A transaction costs 26.8 cycles per byte for its decoding, its hash and the identifiers of its Operations. The term is integer: `len * 27 // 1000`. The inscriptions of user steps and payments pay through this term and the Permanent Storage Gas like any other byte, and are read by one more Blake2b pass, into the message of their step or payment, which the measure on inscriptions without steps does not include.
 
 ## Rejected alternatives
 
