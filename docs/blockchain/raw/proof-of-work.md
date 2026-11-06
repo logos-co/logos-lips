@@ -68,7 +68,7 @@ graph LR
     me --> mt
 ```
 
-The two branches end in the same place. The target number of claims is paid once mining is heavy enough to find that many, so more mining changes the work behind a claim and not the number of claims paid. For the first two years the target is about one claim every three to four blocks, the rate that pays out nearly all of the pool over those years. After that the target pays out a ninety-ninth of the pool per epoch, so a larger reward means fewer claims and a smaller pool pays out less.
+The two branches end in the same place. The target number of claims is paid once mining is heavy enough to find that many, so more mining changes the work behind a claim and not the number of claims paid. For the first two years the target is about one claim per block, the rate that pays out nearly all of the pool over those years. After that the target pays out a ninety-ninth of the pool per epoch, so a larger reward means fewer claims and a smaller pool pays out less.
 
 A claim must name a recent block, so a solution cannot be spent long after it was found.
 
@@ -140,9 +140,9 @@ A node keeps a spent ticket only while its referenced block is inside the window
 ```python
 POW_REWARD_POOL_GENESIS: TokenValue             # 2/100 of S_cap, set in the Genesis Block
 POW_BOOTSTRAP_EPOCHS: uint64 = 98               # the length of the bootstrapping period, in epochs
-POW_BOOTSTRAP_REWARD: TokenValue = 334 * 10**9  # the reward per claim during it, 334 LOGOS, in LEPTA
+POW_BOOTSTRAP_REWARD: TokenValue = 100 * 10**9  # the reward per claim during it, 100 LOGOS, in LEPTA
 POW_BOOTSTRAP_VESTED_SHARE: uint64 = 90         # the share of that reward paid as a vested note, out of SHARE_DEN
-POW_BOOTSTRAP_TARGET_CAP: PowTarget = p // 10_725_000_000   # largest target the retarget returns during it, and its genesis value
+POW_BOOTSTRAP_TARGET_CAP: PowTarget = p // (3 * 2**30)   # largest target the retarget returns during it, and its genesis value
 POW_REFERENCE_TX_SIZE: uint64 = 632             # the bytes whose storage fee the liquid part of a reward pays after it
 POW_VESTED_SHARE: uint64 = 30                   # the share of a reward paid as a vested note after it, out of SHARE_DEN
 EXPECTED_BLOCKS_PER_EPOCH: uint64 = 21_600      # N_b = 10 k
@@ -163,7 +163,7 @@ BLEND_MAX_STEP: uint64 = 2                      # Max factor difficulty_blend ma
 
 `POW_BOOTSTRAP_REWARD` must be above zero, or a claim pays nothing. `POW_BOOTSTRAP_VESTED_SHARE` and `POW_VESTED_SHARE` must be below `SHARE_DEN`, or a claim has no liquid part to pay its fee and `compute_epoch_pow_reward` divides by zero.
 
-The liquid part of `POW_BOOTSTRAP_REWARD`, the reward minus its vested share, must be above the fee of a claim transaction, which pays for the claim and the `TRANSFER` that spends its liquid note, or a claim cannot pay its own fee. At 33.4 LOGOS against 365 bytes, that holds up to about 114 times the starting storage price.
+The liquid part of `POW_BOOTSTRAP_REWARD`, the reward minus its vested share, must be above the fee of a claim transaction, which pays for the claim and the `TRANSFER` that spends its liquid note, or a claim cannot pay its own fee. A load of claims alone takes the storage price to about 31 times its start, where a claim transaction of 365 bytes costs about 9.1 LOGOS. At 90-10 that needs a reward of at least 91 LOGOS, and `POW_BOOTSTRAP_REWARD` rounds it up to 100 LOGOS. Its liquid part of 10 LOGOS holds up to about 34 times the starting storage price.
 
 `POW_REFERENCE_TX_SIZE` is the size of one transaction holding a claim, that `TRANSFER` and an inscription of 100 bytes. It must be above the 365 bytes of a claim transaction, or a claim cannot pay its own fee after the bootstrapping period.
 
@@ -171,7 +171,7 @@ During the bootstrapping period a miner needs `ceil(threshold / POW_BOOTSTRAP_RE
 
 An epoch of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) is $`10\lfloor k/f \rfloor`$ = 648,000 slots, 7.5 days of one-second slots. `VESTING_EPOCHS` is the number of such epochs that first reaches a year, $`\lceil 365 / 7.5 \rceil = 49`$, so a vested note vests 360 to 367.5 days after the block its claim references. `POW_BOOTSTRAP_EPOCHS` is the number of such epochs that first reaches two years, $`\lceil 730 / 7.5 \rceil = 98`$.
 
-`POW_BOOTSTRAP_TARGET_CAP` and `REWARD_TARGET_CAP` are calibrated against the measurement of `BLEND_DIFFICULTY_BASE`, $`2^{19}`$ hashes in about 38 seconds on one core of the target machine. Each of those hashes is a Blend ticket of 3 permutations, so all four cores run about 165,565 permutations per second. A claim ticket costs 4 permutations once a miner reuses the hash of the tag and the public key, so those cores try about 41,391 claim tickets per second. They find a claim about every 3 days at `POW_BOOTSTRAP_TARGET_CAP`, 2.5 claims per epoch, which earn about 835 LOGOS per epoch at `POW_BOOTSTRAP_REWARD`. At `REWARD_TARGET_CAP` they find a claim about every 2.7 hours.
+`POW_BOOTSTRAP_TARGET_CAP` and `REWARD_TARGET_CAP` are calibrated against the measurement of `BLEND_DIFFICULTY_BASE`, $`2^{19}`$ hashes in about 38 seconds on one core of the target machine. Each of those hashes is a Blend ticket of 3 permutations, so all four cores run about 165,565 permutations per second. A claim ticket costs 4 permutations once a miner reuses the hash of the tag and the public key, so those cores try about 41,391 claim tickets per second. They find a claim about every 21.6 hours at `POW_BOOTSTRAP_TARGET_CAP`, 8.33 claims per epoch, which earn about 833 LOGOS per epoch at `POW_BOOTSTRAP_REWARD`. At `REWARD_TARGET_CAP`, 8 times the target, they find a claim about every 2.7 hours.
 
 `REWARD_TARGET_CAP` and `POW_BOOTSTRAP_TARGET_CAP` must each be above `REWARD_TARGET_FLOOR` and at most $`p - 1`$, as [Puzzle Target](#puzzle-target) requires. At or below the floor, every retarget would return the cap, so the target could not move.
 
@@ -244,7 +244,7 @@ def compute_new_reward_difficulty(claims_in_block: uint64,
     return min(max(new_target, REWARD_TARGET_FLOOR), cap)
 ```
 
-`claims_in_block` counts the `CLAIM_POW_REWARD` Operations the block includes, `epoch` is the epoch of that block, and `pow_reward_pool` is the pool once that block's claims and fee share are applied. Every claim in a block is validated against the target produced by the previous block's update; the update from a block's own count is applied after the block is processed and governs the next block. At genesis `difficulty_reward` is `POW_BOOTSTRAP_TARGET_CAP`. During the bootstrapping period the target rate is about 0.280 claims per block. The extra epoch keeps back about 1% of the seed, which must cover the overshoot of the retarget, or the pool runs out before the period ends.
+`claims_in_block` counts the `CLAIM_POW_REWARD` Operations the block includes, `epoch` is the epoch of that block, and `pow_reward_pool` is the pool once that block's claims and fee share are applied. Every claim in a block is validated against the target produced by the previous block's update; the update from a block's own count is applied after the block is processed and governs the next block. At genesis `difficulty_reward` is `POW_BOOTSTRAP_TARGET_CAP`. During the bootstrapping period the target rate is about 0.935 claims per block. The extra epoch keeps back about 1% of the seed, which must cover the overshoot of the retarget, or the pool runs out before the period ends.
 
 The update is multiplicative in the current target, so a target of zero never recovers. With $`F \gt 0`$, the update from a block without claims is $`\lfloor t \cdot P/F \rfloor`$, which equals $`t`$ for every $`t \lt F/(P-F)`$. `REWARD_TARGET_FLOOR` is the smallest target that a block without claims strictly raises, $`\max(1, \lceil F/(P-F) \rceil)`$, which is 999 at the specified smoothing.
 
