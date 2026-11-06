@@ -55,7 +55,7 @@
 | 2.2.0 | Execution Gas from [Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0: a Mantle Transaction pays its bytes, each channel or SDP note set it changes and each root extension its proofs share, and each Operation pays its proofs, nullifiers, commitments, signatures, steps, payments, openings and program proofs, through `spend_gas` and the per-component constants of Gas Determination | 2026-10-27 |
 | 2.3.0 | [RFC] `SDP_ACTIVE` and `SDP_WITHDRAW` advance the `sequence` of the declaration's `nonce` by exactly one | 2026-11-04 |
 | 2.4.0 | [RFC] A claim pays a share of its reward as a vested note, which a proof consumes only once its vesting has ended, and `SDP_DECLARE` stakes notes through ZkStake proofs until its `locked_until` slot | 2026-11-06 |
-| 2.5.0 | [RFC] The ZkStake proves that the `note_pk` of a declaration and the keys of the vested notes it stakes derive from one stake secret, the `note_pk` secret alone withdraws the declaration, and the `note_stake_pk` of a declaration equals its `note_pk` | 2026-11-06 |
+| 2.5.0 | [RFC] The ZkStake proves that the `note_pk` of a declaration, with an index below `2^32`, and the keys of the vested notes it stakes derive from one stake secret, the `note_pk` secret alone withdraws the declaration, and the `note_stake_pk` of a declaration equals its `note_pk` | 2026-11-06 |
 
 # Introduction
 
@@ -2446,6 +2446,7 @@ assert excess_value == sum(inputs_value)
 The `note_pk` and the spending secret key of every input with a non-zero `data` derive from the stake secret, with the function of [Vested Notes](#vested-notes), the `note_pk` as in [Keys](#keys):
 
 ```python
+assert note_index < 2**32
 note_nf_sk = zkhash(FiniteField(b"NF_KDF", byte_order="little", modulus= p),
                     derive_spending_sk(stake_secret, note_index))
 assert note_pk == zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), note_nf_sk)
@@ -2455,6 +2456,8 @@ assert all(
     for i in range(len(inputs_spending_sk))
 )
 ```
+
+The bound lets the holder of the stake secret find the `note_index` from the `note_pk`. A larger index could be kept from that holder, who could then not derive the keys of the `note_pk`.
 
 The proof is bound to `msg`, the `mantle_txhash` reduced modulo $`p`$.
 

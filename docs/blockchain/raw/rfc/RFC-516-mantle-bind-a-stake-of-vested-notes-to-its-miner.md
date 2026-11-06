@@ -11,7 +11,7 @@
 | v3 | The `note_pk` secret alone withdraws, so a sale of the stake needs trust; every declaration with a spend is bound; wallets recover their declarations | 2026-11-05 |
 | v4 | Follows the nullifier and staking keys of the stack; one derivation function for the keys of claims and of the `note_pk`; the binding drops the active flag | 2026-11-06 |
 | v5 | Follows the staking key of a declaration and the service rewards going to its two keys: binding the `note_pk` now covers the rewards, the `zk_id` holds no funds, and the `note_stake_pk` stays free | 2026-11-06 |
-| v6 | The `note_stake_pk` of a declaration must equal its `note_pk`, so a sale of the lottery of a locked stake needs trust too; states the sale that the unbounded index of the `note_pk` leaves open | 2026-11-06 |
+| v6 | The `note_stake_pk` of a declaration must equal its `note_pk`, so a sale of the lottery of a locked stake needs trust too; the index of the `note_pk` is bounded, so a sale always needs trust | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -19,7 +19,7 @@ Read the PR's Motivation first.
 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
-| 1 | Critical | **Start here** — [Mantle](#affected-specifications), [the binding constraint of the ZkStake](#2-the-zkstake-proves-the-binding) | the `note_pk` and every input with a non-zero `data` derive from one stake secret; inputs with `data` `0` stay free |
+| 1 | Critical | **Start here** — [Mantle](#affected-specifications), [the binding constraint of the ZkStake](#2-the-zkstake-proves-the-binding) | the `note_pk` and every input with a non-zero `data` derive from one stake secret; inputs with `data` `0` stay free; the index of the `note_pk` is below `2^32` |
 | 2 | Critical | **Start here** — [Mantle](#affected-specifications), [Service Declaration Protocol](#affected-specifications), [withdrawal by the `note_pk` secret](#5-withdrawal-by-the-note_pk-secret-alone) | `SDP_WITHDRAW` no longer takes the `provider_id` signature |
 | 3 | High | [Mantle](#affected-specifications), [Service Declaration Protocol](#affected-specifications), [the `note_stake_pk`](#6-the-note_stake_pk-of-a-declaration) | `SDP_DECLARE` requires it to equal the `note_pk`, so a declaration has no separate staking key |
 | 4 | High | [Mantle](#affected-specifications), [the derivation function](#1-keys-derived-from-a-stake-secret) | one function for the keys of claims and of the `note_pk`; compression mode |
@@ -41,7 +41,7 @@ Withdrawing used to take a `provider_id` signature as well. A seller could then 
 
 The binding covers notes already claimed. A buyer can still hand a miner public keys derived from its own stake secret. The puzzle binds the key of a claim, so the miner's claims then vest under the buyer's keys, and no rule tells this apart from the buyer mining.
 
-The index of the `note_pk` is not bounded, which leaves one sale that needs no trust. A buyer can choose a random index, keep it secret and prove the ZkStake jointly with the miner, neither revealing its secret. The miner then cannot derive the keys of the `note_pk`, so it can neither withdraw the stake nor lead with it.
+The index of the `note_pk` is below `2^32`. With an unbounded index, a buyer could choose a random index, keep it secret and prove the ZkStake jointly with the miner, neither revealing its secret. The miner could then not derive the keys of the `note_pk`, so it could neither withdraw the stake nor lead with it, and the sale would need no trust. With the bound, the miner finds the index from the stake secret and the `note_pk` in at most `3 * 2^32` Poseidon2 compressions, about a day of one core at the 23,197 cycles of Gas Cost Determination.
 
 ## The `note_stake_pk` equals the `note_pk`
 
@@ -57,7 +57,7 @@ Requiring the key of every vested input to equal the `note_pk` would make each c
 
 ## Cost
 
-Measured by compiling the check with the Poseidon2 of the circuits repository (branch `tl/private_utxo`): 4,848 non-linear constraints for 16 inputs. Each input costs 243: one compression of 240 and 3 for the selection. Four compressions, 960 constraints, are paid once: the first step of every key, the step of the index of the `note_pk`, and its nullifier key and public key. That is 2.3% of the about 211,000 non-linear constraints of the ZkStake. A derivation step in the hash mode of Poseidon2, a hash of two elements, would cost 720 constraints instead of 240. The compression mode already derives every public key from its secret key.
+Measured by compiling the check with the Poseidon2 of the circuits repository (branch `tl/private_utxo`): 4,848 non-linear constraints for 16 inputs. Each input costs 241: one compression of 240 and 1 for the selection, `inputs_data[i] * (derived - inputs_spending_sk[i]) == 0`. Four compressions, 960 constraints, are paid once: the first step of every key, the step of the index of the `note_pk`, and its nullifier key and public key. The bound on that index costs 32. That is 2.3% of the about 211,000 non-linear constraints of the ZkStake. A derivation step in the hash mode of Poseidon2, a hash of two elements, would cost 720 constraints instead of 240. The compression mode already derives every public key from its secret key.
 
 The ZkStake gains one public input, which adds a term to the fixed part of its batch and leaves the cost per proof unchanged.
 
@@ -106,6 +106,7 @@ A miner pays each claim to the public key of `derive_spending_sk(stake_secret, i
 ```
 
 ```python
+assert note_index < 2**32
 note_nf_sk = zkhash(FiniteField(b"NF_KDF", byte_order="little", modulus= p),
                     derive_spending_sk(stake_secret, note_index))
 assert note_pk == zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), note_nf_sk)
@@ -161,13 +162,13 @@ Genesis declarations are validated the same way, so the examples of the Genesis 
 
 # Implementation
 
-- [ ] Add the `note_pk` public input, the stake secret, the indices and the derivation checks to the ZkStake circuit, and generate its key.
+- [ ] Add the `note_pk` public input, the stake secret, the indices, the bound on the `note_index` and the derivation checks to the ZkStake circuit, and generate its key.
 - [ ] Pass the `note_pk` of the declaration to the ZkStake verification of `SDP_DECLARE`.
 - [ ] Reject an `SDP_DECLARE` whose `note_stake_pk` differs from its `note_pk`, in Genesis too, and make wallets name one key.
 - [ ] Drop the `provider_id` signature from `SDP_WITHDRAW`, from the encoding of its proof and from its Execution Gas.
 - [ ] Derive claim keys and the `note_pk` of declarations from a stake secret in wallets that mine or declare, and recover claims and declarations by their derived public keys.
 - [ ] Measure the fixed part of the ZkStake batch with its new public input.
-- [ ] Add tests: a declaration staking vested notes under a `note_pk` of their stake secret is accepted; one under another `note_pk`, with a vested input under an underived key, or with a `note_stake_pk` other than its `note_pk`, is rejected; a liquid input under any key is accepted; a withdrawal proven by the spending secret key of the `note_pk` alone is accepted.
+- [ ] Add tests: a declaration staking vested notes under a `note_pk` of their stake secret is accepted; one under another `note_pk`, with a vested input under an underived key, with a `note_index` of `2^32` or more, or with a `note_stake_pk` other than its `note_pk`, is rejected; a liquid input under any key is accepted; a withdrawal proven by the spending secret key of the `note_pk` alone is accepted.
 - [ ] Verify the implementation matches this specification.
 
 # Affected Specifications
