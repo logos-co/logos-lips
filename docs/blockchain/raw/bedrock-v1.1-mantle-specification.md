@@ -49,7 +49,7 @@
 | 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding. | 2026-10-06 |
 | 1.18.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a note backs one declaration per service, `SDP_WITHDRAW` no longer names the note, and a `nonce` carries the `created` epoch of its declaration | 2026-10-27 |
 | 1.19.0 | `MinStake` holds `threshold` and the block number `timestamp`, following the Service Declaration Protocol | 2026-10-27 |
-| 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, grouped in the mini-blocks of an inscription, each proven against a recent root and the transaction buffer before its mini-block, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and moved `CLAIM_POW_REWARD` to the opcode `0x30`. A declaration names in `note_pk` the key of its service note. The commitment MMR and the nullifier IMT of a note set have depth 40 | 2026-10-07 |
+| 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each with its own inscription, grouped in the mini-blocks of an inscription, each proven against a recent root and the transaction buffer before its mini-block, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and moved `CLAIM_POW_REWARD` to the opcode `0x30`. A declaration names in `note_pk` the key of its service note. The commitment MMR and the nullifier IMT of a note set have depth 40 | 2026-11-06 |
 
 # Introduction
 
@@ -373,7 +373,7 @@ Channels let their bridged notes keep participating in Proof of Stake. When a us
 
 **Holders keep their notes.** A channel note is a note of the channel's note set, owned by the holder of its `ZkPublicKey`. Only that holder can spend it, in one of two ways:
 
-- *Inside the channel*, the holder signs a step off-chain: a ZkTransfer that consumes its channel notes and creates channel notes of the same total value. The sequencers of the channel collect the steps of their users and publish them in a [`CHANNEL_INSCRIBE`](#channel_inscribe), grouping them in mini-blocks and ordering each mini-block as they choose, since a step holds at any position in its mini-block. The ledger verifies every step, so a sequencer orders the moves of a channel but never makes one.
+- *Inside the channel*, the holder signs a step off-chain: a ZkTransfer that consumes its channel notes and creates channel notes of the same total value, together with the inscription of the step, its zone message. The sequencers of the channel collect the steps of their users and publish them in a [`CHANNEL_INSCRIBE`](#channel_inscribe), grouping them in mini-blocks and ordering each mini-block as they choose, since a step holds at any position in its mini-block. The ledger verifies every step, so a sequencer orders the moves of a channel but never makes one.
 - *Out of the channel*, the holder posts a [`CHANNEL_WITHDRAW`](#channel_withdraw) alone, its fee paid by a ledger note in the same Mantle Transaction. It takes effect `WITHDRAW_DELAY` slots later, unless an inscription of the channel consumes its notes with a valid step in the meantime. The withdrawal is the forced exit of a holder whose steps the sequencers do not publish. It also settles a holder who signs both a step and a withdrawal of the same notes optimistically: the step wins if an inscription publishes it before the withdrawal is due, and the holder has then paid the fees of the withdrawal for nothing.
 
 **Ageing.** Because a deposit and a step consume notes and create new ones, a channel note restarts the ageing process and must age again before it can create a PoL. Bridged funds still count toward Proof of Stake, so the goals above hold, but the participation is not continuous across these moves.
@@ -396,6 +396,7 @@ class ChannelStep:
     inputs: list[NoteNullifier]    # nullifiers of the consumed channel notes
     outputs: list[NoteCommitment]  # commitments of the created channel notes
     commitment_root: MerkleRoot    # the MMR root of the channel note set at the end of one of the last 1024 blocks
+    inscription: bytes             # the zone message of this step, signed by its holder
 
 class Inscribe:
     channel: ChannelId       # 32 bytes Channel being written to
@@ -410,6 +411,8 @@ A `NoteNullifier` is the nullifier of a note and a `NoteCommitment` its commitme
 
 A step is signed by the holder of the notes it consumes, off-chain and before the Mantle Transaction carrying it exists. Its ZkTransfer is therefore bound to the step itself rather than to the `mantle_txhash`, and it balances exactly, with an `excess_value` of `0`.
 
+The `inscription` of the `Inscribe` is the message of the sequencer, and the `inscription` of a step the zone message of the holder of the step. The ZkTransfer of the step binds its inscription together with its inputs and outputs, so a sequencer publishes the message a holder signed with the move it signed, or drops the step whole. The inscription of the `Inscribe` and the inscriptions of its steps count together against `MAX_OPERATION_DATA_SIZE`.
+
 The steps of an inscription are grouped in mini-blocks. The proof of a step is verified, by the [`verify_transfer`](#input-notes-spendability-validation) method of the note set, against its referenced root extended with the buffer of the channel note set as it stands when the mini-block of the step starts: the commitments the earlier Operations of the Mantle Transaction and the earlier mini-blocks of the inscription added. A step can therefore consume the notes of earlier blocks and the outputs of the earlier mini-blocks, but not the outputs of its own mini-block. Its proof depends on what precedes its mini-block and not on its position inside it, and the holders prove their steps independently of one another:
 
 - The steps of the first mini-block, when no earlier Operation of the Mantle Transaction added to the channel note set, are proven against their recent root alone, so a sequencer collects the steps of many users and publishes them in the order it chooses. A sequencer should place an Operation adding to that note set after the inscription: if it comes first, every step of the first mini-block covers what it adds.
@@ -419,7 +422,7 @@ Extending every proof with the whole buffer would instead tie each proof to its 
 
 The mini-block of a step is public, so a step of a later mini-block reveals that its inputs are among the notes under its root and the commitments it covers. Covering the whole of the previous mini-blocks keeps a step from pointing at the notes it consumes.
 
-A channel ID is 32 free bytes, larger than the field, so a single reduced element would give channels `x` and `x + p` the same message. The message a step is bound to therefore holds the channel ID as two elements, low first: `channel_lo`, its low 16 bytes `channel[:16]`, and `channel_hi`, its high 16 bytes `channel[16:]`.
+A channel ID is 32 free bytes, larger than the field, so a single reduced element would give channels `x` and `x + p` the same message. The message a step is bound to therefore holds the channel ID as two elements, low first: `channel_lo`, its low 16 bytes `channel[:16]`, and `channel_hi`, its high 16 bytes `channel[16:]`. The inscription of the step, of any length, enters the message through its 32-byte BLAKE2b-256 hash `Hash(step.inscription)`, held the same way as two elements, low first: `inscription_lo`, its low 16 bytes `Hash(step.inscription)[:16]`, and `inscription_hi`, its high 16 bytes `Hash(step.inscription)[16:]`.
 
 ```python
 def step_msg(channel: ChannelId, step: ChannelStep) -> zkhash:
@@ -427,6 +430,8 @@ def step_msg(channel: ChannelId, step: ChannelStep) -> zkhash:
         FiniteField(b"CHANNEL_STEP_V1", byte_order="little", modulus=p),
         FiniteField(channel_lo, byte_order="little", modulus=p),
         FiniteField(channel_hi, byte_order="little", modulus=p),
+        FiniteField(inscription_lo, byte_order="little", modulus=p),
+        FiniteField(inscription_hi, byte_order="little", modulus=p),
         FiniteField(len(step.inputs), byte_order="little", modulus=p),
         *step.inputs,
         FiniteField(len(step.outputs), byte_order="little", modulus=p),
@@ -462,7 +467,9 @@ block_slot: Slot
   *Validate*
 
 ```python
-assert len(msg.inscription) <= MAX_OPERATION_DATA_SIZE
+# The inscription and the inscriptions of the steps count together
+steps = [step for mini_block in msg.mini_blocks for step in mini_block]
+assert len(msg.inscription) + sum(len(step.inscription) for step in steps) <= MAX_OPERATION_DATA_SIZE
 
 if msg.channel in channels:
     chan = channels[msg.channel]
