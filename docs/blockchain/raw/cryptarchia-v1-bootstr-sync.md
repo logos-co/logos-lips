@@ -27,6 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.0.1 | Noted that a streamed `Block` carries the signed headers of the uncles it references, which is what lets a synchronizing node validate those blocks and reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) without ever seeing their proposals, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
 | 1.0.2 | Spread block download requests across connected and discovered peers instead of downloading only from the configured IBD peers, which now only provide the chain tips to catch up with. Added [Selecting Peers for Downloading](#selecting-peers-for-downloading) and the `GetTipRequest` message. | 2026-10-20 |
+| 1.1.0 | Required [Commit](cryptarchia-v1-protocol.md#commit) at the switch to the Online rule, and measured forks in slots: `T_offline` must stay below the finality window `K`. | 2026-11-06 |
 
 # Introduction
 
@@ -80,7 +81,7 @@ flowchart TD
     IsBootstrapRule -->|Yes|StartBootstrapPeriod
     IsBootstrapRule -->|Anyway|NewBlocks
     subgraph Prolonged Bootstrap Period
-        StartBootstrapPeriod[Start ProlongedBootstrapPeriod timer: 24h] --> |Expired|SetOnlineAfterBootstrap[ForkChoice=ONLINE]
+        StartBootstrapPeriod[Start ProlongedBootstrapPeriod timer: 24h] --> |Expired|SetOnlineAfterBootstrap["ForkChoice=ONLINE, then Commit"]
     end
     SetOnlineAfterBootstrap --> ProposeBlocks[Propose Blocks]
     subgraph ListenNewBlocks[Listen for New Blocks]
@@ -105,7 +106,7 @@ The node can **propose blocks** after switching to the Online fork choice rule.
 
 | Constant | Name | Description | Value |
 | --- | --- | --- | --- |
-| $`T_\text{offline}`$ | Offline Grace Period | A period during which a node can be restarted without switching to the Bootstrap rule. | 20 minutes |
+| $`T_\text{offline}`$ | Offline Grace Period | A period during which a node can be restarted without switching to the Bootstrap rule. It must be shorter than the finality window $`K`$ ([Constants](cryptarchia-v1-protocol.md#constants)), or a fork built entirely while the node was offline can become immutable at the restart. | 20 minutes |
 | $`T_\text{boot}`$ | Prolonged Bootstrap Period | A period during which Bootstrap fork choice rule must be continuously used after Initial Block Download is completed. This gives nodes additional time to compare their synced chain with a broader set of peers. | 24 hours |
 | $`s_\text{gen}`$ | Density Check Slot Window | A number of slots used by density check of Bootstrap rule. This constant is defined in [Definitions](fork-choice.md#definitions). | $`\lfloor\frac{k}{4f}\rfloor`$ (=4h30m) |
 | $`T_\text{round}`$ | IBD Round Delay | A delay between rounds of [Initial Block Download](#initial-block-download). Implementers can choose a different value. | 1 second (recommended) |
@@ -127,7 +128,7 @@ Upon startup, a node sets the fork choice rule to the **Bootstrap** rule in one 
   Details of $`T_\text{offline}`$ are described in [Offline Grace Period](#offline-grace-period). A recommended way how to measure the offline duration is introduced in [**Offline Duration Measurement**](#offline-duration-measurement).
 
 - **A node operator set the Bootstrap rule explicitly (e.g., by** **`--bootstrap`** **flag).**
-  In any case where the node operator is clearly aware that the node has fallen behind by more than $`k`$ blocks, they should be able to start the node with the Bootstrap rule. For example, the operator may obtain the latest block height from another trusted operator and realize that their node has fallen significantly behind due to some issue.
+  In any case where the node operator is clearly aware that the tip of the node's local chain is more than the finality window $`K`$ old, they should be able to start the node with the Bootstrap rule. For example, the operator may obtain the latest block height from another trusted operator and realize that their node has fallen significantly behind due to some issue.
 
 ## Initial Block Download
 
@@ -189,11 +190,11 @@ After [Initial Block Download](#initial-block-download) is completed, a node mus
 
 The purpose of the Prolonged Bootstrap Period is giving a syncing node additional time to compare its synced chain with a broader set of peers. In other words, it provides the node with an opportunity to connect to different peers and verify whether they are on the same chain. If the syncing node has downloaded blocks only from peers within an isolated network, the result of [Initial Block Download](#initial-block-download) may not reflect the honest chain followed by the majority of the entire network. To resolve such situations, the node should continue using the Bootstrap rule while discovering additional peers, allowing it to switch to a better chain if one is found.
 
-Theoretically, the Bootstrap rule should be prolonged until the node has seen a sufficient number of blocks beyond the $`s_\text{gen}`$ slot window, which is required for the density check of the Bootstrap rule to be meaningful. However, if the node has seen a fork longer than $`k`$ blocks from its divergence block during [Initial Block Download](#initial-block-download), it means that the node has already seen more slots than $`s_\text{gen}`$ with very high probability, considering the small size of $`s_\text{gen}={k}/{(4f}`$). If the node has never seen any fork longer than $`k`$ blocks, it means that all forks could have been handled by the longest chain rule, which is part of the Bootstrap rule. Therefore, this protocol does not explicitly wait $`s_\text{gen}`$ slots after [Initial Block Download](#initial-block-download). In other words, the protocol does not use $`s_\text{gen}`$ to configure the Prolonged Bootstrap Period.
+The density check of the Bootstrap rule needs no separate wait. A fork decided by density diverged at least the finality window $`K`$ before the later tip, and $`s_\text{gen} \lt K`$, so the chain with the later tip holds the whole $`s_\text{gen}`$ slot window. A chain that has not arrived yet counts short, and the comparison runs again as its blocks arrive. $`B_\text{imm}`$ does not move meanwhile. Therefore, this protocol does not explicitly wait $`s_\text{gen}`$ slots after [Initial Block Download](#initial-block-download). In other words, the protocol does not use $`s_\text{gen}`$ to configure the Prolonged Bootstrap Period.
 
 This protocol configures the Bootstrap Period to 24 hours.
 
-A timer must be started when [Listening for New Blocks](#listening-for-new-blocks) is started after [Initial Block Download](#initial-block-download) is completed. Once the time is completed, the fork choice rule is switched to the Online rule.
+A timer must be started when [Listening for New Blocks](#listening-for-new-blocks) is started after [Initial Block Download](#initial-block-download) is completed. Once the time is completed, the fork choice rule is switched to the Online rule, and the node runs [Commit](cryptarchia-v1-protocol.md#commit) on $`c_{loc}`$ before it processes any further block.
 
 ## Listening for New Blocks
 
@@ -390,7 +391,7 @@ The offline grace period $`T_\text{offline}`$ is a period during which a node ca
 This protocol configures $`T_\text{offline}`$ to 20 minutes. Here are the advantages and disadvantages of a short period:
 
 - Advantages
-  - Limits chances for malicious peers to build long alternative chains beyond the scope of the Online rule.
+  - Limits the time malicious peers have to grow a fork that a restarted node would make immutable under the Online rule.
   - Conservatively enables the Bootstrap rule to handle long forks.
 
 - Disadvantages
@@ -398,15 +399,31 @@ This protocol configures $`T_\text{offline}`$ to 20 minutes. Here are the advant
 
 The following example explains why $`T_\text{offline}`$ should not be set too long.
 
-- A local node stopped in the following situation. A malicious peer is building a fork which is now a little shorter ($`k-d`$) than the honest chain.
-![Diagram](cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-81bf-8212-c190c5627c6e.png)
-
+- A local node stopped in the following situation. A malicious peer is building a fork that diverged a little less than the finality window $`K`$ before the tip of the local chain. The fork is a little shorter than the local chain.
 - The local node has been offline shorter than $`T_\text{offline}`$ and just restarted. As defined in this protocol, the Online fork choice rule is used because the offline duration is short.
-- During the offline duration, the malicious peer made its fork longer by adding $`k-d`$ blocks. Now the fork is in the same length as the honest chain.
-- If the malicious peer sends the fork to the restarted node faster than the honest peer, the restarted node will commit to the fork because it has $`k`$ new blocks. Even if the node later receives the honest chain from the honest peer, it cannot revert blocks that are already immutable.
-![Diagram](cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-811a-b946-d313dfbdfd4e.png)
-
+- During the offline duration, the malicious peer extended its fork. Now the fork is longer than the local chain, and the divergence block lies more than $`K`$ slots behind the tip of the fork.
+- If the malicious peer sends the fork to the restarted node faster than the honest peer, the restarted node will switch to the fork and [Commit](cryptarchia-v1-protocol.md#commit) will move $`B_\text{imm}`$ past the divergence block. Even if the node later receives the honest chain from the honest peer, it cannot revert blocks that are already immutable.
 - If $`T_\text{offline}`$ is short, the malicious peer would not have enough time to make its fork acceptable by the Online rule. Even if the malicious peer made its fork long enough after $`T_\text{offline}`$, the fork will be rejected by the syncing node because it will use the Bootstrap rule if it has been offline longer after $`T_\text{offline}`$.
+
+```mermaid
+%%{init: {'gitGraph': {'showCommitLabel': false, 'mainBranchName': 'local_chain'}}}%%
+gitGraph
+    commit
+    commit tag: "divergence block"
+    branch fork
+    checkout local_chain
+    commit
+    commit
+    commit tag: "tip when the node stopped"
+    checkout fork
+    commit
+    commit
+    commit
+    commit
+    commit tag: "tip at the restart"
+```
+
+The fork passes the local chain while the node is offline. Lengths are not to scale.
 
 A disadvantage is that a syncing node, which has been offline longer than $`T_\text{offline}`$, should maintain the Bootstrap rule during the [Prolonged Bootstrap Period](#prolonged-bootstrap-period), which is 24 hours in the current setting. In the future, the team will consider designing a better mechanism to replace the long Bootstrap Period.
 
