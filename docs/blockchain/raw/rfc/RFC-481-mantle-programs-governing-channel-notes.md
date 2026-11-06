@@ -15,6 +15,7 @@
 | v7 | A declaration names `note_stake_pk`, the staking key of its service note, and the service rewards go to `note_pk` and `note_stake_pk`, `zk_id` being only the Proof of Quota identity | 2026-11-06 |
 | v8 | A mini-block is a flat list of user steps, program deposits and program steps, the kind of a step carried only by its encoding. A program step consumes the deposits of its program before it in its mini-block, and a deposit left unconsumed makes the inscription invalid. `payment_msg`, `spend_notes_hash` and `payments_hash` are renamed `program_deposit_id`, `program_step_id` and `program_deposits_hash` | 2026-11-06 |
 | v9 | A deposit checks that its program is registered, and a program step takes its deposits in their order in the mini-block. `program_step_id` hashes under the DST `PROGRAM_STEP_ID_V1` | 2026-11-06 |
+| v10 | The amount of a deposit is its `value`, `paid_value` naming the sum of the values of the deposits of a program step, a public input of its ZkProgramSpend | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -63,7 +64,7 @@ A deposit carries its own inscription, the zone message of its holder, bound by 
 
 ## Privacy
 
-Users stay hidden: deposits consume notes by nullifier, and the notes a program pays are commitments, as long as each payee uses a one-time public key, since the nonce of such a note is a public function of its value and public key. The amounts are public: every deposit carries its `paid_value`, and every program note is opened in the step that creates it, so the state of a program is public, and so is the total a program step pays to users. Interactions with a program are therefore subject to timing attacks. Hiding the amounts needs value commitments in place of public values, which changes the ZkTransfer and the fee payment across Mantle and is left to a later RFC.
+Users stay hidden: deposits consume notes by nullifier, and the notes a program pays are commitments, as long as each payee uses a one-time public key, since the nonce of such a note is a public function of its value and public key. The amounts are public: every deposit carries its `value`, and every program note is opened in the step that creates it, so the state of a program is public, and so is the total a program step pays to users. Interactions with a program are therefore subject to timing attacks. Hiding the amounts needs value commitments in place of public values, which changes the ZkTransfer and the fee payment across Mantle and is left to a later RFC.
 
 ## Alternatives considered
 
@@ -128,7 +129,7 @@ nullifier = zkhash(FiniteField(b"NOTE_NF_V1", ...), commitment, nf_sk)
 `CHANNEL_INSCRIBE` carries `mini_blocks: list[list[UserStep | ProgramDeposit | ProgramStep]]`, a flat list of steps per mini-block, the kind of a step being the tag of its encoding.
 
 - A **user step** is a ZkTransfer of its holder bound to `user_step_id`, which commits to its channel and its inscription, with an `excess_value` of `0`.
-- A **program deposit** is a ZkTransfer of its holder bound to `program_deposit_id`, which commits to its channel, its inscription, its program and its intent, with an `excess_value` of `paid_value`. Like a user step, it is verified against its referenced root extended with the buffer as it stands when its mini-block starts, and holds at any position in its mini-block, so a sequencer can gather the deposits of many users without the users proving one after another.
+- A **program deposit** is a ZkTransfer of its holder bound to `program_deposit_id`, which commits to its channel, its inscription, its program and its intent, with an `excess_value` of its `value`. Like a user step, it is verified against its referenced root extended with the buffer as it stands when its mini-block starts, and holds at any position in its mini-block, so a sequencer can gather the deposits of many users without the users proving one after another.
 - A **program step** carries a `program_id` and a program spend over the program notes, and consumes the deposits of its program in its mini-block since the previous program step of that program, in their order in the mini-block. A deposit left unconsumed at the end of its mini-block makes the inscription invalid.
 - The program spend is proven by the sequencer once the inscription is fixed, and covers the whole buffer at its position. Program steps moving one pool can therefore follow each other in a single mini-block, each consuming the note the previous one created.
 
@@ -138,7 +139,7 @@ class ProgramDeposit:
     inputs: list[NoteNullifier]    # nullifiers of the consumed user notes
     outputs: list[NoteCommitment]  # change
     commitment_root: MerkleRoot    # a recent root of the channel note set
-    paid_value: TokenValue         # the excess of the ZkTransfer, paid to the program
+    value: TokenValue              # the excess of the ZkTransfer, paid to the program
     intent: zkhash                 # the hash of what the user expects from the program
     inscription: bytes             # the zone message of the deposit, signed by its holder
 
@@ -160,11 +161,11 @@ class ProgramStepProof:
 
 Validation, in one loop over the steps:
 
-1. A deposit names a registered program, is spendable, and its ZkTransfer verifies with an excess of `paid_value` and `program_deposit_id(channel, deposit)`, a hash under the domain separation tag (DST) `PROGRAM_DEPOSIT_V1` of the channel ID, as two elements holding its low and high 16 bytes, of the BLAKE2b-256 hash of the inscription of the deposit, split the same way, of the program, of the intent, and of the nullifiers and commitments of the deposit. Its change goes to the buffer, and the deposit waits for the next program step of its program.
+1. A deposit names a registered program, is spendable, and its ZkTransfer verifies with an excess of its `value` and `program_deposit_id(channel, deposit)`, a hash under the domain separation tag (DST) `PROGRAM_DEPOSIT_V1` of the channel ID, as two elements holding its low and high 16 bytes, of the BLAKE2b-256 hash of the inscription of the deposit, split the same way, of the program, of the intent, and of the nullifiers and commitments of the deposit. Its change goes to the buffer, and the deposit waits for the next program step of its program.
 2. A program step names a registered program and consumes the deposits waiting for it.
-3. The program spend consumes unspent notes of the program, possibly none, at most 4 notes in and 8 out, and its `ZkProgramSpend` verifies with `paid_value` the sum of those deposits, `program_outputs`, `program_step_id`, and the `op_id` of the inscription.
+3. The program spend consumes unspent notes of the program, possibly none, at most 4 notes in and 8 out, and its `ZkProgramSpend` verifies with `paid_value` the sum of the values of those deposits, `program_outputs`, `program_step_id`, and the `op_id` of the inscription.
 4. Each output flagged in `program_outputs` has an opening in `program_notes`, staking key included, whose commitment, with `program` set to `program_id`, is that output.
-5. The program proof verifies under the registered key on `(program_step_id, program_deposits_hash(deposits), op_id)`, `program_deposits_hash` being the hash of the `(paid_value, intent)` pairs of the deposits the step consumes, in their order in the mini-block, which the sequencer chooses.
+5. The program proof verifies under the registered key on `(program_step_id, program_deposits_hash(deposits), op_id)`, `program_deposits_hash` being the hash of the `(value, intent)` pairs of the deposits the step consumes, in their order in the mini-block, which the sequencer chooses.
 6. No deposit is left waiting at the end of a mini-block.
 
 The openings serve only the availability of the state of the program. They sit in the proof of the step, outside the `op_id` and the transaction hash, and the ledger keeps nothing from them. A block is valid only with all its openings, so stripping them cannot skip the check. A node may prune the openings of the blocks behind its latest immutable block, which it never validates again; a node syncing these blocks needs a peer that kept them, or bootstraps from a checkpoint after them. Past that point the sequencers of a channel should keep the openings of its unspent notes.
