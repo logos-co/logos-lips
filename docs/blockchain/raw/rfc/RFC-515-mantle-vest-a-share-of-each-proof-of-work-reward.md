@@ -13,6 +13,7 @@
 | v5 | Follows the nullifier and staking keys of the stack. `amount` goes, the stake being the sum of the spends; `vested_by` becomes `spending_slot`; the vesting check drops the active flag; a declaration that lapses waits for its lock | 2026-11-06 |
 | v6 | Follows the stack below: a declaration also names `note_stake_pk`, and the service rewards go to the two keys of its service note. The declaration test vectors of Mantle and Cryptarchia hold the new field | 2026-11-06 |
 | v7 | Every figure assumes a fixed claim reward of 334 LOGOS. Proof of Work requires the vested notes of a minimum stake to fit one declaration | 2026-11-06 |
+| v8 | `locked_until` is a slot, used directly as `spending_slot` and compared with the slot of a withdrawal, so an era changing the epoch length moves no lock. The declaration test vectors of Mantle and Cryptarchia hold the new encoding | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -21,7 +22,7 @@ Read the PR's Motivation first.
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here** — [Mantle](#affected-specifications), [the vesting bound of a ZkTransfer](#1-vested-notes-and-the-vesting-bound-of-a-zktransfer) | `spending_slot` from the slot that recorded a ledger root, `0` for channel and service notes; no output carries a vesting end |
-| 2 | Critical | **Start here** — [Mantle](#affected-specifications), [Service Declaration Protocol](#affected-specifications), [staking and the lock](#3-declarations-stake-through-zkstake-locked-until-an-epoch) | `locked_until` checked by every ZkStake and by `SDP_WITHDRAW`; the spends summing to the stake |
+| 2 | Critical | **Start here** — [Mantle](#affected-specifications), [Service Declaration Protocol](#affected-specifications), [staking and the lock](#3-declarations-stake-through-zkstake-locked-until-a-slot) | `locked_until` checked by every ZkStake and by `SDP_WITHDRAW`; the spends summing to the stake |
 | 3 | Critical | [Mantle](#affected-specifications), [the ZkStake circuit](#4-the-zkstake-circuit) | 16 inputs, no output, the input constraints of the ZkTransfer |
 | 4 | High | [Mantle](#affected-specifications), [Proof of Work](#affected-specifications), [the claim split](#2-a-claim-pays-a-liquid-and-a-vested-note) | the vesting end at an epoch start, counted from the epoch of the referenced block; the fee rule on the liquid part |
 | 5 | High | [Proof of Leadership](#affected-specifications), [Proof of Quota](#affected-specifications), [vested notes lead](#5-vested-notes-lead) | vested notes lead, the proofs already reading the `data` of a note |
@@ -57,7 +58,7 @@ Every ZkTransfer output has `data = 0`, so no Operation passes a vesting end on 
 
 It cannot pay a fee, move to another key outside a declaration, or enter a channel. A Transfer and a channel deposit take `spending_slot` from the slot that recorded their referenced root. Each block appends its own leader note, so two forks share a ledger root only if one leader builds two blocks of the same content on one parent, and a proof against that root then holds on one fork only. Proofs over channel notes use `spending_slot = 0`: a channel root can be recorded again at another slot after a reorganization, and steps signed against it would fail.
 
-The declarer names `locked_until`, and every note it stakes must have vested by the first slot of that epoch. Vesting ends at the start of an epoch, so the earliest valid epoch is the one at which the latest staked note vests. The stake returns 3 epochs after the withdrawal.
+The declarer names `locked_until`, a slot, and every note it stakes must have vested by it. The earliest valid value is the slot at which the latest staked note vests. The stake returns 3 epochs after the withdrawal.
 
 ## Staking many notes
 
@@ -86,7 +87,7 @@ Three other ways to stake many notes were dropped:
 Claims stay public. The ledger creates both notes, and their value, key, vesting end and commitment are known to everyone. A spend reveals nullifiers, never commitments, so it does not show which note it consumes.
 
 - **A spend after vesting** adds nothing, since `spending_slot` is the slot of a public root. Its timing points at most at the epoch whose claims just vested, about 6,100 claims if the pool pays out evenly over its two years, and fewer in the first epochs.
-- **A declaration** reveals its number of notes, the value of each spend and its lock epoch. The claim reward is fixed, so the value of a spend of vested notes only repeats their count. [Reward Pool](../proof-of-work.md#reward-pool) still recomputes the reward at every epoch boundary. While it does, the value reveals how many of the notes were claimed in each epoch, wherever that sum has one decomposition into the public claim values. If the declarer picks the earliest valid lock epoch, that epoch gives away the epoch its latest claim referenced, which holds about 6,100 such claims. Each other staked note hides among all vested notes claimed by then and not yet spent.
+- **A declaration** reveals its number of notes, the value of each spend and its lock slot. The claim reward is fixed, so the value of a spend of vested notes only repeats their count. [Reward Pool](../proof-of-work.md#reward-pool) still recomputes the reward at every epoch boundary. While it does, the value reveals how many of the notes were claimed in each epoch, wherever that sum has one decomposition into the public claim values. If the declarer picks the earliest valid lock slot, that slot gives away the epoch its latest claim referenced, which holds about 6,100 such claims. Each other staked note hides among all vested notes claimed by then and not yet spent.
 - **The Proof of Leadership and the Proof of Quota** reveal nothing new.
 - **The strongest link is off chain:** a provider sending its claims from the node named in its locators. Wallets send them through other peers.
 
@@ -106,9 +107,9 @@ This is accepted as a cost of the lock. The activity proof is to change to somet
 
 ## Era parameters
 
-`POW_VESTED_SHARE` and `VESTING_EPOCHS` are era parameters. On this branch they are constants of Proof of Work, as `POW_SHARE` and `SHARE_DEN` are. The era parameter record is specified in Eras, which this branch does not have. Its two new fields, with the rule that a claim reads the values of the era of its including block, go into whichever of the two specifications lands second. A note keeps the end slot it was created with, so an era changing `VESTING_EPOCHS` moves no existing lock.
+`POW_VESTED_SHARE` and `VESTING_EPOCHS` are era parameters. On this branch they are constants of Proof of Work, as `POW_SHARE` and `SHARE_DEN` are. The era parameter record is specified in Eras, which this branch does not have. Its two new fields, with the rule that a claim reads the values of the era of the epoch it is for, as Eras verifies a claim, go into whichever of the two specifications lands second. A note keeps the end slot it was created with, so an era changing `VESTING_EPOCHS` moves no existing lock.
 
-An era can also change the length of an epoch. The first slot of epoch `locked_until`, and that of the epoch at which a claim's vesting ends, then come from the epoch schedule of Eras rather than from a product with `EPOCH_LENGTH`, and this change goes in with the two fields.
+An era can also change the length of an epoch, so the lock and the vesting end are both slots. `locked_until` is used directly as `spending_slot`, and a withdrawal compares it with the slot of its block. Neither reads the epoch schedule, and an era changing the epoch length moves neither. A claim computes its vesting end from the era of its referenced block only, `first_slot_of_era(era) + (epoch_of_slot(block.slot) - first_epoch(era) + VESTING_EPOCHS) * epoch_length(era)` with `era = era_of_slot(block.slot)`, and this change goes in with the two fields. Reading `first_slot_of_epoch` instead would read a future era. With an era halving the epoch from epoch 20, a claim in epoch 10 would get 25,596,000 on a release that knows that era and 38,232,000 on one that does not, before the era begins. An era changing the slot length still changes how long the remaining slots last, but the lock and the vesting end move together, so no stake comes back before its notes vest.
 
 ## Gas still to measure
 
@@ -159,7 +160,7 @@ liquid_value = checked_uint64(epoch_pow_reward - vested_value)
 
 Proof of Work adds `POW_VESTED_SHARE = 50`, over the existing `SHARE_DEN = 100`, and `VESTING_EPOCHS = 49`. The liquid part, not the whole reward, must exceed the fee of a claim transaction, and `POW_VESTED_SHARE` must be at most `SHARE_DEN`.
 
-## 3. Declarations stake through ZkStake, locked until an epoch
+## 3. Declarations stake through ZkStake, locked until a slot
 
 ```diff
  class DeclarationMessage:
@@ -167,13 +168,13 @@ Proof of Work adds `POW_VESTED_SHARE = 50`, over the existing `SHARE_DEN = 100`,
 -    inputs: list[NoteNullifier]
      commitment_root: MerkleRoot
 -    amount: TokenValue
-+    locked_until: EpochNumber    # the first epoch at which the declaration can be withdrawn
++    locked_until: SlotNumber     # the first slot at which the declaration can be withdrawn
 +    spends: list[StakeSpend]     # 1 to 16 nullifiers each, with their total value
 ```
 
-- Validation: the inputs of all spends are distinct and spendable against `commitment_root`, 1 to 16 per spend. The sum of the spend values is the stake, which meets the minimum stake. Each spend carries one ZkStake, verified with `spending_slot = locked_until * EPOCH_LENGTH`, the first slot of epoch `locked_until`.
+- Validation: the inputs of all spends are distinct and spendable against `commitment_root`, 1 to 16 per spend. The sum of the spend values is the stake, which meets the minimum stake. Each spend carries one ZkStake, verified with `spending_slot = locked_until`.
 - Execution consumes the inputs, creates the service note with the stake as its value, and stores `locked_until` in `DeclarationInfo`.
-- `SDP_WITHDRAW` is invalid before epoch `locked_until`.
+- `SDP_WITHDRAW` is invalid before slot `locked_until`.
 - Execution Gas: `EXECUTION_SDP_DECLARE_GAS + EXECUTION_SIGNATURE_GAS + EXECUTION_COMMITMENT_GAS + sum(spend_gas(spend.inputs, []) for spend in spends)`.
 
 ## 4. The ZkStake circuit
@@ -187,8 +188,8 @@ The Proof of Leadership and the leader branch of the Proof of Quota already read
 ## 6. Encoding
 
 ```schema
-SDPDeclare      = ServiceType Locators ProviderId ZkId NotePk CommitmentRoot LockedUntil StakeSpends
-LockedUntil     = UINT32        ; EpochNumber
+SDPDeclare      = ServiceType Locators ProviderId ZkId NotePk NoteStakePk CommitmentRoot LockedUntil StakeSpends
+LockedUntil     = UINT64        ; SlotNumber
 StakeSpends     = StakeSpendCount *StakeSpend
 StakeSpendCount = Byte
 StakeSpend      = Inputs Value  ; InputCount at most 16
