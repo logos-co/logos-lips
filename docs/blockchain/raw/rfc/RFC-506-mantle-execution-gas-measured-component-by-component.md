@@ -41,10 +41,10 @@ The nullifiers of a block are hashed into their tree once, at the end of the blo
 
 `EXECUTION_NOTE_SET_GAS` is paid once per transaction for each channel or SDP note set it changes. Alternatives:
 
-- **Once per Operation.** Rejected: the Operations of one transaction changing the same set share one end of block work, and a transaction of several deposits or inscriptions to one channel would pay it several times.
+- **Once per Operation.** Rejected: the Operations of one transaction changing the same set share one end of block work, and a transaction of several channel deposits or inscriptions to one channel would pay it several times.
 - **Once per block, by the first transaction changing the set.** Rejected: the price of a transaction would depend on its position in the block and on the other transactions, which a block builder controls, and a user could not predict it.
 
-A transaction changing a set pays its full end of block work, the largest measure of what a block spends on that set. The cost of this predictability falls on blocks where many transactions change one set: on the measured block, whose 24 inscriptions and deposit change one channel set, the Execution Gas is 37.9% above the work.
+A transaction changing a set pays its full end of block work, the largest measure of what a block spends on that set. The cost of this predictability falls on blocks where many transactions change one set: on the measured block, whose 24 inscriptions and channel deposit change one channel set, the Execution Gas is 37.9% above the work.
 
 ## Bytes
 
