@@ -1,6 +1,6 @@
 # [RFC] Proof of Work: Pay a fixed reward during a bootstrapping period
 
-**Motivation and proposal:** PR not opened yet.
+**Motivation and proposal:** [PR #521](https://github.com/logos-co/logos-lips/pull/521)
 
 ## Change log
 
