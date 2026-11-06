@@ -607,8 +607,9 @@ for leaves and for internal nodes, `H(left || right)`.
 A new member becomes active from the next cycle, when `root_cycle` is frozen.
 Registration is a LEZ-only operation and does not require a cross-zone write into the Oracle Zone.
 
-Each `oracle_id` MAY hold only one leaf, so a node cannot register twice,
+Each `oracle_id` MUST hold at most one leaf, so a node cannot register twice,
 and its `channel_id` cannot be changed after registration.
+The LEZ registration contract MUST enforce both rules.
 The LEZ account that must authorize a registration is the account derived from `oracle_id` by the LEZ rule,
 currently `SHA-256(prefix || oracle_id)` with a fixed 32-byte public-account prefix.
 A node leaves by sending a withdrawal TX.
