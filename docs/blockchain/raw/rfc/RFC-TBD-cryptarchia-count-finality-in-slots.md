@@ -51,7 +51,7 @@ The wait that holds `ε`, in hours:
 - A deflated inference is what an adversary gets by withholding every block for one observation period, 4.5 days. The inferred stake falls by its share, and every lottery threshold rises by `1/(1 − α)` for the next epoch. With the honest stake alone filling slots at `f`, the fixed delay weighs more.
 - The 12.5 hours takes the nonce's factor at the old rates, where its bound is derived.
 - After 18 hours against a third at 10 s, the chance of displacement is `1.2·10^-16` without grinding and `8.4·10^-14` after a deflated inference.
-- The delay leaves little margin after a deflation. Against a third, 18 hours holds up to 15 s without a deflation. After one it holds up to 11 s, where the wait is 14.9 hours, and not at 12 s, where it is 18.2. The study prints deflated waits only at 1, 10 and 20 s, so the figures from 11 s to 15 s come from running its bound for this RFC.
+- The delay leaves little margin after a deflation. Against a third, with a nonce that cannot be ground, 18 hours holds up to 15 s without a deflation. After one it holds up to 11 s, where the wait is 14.9 hours, and not at 12 s, where it is 18.2. The study prints deflated waits only at 1, 10 and 20 s, so the figures from 11 s to 15 s come from running its bound for this RFC.
 - The bound is the chain of Gaži, Ren and Russell frozen at the phase in which the wait passes, with each phase's span charged at its longest. The paper's attack, played against a wait on the slot lottery at 1 s and 10 s and at waits up to 2 hours, succeeds 0.26 to 0.82 times as often as the bound allows against a third.
 - Delivery later than `Δ` lies outside the bound. Under honest mixing on the specification's Blend, that is one block in a hundred.
 
@@ -115,7 +115,7 @@ The count covers the slots after the block, up to and including the slot of the 
 
 The floor holds back a side cut off from the rest until it has made `φ + 1` blocks:
 
-| The side's share of the stake | Days to fix its fork, mean | Earliest at `ε` |
+| The side's share of the stake | Days to fix its fork, mean | Earliest at `1e-9` |
 | --- | --- | --- |
 | 0.1 | 3.49 | 2.87 |
 | 0.2 | 1.75 | 1.44 |
@@ -124,13 +124,13 @@ The floor holds back a side cut off from the rest until it has made `φ + 1` blo
 | a third | 1.05 | 0.87 |
 
 - This is about half of the 2.2 and 7.4 days that 2,160 blocks give a third and a tenth.
-- The floor holds back past `K`, with chance `1 − ε`, a side of at most 0.385 of the stake. A side of 0.4 makes its `φ + 1` blocks after 0.88 days on average.
+- The floor holds back past `K`, with chance `1 − 1e-9`, a side of at most 0.385 of the stake. A side of 0.4 makes its `φ + 1` blocks after 0.88 days on average.
 - The protection ends when a sparse chain's inferred stake corrects. A side keeps its thresholds for at least 3 days, and has corrected in full 7.5 to 15 days after the split.
 
 ### What the floor leaves open
 
 - **Partitions.** The adversary signs on both sides of a partition, so no floor separates one at a third. At 18 hours a side the floor holds back has at most 0.052 of honest stake when a third signs on it. A split the adversary signs on waits for operators.
-- **An eclipse.** A fork started at the eclipse takes a third 1.05 days. A fork prepared in advance needs the eclipse only for the last part of that. At mean rates, against a node that received the honest chain until the eclipse began, a third's fork needs an eclipse of about 12.5 hours, where 2,160 blocks need about 26. How long an adversary can hold an eclipse is open.
+- **An eclipse.** A fork started at the eclipse takes a third 1.05 days. A fork prepared in advance needs the eclipse only for the last part of that. At mean rates with no delivery delay, against a node that received the honest chain until the eclipse began, a third's fork needs an eclipse of about 12.5 hours, where 2,160 blocks need about 27. With the delay of the specification's Blend, they need about 10 and 21. How long an adversary can hold an eclipse is open.
 
 ### Alternatives
 
@@ -155,7 +155,7 @@ The floor holds back a side cut off from the rest until it has made `φ + 1` blo
 **Residual risk: clock faults.** Neither rule makes a shifted clock safe, and the study has no analysis of clock faults. A time service that applies any forward step at once lets one forged reply move a node's clock.
 
 - The floor bounds the damage under both rules: `B_imm` stays about 1,019 occupied slots deep, about 860 blocks on the specification's Blend. That is below the 1,510 blocks the study's depth bound proves against a third at 10 s, at the count of its code, so a shifted node loses that guarantee.
-- Under the tip rule the attacker needs a forged reply plus one block in the shifted range. That block may be the node's own: a staking node on a shifted clock proposes at the shifted slot. With 1 % of stake that takes 49 minutes on average, and about 10 of its wins fall in the part of the range that reaches the floor.
+- Under the tip rule the attacker needs a forged reply plus one block in the shifted range. That block may be the node's own: a staking node on a shifted clock proposes at the shifted slot. With 1 % of stake its first win takes 49 minutes on average, and that win reaches the floor. An attacker with 1 % of stake has about 10 wins in the part of the range that reaches the floor.
 - This revision adds no clock rule. The [Clocks](../cryptarchia-v1-protocol.md#clocks) annex already assumes in-sync clocks.
 
 ## The switch to Online
@@ -184,7 +184,7 @@ After a restart within `T_offline`, the fork runs over `K` slots and the node's 
 
 ## Comparing forks
 
-**On every block.** The Bootstrap rule now runs on every block. `on_block` used to skip it when a block extends `c_loc`, so a chain chosen by length while a fork is young could keep `c_loc` past `K` with no density comparison, and `commit` then fixes it at the switch. Two nodes with the same blocks could end on different chains by delivery order alone. A later block of the other fork re-runs the comparison, so the node must also stop receiving that fork. The Online rule keeps the skip.
+**On every block.** The Bootstrap rule now runs on every block. `on_block` used to skip it when a block extends `c_loc`, so a chain chosen by length while a fork is young could keep `c_loc` past `K` with no density comparison, and `commit` then fixes it at the switch. Two nodes with the same blocks could end on different chains by delivery order alone. Trees with no strict winner can still split, as the open question below states. A later block of the other fork re-runs the comparison, so the node must also stop receiving that fork. The Online rule keeps the skip.
 
 **Forks below `B_imm`.** Both rules check descent from `B_imm` explicitly, because step 8 of Block Header Validation allows incomplete pruning. Without the check, a node that restarts under the Bootstrap rule can select a denser fork below `B_imm`, and `commit` then has no path from `B_imm` to `c_loc`.
 
@@ -194,9 +194,9 @@ After a restart within `T_offline`, the fork runs over `K` slots and the node's 
 - The floor holds `B_imm` back on a sparse chain.
 - The local tip lags the later tip, as after a restart, or while the rest of the chain has not arrived.
 
-Online then compares by length and Bootstrap by density, so a fork the Bootstrap rule rejected can survive the switch, and wins if it is longer. In the model, at mean rates, a third's fork of 1,019 blocks that reaches the node before the rest of the honest chain does this with a lag of 12.5 hours. This is accepted, because a test that reads only the slot of `D` and the two tips gives the same result from either branch. No small rule change closes it. Pruning the fork at the switch does not hold, because `D` lies above `B_imm` and the fork can be delivered again.
+Online then compares by length and Bootstrap by density, so a fork the Bootstrap rule rejected can survive the switch. If it is longer it wins, `B_imm` passes `D` at that block, and the honest chain is pruned. In the model, at mean rates, a third's fork of 1,019 blocks that reaches the node before the rest of the honest chain does this with a lag of 12.5 hours with no delivery delay, and about 10 on the specification's Blend. This is accepted. The case needs the same lag as the eclipse in [What the floor leaves open](#what-the-floor-leaves-open), and a test that reads only the slot of `D` and the two tips gives the same result from either branch. No small rule change closes it at no cost, as two runs of the model show. Pruning the fork at the switch does not hold, because `D` lies above `B_imm` and the fork can be delivered again. Using the Bootstrap test under the Online rule as well does close it, but a fork that is denser in the window and then dies holds the node for good: with 3,333 live blocks the node stayed on the dead fork, and `B_imm` never passed `D`.
 
-**Open question: the order of comparison.** The Bootstrap test compares two chains at a time, and it is not transitive. With three forks, the result can depend on the order in which a node visits them. In random trees, 953 of 3,497 cases depend on the order, against 781 with the depth test, so this class exists today. Between two chains, the test gave no disagreement beyond exact ties in 236,941 pairs, where the depth test gave 6,848. A fixed order would give one result per local tip, but nodes on different local tips can still differ, so this RFC does not fix one.
+**Open question: the order of comparison.** The Bootstrap test compares two chains at a time, and it is not transitive. With three forks, the result can depend on the order in which a node visits them. In random trees at a small scale (`K` = 40, `s_gen` = 10, and `k` = 6 for the depth test), 953 of 3,497 cases depend on the order, against 781 with the depth test. These counts show that the class exists today, not a rate on a real chain. Between two chains, at the same scale, the test gave no disagreement beyond exact ties in 236,941 pairs, where the depth test gave 6,848. A fixed order would give one result per local tip, but nodes on different local tips can still differ, so this RFC does not fix one.
 
 ## What else reads `K`
 
@@ -212,9 +212,9 @@ This is a consensus change. Nodes on the old rule and on this one can fix differ
 
 The figures come from the finality study: [`tools/simulators/finality`](https://github.com/logos-blockchain/research/tree/b2ff0767d350cf92346bf996bc1c1b88d2b1065a/tools/simulators/finality). Its notes carry each result with its check: `SLOTS.md` phase K, `SETTLEMENT.md` B6, `FURTHER.md` G7 and `RATE.md`. `make k1`, `k2`, `k3`, `k7`, `k8` and `k9` give the waits, the shares, the floor and the cap. The study reads `B_imm` against the clock. Its figures carry over as [Counting from the tip's slot](#counting-from-the-tips-slot) states.
 
-The rows marked simulated, and the figures in [The restart path](#the-restart-path) and [Comparing forks](#comparing-forks), come from small models of this RFC's rules. The `φ` code and both fork choice rules were run as the specifications print them.
+The rows marked simulated, and the figures in [What the floor leaves open](#what-the-floor-leaves-open), [The restart path](#the-restart-path), [Comparing forks](#comparing-forks) and [What else reads `K`](#what-else-reads-k), come from small models of this RFC's rules. The deflated waits from 11 s to 15 s come from running the study's bound for this RFC. The `φ` code and both fork choice rules were run as the specifications print them.
 
-> **TODO (author):** publish the small models with the study before this RFC cites them.
+> **TODO (author):** publish the small models and the runs of the study's bound before this RFC cites them.
 
 # Details
 
@@ -342,8 +342,8 @@ The range stays `[s, s + p)`. `commit` passes `s = sl_C + 1` and `p = sl_tip −
 
 - [ ] Replace the LIB update with the `commit` loop, reading `K` and `φ`, with no slot tick
 - [ ] Compute the floor with `density_over_slots` over the local chain, uncles included
-- [ ] Remove the depth bound from the Online fork choice, and check descent from the LIB in both rules
-- [ ] Replace the depth test of the Bootstrap fork choice with the test on the divergence block's slot
+- [ ] Remove the depth bound from the Online fork choice, and check descent from the LIB in both rules. With complete pruning the check can be skipped, which spares a walk per tip on every Bootstrap block
+- [ ] Replace the depth test of the Bootstrap fork choice with the test on the divergence block's slot, and run it on every block, including one that extends the local chain
 - [ ] Run `commit` when the fork choice rule switches to Online, before any further block, and persist the two together
 - [ ] Prune all forks below the LIB in one call, at every LIB move and at the switch to Online
 - [ ] Expire the wallet's leader-claim reservations after `K` slots instead of `k` immutable blocks

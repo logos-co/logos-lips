@@ -267,7 +267,7 @@ We use two fork choice rules, one during bootstrapping and a second once a node 
 
 During bootstrapping, we must be resilient to malicious peers feeding us false chains, this calls for a more expensive fork choice rule that can differentiate between malicious long-range attacks and honest chains.
 
-After bootstrapping we commit to the most honest looking chain we found and switch to a fork choice rule that rejects chains that diverge before $`B_\text{imm}`$
+After bootstrapping we commit to the most honest looking chain we found and switch to a fork choice rule that takes the longest chain among those that descend from $`B_\text{imm}`$
 
 [Cryptarchia Fork Choice Rule](fork-choice.md)
 

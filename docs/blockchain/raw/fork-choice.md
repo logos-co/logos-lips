@@ -35,7 +35,7 @@ Cryptarchia makes use of two fork choice rules, one during bootstrapping and a s
 
 During bootstrapping, we must be resilient to malicious peers feeding us false chains. This calls for a more expensive fork choice rule that can differentiate between malicious long-range attacks and the honest chain.
 
-Once bootstrapping completes, the node commits to the best chain it has seen so far and switches to a different fork choice rule that rejects forks that diverge before the [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block).
+Once bootstrapping completes, the node commits to the best chain it has seen so far and switches to a different fork choice rule that takes the longest chain among the forks that descend from the [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block).
 
 # Overview
 

@@ -403,7 +403,7 @@ The following example explains why $`T_\text{offline}`$ should not be set too lo
 - The local node has been offline shorter than $`T_\text{offline}`$ and just restarted. As defined in this protocol, the Online fork choice rule is used because the offline duration is short.
 - During the offline duration, the malicious peer extended its fork. Now the fork is longer than the local chain, and the divergence block lies more than $`K`$ slots behind the tip of the fork.
 - If the malicious peer sends the fork to the restarted node faster than the honest peer, the restarted node will switch to the fork and [Commit](cryptarchia-v1-protocol.md#commit) will move $`B_\text{imm}`$ past the divergence block. Even if the node later receives the honest chain from the honest peer, it cannot revert blocks that are already immutable.
-- If $`T_\text{offline}`$ is short, the malicious peer would not have enough time to make its fork immutable. Even if the malicious peer made its fork long enough after $`T_\text{offline}`$, the fork will be rejected by the syncing node because it will use the Bootstrap rule if it has been offline longer after $`T_\text{offline}`$.
+- The shorter $`T_\text{offline}`$ is, the less time the malicious peer has to make its fork immutable. Even if the malicious peer made its fork long enough after $`T_\text{offline}`$, the fork will be rejected by the syncing node because it will use the Bootstrap rule if it has been offline longer after $`T_\text{offline}`$.
 
 ```mermaid
 %%{init: {'gitGraph': {'showCommitLabel': false, 'mainBranchName': 'local_chain'}}}%%
