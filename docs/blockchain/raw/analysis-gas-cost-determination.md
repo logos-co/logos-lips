@@ -36,6 +36,7 @@
 | 1.7.1 | [RFC] The SDP costs price the per-service identifier checks and no lock-period check | 2026-10-05 |
 | 1.8.0 | Follow the private ledger of Mantle: the notes are proven with a ZkTransfer and spent by nullifier, channel inscriptions carry the ZkTransfer of their steps, channel withdrawals and SDP withdrawals carry a ZkTransfer, the proof of work claim carries no proof, and the `CHANNEL_TRANSFER` and `LEADER_CLAIM` Operations are removed. The ZkTransfer is priced from the measured batch verification of Groth16 proofs, a fixed part per block and 619 Execution Gas per proof | 2026-10-07 |
 | 1.9.0 | Add the Execution Gas of program steps and of the `PROGRAM_REGISTER` Operation, priced from the measured batch verification of the ZkProgramSpend, the verification of a program proof alone with the line coefficients of its key, and the subgroup checks and the pairing `e(α, β)` of a verification key | 2026-10-12 |
+| 2.0.0 | Execution Gas measured in core cycles on the node, end to end, over note sets of a million notes, every step of the validation and execution priced. The Execution Gas of a Mantle Transaction sums a term per byte of the signed transaction, a term per note set it changes, and the Execution Gas of its Operations, each built from per-component constants: proofs, root extensions, nullifiers, commitments, signatures, steps, payments, openings and program proofs. The fixed costs of a block are deducted from its Execution Gas limit. The inscriptions of steps and payments pay as transaction bytes | 2026-11-06 |
 
 # Introduction
 
@@ -44,15 +45,22 @@ In Mantle, each Mantle Transaction contains one or more Operations. These compon
 - Execution Gas: measuring computational workload.
 - Permanent Storage Gas: measuring cost of fully replicated storage.
 
-Gas constants are carefully calibrated to reflect the computational and storage requirements of different operations on Logos Blockchain. By standardizing gas measurements, the system can accurately charge fees proportional to resource usage, preventing network abuse and incentivizing efficient transaction design.
+Gas constants are calibrated to reflect the computational and storage requirements of the validation and execution of Mantle Transactions. By standardizing gas measurements, the system can charge fees proportional to resource usage, preventing network abuse and incentivizing efficient transaction design.
 
 # Overview
 
-We conducted a comprehensive analysis of execution requirements for each Operation type in Mantle Transactions. This detailed examination allowed us to determine precise gas amounts for each Operation based on the actual computational resources consumed.
+The Execution Gas is derived from measurements of the [Rust implementation of the node](https://github.com/logos-blockchain/logos-blockchain), taken on the functions the node runs when it validates and executes a block, on a ledger whose note sets hold a million notes each. Every step of the validation and execution is measured, either within the Mantle Transaction that causes it, or as the fixed work of a block:
 
-The gas constants we established are strategically divided between permanent storage and execution components, directly proportional to their respective resource utilization within Mantle Transactions. This separation ensures that gas costs accurately reflect the true computational burden of different operations. Moreover, gas can also be adjusted arbitrarily to incentivize or disincentivize the usage of certain Operations compared to others.
+- the decoding of the transaction, its hash and the identifiers of its Operations;
+- the signatures;
+- the decompression and the batch verification of the zero-knowledge proofs, and the verification of program proofs;
+- the root each proof is verified against;
+- the insertion of nullifiers and the appending of commitments to the note sets, and the hashing of the trees of every changed note set at the end of the block;
+- the checks and the state updates of each Operation.
 
-Our methodology involved measuring execution complexity and defining how gas is determined for each Gas Market. This is critical for proper network operation as it directly impacts transaction prioritization and network economics.
+The Execution Gas of a Mantle Transaction is a sum of per-component constants, each fitted on these measurements ([Gas determination from measures](#gas-determination-from-measures)). A full block of mixed transactions, measured whole, costs 9.1% less than the constants predict when the end of block work of each note set is counted once ([Fit and cross-check](#fit-and-cross-check)).
+
+Gas can also be adjusted to incentivize or disincentivize the usage of certain Operations compared to others.
 
 ## Permanent Storage Gas
 
@@ -64,306 +72,375 @@ permanent_storage_fee = len(encode(tx_signed)) * permanent_storage_gas_price
 
 ## Execution Gas
 
-Execution is a second general market that represents how costly an Operation is to execute. This cost can be fixed or variable based on the content of the Operation. The Execution Gas base price is derived from [Execution Market](execution-market.md) and each Operation defines its execution gas amount. 1 Execution Gas corresponds to 1,000 CPU cycles.
+Execution is a second general market that represents how costly a Mantle Transaction is to validate and execute. The Execution Gas base price is derived from [Execution Market](execution-market.md). 1 Execution Gas corresponds to 1,000 core cycles of the reference machine ([Method](#method)).
 
 ```python
-execution_base_fee = tx.ops.get_summed_gas() * execution_gas_base_price
+execution_base_fee = tx_execution_gas(tx_signed) * execution_gas_base_price
 ```
 
-The gas derivation of each Operation are:
+The Execution Gas of a Mantle Transaction is:
 
 ```python
-TRANSFER_GAS                  = 619
-CHANNEL_INSCRIBE_GAS          = 59 + 619 * user_steps + sum(PROGRAM_STEP_GAS(step) for step in program_steps)
-PROGRAM_STEP_GAS(step)        = 619 * len(step.payments) + PROGRAM_SPEND_GAS + PROGRAM_PROOF_GAS
-PROGRAM_SPEND_GAS             = 619
-PROGRAM_PROOF_GAS             = 2451
-PROGRAM_REGISTER_GAS          = 1896
-CHANNEL_CONFIG_GAS            = 59 * configuration_threshold
-CHANNEL_DEPOSIT_GAS           = 619
-CHANNEL_WITHDRAW_GAS          = 619
-SDP_DECLARE_GAS               = 678
-SDP_WITHDRAW_GAS              = 678
-SDP_ACTIVE_GAS                = 59
-CLAIM_POW_REWARD_GAS          = 0
+def tx_execution_gas(tx_signed) -> int:
+    # note_sets_changed_by(op): the channel and SDP note sets the Operation creates,
+    # spends from or adds to, at its execution or at the release of its withdrawal
+    tx_note_sets = set().union(*(note_sets_changed_by(op) for op in tx_signed.ops))
+    # roots_extended_by(op): the (note set, referenced root, covered) of the proofs of
+    # the Operation whose root at least one buffered commitment extends
+    tx_extended_roots = set().union(*(roots_extended_by(op) for op in tx_signed.ops))
+    return (len(encode(tx_signed)) * EXECUTION_KB_GAS // 1000
+            + EXECUTION_NOTE_SET_GAS * len(tx_note_sets)
+            + sum(root_gas(covered) for (_, _, covered) in tx_extended_roots)
+            + sum(execution_gas(op) for op in tx_signed.ops))
+
+# The extension of a referenced root by the commitments buffered before a proof in
+# the transaction: the buffer before its mini-block for a user step or a payment, the
+# whole buffer of the set for the other proofs. Proofs sharing their note set, referenced
+# root and number of commitments covered are verified against one extended root,
+# computed and paid once.
+def root_gas(covered: int) -> int:
+    return EXECUTION_ROOT_GAS + EXECUTION_BUFFERED_GAS * covered
+
+# A ZkTransfer or a ZkProgramSpend, with the notes it spends and creates.
+def spend_gas(inputs, outputs) -> int:
+    return (EXECUTION_PROOF_GAS
+            + EXECUTION_NULLIFIER_GAS * len(inputs)
+            + EXECUTION_COMMITMENT_GAS * len(outputs))
+
+# A program step of a Channel Inscribe, with its proofs, its openings and its payments.
+def program_step_gas(step, step_proof) -> int:
+    return (EXECUTION_PROGRAM_STEP_GAS + EXECUTION_PROGRAM_PROOF_GAS
+            + spend_gas(step.inputs, step.outputs)
+            + EXECUTION_OPENING_GAS * len(step_proof.program_notes)
+            + sum(EXECUTION_PAYMENT_GAS + spend_gas(p.inputs, p.outputs)
+                  for p in step.payments))
 ```
 
-where `user_steps` is the number of [user steps](bedrock-v1.1-mantle-specification.md#channel_inscribe) of the inscription and `program_steps` the list of its program steps, each program step costing `PROGRAM_STEP_GAS` for its own number of payments. A user step is a local transaction of the channel: a ZkTransfer moving channel notes, signed by their holder and published by a sequencer.
+and the Execution Gas of each Operation is:
 
-These values come from our implementation observations as described in [Gas determination from measures](#gas-determination-from-measures).  To get these numbers, we based our calculations on the following measures:
+```python
+TRANSFER          = EXECUTION_TRANSFER_GAS + spend_gas(inputs, outputs)
+CHANNEL_INSCRIBE  = EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_SIGNATURE_GAS
+                    + sum(EXECUTION_USER_STEP_GAS + spend_gas(step.inputs, step.outputs)
+                          for step in user_steps)
+                    + sum(program_step_gas(step, step_proof)
+                          for step, step_proof in program_steps)
+CHANNEL_CONFIG    = EXECUTION_CHANNEL_CONFIG_GAS + EXECUTION_SIGNATURE_GAS * configuration_threshold
+CHANNEL_DEPOSIT   = EXECUTION_CHANNEL_DEPOSIT_GAS + spend_gas(inputs, outputs)
+CHANNEL_WITHDRAW  = EXECUTION_CHANNEL_WITHDRAW_GAS + spend_gas(inputs, outputs)
+SDP_DECLARE       = EXECUTION_SDP_DECLARE_GAS + EXECUTION_SIGNATURE_GAS
+                    + spend_gas(inputs, [service_note])
+SDP_WITHDRAW      = EXECUTION_SDP_WITHDRAW_GAS + EXECUTION_SIGNATURE_GAS
+                    + spend_gas([service_note], outputs)
+SDP_ACTIVE        = EXECUTION_SDP_ACTIVE_GAS + EXECUTION_SIGNATURE_GAS
+CLAIM_POW_REWARD  = EXECUTION_CLAIM_POW_REWARD_GAS
+PROGRAM_REGISTER  = EXECUTION_PROGRAM_REGISTER_GAS
+```
 
-| Operation | Number of CPU cycles |
+where `user_steps` and `program_steps` are the [user steps](bedrock-v1.1-mantle-specification.md#channel_inscribe) and the program steps of the inscription, the latter with their proofs, a user step being a local transaction of the channel: a ZkTransfer moving channel notes, signed by their holder and published by a sequencer, and with the constants of the Operations:
+
+| Constant | Execution Gas | Measure |
+| --- | --- | --- |
+| `EXECUTION_TRANSFER_GAS` | 12 | [Transfer](#transfer) |
+| `EXECUTION_CHANNEL_INSCRIBE_GAS` | 21 | [Channel Inscription](#channel-inscription) |
+| `EXECUTION_CHANNEL_CONFIG_GAS` | 20 | [Channel Config](#channel-config) |
+| `EXECUTION_CHANNEL_DEPOSIT_GAS` | 6 | [Channel Deposit](#channel-deposit) |
+| `EXECUTION_CHANNEL_WITHDRAW_GAS` | 31 | [Channel Withdraw](#channel-withdraw) |
+| `EXECUTION_SDP_DECLARE_GAS` | 622 | [SDP Declaration](#sdp-declaration) |
+| `EXECUTION_SDP_WITHDRAW_GAS` | 892 | [SDP Withdraw](#sdp-withdraw) |
+| `EXECUTION_SDP_ACTIVE_GAS` | 6927 | [SDP Activation](#sdp-activation) |
+| `EXECUTION_CLAIM_POW_REWARD_GAS` | 592 | [Claim PoW Reward](#claim-pow-reward) |
+| `EXECUTION_PROGRAM_REGISTER_GAS` | 6839 | [Program Register](#program-register) |
+
+and the constants of the components:
+
+| Constant | Execution Gas | Measure |
+| --- | --- | --- |
+| `EXECUTION_KB_GAS` | 27 per 1,000 bytes | 26.8 cycles per byte of the signed transaction |
+| `EXECUTION_NOTE_SET_GAS` | 3461 | end of block of a changed note set, with its first nullifier, at most 3,460,479 cycles |
+| `EXECUTION_PROOF_GAS` | 1770 | decompression and batch verification of a ZkTransfer or a ZkProgramSpend, at most 1,769,145 cycles |
+| `EXECUTION_ROOT_GAS` | 879 | root of a recent commitment MMR extended by buffered commitments, 878,394 cycles |
+| `EXECUTION_BUFFERED_GAS` | 23 | append of a buffered commitment to that MMR, 22,623 cycles |
+| `EXECUTION_NULLIFIER_GAS` | 725 | insertion of a nullifier and its share of the hashing of the nullifier tree, 724,523 cycles |
+| `EXECUTION_COMMITMENT_GAS` | 24 | append of a commitment, 23,069 cycles |
+| `EXECUTION_SIGNATURE_GAS` | 161 | Ed25519 signature, 160,462 cycles |
+| `EXECUTION_USER_STEP_GAS` | 195 | a user step beyond its spend, 194,249 cycles |
+| `EXECUTION_PAYMENT_GAS` | 267 | a payment beyond its spend and the append of its commitments to the root of its program spend, 266,888 cycles |
+| `EXECUTION_PROGRAM_STEP_GAS` | 54 | a program step beyond its spend, its proof, its payments and its openings, 53,182 cycles |
+| `EXECUTION_OPENING_GAS` | 151 | the commitment of an opened program note, 150,974 cycles |
+| `EXECUTION_PROGRAM_PROOF_GAS` | 6320 | verification of a program proof under its registered key, 6,319,522 cycles |
+
+The constants of each Operation are what remains of its measure once its components are counted: the decoding and the checks of its fields, and the updates of the ledger state proper to the Operation. Each section below lists the steps behind them.
+
+The fixed costs of a block, paid once whatever its transactions, are deducted from the Execution Gas limit of the block ([Execution Fee Market](overview-cryptoeconomics.md#execution-fee-market)): 26,308,430 cycles, or 26,309 Execution Gas ([Fixed costs of a block](#fixed-costs-of-a-block)).
+
+# Components
+
+## Transaction bytes
+
+Decoding a transaction, hashing it into its `mantle_txhash` and deriving the identifier of each of its Operations each read every byte of it. Measured on inscriptions whose payload goes from 0 to 16,384 bytes, a transaction costs 26.8 cycles per byte beyond its fixed parts. Alone, decoding costs 2.4 cycles per byte and each Blake2b pass 3.5. The inscription of a user step or of a payment pays like any other byte of the transaction, and is read by one more Blake2b pass, into the message of its step or payment. That pass is not priced yet: the measure on inscriptions without steps does not include it, and its per-byte cost joins the byte term when the transaction bytes are measured again.
+
+## Proofs
+
+The ZkTransfer proofs of a block are verified in one batch, and so are its ZkProgramSpend proofs ([Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#batch-verification-of-zk-proofs)). A batch of `n` proofs costs a fixed part `A(N)`, which grows with the number `N` of public inputs of the key, and a part `P` per proof:
+
+| Proof | Public inputs | `A(N)` | `P` |
+| --- | --- | --- | --- |
+| ZkTransfer | 27 | 7,260,262 | 1,768,883 |
+| ZkProgramSpend | 37 | 8,241,358 | 1,769,145 |
+
+`P` includes the decompression and the validation of the points of the proof, 521,026 cycles of it: 22,360 for each G1 point and 476,306 for the G2 point, whose subgroup check takes 494,775. The batch draws its random coefficients `r_i` on 128 bits, which bound the probability that an invalid proof passes to `2^-128` and halve the multiplication of `π_A` by `r_i` against coefficients of the full field. The fixed parts are deducted from the limit of the block, and each proof pays `EXECUTION_PROOF_GAS = 1770`.
+
+A program proof is verified alone under the key of its program, which no other program shares. The verification, 6,319,522 cycles, decompresses the proof, computes the line coefficients of `-γ` and `-δ` of the key (655,411 cycles), and runs a Groth16 verification against the pairing `e(α, β)` stored at the registration of the program.
+
+## Roots
+
+A proof is verified against a root of a recent commitment MMR of its note set, extended by the commitments buffered before it in the transaction ([Validation](bedrock-v1.1-mantle-specification.md#validation)). Without any buffered commitment, the root is the referenced root itself, checked to be recent, 1,231 cycles. With `b` buffered commitments, the commitments are appended to a copy of the peaks of the referenced MMR and its root is computed, 878,394 cycles for the root and 22,623 per commitment. The proofs of a transaction naming the same note set, referenced root and `b` share one extended root, computed once and paid once, so a step costs the same whatever its position in its mini-block.
+
+## Nullifiers
+
+A nullifier is inserted in the nullifier IMT of its set (depth 40) in two parts:
+
+- In the Operation: the check that it is absent (3,271 cycles), the update of the low leaf and of the sorted index, and the append of its leaf, 37,772 cycles alone and at most 50,950 for each further input of an Operation.
+- At the end of the block: the hashing of the leaves the block wrote and of every node above them, each node once. The first nullifier of a set in a block costs 1,560,551 cycles, the hashing of two paths of the tree. Every further one costs at most 673,573 cycles: its leaf lands next to the leaves appended before it, but its low leaf is anywhere in the tree, and the path of the low leaf shares only its upper levels with the other paths of the block. From 64 to 256 nullifiers of a set, each further one costs 502,355 cycles.
+
+`EXECUTION_NULLIFIER_GAS = 725` prices the largest cost of each part, 724,523 cycles. The first nullifier of a set is paid by `EXECUTION_NOTE_SET_GAS` for the channel and SDP sets, and by the fixed costs of a block for the ledger set.
+
+## Commitments
+
+Appending a commitment to the commitment [Merkle Mountain Range](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range) (MMR) of its set merges one peak per trailing one bit of the length of the MMR, 23,389 cycles per merge, and costs 23,069 cycles on average over the outputs of an Operation. `EXECUTION_COMMITMENT_GAS = 24`.
+
+## Note sets
+
+At the end of a block, each note set the block changed records its commitment root among its recent roots, expires the roots older than 1024 blocks, and updates its leaf in the eligible tree (depth 40). For a set holding a full window of recent roots, this costs 1,863,907 cycles, among which the commitment root (878,394), computed once and recorded for both the recent roots and the eligible leaf, the eligible leaf (88,460) and the path of the eligible tree, and 3,404,644 to 3,460,479 cycles with the first nullifier and a commitment the block added to the set, among 1 to 1,024 recent roots.
+
+A Mantle Transaction pays `EXECUTION_NOTE_SET_GAS = 3461`, the largest of these measures, once for each channel or SDP note set it changes, whatever the number of its Operations changing that set. A set created by the transaction counts as changed: its creation inserts its leaf in the eligible tree, a path of 40 compressions of 23,197 cycles, below the cost of a changed set. The ledger set changes in every block with the leader note, and its cost is part of the fixed costs of the block.
+
+## Signatures
+
+An Ed25519 signature is verified with strict verification (small-order checks on the public key and on `R`, see [Common Cryptographic Components](common-cryptographic-components.md#eddsa)) over the 32-byte `mantle_txhash`, 149,245 cycles. In a Channel Config, each further signature costs 160,462 cycles with the lookup of its key, the value of `EXECUTION_SIGNATURE_GAS = 161`.
+
+# Operations
+
+The measures below are the cycles of the whole Operation in a Mantle Transaction holding it alone, from its encoded bytes to the updated state, proofs deferred to the batch of the block.
+
+## Transfer
+
+| Step | Cycles |
 | --- | --- |
-| ZkTransfer batch verification of `n` proofs (27 public inputs) | 3,540,612 + n x 618,797 |
-| ZkProgramSpend batch verification of `n` proofs (37 public inputs) | 3,975,765 + n x 618,796 |
-| Program proof verification, alone (3 public inputs) | 2,221,544 |
-| Line coefficients of `-γ` and `-δ` of a verification key | 228,669 |
-| Subgroup checks of the 3 G2 points of a verification key | 573,324 |
-| Pairing `e(α, β)` of a verification key | 1,322,111 |
-| Eddsa25519 signature verification | 59,200 |
+| Transfer of 1 input and 1 output | 76,831 |
+| each further input | 42,165 |
+| each further output | 23,069 |
+| decompression and batch verification of the ZkTransfer | 1,768,883 |
+| hashing of each nullifier at the end of the block, beyond the first of the set | at most 673,573 |
 
-Comparison, list searching, hashes and operation in small fields are neglected. The ZkTransfer proofs of a block are verified in one batch, and so are its ZkProgramSpend proofs, each batch costing a fixed part plus a part proportional to the number of proofs. The fixed part is paid by everyone and deducted from the block directly, through the Execution Gas limit of the block ([Execution Fee Market](overview-cryptoeconomics.md#execution-fee-market)). The user then pays only for the part that is proportional to the number of proofs.
-
-# Transfer
-
-The Execution Gas of the Transfer Operation compensates for the verification of the [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) proof.
-
-Execution: ~619k CPU cycles.
-
-- Verification of the ZkTransfer in the batch of the block: 618,797 cycles.
-
-## Input Gas
-
-Input gas covers the computational cost of verifying that one nullifier is not in the nullifier set and that the referenced commitment root is recent. Additionally, it compensates for the insertion of the nullifier in the nullifier set.
-
-Execution: negligible.
-
-- Verification that the nullifier is not in the set: negligible.
-- Verification that the commitment root is one of the last 1024 blocks: negligible.
-- Insertion of the nullifier in the nullifier set: negligible.
-
-## Output Gas
-
-Output gas accounts for the computational resources required for the inclusion of one output commitment in the Ledger.
-
-Execution: negligible.
-
-- Appending of the commitment to the commitment [Merkle Mountain Range](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range) (MMR): negligible.
+The 12 Execution Gas of the Transfer cover the decoding of its fields, the check of its balance and the check that its referenced root is recent.
 
 ## Channel Inscription
 
-The validation process includes verifying an Eddsa25519 signature, confirming that the signer is authorized for the specified channel, checking the chaining sequence of the channel, verifying the ZkTransfer of each user step, and verifying each program step. The execution encompasses creating channel records (if not previously used), applying the steps to the channel note set and updating the tip of the channel.
+The validation verifies the Ed25519 signature of the sequencer, its accreditation, the chaining of the inscription to the tip of the channel, and each step. The execution applies the steps to the note set of the channel and updates its tip.
 
-Execution: ~59k CPU cycles + ~619k CPU cycles * user steps + the cost of each program step.
+| Step | Cycles |
+| --- | --- |
+| Inscription without steps | 180,978 |
+| of which the signature | 149,245 |
+| each user step of 1 input and 1 output, beyond its proof | 259,483 |
+| first payment of a program step, with the extension of the root of the program spend by its commitment | 1,246,678 |
+| each further payment of 1 input and 1 output, beyond its proof | 354,745 |
+| program step without input nor payment, 1 output | 257,229 |
+| each input of the program spend | 50,950 |
+| each output of the program spend | 25,054 |
+| each opening of a program note | 150,974 |
+| program proof | 6,319,522 |
 
-- Verification of the Ed25519 signature: 59,200 cycles.
-- Verification of the signer authorization: negligible.
-- Verification of channel sequencing: negligible
-- Verification of the ZkTransfer of each user step in the batch of the block: 618,797 cycles per step.
-- Verification that the nullifiers of the steps are not in the set: negligible.
-- Insertion of the nullifiers and appending of the commitments of the steps: negligible.
-- Update the channel state: negligible
-
-A program step costs:
-
-- Verification of the ZkTransfer of each payment in the batch of the block: 618,797 cycles per payment.
-- Verification of the ZkProgramSpend, a circuit shared by every program, in the batch of the block: 618,796 cycles.
-- Verification of the program proof: a single Groth16 verification under the key of its program, which cannot share the batch of another program, with the line coefficients of `-γ` and `-δ` computed from the stored key: 2,221,544 + 228,669 = 2,450,213 cycles.
-- Verification that the program is registered, computation of the hash of the payments, and recomputation of the commitment of each opened note of the program: negligible.
-
-## Program Register
-
-The validation checks that every point of the verification key is on its curve and in its prime-order subgroup. The execution derives the program identifier, computes the pairing `e(α, β)` of the key and stores both.
-
-Execution: ~1,896k CPU cycles.
-
-- Subgroup checks of the 3 G2 points: 573,324 cycles.
-- Curve checks of the 5 G1 points and of the 3 G2 points: part of their decompression, not counted.
-- Pairing `e(α, β)`: 1,322,111 cycles.
-- Derivation of the program identifier and storage of the key: negligible.
-
-## Channel Deposit
-
-The Execution Gas of the Channel Deposit Operation compensates for the verification of the [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) proof and for the check of the inputs.
-
-Execution: ~619k CPU cycles.
-
-- Verification of the ZkTransfer in the batch of the block: 618,797 cycles.
-- Verification that the nullifiers are not in the set: negligible.
-- Insertion of the nullifiers in the nullifier set: negligible.
-- Appending of the commitments to the channel note set: negligible.
-
-## Channel Withdraw
-
-The Execution Gas of the Channel Withdraw Operation compensates for the verification of the [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) proof of the holder and for the check of the inputs.
-
-Execution: ~619k CPU cycles.
-
-- Verification of the ZkTransfer in the batch of the block: 618,797 cycles.
-- Verification that the nullifiers are not in the channel note set: negligible.
-- Insertion of the nullifiers in the channel note set: negligible.
-- Recording of the pending withdrawal, and its later release to the ledger note set: negligible.
+A user step derives its [`step_msg`](bedrock-v1.1-mantle-specification.md#channel_inscribe) and checks its inputs and outputs, 194,249 cycles beyond its nullifier and its commitment. A payment derives its [`payment_msg`](bedrock-v1.1-mantle-specification.md#channel_inscribe) and enters the hash of the payments of its step, 266,888 cycles beyond its nullifier, its commitment and the append of that commitment to the root of the program spend, whose extension the first payment of a step causes (`EXECUTION_ROOT_GAS`). A program step checks that its program is registered, checks the flags of its outputs and derives the public inputs of its proofs, 53,182 cycles beyond the inscription without steps and its commitment. An opening recomputes the commitment of the opened note and compares it to the output.
 
 ## Channel Config
 
-This gas amount covers the verification of multiple Eddsa25519 signatures and ensures the operation is well-formed. This represents the computational cost associated with processing channel configuration operations.
+| Step | Cycles |
+| --- | --- |
+| Channel Config with a threshold of 1 | 180,333 |
+| each further signature | 160,462 |
 
-- Execution: ~59k CPU cycles * configuration_threshold.
-    - Verification of the configuration_threshold Ed25519 signatures: 59,200 cycles per signature.
-    - Modification of the state of the channel: negligible.
+The 20 Execution Gas cover the checks of the configuration and the update of the channel state.
+
+## Channel Deposit
+
+| Step | Cycles |
+| --- | --- |
+| Deposit of 1 input and 1 output | 71,163 |
+| each further input | 46,355 |
+| each further output | 22,333 |
+| decompression and batch verification of the ZkTransfer | 1,768,883 |
+
+The deposit spends notes of the ledger set and appends its outputs to the note set of the channel.
+
+## Channel Withdraw
+
+| Step | Cycles |
+| --- | --- |
+| Withdraw of 1 input and 1 output, recorded as pending | 18,884 |
+| release at its slot: insertion of 1 nullifier in the channel set and append of 1 commitment to the ledger set | 77,334 |
+| each further input released | 49,436 |
+| each further output released | 19,612 |
+| decompression and batch verification of the ZkTransfer | 1,768,883 |
+
+The release runs before the transactions of the block at the slot of the withdrawal, and the Operation pays it in advance.
 
 ## SDP Declaration
 
-This gas covers multiple verification processes: confirming ownership of the consumed notes through a ZkTransfer verification and establishing ownership of the provider_id through an Eddsa25519 signature. It also includes verification of the declaration format, of the spendability of the inputs and of the amount. Additionally, it accounts for the creation of the service note and declaration management.
+| Step | Cycles |
+| --- | --- |
+| Declaration with 1 input, among 1,024 declarations of the service | 847,129 |
+| of which the signature | 149,245 |
+| decompression and batch verification of the ZkTransfer | 1,768,883 |
 
-Execution: ~ 678k CPU cycles.
-
-- Verification of the Ed25519 signature: 59,200 cycles.
-- Verification of the ZkTransfer in the batch of the block: 618,797 cycles.
-- Verification that the declaration doesn’t already exist: negligible.
-- Verification that the `provider_id` is not already bound in the service: negligible.
-- Verification of locator length: negligible.
-- Verification that the nullifiers are not in the set: negligible.
-- Verification of the amount: negligible.
-- Insertion of the nullifiers in the nullifier set: negligible.
-- Derivation of the service note commitment and index of the provider identity: negligible.
+The validation checks the format of the declaration, the length of its locators, the amount, and that its `declaration_id` and `provider_id` are not declared in the service, through keys of the declarations of each service: 796,866 cycles among no declaration, 847,129 among 1,024. The execution inserts the nullifiers, creates the declaration and appends the service note to the SDP note set.
 
 ## SDP Withdraw
 
-This gas covers a verification process that includes: confirming ownership of the provider_id through an Eddsa25519 signature, confirming the consumption of the service note through a ZkTransfer verification, and confirming that the declaration exists and has not been previously withdrawn. The validation process also ensures that the withdrawal message's nonce is greater than any previous nonce, preventing replay attacks. During execution, the system records the withdrawal epoch and the outputs on the declaration and consumes the service note; the declaration is removed and its outputs released by the epoch finalization at `withdraw_at + 1`.
+| Step | Cycles |
+| --- | --- |
+| Withdrawal | 1,097,538 |
+| of which the signature | 149,245 |
+| release at the end of the epoch | 19,335 |
+| decompression and batch verification of the ZkTransfer | 1,768,883 |
 
-Execution: ~ 678k CPU cycles.
-
-- Verification that the declaration exist: negligible.
-- Verification of the Ed25519 signature: 59,200 cycles.
-- Verification of the ZkTransfer in the batch of the block: 618,797 cycles.
-- Derivation of the MMR root of the service note: zkhashes, negligible.
-- Verification that the declaration wasn’t already withdrawn: negligible.
-- Verification of nonce incrementation: negligible.
-- Update declaration and insertion of the nullifier in the SDP note set: negligible.
-- Remove the declaration and release its outputs: negligible.
+The validation checks that the declaration exists and is not withdrawn, the nonce, and the ZkTransfer consuming the service note, whose root is computed from that note alone, which takes most of the 892 Execution Gas of the Operation. The execution records the withdrawal, inserts the nullifier of the service note in the SDP note set, and releases the output at the end of the epoch.
 
 ## SDP Activation
 
-This gas funds the verification of the provider_id signature through an Eddsa25519 signature verification, validates the existence of the declaration in the system, and ensures that the active message's nonce is greater than any previous nonce to prevent replay attacks. The validation includes confirming that the declaration ID is present in the declarations dictionary and that the signature corresponds to the declaration's registered provider_id public key.
+| Step | Cycles |
+| --- | --- |
+| Active message | 7,086,478 |
+| of which the signature | 149,245 |
 
-- Execution: ~59k CPU cycles.
-    - Verification that the declaration exist: negligible.
-    - Verification of nonce incrementation: negligible.
-    - Verification of the Ed25519 signature: 59,200 cycles.
-    - Evaluation of the activity depends on the service and is neglected here
+The validation checks that the declaration exists, the nonce, the signature of the `provider_id`, and the activity proof of the service, the [Proof of Quota](proof-of-quota.md) for the Blend Network, which takes most of the cost.
 
 ## Claim PoW Reward
 
-This gas covers the re-derivation of the puzzle ticket from the Operation payload, the comparison of that ticket against the reward difficulty, the lookup confirming the referenced block is canonical and within the acceptance window, the check that the ticket is not already in the nullifier set, and the check that the pool can cover a reward. The Operation carries no proof. Execution then inserts the nullifier, creates a single output note and decrements the pool.
+| Step | Cycles |
+| --- | --- |
+| Claim | 591,975 |
+| of which the re-derivation of the puzzle ticket, one `zkhash` over five field elements | 138,681 |
 
-Execution: negligible.
+The validation re-derives the ticket, compares it to the reward difficulty, checks that the referenced block is canonical and within the acceptance window, that the ticket is not in the nullifier set and that the pool covers a reward. The execution inserts the nullifier, derives the note and appends its commitment, and decrements the pool. A claim pays its fee out of the reward it creates, so the per-claim reward clears the Permanent Storage fee of the transaction, these 592 Execution Gas and the Execution Gas of its bytes, and the Execution Gas of the Transfer spending the reward note.
 
-- Re-derivation of the puzzle ticket: one `zkhash` over four field elements, negligible.
-- Comparison of the ticket against the reward difficulty: negligible.
-- Lookup of the referenced block and the slot window comparison: negligible.
-- Verification that the ticket isn't already in the nullifier set: negligible.
-- Verification that the pool covers the per-claim reward: negligible.
-- Insertion of the nullifier in the set: negligible.
-- Derivation of the note nonce and commitment: negligible.
-- Appending of the commitment to the commitment MMR: negligible.
+## Program Register
 
-A claim is intended to pay its own fee out of the reward it creates. The claim adds no Execution Gas to that fee, so the floor the per-claim reward must clear is set by the Permanent Storage fee of the transaction and the Execution Gas of the Transfer spending the reward note.
+| Step | Cycles |
+| --- | --- |
+| Registration | 6,838,945 |
+| of which the decompression of the 5 G1 and 3 G2 points of the key, with their subgroup checks | 1,914,214 |
+| of which the pairing `e(α, β)` | 2,951,778 |
+
+The execution derives the program identifier and stores the key with `e(α, β)`, 384 bytes. The line coefficients of `-γ` and `-δ` would take tens of kilobytes of ledger state per program, so each program proof computes them.
+
+# Fixed costs of a block
+
+| Step | Cycles |
+| --- | --- |
+| Header, without its Proof of Leadership | 103,945 |
+| Proof of Leadership | 7,101,514 |
+| Leader note and end of block of the ledger set | 2,040,800 |
+| First nullifier of the ledger set | 1,560,551 |
+| Fixed part of the ZkTransfer batch, `A(27)` | 7,260,262 |
+| Fixed part of the ZkProgramSpend batch, `A(37)` | 8,241,358 |
+| Total | 26,308,430 |
+
+The total, 26,309 Execution Gas, is deducted from the Execution Gas limit of the block.
+
+The releases of the withdrawals due at a block, paid in advance by their Operations, are not deducted: they run in the headroom between the Execution Gas target and the limit, the target being half the limit. The SDP withdrawals of an epoch are all released at its end, 19,335 cycles each, so 10,000 of them take 6.1% of the limit.
 
 # Annex
 
 ## Gas determination from measures
 
-The material used for the benchmarks is the following:
+### Method
+
+- The measured code is the [gas benchmark of the node](https://github.com/logos-blockchain/logos-blockchain/tree/29183148777a57d414cf49154254a2e726fac289/ledger/benches/gas), which runs the functions of the ledger the node runs: decoding, preverification, `try_apply_transaction`, `try_apply_header`, `try_apply_block_contents`, the batch verifiers and the end of the block.
+- Cycles are core cycles counted by the hardware performance counters of the CPU (`perf_event`, user and kernel), for the measured function only, its inputs being prepared outside the count.
+- The node is built with its release profile (`lto = "fat"`, `codegen-units = 1`, `opt-level = 3`), single threaded, pinned to one performance core whose sibling thread stays idle.
+- The ledger note set and the note set of the channel of the measures each hold 1,000,000 nullifiers and 1,000,000 commitments. The nullifiers an Operation spends are drawn like the filled ones, so the low leaf of each is anywhere in the tree. One dimension of each Operation varies at a time.
+- Each value is the minimum over 5 runs of 15 rounds, each round visiting every case once in a new random order. A single run moves the small measures by up to about 10%. The two field elements a user step and a payment add to their message for their channel ID, and the tag a claim adds to its ticket, are counted from the difference between the builds with and without one such element or the tag, each the minimum over 5 runs in one session: 16,890 cycles per element of a user step, 17,074 per element of a payment and 26,695 per claim.
+- The proofs of the Operations are made of valid curve points and decompress as real proofs do. A batch whose proofs do not verify costs what a verified one does: it decompresses every proof and runs every multi-scalar multiplication and the multi-pairing before it compares.
+
+The machine:
 
 - CPU       : 13th Gen Intel(R) Core(TM) i9-13980HX (24 cores / 32 threads)
 - RAM       : 32GB - Speed: 5600 MT/s
 - Motherboard: Micro-Star International Co., Ltd. MS-17S1
-- OS        : Ubuntu 22.04.5 LTS
-- Kernel    : 6.8.0-59-generic
+- OS        : Ubuntu 24.04.5 LTS
+- Kernel    : 6.8.0-138-generic
 
-### Eddsa Signature Verification
+### Fit and cross-check
 
-To get the numbers, we executed the [test included in the official Rust implementation of the node](https://github.com/logos-blockchain/logos-blockchain/blob/3c249f67d11bcad6ce7cbd92cf8c6b977d35a443/tests/src/benchmarks/eddsa.rs#L17).
+Each constant is the slope of the measures of the Operation along one dimension, or the measure of a component alone where the Operation cannot isolate it, rounded up to the next 1,000 cycles.
 
-Over 100 iterations, verifying an Eddsa25519 signature with strict verification (small-order checks on the public key and on `R`, see [Common Cryptographic Components](common-cryptographic-components.md#eddsa)) requires an average of 59,200 CPU cycles.
+A block of 64 transactions on one channel, measured whole (40 Transfers of 2 inputs and 2 outputs, 16 inscriptions of one user step, 7 inscriptions of one program step with one payment, one input, two outputs and one opening, and one deposit; 111 nullifiers, 118 commitments, 27,047 bytes), costs 276.0 million cycles with its header, its Proof of Leadership and the verification of its proofs. The constants, with the end of block work of the channel set counted once and the fixed costs of the block, come to 301.1 million cycles, 9.1% above. The 24 transactions changing the channel set each pay that work, as every transaction changing a set does, and the Execution Gas of the block comes to 380.7 million cycles, 37.9% above: the end of block work of a set is paid by each transaction changing it, so that the price of a transaction does not depend on the other transactions of its block.
 
 ### Groth16 Proof Batch Verification
 
-The ZkTransfer proofs of a block are verified in a single batch, as described in [Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#batch-verification-of-zk-proofs), and so are its ZkProgramSpend proofs, in a second batch under the key of the ZkProgramSpend. For `n` proofs under one verification key with `N` public inputs, the batch does the following work:
+For `n` proofs under one verification key with `N` public inputs, the batch verifier of the node does the following work:
 
-- Once per batch, whatever `n`: it folds the public inputs of all the proofs with the random coefficients `r_i`, computes one multi-scalar multiplication (MSM) over the `N + 1` input points of the key, runs the Miller loops of the three terms of the key (`α`, the folded inputs and `π_C`), and one final exponentiation.
-- Once per proof: it multiplies `π_A` by `r_i`, runs the Miller loop of `(r_i π_A, π_B)`, and adds `π_C` to an MSM over the `n` proofs.
+- Once per batch, whatever `n`: it folds the public inputs of all the proofs with random coefficients `r_i` of 128 bits, computes one multi-scalar multiplication over the `N + 1` input points of the key, runs the Miller loops of the three terms of the key (`α`, the folded inputs and `π_C`), and one final exponentiation.
+- Once per proof: it decompresses and validates the points of the proof, multiplies `π_A` by `r_i`, runs the Miller loop of `(r_i π_A, π_B)`, and adds `π_C` to a multi-scalar multiplication over the `n` proofs.
 
-Its cost is therefore a fixed part `A(N)`, which grows with the number of public inputs, plus a part `P` per proof, which does not depend on it:
+Its cost is therefore a fixed part `A(N)` plus a part `P` per proof:
 
 ```text
 cycles(n, N) = A(N) + n * P
 ```
 
-The fixed part is paid once per block for each verification key and is deducted from the Execution Gas limit of the block ([Execution Fee Market](overview-cryptoeconomics.md#execution-fee-market)). The part `P` is paid by each Operation, once per proof it carries.
+Measured cycles of one batch verification of `n` proofs. `N = 3` runs the generic verifier on proofs decompressed beforehand, the trend of a key with few inputs; `N = 27` and `N = 37` run the verifiers of the ZkTransfer and of the ZkProgramSpend on compressed proofs:
 
-**Method.**
+| Proofs `n` | N = 3 | N = 27 | N = 37 |
+| --- | --- | --- | --- |
+| 1 | 6,247,900 | 8,857,634 | 9,829,709 |
+| 2 | 7,776,027 | 10,980,259 | 11,999,318 |
+| 4 | 9,896,747 | 14,409,914 | 15,332,139 |
+| 8 | 14,450,286 | 21,522,044 | 22,489,496 |
+| 16 | 23,553,598 | 35,670,219 | 36,702,976 |
+| 32 | 41,551,907 | 63,987,413 | 64,917,753 |
+| 64 | 77,356,083 | 120,468,049 | 121,383,690 |
+| 128 | 149,023,660 | 232,510,479 | 233,775,244 |
+| 256 | 292,115,380 | 457,052,357 | 458,884,397 |
 
-- The measured function is the batch verifier of the node, `groth16_batch_verify` (`zk/groth16/src/verifier.rs` in the [Rust implementation of the node](https://github.com/logos-blockchain/logos-blockchain)), on random verification keys, proofs and full-size public inputs. A verification that fails costs the same as one that succeeds.
-- The node is built with its release profile (`lto = "fat"`, `codegen-units = 1`, `opt-level = 3`), single threaded, and the process is pinned to one performance core. A build with `target-cpu=native` and the `ark-ff/asm` feature is about 8% cheaper; the gas follows the release build.
-- The machine is the one of the benchmarks of the [Proof of Leadership](cryptarchia-proof-of-leadership.md#benchmarks) and of the [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer):
-  - CPU       : 13th Gen Intel(R) Core(TM) i9-13980HX (24 cores / 32 threads)
-  - RAM       : 32GB - Speed: 5600 MT/s
-  - Motherboard: Micro-Star International Co., Ltd. MS-17S1
-  - OS        : Ubuntu 22.04.5 LTS
-  - Kernel    : 6.8.0-59-generic
-- CPU cycles are `rdtsc` ticks, which run at a constant 2.419 GHz on this CPU.
-- The batch size `n` goes from 1 to 256, for `N` = 3, 8, 27 and 29 public inputs. Each value is the minimum over 15 rounds, each round visiting every case once in a new random order.
-- `A(N)` and `P` are fitted on these measures with every point weighted by its relative error. The fit stays within 3.2% of every measured point.
-- The decompression and validation of the points of each proof, about 224k cycles, is the same for every proof and is not counted.
-
-Measured CPU cycles of one batch verification of `n` proofs:
-
-| Proofs `n` | N = 3 | N = 8 | N = 27 | N = 29 |
-| --- | --- | --- | --- | --- |
-| 1 | 3,114,519 | 3,342,518 | 4,041,187 | 4,113,633 |
-| 2 | 3,936,205 | 4,151,059 | 4,880,886 | 4,946,441 |
-| 4 | 5,094,128 | 5,344,160 | 6,032,767 | 6,095,273 |
-| 8 | 7,671,715 | 7,900,396 | 8,597,474 | 8,660,118 |
-| 16 | 12,604,214 | 12,890,787 | 13,624,123 | 13,684,127 |
-| 32 | 22,558,986 | 22,842,472 | 23,494,814 | 23,531,229 |
-| 64 | 42,235,112 | 42,279,171 | 43,077,199 | 43,227,173 |
-| 128 | 80,614,150 | 81,130,704 | 81,957,943 | 82,232,802 |
-| 256 | 158,907,599 | 158,811,954 | 159,753,192 | 159,542,558 |
-
-Fitted model:
+Fitted with every point weighted by its relative error:
 
 | N | `A(N)` | `P` | Maximum deviation from the fit |
 | --- | --- | --- | --- |
-| 3 | 2,595,925 | 618,882 | 3.2% |
-| 8 | 2,827,517 | 619,056 | 3.1% |
-| 27 | 3,540,612 | 618,797 | 2.9% |
-| 29 | 3,608,664 | 618,796 | 2.8% |
-
-`P` is 619k cycles whatever the number of public inputs, while `A(N)` grows by about 39k cycles per public input, the cost of one more point in the MSM. The ZkTransfer has 27 public inputs: its proofs cost `P = 618,797` cycles each, and its batch `A(27) = 3,540,612` cycles per block.
-
-The ZkProgramSpend has 37 public inputs. `A(37)` was measured in a later run, with the same method, together with `N = 29` as a control, which came out about 1.9% below the table above. Writing `A'` for the fixed parts measured in that run, the fixed part is therefore `A(29)` above plus the gap `A'(37) - A'(29) = 3,908,913 - 3,541,812 = 367,101` cycles, so `A(37) = 3,975,765` cycles per block. The gap is about 46k cycles per input rather than 39k, since the MSM over the 38 points of the key uses a wider window than over 30. `P` does not depend on `N` in that run either, 608,266 cycles at `N = 37` against 607,512 at `N = 29`, so the ZkProgramSpend proofs cost the `P` of `N = 29` in the table above, 618,796 cycles each.
+| 3 | 5,308,509 | 1,129,819 | 3.0% |
+| 27 | 7,260,262 | 1,768,883 | 1.9% |
+| 37 | 8,241,358 | 1,769,145 | 1.8% |
 
 ![Groth16 batch verification: cycles per proof against the batch size, measured and fitted](analysis-gas-cost-determination/assets/groth16_batch_verification.png)
 
-The cost per proof, `A(N) / n + P`, decreases with the size of the batch towards `P`. The marginal cost of a proof is higher in small batches, about 820k cycles from 1 to 2 proofs, and settles at about 607k cycles from 64 proofs; the fitted `P` lies between the two.
-
-### Groth16 Proof Verification Alone
-
-Each program proof is verified alone under the key of its program, with the verifier of the node for a single proof, `groth16_verify`. That verifier runs three Miller loops and compares their product to `e(α, β)`, stored with the key of the program ([Verification Key Validation](#verification-key-validation)), but folds the public inputs with one scalar multiplication each, about 140k cycles per input, instead of an MSM. It is cheaper than a batch of one proof below about 12 public inputs, and more expensive above, which is why the ZkTransfer and the ZkProgramSpend are always verified in batch.
-
-Measured with the same method as the batch verification:
-
-| N | `groth16_verify` | Batch of one proof |
-| --- | --- | --- |
-| 3 | 2,221,544 | 3,114,519 |
-| 8 | 2,903,506 | 3,342,518 |
-| 27 | 5,550,916 | 4,041,187 |
-| 29 | 5,846,481 | 4,113,633 |
-
-A program proof has 3 public inputs, so its verification on a prepared key costs 2,221,544 cycles, to which the line coefficients of `-γ` and `-δ`, 228,669 cycles, are added since the ledger does not store them ([Verification Key Validation](#verification-key-validation)): 2,450,213 cycles.
+The cost per proof, `A(N) / n + P`, decreases with the size of the batch towards `P`. `P` does not depend on `N`, while `A(N)` grows by about 98k cycles per public input from 27 to 37, the cost of one more point in the multi-scalar multiplication of the batch.
 
 ### Verification Key Validation
 
-A [`PROGRAM_REGISTER`](bedrock-v1.1-mantle-specification.md#program_register) Operation carries a Groth16 verification key of 5 compressed G1 points and 3 compressed G2 points. A G1 point on the curve of BN254 is in its prime-order subgroup, while a G2 point needs a subgroup check of its own. Measured with the same method, in the release build:
+A [`PROGRAM_REGISTER`](bedrock-v1.1-mantle-specification.md#program_register) Operation carries a Groth16 verification key of 5 compressed G1 points and 3 compressed G2 points. A G1 point on the curve of BN254 is in its prime-order subgroup, while a G2 point needs a subgroup check of its own.
 
-| Work | CPU cycles |
+| Work | Cycles |
 | --- | --- |
-| 3 G2 subgroup checks (`is_in_correct_subgroup_assuming_on_curve`) | 573,324 |
-| 3 G2 decompressions, without validation | 97,740 |
-| 5 G1 decompressions, validated | 49,319 |
-| 5 G1 and 3 G2 decompressions, validated, subgroup checks included | 749,722 |
+| Decompression of the key, 5 G1 and 3 G2 points validated, subgroup checks included | 1,914,214 |
+| Pairing `e(α, β)` | 2,951,778 |
+| Line coefficients of `-γ` and `-δ` | 655,411 |
+| Preparation of a key, `e(α, β)` and the line coefficients | 3,628,075 |
 
-The decompression of the points is the same for every key and every proof and is not counted.
+The ledger computes `e(α, β)`, the costliest part of the preparation, once at the registration, and stores it with the key.
 
-The verification of a proof also needs the key prepared: the pairing `e(α, β)` and the line coefficients of the pairings with `-γ` and `-δ`, which depend on the key alone. The measure of the program proof verification above runs on a key prepared beforehand:
+### Trees and hashes
 
-| Work | CPU cycles |
+| Work | Cycles |
 | --- | --- |
-| Preparation of a key with 3 public inputs (`into_prepared`) | 1,704,632 |
-| of which `e(α, β)` | 1,322,111 |
-| of which the line coefficients of `-γ` and `-δ` | 228,669 |
-| Preparation followed by the verification of one proof | 4,062,923 |
-
-The ledger computes `e(α, β)`, the costliest part, once at the registration, and stores it with the key: 384 bytes. The line coefficients would take tens of kilobytes of ledger state per program, so each program proof computes them, for 228,669 cycles. The Operation is priced from the 3 G2 subgroup checks and the pairing `e(α, β)`, 573,324 + 1,322,111 = 1,895,435 cycles, and the program proof from its verification and the line coefficients, 2,221,544 + 228,669 = 2,450,213 cycles.
+| Poseidon2 compression of two field elements | 23,197 |
+| `zkhash` of four field elements | 111,986 |
+| `zkhash` of five field elements | 138,681 |
+| Blake2b-256 of 0, 1,024 and 65,536 bytes | 1,713, 4,975, 231,814 |
+| Root of the commitment MMR of a filled set | 878,394 |
+| Append to the commitment MMR, per merged peak | 23,389 |
+| End of block of a set, nullifiers inserted in the block: 0, 1, 2, 4, 16, 64, 256 | 1,863,907, 3,424,458, 4,098,031, 5,284,285, 12,541,072, 38,904,731, 135,356,854 |
+| End of block of a set, among 1, 256 and 1,024 recent roots | 3,433,244, 3,460,479, 3,404,644 |
+| Decoding of an inscription of 0, 1,024 and 65,536 bytes of payload | 17,596, 24,932, 174,922 |
