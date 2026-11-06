@@ -88,7 +88,7 @@ Starting immediately after epoch **N+1**, service rewards are distributed in the
 The reward must:
 
   - Transfer the correct reward amount according to [Service Reward Calculation](#service-reward-calculation).2
-  - Be sent to the keys of the service note of the declaration of the `zk_id` ([Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage)): `note_pk` as the public key of the note and `note_stake_pk` as its [staking key](bedrock-v1.1-mantle-specification.md#keys). The rewards thus land in the wallet holding the stake and stake like the service note, while `zk_id` stays only the Proof of Quota identity of the node.
+  - Be sent to the keys of the service note of the declaration of the `zk_id` ([Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage)): `note_pk` as the public key of the note and `note_stake_pk` as its [staking key](bedrock-v1.1-mantle-specification.md#keys). The rewards thus land in the wallet holding the stake and stake like the service note, while `zk_id` is only the Proof of Quota identity of the node.
   - Be distributed as exactly one note per rewarded `zk_id`. Rewards are never summed or merged into a shared note.
   - Be executed identically by every node processing the first block of epoch N+2. This happens by inserting notes in the ledger in ascending order of `zk_id`.
   - Be paid, for the Blend service, from `blend_rewards_closed` ([Block Rewards](block-rewards.md#deterministic-implementation)): the total of the reward notes is debited from it, and the part of the Blend reward of epoch N that the notes do not use, when no reward is calculated or as the remainder of the division among the nodes, moves from it to `rewards_reserve`.

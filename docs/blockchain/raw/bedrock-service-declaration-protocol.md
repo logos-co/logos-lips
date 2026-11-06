@@ -214,11 +214,11 @@ Where:
 - `service_type` is the service declared;
 - `locators` are the addresses of the validator ([Locators](#locators));
 - `provider_id` and `zk_id` are the identifiers of the validator ([Identifiers](#identifiers));
-- `note_pk` is the public key the service note and the rewards of the validator are created under. No check reads it and no proof covers its secret, so, as for the outputs of a Transfer, the wallet is responsible for it: a `note_pk` whose secret nobody holds locks the stake for good;
+- `note_pk` is the public key the service note and the rewards of the validator are created under. No check reads it and no proof covers its secret, so, as for the outputs of a Transfer, the wallet is responsible for it: a `note_pk` whose secret nobody holds locks the stake and the rewards for good;
 - `note_stake_pk` is the [staking key](bedrock-v1.1-mantle-specification.md#keys) of the service note and of the rewards. Both keys can belong to a cold wallet, so the node keeps online only what serving and leading need ([Wallet Technical Standard](wallet-technical-standard.md#staking-keys));
 - `inputs` are the [`NoteNullifier`](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) of the notes the declaration consumes, proven by a [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) against `commitment_root`;
 - `commitment_root` is the root of the commitment MMR of the ledger note set at the end of one of the last 1024 blocks;
-- `amount` is the value of the one service note the declaration creates under the `note_pk`, used for minimum stake threshold verification purposes.
+- `amount` is the value of the one service note the declaration creates under the `note_pk` and the `note_stake_pk`, used for minimum stake threshold verification purposes.
 
 ### **Declaration Storage**
 
