@@ -26,6 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2025-08-22 |
 | 1.1.0 | Remove references to DA Replace Nomos with Logos Blockchain | 2026-01-14 |
+| 1.2.0 | Fees and funds are carried by Transfer Operations over private notes, and every channel has a note set of its own. The figure of a Mantle Transaction shows only Operations | 2026-11-06 |
 
 # Introduction
 
@@ -39,11 +40,21 @@ Bedrock is composed of Cryptarchia and Bedrock Mantle. Bedrock is in turn suppor
 
 ## Bedrock Mantle
 
-    Mantle forms the minimal execution layer of the Logos Blockchain. Mantle Transactions consist of a sequence of Operations together with a Ledger Transaction used for paying fees and transferring funds.
+    Mantle forms the minimal execution layer of the Logos Blockchain. Mantle Transactions consist of a sequence of Operations, among which Transfer Operations pay the fees and transfer funds between private notes.
 
     Sovereign Zones make use of Mantle Transactions when posting their updates to Bedrock. This is done through the use of Mantle channels and channel Operations.
 
-![Diagram](bedrock-architecture-overview/assets/2e0261aa-09df-80e3-ab25-e6d79b7aaa77.png)
+```mermaid
+flowchart TB
+    subgraph tx["Mantle Transaction"]
+        subgraph ops["Operations"]
+            transfer["TRANSFER(...)"]
+            deposit["CHANNEL_DEPOSIT(...)"]
+            inscribe["CHANNEL_INSCRIBE(...)"]
+            more["..."]
+        end
+    end
+```
 
 ### Mantle Channels
 
@@ -57,7 +68,7 @@ Bedrock is composed of Cryptarchia and Bedrock Mantle. Bedrock is in turn suppor
 
 Channel messages can be used by Sovereign Zone sequencers to asynchronously communicate and coordinate actions amongst themselves. This could include planning cross-Zone transactions that affect the state of several Zones, or agreeing to modify a channel's properties.
 
-Every Mantle channel also has an associated token balance. This balance allows users to bridge tokens from Bedrock to Sovereign Zones and vice versa. Channel balances also facilitate atomic token transfers between several Sovereign Zones.
+Every Mantle channel also has a note set of its own. Users bridge tokens from Bedrock to a Sovereign Zone by depositing ledger notes into the note set of its channel, move them inside the channel with steps the sequencers publish, and bridge them back by withdrawing them to the ledger note set.
 
 ## Cryptarchia
 

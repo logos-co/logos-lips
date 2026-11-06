@@ -22,6 +22,7 @@
 | Version | Changes | Date |
 | --- | --- | --- |
 | 1.0.0 | Initial revision | 2026-04-24 |
+| 1.0.1 | Remove the reference to the Anonymous Leaders Reward | 2026-11-02 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -105,6 +106,5 @@ Conclusion: The subsidy mechanism, while critical for block builder revenue, doe
 - StableFee [https://pubsonline.informs.org/doi/abs/10.1287/mnsc.2023.4735](https://pubsonline.informs.org/doi/abs/10.1287/mnsc.2023.4735)
 - [Base Fee Manipulation In Ethereums EIP-1559 Transaction Fee Mechanism](https://arxiv.org/pdf/2304.11478)
 - [Transaction fees on a honeymoon](https://arxiv.org/pdf/2110.04753)
-- [Anonymous Leaders Reward Protocol](bedrock-anonymous-leaders-reward.md)
 - [\[Overview\] Cryptoeconomics](overview-cryptoeconomics.md)
 - [EIP 1559: A transaction fee market proposal](https://ethereum.github.io/abm1559/notebooks/eip1559.html)

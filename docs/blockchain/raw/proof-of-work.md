@@ -21,6 +21,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-09 |
 | 1.1.0 | Set the reference load of the Blend difficulty to the transaction rate the Blend network carries, `F_T / F_D = 130` transactions per block | 2026-09-11 |
+| 1.2.0 | A reward claim searches a nonce for the public key to be paid, carries no signature and hashes no epoch nonce. Each block credits its fee share to the pool, and the reward per claim stays fixed for the epoch | 2026-11-06 |
 
 # Introduction
 
@@ -49,7 +50,7 @@ graph LR
     c --> t["pays for transactions"]
 ```
 
-The tokens come from the pow reward pool, set aside at genesis and refilled each epoch from a share of the transaction fees. Nothing is minted for it, so mining does not inflate the supply. Each epoch pays out a fraction of what the pool still holds, so the reward is the same for every claim of that epoch, for as long as the pool can pay it.
+The tokens come from the pow reward pool, set aside at genesis and refilled by every block from a share of the transaction fees. Nothing is minted for it, so mining does not inflate the supply. Each epoch pays out a fraction of what the pool still holds, so the reward is the same for every claim of that epoch, for as long as the pool can pay it.
 
 Each use has its own threshold, and a threshold sets how much work a solution costs. Every node computes both from what blocks carry, so no node trusts another for them.
 
@@ -83,7 +84,7 @@ Here the branches end apart. Nothing absorbs the load, so a Blend message costs 
 
 ```mermaid
 graph TB
-    sv["searched value"] --> tk["ticket<br/>zkhash(searched value,<br/>epoch nonce)"]
+    sv["searched value"] --> tk["ticket<br/>zkhash(searched value,<br/>epoch nonce or block)"]
     tk -- "does not satisfy<br/>the threshold" --> sv
 
     tk -- "satisfies<br/>difficulty_blend" --> pq["Proof of Quota"]
@@ -95,22 +96,20 @@ graph TB
     vc -- "accepted" --> ac["epoch_pow_reward<br/>paid to the key<br/>ticket spent<br/>pow_reward_pool falls"]
 ```
 
-A miner picks a value and hashes it into a **ticket**. The hash is `zkhash` over the value and the [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce). A claim search hashes the referenced block hash as well. Tickets and **thresholds** are numbers in $`\mathbb{F}_p`$, the BN254 scalar field of [Poseidon2](common-cryptographic-components.md#poseidon2-zk-friendly-hash-function). A ticket satisfies a threshold when the ticket is below it, as [Puzzle Target](#puzzle-target) specifies. The miner keeps picking values, each sampled with full entropy, until one ticket satisfies the threshold.
+A miner picks a value and hashes it into a **ticket**. The hash is `zkhash` over the value and the [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce). For a claim, the hash covers instead the tag `POW_CLAIM_V1`, the public key to be paid, the value and the [Block ID](cryptarchia-v1-protocol.md#block-id) of the referenced block: that block is at most the [acceptance window](#acceptance-window) old, so its Block ID binds the claim to the chain and makes the ticket unpredictable before the block exists, as the epoch nonce does. Tickets and **thresholds** are numbers in $`\mathbb{F}_p`$, the BN254 scalar field of [Poseidon2](common-cryptographic-components.md#poseidon2-zk-friendly-hash-function). A ticket satisfies a threshold when the ticket is below it, as [Puzzle Target](#puzzle-target) specifies. The miner keeps picking values, each sampled with full entropy, until one ticket satisfies the threshold.
 
-Each use searches its own value against its own threshold, so a solution works for one use only. For Blend admission the miner searches a private nonce against `difficulty_blend`. The nonce stays secret. [Proof of Quota](proof-of-quota.md) proves the miner holds one, and that buys the quota of blending operations given in [Proof of Work Quota](blend-protocol.md#proof-of-work-quota). Nothing about it reaches the chain. For a reward the miner searches public keys whose secret keys it knows, against `difficulty_reward`. The miner then publishes a `CLAIM_POW_REWARD` Operation in a transaction.
+Each use searches its own value against its own threshold, so a solution works for one use only. For Blend admission the miner searches a private nonce against `difficulty_blend`. The nonce stays secret. [Proof of Quota](proof-of-quota.md) proves the miner holds one, and that buys the quota of blending operations given in [Proof of Work Quota](blend-protocol.md#proof-of-work-quota). Nothing about it reaches the chain. For a reward the miner picks the public key to be paid and searches a nonce against `difficulty_reward`. The miner should pick a public key it has not used in another claim, since the claims paid to one key are linked, and so are the Transfers spending them. The miner then publishes a `CLAIM_POW_REWARD` Operation in a transaction.
 
 A validator checks a claim against the `difficulty_reward` the previous block produced. A block's own claims update `difficulty_reward` after the block is processed, and that new value governs the next block. The validator accepts a claim when all of these hold:
 
 - the ticket is below `difficulty_reward`,
 - the ticket has not been claimed before,
 - the referenced block is canonical and inside the acceptance window,
-- the epoch nonce is the current one or the one before it,
-- the transaction is signed by the key the claim names, which proves the signer knows its secret key,
 - `epoch_pow_reward` is positive and `pow_reward_pool` still holds it.
 
 [Mantle](bedrock-v1.1-mantle-specification.md#claim_pow_reward) specifies these checks and the order they run in. A claim that fails any of them makes its transaction invalid. On acceptance the node pays `epoch_pow_reward` to the key, marks the ticket spent, and subtracts the same amount from `pow_reward_pool`.
 
-A node computes five values from the chain. `pow_reward_pool` and the set of spent tickets change when a claim is accepted. `difficulty_reward` is recomputed after every block, from the number of claims in that block. `pow_reward_pool` is credited at each epoch boundary with a share of the fees of the epoch that ended, and `epoch_pow_reward` is then recomputed from it. `difficulty_blend` is recomputed once per epoch, from the transactions of the epoch before last, at the snapshot that fixes the epoch nonce. [Reward Difficulty](#reward-difficulty), [Reward Pool](#reward-pool) and [Blend Difficulty](#blend-difficulty) specify the three computations.
+A node computes five values from the chain. `pow_reward_pool` and the set of spent tickets change when a claim is accepted. `difficulty_reward` is recomputed after every block, from the number of claims in that block. Each block credits `pow_reward_pool` with a share of its fees, and `epoch_pow_reward` is recomputed from the pool at each epoch boundary. `difficulty_blend` is recomputed once per epoch, from the transactions of the epoch before last, at the snapshot that fixes the epoch nonce. [Reward Difficulty](#reward-difficulty), [Reward Pool](#reward-pool) and [Blend Difficulty](#blend-difficulty) specify the three computations.
 
 A node keeps a spent ticket only while its referenced block is inside the window, so the set stays small. [Acceptance Window](#acceptance-window) gives the window in slots.
 
@@ -167,7 +166,7 @@ The two updates below multiply and divide targets as integers rather than in the
 
 ## Reward Pool
 
-The pool is seeded once, at genesis, with `POW_REWARD_POOL_GENESIS`, five thousandths of $`S_{cap}`$, as specified in [Bedrock Genesis Block](bedrock-genesis-block.md). After that it changes through the epoch-boundary refill and through claims.
+The pool is seeded once, at genesis, with `POW_REWARD_POOL_GENESIS`, five thousandths of $`S_{cap}`$, as specified in [Bedrock Genesis Block](bedrock-genesis-block.md). After that it changes through the fee share each block credits and through claims.
 
 ```python
 def compute_epoch_pow_reward(pow_reward_pool: TokenValue) -> TokenValue:
@@ -177,11 +176,11 @@ def compute_epoch_pow_reward(pow_reward_pool: TokenValue) -> TokenValue:
     return (pow_reward_pool * EPOCH_POW_DISTRIBUTION_RATE_NUM) // denominator
 ```
 
-At each epoch boundary, before any block of the new epoch is processed, the pool is credited with `get_pow_pool_refill(epoch_blocks)`, the fraction `POW_SHARE / SHARE_DEN` of the fees collected over the blocks of the epoch that ended, as specified in [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool); `epoch_pow_reward` is then set to `compute_epoch_pow_reward(pow_reward_pool)` and held for the epoch. The division rounds down, and the remainder stays in the pow reward pool. All arithmetic here is checked, in accordance with [Arithmetic](bedrock-v1.1-mantle-specification.md#arithmetic).
+Each block, once its transactions have run, credits the pool with its share `POW_SHARE / SHARE_DEN` of the fees it collected ([Block Rewards](block-rewards.md#deterministic-implementation)), so the claims of a block draw on what the blocks before it paid. At each epoch boundary, before any block of the new epoch is processed, `epoch_pow_reward` is set to `compute_epoch_pow_reward(pow_reward_pool)` and held for the epoch, so every claim of an epoch pays the same whatever the fees of its blocks. The division rounds down, and the remainder stays in the pow reward pool. All arithmetic here is checked, in accordance with [Arithmetic](bedrock-v1.1-mantle-specification.md#arithmetic).
 
 ### Exhaustion within an epoch
 
-The reward is fixed for the epoch while the pool shrinks with every claim. The first condition of [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation, that the reward is positive and the pool covers it, is evaluated for every claim against the pool as it stands at that point in the block, and a claim it rejects invalidates its transaction. Claiming resumes at the next epoch boundary at which the recomputed reward is positive and the pow reward pool covers it.
+The reward is fixed for the epoch while every claim draws on the pool and every block credits it. The first condition of [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation, that the reward is positive and the pool covers it, is evaluated for every claim against the pool as it stands at that point in the block, and a claim it rejects invalidates its transaction. When the reward is positive, claiming resumes in the block after the fee shares of the blocks bring the pool back to the reward, or at the next epoch boundary at which the recomputed reward is positive and the pow reward pool covers it, whichever comes first. A reward of `0` holds for its epoch whatever the fees. Since the pool receives only the share `POW_SHARE / SHARE_DEN` of a fee, paying fees to resume claiming costs `SHARE_DEN / POW_SHARE` times what the pool lacks: a pool just short of the reward can make one claim cheap, and each further reward costs `SHARE_DEN / POW_SHARE` times its value in fees, less what the payer earns back through block rewards.
 
 ## Acceptance Window
 
