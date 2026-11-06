@@ -38,6 +38,7 @@
 | 1.9.0 | Add the Execution Gas of program steps and of the `PROGRAM_REGISTER` Operation, priced from the measured batch verification of the ZkProgramSpend, the verification of a program proof alone with the line coefficients of its key, and the subgroup checks and the pairing `e(α, β)` of a verification key | 2026-10-12 |
 | 2.0.0 | Execution Gas measured in core cycles on the node, end to end, over note sets of a million notes, every step of the validation and execution priced. The Execution Gas of a Mantle Transaction sums a term per byte of the signed transaction, a term per note set it changes, and the Execution Gas of its Operations, each built from per-component constants: proofs, root extensions, nullifiers, commitments, signatures, steps, payments, openings and program proofs. The fixed costs of a block are deducted from its Execution Gas limit. The inscriptions of steps and payments pay as transaction bytes | 2026-11-06 |
 | 2.1.0 | [RFC] `SDP_DECLARE` pays one ZkStake proof and its nullifiers per spend, and the commitment of its service note; the ZkStake batch, the 28th ZkTransfer input and a two-note claim are to be measured | 2026-11-06 |
+| 2.2.0 | [RFC] A claim checks a HashWX ticket in place of a `zkhash`, to be measured | 2026-11-06 |
 
 # Introduction
 
@@ -324,9 +325,9 @@ The validation checks that the declaration exists, the nonce, the signature of t
 | Step | Cycles |
 | --- | --- |
 | Claim, with its two notes | TBD |
-| of which the re-derivation of the puzzle ticket, one `zkhash` over five field elements | 138,681 |
+| of which the re-derivation of the puzzle ticket, one [HashWX](common-cryptographic-components.md#hashwx) ticket | TBD |
 
-The validation re-derives the ticket, compares it to the reward difficulty, checks that the referenced block is canonical and within the acceptance window, that the ticket is not in the nullifier set and that the pool covers a reward. The execution inserts the nullifier, derives the two notes and appends their commitments, and decrements the pool. A claim pays its fee out of the liquid note it creates, so the liquid part of the reward clears the Permanent Storage fee of the transaction, its Execution Gas and the Execution Gas of its bytes, and the Execution Gas of the Transfer spending the liquid note.
+The validation re-derives the ticket, compares it to the reward difficulty, checks that the referenced block is canonical and within the acceptance window, that the nullifier is not in the nullifier set and that the pool covers a reward. The execution inserts the nullifier, derives the two notes and appends their commitments, and decrements the pool. A claim pays its fee out of the liquid note it creates, so the liquid part of the reward clears the Permanent Storage fee of the transaction, its Execution Gas and the Execution Gas of its bytes, and the Execution Gas of the Transfer spending the liquid note.
 
 ## Program Register
 
@@ -365,7 +366,7 @@ The releases of the withdrawals due at a block, paid in advance by their Operati
 - Cycles are core cycles counted by the hardware performance counters of the CPU (`perf_event`, user and kernel), for the measured function only, its inputs being prepared outside the count.
 - The node is built with its release profile (`lto = "fat"`, `codegen-units = 1`, `opt-level = 3`), single threaded, pinned to one performance core whose sibling thread stays idle.
 - The ledger note set and the note set of the channel of the measures each hold 1,000,000 nullifiers and 1,000,000 commitments. The nullifiers an Operation spends are drawn like the filled ones, so the low leaf of each is anywhere in the tree. One dimension of each Operation varies at a time.
-- Each value is the minimum over 5 runs of 15 rounds, each round visiting every case once in a new random order. A single run moves the small measures by up to about 10%. The two field elements a user step and a payment add to their message for their channel ID, and the tag a claim adds to its ticket, are counted from the difference between the builds with and without one such element or the tag, each the minimum over 5 runs in one session: 16,890 cycles per element of a user step, 17,074 per element of a payment and 26,695 per claim.
+- Each value is the minimum over 5 runs of 15 rounds, each round visiting every case once in a new random order. A single run moves the small measures by up to about 10%. The two field elements a user step and a payment add to their message for their channel ID are counted from the difference between the builds with and without one such element, each the minimum over 5 runs in one session: 16,890 cycles per element of a user step and 17,074 per element of a payment.
 - The proofs of the Operations are made of valid curve points and decompress as real proofs do. A batch whose proofs do not verify costs what a verified one does: it decompresses every proof and runs every multi-scalar multiplication and the multi-pairing before it compares.
 
 The machine:
@@ -440,7 +441,7 @@ The ledger computes `e(α, β)`, the costliest part of the preparation, once at 
 | --- | --- |
 | Poseidon2 compression of two field elements | 23,197 |
 | `zkhash` of four field elements | 111,986 |
-| `zkhash` of five field elements | 138,681 |
+| One [HashWX](common-cryptographic-components.md#hashwx) ticket | TBD |
 | Blake2b-256 of 0, 1,024 and 65,536 bytes | 1,713, 4,975, 231,814 |
 | Root of the commitment MMR of a filled set | 878,394 |
 | Append to the commitment MMR, per merged peak | 23,389 |
