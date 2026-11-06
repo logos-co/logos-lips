@@ -255,7 +255,7 @@ def on_nullifier_inserted(tracked: TrackedLowLeaf, inserted_nullifier: NoteNulli
 
 ### Staking Keys
 
-Every [note](bedrock-v1.1-mantle-specification.md#keys) has a public key `pk`, derived from the nullifier key `nf_sk`, and a staking key `stake_pk`, and leading with the note takes `nf_sk` and the staking secret key `staking_sk`. The recommended default, which the ledger does not enforce, is that a wallet derives `nf_sk` from its spending secret key, uses `staking_sk = nf_sk`, so that `stake_pk = pk` and its notes keep one key, and creates transfer outputs with the `pk` of the recipient as staking key unless the recipient asks for another. With this default, giving a node `nf_sk` lets it lead with the notes of the wallet without being able to spend them, the spending secret key staying offline, and the node learns when they are spent.
+Every [note](bedrock-v1.1-mantle-specification.md#keys) has a public key `pk` and a staking key `stake_pk`. The ZkTransfer enforces `nf_sk = zkhash(NF_KDF, spending_sk)` and `pk = zkhash(KDF, nf_sk)`, and leading with the note takes `nf_sk` and the staking secret key `staking_sk`. The recommended default, which the ledger does not enforce, is that a wallet uses `staking_sk = nf_sk`, so that `stake_pk = pk` and its notes keep one key, and creates transfer outputs with the `pk` of the recipient as staking key unless the recipient asks for another. With this default, giving a node `nf_sk` lets it lead with the notes of the wallet without being able to spend them, the spending secret key staying offline, and the node learns when they are spent.
 
 ### Leader Reward Notes
 
