@@ -287,7 +287,7 @@ Channels allow Zones to post their updates on chain. Channels form virtual chain
 
 ### Message Ordering
 
-Channels form virtual chains by having each message reference its parent message. The order of messages in these channels is enforced by the sequencer by building a hash chain of messages, i.e. new messages reference the previous messages through a parent hash. Given that Cryptarchia has long finality times, these message parent references allow Zone sequencers to continue to post new updates to channels without having to wait for finality. No matter how Cryptarchia forks and reorgs, the channel messages from honest sequencers will eventually be re-included in a way that satisfies the virtual chain order, with one limit: a step is valid only against a commitment root recorded in the last 1024 blocks of the fork it lands on. A reorg that moves the deposits or the steps a step builds on into other blocks can leave its root absent from the winning fork, which invalidates the inscription carrying the step and the inscriptions chained after it, and the sequencer, who cannot prove the step again for its holder, re-publishes the chain without it, proving again the program steps of these inscriptions, whose proofs are bound to the `op_id` of their inscription.
+Channels form virtual chains by having each message reference its parent message. The order of messages in these channels is enforced by the sequencer by building a hash chain of messages, i.e. new messages reference the previous messages through a parent hash. Given that Cryptarchia has long finality times, these message parent references allow Zone sequencers to continue to post new updates to channels without having to wait for finality. No matter how Cryptarchia forks and reorgs, the channel messages from honest sequencers will eventually be re-included in a way that satisfies the virtual chain order, with one limit: a step is valid only against a commitment root recorded in the last 1024 blocks of the fork it lands on. A reorg that moves the channel deposits or the steps a step builds on into other blocks can leave its root absent from the winning fork, which invalidates the inscription carrying the step and the inscriptions chained after it, and the sequencer, who cannot prove the step again for its holder, re-publishes the chain without it, proving again the program steps of these inscriptions, whose proofs are bound to the `op_id` of their inscription.
 
 Configurations form a second hash chain within the channel: each configuration names the configuration it supersedes, so a pending reconfiguration stays valid while the sequencer keeps posting inscriptions.
 
@@ -397,7 +397,7 @@ Channels let their bridged notes keep participating in Proof of Stake. When a us
 - *Inside the channel*, the holder signs off-chain, with its zone message as inscription, a user step, a ZkTransfer that consumes its user notes and creates user notes of the same total value, or a program deposit to a [program](#programs). The sequencers of the channel collect the steps of their users and publish them in a [`CHANNEL_INSCRIBE`](#channel_inscribe), grouping them in mini-blocks and ordering each mini-block as they choose, since a user step or a deposit holds at any position in its mini-block. The ledger verifies every step, so a sequencer orders the moves of the user notes of a channel but never makes one.
 - *Out of the channel*, the holder posts a [`CHANNEL_WITHDRAW`](#channel_withdraw) alone, its fee paid by a ledger note in the same Mantle Transaction. It takes effect `WITHDRAW_DELAY` slots later, unless an inscription of the channel consumes its notes with a valid user step or deposit in the meantime. The withdrawal is the forced exit of a holder whose steps the sequencers do not publish. It also settles a holder who signs both a step and a withdrawal of the same notes optimistically: the step wins if an inscription publishes it before the withdrawal is due, and the holder has then paid the fees of the withdrawal for nothing.
 
-**Ageing.** Because a deposit and a step consume notes and create new ones, a note of a channel restarts the ageing process and must age again before it can create a PoL. Bridged funds still count toward Proof of Stake, so the goals above hold, but the participation is not continuous across these moves: only a note left unspent across the freeze of the stake distribution leads, so a program that wants to stake keeps its stake in notes its steps do not move.
+**Ageing.** Because a channel deposit and a step consume notes and create new ones, a note of a channel restarts the ageing process and must age again before it can create a PoL. Bridged funds still count toward Proof of Stake, so the goals above hold, but the participation is not continuous across these moves: only a note left unspent across the freeze of the stake distribution leads, so a program that wants to stake keeps its stake in notes its steps do not move.
 
 **What each party can do.**
 
@@ -429,7 +429,7 @@ The ledger fixes neither the holder of the notes a program creates, nor the valu
 | --- | --- |
 | No value is created | The ZkTransfers and the ZkProgramSpend balance exactly, and the ledger sums the paid values of the deposits into the program spend that consumes them |
 | A user note moves only with the key of its holder | The ZkTransfer |
-| A deposit only pays the program it names, with the intent its holder signed | `program_deposit_id`, which commits to the program and the intent |
+| A deposit only pays the program it names, a registered one, with the intent its holder signed | `program_deposit_id`, which commits to the program and the intent; the ledger, which checks that the program is registered |
 | A deposit is consumed by a program step of its program in its mini-block | The ledger, which rejects an inscription leaving a deposit unconsumed at the end of a mini-block |
 | A program note is created and consumed only with the proof of its program | The ZkTransfer, which only derives commitments with `program` and `data` set to `0`; the ZkProgramSpend, whose inputs are notes of the program and whose outputs are notes of the program or user notes; the program proof, required by every program step |
 | A note leads only with its nullifier key and its staking secret key | The Proof of Leadership |
@@ -495,9 +495,9 @@ class Inscribe:
                                    # empty. A mini-block holds at least one step
 ```
 
-A `NoteNullifier` is the nullifier of a note and a `NoteCommitment` its commitment, as [Note Commitment and Nullifier](#note-commitment-and-nullifier) defines them, a `MerkleRoot` the root of a Merkle tree, and a `ProgramId` the identifier of a program, derived in [PROGRAM_REGISTER](#program_register). The kind of a step is not one of its fields: the [encoding](mantle-transaction-encoding.md#channel-operations) tags each step with it.
+A `NoteNullifier` is the nullifier of a note and a `NoteCommitment` its commitment, as [Note Commitment and Nullifier](#note-commitment-and-nullifier) defines them, a `MerkleRoot` the root of a Merkle tree, and a `ProgramId` the identifier of a program, derived in [PROGRAM_REGISTER](#program_register). The [encoding](mantle-transaction-encoding.md#channel-operations) tags each step with its kind.
 
-A mini-block is a flat list of steps of three kinds. A user step moves the user notes of its holder. A program deposit pays a [program](#programs) from the user notes of its holder. A program step executes a program: its deposits are the deposits of its program in the same mini-block since the previous program step of that program, and its program spend consumes and creates the notes of the program and pays users. A deposit that no program step consumes in its mini-block makes the inscription invalid, so a deposit is never left unconsumed.
+A mini-block is a flat list of steps of three kinds. A user step moves the user notes of its holder. A program deposit pays a [program](#programs) from the user notes of its holder. A program step executes a program: its deposits are the deposits of its program in the same mini-block since the previous program step of that program, taken in their order in the mini-block, which the sequencer chooses, and its program spend consumes and creates the notes of the program and pays users. A deposit that no program step consumes in its mini-block makes the inscription invalid, so a deposit is never left unconsumed.
 
 The `inscription` of the `Inscribe` is the message of the sequencer, and the `inscription` of a user step or of a deposit the zone message of its holder. The ZkTransfer of the user step or of the deposit binds its inscription together with its inputs and outputs, so a sequencer publishes the message a holder signed with the move it signed, or drops it whole. The `inscription` of a program step is the zone message of the step, bound like the rest of its public data by the `op_id`, to which the proofs of the sequencer are bound. The inscription of the `Inscribe` and the inscriptions of its steps count together against `MAX_OPERATION_DATA_SIZE`.
 
@@ -524,7 +524,7 @@ def user_step_id(channel: ChannelId, step: UserStep) -> zkhash:
     inscription_lo = FiniteField(inscription_hash[:16], byte_order="little", modulus=p)
     inscription_hi = FiniteField(inscription_hash[16:], byte_order="little", modulus=p)
     return zkhash(
-        FiniteField(b"CHANNEL_STEP_V1", byte_order="little", modulus=p),
+        FiniteField(b"USER_STEP_V1", byte_order="little", modulus=p),
         channel_lo,
         channel_hi,
         inscription_lo,
@@ -554,7 +554,7 @@ def program_deposit_id(channel: ChannelId, deposit: ProgramDeposit) -> zkhash:
         *deposit.outputs)
 ```
 
-The program spend and the program proof of a program step are produced by the sequencer and bound to the `op_id` of the Inscribe Operation, which covers the inscription and the public data of every step but no proof. The program proof takes three public inputs: the `program_step_id` of the step, the hash of its deposits, and the `op_id`. The `program_step_id` hashes the notes of the program spend, private fields included, so the ledger cannot recompute it: it is the public value that links the ZkProgramSpend and the program proof of the step.
+The program spend and the program proof of a program step are produced by the sequencer and bound to the `op_id` of the Inscribe Operation, which covers the inscription and the public data of every step but no proof. The program proof takes three public inputs: the `program_step_id` of the step, the hash of its deposits, taken in their order in the mini-block, and the `op_id`. The `program_step_id` hashes the notes of the program spend, private fields included, so the ledger cannot recompute it: it is the public value that links the ZkProgramSpend and the program proof of the step.
 
 ```python
 def program_deposits_hash(deposits: list[ProgramDeposit]) -> zkhash:
@@ -685,8 +685,10 @@ block_slot: Slot
                                               step_proof,
                                               covered)
           elif isinstance(step, ProgramDeposit):
-              # Ensure the deposit is spendable and signed by its holder, for its program and
-              # its intent, and keep it for the next program step of its program.
+              # Ensure the deposit pays a registered program, is spendable and signed by its
+              # holder for that program and its intent, and keep it for the next program step
+              # of its program.
+              assert step.program_id in ledger.programs
               note_set.assert_spendable(step.inputs, step.commitment_root)
               for note_nullifier in step.inputs:
                   assert note_nullifier not in step_nullifiers
@@ -2425,7 +2427,7 @@ Such that the following constraints hold:
 - `program_step_id` commits to the flag and the note of every input and output, nonce and staking key included, which the program proof opens to check its rule, such as the staking key of the notes the step creates. Their fields are hashed one after the other, input by input, then output by output, each multiplied by the flag of its input or output. The fields of an inactive input or output therefore read as `0`, so a spend has a single `program_step_id`, and a program that does not check a flag cannot be fed a note through an inactive input or output.
   ```python
   assert program_step_id == zkhash(
-      FiniteField(b"PROGRAM_SPEND_NOTES_V1", byte_order="little", modulus= p),
+      FiniteField(b"PROGRAM_STEP_ID_V1", byte_order="little", modulus= p),
       *[field for i in range(len(inputs_spending_sk))
             for field in (inputs_active[i], inputs_value[i], inputs_active[i] * inputs_nonce[i], inputs_active[i] * inputs_pk[i], inputs_active[i] * inputs_stake_pk[i], inputs_active[i] * inputs_data[i])],
       *[field for i in range(len(outputs_pk))
