@@ -64,6 +64,7 @@ The `cluster` and `shards` fields
 represent the sharding elements as defined in [RELAY-SHARDING](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/core/raw/relay-sharding.md#static-sharding).
 The `ranges` field contain a sequence of ranges for reconciliation.
 A `RangesData` whose `ranges` field is empty is an *empty payload*.
+Two peers *match* when they have the same `cluster` and the same set of `shards`.
 
 We identify the following subtypes:
 
@@ -240,7 +241,7 @@ Each syncing peer performs the following in response to a `RangesData` payload:
 
 The responder:
 1. Receives and decodes the payload
-2. If shards and cluster match, processes each range:
+2. If the payload's `cluster` and `shards` match the responder's own, processes each range:
    - If the received range is of type `Skip`, processes it no further.
       - If the received `Skip` range is the trailing range, it MAY be omitted from the response.
       Otherwise, the responder MUST include it in the response as type `Skip` so that range bounds remain contiguous.
