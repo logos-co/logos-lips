@@ -22,7 +22,7 @@
 | 1.0.0 | Initial revision. | 2026-09-09 |
 | 1.1.0 | Set the reference load of the Blend difficulty to the transaction rate the Blend network carries, `F_T / F_D = 130` transactions per block | 2026-09-11 |
 | 1.2.0 | A reward claim searches a nonce for the public key to be paid and carries no signature. Each block credits its fee share to the pool, and the reward per claim stays fixed for the epoch | 2026-10-06 |
-| 1.3.0 | [RFC] A claim pays `POW_VESTED_SHARE / SHARE_DEN` of its reward as a note vesting for `VESTING_EPOCHS` epochs, and the rest as a liquid note | 2026-11-05 |
+| 1.3.0 | [RFC] A claim pays `POW_VESTED_SHARE / SHARE_DEN` of its reward as a note vesting for `VESTING_EPOCHS` epochs, and the rest as a liquid note | 2026-11-06 |
 
 # Introduction
 
@@ -144,7 +144,7 @@ TARGET_CLAIMS_PER_BLOCK: uint64 = 10            # T
 EXPECTED_BLOCKS_PER_EPOCH: uint64 = 21_600      # N_b = 10 k
 EXPECTED_BLOCKS_PER_WINDOW: uint64 = 10         # W_b
 POW_SHARE: uint64 = 10                          # beta, as the fraction POW_SHARE / SHARE_DEN
-SHARE_DEN: uint64 = 100
+SHARE_DEN: uint64 = 100                         # the denominator of POW_SHARE and POW_VESTED_SHARE
 POW_VESTED_SHARE: uint64 = 50                   # the share of a reward paid as a vested note, out of SHARE_DEN
 VESTING_EPOCHS: uint64 = 49                     # the length of the vesting, in epochs
 EMA_SMOOTHING_FACTOR: uint64 = 9                # F, the weight given to the previous estimate

@@ -54,7 +54,7 @@
 | 2.1.1 | Added Note Delivery: how the holder of a note learns its `value` and `nonce`, the user notes a sender creates being delivered off chain, by the Note Encryption of [Common Cryptographic Components](common-cryptographic-components.md#note-encryption-construction) | 2026-11-02 |
 | 2.2.0 | Execution Gas from [Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0: a Mantle Transaction pays its bytes, each channel or SDP note set it changes and each root extension its proofs share, and each Operation pays its proofs, nullifiers, commitments, signatures, steps, payments, openings and program proofs, through `spend_gas` and the per-component constants of Gas Determination | 2026-10-27 |
 | 2.3.0 | [RFC] `SDP_ACTIVE` and `SDP_WITHDRAW` advance the `sequence` of the declaration's `nonce` by exactly one | 2026-11-04 |
-| 2.4.0 | [RFC] A claim pays a share of its reward as a vested note, which a proof consumes only once its vesting has ended, and `SDP_DECLARE` stakes notes through ZkStake proofs until its `locked_until` epoch | 2026-11-05 |
+| 2.4.0 | [RFC] A claim pays a share of its reward as a vested note, which a proof consumes only once its vesting has ended, and `SDP_DECLARE` stakes notes through ZkStake proofs until its `locked_until` epoch | 2026-11-06 |
 
 # Introduction
 
@@ -995,7 +995,7 @@ ledger: Ledger
                                                      deposit.commitment_root,
                                                      mantle_txhash_fr,
                                                      deposit_proof,
-                                                     vested_by=ledger.sets[LEDGER_SET].recent_commitment_roots[deposit.commitment_root].slot)
+                                                     spending_slot=ledger.sets[LEDGER_SET].recent_commitment_roots[deposit.commitment_root].slot)
       ```
 
   5. Add the outputs to the buffer of the channel note set.
@@ -1211,7 +1211,6 @@ class DeclarationMessage:
     zk_id: ZkPublicKey
     note_pk: ZkPublicKey
     commitment_root: MerkleRoot  # a recent root of the ledger note set
-    amount: TokenValue           # the stake, the sum of the values of the spends
     locked_until: EpochNumber    # the first epoch at which the declaration can be withdrawn
     spends: list[StakeSpend]
 
@@ -1280,8 +1279,7 @@ EPOCH_LENGTH: uint64     # the length of an epoch, in slots
       inputs = [nullifier for spend in declaration.spends for nullifier in spend.inputs]
       ledger.sets[LEDGER_SET].assert_spendable(inputs, declaration.commitment_root)
       assert all(1 <= len(spend.inputs) <= 16 for spend in declaration.spends)
-      assert checked_uint64(sum(spend.value for spend in declaration.spends)) == declaration.amount
-      assert declaration.amount >= min_stake.threshold
+      assert checked_uint64(sum(spend.value for spend in declaration.spends)) >= min_stake.threshold
       ```
 
   4. Ensure ownership over the inputs, the end of their vesting by the first slot of epoch `locked_until`, and `provider_id`.
@@ -1320,9 +1318,10 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
   2. Create the service note under the `note_pk` in the [SDP note set](#ledger), `SDP_SET`, the `note_pk` being both its public key and its staking key, its nonce and commitment derived as in [Note Commitment and Nullifier](#note-commitment-and-nullifier).
       ```python
       declaration_op_id = derive_op_id(declaration)
+      stake = sum(spend.value for spend in declaration.spends)
       service_note = Note(
-          value=declaration.amount,
-          nonce=derive_note_nonce(declaration_op_id, 0, declaration.amount, declaration.note_pk),
+          value=stake,
+          nonce=derive_note_nonce(declaration_op_id, 0, stake, declaration.note_pk),
           public_key=declaration.note_pk,
           stake_public_key=declaration.note_pk
       )
@@ -1428,7 +1427,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
                                withdraw.outputs,
                                withdraw.excess_value,
                                mmr_root([(declare_info.service_note, 0)]),  # one peak, the service note
-                               0,  # vested_by: a service note does not vest
+                               0,  # spending_slot: a service note does not vest
                                FiniteField(txhash, byte_order="little", modulus = p),
                                proof.zk_proof)
       ```
@@ -1627,7 +1626,7 @@ pow_nullifiers: set[zkhash]        # spent solutions, retained for WINDOW
 pow_reward_pool: TokenValue
 epoch_pow_reward: TokenValue
 POW_VESTED_SHARE: uint64           # the share of a reward that vests, out of SHARE_DEN
-SHARE_DEN: uint64
+SHARE_DEN: uint64                  # the denominator of POW_SHARE and POW_VESTED_SHARE
 VESTING_EPOCHS: uint64             # the length of the vesting, in epochs
 EPOCH_LENGTH: uint64               # the length of an epoch, in slots
 ```
@@ -1852,7 +1851,7 @@ ledger: Ledger
                                                      transfer.commitment_root,
                                                      mantle_txhash_fr,
                                                      transfer_proof,
-                                                     vested_by=ledger.sets[LEDGER_SET].recent_commitment_roots[transfer.commitment_root].slot)
+                                                     spending_slot=ledger.sets[LEDGER_SET].recent_commitment_roots[transfer.commitment_root].slot)
       ```
 
   3. Add the outputs to the buffer of the ledger note set.
@@ -1979,7 +1978,7 @@ Service notes are special notes in Mantle that serve as collateral for Service D
 
 ### Vested Notes
 
-The `data` of a vested note is the slot at which its vesting ends. [CLAIM_POW_REWARD](#claim_pow_reward) creates vested notes in the ledger note set. The [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) and the [ZkStake](#zero-knowledge-stake-proof-zkstake) check their vesting against the `vested_by` their Operation sets.
+The `data` of a vested note is the slot at which its vesting ends. [CLAIM_POW_REWARD](#claim_pow_reward) creates vested notes in the ledger note set. A [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) or a [ZkStake](#zero-knowledge-stake-proof-zkstake) consumes a note only if its `data` is at most the proof's `spending_slot`: the slot that recorded the referenced root for a Transfer or a channel deposit, the first slot of `locked_until` for a declaration, and `0` for the notes of the channel and SDP note sets.
 
 ## Ledger
 
@@ -2170,13 +2169,13 @@ class NoteSet:
                         commitment_root: MerkleRoot, msg: zkhash, proof: ZkTransfer,
                         covered: int | None = None,
                         # 0 for the notes of the channel and SDP note sets, which never vest
-                        vested_by: Slot = 0) -> bool:
+                        spending_slot: Slot = 0) -> bool:
         return ZkTransfer_verify(inputs, outputs, excess_value,
-                                 self.tx_commitment_root(commitment_root, covered), vested_by, msg, proof)
+                                 self.tx_commitment_root(commitment_root, covered), spending_slot, msg, proof)
 
     def verify_stake(self, inputs: list[NoteNullifier], value: TokenValue, commitment_root: MerkleRoot,
-                     vested_by: Slot, msg: zkhash, proof: ZkStake) -> bool:
-        return ZkStake_verify(inputs, value, self.tx_commitment_root(commitment_root), vested_by,
+                     spending_slot: Slot, msg: zkhash, proof: ZkStake) -> bool:
+        return ZkStake_verify(inputs, value, self.tx_commitment_root(commitment_root), spending_slot,
                               msg, proof)
 
     def verify_program_spend(self, inputs: list[NoteNullifier], outputs: list[NoteCommitment],
@@ -2279,13 +2278,13 @@ class ZkTransferPublic:
     excess_value: TokenValue        # the value of the inputs left over by the outputs
     tx_commitment_root: MerkleRoot  # the referenced commitment_root extended with the tx_commitment_buffer of the set,
                                     # or the commitments before its mini-block for a user step or a payment
-    vested_by: Slot                 # the slot by which the vesting of every input has ended
+    spending_slot: Slot             # every input has finished vesting by this slot
     msg: zkhash                     # the message the proof is bound to
 ```
 
-`ZkTransfer_verify(inputs, outputs, excess_value, tx_commitment_root, vested_by, msg, proof)` verifies the proof for these public values. The nullifiers of `inputs` fill the first inputs of the circuit and the commitments of `outputs` its first outputs. These are active, and every other input and output is inactive and holds `0`, so the verifier sets the flags from the lengths of the two lists. A ZkTransfer therefore spends at most 4 notes and creates at most 8: an Operation whose `inputs` or `outputs` list is longer is invalid. An Operation spending notes of a note set, other than `SDP_WITHDRAW`, verifies the proof through the [`verify_transfer`](#input-notes-spendability-validation) method of the set, which appends the commitments created earlier in the Mantle Transaction to the referenced root, all of them, or only those before its mini-block for a user step or a payment.
+`ZkTransfer_verify(inputs, outputs, excess_value, tx_commitment_root, spending_slot, msg, proof)` verifies the proof for these public values. The nullifiers of `inputs` fill the first inputs of the circuit and the commitments of `outputs` its first outputs. These are active, and every other input and output is inactive and holds `0`, so the verifier sets the flags from the lengths of the two lists. A ZkTransfer therefore spends at most 4 notes and creates at most 8: an Operation whose `inputs` or `outputs` list is longer is invalid. An Operation spending notes of a note set, other than `SDP_WITHDRAW`, verifies the proof through the [`verify_transfer`](#input-notes-spendability-validation) method of the set, which appends the commitments created earlier in the Mantle Transaction to the referenced root, all of them, or only those before its mini-block for a user step or a payment.
 
-The circuit fixes the order of the public signals of the proof: the outputs `inputs`, `outputs` and `excess_value` first, then `inputs_active`, `outputs_active`, `tx_commitment_root`, `vested_by` and `msg`.
+The circuit fixes the order of the public signals of the proof: the outputs `inputs`, `outputs` and `excess_value` first, then `inputs_active`, `outputs_active`, `tx_commitment_root`, `spending_slot` and `msg`.
 
 The prover knows a witness:
 
@@ -2324,11 +2323,10 @@ Such that the following constraints hold, where `inputs_nf_sk`, `inputs_pk` and 
   )
   ```
 
-- The vesting of each active input has ended by `vested_by`: `vested_by - inputs_data[i]` decomposes into 64 bits. The `data` of an input needs no range check, since only [CLAIM_POW_REWARD](#claim_pow_reward) gives a user note a `data` other than `0`, a slot below $`2^{64}`$. Every Operation and note kind must keep `data` below $`2^{64}`$: a `data` close to $`p`$ would pass this check for any `vested_by`.
+- The vesting of each input has ended by `spending_slot`: `spending_slot - inputs_data[i]` decomposes into 64 bits. The prover sets the `data` of an inactive input to `0`. The `data` of an input needs no range check, since only [CLAIM_POW_REWARD](#claim_pow_reward) gives a user note a `data` other than `0`, a slot below $`2^{64}`$. Every Operation that creates a user note must keep its `data` below $`2^{64}`$: a `data` close to $`p`$ would pass this check for any `spending_slot`.
   ```python
   assert all(
-      0 <= vested_by - inputs_data[i] < 2**64
-      or not inputs_active[i]
+      0 <= spending_slot - inputs_data[i] < 2**64
       for i in range(len(inputs_spending_sk))
   )
   ```
@@ -2404,13 +2402,13 @@ class ZkStakePublic:
     inputs_active: list[boolean]    # (len = 16) whether each input consumes a note
     excess_value: TokenValue        # the sum of the values of the inputs
     tx_commitment_root: MerkleRoot  # the referenced commitment_root extended with the tx_commitment_buffer of the set
-    vested_by: Slot                 # the slot by which the vesting of every input has ended
+    spending_slot: Slot             # every input has finished vesting by this slot
     msg: zkhash                     # the message the proof is bound to
 ```
 
-`ZkStake_verify(inputs, excess_value, tx_commitment_root, vested_by, msg, proof)` verifies the proof for these public values, through the [`verify_stake`](#input-notes-spendability-validation) method of the note set. The flags `inputs_active` are set from `inputs` as in the ZkTransfer.
+`ZkStake_verify(inputs, excess_value, tx_commitment_root, spending_slot, msg, proof)` verifies the proof for these public values, through the [`verify_stake`](#input-notes-spendability-validation) method of the note set. The flags `inputs_active` are set from `inputs` as in the ZkTransfer.
 
-The circuit fixes the order of the public signals of the proof: the outputs `inputs` and `excess_value` first, then `inputs_active`, `tx_commitment_root`, `vested_by` and `msg`.
+The circuit fixes the order of the public signals of the proof: the outputs `inputs` and `excess_value` first, then `inputs_active`, `tx_commitment_root`, `spending_slot` and `msg`.
 
 The prover knows a witness:
 
@@ -2599,7 +2597,7 @@ To see what the payloads represent, refer to [Mantle Transaction Encoding](mantl
 | `CHANNEL_INSCRIBE`        | 0x0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c0100020000012300000000000000000000000000000000000000000000000000000000000000012400000000000000000000000000000000000000000000000000000000000000250000000000000000000000000000000000000000000000000000000000000010000000737465702d696e736372697074696f6e01340000000000000000000000000000000000000000000000000000000000000001013500000000000000000000000000000000000000000000000000000000000000013600000000000000000000000000000000000000000000000000000000000000370000000000000000000000000000000000000000000000000000000000000038000000000000003900000000000000000000000000000000000000000000000000000000000000130000007061796d656e742d696e736372697074696f6e013a00000000000000000000000000000000000000000000000000000000000000013b00000000000000000000000000000000000000000000000000000000000000013c000000000000000000000000000000000000000000000000000000000000003d000000000000000000000000000000000000000000000000000000000000001800000070726f6772616d2d737465702d696e736372697074696f6e | 0xb8f9719ad3893f7909960208f665a76b29424de7180bdf524741367b2c56bc47 |
 | `CHANNEL_DEPOSIT`         | 0x101010101010101010101010101010101010101010101010101010101010101001110000000000000000000000000000000000000000000000000000000000000026000000000000000000000000000000000000000000000000000000000000000127000000000000000000000000000000000000000000000000000000000000002800000000000000100000006465706f7369742d6d65746164617461 | 0x83eeb0ac0b7e03bb6c93c0c7596512413707b9536b2b3d56a86656f8f527d6f6 |
 | `CHANNEL_WITHDRAW`        | 0x12121212121212121212121212121212121212121212121212121212121212120113000000000000000000000000000000000000000000000000000000000000002900000000000000000000000000000000000000000000000000000000000000012a00000000000000000000000000000000000000000000000000000000000000 | 0x8d6ae69200aab259bca71e5829d43f0a289ba612383d29ddcd7d217f1ede0996 |
-| `SDP_DECLARE`             | 0x00010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f3190000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000002d000000000000003400000002011a0000000000000000000000000000000000000000000000000000000000000016000000000000000135000000000000000000000000000000000000000000000000000000000000001700000000000000 | 0x1fa1703e960bb642a79cdb4dfc016c9e00aebcbf6a7c9a398c3e77d10e109003 |
+| `SDP_DECLARE`             | 0x00010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f3190000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000003400000002011a0000000000000000000000000000000000000000000000000000000000000016000000000000000135000000000000000000000000000000000000000000000000000000000000001700000000000000 | 0xbf999b956f39ef59a634bffe7cd32127917b82665575a384dfadc5f728df6445 |
 | `SDP_WITHDRAW`            | 0x1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000012e000000000000000000000000000000000000000000000000000000000000002f00000000000000 | 0xf385d531e2efc2cfca261d1b12643937a3ba2d19a6f7be9b617d59e2d3264f8a |
 | `SDP_ACTIVE`              | 0x1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020303030303030303030303030303030303030303030303030303030303030303 | 0xc4a2a639034016f52728f34041cf95fc2c7adb8f54cf94b4361b2d0cb72ebb70 |
 | `CLAIM_POW_REWARD`        | 0x3000000000000000000000000000000000000000000000000000000000000000313131313131313131313131313131313131313131313131313131313131313132000000000000000000000000000000000000000000000000000000000000003300000000000000000000000000000000000000000000000000000000000000 | 0xbc5ccb3bf2ceae92f0479fb84cd1e8049d4e7cb33cc72d16a3d5e30780a34c2b |
@@ -2609,7 +2607,7 @@ To see what the payloads represent, refer to [Mantle Transaction Encoding](mantl
 | Transaction | Payload | Transaction Hash                                                   |
 | - | - | - |
 | Empty transaction | 0x00 | 0x2eba3f667b80a508f3d44d149a1c27a90ea365a51e4fc8209289088142b364e5 |
-| Transaction with one of each operation | 0x0a000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000600000000000000010100000000000000000000000000000000000000000000000000000000000000b9b3b4620913f849ee2aa6a9cfd35c9d146f3e7c27596cc3e8d311fd3472dc2779ad28398ced57998435d8c63164b86d7033733ab82101b6379bf1b45d203ea0f5c7fb9406fade12005e9ab08c477e8d5e7192e12628e551900eb14d784e0606856eb6ff324f82c9a7a078686b1504bcebe4cf5dcd9151734297bb572f7714102ce236b4ddb40977fd454c08e570151342c4cc50a86380c3472f6a6ff8dbdd296f237195c2856d5a3f8ca190f6666f2084d776f9935a48a2d57a569e476806a9a93f16faa7a849e89ca35389d8dee46243772b760402bc66f7e0fe0edf39c117f94a688c5b3dfe2a762ab3d315927156987792e7d92f79e0f4523f1a41caf40978e0ffab866b3a9876bd01b8ecc66fcb86936277f425539a758dbbd32e2b0717636a302c88373904f75a15fe21c13882a8fe9c3be9f572f4100c48231dd5b188100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000200110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c0100020000012300000000000000000000000000000000000000000000000000000000000000012400000000000000000000000000000000000000000000000000000000000000250000000000000000000000000000000000000000000000000000000000000010000000737465702d696e736372697074696f6e01340000000000000000000000000000000000000000000000000000000000000001013500000000000000000000000000000000000000000000000000000000000000013600000000000000000000000000000000000000000000000000000000000000370000000000000000000000000000000000000000000000000000000000000038000000000000003900000000000000000000000000000000000000000000000000000000000000130000007061796d656e742d696e736372697074696f6e013a00000000000000000000000000000000000000000000000000000000000000013b00000000000000000000000000000000000000000000000000000000000000013c000000000000000000000000000000000000000000000000000000000000003d000000000000000000000000000000000000000000000000000000000000001800000070726f6772616d2d737465702d696e736372697074696f6e12101010101010101010101010101010101010101010101010101010101010101001110000000000000000000000000000000000000000000000000000000000000026000000000000000000000000000000000000000000000000000000000000000127000000000000000000000000000000000000000000000000000000000000002800000000000000100000006465706f7369742d6d657461646174611312121212121212121212121212121212121212121212121212121212121212120113000000000000000000000000000000000000000000000000000000000000002900000000000000000000000000000000000000000000000000000000000000012a000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f3190000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000002d000000000000003400000002011a0000000000000000000000000000000000000000000000000000000000000016000000000000000135000000000000000000000000000000000000000000000000000000000000001700000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000012e000000000000000000000000000000000000000000000000000000000000002f00000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020303030303030303030303030303030303030303030303030303030303030303303000000000000000000000000000000000000000000000000000000000000000313131313131313131313131313131313131313131313131313131313131313132000000000000000000000000000000000000000000000000000000000000003300000000000000000000000000000000000000000000000000000000000000 | 0xf7262bdf94cb3873db43a3b3634c9fec20786c2c3baa83a33abd29a7169d6f8e |
+| Transaction with one of each operation | 0x0a000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000600000000000000010100000000000000000000000000000000000000000000000000000000000000b9b3b4620913f849ee2aa6a9cfd35c9d146f3e7c27596cc3e8d311fd3472dc2779ad28398ced57998435d8c63164b86d7033733ab82101b6379bf1b45d203ea0f5c7fb9406fade12005e9ab08c477e8d5e7192e12628e551900eb14d784e0606856eb6ff324f82c9a7a078686b1504bcebe4cf5dcd9151734297bb572f7714102ce236b4ddb40977fd454c08e570151342c4cc50a86380c3472f6a6ff8dbdd296f237195c2856d5a3f8ca190f6666f2084d776f9935a48a2d57a569e476806a9a93f16faa7a849e89ca35389d8dee46243772b760402bc66f7e0fe0edf39c117f94a688c5b3dfe2a762ab3d315927156987792e7d92f79e0f4523f1a41caf40978e0ffab866b3a9876bd01b8ecc66fcb86936277f425539a758dbbd32e2b0717636a302c88373904f75a15fe21c13882a8fe9c3be9f572f4100c48231dd5b188100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000200110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c0100020000012300000000000000000000000000000000000000000000000000000000000000012400000000000000000000000000000000000000000000000000000000000000250000000000000000000000000000000000000000000000000000000000000010000000737465702d696e736372697074696f6e01340000000000000000000000000000000000000000000000000000000000000001013500000000000000000000000000000000000000000000000000000000000000013600000000000000000000000000000000000000000000000000000000000000370000000000000000000000000000000000000000000000000000000000000038000000000000003900000000000000000000000000000000000000000000000000000000000000130000007061796d656e742d696e736372697074696f6e013a00000000000000000000000000000000000000000000000000000000000000013b00000000000000000000000000000000000000000000000000000000000000013c000000000000000000000000000000000000000000000000000000000000003d000000000000000000000000000000000000000000000000000000000000001800000070726f6772616d2d737465702d696e736372697074696f6e12101010101010101010101010101010101010101010101010101010101010101001110000000000000000000000000000000000000000000000000000000000000026000000000000000000000000000000000000000000000000000000000000000127000000000000000000000000000000000000000000000000000000000000002800000000000000100000006465706f7369742d6d657461646174611312121212121212121212121212121212121212121212121212121212121212120113000000000000000000000000000000000000000000000000000000000000002900000000000000000000000000000000000000000000000000000000000000012a000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f3190000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000003400000002011a0000000000000000000000000000000000000000000000000000000000000016000000000000000135000000000000000000000000000000000000000000000000000000000000001700000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000012e000000000000000000000000000000000000000000000000000000000000002f00000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020303030303030303030303030303030303030303030303030303030303030303303000000000000000000000000000000000000000000000000000000000000000313131313131313131313131313131313131313131313131313131313131313132000000000000000000000000000000000000000000000000000000000000003300000000000000000000000000000000000000000000000000000000000000 | 0xc787ef9f23bdcacd4b52661f138d75c0f3734487a5f4269c2de3c424416f5da0 |
 
 ### Declaration Id
 

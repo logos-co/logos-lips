@@ -30,7 +30,7 @@
 | 1.2.0 | Add the proof of work branch: third selector value, `pow_quota` and `pow_blend_difficulty` public inputs, a private `pow_nonce` witness, and Lagrange branch selection; benchmark the three branch circuit | 2026-09-08 |
 | 1.3.0 | Follow the Proof of Leadership of the private ledger: the leader branch proves the note commitment in its note set under the eligible root of the time the stake distribution was frozen, and its nullifier absent from the nullifier IMT of that set at that time. Paths and selectors follow the Merkle path convention of Mantle, from the leaf level up, the commitment path and the path in the eligible tree having depth 40 | 2026-10-07 |
 | 1.3.1 | The note commitment of the leader branch takes the staking key, the `program` and the `data` of the note, the branch proving the public key from the nullifier key and the staking key from the staking secret key, from which it derives the key nullifier, which changes the verification key | 2026-11-06 |
-| 1.3.2 | [RFC] The note commitment of the leader branch takes the `data` of the note as a witness, as the Proof of Leadership does, which changes the verification key | 2026-11-04 |
+| 1.3.2 | [RFC] The `data` of a user note can hold the slot its vesting ends | 2026-11-06 |
 
 
 # Introduction
