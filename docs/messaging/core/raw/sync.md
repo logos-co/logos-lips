@@ -48,7 +48,7 @@ These terms, the wire protocol and message flows are explained below.
 
 ### Wire protocol
 
-#### Reconcilation payload
+#### Reconciliation payload
 
 Nodes participating in the `reconciliation` protocol exchange encoded `RangesData` messages.
 
@@ -274,7 +274,9 @@ In both cases the receiver closes the stream without replying.
 Once the `reconciliation` protocol starts finding differences in `SyncID`s,
 the `transfer` protocol MAY be used to exchange actual message contents between peers.
 A node using `transfer` SHOULD proactively send [`14/WAKU2-MESSAGE`](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/core/stable/14/message.md)s missing in the remote party.
-A nodes SHOULD only accept via `transfer` messages whose `SyncID` it identified as missing during a `reconciliation` session.
+A node SHOULD only accept via `transfer` messages whose `SyncID` it identified as missing during a `reconciliation` session.
+The differences found in the last round of a session are transferred after that session has ended,
+so a rule that accepts transfers only while a reconciliation session is open rejects legitimate messages.
 The `SyncID`s corresponding to messages received via `transfer`,
 MUST be added to the corresponding `Range` tracked by the `reconciliation` protocol.
 The `transfer`payload MUST follow the wire specification below.
