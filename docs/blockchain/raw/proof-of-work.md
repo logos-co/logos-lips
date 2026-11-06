@@ -53,7 +53,7 @@ graph LR
 
 The tokens come from the pow reward pool, set aside at genesis and refilled by every block from a share of the transaction fees. Nothing is minted for it, so mining does not inflate the supply. Each epoch pays out a fraction of what the pool still holds, so the reward is the same for every claim of that epoch, for as long as the pool can pay it.
 
-A share of each reward vests for a fixed period. Until then it cannot be transferred, but it takes part in the leadership lottery and can be staked to declare a service.
+A share of each reward vests for a fixed period. Until then it cannot be spent in a Transfer, but it takes part in the leadership lottery and can be staked to declare a service.
 
 Each use has its own threshold, and a threshold sets how much work a solution costs. Every node computes both from what blocks carry, so no node trusts another for them.
 
@@ -161,8 +161,6 @@ BLEND_MAX_STEP: uint64 = 2                      # Max factor difficulty_blend ma
 The parameters must give an `epoch_pow_reward` whose liquid part, the reward minus its vested share, is above the fee of a claim transaction, which pays for the claim and the `TRANSFER` that spends its liquid note, or a claim cannot pay its own fee.
 
 A miner needs `ceil(threshold / epoch_pow_reward)` claims to earn the [minimum stake](bedrock-service-declaration-protocol.md#minimum-stake), and holds one vested note per claim. The parameters must let one [SDP_DECLARE](bedrock-v1.1-mantle-specification.md#sdp_declare) stake that many notes within the Execution Gas limit of a block, or a miner cannot stake before its notes vest.
-
-`POW_VESTED_SHARE` must be at most `SHARE_DEN`, or the liquid part is negative and no claim is valid.
 
 An epoch of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) is $`10\lfloor k/f \rfloor`$ = 648,000 slots, 7.5 days of one-second slots. `VESTING_EPOCHS` is the number of such epochs that first reaches a year, $`\lceil 365 / 7.5 \rceil = 49`$, so a vested note vests 360 to 367.5 days after the block its claim references.
 

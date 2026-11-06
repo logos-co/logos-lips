@@ -2007,7 +2007,8 @@ class RecentRoot:
     last_block: int | None          # the height of the last block at whose end this was the root
                                     # of the set, None for the current root
     slot: Slot                      # the slot of the block that recorded this root,
-                                    # 0 for the root of an empty set
+                                    # 0 for the root of an empty set; only the ledger
+                                    # note set reads it
 
 class Groth16StoredKey:
     key: Groth16VerificationKey
@@ -2380,7 +2381,7 @@ Such that the following constraints hold, where `inputs_nf_sk`, `inputs_pk` and 
 
 - The proof is bound to `msg` (it’s the `mantle_tx_hash` reduced modulo $`p`$ in case of transactions).
 
-The circuit takes at most 4 inputs and 8 outputs. The unused ones are inactive: their entry of `inputs` (or `outputs`) and of `inputs_value` (or `outputs_value` respectively) is `0`, and their other witnesses are arbitrary.
+The circuit takes at most 4 inputs and 8 outputs. The unused ones are inactive: their entry of `inputs` (or `outputs`) and of `inputs_value` (or `outputs_value` respectively) is `0`, and their other witnesses are arbitrary, except `inputs_data`, which the vesting check reads.
 
 ### Benchmark
 
@@ -2402,16 +2403,16 @@ The ZkTransfer adapted to the stake of a declaration: it consumes up to 16 notes
 class ZkStakePublic:
     inputs: list[NoteNullifier]     # (len = 16) the nullifiers of the consumed notes
     inputs_active: list[boolean]    # (len = 16) whether each input consumes a note
-    excess_value: TokenValue        # the sum of the values of the inputs
+    value: TokenValue               # the sum of the values of the inputs
     tx_commitment_root: MerkleRoot  # the referenced commitment_root extended with the tx_commitment_buffer of the set
     spending_slot: Slot             # every input has finished vesting by this slot
     note_pk: ZkPublicKey            # the key of the service note of the declaration
     msg: zkhash                     # the message the proof is bound to
 ```
 
-`ZkStake_verify(inputs, excess_value, tx_commitment_root, spending_slot, note_pk, msg, proof)` verifies the proof for these public values, through the [`verify_stake`](#input-notes-spendability-validation) method of the note set. The flags `inputs_active` are set from `inputs` as in the ZkTransfer.
+`ZkStake_verify(inputs, value, tx_commitment_root, spending_slot, note_pk, msg, proof)` verifies the proof for these public values, through the [`verify_stake`](#input-notes-spendability-validation) method of the note set. The flags `inputs_active` are set from `inputs` as in the ZkTransfer.
 
-The circuit fixes the order of the public signals of the proof: the outputs `inputs` and `excess_value` first, then `inputs_active`, `tx_commitment_root`, `spending_slot`, `note_pk` and `msg`.
+The circuit fixes the order of the public signals of the proof: the outputs `inputs` and `value` first, then `inputs_active`, `tx_commitment_root`, `spending_slot`, `note_pk` and `msg`.
 
 The prover knows a witness:
 
@@ -2429,10 +2430,10 @@ class ZkStakeWitness:
     inputs_index: list[int]                # (len = 16) the index the spending secret key of each vested input is derived with
 ```
 
-Such that the constraints of the [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) on its inputs hold for the 16 inputs, and the excess value is the sum of their values:
+Such that the constraints of the [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) on its inputs hold for the 16 inputs, and `value` is the sum of their values:
 
 ```python
-assert excess_value == sum(inputs_value)
+assert value == sum(inputs_value)
 ```
 
 The `note_pk` and the spending secret key of every input with a non-zero `data` derive from the stake secret, with the function of [Vested Notes](#vested-notes), the `note_pk` as in [Keys](#keys):
@@ -2555,7 +2556,7 @@ Such that the following constraints hold:
 
 - The proof is bound to `msg`, the `op_id` of the Channel Inscribe Operation reduced modulo $`p`$.
 
-The circuit takes at most 4 inputs and 8 outputs, the unused ones being inactive as in the ZkTransfer. It is the ZkTransfer circuit with the program checks, the flags of the outputs of the program, the derivation of the nonces, the hash of the notes and `paid_value` added.
+The circuit takes at most 4 inputs and 8 outputs, the unused ones being inactive as in the ZkTransfer. It is the ZkTransfer circuit without its vesting check, with the program checks, the flags of the outputs of the program, the derivation of the nonces, the hash of the notes and `paid_value` added.
 
 ### Benchmark
 

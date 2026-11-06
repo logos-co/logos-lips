@@ -407,7 +407,7 @@ To initialize the Epoch State, we derive the epoch variables from the genesis bl
 
 Blend network is initialized through normal Mantle Transaction execution. The `SDP_DECLARE` Operations in the Genesis Mantle Transaction will create the initial set of providers in each service.
 
-Beyond their proofs and their spends, the declarations carry no exemption: each is validated as [SDP_DECLARE](bedrock-v1.1-mantle-specification.md#sdp_declare) requires, against the state the Operations preceding it left, and executed with `created` set to epoch 0, the epoch the Genesis block belongs to. The minimum stake the stake of a declaration is measured against is the one the node implementation starts with, the Genesis block encoding no service parameter.
+Beyond their proofs and their spends, the declarations carry no exemption. Each is validated as [SDP_DECLARE](bedrock-v1.1-mantle-specification.md#sdp_declare) requires, against the state the Operations preceding it left. Each is executed with `created` set to epoch 0, the epoch the Genesis block belongs to. The Genesis block encodes no service parameter, so a stake is measured against the minimum stake the node implementation starts with.
 
 The number of declarations is a property of the Genesis block rather than of any single Operation, and is the one [Initial Service Declarations](#initial-service-declarations) requires.
 

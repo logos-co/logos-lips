@@ -14,6 +14,8 @@
 | v6 | Follows the stack below: a declaration also names `note_stake_pk`, and the service rewards go to the two keys of its service note. The declaration test vectors of Mantle and Cryptarchia hold the new field | 2026-11-06 |
 | v7 | Every figure assumes a fixed claim reward of 334 LOGOS. Proof of Work requires the vested notes of a minimum stake to fit one declaration | 2026-11-06 |
 | v8 | `locked_until` is a slot, used directly as `spending_slot` and compared with the slot of a withdrawal, so an era changing the epoch length moves no lock. The declaration test vectors of Mantle and Cryptarchia hold the new encoding | 2026-11-06 |
+| v9 | States what a missed report costs under the lock, with `inactivity_period` staying 2 | 2026-11-06 |
+| v10 | Wallet rules for the balance, the root and the lock of a vested note, and the corrections listed in Chores. States that `locked_until` has no upper bound | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -58,7 +60,7 @@ Every ZkTransfer output has `data = 0`, so no Operation passes a vesting end on 
 
 It cannot pay a fee, move to another key outside a declaration, or enter a channel. A Transfer and a channel deposit take `spending_slot` from the slot that recorded their referenced root. Each block appends its own leader note, so two forks share a ledger root only if one leader builds two blocks of the same content on one parent, and a proof against that root then holds on one fork only. Proofs over channel notes use `spending_slot = 0`: a channel root can be recorded again at another slot after a reorganization, and steps signed against it would fail.
 
-The declarer names `locked_until`, a slot, and every note it stakes must have vested by it. The earliest valid value is the slot at which the latest staked note vests. The stake returns 3 epochs after the withdrawal.
+The declarer names `locked_until`, a slot, and every note it stakes must have vested by it. The earliest valid value is the slot at which the latest staked note vests. Nothing bounds it from above, so a wallet that names a far-future slot locks the stake for good, as one that names a `note_pk` nobody holds does. A cap would bring `EPOCH_LENGTH` back into `SDP_DECLARE`, and an era shortening the epoch could then reject notes claimed before it. The stake returns 3 epochs after the withdrawal.
 
 ## Staking many notes
 
@@ -87,7 +89,7 @@ Three other ways to stake many notes were dropped:
 Claims stay public. The ledger creates both notes, and their value, key, vesting end and commitment are known to everyone. A spend reveals nullifiers, never commitments, so it does not show which note it consumes.
 
 - **A spend after vesting** adds nothing, since `spending_slot` is the slot of a public root. Its timing points at most at the epoch whose claims just vested, about 6,100 claims if the pool pays out evenly over its two years, and fewer in the first epochs.
-- **A declaration** reveals its number of notes, the value of each spend and its lock slot. The claim reward is fixed, so the value of a spend of vested notes only repeats their count. [Reward Pool](../proof-of-work.md#reward-pool) still recomputes the reward at every epoch boundary. While it does, the value reveals how many of the notes were claimed in each epoch, wherever that sum has one decomposition into the public claim values. If the declarer picks the earliest valid lock slot, that slot gives away the epoch its latest claim referenced, which holds about 6,100 such claims. Each other staked note hides among all vested notes claimed by then and not yet spent.
+- **A declaration** reveals its number of notes, the value of each spend and its lock slot. At a fixed claim reward, the value of a spend of vested notes only repeats their count. While [Reward Pool](../proof-of-work.md#reward-pool) recomputes the reward at every epoch boundary, as it does on this branch, the value also reveals how many of the notes were claimed in each epoch, wherever that sum has one decomposition into the public claim values. If the declarer picks the earliest valid lock slot, that slot gives away the epoch its latest claim referenced, which holds about 6,100 such claims. Each other staked note hides among all vested notes claimed by then and not yet spent.
 - **The Proof of Leadership and the Proof of Quota** reveal nothing new.
 - **The strongest link is off chain:** a provider sending its claims from the node named in its locators. Wallets send them through other peers.
 
@@ -102,6 +104,20 @@ Binding the stake to its staker is a separate draft stacked on this one. Miners 
 ## A declaration that lapses
 
 A declaration leaves the active set once its reports stop, and it cannot come back. An active message for an epoch needs a blending token collected as a member of the core list of that epoch, and the ledger rejects it from a provider outside the list. Two offline epochs are enough. The way back is to withdraw and declare again, and `locked_until` blocks the withdrawal. A provider that lapses therefore cannot serve with that stake until the lock ends, up to a year. Its service note can still lead in the lottery, and it can declare with other notes under new identifiers.
+
+Smaller misses also last until the lock ends, because `inactivity_period` stays 2. The set of epoch `n` reads `active` at the end of epoch `n - 2`, and a report included in epoch `m` attests epoch `m - 1` and needs membership of it. Membership therefore behaves like three separate chains, one for each epoch modulo 3, and a missed report breaks one of them. After one missed report a provider is out of every third epoch until the lock ends. After one offline epoch it is out two epochs in three.
+
+Over a lock of 49 epochs, with reports missed at random:
+
+| Reports missed | Epochs served | Providers that lose at least one epoch | Providers out for good |
+| --- | --- | --- | --- |
+| 1% | 45 | 37% | 0.3% |
+| 5% | 34 | 91% | 16% |
+| 10% | 25 | 99% | 51% |
+
+The real rate is not known. One part of it can be computed, because the activity proof can fail by chance. On cover traffic alone it fails under 0.05% of the time up to 8,191 providers, 6.6% at 8,192, 11% at 10,000 and 72% at 20,000. Data traffic lowers these. If reports fail to land for one epoch across the network, every provider locked at that point is out of every third epoch. If most are locked, Blend falls below its minimal network size of 32 in those epochs and uses regular broadcast.
+
+An `inactivity_period` of 3 would remove the cost of one missed report, at the price of listing a dead node for one more epoch. This RFC keeps 2.
 
 This is accepted as a cost of the lock. The activity proof is to change to something less probabilistic and more forgiving, which should make a lapse rarer.
 
@@ -158,7 +174,7 @@ liquid_value = checked_uint64(epoch_pow_reward - vested_value)
 #   the first slot of the epoch VESTING_EPOCHS after that of the referenced block
 ```
 
-Proof of Work adds `POW_VESTED_SHARE = 50`, over the existing `SHARE_DEN = 100`, and `VESTING_EPOCHS = 49`. The liquid part, not the whole reward, must exceed the fee of a claim transaction, and `POW_VESTED_SHARE` must be at most `SHARE_DEN`.
+Proof of Work adds `POW_VESTED_SHARE = 50`, over the existing `SHARE_DEN = 100`, and `VESTING_EPOCHS = 49`. The liquid part, not the whole reward, must exceed the fee of a claim transaction.
 
 ## 3. Declarations stake through ZkStake, locked until a slot
 
@@ -179,7 +195,7 @@ Proof of Work adds `POW_VESTED_SHARE = 50`, over the existing `SHARE_DEN = 100`,
 
 ## 4. The ZkStake circuit
 
-The ZkStake takes 16 inputs and no output. Its public values are the nullifiers and their flags, `excess_value`, the sum of the input values, `tx_commitment_root`, `spending_slot` and `msg`. Its inputs satisfy the input constraints of the ZkTransfer. `verify_stake` verifies it against the referenced root extended with the buffer, and the ZkStake proofs of a block are batch-verified in a batch of their own.
+The ZkStake takes 16 inputs and no output. Its public values are the nullifiers and their flags, `value`, the sum of the input values, `tx_commitment_root`, `spending_slot` and `msg`. Its inputs satisfy the input constraints of the ZkTransfer. `verify_stake` verifies it against the referenced root extended with the buffer, and the ZkStake proofs of a block are batch-verified in a batch of their own.
 
 ## 5. Vested notes lead
 
@@ -205,7 +221,7 @@ A Genesis declaration carries one spend with no inputs, whose value is its stake
 
 ## 8. Wallets
 
-A wallet keeps the `data` of each note it tracks. It should submit the claims of a service provider through peers other than the node named in the provider's locators.
+A wallet keeps the `data` of each note it tracks. It shows a vested note apart from its spendable balance until that slot, and spends it in a Transfer only against a root recorded at or after it. For a declaration it should set `locked_until` to the largest `data` among the notes it stakes. It should submit the claims of a service provider through peers other than the node named in the provider's locators.
 
 ## Chores
 
@@ -213,6 +229,12 @@ A wallet keeps the `data` of each note it tracks. It should submit the claims of
 - Mantle's Note Delivery notes that the `data` of a vested note is public.
 - Block Construction verifies the ZkProgramSpend proofs in a batch of their own, no longer a "second" batch.
 - The `SDP_DECLARE` test vector of Mantle carries two spends, and the test vectors of Cryptarchia, which hash the Mantle test transactions, follow it.
+- Mantle says the `inputs_data` of an inactive input is not arbitrary, that a ZkProgramSpend has no vesting check, and that only the ledger note set reads `RecentRoot.slot`.
+- The Service Declaration Protocol says a declaration that has left every core list cannot return.
+- The Overview of Proof of Work says a vested note cannot be spent in a Transfer, and the constraint on `POW_VESTED_SHARE` goes, since the constraint on the liquid part implies it.
+- Gas Cost Determination names the ZkStake in the row of `EXECUTION_PROOF_GAS`.
+- Execution Market states the base fee constants from `G_target`, which is TBD, instead of as numbers.
+- The sentence of the Genesis Block on its declarations is split.
 
 # Implementation
 

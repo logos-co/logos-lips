@@ -159,7 +159,7 @@ and the constants of the components:
 | --- | --- | --- |
 | `EXECUTION_KB_GAS` | 27 per 1,000 bytes | 26.8 cycles per byte of the signed transaction |
 | `EXECUTION_NOTE_SET_GAS` | 3461 | end of block of a changed note set, with its first nullifier, at most 3,460,479 cycles |
-| `EXECUTION_PROOF_GAS` | 1770 | decompression and batch verification of a ZkTransfer or a ZkProgramSpend, at most 1,769,145 cycles |
+| `EXECUTION_PROOF_GAS` | 1770 | decompression and batch verification of a ZkTransfer, a ZkStake or a ZkProgramSpend, at most 1,769,145 cycles |
 | `EXECUTION_ROOT_GAS` | 879 | root of a recent commitment MMR extended by buffered commitments, 878,394 cycles |
 | `EXECUTION_BUFFERED_GAS` | 23 | append of a buffered commitment to that MMR, 22,623 cycles |
 | `EXECUTION_NULLIFIER_GAS` | 725 | insertion of a nullifier and its share of the hashing of the nullifier tree, 724,523 cycles |
