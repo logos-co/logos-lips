@@ -304,7 +304,7 @@ Security Considerations:
 
 Description:
 
-HashWX generates a one-way function from a seed and evaluates it on a 64-bit nonce. A puzzle over it is expensive to solve and cheap to verify.
+HashWX generates a one-way function from a seed and evaluates it on a 64-bit nonce.
 
 Technical Details:
 
@@ -326,7 +326,7 @@ Technical Details:
 
 Use in the Logos Blockchain:
 
-HashWX prices admission at the edge of the Blend network: a core node sets the price an edge node must pay to be served ([Edge Admission](blend-protocol.md#edge-admission)).
+HashWX prices admission at the edge of the Blend network ([Edge Admission](blend-protocol.md#edge-admission)).
 
 Security Considerations:
 
