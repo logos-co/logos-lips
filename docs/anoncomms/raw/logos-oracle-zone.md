@@ -430,8 +430,10 @@ that `channel_id` is the channel registered for `oracle_id`,
 and that it is the channel the inscription was written to.
 Observations that fail any check are discarded.
 Observations are deduplicated by (`feed_id`, `oracle_id`, `round`), keeping the first in LBC order.
-Two observations under the same key whose `canon` bytes differ are an equivocation fault (see [Slashing](#slashing)).
-Re-signing identical `canon` bytes produces a different signature but is not a fault, and only the first copy counts.
+Two observations under the same (`feed_id`, `oracle_id`, `round`) whose `canon` bytes
+differ are an equivocation fault (see [Slashing](#slashing)).
+Re-signing identical `canon` bytes for the same (`feed_id`, `oracle_id`, `round`) produces a different signature but is not a fault,
+and only the first copy counts.
 5. **Cut at `N`.** Take the first `N` valid observations of the round in LBC order and ignore the rest.
 Because of the deduplication in step 4, these `N` observations come from `N` different oracle nodes.
 6. **Compute median.** Sort the `N` prices in ascending order.
