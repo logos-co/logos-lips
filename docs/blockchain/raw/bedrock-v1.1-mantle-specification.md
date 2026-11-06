@@ -272,7 +272,7 @@ Channels allow Zones to post their updates on chain. Channels form virtual chain
 
 ### Message Ordering
 
-Channels form virtual chains by having each message reference its parent message. The order of messages in these channels is enforced by the sequencer by building a hash chain of messages, i.e. new messages reference the previous messages through a parent hash. Given that Cryptarchia has long finality times, these message parent references allow Zone sequencers to continue to post new updates to channels without having to wait for finality. No matter how Cryptarchia forks and reorgs, the channel messages from honest sequencers will eventually be re-included in a way that satisfies the virtual chain order, with one limit: a step is valid only against a commitment root recorded in the last 1024 blocks of the fork it lands on. A reorg that moves the deposits or the steps a step builds on into other blocks can leave its root absent from the winning fork, which invalidates the inscription carrying the step and the inscriptions chained after it, and the sequencer, who cannot prove the step again for its holder, re-publishes the chain without it, proving again the program steps of these inscriptions, whose proofs are bound to the `op_id` of their inscription.
+Channels form virtual chains by having each message reference its parent message. The order of messages in these channels is enforced by the sequencer by building a hash chain of messages, i.e. new messages reference the previous messages through a parent hash. Given that Cryptarchia has long finality times, these message parent references allow Zone sequencers to continue to post new updates to channels without having to wait for finality. No matter how Cryptarchia forks and reorgs, the channel messages from honest sequencers will eventually be re-included in a way that satisfies the virtual chain order, with one limit: a step is valid only against a commitment root recorded in the last 1024 blocks of the fork it lands on. A reorg that moves the channel deposits or the steps a step builds on into other blocks can leave its root absent from the winning fork, which invalidates the inscription carrying the step and the inscriptions chained after it, and the sequencer, who cannot prove the step again for its holder, re-publishes the chain without it, proving again the program steps of these inscriptions, whose proofs are bound to the `op_id` of their inscription.
 
 Configurations form a second hash chain within the channel: each configuration names the configuration it supersedes, so a pending reconfiguration stays valid while the sequencer keeps posting inscriptions.
 
@@ -382,7 +382,7 @@ Channels let their bridged notes keep participating in Proof of Stake. When a us
 - *Inside the channel*, the holder signs off-chain, with its zone message as inscription, a user step, a ZkTransfer that consumes its user notes and creates user notes of the same total value, or a program deposit to a [program](#programs). The sequencers of the channel collect the steps of their users and publish them in a [`CHANNEL_INSCRIBE`](#channel_inscribe), grouping them in mini-blocks and ordering each mini-block as they choose, since a user step or a deposit holds at any position in its mini-block. The ledger verifies every step, so a sequencer orders the moves of the user notes of a channel but never makes one.
 - *Out of the channel*, the holder posts a [`CHANNEL_WITHDRAW`](#channel_withdraw) alone, its fee paid by a ledger note in the same Mantle Transaction. It takes effect `WITHDRAW_DELAY` slots later, unless an inscription of the channel consumes its notes with a valid user step or deposit in the meantime. The withdrawal is the forced exit of a holder whose steps the sequencers do not publish. It also settles a holder who signs both a step and a withdrawal of the same notes optimistically: the step wins if an inscription publishes it before the withdrawal is due, and the holder has then paid the fees of the withdrawal for nothing.
 
-**Ageing.** Because a deposit and a step consume notes and create new ones, a note of a channel restarts the ageing process and must age again before it can create a PoL. Bridged funds still count toward Proof of Stake, so the goals above hold, but the participation is not continuous across these moves: only a note left unspent across the freeze of the stake distribution leads, so a program that wants to stake keeps its stake in notes its steps do not move.
+**Ageing.** Because a channel deposit and a step consume notes and create new ones, a note of a channel restarts the ageing process and must age again before it can create a PoL. Bridged funds still count toward Proof of Stake, so the goals above hold, but the participation is not continuous across these moves: only a note left unspent across the freeze of the stake distribution leads, so a program that wants to stake keeps its stake in notes its steps do not move.
 
 **What each party can do.**
 
@@ -480,7 +480,7 @@ class Inscribe:
                                    # empty. A mini-block holds at least one step
 ```
 
-A `NoteNullifier` is the nullifier of a note and a `NoteCommitment` its commitment, as [Note Commitment and Nullifier](#note-commitment-and-nullifier) defines them, a `MerkleRoot` the root of a Merkle tree, and a `ProgramId` the identifier of a program, derived in [PROGRAM_REGISTER](#program_register). The kind of a step is not one of its fields: the [encoding](mantle-transaction-encoding.md#channel-operations) tags each step with it.
+A `NoteNullifier` is the nullifier of a note and a `NoteCommitment` its commitment, as [Note Commitment and Nullifier](#note-commitment-and-nullifier) defines them, a `MerkleRoot` the root of a Merkle tree, and a `ProgramId` the identifier of a program, derived in [PROGRAM_REGISTER](#program_register). The [encoding](mantle-transaction-encoding.md#channel-operations) tags each step with its kind.
 
 A mini-block is a flat list of steps of three kinds. A user step moves the user notes of its holder. A program deposit pays a [program](#programs) from the user notes of its holder. A program step executes a program: its deposits are the deposits of its program in the same mini-block since the previous program step of that program, and its program spend consumes and creates the notes of the program and pays users. A deposit that no program step consumes in its mini-block makes the inscription invalid, so a deposit is never left unconsumed.
 
@@ -509,7 +509,7 @@ def user_step_id(channel: ChannelId, step: UserStep) -> zkhash:
     inscription_lo = FiniteField(inscription_hash[:16], byte_order="little", modulus=p)
     inscription_hi = FiniteField(inscription_hash[16:], byte_order="little", modulus=p)
     return zkhash(
-        FiniteField(b"CHANNEL_STEP_V1", byte_order="little", modulus=p),
+        FiniteField(b"USER_STEP_V1", byte_order="little", modulus=p),
         channel_lo,
         channel_hi,
         inscription_lo,
