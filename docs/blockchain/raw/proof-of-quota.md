@@ -92,8 +92,8 @@ class ProofOfQuotaWitness:
     core_path_selectors: list[bool]            # Indicates how to read the core_path (if Merkle nodes are left or right in the path)
     # This part is filled randomly by core nodes and by proof of work provers
     pol_sl: int                                # PoL slot
-    pol_nullifier_key: int                     # PoL note nullifier key
-    pol_staking_secret_key: int                # PoL note staking secret key
+    pol_nullifier_key: zkhash                  # PoL note nullifier key
+    pol_staking_secret_key: zkhash             # PoL note staking secret key
     pol_note_value: int                        # PoL note value
     pol_note_nonce: zkhash                     # PoL note nonce
     pol_note_program: zkhash                   # PoL note program, 0 for a user note
