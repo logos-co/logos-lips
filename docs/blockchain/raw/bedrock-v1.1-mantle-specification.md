@@ -502,13 +502,18 @@ Since they are signed before the Mantle Transaction exists, their ZkTransfer is 
 Both messages commit to the channel. A channel ID is 32 free bytes, larger than the field, so a single reduced element would give channels `x` and `x + p` the same message. Each message therefore holds the channel ID as two elements, low first: `channel_lo`, its low 16 bytes `channel[:16]`, and `channel_hi`, its high 16 bytes `channel[16:]`. The inscription of a user step or of a payment, of any length, enters its message through its 32-byte BLAKE2b-256 hash `Hash(inscription)`, held the same way as two elements, low first: `inscription_lo`, its low 16 bytes `Hash(inscription)[:16]`, and `inscription_hi`, its high 16 bytes `Hash(inscription)[16:]`.
 
 ```python
-def step_msg(channel: ChannelId, step: UserStep) -> zkhash:
+def user_step_id(channel: ChannelId, step: UserStep) -> zkhash:
+    channel_lo = FiniteField(channel[:16], byte_order="little", modulus=p)
+    channel_hi = FiniteField(channel[16:], byte_order="little", modulus=p)
+    inscription_hash = hash(step.inscription)  # BLAKE2b-256
+    inscription_lo = FiniteField(inscription_hash[:16], byte_order="little", modulus=p)
+    inscription_hi = FiniteField(inscription_hash[16:], byte_order="little", modulus=p)
     return zkhash(
         FiniteField(b"CHANNEL_STEP_V1", byte_order="little", modulus=p),
-        FiniteField(channel_lo, byte_order="little", modulus=p),
-        FiniteField(channel_hi, byte_order="little", modulus=p),
-        FiniteField(inscription_lo, byte_order="little", modulus=p),
-        FiniteField(inscription_hi, byte_order="little", modulus=p),
+        channel_lo,
+        channel_hi,
+        inscription_lo,
+        inscription_hi,
         FiniteField(len(step.inputs), byte_order="little", modulus=p),
         *step.inputs,
         FiniteField(len(step.outputs), byte_order="little", modulus=p),
@@ -718,7 +723,7 @@ block_slot: Slot
                                               step.outputs,
                                               0,  # a user step balances exactly
                                               step.commitment_root,
-                                              step_msg(msg.channel, step),
+                                              user_step_id(msg.channel, step),
                                               step_proof,
                                               covered)
 
