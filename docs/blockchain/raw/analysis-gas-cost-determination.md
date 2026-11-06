@@ -150,7 +150,7 @@ A program step costs:
 
 - Verification of the ZkProgramSpend, a circuit shared by every program, in the batch of the block: 618,796 cycles.
 - Verification of the program proof: a single Groth16 verification under the key of its program, which cannot share the batch of another program, with the line coefficients of `-γ` and `-δ` computed from the stored key: 2,221,544 + 228,669 = 2,450,213 cycles.
-- Verification that the program is registered, computation of the hash of the deposits, and recomputation of the commitment of each opened note of the program: negligible.
+- Verification that the program is registered, computation of the hash of the program deposits, and recomputation of the commitment of each opened note of the program: negligible.
 
 ## Program Register
 
@@ -211,7 +211,7 @@ Execution: ~ 678k CPU cycles.
 
 ## SDP Withdraw
 
-This gas covers a verification process that includes: confirming ownership of the provider_id through an Eddsa25519 signature, confirming the consumption of the service note through a ZkTransfer verification, and confirming that the declaration exists and has not been previously withdrawn. The validation process also ensures that the withdrawal message's nonce is greater than any previous nonce, preventing replay attacks. During execution, the system records the withdrawal epoch and the outputs on the declaration and consumes the service note; the declaration is removed and its outputs released by the epoch finalization at `withdraw_at + 1`.
+This gas covers a verification process that includes: confirming ownership of the provider_id through an Eddsa25519 signature, confirming the consumption of the service note through a ZkTransfer verification, and confirming that the declaration exists and has not been previously withdrawn, which with the consumed nullifier prevents replay attacks. During execution, the system records the withdrawal epoch on the declaration and keeps the withdrawal pending; the declaration is removed by the epoch finalization at `withdraw_at + 1`, and the pending withdrawal then consumes the service note and releases its outputs.
 
 Execution: ~ 678k CPU cycles.
 
@@ -220,9 +220,8 @@ Execution: ~ 678k CPU cycles.
 - Verification of the ZkTransfer in the batch of the block: 618,797 cycles.
 - Derivation of the MMR root of the service note: zkhashes, negligible.
 - Verification that the declaration wasn’t already withdrawn: negligible.
-- Verification of nonce incrementation: negligible.
-- Update declaration and insertion of the nullifier in the SDP note set: negligible.
-- Remove the declaration and release its outputs: negligible.
+- Update declaration and keeping of the pending withdrawal: negligible.
+- Remove the declaration, insert the nullifier in the SDP note set and release the outputs: negligible.
 
 ## SDP Activation
 
@@ -240,7 +239,7 @@ This gas covers the re-derivation of the puzzle ticket from the Operation payloa
 
 Execution: negligible.
 
-- Re-derivation of the puzzle ticket: one `zkhash` over four field elements, negligible.
+- Re-derivation of the puzzle ticket: one `zkhash` over the tag and three field elements, negligible.
 - Comparison of the ticket against the reward difficulty: negligible.
 - Lookup of the referenced block and the slot window comparison: negligible.
 - Verification that the ticket isn't already in the nullifier set: negligible.

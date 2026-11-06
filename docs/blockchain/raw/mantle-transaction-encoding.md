@@ -36,8 +36,8 @@
 | 1.9.0 | Swap Ed25519Signature and SignerIndex order in IndexedSignature | 2026-10-01 |
 | 1.10.0 | Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata, retaining their `UINT32` length prefixes; corrected SDP activity metadata to use its tagged variant encoding without a generic length prefix | 2026-10-06 |
 | 1.11.0 | [RFC] `SDPWithdraw` drops the redundant `ServiceNoteId` | 2026-10-27 |
-| 2.0.0 | Follow the private note ledger of Mantle 2.0.0: nullifier inputs and commitment outputs with their `CommitmentRoot` and `Value`, user steps, tagged by their kind and with their own `Inscription`, in the `MiniBlocks` of `ChannelInscribe`, holder withdrawals, the SDP payloads over notes with `NotePk` in `SDPDeclare`, `PowNonce` in `ClaimPowReward`, the `ZkTransfer` proof variants, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim`. A `FieldElement` not less than $`p`$ is rejected | 2026-11-06 |
-| 2.1.0 | Follow the programs of Mantle 2.1.0: the `ProgramRegister` Operation with its `Groth16VerificationKey`, user steps, program deposits and program steps in the `MiniBlocks` of `ChannelInscribe`, tagged by their kind, with their proofs and the openings of the program notes with their `StakePublicKey`, each step with its own `Inscription`, `NoteStakePk` in `SDPDeclare`, the `Groth16` terminal renamed `Groth16Proof`, and the format of compressed points | 2026-11-06 |
+| 2.0.0 | Follow the private note ledger of Mantle 2.0.0: nullifier inputs and commitment outputs with their `CommitmentRoot` and `Value`, user steps, tagged by their kind and with their own `Inscription`, in the `MiniBlocks` of `ChannelInscribe`, holder withdrawals, the `Inscription` of `ChannelDeposit`, the SDP payloads over notes with `NotePk` in `SDPDeclare` and no `Nonce` in `SDPWithdraw`, `PowNonce` and no `EpochNonce` in `ClaimPowReward`, the `ZkTransfer` proof variants, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim`. A `FieldElement` not less than $`p`$ is rejected | 2026-11-06 |
+| 2.1.0 | Follow the programs of Mantle 2.1.0: the `ProgramRegister` Operation with its `Groth16VerificationKey`, user steps, program deposits and program steps in the `MiniBlocks` of `ChannelInscribe`, tagged by their kind, with their proofs and the openings of the program notes with their `NoteStakePk`, each step with its own `Inscription` and each program step with its `ProgramOutputs` before its `Outputs`, `NoteStakePk` in `SDPDeclare`, the `Groth16` terminal renamed `Groth16Proof`, and the format of compressed points | 2026-11-06 |
 
 # Introduction
 
@@ -89,8 +89,8 @@ OpPayload = Transfer /
 
 ```schema
 ChannelInscribe = ChannelId Inscription Parent Signer MiniBlocks
-Inscription     = UINT32 *BYTE ; the inscriptions of a ChannelInscribe total at most
-                               ; MAX_OPERATION_DATA_SIZE bytes
+Inscription     = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes, the inscriptions
+                               ; of a ChannelInscribe counting together
 MiniBlocks      = MiniBlockCount *MiniBlock
 MiniBlockCount  = UINT16
 MiniBlock       = StepCount *Step ; StepCount at least 1, a decoder MUST reject 0
@@ -102,10 +102,10 @@ ProgramDepositKind = %x01
 ProgramStepKind    = %x02
 UserStep           = Inputs Outputs CommitmentRoot Inscription
 ProgramDeposit     = ProgramId Inputs Outputs CommitmentRoot Value Intent Inscription
-ProgramStep        = ProgramId Inputs Outputs ProgramOutputs CommitmentRoot ProgramStepId Inscription
+ProgramStep        = ProgramId Inputs ProgramOutputs Outputs CommitmentRoot ProgramStepId Inscription
 Intent             = FieldElement
-ProgramOutputs     = Byte ; bit i (least significant first) set when output i is a note of the program,
-                          ; the bits from OutputCount up being 0
+ProgramOutputs     = Outputs ; the notes of the program the step creates, its Outputs being
+                             ; the user notes it pays
 ProgramStepId      = FieldElement
 
 ChannelConfig     = ChannelId Parent KeyCount *Signer PostingTimeframe PostingTimeout ConfigThreshold
@@ -114,21 +114,18 @@ PostingTimeframe           = UINT32
 PostingTimeout             = UINT32
 ConfigThreshold            = UINT16
 
-ChannelDeposit    = ChannelId Inputs CommitmentRoot Outputs Value DepositMetadata
-DepositMetadata   = UINT32 *BYTE ; Max MAX_OPERATION_DATA_SIZE bytes
+ChannelDeposit    = ChannelId Inputs Outputs CommitmentRoot Value Inscription
 
-ChannelWithdraw   = ChannelId Inputs CommitmentRoot Outputs
+ChannelWithdraw   = ChannelId Inputs Outputs CommitmentRoot
 
 ChannelId         = Hash32
 Parent            = Hash32
 Signer            = Ed25519PublicKey
 ```
 
-A `UserStep` moves the user notes of its holder, with the inscription its holder signs, a `ProgramDeposit` pays a program with its `Intent`, the hash of what its user expects, and a `ProgramStep` executes a program, consuming the deposits of its program before it in its mini-block, `ProgramStepId` being the hash of the notes of its program spend. A `MiniBlock` groups the steps whose user steps and deposits cover the same transaction buffer. [CHANNEL_INSCRIBE](bedrock-v1.1-mantle-specification.md#channel_inscribe) defines them. A `Step` starts with the byte of its kind; a decoder MUST reject an unknown kind.
+A `UserStep` moves the user notes of its holder, with the inscription its holder signs, a `ProgramDeposit` pays a program with its `Intent`, the hash of what its user expects, and a `ProgramStep` executes a program, consuming the program deposits before it in its mini-block, `ProgramStepId` being the hash of the notes of its program spend. A `MiniBlock` groups the steps whose user steps and program deposits cover the same transaction buffer. [CHANNEL_INSCRIBE](bedrock-v1.1-mantle-specification.md#channel_inscribe) defines them. A `Step` starts with the byte of its kind; a decoder MUST reject an unknown kind.
 
-`MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. The payloads of the `Inscription` of a `ChannelInscribe` and of the `Inscription` of each of its steps MUST together be at most `MAX_OPERATION_DATA_SIZE` bytes, and the payload of `ChannelDeposit.Metadata` MUST be at most `MAX_OPERATION_DATA_SIZE` bytes, each excluding its `UINT32` length prefix. A decoder MUST reject a `ChannelInscribe` when the declared or decoded payload lengths of its inscriptions sum to more than the limit, and a `ChannelDeposit` when the declared or decoded payload length of its metadata exceeds it.
-
-A decoder MUST reject a `ProgramStep` whose `OutputCount` exceeds 8, or whose `ProgramOutputs` has a bit set at or above its `OutputCount`, so that a step has a single encoding.
+`MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. The payloads of the `Inscription` of a `ChannelInscribe` and of the `Inscription` of each of its steps MUST together be at most `MAX_OPERATION_DATA_SIZE` bytes, and the payload of the `Inscription` of a `ChannelDeposit` MUST be at most `MAX_OPERATION_DATA_SIZE` bytes, each excluding its `UINT32` length prefix. A decoder MUST reject a `ChannelInscribe` when the declared or decoded payload lengths of its inscriptions sum to more than the limit, and a `ChannelDeposit` when the declared or decoded payload length of its inscription exceeds it.
 
 ### SDP Operations
 
@@ -143,7 +140,7 @@ ZkId          = ZkPublicKey
 NotePk        = ZkPublicKey
 NoteStakePk   = ZkPublicKey
 
-SDPWithdraw   = DeclarationId Nonce NoteNullifier Outputs Value
+SDPWithdraw   = DeclarationId NoteNullifier Outputs Value
 DeclarationId = Hash32
 Nonce         = UINT64
 
@@ -160,8 +157,7 @@ The current Blend variant occupies 229 bytes including its discriminant. Its enc
 ### Proof of work operations
 
 ```schema
-ClaimPowReward = EpochNonce BlockHash ZkPublicKey PowNonce
-EpochNonce     = FieldElement ; the epoch nonce the solution was found against
+ClaimPowReward = BlockHash ZkPublicKey PowNonce
 BlockHash      = Hash32       ; recent canonical block the solution is anchored to
 PowNonce       = FieldElement ; value searched for a ticket satisfying the reward threshold
 ```
@@ -218,15 +214,14 @@ Ed25519SigProof              = Ed25519Signature
 ZkTransferProof              = ZkTransfer
 ZkTransferAndEd25519SigProof = ZkTransfer Ed25519Signature
 ChannelInscribeOpProof       = Ed25519Signature *StepProof ; one StepProof per step of the inscription
-StepProof                    = ZkTransfer / ProgramStepProof ; ZkTransfer for a user step or a deposit,
-                                                             ; ProgramStepProof for a program step
+StepProof                    = ZkTransfer / ProgramStepProof ; ZkTransfer for a user step or a program
+                                                             ; deposit, ProgramStepProof for a program step
 ProgramStepProof             = ZkProgramSpend Groth16Proof *ProgramNoteOpening
                                                        ; the program spend, the program proof, then
-                                                       ; one opening per bit set in the ProgramOutputs
-                                                       ; of the step
-ProgramNoteOpening           = Value NoteNonce ZkPublicKey StakePublicKey ProgramNoteData
+                                                       ; one opening per commitment of the
+                                                       ; ProgramOutputs of the step
+ProgramNoteOpening           = Value NoteNonce NoteStakePk ProgramNoteData
 NoteNonce                    = FieldElement
-StakePublicKey               = ZkPublicKey ; the staking key of the note
 ProgramNoteData              = FieldElement
 ChannelConfigOpProof         = ChannelMultiSigProof
 EmptyProof                   = 0Byte ; no bytes

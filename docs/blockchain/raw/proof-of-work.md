@@ -21,7 +21,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-09 |
 | 1.1.0 | Set the reference load of the Blend difficulty to the transaction rate the Blend network carries, `F_T / F_D = 130` transactions per block | 2026-09-11 |
-| 1.2.0 | A reward claim searches a nonce for the public key to be paid and carries no signature. Each block credits its fee share to the pool, and the reward per claim stays fixed for the epoch | 2026-10-06 |
+| 1.2.0 | A reward claim searches a nonce for the public key to be paid, carries no signature and hashes no epoch nonce. Each block credits its fee share to the pool, and the reward per claim stays fixed for the epoch | 2026-11-06 |
 
 # Introduction
 
@@ -84,7 +84,7 @@ Here the branches end apart. Nothing absorbs the load, so a Blend message costs 
 
 ```mermaid
 graph TB
-    sv["searched value"] --> tk["ticket<br/>zkhash(searched value,<br/>epoch nonce)"]
+    sv["searched value"] --> tk["ticket<br/>zkhash(searched value,<br/>epoch nonce or block)"]
     tk -- "does not satisfy<br/>the threshold" --> sv
 
     tk -- "satisfies<br/>difficulty_blend" --> pq["Proof of Quota"]
@@ -96,7 +96,7 @@ graph TB
     vc -- "accepted" --> ac["epoch_pow_reward<br/>paid to the key<br/>ticket spent<br/>pow_reward_pool falls"]
 ```
 
-A miner picks a value and hashes it into a **ticket**. The hash is `zkhash` over the value and the [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce). For a claim, the hash also covers the tag `POW_CLAIM_V1`, the public key to be paid and the referenced block hash. Tickets and **thresholds** are numbers in $`\mathbb{F}_p`$, the BN254 scalar field of [Poseidon2](common-cryptographic-components.md#poseidon2-zk-friendly-hash-function). A ticket satisfies a threshold when the ticket is below it, as [Puzzle Target](#puzzle-target) specifies. The miner keeps picking values, each sampled with full entropy, until one ticket satisfies the threshold.
+A miner picks a value and hashes it into a **ticket**. The hash is `zkhash` over the value and the [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce). For a claim, the hash covers instead the tag `POW_CLAIM_V1`, the public key to be paid, the value and the referenced block hash: that block is at most the [acceptance window](#acceptance-window) old, so its hash binds the claim to the chain and makes the ticket unpredictable before the block exists, as the epoch nonce does. Tickets and **thresholds** are numbers in $`\mathbb{F}_p`$, the BN254 scalar field of [Poseidon2](common-cryptographic-components.md#poseidon2-zk-friendly-hash-function). A ticket satisfies a threshold when the ticket is below it, as [Puzzle Target](#puzzle-target) specifies. The miner keeps picking values, each sampled with full entropy, until one ticket satisfies the threshold.
 
 Each use searches its own value against its own threshold, so a solution works for one use only. For Blend admission the miner searches a private nonce against `difficulty_blend`. The nonce stays secret. [Proof of Quota](proof-of-quota.md) proves the miner holds one, and that buys the quota of blending operations given in [Proof of Work Quota](blend-protocol.md#proof-of-work-quota). Nothing about it reaches the chain. For a reward the miner picks the public key to be paid and searches a nonce against `difficulty_reward`. The miner should pick a public key it has not used in another claim, since the claims paid to one key are linked, and so are the Transfers spending them. The miner then publishes a `CLAIM_POW_REWARD` Operation in a transaction.
 
@@ -105,7 +105,6 @@ A validator checks a claim against the `difficulty_reward` the previous block pr
 - the ticket is below `difficulty_reward`,
 - the ticket has not been claimed before,
 - the referenced block is canonical and inside the acceptance window,
-- the epoch nonce is the current one or the one before it,
 - `epoch_pow_reward` is positive and `pow_reward_pool` still holds it.
 
 [Mantle](bedrock-v1.1-mantle-specification.md#claim_pow_reward) specifies these checks and the order they run in. A claim that fails any of them makes its transaction invalid. On acceptance the node pays `epoch_pow_reward` to the key, marks the ticket spent, and subtracts the same amount from `pow_reward_pool`.
