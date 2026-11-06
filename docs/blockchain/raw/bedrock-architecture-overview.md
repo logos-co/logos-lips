@@ -26,7 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2025-08-22 |
 | 1.1.0 | Remove references to DA Replace Nomos with Logos Blockchain | 2026-01-14 |
-| 1.2.0 | Fees and funds are carried by Transfer Operations over private notes, and every channel has a note set of its own | 2026-10-07 |
+| 1.2.0 | Fees and funds are carried by Transfer Operations over private notes, and every channel has a note set of its own. The figure of a Mantle Transaction shows only Operations | 2026-11-06 |
 
 # Introduction
 
@@ -44,7 +44,17 @@ Bedrock is composed of Cryptarchia and Bedrock Mantle. Bedrock is in turn suppor
 
     Sovereign Zones make use of Mantle Transactions when posting their updates to Bedrock. This is done through the use of Mantle channels and channel Operations.
 
-![Diagram](bedrock-architecture-overview/assets/2e0261aa-09df-80e3-ab25-e6d79b7aaa77.png)
+```mermaid
+flowchart TB
+    subgraph tx["Mantle Transaction"]
+        subgraph ops["Operations"]
+            transfer["TRANSFER(...)"]
+            deposit["CHANNEL_DEPOSIT(...)"]
+            inscribe["CHANNEL_INSCRIBE(...)"]
+            more["..."]
+        end
+    end
+```
 
 ### Mantle Channels
 

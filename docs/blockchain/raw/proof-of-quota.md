@@ -28,7 +28,7 @@
 | 1.0.1 | Remove the protection against adaptive adversary from PoL. It impacts the PoL section of PoQ. Update the performance according to the new circuit. Remove old project name from DSTs | 2026-04-09 |
 | 1.1.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.2.0 | Add the proof of work branch: third selector value, `pow_quota` and `pow_blend_difficulty` public inputs, a private `pow_nonce` witness, and Lagrange branch selection; benchmark the three branch circuit | 2026-09-08 |
-| 1.3.0 | Follow the Proof of Leadership of the private ledger: the leader branch proves the note commitment in its note set under the eligible root of the time the stake distribution was frozen, and its nullifier absent from the nullifier IMT of that set at that time. Paths and selectors follow the Merkle path convention of Mantle, from the leaf level up, the commitment path and the path in the eligible tree having depth 40 | 2026-10-07 |
+| 1.3.0 | Follow the Proof of Leadership of the private ledger: the leader branch proves the note commitment in its note set under the eligible root of the time the stake distribution was frozen, and its nullifier absent from the nullifier IMT of that set at that time. Paths and selectors follow the Merkle path convention of Mantle, from the leaf level up, the commitment path and the path in the eligible tree having depth 40. `pol_epoch_nonce`, `pol_t0` and `pol_t1` are field elements, as in the Proof of Leadership, and `core_sk` is the Non-ephemeral Quota Key | 2026-11-06 |
 | 1.3.1 | The note commitment of the leader branch takes the staking key, the `program` and the `data` of the note, the branch proving the public key from the nullifier key and the staking key from the staking secret key, from which it derives the key nullifier, which changes the verification key | 2026-11-06 |
 
 
@@ -69,9 +69,9 @@ class ProofOfQuotaPublic:
     K_part_one: int       # First part of the signature public key (16 bytes)
     K_part_two: int       # Second part of the signature public key (16 bytes)
     pow_blend_difficulty: zkhash # Blend threshold a PoW ticket must be below
-    pol_epoch_nonce: int  # PoL Epoch nonce
-    pol_t0: int           # PoL constant t0
-    pol_t1: int           # PoL constant t1
+    pol_epoch_nonce: zkhash # PoL Epoch nonce
+    pol_t0: zkhash        # PoL constant t0
+    pol_t1: zkhash        # PoL constant t1
 ```
 
 The proof's public signal vector is fixed by the circuit: the output first, then the public inputs in the order listed above.
@@ -100,7 +100,7 @@ class ProofOfQuotaWitness:
     pol_note_data: zkhash                      # PoL note data, 0 for a user note
     pol_commitment_aged_path: list[zkhash]     # PoL Merkle path proving the note commitment membership in the commitment Merkle Mountain Range (MMR) of its note set (len = 40)
     pol_commitment_aged_selectors: list[bool]  # Indicates how to read the pol_commitment_aged_path (if Merkle nodes are left or right in the path)
-    pol_low_leaf_nullifier: zkhash             # PoL nullifier of the leaf of the IMT of the note set, when the stake distribution was frozen, holding the greatest nullifier lower than the nullifier of the note
+    pol_low_leaf_nullifier: zkhash             # PoL nullifier of the leaf of the nullifier Indexed Merkle Tree (IMT) of the note set, when the stake distribution was frozen, holding the greatest nullifier lower than the nullifier of the note
     pol_low_leaf_next_nullifier: zkhash        # PoL next nullifier of that leaf
     pol_low_leaf_next_index: int               # PoL next index of that leaf
     pol_low_leaf_path: list[zkhash]            # PoL Merkle path of that leaf to the nullifier IMT root of the note set when the stake distribution was frozen (len = 40)
@@ -143,7 +143,7 @@ key_nullifier = zkhash(b"KEY_NULLIFIER_V1", selection_randomness)
 
   Where `sk` is:
 
-  - The `core_sk` as defined in the [Mantle specification](bedrock-v1.1-mantle-specification.md) if the node is a core node.
+  - The `core_sk`, the [Non-ephemeral Quota Key](key-types-and-generation.md#non-ephemeral-quota-key) of the node, if the node is a core node.
   - The staking secret key of the PoL note if it’s a leader node, which stays private even when the nullifier key of the note is public, as for a program note open to everyone.
   - The `pow_nonce` if the proof is backed by proof of work.
 
