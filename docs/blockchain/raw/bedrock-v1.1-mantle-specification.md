@@ -424,7 +424,7 @@ The ledger fixes neither the value of each note a program pays, nor the staking 
 
 A program using LOGOS only, such as lending, is thus enforced by the ledger, and its users trust the circuit of the program they pay and the setup that produced its key: whoever kept the trapdoor of that setup can prove any statement under the key and move every note of the program, and nothing on chain shows how a key was produced. A public phase-2 ceremony over shared powers of tau is recommended for the key of a program ([Trusted Setup Ceremony](trusted-setup-ceremony.md)). A program exchanging LOGOS with assets of the zone, such as a swap, is enforced by the ledger for its LOGOS only. Depending on the program, publishing the preimage of each intent in the inscription is recommended, so that the users of the zone can verify how the program step served it.
 
-**What the ledger does not guarantee.** A program note moves only in a program step of an inscription, and only the current sequencer of a channel posts inscriptions. The sequencers of a channel can therefore freeze every program note of the channel for good by publishing no program step, with all the value users paid into it: they cannot take that value, but they can hold it. A signed program deposit has no expiry either. A sequencer can hold it until 1024 blocks, about 8.5 hours, after its root stopped being the current root of the note set, a root that stays current staying valid, and fill it at the worst price its intent accepts, since the program proof sees no time. Its holder can cancel it only with a `CHANNEL_WITHDRAW`, which takes `WITHDRAW_DELAY` slots, and a step published before the withdrawal is due wins.
+**What the ledger does not guarantee.** A program note moves only in a program step of an inscription, and only the current sequencer of a channel posts inscriptions. The sequencers of a channel can therefore freeze every program note of the channel for good by publishing no program step, with all the value users paid into it: they cannot take that value, but they can hold it. A signed program deposit has no expiry either. A sequencer can hold it until [`ROOT_WINDOW`](#ledger) blocks, about 8.5 hours, after its root stopped being the current root of the note set, a root that stays current staying valid, and fill it at the worst price its intent accepts, since the program proof sees no time. Its holder can cancel it only with a `CHANNEL_WITHDRAW`, which takes `WITHDRAW_DELAY` slots, and a step published before the withdrawal is due wins.
 
 **Design choices.**
 
@@ -455,7 +455,7 @@ class ProgramDeposit:
     program_id: ProgramId          # the program the program deposit pays
     inputs: list[NoteNullifier]    # nullifiers of the consumed user notes of the channel
     outputs: list[NoteCommitment]  # commitments of the change, user notes of the channel
-    commitment_root: MerkleRoot    # a recent (less than 1024 blocks) MMR root of the channel note set
+    commitment_root: MerkleRoot    # a recent (less than ROOT_WINDOW blocks) MMR root of the channel note set
     value: TokenValue              # the value the program deposit pays to the program
     intent: zkhash                 # the hash of what the user expects from the program
     inscription: bytes             # the zone message of this program deposit, signed by its holder
@@ -465,7 +465,7 @@ class ProgramStep:
     inputs: list[NoteNullifier]            # nullifiers of the consumed notes of the program, possibly empty
     program_outputs: list[NoteCommitment]  # commitments of the created notes of the program
     outputs: list[NoteCommitment]          # commitments of the user notes the step pays
-    commitment_root: MerkleRoot            # a recent (less than 1024 blocks) MMR root of the channel note set
+    commitment_root: MerkleRoot            # a recent (less than ROOT_WINDOW blocks) MMR root of the channel note set
     program_step_id: zkhash                # the hash of the input and output notes of the program spend
     inscription: bytes                     # the zone message of this step, bound by the op_id
 
@@ -2294,8 +2294,8 @@ class ZkProgramSpendWitness:
     inputs_nonce: list[zkhash]             # the nonce of each input note
     inputs_value: list[TokenValue]         # the value of each input note
     inputs_data: list[zkhash]              # the data of each input note
-    inputs_selectors: list[list[boolean]]  # (len = 4 x 40) the Merkle path direction of each input
-    inputs_path: list[list[zkhash]]        # (len = 4 x 40) the Merkle path of each input
+    inputs_selectors: list[list[boolean]]  # (len = 4 x NOTE_SET_DEPTH) the Merkle path direction of each input
+    inputs_path: list[list[zkhash]]        # (len = 4 x NOTE_SET_DEPTH) the Merkle path of each input
     outputs_pk: list[ZkPublicKey]          # (len = 8) the public key of each output note
     outputs_stake_pk: list[ZkPublicKey]    # the staking key of each output note
     outputs_nonce: list[zkhash]            # the nonce of each output note
