@@ -317,7 +317,7 @@ def create_channel(channel_id: ChannelId, block_slot: Slot, keys: list[Ed25519Pu
         # the null channel only receives the Genesis inscriptions and holds no note
         channels[channel_id] = default_channel(block_slot, keys, None)
     else:
-        # a new channel gets the next note set, so channels are ordered by creation
+        # a new channel appends a new note set, so note sets of channels are ordered by creation
         ledger.sets.append(empty_note_set())
         channels[channel_id] = default_channel(block_slot, keys, len(ledger.sets) - 1)
 ```
