@@ -11,6 +11,7 @@
 | v3 | Cryptarchia test vectors and a two-spend declaration vector; the unmeasured gas and the Execution Gas limit are TBD; recomputed declaration limits | 2026-11-05 |
 | v4 | Vesting ends at an epoch start, `VESTING_EPOCHS = 49` epochs after the epoch of the referenced block; wallets no longer delay their spends | 2026-11-05 |
 | v5 | Follows the nullifier and staking keys of the stack. `amount` goes, the stake being the sum of the spends; `vested_by` becomes `spending_slot`; the vesting check drops the active flag; a declaration that lapses waits for its lock | 2026-11-06 |
+| v6 | Follows the stack below: a declaration also names `note_stake_pk`, and the service rewards go to the two keys of its service note. The declaration test vectors of Mantle and Cryptarchia hold the new field | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -92,7 +93,7 @@ A commitment supplied by the miner, instead of one the ledger creates, would hid
 
 ## A locked stake can change hands
 
-`SDP_DECLARE` creates the service note under the `note_pk` it names, which no proof covers. A seller can therefore stake its vested notes under a buyer's `note_pk`, `zk_id` and `provider_id`, in one transaction with a Transfer paying the seller. The buyer then holds the stake: it earns the lottery and service rewards, and withdraws the stake once the lock ends. This is accepted: the stake stays locked, serves only service provision and the lottery, and its value cannot move before its vesting ends.
+`SDP_DECLARE` creates the service note under the `note_pk` and `note_stake_pk` it names, which no proof covers. A seller can therefore stake its vested notes under a buyer's `note_pk`, `note_stake_pk`, `zk_id` and `provider_id`, in one transaction with a Transfer paying the seller. The buyer then holds the stake: it earns the lottery and service rewards, and withdraws the stake once the lock ends. This is accepted: the stake stays locked, serves only service provision and the lottery, and its value cannot move before its vesting ends.
 
 Binding the stake to its staker is a separate draft stacked on this one. Miners derive their claim keys and the `note_pk` from one stake secret, and the ZkStake proves that every vested input and the `note_pk` come from it. Measured with the two-to-one compression of the circuits, it costs 4,848 constraints at 16 inputs, 2.3% of the ZkStake. Handing a secret over off chain stays possible, and no protocol can prevent it.
 
@@ -161,7 +162,7 @@ Proof of Work adds `POW_VESTED_SHARE = 50`, over the existing `SHARE_DEN = 100`,
 
 ```diff
  class DeclarationMessage:
-     # ... service_type, locators, provider_id, zk_id, note_pk unchanged
+     # ... service_type, locators, provider_id, zk_id, note_pk, note_stake_pk unchanged
 -    inputs: list[NoteNullifier]
      commitment_root: MerkleRoot
 -    amount: TokenValue
