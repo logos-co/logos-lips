@@ -344,7 +344,7 @@ Where:
 
 The message must be signed by the `provider_id` key of the declaration.
 
-A [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) by the holder of the service note, who has the secret of the `note_pk`, proves the spend, against the service note of the declaration only. The `outputs` are released to the ledger when the declaration is removed.
+A [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) by the holder of the service note, who has the spending secret key of the `note_pk`, proves the spend, against the service note of the declaration only. The `outputs` are released to the ledger when the declaration is removed.
 
 ### Serialization
 
