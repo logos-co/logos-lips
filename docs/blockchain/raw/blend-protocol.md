@@ -40,6 +40,7 @@
 | 1.7.0 | Derived the observation window $`W`$ from cover traffic in place of the maximal release delay. | 2026-10-29 |
 | 1.8.0 | Refused a neighbor closed as not live for $`W`$ rounds, restarting its liveness count, in place of shutting it out for the rest of the epoch. | 2026-10-30 |
 | 1.8.1 | Derived $`M_W`$ from the messages a neighbor is expected to deliver in an observation window and from the peering degree, in place of a fixed value. | 2026-10-30 |
+| 1.8.2 | Pointed from $`T_M`$ to the finality window and the finality floor of [Cryptarchia](cryptarchia-v1-protocol.md#constants), which depend on it. | 2026-11-06 |
 
 # Introduction
 
@@ -477,7 +478,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\beta_C=3`$, the expected number of blending operations for each cover message;
 - $`\beta_D=3`$, the expected number of blending operations for each data message;
 - $`\eta=2`$ rounds, the network absorption of one hop.
-- $`T_M = 15`$ rounds, the message traversal time, as derived in the [Transition Period](#transition-period) section.
+- $`T_M = 15`$ rounds, the message traversal time, as derived in the [Transition Period](#transition-period) section. A change of $`T_M`$ requires the finality window and the finality floor of [Cryptarchia](cryptarchia-v1-protocol.md#constants) to be checked again.
 - $`W = \lceil M_W / (F_C \cdot (1 + R_C) \cdot \beta_C) \rceil = 30`$ rounds, the observation window: the rounds in which a core connection carries $`M_W`$ messages from cover traffic alone ([Expected Traffic](#expected-traffic)).
 - $`M_W = \lambda \cdot (\Phi_{CC} - 1) / (\Phi_{CC} - 2) = 90`$ messages. A neighbor sends a node every message except the ones it first received from that node ([Releasing](#releasing)). A neighbor holds at least $`\Phi_{CC} - 1`$ connections, so on average at most one message in $`\Phi_{CC} - 1`$ reaches it first from that node ([Connectivity Maintenance](#connectivity-maintenance)).
 - $`\lambda = 60`$ messages. For deliveries arriving at random, an honest neighbor delivers nothing within $`W`$ rounds with probability at most $`e^{-\lambda}`$, and is closed as not live ([Connectivity Maintenance](#connectivity-maintenance)). A larger $`\lambda`$ lengthens $`W`$: a neighbor that delivers nothing holds a connection slot for longer, a neighbor closed as not live is refused for longer, and a blacklist entry lasts longer.
