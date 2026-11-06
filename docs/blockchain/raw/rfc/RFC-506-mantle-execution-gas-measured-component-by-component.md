@@ -13,7 +13,7 @@
 | v5 | `EXECUTION_USER_STEP_GAS` is 195 and `EXECUTION_PAYMENT_GAS` 267, for the two elements of the channel ID in the messages of steps and payments. Each notation is explained where it first appears | 2026-11-04 |
 | v6 | The inscriptions of user steps and payments pay as transaction bytes | 2026-11-06 |
 | v7 | A program deposit is a step of its own, priced by `EXECUTION_PROGRAM_DEPOSIT_GAS`, and the identifiers of user steps and deposits are `user_step_id` and `program_deposit_id` | 2026-11-06 |
-| v8 | `EXECUTION_PROGRAM_STEP_GAS` includes the program proof, 6374 being the sum of the two measured constants. An Operation pays `EXECUTION_SIGNATURE_GAS` for each signature its proof carries, so its Execution Gas reads no state. The note sets record the root extensions and the changes of a transaction, which pays them from that record. The one-note root of `SDP_WITHDRAW` is paid as `root_gas(1)`, its constant keeping the rest, `0`. `EXECUTION_USER_STEP_GAS` and `EXECUTION_PROGRAM_DEPOSIT_GAS` price the BLAKE2b pass of the identifier over the encoded step | 2026-11-06 |
+| v8 | `EXECUTION_PROGRAM_STEP_GAS` includes the program proof, 6374 being the sum of the two measured constants. An Operation pays `EXECUTION_SIGNATURE_GAS` for each signature its proof carries, so its Execution Gas reads no state. The note sets record the root extensions and the changes of a transaction, which pays them from that record. The one-note root of `SDP_WITHDRAW` is paid as `root_gas(1)`, its constant keeping the rest, `0`. The identifiers of user steps and program deposits hash the encoded step with BLAKE2b, which their constants, measured with Poseidon2 identifiers, do not include yet | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -49,7 +49,7 @@ A transaction changing a set pays its full end of block work, the largest measur
 
 ## Bytes
 
-A transaction costs 26.8 cycles per byte for its decoding, its hash and the identifiers of its Operations. The term is integer: `len * 27 // 1000`. The inscriptions of user steps and program deposits pay through this term and the Permanent Storage Gas like any other byte. The whole encoded step is read by one more Blake2b pass, into its `user_step_id` or `program_deposit_id`, which `EXECUTION_USER_STEP_GAS` and `EXECUTION_PROGRAM_DEPOSIT_GAS` price for a step of 1 input and 1 output; the per-byte cost of that pass over longer steps joins the byte term at the next measurement.
+A transaction costs 26.8 cycles per byte for its decoding, its hash and the identifiers of its Operations. The term is integer: `len * 27 // 1000`. The inscriptions of user steps and program deposits pay through this term and the Permanent Storage Gas like any other byte. The whole encoded step is read by one more Blake2b pass, into its `user_step_id` or `program_deposit_id`. `EXECUTION_USER_STEP_GAS` and `EXECUTION_PROGRAM_DEPOSIT_GAS` were measured with identifiers hashed with Poseidon2 over the fields of the step, so that pass is not priced yet ([Limits of the measures](#limits-of-the-measures)).
 
 ## Rejected alternatives
 

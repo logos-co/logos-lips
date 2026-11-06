@@ -83,9 +83,10 @@ The Execution Gas of a Mantle Transaction is:
 ```python
 def tx_execution_gas(tx_signed, note_sets) -> int:
     # note_sets: the note sets once the Operations of the transaction have run, each
-    # recording whether an Operation created or changed it, at its execution or at the
-    # release of its withdrawal (tx_changed), and the (referenced root, covered) of each
-    # root its proofs extended by buffered commitments (tx_extended_roots)
+    # recording whether an Operation created or changed it, the posting of a channel
+    # withdrawal prepaying the change its release makes (tx_changed), and the
+    # (referenced root, covered) of each root its proofs extended by buffered
+    # commitments (tx_extended_roots)
     return (len(encode(tx_signed)) * EXECUTION_KB_GAS // 1000
             + EXECUTION_NOTE_SET_GAS * sum(note_set.tx_changed for note_set in note_sets[SDP_SET:])
             + sum(root_gas(covered) for note_set in note_sets
@@ -130,7 +131,7 @@ CHANNEL_WITHDRAW  = EXECUTION_CHANNEL_WITHDRAW_GAS + spend_gas(inputs, outputs)
 SDP_DECLARE       = EXECUTION_SDP_DECLARE_GAS + EXECUTION_SIGNATURE_GAS
                     + spend_gas(inputs, [service_note])
 SDP_WITHDRAW      = EXECUTION_SDP_WITHDRAW_GAS + EXECUTION_SIGNATURE_GAS
-                    + spend_gas([service_note], outputs) + root_gas(1)
+                    + spend_gas([service_note_nullifier], outputs) + root_gas(1)
 SDP_ACTIVE        = EXECUTION_SDP_ACTIVE_GAS + EXECUTION_SIGNATURE_GAS
 CLAIM_POW_REWARD  = EXECUTION_CLAIM_POW_REWARD_GAS
 PROGRAM_REGISTER  = EXECUTION_PROGRAM_REGISTER_GAS
@@ -163,8 +164,8 @@ and the constants of the components:
 | `EXECUTION_NULLIFIER_GAS` | 725 | insertion of a nullifier and its share of the hashing of the nullifier tree, 724,523 cycles |
 | `EXECUTION_COMMITMENT_GAS` | 24 | append of a commitment, 23,069 cycles |
 | `EXECUTION_SIGNATURE_GAS` | 161 | Ed25519 signature, 160,462 cycles |
-| `EXECUTION_USER_STEP_GAS` | 195 | a user step beyond its spend, the BLAKE2b pass of its `user_step_id` over its bytes included, 194,249 cycles |
-| `EXECUTION_PROGRAM_DEPOSIT_GAS` | 267 | a program deposit beyond its spend and the append of its commitments to the root of the program spend consuming it, the BLAKE2b pass of its `program_deposit_id` over its bytes included, 266,888 cycles |
+| `EXECUTION_USER_STEP_GAS` | 195 | a user step beyond its spend, 194,249 cycles, measured with its identifier hashed with Poseidon2 over its channel, inscription hash, nullifiers and commitments |
+| `EXECUTION_PROGRAM_DEPOSIT_GAS` | 267 | a program deposit beyond its spend and the append of its commitments to the root of the program spend consuming it, 266,888 cycles, measured with its identifier hashed with Poseidon2 over its fields |
 | `EXECUTION_PROGRAM_STEP_GAS` | 6374 | a program step beyond its spend, the program deposits it consumes and its openings, with the verification of its program proof under its registered key, 53,182 + 6,319,522 cycles |
 | `EXECUTION_OPENING_GAS` | 151 | the commitment of an opened program note, 150,974 cycles |
 
@@ -176,7 +177,7 @@ The fixed costs of a block, paid once whatever its transactions, are deducted fr
 
 ## Transaction bytes
 
-Decoding a transaction, hashing it into its `mantle_txhash` and deriving the identifier of each of its Operations each read every byte of it. Measured on inscriptions whose payload goes from 0 to 16,384 bytes, a transaction costs 26.8 cycles per byte beyond its fixed parts. Alone, decoding costs 2.4 cycles per byte and each Blake2b pass 3.5. The inscription of a user step or of a program deposit pays like any other byte of the transaction. The whole encoded step, its inscription included, is read by one more Blake2b pass, into its `user_step_id` or `program_deposit_id`, which `EXECUTION_USER_STEP_GAS` and `EXECUTION_PROGRAM_DEPOSIT_GAS` price for a step of 1 input and 1 output; the per-byte cost of that pass over a longer step joins the byte term when the transaction bytes are measured again with steps.
+Decoding a transaction, hashing it into its `mantle_txhash` and deriving the identifier of each of its Operations each read every byte of it. Measured on inscriptions whose payload goes from 0 to 16,384 bytes, a transaction costs 26.8 cycles per byte beyond its fixed parts. Alone, decoding costs 2.4 cycles per byte and each Blake2b pass 3.5. The inscription of a user step or of a program deposit pays like any other byte of the transaction. The whole encoded step, its inscription included, is read by one more Blake2b pass, into its `user_step_id` or `program_deposit_id`. That pass is not in the measures: `EXECUTION_USER_STEP_GAS` and `EXECUTION_PROGRAM_DEPOSIT_GAS` were measured with identifiers hashed with Poseidon2 over the fields of the step and the Blake2b hash of its inscription.
 
 ## Proofs
 
@@ -320,7 +321,7 @@ The validation checks that the declaration exists, the nonce, the signature of t
 | Step | Cycles |
 | --- | --- |
 | Claim | 591,975 |
-| of which the re-derivation of the puzzle ticket, one `zkhash` over four field elements | 138,681 |
+| of which the re-derivation of the puzzle ticket, measured as one `zkhash` over five field elements, the ticket hashing four | 138,681 |
 
 The validation re-derives the ticket, compares it to the reward difficulty, checks that the referenced block is canonical and within the acceptance window, that the ticket is not in the nullifier set and that the pool covers a reward. The execution inserts the nullifier, derives the note and appends its commitment, and decrements the pool. A claim pays its fee out of the reward it creates, so the per-claim reward clears the Permanent Storage fee of the transaction, these 592 Execution Gas and the Execution Gas of its bytes, and the Execution Gas of the Transfer spending the reward note.
 

@@ -1339,7 +1339,7 @@ class WithdrawProof:
 
 #### Execution Gas
 
-  SDP Withdraw Operations have an Execution Gas cost of `EXECUTION_SDP_WITHDRAW_GAS + EXECUTION_SIGNATURE_GAS + spend_gas([service_note], outputs) + root_gas(1)`: the root of an MMR holding only the service note is the root of the empty MMR extended by that one commitment, priced as any root extension. See [Gas Determination](#gas-determination) for `spend_gas`, `root_gas` and the Execution Gas values.
+  SDP Withdraw Operations have an Execution Gas cost of `EXECUTION_SDP_WITHDRAW_GAS + EXECUTION_SIGNATURE_GAS + spend_gas([service_note_nullifier], outputs) + root_gas(1)`: the root of an MMR holding only the service note is the root of the empty MMR extended by that one commitment, priced as any root extension. See [Gas Determination](#gas-determination) for `spend_gas`, `root_gas` and the Execution Gas values.
 
 #### Validation
 
