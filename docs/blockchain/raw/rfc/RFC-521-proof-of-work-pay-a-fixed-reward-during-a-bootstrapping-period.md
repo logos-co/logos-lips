@@ -13,6 +13,7 @@
 | v5 | The caps are calibrated on a claim ticket of 4 permutations, so a board does find a claim about every 3 days | 2026-11-06 |
 | v6 | The base case moves to a token price of $0.05, and the analysis compares stakes of 50,000, 30,000, 20,000 and 10,000 | 2026-11-06 |
 | v7 | The seed is paced over one epoch more than the period, and the target after it pays out a ninety-ninth of the pool per epoch | 2026-11-06 |
+| v8 | Corrections from the review: the constraints on rewards and shares, service rewards of 4.93M LOGOS a month, the assumptions of the model, the smoothing table, and two more open questions. Block Rewards says its projection leaves out claims | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -55,6 +56,7 @@ The figures come from a simulation of the 98 epochs:
 - The pool holds 200M LOGOS. Only its fee share of claim fees refills it. Fees from other traffic would add to it.
 - Each newcomer runs one board, and newcomers arrive at a steady rate `a` per month for the whole period.
 - A board's claims per epoch follow a Poisson distribution. Total claims per epoch are the lesser of what boards find and the target rate.
+- The retarget overshoots its target by about 0.2% at 0.28 claims per block, so the payout at the target is `R = 200M / 99 * 1.002 * 4`, 8.10M LOGOS a month.
 - Every claim pays a fee for its 365-byte transaction, at a storage price that follows [Storage Markets](../storage-markets.md) with claims as the only storage use.
 - A newcomer is **onboarded** when its rewards, minus the fees of its claims and of its declaration, reach the stake by epoch 98.
 - A node either **stops** mining at the claim that completes its stake or **keeps mining** until the end.
@@ -78,7 +80,7 @@ The rented costs come from an October 2026 survey of plans. No server hash rate 
 | Apple M4 Pro someone already owns | about $14 of electricity, at an assumed 65 W | 14.4 | about $1 | not applicable |
 | Raspberry Pi 5 at home | about $2.15 of electricity | 1 | $2.15 | not applicable |
 | Contabo Cloud VPS 4, 4 shared vCPUs | $6.12 | 1.5 | $4.08 | prohibited |
-| Contabo Cloud VDS S, 6 dedicated threads | $48 on a 24-month term | 2.25 | $21.30 | allowed |
+| Contabo Cloud VDS S, 6 dedicated threads | $48 on a 24-month term | 2.25 | $21.33 | allowed |
 
 A board's income depends on how many boards mine. Up to 2,424 boards each earns the income of the minimum work. Above that the target holds the payout at 8.10M LOGOS a month, and they share it.
 
@@ -99,7 +101,7 @@ The token prices up to which a board's income at the minimum work stays below ea
 | $2.15 | $0.00064 | $0.0064 |
 | $4.08 | $0.0012 | $0.012 |
 | $6.12 | $0.0018 | $0.018 |
-| $21.30 | $0.0064 | $0.064 |
+| $21.33 | $0.0064 | $0.064 |
 
 So at $0.05 a board's income at the minimum work, $167, is 41 times the rent of $4.08. Outsiders join above $0.0012, and the target brings the income back to the rent, as [Outside mining](#outside-mining) shows. The liquid part alone, $16.70, is also above the rent, so a miner that counts only its liquid income joins too, above $0.012. Holding the whole income below the rent at $0.05 by the minimum work alone would need a claim about every 123 days. That puts even a stake of 10,000 at 122.5 months, five times the period.
 
@@ -113,7 +115,7 @@ Average income over the period, per newcomer's board, with miners that keep mini
 | 1,000 newcomers a month, no outsiders | 630 | 330 | $31.50 | $3.15 |
 | 100 newcomers a month, outsiders renting at $4.08 | 210 | 82 | $10.50 | $1.05 |
 
-Claim fees take 0.3% to 1.8% of this. A node that has declared also earns service rewards, about 5.0M / `N` LOGOS a month among `N` providers while total stake is below 28.8% of the cap. That covers a $6.12 machine at $0.05 up to about 41,000 providers. Providing a service therefore pays for the machine. Once outsiders have joined, mining pays a board no more than its cost.
+Claim fees take 0.3% to 1.8% of this. A node that has declared also earns service rewards, about 4.93M / `N` LOGOS a month among `N` providers while total stake is below 28.8% of the cap. That covers a $6.12 machine at $0.05 up to about 40,000 providers. Providing a service therefore pays for the machine. Once outsiders have joined, mining pays a board no more than its cost.
 
 ## Outside mining
 
@@ -138,10 +140,10 @@ The table simulates outside boards that start at 100 and grow by 25% an epoch wh
 | $0.01 | $4.08 | 19,846 | 408 | 122.5 / 73.5 / 49 / 24.5 | 0 / 0 / 82 / 410 | 91% |
 | $0.05 | $4.08 | 99,228 | 82 | 612.7 / 367.6 / 245.1 / 122.5 | 0 / 0 / 5 / 210 | 97% |
 | $0.10 | $4.08 | 198,455 | 41 | 1,225.5 / 735.3 / 490.2 / 245.1 | 0 / 0 / 2 / 190 | 97% |
-| $0.005 | $21.30 | no outsiders join | 3,340 | 15 / 9 / 6 / 3 | 920 / 1,530 / 1,850 / 2,160 | 0% |
-| $0.01 | $21.30 | 3,801 | 2,130 | 23.5 / 14.1 / 9.4 / 4.7 | 190 / 1,040 / 1,490 / 1,970 | 64% |
-| $0.05 | $21.30 | 19,007 | 426 | 117.4 / 70.4 / 46.9 / 23.5 | 0 / 0 / 97 / 440 | 91% |
-| $0.10 | $21.30 | 38,014 | 213 | 234.7 / 140.8 / 93.9 / 46.9 | 0 / 0 / 24 / 280 | 95% |
+| $0.005 | $21.33 | no outsiders join | 3,340 | 15 / 9 / 6 / 3 | 920 / 1,530 / 1,850 / 2,160 | 0% |
+| $0.01 | $21.33 | 3,796 | 2,133 | 23.4 / 14.1 / 9.4 / 4.7 | 200 / 1,030 / 1,490 / 1,980 | 64% |
+| $0.05 | $21.33 | 18,980 | 427 | 117.2 / 70.3 / 46.9 / 23.4 | 0 / 0 / 97 / 430 | 91% |
+| $0.10 | $21.33 | 37,960 | 213 | 234.4 / 140.6 / 93.8 / 46.9 | 0 / 0 / 22 / 280 | 95% |
 | $0.001 | $2.15 | 3,766 | 2,150 | 23.3 / 14 / 9.3 / 4.7 | 210 / 1,040 / 1,510 / 1,980 | 63% |
 | $0.002 | $2.15 | 7,532 | 1,075 | 46.5 / 27.9 / 18.6 / 9.3 | 0 / 160 / 590 / 1,490 | 81% |
 | $0.01 | $2.15 | 37,660 | 215 | 232.6 / 139.5 / 93 / 46.5 | 0 / 0 / 22 / 270 | 94% |
@@ -156,7 +158,7 @@ What this shows:
 - At $0.05 and $4.08 only the two lower stakes onboard anyone: 5 nodes at 20,000 and 210 at 10,000, and none at 30,000 or 50,000.
 - Where a board would need longer than the period, the nodes counted are early arrivals, which mine at the minimum work before outsiders come. The counts therefore depend on when outsiders arrive. At $0.05 and $4.08 they are 0 / 2 / 160 / 460 from 10 starting boards and 0 / 0 / 0 / 11 from 1,000. They are 0 at every stake from 10,000 starting boards, or with outsiders there at launch.
 - Outsiders do not get a free pool, since they pay for each LOGOS in rent. They hold what they mine, 90% of it locked for a year, and could stake it. At $0.05 they mine about 173M LOGOS for about $8.6M of rent, enough for about 3,500, 5,800, 8,600 or 17,300 stakes, so stakes still form, for whoever mines most.
-- Rented plans that may mine cost $21.30 a board. At $0.05 outsiders join there as well, if a vested LOGOS is worth at least 3% of a liquid one. A board then earns 426 LOGOS a month, and the nodes are 0 / 0 / 97 / 440.
+- Rented plans that may mine cost $21.33 a board. At $0.05 outsiders join there as well, if a vested LOGOS is worth at least 3% of a liquid one. A board then earns 427 LOGOS a month, and the nodes are 0 / 0 / 97 / 430.
 - Hash rate someone already owns costs only electricity, so it joins at lower prices than any rented plan. At $0.05 and $1 a board it leaves 20 LOGOS a month, so a board needs 500 months to reach 10,000. About 28,000 machines like the M4 Pro reach that income. Nodes fall to 0 / 0 / 1 / 180, and to none if 20,000 of those boards are there at launch.
 
 The split matters only against miners that value a vested LOGOS below a liquid one. At $0.05 and $4.08, as boards at the end and nodes at stake 50,000 / 30,000 / 20,000 / 10,000:
@@ -213,17 +215,17 @@ The review of the retarget found three problems, all of which grow as the claim 
 
 The paced target's gain here is the pool, not the node count. A target of 10 onboards more nodes at every growth rate, since a newcomer keeps the income of the minimum work until the pool is empty. A newcomer that arrives after the pool is empty earns nothing.
 
-**Smoothing of 9/10 is too fast.** The target moves about 11% on an empty block, and at 0.28 claims per block it falls 20% on a single claim. Simulated block by block at that target, saturated:
+**Smoothing of 9/10 is too fast.** The target moves about 11% on an empty block, and at 0.28 claims per block it falls 20% on a single claim. Simulated block by block at that target, saturated, with geometric gaps between blocks:
 
-| Smoothing | Rate above target | Swing of the target (standard deviation of its log) | Claims rejected after a delay of 10 blocks | Gain from holding a near miss for the window | Best hopper's income per hash, against a steady miner | Payout under that hopper | Time to follow a flood of 50 times | Time back to the cap after a flood of 5 times |
+| Smoothing | Rate above target | Swing of the target (standard deviation of its log) | Tickets rejected after a delay of 10 blocks | Gain from holding a near miss for the window | Income per hash of a hopper at 18 times the target, against a steady miner | Payout under that hopper | Time to follow a flood of 50 times | Time back to the cap after a flood of 5 times |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 9/10 | +23% | 46% | 26% | +43% | 1.60 times | 1.48 times the target | 6 minutes | 7 minutes |
-| 99/100 | +2.2% | 15% | 4.8% | +4.2% | 1.11 times | 1.04 times the target | 110 minutes | 128 minutes |
-| 999/1000 | +0.2% | 4.6% | 0.5% | +0.4% | 1.01 times | 1.01 times the target | 16 hours | 18.5 hours |
+| 9/10 | +23% | 46% | 22% | +43% | 1.58 times | 1.49 times the target | 8 minutes | 10 minutes |
+| 99/100 | +2.3% | 15% | 3.1% | +4.2% | 1.08 times | 1.04 times the target | 104 minutes | 2.5 hours |
+| 999/1000 | +0.2% | 4.4% | 0.33% | +0.4% | 1.00 times | 1.01 times the target | 18.8 hours | 28.6 hours |
 
-A claim travels through Blend, so a miner holds a ticket found against one target and it is checked against a later one. A hopper mines only while the target is easy, so a faster controller pays it more. The same smoothing also helps after the period. At 2.07 claims per block, 9/10 swings the target by 27% and rejects about 12% of claims after that delay, and 999/1000 swings it by 2.8% and rejects 0.15%.
+The time to follow runs until the target is within 10% of its new level, and the time back until it is within 10% of the cap. Rejected tickets are weighted by the rate at which they are found. A claim travels through Blend, so a miner holds a ticket found against one target and it is checked against a later one. A hopper mines only while the target is easy, so a faster controller pays it more. The hopper in the table is not the best one: at 1,800 times the target and a low duty, a hopper gets up to about 3.4, 1.9 and 1.2 times per hash. The same smoothing also helps after the period. At 2.07 claims per block, 9/10 swings the target by 27% and rejects about 12% of claims after that delay, and 999/1000 swings it by 2.8% and rejects 0.15%.
 
-The cost of 999/1000 is its slow response, and it is small. Before the target catches up with a sudden flood of 50 times, the flood takes about 1,200 extra claims, about 400k LOGOS, 0.2% of the pool.
+The cost of 999/1000 is its slow response, and it is small. Before the target catches up with a sudden flood of 50 times, the flood takes about 1,100 extra claims, about 360k LOGOS, 0.2% of the pool.
 
 **The rule cannot express a target below 1.** `TARGET_CLAIMS_PER_BLOCK` is an integer. A fraction put straight into the rule would also hit the floor of `demand` below about 0.1 claims per block, and tighten the target on every block, even an empty one.
 
@@ -266,7 +268,7 @@ A faster pace reduces this cost and empties the pool sooner. Outsiders here are 
 
 This RFC uses a pace of 1. It is the one case where the pool lasts the period, which is what a two-year period means. A late newcomer therefore still earns, 82 LOGOS a month at $0.05, and the target holds a board's income at the cost of hash rate for all of that time. A pace of 1 onboards the fewest nodes. With outsiders a target of 10 gives 0 / 0 / 110 / 410 against 0 / 0 / 5 / 210, since those nodes are the early arrivals. Without outsiders a faster pace gives more at high arrival rates. At or below about 100 newcomers a month, with one claim every 3 days and no outsiders, the paced target and a target of 10 agree.
 
-The pace is one epoch slower than the period, so that the pool keeps about 1% of its seed as a margin. The retarget overshoots its target by about 0.2%, a flood at launch takes about 1,200 extra claims before the target catches up, and a miner that hops in and out adds a little more. At a pace over 98 epochs, a chain at the target from the first block would empty the pool at about epoch 97.8, and claims would then fail until epoch 98. What the period leaves at $0.05 and $4.08:
+The pace is one epoch slower than the period, so that the pool keeps about 1% of its seed as a margin. The retarget overshoots its target by about 0.2%, a flood at launch takes about 1,100 extra claims before the target catches up, and a miner that hops in and out adds a little more. At a pace over 98 epochs, a chain at the target from the first block would empty the pool at about epoch 97.8, and claims would then fail until epoch 98. What the period leaves at $0.05 and $4.08:
 
 | How outsiders arrive | Pool left at epoch 98 |
 | --- | --- |
@@ -394,23 +396,23 @@ No stake and onboarding time in these tables passes the two rent checks at $0.05
 
 Each stake at $0.05, with one claim every 3 days and 100 newcomers a month. Outsiders start from 100 boards unless the column says otherwise.
 
-| Stake | Cost at $0.05 | Months on one board, no outsiders / outsiders at $4.08 | Nodes, no outsiders | Nodes, outsiders at $4.08 | Nodes, from 10 boards | Nodes, from 1,000 boards | Nodes, outsiders at $21.30 | Nodes, owned hash at $1 |
+| Stake | Cost at $0.05 | Months on one board, no outsiders / outsiders at $4.08 | Nodes, no outsiders | Nodes, outsiders at $4.08 | Nodes, from 10 boards | Nodes, from 1,000 boards | Nodes, outsiders at $21.33 | Nodes, owned hash at $1 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 50,000 | $2,500 | 15 / 612.7 | 920 | 0 | 0 | 0 | 0 | 0 |
 | 30,000 | $1,500 | 9 / 367.6 | 1,530 | 0 | 2 | 0 | 0 | 0 |
 | 20,000 | $1,000 | 6 / 245.1 | 1,850 | 5 | 160 | 0 | 97 | 1 |
-| 10,000 | $500 | 3 / 122.5 | 2,160 | 210 | 460 | 11 | 440 | 180 |
+| 10,000 | $500 | 3 / 122.5 | 2,160 | 210 | 460 | 11 | 430 | 180 |
 
 With outsiders at $4.08 there at launch, no stake onboards anyone. A stake can still be bought at the same price it costs to mine, so these counts measure the route through one board, and not how many providers can exist.
 
-Service rewards decide that, and one operator can take them. `Providers supported` is the count at which service rewards pay for a $6.12 machine and 10% a year on the stake, `5.0M * p / (6.12 + 0.1 * S * p / 12)`. The return is what a provider earns on its stake at $0.05 with 8,191 providers: 610 LOGOS a month, $30.52, less the $6.12 machine.
+Service rewards decide that, and one operator can take them. `Providers supported` is the count at which service rewards pay for a $6.12 machine and 10% a year on the stake, `4.93M * p / (6.12 + 0.1 * S * p / 12)`. The return is what a provider earns on its stake at $0.05 with 8,191 providers: 602 LOGOS a month, $30.09, less the $6.12 machine.
 
 | Stake | Providers supported at $0.01 / $0.05 / $0.10 | Return a year on the stake | Stakes outsiders mine | Identities one operator needs to reach 8,191 providers | What they cost at $0.05 |
 | --- | --- | --- | --- | --- | --- |
-| 50,000 | 4,861 / 9,275 / 10,463 | 12% | 3,459 | 8,191 | $20.5M |
-| 30,000 | 5,800 / 13,426 / 16,067 | 20% | 5,764 | 8,191 | $12.3M |
-| 20,000 | 6,421 / 17,297 / 21,943 | 29% | 8,646 | 8,186 | $8.2M |
-| 10,000 | 7,191 / 24,303 / 34,594 | 59% | 17,293 | 7,982 | $4.0M |
+| 50,000 | 4,793 / 9,145 / 10,317 | 12% | 3,459 | 8,191 | $20.5M |
+| 30,000 | 5,719 / 13,238 / 15,842 | 19% | 5,764 | 8,191 | $12.3M |
+| 20,000 | 6,331 / 17,055 / 21,635 | 29% | 8,646 | 8,186 | $8.2M |
+| 10,000 | 7,090 / 23,963 / 34,110 | 58% | 17,293 | 7,982 | $4.0M |
 
 - At $0.05 every stake supports more providers than the 8,191 at which the activity proof starts failing by chance. So that proof has to change first, whichever stake is chosen.
 - A lower stake makes identities cheaper. Outsiders mine enough to fill the 8,191 at 20,000 and 10,000. At 30,000 and 50,000 an operator would buy the rest.
@@ -451,9 +453,9 @@ At 90-10 a stake forms from vested notes alone in about the same time, and the n
 
 ## Stopping
 
-No rule can make a node stop, because every claim pays a fresh key. Service rewards of 5.0M / `N` LOGOS a month exceed a board's 3,340 LOGOS below 1,500 providers, and its 82 LOGOS at $0.05 and $4.08 below about 61,000. But Blend uses at most one of a board's four cores, so a provider can also keep mining on the others. Stop is therefore an upper bound on the count, and keep mining the expected case.
+No rule can make a node stop, because every claim pays a fresh key. Service rewards of 4.93M / `N` LOGOS a month exceed a board's 3,340 LOGOS below about 1,500 providers, and its 82 LOGOS at $0.05 and $4.08 below about 60,000. But Blend uses at most one of a board's four cores, so a provider can also keep mining on the others. Stop is therefore an upper bound on the count, and keep mining the expected case.
 
-More providers are not always better. Service rewards still cover a $6.12 machine at $0.05 up to about 41,000 providers, so at this price the activity proof sets the limit. On cover traffic alone it fails by chance under 0.05% of the time up to 8,191 providers, 6.6% at 8,192 and 11% at 10,000, and data traffic lowers these. With `inactivity_period` at 2, a failed proof costs a locked provider epochs until its lock ends. At 6.6% about 27% of locked providers are out for good within a year, and at 11% about 57%. The pool can pay for 10,000 stakes of 20,000 and 20,000 stakes of 10,000, more than that limit, and for 6,667 of 30,000 and 4,000 of 50,000, fewer.
+More providers are not always better. Service rewards still cover a $6.12 machine at $0.05 up to about 40,000 providers, so at this price the activity proof sets the limit. On cover traffic alone it fails by chance under 0.05% of the time up to 8,191 providers, 6.6% at 8,192 and 11% at 10,000, and data traffic lowers these. With `inactivity_period` at 2, a failed proof costs a locked provider epochs until its lock ends. At 6.6% about 27% of locked providers are out for good within a year, and at 11% about 57%. The pool can pay for 10,000 stakes of 20,000 and 20,000 stakes of 10,000, more than that limit, and for 6,667 of 30,000 and 4,000 of 50,000, fewer.
 
 ## After epoch 98
 
@@ -542,6 +544,8 @@ The chain has not launched, so no migration is needed. Claims, their encoding an
 - **Storage price.** The price still follows growth in usage and not its level. The derived reward copes with that, and the price itself would need an anchor in its own RFC. During the period the model counts claims as the only storage use, and other traffic changes its path.
 - **Fees during the period.** The reward stays fixed during the period, so the liquid part of 33.4 LOGOS falls short above about 114 times the starting price. With traffic growing from 1 to 130 per block that is from epoch 94, and from 1 per hour to 130 per block it is from epoch 71. A miner then pays the fee from other funds.
 - **The reference transaction.** 632 bytes is this RFC's choice of an average transaction, to revise once real sizes are known.
+- **Bursts of claims.** A miner can land the tickets of a whole window in one block, since a block's claims lower the target by less than the same claims spread over blocks. Against about 100,000 boards, a burst of 1,000,000 boards earns 1.24 times per hash and lifts the payout by 2%, more than the margin of 1%. Against 2,424 boards, the same burst lifts it by 50%, and the pool lasts 66 epochs. A limit on the claims of a block, or a step of the retarget per claim, would stop this. This RFC adds neither.
+- **Vested notes after the period.** A vested note is worth the storage fee of 271 bytes at the price of its epoch, and the Transfer that spends it a year later costs 235 bytes. Above a 15% rise in the price over that year, it is not worth spending alone.
 - **The puzzle.** Which puzzle replaces `zkhash` for rewards is not settled. Equi-X has a benchmark, and its author has since deprecated it in favour of HashWX, which has none here.
 
 # Details
@@ -635,6 +639,7 @@ The check `assert epoch_pow_reward > 0` goes, since `POW_BOOTSTRAP_REWARD` is a 
 
 - The Overview of Proof of Work says what a claim pays in each period, and the target rate of each.
 - The Notation of Proof of Work drops the distribution rate and `T`.
+- Block Rewards says its projected growth leaves out the claims paid from the pool.
 
 # Implementation
 
@@ -657,3 +662,4 @@ The check `assert epoch_pow_reward > 0` goes, since `POW_BOOTSTRAP_REWARD` is a 
 | [Proof of Work](../proof-of-work.md) | Modified | Revision 1.4.0 |
 | [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | Revision 2.5.0 |
 | [Genesis Block](../bedrock-genesis-block.md) | Modified | Revision 1.4.0 |
+| [Block Rewards](../block-rewards.md) | Modified | Revision 1.4.1 |
