@@ -10,6 +10,7 @@
 | v2 | Binds the `note_pk`, which now holds the stake, in place of the `zk_id`; corrects the cost per input | 2026-11-05 |
 | v3 | The `note_pk` secret alone withdraws, so a sale of the stake needs trust; every declaration with a spend is bound; wallets recover their declarations | 2026-11-05 |
 | v4 | Follows the nullifier and staking keys of the stack; one derivation function for the keys of claims and of the `note_pk`; the binding drops the active flag | 2026-11-06 |
+| v5 | Follows the staking key of a declaration and the service rewards going to its two keys: binding the `note_pk` now covers the rewards, the `zk_id` holds no funds, and the `note_stake_pk` stays free | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -29,17 +30,19 @@ Read the PR's Motivation first.
 
 ## What the binding prevents
 
-Without it, `SDP_DECLARE` creates the service note under any `note_pk` it names. The holder of the spending secret key of the `note_pk` can lead with the service note and withdraws it once the lock ends. A seller can stake its vested notes under a buyer's `note_pk`, in one transaction with a Transfer paying the seller, and the buyer then holds the locked stake.
+Without it, `SDP_DECLARE` creates the service note under any `note_pk` it names. The holder of the spending secret key of the `note_pk` spends the service rewards and withdraws the service note once the lock ends. A seller can stake its vested notes under a buyer's `note_pk`, in one transaction with a Transfer paying the seller, and the buyer then holds the locked stake.
 
 With the binding, the `note_pk` derives from the stake secret of the vested notes, so only the miner can declare them, and the miner can always derive the spending secret key of the `note_pk` again. That key alone withdraws the declaration. A seller can still hand it to a buyer off chain, but it can also withdraw the stake itself once it unlocks, so the buyer has to trust the seller. No protocol can prevent such a sale.
 
-Withdrawing used to take a `provider_id` signature as well. A seller could then name the buyer's `provider_id`, hand over the key, and be shut out of the withdrawal, so the sale needed no trust. Without the signature, a leaked spending secret key of the `note_pk` is enough to withdraw. The host of a node, which holds the `provider_id`, the key of the `zk_id` and at most the nullifier key of the service note, still cannot.
+Withdrawing used to take a `provider_id` signature as well. A seller could then name the buyer's `provider_id`, hand over the key, and be shut out of the withdrawal, so the sale needed no trust. Without the signature, a leaked spending secret key of the `note_pk` is enough to withdraw. The host of a node, which holds the `provider_id`, the key of the `zk_id` and at most the nullifier key and the staking secret key of the service note, still cannot.
 
 The binding covers notes already claimed. A buyer can still hand a miner public keys derived from its own stake secret. The puzzle binds the key of a claim, so the miner's claims then vest under the buyer's keys, and no rule tells this apart from the buyer mining.
 
-## The `zk_id` stays free
+## The `note_stake_pk` stays free
 
-The `zk_id` receives the service rewards of the declaration and is the key of its Proof of Quota. A miner can therefore direct the service rewards of its locked stake to another party, without trust. Binding the `zk_id` as well would make such a sale need trust too, for one more key derivation in every ZkStake.
+The service rewards of a declaration go to its `note_pk` and `note_stake_pk`, so binding the `note_pk` covers them too: the miner can always derive the key that spends them. The `zk_id` holds no funds and needs no binding.
+
+The `note_stake_pk` stays free. A miner can name a buyer's `note_stake_pk` and hand over the nullifier key of the `note_pk`. Only the buyer can then lead with the service note and the service rewards, and the leader rewards go to any key it chooses. A miner can therefore sell the lottery of its locked stake without trust until the lock ends, but not the stake or the service rewards. Requiring the `note_stake_pk` to equal the `note_pk` would make such a sale need trust too, for one check in `SDP_DECLARE`, and would take a separate staking key away from every declaration with a spend.
 
 ## Why one stake secret
 
