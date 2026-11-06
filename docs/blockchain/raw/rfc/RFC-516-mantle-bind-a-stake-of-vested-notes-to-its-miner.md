@@ -93,7 +93,7 @@ A miner pays each claim to the public key of `derive_spending_sk(stake_secret, i
 
 ```diff
  class ZkStakePublic:
-     # ... inputs, flags, excess_value, tx_commitment_root unchanged
+     # ... inputs, flags, value, tx_commitment_root unchanged
      spending_slot: Slot
 +    note_pk: ZkPublicKey            # the key of the service note of the declaration
      msg: zkhash
