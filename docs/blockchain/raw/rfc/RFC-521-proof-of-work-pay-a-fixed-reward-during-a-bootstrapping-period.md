@@ -15,6 +15,7 @@
 | v7 | The seed is paced over one epoch more than the period, and the target after it pays out a ninety-ninth of the pool per epoch | 2026-11-06 |
 | v8 | Corrections from the review: the constraints on rewards and shares, service rewards of 4.93M LOGOS a month, the assumptions of the model, the smoothing table, and two more open questions. Block Rewards says its projection leaves out claims | 2026-11-06 |
 | v9 | The reward per claim during the period becomes 100 LOGOS, and its cap moves so that a board's income stays about the same. A new section compares other values | 2026-11-06 |
+| v10 | The reward puzzle is HashWX. The two caps follow its measured rate, and a claim transaction falls to 341 bytes and the reference transaction to 608 | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -177,16 +178,16 @@ So 90-10 keeps out neither a patient miner nor, at $0.05, a miner that counts on
 
 The reward of 100 LOGOS depends on replacing the reward puzzle first. `zkhash` is a small arithmetic kernel over one field, which dedicated hardware accelerates well, and no GPU has been measured on it. At this reward a board earns up to $167 a month at $0.05, so acceleration would pay. `POW_BOOTSTRAP_REWARD` should therefore not take this value while claims use `zkhash`. Blend admission keeps `zkhash`, since its solution is proven in a circuit.
 
-A replacement addresses GPUs and dedicated hardware. It does not address desktops, which stay ahead of a board on both puzzles. In boards, where a board is 165,565 permutations a second on `zkhash` and 187 solves a second on [Equi-X](https://github.com/logos-blockchain/research/blob/blend-header-verification-benchmark/reports/EmPoWering/Equi-X/benchmark-findings/findings.md):
+The replacement is [HashWX](../common-cryptographic-components.md#hashwx). It addresses GPUs: its author reports 5.6 MH/s on an RTX 5060 Ti at 180 W, from a private solver. It claims no resistance to dedicated hardware. It does not address desktops, which stay ahead of a board on both puzzles. An Apple M4 Pro mines 5.0 to 6.0 MH/s on HashWX, measured, and no board has been measured yet. In boards, where a board is 165,565 permutations a second on `zkhash` and `HASHWX_MACHINE_RATE` hashes a second on HashWX:
 
-| Machine | `zkhash` | Equi-X |
+| Machine | `zkhash` | HashWX |
 | --- | --- | --- |
-| Apple M4 Pro, 14 threads | 14.4 | 15.3 |
-| Intel Core Ultra 9 285HX, 24 cores | not measured | 23.8 |
+| Apple M4 Pro, 14 threads | 14.4 | TBD |
+| Intel Core Ultra 9 285HX, 24 cores | not measured | TBD |
 
 Owned hash rate at about $1 a board therefore stays the lower bound after the replacement.
 
-The two caps and the retarget are stated in terms of `zkhash`. A new puzzle needs them restated, with the caps taken from measurements on a board. The size and fee of a claim may change too. The income and node figures of this RFC are per board, so they carry over once the caps are restated.
+The two caps are stated in `HASHWX_MACHINE_RATE`, which is TBD until a board is measured. The income and node figures of this RFC are per board, so they carry over.
 
 ## The cost of a claim ticket
 
@@ -600,7 +601,7 @@ The chain has not launched, so no migration is needed. Claims, their encoding an
 - **The reference transaction.** 632 bytes is this RFC's choice of an average transaction, to revise once real sizes are known.
 - **Bursts of claims.** A miner can land the tickets of a whole window in one block, since a block's claims lower the target by less than the same claims spread over blocks. Against about 100,000 boards, a burst of 1,000,000 boards earns 1.24 times per hash and lifts the payout by 2%, more than the margin of 1%. Against 2,429 boards, the same burst lifts it by 46%, and the pool lasts 68 epochs. A limit on the claims of a block, or a step of the retarget per claim, would stop this. This RFC adds neither.
 - **Vested notes after the period.** A vested note is worth the storage fee of 271 bytes at the price of its epoch, and the Transfer that spends it a year later costs 235 bytes. Above a 15% rise in the price over that year, it is not worth spending alone.
-- **The puzzle.** Which puzzle replaces `zkhash` for rewards is not settled. Equi-X has a benchmark, and its author has since deprecated it in favour of HashWX, which has none here.
+- **The puzzle.** The reward puzzle is HashWX, whose rate on a board is not measured yet. A claim transaction of 341 bytes loads the storage market less than one of 365, so the price of about 31 times its start needs recomputing.
 
 # Details
 
@@ -697,7 +698,7 @@ The check `assert epoch_pow_reward > 0` goes, since `POW_BOOTSTRAP_REWARD` is a 
 
 # Implementation
 
-- [ ] Land this after the reward puzzle is replaced, and restate the two caps and the retarget for the new puzzle, as [Dependence on the puzzle](#dependence-on-the-puzzle) says.
+- [ ] Land this after the reward puzzle is replaced, as [Dependence on the puzzle](#dependence-on-the-puzzle) says.
 - [ ] Add the constants of the period and change the shares, the smoothing, the floor and the cap, with the values chosen from [Ranges that work](#ranges-that-work).
 - [ ] Set `epoch_pow_reward` and `epoch_pow_vested_share` by epoch at each epoch boundary and at genesis, after the storage price of the new epoch, and remove the reward computed from the pool.
 - [ ] Apply the target and the cap by the epoch of the processed block, reading the reward of the epoch and the pool after that block, and start `difficulty_reward` at `POW_BOOTSTRAP_TARGET_CAP`.

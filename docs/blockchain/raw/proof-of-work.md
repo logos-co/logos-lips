@@ -23,7 +23,8 @@
 | 1.1.0 | Set the reference load of the Blend difficulty to the transaction rate the Blend network carries, `F_T / F_D = 130` transactions per block | 2026-09-11 |
 | 1.2.0 | A reward claim searches a nonce for the public key to be paid and carries no signature. Each block credits its fee share to the pool, and the reward per claim stays fixed for the epoch | 2026-10-06 |
 | 1.3.0 | [RFC] A claim pays `POW_VESTED_SHARE / SHARE_DEN` of its reward as a note vesting for `VESTING_EPOCHS` epochs, and the rest as a liquid note | 2026-11-06 |
-| 1.4.0 | [RFC] A claim pays a fixed reward during a bootstrapping period of `POW_BOOTSTRAP_EPOCHS` epochs, and after it a reward derived from the storage price. The reward threshold is paced to the pool and smooths more slowly. The pool is seeded with two hundredths of the maximum supply | 2026-11-06 |
+| 1.4.0 | [RFC] A reward claim solves HashWX in place of `zkhash`, against a 64-bit target | 2026-11-06 |
+| 1.5.0 | [RFC] A claim pays a fixed reward during a bootstrapping period of `POW_BOOTSTRAP_EPOCHS` epochs, and after it a reward derived from the storage price. The reward threshold is paced to the pool and smooths more slowly. The pool is seeded with two hundredths of the maximum supply | 2026-11-06 |
 
 # Introduction
 
@@ -31,24 +32,27 @@ Posting a transaction to the chain or sending a message through the Blend networ
 
 Proof of work removes this obstacle. A participant who has computed a puzzle solution may use it to post transactions and to send messages through Blend. Neither use has a prerequisite beyond the computation itself. The cost is the hardware and the electricity it burns, and it cannot be faked, since a valid ticket proves the work, and a validator checks it cheaply.
 
+A Blend solution is proven inside the [Proof of Quota](proof-of-quota.md) circuit, and its puzzle is `zkhash`. A reward claim is checked by validators in ordinary code, and its puzzle is [HashWX](common-cryptographic-components.md#hashwx).
+
 The puzzles are measured against separate thresholds that follow separate objectives:
 
 - the reward threshold keeps the number of paid claims per block near a target,
 - and the Blend threshold keeps admission to the network affordable when the network is quiet and dearer when it is busy.
 
-This document specifies the puzzle, the two thresholds, the pow reward pool and the reward it pays per claim, and the window within which a reward may be claimed. The Blend side of the mechanism is specified in [Proof of Quota](proof-of-quota.md) and the claim Operation in [Mantle](bedrock-v1.1-mantle-specification.md#claim_pow_reward); this document holds what both depend on.
+This document specifies the two puzzles, their thresholds, the pow reward pool and the reward it pays per claim, and the window within which a reward may be claimed. The Blend side of the mechanism is specified in [Proof of Quota](proof-of-quota.md) and the claim Operation in [Mantle](bedrock-v1.1-mantle-specification.md#claim_pow_reward); this document holds what both depend on.
 
 # Overview
 
-A miner finds a solution only by trying values until one of them hashes below a threshold, so a solution costs electricity and nothing else: no tokens, no stake, no permission. Checking a solution costs a single `zkhash`.
+A miner finds a solution only by trying values until one of them hashes below a threshold, so a solution costs electricity and nothing else: no tokens, no stake, no permission. Checking a solution costs a single hash.
 
-A solution is spent on one of two things, and this is how a participant that holds nothing starts using the protocol.
+Each puzzle has one use, and this is how a participant that holds nothing starts using the protocol.
 
 ```mermaid
 graph LR
-    p["a participant with<br/>no tokens and no stake"] --> s["mines a puzzle solution"]
+    p["a participant with<br/>no tokens and no stake"] --> s["mines a Blend<br/>puzzle solution"]
+    p --> r["mines a reward<br/>puzzle solution"]
     s --> b["sends Blend messages"]
-    s --> c["claims tokens from the<br/>pow reward pool"]
+    r --> c["claims tokens from the<br/>pow reward pool"]
     c --> t["pays for transactions"]
 ```
 
@@ -56,7 +60,7 @@ The tokens come from the pow reward pool, set aside at genesis and refilled by e
 
 A share of each reward vests for a fixed period, and that share is larger in the first two years. Until then it cannot be spent in a Transfer, but it takes part in the leadership lottery and can be staked to declare a service.
 
-Each use has its own threshold, and a threshold sets how much work a solution costs. Every node computes both from what blocks carry, so no node trusts another for them.
+Each puzzle has its own threshold, and a threshold sets how much work a solution costs. Every node computes both from what blocks carry, so no node trusts another for them.
 
 The reward threshold reads the claims in a block, the only sign of mining the chain has.
 
@@ -88,37 +92,38 @@ Here the branches end apart. Nothing absorbs the load, so a Blend message costs 
 
 ```mermaid
 graph TB
-    sv["searched value"] --> tk["ticket<br/>zkhash(searched value,<br/>epoch nonce)"]
-    tk -- "does not satisfy<br/>the threshold" --> sv
-
-    tk -- "satisfies<br/>difficulty_blend" --> pq["Proof of Quota"]
+    bn["private nonce"] --> bt["ticket<br/>zkhash(nonce,<br/>epoch nonce)"]
+    bt -- "not below<br/>difficulty_blend" --> bn
+    bt -- "below<br/>difficulty_blend" --> pq["Proof of Quota"]
     pq --> bm["Blend messages"]
 
-    tk -- "satisfies<br/>difficulty_reward" --> cl["CLAIM_POW_REWARD"]
+    rn["64-bit nonce"] --> rt["ticket<br/>hashwx_ticket(challenge,<br/>nonce)"]
+    rt -- "not below<br/>difficulty_reward" --> rn
+    rt -- "below<br/>difficulty_reward" --> cl["CLAIM_POW_REWARD"]
     cl --> vc["checked in<br/>a block"]
     vc -- "a check fails" --> iv["transaction<br/>invalid"]
-    vc -- "accepted" --> ac["epoch_pow_reward<br/>paid to the key<br/>ticket spent<br/>pow_reward_pool falls"]
+    vc -- "accepted" --> ac["epoch_pow_reward<br/>paid to the key<br/>solution spent<br/>pow_reward_pool falls"]
 ```
 
-A miner picks a value and hashes it into a **ticket**. The hash is `zkhash` over the value and the [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce). For a claim, the hash also covers the tag `POW_CLAIM_V1`, the public key to be paid and the referenced block hash. Tickets and **thresholds** are numbers in $`\mathbb{F}_p`$, the BN254 scalar field of [Poseidon2](common-cryptographic-components.md#poseidon2-zk-friendly-hash-function). A ticket satisfies a threshold when the ticket is below it, as [Puzzle Target](#puzzle-target) specifies. The miner keeps picking values, each sampled with full entropy, until one ticket satisfies the threshold.
+A miner picks a value and hashes it into a **ticket**. A ticket satisfies a **threshold** when the ticket is below it, as [Puzzle Target](#puzzle-target) specifies. The miner keeps picking values until one ticket satisfies the threshold.
 
-Each use searches its own value against its own threshold, so a solution works for one use only. For Blend admission the miner searches a private nonce against `difficulty_blend`. The nonce stays secret. [Proof of Quota](proof-of-quota.md) proves the miner holds one, and that buys the quota of blending operations given in [Proof of Work Quota](blend-protocol.md#proof-of-work-quota). Nothing about it reaches the chain. For a reward the miner picks the public key to be paid and searches a nonce against `difficulty_reward`. The miner should pick a public key it has not used in another claim, since the claims paid to one key are linked, and so are the Transfers spending them. The miner then publishes a `CLAIM_POW_REWARD` Operation in a transaction.
+Each puzzle searches its own value against its own threshold, so a solution works for one use only. For Blend admission the miner searches a private nonce, each sampled with full entropy, against `difficulty_blend`. The ticket is `zkhash` over the nonce and the [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce), and it and the threshold are numbers in $`\mathbb{F}_p`$, the BN254 scalar field of [Poseidon2](common-cryptographic-components.md#poseidon2-zk-friendly-hash-function). The nonce stays secret. [Proof of Quota](proof-of-quota.md) proves the miner holds one, and that buys the quota of blending operations given in [Proof of Work Quota](blend-protocol.md#proof-of-work-quota). Nothing about it reaches the chain. For a reward the miner picks the public key to be paid and searches a 64-bit nonce against `difficulty_reward`. The ticket is the [HashWX](common-cryptographic-components.md#hashwx) ticket of the nonce for a challenge, a hash over the tag `POW_CLAIM_V1`, the public key, the referenced block hash and the Epoch Nonce, and it and the threshold are unsigned 64-bit integers. The miner should pick a public key it has not used in another claim, since the claims paid to one key are linked, and so are the Transfers spending them. The miner then publishes a `CLAIM_POW_REWARD` Operation in a transaction.
 
 A validator checks a claim against the `difficulty_reward` the previous block produced. A block's own claims update `difficulty_reward` after the block is processed, and that new value governs the next block. The validator accepts a claim when all of these hold:
 
 - the ticket is below `difficulty_reward`,
-- the ticket has not been claimed before,
+- the solution has not been claimed before,
 - the referenced block is canonical and inside the acceptance window,
 - the epoch nonce is the current one or the one before it,
 - `pow_reward_pool` still holds `epoch_pow_reward`.
 
-[Mantle](bedrock-v1.1-mantle-specification.md#claim_pow_reward) specifies these checks and the order they run in. A claim that fails any of them makes its transaction invalid. On acceptance the node pays `epoch_pow_reward` to the key, marks the ticket spent, and subtracts the same amount from `pow_reward_pool`. It pays `epoch_pow_vested_share / SHARE_DEN` of the reward as a [vested note](bedrock-v1.1-mantle-specification.md#vested-notes), whose vesting ends at the first slot of the epoch `VESTING_EPOCHS` epochs after the epoch of the referenced block, and the rest as a liquid note.
+[Mantle](bedrock-v1.1-mantle-specification.md#claim_pow_reward) specifies these checks and the order they run in. A claim that fails any of them makes its transaction invalid. On acceptance the node pays `epoch_pow_reward` to the key, marks the solution spent, and subtracts the same amount from `pow_reward_pool`. It pays `epoch_pow_vested_share / SHARE_DEN` of the reward as a [vested note](bedrock-v1.1-mantle-specification.md#vested-notes), whose vesting ends at the first slot of the epoch `VESTING_EPOCHS` epochs after the epoch of the referenced block, and the rest as a liquid note.
 
 The first `POW_BOOTSTRAP_EPOCHS` epochs are the **bootstrapping period**, which lets a participant that holds nothing mine a stake in a known time. During it, `epoch_pow_reward` is `POW_BOOTSTRAP_REWARD`, `epoch_pow_vested_share` is `POW_BOOTSTRAP_VESTED_SHARE` and `difficulty_reward` stays at or below `POW_BOOTSTRAP_TARGET_CAP`. The reward threshold steers toward the rate that pays out `POW_REWARD_POOL_GENESIS` over one epoch more than the period, so more mining makes a claim harder and the pool lasts the period. After the period, the liquid part of `epoch_pow_reward` pays the storage fee of a transaction of `POW_REFERENCE_TX_SIZE` bytes at the storage price of the epoch, `epoch_pow_vested_share` is `POW_VESTED_SHARE`, `difficulty_reward` stays at or below `REWARD_TARGET_CAP` and the threshold steers toward the rate that pays out `pow_reward_pool / (POW_BOOTSTRAP_EPOCHS + 1)` per epoch.
 
-A node computes six values from the chain. `pow_reward_pool` and the set of spent tickets change when a claim is accepted. `difficulty_reward` is recomputed after every block, from the number of claims in that block and the target rate. Each block credits `pow_reward_pool` with a share of its fees, and `epoch_pow_reward` and `epoch_pow_vested_share` are set at each epoch boundary. `difficulty_blend` is recomputed once per epoch, from the transactions of the epoch before last, at the snapshot that fixes the epoch nonce. [Reward Difficulty](#reward-difficulty), [Reward Pool](#reward-pool) and [Blend Difficulty](#blend-difficulty) specify the three computations.
+A node computes six values from the chain. `pow_reward_pool` and the set of spent solutions change when a claim is accepted. `difficulty_reward` is recomputed after every block, from the number of claims in that block and the target rate. Each block credits `pow_reward_pool` with a share of its fees, and `epoch_pow_reward` and `epoch_pow_vested_share` are set at each epoch boundary. `difficulty_blend` is recomputed once per epoch, from the transactions of the epoch before last, at the snapshot that fixes the epoch nonce. [Reward Difficulty](#reward-difficulty), [Reward Pool](#reward-pool) and [Blend Difficulty](#blend-difficulty) specify the three computations.
 
-A node keeps a spent ticket only while its referenced block is inside the window, so the set stays small. [Acceptance Window](#acceptance-window) gives the window in slots.
+A node keeps a spent solution only while its referenced block is inside the window, so the set stays small. [Acceptance Window](#acceptance-window) gives the window in slots.
 
 # Details
 
@@ -126,7 +131,7 @@ A node keeps a spent ticket only while its referenced block is inside the window
 
 | Symbol | Name | Description |
 | --- | --- | --- |
-| $`p`$ | field modulus | Modulus of the scalar field $`\mathbb{F}_p`$ of [Poseidon2](common-cryptographic-components.md#poseidon2-zk-friendly-hash-function); tickets and thresholds are its elements. |
+| $`p`$ | field modulus | Modulus of the scalar field $`\mathbb{F}_p`$ of [Poseidon2](common-cryptographic-components.md#poseidon2-zk-friendly-hash-function); Blend tickets and the Blend threshold are its elements. |
 | $`N_b`$ | expected blocks per epoch | `EXPECTED_BLOCKS_PER_EPOCH`, the epoch length in slots of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) times $`f`$. |
 | $`W_b`$ | window depth | `EXPECTED_BLOCKS_PER_WINDOW`, the acceptance window in expected blocks. |
 | $`F`$, $`P`$ | smoothing factor and precision | `EMA_SMOOTHING_FACTOR` and `EMA_SMOOTHING_PRECISION`; the reward update weighs the previous estimate $`F`$ out of $`P`$. |
@@ -142,8 +147,8 @@ POW_REWARD_POOL_GENESIS: TokenValue             # 2/100 of S_cap, set in the Gen
 POW_BOOTSTRAP_EPOCHS: uint64 = 98               # the length of the bootstrapping period, in epochs
 POW_BOOTSTRAP_REWARD: TokenValue = 100 * 10**9  # the reward per claim during it, 100 LOGOS, in LEPTA
 POW_BOOTSTRAP_VESTED_SHARE: uint64 = 90         # the share of that reward paid as a vested note, out of SHARE_DEN
-POW_BOOTSTRAP_TARGET_CAP: PowTarget = p // (3 * 2**30)   # largest target the retarget returns during it, and its genesis value
-POW_REFERENCE_TX_SIZE: uint64 = 632             # the bytes whose storage fee the liquid part of a reward pays after it
+POW_BOOTSTRAP_TARGET_CAP: uint64 = 2**64 // (HASHWX_MACHINE_RATE * 77_760)  # largest target the retarget returns during it, and its genesis value
+POW_REFERENCE_TX_SIZE: uint64 = 608             # the bytes whose storage fee the liquid part of a reward pays after it
 POW_VESTED_SHARE: uint64 = 30                   # the share of a reward paid as a vested note after it, out of SHARE_DEN
 EXPECTED_BLOCKS_PER_EPOCH: uint64 = 21_600      # N_b = 10 k
 EXPECTED_BLOCKS_PER_WINDOW: uint64 = 10         # W_b
@@ -153,7 +158,7 @@ VESTING_EPOCHS: uint64 = 49                     # the length of the vesting, in 
 EMA_SMOOTHING_FACTOR: uint64 = 999              # F, the weight given to the previous estimate
 EMA_SMOOTHING_PRECISION: uint64 = 1000          # P, the scale F is expressed against; F < P
 REWARD_TARGET_FLOOR: uint64 = 999               # smallest target the retarget returns; see Reward Difficulty
-REWARD_TARGET_CAP: PowTarget = p // (3 * 2**27) # largest target the retarget returns after the bootstrapping period
+REWARD_TARGET_CAP: uint64 = 2**64 // (HASHWX_MACHINE_RATE * 9_720)  # largest target the retarget returns after the bootstrapping period
 BLEND_DIFFICULTY_BASE: PowTarget = p // 2**19   # difficulty_blend at the reference load
 TARGET_TXS_PER_BLOCK: uint64 = 130              # Reference transactions per block, F_T / F_D
 BLEND_DAMPING_NUM: uint64 = 1                   # a, where the exponent is alpha = a / b
@@ -163,25 +168,27 @@ BLEND_MAX_STEP: uint64 = 2                      # Max factor difficulty_blend ma
 
 `POW_BOOTSTRAP_REWARD` must be above zero, or a claim pays nothing. `POW_BOOTSTRAP_VESTED_SHARE` and `POW_VESTED_SHARE` must be below `SHARE_DEN`, or a claim has no liquid part to pay its fee and `compute_epoch_pow_reward` divides by zero.
 
-The liquid part of `POW_BOOTSTRAP_REWARD`, the reward minus its vested share, must be above the fee of a claim transaction, which pays for the claim and the `TRANSFER` that spends its liquid note, or a claim cannot pay its own fee. A load of claims alone takes the storage price to about 31 times its start, where a claim transaction of 365 bytes costs about 9.1 LOGOS. At 90-10 that needs a reward of at least 91 LOGOS, and `POW_BOOTSTRAP_REWARD` rounds it up to 100 LOGOS. Its liquid part of 10 LOGOS holds up to about 34 times the starting storage price.
+The liquid part of `POW_BOOTSTRAP_REWARD`, the reward minus its vested share, must be above the fee of a claim transaction, which pays for the claim and the `TRANSFER` that spends its liquid note, or a claim cannot pay its own fee. A load of claims alone takes the storage price to about 31 times its start, where a claim transaction of 341 bytes costs about 8.5 LOGOS. At 90-10 that needs a reward of at least 85 LOGOS, and `POW_BOOTSTRAP_REWARD` rounds it up to 100 LOGOS. Its liquid part of 10 LOGOS holds up to about 36 times the starting storage price.
 
-`POW_REFERENCE_TX_SIZE` is the size of one transaction holding a claim, that `TRANSFER` and an inscription of 100 bytes. It must be above the 365 bytes of a claim transaction, or a claim cannot pay its own fee after the bootstrapping period.
+`POW_REFERENCE_TX_SIZE` is the size of one transaction holding a claim, that `TRANSFER` and an inscription of 100 bytes. It must be above the 341 bytes of a claim transaction, or a claim cannot pay its own fee after the bootstrapping period.
 
 During the bootstrapping period a miner needs `ceil(threshold / POW_BOOTSTRAP_REWARD)` claims to earn the [minimum stake](bedrock-service-declaration-protocol.md#minimum-stake), and holds one vested note per claim. The parameters must let one [SDP_DECLARE](bedrock-v1.1-mantle-specification.md#sdp_declare) stake that many notes within the Execution Gas limit of a block, or a miner cannot stake before its notes vest.
 
 An epoch of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) is $`10\lfloor k/f \rfloor`$ = 648,000 slots, 7.5 days of one-second slots. `VESTING_EPOCHS` is the number of such epochs that first reaches a year, $`\lceil 365 / 7.5 \rceil = 49`$, so a vested note vests 360 to 367.5 days after the block its claim references. `POW_BOOTSTRAP_EPOCHS` is the number of such epochs that first reaches two years, $`\lceil 730 / 7.5 \rceil = 98`$.
 
-`POW_BOOTSTRAP_TARGET_CAP` and `REWARD_TARGET_CAP` are calibrated against the measurement of `BLEND_DIFFICULTY_BASE`, $`2^{19}`$ hashes in about 38 seconds on one core of the target machine. Each of those hashes is a Blend ticket of 3 permutations, so all four cores run about 165,565 permutations per second. A claim ticket costs 4 permutations once a miner reuses the hash of the tag and the public key, so those cores try about 41,391 claim tickets per second. They find a claim about every 21.6 hours at `POW_BOOTSTRAP_TARGET_CAP`, 8.33 claims per epoch, which earn about 833 LOGOS per epoch at `POW_BOOTSTRAP_REWARD`. At `REWARD_TARGET_CAP`, 8 times the target, they find a claim about every 2.7 hours.
+At `POW_BOOTSTRAP_TARGET_CAP`, all four cores of the target machine, at the `HASHWX_MACHINE_RATE` of [HashWX](common-cryptographic-components.md#hashwx), find a claim about every 77,760 seconds, 21.6 hours, 8.33 claims per epoch, which earn about 833 LOGOS per epoch at `POW_BOOTSTRAP_REWARD`. At `REWARD_TARGET_CAP`, 8 times the target, they find a claim about every 9,720 seconds, 2.7 hours.
 
-`REWARD_TARGET_CAP` and `POW_BOOTSTRAP_TARGET_CAP` must each be above `REWARD_TARGET_FLOOR` and at most $`p - 1`$, as [Puzzle Target](#puzzle-target) requires. At or below the floor, every retarget would return the cap, so the target could not move.
+`REWARD_TARGET_CAP` and `POW_BOOTSTRAP_TARGET_CAP` must each be above `REWARD_TARGET_FLOOR`. At or below the floor, every retarget would return the cap, so the target could not move.
 
 `TARGET_TXS_PER_BLOCK` is the transaction rate the Blend network carries, $`F_T / F_D = 130`$ transactions per block ([Global Parameters](blend-protocol.md#global-parameters)).
 
 ## Puzzle Target
 
-`PowTarget` is an element of $`\mathbb{F}_p`$, as every ticket is. A ticket satisfies a target when its canonical integer representative in $`[0, p-1]`$ is strictly below the target's; a smaller target is a harder puzzle. A representative is at most 254 bits, so a 256-bit unsigned integer holds any target.
+`PowTarget` is an element of $`\mathbb{F}_p`$, as every Blend ticket is. A Blend ticket satisfies a target when its canonical integer representative in $`[0, p-1]`$ is strictly below the target's; a smaller target is a harder puzzle. A representative is at most 254 bits, so a 256-bit unsigned integer holds any target.
 
-The two updates below multiply and divide targets as integers rather than in the fixed-width types of [Arithmetic](bedrock-v1.1-mantle-specification.md#arithmetic), and cap their result at or below $`p - 1`$, so that it converts back to a field element without reduction. Every intermediate fits in **512 bits**: the reward retarget's product stays below $`2^{328}`$ and the Blend radicand $`2^{493}`$. Each operation is integer addition, multiplication, floor division or comparison, and `integer_nth_root` returns the exact floor, so two implementations agree exactly.
+`difficulty_reward` is an unsigned 64-bit integer, as every reward ticket is. A reward ticket satisfies it when the ticket is strictly below it, so a smaller target is a harder puzzle.
+
+The Blend update below multiplies and divides targets as integers rather than in the fixed-width types of [Arithmetic](bedrock-v1.1-mantle-specification.md#arithmetic), and caps its result at or below $`p - 1`$, so that it converts back to a field element without reduction. Every intermediate fits in **512 bits**: the radicand reaches $`2^{493}`$. The reward retarget's product fits a 128-bit unsigned integer while both caps are below $`2^{54}`$, since the pool is at most 64 bits and `EMA_SMOOTHING_PRECISION` is at most 10 bits. Each operation is integer addition, multiplication, floor division or comparison, and `integer_nth_root` returns the exact floor, so two implementations agree exactly.
 
 ## Reward Pool
 
@@ -229,11 +236,11 @@ def target_claims_per_block(epoch: EpochNumber,
     return pool, epoch_pow_reward * (POW_BOOTSTRAP_EPOCHS + 1) * EXPECTED_BLOCKS_PER_EPOCH
 
 def compute_new_reward_difficulty(claims_in_block: uint64,
-                                  current_target: PowTarget,
+                                  current_target: uint64,
                                   epoch: EpochNumber,
                                   epoch_pow_reward: TokenValue,
-                                  pow_reward_pool: TokenValue) -> PowTarget:
-    # 512-bit integers over canonical representatives; see Puzzle Target.
+                                  pow_reward_pool: TokenValue) -> uint64:
+    # 128-bit integers; see Puzzle Target.
     num, den = target_claims_per_block(epoch, epoch_pow_reward, pow_reward_pool)
     # The demand implied by this block, reconstructed from the target that produced
     # it and smoothed against the target rate; floored at 1 so the division is defined.
