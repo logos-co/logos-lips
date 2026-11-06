@@ -87,13 +87,13 @@ class ProofOfQuotaWitness:
     index: int                                 # This is the index of the generated key. Limiting this index limits the maximum number of key generated. (20 bits)
     selector: int                              # Indicates a core node (=0), a leader (=1) or a proof of work solution (=2)
     # This part is filled randomly by potential leaders and by proof of work provers
-    core_sk: zkhash                            # nullifier key of the NQK, from which the zk_id of the core node derives
+    core_sk: zkhash                            # sk corresponding to the zk_id of the core node
     core_path: list[zkhash]                    # Merkle path proving zk_id membership (len = 20)
     core_path_selectors: list[bool]            # Indicates how to read the core_path (if Merkle nodes are left or right in the path)
     # This part is filled randomly by core nodes and by proof of work provers
     pol_sl: int                                # PoL slot
-    pol_nullifier_key: int                     # PoL note nullifier key
-    pol_staking_secret_key: int                # PoL note staking secret key
+    pol_nullifier_key: zkhash                  # PoL note nullifier key
+    pol_staking_secret_key: zkhash             # PoL note staking secret key
     pol_note_value: int                        # PoL note value
     pol_note_nonce: zkhash                     # PoL note nonce
     pol_note_program: zkhash                   # PoL note program, 0 for a user note
@@ -143,7 +143,7 @@ key_nullifier = zkhash(b"KEY_NULLIFIER_V1", selection_randomness)
 
   Where `sk` is:
 
-  - The `core_sk` as defined in [Key Types and Generation](key-types-and-generation.md#non-ephemeral-quota-key) if the node is a core node.
+  - The `core_sk` as defined in the [Mantle specification](bedrock-v1.1-mantle-specification.md) if the node is a core node.
   - The staking secret key of the PoL note if it’s a leader node, which stays private even when the nullifier key of the note is public, as for a program note open to everyone.
   - The `pow_nonce` if the proof is backed by proof of work.
 
