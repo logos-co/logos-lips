@@ -68,7 +68,7 @@ graph LR
     me --> mt
 ```
 
-The two branches end in the same place. The target number of claims is paid once mining is heavy enough to find that many, so more mining changes the work behind a claim and not the number of claims paid. For the first two years the target is about one claim every three to four blocks, the rate that pays out the pool over those years. After that the target pays out a ninety-eighth of the pool per epoch, so a larger reward means fewer claims and a smaller pool pays out less.
+The two branches end in the same place. The target number of claims is paid once mining is heavy enough to find that many, so more mining changes the work behind a claim and not the number of claims paid. For the first two years the target is about one claim every three to four blocks, the rate that pays out nearly all of the pool over those years. After that the target pays out a ninety-ninth of the pool per epoch, so a larger reward means fewer claims and a smaller pool pays out less.
 
 A claim must name a recent block, so a solution cannot be spent long after it was found.
 
@@ -114,7 +114,7 @@ A validator checks a claim against the `difficulty_reward` the previous block pr
 
 [Mantle](bedrock-v1.1-mantle-specification.md#claim_pow_reward) specifies these checks and the order they run in. A claim that fails any of them makes its transaction invalid. On acceptance the node pays `epoch_pow_reward` to the key, marks the ticket spent, and subtracts the same amount from `pow_reward_pool`. It pays `epoch_pow_vested_share / SHARE_DEN` of the reward as a [vested note](bedrock-v1.1-mantle-specification.md#vested-notes), whose vesting ends at the first slot of the epoch `VESTING_EPOCHS` epochs after the epoch of the referenced block, and the rest as a liquid note.
 
-The first `POW_BOOTSTRAP_EPOCHS` epochs are the **bootstrapping period**, which lets a participant that holds nothing mine a stake in a known time. During it, `epoch_pow_reward` is `POW_BOOTSTRAP_REWARD`, `epoch_pow_vested_share` is `POW_BOOTSTRAP_VESTED_SHARE` and `difficulty_reward` stays at or below `POW_BOOTSTRAP_TARGET_CAP`. The reward threshold steers toward the rate that pays out `POW_REWARD_POOL_GENESIS` over the period, so more mining makes a claim harder and the pool lasts the period. After the period, the liquid part of `epoch_pow_reward` pays the storage fee of a transaction of `POW_REFERENCE_TX_SIZE` bytes at the storage price of the epoch, `epoch_pow_vested_share` is `POW_VESTED_SHARE`, `difficulty_reward` stays at or below `REWARD_TARGET_CAP` and the threshold steers toward the rate that pays out `pow_reward_pool / POW_BOOTSTRAP_EPOCHS` per epoch. No rule limits the number of claims of an epoch at any time.
+The first `POW_BOOTSTRAP_EPOCHS` epochs are the **bootstrapping period**, which lets a participant that holds nothing mine a stake in a known time. During it, `epoch_pow_reward` is `POW_BOOTSTRAP_REWARD`, `epoch_pow_vested_share` is `POW_BOOTSTRAP_VESTED_SHARE` and `difficulty_reward` stays at or below `POW_BOOTSTRAP_TARGET_CAP`. The reward threshold steers toward the rate that pays out `POW_REWARD_POOL_GENESIS` over one epoch more than the period, so more mining makes a claim harder and the pool lasts the period. After the period, the liquid part of `epoch_pow_reward` pays the storage fee of a transaction of `POW_REFERENCE_TX_SIZE` bytes at the storage price of the epoch, `epoch_pow_vested_share` is `POW_VESTED_SHARE`, `difficulty_reward` stays at or below `REWARD_TARGET_CAP` and the threshold steers toward the rate that pays out `pow_reward_pool / (POW_BOOTSTRAP_EPOCHS + 1)` per epoch. No rule limits the number of claims of an epoch at any time.
 
 A node computes six values from the chain. `pow_reward_pool` and the set of spent tickets change when a claim is accepted. `difficulty_reward` is recomputed after every block, from the number of claims in that block and the target rate. Each block credits `pow_reward_pool` with a share of its fees, and `epoch_pow_reward` and `epoch_pow_vested_share` are set at each epoch boundary. `difficulty_blend` is recomputed once per epoch, from the transactions of the epoch before last, at the snapshot that fixes the epoch nonce. [Reward Difficulty](#reward-difficulty), [Reward Pool](#reward-pool) and [Blend Difficulty](#blend-difficulty) specify the three computations.
 
@@ -218,12 +218,13 @@ With $`W_b = 10`$ and $`f = 1/30`$, `WINDOW` is $`300`$ slots. A claim's referen
 def target_claims_per_block(epoch: EpochNumber,
                             epoch_pow_reward: TokenValue,
                             pow_reward_pool: TokenValue) -> tuple[int, int]:
-    # As a fraction: the rate that pays out a POW_BOOTSTRAP_EPOCHS-th of the pool per epoch.
-    # During the bootstrapping period the pool here is the seed, so the seed lasts the period.
+    # As a fraction: the rate that pays out one part in POW_BOOTSTRAP_EPOCHS + 1 of the pool per epoch.
+    # During the bootstrapping period the pool here is the seed, and the extra epoch is the
+    # margin that lets the seed last the period although the retarget overshoots its target.
     # After it the pool here is what the pool holds, so the payout falls as the pool does
     # and rises with the fee shares, and a higher reward means fewer claims.
     pool = POW_REWARD_POOL_GENESIS if epoch < POW_BOOTSTRAP_EPOCHS else pow_reward_pool
-    return pool, epoch_pow_reward * POW_BOOTSTRAP_EPOCHS * EXPECTED_BLOCKS_PER_EPOCH
+    return pool, epoch_pow_reward * (POW_BOOTSTRAP_EPOCHS + 1) * EXPECTED_BLOCKS_PER_EPOCH
 
 def compute_new_reward_difficulty(claims_in_block: uint64,
                                   current_target: PowTarget,
@@ -241,7 +242,7 @@ def compute_new_reward_difficulty(claims_in_block: uint64,
     return min(max(new_target, REWARD_TARGET_FLOOR), cap)
 ```
 
-`claims_in_block` counts the `CLAIM_POW_REWARD` Operations the block includes, `epoch` is the epoch of that block, and `pow_reward_pool` is the pool once that block's claims and fee share are applied. Every claim in a block is validated against the target produced by the previous block's update; the update from a block's own count is applied after the block is processed and governs the next block. At genesis `difficulty_reward` is `POW_BOOTSTRAP_TARGET_CAP`. During the bootstrapping period the target rate is about 0.283 claims per block.
+`claims_in_block` counts the `CLAIM_POW_REWARD` Operations the block includes, `epoch` is the epoch of that block, and `pow_reward_pool` is the pool once that block's claims and fee share are applied. Every claim in a block is validated against the target produced by the previous block's update; the update from a block's own count is applied after the block is processed and governs the next block. At genesis `difficulty_reward` is `POW_BOOTSTRAP_TARGET_CAP`. During the bootstrapping period the target rate is about 0.280 claims per block. The extra epoch keeps back about 1% of the seed, which must cover the overshoot of the retarget, or the pool runs out before the period ends.
 
 The update is multiplicative in the current target, so a target of zero never recovers. With $`F \gt 0`$, the update from a block without claims is $`\lfloor t \cdot P/F \rfloor`$, which equals $`t`$ for every $`t \lt F/(P-F)`$. `REWARD_TARGET_FLOOR` is the smallest target that a block without claims strictly raises, $`\max(1, \lceil F/(P-F) \rceil)`$, which is 999 at the specified smoothing.
 
