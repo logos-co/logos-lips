@@ -27,7 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-12-09 |
 | 1.1.0 | Remove the protection against adaptive adversary from PoL removing a non-enforced feature, simplifying work for engineers, improving UX and performances of PoL and PoQ. Update the performance according to the new circuit. Remove the notion of NOMOS in DSTs | 2026-01-29 |
 | 1.1.1 | Introduced a discussion for when the value of a participating note is way higher than the total estimated stake | 2026-06-24 |
-| 1.2.0 | Support the private ledger of Mantle: a note is eligible from any note set of the ledger, committed together in the eligible root, and proven unspent by the non-membership of its nullifier. The proof is bound to its block by `msg`, a hash of the block header, replacing the leader key, and derives the commitment of the leader reward note from the public reward value and a private key and nonce. The commitment, nullifier and eligible tree paths have depth 40 | 2026-10-06 |
+| 1.2.0 | Support the private ledger of Mantle: a note is eligible from any note set of the ledger, committed together in the eligible root, and proven unspent by the non-membership of its nullifier. The proof is bound to its block by `msg`, its block ID, replacing the leader key, and derives the commitment of the leader reward note from the public reward value and a private key and nonce. The commitment, nullifier and eligible tree paths have depth 40 | 2026-11-06 |
 | 1.2.1 | The note commitment takes the staking key, the `program` and the `data` of the note, and the proof derives the public key from the nullifier key and the staking key from the staking secret key, never taking the spending secret key, so program notes lead unless their staking key is `0`, and the leader reward note is a user note with `reward_public_key` as both keys | 2026-11-06 |
 
 # Introduction
@@ -102,9 +102,9 @@ def eligible_root(sets: list[NoteSet]) -> MerkleRoot:
 
 `mmr_append` and `mmr_root` are those of the [commitment MMR](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range), which compute the same tree, and `commitment_root()` and `nullifier_root()` are the [methods of a note set](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) giving these two roots. `zkhash` is the [Poseidon2 hash](common-cryptographic-components.md), and a `MerkleRoot` is the root of a Merkle tree.
 
-The first leaf is the ledger note set, the second the SDP note set, and the next ones the channels in the order they were created. Its root when the stake distribution was frozen is $`eligible_{AGED}`$, and its latest root is $`eligible_{LATEST}`$.
+The first leaf is the ledger note set, the second the SDP note set, and the next ones the channels in the order they were created. Its root when the stake distribution was frozen is `eligible_aged`, and its latest root is `eligible_latest`.
 
-A note is proven aged by the membership of its commitment in the commitment MMR of its note set under $`eligible_{AGED}`$, and unspent by the non-membership of its nullifier in the nullifier IMT of the same note set under $`eligible_{LATEST}`$.
+A note is proven aged by the membership of its commitment in the commitment MMR of its note set under `eligible_aged`, and unspent by the non-membership of its nullifier in the nullifier IMT of the same note set under `eligible_latest`.
 
 ## Zero-knowledge Proof Statement
 
@@ -118,7 +118,7 @@ class ProofOfLeadershipPublic:
     t1: zkhash
     eligible_aged: MerkleRoot       # eligible root when the stake distribution was frozen
     eligible_latest: MerkleRoot     # latest eligible root
-    msg: zkhash                     # hash of the header of the proposed block
+    msg: zkhash                     # block ID of the proposed block, reduced modulo p
     reward_value: TokenValue        # value of the leader reward note of the proposed block
     entropy_contribution: zkhash    # rho_LEAD
     reward_commitment: NoteCommitment  # commitment of the leader reward note
@@ -223,23 +223,13 @@ Such that the following constraints hold:
 
 # Linking the Proof of Leadership to a Block
 
-The PoL is bound to the block it proposes through its public input `msg`, a hash of the [header](cryptarchia-v1-protocol.md#block-header) of that block, where `hash` is Blake2b:
+The PoL is bound to the block it proposes through its public input `msg`, the [block ID](cryptarchia-v1-protocol.md#block-id) of that block reduced modulo $`p`$:
 
 ```python
-def pol_msg(header: Header) -> zkhash:
-    digest = hash(
-        b"POL_MSG_V1",
-        header.bedrock_version,
-        header.parent_block,
-        header.slot.to_bytes(8, byteorder='little'),
-        header.body_root,
-        header.proof_of_leadership.reward_commitment,
-        header.proof_of_leadership.reward_value.to_bytes(8, byteorder='little'),
-    )
-    return FiniteField(digest, byte_order="little", modulus= p)
+msg = FiniteField(block_id(header), byte_order="little", modulus= p)
 ```
 
-- `msg` covers every field of the header except the proof and the entropy contribution, which the proof itself produces. `reward_commitment` is an output of the proof as well, but the leader computes it from values it holds before proving. Through `body_root`, `msg` covers the transactions and the uncle headers of the block.
+- `msg` covers every field of the [header](cryptarchia-v1-protocol.md#block-header) but the proof. `entropy_contribution` and `reward_commitment` are outputs of the proof, but the leader computes them from values it holds before proving. Through `body_root`, `msg` covers the transactions and the uncle headers of the block.
 - A PoL is therefore valid for a single block: it cannot be attached to other content, and the leader reward cannot be redirected to another `reward_commitment`.
 - The leader proves the PoL once the content of its block is fixed, which also fixes the reward value.
 

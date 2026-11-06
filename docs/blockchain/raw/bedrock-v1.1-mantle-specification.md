@@ -49,7 +49,7 @@
 | 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding. | 2026-10-06 |
 | 1.18.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a note backs one declaration per service, `SDP_WITHDRAW` no longer names the note, and a `nonce` carries the `created` epoch of its declaration | 2026-10-27 |
 | 1.19.0 | `MinStake` holds `threshold` and the block number `timestamp`, following the Service Declaration Protocol | 2026-10-27 |
-| 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each with its own inscription, grouped in the mini-blocks of an inscription, each proven against a recent root and the transaction buffer before its mini-block, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and moved `CLAIM_POW_REWARD` to the opcode `0x30`. A declaration names in `note_pk` the key of its service note. The commitment MMR and the nullifier IMT of a note set have depth 40 | 2026-11-06 |
+| 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each with its own inscription, grouped in the mini-blocks of an inscription, each proven against a recent root and the transaction buffer before its mini-block, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable over no epoch nonce and moved `CLAIM_POW_REWARD` to the opcode `0x30`. A declaration names in `note_pk` the key of its service note, and `SDP_WITHDRAW` carries no nonce and waits with the channel withdrawals until its declaration is removed. A channel deposit carries an `inscription`. The commitment MMR and the nullifier IMT of a note set have depth 40 | 2026-11-06 |
 | 2.1.0 | Add programs: notes gain `stake_public_key`, `program` and `data` fields, a nullifier key sitting between the spending secret key and the public key, program notes leading in Proof of Stake unless their staking key is `0`, a declaration naming in `note_stake_pk` the staking key of its service note and rewards, `PROGRAM_REGISTER` registers a Groth16 verification key, and the mini-blocks of channel inscriptions carry, next to user steps, program deposits and program steps made of a `ZkProgramSpend`, a program proof and the openings of the program notes they create, each step with its own inscription and its kind carried only by its encoding. A program deposit, like a user step, is proven against the buffer before its mini-block, and a program spend against the whole buffer at its position. The ZkProgramSpend derives the nonces of the outputs of a step consuming a note of the program. Add the proving time benchmarks of the ZkTransfer and the ZkProgramSpend | 2026-11-06 |
 
 # Introduction
@@ -499,44 +499,21 @@ The mini-block of a user step or deposit is public, so one of a later mini-block
 
 Since they are signed before the Mantle Transaction exists, their ZkTransfer is bound to their own content rather than to the `mantle_txhash`: `user_step_id` for a user step and `program_deposit_id` for a deposit. A user step balances exactly, with an `excess_value` of `0`. The `excess_value` of the ZkTransfer of a deposit is its `value`, and `program_deposit_id` also commits to the program it pays and to its intent, so its ZkTransfer only verifies for that program and that intent.
 
-Both identifiers commit to the channel. A channel ID is 32 free bytes, larger than the field, so a single reduced element would give channels `x` and `x + p` the same identifier: it enters as two elements, its low and high 16 bytes. The inscription of the step, of any length, enters through its 32-byte BLAKE2b-256 hash, split the same way.
+Each identifier is a BLAKE2b-256 hash, under its own domain separation tag, of the channel and of the encoded step, its kind tag and every field included, reduced modulo $`p`$ as `op_id` is. It is a classic hash because it is only the public `msg` of the ZkTransfer of the holder, which no circuit recomputes.
 
 ```python
+def step_id(dst: bytes, channel: ChannelId, step: UserStep | ProgramDeposit) -> zkhash:
+    h = Hasher() # /!\ This is a classic hash not a zkhash /!\
+    h.update(dst)
+    h.update(channel)
+    h.update(encode(step))  # the Step of the encoding, its kind tag included
+    return FiniteField(h.digest(), byte_order="little", modulus= p)
+
 def user_step_id(channel: ChannelId, step: UserStep) -> zkhash:
-    channel_lo = FiniteField(channel[:16], byte_order="little", modulus=p)
-    channel_hi = FiniteField(channel[16:], byte_order="little", modulus=p)
-    inscription_hash = hash(step.inscription)  # BLAKE2b-256
-    inscription_lo = FiniteField(inscription_hash[:16], byte_order="little", modulus=p)
-    inscription_hi = FiniteField(inscription_hash[16:], byte_order="little", modulus=p)
-    return zkhash(
-        FiniteField(b"USER_STEP_V1", byte_order="little", modulus=p),
-        channel_lo,
-        channel_hi,
-        inscription_lo,
-        inscription_hi,
-        FiniteField(len(step.inputs), byte_order="little", modulus=p),
-        *step.inputs,
-        FiniteField(len(step.outputs), byte_order="little", modulus=p),
-        *step.outputs)
+    return step_id(b"USER_STEP_V1", channel, step)
 
 def program_deposit_id(channel: ChannelId, deposit: ProgramDeposit) -> zkhash:
-    channel_lo = FiniteField(channel[:16], byte_order="little", modulus=p)
-    channel_hi = FiniteField(channel[16:], byte_order="little", modulus=p)
-    inscription_hash = hash(deposit.inscription)  # BLAKE2b-256
-    inscription_lo = FiniteField(inscription_hash[:16], byte_order="little", modulus=p)
-    inscription_hi = FiniteField(inscription_hash[16:], byte_order="little", modulus=p)
-    return zkhash(
-        FiniteField(b"PROGRAM_DEPOSIT_V1", byte_order="little", modulus=p),
-        channel_lo,
-        channel_hi,
-        inscription_lo,
-        inscription_hi,
-        deposit.program_id,
-        deposit.intent,
-        FiniteField(len(deposit.inputs), byte_order="little", modulus=p),
-        *deposit.inputs,
-        FiniteField(len(deposit.outputs), byte_order="little", modulus=p),
-        *deposit.outputs)
+    return step_id(b"PROGRAM_DEPOSIT_V1", channel, deposit)
 ```
 
 The program spend and the program proof of a program step are produced by the sequencer and bound to the `op_id` of the Inscribe Operation, which covers the inscription and the public data of every step but no proof. The program proof takes three public inputs: the `program_step_id` of the step, the hash of its deposits, taken in their order in the mini-block, and the `op_id`. The `program_step_id` hashes the notes of the program spend, private fields included, so the ledger cannot recompute it: it is the public value that links the ZkProgramSpend and the program proof of the step.
@@ -658,7 +635,7 @@ block_slot: Slot
               covered = len(note_set.tx_commitment_buffer)
           if isinstance(step, UserStep):
               # Ensure the user step is spendable and signed by its holder.
-              note_set.assert_spendable(step.inputs, step.commitment_root)
+              note_set.assert_spendable(step.inputs)
               for note_nullifier in step.inputs:
                   assert note_nullifier not in step_nullifiers
                   step_nullifiers.add(note_nullifier)
@@ -674,7 +651,7 @@ block_slot: Slot
               # holder for that program and its intent, and keep it for the next program step
               # of its program.
               assert step.program_id in ledger.programs
-              note_set.assert_spendable(step.inputs, step.commitment_root)
+              note_set.assert_spendable(step.inputs)
               for note_nullifier in step.inputs:
                   assert note_nullifier not in step_nullifiers
                   step_nullifiers.add(note_nullifier)
@@ -697,11 +674,7 @@ block_slot: Slot
               # Ensure the program spend consumes unspent notes of the program, possibly none,
               # and balances exactly with the value deposited.
               if len(step.inputs) > 0:
-                  note_set.assert_spendable(step.inputs, step.commitment_root)
-              else:
-                  assert step.commitment_root in note_set.recent_commitment_roots
-                  last_block = note_set.recent_commitment_roots[step.commitment_root].last_block
-                  assert last_block is None or last_block >= block_height - 1024
+                  note_set.assert_spendable(step.inputs)
               for note_nullifier in step.inputs:
                   assert note_nullifier not in step_nullifiers
                   step_nullifiers.add(note_nullifier)
@@ -928,10 +901,10 @@ A Zone that credits a deposit in its own state must be sure the deposit really l
 class ChannelDeposit:
     channel: ChannelId
     inputs: list[NoteNullifier]    # nullifiers of the consumed notes of the ledger note set
-    commitment_root: MerkleRoot    # the MMR root of the ledger note set at the end of one of the last 1024 blocks
     outputs: list[NoteCommitment]  # commitments of the created notes of the channel note set
+    commitment_root: MerkleRoot    # the MMR root of the ledger note set at the end of one of the last 1024 blocks
     excess_value: TokenValue       # the excess to pay the fees
-    metadata: bytes
+    inscription: bytes             # the zone message of the deposit
 ```
 
 #### Proof
@@ -962,9 +935,9 @@ ledger: Ledger
 
   *Validate*
 
-  1. Ensure the metadata does not exceed `MAX_OPERATION_DATA_SIZE`.
+  1. Ensure the inscription does not exceed `MAX_OPERATION_DATA_SIZE`.
       ```python
-      assert len(deposit.metadata) <= MAX_OPERATION_DATA_SIZE
+      assert len(deposit.inscription) <= MAX_OPERATION_DATA_SIZE
       ```
 
   2. Verify that the channel exist and has a note set, which the null channel has not.
@@ -975,7 +948,7 @@ ledger: Ledger
 
   3. Ensure all inputs are spendable in the [ledger note set](#ledger), `LEDGER_SET`.
       ```python
-      ledger.sets[LEDGER_SET].assert_spendable(deposit.inputs, deposit.commitment_root)
+      ledger.sets[LEDGER_SET].assert_spendable(deposit.inputs)
       ```
 
   4. Validate ownership over deposited notes and balance.
@@ -1030,8 +1003,8 @@ WITHDRAW_DELAY: Slot = 86_400  # 1 day
 class ChannelWithdraw:
     channel: ChannelId
     inputs: list[NoteNullifier]    # nullifiers of the consumed notes of the channel note set
-    commitment_root: MerkleRoot    # the MMR root of the channel note set at the end of one of the last 1024 blocks
     outputs: list[NoteCommitment]  # commitments of the notes created in the ledger note set
+    commitment_root: MerkleRoot    # the MMR root of the channel note set at the end of one of the last 1024 blocks
 ```
 
 A withdrawal balances exactly and carries no fee: another Operation of its Mantle Transaction, such as a Transfer, pays the fees. A holder whose funds are all in channels therefore needs a ledger note, of its own or added by a third party, to post its withdrawal. An excess paid when the withdrawal is posted would stay paid even if the withdrawal is dropped later, which would create tokens.
@@ -1072,7 +1045,7 @@ ledger: Ledger
 
   2. Ensure all inputs are spendable in the channel note set.
       ```python
-      ledger.sets[chan.note_set].assert_spendable(withdrawal.inputs, withdrawal.commitment_root)
+      ledger.sets[chan.note_set].assert_spendable(withdrawal.inputs)
       ```
 
   3. Validate ownership over the withdrawn notes and balance.
@@ -1176,7 +1149,6 @@ class DeclarationInfo:
     service: ServiceType
     provider_id: Ed25519PublicKey
     service_note: NoteCommitment            # the note of the SDP note set staked by the declaration
-    withdraw_outputs: list[NoteCommitment]  # the notes the withdrawal creates, released at removal
     locators: list[Locator]
     zk_id: ZkPublicKey
     note_pk: ZkPublicKey        # the public key of the service note and of the rewards
@@ -1261,7 +1233,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 
   3. Ensure the inputs are spendable and the value is sufficient for joining the service.
       ```python
-      ledger.sets[LEDGER_SET].assert_spendable(declaration.inputs, declaration.commitment_root)
+      ledger.sets[LEDGER_SET].assert_spendable(declaration.inputs)
       assert declaration.amount >= min_stake.threshold
       ```
 
@@ -1319,7 +1291,6 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
           service=declaration.service_type,
           provider_id=declaration.provider_id,
           service_note=derive_note_commitment(service_note),
-          withdraw_outputs=[],
           locators=declaration.locators,
           zk_id=declaration.zk_id,
           note_pk=declaration.note_pk,
@@ -1340,13 +1311,14 @@ The service withdrawal follows the definition given in [Withdraw Message](bedroc
 ```python
 class WithdrawMessage:
     declaration: DeclarationId
-    nonce: int
     service_note_nullifier: NoteNullifier  # nullifier of the service note of the declaration
     outputs: list[NoteCommitment]          # commitments of the notes created in the ledger note set
     excess_value: TokenValue               # the excess to pay the fees
 ```
 
-The withdrawal consumes the service note of the declaration and creates the notes that return its value. Its ZkTransfer is proven against the root of an empty MMR to which only the service note is appended. That root is computed from the commitment held in the declaration, so the nullifier is the one of this service note and of no other note.
+The withdrawal consumes the service note of the declaration and creates the notes that return its value. Its ZkTransfer is proven against the root of an empty MMR to which only the service note is appended. That root is computed from the commitment held in the declaration, so the nullifier is the one of this service note and of no other note. A withdrawal carries no nonce: it is valid only while the declaration has no withdrawal scheduled, and that single nullifier is consumed once, so it cannot be replayed.
+
+Like a channel withdrawal, it waits in the [`pending_withdrawals`](#ledger) of the ledger, until the declaration is removed at the first slot of epoch `withdraw_at + 1`, where [`release_withdrawals`](#channel_withdraw) consumes the service note and creates the outputs in the ledger note set. The service note therefore keeps leading in Proof of Stake until then, and its value is counted once, in the service note or in the outputs. Only its own withdrawal consumes a service note, so a pending one is always released, and its excess can pay the fees when it is posted.
 
 #### Proof
 
@@ -1393,14 +1365,9 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       ```python
       assert Ed25519_verify(txhash, declare_info.provider_id, proof.provider_sig)
       ```
-  4. Ensure that the nonce belongs to this declaration and that its sequence is greater than the previous one.
+  4. Ensure the service note of the declaration is unspent, consumed by its holder and balances the outputs, with [`ZkTransfer_verify`](#zero-knowledge-transfer-proof-zktransfer) against the [`mmr_root`](#commitment-merkle-mountain-range) of the single peak holding the service note.
       ```python
-      assert withdraw.nonce >> 32 == declare_info.created
-      assert withdraw.nonce & 0xFFFFFFFF > declare_info.nonce & 0xFFFFFFFF
-      ```
-  5. Ensure the service note of the declaration is consumed by its holder and balances the outputs, with [`ZkTransfer_verify`](#zero-knowledge-transfer-proof-zktransfer) against the [`mmr_root`](#commitment-merkle-mountain-range) of the single peak holding the service note.
-      ```python
-      assert withdraw.service_note_nullifier not in ledger.sets[SDP_SET].nullifiers
+      ledger.sets[SDP_SET].assert_spendable([withdraw.service_note_nullifier])
       assert ZkTransfer_verify([withdraw.service_note_nullifier],
                                withdraw.outputs,
                                withdraw.excess_value,
@@ -1425,17 +1392,18 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 
   Executes the withdrawal protocol [**Withdraw**](bedrock-service-declaration-protocol.md#withdraw).
 
-  1. Update the declaration info with the nonce, the withdrawal epoch and the notes released at removal.
+  1. Update the declaration info with the withdrawal epoch.
       ```python
       _, declare_info = find_declaration(declarations, withdraw.declaration)
-      declare_info.nonce = withdraw.nonce
       declare_info.withdraw_at = current_epoch + 2
-      declare_info.withdraw_outputs = withdraw.outputs
       ```
 
-  2. Consume the service note in the SDP note set.
+  2. Keep the withdrawal in the [`pending_withdrawals`](#ledger) of the ledger until the first slot of epoch `withdraw_at + 1`, `EPOCH_LENGTH` being the number of slots of an epoch ([Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule)).
       ```python
-      ledger.sets[SDP_SET].execute_spending([withdraw.service_note_nullifier])
+      ledger.pending_withdrawals.append(((declare_info.withdraw_at + 1) * EPOCH_LENGTH,
+                                         SDP_SET,
+                                         [withdraw.service_note_nullifier],
+                                         withdraw.outputs))
       ```
 
 ### SDP Epoch Finalization
@@ -1446,7 +1414,8 @@ not when the `WithdrawMessage` is processed. The rewards of epoch
 are distributed in the first block of epoch `withdraw_at + 1` (see
 [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md)).
 In that same block, after the rewards have been distributed, every declaration
-with `withdraw_at + 1 <= current_epoch` is removed and its stake released.
+with `withdraw_at + 1 <= current_epoch` is removed and its service note released,
+through its [pending withdrawal](#sdp_withdraw).
 Declarations that withdrew without earning a final reward are removed by the
 same step.
 
@@ -1454,7 +1423,6 @@ same step.
 
 ```python
 current_epoch: EpochNumber
-ledger: Ledger
 providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
 declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
@@ -1462,12 +1430,10 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
   *Execute*
 
   For every `service`, `declare_id`, `declare_info` in `declarations` where
-  `declare_info.withdraw_at is not None and declare_info.withdraw_at + 1 <= current_epoch`,
-  in ascending order of `service` and then in ascending lexicographic order of the 32 bytes of `declare_id`, so that every node appends the released notes in the same order:
+  `declare_info.withdraw_at is not None and declare_info.withdraw_at + 1 <= current_epoch`:
 
-  1. Release the notes created by the withdrawal in the ledger note set and the provider identity the declaration held.
+  1. Release the provider identity the declaration held.
       ```python
-      ledger.sets[LEDGER_SET].execute_adding(declare_info.withdraw_outputs)
       del providers[service][declare_info.provider_id]
       ```
 
@@ -1572,7 +1538,6 @@ This Operation claims a reward from the proof of work [reward pool](proof-of-wor
 
 ```python
 class ClaimPowRewardOp:
-    epoch_nonce: zkhash        # Epoch nonce the solution was found against
     block_hash: hash           # Block ID, as defined in Cryptarchia, of a recent canonical block the solution is anchored to
     public_key: ZkPublicKey    # Key the reward note is paid to
     nonce: zkhash              # Value searched for a ticket satisfying the reward threshold
@@ -1595,8 +1560,6 @@ claim: ClaimPowRewardOp            # the CLAIM_POW_REWARD payload
 ledger: Ledger
 
 current_slot: SlotNumber           # slot of the block including this claim
-epoch_nonce_current: zkhash        # Cryptarchia epoch nonce of the current epoch
-epoch_nonce_previous: zkhash       # and of the epoch before it, genesis_epoch_nonce at epoch 0
 WINDOW: SlotNumber                 # the acceptance window, in slots
 difficulty_reward: PowTarget       # retargeted every block
 pow_nullifiers: set[zkhash]        # spent solutions, retained for WINDOW
@@ -1604,7 +1567,7 @@ pow_reward_pool: TokenValue
 epoch_pow_reward: TokenValue
 ```
 
-  The epoch nonces are the Cryptarchia epoch nonce $`\eta`$ of [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce), and `WINDOW` is derived in [Acceptance Window](proof-of-work.md#acceptance-window).
+  `WINDOW` is derived in [Acceptance Window](proof-of-work.md#acceptance-window). The ticket hashes no epoch nonce: the referenced block is at most `WINDOW` slots old, so its hash already binds the claim to the chain and makes the ticket unpredictable before that block exists.
 
   *Validate*
 
@@ -1618,21 +1581,17 @@ block = get_block_from_hash(claim.block_hash)   # None if unknown or not canonic
 assert block is not None
 assert 0 <= current_slot - block.slot <= WINDOW
 
-# 3. The solution must have been found against the current or the previous epoch.
-assert claim.epoch_nonce in (epoch_nonce_current, epoch_nonce_previous)
-
-# 4. The ticket must satisfy the reward threshold.
+# 3. The ticket must satisfy the reward threshold.
 puzzle_ticket = zkhash(FiniteField(b"POW_CLAIM_V1", byte_order="little", modulus=p),
                        claim.public_key,
                        claim.nonce,
-                       FiniteField(claim.block_hash, byte_order="little", modulus=p),
-                       claim.epoch_nonce)
+                       FiniteField(claim.block_hash, byte_order="little", modulus=p))
 assert puzzle_ticket < difficulty_reward
 
-# 5. The solution must not have been claimed before. The nullifier is the ticket.
+# 4. The solution must not have been claimed before. The nullifier is the ticket.
 assert puzzle_ticket not in pow_nullifiers
 
-# 6. Construct a single output note of value epoch_pow_reward under the public key
+# 5. Construct a single output note of value epoch_pow_reward under the public key
 #    given in the payload, which is also its staking key, and add it to the buffer
 #    of the ledger note set.
 claim_id = derive_op_id(claim)
@@ -1651,8 +1610,8 @@ ledger.sets[LEDGER_SET].tx_commitment_buffer.append(derive_note_commitment(outpu
 
 ```python
 claim: ClaimPowRewardOp
-puzzle_ticket: zkhash              # computed in validation step 4
-output_note: Note                  # constructed in validation step 6
+puzzle_ticket: zkhash              # computed in validation step 3
+output_note: Note                  # constructed in validation step 5
 
 ledger: Ledger
 pow_reward_pool: TokenValue
@@ -1804,7 +1763,7 @@ ledger: Ledger
 
   1. Ensure all inputs are spendable.
       ```python
-      ledger.sets[LEDGER_SET].assert_spendable(transfer.inputs, transfer.commitment_root)
+      ledger.sets[LEDGER_SET].assert_spendable(transfer.inputs)
       ```
 
   2. Validate transfer proof.
@@ -1927,7 +1886,7 @@ These note commitments and nullifiers uniquely define notes in the system. Nodes
 
 ### Service notes
 
-Service notes are special notes in Mantle that serve as collateral for Service Declarations. Executing a Declare Operation consumes notes of the ledger note set and creates one service note under the declaration's `note_pk` and `note_stake_pk` in the SDP note set, its commitment kept with the declaration. A note of the SDP note set is spent only by the Withdraw Operation of its declaration, and the notes that withdrawal creates enter the ledger note set when the declaration is removed. Service notes participate in Proof of Stake.
+Service notes are special notes in Mantle that serve as collateral for Service Declarations. Executing a Declare Operation consumes notes of the ledger note set and creates one service note under the declaration's `note_pk` and `note_stake_pk` in the SDP note set, its commitment kept with the declaration. A note of the SDP note set is spent only by the Withdraw Operation of its declaration, when the declaration is removed, and the notes that withdrawal creates then enter the ledger note set. Service notes participate in Proof of Stake.
 
 ## Ledger
 
@@ -1960,7 +1919,7 @@ class Groth16StoredKey:
 
 class Ledger:
     sets: list[NoteSet]  # indexed as in the table above
-    # the channel withdrawals waiting for their due slot: (due slot, note set, inputs, outputs)
+    # the channel and SDP withdrawals waiting for their due slot: (due slot, note set, inputs, outputs)
     pending_withdrawals: list[(Slot, int, list[NoteNullifier], list[NoteCommitment])]
     programs: dict[ProgramId, Groth16StoredKey]  # the registered programs: their key and e(alpha, beta)
 
@@ -2082,29 +2041,28 @@ The following method validates that an input of notes of a note set can be consu
 
 ```python
 class NoteSet:
-    def assert_spendable(self, inputs: list[NoteNullifier], commitment_root: MerkleRoot):
+    def assert_spendable(self, inputs: list[NoteNullifier]):
         # Assert inputs are not empty
         assert len(inputs) > 0
 
         ## Check there is no duplicate
         assert len(inputs) == len(set(inputs))
 
-        # Check the root is the commitment MMR root of the set at the end of one of the last
-        # 1024 blocks, block_height being the height of the block validated
-        assert commitment_root in self.recent_commitment_roots
-        last_block = self.recent_commitment_roots[commitment_root].last_block
-        assert last_block is None or last_block >= block_height - 1024
-
         # Check that each note is unspent
         for note_nullifier in inputs:
             assert note_nullifier not in self.nullifiers
 ```
 
-The proofs spending notes of a note set are verified against the root referenced by the Operation once the commitments of the `tx_commitment_buffer` of the set are appended to it, all of them, or only those before its mini-block for a user step or a deposit ([CHANNEL_INSCRIBE](#channel_inscribe)). The inputs can therefore be notes created by the previous Operations of the Mantle Transaction:
+The proofs spending notes of a note set are verified against the root referenced by the Operation, which must be recent, once the commitments of the `tx_commitment_buffer` of the set are appended to it, all of them, or only those before its mini-block for a user step or a deposit ([CHANNEL_INSCRIBE](#channel_inscribe)). The inputs can therefore be notes created by the previous Operations of the Mantle Transaction:
 
 ```python
 class NoteSet:
     def tx_commitment_root(self, commitment_root: MerkleRoot, covered: int | None = None) -> MerkleRoot:
+        # Check the root is the commitment MMR root of the set at the end of one of the last
+        # 1024 blocks, block_height being the height of the block validated
+        assert commitment_root in self.recent_commitment_roots
+        last_block = self.recent_commitment_roots[commitment_root].last_block
+        assert last_block is None or last_block >= block_height - 1024
         # append the first covered commitments of tx_commitment_buffer, all of them by default,
         # to a copy of the peaks of the MMR of root commitment_root
         peaks = list(self.recent_commitment_roots[commitment_root].peaks)
@@ -2455,19 +2413,19 @@ To see what the payloads represent, refer to [Mantle Transaction Encoding](mantl
 | `PROGRAM_REGISTER`        | 0x0100000000000000000000000000000000000000000000000000000000000000b9b3b4620913f849ee2aa6a9cfd35c9d146f3e7c27596cc3e8d311fd3472dc2779ad28398ced57998435d8c63164b86d7033733ab82101b6379bf1b45d203ea0f5c7fb9406fade12005e9ab08c477e8d5e7192e12628e551900eb14d784e0606856eb6ff324f82c9a7a078686b1504bcebe4cf5dcd9151734297bb572f7714102ce236b4ddb40977fd454c08e570151342c4cc50a86380c3472f6a6ff8dbdd296f237195c2856d5a3f8ca190f6666f2084d776f9935a48a2d57a569e476806a9a93f16faa7a849e89ca35389d8dee46243772b760402bc66f7e0fe0edf39c117f94a688c5b3dfe2a762ab3d315927156987792e7d92f79e0f4523f1a41caf40978e0ffab866b3a9876bd01b8ecc66fcb86936277f425539a758dbbd32e2b0717636a302c88373904f75a15fe21c13882a8fe9c3be9f572f4100c48231dd5b188 | 0x87e8c6cec157aab8a5f80f9058851063f8f4586992bcb54a256769694cbb0dd1 |
 | `CHANNEL_CONFIG`          | 0x0707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000200 | 0xc9f038b929299dd9ef28856916375021b04ce20e284bbfdc4355edab718846c2 |
 | `CHANNEL_INSCRIBE`        | 0x0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c0100030000012300000000000000000000000000000000000000000000000000000000000000012400000000000000000000000000000000000000000000000000000000000000250000000000000000000000000000000000000000000000000000000000000010000000737465702d696e736372697074696f6e013400000000000000000000000000000000000000000000000000000000000000013500000000000000000000000000000000000000000000000000000000000000013600000000000000000000000000000000000000000000000000000000000000370000000000000000000000000000000000000000000000000000000000000038000000000000003900000000000000000000000000000000000000000000000000000000000000130000006465706f7369742d696e736372697074696f6e023400000000000000000000000000000000000000000000000000000000000000013a00000000000000000000000000000000000000000000000000000000000000013b00000000000000000000000000000000000000000000000000000000000000013c000000000000000000000000000000000000000000000000000000000000003d000000000000000000000000000000000000000000000000000000000000001800000070726f6772616d2d737465702d696e736372697074696f6e | 0xdd5773c8d9b5d4ae4f123d89e3ee175de1b36d9420169565e8f18f4160887293 |
-| `CHANNEL_DEPOSIT`         | 0x101010101010101010101010101010101010101010101010101010101010101001110000000000000000000000000000000000000000000000000000000000000026000000000000000000000000000000000000000000000000000000000000000127000000000000000000000000000000000000000000000000000000000000002800000000000000100000006465706f7369742d6d65746164617461 | 0x83eeb0ac0b7e03bb6c93c0c7596512413707b9536b2b3d56a86656f8f527d6f6 |
-| `CHANNEL_WITHDRAW`        | 0x12121212121212121212121212121212121212121212121212121212121212120113000000000000000000000000000000000000000000000000000000000000002900000000000000000000000000000000000000000000000000000000000000012a00000000000000000000000000000000000000000000000000000000000000 | 0x8d6ae69200aab259bca71e5829d43f0a289ba612383d29ddcd7d217f1ede0996 |
+| `CHANNEL_DEPOSIT`         | 0x1010101010101010101010101010101010101010101010101010101010101010011100000000000000000000000000000000000000000000000000000000000000012700000000000000000000000000000000000000000000000000000000000000260000000000000000000000000000000000000000000000000000000000000028000000000000001b0000006368616e6e656c2d6465706f7369742d696e736372697074696f6e | 0x27586493a0af5c413ec02bbb1cf310f70c74370df5b81c1d729f5e355a1e2937 |
+| `CHANNEL_WITHDRAW`        | 0x1212121212121212121212121212121212121212121212121212121212121212011300000000000000000000000000000000000000000000000000000000000000012a000000000000000000000000000000000000000000000000000000000000002900000000000000000000000000000000000000000000000000000000000000 | 0x18e88fc3142c430bce8210829302c77689735fd470668a303d26568d17939d09 |
 | `SDP_DECLARE`             | 0x00010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f3190000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000003e00000000000000000000000000000000000000000000000000000000000000011a000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000002d00000000000000 | 0x3bde3b9b04ed242ca887f6f8139e317acf9fe0d8a6237f92e048bc0447bc9b64 |
-| `SDP_WITHDRAW`            | 0x1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000012e000000000000000000000000000000000000000000000000000000000000002f00000000000000 | 0xf385d531e2efc2cfca261d1b12643937a3ba2d19a6f7be9b617d59e2d3264f8a |
+| `SDP_WITHDRAW`            | 0x1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1c00000000000000000000000000000000000000000000000000000000000000012e000000000000000000000000000000000000000000000000000000000000002f00000000000000 | 0x22cfc077d947c544eada3e018542be63f726bda60c96f64477518eee62d88009 |
 | `SDP_ACTIVE`              | 0x1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020303030303030303030303030303030303030303030303030303030303030303 | 0xc4a2a639034016f52728f34041cf95fc2c7adb8f54cf94b4361b2d0cb72ebb70 |
-| `CLAIM_POW_REWARD`        | 0x3000000000000000000000000000000000000000000000000000000000000000313131313131313131313131313131313131313131313131313131313131313132000000000000000000000000000000000000000000000000000000000000003300000000000000000000000000000000000000000000000000000000000000 | 0xbc5ccb3bf2ceae92f0479fb84cd1e8049d4e7cb33cc72d16a3d5e30780a34c2b |
+| `CLAIM_POW_REWARD`        | 0x313131313131313131313131313131313131313131313131313131313131313132000000000000000000000000000000000000000000000000000000000000003300000000000000000000000000000000000000000000000000000000000000 | 0x271876ff684b7087005dba3153c44e8dcefd09257aa7e0d491399e2a483c975a |
 
 ### Mantle Transaction Hash
 
 | Transaction | Payload | Transaction Hash                                                   |
 | - | - | - |
 | Empty transaction | 0x00 | 0x2eba3f667b80a508f3d44d149a1c27a90ea365a51e4fc8209289088142b364e5 |
-| Transaction with one of each operation | 0x0a000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000600000000000000010100000000000000000000000000000000000000000000000000000000000000b9b3b4620913f849ee2aa6a9cfd35c9d146f3e7c27596cc3e8d311fd3472dc2779ad28398ced57998435d8c63164b86d7033733ab82101b6379bf1b45d203ea0f5c7fb9406fade12005e9ab08c477e8d5e7192e12628e551900eb14d784e0606856eb6ff324f82c9a7a078686b1504bcebe4cf5dcd9151734297bb572f7714102ce236b4ddb40977fd454c08e570151342c4cc50a86380c3472f6a6ff8dbdd296f237195c2856d5a3f8ca190f6666f2084d776f9935a48a2d57a569e476806a9a93f16faa7a849e89ca35389d8dee46243772b760402bc66f7e0fe0edf39c117f94a688c5b3dfe2a762ab3d315927156987792e7d92f79e0f4523f1a41caf40978e0ffab866b3a9876bd01b8ecc66fcb86936277f425539a758dbbd32e2b0717636a302c88373904f75a15fe21c13882a8fe9c3be9f572f4100c48231dd5b188100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000200110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c0100030000012300000000000000000000000000000000000000000000000000000000000000012400000000000000000000000000000000000000000000000000000000000000250000000000000000000000000000000000000000000000000000000000000010000000737465702d696e736372697074696f6e013400000000000000000000000000000000000000000000000000000000000000013500000000000000000000000000000000000000000000000000000000000000013600000000000000000000000000000000000000000000000000000000000000370000000000000000000000000000000000000000000000000000000000000038000000000000003900000000000000000000000000000000000000000000000000000000000000130000006465706f7369742d696e736372697074696f6e023400000000000000000000000000000000000000000000000000000000000000013a00000000000000000000000000000000000000000000000000000000000000013b00000000000000000000000000000000000000000000000000000000000000013c000000000000000000000000000000000000000000000000000000000000003d000000000000000000000000000000000000000000000000000000000000001800000070726f6772616d2d737465702d696e736372697074696f6e12101010101010101010101010101010101010101010101010101010101010101001110000000000000000000000000000000000000000000000000000000000000026000000000000000000000000000000000000000000000000000000000000000127000000000000000000000000000000000000000000000000000000000000002800000000000000100000006465706f7369742d6d657461646174611312121212121212121212121212121212121212121212121212121212121212120113000000000000000000000000000000000000000000000000000000000000002900000000000000000000000000000000000000000000000000000000000000012a000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f3190000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000003e00000000000000000000000000000000000000000000000000000000000000011a000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000002d00000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d000000000000001c00000000000000000000000000000000000000000000000000000000000000012e000000000000000000000000000000000000000000000000000000000000002f00000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020303030303030303030303030303030303030303030303030303030303030303303000000000000000000000000000000000000000000000000000000000000000313131313131313131313131313131313131313131313131313131313131313132000000000000000000000000000000000000000000000000000000000000003300000000000000000000000000000000000000000000000000000000000000 | 0x9ef25b57711e9f8f62a6a103c9290218e38ae11f5feeb7e612acefe85aac7739 |
+| Transaction with one of each operation | 0x0a000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000600000000000000010100000000000000000000000000000000000000000000000000000000000000b9b3b4620913f849ee2aa6a9cfd35c9d146f3e7c27596cc3e8d311fd3472dc2779ad28398ced57998435d8c63164b86d7033733ab82101b6379bf1b45d203ea0f5c7fb9406fade12005e9ab08c477e8d5e7192e12628e551900eb14d784e0606856eb6ff324f82c9a7a078686b1504bcebe4cf5dcd9151734297bb572f7714102ce236b4ddb40977fd454c08e570151342c4cc50a86380c3472f6a6ff8dbdd296f237195c2856d5a3f8ca190f6666f2084d776f9935a48a2d57a569e476806a9a93f16faa7a849e89ca35389d8dee46243772b760402bc66f7e0fe0edf39c117f94a688c5b3dfe2a762ab3d315927156987792e7d92f79e0f4523f1a41caf40978e0ffab866b3a9876bd01b8ecc66fcb86936277f425539a758dbbd32e2b0717636a302c88373904f75a15fe21c13882a8fe9c3be9f572f4100c48231dd5b188100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000200110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c0100030000012300000000000000000000000000000000000000000000000000000000000000012400000000000000000000000000000000000000000000000000000000000000250000000000000000000000000000000000000000000000000000000000000010000000737465702d696e736372697074696f6e013400000000000000000000000000000000000000000000000000000000000000013500000000000000000000000000000000000000000000000000000000000000013600000000000000000000000000000000000000000000000000000000000000370000000000000000000000000000000000000000000000000000000000000038000000000000003900000000000000000000000000000000000000000000000000000000000000130000006465706f7369742d696e736372697074696f6e023400000000000000000000000000000000000000000000000000000000000000013a00000000000000000000000000000000000000000000000000000000000000013b00000000000000000000000000000000000000000000000000000000000000013c000000000000000000000000000000000000000000000000000000000000003d000000000000000000000000000000000000000000000000000000000000001800000070726f6772616d2d737465702d696e736372697074696f6e121010101010101010101010101010101010101010101010101010101010101010011100000000000000000000000000000000000000000000000000000000000000012700000000000000000000000000000000000000000000000000000000000000260000000000000000000000000000000000000000000000000000000000000028000000000000001b0000006368616e6e656c2d6465706f7369742d696e736372697074696f6e131212121212121212121212121212121212121212121212121212121212121212011300000000000000000000000000000000000000000000000000000000000000012a0000000000000000000000000000000000000000000000000000000000000029000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f3190000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000003e00000000000000000000000000000000000000000000000000000000000000011a000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000002d00000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1c00000000000000000000000000000000000000000000000000000000000000012e000000000000000000000000000000000000000000000000000000000000002f00000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c02020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202030303030303030303030303030303030303030303030303030303030303030330313131313131313131313131313131313131313131313131313131313131313132000000000000000000000000000000000000000000000000000000000000003300000000000000000000000000000000000000000000000000000000000000 | 0x13546325ad836966c941c200bd92be5b6254476c5ff840de16fac7aea02d2c9b |
 
 ### Declaration Id
 
