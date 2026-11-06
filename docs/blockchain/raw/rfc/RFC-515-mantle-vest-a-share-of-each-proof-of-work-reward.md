@@ -14,6 +14,7 @@
 | v6 | Follows the stack below: a declaration also names `note_stake_pk`, and the service rewards go to the two keys of its service note. The declaration test vectors of Mantle and Cryptarchia hold the new field | 2026-11-06 |
 | v7 | Every figure assumes a fixed claim reward of 334 LOGOS. Proof of Work requires the vested notes of a minimum stake to fit one declaration | 2026-11-06 |
 | v8 | `locked_until` is a slot, used directly as `spending_slot` and compared with the slot of a withdrawal, so an era changing the epoch length moves no lock. The declaration test vectors of Mantle and Cryptarchia hold the new encoding | 2026-11-06 |
+| v9 | States what a missed report costs under the lock, with `inactivity_period` staying 2 | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -102,6 +103,20 @@ Binding the stake to its staker is a separate draft stacked on this one. Miners 
 ## A declaration that lapses
 
 A declaration leaves the active set once its reports stop, and it cannot come back. An active message for an epoch needs a blending token collected as a member of the core list of that epoch, and the ledger rejects it from a provider outside the list. Two offline epochs are enough. The way back is to withdraw and declare again, and `locked_until` blocks the withdrawal. A provider that lapses therefore cannot serve with that stake until the lock ends, up to a year. Its service note can still lead in the lottery, and it can declare with other notes under new identifiers.
+
+Smaller misses also last until the lock ends, because `inactivity_period` stays 2. The set of epoch `n` reads `active` at the end of epoch `n - 2`, and a report included in epoch `m` attests epoch `m - 1` and needs membership of it. Membership therefore behaves like three separate chains, one for each epoch modulo 3, and a missed report breaks one of them. After one missed report a provider is out of every third epoch until the lock ends. After one offline epoch it is out two epochs in three.
+
+Over a lock of 49 epochs, with reports missed at random:
+
+| Reports missed | Epochs served | Providers that lose at least one epoch | Providers out for good |
+| --- | --- | --- | --- |
+| 1% | 45 | 37% | 0.3% |
+| 5% | 34 | 91% | 16% |
+| 10% | 25 | 99% | 51% |
+
+The real rate is not known. One part of it can be computed, because the activity proof can fail by chance. On cover traffic alone it fails under 0.05% of the time up to 8,191 providers, 6.6% at 8,192, 11% at 10,000 and 72% at 20,000. Data traffic lowers these. If reports fail to land for one epoch across the network, every provider locked at that point is out of every third epoch. If most are locked, Blend falls below its minimal network size of 32 in those epochs and uses regular broadcast.
+
+An `inactivity_period` of 3 would remove the cost of one missed report, at the price of listing a dead node for one more epoch. This RFC keeps 2.
 
 This is accepted as a cost of the lock. The activity proof is to change to something less probabilistic and more forgiving, which should make a lapse rarer.
 
