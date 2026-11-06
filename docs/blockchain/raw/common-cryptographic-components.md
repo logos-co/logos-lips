@@ -285,7 +285,7 @@ Security Considerations:
 
 Description:
 
-The ledger holds only the commitment of a [note](bedrock-v1.1-mantle-specification.md#notes); its holder needs the `value` and the `nonce` to recompute the commitment and to spend it. Note Encryption lets the sender of a note encrypt these two fields to the holder's encryption key, bound to the commitment, so that the ciphertext can be handed over through any channel and opened by the holder alone.
+The ledger holds only the commitment of a [note](bedrock-v1.1-mantle-specification.md#notes); its holder needs the `value` and the `nonce`, with its public key and the staking key of the note ([Mantle - Keys](bedrock-v1.1-mantle-specification.md#keys)), to recompute the commitment and to spend it. Note Encryption lets the sender of a note encrypt these two fields to the holder's encryption key, bound to the commitment, so that the ciphertext can be handed over through any channel and opened by the holder alone.
 
 Technical Details:
 
@@ -317,7 +317,7 @@ def decrypt_note(sk_enc: XWingDecapsulationKey, commitment: NoteCommitment, ciph
 
 Use in the Logos Blockchain:
 
-- The recommended delivery of the user notes an Operation creates for another holder, as [Mantle - Note Delivery](bedrock-v1.1-mantle-specification.md#note-delivery) specifies: the sender hands the delivery message over through a direct channel or publishes it on a data availability layer the recipient reads. The recipient decrypts with the key it derives as the [Wallet Technical Standard](wallet-technical-standard.md#note-encryption-key-and-address) specifies, recomputes the commitment from the plaintext and its own public key, and keeps the note only if it matches.
+- The recommended delivery of the user notes an Operation creates for another holder, as [Mantle - Note Delivery](bedrock-v1.1-mantle-specification.md#note-delivery) specifies: the sender hands the delivery message over through a direct channel or publishes it on a data availability layer the recipient reads. The recipient decrypts with the key it derives as the [Wallet Technical Standard](wallet-technical-standard.md#note-encryption-key-and-address) specifies, recomputes the commitment from the plaintext and its own public key, as the public key and the staking key of the note unless it asked the sender for another staking key, and keeps the note only if it matches.
 
 Rationale for Use:
 

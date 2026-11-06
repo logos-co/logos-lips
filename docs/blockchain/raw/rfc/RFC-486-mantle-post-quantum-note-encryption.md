@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | v1 | Initial RFC: an optional note ciphertext per output of the Operations creating user notes | 2026-10-19 |
 | v2 | The ciphertext leaves the chain: no change to the Operations or their encoding, the scheme is a recommendation for delivery through a direct channel or a data availability layer; X-Wing becomes its own entry of Common Cryptographic Components with the Note Encryption construction under it; test values added; Mantle gets a Note Delivery note only. The leader reward note, whose nonce its leader chooses privately, is kept by the wallet that created it | 2026-11-02 |
+| v3 | The note gains a staking key ([RFC-481](RFC-481-mantle-programs-governing-channel-notes.md)): a delivered note takes the public key of its recipient as staking key unless the recipient asked the sender for another, so the ciphertext still carries `value` and `nonce` only and the recipient recomputes the commitment with its public key as both keys. A sender keeps the notes it creates for others and delivers them again on request | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -44,7 +45,8 @@ A wallet reading its ciphertexts from a shared data availability layer tries eve
 ## Assumptions and open points
 
 - The encryption key is derived from the same leaf as the ZK key, so one leaf gives one address. The hierarchy of the wallet standard is otherwise unchanged.
-- Nothing checks a ciphertext against its commitment before the recipient opens it: a wrong ciphertext deprives the recipient of a note the sender paid for, and no one else.
+- Nothing checks a ciphertext against its commitment before the recipient opens it: a wrong ciphertext deprives the recipient of a note the sender paid for, and no one else. The sender keeps the note it created and delivers it again when asked, which also answers a claim of non-payment.
+- The ciphertext carries `value` and `nonce` only. The staking key of RFC-481 is the public key of the recipient unless the recipient asked the sender for another, in which case it knows what to try. Carrying the staking key in the plaintext would add 32 bytes to every ciphertext for a case the rule covers, and a sender ignoring the rule withholds the note no more than one publishing a wrong ciphertext does.
 - The address with `pk_enc` is 1248 bytes. Payment requests and URIs carry it without difficulty; a directory of encryption keys published by inscription, letting an address carry a hash instead, is possible later and not specified here.
 - The delivery channel is not specified. A direct channel and a data availability layer are the two the wallet standard names; which layer, and how a wallet finds its ciphertexts on it, is for the specification of that layer.
 - The research report recommends keeping the expanded decapsulation key in memory; the library choice is an implementation matter.
@@ -68,7 +70,7 @@ Common Cryptographic Components is revision 1.4.0.
 
 - `sk_enc = BLAKE2b-256(WALLET_ENC_SK_V1 || k_i)` is the X-Wing decapsulation key of the leaf that holds `k_logos`; `pk_enc` is its encapsulation key.
 - The address is `(public_key, pk_enc)`. A wallet may hand out `public_key` alone, in which case the sender gives it the value and the nonce by other means. A sender holding `pk_enc` uses it and nothing else.
-- Discovery: trial decryption of the ciphertexts the wallet receives over a direct channel or reads from a data availability layer, with the commitment check against the note sets it may receive notes in; derivation for ledger-created notes and the notes a program pays in a step consuming a note of the program; records for notes received in the clear.
+- Discovery: trial decryption of the ciphertexts the wallet receives over a direct channel or reads from a data availability layer, with the commitment check, under the wallet's public key as public key and staking key, against the note sets it may receive notes in; derivation for ledger-created notes and the notes a program pays in a step consuming a note of the program; records for notes received in the clear.
 - Recovery from the seed replays the derivation over the chain, for the public keys and values it can re-derive, and the trial decryption over the ciphertexts still available; the one-time public key and the value of a program payout belong to the records of the wallet when the seed does not give them, and so does a leader reward note, whose nonce is private; a wallet keeps a backup of its records or reads its notes from a layer it can read again from the seed alone.
 - Wallet Technical Standard is revision 1.3.0.
 
