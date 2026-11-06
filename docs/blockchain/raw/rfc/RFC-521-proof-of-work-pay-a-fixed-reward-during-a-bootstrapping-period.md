@@ -441,11 +441,11 @@ The table gives the reward in LOGOS, the claims per block and the pool, on the c
 | --- | --- | --- | --- |
 | None | 4.76, 1.93, 19.5M | 2.98, 0.69, 4.4M | 0.88, 0.21, 0.4M |
 | Steady, 1 per block | 1.52, 6.08, 19.5M | 1.06, 1.98, 4.4M | 0.47, 0.43, 0.4M |
-| Steady, 13 per block | 1.20, 7.66, 20.5M | 1.18, 2.23, 5.5M | 1.03, 0.64, 1.4M |
-| Steady, 130 per block | 1.17, 7.66, 30.0M | 1.24, 6.82, 17.9M | 1.22, 4.73, 12.2M |
+| Steady, 13 per block | 1.20, 7.56, 20.5M | 1.18, 2.22, 5.5M | 1.03, 0.64, 1.4M |
+| Steady, 130 per block | 1.17, 7.56, 30.0M | 1.24, 6.91, 18.2M | 1.22, 4.74, 12.2M |
 | Grows from 1 to 13 per block | 13.25, 0.78, 21.9M | 13.86, 0.52, 15.2M | 13.78, 0.46, 13.3M |
 | Grows from 1 to 130 per block | 104.00, 0.54, 119M | 112.32, 3.58, 851M | 113.19, 4.41, 1,057M |
-| Steady, 13 per block, stops at epoch 98 | 1.20, 7.66, 20.5M | 0.51, 4.59, 5.0M | 0.15, 1.37, 0.4M |
+| Steady, 13 per block, stops at epoch 98 | 1.20, 7.56, 20.5M | 0.52, 4.61, 5.0M | 0.15, 1.37, 0.4M |
 
 Across these runs and the ones with no outsiders, the target stays between 0.2 and 30 claims per block. At 0.2 the smoothing of 999/1000 overshoots it by under 0.3%, and at 0.01 it would overshoot by 5%.
 
