@@ -83,7 +83,7 @@ digraph overview_cryptoeconomics {
   storage_fees -> pool        [label = "  storage fees  "];
   exec_fees    -> leader_note [label = "  tips  "];
   exec_fees    -> pow_pool    [style = dashed];
-  storage_fees -> pow_pool    [xlabel = "share of the fees,\ncredited each epoch", style = dashed];
+  storage_fees -> pow_pool    [xlabel = "share of the fees,\ncredited each block", style = dashed];
   pow_pool     -> miners;
 
   reserve -> reward [label = "  release  "];

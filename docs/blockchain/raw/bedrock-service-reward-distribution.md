@@ -33,6 +33,7 @@
 | 1.3.3 | One reward note per `zk_id`, and none for a zero reward, matching the implementation | 2026-09-01 |
 | 1.3.4 | Adopted "active message" as the single name for the message | 2026-09-02 |
 | 1.4.0 | Reward notes are private notes whose commitments are appended to the commitment MMR of the ledger note set, their nonce derived from `hash(ServiceType \|\| epoch_number)` and their output number. The Blend reward is paid from `blend_rewards_pending`, what it does not distribute returning to `rewards_pool` | 2026-10-07 |
+| 1.4.1 | A reward note takes `zk_id` as both its public key and its staking key | 2026-11-06 |
 
 # Introduction
 
@@ -87,7 +88,7 @@ Starting immediately after epoch **N+1**, service rewards are distributed in the
 The reward must:
 
   - Transfer the correct reward amount according to [Service Reward Calculation](#service-reward-calculation).2
-  - Be sent to the public key `zk_id` of the validator registered during [declaration of the service](bedrock-service-declaration-protocol.md).
+  - Be sent to the public key `zk_id` of the validator registered during [declaration of the service](bedrock-service-declaration-protocol.md), which is both the public key and the [staking key](bedrock-v1.1-mantle-specification.md#keys) of the note.
   - Be distributed as exactly one note per rewarded `zk_id`. Rewards are never summed or merged into a shared note.
   - Be executed identically by every node processing the first block of epoch N+2. This happens by inserting notes in the ledger in ascending order of `zk_id`.
   - Be paid, for the Blend service, from `blend_rewards_closed` ([Block Rewards](block-rewards.md#deterministic-implementation)): the total of the reward notes is debited from it, and the part of the Blend reward of epoch N that the notes do not use, when no reward is calculated or as the remainder of the division among the nodes, moves from it to `rewards_reserve`.
