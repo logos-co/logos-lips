@@ -74,8 +74,8 @@ The gas derivation of each Operation are:
 
 ```python
 TRANSFER_GAS                  = 619
-CHANNEL_INSCRIBE_GAS          = 59 + 619 * user_steps + sum(PROGRAM_STEP_GAS(step) for step in program_steps)
-PROGRAM_STEP_GAS(step)        = 619 * len(step.payments) + PROGRAM_SPEND_GAS + PROGRAM_PROOF_GAS
+CHANNEL_INSCRIBE_GAS          = 59 + 619 * (user_steps + program_deposits) + PROGRAM_STEP_GAS * program_steps
+PROGRAM_STEP_GAS              = PROGRAM_SPEND_GAS + PROGRAM_PROOF_GAS
 PROGRAM_SPEND_GAS             = 619
 PROGRAM_PROOF_GAS             = 2451
 PROGRAM_REGISTER_GAS          = 1896
@@ -88,7 +88,7 @@ SDP_ACTIVE_GAS                = 59
 CLAIM_POW_REWARD_GAS          = 0
 ```
 
-where `user_steps` is the number of [user steps](bedrock-v1.1-mantle-specification.md#channel_inscribe) of the inscription and `program_steps` the list of its program steps, each program step costing `PROGRAM_STEP_GAS` for its own number of payments. A user step is a local transaction of the channel: a ZkTransfer moving channel notes, signed by their holder and published by a sequencer.
+where `user_steps`, `program_deposits` and `program_steps` are the numbers of [user steps](bedrock-v1.1-mantle-specification.md#channel_inscribe), program deposits and program steps of the inscription. A user step is a local transaction of the channel: a ZkTransfer moving channel notes, signed by their holder and published by a sequencer.
 
 These values come from our implementation observations as described in [Gas determination from measures](#gas-determination-from-measures).  To get these numbers, we based our calculations on the following measures:
 
@@ -144,12 +144,13 @@ Execution: ~59k CPU cycles + ~619k CPU cycles * user steps + the cost of each pr
 - Insertion of the nullifiers and appending of the commitments of the steps: negligible.
 - Update the channel state: negligible
 
+A program deposit costs, like a user step, the verification of its ZkTransfer in the batch of the block: 618,797 cycles.
+
 A program step costs:
 
-- Verification of the ZkTransfer of each payment in the batch of the block: 618,797 cycles per payment.
 - Verification of the ZkProgramSpend, a circuit shared by every program, in the batch of the block: 618,796 cycles.
 - Verification of the program proof: a single Groth16 verification under the key of its program, which cannot share the batch of another program, with the line coefficients of `-γ` and `-δ` computed from the stored key: 2,221,544 + 228,669 = 2,450,213 cycles.
-- Verification that the program is registered, computation of the hash of the payments, and recomputation of the commitment of each opened note of the program: negligible.
+- Verification that the program is registered, computation of the hash of the deposits, and recomputation of the commitment of each opened note of the program: negligible.
 
 ## Program Register
 
