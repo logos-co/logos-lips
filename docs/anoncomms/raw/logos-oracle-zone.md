@@ -132,7 +132,8 @@ signs and publishes it as an inscription on LBC.
 Each `oracle node` holds two keys.
 Its zone key pair (Ed25519), the Zone-Private key and the Zone-Public key, owns its channel on LBC,
 and LBC checks it on every inscription the node writes.
-Its LEZ key pair (BIP-340), the LEZ-Private key and the LEZ-Public key, is its LEZ account and its staking identity.
+The LEZ Public key defines the `oracle id` used when registering the node (and staking).
+The LEZ Private key is also used for the signing field of PriceObservation (see [Price Fetching](#price-fetching))
 The `oracle id` is the 32-byte x-only LEZ-Public key,
 and the node signs its observations with this key.
 No third key is needed.
