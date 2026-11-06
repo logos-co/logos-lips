@@ -214,7 +214,7 @@ Where:
 - `provider_id` and `zk_id` are the identifiers of the validator ([Identifiers](#identifiers));
 - `note_pk` is the `ZkPublicKey` the service note is created under. No check reads it and no proof covers its secret, so, as for the outputs of a Transfer, the wallet is responsible for it: a `note_pk` whose secret nobody holds locks the stake for good;
 - `inputs` are the [`NoteNullifier`](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) of the notes the declaration consumes, proven by a [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) against `commitment_root`;
-- `commitment_root` is the root of the [commitment Merkle Mountain Range (MMR)](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range) of the ledger note set at the end of one of the last 1024 blocks;
+- `commitment_root` is the root of the [commitment Merkle Mountain Range (MMR)](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range) of the ledger note set at the end of one of the last [`ROOT_WINDOW`](bedrock-v1.1-mantle-specification.md#ledger) blocks;
 - `amount` is the value of the one service note the declaration creates under the `note_pk`, used for minimum stake threshold verification purposes.
 
 ### **Declaration Storage**

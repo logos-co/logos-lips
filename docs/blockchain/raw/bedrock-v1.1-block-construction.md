@@ -364,7 +364,7 @@ The order is constrained as well as economical. [Block Header Validation](crypta
 
   Block validity is consequently order-dependent, and the order the transactions appear in is normative. Two transactions consuming the same note make the block invalid whatever their order, since the second consumption finds the note spent.
 
-  A note cannot be consumed by a later transaction of the block that creates it. A transaction proves its inputs against the commitment root of their note set at one of the last 1024 blocks, extended only with the commitments created earlier in the same transaction ([Mantle Validation](bedrock-v1.1-mantle-specification.md#validation)). Notes can therefore be chained within a transaction, not across the transactions of a block.
+  A note cannot be consumed by a later transaction of the block that creates it. A transaction proves its inputs against the commitment root of their note set at one of the last [`ROOT_WINDOW`](bedrock-v1.1-mantle-specification.md#ledger) blocks, extended only with the commitments created earlier in the same transaction ([Mantle Validation](bedrock-v1.1-mantle-specification.md#validation)). Notes can therefore be chained within a transaction, not across the transactions of a block.
 
   In order to verify ZK proofs, they are batched for verification as explained in [Batch verification of ZK proofs](#batch-verification-of-zk-proofs) to get better performance. Batching covers the proof checks alone and does not change the state a transaction is validated in: the public inputs of every proof are taken from the state its transaction is reached in, and the state-dependent assertions still run in sequence.
 
@@ -385,7 +385,7 @@ Given a `ValidBlock` that has successfully passed proposal validation, the node 
 2. Apply the channel and SDP withdrawals whose due slot is reached and whose inputs are still unspent, as defined in [CHANNEL_WITHDRAW](bedrock-v1.1-mantle-specification.md#channel_withdraw).
 3. Execute the Mantle Transactions included in the block in the order they appear, using the execution rules defined in the [Mantle](bedrock-v1.1-mantle-specification.md).
 4. Update `pooled_fees_window`, `rewards_reserve`, `rewards_pool`, `blend_rewards_pending` and `pow_reward_pool` with the pooled fees, the release, the payout, the Blend share and the proof of work share of the block, as defined in [Block Rewards](block-rewards.md#deterministic-implementation), and insert the leader reward of the block in the ledger, its value computed from the release and the payout of that update and compared with `reward_value` by [Block Proposal Validation](#block-proposal-validation).
-5. Record the commitment MMR root of every note set a commitment was appended to in the block, as defined in [Ledger](bedrock-v1.1-mantle-specification.md#ledger), so that the transactions of the next 1024 blocks can reference it, and record the [eligible root](cryptarchia-proof-of-leadership.md#eligible-sets) after the block, which validating an uncle or a fork block reads:
+5. Record the commitment MMR root of every note set a commitment was appended to in the block, as defined in [Ledger](bedrock-v1.1-mantle-specification.md#ledger), so that the transactions of the next `ROOT_WINDOW` blocks can reference it, and record the [eligible root](cryptarchia-proof-of-leadership.md#eligible-sets) after the block, which validating an uncle or a fork block reads:
     ```python
     for note_set in note_sets_appended_to(block):
         note_set.record_commitment_root(block_height)

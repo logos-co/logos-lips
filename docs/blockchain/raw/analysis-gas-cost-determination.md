@@ -109,7 +109,7 @@ Input gas covers the computational cost of verifying that one nullifier is not i
 Execution: negligible.
 
 - Verification that the nullifier is not in the set: negligible.
-- Verification that the commitment root is one of the last 1024 blocks: negligible.
+- Verification that the commitment root is one of the last [`ROOT_WINDOW`](bedrock-v1.1-mantle-specification.md#ledger) blocks: negligible.
 - Insertion of the nullifier in the nullifier set: negligible.
 
 ## Output Gas
