@@ -306,7 +306,7 @@ The validation checks the format of the declaration, the length of its locators,
 | release at the end of the epoch | 19,335 |
 | decompression and batch verification of the ZkTransfer | 1,768,883 |
 
-The validation checks that the declaration exists and is not withdrawn, the nonce, and the ZkTransfer consuming the service note, whose root is computed from that note alone, which takes most of the 892 Execution Gas of the Operation. The execution records the withdrawal, inserts the nullifier of the service note in the SDP note set, and releases the output at the end of the epoch.
+The validation checks that the declaration exists and is not withdrawn, and the ZkTransfer consuming the service note, whose root is computed from that note alone, which takes most of the 892 Execution Gas of the Operation. The execution records the withdrawal epoch and keeps the withdrawal pending, and its release at the end of the epoch inserts the nullifier of the service note in the SDP note set and appends the output to the ledger note set.
 
 ## SDP Activation
 
@@ -322,7 +322,7 @@ The validation checks that the declaration exists, the nonce, the signature of t
 | Step | Cycles |
 | --- | --- |
 | Claim | 591,975 |
-| of which the re-derivation of the puzzle ticket, one `zkhash` over five field elements | 138,681 |
+| of which the re-derivation of the puzzle ticket, one `zkhash` over four field elements | 138,681 |
 
 The validation re-derives the ticket, compares it to the reward difficulty, checks that the referenced block is canonical and within the acceptance window, that the ticket is not in the nullifier set and that the pool covers a reward. The execution inserts the nullifier, derives the note and appends its commitment, and decrements the pool. A claim pays its fee out of the reward it creates, so the per-claim reward clears the Permanent Storage fee of the transaction, these 592 Execution Gas and the Execution Gas of its bytes, and the Execution Gas of the Transfer spending the reward note.
 

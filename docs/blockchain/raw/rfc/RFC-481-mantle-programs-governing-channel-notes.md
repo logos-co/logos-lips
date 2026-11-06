@@ -16,6 +16,7 @@
 | v8 | A mini-block is a flat list of user steps, program deposits and program steps, the kind of a step carried only by its encoding. A program step consumes the deposits of its program before it in its mini-block, and a deposit left unconsumed makes the inscription invalid. `payment_msg`, `spend_notes_hash` and `payments_hash` are renamed `program_deposit_id`, `program_step_id` and `program_deposits_hash` | 2026-11-06 |
 | v9 | A deposit checks that its program is registered, and a program step takes its deposits in their order in the mini-block. `program_step_id` hashes under the DST `PROGRAM_STEP_ID_V1` | 2026-11-06 |
 | v10 | The amount of a deposit is its `value`, `paid_value` naming the sum of the values of the deposits of a program step, a public input of its ZkProgramSpend | 2026-11-06 |
+| v11 | A program step consumes the program deposits before it in its mini-block, which must all pay its program, from one pending list. `program_deposit_id` is a BLAKE2b hash of the channel and the encoded program deposit, reduced modulo `p`. A program step lists its `program_outputs`, the notes of its program, apart from its `outputs`, the user notes it pays, which sets the `outputs_of_program` flags. Every program note is held by `PK0`, the public key of the spending secret key `0`, so the ZkProgramSpend takes no spending secret key and an opening no public key. A channel being created carries no step. The nullifier key derives under `NF_KDF_V1`, the encoding names the staking key `NoteStakePk` everywhere, and the nonce of a service reward note derives over its `note_pk` | 2026-11-06 |
 
 ## Reviewer Orientation
 
@@ -24,7 +25,7 @@ Read [RFC-480](RFC-480-mantle-private-utxo-ledger.md) first: this RFC builds on 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here**: [Mantle](#affected-specifications), [program notes](#1-program-notes) | the `stake_public_key`, `program` and `data` fields of the note; the nullifier key between the spending secret key and the public key; the ZkTransfer fixing `program` and `data` to `0`; the Proof of Leadership proving a user or program note from its nullifier key and staking secret key |
-| 2 | Critical | **Start here**: [Mantle](#affected-specifications), [program steps](#2-program-steps) | program deposits and the program step consuming them in the mini-block, the `ZkProgramSpend` with its `outputs_of_program` flags, its derivation of the output nonces and the flags in `program_step_id`, the program proof and its three public inputs, the openings of the program notes; nothing creates value, and no program note is created without its opening |
+| 2 | Critical | **Start here**: [Mantle](#affected-specifications), [program steps](#2-program-steps) | program deposits and the program step consuming them in the mini-block, the `ZkProgramSpend` with its `program_outputs` held by `PK0` and its `outputs_of_program` flags, its derivation of the output nonces and the flags in `program_step_id`, the program proof and its three public inputs, the openings of the program notes; nothing creates value, and no program note is created without its opening |
 | 3 | High | [Mantle](#affected-specifications), [what enforces what](#3-what-enforces-what) | the split between what the ledger enforces and what the users of the zone check |
 | 4 | High | [Mantle](#affected-specifications), [registration](#4-program-registration) | `PROGRAM_REGISTER`, the program identifier, the key checks |
 | 5 | High | [Encoding](#affected-specifications), [encoding](#5-encoding) | step kinds, program deposits, the inscriptions of the steps, `ProgramOutputs`, program step proofs with their `ProgramNoteOpening`s, the verification key, the format of compressed points |
@@ -40,8 +41,8 @@ The ledger guarantees that no LOGOS is created, that a user note moves only with
 The ledger does not guarantee the liveness of a program:
 
 - The sequencers of a channel can freeze every program note of the channel for good, since program notes are never withdrawn and only the sequencers publish program steps. They cannot take the value of the notes, but they can hold it.
-- A sequencer can hold a signed deposit until 1024 blocks, about 8.5 hours, after its root stopped being the current root of the note set, a root that stays current staying valid, and fill it at the worst price its intent accepts.
-- Past the immutable block, the sequencers of a channel should keep the openings of its unspent notes. The next sequencer can take over a program from the openings alone as long as its state is in opened fields and its notes have the key of the spending secret key `0` as holder.
+- A sequencer can hold a signed program deposit until 1024 blocks, about 8.5 hours, after its root stopped being the current root of the note set, a root that stays current staying valid, and fill it at the worst price its intent accepts.
+- Past the immutable block, the sequencers of a channel should keep the openings of its unspent notes. The next sequencer can take over a program from the openings alone as long as its state is in opened fields.
 - The circuit fixes the total a step pays, not the value of each payout, so a program should fix that value from public data for its payee to recompute the note.
 
 The users of a program trust its circuit and the setup that produced its key: whoever kept the trapdoor of that setup can prove any statement under the key.
@@ -52,26 +53,31 @@ The keys of a note form two chains. The spending secret key derives the nullifie
 
 The Proof of Leadership proves `pk` from `nf_sk`, which ties the nullifier it shows unspent to the note: with any other nullifier, the non-membership check would pass for a spent note. It never takes `spending_sk`, which is why the nullifier key sits between the spending secret key and the public key: a node handed `nf_sk` alone leads with the note but cannot spend it, cold staking, and sees when the note is spent. The ZkTransfer pays one more hash per input for it. The staking secret key derives the lottery ticket, the entropy contribution and the key nullifier of the Proof of Quota, so the lottery of a note stays private when its `nf_sk` is public.
 
-Program notes take part in Proof of Stake by default. The LOGOS a program keeps in notes its steps do not move stakes, since only a note left unspent across the freeze of the stake distribution leads, and a program can offer liquid staking: a public pool has by convention the spending secret key `0`, so its `nf_sk` and `pk` are public and any sequencer can move it under the program proof, while its staking key is the one of its operator. A program opts out by constraining the staking key of its notes to `0` in its proof: no secret key is known whose public key is `0`, so such a note never leads.
+Program notes take part in Proof of Stake by default. The LOGOS a program keeps in notes its steps do not move stakes, since only a note left unspent across the freeze of the stake distribution leads, and a program can offer liquid staking: every program note is held by `PK0`, the public key of the spending secret key `0`, so its `nf_sk` and `pk` are public and any sequencer can move it under the program proof, while its staking key is the one of its operator. A program opts out by constraining the staking key of its notes to `0` in its proof: no secret key is known whose public key is `0`, so such a note never leads.
 
 The reward of a block led by a program note goes, as for any leader, to the key its staker chooses, not to the program: the ledger cannot make the reward a program note, since only the proof of a program creates its notes. A program that does not constrain the staking key of the notes it creates, its own notes and its payouts, lets the sequencer proving the step choose it, so that sequencer can stake those notes and keep their rewards, the value of the program notes staying governed by the program. A payee needs the staking key of its payout to spend it, and a payout has no published opening, so a program should fix that key, for example to the public key of the payee. Program notes are never withdrawn, since a withdrawal consumes notes with a ZkTransfer.
 
+## Program notes held by `PK0`
+
+Every program note is held by `PK0 = zkhash(KDF, NF_SK0)`, `NF_SK0 = zkhash(NF_KDF_V1, 0)` being the nullifier key of the spending secret key `0`. A program note moves only with the proof of its program, so a holder of its own protects nothing, and a holder left to the sequencer would let it create notes of the program under its own key, which no other sequencer could spend. With a fixed holder, the ZkProgramSpend takes no spending secret key and an opening no public key. Anyone can compute the nullifiers of the program notes, so which program notes a step consumes is public, as the state of a program already is. A program that wants only some sequencers to move its notes enforces it in its circuit, for example with a signature over the `op_id`.
+
 ## Program deposits as steps
 
-A mini-block is a flat list of steps of three kinds: user steps, program deposits and program steps. A program step consumes the deposits of its program in its mini-block since the previous program step of that program, in their order in the mini-block, which the sequencer chooses, and an inscription leaving a deposit unconsumed at the end of a mini-block is invalid, so a deposit exists only together with the program step that consumes it. The encoding tags each step with its kind, so a step is decoded once, by its tag.
+A mini-block is a flat list of steps of three kinds: user steps, program deposits and program steps. A program step consumes the program deposits before it in its mini-block since the previous program step, in their order in the mini-block, which the sequencer chooses, and they must all pay its program, so the sequencer places the program deposits of a program step immediately before it. The ledger keeps one list of pending program deposits, which a program step empties, and an inscription leaving a program deposit pending at the end of a mini-block is invalid, so a program deposit exists only together with the program step that consumes it. The encoding tags each step with its kind, so a step is decoded once, by its tag.
 
 A deposit carries its own inscription, the zone message of its holder, bound by `program_deposit_id` as a user step binds its own through `user_step_id`, and a program step carries the zone message of the step, bound by the `op_id` like the rest of its public data. The inscription of the inscribe and those of its steps count together against `MAX_OPERATION_DATA_SIZE`. The `program_step_id` of a program step hashes private fields of the notes of its program spend, so the ledger cannot recompute it: it is the public value linking the ZkProgramSpend and the program proof.
 
 ## Privacy
 
-Users stay hidden: deposits consume notes by nullifier, and the notes a program pays are commitments, as long as each payee uses a one-time public key, since the nonce of such a note is a public function of its value and public key. The amounts are public: every deposit carries its `value`, and every program note is opened in the step that creates it, so the state of a program is public, and so is the total a program step pays to users. Interactions with a program are therefore subject to timing attacks. Hiding the amounts needs value commitments in place of public values, which changes the ZkTransfer and the fee payment across Mantle and is left to a later RFC.
+Users stay hidden: program deposits consume notes by nullifier, and the notes a program pays are commitments, as long as each payee uses a one-time public key, since the nonce of such a note is a public function of its value and public key. Which program notes a step consumes is public, every program note being held by `PK0`. The amounts are public: every deposit carries its `value`, and every program note is opened in the step that creates it, so the state of a program is public, and so is the total a program step pays to users. Interactions with a program are therefore subject to timing attacks. Hiding the amounts needs value commitments in place of public values, which changes the ZkTransfer and the fee payment across Mantle and is left to a later RFC.
 
 ## Alternatives considered
 
 - **A signed delta per program spend, summed to zero over the inscription.** Value would move between proofs through signed amounts. Rejected: every proof balances on its own with unsigned values, which is simpler to check and to implement.
 - **Order notes created by the users.** A user would create a program note holding the deposit and its intent, and the sequencer would consume it later. Rejected: creating a program note needs the program proof, which is bound to an inscription the user does not know when signing. Unfilled orders would also need a refund rule.
 - **Deposit notes under the key of spending secret key `0`.** A user would pay the program with a plain note anyone can spend, consumed by the program step of the same inscription. Rejected: if the sequencer published the deposit without the program step, anyone could take the note. A deposit that exists only together with its program step cannot be stranded.
-- **Deposits nested inside their program step.** Rejected: a flat list of steps of three kinds keeps one loop, one proof per step and one encoding tag per step, and the rule that a program step consumes the deposits of its program before it in the mini-block keeps a deposit from being stranded just as well.
+- **Deposits nested inside their program step.** Rejected: a flat list of steps of three kinds keeps one loop, one proof per step and one encoding tag per step, and the rule that a program step consumes the program deposits before it in the mini-block keeps a program deposit from being stranded just as well.
+- **A holder chosen by the program for each program note.** Rejected: a program note moves only with the proof of its program, and a program leaving the holder free would let a sequencer create notes of the program that no other sequencer can spend. Every program note is held by `PK0`.
 - **Letting a user step pay a program with its excess.** Rejected: a user step would need a program field and a nonzero `excess_value`. Only deposits carry a `program_id` and an excess, so a user step keeps an `excess_value` of `0` and names no program, which saves space in every inscription.
 - **A custom inscription hash, or a per-step flag choosing whether a proof is bound to the inscription.** Rejected: the `op_id` of the Inscribe Operation already covers the inscription and the public data of every step without any proof, and every program proof is bound to it. No circuit has to open the inscription: LOGOS-only programs read `program_deposits_hash` and `program_step_id`, and the users of the zone check the rest.
 - **One zkVM verifier for every program.** Rejected for now: a Groth16 key per program reuses the stack of the ZkTransfer, on BN254 with `zkhash`, and a zone can still wrap a zkVM proof in a Groth16 circuit.
@@ -95,10 +101,12 @@ Users stay hidden: deposits consume notes by nullifier, and the notes a program 
 `Note` gains three fields, part of its commitment. `stake_public_key` is the staking key of the note. `program` and `data` default to `0`, the value of a user note. A `ProgramId` is the identifier of a program (§4).
 
 ```python
-nf_sk = zkhash(FiniteField(b"NF_KDF", ...), spending_sk)  # the nullifier key, compression mode
+nf_sk = zkhash(FiniteField(b"NF_KDF_V1", ...), spending_sk)  # the nullifier key, compression mode
 public_key = zkhash(FiniteField(b"KDF", ...), nf_sk)
 stake_public_key = zkhash(FiniteField(b"KDF", ...), staking_sk)
 nullifier = zkhash(FiniteField(b"NOTE_NF_V1", ...), commitment, nf_sk)
+NF_SK0 = zkhash(FiniteField(b"NF_KDF_V1", ...), 0)  # the keys of the spending secret key 0,
+PK0 = zkhash(FiniteField(b"KDF", ...), NF_SK0)      # which hold every program note
 ```
 
 ```diff
@@ -118,65 +126,65 @@ nullifier = zkhash(FiniteField(b"NOTE_NF_V1", ...), commitment, nf_sk)
 +                  note.nonce, note.public_key, note.stake_public_key, note.program, note.data)
 ```
 
-- The ZkTransfer and the ZkProgramSpend prove `spending_sk`, derive `nf_sk`, then the public key and the nullifier of each input, and derive the commitments of their inputs and outputs with their staking keys as private witnesses, the ZkTransfer with `program` and `data` set to `0`, so it moves user notes only. They do not prove the staking key: spending takes the spending secret key alone.
+- The ZkTransfer proves `spending_sk`, derives `nf_sk`, then the public key and the nullifier of each input, and the ZkProgramSpend uses the constants `PK0` and `NF_SK0` for the notes of the program. Both derive the commitments of their inputs and outputs with their staking keys as private witnesses, the ZkTransfer with `program` and `data` set to `0`, so it moves user notes only. They do not prove the staking key: spending a user note takes its spending secret key alone, and a program note the proof of its program.
 - The Proof of Leadership takes `nf_sk`, `staking_sk`, the `program` and the `data` of its note as private witnesses, derives the public key and the nullifier from `nf_sk` and the staking key from `staking_sk`, and derives the lottery ticket and the entropy contribution from `staking_sk`, so program notes lead. It never takes `spending_sk`. A note whose staking key is `0` never leads. The leader reward note is `(reward_value, reward_nonce, reward_public_key, reward_public_key, 0, 0)`, so a reward is a user note under one key. The leader branch of the Proof of Quota does the same, and derives its key nullifier from `staking_sk`.
-- `DeclarationMessage` and `DeclarationInfo` gain `note_stake_pk`, `DeclarationInfo` keeps `note_pk` too, and the service note and the service reward notes are created under `note_pk` and `note_stake_pk`; `zk_id` is only the Proof of Quota identity. A Genesis note takes its public key as both keys, and the note of a `CLAIM_POW_REWARD` the public key of the claim. A program should fix the staking key of the notes it pays, which their payee needs to spend them. A wallet should use `nf_sk` as the staking secret key of its notes, and give a transfer output the public key of its recipient as staking key unless the recipient asks for another.
-- The nullifier is `zkhash(NOTE_NF_V1, commitment, nf_sk)` for every note. A program note has a holder and a staker chosen by its program, or by the sequencer proving the step where the program leaves them free. The key of spending secret key `0` is the convention for a note open to everyone, such as the reserves of a pool.
-- Common Cryptographic Components lists the `NF_KDF` derivation among the uses of the compression mode, and the Wallet Technical Standard derives the nullifier key and the public key from the wallet's `ZkSecretKey`.
+- `DeclarationMessage` and `DeclarationInfo` gain `note_stake_pk`, `DeclarationInfo` keeps `note_pk` too, and the service note and the service reward notes are created under `note_pk` and `note_stake_pk`, the nonce of a reward note derived over its `note_pk` as for every note the ledger creates; `zk_id` is only the Proof of Quota identity. A Genesis note takes its public key as both keys, and the note of a `CLAIM_POW_REWARD` the public key of the claim. A program should fix the staking key of the notes it pays, which their payee needs to spend them. A wallet should use `nf_sk` as the staking secret key of its notes, and give a transfer output the public key of its recipient as staking key unless the recipient asks for another.
+- The nullifier is `zkhash(NOTE_NF_V1, commitment, nf_sk)` for every note. Every program note is held by `PK0`, so its nullifier uses `NF_SK0` and is public, and has a staker chosen by its program, or by the sequencer proving the step where the program leaves it free.
+- Common Cryptographic Components lists the `NF_KDF_V1` derivation among the uses of the compression mode, and the Wallet Technical Standard derives the nullifier key and the public key from the wallet's `ZkSecretKey`.
 
 ## 2. Program steps
 
 `CHANNEL_INSCRIBE` carries `mini_blocks: list[list[UserStep | ProgramDeposit | ProgramStep]]`, a flat list of steps per mini-block, the kind of a step being the tag of its encoding.
 
-- A **user step** is a ZkTransfer of its holder bound to `user_step_id`, which commits to its channel and its inscription, with an `excess_value` of `0`.
-- A **program deposit** is a ZkTransfer of its holder bound to `program_deposit_id`, which commits to its channel, its inscription, its program and its intent, with an `excess_value` of its `value`. Like a user step, it is verified against its referenced root extended with the buffer as it stands when its mini-block starts, and holds at any position in its mini-block, so a sequencer can gather the deposits of many users without the users proving one after another.
-- A **program step** carries a `program_id` and a program spend over the program notes, and consumes the deposits of its program in its mini-block since the previous program step of that program, in their order in the mini-block. A deposit left unconsumed at the end of its mini-block makes the inscription invalid.
+- A **user step** is a ZkTransfer of its holder bound to `user_step_id`, which commits to its channel and the whole step, its inscription included, with an `excess_value` of `0`.
+- A **program deposit** is a ZkTransfer of its holder bound to `program_deposit_id`, which commits to its channel and the whole program deposit, its inscription, its program and its intent included, with an `excess_value` of its `value`. Like a user step, it is verified against its referenced root extended with the buffer as it stands when its mini-block starts, and holds at any position in its mini-block, so a sequencer can gather the program deposits of many users without the users proving one after another.
+- A **program step** carries a `program_id` and a program spend over the program notes, and consumes the program deposits before it in its mini-block since the previous program step, in their order in the mini-block, which must all pay its program. A program deposit left pending at the end of its mini-block makes the inscription invalid.
 - The program spend is proven by the sequencer once the inscription is fixed, and covers the whole buffer at its position. Program steps moving one pool can therefore follow each other in a single mini-block, each consuming the note the previous one created.
 
 ```python
 class ProgramDeposit:
-    program_id: ProgramId          # the program the deposit pays
+    program_id: ProgramId          # the program the program deposit pays
     inputs: list[NoteNullifier]    # nullifiers of the consumed user notes
     outputs: list[NoteCommitment]  # change
     commitment_root: MerkleRoot    # a recent root of the channel note set
     value: TokenValue              # the excess of the ZkTransfer, paid to the program
     intent: zkhash                 # the hash of what the user expects from the program
-    inscription: bytes             # the zone message of the deposit, signed by its holder
+    inscription: bytes             # the zone message of the program deposit, signed by its holder
 
 class ProgramStep:
-    program_id: ProgramId          # the program the step executes
-    inputs: list[NoteNullifier]    # notes of the program, possibly none
-    outputs: list[NoteCommitment]  # notes of the program, and user notes it pays
-    program_outputs: list[bool]    # whether each output is a note of the program
-    commitment_root: MerkleRoot    # a recent root of the channel note set
-    program_step_id: zkhash        # the hash of the input and output notes of the program spend
-    inscription: bytes             # the zone message of the step, bound by the op_id
+    program_id: ProgramId                  # the program the step executes
+    inputs: list[NoteNullifier]            # notes of the program, possibly none
+    program_outputs: list[NoteCommitment]  # notes of the program the step creates
+    outputs: list[NoteCommitment]          # user notes the step pays
+    commitment_root: MerkleRoot            # a recent root of the channel note set
+    program_step_id: zkhash                # the hash of the input and output notes of the program spend
+    inscription: bytes                     # the zone message of the step, bound by the op_id
 
 class ProgramStepProof:
     spend_proof: ZkProgramSpend       # the proof of the program spend
     program_proof: Groth16Proof       # under the registered key of the program
-    program_notes: list[ProgramNoteOpening]  # (value, nonce, public_key, stake_public_key, data)
-                                             # of each output of the program
+    program_notes: list[ProgramNoteOpening]  # (value, nonce, stake_public_key, data)
+                                             # of each of the program_outputs
 ```
 
-Validation, in one loop over the steps:
+Validation, in one loop over the mini-blocks and their steps, each step first checked for unspent inputs, which no earlier step consumes, a program step possibly consuming none:
 
-1. A deposit names a registered program, is spendable, and its ZkTransfer verifies with an excess of its `value` and `program_deposit_id(channel, deposit)`, a hash under the domain separation tag (DST) `PROGRAM_DEPOSIT_V1` of the channel ID, as two elements holding its low and high 16 bytes, of the BLAKE2b-256 hash of the inscription of the deposit, split the same way, of the program, of the intent, and of the nullifiers and commitments of the deposit. Its change goes to the buffer, and the deposit waits for the next program step of its program.
-2. A program step names a registered program and consumes the deposits waiting for it.
-3. The program spend consumes unspent notes of the program, possibly none, at most 4 notes in and 8 out, and its `ZkProgramSpend` verifies with `paid_value` the sum of the values of those deposits, `program_outputs`, `program_step_id`, and the `op_id` of the inscription.
-4. Each output flagged in `program_outputs` has an opening in `program_notes`, staking key included, whose commitment, with `program` set to `program_id`, is that output.
-5. The program proof verifies under the registered key on `(program_step_id, program_deposits_hash(deposits), op_id)`, `program_deposits_hash` being the hash of the `(value, intent)` pairs of the deposits the step consumes, in their order in the mini-block, which the sequencer chooses.
-6. No deposit is left waiting at the end of a mini-block.
+1. A program deposit names a registered program, and its ZkTransfer verifies with an excess of its `value` and `program_deposit_id(channel, program_deposit)`, the BLAKE2b-256 hash under the domain separation tag (DST) `PROGRAM_DEPOSIT_V1` of the channel ID and of the encoded program deposit, reduced modulo `p`, as `user_step_id` is under `USER_STEP_V1`. Each identifier keeps its own DST, as every hash of Mantle does, although the kind tag of the encoding already tells the steps apart. Its change goes to the buffer, and the program deposit is pending until the next program step.
+2. A program step names a registered program, which every pending program deposit pays, and consumes them all.
+3. The program spend consumes notes of the program, possibly none, at most 4 notes in and 8 out, and its `ZkProgramSpend` verifies with `paid_value` the sum of the values of those program deposits, `program_outputs` then `outputs` as its outputs, `program_step_id`, and the `op_id` of the inscription.
+4. Each of the `program_outputs` has its opening in `program_notes`, in the same order, whose commitment, with the public key `PK0` and `program` set to `program_id`, is that output.
+5. The program proof verifies under the registered key on `(program_step_id, program_deposits_hash(program_deposits), op_id)`, `program_deposits_hash` being the hash of the `(value, intent)` pairs of the program deposits the step consumes, in their order in the mini-block, which the sequencer chooses.
+6. No program deposit is left pending at the end of a mini-block.
 
 The openings serve only the availability of the state of the program. They sit in the proof of the step, outside the `op_id` and the transaction hash, and the ledger keeps nothing from them. A block is valid only with all its openings, so stripping them cannot skip the check. A node may prune the openings of the blocks behind its latest immutable block, which it never validates again; a node syncing these blocks needs a peer that kept them, or bootstraps from a checkpoint after them. Past that point the sequencers of a channel should keep the openings of its unspent notes.
 
-The `ZkProgramSpend` is the ZkTransfer with program checks: its inputs are notes of `program_id`, its outputs are notes of `program_id` or user notes, `program_step_id` commits to the active flag and the note of every input and output, nonce and staking key included, so that a program can constrain the staking key of the notes it creates, the fields of an inactive one reading as `0`, and `sum(inputs_value) + paid_value == sum(outputs_value)` over the values of its inputs and outputs. Its used inputs and outputs are marked by the public flags `inputs_active` and `outputs_active`, set from the published lists as in the ZkTransfer, and its outputs of the program by the public flags `outputs_of_program`, set from `program_outputs`. It is proven by the sequencer. The circuit is `program_spend` in [logos-blockchain-circuits](https://github.com/logos-blockchain/logos-blockchain-circuits); its constraints and proving time are to be measured on the circuit this RFC specifies (see [Implementation](#implementation)).
+The `ZkProgramSpend` is the ZkTransfer with program checks: its inputs are notes of `program_id` held by `PK0`, their nullifiers derived with `NF_SK0`, so it takes no spending secret key, its outputs are notes of `program_id` held by `PK0` or user notes, `program_step_id` commits to the active flag and the note of every input and output, nonce and staking key included, so that a program can constrain the staking key of the notes it creates, the fields of an inactive one reading as `0`, and `sum(inputs_value) + paid_value == sum(outputs_value)` over the values of its inputs and outputs. Its used inputs and outputs are marked by the public flags `inputs_active` and `outputs_active`, set from the published lists as in the ZkTransfer, and its outputs of the program by the public flags `outputs_of_program`, set from the length of `program_outputs`, which come first. It is proven by the sequencer. The circuit is `program_spend` in [logos-blockchain-circuits](https://github.com/logos-blockchain/logos-blockchain-circuits); its constraints and proving time are to be measured on the circuit this RFC specifies (see [Implementation](#implementation)).
 
 When a step consumes a note of the program, the circuit derives the nonce of each active output `k` as `zkhash(NOTE_NONCE_V1, inputs[0], k, value, public_key)`, from the nullifier of the first input: the `op_id` cannot serve, since it covers the output commitments and thus their nonces. Such a step re-creates neither a note it consumes nor the output of another such step, so a sequencer cannot burn a note by re-creating it, and cannot withhold a payout from a holder who knows its value, since the holder recomputes the nonce from the inscription. A commitment created ahead of time with a chosen nonce costs its creator the value. A step consuming no note of the program picks its nonces, and a program admitting such a step should constrain them through `program_step_id`. A derived nonce is a public function of the value and the public key of the note, so a payee should use a one-time public key.
 
 ## 3. What enforces what
 
-Mantle gains a **Programs** section stating, for each guarantee, the check that enforces it, and the design choices behind them: why creating a program note needs its proof, why a deposit exists only together with the program step consuming it, why the proofs are bound to the `op_id`, why program notes stake unless their staking key is `0` and where the reward of a block they lead goes, why they never withdraw, why every program note a step creates is opened, for data availability only. Publishing the preimage of each intent in the inscription is recommended, depending on the program.
+Mantle gains a **Programs** section stating, for each guarantee, the check that enforces it, and the design choices behind them: why creating a program note needs its proof, why a program deposit exists only together with the program step consuming it, why program notes are held by `PK0`, why the proofs are bound to the `op_id`, why program notes stake unless their staking key is `0` and where the reward of a block they lead goes, why they never withdraw, why every program note a step creates is opened, for data availability only. Publishing the preimage of each intent in the inscription is recommended, depending on the program.
 
 ## 4. Program registration
 
@@ -203,22 +211,21 @@ def derive_program_id(key: Groth16VerificationKey) -> ProgramId:
 +ProgramDepositKind = %x01
 +ProgramStepKind    = %x02
 +ProgramDeposit     = ProgramId Inputs Outputs CommitmentRoot Value Intent Inscription
-+ProgramStep        = ProgramId Inputs Outputs ProgramOutputs CommitmentRoot ProgramStepId Inscription
++ProgramStep        = ProgramId Inputs ProgramOutputs Outputs CommitmentRoot ProgramStepId Inscription
 +Intent             = FieldElement
-+ProgramOutputs     = Byte                   ; bit i set when output i is a note of the program, the bits
-+                                           ; from OutputCount up being 0, rejected by the decoder otherwise
++ProgramOutputs     = Outputs                ; the notes of the program the step creates
 +ProgramStepId      = FieldElement
 +ProgramRegister    = Groth16VerificationKey ; Alpha G1, Beta Gamma Delta G2, 4 IC G1: 352 bytes
 -ChannelInscribeOpProof = Ed25519Signature *ZkTransfer
 +ChannelInscribeOpProof = Ed25519Signature *StepProof
-+StepProof              = ZkTransfer / ProgramStepProof   ; ZkTransfer for a user step or a deposit
-+ProgramStepProof       = ZkProgramSpend Groth16Proof *ProgramNoteOpening
-+ProgramNoteOpening     = Value NoteNonce ZkPublicKey StakePublicKey ProgramNoteData   ; 136 bytes
++StepProof              = ZkTransfer / ProgramStepProof   ; ZkTransfer for a user step or a program deposit
++ProgramStepProof       = ZkProgramSpend Groth16Proof *ProgramNoteOpening   ; one per ProgramOutputs entry
++ProgramNoteOpening     = Value NoteNonce NoteStakePk ProgramNoteData   ; 104 bytes
 -SDPDeclare             = ServiceType Locators ProviderId ZkId NotePk Inputs CommitmentRoot Value
 +SDPDeclare             = ServiceType Locators ProviderId ZkId NotePk NoteStakePk Inputs CommitmentRoot Value
 ```
 
-The inscriptions of a `ChannelInscribe` and of its steps total at most `MAX_OPERATION_DATA_SIZE` bytes, a decoder rejecting more.
+The inscriptions of a `ChannelInscribe` and of its steps total at most `MAX_OPERATION_DATA_SIZE` bytes, a decoder rejecting more. A program step lists the notes of its program in `ProgramOutputs` apart from the user notes in `Outputs`, so the flags of the ZkProgramSpend follow from the two lengths and every encoding is canonical. The staking key is a `NoteStakePk` wherever it is encoded.
 
 The encoding also defines the compressed points `G1Point` and `G2Point`: little-endian coordinates, `c0` then `c1` for `G2Point`, bit 7 of the last byte set when `y` is the larger root, bit 6 the point at infinity, which is rejected, and coordinates below the base field modulus, so that a point, and thus a key and its program identifier, has a single encoding. What makes a proof valid beyond its encoding is defined by Groth16, as for Ed25519 signatures. Mantle checks the points of a key because the key is registered as ledger state.
 
@@ -239,17 +246,18 @@ A program deposit costs `EXECUTION_TRANSFER_GAS`, like a user step, and a progra
 
 - [ ] Add the `stake_public_key`, `program` and `data` fields to notes and to their commitment, with `0` as `program` and `data` for user notes, and `stake_public_key` set to the public key for the Genesis notes, the proof of work claim notes and the leader reward notes.
 - [ ] Add `note_stake_pk` to `SDP_DECLARE`, its encoding and `DeclarationInfo`, keep `note_pk` in `DeclarationInfo`, and create the service note and the service reward notes under `note_pk` and `note_stake_pk`.
-- [ ] Derive the nullifier key `nf_sk` from the spending secret key with `NF_KDF`, the public key from `nf_sk`, and the nullifier from `nf_sk`, in the wallet, the ZkTransfer and the ZkProgramSpend.
+- [ ] Derive the nullifier key `nf_sk` from the spending secret key with `NF_KDF_V1`, the public key from `nf_sk`, and the nullifier from `nf_sk`, in the wallet and the ZkTransfer, the DST of the circuits renamed from `NF_KDF` to `NF_KDF_V1`.
+- [ ] In the ZkProgramSpend circuit, drop the witness `inputs_spending_sk` and fix the public key of every input and of every output flagged in `outputs_of_program` to the constant `PK0 = zkhash(KDF, NF_SK0)`, and the nullifier key of every input to the constant `NF_SK0 = zkhash(NF_KDF_V1, 0)`, `program_step_id` hashing `PK0` as the public key of each active input.
 - [ ] Take the staking key as a private witness of the ZkTransfer and the ZkProgramSpend, with `program` and `data` fixed to `0` in the ZkTransfer, and add the staking keys to `program_step_id`.
 - [ ] In the Proof of Leadership and the leader branch of the Proof of Quota, which shares its lottery constraints, take `nf_sk`, `staking_sk` and the `program` and `data` of the note as private witnesses, derive the public key and the nullifier from `nf_sk` and the staking key from `staking_sk`, derive the ticket, the entropy contribution and the key nullifier from `staking_sk`, and derive the leader reward note with `reward_public_key` as both keys.
 - [ ] Regenerate the verification keys of the ZkTransfer, the ZkProgramSpend, the Proof of Leadership and the Proof of Quota, which every node verifying them needs.
 - [ ] Measure the constraints and proving times of these four circuits, and update their benchmarks in Mantle, the Proof of Leadership and the Proof of Quota.
 - [ ] Have wallets use `nf_sk` as the staking secret key of their notes, and give a transfer output the public key of its recipient as staking key unless the recipient asks for another.
-- [ ] Add the `inscription` of program deposits and program steps, bind the inscription of a deposit in `program_deposit_id`, and bound the inscriptions of an inscribe together by `MAX_OPERATION_DATA_SIZE`.
+- [ ] Add the `inscription` of program deposits and program steps, compute `program_deposit_id` as the BLAKE2b hash of the channel and the encoded program deposit, and bound the inscriptions of an inscribe together by `MAX_OPERATION_DATA_SIZE`.
 - [ ] Implement the `ZkProgramSpend` circuit, its own circuit-specific setup and its verifier.
 - [ ] Reject the point at infinity when decoding the points of a proof.
 - [ ] Implement `PROGRAM_REGISTER`: the key encoding, the curve and subgroup checks, the program identifier and the `programs` map.
-- [ ] Implement user steps, program deposits and program steps in `CHANNEL_INSCRIBE`, as one flat list per mini-block tagged by kind in the encoding: the deposits consumed by the next program step of their program in the mini-block, the program spend, the program proof under its registered key, the openings of the program notes, and their encoding.
+- [ ] Implement user steps, program deposits and program steps in `CHANNEL_INSCRIBE`, as one flat list per mini-block tagged by kind in the encoding: the program deposits pending until the next program step, which must run their program, the program spend over the `program_outputs` then the `outputs` of the step, the program proof under its registered key, the openings of the program notes under `PK0`, and their encoding.
 - [ ] Rename, in the ZkProgramSpend circuit, the signal `spend_notes_hash` to `program_step_id` and its DST `PROGRAM_SPEND_NOTES_V1` to `PROGRAM_STEP_ID_V1`.
 - [x] Measure the Execution Gas of `PROGRAM_REGISTER`, the `ZkProgramSpend` and the program proof.
 - [ ] Add tests and test vectors for note commitments, program registration, program steps and their encoding.
