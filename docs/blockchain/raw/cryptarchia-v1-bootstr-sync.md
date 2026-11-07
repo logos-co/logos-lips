@@ -413,17 +413,20 @@ gitGraph
     branch fork
     checkout local_chain
     commit
-    commit
-    commit tag: "tip when the node stopped"
     checkout fork
     commit
+    checkout local_chain
     commit
+    checkout fork
     commit
+    checkout local_chain
+    commit tag: "tip when the node stopped"
+    checkout fork
     commit
     commit tag: "tip at the restart"
 ```
 
-The fork passes the local chain while the node is offline. Lengths are not to scale.
+The fork is shorter than the local chain when the node stops. It passes the local chain while the node is offline. Lengths are not to scale.
 
 A disadvantage is that a syncing node, which has been offline longer than $`T_\text{offline}`$, should maintain the Bootstrap rule during the [Prolonged Bootstrap Period](#prolonged-bootstrap-period), which is 24 hours in the current setting. In the future, the team will consider designing a better mechanism to replace the long Bootstrap Period.
 
