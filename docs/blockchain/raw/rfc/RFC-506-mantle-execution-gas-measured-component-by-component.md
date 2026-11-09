@@ -49,7 +49,7 @@ A transaction changing a set pays its full end of block work, the largest measur
 
 ## Bytes
 
-A transaction costs 26.8 cycles per byte for its decoding, its hash and the identifiers of its Operations. The term is integer: `len * 27 // 1000`. The inscriptions of user steps and program deposits pay through this term and the Permanent Storage Gas like any other byte. The whole encoded step is read by one more Blake2b pass, into its `user_step_id` or `program_deposit_id`. `EXECUTION_USER_STEP_GAS` and `EXECUTION_PROGRAM_DEPOSIT_GAS` were measured with identifiers hashed with Poseidon2 over the fields of the step, so that pass is not priced yet ([Limits of the measures](#limits-of-the-measures)).
+A transaction costs 26.8 cycles per byte for its decoding, its hash and the identifiers of its Operations. The term is integer: `len * 30 // 1000`. The inscriptions of user steps and program deposits pay through this term and the Permanent Storage Gas like any other byte. The whole encoded step is read by one more Blake2b pass, into its `user_step_id` or `program_deposit_id`. `EXECUTION_USER_STEP_GAS` and `EXECUTION_PROGRAM_DEPOSIT_GAS` were measured with identifiers hashed with Poseidon2 over the fields of the step, so that pass is not priced yet ([Limits of the measures](#limits-of-the-measures)).
 
 ## Rejected alternatives
 
@@ -107,24 +107,24 @@ The Execution Gas of each Operation reads only the Operation and its proof, an E
 
 | Constant | Value | | Constant | Value |
 | --- | --- | --- | --- | --- |
-| `EXECUTION_TRANSFER_GAS` | 12 | | `EXECUTION_KB_GAS` | 27 |
-| `EXECUTION_CHANNEL_INSCRIBE_GAS` | 21 | | `EXECUTION_NOTE_SET_GAS` | 3461 |
-| `EXECUTION_CHANNEL_CONFIG_GAS` | 20 | | `EXECUTION_PROOF_GAS` | 1770 |
-| `EXECUTION_CHANNEL_DEPOSIT_GAS` | 6 | | `EXECUTION_ROOT_GAS` | 879 |
-| `EXECUTION_CHANNEL_WITHDRAW_GAS` | 31 | | `EXECUTION_BUFFERED_GAS` | 23 |
-| `EXECUTION_SDP_DECLARE_GAS` | 622 | | `EXECUTION_NULLIFIER_GAS` | 725 |
-| `EXECUTION_SDP_WITHDRAW_GAS` | 0 | | `EXECUTION_COMMITMENT_GAS` | 24 |
-| `EXECUTION_SDP_ACTIVE_GAS` | 6927 | | `EXECUTION_SIGNATURE_GAS` | 161 |
-| `EXECUTION_CLAIM_POW_REWARD_GAS` | 592 | | `EXECUTION_USER_STEP_GAS` | 195 |
-| `EXECUTION_PROGRAM_REGISTER_GAS` | 6839 | | `EXECUTION_PROGRAM_DEPOSIT_GAS` | 267 |
-| | | | `EXECUTION_PROGRAM_STEP_GAS` | 6374 |
-| | | | `EXECUTION_OPENING_GAS` | 151 |
+| `EXECUTION_TRANSFER_GAS` | 10 | | `EXECUTION_KB_GAS` | 30 |
+| `EXECUTION_CHANNEL_INSCRIBE_GAS` | 26 | | `EXECUTION_NOTE_SET_GAS` | 8961 |
+| `EXECUTION_CHANNEL_CONFIG_GAS` | 24 | | `EXECUTION_PROOF_GAS` | 4177 |
+| `EXECUTION_CHANNEL_DEPOSIT_GAS` | 26 | | `EXECUTION_ROOT_GAS` | 2332 |
+| `EXECUTION_CHANNEL_WITHDRAW_GAS` | 33 | | `EXECUTION_BUFFERED_GAS` | 60 |
+| `EXECUTION_SDP_DECLARE_GAS` | 1693 | | `EXECUTION_NULLIFIER_GAS` | 1758 |
+| `EXECUTION_SDP_WITHDRAW_GAS` | 0 | | `EXECUTION_COMMITMENT_GAS` | 58 |
+| `EXECUTION_SDP_ACTIVE_GAS` | 15117 | | `EXECUTION_SIGNATURE_GAS` | 557 |
+| `EXECUTION_CLAIM_POW_REWARD_GAS` | 1506 | | `EXECUTION_USER_STEP_GAS` | 28 |
+| `EXECUTION_PROGRAM_REGISTER_GAS` | 15114 | | `EXECUTION_PROGRAM_DEPOSIT_GAS` | 144 |
+| | | | `EXECUTION_PROGRAM_STEP_GAS` | 13528 |
+| | | | `EXECUTION_OPENING_GAS` | 470 |
 
-The [Gas Cost Determination](../analysis-gas-cost-determination.md#execution-gas) states what each constant measures. `EXECUTION_PROGRAM_SPEND_GAS` is replaced by `EXECUTION_PROOF_GAS`, which prices both ZkTransfer and ZkProgramSpend proofs. `EXECUTION_PROGRAM_STEP_GAS` is the sum of the measured program step beyond its spend, 54, and of its program proof, 6320. `EXECUTION_SDP_WITHDRAW_GAS` is what remains of the measured 892 once `root_gas(1) = 902` pays the one-note root, floored at `0`.
+The [Gas Cost Determination](../analysis-gas-cost-determination.md#execution-gas) states what each constant measures. `EXECUTION_PROGRAM_SPEND_GAS` is replaced by `EXECUTION_PROOF_GAS`, which prices both ZkTransfer and ZkProgramSpend proofs. `EXECUTION_PROGRAM_STEP_GAS` is the sum of the measured program step beyond its spend, 213, and of its program proof, 13315. `EXECUTION_SDP_WITHDRAW_GAS` is what remains of the measured 892 once `root_gas(1) = 2392` pays the one-note root, floored at `0`.
 
 ## 3. Execution Gas limit
 
-The fixed costs of a block are deducted from the 3,200,000 Execution Gas of a block: the header (103,945 cycles), its Proof of Leadership (7,101,514), the leader note and the end of block of the ledger set (2,040,800), its first nullifier (1,560,551), and the fixed parts of the ZkTransfer and ZkProgramSpend batches (7,260,262 and 8,241,358). Total 26,308,430 cycles, so the block limit `limit_Ex = G_max = 3,173,691`, its target `G_target = 1,586,845`, and the factor of the base fee update `BASE_FEE_NUMERATOR = 11_107_915` over `BASE_FEE_DENOMINATOR = 12_694_760`.
+The fixed costs of a block are deducted from the 3,200,000 Execution Gas of a block: the header (297,346 cycles), its Proof of Leadership (17,282,257), the leader note and the end of block of the ledger set (4,936,784), its first nullifier (4,061,452), and the fixed parts of the ZkTransfer and ZkProgramSpend batches (16,171,648 and 19,452,227). Total 62,201,714 cycles, so the block limit `limit_Ex = G_max = 3,137,798`, its target `G_target = 1,568,899`, and the factor of the base fee update `BASE_FEE_NUMERATOR = 10_982_293` over `BASE_FEE_DENOMINATOR = 12_551_192`.
 
 A note set takes about 220 years to fill with transfers of 8 outputs at the Execution Gas target (Mantle), and the eligible tree about 1,140 years with blocks full of channel creations, each paying `EXECUTION_NOTE_SET_GAS` (Proof of Leadership).
 
@@ -146,7 +146,7 @@ The constants assume six optimizations of the node, which change no validity rul
 - [ ] Merge the ledger optimizations of [Details 4](#4-node-optimizations) ([logos-blockchain#3921](https://github.com/logos-blockchain/logos-blockchain/pull/3921))
 - [ ] Merge the gas benchmark of the node ([logos-blockchain#3922](https://github.com/logos-blockchain/logos-blockchain/pull/3922))
 - [ ] Implement the Execution Gas of each Operation from the Operation and its proof, with the per-component constants and `spend_gas`, a signature paid per signature carried, and the bytes, note set and root terms of the transaction from what its note sets record
-- [ ] Set the Execution Gas limit to 3,173,691 and the base fee constants of the Execution Market
+- [ ] Set the Execution Gas limit to 3,137,798 and the base fee constants of the Execution Market
 - [ ] Update the tests and test vectors whose fees or gas depend on these constants
 - [ ] Re-run the gas benchmark and check every constant against the Gas Cost Determination
 - [ ] Verify the implementation matches this specification
