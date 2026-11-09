@@ -336,7 +336,8 @@ However, nodes participating in the mixnet MUST be discoverable so that other no
 To enable this, regardless of the discovery mechanism used, each mix node MUST make the following information available to peers:
 
 - Indicate Mix Protocol support (_e.g.,_ using a `mix` field or bit).
-- Its X25519 public key for Sphinx encryption.
+- Its current X25519 public key for Sphinx encryption,
+  which changes as the node rotates its key ([Mix Key Rotation](mix-key-rotation.md)).
 - One or more routable libp2p multiaddresses that identify the mix node's own network endpoints.
 
 To support sender anonymity at scale, the discovery mechanism SHOULD support _unbiased random sampling_ from the set of live mix nodes.
@@ -1005,8 +1006,8 @@ After successful deserialization, the mix node performs the following steps:
    - If the tag exists in the node's table of previously seen tags, discard the packet and terminate processing.
    - Otherwise, store the tag in the table.
 
-   The table MAY be flushed when the node rotates its private key.
-   Implementations SHOULD perform this cleanup securely and automatically.
+   A node that rotates its key performs Steps 1 to 3 as specified in [Mix Key Rotation](mix-key-rotation.md),
+   which keeps a separate table for each key it accepts.
 
    Note: This check also enforces SURB single-use defined in [Section 8.7](#87-single-use-reply-blocks). A reused SURB produces a duplicate tag at the first return-path node and is discarded.
 
@@ -1341,7 +1342,7 @@ To construct each SURB, the initiating node MUST perform the following steps:
 
    The initiating node MUST store the tuple $(\tilde{k}, s_0, \ldots, s_{L-1})$ in a local table indexed by $\mathrm{id}$, for reply recovery defined in [Section 8.7.5](#875-reply-recovery).
 
-   Note: A SURB becomes unusable once any return-path mix node rotates its X25519 key. Implementations SHOULD discard these tuples after a configurable timeout, or at most by the key rotation interval.
+   Note: A SURB becomes unusable once any return-path mix node stops accepting the key it was built for. Implementations SHOULD discard these tuples after a configurable timeout, and a node in a deployment that rotates keys discards them as specified in [Mix Key Rotation](mix-key-rotation.md).
 
 #### 8.7.3 Using a SURB
 
