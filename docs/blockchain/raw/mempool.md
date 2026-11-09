@@ -24,7 +24,7 @@
 
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
-| 1.0.0 | Initial revision. | 2026-11-03 |
+| 1.0.0 | Initial revision. | 2026-11-09 |
 
 # Introduction
 
@@ -155,7 +155,7 @@ A transaction that the node holds but that is not pending is **retained** until 
 - when its age reaches `TRANSACTION_TTL` plus `RETIREMENT_GRACE`, if it is not in `included`;
 - when it carries a claim whose deadline has passed.
 
-When a fork switch displaces blocks from the canonical chain, their transactions that the new canonical chain does not carry leave `included`. The node re-admits each, except one whose age exceeds `TRANSACTION_TTL`. If it holds no admission time for a transaction, it measures the age from the start of the displaced block's slot. [Release](#release) and [Reorganisation](#reorganisation) specify the rules.
+When a fork switch displaces blocks from the canonical chain, their transactions that the new canonical chain does not carry leave `included`. The node re-admits each, except one whose age reaches `TRANSACTION_TTL`. If it holds no admission time for a transaction, it measures the age from the start of the displaced block's slot. [Release](#release) and [Reorganisation](#reorganisation) specify the rules.
 
 ```mermaid
 stateDiagram-v2
@@ -362,7 +362,7 @@ def reorganise(mempool, displaced: list[Block], adopted: list[Block]) -> None:
             mempool.included.discard(key)
             # A transaction is at least as old as the start of the slot of a block that carries it.
             admitted = mempool.admitted_at.get(key, genesis_time + block.header.slot * SLOT_LENGTH)
-            if now() - admitted > TRANSACTION_TTL:
+            if now() - admitted >= TRANSACTION_TTL:
                 continue
             admit(mempool, encode_signed_mantle_tx(tx))
 ```
