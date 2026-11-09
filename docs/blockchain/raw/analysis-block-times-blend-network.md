@@ -22,13 +22,12 @@
 | Version | Changes | Date |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2025-08-20 |
-| 1.0.1 | Removed the claim that shorter block times give faster finality, which no longer holds with finality counted in slots. | 2026-11-06 |
 
 # Introduction
 
-We are interested in finalizing the Cryptarchia and Blend Network parameters. There are some competing requirements here: the Blend Network would like to have longer block times in order to provide better privacy, while Cryptarchia wants shorter block times in order to grow the chain faster.
+We are interested in finalizing the Cryptarchia and Blend Network parameters. There are some competing requirements here: the Blend Network would like to have longer block times in order to provide better privacy, while Cryptarchia wants shorter block times in order to provide faster finality.
 
-We need to find the right balance that would give us good enough privacy while not sacrificing chain growth too much.
+We need to find the right balance that would give us good enough privacy while not sacrificing finality times too much.
 
 # Overview
 
