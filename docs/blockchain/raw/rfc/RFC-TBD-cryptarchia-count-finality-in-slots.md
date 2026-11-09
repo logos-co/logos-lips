@@ -49,6 +49,7 @@ The wait that holds that chance, in hours:
 
 - The ranges span two bounds on the grinding factor. Neither end is an attack.
 - A deflated inference is what an adversary gets by withholding every block for one observation period, 4.5 days. The inferred stake falls by its share, and every lottery threshold rises by `1/(1 − α)` for the next epoch. With the honest stake alone filling slots at `f`, the fixed delay weighs more.
+- Stake that joins faster than the inference corrects has the same effect: blocks come faster than `f` until the next correction, and under the worst case faster blocks need a longer wait. Against a third at 10 s, without grinding, 18 hours holds while the true active stake stays within 1.925 times the inferred, and against 30 % within 2.627 times. A deflation, or a third's coalition entering, makes 1.5. A rise of the active stake from 15 % to 30 % of the supply before the inference corrects breaks the limit against a third, and needs 19.6 hours.
 - The 12.5 hours takes the nonce's factor at the old rates, where its bound is derived.
 - After 18 hours against a third at 10 s, the chance of displacement is `1.2·10^-16` without grinding and `8.4·10^-14` after a deflated inference.
 - The delay leaves little margin after a deflation. Against a third, with a nonce that cannot be ground, 18 hours holds up to 15 s without a deflation. After one it holds up to 11 s, where the wait is 14.9 hours, and not at 12 s, where it is 18.2. The study prints deflated waits only at 1, 10 and 20 s, so the figures from 11 s to 15 s come from running its bound for this RFC.
@@ -218,7 +219,7 @@ Two properties of the depth rule do not carry over. `B_imm` is no longer the `k`
 
 ## Reproducing the figures
 
-The figures come from the finality study: [`tools/simulators/finality`](https://github.com/logos-blockchain/research/tree/b2ff0767d350cf92346bf996bc1c1b88d2b1065a/tools/simulators/finality). Its notes carry each result with its check: `SLOTS.md` phase K, `SETTLEMENT.md` B6, `FURTHER.md` G7 and `RATE.md`. `make k1`, `k2`, `k3`, `k5`, `k7`, `k8` and `k9` give the waits, the shares, the targets within reach of grinding, the rates, the floor and the cap. The study reads `B_imm` against the clock. Its figures carry over as [Counting from the tip's slot](#counting-from-the-tips-slot) states.
+The figures come from the finality study: [`tools/simulators/finality`](https://github.com/logos-blockchain/research/tree/b2ff0767d350cf92346bf996bc1c1b88d2b1065a/tools/simulators/finality). Its notes carry each result with its check: `SLOTS.md` phase K, `SETTLEMENT.md` B6, `FURTHER.md` G7, `RATE.md` and `SIGNERS.md` M.7. `make k1`, `k2`, `k3`, `k5`, `k7`, `k8`, `k9` and `m7` give the waits, the shares, the targets within reach of grinding, the rates, the floor, the cap and the limit on joining stake. The study reads `B_imm` against the clock. Its figures carry over as [Counting from the tip's slot](#counting-from-the-tips-slot) states.
 
 Beyond the study's notes, the figures come from three sources:
 
@@ -226,7 +227,7 @@ Beyond the study's notes, the figures come from three sources:
 - The study's bound, run for this RFC: the deflated waits from 11 s to 15 s, and the share of 0.295 on the restart path.
 - The specifications as printed: the `φ` code and both fork choice rules were run as written.
 
-> **TODO (author):** publish the finality study's branch with the small models and the runs of its bound, and pin that commit in the link above, before this RFC cites them.
+> **TODO (author):** publish the finality study's branch with the small models and the runs of its bound, and pin that commit in the link above, before this RFC cites them. The pinned commit must contain `SIGNERS.md` M.7, which the commit linked now does not.
 
 # Details
 
