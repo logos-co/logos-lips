@@ -630,7 +630,7 @@ When the era in force changes to era `new`, a node retires the pending transacti
 
 ## Era Transition Period
 
-The Era Transition Period is the first $`T`$ [rounds](blend-protocol.md#time) after the era in force changes, with $`T`$ the [Transition Period](blend-protocol.md#transition-period) of the previous era. It applies to the network layer only. A node that starts during an Era Transition Period runs only the protocols of the era in force.
+The Era Transition Period is the first $`\lceil T \cdot \Delta_{n-1} / \Delta_n \rceil`$ [rounds](blend-protocol.md#time) after the era in force changes to era $`n`$, with $`T`$ the [Transition Period](blend-protocol.md#transition-period) of era $`n-1`$. It applies to the network layer only. A node that starts during an Era Transition Period runs only the protocols of the era in force.
 
 During the Era Transition Period, a node keeps the identifiers of the previous era only for what is already in flight on them, as Blend keeps the connections of a past epoch ([Transition Period](blend-protocol.md#transition-period)). A node must:
 
