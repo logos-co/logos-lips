@@ -27,7 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.0.1 | Noted that a streamed `Block` carries the signed headers of the uncles it references, which is what lets a synchronizing node validate those blocks and reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) without ever seeing their proposals, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
 | 1.0.2 | Spread block download requests across connected and discovered peers instead of downloading only from the configured IBD peers, which now only provide the chain tips to catch up with. Added [Selecting Peers for Downloading](#selecting-peers-for-downloading) and the `GetTipRequest` message. | 2026-10-20 |
-| 1.1.0 | Required [Commit](cryptarchia-v1-protocol.md#commit) at the switch to the Online rule, recorded together with the switch, and bounded `T_offline` by the finality window `K`. | 2026-11-09 |
+| 1.1.0 | Required one more round of Initial Block Download before the switch to the Online rule and [Commit](cryptarchia-v1-protocol.md#commit) at the switch, recorded together with it, and bounded `T_offline` by the finality window `K`. | 2026-11-09 |
 
 # Introduction
 
@@ -81,7 +81,7 @@ flowchart TD
     IsBootstrapRule -->|Yes|StartBootstrapPeriod
     IsBootstrapRule -->|Anyway|NewBlocks
     subgraph Prolonged Bootstrap Period
-        StartBootstrapPeriod[Start ProlongedBootstrapPeriod timer: 24h] --> |Expired|SetOnlineAfterBootstrap["ForkChoice=ONLINE, then Commit"]
+        StartBootstrapPeriod[Start ProlongedBootstrapPeriod timer: 24h] --> |Expired|LastRound[One more IBD round, with IBD and connected peers] --> SetOnlineAfterBootstrap["ForkChoice=ONLINE, then Commit"]
     end
     SetOnlineAfterBootstrap --> ProposeBlocks[Propose Blocks]
     subgraph ListenNewBlocks[Listen for New Blocks]
@@ -92,7 +92,7 @@ flowchart TD
     end
 ```
 
-Upon startup, a node **determines the fork choice rule**, as defined in [Setting the Fork Choice Rule](#setting-the-fork-choice-rule). If the Bootstrap rule is selected, it is maintained for the [Prolonged Bootstrap Period](#prolonged-bootstrap-period), after which the node switches to the Online rule.
+Upon startup, a node **determines the fork choice rule**, as defined in [Setting the Fork Choice Rule](#setting-the-fork-choice-rule). If the Bootstrap rule is selected, it is maintained for the [Prolonged Bootstrap Period](#prolonged-bootstrap-period), after which the node catches up once more with its peers' tips and switches to the Online rule.
 
 Using the fork choice rule chosen, the node **downloads blocks** to catch up with the tip of the local chain $`c_{loc}`$ of each peer.
 
@@ -194,7 +194,7 @@ The protocol does not wait $`s_\text{gen}`$ slots after [Initial Block Download]
 
 This protocol configures the Bootstrap Period to 24 hours.
 
-A timer must be started when [Listening for New Blocks](#listening-for-new-blocks) is started after [Initial Block Download](#initial-block-download) is completed. Once the time is completed, the fork choice rule is switched to the Online rule, and the node runs [Commit](cryptarchia-v1-protocol.md#commit) on $`c_{loc}`$ before it processes any further block. The node records the switch and the result of Commit together.
+A timer must be started when [Listening for New Blocks](#listening-for-new-blocks) is started after [Initial Block Download](#initial-block-download) is completed. Once the time is completed, the node runs one more round of [Initial Block Download](#initial-block-download) under the Bootstrap rule, fetching the tips of its IBD peers and of its connected peers. A peer that does not return its tip is ignored, and the node is not terminated if none does. The fork choice rule is then switched to the Online rule, and the node runs [Commit](cryptarchia-v1-protocol.md#commit) on $`c_{loc}`$ before it processes any further block. The node records the switch and the result of Commit together.
 
 ## Listening for New Blocks
 
