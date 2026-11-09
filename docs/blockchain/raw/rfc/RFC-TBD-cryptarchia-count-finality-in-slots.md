@@ -6,7 +6,7 @@
 
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
-| v1 | Initial RFC | 2026-11-06 |
+| v1 | Initial RFC | 2026-11-09 |
 
 ## Reviewer Orientation
 
@@ -15,10 +15,10 @@ Read the PR's Motivation first.
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here** — [Cryptarchia Protocol](#affected-specifications): [the rule](#1-the-latest-immutable-block-is-counted-in-slots) | the `commit` loop, its first slot and its last slot; `K` and `φ` ([What the finality window holds](#what-the-finality-window-holds), [The finality floor](#the-finality-floor)) |
-| 2 | Critical | [Fork Choice Rule](#affected-specifications), [Cryptarchia Protocol](#affected-specifications): [both rules](#2-the-fork-choice-rules-read-the-age-of-a-fork-in-slots) | the Bootstrap test reads only the two chains and runs on every block; both rules ignore a fork below `B_imm`; the Online rule has no depth bound ([Comparing forks](#comparing-forks)) |
-| 3 | Critical | **Start here** — [Bootstrapping & Synchronization](#affected-specifications): [the switch](#3-the-switch-to-online-runs-commit) | a fork whose divergence block `commit` passes must not win after the switch ([The switch to Online](#the-switch-to-online)) |
+| 2 | Critical | [Fork Choice Rule](#affected-specifications), [Cryptarchia Protocol](#affected-specifications): [both rules](#2-the-fork-choice-rules-read-the-age-of-a-fork-in-slots) | the Bootstrap test runs on every block and reads only the two chains; the Online rule's only bound is descent from `B_imm` ([Comparing forks](#comparing-forks)) |
+| 3 | Critical | **Start here** — [Bootstrapping & Synchronization](#affected-specifications): [the switch](#3-the-switch-to-online-runs-commit) | a fork whose divergence block `commit` passes must not win after the switch, even across a restart ([The switch to Online](#the-switch-to-online)) |
 | 4 | High | [Cryptarchia Protocol](#affected-specifications): [the epoch schedule](#4-the-finality-window-sets-the-epoch-schedule) | every epoch value stays as it is |
-| 5 | Medium | [Cryptarchia Protocol, Bootstrapping & Synchronization](#affected-specifications): [two periods](#5-two-periods-stay-below-the-finality-window) | the bound on the uncle window |
+| 5 | Medium | [Cryptarchia Protocol, Fork Choice Rule, Bootstrapping & Synchronization](#affected-specifications): [three periods](#5-three-periods-stay-below-the-finality-window) | the bound on the uncle window |
 | 6 | Medium | [Total Stake Inference](#affected-specifications): [the count](#6-the-count-of-occupied-slots-takes-a-chain) | the inference's own count does not change |
 | 7 | Medium | [Cryptarchia Protocol](#affected-specifications): [fork pruning](#7-fork-pruning-removes-every-fork) | one call removes every fork |
 | 8 | Low | [Chores](#chores) | skim |
@@ -27,14 +27,14 @@ Read the PR's Motivation first.
 
 ## What the finality window holds
 
-`K` is 64,800 slots, 18 hours. This section gives the share of stake it holds at `ε = 1e-9`, the chance allowed per block that a block made immutable is displaced.
+`K` is 64,800 slots, 18 hours. This section gives the share of stake it holds at a chance of `1e-9` per block that a block made immutable is displaced.
 
 The figures come from two delay models.
 
 - **Worst case.** An adversary delivers every honest block as late as a bound `Δ` allows, taken at `Δ = 10` s, about the 99th percentile of delivery on the specification's Blend. The study reads the model of Gaži, Ren and Russell ("Practical Settlement Bounds for Longest-Chain Consensus", ePrint 2022/1571) for a wait on the 1 s slot lottery. `K` binds every node, so it must hold under this model.
 - **Random delay.** Blocks take Blend's mixing delays, measured in a simulation of 1,000 nodes. Only the private attack is played, with honest relays.
 
-The wait that holds `ε`, in hours:
+The wait that holds that chance, in hours:
 
 | Case | 30 % | a third |
 | --- | --- | --- |
@@ -66,7 +66,7 @@ The largest share each rule holds, with two ground nonces at the upper end of th
 | Worst case at 10 s | 0.288 | 0.298 | at least a third |
 | Random delay on the specification's Blend | 0.358 | 0.322 | at least a third |
 
-- Under random delay the rule alone loses, because 2,160 blocks take 30 to 33 hours while 30 % to a third withholds, and `K` stays at 18.
+- Under random delay the rule alone loses, because 2,160 blocks take 30 to 32 hours while 30 % to a third withholds, and `K` stays at 18.
 - Under the worst case the two figures come from different bounds: 0.288 from a depth bound and 0.298 from the wait bound. So 0.298 against 0.288 does not show a gain.
 - Two ground nonces reach only targets past the cut-off and within `K` slots of the epoch's end: 10 % of targets at 18 hours. On a chain that meets the floor, a race lasts about `K`, far below the `4K` slots from a cut-off to the next epoch, so the grinding bounds cover every target.
 - The last column rests on a candidate from the finality study: the smallest contributions of 25 sub-windows, each bound to its parent's, under a sequential delay. That design is not settled. It must also be compared with a single delay on today's cut-off value, and its delay prototype is unmeasured. The nonce's RFC reads these figures again.
@@ -87,7 +87,7 @@ The largest share each rule holds, with two ground nonces at the upper end of th
 | 20 s | 12 | 12.5 |
 | 15 s | 9 | 20.4 |
 
-This is why the `K` row asks for `K` and `φ` to be checked again when `k`, `f` or `T_M` changes. `T_M` is 15 rounds and leaves out the gossip after the last hop, so a strict delay bound lies past the 15 s that 18 hours holds without a deflation, and past the 11 s it holds after one.
+This is why the `K` row asks for `K` and `φ` to be checked again when `k`, `f`, the slot length or `T_M` changes. `K` and the floor's `Δ` are counted in slots, but the analysis sizes them in seconds at 1-second slots. `T_M` is 15 rounds and leaves out the gossip after the last hop, so a strict delay bound lies past the 15 s that 18 hours holds without a deflation, and past the 11 s it holds after one.
 
 ## The finality floor
 
@@ -107,7 +107,7 @@ These targets size the floor. They claim nothing about Blend. Missing the floor 
 | --- | --- | --- |
 | 10 s | 1,183.6 | 9.3e-10 |
 | 15 s | 1,084.6 | 3.4e-3 |
-| 20 s | 1,000.8 | 0.80, about 20 minutes' wait on average |
+| 20 s | 1,000.8 | 0.80, about 22 minutes' wait on average |
 
 The specification therefore states the chance only at `Δ = 10`, and makes no statement at `T_M`.
 
@@ -130,7 +130,7 @@ The floor holds back a side cut off from the rest until it has made `φ + 1` blo
 ### What the floor leaves open
 
 - **Partitions.** The adversary signs on both sides of a partition, so no floor separates one at a third. At 18 hours a side the floor holds back has at most 0.052 of honest stake when a third signs on it. A split the adversary signs on waits for operators.
-- **An eclipse.** A fork started at the eclipse takes a third 1.05 days. A fork prepared in advance needs the eclipse only for the last part of that. At mean rates with no delivery delay, against a node that received the honest chain until the eclipse began, a third's fork needs an eclipse of about 12.5 hours, where 2,160 blocks need about 27. With the delay of the specification's Blend, they need about 10 and 21. How long an adversary can hold an eclipse is open.
+- **An eclipse.** A fork started at the eclipse takes a third 1.05 days. A fork prepared in advance needs the eclipse only for the last part of that. At mean rates with no delivery delay, against a node that received the honest chain until the eclipse began, a third's fork needs an eclipse of about 12.5 hours, where 2,160 blocks need about 27. With the delay of the specification's Blend, they need about 10 and 22. How long an adversary can hold an eclipse is open.
 
 ### Alternatives
 
@@ -145,9 +145,9 @@ The floor holds back a side cut off from the rest until it has made `φ + 1` blo
 | --- | --- | --- |
 | New machinery | A tick per slot, since `B_imm` moves with no block | None. `commit` stays in `on_block` |
 | `commit` reads the wall clock | Yes, for the first time | No. Only step 6 of Block Header Validation does, as today |
-| Forged clock step of +18 h, alone (simulated) | `B_imm` goes from 18 h old to about 8.5 h old at once, about 1,019 deep | No move until the chain gains a block in the shifted range: still 18 h old, about 2,160 deep |
-| The same step plus one block in the last 30,540 slots of the shifted range (simulated) | As above | The same outcome: about 8.5 h old, about 1,018 deep |
-| Node keeps running and receives nothing for `K` slots (simulated) | `B_imm` climbs to 1,019 below its stale tip, which limits how far it can still heal | No move: about 2,160 below it |
+| Forged clock step of +18 h, alone (simulated) | `B_imm` goes from 18 h old to about 8.5 h old at once, about 1,019 occupied slots deep | No move until the chain gains a block in the shifted range: still 18 h old, about 2,160 occupied slots deep |
+| The same step plus one block in the last 30,540 slots of the shifted range (simulated) | As above | The same outcome: about 8.5 h old, about 1,018 occupied slots deep |
+| Node keeps running and receives nothing for `K` slots (simulated) | `B_imm` climbs to 1,019 occupied slots below its stale tip, which limits how far it can still heal | No move until the next block, about 2,160 occupied slots below the tip. That block moves `B_imm` to the floor, as the clock rule does |
 | Lag behind the clock rule (simulated, delivery aside) | None | About 29 slots on average, about 44 while a third withholds |
 | The bounds of [What the finality window holds](#what-the-finality-window-holds) | Hold as computed | Hold on an honest clock: step 6 gives tip slot ≤ clock, so this rule fixes a subset of what the clock rule fixes |
 | Bootstrap test | Reads the clock, so nodes can differ at the boundary | Reads the later of the two tips: a function of the two chains alone |
@@ -194,9 +194,9 @@ After a restart within `T_offline`, the fork runs over `K` slots and the node's 
 - The floor holds `B_imm` back on a sparse chain.
 - The local tip lags the later tip, as after a restart, or while the rest of the chain has not arrived.
 
-Online then compares by length and Bootstrap by density, so a fork the Bootstrap rule rejected can survive the switch. If it is longer it wins, `B_imm` passes `D` at that block, and the honest chain is pruned. In the model, at mean rates, a third's fork of 1,019 blocks that reaches the node before the rest of the honest chain does this with a lag of 12.5 hours with no delivery delay, and about 10 on the specification's Blend. This is accepted. The case needs the same lag as the eclipse in [What the floor leaves open](#what-the-floor-leaves-open), and a test that reads only the slot of `D` and the two tips gives the same result from either branch. No small rule change closes it at no cost, as two runs of the model show. Pruning the fork at the switch does not hold, because `D` lies above `B_imm` and the fork can be delivered again. Using the Bootstrap test under the Online rule as well does close it, but a fork that is denser in the window and then dies holds the node for good: with 3,333 live blocks the node stayed on the dead fork, and `B_imm` never passed `D`.
+Online then compares by length and Bootstrap by density, so a fork the Bootstrap rule rejected can survive the switch. If it is longer it wins, `B_imm` passes `D` at that block, and the honest chain is pruned. In the model, at mean rates, a third's fork of 1,020 blocks, `φ + 1`, that reaches the node before the rest of the honest chain does this with a lag of 12.5 hours with no delivery delay, and about 10 on the specification's Blend. This is accepted. The case needs the same lag as the eclipse in [What the floor leaves open](#what-the-floor-leaves-open), and a test that reads only the slot of `D` and the two tips gives the same result from either branch. No small rule change closes it at no cost, as two runs of the model show. Pruning the fork at the switch does not hold, because `D` lies above `B_imm` and the fork can be delivered again. Using the Bootstrap test under the Online rule as well does close it, but a fork that is denser in the window and then dies holds the node for good: with 3,333 live blocks the node stayed on the dead fork, and `B_imm` never passed `D`.
 
-**Open question: the order of comparison.** The Bootstrap test compares two chains at a time, and it is not transitive. With three forks, the result can depend on the order in which a node visits them. In random trees at a small scale (`K` = 40, `s_gen` = 10, and `k` = 6 for the depth test), 953 of 3,497 cases depend on the order, against 781 with the depth test. These counts show that the class exists today, not a rate on a real chain. Between two chains, at the same scale, the test gave no disagreement beyond exact ties in 236,941 pairs, where the depth test gave 6,848. A fixed order would give one result per local tip, but nodes on different local tips can still differ, so this RFC does not fix one.
+**Open question: the order of comparison.** The Bootstrap test compares two chains at a time, and it is not transitive. With three forks, the result can depend on the order in which a node visits them. At the switch, `commit` then fixes whichever chain the order produced, so two nodes with the same blocks can hold conflicting `B_imm`. A model shows this with three forks, one of them denser in the window than the longest chain, which the Genesis assumption excludes. In random trees at a small scale (`K` = 40, `s_gen` = 10, and `k` = 6 for the depth test), 953 of 3,497 cases depend on the order, against 781 with the depth test. These counts show that the class exists today, not a rate on a real chain. Between two chains, at the same scale, the test gave no disagreement beyond exact ties in 236,941 pairs, where the depth test gave 6,848. A fixed order would give one result per local tip, but nodes on different local tips can still differ, so this RFC does not fix one.
 
 ## What else reads `K`
 
@@ -208,15 +208,23 @@ Online then compares by length and Bootstrap by density, so a fork the Bootstrap
 
 This is a consensus change. Nodes on the old rule and on this one can fix different blocks in a deep reorganization, so a network runs one rule or the other. No header, wire format or epoch value changes. Bedrock has no deployed network, so the change needs no migration.
 
+Two properties of the depth rule do not carry over. `B_imm` is no longer the `k`-th block below the tip of `c_loc`: it depends on the order in which blocks arrived, so two nodes on the same chain can hold different `B_imm`, though never conflicting ones. And it no longer moves one block per block: after a silence longer than `K`, the next block moves it to the floor at once.
+
 ## Reproducing the figures
 
-The figures come from the finality study: [`tools/simulators/finality`](https://github.com/logos-blockchain/research/tree/b2ff0767d350cf92346bf996bc1c1b88d2b1065a/tools/simulators/finality). Its notes carry each result with its check: `SLOTS.md` phase K, `SETTLEMENT.md` B6, `FURTHER.md` G7 and `RATE.md`. `make k1`, `k2`, `k3`, `k7`, `k8` and `k9` give the waits, the shares, the floor and the cap. The study reads `B_imm` against the clock. Its figures carry over as [Counting from the tip's slot](#counting-from-the-tips-slot) states.
+The figures come from the finality study: [`tools/simulators/finality`](https://github.com/logos-blockchain/research/tree/b2ff0767d350cf92346bf996bc1c1b88d2b1065a/tools/simulators/finality). Its notes carry each result with its check: `SLOTS.md` phase K, `SETTLEMENT.md` B6, `FURTHER.md` G7 and `RATE.md`. `make k1`, `k2`, `k3`, `k5`, `k7`, `k8` and `k9` give the waits, the shares, the targets within reach of grinding, the rates, the floor and the cap. The study reads `B_imm` against the clock. Its figures carry over as [Counting from the tip's slot](#counting-from-the-tips-slot) states.
 
-The rows marked simulated, and the figures in [What the floor leaves open](#what-the-floor-leaves-open), [The restart path](#the-restart-path), [Comparing forks](#comparing-forks) and [What else reads `K`](#what-else-reads-k), come from small models of this RFC's rules. The deflated waits from 11 s to 15 s come from running the study's bound for this RFC. The `φ` code and both fork choice rules were run as the specifications print them.
+Beyond the study's notes, the figures come from three sources:
 
-> **TODO (author):** publish the small models and the runs of the study's bound before this RFC cites them.
+- Small models of this RFC's rules: the rows marked simulated, the eclipse and lag figures of [What the floor leaves open](#what-the-floor-leaves-open) and [Comparing forks](#comparing-forks), the private race of [The restart path](#the-restart-path), the counts of [Comparing forks](#comparing-forks), and the uncle-window check of [What else reads `K`](#what-else-reads-k).
+- The study's bound, run for this RFC: the deflated waits from 11 s to 15 s, and the share of 0.295 on the restart path.
+- The specifications as printed: the `φ` code and both fork choice rules were run as written.
+
+> **TODO (author):** publish the finality study's branch with the small models and the runs of its bound, and pin that commit in the link above, before this RFC cites them.
 
 # Details
+
+Snippets leave out the specifications' comments and markup, and a `...` line stands for unchanged logic.
 
 ## 1. The latest immutable block is counted in slots
 
@@ -224,10 +232,12 @@ In [Constants](../cryptarchia-v1-protocol.md#constants), `k` stops being a depth
 
 ```diff
 -| k | security parameter | Block depth finality. Blocks deeper than k on any given chain are considered immutable. | 2160 blocks |
-+| k | security parameter | The number of blocks expected in K slots at the rate f. | 2160 blocks |
++| k | security parameter | The parameter from which K and s_gen are derived. | 2160 blocks |
 +| K | finality window | The number of slots a block must lie behind the tip of the local chain before Commit can make it immutable. ... | ⌊k/f⌋ = 64,800 slots (18 hours) |
 +| φ | finality floor | The number of occupied slots that must follow a block before Commit can make it immutable, derived in Finality Floor. ... | 1,019 occupied slots |
 ```
+
+The `K` row also names the three periods of [§5](#5-three-periods-stay-below-the-finality-window), and asks for `K` and `φ` to be checked again when `k`, `f`, the slot length or `T_M` changes.
 
 `commit` moves `B_imm` along `c_loc` instead of reading the block at a depth. It runs in `on_block` under the Online rule, and at the switch.
 
@@ -245,7 +255,7 @@ def commit(T, c_loc, B_imm):                    # was: commit(T, c_loc, depth)
 
 [Finality Floor](../cryptarchia-v1-protocol.md#finality-floor) derives `φ` from `K`, `f` and the targets `α_max = 1/3`, `Δ = 10` and `ε = 10⁻⁹`.
 
-An uncle's slot now also counts for the floor, in [Uncle References](../cryptarchia-v1-protocol.md#uncle-references) and in [Block Construction](../bedrock-v1.1-block-construction.md).
+An uncle's slot now also counts for the floor, in [Uncle References](../cryptarchia-v1-protocol.md#uncle-references).
 
 ## 2. The fork choice rules read the age of a fork in slots
 
@@ -254,16 +264,18 @@ An uncle's slot now also counts for the floor, in [Uncle References](../cryptarc
 +def bootstrap_fork_choice(c_local, forks, K, s_gen, B_imm):
      c_max = c_local
      for c_fork in forks:
+-        depth_max, depth_fork = common_prefix_depth(c_max, c_fork):
+-        if depth_max <= k:
 +        if not is_ancestor(B_imm, c_fork):
 +            continue
-         depth_max, depth_fork = common_prefix_depth(c_max, c_fork)
--        if depth_max <= k:
++        depth_max, depth_fork = common_prefix_depth(c_max, c_fork)
 +        sl_div = grandparent(c_max, depth_max).slot
 +        sl_top = max(c_max.slot, c_fork.slot)
 +        if sl_div + K > sl_top:
-             # ... longest chain
+             ...  # longest chain
          else:
-             # ... density over s_gen
+             ...  # density over s_gen
++    return c_max
 ```
 
 ```diff
@@ -271,16 +283,18 @@ An uncle's slot now also counts for the floor, in [Uncle References](../cryptarc
 +def online_fork_choice(c_local, forks, B_imm):
      c_max = c_local
      for c_fork in forks:
-+        if not is_ancestor(B_imm, c_fork):
-+            continue
-         depth_max, depth_fork = common_prefix_depth(c_max, c_fork)
+-        depth_max, depth_fork = common_prefix_depth(c_max, c_fork):
 -        if depth_max <= k:
--            if depth_max < depth_fork:
+-            if depth_max < depth_fork
 -                c_max = c_fork
 -        else:
 -            continue
++        if not is_ancestor(B_imm, c_fork):
++            continue
++        depth_max, depth_fork = common_prefix_depth(c_max, c_fork)
 +        if depth_max < depth_fork:
 +            c_max = c_fork
++    return c_max
 ```
 
 [Chain Maintenance](../cryptarchia-v1-protocol.md#chain-maintenance) calls each rule with its own arguments, and runs the Bootstrap rule on every block:
@@ -298,15 +312,16 @@ An uncle's slot now also counts for the floor, in [Uncle References](../cryptarc
 
 ## 3. The switch to Online runs `commit`
 
-In [Prolonged Bootstrap Period](../cryptarchia-v1-bootstr-sync.md#prolonged-bootstrap-period), the node runs `commit` on `c_loc` when the fork choice rule switches to Online, before it processes any further block. The same section's reasoning on `s_gen` now reads the finality window. A fork decided by density diverged at least `K` slots before the later tip, and `s_gen < K`, so the chain with the later tip holds the whole window.
+In [Prolonged Bootstrap Period](../cryptarchia-v1-bootstr-sync.md#prolonged-bootstrap-period), the node runs `commit` on `c_loc` when the fork choice rule switches to Online, before it processes any further block, and records the switch and the result of `commit` together. A node that restarted between the two would run the Online rule with the old `B_imm`. The same section keeps the rule that the node does not wait `s_gen` slots after Initial Block Download, without its reasoning: a fork decided by density diverged at least `K` slots before the later tip, and `s_gen < K`, so the chain with the later tip holds the whole window.
 
 ## 4. The finality window sets the epoch schedule
 
 Phases of `3K`, `3K` and `4K` slots, an epoch of `10K`, and a `PERIOD` of `6K` replace `s` and `⌊k/f⌋`. Each phase that waits for a value to finalize must last at least `K` slots, or the value is not final when the phase ends.
 
-## 5. Two periods stay below the finality window
+## 5. Three periods stay below the finality window
 
-- `W·f⁻¹ < K` replaces `W ≤ ⌊0.6k⌋`. It sits in the `W` row, and in the note in [Uncle Selection](../cryptarchia-v1-protocol.md#uncle-selection).
+- `W·f⁻¹ < K` replaces `W ≤ ⌊0.6k⌋`. It sits in the `W` row, with what breaks if it fails, and the note in [Uncle Selection](../cryptarchia-v1-protocol.md#uncle-selection) says why it suffices.
+- `s_gen < K`, in [Definitions](../fork-choice.md#definitions) of the Fork Choice Rule.
 - `T_offline < K`, in [Constants](../cryptarchia-v1-bootstr-sync.md#constants) of Bootstrapping & Synchronization.
 
 ## 6. The count of occupied slots takes a chain
@@ -318,7 +333,7 @@ Phases of `3K`, `3K` and `4K` slots, an epoch of `10K`, and a `PERIOD` of `6K` r
 +density_over_slots(c, s, p)
 ```
 
-The range stays `[s, s + p)`. `commit` passes `s = sl_C + 1` and `p = sl_tip − sl_C`, so `C` itself does not count and the tip does.
+The range stays `[s, s + p)`. `commit` passes `s = sl_C + 1` and `p = sl_tip − sl_C`, so `C` itself does not count and the tip does. In the inference's algorithm, `c` is the tip of the chain the estimate is derived on.
 
 ## 7. Fork pruning removes every fork
 
@@ -332,19 +347,22 @@ The range stays `[s, s + p)`. `commit` passes `s = sl_C + 1` and `p = sl_tip −
 ## Chores
 
 - Removed `s`, the name "slot security parameter", `block_at_depth`, "slot finality period" and the second name for `k`, "safety parameter".
-- Fixed `s` where `s_gen` was meant in `density`, and made both fork choice functions valid Python.
-- Renamed the Praos heading of the long range attack in [Fork Choice Rule](../fork-choice.md) to Online, and reworded its Overview.
-- In [Setting the Fork Choice Rule](../cryptarchia-v1-bootstr-sync.md#setting-the-fork-choice-rule) and [Offline Grace Period](../cryptarchia-v1-bootstr-sync.md#offline-grace-period), reworded the lines that read `k`, restated the example's attack in slots, and replaced two images with one diagram.
-- In [\[Overview\] Bedrock Architecture](../bedrock-architecture-overview.md), the [Bedrock Genesis Block](../bedrock-genesis-block.md) and two analyses, reworded the lines that read finality as a depth.
+- Fixed `s` where `s_gen` was meant in `density`, made both fork choice functions valid Python, defined `grandparent`, and corrected their tie-break comments.
+- In the [Cryptarchia Fork Choice Rule](../fork-choice.md), named both headings of the long range attack after the rules, Bootstrap and Online, and reworded its Introduction, its Overview and the Online section around `B_imm`.
+- In the [Cryptarchia Protocol](../cryptarchia-v1-protocol.md), named `commit` as what moves `B_imm`, wrote "divergence block" throughout [Uncle References](../cryptarchia-v1-protocol.md#uncle-references), dropped "a proposer has no incentive to deviate from it" from [Uncle Selection](../cryptarchia-v1-protocol.md#uncle-selection), and corrected step 8 of Block Header Validation to name step 7.
+- In [Setting the Fork Choice Rule](../cryptarchia-v1-bootstr-sync.md#setting-the-fork-choice-rule) and [Offline Grace Period](../cryptarchia-v1-bootstr-sync.md#offline-grace-period), reworded the lines that read `k`, restated the example's attack in slots, and replaced two images with one diagram. In [Downloading Blocks](../cryptarchia-v1-bootstr-sync.md#downloading-blocks), named the floor of `commit` among the readers of the uncle headers.
+- In [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md), named `commit` among the readers of the uncle headers.
+- In [\[Overview\] Bedrock Architecture](../bedrock-architecture-overview.md) and the [Bedrock Genesis Block](../bedrock-genesis-block.md), reworded the lines that read finality as a depth. In [\[Analysis\] Total Stake Inference](../analysis-total-stake-inference.md), stated the effect of participation on finality through the floor.
+- In the [Logos Oracle Network (LON) Oracle Zone](../../../anoncomms/raw/logos-oracle-zone.md), stated the host chain's finality as the finality window `K`.
 - In the [Blend Protocol](../blend-protocol.md), added a pointer from `T_M` to `K` and `φ`.
 
 # Implementation
 
-- [ ] Replace the LIB update with the `commit` loop, reading `K` and `φ`, with no slot tick
+- [ ] Replace the LIB update with the `commit` loop, reading `K` and `φ`, with no slot tick. The loop's test is monotone along the chain, so one walk down from the tip with a running count finds the new LIB
 - [ ] Compute the floor with `density_over_slots` over the local chain, uncles included
 - [ ] Remove the depth bound from the Online fork choice, and check descent from the LIB in both rules. With complete pruning the check can be skipped, which spares a walk per tip on every Bootstrap block
 - [ ] Replace the depth test of the Bootstrap fork choice with the test on the divergence block's slot, and run it on every block, including one that extends the local chain
-- [ ] Run `commit` when the fork choice rule switches to Online, before any further block, and persist the two together
+- [ ] Run `commit` when the fork choice rule switches to Online, before any further block, and record the switch and its result together
 - [ ] Prune all forks below the LIB in one call, at every LIB move and at the switch to Online
 - [ ] Expire the wallet's leader-claim reservations after `K` slots instead of `k` immutable blocks
 - [ ] Size the kept ledger states for blocks above the LIB, which `k` no longer bounds
@@ -366,5 +384,5 @@ The range stays `[s, s + p)`. `commit` passes `s = sl_C + 1` and `p = sl_tip −
 | [Blend Protocol](../blend-protocol.md) | Modified | 1.8.2, pointer only |
 | [\[Overview\] Bedrock Architecture](../bedrock-architecture-overview.md) | Modified | 1.1.1, wording only |
 | [Bedrock Genesis Block](../bedrock-genesis-block.md) | Modified | 1.2.2, wording only |
-| [\[Analysis\] Block Times & Blend Network](../analysis-block-times-blend-network.md) | Modified | 1.0.1, wording only |
 | [\[Analysis\] Total Stake Inference](../analysis-total-stake-inference.md) | Modified | 1.0.1, wording only |
+| [Logos Oracle Network (LON) Oracle Zone](../../../anoncomms/raw/logos-oracle-zone.md) | Modified | wording only |
