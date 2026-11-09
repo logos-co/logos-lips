@@ -15,7 +15,7 @@ Read the PR's Motivation first.
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here** — [Cryptarchia Protocol](#affected-specifications): [the rule](#1-the-latest-immutable-block-is-counted-in-slots) | the `commit` loop, its first slot and its last slot; `K` and `φ` ([What the finality window holds](#what-the-finality-window-holds), [The finality floor](#the-finality-floor)) |
-| 2 | Critical | [Fork Choice Rule](#affected-specifications), [Cryptarchia Protocol](#affected-specifications): [both rules](#2-the-fork-choice-rules-read-the-age-of-a-fork-in-slots) | the Bootstrap test runs on every block and reads only the two chains; the Online rule's only bound is descent from `B_imm` ([Comparing forks](#comparing-forks)) |
+| 2 | Critical | [Fork Choice Rule](#affected-specifications), [Cryptarchia Protocol](#affected-specifications): [both rules](#2-the-fork-choice-rules-read-the-age-of-a-fork-in-slots) | the Bootstrap test runs on every block and visits forks by block ID; the Online rule's only bound is descent from `B_imm` ([Comparing forks](#comparing-forks)) |
 | 3 | Critical | **Start here** — [Bootstrapping & Synchronization](#affected-specifications): [the switch](#3-the-switch-to-online-runs-commit) | a fork whose divergence block `commit` passes must not win after the switch, even across a restart ([The switch to Online](#the-switch-to-online)) |
 | 4 | High | [Cryptarchia Protocol](#affected-specifications): [the epoch schedule](#4-the-finality-window-sets-the-epoch-schedule) | every epoch value stays as it is |
 | 5 | Medium | [Cryptarchia Protocol, Fork Choice Rule, Bootstrapping & Synchronization](#affected-specifications): [three periods](#5-three-periods-stay-below-the-finality-window) | the bound on the uncle window |
@@ -184,7 +184,7 @@ After a restart within `T_offline`, the fork runs over `K` slots and the node's 
 
 ## Comparing forks
 
-**On every block.** The Bootstrap rule now runs on every block. `on_block` used to skip it when a block extends `c_loc`, so a chain chosen by length while a fork is young could keep `c_loc` past `K` with no density comparison, and `commit` then fixes it at the switch. Two nodes with the same blocks could end on different chains by delivery order alone. Trees with no strict winner can still split, as the open question below states. A later block of the other fork re-runs the comparison, so the node must also stop receiving that fork. The Online rule keeps the skip.
+**On every block.** The Bootstrap rule now runs on every block. `on_block` used to skip it when a block extends `c_loc`, so a chain chosen by length while a fork is young could keep `c_loc` past `K` with no density comparison, and `commit` then fixes it at the switch. Two nodes with the same blocks could end on different chains by delivery order alone. Trees with no strict winner can still split, as the order of comparison below states. A later block of the other fork re-runs the comparison, so the node must also stop receiving that fork. The Online rule keeps the skip.
 
 **Forks below `B_imm`.** Both rules check descent from `B_imm` explicitly, because step 8 of Block Header Validation allows incomplete pruning. Without the check, a node that restarts under the Bootstrap rule can select a denser fork below `B_imm`, and `commit` then has no path from `B_imm` to `c_loc`.
 
@@ -196,7 +196,9 @@ After a restart within `T_offline`, the fork runs over `K` slots and the node's 
 
 Online then compares by length and Bootstrap by density, so a fork the Bootstrap rule rejected can survive the switch. If it is longer it wins, `B_imm` passes `D` at that block, and the honest chain is pruned. In the model, at mean rates, a third's fork of 1,020 blocks, `φ + 1`, that reaches the node before the rest of the honest chain does this with a lag of 12.5 hours with no delivery delay, and about 10 on the specification's Blend. This is accepted. The case needs the same lag as the eclipse in [What the floor leaves open](#what-the-floor-leaves-open), and a test that reads only the slot of `D` and the two tips gives the same result from either branch. No small rule change closes it at no cost, as two runs of the model show. Pruning the fork at the switch does not hold, because `D` lies above `B_imm` and the fork can be delivered again. Using the Bootstrap test under the Online rule as well does close it, but a fork that is denser in the window and then dies holds the node for good: with 3,333 live blocks the node stayed on the dead fork, and `B_imm` never passed `D`.
 
-**Open question: the order of comparison.** The Bootstrap test compares two chains at a time, and it is not transitive. With three forks, the result can depend on the order in which a node visits them. At the switch, `commit` then fixes whichever chain the order produced, so two nodes with the same blocks can hold conflicting `B_imm`. A model shows this with three forks, one of them denser in the window than the longest chain, which the Genesis assumption excludes. In random trees at a small scale (`K` = 40, `s_gen` = 10, and `k` = 6 for the depth test), 953 of 3,497 cases depend on the order, against 781 with the depth test. These counts show that the class exists today, not a rate on a real chain. Between two chains, at the same scale, the test gave no disagreement beyond exact ties in 236,941 pairs, where the depth test gave 6,848. A fixed order would give one result per local tip, but nodes on different local tips can still differ, so this RFC does not fix one.
+**The order of comparison.** The Bootstrap test compares two chains at a time, and it is not transitive. With three forks, the result can depend on the order in which a node visits them. At the switch, `commit` then fixes whichever chain the order produced, so two nodes with the same blocks that visit them in different orders can hold conflicting `B_imm`. A model shows this with three forks, one of them denser in the window than the longest chain, which the Genesis assumption excludes. In random trees at a small scale (`K` = 40, `s_gen` = 10, and `k` = 6 for the depth test), 953 of 3,497 cases depend on the order, against 781 with the depth test. These counts show that the class exists today, not a rate on a real chain. Between two chains, at the same scale, the test gave no disagreement beyond exact ties in 236,941 pairs, where the depth test gave 6,848. The rule therefore visits the forks in increasing order of block ID. Its result is then a function of the block tree and the local tip, and the order in which an implementation stores its tips cannot change it. An adversary that grinds block IDs can choose where its fork falls in that order, but every node with the same tree and local tip then picks the same chain.
+
+**Open question.** Two nodes that hold the same blocks on different local tips can still differ.
 
 ## What else reads `K`
 
@@ -259,11 +261,14 @@ An uncle's slot now also counts for the floor, in [Uncle References](../cryptarc
 
 ## 2. The fork choice rules read the age of a fork in slots
 
+The Bootstrap rule also visits the forks in increasing order of block ID.
+
 ```diff
 -def bootstrap_fork_choice(c_local, forks, k, s_gen):
 +def bootstrap_fork_choice(c_local, forks, K, s_gen, B_imm):
      c_max = c_local
-     for c_fork in forks:
+-    for c_fork in forks:
++    for c_fork in sorted(forks, key=block_id):
 -        depth_max, depth_fork = common_prefix_depth(c_max, c_fork):
 -        if depth_max <= k:
 +        if not is_ancestor(B_imm, c_fork):
@@ -361,7 +366,7 @@ The range stays `[s, s + p)`. `commit` passes `s = sl_C + 1` and `p = sl_tip −
 - [ ] Replace the LIB update with the `commit` loop, reading `K` and `φ`, with no slot tick. The loop's test is monotone along the chain, so one walk down from the tip with a running count finds the new LIB
 - [ ] Compute the floor with `density_over_slots` over the local chain, uncles included
 - [ ] Remove the depth bound from the Online fork choice, and check descent from the LIB in both rules. With complete pruning the check can be skipped, which spares a walk per tip on every Bootstrap block
-- [ ] Replace the depth test of the Bootstrap fork choice with the test on the divergence block's slot, and run it on every block, including one that extends the local chain
+- [ ] Replace the depth test of the Bootstrap fork choice with the test on the divergence block's slot, and run it on every block, including one that extends the local chain, visiting the tips in increasing order of block ID
 - [ ] Run `commit` when the fork choice rule switches to Online, before any further block, and record the switch and its result together
 - [ ] Prune all forks below the LIB in one call, at every LIB move and at the switch to Online
 - [ ] Expire the wallet's leader-claim reservations after `K` slots instead of `k` immutable blocks
@@ -369,7 +374,7 @@ The range stays `[s, s + p)`. `commit` passes `s = sl_C + 1` and `p = sl_tip −
 - [ ] Update the fork monitor of the test framework
 - [ ] Review the forward step of the time service against [the clock faults](#counting-from-the-tips-slot)
 - [ ] Prove the rule in the formal model, floor included: the current theorems read a depth of `k`, or a confirmation rule beside it
-- [ ] Add tests: a fork rejected by the Bootstrap rule against the switch, pruning of several forks at once, the floor's first and last slot, and the Bootstrap test from either branch and in any delivery order
+- [ ] Add tests: a fork rejected by the Bootstrap rule against the switch, pruning of several forks at once, the floor's first and last slot, and the Bootstrap test from either branch, in any delivery order, and for tips listed in any order
 - [ ] Verify the implementation matches this specification
 
 # Affected Specifications

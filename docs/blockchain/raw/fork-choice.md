@@ -27,7 +27,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.1.0 | Clarified that `density` counts only the blocks of the chain being measured and excludes the [uncle references](cryptarchia-v1-protocol.md#uncle-references) those blocks carry, since uncles carry no fork-choice weight. | 2026-07-09 |
-| 1.2.0 | Read the age of a fork in slots: the Bootstrap rule compares by density a fork that diverged at least `K` slots before the later tip, and both rules ignore a fork that does not descend from `B_imm`. | 2026-11-09 |
+| 1.2.0 | Read the age of a fork in slots: the Bootstrap rule compares by density a fork that diverged at least `K` slots before the later tip and visits the forks in order of block ID, and both rules ignore a fork that does not descend from `B_imm`. | 2026-11-09 |
 
 # Introduction
 
@@ -109,12 +109,14 @@ Nodes will remain on the honest chain if they reject forks that diverge before t
 
 ## Bootstrap Fork Choice Rule
 
-During bootstrapping, we use the Ouroboros Genesis fork choice rule (`maxvalid-bg`), with the age of the divergence block in slots in place of the depth of the fork. The age is measured from the later of the two tips. Here we ignore any fork that does not descend from the [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block) $`B_\text{imm}`$, with the `is_ancestor` check that step 8 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) uses when pruning is incomplete.
+During bootstrapping, we use the Ouroboros Genesis fork choice rule (`maxvalid-bg`), with the age of the divergence block in slots in place of the depth of the fork. The age is measured from the later of the two tips. Here we ignore any fork that does not descend from the [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block) $`B_\text{imm}`$, with the `is_ancestor` check that step 8 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) uses when pruning is incomplete. It visits the forks in increasing order of [Block ID](cryptarchia-v1-protocol.md#block-id), compared as bytes.
 
 ```python
 def bootstrap_fork_choice(c_local, forks, K, s_gen, B_imm):
     c_max = c_local
-    for c_fork in forks:
+    # The comparison is not transitive, so the order of visits can decide the result.
+    # A fixed order makes it a function of the block tree and c_local.
+    for c_fork in sorted(forks, key=block_id):
         if not is_ancestor(B_imm, c_fork):
             # The fork diverged before `B_imm`.
             # Ignore this fork.
