@@ -24,6 +24,7 @@
 |  | Recovery restores `included` from the saved state rather than rebuilding it from the stored blocks. | 2026-11-03 |
 |  | `included` keeps only the transactions the mempool holds, and releases them when their block becomes immutable rather than `k` blocks deep. | 2026-11-03 |
 |  | `release_due` runs after a retirement for inapplicability, expiry or an expired claim rather than before, so a claim retired at its deadline is released in the same step. | 2026-11-03 |
+|  | A fork switch re-admits a displaced transaction only while its age is below `TRANSACTION_TTL`, the age at which expiry retires it. | 2026-11-09 |
 
 ## Reviewer Orientation
 
@@ -49,7 +50,7 @@ Leaving those transactions out costs only delay. A competing proposal that selec
 
 The bound also covers the reorganisation. A fork switch displaces only blocks after the latest immutable block, so a displaced transaction that this node held when its block entered the chain is still retained, and `admit` keeps its admission time. A transaction this node holds no admission time for, because it never held the transaction or has released it, is admitted at the current time.
 
-A displaced transaction older than `TRANSACTION_TTL` is not re-admitted. This node would not select it. One that it holds stays retained until its age reaches `TRANSACTION_TTL` plus `RETIREMENT_GRACE`. For a transaction without an admission time, the node measures the age from the start of the displaced block's slot, since a transaction is at least as old as the block that carries it. Without that, a deep fork switch while bootstrapping would re-admit every displaced transaction the new chain lacks, however old. With the one-hour `TRANSACTION_TTL`, a fork switch returns to block building only the displaced transactions admitted in the last hour, about 120 blocks. The sender of an older one must submit a different transaction. Submitted again, the same one is dropped by every node that relayed it in the last `SEEN_TTL`, a day by default, since such a node remembers its identity.
+A displaced transaction whose age reaches `TRANSACTION_TTL` is not re-admitted. This node would not select it. One that it holds stays retained until its age reaches `TRANSACTION_TTL` plus `RETIREMENT_GRACE`. For a transaction without an admission time, the node measures the age from the start of the displaced block's slot, since a transaction is at least as old as the block that carries it. Without that, a deep fork switch while bootstrapping would re-admit every displaced transaction the new chain lacks, however old. With the one-hour `TRANSACTION_TTL`, a fork switch returns to block building only the displaced transactions admitted in the last hour, about 120 blocks. The sender of an older one must submit a different transaction. Submitted again, the same one is dropped by every node that relayed it in the last `SEEN_TTL`, a day by default, since such a node remembers its identity.
 
 An included hash is a duplicate at admission. Admitting it again would return it to `pending`. Block building would then retire it as inapplicable, and the time bound would release it, possibly before its block is immutable. A transaction this node never held is not in `included`, so a copy that arrives later is admitted, and block building retires it as inapplicable.
 
@@ -291,7 +292,7 @@ A block that enters the canonical chain adds to `included` each transaction it c
 +A node runs `include` on each block that enters its canonical chain.
 ```
 
-A fork switch takes the displaced transactions out of `included` before it re-admits them, so `admit` does not report them as duplicates. It re-admits only those whose age is within `TRANSACTION_TTL`, and measures the age from the start of the displaced block's slot when the node holds no admission time:
+A fork switch takes the displaced transactions out of `included` before it re-admits them, so `admit` does not report them as duplicates. It re-admits only those whose age is below `TRANSACTION_TTL`, and measures the age from the start of the displaced block's slot when the node holds no admission time:
 
 ```diff
      for block in displaced:
@@ -304,7 +305,7 @@ A fork switch takes the displaced transactions out of `included` before it re-ad
 +            mempool.included.discard(key)
 +            # A transaction is at least as old as the start of the slot of a block that carries it.
 +            admitted = mempool.admitted_at.get(key, genesis_time + block.header.slot * SLOT_LENGTH)
-+            if now() - admitted > TRANSACTION_TTL:
++            if now() - admitted >= TRANSACTION_TTL:
 +                continue
 +            admit(mempool, encode_signed_mantle_tx(tx))
 ```
@@ -405,17 +406,17 @@ The status endpoint reports a retained transaction as retained rather than unkno
 - [ ]  Release a retained claim as soon as it expires
 - [ ]  Report a hash in `included` as a duplicate at admission
 - [ ]  Preserve the admission time when a retained transaction is admitted again, on the reorganisation path too, and use the current time for a displaced transaction this node holds no admission time for
-- [ ]  Re-admit a displaced transaction on a fork switch only if its age is within `TRANSACTION_TTL`, measured from the start of the displaced block's slot when the node holds no admission time
+- [ ]  Re-admit a displaced transaction on a fork switch only if its age is below `TRANSACTION_TTL`, measured from the start of the displaced block's slot when the node holds no admission time
 - [ ]  Do not broadcast a transaction that a fork switch re-admits
 - [ ]  Keep admission times in seconds since the Unix epoch, the clock of `genesis_time`
 - [ ]  Insert a re-admitted transaction at the position its admission time gives it, which the current `IndexMap` cannot express, and keep TTL eviction correct across that insertion
 - [ ]  Persist the pending and retained hashes, `included`, their bodies and every admission time, and rebuild `by_prefix` from every recovered hash
 - [ ]  Report `retained` from the mempool status endpoint, and serve the body of any retained transaction from the transaction endpoint
-- [ ]  Add or extend tests / test vectors: a transaction younger than `TRANSACTION_MATURITY` is neither selected nor retired for inapplicability, a proposal selecting a transaction just under `TRANSACTION_TTL` reconstructs after the Blend transit, a released transaction does not resolve, an inapplicable transaction resolves until its age reaches `TRANSACTION_TTL` plus `RETIREMENT_GRACE`, re-gossiping a retained transaction does not extend its life, a competing proposal referencing a transaction this node already included reconstructs, an included transaction is released when its block becomes immutable and not before, a transaction of a canonical block that the mempool never held is not kept, a retained claim is released at its deadline and a pending one once it is retired, a fork switch re-admits a displaced transaction at its original admission time and position, a fork switch does not re-admit a displaced transaction admitted more than `TRANSACTION_TTL` ago, nor one learned only from a block whose slot started more than `TRANSACTION_TTL` ago, and a restart keeps `included` and every admission time
+- [ ]  Add or extend tests / test vectors: a transaction younger than `TRANSACTION_MATURITY` is neither selected nor retired for inapplicability, a proposal selecting a transaction just under `TRANSACTION_TTL` reconstructs after the Blend transit, a released transaction does not resolve, an inapplicable transaction resolves until its age reaches `TRANSACTION_TTL` plus `RETIREMENT_GRACE`, re-gossiping a retained transaction does not extend its life, a competing proposal referencing a transaction this node already included reconstructs, an included transaction is released when its block becomes immutable and not before, a transaction of a canonical block that the mempool never held is not kept, a retained claim is released at its deadline and a pending one once it is retired, a fork switch re-admits a displaced transaction at its original admission time and position, a fork switch does not re-admit a displaced transaction admitted `TRANSACTION_TTL` or more ago, nor one learned only from a block whose slot started `TRANSACTION_TTL` or more ago, and a restart keeps `included` and every admission time
 - [ ]  Verify the implementation matches this specification
 
 # Affected Specifications
 
 | Specification | Status | Note |
 | --- | --- | --- |
-| [Mempool](../mempool.md) | Modified | Block building waits for `TRANSACTION_MATURITY`; release replaces pruning, at immutability for an included transaction and at `RETIREMENT_GRACE` past `TRANSACTION_TTL` for any other; a re-admitted transaction keeps its admission time and position and is not broadcast, and a fork switch re-admits only one within `TRANSACTION_TTL`, measured from its block's slot when no admission time is held; a restart keeps `included` and every admission time; a retained claim is released as soon as it expires; the document does not yet exist on master |
+| [Mempool](../mempool.md) | Modified | Block building waits for `TRANSACTION_MATURITY`; release replaces pruning, at immutability for an included transaction and at `RETIREMENT_GRACE` past `TRANSACTION_TTL` for any other; a re-admitted transaction keeps its admission time and position and is not broadcast, and a fork switch re-admits only one whose age is below `TRANSACTION_TTL`, measured from its block's slot when no admission time is held; a restart keeps `included` and every admission time; a retained claim is released as soon as it expires; the document does not yet exist on master |
