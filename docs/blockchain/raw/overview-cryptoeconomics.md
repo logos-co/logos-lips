@@ -31,7 +31,7 @@
 | 1.4.0 | Define the LEPTON as the indivisible token unit, with one LOGOS equal to $`10^{9}`$ LEPTA | 2026-10-26 |
 | 1.5.0 | Pay the leader reward of a block in the block itself, as a note under a public key the leader keeps private. Aligned the maximum block size with the 2 MiB of [Cryptarchia](cryptarchia-v1-protocol.md#constants). The Execution Gas limit deducts the measured fixed part of the ZkTransfer batch verification. The leader share is 40% of the block reward rounded down, the remainder going to the Blend reward, held in `blend_rewards_pending` until it is paid. The overview figure follows. Removed the reference to the hardware requirements | 2026-10-07 |
 | 1.5.1 | The Execution Gas limit also deducts the fixed part of the ZkProgramSpend batch verification | 2026-10-14 |
-| 1.5.2 | The Execution Gas limit deducts every fixed cost of a block measured in [Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0, $`\text{limit}_{\text{Ex}} = 3,173,691`$. Every Mantle Transaction consumes Execution Gas for its bytes | 2026-10-27 |
+| 1.5.2 | The Execution Gas limit deducts every fixed cost of a block measured in [Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0, $`\text{limit}_{\text{Ex}} = 3,137,798`$. Every Mantle Transaction consumes Execution Gas for its bytes | 2026-10-27 |
 
 > **Disclaimer**:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -115,7 +115,7 @@ Users (L1 wallets, node operators, or leaders) pay [fees in Logos Blockchain for
 
 Both markets recompute their price with integer arithmetic, so that the result is identical on every node, and both round the updated price upwards. Each update multiplies the current price by an adjustment factor, so a price rounded downwards would reach 0 at the bottom of its range and remain there, leaving the resource permanently free. With upward rounding, a price of 7 LEPTA per gas unit or less is never lowered, and a higher price never falls below 7. The usage signals driving these updates measure consumption rather than price and are rounded downwards.
 
-All fee markets aim to ensure fair compensation, sustainability, proper incentives, and to address specific market needs. Every Mantle Transaction requires some execution to be validated and processed, at least the decoding and hashing of its bytes, so reaching the execution limit constrains the number of transactions the Permanent Storage market can process per block. The bytes themselves consume little execution: a full block of 2 MiB costs 56,623 Execution Gas for its bytes, 1.8% of the limit, so the Permanent Storage of blocks made of large inscriptions is bounded by the maximum block size.
+All fee markets aim to ensure fair compensation, sustainability, proper incentives, and to address specific market needs. Every Mantle Transaction requires some execution to be validated and processed, at least the decoding and hashing of its bytes, so reaching the execution limit constrains the number of transactions the Permanent Storage market can process per block. The bytes themselves consume little execution: a full block of 2 MiB costs 62,914 Execution Gas for its bytes, 2.0% of the limit, so the Permanent Storage of blocks made of large inscriptions is bounded by the maximum block size.
 
 ### Execution Fee Market
 
