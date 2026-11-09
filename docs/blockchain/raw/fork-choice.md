@@ -27,7 +27,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.1.0 | Clarified that `density` counts only the blocks of the chain being measured and excludes the [uncle references](cryptarchia-v1-protocol.md#uncle-references) those blocks carry, since uncles carry no fork-choice weight. | 2026-07-09 |
-| 1.2.0 | Read the age of a fork in slots: the Bootstrap rule compares by density a fork that diverged at least `K` slots before the later tip, and both rules ignore a fork that does not descend from `B_imm`. | 2026-11-06 |
+| 1.2.0 | Read the age of a fork in slots: the Bootstrap rule compares by density a fork that diverged at least `K` slots before the later tip, and both rules ignore a fork that does not descend from `B_imm`. | 2026-11-09 |
 
 # Introduction
 
@@ -53,7 +53,7 @@ Each epoch, the lottery difficulty is adjusted based on participation in the pre
 
 With this advantage, the adversary can eventually make up for that sparse initial period and extend his fork until it’s longer than the honest chain. He can then convince bootstrapping nodes to join his fork where he has had a monopoly on block rewards.
 
-### How This Attack is Mitigated by the Genesis Fork Choice Rule
+### How This Attack is Mitigated by the Bootstrap Fork Choice Rule
 
 If we look at the honest branch and the adversary branch in the period immediately following the fork, we can see that the honest chain is dense and the adversary’s fork will be quite sparse.
 
@@ -104,9 +104,12 @@ Nodes will remain on the honest chain if they reject forks that diverge before t
 
 > <sub>We look backwards starting from $`b_i`$, looking at the $`d^{th}`$ grandparent of $`b_i`$. We denote this block $`b_{i-d}^{sl_t}`$ and note that it was created in slot $`sl_t`$. The density calculation considers the number of blocks created in the next $`s_{gen}`$ slots. The last block in this interval is $`b_{i-d+j}^{sl\le t+s_{gen}}`$, that is, its the last block who’s slot number is less than or equal to $`s_{gen}`$ slots after $`sl_t`$.</sub>
 
+- $`\textbf{grandparent}(b, d)`$
+  *Returns the block* $`d`$ *blocks before* $`b`$ *on the chain of* $`b`$*, so* $`\textbf{grandparent}(b, 0) = b`$*.*
+
 ## Bootstrap Fork Choice Rule
 
-During bootstrapping, we use the Ouroboros Genesis fork choice rule (`maxvalid-bg`), with the age of the divergence block in slots in place of the depth of the fork. The age is measured from the later of the two tips. Here we ignore any fork that does not descend from the [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block) $`B_\text{imm}`$, as `is_ancestor` of step 8 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) checks.
+During bootstrapping, we use the Ouroboros Genesis fork choice rule (`maxvalid-bg`), with the age of the divergence block in slots in place of the depth of the fork. The age is measured from the later of the two tips. Here we ignore any fork that does not descend from the [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block) $`B_\text{imm}`$, with the `is_ancestor` check that step 8 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) uses when pruning is incomplete.
 
 ```python
 def bootstrap_fork_choice(c_local, forks, K, s_gen, B_imm):
@@ -124,7 +127,7 @@ def bootstrap_fork_choice(c_local, forks, K, s_gen, B_imm):
             # the fork diverged less than the finality window `K` ago. It's safe
             # to use longest chain to decide the fork choice.
             if depth_max < depth_fork:
-                # strict inequality to ensure we choose first-seen chain as our tie break
+                # strict inequality: a tie keeps c_max
                 c_max = c_fork
         else:
             # here the fork diverged at least `K` slots ago.
@@ -150,7 +153,7 @@ def online_fork_choice(c_local, forks, B_imm):
             continue
         depth_max, depth_fork = common_prefix_depth(c_max, c_fork)
         if depth_max < depth_fork:
-            # strict inequality to ensure we choose first-seen chain as our tie break
+            # strict inequality: a tie keeps c_max
             c_max = c_fork
     return c_max
 ```

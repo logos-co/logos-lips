@@ -27,7 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.0.1 | Noted that a streamed `Block` carries the signed headers of the uncles it references, which is what lets a synchronizing node validate those blocks and reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) without ever seeing their proposals, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
 | 1.0.2 | Spread block download requests across connected and discovered peers instead of downloading only from the configured IBD peers, which now only provide the chain tips to catch up with. Added [Selecting Peers for Downloading](#selecting-peers-for-downloading) and the `GetTipRequest` message. | 2026-10-20 |
-| 1.1.0 | Required [Commit](cryptarchia-v1-protocol.md#commit) at the switch to the Online rule, and bounded `T_offline` by the finality window `K`. | 2026-11-06 |
+| 1.1.0 | Required [Commit](cryptarchia-v1-protocol.md#commit) at the switch to the Online rule, recorded together with the switch, and bounded `T_offline` by the finality window `K`. | 2026-11-09 |
 
 # Introduction
 
@@ -128,7 +128,7 @@ Upon startup, a node sets the fork choice rule to the **Bootstrap** rule in one 
   Details of $`T_\text{offline}`$ are described in [Offline Grace Period](#offline-grace-period). A recommended way how to measure the offline duration is introduced in [**Offline Duration Measurement**](#offline-duration-measurement).
 
 - **A node operator set the Bootstrap rule explicitly (e.g., by** **`--bootstrap`** **flag).**
-  In any case where the node operator is clearly aware that the tip of the node's local chain is more than the finality window $`K`$ old, they should be able to start the node with the Bootstrap rule. For example, the operator may obtain the latest block height from another trusted operator and realize that their node has fallen significantly behind due to some issue.
+  In any case where the node operator is clearly aware that the tip of the node's local chain is more than the finality window $`K`$ old, they should be able to start the node with the Bootstrap rule. For example, the operator may obtain the slot of the latest block from another trusted operator and realize that their node has fallen significantly behind due to some issue.
 
 ## Initial Block Download
 
@@ -190,11 +190,11 @@ After [Initial Block Download](#initial-block-download) is completed, a node mus
 
 The purpose of the Prolonged Bootstrap Period is giving a syncing node additional time to compare its synced chain with a broader set of peers. In other words, it provides the node with an opportunity to connect to different peers and verify whether they are on the same chain. If the syncing node has downloaded blocks only from peers within an isolated network, the result of [Initial Block Download](#initial-block-download) may not reflect the honest chain followed by the majority of the entire network. To resolve such situations, the node should continue using the Bootstrap rule while discovering additional peers, allowing it to switch to a better chain if one is found.
 
-The density check of the Bootstrap rule needs no separate wait. A fork decided by density diverged at least the finality window $`K`$ before the later tip, and $`s_\text{gen} \lt K`$, so the chain with the later tip holds the whole $`s_\text{gen}`$ slot window. A chain whose blocks have not all arrived holds fewer blocks in the window. The comparison runs again as they arrive. Therefore, this protocol does not explicitly wait $`s_\text{gen}`$ slots after [Initial Block Download](#initial-block-download). In other words, the protocol does not use $`s_\text{gen}`$ to configure the Prolonged Bootstrap Period.
+The protocol does not wait $`s_\text{gen}`$ slots after [Initial Block Download](#initial-block-download).
 
 This protocol configures the Bootstrap Period to 24 hours.
 
-A timer must be started when [Listening for New Blocks](#listening-for-new-blocks) is started after [Initial Block Download](#initial-block-download) is completed. Once the time is completed, the fork choice rule is switched to the Online rule, and the node runs [Commit](cryptarchia-v1-protocol.md#commit) on $`c_{loc}`$ before it processes any further block.
+A timer must be started when [Listening for New Blocks](#listening-for-new-blocks) is started after [Initial Block Download](#initial-block-download) is completed. Once the time is completed, the fork choice rule is switched to the Online rule, and the node runs [Commit](cryptarchia-v1-protocol.md#commit) on $`c_{loc}`$ before it processes any further block. The node records the switch and the result of Commit together.
 
 ## Listening for New Blocks
 
@@ -269,7 +269,7 @@ class GetTipResponse:
 
 A peer that cannot serve these requests yet (e.g. a peer still performing its own [Initial Block Download](#initial-block-download)) may reject them. The requesting node treats the rejection as a failed request.
 
-Each streamed `Block` carries the signed headers of the uncles it references, in its `uncle_headers` field ([Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md#block)). This is what lets a synchronizing node apply the validity rules of [Uncle References](cryptarchia-v1-protocol.md#uncle-references) to every downloaded block, and then reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) of every past epoch from the uncles those blocks carry, even though it never receives the proposals the blocks were reconstructed from.
+Each streamed `Block` carries the signed headers of the uncles it references, in its `uncle_headers` field ([Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md#block)). This is what lets a synchronizing node apply the validity rules of [Uncle References](cryptarchia-v1-protocol.md#uncle-references) to every downloaded block, and then reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) of every past epoch and the finality floor of [Commit](cryptarchia-v1-protocol.md#commit) from the uncles those blocks carry, even though it never receives the proposals the blocks were reconstructed from.
 
 The responding peer uses `KnownBlocks` to determine the optimal starting block for the response stream, aiming to minimize the number of blocks to be returned. The requesting node can include any block it believes could assist in this process to the `KnownBlocks.additional_blocks`. To avoid spamming responders, the size of `KnownBlocks.additional_blocks` is limited to 5.
 
@@ -401,9 +401,9 @@ The following example explains why $`T_\text{offline}`$ should not be set too lo
 
 - A local node stopped in the following situation. A malicious peer is building a fork that diverged a little less than the finality window $`K`$ before the tip of the local chain. The fork is a little shorter than the local chain.
 - The local node has been offline shorter than $`T_\text{offline}`$ and just restarted. As defined in this protocol, the Online fork choice rule is used because the offline duration is short.
-- During the offline duration, the malicious peer extended its fork. Now the fork is longer than the local chain, and the divergence block lies more than $`K`$ slots behind the tip of the fork.
+- During the offline duration, the malicious peer extended its fork. Now the fork is longer than the local chain, its first block lies at least $`K`$ slots behind the tip of the fork, and at least the finality floor $`\phi`$ of occupied slots follows that block.
 - If the malicious peer sends the fork to the restarted node faster than the honest peer, the restarted node will switch to the fork and [Commit](cryptarchia-v1-protocol.md#commit) will move $`B_\text{imm}`$ past the divergence block. Even if the node later receives the honest chain from the honest peer, it cannot revert blocks that are already immutable.
-- The shorter $`T_\text{offline}`$ is, the less time the malicious peer has to make its fork immutable. Even if the malicious peer made its fork long enough after $`T_\text{offline}`$, the fork will be rejected by the syncing node because it will use the Bootstrap rule if it has been offline longer after $`T_\text{offline}`$.
+- Even if the malicious peer made its fork long enough after $`T_\text{offline}`$, the fork will be rejected by the syncing node because it will use the Bootstrap rule if it has been offline longer after $`T_\text{offline}`$.
 
 ```mermaid
 %%{init: {'gitGraph': {'showCommitLabel': false, 'mainBranchName': 'local_chain'}}}%%
