@@ -36,6 +36,7 @@
 | 1.2.4 | Reordered the `ProofOfLeadership` fields to the wire order defined by the [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding), and noted that the [Block ID](#block-id) preimage absorbs the same fields in a different order by design. The `Header` layout and the `block_id` preimage are otherwise unchanged. | 2026-08-28 |
 | 1.2.5 | Required the slot of a referenced [uncle](#uncle-references) to exceed the slot of its parent. | 2026-10-06 |
 | 1.3.0 | Counted finality in slots: [Commit](#commit) moves `B_imm` to the latest block of the local chain that lies at least the finality window `K` behind the tip and is followed by at least the finality floor `φ` of occupied slots. `K` replaces `s` and `⌊k/f⌋`. | 2026-11-09 |
+| 1.4.0 | Shortened the finality window `K` to 36,000 slots, sized against 30 % of the stake, and recomputed the finality floor `φ`. The [Epoch Schedule](#epoch-schedule) reads `⌊k/f⌋`, so its length does not change. | 2026-11-09 |
 
 # Introduction
 
@@ -99,9 +100,9 @@ Our design starts from the solid foundation provided by Ouroboros Crypsinous: Pr
 | Symbol | Name | Description | Value |
 | --- | --- | --- | --- |
 | $`f`$ | slot activation coefficient | The target rate of occupied slots. Not all slots contain blocks, many are empty.   (see [ANALYSIS-BLOCK-TIMES-BLEND-NETWORK](analysis-block-times-blend-network.md) for analysis leading to the choice of value) | 1/30 |
-| $`k`$ | security parameter | The parameter from which $`K`$ and $`s_{gen}`$ are derived. | 2160 blocks |
-| $`K`$ | finality window | The number of slots a block must lie behind the tip of the local chain before [Commit](#commit) can make it immutable. It also sets the [Epoch Schedule](#epoch-schedule). It must exceed $`W\cdot f^{-1}`$, $`s_{gen}`$ and $`T_\text{offline}`$, whose definitions state what breaks otherwise. A change of $`k`$, $`f`$, the slot length or the message traversal time $`T_M`$ of the [Blend Protocol](blend-protocol.md) requires $`K`$ and $`\phi`$ to be checked again. A $`K`$ that is too short lets a block made immutable be displaced. (see [What the finality window holds](https://github.com/logos-co/logos-lips/blob/master/docs/blockchain/raw/rfc/RFC-TBD-cryptarchia-count-finality-in-slots.md#what-the-finality-window-holds) for the analysis behind the value) | $`\lfloor \frac{k}{f}\rfloor`$ = 64,800 slots (18 hours) |
-| $`\phi`$ | finality floor | The number of occupied slots that must follow a block before [Commit](#commit) can make it immutable, derived in [Finality Floor](#finality-floor). A floor above what the honest chain holds in $`K`$ slots delays finality. | 1,019 occupied slots |
+| $`k`$ | security parameter | The parameter from which $`s_{gen}`$ and the [Epoch Schedule](#epoch-schedule) are derived. | 2160 blocks |
+| $`K`$ | finality window | The number of slots a block must lie behind the tip of the local chain before [Commit](#commit) can make it immutable. It must exceed $`W\cdot f^{-1}`$, $`s_{gen}`$ and $`T_\text{offline}`$, and must not exceed a phase of the [Epoch Schedule](#epoch-schedule) that waits for a value to finalize. Their definitions state what breaks otherwise. A change of $`k`$, $`f`$, the share $`\alpha_\text{max}`$ in [Finality Floor](#finality-floor), the slot length or the message traversal time $`T_M`$ of the [Blend Protocol](blend-protocol.md) requires $`K`$ and $`\phi`$ to be checked again. A $`K`$ that is too short lets a block made immutable be displaced. (see [What the finality window holds](https://github.com/logos-co/logos-lips/blob/master/docs/blockchain/raw/rfc/RFC-TBD-cryptarchia-shorten-the-finality-window-to-10-hours.md#what-the-finality-window-holds) for the analysis behind the value) | 36,000 slots (10 hours) |
+| $`\phi`$ | finality floor | The number of occupied slots that must follow a block before [Commit](#commit) can make it immutable, derived in [Finality Floor](#finality-floor). A floor above what the honest chain holds in $`K`$ slots delays finality. | 560 occupied slots |
 | *none* | slot length | The duration of a single slot. | 1 second |
 | MAX_BLOCK_SIZE | max block size | The maximum size of the block body (not including the header) | 2 MiB (2,097,152 bytes) |
 | MAX_BLOCK_TXS | max block transactions | The maximum number of transactions in a block | 1024 |
@@ -149,13 +150,13 @@ An epoch is divided into 3 phases, as outlined below.
 
 | Epoch Phase | Phase Length | Description |
 | --- | --- | --- |
-| Stake Distribution Snapshot | $`3K`$ slots | A snapshot of note commitments are taken at the beginning of the epoch. We wait for this value to finalize before entering the next phase. |
-| Buffer phase | $`3K`$ slots | After the stake distribution is finalized, we wait another $`3K`$ slots before entering the next phase. This is to further ensure that there is at least one honest leader contributing to the epoch nonce randomness. If an adversary can predict the nonce, they can grind their coin secret keys to gain an advantage. |
-| Lottery Constants Finalization | $`4K`$ slots | On the $`6K^{th}`$ slot into the epoch, the epoch nonce $`\eta`$ and the inferred total stake $`D`$ can be computed. We wait another $`4K`$ slots for these values to finalize. |
+| Stake Distribution Snapshot | $`3\lfloor \frac{k}{f}\rfloor`$ slots | A snapshot of note commitments are taken at the beginning of the epoch. We wait for this value to finalize before entering the next phase. |
+| Buffer phase | $`3\lfloor \frac{k}{f}\rfloor`$ slots | After the stake distribution is finalized, we wait another $`3\lfloor \frac{k}{f}\rfloor`$ slots before entering the next phase. This is to further ensure that there is at least one honest leader contributing to the epoch nonce randomness. If an adversary can predict the nonce, they can grind their coin secret keys to gain an advantage. |
+| Lottery Constants Finalization | $`4\lfloor \frac{k}{f}\rfloor`$ slots | On the $`6\lfloor \frac{k}{f}\rfloor^{th}`$ slot into the epoch, the epoch nonce $`\eta`$ and the inferred total stake $`D`$ can be computed. We wait another $`4\lfloor \frac{k}{f}\rfloor`$ slots for these values to finalize. |
 
 Each phase that waits for a value to finalize must last at least the finality window $`K`$, or the value is not final when the phase ends.
 
-The **epoch length** is the sum of the individual phases: $`3K + 3K + 4K = 10K`$ slots.
+The **epoch length** is the sum of the individual phases: $`3\lfloor \frac{k}{f}\rfloor + 3\lfloor \frac{k}{f}\rfloor + 4\lfloor \frac{k}{f}\rfloor = 10\lfloor \frac{k}{f}\rfloor`$ slots.
 
 ### Epoch State
 
@@ -225,15 +226,15 @@ $`\text{define } \textbf{compute\_epoch\_state}(ep, tip \in T)\to(\mathbb{C}_\te
 
 > The epoch nonce for epoch $`ep`$ is the value of $`\eta`$ at the beginning of the lottery constants finalization phase in the epoch schedule
 
-&nbsp;&nbsp;&nbsp;&nbsp;$`\eta^{ep} \coloneqq \textbf{epoch\_nonce\_at\_slot}(sl_{ep-1} + 6K, tip)`$
+&nbsp;&nbsp;&nbsp;&nbsp;$`\eta^{ep} \coloneqq \textbf{epoch\_nonce\_at\_slot}(sl_{ep-1} + 6\lfloor \frac{k}{f}\rfloor, tip)`$
 
 > Total active stake is inferred from the number of blocks produced in the previous epoch during the stake freezing phase. It is also derived from the previous estimate of total stake, thus we recurse here to retrieve the previous epochs estimate $`D^{ep-1}`$
 
 &nbsp;&nbsp;&nbsp;&nbsp;$`(\_,\_,D^{ep-1}) \coloneqq \textbf{compute\_epoch\_state}(ep-1,tip)`$
 
-> The number of distinct occupied slots during the first $`6K`$ slots of the previous epoch: a slot counts if it holds a block of the chain of $`tip`$ and/or one or more [uncles](#uncle-references) referenced by the blocks of that chain **that themselves lie in the window**, and each slot is counted at most once. Referenced uncles are genuine lottery wins that were lost to forks; counting them gives a more accurate estimate of consensus participation. No filtering is needed here: an uncle carried by a block of the chain was validated as a condition of that block's acceptance (see [Uncle References](#uncle-references)), so every node holding the chain counts exactly the same uncles.
+> The number of distinct occupied slots during the first $`6\lfloor \frac{k}{f}\rfloor`$ slots of the previous epoch: a slot counts if it holds a block of the chain of $`tip`$ and/or one or more [uncles](#uncle-references) referenced by the blocks of that chain **that themselves lie in the window**, and each slot is counted at most once. Referenced uncles are genuine lottery wins that were lost to forks; counting them gives a more accurate estimate of consensus participation. No filtering is needed here: an uncle carried by a block of the chain was validated as a condition of that block's acceptance (see [Uncle References](#uncle-references)), so every node holding the chain counts exactly the same uncles.
 
-&nbsp;&nbsp;&nbsp;&nbsp;$`\textbf{in\_window}(sl) \coloneqq sl_{ep - 1} \le sl \lt sl_{ep-1}+6K`$
+&nbsp;&nbsp;&nbsp;&nbsp;$`\textbf{in\_window}(sl) \coloneqq sl_{ep - 1} \le sl \lt sl_{ep-1}+6\lfloor \frac{k}{f}\rfloor`$
 
 &nbsp;&nbsp;&nbsp;&nbsp;$`\textbf{chain} \coloneqq \textbf{ancestors}(tip)`$
 
@@ -527,7 +528,7 @@ $`\phi`$ is the largest $`n`$ such that the chance of the honest chain holding f
 ```python
 from math import exp, lgamma, log
 
-ALPHA_MAX = 1 / 3   # α_max, the share of the stake the floor is sized against
+ALPHA_MAX = 3 / 10  # α_max, the share of the stake K and the floor are sized against
 DELTA = 10          # Δ, the delivery delay the floor is sized against: 10 s in slots of 1 second
 EPSILON = 1e-9      # ε, the chance allowed that the honest chain misses the floor
 
@@ -552,7 +553,7 @@ def finality_floor() -> int:
     return n
 ```
 
-With $`K = 64800`$ and $`f = 1/30`$, `finality_floor()` returns $`1019`$.
+With $`K = 36000`$ and $`f = 1/30`$, `finality_floor()` returns $`560`$.
 
 ### Fork Pruning
 

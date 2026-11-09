@@ -27,6 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-01-20 |
 | 1.1.0 | Changed `density_over_slots` to count **distinct occupied slots** instead of blocks, including the slots of the [uncles](cryptarchia-v1-protocol.md#uncle-references) referenced by the honest chain's in-period blocks, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md). | 2026-08-06 |
 | 1.2.0 | `PERIOD` reads the finality window `K`, and `density_over_slots` takes the chain it counts, so that [Commit](cryptarchia-v1-protocol.md#commit) can read it. | 2026-11-09 |
+| 1.2.1 | `PERIOD` reads `⌊k/f⌋` in place of the finality window `K`, so the observation period keeps its length when `K` changes. | 2026-11-09 |
 
 # Introduction
 
@@ -51,9 +52,9 @@ This algorithm has been analyzed and shown to have good accuracy, precision and 
 | Symbol | Value | Name | Description |
 | --- | --- | --- | --- |
 | `beta` | 1.0 | learning rate | Controls how quickly we adjust to new participation levels.  Lower values for `beta` give a more stable / gradual adjustment, while higher values give faster convergence but at the cost of less stability. |
-| `PERIOD` | $`6K`$ | observation period | The length of the observation period in slots. |
+| `PERIOD` | $`6\lfloor \frac{k}{f} \rfloor`$ | observation period | The length of the observation period in slots. |
 | `f` | *inherited from* [Constants](cryptarchia-v1-protocol.md#constants) | slot activation coefficient | The target rate of occupied slots. Not all slots contain blocks, many are empty. |
-| `K` | *inherited from* [Constants](cryptarchia-v1-protocol.md#constants) | finality window | The unit of the [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule). |
+| `k` | *inherited from* [Constants](cryptarchia-v1-protocol.md#constants) | security parameter | The parameter from which `PERIOD` is derived. |
 
 ### Functions
 
