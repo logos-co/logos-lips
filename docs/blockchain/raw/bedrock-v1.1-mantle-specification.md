@@ -2147,7 +2147,7 @@ class NoteSet:
         for note_nullifier in inputs:
             self.nullifiers.add(note_nullifier)
             insert_nullifier(self.nullifier_leaves, note_nullifier)
-        self.tx_changed = True
+        self.tx_changed |= len(inputs) > 0
 ```
 
 ### Creating Output Notes Execution
@@ -2159,7 +2159,7 @@ class NoteSet:
     def execute_adding(self, outputs: list[NoteCommitment]):
         for note_commitment in outputs:
             mmr_append(self.commitments, note_commitment)
-        self.tx_changed = True
+        self.tx_changed |= len(outputs) > 0
 ```
 
 # Appendix
