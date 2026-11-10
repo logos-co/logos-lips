@@ -30,16 +30,17 @@ where most of the new items come from.
 Each item gives **Specs**, **Issue**, **Impact**, **Overlap** with existing IDs, and a **Suggested
 resolution**.
 
-NE-07, NL-12, NA-12 and NP-14 were added later from the same porting readings. ND-10 and ND-11 were
+NE-07, NL-12, NA-12 and NP-14 were added later from the same porting readings. ND-10 to ND-14 were
 found later, while building logos-core-nim against the same commit; like the items in
 `claude-spec-comments.md`, they also give **Our interim choice**, cited by its `DECISIONS.md` row.
+ND-14 is a contradiction, kept in §2.6 beside ND-12 and ND-13, which concern the same C mapping.
 
 ## Summary
 
 | Part | Count |
 |---|---|
 | 1. Contradictions and internal inconsistencies | 6 |
-| 2. Gaps and underspecifications (events 7, identity 7, lifecycle 12, authority 12, remote 14, data model 11, packaging 14, configuration and state 6, security 3, Runtime Control observation 7) | 93 |
+| 2. Gaps and underspecifications (events 7, identity 7, lifecycle 12, authority 12, remote 14, data model 14, packaging 14, configuration and state 6, security 3, Runtime Control observation 7) | 96 |
 | 3. Corrections and addenda to existing findings | 25 |
 | 4. Dropped candidates | 20 |
 
@@ -1362,6 +1363,97 @@ what is missing is a statement of that pattern and caller identity for the fetch
   the `[]` sentence at l.1386; or make the leaf hash win and say so at l.1000 and l.1101. Either way, add a
   COMMITMENT App B vector with a leaf-bodied declaration reached through a local and through an imported
   reference.
+
+#### ND-12 — A cycle of local aliases is accepted and has a schema root, but no value and no C form
+- **Specs:** INTERFACE §2 l.537 ("Every accepted schema set MUST be representable by one of the two forms"),
+  l.540 (the mapping "is total"), §2.3 l.803 (every named type keeps its declaration identity in C), §5.3
+  l.2878-2879 (cyclic references only bound the work), l.2889-2895 (the rejection list); cdCDDLe §5.1 l.155
+  (recursive and mutually recursive references are in the subset), §6 l.227, §7.3 l.297-301 (the rule graph
+  MAY contain cycles "if the underlying CDDL schema and resolver accept them"); COMMITMENT §3 l.239-241
+  (cycles "are valid only through `reference-schema` nodes"), §3.1 l.427-430, l.477-480, l.503 and l.506
+  (the same cycle is invalid, but only as the arms of a choice), §8 l.1099 (a value read through a local
+  reference is normalized under the referenced declaration).
+- **Issue:** `demo.a = demo.b` with `demo.b = demo.a` (or `demo.a = demo.a`, or `a = b`, `b = c`, `c = b`)
+  is inside the subset and canonicalizes: each body is a finite reference node (l.427-430), and a cycle made
+  only of reference nodes is the kind l.239-241 calls valid, so the set gets a schema root. No rule rejects
+  it: l.2878-2879 bounds the traversal and l.2889-2895 names no cycle. Yet it has no value, since
+  normalizing one under l.1099 passes from declaration to declaration and never reaches a structural or
+  scalar node, and no C form: whether each declaration becomes a typedef naming the other's type (l.803) or
+  is expanded, `typedef logos_demo_b_t logos_demo_a_t;` and `typedef logos_demo_a_t logos_demo_b_t;`
+  compile in neither order, and expansion does not end. COMMITMENT already treats this cycle as invalid at
+  l.503 and l.506, but only for choice plans.
+- **Impact:** implementations can split: one reads l.537 as an acceptance rule and rejects the set, another
+  accepts it, publishes its schema root and fails later, in the mapping that l.540 calls total or at the
+  first value. No schema in the specs has such a cycle. Minor.
+- **Overlap:** CM-01/G1 (alias chains that end, such as `a.x = a.y`, `a.y = tstr`: which identity a value
+  carries); NX-04 (another set that the l.2889-2895 list lets through although its C header is invalid).
+  New: chains that never end.
+- **Our interim choice** (G153): a chain of local aliases that never reaches a map, tuple, list, choice,
+  primitive, literal or imported reference is rejected at acceptance. A cycle that passes through a map,
+  tuple, list or choice is recursion, which §2.3 l.839-853 maps, and stays accepted, so the rule only
+  narrows: no set that has a C form is rejected.
+- **Suggested resolution:** add "a local reference chain that reaches no map, tuple, list, choice,
+  primitive, literal or imported reference" to the §5.3 list (l.2889-2895), or state it in COMMITMENT §3
+  beside l.239-241 so that l.503 becomes one case of it; add a rejection vector.
+
+#### ND-13 — Only targets of recursive by-value edges get forward typedefs, so a map that lists its own type does not compile
+- **Specs:** INTERFACE §2.3 l.756-760 (a named map is defined as `typedef struct logos_map_<...> { ... }
+  logos_<...>_t;`), l.791 (a list of a named aggregate is `const logos_T_t* items` plus a count), l.839-841
+  ("An occurrence beneath a variable-length list does not add a by-value edge"), l.843-848 (a forward
+  typedef only for an aggregate "referenced by a recursive edge"), §2.1 l.676-678 (canonical order), §2
+  l.538 (identical header sets), §3.1 l.1618 (the reverse mapper accepts "the exact declaration forms
+  produced by Section 2"), §3.9.3 l.2107-2154.
+- **Issue:** `demo.node = { kids: [* demo.node], v: uint64 }` has no by-value edge (l.841), so `node` is in
+  no recursive component and gets no forward typedef (l.848); its definition spells
+  `const logos_demo_node_t* kids` inside the `typedef struct` that introduces `logos_demo_node_t`, which a C
+  compiler rejects. The same holds across declarations: with `demo.a = { bs: [* demo.b] }` and
+  `demo.b = { a: demo.a }`, `b` embeds `a` by value, so l.677 puts `a` first, and `a`'s list member spells
+  `logos_demo_b_t` before anything declares it; no order of the two definitions compiles without a forward
+  typedef for `b`. A tree whose children are held in a list has this shape.
+- **Impact:** for the usual tree shape, a header generated by the letter of §2.3 does not compile. A
+  generator that adds the missing forward typedef produces a different header from one that does not
+  (l.538), and a reverse mapper held to l.1618 may reject the added typedef. §3.9.3 recurses only through
+  optional by-value fields, so its case does not show the problem.
+- **Overlap:** IF-03/G62 (other list and tuple C forms §2.3 leaves undefined), IF-07/G67 (ownership of
+  recursive outputs). New: the forward typedef for a list target.
+- **Our interim choice** (G154): a list member's target also gets a forward typedef when the member's owner
+  and the target lie on one cycle of the graph whose edges are by-value and list occurrences, and its
+  definition then takes the separate `struct` form of §3.9.3 l.2132-2146. l.841 is unchanged, so no member
+  becomes a pointer that was not one: struct layouts and identifiers stay as they are, and only header text
+  changes.
+- **Suggested resolution:** extend l.848 to every aggregate that a list occurrence names from within one
+  cycle of by-value and list edges (or simply to every aggregate a list names), say how l.676-678 orders a
+  definition whose list target is forward-declared, admit those typedefs in §3.1, and add a §3.9 case with
+  `{ kids: [* node] }`.
+
+#### ND-14 — §2.1's tie rule for type definitions does not give the order the normative §3.9.3 header requires
+- **Specs:** INTERFACE §2.1 l.676-679 (l.677: "Type definitions place non-recursive dependencies before
+  dependents and break independent ties by qualified schema name"; l.678: within one recursive
+  representation component, by qualified schema name), §2 l.538 (header sets identical "modulo whitespace,
+  comments, include layout, and include guards"), §3.9 l.1896-1897 (the cases are normative and define
+  "canonical-declaration results"), §3.9.3 l.2107-2122 (the schema), l.2128-2150 (the required declarations,
+  with definitions in the order `left`, `node`, `right`, `branch`), l.2153-2154.
+- **Issue:** in §3.9.3, `left`, `node` and `right` reach other definitions only through recursive edges,
+  which are pointers to forward-declared types, so none of them has a non-recursive dependency; `branch`
+  embeds `node` (l.2154). The usual reading of l.677, a topological sort that takes the least qualified
+  name among the definitions whose dependencies are placed, gives `left, node, branch, right`: once `node`
+  is placed, `branch` is ready, and `recursive.branch` sorts before `recursive.right`. Taking the component
+  {`left`, `right`} as one unit (l.678) gives `left, right, node, branch`. The required header has
+  `left, node, right, branch`, which is what ordering by dependency depth (the longest chain of definitions
+  a definition waits for) and then by name gives; l.677 does not say that.
+- **Impact:** order is not among the differences l.538 allows, so an implementation that follows l.677
+  fails the normative §3.9.3 case, and one that passes it follows a rule the text does not state; the two
+  disagree whenever a dependent's name sorts before that of a definition it does not depend on, as `branch`
+  and `right` do. Header text only, not ABI. Minor.
+- **Overlap:** IF-11/G72 (the order of literal macros, provider declarations and lifecycle symbols, which
+  §2.1 leaves out); here the order is stated and the required output disagrees with it. New.
+- **Our interim choice** (G155): dependency depth, then qualified schema name, which reproduces §3.9.3 byte
+  for byte. A definition waits for each aggregate it embeds by value and each typedef name it spells that
+  no forward typedef supplies.
+- **Suggested resolution:** if §3.9.3 is meant, restate l.677 ("Type definitions are ordered by dependency
+  depth, the length of the longest chain of non-recursive dependencies beneath them, then by qualified
+  schema name"); if l.677 is meant, change §3.9.3 to `left, node, branch, right`. Either way, define
+  "independent" and say whether a list target counts as a dependency (see ND-13).
 
 ### 2.7 Packaging
 
