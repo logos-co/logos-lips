@@ -42,6 +42,7 @@
 | 1.8.1 | Derived $`M_W`$ from the messages a neighbor is expected to deliver in an observation window and from the peering degree, in place of a fixed value. | 2026-10-30 |
 | 1.9.0 | Removed the message `version` byte, put the fork digest in the libp2p protocol name, linked the era rules for the transition period, for releasing and for broadcasting, made the transition period the larger of $`\lfloor 1/f \rfloor`$ and $`T_M + 1`$ rounds, bounded the clock difference between honest nodes, and stopped blacklisting for a next-epoch proof in an epoch's last round ([Bedrock Eras](bedrock-eras.md)). A round lasts one slot, and $`\beta_{max}`$ replaces $`\beta_C`$ and $`\beta_D`$. | 2026-11-10 |
 | 1.9.1 | Updated `Max_Payload_Length` to 18190 bytes in the overhead calculation, and an encapsulated message to 19313 bytes, following the removal of the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)). | 2026-11-02 |
+| 1.10.0 | An era that changes the values behind $`F_T`$ resets `target_transactions_per_block` ([Bedrock Eras](bedrock-eras.md)). | 2026-11-05 |
 
 # Introduction
 
@@ -532,7 +533,7 @@ $$
 F_1 = \left( \max\left(F_C \cdot (1 + R_C),\ F_D \cdot (1 + R_D)\right) + F_T \right) \cdot \beta_{max} = 16.0
 $$
 
-Flooding delivers each message once per neighbor, so $`F_1`$ must be below $`r_1`$; at $`r_1`$ a backlog on a connection never drains. $`F_T`$ is sized so that a backlog of one round's share drains, at $`r_1 - F_1`$ per round, within the time a message may spend at one hop, $`\Delta_{max} + \eta`$ ([Transition Period](#transition-period)): $`F_1 = r_1 \cdot (1 - 1 / (\Delta_{max} + \eta)) = 16`$. Messages backed by a proof of work count within $`F_T`$, which is the reference load of [Blend Difficulty](proof-of-work.md#blend-difficulty).
+Flooding delivers each message once per neighbor, so $`F_1`$ must be below $`r_1`$; at $`r_1`$ a backlog on a connection never drains. $`F_T`$ is sized so that a backlog of one round's share drains, at $`r_1 - F_1`$ per round, within the time a message may spend at one hop, $`\Delta_{max} + \eta`$ ([Transition Period](#transition-period)): $`F_1 = r_1 \cdot (1 - 1 / (\Delta_{max} + \eta)) = 16`$. An era that changes a value this sizing reads must set `target_transactions_per_block` ([Era Parameters](bedrock-eras.md#era-parameters)) to the resulting $`\lfloor F_T / F_D \rfloor`$. Otherwise a backlog outlasts the time a message may spend at one hop. Messages backed by a proof of work count within $`F_T`$, which is the reference load of [Blend Difficulty](proof-of-work.md#blend-difficulty).
 
 A node reads at most $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124`$ messages in a round, which must not exceed $`V`$, and verifies the public header of novel messages only ([Relaying](#relaying)). At $`19313`$ bytes per message ([Message Formatting](message-formatting.md)) that is $`2.4`$ MB/s.
 
