@@ -573,7 +573,7 @@ def fork_digest(n: int) -> hash:
 
 A block or proposal, and everything it carries, is parsed, validated and executed under the rules of the era of its slot, $`\textbf{era}(sl)`$. The exceptions are a transaction, which is parsed under the era whose fork digest it carries, and an active message or reward claim, which is verified as [Era Migration](#era-migration) specifies. `slot` is the first field of the header ([Block Header](cryptarchia-v1-protocol.md#block-header)) and has the same encoding in every era. The encoding of every block and proposal begins with its header, in its [canonical encoding](bedrock-v1.1-block-construction.md#canonical-encoding). Otherwise a node cannot parse a block before it knows the block's era.
 
-Every transaction begins with its fork digest ([Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction)), in the same encoding in every era. Otherwise a node cannot parse a transaction before it knows the transaction's era. A transaction is valid under era `n` only if `accepts_fork_digest` holds for `n` and the transaction's `fork_digest`:
+Every transaction begins with its fork digest ([Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction)), in the same encoding in every era. Otherwise a node cannot parse a transaction before it knows the transaction's era. The `MAX_OPERATION_DATA_SIZE` that parsing checks ([Channel Operations](mantle-transaction-encoding.md#channel-operations)) is that of the era that validates the transaction: the era of the slot of the block that carries it, or the era in force when the mempool admits it. A transaction that arrives on the [mempool topic](mempool.md#dissemination) of an era, or in a Blend data message on a connection of an era, must also meet that era's `MAX_OPERATION_DATA_SIZE`. A transaction is valid under era `n` only if `accepts_fork_digest` holds for `n` and the transaction's `fork_digest`:
 
 ```python
 def accepts_fork_digest(n: int, digest: hash) -> bool:
@@ -634,7 +634,7 @@ When the era in force changes to era `new`, a node retires the pending transacti
 
 ## Era Transition Period
 
-The Era Transition Period is the first $`T`$ [rounds](blend-protocol.md#time) after the era in force changes, with $`T`$ the [Transition Period](blend-protocol.md#transition-period) of the previous era. It applies to the network layer only. A node that starts during an Era Transition Period runs only the protocols of the era in force.
+The Era Transition Period is the first $`\lceil T \cdot \Delta_{n-1} / \Delta_n \rceil`$ [rounds](blend-protocol.md#time) after the era in force changes to era $`n`$, with $`T`$ the [Transition Period](blend-protocol.md#transition-period) of era $`n-1`$. It applies to the network layer only. A node that starts during an Era Transition Period runs only the protocols of the era in force.
 
 During the Era Transition Period, a node keeps the identifiers of the previous era only for what is already in flight on them, as Blend keeps the connections of a past epoch ([Transition Period](blend-protocol.md#transition-period)). A node must:
 
