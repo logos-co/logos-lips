@@ -429,7 +429,7 @@ We say $`\textbf{valid\_header}(B)`$ returns True if all of the following constr
       )
   ```
 
-  where $`\textbf{merkle\_root}`$ is the root of the Merkle tree built from transaction hashes (see Mantle - Mantle Transaction Hash) as leaves, using `0` to represent the hash of an empty transaction and padding the leaves to the closest power of two, and $`\textbf{serialize}`$ is the list encoding of [Block Proposal](bedrock-v1.1-block-construction.md#block-proposal) — a 1-byte little-endian element count followed by that many entries, so an empty list encodes as a single zero byte. The serialized list is committed directly, with no inner hash: the element count and the fixed 273-byte entries keep the flat preimage unambiguous, and the single `BODY_ROOT_V1` tag versions the whole construction. The carried uncle headers are committed here and hence in the [Block ID](#block-id); a copy of a block that differs in any of those bytes has a different ID and is a different block.
+  where $`\textbf{merkle\_root}`$ is the root of the Merkle tree built from transaction hashes (see Mantle - Mantle Transaction Hash) as leaves, using `0` to represent the hash of an empty transaction and padding the leaves to the closest power of two, and $`\textbf{serialize}`$ is the list encoding of [Block Proposal](bedrock-v1.1-block-construction.md#block-proposal) — a 1-byte little-endian element count followed by that many entries, so an empty list encodes as a single zero byte. The serialized list is committed directly, with no inner hash: the element count and the fixed 273-byte entries keep the flat preimage unambiguous, and the single `BODY_ROOT_V1` tag versions the whole construction. The carried uncle headers are committed here and hence in the [Block ID](#block-id); a copy of a block that differs in any of those bytes fails this rule under the same block ID, and is a bad copy.
 
 5. $`header.\text{slot} \gt \textbf{fetch\_header}(header.\text{parent\_block}).\text{slot}`$
   Ensure the block’s slot comes after the parent block’s slot.
@@ -447,7 +447,7 @@ We say $`\textbf{valid\_header}(B)`$ returns True if all of the following constr
   Given the slot lottery win proof $`\pi_\text{PoL}`$ of the header $`H`$, as defined in [Proof of Leadership](cryptarchia-proof-of-leadership.md), the proposal is valid if
 
   - $`\textbf{verify\_PoL}(T, parent, sl, \textbf{block\_id}(H), \pi_\text{PoL})=True`$
-    The proof is bound to $`\textbf{block\_id}(H)`$, reduced modulo $`p`$ (see [Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)), so the leader who won the lottery is the one proposing this block. Its public signals `reward_commitment` and `reward_value` are those of $`H`$, so it verifies from the header alone.
+    The proof is bound to $`\textbf{block\_id}(H)`$, reduced modulo $`p`$ (see [Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)), so the leader who won the lottery is the one proposing this block. Its public signals `entropy_contribution`, `reward_commitment` and `reward_value` are those of $`H`$, so it verifies from the header alone.
 
 10. $`\forall\,U \in uncle\_headers:\ \textbf{valid\_uncle}(U, B) = True`$
   Ensure every carried uncle is valid, as defined by the rules of [Uncle References](#uncle-references): the parent of $`U`$ lies on the chain of $`B`$, $`U`$ itself does not, $`U`$ follows its parent and precedes $`B`$, the slot of its parent precedes $`sl_B`$ by at most $`W\cdot f^{-1}`$, and its Proof of Leadership verifies against inputs derived from the chain of $`B`$ and its header. A block carrying an entry that fails any of these is rejected.
@@ -462,7 +462,7 @@ The block ID commits neither to the proof of leadership of a block nor to its Op
 
 We define the chain maintenance procedure $`\textbf{on\_block}(state,B)`$ that governs how the block tree $`T`$ is updated.
 
-**Note:** It’s assumed that block contents have already been validated by the execution layer, by applying the transactions of the block in the order they appear starting from the parent block’s execution state, as defined in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation).
+**Note:** It’s assumed that block contents have already been validated by the execution layer, by applying the transactions of the block in the order they appear starting from the parent block’s execution state with steps 1 and 2 of [Block Execution](bedrock-v1.1-block-construction.md#block-execution) applied, as defined in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation).
 
 $`\text{define } \textbf{on\_block}(state, B)\to state'`$:
 

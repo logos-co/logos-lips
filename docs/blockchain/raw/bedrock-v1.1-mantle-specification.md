@@ -802,7 +802,7 @@ Withdraw notes from a channel. The holder of the notes posts the withdrawal alon
 WITHDRAW_DELAY: Slot = 86_400  # 1 day
 ```
 
-`WITHDRAW_DELAY` exceeds the slots the [`ROOT_WINDOW`](#ledger) blocks of the root window span, about 30,720 on average, so that a step a sequencer accepted lands or expires before a withdrawal posted after it is due.
+`WITHDRAW_DELAY` leaves the sequencers of the channel time to include the steps they accepted before a forced exit takes their notes, so that a withdrawal does not bypass a step its holder authorized. A sequencer checks the `pending_withdrawals` of the channel when it publishes a step, not only when it accepts it, since a step stays valid as long as its root is recent, which on a quiet channel can outlast the delay.
 
 #### Payload
 
@@ -888,7 +888,7 @@ ledger.pending_withdrawals.append((block_slot + WITHDRAW_DELAY,
                                    withdrawal.outputs))
 ```
 
-At the start of every block, before its transactions, every pending withdrawal whose due slot is reached is applied if its inputs are still unspent, and dropped otherwise (see [Block Execution](bedrock-v1.1-block-construction.md#block-execution)):
+At the start of every block, before its transactions, every pending withdrawal whose due slot is reached is applied if its inputs are still unspent, and dropped otherwise, in the order the withdrawals were posted (see [Block Execution](bedrock-v1.1-block-construction.md#block-execution)). That order is not the order of the due slots, since an SDP withdrawal can fall due after a channel withdrawal posted later, and it sets the order in which the outputs are appended to the ledger note set:
 
 ```python
 def release_withdrawals(block_slot: Slot):
