@@ -7,6 +7,7 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-10-22 |
+| v2 | The base now derives Blend's Transition Period and states its clock bound in one paragraph. The §Transition Period snippet shows that paragraph as this RFC changes it: the connection rule and the refused connections replace the one-round release delay, and the consequence for past-epoch messages stays. | 2026-11-10 |
 
 ## Reviewer Orientation
 
@@ -75,8 +76,8 @@ def epoch_digest(epoch: EpochNumber, p: ProofOfQuotaPublic) -> hash:
 §Transition Period:
 
 ```diff
--Nodes must keep their clocks synchronized so that $`T_C`$ is below one round. A node releases a message it generates in the new epoch no earlier than one round after its own epoch changes ([Releasing](#releasing)). With a larger $`T_C`$, such a message can reach a node whose clock runs behind before that node's epoch changes, and that node discards it.
-+A node opens and accepts connections only of its current epoch, by its local clock ([Connection Details](#connection-details)). Nodes must keep their clocks synchronized so that $`T_C`$ is below one round. Otherwise the neighbors whose clocks run behind a node can refuse its connections of the new epoch for more than a round after its epoch changes, and the messages it generates in that time reach none of them.
+-Nodes must keep their clocks synchronized so that $`T_C`$ is below one round. $`T`$ then exceeds $`T_M + T_C`$. With a larger $`T_C`$, a node whose clock runs ahead can stop processing past-epoch messages while some are still crossing the network, and their senders wait for a delivery that can no longer happen ([Detection](#detection)). A node releases a message it generates in the new epoch no earlier than one round after its own epoch changes ([Releasing](#releasing)). With a larger $`T_C`$, such a message can also reach a node whose clock runs behind before that node's epoch changes, and that node discards it.
++A node opens and accepts connections only of its current epoch, by its local clock ([Connection Details](#connection-details)). Nodes must keep their clocks synchronized so that $`T_C`$ is below one round. $`T`$ then exceeds $`T_M + T_C`$. With a larger $`T_C`$, a node whose clock runs ahead can stop processing past-epoch messages while some are still crossing the network, and their senders wait for a delivery that can no longer happen ([Detection](#detection)). The neighbors whose clocks run behind a node can also refuse its connections of the new epoch for more than a round after its epoch changes, and the messages it generates in that time reach none of them.
 ```
 
 - The epoch-change list validates the proof of quota of each message against the public input of the epoch of the connection it arrived on, the past epoch's until the end of the Transition Period, and processes new messages on the connections of the new epoch.
