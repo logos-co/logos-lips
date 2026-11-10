@@ -39,6 +39,11 @@ circuits, or on-chain contracts.
 Those topics may consume the commitment model defined here, but they are
 specified elsewhere.
 
+## Requirements Language
+
+Uppercase requirement keywords in this specification follow BCP 14 [RFC 2119] [RFC 8174].
+Lowercase forms retain their ordinary English meanings.
+
 ## 1. Introduction
 
 Logos schemas define module methods, responses, events, and named data types.
@@ -139,8 +144,7 @@ another layer's canonical object unless this specification explicitly says so.
 
 Raw `cdCDDLe` bytes and raw Logos deterministic CBOR payload bytes are not
 semantic roots.
-They must first be interpreted as the appropriate abstract object and then
-processed by the owning Logos specification.
+They MUST first be interpreted as the appropriate abstract object and then processed by the owning Logos specification.
 
 The Logos canonical schema model has a Logos-specific schema-as-data
 representation.
@@ -157,9 +161,7 @@ defined by LOGOS-MODULE-HASH-PROFILE, encoded as deterministic CBOR, and then
 hashed.
 Logos does not hash the generic `cdCDDLe` byte encoding as the Logos schema
 root.
-It must be deterministic enough to encode, hash, compare, and reference
-without depending on the original CDDL text or on presentation details already
-removed by `cdCDDLe`.
+The Logos canonical schema model MUST be deterministic enough to encode, hash, compare, and reference without depending on the original CDDL text or on presentation details already removed by `cdCDDLe`.
 
 CDDL standardizes a notation for describing CBOR and JSON data structures.
 It does not define a canonical CBOR serialization of CDDL schemas themselves.
@@ -308,15 +310,13 @@ Construction proceeds as follows:
    Every other unmarked document is a supporting schema.
    Role metadata is validated under LOGOS-MODULE-INTERFACE and is not emitted as a schema declaration.
 2. Identify the schema namespace.
-   Ignore the metadata declarations `_module`, `_interface`, and `_implements`
+   Ignore the metadata declarations `_module`, `_interface`, `_implements`, and `_sensitive`
    for schema-declaration construction.
-   The primary schema namespace is the longest common dot-segment prefix
-   shared by all local qualified declarations that are not metadata declarations
-   and not common-schema declarations.
-   It MUST contain at least one segment and MUST be a proper prefix of every local declaration name.
+   The primary schema namespace is the longest dot-segment prefix that is a proper prefix of every local qualified declaration other than metadata and common-schema declarations.
+   It MUST contain at least one segment.
    If `_interface` is present, its value MUST match the primary schema namespace.
    Exactly one primary schema namespace MUST be present in this revision.
-   Every local declaration MUST use that namespace.
+   Every local declaration name MUST consist of the primary schema namespace followed by a dot and exactly one identifier segment.
    A local non-metadata declaration without a qualified name in the primary
    namespace is invalid.
 3. Classify local declarations according to the schema role.
@@ -327,7 +327,7 @@ Construction proceeds as follows:
    and every remaining local declaration is a named type declaration.
    The pinned common schema surface uses the same callable-suffix classification for its assigned well-known declarations.
    Every local declaration in a supporting schema is a named type declaration.
-   The metadata declarations `_module`, `_interface`, and `_implements`
+   The metadata declarations `_module`, `_interface`, `_implements`, and `_sensitive`
    are not emitted as `schema-declaration` entries.
 4. In a concrete module or interface contract schema,
    pair each request declaration with the response declaration that has the
@@ -341,6 +341,7 @@ Construction proceeds as follows:
 5. Emit one `schema-declaration` for each local named type, method, method
    request, method response, and event.
    Method declaration bodies use `method-declaration`.
+   For each method, set the request and response sensitivity fields from `_sensitive` as defined in Section 9.1.
    Type, request, response, and event declaration bodies use `schema-node`.
    The `schema-node` body of every method request, method response, and event declaration MUST be either a `map-schema` or a `choice-schema`.
    Every arm of such a `choice-schema` MUST be a `map-schema`.
@@ -349,8 +350,8 @@ Construction proceeds as follows:
 6. Translate declaration bodies into `schema-node` values using the rules below.
    A local named-type reference becomes a local reference.
    An accepted external named-definition reference becomes an imported reference containing the referenced schema root and declaration subtree root.
-   A concrete module may import named types from explicitly supplied supporting schemas and may reference definitions in the pinned common schema.
-   An interface contract or supporting schema may reference only local declarations and definitions in the pinned common schema.
+   A concrete module or interface contract may import named types from explicitly supplied supporting schemas and may reference definitions in the pinned common schema.
+   A supporting schema may reference only local declarations and definitions in the pinned common schema.
    A supporting schema dependency of another supporting schema is invalid.
 7. For a concrete module schema,
    use an empty implemented-interface-root collection when `_implements` is absent.
@@ -369,13 +370,13 @@ It participates in a module schema only when that schema explicitly references
 the corresponding common-schema definitions through the import/reference rules
 in this specification.
 
-The `logos_<module>_dispatch()` ABI symbol defined by LOGOS-MODULE-INTERFACE is
+The `logos_<module-C>_MODULE_dispatch()` ABI symbol defined by LOGOS-MODULE-INTERFACE is
 also not included in the Logos canonical schema model.
 It is an ABI entrypoint for invoking schema-defined methods, not a schema
 declaration, method declaration, request declaration, response declaration, or
 event declaration.
 
-The `logos_<module>_call_surface()` ABI symbol and its deterministic-CBOR
+The `logos_<module-C>_MODULE_call_surface()` ABI symbol and its deterministic-CBOR
 provider descriptor are also outside the Logos canonical schema model.
 The descriptor is metadata that carries separately committed contract documents.
 Its encoded bytes do not receive a schema root or create a synthetic root over
@@ -458,6 +459,11 @@ A map-field-literal test partitions maps into an absent outcome, one outcome for
 A map-field-presence test partitions maps into present and absent outcomes.
 Map-field tests are considered by canonical field-name order within each test kind.
 
+For a scalar-literal test, literal constraints MUST be collected only from the schema of the decoded value being tested.
+For a map-field-literal test, they MUST be collected only from the schema of the selected field's value.
+Collection MUST follow named references and choice arms at that location.
+It MUST NOT descend into map fields, list elements, or tuple positions within that value.
+
 Each kind-specific test also has a not-applicable outcome covering every decoded value for which its observation is unavailable: non-scalar values for the scalar-literal test, non-array values for the tuple-length test, and non-map values for either map-field test.
 An arm remains a candidate for a not-applicable outcome when its schema can accept at least one value covered by that outcome.
 The outcomes of every structural test, including its not-applicable outcome when defined, MUST assign every decoded value to exactly one outcome.
@@ -474,7 +480,7 @@ In particular, an optional map field permits both the present and absent outcome
 Because Logos maps are closed, a field not accepted by a map arm permits only the absent outcome for that arm.
 
 Named references are followed when computing structural outcomes, but they remain terminal reference nodes in the canonical schema model.
-Implementations MUST memoize reference results and detect recursive and mutually recursive reference components.
+Implementations MUST detect recursive and mutually recursive reference components and compute finite structural outcomes without unbounded reference expansion.
 A reference cycle is valid when a finite structural outcome can be derived without recursively inlining the reference.
 A non-productive reference cycle that yields no finite structural outcome cannot distinguish a choice arm.
 If plan construction depends on such a cycle and no other test makes progress, the choice schema is invalid.
@@ -494,6 +500,8 @@ Map examples use closed maps, as required by this specification.
 |---------------|---------------------------------|--------|
 | `uint64 / tstr` | CBOR major type | Valid |
 | `[uint64] / [uint64, uint64]` | Fixed tuple length | Valid |
+| `["a"] / ["b"]` | No test separates equal-length tuples by their element literals | Invalid |
+| `{ kind: "a" / "b" } / { kind: "c" / "d" }` | Map-field-literal test on `kind` | Valid |
 | `{ status: "failed", error: bstr } / { status: "failed", realization: bstr }` | Map-field-literal test on `error` (absent versus present) | Valid |
 | `{ request: bstr, ? response: bstr } / { response: bstr }` | Map-field-literal test on `request` (absent versus present) | Valid |
 | `{} / { error: bstr }` | Map-field-literal test on `error` (absent versus present) | Valid |
@@ -558,8 +566,8 @@ schema-structural-node-payload = {
 ```
 
 The path resolves from the nearest named declaration body to the structural node in field `5`.
-An empty path uses the named declaration's schema subtree root instead of this payload.
-A primitive, literal, or reference node uses its schema leaf hash instead of this payload.
+An empty path always uses the named declaration's schema subtree root, including when its body is a primitive, literal or reference node.
+At a nonempty path, a primitive, literal or reference node uses its schema leaf hash instead of this payload.
 These rules assign exactly one schema identity to every schema node consumed by the normalized value model.
 
 Anonymous structural child nodes commit to their role inside the nearest named
@@ -589,9 +597,7 @@ schema root or named schema subtree root.
 
 A method identity is the schema subtree root of the `schema-declaration` whose
 kind is `"method"`.
-It commits to the qualified method name, the qualified request declaration
-name, and the qualified response declaration name under the selected semantic
-commitment-model revision.
+It commits to the qualified method name, the qualified request and response declaration names, and their sensitivity under the selected semantic commitment-model revision.
 Method identity is computed under the existing `logos.schema.node` domain from
 the `schema-node-payload` of the method declaration.
 It is not a separate hash domain.
@@ -611,7 +617,7 @@ the call to other system evidence outside this commitment model.
 They do not replace the defining schema root of the target method.
 
 ABI entrypoints that dispatch to schema-defined methods, including
-`logos_<module>_dispatch()`, do not have method identities in this commitment
+`logos_<module-C>_MODULE_dispatch()`, do not have method identities in this commitment
 model.
 Commitments, verified views, audit material, authorization material, and
 conformance vectors identify the target schema method,
@@ -651,17 +657,17 @@ That binding is outside the structural schema identity algorithm defined here.
 ## 5. Imported Definitions And Prelude
 
 A Logos schema may reference its local named types and named definitions in the pinned Logos common schema.
-A concrete module schema may additionally reference named types in explicitly supplied supporting schemas.
-Interface contract and supporting schemas cannot reference supporting schemas.
+Concrete module and interface contract schemas may additionally reference named types in explicitly supplied supporting schemas.
+A supporting schema cannot reference another supporting schema.
 
 An imported reference contains one `schema-import` value consisting of the complete referenced schema root and the exact referenced declaration subtree root.
 The complete root supplies schema context and provenance.
 The subtree root identifies the selected declaration and commits to its qualified name, declaration kind, and body.
 No separate import-summary list is included in the canonical schema root.
+An imported reference MUST target a named type declaration.
 
 For a supporting-schema import,
 the processor MUST recompute both roots from the explicitly supplied supporting document.
-The referenced declaration MUST be a named type.
 For a common-schema reference,
 both roots MUST match the pinned registry in this section.
 
@@ -670,6 +676,9 @@ It is not an ambient source include, filesystem lookup, package-manager record, 
 Source include layout, local file paths, package-manager state, and runtime module discovery MUST NOT participate in schema identity.
 
 The normative input set consists of the ordinary RFC 8610 CDDL documents accepted under LOGOS-MODULE-INTERFACE.
+For each schema document, the `cdCDDLe` document node MUST contain exactly the rules declared in that document.
+The Logos prelude and other schema documents MUST NOT be merged into that rule array.
+References to prelude aliases and external named types MUST remain type-reference nodes, resolved within the scope permitted by LOGOS-MODULE-INTERFACE.
 CDDL module `include` and `import` directives MUST NOT affect parsing, resolution, or schema identity.
 A processor MUST NOT treat a directive encoded as a CDDL comment as authority to search an ambient source directory.
 
@@ -694,8 +703,7 @@ These definitions belong to a well-known common schema namespace.
 The well-known common schema namespace for this revision is `logos`.
 For the pinned common schema surface, the input rule set for namespace derivation and schema-declaration construction MUST be exactly the pinned common schema document assigned by LOGOS-MODULE-INTERFACE Section 5.
 The prelude fixed-width integer aliases MUST NOT participate in namespace derivation or produce schema declarations.
-Unqualified common names in source CDDL are interpreted as names in that
-namespace when they are represented as qualified schema definition names.
+Common schema references in the normative construction input MUST use qualified names in the `logos` namespace.
 The common schema surface is a pinned Logos schema dependency.
 Its canonical schema root and named schema subtree roots are computed from the
 common schema definitions in LOGOS-MODULE-INTERFACE Section 5 using this
@@ -708,16 +716,16 @@ The following registry assigns the common schema root and every named subtree ro
 
 | Definition | Kind | Root, hexadecimal |
 |------------|------|-------------------|
-| Common schema | schema | `7e0236018aed522455dfbdba19f81fd67a050a61f2a05cb8d1027eda35107ca6` |
-| `logos.error_code` | type | `f0efecb7f5f270919523d00dd977e5c0ca04b429e022a1a66856353831fd76a7` |
-| `logos.error_detail` | type | `a6a0bed0a560ed0499a7e1d4708741e0b6dce32f379cdbbf29d74637cb0ea3ff` |
-| `logos.invalid_params_detail` | type | `4a8b55144d4f00f42c19ffd90cb9c4173388c1ec00bafcf71df79b32a14163d9` |
-| `logos.invalid_params_path_segment` | type | `6fc94679ad488099793d930fec7eaf2fb200a0e117c85c28188f8f2458b0d451` |
-| `logos.invalid_params_reason` | type | `c55a3c96f6306a438e357b35d7cedbeca054ceb68cc1188eb38b036da7ac6816` |
-| `logos.schema` | method | `8997083caebf86ede43a744e16ac7018eacc3a51e4e603af4ef0ed8bd14158c3` |
-| `logos.schema_commitment` | type | `b9adbab7aea835c64a3b89031c45d7868d21069be0943f0581d527234812d064` |
-| `logos.schema_request` | method request | `b6f1788290d01092fba9e956e405ecd6bd5c5584f64ceeab8a60df92a52ae585` |
-| `logos.schema_response` | method response | `3fde7207bddb450e0a7583953b7db2cf393382cc971a67ca8394bfa6b1896e18` |
+| Common schema | schema | `fc3a3558912d474cdb37fbc4fedd5b11dd785d69e9c033c7f9dc077ac49040ca` |
+| `logos.error_code` | type | `fd660f3e53876d042529d99206ad1fdcd689167a5e6c8d666bf2a3c97b31d6f4` |
+| `logos.error_detail` | type | `da46a01173b4081b71771c7b6d5d72f6cc67561650127b17747e89a5be65a5b0` |
+| `logos.invalid_params_detail` | type | `662f60625d236e51e4ae9aec3496f4cb568b6f04eacef08f09932396e3a283ee` |
+| `logos.invalid_params_path_segment` | type | `cd5b0762c284802d68ae6d8176a94c903bab3b6ab33e70643888b7b1bb27e0b4` |
+| `logos.invalid_params_reason` | type | `1f89c04018feeb797028db37ee19555fc5608dee910bcc43fd3493b62d94e6cf` |
+| `logos.schema` | method | `67dde6945b248178e6ae08d34cc91a1eb37447165f6438d61bbb01ca1cc47fad` |
+| `logos.schema_commitment` | type | `ce8da763b8b3dd9df51e8f7f75fa8f3fafa666313027020a1d6c483b3477751a` |
+| `logos.schema_request` | method request | `85ca8745714c54142142b9d79e74d154652816f8811ad622350b1957f8dccc12` |
+| `logos.schema_response` | method response | `2a95cf0bb9e2e222b3f61ea5505fbeea1f8bfc91324206ac99be13c74c9f6c37` |
 
 These values are normative.
 They are 32-byte BLAKE3 digests and MUST be decoded from hexadecimal before use as roots.
@@ -767,11 +775,16 @@ date-label = 4DIGIT "-" 2DIGIT
 revision-label = 1*( %x61-7A / DIGIT / "-" )
 ```
 
-The initial identifier defined by this specification is:
+The identifier defined by this specification is:
 
 ```text
-logos.commitment-model.2026-08
+logos.commitment-model.2026-10
 ```
+
+This revision supersedes `logos.commitment-model.2026-08` for contracts defined by this specification.
+Existing commitments remain in their original revision's domain and MUST NOT be relabelled or accepted as commitments under this revision.
+This specification defines no translation or root equivalence between those revisions and does not require support for the earlier revision.
+A schema without `_sensitive` remains valid without authoring changes, but its commitments MUST be recomputed under the new revision.
 
 The date label is an assignment label.
 It does not imply ordering, recency preference, compatibility, or feature
@@ -785,8 +798,7 @@ the identifier or has an applicable compatibility profile.
 
 The semantic commitment-model revision identifier binds the canonical schema
 foundation consumed by the Logos domain interpretation.
-The initial semantic commitment-model revision is defined over the `cdCDDLe`
-specification referenced by this document.
+This semantic commitment-model revision is defined over the `cdCDDLe` specification referenced by this document.
 
 A future update to `cdCDDLe` that changes the Logos canonical schema model
 or the canonical schema bytes consumed by Logos MUST either define a new Logos
@@ -839,8 +851,7 @@ objects from the referenced revision are verified in relation to objects from
 the referring revision.
 
 A compatibility profile is part of the verification policy.
-It must name the semantic commitment-model revisions it connects and the exact
-verification or translation rule it permits.
+It MUST name the semantic commitment-model revisions it connects and the exact verification or translation rule it permits.
 If no applicable compatibility profile is available, the verifier MUST keep the
 referenced object in its original semantic domain and MUST NOT treat it as an
 object in the referring schema's semantic domain.
@@ -913,8 +924,7 @@ absence.
 
 Defaults are not part of Logos schemas.
 The value model does not materialize default values.
-A schema author that wants default-like behavior must model it explicitly in
-the schema or application logic.
+A schema author that wants default-like behavior MUST model it explicitly in the schema or application logic.
 
 List values are ordered sequences.
 Each list element is decoded under the list element schema, and element order
@@ -1101,6 +1111,11 @@ The normalized value root or containing structural value node retains the schema
 and the child value carries the referenced local declaration's schema identity.
 A local reference does not add a `reference-value` node.
 
+For a chain of local references, normalization MUST repeat this rule until it reaches a declaration whose body is not a local reference.
+The normalized value root or containing structural value node MUST retain the schema identity of the original referring location.
+The resulting child value MUST carry the terminal declaration's schema identity; intermediate local aliases MUST NOT add value nodes.
+If the terminal declaration's body is an imported reference, its value is the `reference-value` node defined below.
+
 A value interpreted through an imported reference uses a reference value node.
 That node commits to the referring schema location, the complete referenced schema root, the referenced declaration subtree root,
 and the value interpreted under that declaration.
@@ -1206,11 +1221,19 @@ method-declaration = {
     0: "method",
     1: qualified-name,       ; request declaration name
     2: qualified-name,       ; response declaration name
+    ? 3: true,               ; sensitive request
+    ? 4: true,               ; sensitive response
 }
 ```
 
 The `0` key in `method-declaration` is local to that nested map shape.
 It is not a schema node-kind field.
+
+Field `3` MUST be present exactly when `_sensitive` names the request declaration; field `4` MUST be present exactly when it names the response declaration.
+Present sensitivity fields MUST contain `true`; an unmarked direction MUST omit its field.
+Sensitivity does not change the request or response payload shape or annotate shared named types.
+Within one model revision, changing sensitivity changes the method subtree root and defining schema root, but does not change the request or response declaration subtree roots.
+An implementation MUST obtain sensitivity from the method in its exact defining contract, not from a payload declaration subtree root alone.
 
 A Logos canonical schema node has this shape:
 
@@ -1566,6 +1589,10 @@ tstr-utf8-range-segment = {
 }
 ```
 
+To continue traversal through a choice value, the next path segment MUST be a `choice-arm` segment whose index equals the selected canonical arm index.
+That segment selects the arm's contained value.
+A path that ends at the choice value selects the complete normalized choice value.
+
 An empty `semantic-path` identifies the whole normalized value.
 
 ## 10. Conformance
@@ -1587,6 +1614,10 @@ Conformance material for a concrete module MAY separately show that the
 concrete module schema root commits to implementing that interface root.
 That separate provider-contract evidence does not change the schema root used
 for method request or response value commitments.
+
+Sensitivity conformance checks MUST cover an unmarked method, a marked request, a marked response, and both directions marked.
+For otherwise identical schemas, all four cases MUST have distinct method subtree roots and defining schema roots under the same revision.
+The checks MUST reject explicit `false` sensitivity fields and disagreement between `_sensitive` and the canonical method declaration.
 
 Hash-input bytes, digest values, roots, and hash-suite-specific vectors are
 defined by LOGOS-MODULE-HASH-PROFILE, not by this specification.
@@ -1671,7 +1702,7 @@ notation:
 ```cbor-diag
 {
   0: "schema-root",
-  1: "logos.commitment-model.2026-08",
+  1: "logos.commitment-model.2026-10",
   2: "storage",
   3: [
     {
@@ -1831,7 +1862,7 @@ The schema tree is represented by the resulting Section 9.1
 ```cbor-diag
 {
   0: "schema-root",
-  1: "logos.commitment-model.2026-08",
+  1: "logos.commitment-model.2026-10",
   2: "demo",
   3: [
     {
@@ -1916,7 +1947,7 @@ LOGOS-MODULE-HASH-PROFILE:
 ```cbor-diag
 {
   0: "value-root",
-  1: "logos.commitment-model.2026-08",
+  1: "logos.commitment-model.2026-10",
   2: h'...schema-root...',
   3: h'...demo.ping_response-subtree-root...',
   4: {
@@ -1956,12 +1987,48 @@ The semantic path to the `ok` field value is:
 ]
 ```
 
+### B.1 Local Reference Chain
+
+Input Logos supporting schema:
+
+```cddl
+a.x = a.y
+a.y = a.z
+a.z = tstr
+```
+
+For the value `"hello"` selected through `a.x`, a conforming implementation MUST produce the following normalized value object.
+As in the preceding vector, placeholder byte strings stand for schema identities computed by LOGOS-MODULE-HASH-PROFILE.
+
+```cbor-diag
+{
+  0: "value-root",
+  1: "logos.commitment-model.2026-10",
+  2: h'...schema-root...',
+  3: h'...a.x-subtree-root...',
+  4: {
+    0: "scalar",
+    1: h'...a.z-subtree-root...',
+    2: "tstr",
+    3: "hello",
+  },
+}
+```
+
+The value root retains `a.x`'s schema identity, and its scalar child carries `a.z`'s schema identity.
+Neither local reference adds a value node.
+The canonical schema model still contains all three declarations and both local-reference nodes.
+
 ---
 
 ## References
 
 ### Normative
 
+- [RFC 2119] -- Key words for use in RFCs to Indicate Requirement Levels.
+  https://www.rfc-editor.org/rfc/rfc2119
+- [RFC 8174] -- Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words.
+  https://www.rfc-editor.org/rfc/rfc8174
 - [RFC 8949] -- CBOR: Concise Binary Object Representation.
   https://www.rfc-editor.org/rfc/rfc8949
 - [RFC 8610] -- CDDL: Concise Data Definition Language.

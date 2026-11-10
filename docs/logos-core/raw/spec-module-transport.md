@@ -56,6 +56,11 @@ LOGOS-MODULE-INTERFACE. A conforming implementation MUST preserve the same
 method names, event names, schema-defined payload shapes, and success/error
 semantics that would apply in direct mode.
 
+## Requirements Language
+
+Uppercase requirement keywords in this specification follow BCP 14 [RFC 2119] [RFC 8174].
+Lowercase forms retain their ordinary English meanings.
+
 ## 1. Message Envelope
 
 All messages are CBOR-encoded maps.
@@ -372,9 +377,20 @@ On reading a length prefix greater than that configured maximum, the receiver MU
 The receiver MUST send ProtocolError `INVALID_PARAMS` when the connection remains writable and MUST then close the connection.
 Every in-flight call on that connection fails locally with `TRANSPORT_ERROR` as defined in Section 3.2.
 
-A conforming stream implementation MUST support a configured maximum of at
-least 16 MiB.
+The active configured maximum accepted frame-body size of a conforming stream binding MUST be at least 16 MiB.
 Logos module interfaces MUST NOT require single Transport messages larger than 16 MiB unless deployment-specific configuration, a Transport binding, or a future protocol extension specifies a larger supported size.
+
+Before writing any part of a frame, the sender MUST ensure that its complete deterministic-CBOR body fits the peer-supported maximum, including the envelope and commitments but excluding the four-byte prefix.
+Absent separately established support for a larger limit, the sender MUST use 16 MiB.
+An oversized ordinary Request MUST NOT be sent and MUST fail its local invocation with `MODULE_ERROR`.
+An oversized successful Response MUST be replaced by a correlated `response-err` carrying `MODULE_ERROR` without validation detail; that size failure alone MUST NOT close the session when the error Response can be sent.
+If the failure Response cannot be sent, Section 3.2 governs connection termination.
+An oversized Event MUST NOT be committed or partially sent to the affected connection.
+Its publication boundary MUST report failure where that boundary permits it; otherwise the sender MUST send ProtocolError `TRANSPORT_ERROR` when writable and close the affected connection.
+An already committed Event MUST NOT be silently discarded.
+These checks apply per destination and do not make a multicast publication atomic.
+Other control or establishment messages must also fit; inability to send them fails the corresponding establishment or connection without inventing a correlated method result.
+These stream limits do not impose a new direct-mode payload limit.
 
 ### 2.2 Message Ordering
 
@@ -388,13 +404,21 @@ fast synchronous call may return before a slow one started earlier).
 All messages MUST be encoded using Logos deterministic CBOR as specified in
 LOGOS-MODULE-INTERFACE section 4.4.
 The transport layer MUST validate the message envelope:
-frame length, deterministic CBOR, known message-kind, required envelope fields,
-and envelope field types.
+frame length, deterministic CBOR, payload depth, known message-kind, required envelope fields, envelope field types, message direction, and connection state.
+Payload-depth validation MUST apply LOGOS-MODULE-INTERFACE Section 4.5.1 to `params`, `result`, and `data`.
+Whole-message depth limits MUST allow at least one additional container level beyond the configured payload-depth limit.
 If a received message fails an envelope validation check
 and this specification does not define more specific failure behavior,
 the receiver MUST NOT dispatch, accept, or deliver the message.
 The receiver MUST send ProtocolError `INVALID_PARAMS` when the connection remains writable.
 It MUST then close the connection.
+For a rejection caused solely by exceeding the payload-depth limit, the ProtocolError MUST omit `detail`.
+
+The receiver MUST enforce the message directions in Section 1.4.
+Before the receiving endpoint has completed its part of the Hello exchange, it MUST accept only the Hello or ProtocolError messages permitted by Section 3.1.
+A wrong-direction message or an ordinary message received before that point MUST produce ProtocolError `INVALID_PARAMS` when the connection remains writable, followed by connection closure without dispatch or delivery.
+Post-establishment Hello follows Section 3.3.
+A well-formed ProtocolError is permitted in either direction during establishment or after establishment; its recipient MUST close the connection without sending another ProtocolError in response.
 
 The transport layer treats schema payload fields (`params`, `result`, and
 `data`) as opaque CBOR maps after envelope validation.
@@ -451,11 +475,12 @@ Caller                                  Callee
      If it is missing or malformed, the callee MUST send ProtocolError `INVALID_PARAMS` when the connection remains writable
      and MUST close the connection without consuming authorization material.
      On a remote intrinsic Runtime Control endpoint, a well-formed `module` that differs from the endpoint name is treated the same way.
-     On an ordinary protected provider endpoint, a well-formed `module` that differs from the provider selected for this connection
-     MUST fail the following route-ticket check with the non-revealing `NOT_AUTHORISED` outcome required by Section 8.1.
+     On an ordinary protected provider endpoint or a Runtime-owned local system-service endpoint, a well-formed `module` that differs from the provider selected for this connection
+     MUST fail the following ticket check with the non-revealing `NOT_AUTHORISED` outcome required by Section 8.1.
    - The `token` field MUST be present and satisfy the selected endpoint and transport profile.
      A remote intrinsic Runtime Control endpoint uses the consumer-binding rules in LOGOS-MODULE-RUNTIME Section 9.
      An ordinary protected provider route uses the route-ticket validation defined in Section 8.1.
+     A Runtime-owned local system-service session uses Section 8.1.2.
      If validation fails,
      the callee MUST send ProtocolError `NOT_AUTHORISED` when the connection remains writable
      and MUST close the connection.
@@ -479,7 +504,11 @@ Caller                                  Callee
      and does not grant provider or method authority.
    - After all preceding checks succeed,
      the callee MUST atomically redeem authorization material when required by the selected profile.
-     A concurrent redemption that has already consumed an ordinary provider route ticket produces `NOT_AUTHORISED`.
+     A concurrent redemption that has already consumed the ticket produces `NOT_AUTHORISED`.
+
+   If the callee cannot complete a check because evaluation capacity is temporarily unavailable,
+   it MUST send ProtocolError `MODULE_ERROR` when the connection remains writable and MUST close the connection;
+   ticket consumption follows Section 8.1.
 
 4. **Callee sends Hello response.** Fields:
    - `module`: the callee's selected flat runtime module or endpoint name
@@ -487,11 +516,14 @@ Caller                                  Callee
    - `schema`: the same selected contract accepted from the caller
 
 5. **Caller validates the Hello response.**
+   After envelope validation, the caller MUST perform the following module, token, and schema checks in that order and report the first failing check.
    The caller MUST verify that `module` equals the selected name sent in its initial Hello.
    If it differs,
    the caller MUST send ProtocolError `INVALID_PARAMS` when the connection remains writable
    and MUST close the connection.
    It MUST validate `token` according to the selected profile's response rules.
+   If the response token fails those rules, the caller MUST send ProtocolError `NOT_AUTHORISED` when the connection remains writable and MUST close the connection.
+   This includes a non-empty response token for a profile that requires it to be empty.
    The caller MUST verify that the callee response includes the same selected contract in `schema`.
    For Runtime-established ordinary module routes,
    this verifies the selected contract for the invocation path.
@@ -510,7 +542,12 @@ Either party may close the socket at any time. On close:
 
 - All in-flight requests receive a synthetic `TRANSPORT_ERROR` response.
 - All active subscriptions are cancelled.
-- The handle on the caller side becomes invalid.
+- The caller-side handle becomes unusable for ordinary invocation and subscription operations.
+
+The caller-side binding MUST process connection loss as invocation-path termination for its route-handle observer under LOGOS-MODULE-INTERFACE Section 2.5.
+The unreleased native handle storage remains valid for terminal-observer registration, response-buffer release and handle release.
+This is a local notification and requires no final message from the peer.
+It does not change the result classification for outstanding requests.
 
 A synthetic `TRANSPORT_ERROR` does not prove
 that the callee did not execute an in-flight request.
@@ -537,6 +574,33 @@ After the connection is established,
 each party MUST NOT send another Hello.
 A recipient MUST send ProtocolError `INVALID_PARAMS` when the connection remains writable
 and MUST close the connection.
+
+### 3.4 Response and Event Correlation
+
+After envelope validation, a Response MUST identify a Request transmitted on that connection for which no terminal Response has yet been received.
+A SubscriptionResult MUST match both the identifier and the operation of an outstanding Subscribe or Unsubscribe on that connection.
+An Event MUST identify a subscription active according to the received successful SubscriptionResults and MUST name that subscription's selected event.
+An Event before successful Subscribe completion or after successful Unsubscribe completion is invalid.
+An Event while Unsubscribe is outstanding remains valid until successful completion.
+
+A message violating these correlation rules, including an unsolicited or duplicate Response or SubscriptionResult, MUST NOT be delivered.
+The recipient MUST send ProtocolError `INVALID_PARAMS` when the connection remains writable and MUST close the connection.
+A request identifier below the highest transmitted identifier does not by itself establish correlation, because Section 7 permits gaps.
+
+Local timeout, cancellation, or abandonment does not remove the protocol state of a transmitted operation while the connection remains open.
+The receiver MUST retain enough information to correlate and validate its eventual result, including the selected response declaration where applicable.
+If the local caller no longer awaits a Request's result, the receiver MUST validate and discard its first terminal Response, then retire that outstanding request state.
+A later Response for the same identifier is a duplicate.
+Sending Cancel does not itself constitute receipt of a terminal Response.
+
+A late matching SubscriptionResult MUST still update protocol subscription state, even if local delivery has been abandoned.
+An abandoned local subscription MUST suppress application callbacks, but Events valid under the retained protocol state still require validation before being discarded.
+To stop that subscription, the caller MUST complete the Section 5.1 Unsubscribe sequence or close the connection.
+Abandonment MUST NOT cause callbacks to access released application state.
+
+Retained correlation state is subject to Section 8.6 limits.
+An implementation that cannot retain the state required for an open connection MUST close that connection before discarding the state.
+Discarding a late result or Event does not waive any envelope, schema, error-payload, or commitment check.
 
 ---
 
@@ -589,16 +653,30 @@ Both roots MUST have the 32-byte digest length required by
 `logos.hash-suite.blake3-256`.
 
 The schema-aware sending boundary MUST compute the commitment from the validated schema-typed value.
-The schema-aware receiving boundary MUST validate the payload against the request, response, or event-data declaration under the defining contract,
-recompute the commitment, and compare both roots before dispatching a Request,
-accepting `logos.transport.response-ok`, or delivering an Event.
-It MUST NOT trust a root merely because the sending module supplied it.
+A missing, malformed, or incorrectly sized commitment is an envelope failure under Section 2.3.
+After the envelope and identifier checks required by Sections 2.3, 3.4, and 7, the schema-aware receiving boundary MUST apply the following declaration-dependent checks in order.
+For Requests, selected-contract method resolution and route access checks under Section 8.1 precede these checks.
 
-A missing, malformed, incorrectly sized, or mismatched commitment invalidates the message.
-The recipient MUST NOT dispatch, accept, or deliver the corresponding payload.
-It MUST report ProtocolError `INVALID_PARAMS` when the connection remains writable
-and close the affected provider session.
-A caller awaiting a rejected `logos.transport.response-ok` receives `TRANSPORT_ERROR`.
+1. Compare `schema_subtree_root` with the root of the selected request, response, or event-data declaration under the defining contract.
+   A mismatch MUST produce ProtocolError `INVALID_PARAMS` when the connection remains writable, followed by session closure, even if the payload also fails that declaration's schema.
+2. Validate the complete payload against that declaration.
+   A schema-invalid Request MUST produce a correlated `logos.transport.response-err` with `INVALID_PARAMS`, without dispatch; this failure alone MUST NOT terminate the session.
+   Any validation detail MUST follow LOGOS-MODULE-INTERFACE Section 5.1.
+   A schema-invalid `logos.transport.response-ok` or Event follows the session-closure rule below.
+3. For a schema-valid payload, recompute `value_root` under the exact commitment inputs and compare it with the transmitted root.
+   A mismatch MUST produce ProtocolError `INVALID_PARAMS` when the connection remains writable, followed by session closure.
+
+The receiver MUST NOT dispatch, accept, or deliver a payload until all applicable checks succeed.
+It MUST NOT trust a root merely because the sending module supplied it.
+A schema-invalid payload has no valid value commitment under the selected declaration; the receiver MUST NOT substitute a hash of untyped CBOR bytes to classify a value-root mismatch.
+Validation and commitment computation MAY be combined, provided the observable failure classification preserves this order.
+Resource-limit failures remain subject to Sections 2.3 and 8.6 and MUST NOT be reported as root mismatches without establishing a mismatch.
+A caller awaiting a rejected `logos.transport.response-ok` receives `TRANSPORT_ERROR` on session closure.
+
+A `logos.transport.response-ok` or Event whose payload fails its declared response or event schema MUST also be rejected without accepting or delivering that payload.
+The schema-aware receiving boundary MUST send ProtocolError `INVALID_PARAMS` when the connection remains writable and MUST close the affected provider session.
+This rule applies even when the invalid payload prevents recomputation of its value commitment.
+Connection termination follows Section 3.2, including `TRANSPORT_ERROR` for outstanding requests; an invalid Event is never delivered to a subscription handler.
 
 A payload commitment is not a verified-view proof.
 Because the complete schema-typed value is already present in the same message,
@@ -644,13 +722,13 @@ After sending Subscribe or Unsubscribe,
 the caller MUST wait for its `SubscriptionResult`
 before sending another control operation for that identifier.
 
-For each syntactically valid Subscribe or Unsubscribe,
-the callee MUST return exactly one `SubscriptionResult`
-with the same identifier and matching `operation`.
+Unless the connection is terminated, the callee MUST return exactly one `SubscriptionResult` for each syntactically valid Subscribe or Unsubscribe, with the same identifier and matching `operation`.
 A successful result contains no `error`.
 A failed result contains `error` with a nonzero shared invocation-failure code
 and MUST leave the subscription state unchanged.
 `SubscriptionResult` carries no payload commitment.
+
+After envelope validation, the callee MUST apply the overlap and identifier checks below before resolving the event name or checking event-subscription access.
 
 For a Subscribe, the callee MUST resolve the event name only under the session's selected contract
 and enforce the route's event-subscription access before activation.
@@ -659,6 +737,16 @@ MUST both produce a failed `SubscriptionResult` with error code `NOT_AUTHORISED`
 The callee MUST NOT resolve the event name against the backing provider's other contracts.
 
 For this section, a message is committed when the callee accepts it into the connection's ordered output sequence.
+
+If the callee processes a subscription-control operation for an identifier while the preceding operation's result for that identifier has not been committed, it MUST reject the overlap with ProtocolError `INVALID_PARAMS` when the connection remains writable and close the connection.
+It MUST NOT send a SubscriptionResult for the overlapping operation.
+This check takes precedence over the identifier-misuse checks below.
+It depends on the callee's pending operation state, not on knowledge of whether the caller has received a committed result.
+
+Otherwise, a Subscribe reusing an identifier from any earlier syntactically valid Subscribe on the connection MUST produce a failed SubscriptionResult with `INVALID_PARAMS` and leave the active subscription state unchanged.
+The identifier remains used even if the earlier Subscribe failed or the subscription has since ended.
+An Unsubscribe naming no active subscription MUST likewise produce a failed SubscriptionResult with `INVALID_PARAMS` and leave the active subscription state unchanged.
+The callee MUST retain enough identifier history to enforce non-reuse for the connection's lifetime, subject to Section 8.6; it MUST close the connection before discarding history needed for this check.
 
 Successful Subscribe completion is the subscription activation linearization point.
 The callee MUST commit `subscription-result-ok`
@@ -672,8 +760,9 @@ Before committing `subscription-result-ok`,
 the callee MUST commit every matching Event already accepted for that subscription.
 After committing the successful result,
 it MUST NOT commit another Event for that identifier.
-After receiving the result,
-the caller has therefore observed every Event committed before deactivation.
+After receiving the successful result, the caller has received every Event committed before deactivation.
+Receipt does not require application handlers to have run.
+Handler execution and successful unsubscription return follow LOGOS-MODULE-INTERFACE Section 2.5.
 
 Closing the connection terminates all of its subscriptions
 without requiring individual results.
@@ -695,11 +784,11 @@ MUST define one of these synchronization models:
   The contract defines which revisions the snapshot includes,
   how a consumer reconciles events buffered around the snapshot request,
   and how it detects and recovers from a revision gap.
-- Atomic initial-snapshot event.
-  After successful Subscribe completion,
-  the callee commits one event containing the complete initial state
-  before committing a later state-change event.
-  The contract defines the state point represented by that initial event.
+- Ordered snapshot and events.
+  The contract defines an observation boundary that orders one complete initial snapshot before subsequent change events for that observation.
+  It defines the state point represented by the snapshot.
+  A watch method using invocation-scoped events can establish this boundary.
+  Subscription activation alone does not establish an initial snapshot.
 
 A contract that does not promise current-state reconstruction
 need not define either model.
@@ -723,9 +812,16 @@ If the connection is no longer writable, the callee MUST close it.
 Connection closure is the observable failure boundary
 and terminates every subscription on that connection.
 
-For a given published event, the callee sends Event messages to every active
-connection that has matching subscription IDs.
+An implementation MUST document which overflow actions may occur for transported event output and the conditions selecting them.
+The documentation MUST state any applicable wait or timeout bounds, including the absence of a finite bound where applicable, and that connection closure terminates all subscriptions on that connection.
+These implementation choices do not permit silently discarding an Event already committed to an active subscription.
+
+For ordinary publication, the callee sends Event messages to every authorized active connection that has matching subscription IDs.
+Invocation-scoped publication restricts eligible subscriptions under LOGOS-MODULE-RUNTIME Section 7.3.1.
+Eligibility is checked at each individual commitment; a destination that ends during publication may prevent delivery to some initially eligible subscriptions.
+Previously committed Events retain the buffering and failure rules above.
 The `sub` field is scoped to the connection that created the subscription.
+Neither publication mode adds a Request identifier to an Event or changes its payload commitment.
 
 The `data` field is a CBOR map matching the event's `_event` schema
 (see LOGOS-MODULE-INTERFACE section 1.5).
@@ -740,16 +836,26 @@ Methods remain request/response.
 A callee MUST NOT require an Event message as a reply path for a method
 invocation.
 
-### 5.3 Async Operations Pattern
+### 5.3 Long-Running Operations
 
-1. Caller subscribes to progress/completion events.
-2. Caller sends Request.
-3. Callee responds with ack.
-4. Callee publishes Event messages as the operation progresses.
-5. Caller unsubscribes when done.
+A method that produces one delayed result uses one Request and its eventual final Response.
+The provider may complete native processing synchronously or use deferred completion under LOGOS-MODULE-INTERFACE.
+Neither case requires an acknowledgement method, a job identifier or an event subscription merely to return that result.
 
-There is no "async method" concept. All methods are request/response.
-Events are orthogonal.
+When intermediate notifications are needed, the caller activates their subscriptions before starting the invocation.
+The provider may publish ordinary events or invocation-scoped events according to the contract's disclosure requirements and LOGOS-MODULE-RUNTIME Section 7.3.
+An event may arrive before the caller's native submission operation returns.
+The contract MUST NOT require a provider-generated identifier available only in the final Response to be the sole means of recognizing an earlier event.
+Event correlation does not grant authority.
+
+A contract may instead define a resource whose lifetime spans method invocations, with methods to start, inspect, read or cancel it.
+An acknowledgement is then the final Response of the method that creates or starts the resource.
+Any later invocation-scoped events require another active invocation, such as a method that watches the resource.
+Cancelling that watch ends observation; it does not cancel the resource unless the contract explicitly assigns that effect.
+Ordinary event subscriptions remain independent of these invocations.
+
+These are uses of methods and events, not additional contract declaration kinds.
+A contract need not implement a generic job protocol, and an event is not a substitute for a method's final Response.
 
 ---
 
@@ -773,9 +879,15 @@ If a Cancel identifier does not identify an in-flight request,
 the callee MUST ignore it without emitting a Response or ProtocolError
 and MUST leave the connection and request state unchanged.
 
-Transport does not associate Event messages with individual requests.
-A module contract that requires cancellation to affect later Events
-MUST define that behavior in its method and event semantics.
+Transport Event messages identify subscriptions, not requests.
+For invocation-scoped publication under LOGOS-MODULE-RUNTIME Section 7.3.1, the provider-side boundary MUST prevent further event commitments through the invocation's destination once it processes Cancel or commits the terminal Response.
+This restriction does not retract previously committed Events or cancel the subscription.
+It does not affect ordinary publication, another invocation's publication authority or a contract-owned job unless the module contract defines that effect.
+
+The boundary MUST be able to process Cancel without acquiring an ordinary provider-execution slot held by the request being cancelled.
+It MUST retain bounded control and output capacity for cancellation or terminate the connection under its existing failure rules.
+Committing CANCELLED MUST NOT require provider execution to have stopped.
+The implementation chooses its scheduling and numerical capacity limits.
 
 ---
 
@@ -814,6 +926,10 @@ Rules:
 
 ### 8.1 Route Authorization Material
 
+Route renewal does not by itself replace the authorization decision or expiry of an existing provider session.
+The session MUST end when its bound decision expires or is revoked.
+A replacement session requires newly issued authorization material and all establishment checks.
+
 The Hello `token` field carries the authorization material required by the selected transport profile.
 The base envelope permits an empty value only for a profile
 that explicitly does not claim protected route authorization.
@@ -841,7 +957,9 @@ Only one concurrent redemption of the same ticket may succeed.
 A missing, empty, malformed, invalid, expired, revoked, replayed, or incorrectly bound ticket
 MUST produce ProtocolError `NOT_AUTHORISED`, close the connection, create no usable session,
 and dispatch no ordinary module message.
-A failed Hello MUST NOT consume a live ticket.
+A Hello failure before successful ticket redemption MUST NOT consume a live ticket.
+Failure after successful redemption MUST NOT restore the ticket.
+A caller establishing another connection MUST obtain a new ticket.
 An expired or revoked ticket record MUST be deleted,
 and a replayed ticket remains consumed.
 A ticket whose stored selected-contract constraint does not match the selected provider session is incorrectly bound and produces `NOT_AUTHORISED`.
@@ -862,13 +980,20 @@ without calling provider method code.
 
 The provider-side boundary handles an authorized `logos.schema` Request
 as selected-contract introspection under LOGOS-MODULE-INTERFACE.
-It MUST NOT forward that request to `logos_<module>_dispatch()`
+It MUST NOT forward that request to `logos_<module-C>_MODULE_dispatch()`
 or a schema-derived per-method C function.
 It MUST NOT return the provider's complete call-surface descriptor or disclose a contract document outside the selected contract's required construction input.
 Returning a required interface document does not select that interface contract for the session or widen route access.
-When the route expires or is revoked,
-that Runtime MUST reject new operations
-and terminate affected subscriptions and the protected session.
+When the route expires or is revoked, that Runtime MUST stop admitting new operations and terminate affected subscriptions and the protected session.
+In-flight work remains subject to the applicable policy in LOGOS-MODULE-RUNTIME Section 9.3.
+A new Request processed during termination MUST receive a correlated `logos.transport.response-err` with `NOT_AUTHORISED`, without dispatch.
+Termination MUST NOT wait for another Request or require processing every unread Request.
+After any permitted bounded completion of in-flight work, the Runtime MUST send ProtocolError `NOT_AUTHORISED` when the connection remains writable and close the session.
+The diagnostic MUST NOT disclose the underlying authorization condition beyond the permitted observation scope.
+Sending the error MUST be bounded by the implementation's Transport output and timeout limits; failure to send it MUST NOT delay termination indefinitely.
+No peer acknowledgement is required.
+The recipient MUST follow Section 3.2, so requests without a terminal Response still fail with `TRANSPORT_ERROR`; the session error does not prove that those operations had no effects.
+A known authorization failure governs subsequent new local operations under LOGOS-MODULE-RUNTIME Section 7.5.
 
 The Hello response MUST NOT echo the one-time route ticket.
 The response `token` is empty unless the selected profile defines distinct session-bound response material.
@@ -887,6 +1012,9 @@ Without a valid route ticket bound to one selected provider and contract,
 a missing provider, hidden provider, disabled export, invalid route,
 and denied provider session MUST produce the same `NOT_AUTHORISED` result and no usable session.
 The diagnostic MUST NOT reveal which condition occurred.
+
+Section 8.1.2 defines the separate authorization bindings for Runtime-owned local system-service sessions.
+Ordinary consumer-route requirements in this section do not create a consumer or route for those sessions.
 
 #### 8.1.1 Random 256-Bit Route-Ticket Profile
 
@@ -942,41 +1070,106 @@ The issuer and verifier are the same Runtime,
 which already retains state for atomic one-time redemption and revocation.
 A self-contained signed ticket would not remove that state requirement.
 
+#### 8.1.2 Runtime-Owned Local System-Service Sessions
+
+A Runtime-owned system-service binding under LOGOS-MODULE-RUNTIME Section 9 MAY use `logos.local.unix-stream` with the ticket algorithm in Section 8.1.1 and the substitutions defined here.
+This case is limited to the Runtime engine invoking a bound local service; it MUST NOT authorize an ordinary module route or a remote session.
+The session uses the same framing, message directions, module and contract selection, Hello validation order, payload validation, correlation, and resource limits as other provider sessions.
+
+The provider-side admission context MUST obtain the expected credential kind from protected setup bound to the actual listener or accepted session, independently of the received token.
+An ordinary route acceptor MUST NOT redeem a system-service ticket, and a system-service acceptor MUST NOT redeem an ordinary route ticket, even for the same provider and contract.
+Selecting the kind by searching alternative ticket stores MUST NOT be permitted.
+A dedicated endpoint or a protected realization handoff MAY establish this context; an ordinary caller MUST NOT be able to select or replace it.
+
+The target Runtime issues the ticket only after bootstrap or active policy has authorized the system-service binding.
+Instead of a module consumer, ordinary route, and provider-access decision, the ticket record MUST bind the issuing Runtime, system-service binding, exact local provider realization, endpoint, selected contract, permitted methods and events, and binding validity and revocation state.
+The record MUST identify its system-service purpose explicitly.
+The random generation, collision rejection, 32-byte token, BLAKE3-256 lookup digest, secret handling, monotonic lifetime, validation before consumption, single redemption, and record deletion rules of Section 8.1.1 apply unchanged.
+The ticket MUST expire no later than the binding and no later than 60 seconds after issuance.
+After expiry or loss, Runtime may issue a new ticket only while that exact binding remains authorized; it MUST NOT renew an ordinary module route or reissue the same ticket.
+
+Runtime MUST deliver the ticket only to its protected engine invocation context through authenticated setup.
+Sharing an operating-system identity does not by itself authorize another process or module to obtain it.
+The caller MUST complete Section 8.2 peer verification before disclosing the ticket.
+The target MUST validate every stored binding against the actual session, selected module, exact contract, and current provider realization before atomically redeeming the ticket.
+Redemption and admission MUST be ordered with binding invalidation and replacement so a superseded or unauthorized binding cannot establish or use a session.
+Invalid, stale, expired, replayed, or wrong-purpose material MUST produce ProtocolError `NOT_AUTHORISED` and no usable session.
+The remaining Hello checks and error precedence follow Section 3.1; the response token MUST be empty.
+
+The provider-side boundary MUST enforce the binding's allowed method and event scope throughout the session.
+An event or method outside that scope MUST NOT be delivered or dispatched.
+Method and subscription access failures use the ordinary `NOT_AUTHORISED` outcomes without widening the binding.
+Binding expiry or revocation follows Section 8.1's admission-stop, bounded notification, and session-termination rules, with the system-service binding replacing the ordinary route.
+No module consumer, ordinary route, or general engine authority is created by redemption.
+
 ### 8.2 Protected Unix-Stream Profile
 
-`logos.local.unix-stream` is the mandatory protected local-transport profile
-for systems that support Unix-domain stream sockets.
+A shared operating-system user identity is not an isolation boundary between processes of that identity.
+Private directory mode bits and matching user or group credentials alone do not prevent a same-identity process from replacing a socket pathname or impersonating its endpoint.
+A deployment claiming protection from such processes MUST establish endpoint and credential protection that prevents that substitution and unauthorized credential access, or fail the placement.
+A bare process identifier alone MUST NOT establish that protection.
+The protected binding must identify the actual trusted endpoint with the required lifetime and race protections, including when listener creation and serving occur in different processes.
+
+Except for Windows applicability under Section 8.2.1, `logos.local.unix-stream` is the mandatory protected local-transport profile for systems that support Unix-domain stream sockets.
 It uses the stream framing in Section 2 and the route-ticket profile in Section 8.1.1.
 
-The invocation descriptor carries the exact socket path and one 32-byte route ticket.
+For an ordinary module route, the invocation descriptor carries the exact socket path and one 32-byte route ticket.
+For a Runtime-owned system-service session, protected setup supplies the exact path and ticket under Section 8.1.2.
 Runtime MUST create a per-instance directory accessible only to Runtime and explicitly launched or authorized consumers.
 The directory mode MUST be `0700` on POSIX filesystems.
 Runtime MUST reject a pre-existing endpoint path and MUST NOT follow, remove, or replace a symbolic link or another filesystem object at that path.
 Under the expected Runtime operating-system identity,
 Runtime MUST create and bind the Unix socket and place it in the listening state before transferring its open descriptor through the selected realization mechanism.
-The Module Host MUST serve only that inherited listener and MUST NOT bind or substitute another endpoint.
+The Module Host MUST serve only that transferred listener and MUST NOT bind or substitute another endpoint.
 Before accepting the endpoint or marking the provider ready,
-Runtime MUST validate the exact inherited listener and its directory, path type, symbolic-link absence, ownership, and listening state.
+Runtime MUST validate the exact transferred listener and its directory, path type, symbolic-link absence, ownership, and listening state.
 Failure to transfer the listener securely through a selected placement MUST fail that placement and MUST NOT cause an isolation downgrade.
 
-The protected Runtime context that supplies the invocation descriptor MUST establish the expected Runtime operating-system identity for the caller.
-The caller MUST connect to the exact path from the descriptor and verify the connected peer as that identity through `SO_PEERCRED`, `getpeereid()`, or an equivalent operating-system mechanism.
+The protected Runtime context supplying the route descriptor or system-service setup MUST establish the expected Runtime operating-system identity for the caller.
+The caller MUST connect to that exact path and verify the connected peer as that identity through `SO_PEERCRED`, `getpeereid()`, or an equivalent operating-system mechanism.
 This verification MUST succeed before the caller sends its first Hello or otherwise discloses the route ticket.
 On mismatch, the caller MUST close the connection without disclosing or consuming the ticket and report `TRANSPORT_ERROR`.
-Runtime MUST fail the affected route, and the ticket MUST NOT be accepted after that failure.
+Runtime MUST fail the affected route or system-service session establishment, and the ticket MUST NOT be accepted after that failure.
 An implementation that cannot perform an equivalent peer-identity check does not conform to this profile.
 
 After successful peer verification, the caller MUST place the ticket in its first Hello.
-The selected contract in that Hello MUST equal the route's expected contract.
+The selected contract in that Hello MUST equal the route's expected contract or the contract of the system-service binding, as applicable.
 The target Runtime MUST redeem the ticket before returning a Hello response or dispatching module code.
 The response token is empty.
 One connection carries one provider session, and connection loss ends that session.
 
-The ticket is the local proof that the caller received the invocation descriptor through an authorized Runtime path.
-Runtime MUST disclose it only for delivery to the route's consumer through an authenticated invocation context.
+For an ordinary module route, the ticket is the local proof that the caller received the invocation descriptor through an authorized Runtime path.
+Runtime MUST disclose an ordinary route ticket only for delivery to that route's consumer through an authenticated invocation context.
+System-service ticket delivery follows Section 8.1.2.
 Possession by another process is credential compromise;
 the short lifetime, single redemption, protected directory, non-logging rule, and revocation behavior limit that residual risk.
 This profile defines no fallback to an empty token or an unprotected local session.
+
+#### 8.2.1 Windows Applicability
+
+On Windows, support for AF_UNIX alone does not establish support for `logos.local.unix-stream`.
+A Windows implementation MAY support this profile only when it can satisfy the filesystem protection, listener transfer, and peer-verification requirements for the selected placement.
+An unsupported placement MUST fail without an unprotected fallback or isolation downgrade.
+
+Runtime MUST protect the endpoint directory, pathname ancestors, and socket with effective access controls that prevent unauthorized endpoint substitution.
+Discretionary access-control lists MUST be non-null and MUST NOT acquire permissive entries through inheritance.
+Endpoint-use permission alone MUST NOT grant consumers permission to delete, rename, replace, or change security on the endpoint or its containing directory.
+Validation MUST recognize the expected `IO_REPARSE_TAG_AF_UNIX` socket object while rejecting symbolic links, junctions, and other redirection or substitution of the selected path.
+
+Runtime MUST transfer only the already-bound listening socket through restricted inheritance or a target-specific Winsock socket-sharing mechanism supported for that socket and placement.
+The protected handoff MUST authenticate the target process and expose no unrelated inheritable handles or reusable sharing material.
+The Module Host MUST NOT replace a failed handoff by binding another listener.
+
+Before connection, the caller's protected invocation context MUST establish an independently authenticated reference to the process object that the selected operating-system mechanism identifies for the intended listener.
+When using `SIO_AF_UNIX_GETPEERPID`, it MUST retain a handle to that expected process object continuously from before connection through peer verification, preventing identifier reuse.
+The observed peer identifier MUST match that process object, whose operating-system identity MUST satisfy the expected Runtime identity.
+Opening a process solely from an identifier learned from the connection MUST NOT establish the expected reference.
+The handle MUST remain within protected context or carry only the rights required for identity and liveness verification.
+If that context cannot supply the reference, the process has ended, or verification fails, the caller MUST close before Hello or ticket disclosure and report the Section 8.2 peer-verification failure.
+
+A Windows implementation MUST establish the peer-query attribution and listener-sharing behavior of its supported operating-system versions and placements before claiming support.
+It MUST NOT accept either the listener creator or accepting process opportunistically when the required attribution is unknown.
+The local descriptor schema is unchanged; the authenticated process reference belongs to protected implementation-local setup, not caller-supplied descriptor data.
 
 ### 8.3 CBOR Validation
 
@@ -1003,6 +1196,10 @@ Schema text received through `logos.schema` is subject to the dynamic-schema lim
 and resolver restrictions in LOGOS-MODULE-INTERFACE Section 5.3.
 
 ### 8.4 Remote Runtime Transport Profiles
+
+These profiles require the caller to establish the carrier to the provider-side listener.
+Reachability through NAT, rendezvous, or a relay is deployment-specific unless a separately specified profile defines it.
+An intermediary MUST NOT replace required target Runtime authentication or provider-session channel binding.
 
 The `profile` field of a remote Runtime address selects
 the complete remote transport and security profile.
@@ -1038,6 +1235,8 @@ and the stream framing defined in Section 2.
 Both peers MUST use TLS 1.3 as specified by [RFC 8446]
 and MUST reject negotiation of an earlier TLS version.
 The connection MUST use mutual TLS authentication.
+Protected enrollment MUST select credential and certificate-signature algorithms supported by the intended peers.
+A P-256 ECDSA credential using `ecdsa_secp256r1_sha256` is a common enrollment option under the algorithm support required by [RFC 8446] Section 9.1.
 Each peer MUST validate the other peer's credential, trust anchor,
 and Runtime enrollment before sending or accepting a Transport Hello.
 The caller MUST authenticate the target Runtime identity
@@ -1055,6 +1254,22 @@ No match, multiple Runtime identity matches, a stale or conflicting enrollment,
 or a revoked enrollment MUST fail authentication and close the connection.
 
 TLS certificate validation authenticates the enrolled Runtime.
+
+Certificate path validation MUST follow RFC 5280 Section 6.1 under the active enrollment's trust anchor and protected certificate policy.
+The verifier MUST check the presented end-entity certificate's validity period using accepted current time, including when that certificate is itself the directly provisioned anchor.
+The direct-anchor case requires equality with the provisioned certificate's complete DER encoding; an SPKI match alone does not establish that case.
+If end-entity Key Usage is present, it MUST permit digital signatures.
+If Extended Key Usage is present, it MUST include `serverAuth` for a TLS server or `clientAuth` for a TLS client, as applicable.
+An absent Extended Key Usage imposes no additional purpose restriction; `anyExtendedKeyUsage` alone does not satisfy this profile's explicit-role rule.
+TLS proof of private-key possession and the enrollment SPKI match remain mandatory.
+Protected policy MUST define accepted current revocation evidence for every non-anchor certificate and reject revoked or unknown required status; active protected enrollment status suffices for the exact directly trusted leaf.
+No online revocation protocol is mandated.
+Authentication MUST fail if the required time or status cannot be established.
+
+Runtime identity comes from enrollment, not a DNS name or endpoint address.
+The baseline does not require DNS-name matching; a deployment may select additional documented name checks without replacing enrollment or key matching.
+When `server_name` is supplied, the TLS client MUST send it as RFC 6066 `host_name` SNI and require a DNS name valid for that extension, not an IP literal.
+SNI guides credential selection and does not replace peer authentication.
 It does not validate the provider, contract, method, request, or response claims made by that Runtime.
 Those claims remain bound and checked through the route ticket,
 selected provider, schema and method roots, and any required commitment evidence.
@@ -1123,6 +1338,25 @@ They MUST NOT be advertised to peers or selected as a fallback.
 They MUST NOT be used with production credentials, production authority material, live route tickets, or production application data.
 A conformance claim MUST NOT depend on another implementation recognizing or supporting an implementation-local test hook.
 
+### 8.6 Resource Limits
+
+Implementations MUST enforce and document finite limits on connections (including incomplete Hello exchanges), outstanding calls, subscriptions, retained correlation and identifier-history state, and bytes retained for Transport input and output.
+These limits MUST bound aggregate use across admitted connections.
+The documentation MUST identify each limit's scope and behavior on exhaustion.
+Numerical limits and scheduling policies are implementation or deployment choices, subject to Sections 2.1 and 2.3.
+
+Resource admission MUST occur before acquiring the bounded resources.
+Resource reservations MUST remain held while the corresponding work or storage remains live, including after cancellation or connection closure.
+If capacity is unavailable, the implementation MUST either delay admission while retaining bounded state, reject the affected operation using the failure form and error-code semantics for that protocol phase, or refuse or close the affected connection.
+Delayed admission MUST observe applicable deadlines and cancellation and connection-closure requirements.
+Event backpressure remains subject to Section 5.2.
+Resource exhaustion MUST NOT silently discard an accepted Request or a committed Event.
+More specific validation and failure rules in this specification take precedence.
+Connection closure MUST follow Section 3.2.
+
+Resource bounds do not imply a common retryable overload response or a maximum control-message latency.
+An implementation MUST NOT promise that Cancel can overtake a frame already committed to the same ordered stream.
+
 ---
 
 ## 9. Transport Selection
@@ -1132,9 +1366,9 @@ transport mode:
 
 ### 9.1 Unix Domain Sockets (Local Transport Mode)
 
-`logos.local.unix-stream` is the mandatory protected local-transport profile for systems that support Unix-domain stream sockets.
+`logos.local.unix-stream` is the mandatory protected local-transport profile for systems that support Unix-domain stream sockets, subject to the Windows applicability requirements in Section 8.2.1.
 It is defined in Section 8.2.
-The endpoint path is the exact value from the invocation descriptor.
+The endpoint path is the exact value supplied through the protected context required by Section 8.2.
 Its filesystem spelling is not an interoperability identifier.
 The caller MUST NOT derive or substitute another path from the module name.
 
@@ -1182,6 +1416,10 @@ There is no hash-suite negotiation.
 
 ### Normative
 
+- [RFC 2119] -- Key words for use in RFCs to Indicate Requirement Levels.
+  https://www.rfc-editor.org/rfc/rfc2119
+- [RFC 8174] -- Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words.
+  https://www.rfc-editor.org/rfc/rfc8174
 - [RFC 7301] -- Transport Layer Security Application-Layer Protocol Negotiation Extension.
   https://www.rfc-editor.org/rfc/rfc7301
 - [RFC 8446] -- The Transport Layer Security (TLS) Protocol Version 1.3.
@@ -1202,6 +1440,13 @@ There is no hash-suite negotiation.
   https://www.rfc-editor.org/rfc/rfc9001
 - LOGOS-MODULE-INTERFACE -- Module interface definition specification.
 - LOGOS-MODULE-RUNTIME -- Module admission, lifecycle, and routing specification.
+- LOGOS-MODULE-CAPABILITY-AUTHORITY -- Call-evidence container and disclosure requirements.
+- LOGOS-MODULE-HASH-PROFILE -- Payload commitments, the required hash profile and suite, and ticket lookup digests.
+
+- [RFC 5280] -- Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile.
+  https://www.rfc-editor.org/rfc/rfc5280
+- [RFC 6066] -- Transport Layer Security (TLS) Extensions: Extension Definitions.
+  https://www.rfc-editor.org/rfc/rfc6066
 
 ### Informative
 

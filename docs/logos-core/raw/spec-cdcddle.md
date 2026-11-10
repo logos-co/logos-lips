@@ -75,6 +75,7 @@ of the canonical CDDL schema model defined here.
 `cdCDDLe` depends on the following standards:
 
 - RFC 8610, Concise Data Definition Language (CDDL);
+- [RFC 9682], Section 2, for text-string and byte-string literal syntax;
 - RFC 8949, Concise Binary Object Representation (CBOR),
   including the core deterministic encoding requirements in Section 4.2.1.
 
@@ -84,8 +85,8 @@ so the canonical bytes do not depend on another encoding profile.
 
 ## 4. Terminology
 
-The key words MUST, MUST NOT, REQUIRED, SHOULD, SHOULD NOT, and MAY are to be
-interpreted as described in BCP 14.
+Uppercase requirement keywords in this specification follow BCP 14 [RFC 2119] [RFC 8174].
+Lowercase forms retain their ordinary English meanings.
 
 **CDDL source text** is the textual CDDL input before parsing.
 
@@ -123,6 +124,7 @@ source text
 ```
 
 The parse and resolve stages MUST follow RFC 8610 semantics for the supported subset.
+For text-string and byte-string literals, the grammar and escape rules MUST follow [RFC 9682] Section 2.
 `cdCDDLe` starts at the resolved CDDL rule graph.
 
 A `cdCDDLe` implementation MAY expose parsing and resolution as part of the
@@ -157,7 +159,7 @@ The supported input subset consists of:
 - non-negative integer, negative integer, Boolean, text-string, and byte-string literals;
 - parentheses around supported type expressions;
 - fixed-length arrays and homogeneous variable-length arrays written as `[* T]`;
-- maps with a finite set of bareword keys written with the colon member form;
+- maps with a finite set of bareword or text-string literal keys written with the colon member form;
 - required and optional map members;
 - ordered type choices written with `/`;
 - inclusive integer ranges written with `..`; and
@@ -168,10 +170,19 @@ The following constructs are unsupported:
 - group rules, generic rules or applications, and rule extensions;
 - group choices, sockets, unwrapped groups, and enumerations;
 - tags and general `#` forms;
-- explicit cuts, `=>` member keys, and non-bareword map keys;
+- explicit cuts, `=>` member keys, and map keys other than barewords or text-string literals;
 - occurrences other than the supported `?` map-member and `*` array-member forms;
 - exclusive ranges and control operators other than `.size`; and
 - any other CDDL construct not listed as supported above.
+
+Source occurrence indicators with explicit numeric bounds MUST be rejected, even when their cardinality equals that of a supported form.
+This includes `0*` in arrays and `*1` in maps.
+
+Range bounds, including those in `.size` controllers, MUST be integer literals written directly in the source.
+Named references as range bounds MUST be rejected.
+Integer literals and integer range bounds MUST be between -18446744073709551616 and 18446744073709551615, inclusive.
+A resolved rule graph containing an integer outside that interval is outside the supported subset.
+An inclusive range whose lower bound exceeds its upper bound is outside the supported subset and MUST be rejected.
 
 The colon member form has the cut semantics defined by RFC 8610.
 Because every supported keyed member uses that form,
@@ -320,7 +331,7 @@ A canonicalizer MUST map every supported source construct as follows:
   or byte-string value maps to the corresponding literal node;
 - parentheses around a supported type expression are removed;
 - an array or map maps to an array or map node whose group contains its canonicalized members;
-- a bareword colon key maps to a member-key node containing a text-string literal with the parsed key text;
+- a bareword or text-string literal colon key maps to a member-key node containing a text-string literal with the parsed key text;
 - an absent occurrence maps to no occurrence field,
   `?` maps to an occurrence with bounds zero and one,
   and `*` maps to an occurrence with lower bound zero and upper bound `"unbounded"`;
@@ -594,6 +605,8 @@ invalid rule or reference names, duplicate bound rule names, a literal whose val
 an invalid range or occurrence, an unsupported primitive or control operator,
 and any other violation of Section 8.
 
+A `cdCDDLe` decoder MUST reject a choice node that has another choice node as a direct alternative.
+
 The decoder MUST verify that top-level rules and map members occur in canonical order.
 It MUST NOT accept and silently reorder a non-canonical model.
 
@@ -605,7 +618,7 @@ Re-encoding the decoded model and comparing the result byte-for-byte is one conf
 
 A conforming `cdCDDLe` canonicalizer MUST:
 
-- accept every resolved CDDL rule graph within the supported subset;
+- accept every resolved CDDL rule graph satisfying the supported-subset and canonical-model validity rules;
 - reject unsupported CDDL constructs explicitly;
 - remove presentation information;
 - preserve bound rule names;
@@ -938,10 +951,16 @@ a300000187a3000101675f6d6f64756c6503a30006016474737472026e73746f
 
 ### Normative
 
+- [RFC 2119] -- Key words for use in RFCs to Indicate Requirement Levels.
+  https://www.rfc-editor.org/rfc/rfc2119
+- [RFC 8174] -- Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words.
+  https://www.rfc-editor.org/rfc/rfc8174
 - [RFC 8949] -- CBOR: Concise Binary Object Representation.
   https://www.rfc-editor.org/rfc/rfc8949
 - [RFC 8610] -- CDDL: Concise Data Definition Language.
   https://www.rfc-editor.org/rfc/rfc8610
+- [RFC 9682] -- Updates to the Concise Data Definition Language (CDDL) Grammar.
+  https://www.rfc-editor.org/rfc/rfc9682
 
 ---
 

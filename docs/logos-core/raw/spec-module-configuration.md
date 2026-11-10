@@ -20,6 +20,11 @@ Configuration behavior and callable operations remain Runtime responsibilities e
 Module configuration controls module behavior.
 It does not grant authority, select realization strength, carry protected trust input, or replace Runtime bootstrap configuration.
 
+## Requirements Language
+
+Uppercase requirement keywords in this specification follow BCP 14 [RFC 2119] [RFC 8174].
+Lowercase forms retain their ordinary English meanings.
+
 ## Scope
 
 This specification defines:
@@ -89,7 +94,7 @@ Runtime MUST preserve it across stop, start, implementation unload or reload, re
 Runtime MUST NOT reset it while retaining that identity.
 If Runtime cannot restore the revision for a preserved configuration state, it MUST use a new module-instance identity before creating new configuration state at revision zero.
 
-Every successful mutation of the accepted binding, current record, or staged record advances the configuration-state revision.
+Every successful mutation of the current record or staged record advances the configuration-state revision.
 An operation that observes or mutates configuration MUST report or compare the revision as required by its method semantics.
 The revision MUST NOT wrap.
 Runtime MUST reject a state mutation that would advance it beyond the maximum `uint64` value.
@@ -117,11 +122,18 @@ A staged value does not change the behavior of the running realization.
 
 If neither a current nor staged value exists and no valid source supplies a value, Runtime MUST NOT start a module whose declaration contains a configuration-schema binding.
 
+Missing eligible configuration MUST prevent initialization and produce `NOT_READY` for an otherwise authorized startup attempt.
+This startup failure does not cancel execution intent accepted under Runtime's lifecycle rules.
+
 ## 4. Sources And Provenance
 
 A package default, protected provisioning input, authorized Runtime Control update, or retained record MAY supply a configuration value.
 Every supplied value MUST be one complete deterministic-CBOR value under the exact accepted configuration schema.
 No source implicitly merges with another source.
+
+Deployment documentation MUST state whether package defaults are accepted and how an authorized application obtains a verified complete default when offering a reset operation.
+Resetting configuration uses an explicit complete replacement under the accepted schema; discarding a staged value does not reset the current value.
+This specification defines no default-retrieval method or implicit default fallback over an ineligible retained record.
 
 Runtime determines the next-start value in the following order:
 
@@ -175,6 +187,19 @@ Each returned record includes the complete value, configuration-schema commitmen
 
 Every request includes the expected configuration-state revision and expected accepted configuration-schema commitment.
 Runtime MUST reject the request without mutation when either expectation is stale.
+After ordinary target authorization and non-disclosure checks, configuration operations use these pre-acceptance classifications:
+
+| Condition | Invocation status and detail |
+| --- | --- |
+| The target has no accepted configuration binding, for an operation other than `get_configuration_summary`. | `INVALID_PARAMS`, without validation detail. |
+| The expected configuration-state revision is stale. | `INVALID_PARAMS`, without validation detail. |
+| The expected accepted configuration-schema commitment does not match. | `VERSION_MISMATCH`, without validation detail. |
+| An embedded configuration value is malformed, has trailing bytes, or is not Logos deterministic CBOR. | `INVALID_PARAMS`, without validation detail. |
+| A decoded deterministic configuration value does not conform to the bound configuration root. | `INVALID_PARAMS`, optionally with `configuration-schema-mismatch` detail under LOGOS-MODULE-INTERFACE. |
+
+For `configuration-schema-mismatch`, any supplied path starts at the decoded configuration value's root, not the outer Runtime Control request or its byte-string field.
+A failure to obtain a configuration application outcome remains governed by Section 8.
+These classifications do not authorize disclosure of schema or configuration information the caller may not observe.
 For a replacement, Runtime MUST validate the complete value and compute its value commitment before committing it as staged.
 
 Staging a replacement advances the configuration-state revision even when its value commitment equals that of an existing record.
@@ -219,34 +244,41 @@ A failed startup using the current record does not remove or revise that record.
 ## 7. Configuration-Schema Changes
 
 Every retained configuration record remains bound to the exact configuration-schema commitment under which Runtime accepted it.
-An accepted declaration update that preserves the commitment MAY retain current and staged records unchanged.
+An instance's accepted configuration-schema binding and live-reconfiguration declaration belong to its retained accepted module declaration.
+Restoring or revalidating that unchanged declaration MUST preserve current and staged records except for separately accepted configuration mutations and the startup or application transitions defined by this specification.
+It MUST NOT silently reset values or reapply a package default.
 
-When an accepted update changes the commitment, Runtime MUST NOT reinterpret or migrate an existing record automatically.
-Successful structural validation under the new schema is not sufficient to establish unchanged meaning.
-Existing records remain ineligible for startup or live reconfiguration until an explicit complete replacement is accepted under the new schema.
+An upgrade that changes or removes the configuration-schema binding or changes the live-reconfiguration declaration MUST establish a new module instance under the replacement declaration.
+This specification does not define in-place replacement of an existing instance's accepted declaration.
+The existing instance retains its declaration and configuration records until independently authorized lifecycle or configuration operations change its state.
+Runtime MUST NOT reinterpret or automatically transfer those records to the replacement instance.
+Successful structural validation under the replacement schema does not establish unchanged meaning.
+A replacement requiring configuration needs a complete value accepted under its own schema before initialization.
 
-Runtime MUST order replacement of an accepted binding with configuration mutations, startup attempts, and live-reconfiguration attempts for that module instance.
-Replacing a binding in a way that changes its configuration-schema commitment or live-reconfiguration declaration MUST atomically advance the configuration-state revision.
-An accepted declaration update MAY remove the configuration-schema binding.
-Removal MUST atomically advance the configuration-state revision.
-Retained records remain bound to their former commitment and ineligible for startup or live reconfiguration.
-
-An already-running realization MAY continue with the configuration and implementation under which it reached `ready`.
-Starting or re-realizing the module instance under the changed schema requires a complete value accepted under that schema.
-Runtime MUST NOT live-apply a value under the changed configuration-schema commitment to the existing realization.
-The module instance must restart or be re-realized under the changed commitment before live reconfiguration can resume.
-
-An authorized module instance MAY obtain an old value, transform it outside Core, and submit the complete replacement through `update_configuration`.
+An authorized module instance MAY obtain an old value, transform it outside Core, and submit a complete value for the replacement instance through `update_configuration`.
 This specification defines no general configuration-migration language.
 
+A deployment supporting configuration-preserving upgrades MUST identify the workflow that obtains the previous instance's configuration and supplies a complete value under the replacement instance's accepted schema.
+Reading the old instance and configuring the replacement require independent authorization.
+A module-specific transformation may be provided through an ordinary module contract without giving the transforming provider Runtime Control administration authority.
+Configuration and authority MUST NOT transfer merely because the instances have the same module name.
+Retirement of the old instance follows the deployment's explicitly authorized migration and rollback policy.
+
 ## 8. Live Reconfiguration And Configuration Events
+
+The Runtime host or deployment supplies a finite logical application-attempt deadline separately from any caller-selected invocation timeout and documents when it begins.
+Expiry without a valid result is indeterminate; it MUST NOT be treated as rejection or proof that previous behavior remains in effect.
+Runtime MUST apply the indeterminate-outcome rules below and retain native ownership until actual use ends.
+An explicit stop may close admission and cancel execution intent while application is pending, but MUST NOT destroy the native context while the hook can still use it.
+After Runtime has declared an attempt terminally indeterminate, a late result MUST NOT restore readiness or promote its attempted configuration.
+Logical stop alone does not declare the application outcome indeterminate: a valid result MUST update configuration under the rules below without restoring readiness, before native destruction proceeds.
 
 A configuration-schema binding MAY declare live reconfiguration support.
 Without that declaration, the module instance is startup-only and Runtime MUST reject `apply_configuration`.
 A live-enabled realization MUST expose the standard configuration-application hook for its realization mode.
 A module that does not declare live reconfiguration support need not expose that hook or provide a library callback.
 For the native module ABI,
-that hook is `logos_<module>_apply_configuration()`.
+that hook is `logos_<module-C>_MODULE_apply_configuration()`.
 The ABI caller MUST pass the deterministic encoding of exactly one `logos.module_configuration.configuration_input` value selected for the application attempt.
 `LOGOS_OK`, a valid nonzero result, and failure to obtain a valid result mean success, rejection, and an indeterminate outcome respectively.
 
@@ -255,19 +287,36 @@ Runtime MUST reject the request when the expectation is stale, no staged record 
 The staged record MUST carry that same commitment.
 Runtime MUST permit at most one live-reconfiguration attempt per module instance and MUST order it with lifecycle transitions for that instance.
 
+For an authorized request whose target may be disclosed, Runtime MUST classify a failed application precondition as follows:
+
+| Condition | Error code |
+| --- | --- |
+| The expected configuration-state revision is stale, no staged record exists, or either applicable binding is absent or does not declare live reconfiguration. | `INVALID_PARAMS` |
+| The module instance is not `ready`, or another live-reconfiguration attempt is in progress. | `NOT_READY` |
+| The accepted binding, staged record, and current realization do not have the same configuration-schema commitment. | `VERSION_MISMATCH` |
+
+A failed precondition MUST NOT invoke the application hook or mutate configuration state.
+These `INVALID_PARAMS` failures MUST omit validation detail because they are not CBOR decoding or schema-validation failures.
+
 Runtime snapshots the staged record as the immutable value for the application attempt.
 A later configuration mutation does not change that attempt.
 Generated application glue MUST perform the same configuration-schema-commitment comparison and complete-value decoding and validation required during startup before invoking the typed library callback.
 
 The callback MUST report success only after the complete attempted value governs module behavior.
 On rejection, it MUST leave behavior governed by the previous current value.
-On success, Runtime MUST make the attempted record current.
+On success accepted before terminal indeterminacy, Runtime MUST make the attempted record current.
 It MUST clear the staged record only when that record still has the attempted value revision.
 A concurrently replaced staged record remains staged, and a concurrently discarded staged record remains absent.
 
 On rejection, Runtime preserves the previous current record and the latest staged state.
 If the application outcome is indeterminate, Runtime MUST place the module instance in `error` and prevent further provider work through that realization.
 Runtime preserves the previous current record and latest staged state for a later startup or re-realization.
+
+A valid nonzero application-hook result is a rejection and MUST be reported by the Runtime Control `apply_configuration` invocation as `MODULE_ERROR`.
+Runtime MUST NOT forward that hook result as a Runtime readiness or authorization failure.
+If Runtime cannot obtain a valid application-hook result, it MUST report `TRANSPORT_ERROR` when the cause is failure to exchange the required transport messages, and `MODULE_ERROR` otherwise.
+That distinction MUST NOT change the required transition to `error` for an indeterminate application outcome.
+A caller-side timeout, cancellation, or lost Runtime Control response does not by itself establish the application outcome; Runtime MUST update configuration and lifecycle state using the outcome of the application attempt.
 
 Every live-reconfiguration mutation of current or staged state MUST be atomic and advance the configuration-state revision.
 Successful live reconfiguration does not otherwise change lifecycle state and MUST NOT by itself emit `module_state_changed_event`.
@@ -299,7 +348,7 @@ and each imported declaration retains its schema subtree root within that schema
 
 ```cddl
 logos.module_configuration.schema_commitment = {
-  commitment_model: "logos.commitment-model.2026-08",
+  commitment_model: "logos.commitment-model.2026-10",
   schema_root: bstr .size 32,
   schema_subtree_root: bstr .size 32,
   hash_profile: "logos.hash-profile.2026-08.choice-index",
@@ -375,7 +424,7 @@ Within `schema_commitment`, `schema_root` commits to the complete document and `
 `default_value` and every `value` field contain the exact deterministic-CBOR bytes of one complete configuration value.
 `live_reconfiguration` is present only when the module declaration opts into live reconfiguration.
 
-`value_commitment` is interpreted only with the adjacent `schema_commitment`; their `schema_subtree_root` fields must match, and together they bind the value to the accepted configuration root under the Commitment Model and Hash Profile.
+`value_commitment` is interpreted only with the adjacent `schema_commitment`; their `schema_subtree_root` fields MUST match, and together they bind the value to the accepted configuration root under the Commitment Model and Hash Profile.
 `configuration_state` is the complete authorized configuration snapshot.
 `configuration_state_summary` omits the complete values and is used by `get_configuration_summary` and configuration-state events.
 `configuration_input` is the value delivered through startup and live-reconfiguration boundaries.
@@ -384,6 +433,10 @@ Within `schema_commitment`, `schema_root` commits to the complete document and `
 
 ### Normative
 
+- [RFC 2119] -- Key words for use in RFCs to Indicate Requirement Levels.
+  https://www.rfc-editor.org/rfc/rfc2119
+- [RFC 8174] -- Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words.
+  https://www.rfc-editor.org/rfc/rfc8174
 - LOGOS-MODULE-INTERFACE -- CDDL schema conventions, C ABI mapping, and Logos deterministic CBOR.
 - LOGOS-MODULE-COMMITMENT-MODEL -- Schema and typed-value identity.
 - LOGOS-MODULE-HASH-PROFILE -- Schema and value commitment construction.

@@ -44,6 +44,11 @@ _module = "logos_module_loader"
 
 The Module Loader schema imports two supporting schemas: Runtime Types from LOGOS-MODULE-RUNTIME and Module Configuration Types from LOGOS-MODULE-CONFIGURATION.
 
+## Requirements Language
+
+Uppercase requirement keywords in this specification follow BCP 14 [RFC 2119] [RFC 8174].
+Lowercase forms retain their ordinary English meanings.
+
 ## Scope
 
 This specification defines:
@@ -367,7 +372,7 @@ If a failed realization created from the same descriptor and private handoffs is
 without retrying realization or creating another context or Module Host.
 If the instance has a different active or failed realization,
 `realize` MUST return `instance-conflict`.
-A failed realization must be released before another realization can be created for that module instance.
+A failed realization MUST be released before another realization can be created for that module instance.
 
 Module Loader MUST reject a strategy or hosted placement that it did not advertise with `unsupported-strategy`.
 It MUST do so before loading artifact-controlled code.
@@ -383,14 +388,14 @@ and that Module Host is the process-local ABI caller under Loader control.
 The ABI caller MUST satisfy every applicable LOGOS-MODULE-INTERFACE requirement.
 Before initialization, it MUST:
 
-1. resolve the mandatory ABI symbols for the expected module name;
-2. require `logos_<module>_name()` to return `descriptor.module`;
+1. resolve the mandatory ABI symbols using the expected module name and the module-name projection defined in LOGOS-MODULE-INTERFACE Section 2.1;
+2. require `logos_<module-C>_MODULE_name()` to return `descriptor.module`;
 3. obtain, parse, and validate the provider call surface when provider symbols apply;
 4. populate the initialization ABI version and structure size;
 5. supply the consumer-bound Runtime Control binding;
 6. supply the required event-publication binding;
 7. supply `state_dir` and configuration using the handoffs defined above; and
-8. set `*out_context` to `NULL` before calling `logos_<module>_init()`.
+8. set `*out_context` to `NULL` before calling `logos_<module-C>_MODULE_init()`.
 
 Missing, contradictory, or invalid ABI symbols and metadata produce `abi-invalid`.
 The ABI caller MUST reject every initialization result and context combination that LOGOS-MODULE-INTERFACE does not permit.
@@ -398,10 +403,10 @@ A successful initialization creates one distinct live module context for the mod
 The ABI caller MUST retain the accepted binding and use that same context for every instance-dependent ABI operation.
 
 For hosted provider realization,
-the Module Host MUST retain the inherited listener without accepting connections until initialization succeeds.
+the Module Host MUST retain the transferred listener without accepting connections until initialization succeeds.
 It then serves that listener through the protected local Transport profile
 and MUST NOT create, bind, or substitute another provider endpoint.
-Module Loader MUST NOT return an active realization until the Module Host confirms that it is serving the inherited listener.
+Module Loader MUST NOT return an active realization until the Module Host confirms that it is serving the transferred listener.
 For declared schema methods, the host applies the generic dispatch ABI to Transport Requests.
 For declared schema events, it applies the subscription and delivery rules in LOGOS-MODULE-INTERFACE and LOGOS-MODULE-TRANSPORT.
 The host applies the Interface concurrency and memory-ownership requirements.
@@ -411,7 +416,7 @@ Success MUST return an active realization that satisfies every requested Loader-
 The operation MUST NOT return an intermediate state.
 
 If realization fails before becoming active,
-Module Loader MUST clean every partial context, binding, inherited-listener reference, and execution envelope that it can safely clean.
+Module Loader MUST clean every partial context, binding, transferred listener reference, and execution envelope that it can safely clean.
 Runtime retains ownership of final listener and endpoint-path cleanup.
 When cleanup completes, it returns the error without a realization record.
 When cleanup remains necessary,
@@ -468,10 +473,13 @@ Each newly created realization MUST receive an identifier that the Loader has no
 A new realization after release or failure uses a fresh identifier and a fresh native context.
 The Loader retains the realization descriptor and private handoffs internally for idempotency and cleanup.
 The public realization record does not repeat them.
+Realization records and cleanup authority MUST remain associated with the Loader provider realization that issued them.
+Rebinding the service MUST NOT transfer that authority or establish absence of the previous provider's realizations.
+LOGOS-MODULE-RUNTIME Section 10.1 governs unresolved cleanup and replacement after loss of the owning Loader.
 
 An active realization has completed native initialization and every requested Loader-owned handoff.
 For a provider, `call_surface` contains the exact deterministic-CBOR bytes
-returned by `logos_<module>_call_surface()`.
+returned by `logos_<module-C>_MODULE_call_surface()`.
 Module Loader MUST NOT rewrite or combine the contained contracts.
 A provider realization MUST contain `call_surface`.
 A consumer-only realization MUST omit it.
@@ -524,7 +532,7 @@ An unknown or nonmatching realization produces `realization-not-found`.
 An invalid request for a realization without declared live-reconfiguration support produces `invalid-request`.
 Those cases MUST NOT invoke module behavior.
 
-For direct realization, Module Loader invokes `logos_<module>_apply_configuration()`
+For direct realization, Module Loader invokes `logos_<module-C>_MODULE_apply_configuration()`
 through the retained context.
 For hosted realization, the Module Host invokes the same ABI hook under Loader control.
 
@@ -560,7 +568,7 @@ Runtime invokes graceful release only after it prevents new instance-dependent w
 and drains or fails in-flight work according to LOGOS-MODULE-RUNTIME.
 
 During graceful release of a live native context,
-the ABI caller MUST invoke `logos_<module>_destroy(context)` exactly once
+the ABI caller MUST invoke `logos_<module-C>_MODULE_destroy(context)` exactly once
 and wait for it to return before discarding the binding or stopping its execution envelope.
 Forced termination of the execution envelope MAY prevent destruction from beginning or returning.
 Beginning destruction consumes the live context.
@@ -571,8 +579,9 @@ A request containing `force` when the Loader did not advertise `force_release`
 MUST return a failed response with `invalid-request`.
 It MUST NOT begin cleanup or mutate a retained realization.
 It requests the strongest available local termination and cleanup path.
-Successful force release establishes only that the Loader retains no realization.
+Successful force release MUST establish that no instance-dependent work remains and no binding or execution envelope retains cleanup obligations for the realization.
 It does not prove that module code completed cooperative cleanup or that destruction returned.
+If the Loader cannot establish those conditions, it MUST retain and return a failed realization.
 
 Module Loader MUST match a retained realization against both `realization` and `module_instance`.
 If `realization` identifies a retained record whose `module_instance` does not match the request,
@@ -616,6 +625,7 @@ A failure variant contains either one error or one failed realization whose `fai
 `realization-failed` covers initialization, Module Host creation,
 state delivery, endpoint handoff or activation, indeterminate configuration,
 unexpected realization failure, and incomplete release.
+An otherwise valid realization request using an advertised strategy and, when applicable, an advertised hosted placement MUST fail with `realization-failed` if required security or deployment controls cannot be established.
 `instance-conflict` requires release of the retained realization before replacement.
 `realization-not-found` identifies a stale or nonmatching pair of identifiers without disclosing another realization.
 `configuration-rejected` is a definitive module rejection that leaves the realization active.
@@ -727,6 +737,10 @@ platform mappings, containment claims, and residual-risk analysis.
 
 ### Normative
 
+- [RFC 2119] -- Key words for use in RFCs to Indicate Requirement Levels.
+  https://www.rfc-editor.org/rfc/rfc2119
+- [RFC 8174] -- Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words.
+  https://www.rfc-editor.org/rfc/rfc8174
 - LOGOS-MODULE-CONFIGURATION -- Configuration input and live-reconfiguration semantics.
 - LOGOS-MODULE-INTERFACE -- Canonical native module ABI.
 - LOGOS-MODULE-RUNTIME -- Runtime lifecycle, routing, and enforcement semantics.

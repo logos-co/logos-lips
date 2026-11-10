@@ -19,7 +19,8 @@ installed-state, and Runtime-handoff behavior needed by the Core architecture.
 It defines a bounded dependency solver, not a general package ecosystem or
 an arbitrary dependency-constraint language.
 More advanced catalog policy, alternative or optional dependencies,
-general transactions, rollback operations, progress reporting, and lifecycle automation may be defined separately.
+general transactions, rollback operations, and lifecycle automation may be defined separately.
+The contract supplies installed-state change hints and optional invocation-scoped operation progress.
 
 Package Manager is responsible for package, catalog, install, update, removal, dependency, and package-state operations.
 It is a Logos module contract for a runtime-adjacent responsibility.
@@ -78,6 +79,11 @@ It also defines selection and enforcement boundaries for the optional SLSA packa
 The excluded responsibilities belong to LOGOS-MODULE-RUNTIME, Module Loader,
 Capability Authority, or security profiles.
 
+## Requirements Language
+
+Uppercase requirement keywords in this specification follow BCP 14 [RFC 2119] [RFC 8174].
+Lowercase forms retain their ordinary English meanings.
+
 ## Scope
 
 This specification defines:
@@ -120,8 +126,8 @@ This specification does not define:
 - permission approval rules;
 - a rollback API;
 - a general package transaction state machine;
-- a package lifecycle event stream;
-- package install progress reporting;
+- a replayable package lifecycle event stream;
+- durable package jobs or recoverable progress histories;
 - module lifecycle semantics;
 - implementation realization mechanics.
 
@@ -205,19 +211,7 @@ The manifest file MUST be encoded as Logos deterministic CBOR.
 Its decoded value MUST match `logos.package_manifest.manifest`.
 It MUST be validated against the normative CDDL defined in Section 4.
 Its encoded size MUST NOT exceed 4 MiB.
-This bound leaves space within the Core 16 MiB Transport ceiling for derived installed records and configuration-bearing Runtime handoffs.
-
-An LGX package MAY also contain a diagnostic JSON rendering at:
-
-```text
-manifest.json
-```
-
-The JSON rendering is not canonical.
-If present, it MUST represent the same decoded value as `manifest.cbor`.
-When the canonical CBOR manifest is present,
-Package Manager MUST NOT use the JSON rendering as the source of package identity,
-schema identity, artifact identity, or permission declarations.
+The manifest bound alone does not bound expanded installed records or configuration-bearing Runtime handoffs.
 
 The Nix profile defines the manifest location within a realized Nix output.
 
@@ -361,16 +355,14 @@ All other manifest arrays use canonical order:
 - implemented contracts and provider requirements by the deterministic-CBOR bytes of their schema commitment; and
 - requested permissions by `permission` UTF-8 bytes.
 
-Package Manager MUST reject a manifest whose arrays violate these ordering or uniqueness rules.
+Package Manager MUST reject a manifest with `invalid-package` when its arrays violate these ordering or uniqueness rules.
 
 Package Manager MUST verify each referenced artifact against its signed manifest hash before parsing or validating its content.
 A missing artifact, incorrect artifact kind, or hash mismatch MUST fail with `artifact-integrity-failed`.
 Invalid CDDL, a document schema-commitment mismatch, an absent or invalid root, an unresolved non-common schema reference, or an invalid default value MUST fail with `invalid-package`.
 
-Under the fixed commitment and hash identifiers,
-the assigned schema root is `108b1bab1bf87dfed2ca431bf0591e33e937bb553a489df46b0a9023b9a98af1`,
-and the `logos.package_manifest.manifest` subtree root is
-`a06c0c06d9493e19ab96baabd23b6520645195188af062f858f95f6922a128a1`.
+Under the fixed commitment and hash identifiers, the assigned schema root is `b3a53cea950337515b843333795c53c58288702e5bf72ad98930e02c7581e0eb`,
+and the `logos.package_manifest.manifest` subtree root is `fbee48aef4b669bd9e4dfec0126f56513f8c626da858121082e5f25b0e236879`.
 These hexadecimal values decode to 32-byte roots and are normative.
 
 When a manifest value commitment is required, the value commitment MUST bind
@@ -396,10 +388,21 @@ Package Manager MUST reject a package when the signature is missing,
 the signer is not accepted by active trust policy,
 the signature is invalid,
 or the signed commitment does not equal the commitment computed from `manifest.cbor`.
-Catalog entries, Storage metadata, Nix metadata, archive names, and diagnostic JSON
-MUST NOT override the signed manifest claim.
+Catalog entries, Storage metadata, Nix metadata, and archive names MUST NOT override the signed manifest claim.
 
 ### 4.1 Package-Signing Trust
+
+Protected package-signing trust configuration MUST use a monotonically ordered revision or an equivalent protected continuity mechanism covering profile selection, key mappings, and exact-name authorization.
+The accepted high-water state MUST survive ordinary restart.
+Older state or different contents at the same revision MUST be rejected; identical replay MAY be accepted without changing trust.
+Intentional reauthorization of an older key requires a newly authorized later state.
+Loss of continuity MUST require protected re-establishment before operations relying on current trust can succeed.
+This requirement does not establish resistance to rollback of the entire protection boundary without an independent continuity anchor.
+
+Deployment documentation MUST state whether continued execution depends on current package-signing trust acceptance.
+Withdrawal blocks subsequent accepted package operations and handoffs under this section; existing execution remains subject to its independent execution authority.
+Where that authority depends on current signer acceptance, trust changes, expiry, or source loss MUST invalidate dependent execution authorization through Capability Authority's protected attribute-source integration.
+Retained verification provenance MUST NOT substitute for current trust.
 
 The active package-signing profile consumes protected trust input
 supplied by the runtime host or deployment environment.
@@ -480,18 +483,23 @@ but Package Manager MUST NOT produce a result or handoff whose active trust requ
 ### 4.3 Baseline Package-Signature Profile
 
 Every conforming Package Manager MUST implement
-`logos.package-signing.cose-sign1-ed25519`.
-This profile uses tagged `COSE_Sign1` from RFC 9052
-with the fully specified `Ed25519` COSE algorithm from RFC 9864.
-It does not use the polymorphic `EdDSA` algorithm identifier.
+`logos.package-signing.cose-sign1-slh-dsa-sha2-192s`.
+This profile uses tagged `COSE_Sign1` from RFC 9052 with the fixed implicit algorithm `SLH-DSA-SHA2-192s` from FIPS 205.
+It uses the application-context mechanism in RFC 9052 Appendix A and assigns no COSE algorithm identifier.
+The algorithm, parameter set, key purpose, and container are fixed by this profile and MUST NOT be selected from received package material.
 
 The signed payload is this deterministic-CBOR claim:
 
 ```cddl
 logos.package_manager.package_signing_profile =
-  "logos.package-signing.cose-sign1-ed25519"
+  "logos.package-signing.cose-sign1-slh-dsa-sha2-192s"
 
 logos.package_manager.package_signing_key_id = bstr .size (1..128)
+
+logos.package_manager.package_signer = {
+  profile: logos.package_manager.package_signing_profile,
+  public_key: bstr .size 48,
+}
 
 logos.package_manager.package_signature_claim = {
   profile: logos.package_manager.package_signing_profile,
@@ -500,10 +508,8 @@ logos.package_manager.package_signature_claim = {
 ```
 
 `manifest.cose` MUST be one tagged `COSE_Sign1` object using CBOR tag 18.
-The protected header map MUST contain exactly:
-
-- `alg` with COSE label `1` and value `-19` for `Ed25519`;
-- `kid` with COSE label `4` and a `logos.package_manager.package_signing_key_id` value.
+The protected header map MUST contain exactly `kid`, with COSE label `4` and a `logos.package_manager.package_signing_key_id` value.
+An explicit `alg` header MUST be rejected, including one that identifies the algorithm fixed by this profile.
 
 The unprotected header map MUST be empty.
 The outer `COSE_Sign1` object and serialized protected header map
@@ -513,29 +519,45 @@ containing the Logos deterministic-CBOR encoding of `logos.package_manager.packa
 Detached payloads, additional protected or unprotected headers,
 multiple signatures, countersignatures, and critical-header extensions are not accepted by this profile.
 
-The `Sig_structure` is the RFC 9052 `Signature1` structure
-with the protected header bytes from the object,
-a zero-length `external_aad`, and the exact embedded payload bytes.
-This profile defines no nonce and no external signing context.
-The profile identifier inside the signed payload provides application-level domain separation
-without defining a private COSE header parameter or media type.
+The `Sig_structure` is the deterministic-CBOR encoding of the RFC 9052 `Signature1` structure, using the protected header bytes from the object and the exact embedded payload bytes.
+Its `external_aad` MUST be the UTF-8 bytes of `logos.package-signing.cose-sign1-slh-dsa-sha2-192s`, without a terminator.
+The verifier MUST derive this value and the fixed algorithm from its protected package-signing context before signature verification, not from the received claim or headers.
+The context MUST bind the expected profile, algorithm, `COSE_Sign1` structure, package-signing purpose, accepted `kid`, and exact public key.
+The profile identifier inside the signed payload MUST equal the expected profile after verification.
+This profile defines no nonce or algorithm negotiation.
+A verifier MUST NOT retry with another algorithm, context, or profile after verification fails.
 
-Protected package-signing trust input MUST map each accepted `kid`
-to exactly one 32-byte Ed25519 public key encoded according to RFC 8032.
+Protected package-signing trust input MUST map each accepted `kid` to exactly one 48-byte `SLH-DSA-SHA2-192s` public key.
+The public-key encoding is the FIPS 205 concatenation `PK.seed || PK.root`, with 24 bytes in each component.
+The same key material MUST NOT be used for provenance signing, call-evidence signing, TLS authentication, or another signature algorithm.
 Two accepted trust anchors MUST NOT use the same `kid`.
 The `kid` selects candidate verification material;
 it does not establish trust without that protected mapping.
 For this profile, the authenticated `kid` identifies the signer whose exact-name authorization is required by Section 4.1.
-The signing private key is not package content or a Package Manager input.
-Package producers MUST generate the 32-byte Ed25519 private seed with a cryptographically secure random generator
-and MUST protect it against disclosure and unauthorized signing.
-Its storage encoding is package-producer configuration outside this specification.
 
-An Ed25519 signature is exactly 64 bytes.
+The `package_signer` record identifies the verified cryptographic signer by profile and exact public-key bytes; it does not identify a publisher or assert current trust.
+Package Manager MUST derive this record from the verification that accepted the adjacent manifest commitment and retain it with installed state.
+Each inspection result MUST report the signer established by verification of its inspected package signature.
+A Runtime handoff MUST report the signer retained with its selected installed record.
+Equal manifest commitments MUST NOT by themselves establish equal signer provenance.
+Historical signer facts MUST NOT be reconstructed from a later `kid` mapping.
+A retained authenticated `kid` may support diagnostics but MUST NOT substitute for profile-bound key identity.
+The signing private key is not package content or a Package Manager input.
+Package producers MUST generate signing keys using FIPS 205 key generation and its randomness requirements and MUST protect them against disclosure and unauthorized signing.
+Private-key storage encoding is package-producer configuration outside this specification.
+
+Signatures MUST use pure `SLH-DSA-SHA2-192s` with the zero-length FIPS 205 context.
+The message supplied to FIPS 205 `slh_sign` or `slh_verify` is the exact encoded `Sig_structure`.
+The FIPS 205 pure-mode prefix is applied by those operations and MUST NOT be added again to their message input.
+HashSLH-DSA, an additional prehash, another parameter set, and a nonempty context MUST NOT be used.
+Signers SHOULD use FIPS 205 hedged signing with fresh randomness and MUST fail signing if required randomness cannot be obtained.
+Verifiers MUST accept both deterministic and hedged signatures that satisfy the same FIPS 205 verification procedure.
+A signature is exactly 16,224 bytes.
+Package Manager MUST apply FIPS 205 `slh_verify` and accept only its successful result; it MUST NOT truncate, pad, normalize, or otherwise repair a key or signature.
 Package Manager MUST reject an object with a malformed tag or structure,
 non-deterministic CBOR, a missing or detached payload,
 an unknown or duplicate `kid`, any header not permitted above,
-an algorithm other than `-19`, an invalid public-key or signature length,
+an invalid protected signing context, an invalid public-key or signature length,
 or a failed signature verification.
 It MUST then decode the signed claim,
 require the exact profile identifier,
@@ -567,8 +589,7 @@ until Package Manager obtains the package's own signature and completes the veri
 Catalog metadata MUST NOT establish signer trust, artifact integrity, package freshness,
 installation authority, or execution authority.
 
-A deployment that requires authenticated catalog ordering, freshness, or external anchoring
-must select a catalog profile satisfying Section 4.2.
+A deployment that requires authenticated catalog ordering, freshness, or external anchoring MUST select a catalog profile satisfying Section 4.2.
 That additional profile does not replace the baseline package signature,
 materialized-byte verification, or Runtime's load-boundary digest check.
 
@@ -579,8 +600,13 @@ This specification defines `logos.package-provenance.slsa-v1.2`,
 an optional package-provenance profile based on [SLSA v1.2].
 A Package Manager MAY implement this profile.
 
+While this profile is selected, a request selecting a direct Nix source MUST fail with `unsupported-source` before Nix evaluation or realization.
+Direct Nix sources MUST be excluded from root and dependency candidates before Nix evaluation or realization; resolution MAY use another eligible source.
+The dependency-resolution failure rules in Section 11 apply when no eligible complete closure exists.
+A package built with Nix and supplied as an LGX source remains eligible under this profile.
+
 For an LGX source accepted under this profile, `provenance_object` MUST be present.
-Package Manager MUST retrieve the identified object from the Logos Storage provider named by `storage`
+Package Manager MUST retrieve the identified object from the Logos Storage provider selected by `storage`
 and MUST use that detached object as the profile's provenance evidence.
 It MUST NOT use an attestation embedded in the LGX archive to satisfy this profile.
 An absent locator, an unavailable object, a retrieval failure, or an object that does not satisfy every profile requirement
@@ -600,7 +626,7 @@ the `signatures` array MUST be nonempty,
 and every decoded `sig` value MUST be nonempty.
 Package Manager MUST apply the DSSE and in-toto rules for unrecognized fields.
 
-Package Manager MUST verify each signature over the DSSE pre-authentication encoding of the exact `payloadType` and decoded `payload` bytes.
+Package Manager MUST verify each signature over the DSSE pre-authentication encoding [DSSE Protocol] of the exact `payloadType` and decoded `payload` bytes.
 It MUST parse and evaluate the same payload bytes whose signature it verified.
 It MUST NOT normalize, reserialize, translate, or substitute the payload before signature verification.
 This profile uses native DSSE and in-toto evidence so Package Manager can verify producer attestations without translation.
@@ -621,6 +647,33 @@ An additional invalid or unaccepted signature neither grants trust nor invalidat
 Builder-identifier comparison is case-sensitive exact string equality.
 A prefix, wildcard, redirect, case folding, Unicode normalization, or URI normalization MUST NOT establish equality.
 Failure to obtain an accepted signer-builder pair MUST cause package rejection without baseline-only fallback.
+
+An implementation supporting `logos.package-provenance.slsa-v1.2` MUST implement `logos.provenance-signing.dsse-slh-dsa-sha2-192s`.
+Protected deployment policy selects whether that provenance-signing profile is accepted.
+This requirement does not make package-provenance enforcement mandatory.
+A configuration selecting an unsupported provenance-signing profile MUST be rejected before processing packages.
+
+The `logos.provenance-signing.dsse-slh-dsa-sha2-192s` profile uses pure `SLH-DSA-SHA2-192s` from FIPS 205 with a zero-length context.
+Its public-key encoding, key generation, signature length, signing randomness, and verification procedure are those defined in Section 4.3.
+The message supplied to `slh_sign` or `slh_verify` is the exact DSSE pre-authentication encoding of `payloadType` and the decoded `payload` bytes.
+It MUST NOT be wrapped in COSE, re-encoded, prefixed a second time for FIPS 205, or prehashed before that operation.
+The authenticated signer identity is the pair of this exact provenance-signing profile identifier and the exact 48-byte public key.
+Protected trust input MUST bind that identity to its accepted builder identifiers and authorize the key for provenance signing.
+The same key material MUST NOT be used for package signing, call-evidence signing, TLS authentication, or another signature algorithm.
+
+An optional DSSE `keyid` MAY narrow candidate lookup only within the accepted protected provenance trust input.
+It MUST NOT supply a key, select an algorithm, change builder authorization, or cause network key discovery.
+An absent or empty `keyid` requires lookup within the accepted protected key set under the same bounds.
+Protected configuration MUST define finite limits for envelope size, signature count, accepted keys, and candidate-verification attempts.
+An implementation MUST reject a configuration whose required limits or verification rules it cannot enforce.
+Failure to verify under this profile MUST NOT cause acceptance under an unselected profile or baseline-only package acceptance.
+An independently selected provenance-signing profile retains its own verification and trust rules.
+
+Removal or revocation of a provenance signer or builder authorization MUST prevent its use for a new successful verification, resolution, installation, update, or Runtime handoff.
+Any cached result MUST be bound to the exact evidence and active trust configuration and invalidated when an applicable profile, key, builder authorization, or required binding changes.
+Rotation MAY admit distinct old and new signer identities during a protected overlap period.
+This provenance-signing profile defines no certificate validation, transparency requirement, trusted signing time, or automatic historical exemption from revocation.
+A Statement timestamp MUST NOT establish such an exemption.
 
 For this profile, at least one entry in the Statement's `subject` array MUST identify the complete gzip-compressed LGX archive bytes obtained from the package source.
 That entry's `digest` map MUST contain a `sha256` entry equal to SHA-256 [RFC 6234] over those exact bytes.
@@ -678,6 +731,10 @@ or protect against a malicious or compromised accepted build platform.
 
 Only protected deployment policy may select an active package-provenance profile.
 A manifest, package sidecar, catalog, Storage object, Nix metadata, provenance object, or caller MUST NOT select, disable, or weaken that profile.
+Protected configuration for package-provenance enforcement MUST satisfy the protected continuity rules in Section 4.1.
+The protected state MUST cover profile selection, including the absence of a selected profile, accepted provenance-signing profiles and signer-builder authorizations, build-type and source bindings, and any selected source-evidence requirements and their trust inputs.
+Re-enabling withdrawn trust or weakening a previously accepted requirement requires a newly authorized later state.
+These requirements do not require package-signing and provenance configuration to share one revision counter or storage representation.
 
 When no package-provenance profile is selected,
 Package Manager applies the mandatory package-signature and artifact-verification baseline
@@ -720,6 +777,7 @@ local install state.
 
 ```cddl
 logos.package_manager.installed_package_record = {
+  signer: logos.package_manager.package_signer,
   identity: logos.package_manager.package_identity,
   source: logos.package_manager.package_source,
   variant: logos.package_manifest.package_variant_id,
@@ -744,7 +802,7 @@ logos.package_manager.package_source =
   }
 
 logos.package_manager.manifest_commitment = {
-  commitment_model: "logos.commitment-model.2026-08",
+  commitment_model: "logos.commitment-model.2026-10",
   schema_root: bstr .size 32,
   schema_subtree_root: bstr .size 32,
   value_root: bstr .size 32,
@@ -765,7 +823,18 @@ An installed record is installed by definition.
 Package Manager MUST retain the selected artifact bytes while their installed record remains present.
 For one package identity, the installed set MUST NOT contain records with different manifest commitments.
 
+Before committing an installed record or replacement, Package Manager MUST verify that every complete required single-record result derived from it fits the 16 MiB Transport body limit.
+The check MUST include install and update results, a one-record installed-list page with maximum legal cursor and call identifier, and each selected module's complete Runtime handoff including resolved configuration schema and default.
+All surrounding result, commitment, and Transport fields count toward the limit.
+An operation that cannot satisfy this admission bound MUST fail through the invocation-error channel with `MODULE_ERROR` and no validation detail without committing that record; a failed replacement preserves the prior installed record.
+Dependencies already committed remain governed by the existing dependency-operation semantics.
+An implementation MUST preserve the admitted bounds when restoring state or changing its local artifact paths; it MUST NOT silently skip an installed record that cannot fit a page.
+Larger deployment-specific Transport limits do not relax this Core-owned state-admission bound.
+
 ## 6. Catalog And Source Records
+
+Catalog document formats, acquisition and refresh mechanisms, and catalog-policy configuration are implementation-defined and MUST be documented.
+These choices MUST preserve the package verification and selected freshness requirements of Sections 4.1 through 4.4.
 
 Catalog records expose package availability in Logos terms.
 They do not expose the backend dependency graph or package-manager internals.
@@ -777,13 +846,18 @@ logos.package_manager.package_catalog_entry = {
 }
 
 logos.package_manager.package_inspect_record = {
+  signer: logos.package_manager.package_signer,
   source: logos.package_manager.package_source,
   manifest: logos.package_manifest.manifest,
   manifest_commitment: logos.package_manager.manifest_commitment,
 }
 ```
 
-An LGX source's `storage` and `object` fields identify the Storage object containing the package archive.
+An LGX source's `storage` identifies a deployment-configured binding to a Logos Storage provider.
+Its `object` identifies the package archive within that binding.
+The `object` and `provenance_object` fields are opaque byte locators.
+The retrieval API and locator encoding for each binding are implementation-defined and MUST be documented.
+Reusing a source locator in another deployment requires compatible bindings and locator interpretations.
 Its optional `provenance_object` field identifies one detached package-provenance object in the same Logos Storage provider.
 When present, `provenance_object` MUST differ from `object`.
 The field is untrusted location data only;
@@ -797,6 +871,11 @@ they do not carry another manifest or trusted package metadata projection.
 
 An inspection record is returned only after the manifest, signature, and commitment have been verified.
 Its commitment MUST correspond to its manifest value under the `logos.package_manifest` schema.
+
+Presentation metadata and search may be supplied by application catalog contracts.
+Such contracts MUST distinguish unverified display claims from facts verified against an exact package manifest and its artifacts.
+The Core catalog does not define pre-install retrieval or verification of a presentation projection.
+Display names and descriptive publisher text MUST NOT establish signing trust or execution authority.
 
 ## 7. Realization Profiles
 
@@ -819,24 +898,40 @@ An LGX package is a gzip-compressed USTAR archive with the following structure:
 package.lgx
 ├── manifest.cbor
 ├── manifest.cose
-├── manifest.json          optional diagnostic rendering
 └── variants/
     └── <variant-id>/
         └── <artifact files>
 ```
 
-Only `manifest.cbor`, `manifest.cose`, `manifest.json`, and `variants/` may appear at the archive root.
+Only `manifest.cbor`, `manifest.cose`, and `variants/` may appear at the archive root.
 The `variants/` directory MUST contain exactly one directory for each manifest variant.
 It MUST NOT contain files directly.
+Directory entries MAY be omitted when their existence follows from descendant entries.
+A manifest variant with no descendant entry MUST have an explicit variant-directory entry.
+Every explicit directory entry MUST use USTAR directory type `5` and size zero.
 Each variant directory name MUST equal the corresponding manifest `id`.
 Variant ids MUST be lowercase ASCII strings containing only letters, digits, `.`, `_`, and `-`.
 Each variant id MUST form one non-empty path segment.
 
+A directory path MAY end with one slash; that slash is removed before path validation, duplicate detection, and entry ordering.
+A regular-file path MUST NOT end with a slash.
 Archive paths MUST be relative, UTF-8, and Unicode NFC-normalized.
 They MUST NOT contain an empty segment, a `.` or `..` segment, a backslash, or a NUL byte.
+Every stored archive path MUST be representable using the USTAR `name` and `prefix` fields without an extension header.
+Its UTF-8 encoding MUST either fit in the 100-byte `name` field or split at a slash into a nonempty prefix of at most 155 bytes and a nonempty name of at most 100 bytes.
+These byte limits include the `variants/<variant-id>/` prefix and any stored directory trailing slash.
+PAX extended headers and GNU long-name headers MUST NOT be used.
+The general manifest artifact-path bound does not relax these LGX constraints.
 The archive MUST NOT contain duplicate normalized paths, symbolic links, or hard links.
 It MUST NOT contain device nodes, FIFOs, or other special files.
-Package Manager MUST reject a selected variant whose paths collide under the selected platform's path-comparison rules.
+Package Manager MUST reject a selected variant whose paths collide under the path-comparison rules of the filesystem and namespace used for installation.
+
+The installation root is the protected destination selected by Package Manager or deployment for materializing the selected artifacts.
+Its layout and the installed inventory's per-user, per-host, or service-instance scope are deployment choices.
+Distinct Package Manager instances do not implicitly share an installed inventory.
+A deployment sharing mutable installation state MUST establish coherent mutation ownership, serialization, and crash recovery across every writer, or reject that shared configuration.
+Shared artifact storage MUST preserve verified-byte binding and retention for every installed record that depends on it.
+The deployment MUST document those rules; an operating-system name alone does not determine them.
 Before writing an extracted entry,
 Package Manager MUST verify that its resolved destination remains within the selected installation root.
 
@@ -845,6 +940,9 @@ USTAR user and group identifiers and modification times MUST be zero.
 User and group names MUST be empty.
 Directory modes MUST be `0755`, and regular-file modes MUST be `0644`.
 Gzip headers MUST omit the original filename, use modification time zero, and use operating-system byte `255`.
+An LGX archive MUST contain exactly one complete gzip member.
+Package Manager MUST validate its CRC32 and ISIZE and MUST reject additional members or bytes following that member's trailer.
+The decompressed stream MUST contain one USTAR archive with its two zero-filled 512-byte end blocks; any subsequent archive padding MUST consist of complete zero-filled 512-byte blocks.
 The compressed DEFLATE bitstream is not package identity and may differ between conforming writers.
 
 Package Manager MUST bound compressed input size, decompressed size, archive entry count,
@@ -852,11 +950,14 @@ individual entry size, and extracted output size before processing untrusted LGX
 The deployment profile defines the concrete limits.
 Package Manager MUST reject an archive before installation when any limit is exceeded.
 
+Protected deployment policy supplies the target execution environment used for variant selection.
+As part of the deployment requirements in LOGOS-MODULE-SYSTEM-BCP Section 5, the deployment profile MUST define the supported `os`, `architecture`, and `abi` values and their matching rules, including any native ABI or version constraints they represent.
 An absent platform field imposes no constraint for that field.
-A present platform field MUST match the corresponding value supplied by the selected platform profile.
-Package Manager evaluates manifest variants in their declared order.
-It selects the first variant compatible with the local platform and selected runtime profile.
+A present platform field MUST match under those rules.
+A value with no defined matching rule MUST NOT match.
+Package Manager evaluates manifest variants in their declared order and selects the first compatible variant.
 It MUST return `incompatible-platform` when no variant is compatible.
+Cross-deployment use of a package requires compatible platform-value definitions and matching rules; this specification defines no global registry or additional runtime-profile selector.
 The selected variant id is recorded in the installed package record.
 
 Artifact paths are relative to the selected variant directory.
@@ -966,6 +1067,8 @@ A package produced with Nix but distributed and installed as an LGX archive uses
 Package Manager MUST validate package material before exposing it as installable
 or installed.
 
+Package Manager MAY stop at the first detected validation failure and return its assigned error, subject to the validation-order requirements in this specification.
+
 A package MUST be rejected with `invalid-package` when the required canonical manifest is absent.
 
 A package MUST be rejected with `invalid-package` when the manifest:
@@ -982,14 +1085,13 @@ A package MUST be rejected with `invalid-package` when the manifest:
 - references a schema or default artifact that is not present exactly once in every manifest variant containing the referencing module's implementation artifact;
 - declares duplicate package dependency names;
 - declares duplicate module identities;
-- assigns one artifact to more than one module declaration;
+- assigns one implementation artifact to more than one module declaration;
 - contains an invalid schema commitment record.
 
 An LGX package MUST be rejected with `invalid-package`
 when its archive structure, entry types, paths, or encoding do not satisfy Section 7.1.
 
-A package MUST be rejected with `incompatible-platform` when its platform or ABI
-constraints exclude the local host or selected runtime profile.
+A package MUST be rejected with `incompatible-platform` when no manifest variant is compatible with the target execution environment under Section 7.1.
 
 A package MUST be rejected with `package-unavailable` when the selected profile cannot materialize the selected package.
 
@@ -1008,9 +1110,6 @@ Manifest artifact paths MUST be relative paths.
 They MUST NOT be absolute paths.
 They MUST NOT contain parent-directory traversal.
 They MUST NOT identify remote resources.
-
-Diagnostic JSON renderings MUST NOT be used to override the canonical CBOR
-manifest.
 
 ## 9. Module Declarations
 
@@ -1079,13 +1178,30 @@ An artifact id identifies the same logical artifact role across variants.
 It may occur once in each variant, with a different path and hash for that variant.
 Module scope is variant-specific and is determined by the presence of the module's implementation artifact.
 The installed artifact list contains only artifacts from the selected variant.
-Platform profiles define the registered `os`, `architecture`, and `abi` values and their matching rules.
+The platform-value definitions and matching rules in Section 7.1 determine variant compatibility.
 Variant ids do not define platform compatibility.
 
 `local_path` is the resolved local artifact location produced by Package Manager.
 Runtime and Module Loader consume resolved local artifacts.
 They MUST NOT execute code directly from a remote Storage object.
 Package Manager MUST keep each installed path bound to the verified bytes while the installed record remains present.
+
+`local_path` is an installation location, not a guaranteed module-visible path.
+Module-visible access to packaged resources and data is established by protected deployment configuration and the selected realization, subject to active permissions.
+The access convention is implementation-defined and MUST be documented; a module may receive resource locations through its schema-typed configuration.
+Native library dependencies are resolved through the deployment-selected dynamic-linker integration defined by LOGOS-MODULE-LOADER.
+The Runtime handoff and Interface initialization input do not provide a package-root directory or artifact lookup table.
+
+A `resource` artifact supplies auxiliary content and a `data` artifact supplies application-defined data, including declared configuration defaults.
+Neither kind authorizes execution, module realization, application activation, or access to an operating-system resource.
+Package Manager MUST NOT execute those artifacts as part of inspection or materialization.
+An authorized consumer or presentation implementation may interpret their content under its own contract and applicable authority.
+The defined Module Loader strategies still require the implementation forms assigned by LOGOS-MODULE-LOADER.
+This specification assigns no executable-bundle or view-only realization form.
+
+License and attribution material may be supplied as verified resource artifacts under documented application conventions.
+Replacing installed executable bytes requires acceptance of the replacement through the applicable artifact, trust, and authorization rules; it MUST NOT bypass verified-byte binding.
+This specification defines no license-compliance assessment or common notice-discovery contract.
 
 ## 11. Dependencies And Requested Permissions
 
@@ -1102,6 +1218,9 @@ logos.package_manager.resolved_package_dependency = {
 The `dependencies` array MUST be non-empty when present.
 Dependency package names MUST be unique within one manifest.
 Each dependency identifies one package name and one structured version requirement.
+Manifest dependencies are unconditional and apply to every variant.
+Package Manager MUST NOT omit a declared dependency because of platform selection or because a module declaration is not selected.
+Package producers MAY use separate packages when supported platforms require different dependency sets.
 
 An `exact` requirement is satisfied only by identical package-version text.
 A `compatible` requirement names a normal-release minimum version and is
@@ -1155,7 +1274,8 @@ To resolve, install, or update a root package,
 Package Manager MUST recursively inspect the selected dependency manifests
 and construct the transitive package closure.
 One closure MUST select at most one version of each package name.
-Package Manager MUST detect a dependency cycle and fail the root operation with `dependency-unavailable`.
+Package Manager MUST reject a partial closure containing a dependency cycle.
+It MUST continue resolution by backtracking under the candidate ordering and resolver limits specified in this section.
 
 A candidate is an installed package record or catalog package whose version
 satisfies every accumulated requirement for its package name.
@@ -1164,8 +1284,16 @@ realization-profile, platform-variant, signature, and artifact rules for the req
 Its signature MUST validate under an accepted trust anchor,
 and its authenticated signer MUST be authorized for its exact package name.
 Package Manager MUST exclude a candidate that fails this requirement before ordering candidate versions by SemVer precedence or exploring its dependency closure.
+After applying candidate eligibility and protected catalog commitment selection, Package Manager MUST check each dependency candidate reached under the required candidate order and resolver limits against the installed record for its exact package identity before assigning it.
+If the manifest commitments differ, the root operation MUST fail with `dependency-unavailable` without changing installed state.
+An encountered installed-identity conflict MUST NOT be skipped or resolved by backtracking to another version.
+This check does not require inspecting lower candidates after a complete solution is selected.
+Conflicts involving the selected root package follow the requested operation's rules, regardless of how the root material was selected.
 An installed candidate with matching exact identity and manifest commitment
 MAY satisfy a dependency without being materialized again.
+If material needed to determine a candidate's eligibility or resolve its dependency closure cannot be located or materialized, the root operation MUST fail with `package-unavailable` without changing the installed package set.
+Unavailable material MUST NOT be treated as proof that the candidate is invalid or its dependency closure is unsatisfiable.
+This rule does not require materializing lower candidates after a complete solution has been selected under the required ordering.
 
 Resolution MUST be deterministic for the same installed state,
 catalog inputs, and protected policy.
@@ -1182,6 +1310,10 @@ backtracking to lower candidates when a candidate's dependencies make the closur
 If multiple acceptable manifests claim the same package name and version with different manifest commitments,
 protected catalog policy MUST select one exact commitment,
 or the root operation MUST fail with `dependency-unavailable`.
+When the operation has not fixed the source explicitly, equivalent acceptable sources for the same exact package identity and full manifest commitment MUST be selected by ascending bytewise lexicographic order of their complete Logos deterministic-CBOR source-record encoding.
+Equal advertised package names and versions alone do not establish commitment equality.
+Source selection MUST preserve the recorded dependency edges of installed packages.
+It does not authorize fallback to an unverified source when required material is unavailable.
 If no complete solution exists, the root operation MUST fail with `dependency-unavailable`.
 
 The `resolved_dependencies` array in an installed package record
@@ -1239,6 +1371,7 @@ logos.package_manager.runtime_artifact = {
 }
 
 logos.package_manager.runtime_handoff = {
+  signer: logos.package_manager.package_signer,
   module: tstr .size (1..64),
   package: logos.package_manager.package_identity,
   artifact: logos.package_manager.runtime_artifact,
@@ -1272,8 +1405,7 @@ is accepted artifact-integrity evidence for Runtime.
 Copying the same field values into another record does not reproduce that provenance.
 The handoff is not approval to realize, route to, or expose the module.
 Security properties of the realization, including sandbox strength, permission enforcement, dangerous host operations, and audit requirements, are defined by LOGOS-MODULE-LOADER, Capability Authority, Runtime, and security profiles.
-Before a runtime host starts or exposes a module,
-active policy must decide whether the package and artifact may be used for the requested placement.
+Before a runtime host starts or exposes a module, active policy MUST decide whether the package and artifact may be used for the requested placement.
 That decision may consume package and artifact identity, requested permissions, and declared provider requirements.
 It may also consume isolation requirements, resource bounds, and local deployment policy.
 This specification does not define the policy language, consent flow, grant record, or audit record for that decision.
@@ -1301,6 +1433,13 @@ Package Manager does not construct or return a Module Loader-owned realization d
 Logos Storage is a package distribution and source layer.
 Package Manager MAY retrieve package catalogs, source references, and LGX packages from Logos Storage.
 Catalog entries may also identify Nix sources for an implementation supporting the Nix profile.
+
+Acquisition mechanisms and component placement are implementation-defined and do not change Package Manager's validation obligations.
+This specification requires neither a separate downloader module nor a common fetch interface implemented by Storage providers.
+
+Protected deployment input MAY supply accepted module facts and local artifacts for the initial Package Manager and Logos Storage providers without a Package Manager source record.
+Runtime MUST apply its artifact-acceptance and execution-authorization rules, and a complete system MUST preserve the Module Loader realization requirements in LOGOS-MODULE-SYSTEM-BCP Section 5.1.
+Provisioning these inputs does not itself create installed package records or establish Package Manager verification.
 
 Package Manager is responsible for converting Storage-retrieved package material
 into local installed artifacts before Runtime or Module Loader uses it.
@@ -1333,7 +1472,7 @@ logos.package_manager.package_error_code =
 ```
 
 `invalid-request` identifies a semantically invalid request that MUST NOT be retried unchanged.
-`unsupported-source` permits the caller to choose a source kind implemented by the provider.
+`unsupported-source` means the source kind or its combination with the selected package-provenance profile is unsupported; the caller may choose another source.
 `package-unavailable` means the requested package or source could not be located or materialized.
 `package-not-installed` means an update or handoff target has no installed record.
 `package-conflict` means the installed set already contains the same package identity with another manifest commitment.
@@ -1343,7 +1482,13 @@ logos.package_manager.package_error_code =
 `dependency-unavailable` means no valid complete dependency closure could be selected
 or resolution exhausted a protected resolver limit.
 `artifact-integrity-failed` means required artifact bytes were absent, escaped their realization root, or did not match the signed digest.
-`signature-verification-failed` means the signature container, signer trust, freshness requirement, or signed manifest commitment was not accepted.
+`signature-verification-failed` means the signature container, signer trust, freshness requirement, signed manifest commitment, or required provenance authentication or trust binding was not accepted.
+
+When `logos.package-provenance.slsa-v1.2` is selected, an absent required provenance locator or a malformed or structurally nonconforming provenance envelope or Statement MUST produce `invalid-package`.
+Failure to retrieve the identified provenance object MUST produce `package-unavailable`.
+Failure to obtain an accepted signer-builder pair or satisfy a required subject, build type, source, or other provenance trust binding MUST produce `signature-verification-failed`.
+Protected policy or trust configuration failures MUST be rejected as configuration failures rather than package errors.
+The first-detected-failure rule in Section 8 applies.
 
 An error message is diagnostic text only.
 It MUST NOT expose credentials, protected policy input, private source data, host paths, backend configuration, or information the caller is not authorized to observe.
@@ -1364,12 +1509,33 @@ This contract defines these methods:
 - `remove_package`;
 - `update_package`;
 - `list_installed_packages`;
+- `watch_installed_packages`;
 - `get_runtime_handoff`.
+
+The contract defines `installed_packages_changed` and `operation_progress` events.
 
 ```cddl
 _module = "logos_package_manager"
 
 logos.package_manager.cursor = tstr .size (1..512)
+logos.package_manager.progress_key = tstr .size (1..128)
+logos.package_manager.progress_phase =
+  "resolving" / "fetching" / "verifying" / "installing" / "removing"
+
+logos.package_manager.watch_installed_packages_request = {}
+
+logos.package_manager.watch_installed_packages_response =
+  {} /
+  { error: logos.package_manager.package_error }
+
+logos.package_manager.installed_packages_changed_event = {}
+
+logos.package_manager.operation_progress_event = {
+  progress_key: logos.package_manager.progress_key,
+  phase: logos.package_manager.progress_phase,
+  ? bytes_completed: uint64,
+  ? bytes_total: uint64,
+}
 
 logos.package_manager.list_packages_request = {
   ? package: logos.package_manifest.package_name,
@@ -1398,6 +1564,7 @@ logos.package_manager.install_package_request = {
   package: logos.package_manifest.package_name,
   ? version: logos.package_manifest.package_version,
   ? source: logos.package_manager.package_source,
+  ? progress_key: logos.package_manager.progress_key,
 }
 
 logos.package_manager.install_package_response =
@@ -1406,6 +1573,7 @@ logos.package_manager.install_package_response =
 
 logos.package_manager.remove_package_request = {
   identity: logos.package_manager.package_identity,
+  ? progress_key: logos.package_manager.progress_key,
 }
 
 logos.package_manager.remove_package_response =
@@ -1416,6 +1584,7 @@ logos.package_manager.update_package_request = {
   current: logos.package_manager.package_identity,
   ? target_version: logos.package_manifest.package_version,
   ? source: logos.package_manager.package_source,
+  ? progress_key: logos.package_manager.progress_key,
 }
 
 logos.package_manager.update_package_response =
@@ -1448,12 +1617,21 @@ logos.package_manager.get_runtime_handoff_response =
 
 If `limit` is absent, the default is 100 records.
 If present, it MUST be in the inclusive range from 1 through 1000.
-Each cursor is opaque and bound to the authenticated caller and original query.
-The provider MUST filter records to those the caller may inspect before applying the limit or creating a cursor.
+A deployment MUST establish compatible protected invocation integration and observation policy before exposing Package Manager queries.
+The integration MUST distinguish an ordinary consumer-bound route from a Runtime-owned system-service binding under LOGOS-MODULE-RUNTIME Section 9.
+It MUST authenticate and isolate each invocation's context; request payloads and the provider's own outbound Runtime Control binding do not establish that context.
+The generic invocation context identifies the protected invocation origin but does not define Package Manager record-visibility policy.
+Compatible protected observation integration remains an additional deployment requirement.
+Each cursor is opaque and bound to the original query and either the ordinary route's authenticated consumer module-instance address or the exact Runtime-owned system-service binding.
+An invalidated or replaced system-service binding MUST NOT continue its predecessor's cursors.
+The protected integration MUST apply the corresponding observation authority before filtering, limiting results, creating a snapshot, or issuing a cursor.
+Policy MAY explicitly permit all records to an authorized invoker; method invocation permission alone MUST NOT imply record visibility.
+If authenticated context or observation authority cannot be established, the query MUST fail without disclosing records or cursor state.
+The integration MAY supply trusted context to the provider or enforce these requirements in a protected adapter.
 Each response returns at most the applicable limit and MAY return fewer records to remain within the Core Transport message-size ceiling.
-A response contains `next_cursor` only when that filtered snapshot contains another record.
+A response MUST include `next_cursor` exactly when another currently disclosable record remains in the snapshot after that page.
 Cursor continuation MUST preserve the ordering and remaining records of the original snapshot without duplication.
-It MUST reapply current observation authority and omit any remaining record the caller may no longer inspect.
+It MUST reapply current observation authority and omit any remaining record the invocation may no longer inspect.
 A cursor and result count MUST NOT reveal additional hidden records.
 The provider MAY expire a cursor and return `invalid-request` rather than retain the snapshot indefinitely.
 
@@ -1496,6 +1674,8 @@ It MUST NOT automatically remove dependencies that become unused.
 It MAY leave backend cache or store material reachable through backend-specific
 garbage-collection policy.
 Removing an absent package identity succeeds and MUST NOT affect another identity.
+Package removal does not retire Runtime module instances or delete their assigned persistent state.
+Instance retirement is a separately authorized Runtime Control operation; physical state disposal remains a separate authorized storage or deployment operation.
 
 `update_package` selects a version strictly greater than `current` under Semantic Version precedence.
 When `target_version` is present, it fixes that exact target version.
@@ -1504,18 +1684,92 @@ A target fixed by either field that is not strictly greater than `current` is an
 When neither fixes a target version, Package Manager selects the highest available newer normal release.
 If no applicable newer version exists, the operation succeeds with the current installed record and changes nothing.
 
+If the selected target identity is already installed with a different manifest commitment, the update MUST fail with `package-conflict` without changing installed state.
 Before replacement, Package Manager MUST resolve and validate the selected update's complete transitive dependency closure.
+If the selected target identity is already installed with the same manifest commitment, Package Manager MUST verify that its recorded direct dependency edges equal the newly selected edges before installing dependencies or changing installed state.
+Different recorded edges MUST fail with `dependency-unavailable` without changing installed state.
 It installs missing dependencies under the same dependency-first rules as `install_package`.
 It MUST record the update's newly selected direct dependency edges.
 It MUST fail with `package-not-installed` when `current` is absent
 and with `package-in-use` when another installed package depends on that exact current package and commitment.
 If the update fails, the previously installed root package version MUST remain installed.
 On success, replacement of the current root record with the updated root record MUST be atomic.
+If the selected target identity is already installed with the same manifest commitment and matching dependency edges, the update MUST atomically remove the current root record and return the existing target record without creating a duplicate.
 
 Package Manager MUST serialize installed-state mutations whose affected package identities or dependency closures overlap.
 An observer sees either the complete installed state before such a mutation or the complete state after it.
 It MUST NOT observe a partially created, removed, or replaced root record.
 Operations over disjoint package identities and dependency closures MAY proceed concurrently.
+
+Package Manager MUST account retained snapshot count and storage to the authenticated ordinary consumer or exact protected system-service binding and enforce finite per-origin and aggregate limits.
+Its documented retention policy MUST define reclamation and overload behavior.
+An origin exceeding its allowance MUST NOT cause another origin's cursor to be invalidated solely to satisfy that excess request.
+If aggregate capacity prevents creating or retaining an authorized snapshot, Package Manager MUST fail the invocation with `MODULE_ERROR` and no validation detail.
+Current disclosure of a retained snapshot record requires the authenticated policy facts needed to check that record, including after current inventory removal; unavailable authorization MUST prevent disclosure.
+
+### 15.1 Installed-State Change Observation
+
+`watch_installed_packages` observes subsequent installed-state changes visible to its authenticated ordinary module consumer.
+
+The protected invocation context supplies that consumer identity; no consumer field in the method payload is required.
+The invocation MUST originate from an ordinary consumer-bound route; an engine system-service invocation MUST NOT be admitted to this method.
+The method requires its own provider-access authority, and the consumer also requires authority to subscribe to `installed_packages_changed`.
+Neither permission grants visibility of every package record.
+The provider retains the admitted invocation while watching and uses its invocation-scoped event destination for each hint.
+It MUST NOT publish these hints through ordinary broadcast.
+
+The protected observation integration defined above MUST support current record-visibility checks throughout the retained watch.
+Caller identity and a scoped publisher alone do not establish that visibility.
+The provider MUST NOT retain a borrowed synchronous authorization callback beyond its valid invocation scope.
+If the required authenticated observation context or visibility decision cannot be maintained, the provider MUST fail the watch without publishing unauthorized hints.
+A deployment MAY provide trusted retained policy integration or a protected adapter; this contract adds no generic native permission operation.
+
+At publication admission, the provider MUST establish that at least one committed installed-state change is observable by the watch consumer under current observation policy.
+It MUST retain enough affected-record information to authorize a removal after the installed record disappears.
+A hint MAY coalesce several changes, but hidden-only changes MUST NOT produce a hint for that observer.
+Actual dependency installations that remain committed after a root-operation failure qualify as changes; an idempotent no-op does not.
+The hint MUST NOT expose a global installed-set revision or counter.
+Later loss of package-inspection authority does not retract an already admitted hint; Runtime still applies event and destination authority at delivery commitment.
+
+The empty event payload marks the observer's installed inventory stale.
+The observer re-queries `list_installed_packages` under current authorization.
+The watch supplies no initial snapshot, readiness acknowledgement, replay, snapshot/event revision relation, or uninterrupted reconstruction guarantee.
+Subscription and watch submission MUST NOT be treated as proof that a provider observation boundary has already been established.
+Consumers requiring a refreshed view MUST query it, resynchronize after connection/watch loss, and periodically refresh when continuity or visibility cannot be established.
+The provider MUST stop observation and discharge retained invocation ownership when it observes cancellation or destination loss.
+Ending the watch affects observation only and MUST NOT cancel installation or removal work initiated by another invocation.
+The existing invocation lifetime and admitted-call capacity rules apply.
+
+A watch remains an outstanding ordinary method invocation while observation continues; its final Response ends the watch, and an empty success response is not a registration acknowledgement.
+Package Manager MUST bound retained watches, queued observation work and in-flight publications.
+Ordinary observation MUST NOT block or consume capacity reserved for required Runtime-owned system-service progress, including runtime handoff retrieval.
+An implementation unable to continue a watch within its limits MUST end it through ordinary completion or invocation failure without discarding committed delivery obligations.
+Equivalent concurrent watches MAY produce duplicate notifications on the same invocation path.
+The provider MUST arrange cancellation observation independently of further state changes or publication attempts.
+
+### 15.2 Operation Progress
+
+`install_package`, `remove_package`, and `update_package` accept an optional caller-selected `progress_key`.
+Without that field, the provider MUST NOT publish progress for the invocation.
+With it, the provider MAY publish `operation_progress` through that invocation's scoped destination to matching active subscriptions.
+The provider MUST NOT broadcast this progress.
+The consumer establishes its subscription and correlation state before submitting the operation because an event may arrive before submission returns.
+The provider MUST echo the supplied key unchanged; it is correlation data, not an idempotency key, job identity, or authority token.
+Consumers distinguish concurrent operations by choosing distinct keys within the initiating invocation path.
+
+Each event reports the actual phase being observed.
+Counters, when supplied, describe measured bytes for that phase; `bytes_total` MAY be omitted when the total is unknown.
+`bytes_completed` MUST NOT exceed a supplied `bytes_total`.
+A phase may recur for separate package/dependency work, so counters do not define a monotonic total for the whole operation.
+The provider MUST NOT imply a known total or percentage when it cannot establish one.
+Progress MUST NOT disclose package, dependency, backend, or policy information outside the initiating consumer's observation authority.
+The protected integration MUST authorize progress disclosure at publication admission, with the same retained-context and later-delivery boundaries as Section 15.1.
+
+Progress is optional and advisory; absence of events does not indicate that the operation failed or stopped.
+The original method's final Response remains authoritative for its result.
+Deferred completion uses LOGOS-MODULE-INTERFACE without a new method kind or durable job protocol.
+Cancellation, timeout, connection loss, or loss of progress observation MUST NOT by itself be interpreted as rollback or proof of the installed-state outcome.
+Existing transaction, dependency, trust, and installed-state rules continue to govern committed effects.
 
 ## 16. Shared Type Ownership
 
@@ -1560,22 +1814,40 @@ permission-mapping, sandbox, or deployment requirements that they explicitly def
 
 ## References
 
+### Normative
+
+- [RFC 2119]: Key words for use in RFCs to Indicate Requirement Levels.
+  https://www.rfc-editor.org/rfc/rfc2119
+- [RFC 8174]: Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words.
+  https://www.rfc-editor.org/rfc/rfc8174
 - [RFC 6234]: US Secure Hash Algorithms (SHA and SHA-based HMAC and HKDF).
-- [RFC 8032]: Edwards-Curve Digital Signature Algorithm (EdDSA).
+- [FIPS 205]: Stateless Hash-Based Digital Signature Standard.
 - [RFC 8949]: Concise Binary Object Representation (CBOR).
 - [RFC 9052]: CBOR Object Signing and Encryption (COSE): Structures and Process.
-- [RFC 9864]: Fully-Specified Algorithms for JOSE and COSE.
 - [DSSE v1]: Dead Simple Signing Envelope, version 1.
+- [DSSE Protocol]: Dead Simple Signing Envelope protocol.
 - [in-toto Attestation v1]: in-toto Attestation Framework, version 1.
 - [SLSA v1.2]: Supply-chain Levels for Software Artifacts, version 1.2.
 - [SLSA Source v1.2]: Supply-chain Levels for Software Artifacts, Source Track, version 1.2.
+- LOGOS-MODULE-CONFIGURATION -- Configuration schemas, values and application semantics.
+- LOGOS-MODULE-INTERFACE -- Contract schemas, native artifacts and deterministic encoding.
+- LOGOS-MODULE-COMMITMENT-MODEL -- Schema and value commitments.
+- LOGOS-MODULE-HASH-PROFILE -- Commitment hashing and verification.
+- LOGOS-MODULE-RUNTIME -- Module identity, admission, provider discovery and Runtime handoff requirements.
+- LOGOS-MODULE-LOADER -- Realization strategy, placement and implementation-binding definitions.
+- LOGOS-MODULE-SYSTEM-BCP -- Selected profiles and deployment-convention requirements.
+
+### Informative
+
+- LOGOS-MODULE-CAPABILITY-AUTHORITY -- Ownership of authority decisions, grants and audit material.
+- LOGOS-MODULE-SECURITY-CONSIDERATIONS -- Integrated threat model.
 
 [RFC 6234]: https://www.rfc-editor.org/rfc/rfc6234
-[RFC 8032]: https://www.rfc-editor.org/rfc/rfc8032
+[FIPS 205]: https://csrc.nist.gov/pubs/fips/205/final
 [RFC 8949]: https://www.rfc-editor.org/rfc/rfc8949
 [RFC 9052]: https://www.rfc-editor.org/rfc/rfc9052
-[RFC 9864]: https://www.rfc-editor.org/rfc/rfc9864
 [DSSE v1]: https://github.com/secure-systems-lab/dsse/blob/master/envelope.md
+[DSSE Protocol]: https://github.com/secure-systems-lab/dsse/blob/master/protocol.md
 [in-toto Attestation v1]: https://github.com/in-toto/attestation/blob/main/spec/v1/
 [SLSA v1.2]: https://slsa.dev/spec/v1.2/
 [SLSA Source v1.2]: https://slsa.dev/spec/v1.2/source-requirements

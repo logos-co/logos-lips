@@ -20,7 +20,12 @@ The purpose is to keep ownership clear across interoperable implementations.
 Interface and Commitment define contracts, method identity, typed value identity, schema roots, value roots, and proof paths.
 Configuration defines schema-typed module configuration and its Runtime-owned state and delivery semantics.
 Runtime and Transport select providers, establish routes, move typed values, and expose invocation paths.
-Capability Authority, Package Manager, and Module Loader add authority, package, artifact, realization, and deployment behavior around those contracts and routes.
+Capability Authority, Package Manager, Module Loader, and Credential Store add authority, package, artifact, realization, deployment, and credential-provisioning behavior around those contracts and routes.
+
+## Requirements Language
+
+Uppercase requirement keywords in this specification follow BCP 14 [RFC 2119] [RFC 8174].
+Lowercase forms retain their ordinary English meanings.
 
 ## 1. Three-Layer Stack
 
@@ -44,6 +49,7 @@ Layer 3 — Runtime-adjacent module services
   LOGOS-MODULE-CAPABILITY-AUTHORITY
   LOGOS-MODULE-PACKAGE-MANAGER
   LOGOS-MODULE-LOADER
+  LOGOS-MODULE-CREDENTIAL-STORE
 ```
 
 LOGOS-MODULE-SECURITY-CONSIDERATIONS is analysis across the stack rather than another layer.
@@ -66,6 +72,26 @@ They may use modules to consume Core contracts,
 but host shell is an application description rather than a Core role or participant class.
 The Core specifications do not define host-shell-specific identity, lifecycle, authority, routing, or realization semantics.
 
+### 1.1 Dependency Exceptions
+
+The following upward dependencies are exceptions to the layer direction in this revision.
+
+| Referencing specification | Higher-layer owner | Required definitions or behavior |
+|---|---|---|
+| Interface §§1.2, 1.4, 1.5, 2.8, 2.9 and 5.2 | Runtime | Module-name grammar, module/schema binding, protected caller and invocation-scoped event semantics, Runtime Control operation ordering, and remote-binding endpoint, consumer and authorization semantics. |
+| Interface §§1.5, 2.5, 2.8, 2.9, 4 and 5.2 | Transport | Transported subscription, delivery and cancellation semantics, message-validation failures, and remote-binding authentication and Hello validation. |
+| Runtime §§2.4, 3.6, 4.3 and 9 | Capability Authority | Discovery decisions, authenticated consumer and authority-decision records, and contract-specific policy mappings when authority is externalized. |
+| Runtime §§3.5–3.7, 8 and 9.3 | Package Manager | Package facts, retained package and signer provenance, acceptance evidence and authenticated Runtime handoff records when Package Manager supplies a module. |
+| Runtime §§3.4, 5.1, 9 and 13.3 | Module Loader | Realization evidence, hosted listener handoff, strategy and placement definitions, and static binding identifiers. |
+| Runtime §9 and Transport §4.1 | Capability Authority | The `call` audit record and baseline call-evidence container, including the types and verification rules needed to produce and verify those records. |
+
+These dependencies require the referenced definitions where applicable; they do not by themselves require deployment of higher-layer service providers.
+In particular, call-audit and evidence support does not require a Capability Authority provider or calls to its module contract.
+The complete-system composition requirements remain separate.
+
+> **Caution:** Future revisions will review these exceptions for removal or relocation to the appropriate layer.
+> The current requirements remain in force; this caution does not relax conformance or change existing schema identities.
+
 ## 2. System Roles
 
 LOGOS-MODULE-RUNTIME Terminology defines the canonical system roles and invocation boundaries.
@@ -84,7 +110,7 @@ Several unrelated primary concrete contracts should not be aggregated into one m
 
 The Runtime's own identity identifies its boundary and intrinsic Runtime Control exposure.
 An enrolled source Runtime authenticates a remote boundary with that identity.
-When a module performs an operation, Runtime binds that module instance as the consumer and active authority policy must permit the consumer and requested operation.
+When a module performs an operation, Runtime binds that module instance as the consumer and active authority policy MUST permit the consumer and requested operation.
 
 ### 2.1 Presentation And Consumer-Only Modules
 
@@ -170,6 +196,9 @@ LOGOS-MODULE-PACKAGE-MANAGER defines the Package Manager module contract for pac
 LOGOS-MODULE-LOADER defines the Module Loader module contract for direct static binding,
 direct dynamic loading, and hosted dynamic loading in a process, sandbox, or container.
 
+LOGOS-MODULE-CREDENTIAL-STORE defines authenticated creation and presence queries for encrypted credentials in protected deployment-assigned slots.
+It leaves backend selection and protected startup delivery to the host and does not extend Runtime Control.
+
 A module implemented in a language that does not directly export the canonical C ABI
 uses generated or handwritten adapter code in its static binding or dynamic library.
 A module kit can generate that adapter from the canonical contract.
@@ -177,7 +206,7 @@ The adapter is part of the module implementation and does not define another con
 participant, lifecycle, or realization strategy.
 
 This layer consumes Interface/Commitment identities and Configuration/Runtime/Transport records.
-It adds authority, package, artifact, realization, deployment, and audit behavior.
+It adds authority, package, artifact, realization, deployment, credential-provisioning, and audit behavior.
 It does not redefine schema identity, method identity, or value-root identity.
 
 ### 3.4 Cross-Cutting Security Analysis
@@ -230,24 +259,30 @@ The following identifiers are assigned by their normative owners:
 | Kind | Identifier |
 |------|------------|
 | `cdCDDLe` canonical model | `cdcddle` |
-| Commitment model | `logos.commitment-model.2026-08` |
+| Commitment model | `logos.commitment-model.2026-10` |
 | Hash profile | `logos.hash-profile.2026-08.choice-index` |
 | Hash suite | `logos.hash-suite.blake3-256` |
 | Protected local transport | `logos.local.unix-stream` |
 | Mandatory remote transport | `logos.remote.tls-tcp` |
 | Optional remote transport | `logos.remote.quic` |
 | Route ticket | `logos.route-ticket.random-256` |
-| Package signature | `logos.package-signing.cose-sign1-ed25519` |
-| Call evidence | `logos.call-evidence.cose-sign1-ed25519` |
+| Package signature | `logos.package-signing.cose-sign1-slh-dsa-sha2-192s` |
+| Provenance signature | `logos.provenance-signing.dsse-slh-dsa-sha2-192s` |
+| Call evidence | `logos.call-evidence.cose-sign1-slh-dsa-sha2-192s` |
 | Runtime Control | `logos_runtime_control` |
 | Capability Authority module | `logos_capability_authority` |
 | Module Loader module | `logos_module_loader` |
 | Package Manager module | `logos_package_manager` |
+| Credential Store module | `logos_credential_store` |
 
 ### 5.1 Individual And Complete-System Conformance
 
 An implementation may claim conformance to an individual Core specification without implementing a module contract from a later layer.
 Accordingly, conformance to LOGOS-MODULE-RUNTIME or LOGOS-MODULE-TRANSPORT does not require implementation of LOGOS-MODULE-LOADER.
+Credential Store is optional to implement and deploy.
+Neither lower-layer conformance nor complete-system conformance to this BCP requires it.
+Its contract requirements apply when conformance to LOGOS-MODULE-CREDENTIAL-STORE is claimed.
+Runtime and Capability Authority bootstrap do not depend on its availability.
 
 A deployment claiming conformance to this BCP as a complete Logos module system MUST establish its initial Module Loader provider through protected, non-recursive bootstrap.
 After Runtime binds that provider, it MUST use it to realize the orchestration module under protected bootstrap policy.
@@ -292,11 +327,12 @@ The `Selection authority` column states who chooses the behavior for a concrete 
 |------|------------------------|---------------------|---------------------|
 | Module-boundary encoding | Logos deterministic CBOR rules in LOGOS-MODULE-INTERFACE | Mandatory for every implementation encoding module-boundary values. | Fixed by LOGOS-MODULE-INTERFACE; there is no implementation or deployment choice. |
 | Physical commitments | `logos.hash-profile.2026-08.choice-index` with `logos.hash-suite.blake3-256` | Mandatory for every implementation producing or verifying Logos commitments. | Fixed by LOGOS-MODULE-HASH-PROFILE; there is no implementation or deployment choice. |
-| Package signatures | `logos.package-signing.cose-sign1-ed25519` | Mandatory for every conforming Package Manager. | Fixed by LOGOS-MODULE-PACKAGE-MANAGER wherever that specification requires a package signature. |
+| Package signatures | `logos.package-signing.cose-sign1-slh-dsa-sha2-192s` | Mandatory for every conforming Package Manager. | Fixed by LOGOS-MODULE-PACKAGE-MANAGER wherever that specification requires a package signature. |
 | Package provenance | `logos.package-provenance.slsa-v1.2` | Optional to implement. | Protected deployment policy may select it only when Package Manager supports it. Selection is explicit and fails closed without baseline-only fallback. |
-| Call evidence | `logos.call-evidence.cose-sign1-ed25519` | Mandatory for every conforming Runtime. | The format is fixed by LOGOS-MODULE-CAPABILITY-AUTHORITY. Audit policy selects whether call evidence is produced. |
-| Route tickets | `logos.route-ticket.random-256` | Mandatory for Runtime and Transport when using the protected local or production remote profiles below. | Fixed by LOGOS-MODULE-TRANSPORT after one of those transport profiles is selected. |
-| Protected local transport | `logos.local.unix-stream` | Mandatory for a conforming local-transport implementation on a system that supports Unix-domain stream sockets. | Runtime placement or deployment selects local transport; the profile is then fixed. |
+| Provenance signatures | `logos.provenance-signing.dsse-slh-dsa-sha2-192s` | Mandatory for an implementation supporting `logos.package-provenance.slsa-v1.2`. | Protected deployment policy selects accepted provenance-signing profiles and signer-builder trust; implementing the profile does not establish trust. |
+| Call evidence | `logos.call-evidence.cose-sign1-slh-dsa-sha2-192s` | Mandatory for every conforming Runtime. | The format is fixed by LOGOS-MODULE-CAPABILITY-AUTHORITY. Audit policy selects whether call evidence is produced. |
+| Route and local system-service tickets | `logos.route-ticket.random-256` | Mandatory for Runtime and Transport when using the protected local or production remote profiles below. | Fixed by LOGOS-MODULE-TRANSPORT after one of those transport profiles is selected. |
+| Protected local transport | `logos.local.unix-stream` | Mandatory for a conforming local-transport implementation on a system that supports Unix-domain stream sockets, subject to the Windows applicability requirements in Transport §8.2.1. | Runtime placement or deployment selects local transport; the profile is then fixed. |
 | Production remote transport | `logos.remote.tls-tcp` | Mandatory for an implementation supporting production remote Runtime transport. | Deployment or Runtime policy selects the remote endpoint; this is the mandatory supported production choice. |
 | Production remote transport | `logos.remote.quic` | Optional to implement. | Deployment or Runtime policy may select it only when both endpoints support it. Selection MUST be explicit. |
 | Package realization | `lgx` | Optional individually; a conforming Package Manager MUST implement at least one package realization profile. | A request selects it with `source.kind` equal to `"lgx"`. |
@@ -320,15 +356,49 @@ A complete deployment MUST document every applicable choice that the Core specif
 At minimum, that documentation MUST identify:
 
 - supported Package Manager source kinds and optional package-provenance profiles;
+- accepted representations of protected deployment inputs, their provisioning and validation rules, and when replacement or revocation takes effect;
+- the authority-policy input format, its administration, and the explicit permissions needed by deployed bootstrap and system-service integrations;
 - enabled local and remote transport profiles;
 - protected trust inputs and provisioning rules for package signing, any selected package-provenance or source-evidence requirements, remote Runtime enrollment, and call-evidence signing;
 - Module Loader realization mappings and the concrete process, sandbox, or container mechanisms used;
 - permission definitions, constraint mappings, and the component that enforces each constraint;
 - isolation, filesystem, network, device, process, credential, and resource-control behavior;
-- Runtime directories, module state realization, retention, cleanup, and recovery policy;
+- Runtime directories, module state realization, retention, cleanup, recovery, and explicit upgrade or migration policy;
+- accepted-declaration selection and exact package/version pinning for package-backed module creation;
+- any protected attribute-source integration required by Capability Authority policy;
 - concrete resource bounds required by Package Manager, including dependency-resolution limits,
   and by Runtime, Transport, Module Loader, and schema processing;
+
+- startup, application-attempt, drain and cleanup deadline policies, their start points, covered phases, logical failure effects and permitted escalation, including shared-process limitations;
+- configuration-preserving upgrade responsibility and verified-default acquisition;
 - any selected presentation profile and its platform integration.
+
+The documentation MUST also identify Package Manager installation and inventory scope, shared-state coordination, and the protected administration of required operating-system integration material.
+Package installation does not grant device consent or authorize applying package-supplied privileged system rules.
+A required facility or enforcement constraint that cannot be supplied MUST fail the dependent realization; installation success does not prove that every placement can realize the package.
+
+For user-facing approval that changes protected policy or grants, the deployment MUST document how its administrative path authenticates the approving principal and authorizes changes to protected inputs.
+An approval presentation MUST distinguish authenticated operation and scope identifiers from caller-supplied or publisher-supplied descriptions.
+Recorded requester provenance MUST remain distinct from the authenticated consumer whose authority authorizes an operation.
+
+A deployment supporting external application activation MUST document its activation mechanism, admission policy, accepted application selection, presentation handoff, and failure behavior.
+An activation request is protected deployment input, not a Runtime Control invocation or an authenticated module consumer.
+Activation MUST resolve to an accepted module declaration and preserve Runtime-owned identity, lifecycle, authority, and realization checks.
+An untrusted activation source MUST NOT select an arbitrary implementation artifact, choose a module-instance identity, grant permissions, or bypass the selected realization constraints.
+A complete-system deployment MUST realize the activated application through its bound Module Loader before application code invokes Logos contracts.
+Arguments and presentation resources remain application input and MUST NOT establish consumer identity or Runtime authority.
+This specification assigns no interoperable activation encoding or terminal protocol.
+
+A deployment-specific representation MUST NOT alter the meaning or validation requirements of values defined by the Core contracts.
+
+Deployment documentation MUST state module-state protection at rest, access by other operating-system principals or same-identity processes, available secret-storage facilities, backup and synchronization exposure, restore and rollback behavior, and retention and deletion guarantees and limitations.
+Instance retirement and package removal MUST NOT be described as state deletion unless a separate authorized operation performs that deletion.
+This specification requires neither blanket backup exclusion nor a guarantee of physical erasure from snapshots or storage media.
+
+Use of the non-production mechanisms identified in LOGOS-MODULE-SECURITY-CONSIDERATIONS Section 13 MUST be selected explicitly through protected deployment configuration.
+A deployment enabling any such mechanism MUST identify itself as non-production in its deployment documentation and operator-facing diagnostics.
+Build mode alone MUST NOT enable development trust or exemptions.
+A non-production designation MUST NOT waive requirements of the claimed Core specifications or selected profiles.
 
 Documenting a deployment choice does not require another conforming implementation to recognize or support it.
 A deployment MUST fail a dependent operation when it cannot satisfy the selected profile or enforce a required constraint.
@@ -474,6 +544,22 @@ The observer's access to source information does not by itself authorize disclos
 Runtime operation, enforcement, and required audit retention remain independent of observer availability.
 The derived view does not replace authoritative state or required audit records.
 This section defines no observer contract or additional Core conformance requirement.
+
+---
+
+Optional diagnostic logging can be supplied through ordinary module contracts and deployment integration.
+Such an integration must define attribution, authorized access, sensitive-data handling, retention and delivery bounds; diagnostic text is not evidence of another module's identity.
+Failure of optional logging MUST NOT waive required audit or enforcement.
+When mandatory audit cannot be satisfied, the owning audit failure rules continue to apply.
+
+## References
+
+### Normative
+
+- [RFC 2119] -- Key words for use in RFCs to Indicate Requirement Levels.
+  https://www.rfc-editor.org/rfc/rfc2119
+- [RFC 8174] -- Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words.
+  https://www.rfc-editor.org/rfc/rfc8174
 
 ---
 

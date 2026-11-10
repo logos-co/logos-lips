@@ -23,6 +23,11 @@ separation, exact hash inputs, and proof material.
 It does not redefine the semantic schema model, normalized value model, or
 semantic value tree.
 
+## Requirements Language
+
+Uppercase requirement keywords in this specification follow BCP 14 [RFC 2119] [RFC 8174].
+Lowercase forms retain their ordinary English meanings.
+
 ## 1. Introduction
 
 LOGOS-MODULE-COMMITMENT-MODEL defines what Logos commits to.
@@ -63,7 +68,7 @@ logos.hash-profile.2026-08.choice-index
 This hash profile is assigned to the semantic commitment-model revision:
 
 ```text
-logos.commitment-model.2026-08
+logos.commitment-model.2026-10
 ```
 
 This specification does not define a separate value-model revision identifier.
@@ -160,7 +165,8 @@ Otherwise, layout policy belongs in the hash profile or in a separately bound
 commitment profile that verifiers can identify explicitly.
 
 The packable scalar kinds are `bool`, `uint8`, `uint16`, `uint32`, `uint64`, `int8`, `int16`, `int32`, and `int64`.
-A homogeneous packable scalar list has one of those scalar kinds as its element schema.
+A homogeneous packable scalar list has a primitive or literal element schema with a packable scalar kind.
+For example, `[* true]`, `[* 5]`, and `[* -5]` are homogeneous packable scalar lists.
 Every element shares that scalar schema identity.
 Lists of `tstr`, `bstr`, reference, choice, or composite values are not packable scalar lists.
 This exclusion preserves each string's own chunking and each reference or composite value's semantic boundary.
@@ -601,6 +607,10 @@ schema-hash-payload =
     schema-reference-payload
 ```
 
+The `logos.schema.reference` domain hashes a standalone `schema-import` pair using `schema-reference-payload`.
+This digest does not participate in schema or value commitment construction or verified views in this revision.
+An implementation MUST NOT substitute it for a schema root, schema subtree root, or `schema-import` pair.
+
 ### 7.3 Child Records
 
 Parent payloads do not contain unlabelled digest lists.
@@ -693,6 +703,13 @@ required by this profile.
 Unless a field explicitly names a referenced schema identity, each
 `schema-subtree-root` in this section is the schema identity for the semantic
 value object represented by the physical payload.
+
+Field `1` of every value payload MUST be the root of the schema document that defines the schema identity in field `2`.
+For a `value-root-payload`, this is the schema root of the committed value.
+A `reference-value-payload` MUST retain the importing document's root in field `1` and carry the referenced document's root in field `3`.
+Its child and that child's descendants MUST use the referenced document's root in field `1` until a further imported reference changes the document context.
+The wrapper for that further reference retains the current context; its child uses the newly referenced document's root.
+Local references MUST NOT change the document context.
 
 The value root payload is:
 
@@ -1130,6 +1147,10 @@ Text-string byte ranges do not claim Unicode scalar, grapheme, normalization,
 or substring semantics.
 They prove bytes of the canonical UTF-8 encoding only.
 
+When a path ends in a `field`, `list-index`, or `tuple-position` segment selecting a present value,
+the disclosed item MUST be the contained normalized value.
+For a path ending at a present field or tuple position, its `field-payload` or `tuple-element-payload`, respectively, MUST appear in the proof material.
+
 An empty path proves the whole value.
 For a whole-value verified view, the disclosed value is the full normalized value and the proof material MUST be empty.
 The verifier MUST recompute the value root directly from the disclosed value and MUST reject a whole-value view that carries proof material.
@@ -1190,6 +1211,10 @@ that chunk, and then reconstructs the parent list commitment.
 A future profile may define finer-grained private proofs inside packed scalar
 chunks, but this profile does not.
 
+Verification requires the schema construction input defined by LOGOS-MODULE-COMMITMENT-MODEL Section 3.1, including its required dependency documents, separately from the verified view.
+The verifier MUST validate that input and compute the schema root and selected schema subtree root for comparison with the view in step 2.
+Previously validated construction results and computed roots MAY be reused under the same commitment-model revision, hash profile, and hash suite as the view.
+
 The verification procedure is:
 
 1. Reject unknown hash profile identifiers, hash suite identifiers, or semantic
@@ -1202,6 +1227,7 @@ The verification procedure is:
    A concrete provider schema root is checked here only when the method itself
    is defined by that concrete provider schema.
 3. Validate the typed path against the schema.
+   Derive the expected document context from the selected schema and its resolved imports according to LOGOS-MODULE-COMMITMENT-MODEL Section 5 and Section 7.4 above.
 4. Normalize the disclosed value, disclosed range, or absent marker under the
    schema selected by the typed path.
 5. For an ordinary disclosed value or absence marker, recompute its physical leaf or subtree digest using Sections 4 through 7.
@@ -1209,6 +1235,11 @@ The verification procedure is:
 6. Apply each remaining proof step from the reconstructed node toward the root.
    At every ordinary step, require the complete payload's uniquely selected child record to match the previously reconstructed node, then hash the payload using its required domain.
 7. Require the final reconstructed payload to be the `value-root-payload`, require that no steps remain, and compare its digest with the verified view's value root.
+
+For every reconstructed or disclosed physical payload, the verifier MUST require field `1` to match the document context assigned by Section 7.4.
+For each `reference-value-payload`, it MUST also require fields `3` and `4` to match the referenced document and declaration resolved from the schema.
+These checks apply to complete disclosed subtrees and all proof steps, including containing chunks and branches.
+A document root supplied in proof material MUST NOT override the context derived from the schema.
 
 If any check fails, the verified view is invalid.
 If the recomputed root equals the value root and all schema, profile, suite,
@@ -1232,7 +1263,7 @@ It MUST reject malformed hash inputs, unknown identifiers, wrong digest
 lengths, wrong domain tags, non-canonical CBOR encodings, and mismatched
 domain-to-payload shapes as described by this specification.
 It MUST produce the Appendix A schema-root vector and every Appendix B physical-layout digest exactly.
-A verified-view implementation MUST accept the valid Appendix B views and reject mutations that change a disclosed value, path, range, label, count, schema identity, node kind, child digest, payload discriminator, domain tag, step order, or expected value root.
+A verified-view implementation MUST accept the valid Appendix B views and reject mutations that change a disclosed value, path, range, label, count, schema identity, payload schema root, node kind, child digest, payload discriminator, domain tag, step order, or expected value root.
 
 ## 10. Comparison And Non-Goals
 
@@ -1303,7 +1334,7 @@ Hash input fields:
 - field `0`: `logos.schema.root`;
 - field `1`: `logos.hash-profile.2026-08.choice-index`;
 - field `2`: `logos.hash-suite.blake3-256`;
-- field `3`: `logos.commitment-model.2026-08`;
+- field `3`: `logos.commitment-model.2026-10`;
 - field `4`: the Appendix A `normalized-schema-root` object from
   LOGOS-MODULE-COMMITMENT-MODEL.
 
@@ -1314,9 +1345,9 @@ The deterministic CBOR hash-input bytes, in hexadecimal, are:
 a500716c6f676f732e736368656d612e726f6f740178276c6f676f732e686173
 682d70726f66696c652e323032362d30382e63686f6963652d696e6465780278
 1b6c6f676f732e686173682d73756974652e626c616b65332d32353603781e6c
-6f676f732e636f6d6d69746d656e742d6d6f64656c2e323032362d303804a500
+6f676f732e636f6d6d69746d656e742d6d6f64656c2e323032362d313004a500
 6b736368656d612d726f6f7401781e6c6f676f732e636f6d6d69746d656e742d
-6d6f64656c2e323032362d3038026773746f726167650387a300647479706501
+6d6f64656c2e323032362d3130026773746f726167650387a300647479706501
 7173746f726167652e626c6f625f6861736802a300697072696d697469766501
 646273747202a3006473697a65011820021820a300656576656e74017573746f
 726167652e6368616e6765645f6576656e7402a200636d61700182a300636369
@@ -1341,17 +1372,17 @@ a500716c6f676f732e736368656d612e726f6f740178276c6f676f732e686173
 The BLAKE3-256 digest of those bytes is:
 
 ```text
-9befcab3f47617bacbfaa212f1dc8f4f4494678c4536162fb53c3acbcfeafd47
+2321d43e09fed8b6357300b505750b03ec0f9e392f4bbfb3b013c7078a7a2cca
 ```
 
 Under the mandatory suite, that digest is the schema root for the construction vector's whole schema.
 
 ## Appendix B. Normative Physical-Layout Boundary Vectors
 
-This appendix defines boundary vectors for packing, string chunk aggregation, branch construction, and verified-view reconstruction.
+This appendix defines vectors for packing, string chunk aggregation, branch construction, imported schema context, and verified-view reconstruction.
 All vectors use the profile, suite, and commitment-model revision assigned by this specification.
 
-The vectors use these synthetic 32-byte schema identities:
+The vectors in Sections B.1 through B.3 use these synthetic 32-byte schema identities:
 
 | Identity | Bytes, hexadecimal |
 |----------|--------------------|
@@ -1367,10 +1398,10 @@ The physical layout contains one packed chunk for indices `0` through `255` and 
 
 | Object | Digest, hexadecimal |
 |--------|---------------------|
-| First packed chunk | `96ea377758aec5c446cec80b60088d129ff971b85bda591c6f77d7c99fb23eab` |
-| Final packed chunk | `90ba0b2241f89f427a321b4a94cf250f1b65f048d3134834381694db174d671f` |
-| List | `f30f3f87a545f0095791f47933ceeea5c8ad51cf0aa820d9661481de71ff7c10` |
-| Value root | `3a0b366ac7d16600d4f92fcdbfa0706c9e86c0be2e3286595cb2e832ab6efec2` |
+| First packed chunk | `564e7aebed309e0e972c1889dcd390844586e4e9431ee84cd47f485a8017ca97` |
+| Final packed chunk | `4f9e220a7ff848b15af6f16d86706970fd287453b78ccf05df3913f859abc3e8` |
+| List | `56b8b8e7af2afba36b71f2c39f53187e587d57fcfb85f18d7e1457320c36b15c` |
+| Value root | `b4dfb5043f0ad9edcc6368b9a929534c27c2fc17628a0c50dcc50a2d6924c16f` |
 
 A verified view for semantic path `[{0: "list-index", 1: 256}]` discloses the `uint16` value `256`.
 Its proof steps are the complete final packed-chunk payload, list payload, and value-root payload in that order.
@@ -1384,10 +1415,10 @@ The physical layout contains one 4096-byte chunk and one one-byte chunk under on
 
 | Object | Digest, hexadecimal |
 |--------|---------------------|
-| First byte-string chunk | `53e97f4a652ac68c6173c121d8d33d9cd72f99210d34d7d258b0c2c78658a6ac` |
-| Final byte-string chunk | `19e3901251b3fbe18522fad6fd70e54c5a33ffea704fb5edf3a07c5e51f31cd9` |
-| Byte-string aggregate | `189229d6d24ae83aa2b29293c4660ee4450758b33b4407c564bdb6290988c876` |
-| Value root | `da2ce350cd03b669d6f53ba5fb4387b3fd23db92181a19d58475527ab83c7b74` |
+| First byte-string chunk | `f378adc5640d24e0f35d18973285dfe7c79c3038194f2962ed9139cb225efd3c` |
+| Final byte-string chunk | `b65c079c992e20f9ce1e454702871bebf7aebab36a549642258288e2e309baa2` |
+| Byte-string aggregate | `4a4c19f9613c2540b87696879f622301709b8a7134cce4e68d0d9c65b906f206` |
+| Value root | `223a41867e3b21922714da7985214c2e5381b472b26a171f1b3b768a6e65d0c2` |
 
 A verified view for semantic path `[{0: "bstr-range", 1: 4096, 2: 1}]` discloses the final byte.
 Its proof steps are the complete final chunk payload, aggregate payload, and value-root payload in that order.
@@ -1403,10 +1434,113 @@ Canonical branch construction produces one branch for records `0` through `255` 
 
 | Branch | Digest, hexadecimal |
 |--------|---------------------|
-| Records 0 through 255 | `d0b8d2fd5fd40e5d5a9ee29e7f93a0423e8366a3b9f0307b0fc72585a0e12b46` |
-| Record 256 | `0da1c5d1cb53c679d3e7863a0b9856fab9513fa2408d6c181f1c2d402b9d0abd` |
+| Records 0 through 255 | `a0950d2273cdebc149a068abbcf5c6622c78437fe3b0c49d109c968f4aef324d` |
+| Record 256 | `77a2a1cd2ab83b80d8681eaade31d29eab7ee042a4c1eebcaa8f3434e919668d` |
 
 The collection payload contains those two branch records in that order.
+
+### B.4 Imported Reference Context
+
+The two concrete module schemas below each use the same explicitly supplied supporting schema.
+Prelude aliases and the pinned common schema are those required by LOGOS-MODULE-COMMITMENT-MODEL Section 5.
+
+```cddl
+_module = "a"
+a.alias = a.import
+a.import = types.alias
+a.value = { amount: a.alias, z: uint64 }
+```
+
+```cddl
+_module = "c"
+c.value = { amount: types.alias, z: uint64 }
+```
+
+```cddl
+types.alias = types.record
+types.count = uint64
+types.record = { detail: logos.error_detail, value: types.count }
+```
+
+The following table assigns each document root used by these vectors.
+
+| Symbol | Document | Root, hexadecimal |
+|--------|----------|-------------------|
+| `A` | `a` | `dae3aa65668f9d0c1ed0d6aadd0b53a0e24dcb2180a909472c6b2f3b9361fec1` |
+| `B` | `types` | `f0419adddaea91e732c408a794358a0ca541fa03bc2c7a1b18c1b6809054f2eb` |
+| `C` | `c` | `c3cf126ce62c5006421cfb4c9b3ebf87eb9ef48fa71ca8b73f74097b55724636` |
+| `L` | Pinned common schema | `fc3a3558912d474cdb37fbc4fedd5b11dd785d69e9c033c7f9dc077ac49040ca` |
+
+In the tables below, `S(name)` denotes the named declaration's subtree root.
+`S(name, field)` denotes the schema leaf hash at that declaration's `field` path.
+All schema identities are computed from the documents above and the pinned common schema.
+`P(kind, document, schema, fields)` denotes the payload map `{0: kind, 1: document, 2: schema}` extended with `fields`.
+For a payload named `x`, `R(x)` denotes its root-child record and `F(name, x)` denotes its child record with label `{0: "field", 1: name}`.
+Both record forms use `x`'s discriminator, digest, and field `2` exactly as specified in Section 7.3.
+These symbols are notation only and MUST be replaced by their values before CBOR encoding.
+
+The value selected through either `a.value` or `c.value` is:
+
+```cbor-diag
+{ "amount": { "detail": h'00', "value": 5 }, "z": 7 }
+```
+
+The payloads and their digests are:
+
+| Name | Payload | Digest, hexadecimal |
+|------|---------|---------------------|
+| `e` | `P("bstr-direct", L, S("logos.error_detail"), {3: 1, 4: h'00'})` | `866b00f6b2fa598cba282173e8cbb091b42f0f9fa2a986f031901ac4a3d67654` |
+| `r` | `P("reference-value", B, S("types.record", "detail"), {3: L, 4: S("logos.error_detail"), 5: R(e)})` | `4cbbdabd1225ee32d73b7cd1d98ff95f0229494b4c942152eaf1ae7c6b4402c6` |
+| `d` | `P("field", B, S("types.record", "detail"), {3: "detail", 4: R(r)})` | `c8f9628164ee88bd6b835aa6c834643d292e79299085c9b763616286bd8f6ade` |
+| `n` | `P("scalar", B, S("types.count"), {3: "uint64", 4: 5})` | `dd70050599e53badc184347edb91c185d231180028273f1e81adff3e0bbe84ba` |
+| `v` | `P("field", B, S("types.record", "value"), {3: "value", 4: R(n)})` | `bdddd74eaadcde4c8046879f9bd7cdf5bafd535300ccb6b9beb7a89775f7ee22` |
+| `b` | `P("map", B, S("types.record"), {3: 2, 4: [F("detail", d), F("value", v)]})` | `fdabde59238e10c0fc1dfb965e4459ece9aaf298c1b9f5d17da3adf096f14ff4` |
+| `b0` | `P("value-root", B, S("types.alias"), {3: R(b)})` | `9337bfbdfa1d8bb0bc8fcf58a1ff2db1dad4a920a0e146d45b77090eb5f0ebe2` |
+| `ar` | `P("reference-value", A, S("a.import"), {3: B, 4: S("types.alias"), 5: R(b)})` | `9ecbd8b41e7f406f48894c4ccb573ea041845f8af61703d4535ec8d35476f6ea` |
+| `af` | `P("field", A, S("a.value", "amount"), {3: "amount", 4: R(ar)})` | `2dd1504f6b9b0ef9a3ee58e16372e773ad63f088577f9a53a9421d4342d66ede` |
+| `az` | `P("scalar", A, S("a.value", "z"), {3: "uint64", 4: 7})` | `591a4fa4aaae426c7a3388468de1a20bc51946f77cb4c3ca63a4f866b3086d86` |
+| `aq` | `P("field", A, S("a.value", "z"), {3: "z", 4: R(az)})` | `211be949b703f72e93faf563b8f1bc2eb203b30354ff3bd0d703ddb649bb30e7` |
+| `am` | `P("map", A, S("a.value"), {3: 2, 4: [F("amount", af), F("z", aq)]})` | `ea4239c2b05070b397a8158c4c8fbc1547a5060e63391cc02e0155fdc7537800` |
+| `a0` | `P("value-root", A, S("a.value"), {3: R(am)})` | `9257722a3eb401a86000ff65371d751636d1f6e6a0771a1c5e4786d98d56147e` |
+| `cr` | `P("reference-value", C, S("c.value", "amount"), {3: B, 4: S("types.alias"), 5: R(b)})` | `96a19fd543b430c941f684f88864927c93d11cd640a6396caa236ee3d9ebab75` |
+| `cf` | `P("field", C, S("c.value", "amount"), {3: "amount", 4: R(cr)})` | `e0f45fa6cf6dacfa5e6d2bcfd981b62b823bc25cebf0f12288c382a8855b3d14` |
+| `cz` | `P("scalar", C, S("c.value", "z"), {3: "uint64", 4: 7})` | `62a370e9d9d8ca45d8f8defc781e1ecd39510e5fc78d2f98803ac7972d411330` |
+| `cq` | `P("field", C, S("c.value", "z"), {3: "z", 4: R(cz)})` | `f3f369b1d4f4e5a4e3b43195b1f3d2295ee5af2859109e156f49a972e5d9d632` |
+| `cm` | `P("map", C, S("c.value"), {3: 2, 4: [F("amount", cf), F("z", cq)]})` | `3e77b5b8666bdfd08bc1d78cd4171c6c007bfd70caa195a3da903122e92ea0ec` |
+| `c0` | `P("value-root", C, S("c.value"), {3: R(cm)})` | `58bf0541f221388df4e0f27b4af618859b44e9d142fc80ebf5d189fbec7a1982` |
+
+Each digest uses the domain assigned to that payload kind by Section 5 and the hash input in Section 7.1.
+The imported subtree `b` is identical under both importers and direct selection of `types.alias` in the supporting schema.
+That direct selection commits `{ "detail": h'00', "value": 5 }` and has value root `b0`.
+Local aliases add no payloads: `ar` uses `S("a.import")`, while its child `b` uses `S("types.record")`.
+
+Complete verified views with empty paths MUST validate for `a.value`, `c.value`, and `types.alias` against `a0`, `c0`, and `b0`, respectively.
+The following partial views select `a.value` and MUST validate against `a0`.
+Disclosures are normalized under the schema selected by each path; the payload names below identify their physical construction and ordered proof steps.
+
+| Typed path | Disclosed value | Proof payloads, in order |
+|------------|-----------------|--------------------------|
+| `[{0: "field", 1: "amount"}, {0: "field", 1: "value"}]` | `uint64` value `5`, payload `n` | `v, b, ar, af, am, a0` |
+| `[{0: "field", 1: "amount"}, {0: "field", 1: "detail"}]` | Reference value containing `bstr` value `h'00'`, subtree `r` | `d, b, ar, af, am, a0` |
+| `[{0: "field", 1: "amount"}, {0: "field", 1: "detail"}, {0: "bstr-range", 1: 0, 2: 1}]` | Byte range `h'00'` | `e, r, d, b, ar, af, am, a0` |
+| `[{0: "field", 1: "z"}]` | `uint64` value `7`, payload `az` | `aq, am, a0` |
+
+Each negative case below starts independently from the valid `a.value` tree.
+Apply the stated mutation, recompute every affected digest and ancestor child record, and advertise the resulting value root shown below.
+Keep the selected schema, disclosed value, and typed path unchanged.
+For each case, both the complete view and the indicated partial view MUST be rejected despite their internally consistent hashes.
+The partial-view column names the field sequence from the table above; `range` selects the additional byte-range segment.
+
+| Case | Mutation | Partial view | Recomputed value root, hexadecimal |
+|------|----------|--------------|------------------------------------|
+| N1 | `n` field `1` becomes `A` | `amount, value` | `d16c14d03939be1139aee1594e5ffc4a427abeb4db539e15684216b9187d1d6d` |
+| N2 | `e` field `1` becomes `B` | `amount, detail, range` | `db808768d6560f501c11034b8ad6b38d4445ab3f1e282d3c206a0b27c725935d` |
+| N3 | `ar` field `1` becomes `B` | `amount, value` | `4514b409018467048df7fb1e2588291ddf0692614b8c3b3bb926744d8e05e838` |
+| N4 | `r` field `1` becomes `L` | `amount, detail, range` | `e61036b0510a304691b9b71b259b5e4a72036662c2fb394f6b0c52a4239ee15e` |
+| N5 | `ar` field `3` becomes `C` | `amount, value` | `2c80c56053a6e253cf4469928fa112b8b7d880ba660bc1676b717be9bca93e08` |
+| N6 | `ar` field `4` becomes `S("types.record")` | `amount, value` | `f353267517bf17ef09acd4f1c6dbb240920b96c84bbf57be14712428d6ab6639` |
+| N7 | `aq` field `1` becomes `B` | `z` | `843b6c34a3ee49677b66f4fc725d64da7513367d1cd00a1b0694e98b4799a0b1` |
+| N8 | Fields `1` of `e, r, d, n, v, b` all become `A` | `amount, detail, range` | `b730096beea22fd6b0fb9ad48c69d65600a5cd6f181309b3b2bd616d2d42a5fd` |
 
 ---
 
@@ -1414,6 +1548,10 @@ The collection payload contains those two branch records in that order.
 
 ### Normative
 
+- [RFC 2119] -- Key words for use in RFCs to Indicate Requirement Levels.
+  https://www.rfc-editor.org/rfc/rfc2119
+- [RFC 8174] -- Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words.
+  https://www.rfc-editor.org/rfc/rfc8174
 - [RFC 8949] -- CBOR: Concise Binary Object Representation.
   https://www.rfc-editor.org/rfc/rfc8949
 - [RFC 8610] -- CDDL: Concise Data Definition Language.

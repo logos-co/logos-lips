@@ -19,6 +19,11 @@ This document is informational.
 It does not create a second authorization model, package-trust model, transport profile, or execution profile.
 Normative behavior remains in the specification that owns the relevant interface or enforcement boundary.
 
+## Requirements Language
+
+Uppercase requirement keywords in this specification follow BCP 14 [RFC 2119] [RFC 8174].
+Lowercase forms retain their ordinary English meanings.
+
 ## 1. Scope
 
 The Logos module system can load native executable code, realize providers across process and network boundaries, route typed calls and events, and expose privileged system services.
@@ -128,7 +133,7 @@ After candidate material is obtained under the owning realization-profile rules,
 for a dynamically loaded artifact obtained from a package,
 the baseline package-authentication chain is:
 
-1. protected package-signing trust input identifies an accepted Ed25519 public key;
+1. protected package-signing trust input identifies an accepted SLH-DSA-SHA2-192s public key and its package-signing context;
 2. Package Manager verifies `manifest.cose` and its signed manifest commitment;
 3. Package Manager verifies the selected materialized artifact bytes against the artifact hash authenticated by the manifest;
 4. Runtime receives the accepted digest through an authenticated Package Manager handoff, obtains execution authorization, and constructs the Module Loader realization descriptor from that accepted evidence; and
@@ -136,6 +141,11 @@ the baseline package-authentication chain is:
 
 Catalog records, archive names, paths, package metadata, module names, and downloaded keys do not replace any step in this chain.
 The baseline does not require a separate artifact signature because the signed manifest already authenticates the artifact hash.
+Package signatures and call evidence use the fixed SLH-DSA-SHA2-192s profiles defined by their owning specifications.
+Their COSE verification requires the protected profile context; the signed object alone does not select its algorithm or trust.
+The common provenance-signing profile uses the same algorithm with independent signer-builder trust and keys.
+These signature profiles do not establish post-quantum security for remote transport authentication, key establishment, or other cryptographic mechanisms.
+
 Pre-verification isolation does not authenticate a Nix output or establish package trust.
 It prevents unaccepted package-controlled work from inheriting Package Manager authority while the baseline checks remain pending.
 
@@ -230,6 +240,21 @@ Module Loader, deployment controls, and operating-system mechanisms enforce cons
 Conforming implementations MUST fail closed when they cannot realize the selected profile; these specifications do not require identical sandbox strength across platforms.
 A deployment that cannot satisfy the selected profile must reject the dependent operation or explicitly select a different profile through trusted configuration.
 
+### 5.1 Containment Of Malicious Modules
+
+A deployment claiming containment treats module code as potentially malicious even after installation and execution are approved.
+The selected profile confines executable loading, initialization, ordinary execution, destruction and descendant processes.
+Its controls take effect before the first artifact-controlled instruction and remain effective until the execution envelope and its descendants have terminated.
+
+Containment protects host and other-module resources outside the module's granted access.
+Availability claims depend on enforceable aggregate budgets for the module and work it induces in trusted services.
+Per-message bounds alone do not establish those budgets.
+If a required control is unavailable, the deployment cannot claim this containment and rejects execution under that profile.
+
+The claim relies on the trusted operating system and enforcement components identified in Section 2.2.
+It does not establish correct computation or prevent misuse of deliberately granted access.
+In-process native execution remains subject to the trust boundary in Section 4.
+
 ## 6. Authority And Remote Runtime Access
 
 Authentication establishes identity at the applicable invocation or transport boundary; it does not authorize an operation.
@@ -296,7 +321,8 @@ A module's Runtime Control binding identifies that module instance's own `module
 That acquisition does not reuse a route ticket or authority decision from any inbound call that triggered it.
 Each outbound provider route and method call receives its own authorization under the calling consumer's authority.
 
-These rules prevent a less-authorized caller from obtaining a privileged effect merely by sending a valid request through a more-authorized Runtime or module component.
+These rules preserve authenticated consumer attribution at each invocation boundary.
+A provider exposing privileged effects remains responsible for authorizing the triggering request under its contract and protected permission integration.
 They do not determine whether an authorized operation is wise, safe for the user's data, or semantically correct.
 
 ## 8. Schemas, Dispatch, And Payload Commitments
@@ -316,7 +342,7 @@ hash profile, and BLAKE3-256 hash suite.
 Commitment failure is fail-closed.
 `response-err` and ProtocolError messages do not carry payload commitments.
 
-Direct per-method calls and generic dispatch through `logos_<module>_dispatch()` compute the same commitments internally without changing the provider ABI.
+Direct per-method calls and generic dispatch through `logos_<module-C>_MODULE_dispatch()` compute the same commitments internally without changing the provider ABI.
 Event commitments are computed for the selected contract on each subscriber route.
 Commitment computation is mandatory independently of audit-retention policy.
 
@@ -337,7 +363,7 @@ An ordinary audit query returns at most the most recent 1000 matching records.
 Operators can review older records through deployment-specific log storage when the deployment retains them.
 An attacker may deliberately generate enough newer activity to push relevant records outside this bounded interface, so security-sensitive deployments need external retention and monitoring appropriate to their threat model.
 
-The mandatory call-evidence profile `logos.call-evidence.cose-sign1-ed25519` signs one complete call audit record and may include verified-view proofs for an intentionally disclosed request or response view.
+The mandatory call-evidence profile `logos.call-evidence.cose-sign1-slh-dsa-sha2-192s` signs one complete call audit record and may include verified-view proofs for an intentionally disclosed request or response view.
 The signing key has a distinct evidence-signing purpose and is bound through protected trust input to the producer Runtime identity.
 Call evidence provides authenticity and integrity, not confidentiality, correctness, execution attestation, or authorization.
 Its disclosure and storage still require confidentiality protection and audit authority.
@@ -372,10 +398,18 @@ Conformance reduces ambiguity, unauthorized access, substitution, replay, and do
 Reproducible builds, transparency systems, remote attestation, deterministic recomputation, fraud proofs, validity proofs, stronger hardware roots, and platform review can address parts of these risks.
 They are optional external mechanisms unless a selected profile defines and enforces them.
 
+Deterministic value commitments do not provide confidentiality.
+An observer who knows the schema can test guessed values against an exposed commitment, and equal commitments can reveal repeated values.
+Implementations MUST apply LOGOS-MODULE-INTERFACE sensitive-payload restrictions to value-derived identifiers as well as payload bytes.
+
 ## 11. Platform Security Models
 
 The Core module contract is platform-independent, but executable realization, installation, isolation, user consent, storage, IPC, updates, and background work are not.
 A platform profile must describe how the Core enforcement responsibilities map to facilities that exist on that platform.
+
+Platform consent and entitlements apply to platform-defined principals, not automatically to individual Logos module instances.
+LOGOS-MODULE-CAPABILITY-AUTHORITY Section 3.5 requires profiles claiming per-module device restrictions to identify their consent principal and effective enforcement controls.
+Process separation, executable signing, or a granted application permission alone does not establish that claim.
 
 ### 11.1 Linux Desktop
 
@@ -490,7 +524,9 @@ A production deployment should begin from these defaults unless protected config
 - keep remote Runtime Control exposure, remote provider listeners, and provider exports disabled until protected deployment input enables the required surface;
 - never fall back from a production remote profile to an unauthenticated carrier;
 - expose only the provider, selected contract, methods, events, grants, routes, and audit records visible to the authenticated consumer;
-- keep route tickets, private keys, proof-of-possession secrets, and reusable credentials out of logs and records returned or exchanged through Logos contracts;
+- keep route tickets, private keys, proof-of-possession secrets, and reusable credentials out of logs, diagnostics, responses, events, and ordinary contract requests;
+  when Credential Store is used, credential values and unlock material may be submitted through its authorized `create` or administrative requests,
+  subject to the confidentiality, ownership, authorization, and secret-handling requirements of LOGOS-MODULE-CREDENTIAL-STORE;
 - fail a launch rather than silently substituting weaker isolation or resource controls;
 - invalidate cached verification and authority results when their trust anchor, signer, active policy, grant, enrollment, freshness state, or enforcement precondition no longer remains accepted;
 - make development trust anchors, relaxed debugging entitlements, implementation-local transport test hooks, and unknown-artifact analysis explicit non-production configuration.
@@ -500,6 +536,17 @@ This supports implementation and conformance testing without weakening the produ
 
 User-facing approval can create or modify protected policy or grants, but the prompt itself is not an authority result.
 Turning approval into trusted policy input requires an authenticated approving principal, accurate presentation of the requested scope, and delivery through a trusted administrative path.
+LOGOS-MODULE-SYSTEM-BCP Section 5.4 requires documentation of approval-path authentication and authority to change protected inputs.
+Administrative software invokes ordinary Core contracts as an admitted module under the identity and authorization rules of LOGOS-MODULE-RUNTIME and LOGOS-MODULE-CAPABILITY-AUTHORITY.
+Protected host provisioning remains deployment input and does not itself establish a module identity or route authority.
+Administrative status does not replace Runtime's protected system-service binding for Capability Authority `evaluate`.
+
+LOGOS-MODULE-SYSTEM-BCP Section 5.4 requires approval presentations to distinguish authenticated operation and scope identifiers from caller-supplied or publisher-supplied descriptions.
+Presentation authority does not grant unrestricted provider discovery or audit access.
+Approval records and notifications remain subject to LOGOS-MODULE-INTERFACE Section 1.4.1, including its restrictions on value-derived identifiers.
+A scope-level approval does not establish exact-payload, single-use, or replay-protected authorization unless the selected application contract defines and enforces those properties.
+A provider selection or user-interface action does not by itself delegate authority.
+LOGOS-MODULE-SYSTEM-BCP Section 5.4 keeps recorded requester provenance distinct from the authenticated consumer whose authority authorizes an operation.
 
 ## 14. Security Boundary Summary
 
@@ -516,6 +563,13 @@ The following table summarizes required security treatment and the owning specif
 | User inspection and approval | Capability Authority represents the resulting allow or deny decision and grant or revocation records, including the `approval-required` denial reason. Prompt presentation and administrator UX are application or deployment concerns. | Capability Authority owns records; approval presentation is outside this specification |
 | Audit record for remote calls | Remote calls use the common call audit record rather than a remote-specific type. The record binds the exact call scope, decision identifier, outcome, and selected request or response commitments; the common shape identifies the consumer and a separate target module instance when applicable. Audit queries return at most the 1000 most recent visible matching records. | Capability Authority and Runtime |
 | Unknown executable inspection | Normal discovery uses non-executable metadata and never maps an unknown library. Executing code for analysis requires a separately defined isolated analysis environment outside the normal loading path. | Package Manager and Runtime establish accepted evidence; Module Loader verifies the artifact at the loading boundary; analysis tooling remains outside the normal loading path |
+
+## Normative References
+
+- [RFC 2119] -- Key words for use in RFCs to Indicate Requirement Levels.
+  https://www.rfc-editor.org/rfc/rfc2119
+- [RFC 8174] -- Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words.
+  https://www.rfc-editor.org/rfc/rfc8174
 
 ## Informative References
 
