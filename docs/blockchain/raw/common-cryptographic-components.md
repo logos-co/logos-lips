@@ -46,6 +46,7 @@ The primitives span multiple domains:
 - The stream cipher (ChaCha20) provides deterministic pseudorandom byte generation and keystream encryption.
 - Signature schemes (EdDSA) authenticate messages and participants.
 - Proof systems (Groth16) enable succinct and verifiable computation. Groth16 is used in hand-written circuits.
+- Public-key encryption (X-Wing with ChaCha20-Poly1305) delivers the contents of a note to its holder, off chain.
 
 Each primitive is chosen for its suitability in a particular context, balancing efficiency, cryptographic strength, and developer usability.
 
@@ -58,6 +59,7 @@ The table below summarizes the recommended component for each context:
 | PRNG & Keystreams | [ChaCha20](#chacha20-based-prng-construction) |
 | General Signatures | [EdDSA](#eddsa) |
 | Proof System (SNARK) | [Groth16](#groth16-zk-snark) |
+| Public-Key Encryption | [X-Wing](#x-wing), [Note Encryption](#note-encryption-construction) |
 
 # 1. Hash Functions
 
@@ -254,11 +256,11 @@ Security Considerations:
 
 The Logos Blockchain encrypts data to a public key for one purpose: to deliver the contents of a note to its holder. The ledger carries no ciphertext. The scheme is specified so that every wallet opens every ciphertext addressed to it, wherever the ciphertext is delivered.
 
-## [X-Wing](https://datatracker.ietf.org/doc/html/draft-connolly-cfrg-xwing-kem)
+## [X-Wing](https://datatracker.ietf.org/doc/html/draft-connolly-cfrg-xwing-kem-11)
 
 Description:
 
-X-Wing is a key encapsulation mechanism (KEM) combining ML-KEM-768 and X25519 into one hybrid, post-quantum and traditional, KEM. It is specified in draft-connolly-cfrg-xwing-kem and registered for HPKE as `MLKEM768-X25519`.
+X-Wing is a key encapsulation mechanism (KEM) combining ML-KEM-768 and X25519 into one hybrid, post-quantum and traditional, KEM. It is specified in draft-connolly-cfrg-xwing-kem, revision 11 being the one referenced here, and registered for HPKE as `MLKEM768-X25519`.
 
 Technical Details:
 
@@ -295,6 +297,7 @@ Technical Details:
 - Plaintext: `value` as 8 bytes little-endian followed by `nonce` as 32 bytes little-endian, 40 bytes. Sealed, 56 bytes with the tag.
 - Note ciphertext: the KEM ciphertext followed by the sealed plaintext, `NOTE_CIPHERTEXT_SIZE = 1176` bytes.
 - Delivery message: the 32-byte little-endian commitment followed by the note ciphertext, 1208 bytes, so that the recipient has the associated data it opens the ciphertext with.
+- Decryption returns `None`, and nothing else, for a ciphertext of another length, a KEM ciphertext X-Wing rejects, or a sealed part that fails to open. X25519 is the function of [RFC 7748](https://datatracker.ietf.org/doc/html/rfc7748) Section 5 as X-Wing specifies it, with no check on an all-zero output: the combiner binds the X25519 ciphertext and public key into the shared secret, so every wallet opens the same messages.
 
 ```python
 NOTE_CIPHERTEXT_SIZE = 1176
@@ -306,8 +309,13 @@ def encrypt_note(pk_enc: XWingEncapsulationKey, commitment: NoteCommitment, valu
     return ct + chacha20poly1305_seal(key, nonce=bytes(12), aad=commitment.to_bytes(32, "little"), plaintext=plaintext)
 
 def decrypt_note(sk_enc: XWingDecapsulationKey, commitment: NoteCommitment, ciphertext: bytes) -> (TokenValue, NoteNonce) | None:
+    if len(ciphertext) != NOTE_CIPHERTEXT_SIZE:
+        return None
     ct, sealed = ciphertext[:1120], ciphertext[1120:]
-    ss = xwing_decapsulate(sk_enc, ct)
+    try:
+        ss = xwing_decapsulate(sk_enc, ct)
+    except Exception:  # a KEM ciphertext X-Wing rejects
+        return None
     key = blake2b_256(b"LOGOS_NOTE_ENC_V1" + ss + ct)
     plaintext = chacha20poly1305_open(key, nonce=bytes(12), aad=commitment.to_bytes(32, "little"), ciphertext=sealed)
     if plaintext is None:
@@ -332,7 +340,7 @@ Security Considerations:
 
 ## References
 
-- X-Wing: general-purpose hybrid post-quantum KEM. [https://datatracker.ietf.org/doc/html/draft-connolly-cfrg-xwing-kem](https://datatracker.ietf.org/doc/html/draft-connolly-cfrg-xwing-kem)
+- X-Wing: general-purpose hybrid post-quantum KEM, draft-connolly-cfrg-xwing-kem-11. [https://datatracker.ietf.org/doc/html/draft-connolly-cfrg-xwing-kem-11](https://datatracker.ietf.org/doc/html/draft-connolly-cfrg-xwing-kem-11)
 - ML-KEM, FIPS 203. [https://csrc.nist.gov/pubs/fips/203/final](https://csrc.nist.gov/pubs/fips/203/final)
 - Elliptic Curves for Security, RFC 7748. [https://datatracker.ietf.org/doc/html/rfc7748](https://datatracker.ietf.org/doc/html/rfc7748)
 - Post-quantum KEMs for HPKE. [https://datatracker.ietf.org/doc/html/draft-ietf-hpke-pq](https://datatracker.ietf.org/doc/html/draft-ietf-hpke-pq)
@@ -367,7 +375,7 @@ Security Considerations:
 
 ## Note Encryption Test Values
 
-The values are generated with the `x-wing`, `chacha20poly1305` and `blake2` crates, after checking X-Wing against the vectors of draft-connolly-cfrg-xwing-kem-11, and verified independently from the draft's reference pseudocode. `commitment` and `nonce` are chosen field elements, not Poseidon2 outputs; the commitment check of discovery is not covered.
+The values are generated with the `x-wing`, `chacha20poly1305` and `blake2` crates, after checking X-Wing against the vectors of draft-connolly-cfrg-xwing-kem-11, and verified independently from the draft's reference pseudocode. `commitment` and `nonce` are chosen field elements, not Poseidon2 outputs, printed as their 32 little-endian bytes in order; the commitment check of discovery is not covered.
 
 ### Note Encryption Key
 
@@ -391,7 +399,7 @@ Wallet B:
 
 ### `encrypt_note`
 
-Every vector encrypts to wallet A. `eseed` is the 64-byte randomness of X-Wing's `EncapsulateDerand`: its first 32 bytes are the ML-KEM-768 message, the last 32 the X25519 ephemeral secret. `plaintext` is `value` (8 bytes, little-endian) followed by `nonce` (32 bytes, little-endian); `commitment` is the associated data, 32 bytes little-endian; the AEAD nonce is 12 zero bytes.
+Every vector encrypts to wallet A. `eseed` is the 64-byte randomness of X-Wing's `EncapsulateDerand`: its first 32 bytes are the ML-KEM-768 message, the last 32 the X25519 ephemeral secret. `plaintext` is `value` (8 bytes, little-endian) followed by `nonce` (32 bytes, little-endian); `commitment` is the associated data; the AEAD nonce is 12 zero bytes. `commitment` and `nonce` are printed as their 32 bytes in order, the little-endian encoding of the field element, exactly as they enter the AEAD and the plaintext, like every other `0x` row of these tables; `value` is a decimal integer. Vector 3 has a nonce that differs from its reverse and a value above $`2^{32}`$.
 
 Vector 1:
 
@@ -423,6 +431,21 @@ Vector 2:
 | `sealed` | 0x9ed6f1066df3cf852c93101de292ab8ca91236a8cb3dab754724a0d981d940fdc30a26f51c7f720bb53df517dfe18148284e1520f633cb13 |
 | `ciphertext` | 0x879f6939ba920b33569fce8ab10084402166c7632cd149f5855cd5969c6a03a2776b4d7ceff5617b974cabbbc131d732b85f14567ce4aca108d70ae753e36a325c55e7cfba6e13cf026fdc8f58171c2eff8aa04068f2b47822b8a32317029b6c33298add3df10652826ce8a2c51c6a00b90e9b576b6943bc9b2ab58da59efab1ff7f9d49501d68219553b46773f435f3e22e66d08298e501f42a980f6dbd22cf43da22064b21b4e36b524064a19dad45641ccdfccecce2be58434a08c6e2a7ae9e0800efcbd4ad923a6489f99a4a20e2847dd5b918605e4b732a164181595880ff8cfb6fb021f316aaa51f6e1c2a6dbb47a3102d826158b8bb378e8abc6d274d83acf3de220fee1df2b7ea9757f316c4140c33306ec499612f8131c7503a1025e8b499ae822152b3ca0ed0362ff3dd4a4be41c53962a2c0d7959c7e1cb8f10c50962da75ac4e146d608acfed919a812ebc4a75ecc1a800dcb12af8af69b6f6d9d6bd9e08f9c5c758494c36d97d4027ebadcc6ad666955c537ec1384c60095798f1d6b74fe7301f16264df42ab48164cd0ddb52ed0d36dd99c9e271d3ca0d491b9f0aa3d70c57673476f4f15a898792758401bb5c4169c61fb95e51692d5d11728a0a2a31f6e7ee3feaf076a02d87c8dbc08fee44b72726e37074a6705d5408aaa451e84768fb5c5c3b49cff826bcbdd0845ac9cd8b114802dd61416ddbbcf12824a9e267a065a69e60b160642543c1dbf74a55b775ea36a87de54a5ddf9a8e9884fe0fc9c66ea8c90aed508864edea66ac6198d030b481068e34cdc158ec61e63afef942388d35c5135a47bb34e628251f1468f2cbaf42753d4742c7f24d8007b5c6e48df86a2d948b4a7186e1a8f5dbc112ded8e8e9d6680eacd1a88ea0e813c0abc72423dd9fd3555a84f21ce44866d61011f2282e0221b26bcb433634d34ab0d1bc75ae7c5468bb9f442d06894fced8c10f43a7539798eba34e44be0066d5387ad475634de2579579dc79d332edec41260c4e4fef018a7321aa41f50688bd23dbd7e522841265898e4700ba8ea5083059bd34ef970e938989a5722779b88fca252f3b5fbd47c0a8dd2cd776ae9014d3438a8f789599dfd52b608e8ccccdfb4d8b4e7e3718c83e44fc50ac8821672005a5e770afe22b40a1378d839ca1752deaab8efa09c0989c1132e7228270de9f01e3095463acec0544aa31e5bb6cda8709af5e2a27bd65eb377b59a84fb951f52dc260a23bde5b85191a13abb95b01533a7c32ad01b447ff58bccded1c4e75eeba149a15ab501b34e51ecb727c8be55547422db1b2b1c8a7d8f456b7a32549ccb95ed1bcf2c334f12db15d2350ea6abf071e977856ed8576ca2749e618ad2a38365ab02f8c5dbf5e7aea407e7ba689bdc2175966d052e594cb2abbd637e072bbe10b47d37845bf304e8a914681b9a6a649e64fa1f88aab4cc598853f26af48180cba8c790a3017486a58170d19ac02af2cad2e491465f2fcb9be6a6e8ed2e37e0e06cae470dc059b54db6ddf38b6d5e3605a725d2a4adfeeb1a29e17edd621c1b7593ee8cdbc44ac6c4ab6e2f805d23c9ed6f1066df3cf852c93101de292ab8ca91236a8cb3dab754724a0d981d940fdc30a26f51c7f720bb53df517dfe18148284e1520f633cb13 |
 
+Vector 3:
+
+| Field | Value |
+| - | - |
+| `commitment` | 0x2b20252a2f04090e03080d22272c21262b00050a0f04090e23282d22272c0106 |
+| `value` | 1250999896491 |
+| `nonce` | 0x05080b0e0104070a0d202326292c2f2225282b2e0104070a0d000306090c0f22 |
+| `plaintext` | 0xab8967452301000005080b0e0104070a0d202326292c2f2225282b2e0104070a0d000306090c0f22 |
+| `eseed` | 0xc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff |
+| `ss` | 0xfae23c8b38eb86b10cffe584198fd942055d59a27e5d94ce340abed761debd43 |
+| `key` | 0x47107ada322e1c5f8b9e5901417cd4e23e39a3ad8185c07e46d7a380085d5f78 |
+| `kem_ct` | 0xc191305554f3c7af5c760004101a8afc0aed83ed2604521e77f809a13e5fb1e0b3f787d1fedebe345c5b43e87f864fa2cbb7cdb75d26b9b61f9cba07e183f8d3ccb258540b5b7925a4ca55475781ab399a7f137061c0312af7ff00cebbc6228b19c7ddad1adfa29db587ac91b767187791f891f8d5896d956a696ef10ec0eaefbeaf35b87549576f326eced9a649c31cb93f84a048bb39b06a202eff8e5e7ea2383a8bb901dd0559846a12123487ab1bd65078715e77606153b054e2ffcb00b5d643a48fde0b9d92f125216fce9f954f689be0126a1bb001259d0d37a75f691c8b3e83b616f863a004532f1a48b45d00217293f5d3cb267bef3e3fff28b811026c91ec957807e5c4c1cfc38bbeb9daedfe84466541ad65989134db345e286f67c0a785a519a53851af36283144db0f0c79052d0e44bb81577d935874b39eeb8bbeae8a65e32dfc7d85410e79528f572cc374e99f4e06ab34c13d834dd96a383a2dd372bb2e653b0758958e4f975c724c099a509569c9e85d36b54cb57b1f97e9fee5359ba9d1700cc156dd862fd6dc16c7990f597018d18cfded943e288d2c79e3a60c627ead59408f70845b501748f2b59b0a6d4da5099c73b419a4a119abd052543e381cdca49067c501b18ea069c9f0ccaec6b93b8722bebdbca16d1c8b1e277f3935a8088a3f2f7c4380c874762f58fdf271cd496196056fccff747b5c8f104ad7d65dda298ef7cffa26306397c4241767ed8bf3076f30b3563d3dc7e2f015408e76b6eefa8da25bc0bf9eb1f63e7d237c5515d8ca6e42e6f679b190348bc9b56769c253aaaef41fa8b9aee7a7a12ae9ffbecba2dec81d8571e0ebc0213eb212b2231798d4bfee865a6cff854f9d2dd72dd67c74d1868064b4e973c970ad6466d16af4d49dfa6d243e880750a9f377461819ecba2d5b2f9a3c48978c8012248353770c42e71efa6f4d760e0174b5e41bf002fad8e4e8137911f01510538718128a1b68513ac23559f547b642a1bbfbeb48ab182da54b110e829651216d0b22a3fbb43a62d996bdf63096c0895f0286b3e4280ce42f1eadd38f6f21c312569761eb3bf085a5b68b2d30eea36266fd52b86c0a605d2951b8b134ad2a918401de26cc3b1ceba82e4e078b4a1d5bcf453550915c52ff6bfb12980ab1a3f38afb634cb5101c7cb2ecdff31ebfeecdbd3ebb9b44eed2cfb895da9672b40d318d0eab830b43cc2732e0b4ee5eaf6e8373ce12b0dee94871ec83f5a666adc4df65e992cadcee3f5ce9c1ef12bb71c8a8b2c4cc31716ff2599b36d1c21878b7d21d36183da3de96f4a96a88e7c2e9d218f2bc2fadff360d52fb5ade4b6b5279f6f05c7efea252c297910136d6ce51c55b8464b36b02f21f71bc1eedc6870da8773e042814449919a8c1b42f608b1ae124f578aee7f05034f25ebe69370815616d8caabdb4ccb48bdc70003aa1ac1d428b48d53ff3ccc87d8baf4f26b159d067c2d75e5b6682ff49deea6dda8263ae5ab84315d17808ae83727715fa12325cca0a9280736845d54e87de09d6bb114aa7042c50a4a015bd9901d1a0026f5956533a1519 |
+| `sealed` | 0x3f326b084cd4972bd1dc16ed0e7446c94da7ce2cc7c28900cb1c649a1ca83f2405c667f85a81374b4d40463742ec8e1a0803b2769581d108 |
+| `ciphertext` | 0xc191305554f3c7af5c760004101a8afc0aed83ed2604521e77f809a13e5fb1e0b3f787d1fedebe345c5b43e87f864fa2cbb7cdb75d26b9b61f9cba07e183f8d3ccb258540b5b7925a4ca55475781ab399a7f137061c0312af7ff00cebbc6228b19c7ddad1adfa29db587ac91b767187791f891f8d5896d956a696ef10ec0eaefbeaf35b87549576f326eced9a649c31cb93f84a048bb39b06a202eff8e5e7ea2383a8bb901dd0559846a12123487ab1bd65078715e77606153b054e2ffcb00b5d643a48fde0b9d92f125216fce9f954f689be0126a1bb001259d0d37a75f691c8b3e83b616f863a004532f1a48b45d00217293f5d3cb267bef3e3fff28b811026c91ec957807e5c4c1cfc38bbeb9daedfe84466541ad65989134db345e286f67c0a785a519a53851af36283144db0f0c79052d0e44bb81577d935874b39eeb8bbeae8a65e32dfc7d85410e79528f572cc374e99f4e06ab34c13d834dd96a383a2dd372bb2e653b0758958e4f975c724c099a509569c9e85d36b54cb57b1f97e9fee5359ba9d1700cc156dd862fd6dc16c7990f597018d18cfded943e288d2c79e3a60c627ead59408f70845b501748f2b59b0a6d4da5099c73b419a4a119abd052543e381cdca49067c501b18ea069c9f0ccaec6b93b8722bebdbca16d1c8b1e277f3935a8088a3f2f7c4380c874762f58fdf271cd496196056fccff747b5c8f104ad7d65dda298ef7cffa26306397c4241767ed8bf3076f30b3563d3dc7e2f015408e76b6eefa8da25bc0bf9eb1f63e7d237c5515d8ca6e42e6f679b190348bc9b56769c253aaaef41fa8b9aee7a7a12ae9ffbecba2dec81d8571e0ebc0213eb212b2231798d4bfee865a6cff854f9d2dd72dd67c74d1868064b4e973c970ad6466d16af4d49dfa6d243e880750a9f377461819ecba2d5b2f9a3c48978c8012248353770c42e71efa6f4d760e0174b5e41bf002fad8e4e8137911f01510538718128a1b68513ac23559f547b642a1bbfbeb48ab182da54b110e829651216d0b22a3fbb43a62d996bdf63096c0895f0286b3e4280ce42f1eadd38f6f21c312569761eb3bf085a5b68b2d30eea36266fd52b86c0a605d2951b8b134ad2a918401de26cc3b1ceba82e4e078b4a1d5bcf453550915c52ff6bfb12980ab1a3f38afb634cb5101c7cb2ecdff31ebfeecdbd3ebb9b44eed2cfb895da9672b40d318d0eab830b43cc2732e0b4ee5eaf6e8373ce12b0dee94871ec83f5a666adc4df65e992cadcee3f5ce9c1ef12bb71c8a8b2c4cc31716ff2599b36d1c21878b7d21d36183da3de96f4a96a88e7c2e9d218f2bc2fadff360d52fb5ade4b6b5279f6f05c7efea252c297910136d6ce51c55b8464b36b02f21f71bc1eedc6870da8773e042814449919a8c1b42f608b1ae124f578aee7f05034f25ebe69370815616d8caabdb4ccb48bdc70003aa1ac1d428b48d53ff3ccc87d8baf4f26b159d067c2d75e5b6682ff49deea6dda8263ae5ab84315d17808ae83727715fa12325cca0a9280736845d54e87de09d6bb114aa7042c50a4a015bd9901d1a0026f5956533a15193f326b084cd4972bd1dc16ed0e7446c94da7ce2cc7c28900cb1c649a1ca83f2405c667f85a81374b4d40463742ec8e1a0803b2769581d108 |
+
 ### `decrypt_note`
 
 | Case | `sk_enc` | `commitment` | `ciphertext` | Result |
@@ -433,9 +456,18 @@ Vector 2:
 | vector 1, KEM ciphertext altered | A | as given | first byte flipped | `None` |
 | vector 1, tag altered | A | as given | last byte flipped | `None` |
 | vector 1, truncated | A | as given | 1175 bytes | `None` |
+| vector 1, extended | A | as given | 1177 bytes | `None` |
 | vector 2 | A | as given | as given | `(0, 0x0000000000000000000000000000000000000000000000000000000000000000)` |
 | vector 2, other commitment | A | first byte flipped | as given | `None` |
 | vector 2, other wallet | B | as given | as given | `None` |
 | vector 2, KEM ciphertext altered | A | as given | first byte flipped | `None` |
 | vector 2, tag altered | A | as given | last byte flipped | `None` |
 | vector 2, truncated | A | as given | 1175 bytes | `None` |
+| vector 2, extended | A | as given | 1177 bytes | `None` |
+| vector 3 | A | as given | as given | `(1250999896491, 0x05080b0e0104070a0d202326292c2f2225282b2e0104070a0d000306090c0f22)` |
+| vector 3, other commitment | A | first byte flipped | as given | `None` |
+| vector 3, other wallet | B | as given | as given | `None` |
+| vector 3, KEM ciphertext altered | A | as given | first byte flipped | `None` |
+| vector 3, tag altered | A | as given | last byte flipped | `None` |
+| vector 3, truncated | A | as given | 1175 bytes | `None` |
+| vector 3, extended | A | as given | 1177 bytes | `None` |

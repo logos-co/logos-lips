@@ -1911,8 +1911,8 @@ These note commitments and nullifiers uniquely define notes in the system. Nodes
 
 The ledger holds the commitment of a note and nothing of its contents. The holder of a note learns its `value` and `nonce` in one of two ways:
 
-- Notes the ledger creates, such as rewards and service notes, carry their nonce in the Operation that creates them ([Note Commitment and Nullifier](#note-commitment-and-nullifier)), and the user notes a program pays in a step consuming a note of the program carry the nonce the [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) derives. Their value is public, or fixed by the rule of the program from public data, and their staking key is their public key, or the key the rule of the program fixes for a payout ([Keys](#keys)), so their holder recomputes the commitment alone. The leader reward note comes from no Operation: its value is in the header of its block, and its leader chose its nonce ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)).
-- A user note created by a Transfer, a channel deposit, a channel withdrawal, a user step, a payment or a program step consuming no note of the program, or paid in an amount its holder cannot recompute, is delivered off chain: the ledger carries nothing of it but the commitment. The RECOMMENDED delivery is the note ciphertext of [Note Encryption](common-cryptographic-components.md#note-encryption-construction), the encryption of `value` and `nonce` under the encryption key of the recipient with the commitment as associated data, handed over through a direct channel or published on a data availability layer the recipient reads. The staking key of a note delivered this way is the public key of its recipient, unless the recipient asked the sender for another ([Keys](#keys)). The recipient decrypts it and owns the note if the commitment it recomputes, from the plaintext and its keys, is the one in the ledger ([Wallet Technical Standard](wallet-technical-standard.md#note-discovery-and-recovery)).
+- Notes the ledger creates, such as rewards and service notes, carry their nonce in the Operation that creates them ([Note Commitment and Nullifier](#note-commitment-and-nullifier)), and the user notes a program pays in a step consuming a note of the program carry the nonce the [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) derives. Their value is public, or fixed by the rule of the program from public data, and their staking key is their public key, the `note_stake_pk` of their declaration for a service note or a service reward note, or the key the rule of the program fixes for a payout ([Keys](#keys)), so their holder recomputes the commitment alone. The leader reward note comes from no Operation: its value is in the header of its block, and its leader chose its nonce ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)). A service reward note comes from no Operation either: its value and nonce follow [Service Reward Distribution](bedrock-service-reward-distribution.md), and its keys are those of its declaration.
+- A user note created by a Transfer, a channel deposit, a channel withdrawal, an SDP withdrawal, a user step, a program deposit or a program step consuming no note of the program, or paid in an amount its holder cannot recompute, is delivered off chain: the ledger carries nothing of it but the commitment. The RECOMMENDED delivery is the note ciphertext of [Note Encryption](common-cryptographic-components.md#note-encryption-construction), the encryption of `value` and `nonce` under the encryption key of the recipient with the commitment as associated data, handed over through a direct channel or published on a data availability layer the recipient reads. A sender MUST give a note delivered this way the public key of its recipient as staking key, unless the recipient named another key to it ([Keys](#keys)): the recipient cannot recompute the commitment, nor spend the note, under a staking key it does not know. The recipient decrypts it and owns the note if the commitment it recomputes, from the plaintext and its keys, is the one in the ledger ([Wallet Technical Standard](wallet-technical-standard.md#note-discovery-and-recovery)).
 
 ### Service notes
 
@@ -2278,6 +2278,16 @@ Such that the following constraints hold, where `inputs_nf_sk`, `inputs_pk` and 
   )
   ```
   
+- The nullifiers of the active inputs are pairwise distinct, so a note is consumed at most once and counted once in the balance.
+  ```python
+  assert all(
+      inputs[i] != inputs[j]
+      for i in range(len(inputs_spending_sk))
+      for j in range(i + 1, len(inputs_spending_sk))
+      if inputs_active[i] and inputs_active[j]
+  )
+  ```
+  
 - Each selector is a bit, and each active input commitment is in `tx_commitment_root`, its path computed by [`path_root`](#commitment-merkle-mountain-range).
   ```python
   assert all(
@@ -2372,21 +2382,28 @@ class ZkProgramSpendWitness:
 
 Such that the following constraints hold, where `inputs_commitment` are the commitments the circuit derives for the inputs:
 
-- Each input flag is boolean, and each input commitment is derived with the public key `PK0` and `program` set to `program_id`, so the inputs are notes of the program. The circuit takes no spending secret key: `PK0` and `NF_SK0` are constants.
+- Each input flag is boolean, the active inputs come first, and each input commitment is derived with the public key `PK0` and `program` set to `program_id`, so the inputs are notes of the program. The circuit takes no spending secret key: `PK0` and `NF_SK0` are constants.
   ```python
   assert all(
       inputs_active[i] * (1 - inputs_active[i]) == 0
+      and (i == 0 or inputs_active[i] * (1 - inputs_active[i - 1]) == 0)
       and inputs_commitment[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], PK0, inputs_stake_pk[i], program_id, inputs_data[i])
       for i in range(len(inputs_value))
   )
   ```
 
-- Each active input nullifier is derived from `NF_SK0` and the input commitment, each selector is a bit, each active input commitment is in `tx_commitment_root`, its path computed by [`path_root`](#commitment-merkle-mountain-range), and each inactive input has value 0, as in the ZkTransfer.
+- Each active input nullifier is derived from `NF_SK0` and the input commitment, each selector is a bit, each active input commitment is in `tx_commitment_root`, its path computed by [`path_root`](#commitment-merkle-mountain-range), and each inactive input has value 0, and the nullifiers of the active inputs are pairwise distinct, as in the ZkTransfer.
   ```python
   assert all(
       inputs[i] == zkhash(FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p), inputs_commitment[i], NF_SK0)
       if inputs_active[i] else inputs_value[i] == 0
       for i in range(len(inputs_value))
+  )
+  assert all(
+      inputs[i] != inputs[j]
+      for i in range(len(inputs_value))
+      for j in range(i + 1, len(inputs_value))
+      if inputs_active[i] and inputs_active[j]
   )
   ```
 
@@ -2405,14 +2422,14 @@ Such that the following constraints hold, where `inputs_commitment` are the comm
   ```
   The flags `outputs_of_program` mark the `program_outputs` of the step, whose openings the step must publish.
 
-- If the step consumes a note of the program, the nonce of each active output is derived from the nullifier of the first input and the index of the output, as the nonce of a note the ledger creates is derived from its `op_id` and its output number. The flags set the inputs of a step first, so `inputs_active[0]` holds exactly when the step consumes a note.
+- If the step consumes a note of the program, the nonce of each active output is derived from the nullifier of the first input and the index of the output, as the nonce of a note the ledger creates is derived from its `op_id` and its output number. The active inputs come first, which the circuit enforces, so `inputs_active[0]` holds exactly when the step consumes a note.
   ```python
   assert not inputs_active[0] or all(
       outputs_nonce[k] == zkhash(FiniteField(b"NOTE_NONCE_V1", byte_order="little", modulus= p), inputs[0], FiniteField(k, byte_order="little", modulus= p), outputs_value[k], outputs_pk[k])
       for k in range(len(outputs_pk)) if outputs_active[k]
   )
   ```
-  A nullifier is consumed once in its note set, so such a step re-creates neither a note that it consumes nor the output of another such step: a sequencer cannot burn a note by re-creating it, and, when the program fixes the staking key of a payout, cannot withhold it from a holder who knows its value, since the holder recomputes the nonce from the inscription, the value and the public key of the note. A commitment created ahead of time with a chosen nonce costs its creator the value. The `op_id` cannot serve here, since it covers the output commitments and thus their nonces. A step consuming no note of the program picks the nonces of its outputs, and a program whose rule admits such a step should constrain them through `program_step_id`. A derived nonce is a public function of the value and the public key of the note, so anyone can test a known public key against the commitment of a payout, and a payee should use a one-time public key.
+  A nullifier is consumed once in its note set, so such a step re-creates neither a note that it consumes nor the output of another such step: a sequencer cannot burn a note by re-creating it, and, when the program fixes the staking key of a payout, cannot withhold it from a holder who knows its value, since the holder recomputes the nonce from the inscription, the value and the public key of the note. A commitment created ahead of time with a chosen nonce costs its creator the value. The `op_id` cannot serve here, since it covers the output commitments and thus their nonces. A step consuming no note of the program picks the nonces of its outputs, and a program whose rule admits such a step should constrain them through `program_step_id`. Its outputs are paid from `paid_value` alone, so an output repeating the commitment of an existing note costs the program deposits of the step its value and takes nothing from the existing note. A derived nonce is a public function of the value and the public key of the note, so anyone can test a known public key against the commitment of a payout, and a payee should use a one-time public key.
 
 - `program_step_id` commits to the flag and the note of every input and output, nonce and staking key included, which the program proof opens to check its rule, such as the staking key of the notes the step creates. Their fields are hashed one after the other, input by input, then output by output, each multiplied by the flag of its input or output. The fields of an inactive input or output therefore read as `0`, so a spend has a single `program_step_id`, and a program that does not check a flag cannot be fed a note through an inactive input or output.
   ```python
@@ -2425,18 +2442,20 @@ Such that the following constraints hold, where `inputs_commitment` are the comm
   )
   ```
 
-- The outputs are well-formed, and the inputs and the paid value balance the outputs exactly.
+- The outputs are well-formed, the paid value is below $`2^{64}`$, and the inputs and the paid value balance the outputs exactly. The sum of the input values is below $`2^{74}`$, as the ZkTransfer bounds its sums, so neither side of the balance wraps around $`p`$.
   ```python
   assert all(
-      outputs_value[i] < 2^64
+      outputs_value[i] < 2**64
       for i in range(len(outputs_value))
   )
+  assert paid_value < 2**64
+  assert sum(inputs_value) < 2**74
   assert sum(inputs_value) + paid_value == sum(outputs_value)
   ```
 
 - The proof is bound to `msg`, the `op_id` of the Channel Inscribe Operation reduced modulo $`p`$.
 
-The circuit takes at most 4 inputs and 8 outputs, the unused ones being inactive as in the ZkTransfer. It is the ZkTransfer circuit with the keys of its inputs and of the notes of the program fixed to `PK0` and `NF_SK0`, the program checks, the flags of the outputs of the program, the derivation of the nonces, the hash of the notes and `paid_value` added.
+The circuit takes at most 4 inputs and 8 outputs, the unused ones being inactive as in the ZkTransfer. It is the ZkTransfer circuit with the keys of its inputs and of the notes of the program fixed to `PK0` and `NF_SK0`, the program checks, the flags of the outputs of the program, the order of the input flags, the derivation of the nonces, the hash of the notes and `paid_value` with its range check added.
 
 ### Benchmark
 
