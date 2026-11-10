@@ -1951,7 +1951,7 @@ class NoteSet:
 
 class RecentRoot:
     peaks: list[(MerkleRoot, int)]  # the peaks of the commitment MMR at this root
-    last_block: int | None          # the height of the last block at whose end this was the root
+    last_block: BlockHeight | None  # the height of the last block at whose end this was the root
                                     # of the set, None for the current root
 
 class Groth16StoredKey:
@@ -1981,7 +1981,7 @@ At the end of a block at height `block_height`, after its transactions and its l
 
 ```python
 class NoteSet:
-    def record_commitment_root(self, block_height: int):
+    def record_commitment_root(self, block_height: BlockHeight):
         self.recent_commitment_roots[self.current_commitment_root].last_block = block_height - 1
         self.current_commitment_root = mmr_root(self.commitments)
         self.recent_commitment_roots[self.current_commitment_root] = RecentRoot(list(self.commitments), None)
@@ -1990,7 +1990,7 @@ class NoteSet:
                 del self.recent_commitment_roots[root]
 ```
 
-A root is recent for a block at height `h` if it is the current root of the set, or if its `last_block` is at least `h - ROOT_WINDOW`: a root is the root of the set at the end of each block from the one that recorded it until the block before the one that replaces it.
+A root is recent for a block at height `block_height` if it is the current root of the set, or if its `last_block` is at least `block_height - ROOT_WINDOW`: a root is the root of the set at the end of each block from the one that recorded it until the block before the one that replaces it.
 
 The note sets are what the [Proof of Leadership](cryptarchia-proof-of-leadership.md#eligible-sets) proves a note against.
 

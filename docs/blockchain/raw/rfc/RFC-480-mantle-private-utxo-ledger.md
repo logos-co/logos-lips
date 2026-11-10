@@ -128,7 +128,7 @@ class NoteSet:
 
 class RecentRoot:
     peaks: list[(MerkleRoot, int)]  # the peaks of the commitment MMR at this root
-    last_block: int | None          # the last block at whose end this was the root, None if current
+    last_block: BlockHeight | None  # the height of the last block at whose end this was the root, None if current
 
 class Ledger:
     sets: list[NoteSet]                              # ledger, SDP, then one per channel by creation,
