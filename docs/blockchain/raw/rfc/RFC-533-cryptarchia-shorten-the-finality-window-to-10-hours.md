@@ -1,6 +1,6 @@
 # [RFC] Cryptarchia: Shorten the finality window to 10 hours
 
-**Motivation and proposal:** [PR #TBD](https://github.com/logos-co/logos-lips/pull/TBD)
+**Motivation and proposal:** [PR #533](https://github.com/logos-co/logos-lips/pull/533)
 
 ## Change log
 
