@@ -184,7 +184,7 @@ The replacement is [HashWX](../common-cryptographic-components.md#hashwx). It ad
 | Machine | `zkhash` | HashWX |
 | --- | --- | --- |
 | Apple M4 Pro, 14 threads | 14.4 | 5.2 to 6.2 |
-| Intel Core Ultra 9 285HX, 24 cores | not measured | TBD |
+| Intel Core Ultra 9 285HX, 24 cores | not measured | 10.7 |
 
 Owned hash rate at about $1 a board therefore stays the lower bound after the replacement.
 
