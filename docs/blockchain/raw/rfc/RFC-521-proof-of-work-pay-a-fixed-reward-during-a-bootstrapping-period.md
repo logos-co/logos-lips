@@ -179,16 +179,16 @@ So 90-10 keeps out neither a patient miner nor, at $0.05, a miner that counts on
 
 The reward of 100 LOGOS depends on replacing the reward puzzle first. `zkhash` is a small arithmetic kernel over one field, which dedicated hardware accelerates well, and no GPU has been measured on it. At this reward a board earns up to $167 a month at $0.05, so acceleration would pay. `POW_BOOTSTRAP_REWARD` should therefore not take this value while claims use `zkhash`. Blend admission keeps `zkhash`, since its solution is proven in a circuit.
 
-The replacement is [HashWX](../common-cryptographic-components.md#hashwx). It addresses GPUs: its author reports 5.6 MH/s on an RTX 5060 Ti at 180 W, from a private solver. It claims no resistance to dedicated hardware. It does not address desktops, which stay ahead of a board on both puzzles. An Apple M4 Pro mines 5.0 to 6.0 MH/s on HashWX, measured, and no board has been measured yet. In boards, where a board is 165,565 permutations a second on `zkhash` and `HASHWX_MACHINE_RATE` hashes a second on HashWX:
+The replacement is [HashWX](../common-cryptographic-components.md#hashwx). It addresses GPUs: its author reports 5.6 MH/s on an RTX 5060 Ti at 180 W, from a private solver. It claims no resistance to dedicated hardware. It does not address desktops, which stay ahead of a board on both puzzles. An Apple M4 Pro mines 5.0 to 6.0 MH/s on HashWX, measured. In boards, where a board is 165,565 permutations a second on `zkhash` and `HASHWX_MACHINE_RATE`, 970,000 hashes a second, on HashWX:
 
 | Machine | `zkhash` | HashWX |
 | --- | --- | --- |
-| Apple M4 Pro, 14 threads | 14.4 | TBD |
+| Apple M4 Pro, 14 threads | 14.4 | 5.2 to 6.2 |
 | Intel Core Ultra 9 285HX, 24 cores | not measured | TBD |
 
 Owned hash rate at about $1 a board therefore stays the lower bound after the replacement.
 
-The two caps are stated in `HASHWX_MACHINE_RATE`, which is TBD until a board is measured. The income and node figures of this RFC are per board, so they carry over.
+The two caps are stated in `HASHWX_MACHINE_RATE`. The income and node figures of this RFC are per board, so they carry over.
 
 ## The cost of a claim ticket
 
