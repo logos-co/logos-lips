@@ -83,8 +83,7 @@ The Execution Gas of a Mantle Transaction is:
 ```python
 def tx_execution_gas(tx_signed, note_sets) -> int:
     # note_sets: the note sets once the Operations of the transaction have run, each
-    # recording whether an Operation created or changed it, the posting of a channel
-    # withdrawal prepaying the change its release makes (tx_changed), and the
+    # recording whether an Operation created or changed it (tx_changed), and the
     # (referenced root, covered) of each root its proofs extended by buffered
     # commitments (tx_extended_roots)
     return (len(encode(tx_signed)) * EXECUTION_KB_GAS // 1000
@@ -127,7 +126,7 @@ CHANNEL_INSCRIBE  = EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_SIGNATURE_GAS
                     + sum(program_step_gas(step) for step in program_steps)
 CHANNEL_CONFIG    = EXECUTION_CHANNEL_CONFIG_GAS + EXECUTION_SIGNATURE_GAS * len(proof.signatures)
 CHANNEL_DEPOSIT   = EXECUTION_CHANNEL_DEPOSIT_GAS + spend_gas(inputs, outputs)
-CHANNEL_WITHDRAW  = EXECUTION_CHANNEL_WITHDRAW_GAS + spend_gas(inputs, outputs)
+CHANNEL_WITHDRAW  = EXECUTION_CHANNEL_WITHDRAW_GAS + EXECUTION_NOTE_SET_GAS + spend_gas(inputs, outputs)
 SDP_DECLARE       = EXECUTION_SDP_DECLARE_GAS + EXECUTION_SIGNATURE_GAS
                     + spend_gas(inputs, [service_note])
 SDP_WITHDRAW      = EXECUTION_SDP_WITHDRAW_GAS + EXECUTION_SIGNATURE_GAS
@@ -284,7 +283,7 @@ The deposit spends notes of the ledger set and appends its outputs to the note s
 | each further output released | 56,435 |
 | decompression and batch verification of the ZkTransfer | 4,174,321 |
 
-The release runs before the transactions of the block at the slot of the withdrawal, and the Operation pays it in advance.
+The release runs before the transactions of the block at the slot of the withdrawal, and the Operation pays it in advance, `EXECUTION_NOTE_SET_GAS` included for the change it makes to the channel note set.
 
 ## SDP Declaration
 

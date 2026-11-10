@@ -1025,7 +1025,7 @@ ZkTransfer
 
 #### Execution Gas
 
-  Channel Withdraw Operations have an Execution Gas cost of `EXECUTION_CHANNEL_WITHDRAW_GAS + spend_gas(inputs, outputs)`. The Operation pays in advance the release of the withdrawal at its slot. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
+  Channel Withdraw Operations have an Execution Gas cost of `EXECUTION_CHANNEL_WITHDRAW_GAS + EXECUTION_NOTE_SET_GAS + spend_gas(inputs, outputs)`: the Operation pays in advance the release of the withdrawal at its slot, `EXECUTION_NOTE_SET_GAS` for the change that release makes to the channel note set. See [Gas Determination](#gas-determination) for `spend_gas` and the Execution Gas values.
 
 #### Validation
 
@@ -1078,14 +1078,13 @@ block_slot: Slot
 
   *Execute*
 
-Keep the withdrawal in the [`pending_withdrawals`](#ledger) of the ledger until its due slot. The Mantle Transaction pays in advance the change its release makes to the channel note set.
+Keep the withdrawal in the [`pending_withdrawals`](#ledger) of the ledger until its due slot. The Operation pays in advance, in its own Execution Gas, the change its release makes to the channel note set, so the channel note set does not record a change of the Mantle Transaction.
 
 ```python
 ledger.pending_withdrawals.append((block_slot + WITHDRAW_DELAY,
                                    channels[withdrawal.channel].note_set,
                                    withdrawal.inputs,
                                    withdrawal.outputs))
-ledger.sets[channels[withdrawal.channel].note_set].tx_changed = True
 ```
 
 At the start of every block, before its transactions, every pending withdrawal whose due slot is reached is applied if its inputs are still unspent, and dropped otherwise, in the order the withdrawals were posted (see [Block Execution](bedrock-v1.1-block-construction.md#block-execution)). That order is not the order of the due slots, since an SDP withdrawal can fall due after a channel withdrawal posted later, and it sets the order in which the outputs are appended to the ledger note set:
