@@ -1145,7 +1145,7 @@ class Locator(bytes):
 
 class MinStake:
     threshold: TokenValue # stake value
-    timestamp: BlockNumber # see SDP: Minimum Stake
+    timestamp: BlockHeight # see SDP: Minimum Stake
 
 class ServiceParameters:
     inactivity_period: NumberOfEpochs # number of epochs

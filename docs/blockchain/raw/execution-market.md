@@ -95,7 +95,7 @@ A critical feature of this design is its resilience to the base fee manipulation
 
 | Symbol | Name | Value | Description |
 | --- | --- | --- | --- |
-| $s$ | Block Number | - | The index of a block in the chain. |
+| $s$ | Block Height | - | The height of a block in the chain. |
 | $t$ | Transaction | - | A single transaction submitted by a user. |
 | $`g_t`$ | Execution Gas Consumed | - | The actual amount of Execution Gas consumed by transaction $t$ upon execution. |
 | $`c_t`$ | Execution Gas Price | - | The user-specified price per unit of execution gas they will pay. |
