@@ -41,6 +41,7 @@
 |  | Local submission also covers the transactions the node's own services create, such as its SDP activity, as implemented. The Overview no longer says admission checks only well-formedness. | 2026-10-21 |
 |  | A `CLAIM_POW_REWARD` has an empty proof, and admission and block building check no signature for it, as implemented. The departure that required the signature moved to a submission of its own, so none is left, and its consequence is Open Issue 19. | 2026-10-21 |
 |  | Block building verifies a transaction's batched ZK proofs before its Execution Gas counts against `G_max`, as [logos-blockchain#3978](https://github.com/logos-blockchain/logos-blockchain/pull/3978) implements, which closes Open Issue 18. The claim-signature issue becomes 18. | 2026-11-03 |
+| v11 | Implementation links logos-blockchain#4059 to the test task, and notes that the claim deadline already has tests. | 2026-11-10 |
 
 ## Reviewer Orientation
 
@@ -198,7 +199,7 @@ The [Mempool](../mempool.md) specification is the single source of truth. The en
 - [x]  Retire a claim once the highest slot of a block added since the node started reaches its deadline, and refuse it at admission from then on ([logos-blockchain#3789](https://github.com/logos-blockchain/logos-blockchain/pull/3789))
 - [x]  Confirm the gossipsub message-id function on the mempool topic is the payload digest
 - [x]  Reconcile the mempool status and metrics endpoints with the Node API section
-- [ ]  Add or extend tests that exercise the change: admission ordering, resolution uniqueness, retirement clearing, restart recovery, and a claim retired and refused from its deadline and not before
+- [ ]  Add or extend tests that exercise the change: admission ordering, resolution uniqueness, retirement clearing, restart recovery, and a claim retired and refused from its deadline and not before ([logos-blockchain#4059](https://github.com/logos-blockchain/logos-blockchain/issues/4059); the claim deadline already has tests)
 - [ ]  Verify the implementation matches this specification
 
 # Affected Specifications
