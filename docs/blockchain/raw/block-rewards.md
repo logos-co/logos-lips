@@ -179,7 +179,7 @@ $$
 B_t = B_{t-1} - \iota_t, \qquad P_t = P_{t-1} + R_\text{block} - (1 - A_t) \cdot \bar{R}_t.
 $$
 
-The reserve is non-increasing and bounded below by zero. Once it is depleted, $`\iota_t = 0`$ and the reward reduces to $`(1 - A_t) \cdot \bar{R}_t`$, funded entirely by pooled fees. The increment of the pool can take either sign: near target ($`A_t \rightarrow 0`$) the pool pays the average and banks the difference $`R_\text{block} - \bar{R}_t`$, acting as a buffer that smooths fee fluctuations; far from target ($`A_t \rightarrow 1`$) it retains the full fee while the reserve release carries the reward. Every pooled fee is paid out at most once, a $`1/T`$ share in each of the $`T`$ blocks of the window, so the pool never goes below zero.
+The reserve falls with each release, rises only by the Blend rewards an epoch does not distribute ([Deterministic Implementation](#deterministic-implementation)), and is bounded below by zero. Once it is depleted, $`\iota_t = 0`$ and the reward reduces to $`(1 - A_t) \cdot \bar{R}_t`$, funded entirely by pooled fees. The increment of the pool can take either sign: near target ($`A_t \rightarrow 0`$) the pool pays the average and banks the difference $`R_\text{block} - \bar{R}_t`$, acting as a buffer that smooths fee fluctuations; far from target ($`A_t \rightarrow 1`$) it retains the full fee while the reserve release carries the reward. Every pooled fee is paid out at most once, a $`1/T`$ share in each of the $`T`$ blocks of the window, so the pool never goes below zero.
 
 The mechanism conserves tokens. With $`S_t`$ the circulating supply, counting the Blend share of the rewards as paid at once (its delay is covered below), the controlled total $`S_t + P_t + B_t`$ is constant:
 

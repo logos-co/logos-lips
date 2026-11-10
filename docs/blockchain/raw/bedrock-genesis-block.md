@@ -194,7 +194,7 @@ The protocol for generating the initial randomness nonce can be found below.
 1. **Schedule Epoch Nonce Ceremony Event:**
   We must fix well in advance when this epoch nonce ceremony will take place, let `t` denote the time of the Epoch Nonce Ceremony, broadcast `t` widely.
 
-  The `STAKE_DISTRIBUTION` must be finalized before `t` to ensure a fair Cryptarchia slot lottery.
+  The Genesis Mantle Transaction, all but `genesis_epoch_nonce`, must be finalized before `t` to ensure a fair Cryptarchia slot lottery: the tickets of the first epoch take the commitments of the initial notes and service notes, whose nonces derive from the Operations of that transaction, the `chain_id` and `genesis_time` of the Cryptarchia inscription included.
 
 2. **Randomness Collection:**
   We collect the entropy from multiple randomness sources:
@@ -235,7 +235,7 @@ The Genesis Block header fields are set to the following values:
 - `proof_of_leadership`: Stubbed leadership proof.
   - `reward_commitment` and `reward_value`: 0 (as there is no leader block reward for the initial block).
   - `entropy_contribution`: 0 (no entropy is provided through the initial PoL).
-  - `proof`: Null Groth16Proof, all values are set to zero.
+  - `proof`: the null `Groth16Proof`, 128 zero bytes, which encode no point and are never decompressed.
 
 **Example**
 
@@ -249,7 +249,7 @@ GENESIS_HEADER = Header(
         reward_commitment=bytes(32),
         reward_value=0,
         entropy_contribution=bytes(32),
-        proof=Groth16Proof(G1_ZERO, G2_ZERO, G1_ZERO),
+        proof=bytes(128),
     )
 )
 ```
@@ -328,7 +328,7 @@ GENESIS_HEADER = Header(
         reward_commitment=bytes(32),
         reward_value=0,
         entropy_contribution=bytes(32),
-        proof=Groth16Proof(G1.ZERO, G2.ZERO, G1.ZERO),
+        proof=bytes(128),
     )
 )
 
