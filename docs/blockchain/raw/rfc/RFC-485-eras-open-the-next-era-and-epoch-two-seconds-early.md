@@ -14,6 +14,7 @@
 | v4 | [Mempool](../mempool.md) follows the clock slack: admission, `preverify` and the retirement at an era change use the era in force `T_S` ahead, and block building leaves out the transactions whose fork digest the block's era does not accept, so a leader of an era's last blocks does not retire an early transaction as inapplicable. Removed: re-validating the mempool against the chain tip, which the era rules of Mempool replace. | 2026-10-21 |
 | v5 | Rebuilt on specifications that already name each epoch's Blend connections by the epoch digest, open and accept connections only of a node's current epoch, validate and send each message on connections of its epoch, have no one-round release delay or last-round exemption, and keep a previous era only for what is in flight. Removed from this RFC: those rules and their discussion. It keeps the clock slack: the next epoch's and era's connections opened and accepted `T_S` early, early validation, bootstrapping and SDP snapshot, the nullifier cache, `T_C < T_S`, and the mempool. Until the era in force changes, both eras take new connections. | 2026-10-22 |
 | v6 | The base now makes Blend's Transition Period the larger of `⌊1/f⌋` and `T_M + 1` rounds. With honest clocks up to `T_S` apart, that no longer guarantees `T ≥ T_M + T_C`, so §Transition Period states the bound as a requirement, and Open questions asks whether `T` should add `T_S` in place of one round. Corrected: the Era Transition Period ends `⌈T·Δ_{n−1}/Δ_n⌉` rounds after the era changes, as the base specifies, where Details still gave `T` rounds. | 2026-11-10 |
+| v7 | Blend's Transition Period adds the clock slack to the traversal time, `T = max(⌊1/f⌋, T_M + T_S)`, so `T ≥ T_M + T_C` follows from `T_C < T_S` again. Removed: the open question on that bound, now answered, and the bound stated as a requirement. | 2026-11-10 |
 
 ## Reviewer Orientation
 
@@ -59,17 +60,20 @@ No network runs these rules yet. The implementation has no slack: it switches to
 - No measurement of NTP synchronization among nodes backs the two seconds.
 - An era that changes the length of a round must restate `T_C < T_S`.
 - Block validation still rejects any block from a future slot ([Block Header Validation](../cryptarchia-v1-protocol.md#block-header-validation)), while honest clocks may now differ by up to `T_S`. Whether block acceptance should allow the same slack is left open.
-- With honest clocks up to `T_S` apart, `T = max(⌊1/f⌋, T_M + 1)` no longer guarantees `T ≥ T_M + T_C`, so §Transition Period states that bound as a requirement. It holds at the reference values (30 rounds against at most 17) and at the implementation's schedule (20 against at most 5), but can fail where `T_M + 1` sets `T`. Whether `T` should add `T_S` in place of the one round is open.
-
 # Details
 
 ## 1. Blend epochs
 
-[Blend Protocol](../blend-protocol.md) §Transition Period:
+[Blend Protocol](../blend-protocol.md) §Transition Period, where the transition period adds the clock slack to the traversal time in place of one round:
+
+```diff
+-T = max(⌊1/f⌋, T_M + 1) = max(30, 16) = 30 rounds
++T = max(⌊1/f⌋, T_M + T_S) = max(30, 17) = 30 rounds
+```
 
 ```diff
 -A node opens and accepts connections only of its current epoch, by its local clock ([Connection Details](#connection-details)). Nodes must keep their clocks synchronized so that $`T_C`$ is below one round. $`T`$ then exceeds $`T_M + T_C`$. With a larger $`T_C`$, a node whose clock runs ahead can stop processing past-epoch messages while some are still crossing the network, and their senders wait for a delivery that can no longer happen ([Detection](#detection)). The neighbors whose clocks run behind a node can also refuse its connections of the new epoch for more than a round after its epoch changes, and the messages it generates in that time reach none of them.
-+A node opens and accepts connections only of its current epoch, by its local clock, and from $`T_S = 2`$ seconds before a new epoch begins also those of the new epoch ([Connection Details](#connection-details)). It counts the new epoch's connections towards the [Degree](#connectivity-maintenance) rules apart from the connections of the current epoch. The new epoch's public input is fixed before the epoch begins. Nodes must keep their clocks synchronized so that $`T_C`$ is below $`T_S`$, a round lasting one second ([Time](#time)). The transition period must be at least $`T_M + T_C`$. Otherwise a node whose clock runs ahead can stop processing past-epoch messages while some are still crossing the network, and their senders wait for a delivery that can no longer happen ([Detection](#detection)). A neighbor whose clock runs behind a node can also still refuse its connections of the new epoch after its epoch changes, and the messages it generates in that time reach none of those neighbors.
++A node opens and accepts connections only of its current epoch, by its local clock, and from $`T_S = 2`$ seconds before a new epoch begins also those of the new epoch ([Connection Details](#connection-details)). It counts the new epoch's connections towards the [Degree](#connectivity-maintenance) rules apart from the connections of the current epoch. The new epoch's public input is fixed before the epoch begins. Nodes must keep their clocks synchronized so that $`T_C`$ is below $`T_S`$, a round lasting one second ([Time](#time)). $`T`$ then exceeds $`T_M + T_C`$. With a larger $`T_C`$, a node whose clock runs ahead can stop processing past-epoch messages while some are still crossing the network, and their senders wait for a delivery that can no longer happen ([Detection](#detection)). A neighbor whose clock runs behind a node can also still refuse its connections of the new epoch after its epoch changes, and the messages it generates in that time reach none of those neighbors.
 ```
 
 - The epoch-change list validates a message on a connection of the new epoch against that epoch's public input from `T_S` before the epoch begins.
@@ -117,6 +121,7 @@ No network runs these rules yet. The implementation has no slack: it switches to
 # Implementation
 
 - [ ] From `T_S` = 2 seconds before a Blend epoch begins by the local clock, open its connections and accept those of neighbors, counted towards the degree rules apart from the current epoch's, and validate messages on them against that epoch; retrieve its core nodes and take its SDP snapshot by then
+- [ ] Compute Blend's Transition Period as the larger of `⌊1/f⌋` and `T_M + T_S` rounds, in `epoch_transition_slots` (`nodes/node/binary/src/config/deployment/era/ruleset/v1/blend/mod.rs`)
 - [ ] Keep a nullifier until the Transition Period after its message's epoch ends
 - [ ] Open the next era's identifiers and subscribe to its topics `T_S` before the boundary, take new connections on both eras until the boundary, and keep the previous era's identifiers, for what is in flight only, until `T` rounds after it; a node that starts during the period runs only the new era
 - [ ] Admit and preverify transactions under the era in force `T_S` ahead, retire those whose fork digest it does not accept when it changes, and leave out of block building the transactions whose fork digest the block's era does not accept
