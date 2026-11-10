@@ -28,7 +28,7 @@
 | 1.0.1 | Remove the protection against adaptive adversary from PoL. It impacts the PoL section of PoQ. Update the performance according to the new circuit. Remove old project name from DSTs | 2026-04-09 |
 | 1.1.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.2.0 | Add the proof of work branch: third selector value, `pow_quota` and `pow_blend_difficulty` public inputs, a private `pow_nonce` witness, and Lagrange branch selection; benchmark the three branch circuit | 2026-09-08 |
-| 1.3.0 | Require `pol_sl` to be a slot of the epoch in every branch, with the public inputs `pol_epoch_first_slot` and `pol_epoch_length` | 2026-11-09 |
+| 1.3.0 | Require `pol_sl` to be a slot of the epoch in every branch, with the public inputs `pol_epoch_first_slot` and `pol_epoch_last_slot` | 2026-11-10 |
 
 
 # Introduction
@@ -72,14 +72,14 @@ class ProofOfQuotaPublic:
     pol_t0: int           # PoL constant t0
     pol_t1: int           # PoL constant t1
     pol_epoch_first_slot: int # First slot of the epoch (64 bits)
-    pol_epoch_length: int     # Epoch length, in slots (64 bits)
+    pol_epoch_last_slot: int  # Last slot of the epoch (64 bits)
 ```
 
 The proof's public signal vector is fixed by the circuit: the output first, then the public inputs in the order listed above.
 
 `pow_blend_difficulty` is $`d_{blend}`$ for the epoch, derived in [Blend Difficulty](proof-of-work.md#blend-difficulty).
 
-For the epoch $`ep`$, `pol_epoch_first_slot` is $`ep \cdot \text{EPOCH\_LENGTH}`$ and `pol_epoch_length` is $`\text{EPOCH\_LENGTH}`$, the [epoch length](cryptarchia-v1-protocol.md#epoch-schedule) in slots.
+For the epoch $`ep`$, `pol_epoch_first_slot` is $`ep \cdot \text{EPOCH\_LENGTH}`$ and `pol_epoch_last_slot` is $`(ep + 1) \cdot \text{EPOCH\_LENGTH} - 1`$, where $`\text{EPOCH\_LENGTH}`$ is the [epoch length](cryptarchia-v1-protocol.md#epoch-schedule) in slots.
 
 ### Witness
 
@@ -113,7 +113,7 @@ Such that the following constraints hold:
 
 **Step 1**: The prover selects an `index` for the chosen key. This index must be lower than the allowed quota and not already used. This index is used to derive the key nullifier in step 5. Limiting the possible values of this index also limit the possible nullifier created which produce the desired effect: limiting the generation of keys to a certain quota. `index` is on 20 bits, so a quota may be at most $`2^{20} - 1`$.
 
-Whatever the branch, `pol_sl` must be a slot of the epoch: `pol_epoch_first_slot <= pol_sl < pol_epoch_first_slot + pol_epoch_length`.
+Whatever the branch, `pol_sl` must be a slot of the epoch: `pol_epoch_first_slot <= pol_sl <= pol_epoch_last_slot`.
 
 **Step 2:**  If the prover indicated that the node is a core node for the proof, the proof checks that:
 
@@ -171,10 +171,11 @@ L2 = (selector_squared - selector) * inv_2   # inv_2 is the inverse of 2 in the 
 # or index < pow_quota if selector == 2.
 index < core_quota + (leader_quota - core_quota) * L1 + (pow_quota - core_quota) * L2
 
-# Verify pol_sl is a slot of the epoch, whatever the branch. Both operands are
-# range-checked to 64 bits, so the offset of a slot before the epoch, which
-# wraps around the scalar field, fails.
-pol_sl - pol_epoch_first_slot < pol_epoch_length
+# Verify pol_sl is a slot of the epoch, whatever the branch. Both differences
+# are taken in the scalar field and must fit 64 bits: for a slot outside the
+# epoch, one of them wraps around the field.
+pol_sl - pol_epoch_first_slot < 2**64
+pol_epoch_last_slot - pol_sl < 2**64
 
 # Check if it's a registered core node
 zk_id = zkhash(b"KDF", core_sk)
