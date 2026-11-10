@@ -69,7 +69,7 @@ A control function combines these KPIs into the emission rate factor, bounded be
 
 ![Block rewards high-level system design](block-rewards/assets/high-level-system-design.png)
 
-The reward of the block $`t`$ is given by:
+The reward of the block at height $`t`$ is given by:
 
 $$
 R_t = A_t \cdot I_{max} \cdot S_{cap} \cdot \Delta_t + (1-A_t) \cdot \bar{R}_t
@@ -115,7 +115,7 @@ This KPI-based approach delivers several advantages:
 
 The calibration of these parameters can be found in [\[Analysis\] Block Reward Parameter Calibration](analysis-block-reward-parameter-calibration.md).
 
-The following values are read at block $`t`$:
+The following values are read at the block at height $`t`$:
 
 - $`D_{0,t}`$ is the inferred total stake of the epoch of the block ([Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference)).
 - $`D_{1,t} = R_\text{block}`$ is the amount of Execution base fees and Permanent Storage fees collected in the block and routed to the rewards pool, net of the share diverted to the [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool). Refer to [Execution Market](execution-market.md) and [Storage Markets](storage-markets.md) for how the fees are computed.
@@ -123,7 +123,7 @@ The following values are read at block $`t`$:
 
 ## Emission Rate Factor Function
 
-The emission rate factor $`A_t \in [0,1]`$ determines the portion of $`I_{max}`$ released from the reserve at block $`t`$:
+The emission rate factor $`A_t \in [0,1]`$ determines the portion of $`I_{max}`$ released from the reserve at the block at height $`t`$:
 
 $$
 A_t = \min \lbrace 1, \max \lbrace 0, \dfrac{ \alpha_d \cdot \delta_t + \alpha_a \cdot \gamma_t + I_{min}}{I_{max}} \rbrace \rbrace
@@ -144,7 +144,7 @@ All terms are expressed in annualized form to ease comparison. It implies that:
 
 ## Block Rewards
 
-The reward of the block $`t`$ is:
+The reward of the block at height $`t`$ is:
 
 $$
 R_t = A_t \cdot I_{max} \cdot S_{cap} \cdot \Delta_t + (1-A_t) \cdot \bar{R}_t
@@ -167,7 +167,7 @@ In the bootstrap regime, where activity is low and $`\bar{R}_t \lt I_{max} \cdot
 
 The reserve holds tokens pre-allocated from the fixed cap $`S_{cap}`$ at genesis. It is sized so that releasing at the maximum rate $`I_{max}`$ of $`S_{cap}`$ per year lasts $`Y`$ years, giving an initial balance $`B_0 = I_{max} \cdot S_{cap} \cdot Y`$.
 
-The flows of block $`t`$ are:
+The flows of the block at height $`t`$ are:
 
 - Fee inflow to the pool: $`R_\text{block}`$.
 - Reserve release: $`\iota_t = \min \lbrace A_t \cdot I_{max} \cdot S_{cap} \cdot \Delta_t, \; B_{t-1} \rbrace`$.
