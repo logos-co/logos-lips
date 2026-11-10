@@ -12,16 +12,15 @@ Short names and `l.N` line references as in `claude-spec-comments.md`.
 **Roles used in scenarios.** Items describe situations with abstract roles rather than real modules:
 P is a provider; C, C1, C2 are consumers of P; A is an approval module through which a person accepts
 or rejects requests; H is a host application that embeds a Runtime and presents a user interface; D is a
-module that uses an OS-mediated device. Concrete cases from existing modules are collected in
-`module-port-gaps.md` (Appendix), keyed by the item IDs used here.
+module that uses an OS-mediated device.
 
 **Method.** Twelve topic readings of the specs (events, identity, lifecycle, authority, transport, data
 model, packaging, configuration and state, security, presentation, operations, Runtime Control), eight
-readings from the point of view of the module families to be ported (listed in `module-port-gaps.md`),
-and four re-readings of the existing findings, each by a separate reader. Every candidate then went
-through two independent checks: one reader tried to refute it from the spec text, another compared it
-with the existing documents and the decisions record. Candidates the refuter settled, or the comparer
-found duplicated, are not listed; the main ones are summarised in Part 4 so the work is not repeated.
+readings from the point of view of the existing module families to be ported, and four re-readings of
+the existing findings, each by a separate reader. Every candidate then went through two independent
+checks: one reader tried to refute it from the spec text, another compared it with the existing
+documents and the decisions record. Candidates the refuter settled, or the comparer found duplicated,
+are not listed; the main ones are summarised in Part 4 so the work is not repeated.
 
 **Scope difference.** The earlier session planned a headless node. This audit also covers what the specs
 must provide for providers that serve several consumers with confidential results, user-approval flows,
@@ -31,12 +30,16 @@ where most of the new items come from.
 Each item gives **Specs**, **Issue**, **Impact**, **Overlap** with existing IDs, and a **Suggested
 resolution**.
 
+NE-07, NL-12, NA-12 and NP-14 were added later from the same porting readings. ND-10 and ND-11 were
+found later, while building logos-core-nim against the same commit; like the items in
+`claude-spec-comments.md`, they also give **Our interim choice**, cited by its `DECISIONS.md` row.
+
 ## Summary
 
 | Part | Count |
 |---|---|
 | 1. Contradictions and internal inconsistencies | 6 |
-| 2. Gaps and underspecifications (events 6, identity 7, lifecycle 11, authority 11, remote 14, data model 9, packaging 10, configuration and state 6, security 3, Runtime Control observation 7) | 84 |
+| 2. Gaps and underspecifications (events 7, identity 7, lifecycle 12, authority 12, remote 14, data model 11, packaging 14, configuration and state 6, security 3, Runtime Control observation 7) | 93 |
 | 3. Corrections and addenda to existing findings | 25 |
 | 4. Dropped candidates | 20 |
 
@@ -334,6 +337,28 @@ what is missing is a statement of that pattern and caller identity for the fetch
 - **Overlap:** HC-10, EC-06/G23 (the call side). New: the event-side lifecycle window.
 - **Suggested resolution:** state when provider routes and subscriptions are failed during `stopping` (for
   example only once `_destroy` begins, so final events are delivered).
+
+#### NE-07 — A consumer learns that an optional provider has appeared only through a Runtime Control observation grant keyed by module name
+- **Specs:** PM Scope l.112 (optional dependencies out of scope), §4 l.289-292 (`provider_requirement` has
+  no optional form); RUNTIME §3.7 l.705, l.714-715 (`requires` never starts or orders anything), l.187
+  (startup defaults belong to the orchestration module), §8 l.1362-1363 (a `single` request with no
+  matching provider fails), §9.3 l.2774-2776 (to a caller without discovery or observation authority, an
+  unknown target is indistinguishable from a hidden or denied one), l.3180-3183 (Runtime Control state
+  events only for what the subscriber may observe); CA §3 l.157-167 (`runtime_control_scope` narrowed by
+  `events` and `modules`).
+- **Issue:** C uses P when it is installed and running and works without it otherwise (a local service
+  preferred over a remote one, a device module present on some hosts only). `requires` has no optional
+  form, and while P is absent C's `establish_route` fails in a way C cannot tell apart from a denial. To
+  react when P is installed or started later, C needs a Runtime Control observation grant on
+  `module_state_changed_event` narrowed to P's module name, so the deployment must know C's optional
+  providers by module name although C knows them by contract; otherwise C retries `establish_route` on a
+  timer.
+- **Impact:** optional providers become hard requirements, deployment-specific grants, or polling.
+- **Overlap:** PM-15/G142 (optional and platform-conditional dependencies), NE-03 (a consumer is not told
+  that its subscriptions died), NO-02. New: a contract-keyed availability signal. Minor.
+- **Suggested resolution:** an `optional` flag on `provider_requirement` (absence is neither an install nor
+  a start failure), and a provider-availability event keyed by contract, delivered under a `discover`
+  allow for that contract and disclosing no more than that decision does.
 
 ### 2.2 Identity
 
@@ -687,6 +712,26 @@ what is missing is a statement of that pattern and caller identity for the fetch
   `configuration-rejected` (behaviour stays under the previous value) unless the module reported partial
   application; let an explicit stop pre-empt an in-flight attempt.
 
+#### NL-12 — Core knows only runtime-ready: no common application-readiness or health surface, and ordering constraints cannot wait for one
+- **Specs:** RUNTIME §3.4 l.609 (runtime-ready versus application-ready), l.634-635 (application-level
+  readiness belongs to the module's own contract or a selected profile), §3.7 l.707-711 (an ordering
+  constraint waits only for the prerequisite to be `ready`), §9.3 l.3150-3153 (`get_readiness` reports the
+  Runtime lifecycle state); INTERFACE §5.1 l.2365-2426 (no readiness or health type in the common surface).
+- **Issue:** P needs seconds to minutes after `_init` before it can serve (a network bootstrap, a database
+  migration, a chain sync) and is `ready` at once by design. A dependent started behind an ordering
+  constraint then meets P's own "not yet" outcome on its first calls; H can show "running" but not
+  "usable"; an orchestrator or a command-line tool cannot tell a starting, degraded or failed service from
+  a working one without knowing each contract's own status method and event.
+- **Impact:** every contract invents its own status surface, dependents poll, and generic tooling cannot
+  show whether a module is usable.
+- **Overlap:** NL-04 (startup timeout: the alternative is a long `_init`), NL-08 (liveness: a hung module,
+  not a starting one), HC-09 (logging), G136 (a payload module split its start into phases and its
+  consumer waits on a typed status), G97. New: a common readiness surface and ordering on it. Minor.
+- **Suggested resolution:** a reserved common interface (for example `logos.health`: `get_health` returning
+  `starting` / `usable` / `degraded` / `failed` with an optional reason, plus a `health_changed` event)
+  that modules MAY implement, and an optional form of lifecycle-ordering constraint that waits, with a
+  bound, for the prerequisite to report `usable`.
+
 ### 2.4 Authority
 
 #### NA-01 — The `approval-required` denial cannot reach the denied consumer interoperably
@@ -852,6 +897,34 @@ what is missing is a statement of that pattern and caller identity for the fetch
 - **Suggested resolution:** state that once a CA is bound, bootstrap policy authorizes only reaching and
   recovering system services (orchestration's `recover_module` and rebinding for the bound CA), that CA
   decisions take precedence, and give bootstrap allows a synthetic decision identity for audit.
+
+#### NA-12 — A provider picked by a person: a chooser outside the Runtime host cannot pass the choice to Runtime, and the chosen application cannot be brought forward
+- **Specs:** RUNTIME §4.2 l.839-846 (routing-selection state is an input that "MAY be ... supplied through
+  runtime-host, deployment, or configured policy inputs"; no shape or operation carries it), §9.3
+  l.2716-2717 (`single` selects by "local routing-selection state or deployment configuration"), §8
+  l.1345-1354 (`all-runtime-visible` needs a `discover` decision and returns a route per visible provider);
+  CA §3 l.97 (a decision MAY narrow a scope), l.152 (`providers` constraint), §3.1 l.255 (Runtime selects;
+  the CA decides for that provider); SECURITY §14 l.516 (prompt presentation is a deployment concern);
+  BCP §5.3 l.305 (presentation: no profile assigned).
+- **Issue:** requester R asks for a capability by contract; several installed providers implement it; the
+  person picks one in a chooser drawn by H (or by a system UI) and expects the chosen provider's
+  application to come forward and answer. For `single`, Runtime picks from routing-selection state, which
+  H can set only by being the Runtime host or the deployment, through an input the specs never define;
+  the CA can accept or refuse Runtime's pick but not make it (CA l.255). For `all-runtime-visible`, the CA
+  can narrow the `discover` decision to the chosen provider (l.97, l.152), so the chooser works only if
+  the CA presents it or is bound to H. Once a provider is chosen, nothing lets H activate or bring forward
+  that provider's presentation module.
+- **Impact:** "pick an application to handle this" works portably only when the chooser is part of the
+  Runtime host or of the Authority; a separate shell cannot offer it, and activation is
+  implementation-private.
+- **Overlap:** NA-09 (the person's choice has no authority representation), HC-13 (no held decision while
+  the person decides), NA-01, NA-02, NP-03 (presentation modules), RT-01/G83. New: the selection input and
+  activation.
+- **Suggested resolution:** define the routing-selection input as a Runtime Control record (consumer,
+  contract, chosen provider address, lifetime: one request or a session) settable under its own CA
+  action, so that an authorized chooser can pin a `single` selection; and give the presentation profile
+  that NP-03 asks for an activation operation addressed to the chosen provider's presentation module,
+  carrying an opaque request reference.
 
 ### 2.5 Remote transport and multi-device use
 
@@ -1231,6 +1304,65 @@ what is missing is a statement of that pattern and caller identity for the fetch
   define a doc-comment convention (`;;` lines before a declaration) that `logos.schema` consumers may
   present; see NP-01 for package-level fields.
 
+#### ND-10 — `.size` on a named target is inside the supported subset but has no schema-as-data node
+- **Specs:** cdCDDLe §5.1 l.164 (the `.size` control is supported; only its controller is restricted), §5
+  l.132-135 (only constructs outside §5.1 are rejected, and none may get an implementation-local
+  representation), §6 l.209-212 (references are preserved, not expanded), l.227 (every resolved rule graph
+  within the subset MUST have a canonical model representation), §7.4 l.318 (a named reference maps to a
+  type-reference node), §8 l.527-532 (field `2` of `size-control-application` is a `primitive`), l.537 (the
+  target MUST be `uint`, `tstr` or `bstr`).
+- **Issue:** `b = tstr` with `a = b .size 3` uses only constructs that §5.1 lists, so l.227 requires a
+  canonical representation and l.132-135 gives no ground to reject it. §8 has none: field `2` holds only a
+  `primitive`, `b` may not be expanded to `tstr` (l.209-212, l.318), and a `type-reference` in field `2`
+  would be an implementation-local representation (l.135). Literal and choice targets (`"x" .size 1`,
+  `(tstr / bstr) .size 3`) fall into the same hole; `bool .size 1` is excluded, but only by l.537 in §8.
+- **Impact:** no conforming outcome exists for such a schema, so implementations can split: one rejects it,
+  another expands `b` and commits bytes without the bound name. No schema in the specs is affected: every
+  `.size` at `f4f83471` applies to `uint`, `tstr` or `bstr` written directly.
+- **Overlap:** CM-12/G12 and NF-11 (named range bounds, the same shape for `..`). NF-11 found that case
+  determined ("reject") by the node shape and l.209-212 and asked only for an editorial fix; the same
+  reasoning gives our interim choice here, but against l.227, because l.164 restricts only the controller.
+  New: the `.size` target. Minor.
+- **Our interim choice** (G151): any `.size` target other than `uint`, `tstr` or `bstr` written directly
+  (parentheses removed) is rejected as unsupported before canonicalization, so no bytes are committed for
+  it; `bool .size 1` is rejected at canonicalization under l.537, and a decoder rejects a `type-reference`
+  in field `2`.
+- **Suggested resolution:** state the target in §5.1 l.164 ("applied to `uint`, `tstr` or `bstr` written
+  directly"), so that the l.132-135 gate rejects every other target; or, if named targets are wanted
+  (`short_id = id .size 8`), admit `type-reference` in field `2` with the rule that it resolves to `uint`,
+  `tstr` or `bstr`, and say whether l.565-567 then requires a new canonical-model identifier.
+
+#### ND-11 — A leaf-bodied declaration's own node has two schema identities, and the choice changes value roots
+- **Specs:** COMMITMENT §4 l.560-563 (an empty path uses the named declaration's schema subtree root; a
+  primitive, literal or reference node uses its schema leaf hash; "exactly one schema identity" for every
+  node the value model consumes), l.573-574 (the whole-schema identity commits to the top-level named
+  nodes' identities), §8 l.999-1000 (a value selected through a named declaration binds that declaration's
+  subtree root), l.1083 (a scalar node carries "the scalar schema identity"), l.1099-1101 (through a local
+  reference, the child value carries the referenced declaration's schema identity), l.1104-1107 (imported
+  reference), §9.2 l.1379-1387 (a `schema-leaf-payload` with path `[]` is valid when the declaration body
+  is itself a leaf), l.1393 (reference nodes are leaves); HASH §5 l.378-379; INTERFACE l.2003, l.2029
+  (`limit: metrics_types.counter`, with `metrics_types.counter = uint64`).
+- **Issue:** the body of `metrics_types.counter = uint64` is a primitive node at the empty path, so l.561
+  gives it the declaration's subtree root and l.562 gives it the `schema-leaf-payload` hash at path `[]`.
+  l.563 says the rules assign exactly one identity but not which of the two wins. l.1000 and l.1101 read
+  as the subtree root; l.1386 defines a `[]` leaf payload that only the leaf-hash reading would compute.
+- **Impact:** the choice sets the identity in every scalar node typed by such a declaration: the `limit`
+  value beneath its imported reference node, and every `cid` value of `storage.changed_event` (COMMITMENT
+  App A l.1635, l.1648). Schema roots do not depend on it (l.573-574), so two implementations agree on every
+  schema root and still compute different value roots for the same value. No vector settles it: App A has
+  leaf-bodied declarations but no values or hashes (l.1627-1628); App B has a value but no leaf-bodied
+  declaration, and its identities are placeholders (l.1913).
+- **Overlap:** CM-01/G1 (alias chains: both links of `a.x = a.y`, `a.y = tstr` are leaf-bodied, since a
+  reference body is a leaf, so this decides the identity CM-01 assigns); CM-02/G2 and NF-07 (which schema
+  root sits beneath an imported reference). New: the precedence between l.561 and l.562.
+- **Our interim choice** (G152): the subtree root (the empty-path rule wins), in line with l.1000 and
+  l.1101; the `[]` case of l.1386 is then unused.
+- **Suggested resolution:** state the precedence at l.561-562 ("An empty path uses the named declaration's
+  schema subtree root, even when the body is a primitive, literal or reference node") and drop or explain
+  the `[]` sentence at l.1386; or make the leaf hash win and say so at l.1000 and l.1101. Either way, add a
+  COMMITMENT App B vector with a leaf-bodied declaration reached through a local and through an imported
+  reference.
+
 ### 2.7 Packaging
 
 #### NP-01 — No human-facing metadata at any identity level; browsing a catalog costs one verified fetch per entry
@@ -1408,6 +1540,100 @@ what is missing is a statement of that pattern and caller identity for the fetch
 - **Overlap:** G137, G87, SO-03, CA-01/G46. Minor.
 - **Suggested resolution:** mirror l.2361-2365 for package-signing trust input and state the default for
   installed instances of a withdrawn signer (or name the CA policy transition that drives it).
+
+#### NP-11 — Files common to all variants have no place in an LGX: each variant carries its own copy
+- **Specs:** PM §7.1 l.828-830 (only `manifest.cbor`, `manifest.cose`, `manifest.json` and `variants/` at
+  the archive root; `variants/` holds no files directly), l.862-863 (artifact paths are relative to the
+  variant directory; every file there is declared in that variant), l.871 (only selected artifacts are
+  extracted), §10 l.1078-1079 (an artifact id "may occur once in each variant, with a different path and
+  hash"), §4 l.340 and §8 l.982 (a module's schema and default must be present in every variant holding
+  its binary), §7.1 l.850-853 (deployment limits on compressed and decompressed archive size).
+- **Issue:** platform-independent material (interface descriptions, configuration schemas and defaults,
+  UI files, icons, licence texts, large data files) must be stored once per variant. DEFLATE cannot refer
+  back more than 32 KiB, so copies of a large file are not deduplicated by compression: a package with N
+  variants carries N copies in both its compressed and decompressed forms, and all of them count against
+  the deployment's archive limits. Installed size is unaffected (l.871). The specs neither say the
+  duplication is intended nor offer a way to declare one artifact shared by several variants.
+- **Impact:** download size grows with the number of platforms for content that does not depend on the
+  platform; one large data file can push a multi-platform package past a deployment's limits.
+- **Overlap:** PM-11/G93 (where a module finds its artifacts), NP-03 (`resource`/`data` never defined).
+  New: the archive layout rules out shared content. Minor.
+- **Suggested resolution:** a root `common/` directory whose artifacts are declared once in a
+  manifest-level `common_artifacts` array, referenced by id from any variant and added to the selected
+  variant's installed artifact list; or a statement that duplication is intended, with limits applied per
+  variant.
+
+#### NP-12 — Every host downloads every variant, and publishing one package per platform is never described
+- **Specs:** PM §5 l.702-705 (package identity is name and version), l.766 (one identity, one manifest
+  commitment in the installed set), §6 l.774-777 (`package_catalog_entry = {identity, source}`), l.786 (an
+  LGX source names one Storage object holding the archive), l.794-796 (catalog entries hold an exact
+  version and location data only), §4.5 l.625-633 (the provenance subject is the digest of the complete
+  compressed archive, computed before decompression), §7.1 l.816 (a gzip-compressed USTAR archive, which
+  has no index for reading one member), §14 l.1339 (`package-conflict`), l.1342 (`incompatible-platform`
+  "permits selection of another package version or source with a compatible variant").
+- **Issue:** a multi-variant package is one Storage object, so a host fetches every variant to install
+  one, and under the provenance profile it must, because the subject is the whole archive. l.1342 hints
+  that per-platform packages are possible, but the specs never say whether one identity may have several
+  sources whose manifests differ (one variant each), nor whether such manifests must agree on everything
+  but `variants`. Catalog entries carry no platform data, so a resolver learns which source suits the host
+  only by fetching and verifying each candidate in turn.
+- **Impact:** either every download grows with the number of platforms, or per-platform publishing rests
+  on behaviour the specs leave open plus a fetch-and-try loop.
+- **Overlap:** NP-01 (catalog entries carry no metadata; browse cost), SO-01/G90 (catalog format),
+  PM-10/G73 (platform values). New: the download unit and per-platform sources.
+- **Suggested resolution:** state whether one identity may have several manifests that differ only in
+  `variants`; allow catalog entries an unsigned platform hint (`os`/`architecture`/`abi` per source) used
+  only to order fetches and rechecked against the signed manifest; or define a split distribution form
+  (the signed manifest plus one Storage object per variant, each bound by the manifest's artifact hashes,
+  with one provenance subject per object).
+
+#### NP-13 — Building variants on separate machines is not described, and provenance then attests only the assembly
+- **Specs:** PM §4 l.386-389 (the package signature binds the manifest commitment, which covers every
+  variant's artifact hashes), §4.5 l.610-623 (an accepted signer must be authorized for the Statement's
+  exact `builder.id`), l.625-633 (one subject: the whole archive), l.641-652 (build provenance binds the
+  subject to one source descriptor; other resolved dependencies are not examined), l.675-677 (source
+  binding shows only what source the accepted builder claims it used).
+- **Issue:** native binaries for different operating systems are normally built on different machines,
+  yet a package has one manifest, one signature and, under the provenance profile, one subject: the
+  archive after assembly. Per-platform outputs cannot carry a package signature into the combined
+  package, so an assembly step re-signs, and the Statement the Package Manager checks is the assembler's.
+  The builders that produced the binaries appear at most as inputs the profile never verifies. The specs
+  describe neither the assembly step nor this consequence.
+- **Impact:** unless one builder produces every variant, "provenance verified" on a multi-platform package
+  means that an accepted assembler combined some inputs from source X, not that each binary came from an
+  accepted builder; a deployment cannot require per-platform builder identities.
+- **Overlap:** PM-12/G94 (no provenance-signing profile), PM-13/G113, PM-14/G114. New: packages whose
+  variants come from different builders. Minor.
+- **Suggested resolution:** either state that the assembling builder is the attested builder and is
+  responsible for verifying its inputs, or allow per-variant provenance: one subject per variant (for
+  example the digest of its declared artifact list) with each signer-builder pair checked against policy,
+  which also fits the split distribution form suggested in NP-12.
+
+#### NP-14 — A module cannot declare that it needs one instance per Runtime or a process of its own
+- **Specs:** INTERFACE §2.6 l.1266-1268 (one binding MAY be initialized more than once, each time as a
+  distinct instance); RUNTIME §9.3 l.3127 (several live instances per module name), §8 l.1327-1328
+  (process-global environment is not per-instance state), §5.1 l.964 (placement is chosen by Runtime or
+  deployment policy), §5.2.1 l.1020-1026 (at most one instance per name only in an optional direct-mode
+  convenience mode), §9 l.1555-1558 (creation needs an allow decision); CA §3 l.169-176
+  (`module_execution_scope` `modes` and `placements`), §3.5 l.351-361 (process and placement permissions
+  are profile-defined; no profile exists); LOADER §6 l.423 (fail closed); SECURITY §11.5 l.439 (the iOS
+  baseline is one process in direct mode); PM §4 l.271-279 (`module_declaration` has no such field).
+- **Issue:** some native implementations cannot honour l.1266-1268: a library that installs a process-wide
+  logger or tracing subscriber, holds one engine per process, or reports the whole process's memory as its
+  own breaks when a second instance, or another such module, shares its process. Other modules need
+  exactly one instance per Runtime because they own a resource that two instances would corrupt (sequence
+  numbers assigned for one account, one key-store directory). The signed declaration can state neither. A
+  deployment can confine `create_module` and pin placements through CA scopes, but only if it already
+  knows, and nothing makes Runtime or the Loader refuse the unsafe arrangement.
+- **Impact:** a hard constraint of the module lives in documentation; a deployment that misses it gets a
+  crash or lost data instead of a clear refusal, and such a module cannot state that it does not fit the
+  single-process iOS baseline.
+- **Overlap:** SO-05/D25/G110 (no permission vocabulary, so a profile-defined exclusive-process permission
+  does not exist), HC-12, G121 (the optional convenience mode). New: the declaration. Minor.
+- **Suggested resolution:** optional `module_declaration` fields such as `instances: "one-per-runtime"` and
+  `process: "exclusive"`, enforced by Runtime at `create_module` (a second instance fails with a named
+  error) and by the Loader at `realize` (fail closed under l.423 when the placement cannot give the module
+  a process of its own), with platform profiles saying where `exclusive` cannot be met.
 
 ### 2.8 Configuration and state
 
