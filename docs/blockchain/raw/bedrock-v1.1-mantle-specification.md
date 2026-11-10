@@ -48,8 +48,9 @@
 | 1.16.0 | Gas Determination table updated for strict Ed25519 verification: channel Operations 56 → 59 Execution Gas per signature, `EXECUTION_SDP_DECLARE_GAS` 646 → 649, from [Gas Cost Determination](analysis-gas-cost-determination.md) 1.7.0 | 2026-09-24 |
 | 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding. | 2026-10-06 |
 | 1.18.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a note backs one declaration per service, `SDP_WITHDRAW` no longer names the note, and a `nonce` carries the `created` epoch of its declaration | 2026-10-27 |
-| 1.19.0 | Added the `fork_digest` field to the Mantle Transaction, accepted as defined in [Bedrock Eras](bedrock-eras.md), took `WINDOW` from the era of the claim's referenced block ([Acceptance Window](proof-of-work.md#acceptance-window)), and dropped the `epoch` of `MinStake` and `ServiceParameters`, whose values are those of the era. | 2026-11-02 |
-| 1.20.0 | Aligned the ledger and the proof of work state with [Chain State](bedrock-chain-state.md): a note keeps its leaf position, `pow_nullifiers` keeps the slot of each claim's referenced block, and a claim's referenced block is looked up in `block_slots`. | 2026-11-02 |
+| 1.19.0 | `MinStake` holds `threshold` and the block number `timestamp`, following the Service Declaration Protocol | 2026-10-27 |
+| 1.20.0 | Added the `fork_digest` field to the Mantle Transaction, accepted as defined in [Bedrock Eras](bedrock-eras.md), took `WINDOW` from the era of the claim's referenced block ([Acceptance Window](proof-of-work.md#acceptance-window)), dropped the `timestamp` of `MinStake` and the `epoch` of `ServiceParameters`, whose values are those of the era, and made the Execution Gas constants era parameters. | 2026-11-05 |
+| 1.21.0 | Aligned the ledger and the proof of work state with [Chain State](bedrock-chain-state.md): a note keeps its leaf position, `pow_nullifiers` keeps the slot of each claim's referenced block, and a claim's referenced block is looked up in `block_slots`. | 2026-11-10 |
 
 # Introduction
 
@@ -1087,7 +1088,7 @@ class Locator(bytes):
         assert validate_multiaddr(self)
 
 class MinStake:
-    stake_threshold: int # stake value
+    threshold: TokenValue # stake value
 
 class ServiceParameters:
     inactivity_period: NumberOfEpochs # number of epochs
@@ -1185,7 +1186,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       ```python
       assert ledger.is_unspent(declaration.service_note_id)
       note = ledger.get_note(declaration.service_note_id)
-      assert note.value >= min_stake.stake_threshold
+      assert note.value >= min_stake.threshold
       ```
 
 #### Execution
@@ -2010,6 +2011,8 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_SDP_ACTIVE_GAS | 590 |
 | EXECUTION_LEADER_CLAIM_GAS | 580 |
 | EXECUTION_CLAIM_POW_REWARD_GAS | 590 |
+
+These constants are an era parameter, the `gas_profile` of the era's parameter record ([Era Parameters](bedrock-eras.md#era-parameters)). Those in force for a block are those of the era of the block's slot ([Era of Chain Data](bedrock-eras.md#era-of-chain-data)).
 
 ## Zero Knowledge Signature Scheme (ZkSignature)
 

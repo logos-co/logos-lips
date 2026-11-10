@@ -27,7 +27,8 @@
 | 1.1.1 | Precise that greedy inclusion selects a candidate only if it is valid in the state the already selected transactions leave | 2026-08-24 |
 | 1.1.2 | Changing from burning/minting to pooling/distributing | 2026-08-26 |
 | 1.2.0 | The base fee is routed to the rewards pool less the share diverted to the proof of work reward pool | 2026-08-31 |
-| 1.3.0 | Set the smoothed average Execution Gas to 0 before the first block | 2026-10-06 |
+| 1.3.0 | The base fee update uses the $`q`$, $`\phi`$ and $`G_{\max}`$ of the era of the block ([Bedrock Eras](bedrock-eras.md)) | 2026-11-05 |
+| 1.4.0 | Set the smoothed average Execution Gas to 0 before the first block | 2026-11-10 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -101,7 +102,7 @@ A critical feature of this design is its resilience to the base fee manipulation
 | $G[s]$ | Total Execution Gas Used | - | The sum of Execution Gas consumed by all transactions in block $s$. |
 | $`G_{\mathrm{avg}}[s]`$ | Smoothed Average Execution Gas | - | The Exponential Moving Average (EMA) of Execution Gas used up to block $s$. It is 0 before the first block. |
 | $`G_{\max}`$ | Max Execution Gas Per Block | 3,193,460 | A protocol constant defining the hard limit on $G[s]$. |
-| $`G_{\mathrm{target}}`$ | Target Execution Gas Per Block | 1,596,730 | A protocol constant for the ideal Execution Gas usage. The TFM steers usage towards this target. This is set to half of $`G_{max}`$ execution gas units. |
+| $`G_{\mathrm{target}}`$ | Target Execution Gas Per Block | 1,596,730 | A protocol constant for the ideal Execution Gas usage. The TFM steers usage towards this target. This is set to half of $`G_{max}`$ execution gas units, rounded down. |
 | $\phi$ | Fee Adjustment Rate | 1/8 | A protocol constant controlling how quickly the base fee adjusts to demand. |
 | $q$ | EMA Smoothing Factor | 9/10 | A protocol constant defining the weight of historical average in the EMA update rule. |
 | $`F_t`$ | Total fee | - | $`F_t = g_t \,\cdot\bigl(b_{\mathrm{exec}}[s] + p_t\bigr)= g_t\cdot c_t`$ |
@@ -157,7 +158,7 @@ After a block $s$ is executed and its total Execution Gas usage $G[s]$ is known,
 
 ### Base Fee Update Rule
 
-The base fee for the next block, $s+1$, is calculated based on the state of block $s$.
+The base fee for the next block, $s+1$, is calculated based on the state of block $s$, with the $`q`$, $`\phi`$ and $`G_{\max}`$ of the era of the slot of block $s$ ([Era Parameters](bedrock-eras.md#era-parameters)).
 
 1. Total Execution Gas Used: First, sum the actual Execution Gas consumed, $`g_t`$, for all transactions $t$ in the block $`\mathcal{B}_s`$: $`G[s] = \sum_{t \in \mathcal{B}_s} g_t`$.
 2. Smoothed Average Update: Update the EMA of Execution Gas usage: $`G_{\mathrm{avg}}[s] = (1 - q) \cdot G[s] + q \cdot G_{\mathrm{avg}}[s-1]`$.
@@ -169,44 +170,46 @@ Because base fee computation affects consensus state, the implementation must be
 
 The goal of this section is not to change the execution mechanism. It is only to restate the already-specified mechanism in a canonical deterministic form with explicit named constants. Therefore we provide here a reference implementation that uses unsigned integers to have a common reference.
 
-First we rewrite
+First we rewrite, with $`q = q_n / q_d`$ and $`\phi = \phi_n / \phi_d`$ in whole numbers,
 
 $$
 \begin{align*}
-G_{\mathrm{avg}}[s] &= (1 - 0.9) \cdot G[s] + 0.9 \cdot G_{\mathrm{avg}}[s-1]= \frac{G[s] + 9 \cdot G_\text{avg}[s-1]}{10}
+G_{\mathrm{avg}}[s] &= (1 - q) \cdot G[s] + q \cdot G_{\mathrm{avg}}[s-1]= \frac{(q_d - q_n) \cdot G[s] + q_n \cdot G_\text{avg}[s-1]}{q_d}
 \end{align*}
 $$
 
 $$
-\begin{align*} b_\text{exec}[s+1] &= b_\text{exec}[s]\cdot \left( 1 + \frac{1}{8} \cdot \frac{G_\text{avg}[s] - G_\text{target}}{G_\text{target}} \right)\\
-&=b_\text{exec}[s] \cdot \frac{7 \cdot G_\text{target} + G_\text{avg}[s]}{8 \cdot G_\text{target}}
+\begin{align*} b_\text{exec}[s+1] &= b_\text{exec}[s]\cdot \left( 1 + \phi \cdot \frac{G_\text{avg}[s] - G_\text{target}}{G_\text{target}} \right)\\
+&=b_\text{exec}[s] \cdot \frac{(\phi_d - \phi_n) \cdot G_\text{target} + \phi_n \cdot G_\text{avg}[s]}{\phi_d \cdot G_\text{target}}
 \end{align*}
 $$
 
 The integer base fee is obtained by rounding this quantity upwards, while the smoothed average $`G_\text{avg}[s]`$ is rounded downwards:
 
 $$
-b_\text{exec}[s+1] = \left\lceil b_\text{exec}[s] \cdot \frac{7 \cdot G_\text{target} + G_\text{avg}[s]}{8 \cdot G_\text{target}} \right\rceil,\qquad G_\text{avg}[s] = \left\lfloor \frac{G[s] + 9 \cdot G_\text{avg}[s-1]}{10} \right\rfloor
+b_\text{exec}[s+1] = \left\lceil b_\text{exec}[s] \cdot \frac{(\phi_d - \phi_n) \cdot G_\text{target} + \phi_n \cdot G_\text{avg}[s]}{\phi_d \cdot G_\text{target}} \right\rceil,\qquad G_\text{avg}[s] = \left\lfloor \frac{(q_d - q_n) \cdot G[s] + q_n \cdot G_\text{avg}[s-1]}{q_d} \right\rfloor
 $$
 
 And so we propose the following code reference:
 
 ```python
-EMA_DENOMINATOR = 10  # from q = 9/10
-EMA_PREV_WEIGHT = 9  # from q = 9/10
-BASE_FEE_NUMERATOR = 11_177_110  # = 7 * G_target
-BASE_FEE_DENOMINATOR = 12_773_840  # = 8 * G_target
+EMA_DENOMINATOR = 10  # denominator of q = 9/10
+EMA_PREV_WEIGHT = 9  # numerator of q = 9/10
+FEE_RATE_DENOMINATOR = 8  # denominator of phi = 1/8
+FEE_RATE_NUMERATOR = 1  # numerator of phi = 1/8
+G_MAX = 3_193_460
+G_TARGET = G_MAX // 2
 
 def ceil_div(numerator: int, denominator: int) -> int:
     return (numerator + denominator - 1) // denominator
 
 def update_g_avg(prev_g_avg: int, block_gas_used: int) -> int:
-    numerator = block_gas_used + EMA_PREV_WEIGHT * prev_g_avg
+    numerator = (EMA_DENOMINATOR - EMA_PREV_WEIGHT) * block_gas_used + EMA_PREV_WEIGHT * prev_g_avg
     return numerator // EMA_DENOMINATOR
 
 def update_base_fee(base_fee: int, g_avg: int) -> int:
-    numerator = base_fee * (BASE_FEE_NUMERATOR + g_avg)
-    return ceil_div(numerator, BASE_FEE_DENOMINATOR)
+    numerator = base_fee * ((FEE_RATE_DENOMINATOR - FEE_RATE_NUMERATOR) * G_TARGET + FEE_RATE_NUMERATOR * g_avg)
+    return ceil_div(numerator, FEE_RATE_DENOMINATOR * G_TARGET)
 ```
 
 The two rounding directions are not interchangeable. The base fee is multiplied by a factor smaller than one whenever the smoothed average is below the target, so rounding it downwards would make 0 an absorbing state: a base fee of 1 would be mapped to 0 by the first downward update, and every subsequent update would keep it at 0, making execution permanently free. Rounding upwards makes 1 the effective floor of the base fee and leaves the mechanism unchanged at every other price level, as the rounding error is at most one unit against an adjustment of up to $\pm 12.5\%$. The smoothed average is a measurement rather than a price and is not subject to this failure mode, as it is additive and recovers from 0 as soon as demand resumes. Rounding it upwards would instead pin it at 1 once it has been positive, reporting residual demand on an idle network.

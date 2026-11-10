@@ -34,7 +34,7 @@
 | 1.2.1 | Precise the state each transaction of a block is validated against: the transactions are validated and executed one after the other in the order they appear, each against the state the preceding ones left, which makes block validity order-dependent. Precise that a block whose validation fails at any point is not executed at all. | 2026-08-24 |
 | 1.3.0 | Compressed Block Proposal: 16-byte transaction reference prefixes and a variable-length `references` list, reducing the proposal from 34,574 bytes to at most 18,192. Added the [Canonical Encoding](#canonical-encoding) section. | 2026-08-18 |
 | 1.4.0 | Reference resolution is specified in [Mempool](mempool.md#reference-resolution), which this document now links to instead of restating the procedure. Before reconstruction a proposal is checked only against the latest immutable block, the genesis slot, the block tree and its signature, as implemented, and Block Header Validation applies to the reconstructed block. Reconstruction checks the size of the resolved transactions before the body root. | 2026-10-21 |
-| 1.5.0 | Removed the `bedrock_version` header field and moved `slot` to the first header field ([Bedrock Eras](bedrock-eras.md)): the header is 296 bytes, a signed header 360, and the maximum proposal 18,187 bytes, which follows the `MAX_UNCLES` of the era of the block's slot. | 2026-11-02 |
+| 1.5.0 | Removed the `bedrock_version` header field and moved `slot` to the first header field ([Bedrock Eras](bedrock-eras.md)): the header is 296 bytes, a signed header 360, and the maximum proposal 18,187 bytes, which follows the `MAX_UNCLES` and `MAX_BLOCK_TXS` of the era of the block's slot. A block's total Execution Gas is a validation rule. | 2026-11-05 |
 | 1.6.0 | Appended the `leader_voucher` of a block to the voucher tree when the block is executed, not when the following epoch starts. | 2026-11-02 |
 
 # Introduction
@@ -206,7 +206,7 @@ This yields the following sizes, where `n` is the number of references:
 | `References` | `2 + 16n` | 2 | 16,386 |
 | `Proposal` | `296 + (1 + 360u) + (2 + 16n) + 64` | 363 | 18,187 |
 
-The maximum, at `n = MAX_BLOCK_TXS` references and `u = MAX_UNCLES` uncles, is what [Payload Formatting](payload-formatting.md#body) uses as `Max_Body_Length`. `MAX_UNCLES` is an era parameter ([Era Parameters](bedrock-eras.md#era-parameters)), so the maximum is that of the era of the block's slot: 18,187 bytes at `MAX_UNCLES = 4`.
+The maximum, at `n = MAX_BLOCK_TXS` references and `u = MAX_UNCLES` uncles, is what [Payload Formatting](payload-formatting.md#body) uses as `Max_Body_Length`. `MAX_UNCLES` and `MAX_BLOCK_TXS` are era parameters ([Era Parameters](bedrock-eras.md#era-parameters)), so the maximum is that of the era of the block's slot: 18,187 bytes at `MAX_UNCLES = 4` and `MAX_BLOCK_TXS = 1024`.
 
 ## Block
 
@@ -357,7 +357,7 @@ The order is constrained as well as economical. [Block Header Validation](crypta
   With `transactions` now available, the reconstructed block must satisfy [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) as written.
 
 5. **Mempool Transactions Validation**
-  `mempool_transactions` must refer to a valid sequence of Mantle Transactions from the mempool. The transactions are validated in the order the `references` resolve them, against a state that advances with them: each transaction is validated against the state the transactions preceding it left, the first one against the state the block inherits once the steps of [Block Execution](#block-execution) that precede it have been applied. Each transaction must be valid in that state according to the rules defined in the [Mantle](bedrock-v1.1-mantle-specification.md#validation), which validates and executes its Operations along that same progression. Validation and execution are therefore one pass over one state, not two.
+  `mempool_transactions` must refer to a valid sequence of Mantle Transactions from the mempool. The transactions are validated in the order the `references` resolve them, against a state that advances with them: each transaction is validated against the state the transactions preceding it left, the first one against the state the block inherits once the steps of [Block Execution](#block-execution) that precede it have been applied. Each transaction must be valid in that state according to the rules defined in the [Mantle](bedrock-v1.1-mantle-specification.md#validation), which validates and executes its Operations along that same progression. Validation and execution are therefore one pass over one state, not two. The total Execution Gas of the transactions must be at most $`G_{\max}`$ of [Notation](execution-market.md#notation).
 
   Block validity is consequently order-dependent, and the order the transactions appear in is normative. Two transactions consuming the same note make the block invalid whatever their order, since the second consumption finds the note gone; a transaction consuming a note an earlier transaction created is valid in that order and invalid in the reverse one.
 
