@@ -7,6 +7,7 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-11-09 |
+| v2 | The verifier passes the last slot of the epoch in place of the epoch length, so the check is two 64-bit range checks (128 constraints, was 193); removed the argument against a last slot | 2026-11-10 |
 
 ## Reviewer Orientation
 
@@ -14,7 +15,7 @@ Read the PR's Motivation first.
 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
-| 1 | Critical | **Start here** — [Every proof carries a slot of the epoch](#1-every-proof-carries-a-slot-of-the-epoch), in the [Proof of Quota](#affected-specifications) | the check binds every branch; both operands are range-checked, so a slot before the epoch fails |
+| 1 | Critical | **Start here** — [Every proof carries a slot of the epoch](#1-every-proof-carries-a-slot-of-the-epoch), in the [Proof of Quota](#affected-specifications) | the check binds every branch; both differences are range-checked, so a slot outside the epoch fails |
 | 2 | High | [Two public inputs carry the slots of the epoch](#2-two-public-inputs-carry-the-slots-of-the-epoch), in the [Proof of Quota](#affected-specifications) | the inputs follow `pol_t1`, so existing signal positions hold; their derivation from the epoch schedule |
 | 3 | High | [Core and proof of work provers fill `pol_sl` with a slot of the epoch](#3-core-and-proof-of-work-provers-fill-pol_sl-with-a-slot-of-the-epoch), in both [specifications](#affected-specifications) | a prover that keeps filling `pol_sl` with arbitrary data now fails |
 
@@ -22,7 +23,7 @@ Read the PR's Motivation first.
 
 ## Every branch or only the leader branch
 
-The check binds `pol_sl` in every branch, although only the leader branch reads the slot. The alternative gates it to the leader branch: the circuit multiplies the offset `pol_sl - pol_epoch_first_slot` by the leader selector before the range checks, so core and proof of work provers keep filling `pol_sl` with arbitrary data. Gating only the result of the comparison is not enough. The range checks run in every branch and would reject a core prover's arbitrary slot.
+The check binds `pol_sl` in every branch, although only the leader branch reads the slot. The alternative gates it to the leader branch: the circuit multiplies both differences by the leader selector before the range checks, so core and proof of work provers keep filling `pol_sl` with arbitrary data. The gate has to act on the differences themselves. The range checks are constraints in every branch, and would reject a core prover's arbitrary slot.
 
 The gated form costs two more multiplications. The ungated form needs no selector arithmetic, and its cost falls on core and proof of work provers, which must now fill `pol_sl` with a slot of the epoch. An implementation that keeps a fixed filler such as `0` produces invalid core and proof of work proofs from epoch 1 onward.
 
@@ -32,13 +33,13 @@ Neither form reveals which branch a proof uses. The two new inputs are the same 
 
 ## The range
 
-The verifier passes the first slot and the length, rather than an epoch number or a last slot. With an epoch number, the circuit would compute the first slot itself and assume that every epoch has the same length. An inclusive last slot invites an off-by-one error. A length hard-coded into the circuit would need new keys whenever `k` or `f` changes. Both values come from the Cryptarchia epoch schedule, so the change adds no parameter.
+The verifier passes the first and the last slot of the epoch, rather than the epoch length or an epoch number. Each bound then needs one range check. With the length, the circuit would need a comparison, or would rebuild the last slot from it. With an epoch number, the circuit would compute the slots itself and assume that every epoch has the same length. A length hard-coded into the circuit would need new keys whenever `k` or `f` changes. Both values come from the Cryptarchia epoch schedule, so the change adds no parameter.
 
-Both values fit 64 bits, the width of the slot in the block header: the epoch with the largest epoch number, `2^32 − 1`, ends before slot `2^52`. The range checks make the comparison sound in the scalar field. For a slot before the epoch, the offset `pol_sl - pol_epoch_first_slot` wraps around to a value near the field modulus and fails its 64-bit range check.
+Both values fit 64 bits, the width of the slot in the block header: the epoch with the largest epoch number, `2^32 − 1`, ends before slot `2^52`. Taking the differences in the scalar field makes the range checks sound. For a slot outside the epoch, one difference wraps around to a value near the field modulus and fails its 64-bit range check.
 
 ## Cost
 
-With circomlib's comparators, the check costs 193 constraints: two 64-bit range checks and one 65-bit comparison.
+With circomlib's `Num2Bits`, the check costs 128 constraints: one 64-bit range check per difference.
 
 ## Compatibility
 
@@ -50,17 +51,18 @@ The public signal vector grows from twelve to fourteen entries. The output and t
 
 Step 1 of the [Constraints](../proof-of-quota.md#constraints) gains a rule for every branch:
 
-> Whatever the branch, `pol_sl` must be a slot of the epoch: `pol_epoch_first_slot <= pol_sl < pol_epoch_first_slot + pol_epoch_length`.
+> Whatever the branch, `pol_sl` must be a slot of the epoch: `pol_epoch_first_slot <= pol_sl <= pol_epoch_last_slot`.
 
 The [Pseudocode](../proof-of-quota.md#pseudocode) checks it right after the quota check, outside any branch term:
 
 ```diff
  index < core_quota + (leader_quota - core_quota) * L1 + (pow_quota - core_quota) * L2
  
-+# Verify pol_sl is a slot of the epoch, whatever the branch. Both operands are
-+# range-checked to 64 bits, so the offset of a slot before the epoch, which
-+# wraps around the scalar field, fails.
-+pol_sl - pol_epoch_first_slot < pol_epoch_length
++# Verify pol_sl is a slot of the epoch, whatever the branch. Both differences
++# are taken in the scalar field and must fit 64 bits: for a slot outside the
++# epoch, one of them wraps around the field.
++pol_sl - pol_epoch_first_slot < 2**64
++pol_epoch_last_slot - pol_sl < 2**64
 ```
 
 Step 3 now names the slot the leader's note would win: "the slot `pol_sl`" in place of "a slot".
@@ -72,10 +74,10 @@ Step 3 now names the slot the leader's note would win: "the slot `pol_sl`" in pl
      # ... unchanged fields elided
      pol_t1: int           # PoL constant t1
 +    pol_epoch_first_slot: int # First slot of the epoch (64 bits)
-+    pol_epoch_length: int     # Epoch length, in slots (64 bits)
++    pol_epoch_last_slot: int  # Last slot of the epoch (64 bits)
 ```
 
-For the epoch `ep`, `pol_epoch_first_slot` is `ep · EPOCH_LENGTH` and `pol_epoch_length` is `EPOCH_LENGTH`, the [epoch length](../cryptarchia-v1-protocol.md#epoch-schedule) of `10⌊k/f⌋` slots, 648,000 at `k = 2160` and `f = 1/30`. In the [Message Encapsulation Mechanism](../message-encapsulation.md#keys-and-proof-generation), a prover reads both from the chain with the other public values.
+For the epoch `ep`, `pol_epoch_first_slot` is `ep · EPOCH_LENGTH` and `pol_epoch_last_slot` is `(ep + 1) · EPOCH_LENGTH − 1`, where `EPOCH_LENGTH` is the [epoch length](../cryptarchia-v1-protocol.md#epoch-schedule) of `10⌊k/f⌋` slots, 648,000 at `k = 2160` and `f = 1/30`. In the [Message Encapsulation Mechanism](../message-encapsulation.md#keys-and-proof-generation), a prover reads both from the chain with the other public values.
 
 ## 3. Core and proof of work provers fill `pol_sl` with a slot of the epoch
 
@@ -106,8 +108,8 @@ The core and proof of work cases of the [Proof of Quota generation](../message-e
 
 # Implementation
 
-- [ ] In the PoQ circuit, add `pol_epoch_first_slot` and `pol_epoch_length` as public inputs declared after `pol_t1`, so the existing public signals keep their positions.
-- [ ] In the PoQ circuit, constrain `pol_sl - pol_epoch_first_slot < pol_epoch_length` in every branch, range-checking both operands to 64 bits (`SafeLessThan(64)` with its output constrained to 1).
+- [ ] In the PoQ circuit, add `pol_epoch_first_slot` and `pol_epoch_last_slot` as public inputs declared after `pol_t1`, so the existing public signals keep their positions.
+- [ ] In the PoQ circuit, range-check `pol_sl - pol_epoch_first_slot` and `pol_epoch_last_slot - pol_sl` to 64 bits each (`Num2Bits(64)`), in every branch.
 - [ ] Regenerate the circuit's sample inputs so that core and proof of work witnesses carry a slot of the epoch, and release new proving and verification keys.
 - [ ] In the node, carry the two inputs through the PoQ prover and verifier inputs, which grow from 12 to 14 signals. Fill them from the same epoch as `pol_epoch_nonce` at every site that builds them, including the verification of messages from the previous epoch during the transition period.
 - [ ] In the node, fill `pol_sl` with a slot of the epoch, such as its first slot, in core and proof of work proofs.
