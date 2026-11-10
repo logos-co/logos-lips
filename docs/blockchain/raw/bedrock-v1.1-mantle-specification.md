@@ -2212,6 +2212,16 @@ Such that the following constraints hold, where `inputs_nf_sk`, `inputs_pk` and 
   )
   ```
   
+- The nullifiers of the active inputs are pairwise distinct, so a note is consumed at most once and counted once in the balance.
+  ```python
+  assert all(
+      inputs[i] != inputs[j]
+      for i in range(len(inputs_sk))
+      for j in range(i + 1, len(inputs_sk))
+      if inputs_active[i] and inputs_active[j]
+  )
+  ```
+  
 - Each selector is a bit, and each active input commitment is in `tx_commitment_root`, its path computed by [`path_root`](#commitment-merkle-mountain-range).
   ```python
   assert all(
