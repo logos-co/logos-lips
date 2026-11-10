@@ -42,6 +42,7 @@
 | 1.8.1 | Derived $`M_W`$ from the messages a neighbor is expected to deliver in an observation window and from the peering degree, in place of a fixed value. | 2026-10-30 |
 | 1.9.0 | Removed the message `version` byte, put the fork digest in the libp2p protocol name, linked the era rules for the transition period, for releasing and for broadcasting, bounded the transition period and the clock difference between honest nodes, and stopped blacklisting for a next-epoch proof in an epoch's last round ([Bedrock Eras](bedrock-eras.md)). A round lasts one slot, and $`\beta_{max}`$ replaces $`\beta_C`$ and $`\beta_D`$. | 2026-11-09 |
 | 1.9.1 | Updated `Max_Payload_Length` to 18190 bytes in the overhead calculation, and an encapsulated message to 19313 bytes, following the removal of the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)). | 2026-11-02 |
+| 1.10.0 | The traversal time counts the broadcast of the payload, and the transition period is the traversal time plus one round. | 2026-11-10 |
 
 # Introduction
 
@@ -477,7 +478,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $E=648000$, the number of rounds per epoch.
 - $`\beta_{max} = 3`$, the maximum number of blending operations of a single message.
 - $`\eta=2`$ rounds, the network absorption of one hop.
-- $`T_M = 15`$ rounds, the message traversal time, as derived in the [Transition Period](#transition-period) section.
+- $`T_M = 17`$ rounds, the message traversal time, as derived in the [Transition Period](#transition-period) section.
 - $`W = \lceil M_W / (F_C \cdot (1 + R_C) \cdot \beta_{max}) \rceil = 30`$ rounds, the observation window: the rounds in which a core connection carries $`M_W`$ messages from cover traffic alone ([Expected Traffic](#expected-traffic)).
 - $`M_W = \lambda \cdot (\Phi_{CC} - 1) / (\Phi_{CC} - 2) = 90`$ messages. A neighbor sends a node every message except the ones it first received from that node ([Releasing](#releasing)). A neighbor holds at least $`\Phi_{CC} - 1`$ connections, so on average at most one message in $`\Phi_{CC} - 1`$ reaches it first from that node ([Connectivity Maintenance](#connectivity-maintenance)).
 - $`\lambda = 60`$ messages. For deliveries arriving at random, an honest neighbor delivers nothing within $`W`$ rounds with probability at most $`e^{-\lambda}`$, and is closed as not live ([Connectivity Maintenance](#connectivity-maintenance)). A larger $`\lambda`$ lengthens $`W`$: a neighbor that delivers nothing holds a connection slot for longer, a neighbor closed as not live is refused for longer, and a blacklist entry lasts longer.
@@ -587,10 +588,10 @@ Each entry carries the identity of the neighbor and the reason.
 
 When a new epoch begins, the set of public information checked against proofs embedded in messages changes, which renders some messages invalid. However, these messages may still contain valid payloads that must reach their destination. Therefore, we implement a Transition Period (TP, $`T`$) during which the network can gracefully react to the change and allow these messages to safely exit the network.
 
-A message crosses $`\beta_{max}`$ blend nodes, each holding it for at most $`\Delta_{max}`$ and the network carrying it for $`\eta`$:
+A message is sent by its sender and by each of the $`\beta_{max}`$ blend nodes it crosses, the last of which sends its payload to every node ([Broadcasting](#broadcasting)). Each sending reaches every node within $`\eta`$, and each blend node holds the message for at most $`\Delta_{max}`$:
 
 $$
-T_M = \beta_{max} \cdot (\Delta_{max} + \eta) = 3 \cdot (3 + 2) = 15 \text{ rounds}
+T_M = \beta_{max} \cdot (\eta + \Delta_{max}) + \eta = 3 \cdot (2 + 3) + 2 = 17 \text{ rounds}
 $$
 
 where:
@@ -599,11 +600,15 @@ where:
 - $`\eta = 2`$ defines the network absorption of one hop ([Global Parameters](#global-parameters));
 - $`\beta_{max}=3`$ defines maximum number of blending operations of a single message.
 
-After $`T_M`$ rounds, all messages for the past epoch should have been processed and disseminated. To provide an additional safety buffer, we round the transition period up to $`T=30`$ rounds. After this period, all old connections can be safely terminated, and messages for the past epoch must not be processed anymore.
+The transition period is the message traversal time plus one round:
 
-The transition period must be at least the message traversal time plus the largest clock difference between two honest nodes: $`T \ge T_M + T_C`$. Otherwise a node whose clock runs ahead stops processing past-epoch messages while some are still crossing the network, and their senders wait for a delivery that can no longer happen ([Detection](#detection)).
+$$
+T = T_M + 1 = 18 \text{ rounds}
+$$
 
-Nodes must keep their clocks synchronized so that $`T_C`$ is below one round. A node releases a message it generates in the new epoch no earlier than one round after its own epoch changes ([Releasing](#releasing)). With a larger $`T_C`$, such a message can reach a node whose clock runs behind before that node's epoch changes, and that node discards it.
+After this period, all old connections can be safely terminated, and messages for the past epoch must not be processed anymore.
+
+Nodes must keep their clocks synchronized so that $`T_C`$ is below one round. $`T`$ then exceeds $`T_M + T_C`$. With a larger $`T_C`$, a node whose clock runs ahead can stop processing past-epoch messages while some are still crossing the network, and their senders wait for a delivery that can no longer happen ([Detection](#detection)). A node releases a message it generates in the new epoch no earlier than one round after its own epoch changes ([Releasing](#releasing)). With a larger $`T_C`$, such a message can also reach a node whose clock runs behind before that node's epoch changes, and that node discards it.
 
 When a new **epoch** begins:
 
