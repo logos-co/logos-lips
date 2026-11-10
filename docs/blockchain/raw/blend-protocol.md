@@ -40,7 +40,7 @@
 | 1.7.0 | Derived the observation window $`W`$ from cover traffic in place of the maximal release delay. | 2026-10-29 |
 | 1.8.0 | Refused a neighbor closed as not live for $`W`$ rounds, restarting its liveness count, in place of shutting it out for the rest of the epoch. | 2026-10-30 |
 | 1.8.1 | Derived $`M_W`$ from the messages a neighbor is expected to deliver in an observation window and from the peering degree, in place of a fixed value. | 2026-10-30 |
-| 1.9.0 | Removed the message `version` byte, put the fork digest in the libp2p protocol name, linked the era rules for the transition period, for releasing and for broadcasting, bounded the transition period and the clock difference between honest nodes, and stopped blacklisting for a next-epoch proof in an epoch's last round ([Bedrock Eras](bedrock-eras.md)). A round lasts one slot, and $`\beta_{max}`$ replaces $`\beta_C`$ and $`\beta_D`$. | 2026-11-09 |
+| 1.9.0 | Removed the message `version` byte, put the fork digest in the libp2p protocol name, linked the era rules for the transition period, for releasing and for broadcasting, made the transition period the larger of $`\lfloor 1/f \rfloor`$ and $`T_M + 1`$ rounds, bounded the clock difference between honest nodes, and stopped blacklisting for a next-epoch proof in an epoch's last round ([Bedrock Eras](bedrock-eras.md)). A round lasts one slot, and $`\beta_{max}`$ replaces $`\beta_C`$ and $`\beta_D`$. | 2026-11-10 |
 | 1.9.1 | Updated `Max_Payload_Length` to 18190 bytes in the overhead calculation, and an encapsulated message to 19313 bytes, following the removal of the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)). | 2026-11-02 |
 
 # Introduction
@@ -599,11 +599,15 @@ where:
 - $`\eta = 2`$ defines the network absorption of one hop ([Global Parameters](#global-parameters));
 - $`\beta_{max}=3`$ defines maximum number of blending operations of a single message.
 
-After $`T_M`$ rounds, all messages for the past epoch should have been processed and disseminated. To provide an additional safety buffer, we round the transition period up to $`T=30`$ rounds. After this period, all old connections can be safely terminated, and messages for the past epoch must not be processed anymore.
+The transition period is the larger of $`\lfloor 1/f \rfloor`$ rounds, with $`f`$ the slot activation coefficient of [Constants](cryptarchia-v1-protocol.md#constants), and the message traversal time plus one round:
 
-The transition period must be at least the message traversal time plus the largest clock difference between two honest nodes: $`T \ge T_M + T_C`$. Otherwise a node whose clock runs ahead stops processing past-epoch messages while some are still crossing the network, and their senders wait for a delivery that can no longer happen ([Detection](#detection)).
+$$
+T = \max(\lfloor 1/f \rfloor, T_M + 1) = \max(30, 16) = 30 \text{ rounds}
+$$
 
-Nodes must keep their clocks synchronized so that $`T_C`$ is below one round. A node releases a message it generates in the new epoch no earlier than one round after its own epoch changes ([Releasing](#releasing)). With a larger $`T_C`$, such a message can reach a node whose clock runs behind before that node's epoch changes, and that node discards it.
+After this period, all old connections can be safely terminated, and messages for the past epoch must not be processed anymore.
+
+Nodes must keep their clocks synchronized so that $`T_C`$ is below one round. $`T`$ then exceeds $`T_M + T_C`$. With a larger $`T_C`$, a node whose clock runs ahead can stop processing past-epoch messages while some are still crossing the network, and their senders wait for a delivery that can no longer happen ([Detection](#detection)). A node releases a message it generates in the new epoch no earlier than one round after its own epoch changes ([Releasing](#releasing)). With a larger $`T_C`$, such a message can also reach a node whose clock runs behind before that node's epoch changes, and that node discards it.
 
 When a new **epoch** begins:
 
