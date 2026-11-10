@@ -20,7 +20,7 @@
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-04 |
-| 1.1.0 | Encoded `learning_rate` as a ratio, and dropped the lower bound that Total Stake Inference put on `slot_activation_coeff`. | 2026-11-10 |
+| 1.1.0 | Encoded `learning_rate` as a ratio above 0 and at most 2, and dropped the lower bound that Total Stake Inference put on `slot_activation_coeff`. | 2026-11-10 |
 
 # Introduction
 
@@ -469,6 +469,8 @@ In every record, the numerator of `slot_activation_coeff` and the slot length $`
 In every record, each entry of `epoch_config` is at least 1. Otherwise `PERIOD` of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) or the epoch length $`L_n`$ can be 0, and [Total Stake Inference](cryptarchia-total-stake-inference.md#algorithm) or $`\textbf{epoch}(sl)`$ divides by zero.
 
 In every record, `slot_activation_coeff` is below 1. Otherwise the lottery constants $`t_0`$ and $`t_1`$ of [Proof of Leadership](cryptarchia-proof-of-leadership.md#circuit-public-inputs) take the logarithm of 0.
+
+In every record, `learning_rate` is above 0 and at most 2. Otherwise [Total Stake Inference](cryptarchia-total-stake-inference.md#algorithm) never changes the estimate, or can fail the [Stability Condition](analysis-total-stake-inference.md#stability-condition) of its analysis, which holds for every learning rate up to 2.
 
 In every record, $`\lfloor k/(4f) \rfloor`$ is at least 1. Otherwise $`s_{gen}`$ of [Fork Choice](fork-choice.md#definitions) is 0, and the density check of the bootstrap rule compares empty windows.
 
