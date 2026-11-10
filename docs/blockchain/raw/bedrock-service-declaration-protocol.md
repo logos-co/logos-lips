@@ -37,6 +37,7 @@
 | 1.7.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a declaration covers one service, a note backs one declaration per service, and a `nonce` carries the `created` epoch of its declaration | 2026-10-01 |
 | 1.8.0 | The minimum stake is one `MinStake` of `threshold` and the block number `timestamp`, matching the implementation | 2026-10-27 |
 | 1.9.0 | The minimum stake and the service parameters are those of the era of a block's slot, and carry neither a `timestamp` nor an epoch; service-type bytes run from 0 without gaps ([Bedrock Eras](bedrock-eras.md)) | 2026-11-05 |
+| 1.10.0 | Each node takes the snapshot of an epoch the Blend clock slack before the epoch starts ([Blend Protocol](blend-protocol.md#transition-period)). | 2026-11-10 |
 
 # Introduction
 
@@ -122,7 +123,7 @@ The service parameters are an era parameter, the `service_params` of the era's p
 
 ### Snapshots
 
-At the start of epoch $`n`$, each node takes a snapshot of the SDP registry at the last block from the finalized epoch.
+$`T_S`$ seconds before epoch $`n`$ starts ([Transition Period](blend-protocol.md#transition-period)), each node takes a snapshot of the SDP registry at the last block from the finalized epoch.
 Each snapshot updates the common view of the registry. Changes to the declaration registry take effect with up to a two-epoch delay: messages sent during epoch `n` are included in the next snapshot (for epoch `n+2`).
 
 Epochs 0 and 1 read the snapshot at the genesis block, because the chain has not yet progressed far enough to provide a later finalized block. While at epoch 2, the last block of epoch 0 is read, and so forth according to the above logic.
