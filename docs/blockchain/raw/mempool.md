@@ -26,6 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-11-03 |
 | 1.1.0 | A transaction is decoded under the era its fork digest names, admitted only when the era in force accepts that digest, applied under the era of the block's slot, and retired when the era in force stops accepting its digest or a block of the block's era cannot carry it ([Bedrock Eras](bedrock-eras.md)). | 2026-11-10 |
+| 1.2.0 | `TRANSACTION_TTL` is an era parameter in place of a node setting, and expiry cannot be disabled; `RETIREMENT_GRACE` is an era parameter too, and must outlast the propagation of a selected transaction. | 2026-11-10 |
 
 # Introduction
 
@@ -216,6 +217,8 @@ SEEN_TTL: uint64 = 24 * 60 * 60              # seconds a node remembers a messag
 BROADCAST_RETRIES: uint64 = 3                # retries of a broadcast that finds no peer on the mempool topic
 BROADCAST_BACKOFF: uint64 = 5                # base, in seconds, of the wait before each retry
 ```
+
+`TRANSACTION_TTL` and `RETIREMENT_GRACE` are era parameters, the `transaction_ttl_in_seconds` and `retirement_grace_in_seconds` of the parameter record ([Era Parameters](bedrock-eras.md#era-parameters)). Those in force are those of the era in force.
 
 `SEEN_TTL` is a node setting, and the value above is its default.
 
