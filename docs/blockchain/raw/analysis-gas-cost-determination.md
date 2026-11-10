@@ -58,7 +58,7 @@ The Execution Gas is derived from measurements of the [Rust implementation of th
 - the insertion of nullifiers and the appending of commitments to the note sets, and the hashing of the trees of every changed note set at the end of the block;
 - the checks and the state updates of each Operation.
 
-The Execution Gas of a Mantle Transaction is a sum of per-component constants, each fitted on these measurements ([Gas determination from measures](#gas-determination-from-measures)). A full block of mixed transactions, measured whole, costs 9.1% less than the constants predict when the end of block work of each note set is counted once ([Fit and cross-check](#fit-and-cross-check)).
+The Execution Gas of a Mantle Transaction is a sum of per-component constants, each fitted on these measurements ([Gas determination from measures](#gas-determination-from-measures)). The constants predict 9.1% more than a full block of mixed transactions costs, measured whole, when the end of block work of each note set is counted once ([Fit and cross-check](#fit-and-cross-check)).
 
 Gas can also be adjusted to incentivize or disincentivize the usage of certain Operations compared to others.
 
@@ -159,7 +159,7 @@ and the constants of the components:
 | `EXECUTION_NOTE_SET_GAS` | 8961 | end of block of a changed note set, with its first nullifier, at most 8,960,550 cycles |
 | `EXECUTION_PROOF_GAS` | 4177 | decompression and batch verification of a ZkTransfer or a ZkProgramSpend, at most 4,176,746 cycles |
 | `EXECUTION_ROOT_GAS` | 2332 | root of a recent commitment MMR extended by buffered commitments, 2,331,953 cycles |
-| `EXECUTION_BUFFERED_GAS` | 60 | append of a buffered commitment to that MMR, 59,249 cycles |
+| `EXECUTION_BUFFERED_GAS` | 60 | append of a buffered commitment to that MMR, one merge on average, 59,249 cycles |
 | `EXECUTION_NULLIFIER_GAS` | 1758 | insertion of a nullifier and its share of the hashing of the nullifier tree, 1,757,508 cycles |
 | `EXECUTION_COMMITMENT_GAS` | 58 | append of a commitment, 57,597 cycles |
 | `EXECUTION_SIGNATURE_GAS` | 557 | Ed25519 signature, 556,608 cycles |
@@ -168,7 +168,7 @@ and the constants of the components:
 | `EXECUTION_PROGRAM_STEP_GAS` | 13528 | a program step beyond its spend, the program deposits it consumes and its openings, with the verification of its program proof under its registered key, 212,654 + 13,314,344 cycles |
 | `EXECUTION_OPENING_GAS` | 470 | the commitment of an opened program note, 469,714 cycles |
 
-The constants of each Operation are what remains of its measure once its components are counted: the decoding and the checks of its fields, and the updates of the ledger state proper to the Operation. Each section below lists the steps behind them.
+The constants of each Operation are what remains of its measure once its components are counted: the decoding and the checks of its fields, and the updates of the ledger state proper to the Operation. Each section below lists the steps behind them. Each is the measure of the Operation with one input and one output where it pays them through `spend_gas`, its release included for a withdrawal, less 59,479 cycles per input and 57,597 per output, the slopes of the Transfer, and less 556,608 cycles per Ed25519 signature, rounded up to the next 1,000 cycles. `EXECUTION_SDP_WITHDRAW_GAS` also deducts `root_gas(1)` and is floored at 0.
 
 The fixed costs of a block, paid once whatever its transactions, are deducted from the Execution Gas limit of the block ([Execution Fee Market](overview-cryptoeconomics.md#execution-fee-market)): 62,201,714 cycles, or 62,202 Execution Gas ([Fixed costs of a block](#fixed-costs-of-a-block)).
 
@@ -193,7 +193,7 @@ A program proof is verified alone under the key of its program, which no other p
 
 ## Roots
 
-A proof is verified against a root of a recent commitment MMR of its note set, extended by the commitments buffered before it in the transaction ([Validation](bedrock-v1.1-mantle-specification.md#validation)). Without any buffered commitment, the root is the referenced root itself, checked to be recent, 1,392 cycles. With `b` buffered commitments, the commitments are appended to a copy of the peaks of the referenced MMR and its root is computed, 2,331,953 cycles for the root and 59,249 per commitment. The proofs of a transaction naming the same note set, referenced root and `b` share one extended root, computed once and paid once, so a step costs the same whatever its position in its mini-block.
+A proof is verified against a root of a recent commitment MMR of its note set, extended by the commitments buffered before it in the transaction ([Validation](bedrock-v1.1-mantle-specification.md#validation)). Without any buffered commitment, the root is the referenced root itself, checked to be recent, 1,392 cycles. With `b` buffered commitments, the commitments are appended to a copy of the peaks of the referenced MMR and its root is computed, 2,331,953 cycles for the root and 59,249 per commitment, the average over the lengths of the referenced MMR: appending `b` commitments to an MMR of `L` commitments merges `popcount(L) + b - popcount(L + b)` peaks, 59,708 cycles each. The proofs of a transaction naming the same note set, referenced root and `b` share one extended root, computed once and paid once, so a step costs the same whatever its position in its mini-block.
 
 ## Nullifiers
 
@@ -202,7 +202,7 @@ A nullifier is inserted in the nullifier IMT of its set (depth [`NOTE_SET_DEPTH`
 - In the Operation: the check that it is absent (4,452 cycles), the update of the low leaf and of the sorted index, and the append of its leaf, 53,625 cycles alone and at most 61,403 for each further input of an Operation.
 - At the end of the block: the hashing of the leaves the block wrote and of every node above them, each node once. The first nullifier of a set in a block costs 4,061,452 cycles, the hashing of two paths of the tree. Every further one costs at most 1,696,105 cycles: its leaf lands next to the leaves appended before it, but its low leaf is anywhere in the tree, and the path of the low leaf shares only its upper levels with the other paths of the block. From 64 to 256 nullifiers of a set, each further one costs 1,311,248 cycles.
 
-`EXECUTION_NULLIFIER_GAS = 1758` prices the largest cost of each part, 1,757,508 cycles. The first nullifier of a set is paid by `EXECUTION_NOTE_SET_GAS` for the channel and SDP sets, and by the fixed costs of a block for the ledger set.
+`EXECUTION_NULLIFIER_GAS = 1758` prices the largest cost of each part, 1,757,508 cycles. The price holds for note sets of about a million nullifiers, the size measured: each doubling of a set adds about one compression, 59,404 cycles, to a nullifier. The first nullifier of a set is paid by `EXECUTION_NOTE_SET_GAS` for the channel and SDP sets, and by the fixed costs of a block for the ledger set.
 
 ## Commitments
 
@@ -322,7 +322,7 @@ The validation checks that the declaration exists, the nonce, the signature of t
 | Claim | 1,505,926 |
 | of which the re-derivation of the puzzle ticket, one `zkhash` over four field elements | 292,916 |
 
-The validation re-derives the ticket, compares it to the reward difficulty, checks that the referenced block is canonical and within the acceptance window, that the ticket is not in the nullifier set and that the pool covers a reward. The execution inserts the nullifier, derives the note and appends its commitment, and decrements the pool. A claim pays its fee out of the reward it creates, so the per-claim reward clears the Permanent Storage fee of the transaction, these 1506 Execution Gas and the Execution Gas of its bytes, and the Execution Gas of the Transfer spending the reward note.
+The validation re-derives the ticket, compares it to the reward difficulty, checks that the referenced block is canonical and within the acceptance window, that the ticket is not in the nullifier set and that the pool covers a reward. The execution inserts the nullifier, derives the note and appends its commitment, and decrements the pool. A claim pays its fee out of the reward it creates, so the per-claim reward clears the Permanent Storage fee of the transaction, these 1506 Execution Gas and the Execution Gas of its bytes, and the Execution Gas of the Transfer spending the reward note with the extension of its root by that note, `root_gas(1)`: 9,901 Execution Gas beyond the bytes for a Transfer of one input and one output.
 
 ## Program Register
 
