@@ -30,17 +30,18 @@ where most of the new items come from.
 Each item gives **Specs**, **Issue**, **Impact**, **Overlap** with existing IDs, and a **Suggested
 resolution**.
 
-NE-07, NL-12, NA-12 and NP-14 were added later from the same porting readings. ND-10 to ND-14 were
-found later, while building logos-core-nim against the same commit; like the items in
+NE-07, NL-12, NA-12 and NP-14 were added later from the same porting readings. ND-10 to ND-14 and
+NP-15 were found later, while building logos-core-nim against the same commit; like the items in
 `claude-spec-comments.md`, they also give **Our interim choice**, cited by its `DECISIONS.md` row.
-ND-14 is a contradiction, kept in §2.6 beside ND-12 and ND-13, which concern the same C mapping.
+ND-14 is a contradiction, kept in §2.6 beside ND-12 and ND-13, which concern the same C mapping; NP-15
+is one too, kept in §2.7 with the other packaging items.
 
 ## Summary
 
 | Part | Count |
 |---|---|
 | 1. Contradictions and internal inconsistencies | 6 |
-| 2. Gaps and underspecifications (events 7, identity 7, lifecycle 12, authority 12, remote 14, data model 14, packaging 14, configuration and state 6, security 3, Runtime Control observation 7) | 96 |
+| 2. Gaps and underspecifications (events 7, identity 7, lifecycle 12, authority 12, remote 14, data model 14, packaging 15, configuration and state 6, security 3, Runtime Control observation 7) | 97 |
 | 3. Corrections and addenda to existing findings | 25 |
 | 4. Dropped candidates | 20 |
 
@@ -1726,6 +1727,27 @@ what is missing is a statement of that pattern and caller identity for the fetch
   `process: "exclusive"`, enforced by Runtime at `create_module` (a second instance fails with a named
   error) and by the Loader at `realize` (fail closed under l.423 when the placement cannot give the module
   a process of its own), with platform profiles saying where `exclusive` cannot be met.
+
+#### NP-15 — An artifact without its hash is `invalid-package` under one rule and `artifact-integrity-failed` under another
+- **Specs:** PM §4 l.322-327 (`manifest_artifact` requires `hash: bstr .size 32`), l.366-368 (missing
+  artifact, wrong kind or hash mismatch: `artifact-integrity-failed`); §8 l.971-974 (a manifest that
+  "does not validate against `logos.package_manifest.manifest`" is `invalid-package`), l.996-1001 ("an
+  artifact omits its required hash" is `artifact-integrity-failed`); §10 l.1068, §12 l.1237 (the hash is
+  required in the installed record and the handoff too).
+- **Issue:** the only place an artifact can omit its hash is the manifest, and there the CDDL requires
+  the field, so an artifact record without `hash` makes the manifest fail l.974 before any artifact is
+  read. The same input then has two mandated codes, and l.1000 is reachable only by reading it as the
+  winner over l.974. Nothing orders the §8 rules (C-07 asked for a check precedence; G29 is our interim
+  one).
+- **Impact:** implementations can return different codes for one malformed manifest, and a conformance
+  test written from l.1000 fails against one written from l.974. No bytes change. Minor.
+- **Overlap:** C-07/G29 (check precedence across §4 and §8; NF-04 settled one of its codes). New: this
+  pair. It is a contradiction, kept here beside the other packaging items.
+- **Our interim choice** (G156): `invalid-package`: the manifest is validated against its schema before
+  artifacts are examined, which is also G29's order (schema before artifact hashes).
+- **Suggested resolution:** delete the l.1000 bullet, since the CDDL already makes the hash mandatory;
+  or, if a source profile can carry artifact records outside the manifest (a Nix realization), name
+  that case there and keep l.974 for the manifest.
 
 ### 2.8 Configuration and state
 
