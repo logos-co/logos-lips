@@ -1,6 +1,6 @@
 # [RFC] Cryptarchia: Count finality in slots
 
-**Motivation and proposal:** [PR #TBD](https://github.com/logos-co/logos-lips/pull/TBD)
+**Motivation and proposal:** [PR #532](https://github.com/logos-co/logos-lips/pull/532)
 
 ## Change log
 
