@@ -27,6 +27,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.1.0 | Clarified that `density` counts only the blocks of the chain being measured and excludes the [uncle references](cryptarchia-v1-protocol.md#uncle-references) those blocks carry, since uncles carry no fork-choice weight. | 2026-07-09 |
+| 1.2.0 | Read the age of a fork in slots: the Bootstrap rule compares by density a fork that diverged at least `K` slots before the later tip and visits the forks in order of block ID, and both rules ignore a fork that does not descend from `B_imm`. | 2026-11-09 |
 
 # Introduction
 
@@ -34,11 +35,11 @@ Cryptarchia makes use of two fork choice rules, one during bootstrapping and a s
 
 During bootstrapping, we must be resilient to malicious peers feeding us false chains. This calls for a more expensive fork choice rule that can differentiate between malicious long-range attacks and the honest chain.
 
-Once bootstrapping completes, the node commits to the best chain it has seen so far and switches to a different fork choice rule that rejects forks that diverge too much.
+Once bootstrapping completes, the node commits to the best chain it has seen so far and switches to a different fork choice rule that takes the longest chain among the forks that descend from the [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block).
 
 # Overview
 
-During bootstrapping, we use the [Ouroboros Genesis](fork-choice.md#bootstrap-fork-choice-rule) fork choice rule, after bootstrapping, we switch to the [Ouroboros Praos](fork-choice.md#online-fork-choice-rule) fork choice rule.
+During bootstrapping, we use a fork choice rule derived from [Ouroboros Genesis](fork-choice.md#bootstrap-fork-choice-rule). After bootstrapping, we switch to a fork choice rule derived from [Ouroboros Praos](fork-choice.md#online-fork-choice-rule).
 
 To understand why we use the Genesis rule during bootstrapping, it’s useful to consider the long range attack.
 
@@ -52,7 +53,7 @@ Each epoch, the lottery difficulty is adjusted based on participation in the pre
 
 With this advantage, the adversary can eventually make up for that sparse initial period and extend his fork until it’s longer than the honest chain. He can then convince bootstrapping nodes to join his fork where he has had a monopoly on block rewards.
 
-### How This Attack is Mitigated by the Genesis Fork Choice Rule
+### How This Attack is Mitigated by the Bootstrap Fork Choice Rule
 
 If we look at the honest branch and the adversary branch in the period immediately following the fork, we can see that the honest chain is dense and the adversary’s fork will be quite sparse.
 
@@ -60,22 +61,22 @@ If an honest node had seen the adversary’s fork in that period, it would not h
 
 If an honest node sees the adversary’s fork after he’s completed the attack, the longest chain rule is no longer enough to protect them. Instead, the node can look at the density of both chains in that short period after they diverge and select the chain with the higher density of blocks.
 
-### How This Attack is Mitigated by the Praos Fork Choice Rule
+### How This Attack is Mitigated by the Online Fork Choice Rule
 
 Under two assumptions:
 
 1. A node has successfully bootstrapped and found the honest chain.
 2. Nodes see honest blocks reasonably quickly.
 
-Nodes will remain on the honest chain if they reject forks that diverge further back than $`k`$ blocks without further inspection. In order for an adversary to succeed, they would need to build a $`k`$-deep chain faster than the time it takes the honest nodes to grow the honest chain by $`k`$ blocks. The adversary must build this chain live, alongside the honest chain. They cannot build this chain after-the-fact since online nodes will be rejecting any fork that diverges before their $`k`$-deep block.
+Nodes will remain on the honest chain if they reject forks that diverge before the [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block) $`B_\text{imm}`$ without further inspection. $`B_\text{imm}`$ lay at least the finality window $`K`$ behind the tip of the local chain when it moved. In order for an adversary to succeed, they would need to build a chain longer than the honest chain over $`K`$ slots. The adversary must build this chain live, alongside the honest chain. They cannot build this chain after-the-fact since online nodes will be rejecting any fork that diverges before their $`B_\text{imm}`$.
 
 # Protocol
 
 ## Definitions
 
-- $`k`$ : safety parameter, i.e. the depth at which a block is considered immutable
+- $`k`$, $`K`$ : the security parameter and the finality window, from [Constants](cryptarchia-v1-protocol.md#constants)
 - $`s_{gen}`$ : sufficient time measured in slots to measure the density of block production with enough statistical significance.
-  *In practice, we say* $`s_{gen} = \lfloor\frac{k}{4f}\rfloor`$*, where* $`f`$ *is the active slot coefficient from the leader lottery. (see* [Theorem 2 of Badertscher et al., 2018 “Ouroboros Genesis”](https://eprint.iacr.org/2018/378.pdf)*)*
+  *In practice, we say* $`s_{gen} = \lfloor\frac{k}{4f}\rfloor`$*, where* $`f`$ *is the active slot coefficient from the leader lottery. (see* [Theorem 2 of Badertscher et al., 2018 “Ouroboros Genesis”](https://eprint.iacr.org/2018/378.pdf)*)* $`s_{gen}`$ *must be below* $`K`$*, or a chain may not hold the whole window when the Bootstrap rule compares it.*
 
 - $`\textbf{common\_prefix\_depth}(b_1, b_2) \to (\mathbb{N},\mathbb{N})`$
   *Returns the minimum block depth at which the two branches converge to a common chain.*
@@ -95,57 +96,68 @@ Nodes will remain on the honest chain if they reject forks that diverge further 
   ![Diagram](fork-choice/assets/21b261aa-09df-8128-a35a-d2f0affc2031.png)
 
 - $`\textbf{density}(b_i, d, s_{gen})`$
-  *Returns the number of blocks produced in the* $`s`$ slots following block $`b_{i-d}`$. Only the blocks of the chain being measured are counted; the [uncle references](cryptarchia-v1-protocol.md#uncle-references) carried by those blocks give no weight to the chain and are excluded from this count.
+  *Returns the number of blocks produced in the* $`s_{gen}`$ slots following block $`b_{i-d}`$. Only the blocks of the chain being measured are counted; the [uncle references](cryptarchia-v1-protocol.md#uncle-references) carried by those blocks give no weight to the chain and are excluded from this count.
 
   For example, in the following diagram, count the number of blocks produced in the $`s_{gen}`$ slots of the highlighted area.
 
 ![Diagram](fork-choice/assets/21b261aa-09df-81b3-a43c-d884eae8fce7.png)
 
-> <sub>We look backwards starting from $`b_i`$, looking at the $`d^{th}`$ grandparent of $`b_i`$. We denote this block $`b_{i-d}^{sl_t}`$ and note that it was created in slot $`sl_t`$. The density calculation considers the number of blocks created in the next $`s_{gen}`$ slots. The last block in this interval is $`b_{i-d+j}^{sl\le t+s_{gen}}`$, that is, its the last block who’s slot number is less than or equal to $`s`$ slots after $`sl_t`$.</sub>
+> <sub>We look backwards starting from $`b_i`$, looking at the $`d^{th}`$ grandparent of $`b_i`$. We denote this block $`b_{i-d}^{sl_t}`$ and note that it was created in slot $`sl_t`$. The density calculation considers the number of blocks created in the next $`s_{gen}`$ slots. The last block in this interval is $`b_{i-d+j}^{sl\le t+s_{gen}}`$, that is, its the last block who’s slot number is less than or equal to $`s_{gen}`$ slots after $`sl_t`$.</sub>
+
+- $`\textbf{grandparent}(b, d)`$
+  *Returns the block* $`d`$ *blocks before* $`b`$ *on the chain of* $`b`$*, so* $`\textbf{grandparent}(b, 0) = b`$*.*
 
 ## Bootstrap Fork Choice Rule
 
-During bootstrapping, we use the Ouroboros Genesis fork choice rule (`maxvalid-bg`)
+During bootstrapping, we use the Ouroboros Genesis fork choice rule (`maxvalid-bg`), with the age of the divergence block in slots in place of the depth of the fork. The age is measured from the later of the two tips. Here we ignore any fork that does not descend from the [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block) $`B_\text{imm}`$, with the `is_ancestor` check that step 8 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) uses when pruning is incomplete. It visits the forks in increasing order of [Block ID](cryptarchia-v1-protocol.md#block-id), compared as bytes.
 
 ```python
-def bootstrap_fork_choice(c_local, forks, k, s_gen):
+def bootstrap_fork_choice(c_local, forks, K, s_gen, B_imm):
     c_max = c_local
-    for c_fork in forks:
-        depth_max, depth_fork = common_prefix_depth(c_max, c_fork):
-        if depth_max <= k:
-            # the fork depth is less than our safety parameter `k`. It's safe
+    # The comparison is not transitive, so the order of visits can decide the result.
+    # A fixed order makes it a function of the block tree and c_local.
+    for c_fork in sorted(forks, key=block_id):
+        if not is_ancestor(B_imm, c_fork):
+            # The fork diverged before `B_imm`.
+            # Ignore this fork.
+            continue
+        depth_max, depth_fork = common_prefix_depth(c_max, c_fork)
+        # The divergence block is the depth_max-th grandparent of c_max.
+        sl_div = grandparent(c_max, depth_max).slot
+        sl_top = max(c_max.slot, c_fork.slot)
+        if sl_div + K > sl_top:
+            # the fork diverged less than the finality window `K` ago. It's safe
             # to use longest chain to decide the fork choice.
-            if depth_max < depth_fork
-                # strict inequality to ensure we choose first-seen chain as our tie break
+            if depth_max < depth_fork:
+                # strict inequality: a tie keeps c_max
                 c_max = c_fork
         else:
-            # here the fork depth is larger than our safety parameter `k`.
+            # here the fork diverged at least `K` slots ago.
             # It's unsafe to use longest chain here, instead we check the density
             # of blocks immediately after the divergence.
             if density(c_max, depth_max, s_gen) < density(c_fork, depth_fork, s_gen):
                 # The denser chain immediately after the divergence wins.
                 c_max = c_fork
+    return c_max
 ```
 
 ## Online Fork Choice Rule
 
-During normal operations, we use the Ouroboros Praos fork choice rule (`maxvalid-mc`). Here we reject any forks that diverge further back than $`k`$ blocks.
+During normal operations, we use the longest chain rule of Ouroboros Praos (`maxvalid-mc`) without its depth bound. Here too we ignore any fork that does not descend from $`B_\text{imm}`$.
 
 ```python
-def online_fork_choice(c_local, forks, k):
+def online_fork_choice(c_local, forks, B_imm):
     c_max = c_local
     for c_fork in forks:
-        depth_max, depth_fork = common_prefix_depth(c_max, c_fork):
-        if depth_max <= k:
-            # the fork depth is less than our safety parameter `k`. It's safe
-            # to use longest chain to decide the fork choice.
-            if depth_max < depth_fork
-                # strict inequality to ensure we choose first-seen chain as our tie break
-                c_max = c_fork
-        else:
-            # The fork depth is larger than our safety parameter `k`.
+        if not is_ancestor(B_imm, c_fork):
+            # The fork diverged before `B_imm`.
             # Ignore this fork.
             continue
+        depth_max, depth_fork = common_prefix_depth(c_max, c_fork)
+        if depth_max < depth_fork:
+            # strict inequality: a tie keeps c_max
+            c_max = c_fork
+    return c_max
 ```
 
 # References

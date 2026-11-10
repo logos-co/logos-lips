@@ -26,6 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-01-20 |
 | 1.1.0 | Changed `density_over_slots` to count **distinct occupied slots** instead of blocks, including the slots of the [uncles](cryptarchia-v1-protocol.md#uncle-references) referenced by the honest chain's in-period blocks, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md). | 2026-08-06 |
+| 1.2.0 | `PERIOD` reads the finality window `K`, and `density_over_slots` takes the chain it counts, so that [Commit](cryptarchia-v1-protocol.md#commit) can read it. | 2026-11-09 |
 
 # Introduction
 
@@ -50,14 +51,14 @@ This algorithm has been analyzed and shown to have good accuracy, precision and 
 | Symbol | Value | Name | Description |
 | --- | --- | --- | --- |
 | `beta` | 1.0 | learning rate | Controls how quickly we adjust to new participation levels.  Lower values for `beta` give a more stable / gradual adjustment, while higher values give faster convergence but at the cost of less stability. |
-| `PERIOD` | $`6\lfloor \frac{k}{f} \rfloor`$ | observation period | The length of the observation period in slots. |
+| `PERIOD` | $`6K`$ | observation period | The length of the observation period in slots. |
 | `f` | *inherited from* [Constants](cryptarchia-v1-protocol.md#constants) | slot activation coefficient | The target rate of occupied slots. Not all slots contain blocks, many are empty. |
-| `k` | *inherited from* [Constants](cryptarchia-v1-protocol.md#constants) | security parameter | Block depth finality. Blocks deeper than `k` on any given chain are considered immutable. |
+| `K` | *inherited from* [Constants](cryptarchia-v1-protocol.md#constants) | finality window | The unit of the [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule). |
 
 ### Functions
 
-- $`\textbf{density\_over\_slots}(s, p)`$
-  *Returns the number of distinct occupied slots among the* $`p`$ *slots following slot* $`s`$*: a slot in* $`[s, s+p)`$ *counts if it holds a block of the honest chain and/or one or more* [uncles](cryptarchia-v1-protocol.md#uncle-references) *referenced by the blocks of the honest chain that lie in* $`[s, s+p)`$ *themselves, and each slot is counted at most once — a slot that holds both a canonical block and a referenced uncle, or several referenced uncles, still counts once. A block outside the range contributes neither its own slot nor the slots of the uncles it references, so the value for a past range is closed once that range ends.*
+- $`\textbf{density\_over\_slots}(c, s, p)`$
+  *Returns the number of distinct occupied slots of the chain ending in block* $`c`$ *among the* $`p`$ *slots starting at slot* $`s`$*: a slot in* $`[s, s+p)`$ *counts if it holds a block of the chain and/or one or more* [uncles](cryptarchia-v1-protocol.md#uncle-references) *referenced by the blocks of the chain that lie in* $`[s, s+p)`$ *themselves, and each slot is counted at most once — a slot that holds both a canonical block and a referenced uncle, or several referenced uncles, still counts once. A block outside the range contributes neither its own slot nor the slots of the uncles it references, so the value for a past range is closed once that range ends.*
 
 ## Algorithm
 
@@ -68,13 +69,14 @@ const PRECISION: u64 = 1e3
 fn total_stake_inference(total_stake_estimate: u64, epoch_slot: u64) -> u64 {
     // f: f64
     // PERIOD: u64
-    // density_over_slots(u64, u64) -> u64
+    // c: the tip of the chain the estimate is derived on
+    // density_over_slots(c, u64, u64) -> u64
 
     let beta_p: u64 = truncate(beta * PRECISION)
     let f_p: u64 = truncate(f * PRECISION)
     let tse_p: u64 = total_stake_estimate * PRECISION
 
-    let measured_density_p: u64 = density_over_slots(epoch_slot, PERIOD) * PRECISION
+    let measured_density_p: u64 = density_over_slots(c, epoch_slot, PERIOD) * PRECISION
     let expected_density_p: u64 = PERIOD * f_p
     let density_diff_p: i128 = (expected_density_p as i128) - (measured_density_p as i128)
         let slot_activation_error_p: i128 = (tse_p * density_diff_p) / (expected_density_p as i128)

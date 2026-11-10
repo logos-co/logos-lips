@@ -576,12 +576,12 @@ Block-time and finality parameters are properties of the LEZ and are listed for 
 | Slash fraction (out-of-bound) |  | 5% cap* | Capped due to edge-case risk; MAY use a challenge window. |
 | Slash fraction (premature attestation) |  | up to 100%* | Provable from immutable inscriptions, effectively zero false positives. |
 | Slash fraction (wrong median) |  | capped* | Proposer attested a value a successful dispute proved wrong. |
-| Unbonding / cooldown period |  | 21 days* | Cosmos/Band anchor; must exceed fault-proving window plus deep-finality horizon. |
+| Unbonding / cooldown period |  | 21 days* | Cosmos/Band anchor; must exceed fault-proving window plus the host chain finality window. |
 | Reward settlement |  | per epoch, pull-based | Claim against a committed Merkle root|
 | Epoch length |  | 7 days* | Weekly settlement. |
 | Reward backing |  | fee-backed preferred* | Fees over pure emissions for sustainable franchise value. |
 | Host chain block time | `T_block` | 30 s | Logos default assumed here; verify against spec. |
-| Host chain finality depth | `k` | immutable bound (reference) | Worst-case bound; practical confirmation depth is much shallower. |
+| Host chain finality window | `K` | [Constants](../../blockchain/raw/cryptarchia-v1-protocol.md#constants) of Cryptarchia (reference) | A block is final once it lies `K` slots behind the tip and `φ` occupied slots follow it. |
 
 ## Security Considerations
 
@@ -655,8 +655,8 @@ Second, the proposer. A simple round-robin is the starting point,
 but a proposer that is unpredictable in advance stops an attacker from targeting the known next writer.
 
 - **Cooldown and unbonding period.** The unbonding period must be long enough that stake stays locked
-until any fault can be detected, proven, and settled in LEZ, plus the Logos Blockchain deep-finality margin.
-The exact duration is left to tokenomics and should be set well above the deep-finality bound.
+until any fault can be detected, proven, and settled in LEZ, plus the finality window of the Logos Blockchain.
+The exact duration is left to tokenomics and should be set well above that window.
 The LEZ contracts that hold stake and enforce the cooldown and unbonding are also left to be specified,
 since this version covers only the Oracle Zone side.
 
