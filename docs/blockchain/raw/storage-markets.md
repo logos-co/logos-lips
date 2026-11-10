@@ -27,7 +27,8 @@
 | 1.1.0 | Round the price update upwards and align the reference code with the zero target guard | 2026-07-28 |
 | 1.1.1 | Changing from burning/minting to pooling/distributing/releasing | 2026-08-25 |
 | 1.2.0 | The storage fee is routed to the rewards pool less the share diverted to the proof of work reward pool | 2026-08-31 |
-| 1.3.0 | Kept the usage tally as a state variable each block adds to, ran the price update at the epoch boundary once per ended timeframe, and took the genesis price from the protocol constants | 2026-10-06 |
+| 1.3.0 | The integer price update follows any $`\alpha`$ and $`\beta`$ an era sets, those of the era of the timeframe ([Bedrock Eras](bedrock-eras.md)) | 2026-11-05 |
+| 1.4.0 | Kept the usage tally as a state variable each block adds to, ran the price update at the epoch boundary once per ended timeframe, and took the genesis price from the protocol constants | 2026-11-10 |
 
 > **Disclaimer:**
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -110,14 +111,14 @@ where $`\mathcal{B}`$ is the set of transactions in the block, $`S_{\text{gas}}(
 
 ### Protocol Constants
 
-To ensure on-chain efficiency, the protocol shall use an Exponential Moving Average (EMA) for its adaptive target calculation. The behavior of the TFM is governed by the following on-chain constants, which are set at genesis.
+To ensure on-chain efficiency, the protocol shall use an Exponential Moving Average (EMA) for its adaptive target calculation. The behavior of the TFM is governed by the following constants. An era sets $`\alpha`$ and $`\beta`$ ([Era Parameters](bedrock-eras.md#era-parameters)), and the others are set at genesis.
 
 | Symbol | Name | Description | Initial Value | Justification |
 | --- | --- | --- | --- | --- |
 | $`T_{\text{base}}`$ | Baseline Target | A static, policy-driven usage target in Logos Blockchain Storage Gas per timeframe. Acts as a long-term gravitational anchor for the dynamic target. | 0 Permanent Storage Gas per block. | It should represent a conservative initial timeframe capacity. providing a healthy buffer and a clear policy goal. |
 | $w$ | Anchor Weight | A coefficient in $[0, 1]$ determining the influence of $`T_{\text{base}}`$. It's the "gravity knob" for the system. | for Permanent Storage: 0 | Allows the target to be primarily driven by recent demand, ensuring adaptability, while the $w$% pull from $`T_{\text{base}}`$ prevents long-term drift. |
 | $\alpha$ | Max Adjustment Factor | The maximum fractional amount the price can change per timeframe. Acts as "safety brakes" to bound price volatility. | 0.125 for Permanent Storage | A $100\alpha$% cap provides strong predictability for users planning across timeframes while allowing the price to respond effectively to sustained demand changes. |
-| $\beta$ | EMA Smoothing Factor | A coefficient in $[0, 1]$ controlling the responsiveness of the usage EMA. It governs the speed of adaptation. | 0.5 for Permanent Storage | A value of $\beta$ gives significant weight to the most recent timeframe's usage while incorporating the "memory" of the system with a half-life of 1 timeframe, balancing responsiveness and stability. |
+| $\beta$ | EMA Smoothing Factor | A coefficient in $(0, 1)$ controlling the responsiveness of the usage EMA. It governs the speed of adaptation. | 0.5 for Permanent Storage | A value of $\beta$ gives significant weight to the most recent timeframe's usage while incorporating the "memory" of the system with a half-life of 1 timeframe, balancing responsiveness and stability. |
 | $`T_{\text{RA}}(-1)`$ | Initial Usage EMA | First value for EMA | 0 (=$`T_{\text{base}}`$) | Given $`T_{\text{base}} = 0`$, this is the least opinionated choice: with no prior usage data at genesis, a neutral prior of zero makes no assumption about initial market activity and anchors the EMA to the long-term policy goal from the outset. |
 | $`P_{\text{storage}}(0)`$ | Initial Price | The price on the first epoch | 1 LGO/gas | The initial price is set conservatively low at the beginning and let to discover the true market price |
 | $s$ | timeframe | How often things adjust | 1 epoch | Primary users of the Storage market plan operational costs over days or weeks, not block-by-block. |
@@ -154,7 +155,7 @@ The protocol must maintain the following state variables:
 
 ### Price Update Algorithm
 
-At each epoch boundary, before any block of the new epoch is processed, the protocol runs the following algorithm once for each timeframe $s$ that ended, in order, to determine the price for the next timeframe, $`P_{\text{storage}}(s+1)`$. A timeframe without blocks has $`C_{\text{usage}}(s) = 0`$.
+At each epoch boundary, before any block of the new epoch is processed, the protocol runs the following algorithm once for each timeframe $s$ that ended, in order, with the $`\alpha`$ and $`\beta`$ of the era of timeframe $s$, to determine the price for the next timeframe, $`P_{\text{storage}}(s+1)`$. A timeframe without blocks has $`C_{\text{usage}}(s) = 0`$.
 
  1. Tally Usage: Aggregate the total Logos Blockchain Storage Gas consumed during timeframe $s$ into a final value, $`C_{\text{usage}}(s)=\sum_{t\in\mathcal{B}_s}\mathsf{StorageGasUsed}[t]`$, where $`\mathcal{B}_s`$ is the set of transactions in the blocks of timeframe $s$ and $`\mathsf{StorageGasUsed}[t]`$ corresponds to the Logos Blockchain Storage Gas used by transaction $t$.
 
@@ -175,13 +176,13 @@ Because computation affect consensus state, the implementation must be fully det
 
 The goal of this section is not to change the execution mechanism. It is only to restate the already-specified mechanism in a canonical deterministic form with explicit named constants. To we provide here a reference implementation that uses unsigned integers to have a common reference.
 
-First because we have $w = 0$, $`T_\text{RA}(s) = T_\text{effective}(s)`$. Then because $\beta=0.5$
+First because we have $w = 0$, $`T_\text{RA}(s) = T_\text{effective}(s)`$. Then with $`\beta = \beta_n / \beta_d`$ in whole numbers
 
 $$
-T_{\mathrm{RA}}(s)=\frac{C_{\mathrm{usage}}(s)+T_{\mathrm{RA}}(s-1)}{2}
+T_{\mathrm{RA}}(s)=\frac{\beta_n \cdot C_{\mathrm{usage}}(s)+(\beta_d - \beta_n) \cdot T_{\mathrm{RA}}(s-1)}{\beta_d}
 $$
 
-Secondly, we can rewrite $`P_\text{storage}`$ equation:
+Secondly, with $`\alpha = \alpha_n / \alpha_d`$ in whole numbers, we can rewrite $`P_\text{storage}`$ equation:
 
 $$
 \begin{align*}
@@ -195,8 +196,8 @@ P_{\mathrm{storage}}(s+1)
 \min\bigl(1+\alpha,\, 1+\mathrm{adjustment}(s)\bigr)
 \bigr)\\
 &= P_{\mathrm{storage}}(s)\cdot
-\max\biggl(\frac78,\,
-\min\biggl(\frac98,\,
+\max\biggl(\frac{\alpha_d-\alpha_n}{\alpha_d},\,
+\min\biggl(\frac{\alpha_d+\alpha_n}{\alpha_d},\,
 \frac{C_{\mathrm{usage}}(s)}{T_{\mathrm{RA}}(s)}
 \biggr)
 \biggr)
@@ -205,21 +206,24 @@ $$
 
 and so:
 
-$`P_{\mathrm{storage}}(s+1)=\begin{cases}P_{\mathrm{storage}}(s),& \text{if } T_{\mathrm{RA}}(s)=0,\\[6pt]\left\lceil P_{\mathrm{storage}}(s)\cdot \frac78 \right\rceil,& \text{if } 8\,C_{\mathrm{usage}}(s)\le 7\,T_{\mathrm{RA}}(s),\\[6pt]\left\lceil P_{\mathrm{storage}}(s)\cdot \frac98 \right\rceil,& \text{if } 8\,C_{\mathrm{usage}}(s)\ge 9\,T_{\mathrm{RA}}(s),\\[6pt]\left\lceil P_{\mathrm{storage}}(s)\cdot\frac{C_{\mathrm{usage}}(s)}{T_{\mathrm{RA}}(s)} \right\rceil,& \text{otherwise.}\end{cases}`$
+$`P_{\mathrm{storage}}(s+1)=\begin{cases}P_{\mathrm{storage}}(s),& \text{if } T_{\mathrm{RA}}(s)=0,\\[6pt]\left\lceil P_{\mathrm{storage}}(s)\cdot \frac{\alpha_d-\alpha_n}{\alpha_d} \right\rceil,& \text{if } \alpha_d\,C_{\mathrm{usage}}(s)\le (\alpha_d-\alpha_n)\,T_{\mathrm{RA}}(s),\\[6pt]\left\lceil P_{\mathrm{storage}}(s)\cdot \frac{\alpha_d+\alpha_n}{\alpha_d} \right\rceil,& \text{if } \alpha_d\,C_{\mathrm{usage}}(s)\ge (\alpha_d+\alpha_n)\,T_{\mathrm{RA}}(s),\\[6pt]\left\lceil P_{\mathrm{storage}}(s)\cdot\frac{C_{\mathrm{usage}}(s)}{T_{\mathrm{RA}}(s)} \right\rceil,& \text{otherwise.}\end{cases}`$
 
 The first case is the genesis guard discussed in the parameter justification: an effective target of zero carries no demand signal, so the price is held until the first epoch with a non-zero usage EMA. In the three adjustment cases the price is rounded upwards, while the usage EMA $`T_{\mathrm{RA}}(s)`$ is rounded downwards, and so we can derive the following reference code:
 
 ```python
-EMA_DENOMINATOR = 2         # 1/beta
-CLAMP_DENOMINATOR = 8       # denominator of 1+ alpha and 1-alpha
-CLAMP_DOWN_NUMERATOR = 7    # numerator of 1-alpha
-CLAMP_UP_NUMERATOR = 9      # numerator of 1+alpha
+EMA_NUMERATOR = 1           # numerator of beta = 1/2
+EMA_DENOMINATOR = 2         # denominator of beta = 1/2
+CLAMP_NUMERATOR = 1         # numerator of alpha = 1/8
+CLAMP_DENOMINATOR = 8       # denominator of alpha, 1+alpha and 1-alpha
+CLAMP_DOWN_NUMERATOR = CLAMP_DENOMINATOR - CLAMP_NUMERATOR  # numerator of 1-alpha
+CLAMP_UP_NUMERATOR = CLAMP_DENOMINATOR + CLAMP_NUMERATOR    # numerator of 1+alpha
 
 def ceil_div(numerator: int, denominator: int) -> int:
     return (numerator + denominator - 1) // denominator
 
 def update_usage(total_gas_consumed: int, previous_usage: int) -> int:
-    return (total_gas_consumed + previous_usage) // EMA_DENOMINATOR
+    numerator = EMA_NUMERATOR * total_gas_consumed + (EMA_DENOMINATOR - EMA_NUMERATOR) * previous_usage
+    return numerator // EMA_DENOMINATOR
 
 def update_storage_price(prev_price: int, total_gas_consumed: int, usage: int) -> int:
     if usage == 0:

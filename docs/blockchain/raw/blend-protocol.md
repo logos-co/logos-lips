@@ -39,7 +39,8 @@
 | 1.6.2 | The node count and the neighbor distinction read the `provider_id`s of the Blend declarations, which the Service Declaration Protocol keeps unique | 2026-10-27 |
 | 1.7.0 | Derived the observation window $`W`$ from cover traffic in place of the maximal release delay. | 2026-10-29 |
 | 1.8.0 | Refused a neighbor closed as not live for $`W`$ rounds, restarting its liveness count, in place of shutting it out for the rest of the epoch. | 2026-10-30 |
-| 1.9.0 | Removed the message `version` byte, put the fork digest in the libp2p protocol name, linked the era rules for the transition period, for releasing and for broadcasting, bounded the transition period and the clock difference between honest nodes, and stopped blacklisting for a next-epoch proof in an epoch's last round ([Bedrock Eras](bedrock-eras.md)). | 2026-11-02 |
+| 1.8.1 | Derived $`M_W`$ from the messages a neighbor is expected to deliver in an observation window and from the peering degree, in place of a fixed value. | 2026-10-30 |
+| 1.9.0 | Removed the message `version` byte, put the fork digest in the libp2p protocol name, linked the era rules for the transition period, for releasing and for broadcasting, bounded the transition period and the clock difference between honest nodes, and stopped blacklisting for a next-epoch proof in an epoch's last round ([Bedrock Eras](bedrock-eras.md)). A round lasts one slot, and $`\beta_{max}`$ replaces $`\beta_C`$ and $`\beta_D`$. | 2026-11-09 |
 | 1.9.1 | Updated `Max_Payload_Length` to 18190 bytes in the overhead calculation, and an encapsulated message to 19313 bytes, following the removal of the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)). | 2026-11-02 |
 | 1.10.0 | Recorded the Hamming distance of each accepted activity proof instead of the active message, and stated when the rewards of an epoch are not calculated. | 2026-11-02 |
 
@@ -114,7 +115,7 @@ To have a **truly privacy-preserving system, we need to apply both techniques si
 ## Time
 
 - *Epoch* is a period that is defined by the consensus. It lasts for $`648,000`$ slots, each slot lasting 1 second. A new block is proposed for each slot with a probability of $`1/30`$, which translates to $`21,600`$ blocks, as on average, every $`30`$ slots a single block is proposed.
-- *Round* is the primitive measure of time in the protocol. It defines a period during which a node can emit a new message. The definition of a round is also important for defining the message releasing logic, which handles the randomized emission delay for processed messages. In this version of the protocol, the length of the round is 1 second (an equivalent of a single slot).
+- *Round* is the primitive measure of time in the protocol. It defines a period during which a node can emit a new message. The definition of a round is also important for defining the message releasing logic, which handles the randomized emission delay for processed messages. A round lasts one slot, 1 second at the reference slot length.
 
 # Overview
 
@@ -453,6 +454,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`E`$ denotes a number of rounds in an epoch;
 - $`W`$ denote the observation window expressed in the number of rounds;
 - $`M_W`$ denote the number of messages a core connection carries from cover traffic alone in an observation window;
+- $`\lambda`$ denote the number of messages a neighbor is expected to deliver to a node in an observation window;
 - $`F_1`$ denote the number of messages a core connection carries per round;
 - $`V`$ denote the number of messages per second the slowest node the protocol targets processes;
 - $`r_1`$ denote the number of messages a node reads from a core connection in a round;
@@ -475,19 +477,18 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\Delta_{max}=3`$, as defined in the [Delaying](#delaying) section below.
 - $E=648000$, the number of rounds per epoch.
 - $`\beta_{max} = 3`$, the maximum number of blending operations of a single message.
-- $`\beta_C=3`$, the expected number of blending operations for each cover message;
-- $`\beta_D=3`$, the expected number of blending operations for each data message;
 - $`\eta=2`$ rounds, the network absorption of one hop.
 - $`T_M = 15`$ rounds, the message traversal time, as derived in the [Transition Period](#transition-period) section.
-- $`W = \lceil M_W / (F_C \cdot (1 + R_C) \cdot \beta_C) \rceil = 30`$ rounds, the observation window: the rounds in which a core connection carries $`M_W`$ messages from cover traffic alone ([Expected Traffic](#expected-traffic)).
-- $`M_W = 90`$ messages. With a smaller $`M_W`$, a node more often reads an honest neighbor as not live and closes its connection ([Connectivity Maintenance](#connectivity-maintenance)). With a larger one, a neighbor that delivers nothing holds a connection slot for longer, a neighbor closed as not live is refused for longer, and a blacklist entry lasts longer.
+- $`W = \lceil M_W / (F_C \cdot (1 + R_C) \cdot \beta_{max}) \rceil = 30`$ rounds, the observation window: the rounds in which a core connection carries $`M_W`$ messages from cover traffic alone ([Expected Traffic](#expected-traffic)).
+- $`M_W = \lambda \cdot (\Phi_{CC} - 1) / (\Phi_{CC} - 2) = 90`$ messages. A neighbor sends a node every message except the ones it first received from that node ([Releasing](#releasing)). A neighbor holds at least $`\Phi_{CC} - 1`$ connections, so on average at most one message in $`\Phi_{CC} - 1`$ reaches it first from that node ([Connectivity Maintenance](#connectivity-maintenance)).
+- $`\lambda = 60`$ messages. For deliveries arriving at random, an honest neighbor delivers nothing within $`W`$ rounds with probability at most $`e^{-\lambda}`$, and is closed as not live ([Connectivity Maintenance](#connectivity-maintenance)). A larger $`\lambda`$ lengthens $`W`$: a neighbor that delivers nothing holds a connection slot for longer, a neighbor closed as not live is refused for longer, and a blacklist entry lasts longer.
 - $`F_C=1`$, the network generates one cover message per round on average.
 - $`F_D=1/30`$, the network generates one block proposal every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)).
 - $`F_T = 130/30`$, the network carries $`130`$ messages per slot of $`30`$ rounds, each carrying one transaction ([Payload Formatting](payload-formatting.md)), whatever quota backs them: $`\left(F_1 / \beta_{max} - \max(F_C \cdot (1 + R_C), F_D \cdot (1 + R_D))\right) \cdot 30 = 130`$ at $`F_1 = 16`$ ([Expected Traffic](#expected-traffic)).
 - $`R_C=0`$ and $`R_D=1`$: a cover message is not replicated, and a block proposal is replicated once. A transaction is not replicated.
 - $`\Phi_{CC}=4`$, the peering degree ([Connectivity Maintenance](#connectivity-maintenance)). $`3 \le \Phi_{CC} \le 5`$. Below $`3`$ a node opens no connection of its own; above $`5`$ nodes must open more connections than nodes can accept, and dials are refused.
 - $`V = 156`$ messages per second the slowest node the protocol targets processes, one below the $`157`$ measured on one core of a Raspberry Pi 5 ([benchmark](https://github.com/logos-blockchain/research/tree/blend-header-verification-benchmark/tools/benchmarks/blend-header-verification)).
-- $`r_1 = 20`$ messages a node reads from a core connection per round, and $`r_E = 24`$ connections with edge nodes it accepts per round: $`r_1 = \lfloor (2V/3) / (\Phi_{CC} + 1) \rfloor`$ and $`r_E = 2V/3 - \Phi_{CC} \cdot r_1`$, so a node at its peering degree reads two thirds of $`V`$, and at one above it $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124 \le V`$ ([Expected Traffic](#expected-traffic)).
+- $`r_1 = 20`$ messages a node reads from a core connection per round, and $`r_E = 24`$ connections with edge nodes it accepts per round: $`r_1 = \lfloor (2V/3) / (\Phi_{CC} + 1) \rfloor`$ and $`r_E = \lfloor 2V/3 \rfloor - \Phi_{CC} \cdot r_1`$, so a node at its peering degree reads two thirds of $`V`$, and at one above it $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124 \le V`$ ([Expected Traffic](#expected-traffic)).
 - $`T_E=1`$ round, the time an edge node is given to send its message, as derived in [Connectivity Maintenance](#connectivity-maintenance).
 - $`T_H=2`$ rounds, the time a core node handshake is given to complete, which covers the round trips of the transport handshake and of the [Neighbor Distinction Process](#neighbor-distinction-process).
 
@@ -623,39 +624,39 @@ The quota limits the number of messages that can be generated during an epoch. T
 The core quota ($`Q_C`$) defines the messaging allowance that can be used by a core node during a single epoch. **The purpose of** $`Q_C`$ **is to limit the number of cover messages and the number of blending operations that can be used for a single message.** We assume that the core quota is used for generating cover messages, but the core node is not limited by this assumption. We define it as follows:
 
 $$
-Q_C = \left\lceil \dfrac{C \cdot (\beta_C+R_C \cdot \beta_C)}{N} \right\rceil
+Q_C = \left\lceil \dfrac{C \cdot (\beta_{max}+R_C \cdot \beta_{max})}{N} \right\rceil
 $$
 
 Where:
 
 - $`C = E \cdot F_C`$ denotes an expected number of cover messages that are generated during an epoch by the core nodes;
-- $`\beta_C`$ denotes the expected number of blending operations for each cover message;
+- $`\beta_{max}`$ ([Global Parameters](#global-parameters)) counts the blending operations of each cover message;
 - $`R_C`$ denotes a redundancy parameter for cover messages, increasing the number of core node messages a node can send;
 - $`N`$ denote a number of core nodes providing the Blend service for the epoch returned by the SDP protocol ([Service Declaration Protocol](bedrock-service-declaration-protocol.md)).
 
-The division must be rounded **up**. Rounding down would collapse $`Q_C`$ to $`0`$ as soon as $`N \gt C \cdot (\beta_C + R_C \cdot \beta_C)`$ — that is, as soon as the network outgrows the expected number of blending operations for cover messages. Every core node would then be issued an empty key pool and cover traffic would stop entirely, removing the protocol's anonymity guarantee exactly when the network is largest. Rounding up costs at most $`N-1`$ additional messages network-wide per epoch.
+The division must be rounded **up**. Rounding down would collapse $`Q_C`$ to $`0`$ as soon as $`N \gt C \cdot (\beta_{max} + R_C \cdot \beta_{max})`$ — that is, as soon as the network outgrows the expected number of blending operations for cover messages. Every core node would then be issued an empty key pool and cover traffic would stop entirely, removing the protocol's anonymity guarantee exactly when the network is largest. Rounding up costs at most $`N-1`$ additional messages network-wide per epoch.
 
-The parameters must additionally satisfy $`C \cdot \beta_C \gt 0`$. Together with rounding up, this guarantees $`Q_C \geq 1`$ for every epoch.
+The parameters must additionally satisfy $`C \cdot \beta_{max} \gt 0`$. Together with rounding up, this guarantees $`Q_C \geq 1`$ for every epoch.
 
 Additionally, we introduce the total core quota, which defines the total number of generated cover messages that the whole network can emit (independently of the number of nodes):
 
 $$
-Q^{Total}_C = N \cdot Q_C \geq C \cdot (\beta_C+R_C \cdot \beta_C)
+Q^{Total}_C = N \cdot Q_C \geq C \cdot (\beta_{max}+R_C \cdot \beta_{max})
 $$
 
-The equality holds only when $`N`$ divides $`C \cdot (\beta_C + R_C \cdot \beta_C)`$; otherwise rounding up makes the total larger by at most $`N-1`$ messages. From $`Q_C \geq 1`$ it also follows that $`Q^{Total}_C \geq N`$, which is relied upon by the [Activity Proof](#activity-proof) and the [Activity Threshold](#activity-threshold).
+The equality holds only when $`N`$ divides $`C \cdot (\beta_{max} + R_C \cdot \beta_{max})`$; otherwise rounding up makes the total larger by at most $`N-1`$ messages. From $`Q_C \geq 1`$ it also follows that $`Q^{Total}_C \geq N`$, which is relied upon by the [Activity Proof](#activity-proof) and the [Activity Threshold](#activity-threshold).
 
 ### Leadership Quota
 
 **The leadership quota (**$`Q_L`$**) defines the number of blending operations a block proposer (consensus leader) node can perform within the network.** A single quota is used per single proof of leadership. Therefore, a single node can use multiple leadership quotas during a single epoch. We assume that the leader is interested in using most of its quota to generate data messages; however, the leader is not limited by this assumption. We define the leadership quota as follows:
 
 $$
-Q_L = \beta_D + \beta_D \cdot R_D
+Q_L = \beta_{max} + \beta_{max} \cdot R_D
 $$
 
 where:
 
-- $`\beta_D`$ denotes the expected number of blending operations for each data message;
+- $`\beta_{max}`$ ([Global Parameters](#global-parameters)) counts the blending operations of each data message;
 - $`R_D`$ denotes a redundancy parameter for block proposals, defining the number of “replications” of the same message.
 
 We can calculate an average data message number ($`D_{Avg}`$) which informs us about the average number of data messages generated per epoch:
@@ -677,7 +678,7 @@ where $`E=648000`$ and $`F_D=1/30`$ are taken from the [Cryptarchia Protocol](cr
 Finally, let us define the leadership quota for node $`n`$ ($`Q^{n}_L`$), which can **only** be calculated by the node $`n`$:
 
 $$
-Q^{n}_L = x \cdot (\beta_D + \beta_D \cdot R_D)
+Q^{n}_L = x \cdot (\beta_{max} + \beta_{max} \cdot R_D)
 $$
 
 where $`x`$ is the exact number of leader elections won by the node $`n`$ in an epoch. The value of $`x`$ is known only to the node because its value is a function of the stake of a node $`n`$, which is kept private.
@@ -1024,7 +1025,7 @@ $$
 
   The comparison is inclusive: a token whose distance equals $`{\mathcal A}_{\epsilon}`$ satisfies the proof. The difficulty of the lottery is tuned through the sensitivity parameter $`\theta`$ of the [Activity Threshold](#activity-threshold), not through the choice of comparison operator.
 
-  The requirement $`C \cdot \beta_C \gt 0`$ (see [Core Quota](#core-quota)) guarantees $`Q_C \geq 1`$ and therefore $`Q^{Total}_C \geq N \geq 1`$. It follows that $`\log_2(Q^{Total}_C+1) \geq 1`$ and hence $`\epsilon \geq 8`$: the digest is always at least one byte wide, which the `blake2b` algorithm requires.
+  The requirement $`C \cdot \beta_{max} \gt 0`$ (see [Core Quota](#core-quota)) guarantees $`Q_C \geq 1`$ and therefore $`Q^{Total}_C \geq N \geq 1`$. It follows that $`\log_2(Q^{Total}_C+1) \geq 1`$ and hence $`\epsilon \geq 8`$: the digest is always at least one byte wide, which the `blake2b` algorithm requires.
 
 The Hamming distance verification prevents nodes from the grinding or pre-computation attacks due to the unpredictability of the randomness of the next epoch. Even if a node knows the value of the randomness in advance, it will not increase its chance for getting a reward as the node does not control the process of generating blending tokens. However, a dishonest node could use that knowledge to refrain from sending a message with a token that has a potential (probabilistic, not deterministic) of granting a premium reward for the recipient blend node.
 
