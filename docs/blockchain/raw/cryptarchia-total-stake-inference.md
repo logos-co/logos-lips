@@ -76,7 +76,7 @@ def total_stake_inference(total_stake_estimate: int, epoch_slot: int) -> int:
     return min(max(numerator // denominator, 1), 2**64 - 1)
 ```
 
-`beta.num` and `beta.den` are the numerator and denominator of `beta`, and `f.num` and `f.den` those of `f`. A negative numerator gives 1 under either rounding, so truncating division gives the same result. With `total_stake_estimate` and `PERIOD` below $`2^{64}`$ and the parts of `beta` and `f` below $`2^{32}`$, every intermediate value lies strictly between $`-2^{193}`$ and $`2^{193}`$, so a signed 256-bit integer holds each one.
+`beta.num` and `beta.den` are the numerator and denominator of `beta`, and `f.num` and `f.den` those of `f`. A negative numerator makes the result 1 under either rounding, so truncating division gives the same result. With `total_stake_estimate` and `PERIOD` below $`2^{64}`$ and the parts of `beta` and `f` below $`2^{32}`$, every intermediate value lies strictly between $`-2^{193}`$ and $`2^{193}`$, so a signed 256-bit integer holds each one.
 
 # Annex
 
